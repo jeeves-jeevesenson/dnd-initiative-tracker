@@ -1,0 +1,351 @@
+[2026-01-03 03:19:07]	--- COMBAT STARTED ---
+[2026-01-03 03:19:07]	--- ROUND 1 ---
+[2026-01-03 03:19:07]	START R1 Enemy Test 2
+[2026-01-03 03:19:11]	END R1 Enemy Test 2
+[2026-01-03 03:19:11]	START R1 Enemy Test 5
+[2026-01-03 03:19:13]	END R1 Enemy Test 5
+[2026-01-03 03:19:13]	START R1 Ally Test 4
+[2026-01-03 03:19:15]	END R1 Ally Test 4
+[2026-01-03 03:19:15]	START R1 Throat Goat
+[2026-01-03 03:19:16]	END R1 Throat Goat
+[2026-01-03 03:19:16]	START R1 Old Man
+[2026-01-03 03:19:17]	END R1 Old Man
+[2026-01-03 03:19:17]	START R1 Ally Test 1
+[2026-01-03 03:19:41]	Ally Test 1 does 211 lightning damage to Enemy Test 5
+[2026-01-03 03:19:41]	Enemy Test 5 drops to 0 HP and is removed from initiative.
+[2026-01-03 03:19:49]	END R1 Ally Test 1
+[2026-01-03 03:19:49]	START R1 Ally Test 3
+[2026-01-03 03:19:49]	END R1 Ally Test 3
+[2026-01-03 03:19:49]	START R1 Dorian Vandergraff
+[2026-01-03 03:20:10]	Dorian Vandergraff does 25 radiant damage to Enemy Test 2 (resistant)
+[2026-01-03 03:20:24]	Dorian Vandergraff does 80 force damage to Enemy Test 4
+[2026-01-03 03:20:35]	END R1 Dorian Vandergraff
+[2026-01-03 03:20:35]	START R1 John Twilight
+[2026-01-03 03:20:51]	John Twilight does 33 bludgeoning damage to Enemy Test 2
+[2026-01-03 03:21:19]	John Twilight does 28 slashing damage to Enemy Test 1
+[2026-01-03 03:21:26]	Enemy Test 1: set condition: Prone (1 turn(s))
+[2026-01-03 03:22:00]	Ally Test 4: set condition: Stunned (3 turn(s))
+[2026-01-03 03:22:00]	Ally Test 1: set condition: Stunned (3 turn(s))
+[2026-01-03 03:22:00]	Ally Test 3: set condition: Stunned (3 turn(s))
+[2026-01-03 03:22:00]	Ally Test 2: set condition: Stunned (3 turn(s))
+[2026-01-03 03:22:00]	Ally Test 5: set condition: Stunned (3 turn(s))
+[2026-01-03 03:22:07]	стихия: set condition: Prone (1 turn(s))
+[2026-01-03 03:22:09]	END R1 John Twilight
+[2026-01-03 03:22:09]	START R1 Thibble Wobblepop
+[2026-01-03 03:22:24]	Thibble Wobblepop does 120 piercing damage to Enemy Test 3
+[2026-01-03 03:22:28]	END R1 Thibble Wobblepop
+[2026-01-03 03:22:28]	START R1 стихия
+[2026-01-03 03:22:28]	стихия: cond 🛌(1)
+[2026-01-03 03:22:31]	стихия: stood up (spent 15 ft, prone removed)
+[2026-01-03 03:24:06]	Enemy Test 1 does 50 lightning damage to Enemy Test 1
+[2026-01-03 03:24:26]	стихия did thunder damage to Enemy Test 4, but Enemy Test 4 is immune to thunder.
+[2026-01-03 03:24:32]	END R1 стихия
+[2026-01-03 03:24:32]	START R1 Johnny Morris
+[2026-01-03 03:24:47]	END R1 Johnny Morris
+[2026-01-03 03:24:47]	START R1 Malagrou Thunderclopper
+[2026-01-03 03:24:48]	END R1 Malagrou Thunderclopper
+[2026-01-03 03:24:48]	START R1 Ally Test 2
+[2026-01-03 03:24:48]	Ally Test 2: cond 💫(2); skip: Stunned; turn skipped
+[2026-01-03 03:24:48]	END R1 Ally Test 2 (skipped)
+[2026-01-03 03:24:48]	START R1 Ally Test 5
+[2026-01-03 03:24:48]	Ally Test 5: cond 💫(2); skip: Stunned; turn skipped
+[2026-01-03 03:24:48]	END R1 Ally Test 5 (skipped)
+[2026-01-03 03:24:48]	START R1 Enemy Test 1
+[2026-01-03 03:25:01]	Enemy Test 1: conditions ended: Prone
+[2026-01-03 03:25:01]	END R1 Enemy Test 1
+[2026-01-03 03:25:01]	START R1 Enemy Test 3
+[2026-01-03 03:25:02]	END R1 Enemy Test 3
+[2026-01-03 03:25:02]	START R1 Fred Figglehorn
+[2026-01-03 03:25:03]	END R1 Fred Figglehorn
+[2026-01-03 03:25:03]	START R1 Enemy Test 4
+[2026-01-03 03:25:04]	END R1 Enemy Test 4
+[2026-01-03 03:25:04]	--- ROUND 2 ---
+[2026-01-03 03:25:04]	START R2 Enemy Test 2
+[2026-01-03 03:25:04]	END R2 Enemy Test 2
+[2026-01-03 03:25:04]	START R2 Ally Test 4
+[2026-01-03 03:25:04]	Ally Test 4: cond 💫(2); skip: Stunned; turn skipped
+[2026-01-03 03:25:04]	END R2 Ally Test 4 (skipped)
+[2026-01-03 03:25:04]	START R2 Throat Goat
+[2026-01-03 03:25:05]	END R2 Throat Goat
+[2026-01-03 03:25:05]	START R2 Old Man
+[2026-01-03 03:25:07]	END R2 Old Man
+[2026-01-03 03:25:07]	START R2 Ally Test 1
+[2026-01-03 03:25:07]	Ally Test 1: cond 💫(2); skip: Stunned; turn skipped
+[2026-01-03 03:25:07]	END R2 Ally Test 1 (skipped)
+[2026-01-03 03:25:07]	START R2 Ally Test 3
+[2026-01-03 03:25:07]	Ally Test 3: cond 💫(2); skip: Stunned; turn skipped
+[2026-01-03 03:25:07]	END R2 Ally Test 3 (skipped)
+[2026-01-03 03:25:07]	START R2 Dorian Vandergraff
+[2026-01-03 03:25:07]	END R2 Dorian Vandergraff
+[2026-01-03 03:25:07]	START R2 John Twilight
+[2026-01-03 03:25:08]	END R2 John Twilight
+[2026-01-03 03:25:08]	START R2 Thibble Wobblepop
+[2026-01-03 03:25:08]	END R2 Thibble Wobblepop
+[2026-01-03 03:25:08]	START R2 стихия
+[2026-01-03 03:25:08]	END R2 стихия
+[2026-01-03 03:25:08]	START R2 Johnny Morris
+[2026-01-03 03:25:08]	END R2 Johnny Morris
+[2026-01-03 03:25:08]	START R2 Malagrou Thunderclopper
+[2026-01-03 03:25:08]	END R2 Malagrou Thunderclopper
+[2026-01-03 03:25:08]	START R2 Ally Test 2
+[2026-01-03 03:25:08]	Ally Test 2: cond 💫(1); skip: Stunned; turn skipped
+[2026-01-03 03:25:08]	END R2 Ally Test 2 (skipped)
+[2026-01-03 03:25:08]	START R2 Ally Test 5
+[2026-01-03 03:25:08]	Ally Test 5: cond 💫(1); skip: Stunned; turn skipped
+[2026-01-03 03:25:08]	END R2 Ally Test 5 (skipped)
+[2026-01-03 03:25:08]	START R2 Enemy Test 1
+[2026-01-03 03:25:09]	END R2 Enemy Test 1
+[2026-01-03 03:25:09]	START R2 Enemy Test 3
+[2026-01-03 03:25:09]	END R2 Enemy Test 3
+[2026-01-03 03:25:09]	START R2 Fred Figglehorn
+[2026-01-03 03:25:10]	END R2 Fred Figglehorn
+[2026-01-03 03:25:10]	START R2 Enemy Test 4
+[2026-01-03 03:25:10]	END R2 Enemy Test 4
+[2026-01-03 03:25:10]	--- ROUND 3 ---
+[2026-01-03 03:25:10]	START R3 Enemy Test 2
+[2026-01-03 03:25:11]	END R3 Enemy Test 2
+[2026-01-03 03:25:11]	START R3 Ally Test 4
+[2026-01-03 03:25:11]	Ally Test 4: cond 💫(1); skip: Stunned; turn skipped
+[2026-01-03 03:25:11]	END R3 Ally Test 4 (skipped)
+[2026-01-03 03:25:11]	START R3 Throat Goat
+[2026-01-03 03:25:11]	END R3 Throat Goat
+[2026-01-03 03:25:11]	START R3 Old Man
+[2026-01-03 03:25:11]	END R3 Old Man
+[2026-01-03 03:25:11]	START R3 Ally Test 1
+[2026-01-03 03:25:11]	Ally Test 1: cond 💫(1); skip: Stunned; turn skipped
+[2026-01-03 03:25:11]	END R3 Ally Test 1 (skipped)
+[2026-01-03 03:25:11]	START R3 Ally Test 3
+[2026-01-03 03:25:11]	Ally Test 3: cond 💫(1); skip: Stunned; turn skipped
+[2026-01-03 03:25:11]	END R3 Ally Test 3 (skipped)
+[2026-01-03 03:25:11]	START R3 Dorian Vandergraff
+[2026-01-03 03:25:12]	END R3 Dorian Vandergraff
+[2026-01-03 03:25:12]	START R3 John Twilight
+[2026-01-03 03:25:12]	END R3 John Twilight
+[2026-01-03 03:25:12]	START R3 Thibble Wobblepop
+[2026-01-03 03:25:12]	END R3 Thibble Wobblepop
+[2026-01-03 03:25:12]	START R3 стихия
+[2026-01-03 03:25:13]	END R3 стихия
+[2026-01-03 03:25:13]	START R3 Johnny Morris
+[2026-01-03 03:25:13]	END R3 Johnny Morris
+[2026-01-03 03:25:13]	START R3 Malagrou Thunderclopper
+[2026-01-03 03:25:13]	END R3 Malagrou Thunderclopper
+[2026-01-03 03:25:13]	START R3 Ally Test 2
+[2026-01-03 03:25:13]	Ally Test 2: skip: Stunned; turn skipped
+[2026-01-03 03:25:13]	END R3 Ally Test 2 (skipped)
+[2026-01-03 03:25:13]	START R3 Ally Test 5
+[2026-01-03 03:25:13]	Ally Test 5: skip: Stunned; turn skipped
+[2026-01-03 03:25:13]	END R3 Ally Test 5 (skipped)
+[2026-01-03 03:25:13]	START R3 Enemy Test 1
+[2026-01-03 03:25:14]	END R3 Enemy Test 1
+[2026-01-03 03:25:14]	START R3 Enemy Test 3
+[2026-01-03 03:25:14]	END R3 Enemy Test 3
+[2026-01-03 03:25:14]	START R3 Fred Figglehorn
+[2026-01-03 03:25:15]	END R3 Fred Figglehorn
+[2026-01-03 03:25:15]	START R3 Enemy Test 4
+[2026-01-03 03:25:15]	END R3 Enemy Test 4
+[2026-01-03 03:25:15]	--- ROUND 4 ---
+[2026-01-03 03:25:15]	START R4 Enemy Test 2
+[2026-01-03 03:25:16]	END R4 Enemy Test 2
+[2026-01-03 03:25:16]	START R4 Ally Test 4
+[2026-01-03 03:25:16]	Ally Test 4: skip: Stunned; turn skipped
+[2026-01-03 03:25:16]	END R4 Ally Test 4 (skipped)
+[2026-01-03 03:25:16]	START R4 Throat Goat
+[2026-01-03 03:25:18]	END R4 Throat Goat
+[2026-01-03 03:25:18]	START R4 Old Man
+[2026-01-03 03:25:18]	END R4 Old Man
+[2026-01-03 03:25:19]	START R4 Ally Test 1
+[2026-01-03 03:25:19]	Ally Test 1: skip: Stunned; turn skipped
+[2026-01-03 03:25:19]	END R4 Ally Test 1 (skipped)
+[2026-01-03 03:25:19]	START R4 Ally Test 3
+[2026-01-03 03:25:19]	Ally Test 3: skip: Stunned; turn skipped
+[2026-01-03 03:25:19]	END R4 Ally Test 3 (skipped)
+[2026-01-03 03:25:19]	START R4 Dorian Vandergraff
+[2026-01-03 03:25:52]	END R4 Dorian Vandergraff
+[2026-01-03 03:25:52]	START R4 John Twilight
+[2026-01-03 03:25:52]	END R4 John Twilight
+[2026-01-03 03:25:52]	START R4 Thibble Wobblepop
+[2026-01-03 03:25:53]	END R4 Thibble Wobblepop
+[2026-01-03 03:25:53]	START R4 стихия
+[2026-01-03 03:25:53]	END R4 стихия
+[2026-01-03 03:25:53]	START R4 Johnny Morris
+[2026-01-03 03:25:53]	END R4 Johnny Morris
+[2026-01-03 03:25:53]	START R4 Malagrou Thunderclopper
+[2026-01-03 03:25:53]	END R4 Malagrou Thunderclopper
+[2026-01-03 03:25:53]	START R4 Ally Test 2
+[2026-01-03 03:25:54]	END R4 Ally Test 2
+[2026-01-03 03:25:54]	START R4 Ally Test 5
+[2026-01-03 03:25:54]	END R4 Ally Test 5
+[2026-01-03 03:25:54]	START R4 Enemy Test 1
+[2026-01-03 03:25:54]	END R4 Enemy Test 1
+[2026-01-03 03:25:54]	START R4 Enemy Test 3
+[2026-01-03 03:25:55]	END R4 Enemy Test 3
+[2026-01-03 03:25:55]	START R4 Fred Figglehorn
+[2026-01-03 03:25:55]	END R4 Fred Figglehorn
+[2026-01-03 03:25:55]	START R4 Enemy Test 4
+[2026-01-03 03:25:56]	END R4 Enemy Test 4
+[2026-01-03 03:25:56]	--- ROUND 5 ---
+[2026-01-03 03:25:56]	START R5 Enemy Test 2
+[2026-01-03 03:25:56]	END R5 Enemy Test 2
+[2026-01-03 03:25:56]	START R5 Ally Test 4
+[2026-01-03 03:25:56]	END R5 Ally Test 4
+[2026-01-03 03:25:56]	START R5 Throat Goat
+[2026-01-03 03:25:57]	END R5 Throat Goat
+[2026-01-03 03:25:57]	START R5 Old Man
+[2026-01-03 03:25:57]	END R5 Old Man
+[2026-01-03 03:25:57]	START R5 Ally Test 1
+[2026-01-03 03:25:57]	END R5 Ally Test 1
+[2026-01-03 03:25:57]	START R5 Ally Test 3
+[2026-01-03 03:25:57]	END R5 Ally Test 3
+[2026-01-03 03:25:57]	START R5 Dorian Vandergraff
+[2026-01-03 03:25:58]	END R5 Dorian Vandergraff
+[2026-01-03 03:25:58]	START R5 John Twilight
+[2026-01-03 03:25:58]	END R5 John Twilight
+[2026-01-03 03:25:58]	START R5 Thibble Wobblepop
+[2026-01-03 03:25:59]	END R5 Thibble Wobblepop
+[2026-01-03 03:25:59]	START R5 стихия
+[2026-01-03 03:26:00]	END R5 стихия
+[2026-01-03 03:26:00]	START R5 Johnny Morris
+[2026-01-03 03:26:01]	END R5 Johnny Morris
+[2026-01-03 03:26:01]	START R5 Malagrou Thunderclopper
+[2026-01-03 03:26:01]	END R5 Malagrou Thunderclopper
+[2026-01-03 03:26:01]	START R5 Ally Test 2
+[2026-01-03 03:26:02]	END R5 Ally Test 2
+[2026-01-03 03:26:02]	START R5 Ally Test 5
+[2026-01-03 03:26:03]	END R5 Ally Test 5
+[2026-01-03 03:26:03]	START R5 Enemy Test 1
+[2026-01-03 03:26:03]	END R5 Enemy Test 1
+[2026-01-03 03:26:03]	START R5 Enemy Test 3
+[2026-01-03 03:26:05]	END R5 Enemy Test 3
+[2026-01-03 03:26:05]	START R5 Fred Figglehorn
+[2026-01-03 03:26:05]	END R5 Fred Figglehorn
+[2026-01-03 03:26:05]	START R5 Enemy Test 4
+[2026-01-03 03:26:06]	END R5 Enemy Test 4
+[2026-01-03 03:26:06]	--- ROUND 6 ---
+[2026-01-03 03:26:06]	START R6 Enemy Test 2
+[2026-01-03 03:26:06]	END R6 Enemy Test 2
+[2026-01-03 03:26:06]	START R6 Ally Test 4
+[2026-01-03 03:26:07]	END R6 Ally Test 4
+[2026-01-03 03:26:07]	START R6 Throat Goat
+[2026-01-03 03:26:07]	END R6 Throat Goat
+[2026-01-03 03:26:07]	START R6 Old Man
+[2026-01-03 03:26:09]	END R6 Old Man
+[2026-01-03 03:26:09]	START R6 Ally Test 1
+[2026-01-03 03:26:09]	END R6 Ally Test 1
+[2026-01-03 03:26:09]	START R6 Ally Test 3
+[2026-01-03 03:26:09]	END R6 Ally Test 3
+[2026-01-03 03:26:09]	START R6 Dorian Vandergraff
+[2026-01-03 03:26:09]	END R6 Dorian Vandergraff
+[2026-01-03 03:26:09]	START R6 John Twilight
+[2026-01-03 03:26:10]	END R6 John Twilight
+[2026-01-03 03:26:10]	START R6 Thibble Wobblepop
+[2026-01-03 03:26:10]	END R6 Thibble Wobblepop
+[2026-01-03 03:26:10]	START R6 стихия
+[2026-01-03 03:26:10]	END R6 стихия
+[2026-01-03 03:26:10]	START R6 Johnny Morris
+[2026-01-03 03:26:11]	END R6 Johnny Morris
+[2026-01-03 03:26:11]	START R6 Malagrou Thunderclopper
+[2026-01-03 03:26:11]	END R6 Malagrou Thunderclopper
+[2026-01-03 03:26:11]	START R6 Ally Test 2
+[2026-01-03 03:26:11]	END R6 Ally Test 2
+[2026-01-03 03:26:11]	START R6 Ally Test 5
+[2026-01-03 03:26:11]	END R6 Ally Test 5
+[2026-01-03 03:26:11]	START R6 Enemy Test 1
+[2026-01-03 03:26:11]	END R6 Enemy Test 1
+[2026-01-03 03:26:11]	START R6 Enemy Test 3
+[2026-01-03 03:26:12]	END R6 Enemy Test 3
+[2026-01-03 03:26:12]	START R6 Fred Figglehorn
+[2026-01-03 03:26:12]	END R6 Fred Figglehorn
+[2026-01-03 03:26:12]	START R6 Enemy Test 4
+[2026-01-03 03:26:12]	END R6 Enemy Test 4
+[2026-01-03 03:26:12]	--- ROUND 7 ---
+[2026-01-03 03:26:12]	START R7 Enemy Test 2
+[2026-01-03 03:26:12]	END R7 Enemy Test 2
+[2026-01-03 03:26:12]	START R7 Ally Test 4
+[2026-01-03 03:26:12]	END R7 Ally Test 4
+[2026-01-03 03:26:12]	START R7 Throat Goat
+[2026-01-03 03:26:13]	END R7 Throat Goat
+[2026-01-03 03:26:13]	START R7 Old Man
+[2026-01-03 03:26:13]	END R7 Old Man
+[2026-01-03 03:26:13]	START R7 Ally Test 1
+[2026-01-03 03:26:13]	END R7 Ally Test 1
+[2026-01-03 03:26:13]	START R7 Ally Test 3
+[2026-01-03 03:26:13]	END R7 Ally Test 3
+[2026-01-03 03:26:13]	START R7 Dorian Vandergraff
+[2026-01-03 03:26:13]	END R7 Dorian Vandergraff
+[2026-01-03 03:26:13]	START R7 John Twilight
+[2026-01-03 03:26:14]	END R7 John Twilight
+[2026-01-03 03:26:14]	START R7 Thibble Wobblepop
+[2026-01-03 03:26:14]	END R7 Thibble Wobblepop
+[2026-01-03 03:26:14]	START R7 стихия
+[2026-01-03 03:26:14]	END R7 стихия
+[2026-01-03 03:26:14]	START R7 Johnny Morris
+[2026-01-03 03:26:15]	END R7 Johnny Morris
+[2026-01-03 03:26:15]	START R7 Malagrou Thunderclopper
+[2026-01-03 03:26:15]	END R7 Malagrou Thunderclopper
+[2026-01-03 03:26:15]	START R7 Ally Test 2
+[2026-01-03 03:26:15]	END R7 Ally Test 2
+[2026-01-03 03:26:15]	START R7 Ally Test 5
+[2026-01-03 03:26:15]	END R7 Ally Test 5
+[2026-01-03 03:26:15]	START R7 Enemy Test 1
+[2026-01-03 03:26:15]	END R7 Enemy Test 1
+[2026-01-03 03:26:15]	START R7 Enemy Test 3
+[2026-01-03 03:26:15]	END R7 Enemy Test 3
+[2026-01-03 03:26:15]	START R7 Fred Figglehorn
+[2026-01-03 03:26:16]	END R7 Fred Figglehorn
+[2026-01-03 03:26:16]	START R7 Enemy Test 4
+[2026-01-03 03:26:16]	END R7 Enemy Test 4
+[2026-01-03 03:26:16]	--- ROUND 8 ---
+[2026-01-03 03:26:16]	START R8 Enemy Test 2
+[2026-01-03 03:26:16]	END R8 Enemy Test 2
+[2026-01-03 03:26:16]	START R8 Ally Test 4
+[2026-01-03 03:26:16]	END R8 Ally Test 4
+[2026-01-03 03:26:16]	START R8 Throat Goat
+[2026-01-03 03:26:16]	END R8 Throat Goat
+[2026-01-03 03:26:16]	START R8 Old Man
+[2026-01-03 03:26:17]	END R8 Old Man
+[2026-01-03 03:26:17]	START R8 Ally Test 1
+[2026-01-03 03:26:17]	END R8 Ally Test 1
+[2026-01-03 03:26:17]	START R8 Ally Test 3
+[2026-01-03 03:26:17]	END R8 Ally Test 3
+[2026-01-03 03:26:17]	START R8 Dorian Vandergraff
+[2026-01-03 03:26:17]	END R8 Dorian Vandergraff
+[2026-01-03 03:26:17]	START R8 John Twilight
+[2026-01-03 03:26:17]	END R8 John Twilight
+[2026-01-03 03:26:17]	START R8 Thibble Wobblepop
+[2026-01-03 03:26:17]	END R8 Thibble Wobblepop
+[2026-01-03 03:26:17]	START R8 стихия
+[2026-01-03 03:26:18]	END R8 стихия
+[2026-01-03 03:26:18]	START R8 Johnny Morris
+[2026-01-03 03:26:18]	END R8 Johnny Morris
+[2026-01-03 03:26:18]	START R8 Malagrou Thunderclopper
+[2026-01-03 03:26:18]	END R8 Malagrou Thunderclopper
+[2026-01-03 03:26:18]	START R8 Ally Test 2
+[2026-01-03 03:26:18]	END R8 Ally Test 2
+[2026-01-03 03:26:18]	START R8 Ally Test 5
+[2026-01-03 03:26:18]	END R8 Ally Test 5
+[2026-01-03 03:26:18]	START R8 Enemy Test 1
+[2026-01-03 03:26:19]	END R8 Enemy Test 1
+[2026-01-03 03:26:19]	START R8 Enemy Test 3
+[2026-01-03 03:26:19]	END R8 Enemy Test 3
+[2026-01-03 03:26:19]	START R8 Fred Figglehorn
+[2026-01-03 03:26:19]	END R8 Fred Figglehorn
+[2026-01-03 03:26:19]	START R8 Enemy Test 4
+[2026-01-03 03:26:19]	END R8 Enemy Test 4
+[2026-01-03 03:26:19]	--- ROUND 9 ---
+[2026-01-03 03:26:19]	START R9 Enemy Test 2
+[2026-01-03 03:26:19]	END R9 Enemy Test 2
+[2026-01-03 03:26:19]	START R9 Ally Test 4
+[2026-01-03 03:26:20]	END R9 Ally Test 4
+[2026-01-03 03:26:20]	START R9 Throat Goat
+[2026-01-03 03:26:20]	END R9 Throat Goat
+[2026-01-03 03:26:20]	START R9 Old Man
+[2026-01-03 03:26:20]	END R9 Old Man
+[2026-01-03 03:26:20]	START R9 Ally Test 1
+[2026-01-03 03:26:21]	END R9 Ally Test 1
+[2026-01-03 03:26:21]	START R9 Ally Test 3
+[2026-01-03 03:26:21]	END R9 Ally Test 3
+[2026-01-03 03:26:21]	START R9 Dorian Vandergraff
+[2026-01-03 03:26:21]	END R9 Dorian Vandergraff
+[2026-01-03 03:26:21]	START R9 John Twilight
+[2026-01-03 03:26:21]	END R9 John Twilight
+[2026-01-03 03:26:21]	START R9 Thibble Wobblepop

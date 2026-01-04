@@ -1,0 +1,494 @@
+[2026-01-03 21:04:53]	=== Session started ===
+[2026-01-04 00:45:32]	=== Session started ===
+[2026-01-04 01:06:46]	=== Session started ===
+[2026-01-04 01:11:16]	Skeleton 2: set condition: Stunned (2 turn(s))
+[2026-01-04 01:11:16]	Skeleton 10: set condition: Stunned (2 turn(s))
+[2026-01-04 01:11:16]	Skeleton 6: set condition: Stunned (2 turn(s))
+[2026-01-04 01:11:16]	Skeleton 8: set condition: Stunned (2 turn(s))
+[2026-01-04 01:11:16]	Skeleton 3: set condition: Stunned (2 turn(s))
+[2026-01-04 01:11:16]	Skeleton 9: set condition: Stunned (2 turn(s))
+[2026-01-04 01:11:16]	Skeleton 5: set condition: Stunned (2 turn(s))
+[2026-01-04 01:11:16]	Skeleton 4: set condition: Stunned (2 turn(s))
+[2026-01-04 01:11:16]	Skeleton 1: set condition: Stunned (2 turn(s))
+[2026-01-04 01:11:16]	Skeleton 7: set condition: Stunned (2 turn(s))
+[2026-01-04 01:11:20]	--- COMBAT STARTED ---
+[2026-01-04 01:11:20]	--- ROUND 1 ---
+[2026-01-04 01:11:20]	START R1 John Twilight
+[2026-01-04 01:11:49]	END R1 John Twilight
+[2026-01-04 01:11:49]	START R1 Old Man
+[2026-01-04 01:11:50]	END R1 Old Man
+[2026-01-04 01:11:50]	START R1 Skeleton 2
+[2026-01-04 01:11:53]	END R1 Skeleton 2
+[2026-01-04 01:11:53]	START R1 Fred Figglehorn
+[2026-01-04 01:11:53]	END R1 Fred Figglehorn
+[2026-01-04 01:11:53]	START R1 Skeleton 10
+[2026-01-04 01:11:54]	END R1 Skeleton 10
+[2026-01-04 01:11:54]	START R1 Skeleton 6
+[2026-01-04 01:11:54]	END R1 Skeleton 6
+[2026-01-04 01:11:54]	START R1 Throat Goat
+[2026-01-04 01:11:54]	END R1 Throat Goat
+[2026-01-04 01:11:54]	START R1 Skeleton 8
+[2026-01-04 01:11:54]	END R1 Skeleton 8
+[2026-01-04 01:11:54]	START R1 Dorian Vandergraff
+[2026-01-04 01:11:54]	END R1 Dorian Vandergraff
+[2026-01-04 01:11:54]	START R1 Skeleton 3
+[2026-01-04 01:11:55]	END R1 Skeleton 3
+[2026-01-04 01:11:55]	START R1 стихия
+[2026-01-04 01:11:55]	END R1 стихия
+[2026-01-04 01:11:55]	START R1 Skeleton 9
+[2026-01-04 01:11:55]	END R1 Skeleton 9
+[2026-01-04 01:11:55]	START R1 Johnny Morris
+[2026-01-04 01:11:55]	END R1 Johnny Morris
+[2026-01-04 01:11:55]	START R1 Thibble Wobblepop
+[2026-01-04 01:11:56]	END R1 Thibble Wobblepop
+[2026-01-04 01:11:56]	START R1 Skeleton 5
+[2026-01-04 01:11:56]	END R1 Skeleton 5
+[2026-01-04 01:11:56]	START R1 Skeleton 4
+[2026-01-04 01:11:56]	END R1 Skeleton 4
+[2026-01-04 01:11:56]	START R1 Skeleton 1
+[2026-01-04 01:11:56]	END R1 Skeleton 1
+[2026-01-04 01:11:56]	START R1 Skeleton 7
+[2026-01-04 01:11:56]	END R1 Skeleton 7
+[2026-01-04 01:11:56]	START R1 Malagrou Thunderclopper
+[2026-01-04 01:11:56]	END R1 Malagrou Thunderclopper
+[2026-01-04 01:11:56]	--- ROUND 2 ---
+[2026-01-04 01:11:56]	START R2 John Twilight
+[2026-01-04 01:11:57]	END R2 John Twilight
+[2026-01-04 01:11:57]	START R2 Old Man
+[2026-01-04 01:11:57]	END R2 Old Man
+[2026-01-04 01:11:57]	START R2 Skeleton 2
+[2026-01-04 01:11:57]	Skeleton 2: conditions ended: Stunned
+[2026-01-04 01:11:57]	END R2 Skeleton 2
+[2026-01-04 01:11:57]	START R2 Fred Figglehorn
+[2026-01-04 01:11:57]	END R2 Fred Figglehorn
+[2026-01-04 01:11:57]	START R2 Skeleton 10
+[2026-01-04 01:11:57]	Skeleton 10: conditions ended: Stunned
+[2026-01-04 01:11:57]	END R2 Skeleton 10
+[2026-01-04 01:11:57]	START R2 Skeleton 6
+[2026-01-04 01:11:58]	Skeleton 6: conditions ended: Stunned
+[2026-01-04 01:11:58]	END R2 Skeleton 6
+[2026-01-04 01:11:58]	START R2 Throat Goat
+[2026-01-04 01:11:58]	END R2 Throat Goat
+[2026-01-04 01:11:58]	START R2 Skeleton 8
+[2026-01-04 01:11:58]	Skeleton 8: conditions ended: Stunned
+[2026-01-04 01:11:58]	END R2 Skeleton 8
+[2026-01-04 01:11:58]	START R2 Dorian Vandergraff
+[2026-01-04 01:12:51]	END R2 Dorian Vandergraff
+[2026-01-04 01:12:51]	START R2 Skeleton 3
+[2026-01-04 01:12:51]	Skeleton 3: conditions ended: Stunned
+[2026-01-04 01:12:51]	END R2 Skeleton 3
+[2026-01-04 01:12:51]	START R2 стихия
+[2026-01-04 01:12:52]	END R2 стихия
+[2026-01-04 01:12:52]	START R2 Skeleton 9
+[2026-01-04 01:12:52]	Skeleton 9: conditions ended: Stunned
+[2026-01-04 01:12:52]	END R2 Skeleton 9
+[2026-01-04 01:12:52]	START R2 Johnny Morris
+[2026-01-04 01:12:52]	END R2 Johnny Morris
+[2026-01-04 01:12:52]	START R2 Thibble Wobblepop
+[2026-01-04 01:12:52]	END R2 Thibble Wobblepop
+[2026-01-04 01:12:52]	START R2 Skeleton 5
+[2026-01-04 01:12:53]	Skeleton 5: conditions ended: Stunned
+[2026-01-04 01:12:53]	END R2 Skeleton 5
+[2026-01-04 01:12:53]	START R2 Skeleton 4
+[2026-01-04 01:12:53]	Skeleton 4: conditions ended: Stunned
+[2026-01-04 01:12:53]	END R2 Skeleton 4
+[2026-01-04 01:12:53]	START R2 Skeleton 1
+[2026-01-04 01:12:53]	Skeleton 1: conditions ended: Stunned
+[2026-01-04 01:12:53]	END R2 Skeleton 1
+[2026-01-04 01:12:53]	START R2 Skeleton 7
+[2026-01-04 01:12:53]	Skeleton 7: conditions ended: Stunned
+[2026-01-04 01:12:53]	END R2 Skeleton 7
+[2026-01-04 01:12:53]	START R2 Malagrou Thunderclopper
+[2026-01-04 01:12:54]	END R2 Malagrou Thunderclopper
+[2026-01-04 01:12:54]	--- ROUND 3 ---
+[2026-01-04 01:12:54]	START R3 John Twilight
+[2026-01-04 01:12:55]	END R3 John Twilight
+[2026-01-04 01:12:55]	START R3 Old Man
+[2026-01-04 01:12:56]	END R3 Old Man
+[2026-01-04 01:12:56]	START R3 Skeleton 2
+[2026-01-04 01:12:56]	END R3 Skeleton 2
+[2026-01-04 01:12:56]	START R3 Fred Figglehorn
+[2026-01-04 01:12:56]	END R3 Fred Figglehorn
+[2026-01-04 01:12:56]	START R3 Skeleton 10
+[2026-01-04 01:12:56]	END R3 Skeleton 10
+[2026-01-04 01:12:56]	START R3 Skeleton 6
+[2026-01-04 01:17:33]	=== Session started ===
+[2026-01-04 01:24:06]	=== Session started ===
+[2026-01-04 01:25:56]	--- COMBAT STARTED ---
+[2026-01-04 01:25:56]	--- ROUND 1 ---
+[2026-01-04 01:25:56]	START R1 Johnny Morris
+[2026-01-04 01:25:56]	Johnny Morris: DoT 4 (🔥4)
+[2026-01-04 01:25:57]	END R1 Johnny Morris
+[2026-01-04 01:25:57]	START R1 Fred Figglehorn
+[2026-01-04 01:25:57]	Fred Figglehorn: DoT 6 (🔥6)
+[2026-01-04 01:25:58]	END R1 Fred Figglehorn
+[2026-01-04 01:25:58]	START R1 Dorian Vandergraff
+[2026-01-04 01:25:58]	Dorian Vandergraff: DoT 6 (🔥6)
+[2026-01-04 01:26:00]	END R1 Dorian Vandergraff
+[2026-01-04 01:26:00]	START R1 Throat Goat
+[2026-01-04 01:26:00]	Throat Goat: DoT 6 (🔥6)
+[2026-01-04 01:26:00]	END R1 Throat Goat
+[2026-01-04 01:26:00]	START R1 Drews Familiar
+[2026-01-04 01:26:00]	Drews Familiar: DoT 8 (🔥8)
+[2026-01-04 01:26:01]	END R1 Drews Familiar
+[2026-01-04 01:26:01]	START R1 стихия
+[2026-01-04 01:26:01]	стихия: DoT 3 (🔥3)
+[2026-01-04 01:26:01]	END R1 стихия
+[2026-01-04 01:26:01]	START R1 Malagrou Thunderclopper
+[2026-01-04 01:26:01]	Malagrou Thunderclopper: DoT 6 (🔥6)
+[2026-01-04 01:26:01]	END R1 Malagrou Thunderclopper
+[2026-01-04 01:26:01]	START R1 John Twilight
+[2026-01-04 01:26:01]	John Twilight: DoT 5 (🔥5)
+[2026-01-04 01:26:02]	END R1 John Twilight
+[2026-01-04 01:26:02]	START R1 Thibble Wobblepop
+[2026-01-04 01:26:02]	Thibble Wobblepop: DoT 3 (🔥3)
+[2026-01-04 01:26:02]	END R1 Thibble Wobblepop
+[2026-01-04 01:26:02]	START R1 Old Man
+[2026-01-04 01:26:02]	Old Man: DoT 3 (🔥3)
+[2026-01-04 01:26:02]	END R1 Old Man
+[2026-01-04 01:26:02]	--- ROUND 2 ---
+[2026-01-04 01:26:02]	START R2 Johnny Morris
+[2026-01-04 01:26:02]	Johnny Morris: DoT 5 (🔥5)
+[2026-01-04 01:26:03]	END R2 Johnny Morris
+[2026-01-04 01:26:03]	START R2 Fred Figglehorn
+[2026-01-04 01:26:03]	Fred Figglehorn: DoT 2 (🔥2)
+[2026-01-04 01:26:03]	END R2 Fred Figglehorn
+[2026-01-04 01:26:03]	START R2 Dorian Vandergraff
+[2026-01-04 01:26:03]	Dorian Vandergraff: DoT 4 (🔥4)
+[2026-01-04 01:26:03]	END R2 Dorian Vandergraff
+[2026-01-04 01:26:03]	START R2 Throat Goat
+[2026-01-04 01:26:03]	Throat Goat: DoT 6 (🔥6)
+[2026-01-04 01:26:03]	END R2 Throat Goat
+[2026-01-04 01:26:03]	START R2 Drews Familiar
+[2026-01-04 01:26:03]	Drews Familiar: DoT 6 (🔥6)
+[2026-01-04 01:26:04]	END R2 Drews Familiar
+[2026-01-04 01:26:04]	START R2 стихия
+[2026-01-04 01:26:04]	стихия: DoT 6 (🔥6)
+[2026-01-04 01:26:04]	END R2 стихия
+[2026-01-04 01:26:04]	START R2 Malagrou Thunderclopper
+[2026-01-04 01:26:04]	Malagrou Thunderclopper: DoT 6 (🔥6)
+[2026-01-04 01:26:04]	END R2 Malagrou Thunderclopper
+[2026-01-04 01:26:04]	START R2 John Twilight
+[2026-01-04 01:26:04]	John Twilight: DoT 6 (🔥6)
+[2026-01-04 01:26:04]	END R2 John Twilight
+[2026-01-04 01:26:04]	START R2 Thibble Wobblepop
+[2026-01-04 01:26:04]	Thibble Wobblepop: DoT 4 (🔥4)
+[2026-01-04 01:26:05]	END R2 Thibble Wobblepop
+[2026-01-04 01:26:05]	START R2 Old Man
+[2026-01-04 01:26:05]	Old Man: DoT 6 (🔥6)
+[2026-01-04 01:26:05]	END R2 Old Man
+[2026-01-04 01:26:05]	--- ROUND 3 ---
+[2026-01-04 01:26:05]	START R3 Johnny Morris
+[2026-01-04 01:26:05]	END R3 Johnny Morris
+[2026-01-04 01:26:05]	START R3 Fred Figglehorn
+[2026-01-04 01:26:05]	END R3 Fred Figglehorn
+[2026-01-04 01:26:05]	START R3 Dorian Vandergraff
+[2026-01-04 01:26:34]	END R3 Dorian Vandergraff
+[2026-01-04 01:26:34]	START R3 Goblin 4
+[2026-01-04 01:26:34]	Goblin 4: DoT 4 (🔥3, 🔥1)
+[2026-01-04 01:26:35]	END R3 Goblin 4
+[2026-01-04 01:26:35]	START R3 Goblin 9
+[2026-01-04 01:26:35]	Goblin 9: DoT 2 (🔥1, 🔥1)
+[2026-01-04 01:26:35]	END R3 Goblin 9
+[2026-01-04 01:26:35]	START R3 Throat Goat
+[2026-01-04 01:26:36]	END R3 Throat Goat
+[2026-01-04 01:26:36]	START R3 Drews Familiar
+[2026-01-04 01:26:36]	END R3 Drews Familiar
+[2026-01-04 01:26:36]	START R3 стихия
+[2026-01-04 01:26:36]	END R3 стихия
+[2026-01-04 01:26:36]	START R3 Malagrou Thunderclopper
+[2026-01-04 01:26:36]	END R3 Malagrou Thunderclopper
+[2026-01-04 01:26:36]	START R3 Goblin 10
+[2026-01-04 01:26:36]	Goblin 10: DoT 7 (🔥3, 🔥4)
+[2026-01-04 01:26:37]	END R3 Goblin 10
+[2026-01-04 01:26:37]	START R3 Goblin 5
+[2026-01-04 01:26:37]	Goblin 5: DoT 6 (🔥3, 🔥3)
+[2026-01-04 01:26:37]	END R3 Goblin 5
+[2026-01-04 01:26:37]	START R3 John Twilight
+[2026-01-04 01:26:37]	END R3 John Twilight
+[2026-01-04 01:26:37]	START R3 Goblin 2
+[2026-01-04 01:26:37]	Goblin 2: DoT 6 (🔥4, 🔥2)
+[2026-01-04 01:26:37]	END R3 Goblin 2
+[2026-01-04 01:26:37]	START R3 Thibble Wobblepop
+[2026-01-04 01:26:37]	END R3 Thibble Wobblepop
+[2026-01-04 01:26:37]	START R3 Old Man
+[2026-01-04 01:26:38]	END R3 Old Man
+[2026-01-04 01:26:38]	--- ROUND 4 ---
+[2026-01-04 01:26:38]	START R4 Goblin 1
+[2026-01-04 01:26:38]	Goblin 1: DoT 8 (🔥4, 🔥4)
+[2026-01-04 01:26:38]	END R4 Goblin 1
+[2026-01-04 01:26:38]	START R4 Goblin 8
+[2026-01-04 01:26:38]	Goblin 8: DoT 6 (🔥4, 🔥2)
+[2026-01-04 01:26:38]	END R4 Goblin 8
+[2026-01-04 01:26:38]	START R4 Johnny Morris
+[2026-01-04 01:26:38]	END R4 Johnny Morris
+[2026-01-04 01:26:38]	START R4 Goblin 3
+[2026-01-04 01:26:38]	Goblin 3: DoT 2 (🔥1, 🔥1)
+[2026-01-04 01:26:38]	END R4 Goblin 3
+[2026-01-04 01:26:38]	START R4 Fred Figglehorn
+[2026-01-04 01:26:39]	END R4 Fred Figglehorn
+[2026-01-04 01:26:39]	START R4 Goblin 7
+[2026-01-04 01:26:39]	Goblin 7: DoT 5 (🔥4, 🔥1)
+[2026-01-04 01:26:39]	END R4 Goblin 7
+[2026-01-04 01:26:39]	START R4 Goblin 6
+[2026-01-04 01:26:39]	Goblin 6: DoT 7 (🔥3, 🔥4)
+[2026-01-04 01:26:39]	END R4 Goblin 6
+[2026-01-04 01:26:39]	START R4 Dorian Vandergraff
+[2026-01-04 01:26:39]	END R4 Dorian Vandergraff
+[2026-01-04 01:26:39]	START R4 Goblin 4
+[2026-01-04 01:26:39]	Goblin 4: DoT 4 (🔥3, 🔥1)
+[2026-01-04 01:26:39]	END R4 Goblin 4
+[2026-01-04 01:26:39]	START R4 Goblin 9
+[2026-01-04 01:26:39]	Goblin 9: DoT 3 (🔥1, 🔥2)
+[2026-01-04 01:26:39]	END R4 Goblin 9
+[2026-01-04 01:26:39]	START R4 Throat Goat
+[2026-01-04 01:26:40]	END R4 Throat Goat
+[2026-01-04 01:26:40]	START R4 Drews Familiar
+[2026-01-04 01:26:40]	END R4 Drews Familiar
+[2026-01-04 01:26:40]	START R4 стихия
+[2026-01-04 01:26:40]	END R4 стихия
+[2026-01-04 01:26:40]	START R4 Malagrou Thunderclopper
+[2026-01-04 01:26:40]	END R4 Malagrou Thunderclopper
+[2026-01-04 01:26:40]	START R4 Goblin 10
+[2026-01-04 01:26:40]	Goblin 10: DoT 6 (🔥3, 🔥3)
+[2026-01-04 01:26:40]	END R4 Goblin 10
+[2026-01-04 01:26:40]	START R4 Goblin 5
+[2026-01-04 01:26:40]	Goblin 5: DoT 7 (🔥3, 🔥4)
+[2026-01-04 01:26:40]	END R4 Goblin 5
+[2026-01-04 01:26:40]	START R4 John Twilight
+[2026-01-04 01:26:41]	END R4 John Twilight
+[2026-01-04 01:26:41]	START R4 Goblin 2
+[2026-01-04 01:26:41]	Goblin 2: DoT 5 (🔥4, 🔥1)
+[2026-01-04 01:26:41]	END R4 Goblin 2
+[2026-01-04 01:26:41]	START R4 Thibble Wobblepop
+[2026-01-04 01:26:41]	END R4 Thibble Wobblepop
+[2026-01-04 01:26:41]	START R4 Old Man
+[2026-01-04 01:26:41]	END R4 Old Man
+[2026-01-04 01:26:41]	--- ROUND 5 ---
+[2026-01-04 01:26:41]	START R5 Goblin 1
+[2026-01-04 01:26:41]	Goblin 1: DoT 6 (🔥4, 🔥2)
+[2026-01-04 01:26:41]	END R5 Goblin 1
+[2026-01-04 01:26:41]	START R5 Goblin 8
+[2026-01-04 01:26:41]	Goblin 8: DoT 5 (🔥4, 🔥1)
+[2026-01-04 01:26:42]	END R5 Goblin 8
+[2026-01-04 01:26:42]	START R5 Johnny Morris
+[2026-01-04 01:26:42]	END R5 Johnny Morris
+[2026-01-04 01:26:42]	START R5 Goblin 3
+[2026-01-04 01:26:42]	Goblin 3: DoT 3 (🔥1, 🔥2)
+[2026-01-04 01:26:42]	END R5 Goblin 3
+[2026-01-04 01:26:42]	START R5 Fred Figglehorn
+[2026-01-04 01:26:42]	END R5 Fred Figglehorn
+[2026-01-04 01:26:42]	START R5 Goblin 7
+[2026-01-04 01:26:42]	Goblin 7: DoT 6 (🔥3, 🔥3)
+[2026-01-04 01:26:42]	END R5 Goblin 7
+[2026-01-04 01:26:42]	START R5 Goblin 6
+[2026-01-04 01:26:42]	Goblin 6: DoT 5 (🔥3, 🔥2)
+[2026-01-04 01:26:42]	END R5 Goblin 6
+[2026-01-04 01:26:42]	START R5 Dorian Vandergraff
+[2026-01-04 01:26:43]	END R5 Dorian Vandergraff
+[2026-01-04 01:26:43]	START R5 Goblin 4
+[2026-01-04 01:26:43]	Goblin 4: DoT 4 (🔥1, 🔥3)
+[2026-01-04 01:26:43]	END R5 Goblin 4
+[2026-01-04 01:26:43]	START R5 Goblin 9
+[2026-01-04 01:26:43]	Goblin 9: DoT 4 (🔥3, 🔥1)
+[2026-01-04 01:26:43]	END R5 Goblin 9
+[2026-01-04 01:26:43]	START R5 Throat Goat
+[2026-01-04 01:26:43]	END R5 Throat Goat
+[2026-01-04 01:26:43]	START R5 Drews Familiar
+[2026-01-04 01:26:43]	END R5 Drews Familiar
+[2026-01-04 01:26:43]	START R5 стихия
+[2026-01-04 01:26:43]	END R5 стихия
+[2026-01-04 01:26:43]	START R5 Malagrou Thunderclopper
+[2026-01-04 01:26:44]	END R5 Malagrou Thunderclopper
+[2026-01-04 01:26:44]	START R5 Goblin 10
+[2026-01-04 01:26:44]	Goblin 10: DoT 3 (🔥2, 🔥1)
+[2026-01-04 01:26:44]	END R5 Goblin 10
+[2026-01-04 01:26:44]	START R5 Goblin 5
+[2026-01-04 01:26:44]	DoT 7 (🔥4, 🔥3); dropped to 0 -> removed
+[2026-01-04 01:26:44]	START R5 John Twilight
+[2026-01-04 01:26:44]	END R5 John Twilight
+[2026-01-04 01:26:44]	START R5 Goblin 2
+[2026-01-04 01:26:44]	Goblin 2: DoT 5 (🔥1, 🔥4)
+[2026-01-04 01:26:44]	END R5 Goblin 2
+[2026-01-04 01:26:44]	START R5 Thibble Wobblepop
+[2026-01-04 01:26:47]	END R5 Thibble Wobblepop
+[2026-01-04 01:26:47]	START R5 Old Man
+[2026-01-04 01:26:47]	END R5 Old Man
+[2026-01-04 01:26:47]	--- ROUND 6 ---
+[2026-01-04 01:26:47]	START R6 Goblin 1
+[2026-01-04 01:26:47]	DoT 7 (🔥4, 🔥3); dropped to 0 -> removed
+[2026-01-04 01:26:47]	START R6 Goblin 8
+[2026-01-04 01:26:47]	Goblin 8: DoT 3 (🔥2, 🔥1)
+[2026-01-04 01:26:47]	END R6 Goblin 8
+[2026-01-04 01:26:47]	START R6 Johnny Morris
+[2026-01-04 01:26:48]	END R6 Johnny Morris
+[2026-01-04 01:26:48]	START R6 Goblin 3
+[2026-01-04 01:26:48]	Goblin 3: DoT 5 (🔥3, 🔥2)
+[2026-01-04 01:26:48]	END R6 Goblin 3
+[2026-01-04 01:26:48]	START R6 Fred Figglehorn
+[2026-01-04 01:26:48]	END R6 Fred Figglehorn
+[2026-01-04 01:26:48]	START R6 Goblin 7
+[2026-01-04 01:26:48]	Goblin 7: DoT 7 (🔥3, 🔥4)
+[2026-01-04 01:26:48]	END R6 Goblin 7
+[2026-01-04 01:26:48]	START R6 Goblin 6
+[2026-01-04 01:26:48]	Goblin 6: DoT 5 (🔥1, 🔥4)
+[2026-01-04 01:26:49]	END R6 Goblin 6
+[2026-01-04 01:26:49]	START R6 Dorian Vandergraff
+[2026-01-04 01:26:49]	END R6 Dorian Vandergraff
+[2026-01-04 01:26:49]	START R6 Goblin 4
+[2026-01-04 01:26:49]	Goblin 4: DoT 7 (🔥4, 🔥3)
+[2026-01-04 01:26:49]	END R6 Goblin 4
+[2026-01-04 01:26:49]	START R6 Goblin 9
+[2026-01-04 01:26:49]	Goblin 9: DoT 6 (🔥2, 🔥4)
+[2026-01-04 01:26:49]	END R6 Goblin 9
+[2026-01-04 01:26:49]	START R6 Throat Goat
+[2026-01-04 01:26:49]	END R6 Throat Goat
+[2026-01-04 01:26:49]	START R6 Drews Familiar
+[2026-01-04 01:26:50]	END R6 Drews Familiar
+[2026-01-04 01:26:50]	START R6 стихия
+[2026-01-04 01:26:50]	END R6 стихия
+[2026-01-04 01:26:50]	START R6 Malagrou Thunderclopper
+[2026-01-04 01:26:50]	END R6 Malagrou Thunderclopper
+[2026-01-04 01:26:50]	START R6 Goblin 10
+[2026-01-04 01:26:50]	DoT 5 (🔥4, 🔥1); dropped to 0 -> removed
+[2026-01-04 01:26:50]	START R6 John Twilight
+[2026-01-04 01:26:50]	END R6 John Twilight
+[2026-01-04 01:26:50]	START R6 Goblin 2
+[2026-01-04 01:26:50]	DoT 4 (🔥3, 🔥1); dropped to 0 -> removed
+[2026-01-04 01:26:50]	START R6 Thibble Wobblepop
+[2026-01-04 01:26:51]	END R6 Thibble Wobblepop
+[2026-01-04 01:26:51]	START R6 Old Man
+[2026-01-04 01:26:51]	END R6 Old Man
+[2026-01-04 01:26:51]	--- ROUND 7 ---
+[2026-01-04 01:26:51]	START R7 Goblin 8
+[2026-01-04 01:26:51]	Goblin 8: DoT 5 (🔥3, 🔥2)
+[2026-01-04 01:26:51]	END R7 Goblin 8
+[2026-01-04 01:26:51]	START R7 Johnny Morris
+[2026-01-04 01:26:51]	END R7 Johnny Morris
+[2026-01-04 01:26:51]	START R7 Goblin 3
+[2026-01-04 01:26:51]	Goblin 3: DoT 5 (🔥2, 🔥3)
+[2026-01-04 01:26:51]	END R7 Goblin 3
+[2026-01-04 01:26:51]	START R7 Fred Figglehorn
+[2026-01-04 01:26:52]	END R7 Fred Figglehorn
+[2026-01-04 01:26:52]	START R7 Goblin 7
+[2026-01-04 01:26:52]	DoT 3 (🔥2, 🔥1); dropped to 0 -> removed
+[2026-01-04 01:26:52]	START R7 Goblin 6
+[2026-01-04 01:26:52]	DoT 5 (🔥1, 🔥4); dropped to 0 -> removed
+[2026-01-04 01:26:52]	START R7 Dorian Vandergraff
+[2026-01-04 01:26:52]	END R7 Dorian Vandergraff
+[2026-01-04 01:26:52]	START R7 Goblin 4
+[2026-01-04 01:26:52]	DoT 2 (🔥1, 🔥1); dropped to 0 -> removed
+[2026-01-04 01:26:52]	START R7 Goblin 9
+[2026-01-04 01:26:52]	Goblin 9: DoT 4 (🔥2, 🔥2)
+[2026-01-04 01:26:52]	END R7 Goblin 9
+[2026-01-04 01:26:52]	START R7 Throat Goat
+[2026-01-04 01:26:53]	END R7 Throat Goat
+[2026-01-04 01:26:53]	START R7 Drews Familiar
+[2026-01-04 01:26:54]	END R7 Drews Familiar
+[2026-01-04 01:26:54]	START R7 стихия
+[2026-01-04 01:26:54]	END R7 стихия
+[2026-01-04 01:26:54]	START R7 Malagrou Thunderclopper
+[2026-01-04 01:26:54]	END R7 Malagrou Thunderclopper
+[2026-01-04 01:26:54]	START R7 John Twilight
+[2026-01-04 01:26:54]	END R7 John Twilight
+[2026-01-04 01:26:54]	START R7 Thibble Wobblepop
+[2026-01-04 01:26:55]	END R7 Thibble Wobblepop
+[2026-01-04 01:26:55]	START R7 Old Man
+[2026-01-04 01:26:55]	END R7 Old Man
+[2026-01-04 01:26:55]	--- ROUND 8 ---
+[2026-01-04 01:26:55]	START R8 Goblin 8
+[2026-01-04 01:26:55]	DoT 3 (🔥2, 🔥1); dropped to 0 -> removed
+[2026-01-04 01:26:55]	START R8 Johnny Morris
+[2026-01-04 01:26:55]	END R8 Johnny Morris
+[2026-01-04 01:26:55]	START R8 Goblin 3
+[2026-01-04 01:26:55]	Goblin 3: DoT 4 (🔥2, 🔥2)
+[2026-01-04 01:26:55]	END R8 Goblin 3
+[2026-01-04 01:26:55]	START R8 Fred Figglehorn
+[2026-01-04 01:26:55]	END R8 Fred Figglehorn
+[2026-01-04 01:26:55]	START R8 Dorian Vandergraff
+[2026-01-04 01:26:56]	END R8 Dorian Vandergraff
+[2026-01-04 01:26:56]	START R8 Goblin 9
+[2026-01-04 01:26:56]	DoT 4 (🔥2, 🔥2); dropped to 0 -> removed
+[2026-01-04 01:26:56]	START R8 Throat Goat
+[2026-01-04 01:26:56]	END R8 Throat Goat
+[2026-01-04 01:26:56]	START R8 Drews Familiar
+[2026-01-04 01:26:56]	END R8 Drews Familiar
+[2026-01-04 01:26:56]	START R8 стихия
+[2026-01-04 01:26:56]	END R8 стихия
+[2026-01-04 01:26:56]	START R8 Malagrou Thunderclopper
+[2026-01-04 01:26:57]	END R8 Malagrou Thunderclopper
+[2026-01-04 01:26:57]	START R8 John Twilight
+[2026-01-04 01:26:57]	END R8 John Twilight
+[2026-01-04 01:26:57]	START R8 Thibble Wobblepop
+[2026-01-04 01:26:57]	END R8 Thibble Wobblepop
+[2026-01-04 01:26:57]	START R8 Old Man
+[2026-01-04 01:26:57]	END R8 Old Man
+[2026-01-04 01:26:57]	--- ROUND 9 ---
+[2026-01-04 01:26:57]	START R9 Johnny Morris
+[2026-01-04 01:26:57]	END R9 Johnny Morris
+[2026-01-04 01:26:57]	START R9 Goblin 3
+[2026-01-04 01:26:57]	DoT 4 (🔥1, 🔥3); dropped to 0 -> removed
+[2026-01-04 01:26:57]	START R9 Fred Figglehorn
+[2026-01-04 01:26:58]	END R9 Fred Figglehorn
+[2026-01-04 01:26:58]	START R9 Dorian Vandergraff
+[2026-01-04 01:27:35]	END R9 Johnny Morris
+[2026-01-04 01:27:35]	START R9 Fred Figglehorn
+[2026-01-04 01:27:35]	END R9 Fred Figglehorn
+[2026-01-04 01:27:35]	START R9 Dorian Vandergraff
+[2026-01-04 01:27:36]	END R9 Dorian Vandergraff
+[2026-01-04 01:27:36]	START R9 Throat Goat
+[2026-01-04 01:27:36]	END R9 Throat Goat
+[2026-01-04 01:27:36]	START R9 Drews Familiar
+[2026-01-04 01:27:37]	END R9 Drews Familiar
+[2026-01-04 01:27:37]	START R9 стихия
+[2026-01-04 01:27:37]	END R9 стихия
+[2026-01-04 01:27:37]	START R9 Malagrou Thunderclopper
+[2026-01-04 01:27:37]	END R9 Malagrou Thunderclopper
+[2026-01-04 01:27:37]	START R9 John Twilight
+[2026-01-04 01:27:38]	END R9 John Twilight
+[2026-01-04 01:27:38]	START R9 Thibble Wobblepop
+[2026-01-04 01:27:38]	END R9 Thibble Wobblepop
+[2026-01-04 01:27:38]	START R9 Old Man
+[2026-01-04 01:27:38]	END R9 Old Man
+[2026-01-04 01:27:38]	--- ROUND 10 ---
+[2026-01-04 01:27:38]	START R10 Johnny Morris
+[2026-01-04 01:27:39]	END R10 Johnny Morris
+[2026-01-04 01:27:39]	START R10 Fred Figglehorn
+[2026-01-04 01:27:39]	END R10 Fred Figglehorn
+[2026-01-04 01:27:39]	START R10 Dorian Vandergraff
+[2026-01-04 01:27:40]	END R10 Dorian Vandergraff
+[2026-01-04 01:27:40]	START R10 Throat Goat
+[2026-01-04 01:27:40]	END R10 Throat Goat
+[2026-01-04 01:27:40]	START R10 Drews Familiar
+[2026-01-04 01:27:40]	END R10 Drews Familiar
+[2026-01-04 01:27:40]	START R10 стихия
+[2026-01-04 01:27:40]	END R10 стихия
+[2026-01-04 01:27:40]	START R10 Malagrou Thunderclopper
+[2026-01-04 01:27:41]	END R10 Malagrou Thunderclopper
+[2026-01-04 01:27:41]	START R10 John Twilight
+[2026-01-04 01:27:41]	END R10 John Twilight
+[2026-01-04 01:27:41]	START R10 Thibble Wobblepop
+[2026-01-04 01:27:41]	END R10 Thibble Wobblepop
+[2026-01-04 01:27:41]	START R10 Old Man
+[2026-01-04 01:27:42]	END R10 Old Man
+[2026-01-04 01:27:42]	--- ROUND 11 ---
+[2026-01-04 01:27:42]	START R11 Johnny Morris
+[2026-01-04 01:27:57]	END R11 Johnny Morris
+[2026-01-04 01:27:57]	START R11 Fred Figglehorn
+[2026-01-04 01:27:58]	END R11 Fred Figglehorn
+[2026-01-04 01:27:58]	START R11 Dorian Vandergraff
+[2026-01-04 01:27:58]	END R11 Dorian Vandergraff
+[2026-01-04 01:27:58]	START R11 Throat Goat
+[2026-01-04 01:27:58]	END R11 Throat Goat
+[2026-01-04 01:27:58]	START R11 Drews Familiar
+[2026-01-04 01:32:08]	=== Session started ===
+[2026-01-04 01:38:22]	Malagrou Thunderclopper does 36 fire damage to Dorian Vandergraff (AoE; save DEX 3 vs DC 16 fail)
+[2026-01-04 01:38:22]	Malagrou Thunderclopper does 36 fire damage to Malagrou Thunderclopper (AoE; save DEX 8 vs DC 16 fail)
+[2026-01-04 01:38:22]	Malagrou Thunderclopper does 36 fire damage to Drews Familiar (AoE; save DEX 2 vs DC 16 fail)
+[2026-01-04 01:38:22]	Malagrou Thunderclopper does 36 fire damage to John Twilight (AoE; save DEX 9 vs DC 16 fail)
+[2026-01-04 01:38:22]	Malagrou Thunderclopper does 36 fire damage to Throat Goat (AoE; save DEX 2 vs DC 16 fail)
+[2026-01-04 01:38:22]	Malagrou Thunderclopper does 36 fire damage to Fred Figglehorn (AoE; save DEX 4 vs DC 16 fail)
+[2026-01-04 01:38:22]	Malagrou Thunderclopper does 36 fire damage to Johnny Morris (AoE; save DEX 7 vs DC 16 fail)
+[2026-01-04 01:38:22]	Malagrou Thunderclopper does 36 fire damage to Thibble Wobblepop (AoE; save DEX 4 vs DC 16 fail)
+[2026-01-04 01:38:22]	Malagrou Thunderclopper does 36 fire damage to Old Man (AoE; save DEX 3 vs DC 16 fail)
+[2026-01-04 01:38:22]	Malagrou Thunderclopper does 36 fire damage to стихия (AoE; save DEX 9 vs DC 16 fail)

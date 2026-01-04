@@ -1,0 +1,176 @@
+[2026-01-03 20:48:34]	END R1 Goblin 1
+[2026-01-03 20:48:34]	START R1 Goblin 4
+[2026-01-03 20:48:57]	Goblin 4 did force damage to Dorian Vandergraff, but Dorian Vandergraff is immune to force.
+[2026-01-03 20:49:02]	END R1 Goblin 4
+[2026-01-03 20:49:02]	START R1 John Twilight
+[2026-01-03 20:49:27]	John Twilight does 15 bludgeoning damage to Goblin 1 (resistant)
+[2026-01-03 20:49:37]	Goblin 1: set condition: Prone (1 turn(s))
+[2026-01-03 20:49:40]	END R1 John Twilight
+[2026-01-03 20:49:40]	START R1 Thibble Wobblepop
+[2026-01-03 20:49:54]	Goblin 16 does 100 force damage to Thibble Wobblepop
+[2026-01-03 20:52:05]	END R1 Thibble Wobblepop
+[2026-01-03 20:52:05]	START R1 Throat Goat
+[2026-01-03 20:52:05]	END R1 Throat Goat
+[2026-01-03 20:52:05]	START R1 Goblin 5
+[2026-01-03 20:52:06]	END R1 Goblin 5
+[2026-01-03 20:52:06]	START R1 Old Man
+[2026-01-03 20:52:06]	END R1 Old Man
+[2026-01-03 20:52:06]	START R1 Malagrou Thunderclopper
+[2026-01-03 20:52:06]	END R1 Malagrou Thunderclopper
+[2026-01-03 20:52:06]	START R1 Goblin 14
+[2026-01-03 20:52:06]	END R1 Goblin 14
+[2026-01-03 20:52:06]	START R1 стихия
+[2026-01-03 20:52:07]	END R1 стихия
+[2026-01-03 20:52:07]	START R1 Goblin 9
+[2026-01-03 20:52:07]	END R1 Goblin 9
+[2026-01-03 20:52:07]	START R1 Goblin 2
+[2026-01-03 20:52:07]	END R1 Goblin 2
+[2026-01-03 20:52:07]	START R1 Dorian Vandergraff
+[2026-01-03 20:52:07]	END R1 Dorian Vandergraff
+[2026-01-03 20:52:07]	START R1 Goblin 15
+[2026-01-03 20:52:07]	END R1 Goblin 15
+[2026-01-03 20:52:07]	START R1 Goblin 7
+[2026-01-03 20:52:08]	END R1 Goblin 7
+[2026-01-03 20:52:08]	START R1 Goblin 11
+[2026-01-03 20:52:08]	END R1 Goblin 11
+[2026-01-03 20:52:08]	START R1 Goblin 12
+[2026-01-03 20:52:08]	END R1 Goblin 12
+[2026-01-03 20:52:08]	START R1 Goblin 6
+[2026-01-03 20:52:08]	END R1 Goblin 6
+[2026-01-03 20:52:08]	START R1 Fred Figglehorn
+[2026-01-03 20:52:08]	END R1 Fred Figglehorn
+[2026-01-03 20:52:08]	START R1 Johnny Morris
+[2026-01-03 20:52:08]	END R1 Johnny Morris
+[2026-01-03 20:52:08]	START R1 Goblin 10
+[2026-01-03 20:52:09]	END R1 Goblin 10
+[2026-01-03 20:52:09]	START R1 Goblin 13
+[2026-01-03 20:52:09]	END R1 Goblin 13
+[2026-01-03 20:52:09]	START R1 Goblin 16
+[2026-01-03 20:52:09]	END R1 Goblin 16
+[2026-01-03 20:52:09]	START R1 Goblin 3
+[2026-01-03 20:52:09]	END R1 Goblin 3
+[2026-01-03 20:52:09]	START R1 Goblin 8
+[2026-01-03 20:52:19]	Old Man: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:19]	Malagrou Thunderclopper: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:19]	Goblin 14: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:19]	стихия: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:19]	Goblin 9: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:19]	Goblin 2: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:19]	Dorian Vandergraff: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:19]	Goblin 15: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:19]	Goblin 7: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:19]	Goblin 11: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:19]	Goblin 12: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:19]	Goblin 6: set condition: Stunned (1 turn(s))
+[2026-01-03 20:52:26]	Fred Figglehorn: set condition: Restrained (1 turn(s))
+[2026-01-03 20:52:26]	Johnny Morris: set condition: Restrained (1 turn(s))
+[2026-01-03 20:52:26]	Goblin 10: set condition: Restrained (1 turn(s))
+[2026-01-03 20:52:26]	Goblin 13: set condition: Restrained (1 turn(s))
+[2026-01-03 20:52:26]	Goblin 16: set condition: Restrained (1 turn(s))
+[2026-01-03 20:52:26]	Goblin 3: set condition: Restrained (1 turn(s))
+[2026-01-03 20:52:26]	Goblin 8: set condition: Restrained (1 turn(s))
+[2026-01-03 20:52:32]	John Twilight: set condition: Paralyzed (3 turn(s))
+[2026-01-03 20:52:32]	Thibble Wobblepop: set condition: Paralyzed (3 turn(s))
+[2026-01-03 20:52:32]	Throat Goat: set condition: Paralyzed (3 turn(s))
+[2026-01-03 20:52:32]	Goblin 5: set condition: Paralyzed (3 turn(s))
+[2026-01-03 20:52:35]	Goblin 8: conditions ended: Restrained
+[2026-01-03 20:52:35]	END R1 Goblin 8
+[2026-01-03 20:52:35]	--- ROUND 2 ---
+[2026-01-03 20:52:35]	START R2 Goblin 1
+[2026-01-03 20:52:35]	Goblin 1: cond 🛌(1)
+[2026-01-03 20:52:39]	Goblin 1: stood up (spent 15 ft, prone removed)
+[2026-01-03 20:52:45]	END R2 Goblin 1
+[2026-01-03 20:52:45]	START R2 Goblin 4
+[2026-01-03 20:52:48]	END R2 Goblin 4
+[2026-01-03 20:52:48]	START R2 John Twilight
+[2026-01-03 20:52:48]	John Twilight: cond 🧊(2); skip: Paralyzed; turn skipped
+[2026-01-03 20:52:48]	END R2 John Twilight (skipped)
+[2026-01-03 20:52:48]	START R2 Thibble Wobblepop
+[2026-01-03 20:52:48]	Thibble Wobblepop: cond 🧊(2); skip: Paralyzed; turn skipped
+[2026-01-03 20:52:48]	END R2 Thibble Wobblepop (skipped)
+[2026-01-03 20:52:48]	START R2 Throat Goat
+[2026-01-03 20:52:48]	Throat Goat: cond 🧊(2); skip: Paralyzed; turn skipped
+[2026-01-03 20:52:48]	END R2 Throat Goat (skipped)
+[2026-01-03 20:52:48]	START R2 Goblin 5
+[2026-01-03 20:52:48]	Goblin 5: cond 🧊(2); skip: Paralyzed; turn skipped
+[2026-01-03 20:52:48]	END R2 Goblin 5 (skipped)
+[2026-01-03 20:52:48]	START R2 Old Man
+[2026-01-03 20:52:48]	Old Man: skip: Stunned; turn skipped
+[2026-01-03 20:52:48]	END R2 Old Man (skipped)
+[2026-01-03 20:52:48]	START R2 Malagrou Thunderclopper
+[2026-01-03 20:52:48]	Malagrou Thunderclopper: skip: Stunned; turn skipped
+[2026-01-03 20:52:48]	END R2 Malagrou Thunderclopper (skipped)
+[2026-01-03 20:52:48]	START R2 Goblin 14
+[2026-01-03 20:52:48]	Goblin 14: skip: Stunned; turn skipped
+[2026-01-03 20:52:48]	END R2 Goblin 14 (skipped)
+[2026-01-03 20:52:48]	START R2 стихия
+[2026-01-03 20:52:48]	стихия: skip: Stunned; turn skipped
+[2026-01-03 20:52:48]	END R2 стихия (skipped)
+[2026-01-03 20:52:48]	START R2 Goblin 9
+[2026-01-03 20:52:48]	Goblin 9: skip: Stunned; turn skipped
+[2026-01-03 20:52:48]	END R2 Goblin 9 (skipped)
+[2026-01-03 20:52:48]	START R2 Goblin 2
+[2026-01-03 20:52:48]	Goblin 2: skip: Stunned; turn skipped
+[2026-01-03 20:52:48]	END R2 Goblin 2 (skipped)
+[2026-01-03 20:52:48]	START R2 Dorian Vandergraff
+[2026-01-03 20:52:48]	Dorian Vandergraff: skip: Stunned; turn skipped
+[2026-01-03 20:52:48]	END R2 Dorian Vandergraff (skipped)
+[2026-01-03 20:52:48]	START R2 Goblin 15
+[2026-01-03 20:53:05]	Goblin 15: conditions ended: Stunned
+[2026-01-03 20:53:05]	END R2 Goblin 15
+[2026-01-03 20:53:05]	START R2 Goblin 7
+[2026-01-03 20:53:12]	Goblin 7: conditions ended: Stunned
+[2026-01-03 20:53:12]	END R2 Goblin 7
+[2026-01-03 20:53:12]	START R2 Goblin 11
+[2026-01-03 20:53:12]	Goblin 11: conditions ended: Stunned
+[2026-01-03 20:53:12]	END R2 Goblin 11
+[2026-01-03 20:53:12]	START R2 Goblin 12
+[2026-01-03 20:53:16]	Goblin 12: conditions ended: Stunned
+[2026-01-03 20:53:16]	END R2 Goblin 12
+[2026-01-03 20:53:16]	START R2 Goblin 6
+[2026-01-03 20:53:16]	Goblin 6: conditions ended: Stunned
+[2026-01-03 20:53:16]	END R2 Goblin 6
+[2026-01-03 20:53:16]	START R2 Fred Figglehorn
+[2026-01-03 20:53:16]	Fred Figglehorn: cond ⛓(1)
+[2026-01-03 20:53:18]	Fred Figglehorn: conditions ended: Restrained
+[2026-01-03 20:53:18]	END R2 Fred Figglehorn
+[2026-01-03 20:53:18]	START R2 Johnny Morris
+[2026-01-03 20:53:18]	Johnny Morris: cond ⛓(1)
+[2026-01-03 20:53:19]	Johnny Morris: conditions ended: Restrained
+[2026-01-03 20:53:19]	END R2 Johnny Morris
+[2026-01-03 20:53:19]	START R2 Goblin 10
+[2026-01-03 20:53:19]	Goblin 10: cond ⛓(1)
+[2026-01-03 20:53:26]	Goblin 10: conditions ended: Restrained
+[2026-01-03 20:53:26]	END R2 Goblin 10
+[2026-01-03 20:53:26]	START R2 Goblin 13
+[2026-01-03 20:53:26]	Goblin 13: cond ⛓(1)
+[2026-01-03 20:53:26]	Goblin 13: conditions ended: Restrained
+[2026-01-03 20:53:26]	END R2 Goblin 13
+[2026-01-03 20:53:26]	START R2 Goblin 16
+[2026-01-03 20:53:26]	Goblin 16: cond ⛓(1)
+[2026-01-03 20:53:27]	Goblin 16: conditions ended: Restrained
+[2026-01-03 20:53:27]	END R2 Goblin 16
+[2026-01-03 20:53:27]	START R2 Goblin 3
+[2026-01-03 20:53:27]	Goblin 3: cond ⛓(1)
+[2026-01-03 20:53:33]	Goblin 3: conditions ended: Restrained
+[2026-01-03 20:53:33]	END R2 Goblin 3
+[2026-01-03 20:53:33]	START R2 Goblin 8
+[2026-01-03 20:53:34]	END R2 Goblin 8
+[2026-01-03 20:53:34]	--- ROUND 3 ---
+[2026-01-03 20:53:34]	START R3 Goblin 1
+[2026-01-03 20:53:34]	END R3 Goblin 1
+[2026-01-03 20:53:34]	START R3 Goblin 4
+[2026-01-03 20:53:35]	END R3 Goblin 4
+[2026-01-03 20:53:35]	START R3 John Twilight
+[2026-01-03 20:53:35]	John Twilight: cond 🧊(1); skip: Paralyzed; turn skipped
+[2026-01-03 20:53:35]	END R3 John Twilight (skipped)
+[2026-01-03 20:53:35]	START R3 Thibble Wobblepop
+[2026-01-03 20:53:35]	Thibble Wobblepop: cond 🧊(1); skip: Paralyzed; turn skipped
+[2026-01-03 20:53:35]	END R3 Thibble Wobblepop (skipped)
+[2026-01-03 20:53:35]	START R3 Throat Goat
+[2026-01-03 20:53:35]	Throat Goat: cond 🧊(1); skip: Paralyzed; turn skipped
+[2026-01-03 20:53:35]	END R3 Throat Goat (skipped)
+[2026-01-03 20:53:35]	START R3 Goblin 5
+[2026-01-03 20:53:35]	Goblin 5: cond 🧊(1); skip: Paralyzed; turn skipped
+[2026-01-03 20:53:35]	END R3 Goblin 5 (skipped)
+[2026-01-03 20:53:35]	START R3 Old Man

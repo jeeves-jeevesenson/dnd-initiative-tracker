@@ -1,0 +1,4040 @@
+#!/usr/bin/env python3
+"""
+DnD Initiative Tracker (v23)
+
+Run:
+  python3 dnd_initative_tracker_v23.py
+
+Features:
+- Initiative order with configurable "Start Here" rotation
+- Turn tracker (current creature, round count, turn count) + loops
+- HP + Speed (movement) per creature
+- Damage/Heal tool (calculator-style) with auto-remove only when damage drops HP to 0
+- Damage-over-time stacks (Burn/Poison/Necrotic) that roll at start of creature's turn
+- Conditions (2024 Basic Rules list) with stackable durations, auto-skip for certain conditions
+- Prone: Stand Up button spends half movement to remove Prone
+- Star Advantage: expires at start of creature's turn
+- Ally name text in green, enemies in red
+- Persistent log with history file
+- Conditions tick down at end of each creature's turn (non-stacking, Exhaustion excepted)
+"""
+
+from __future__ import annotations
+
+import random
+import os
+import shutil
+import ast
+from pathlib import Path
+from datetime import datetime
+
+try:
+    import yaml  # type: ignore
+except Exception:  # pragma: no cover
+    yaml = None
+import tkinter as tk
+import tkinter.font as tkfont
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
+from tkinter import messagebox, ttk, simpledialog, filedialog
+
+try:
+    from PIL import Image, ImageTk  # type: ignore
+except Exception:  # pragma: no cover
+    Image = None
+    ImageTk = None
+
+
+# --- 2024 Basic Rules (conditions list) ---
+# Roll20's Free Basic Rules (2024) index includes:
+# Blinded, Charmed, Deafened, Exhaustion, Frightened, Grappled, Incapacitated,
+# Invisible, Paralyzed, Petrified, Poisoned, Prone, Restrained, Stunned, Unconscious.
+
+CONDITIONS_META: Dict[str, Dict[str, object]] = {
+    "blinded": {"label": "Blinded", "icon": "🙈", "skip": False, "immobile": False},
+    "charmed": {"label": "Charmed", "icon": "💖", "skip": False, "immobile": False},
+    "deafened": {"label": "Deafened", "icon": "🔇", "skip": False, "immobile": False},
+    "exhaustion": {"label": "Exhaustion", "icon": "🥱", "skip": False, "immobile": False},  # tracked as level
+    "frightened": {"label": "Frightened", "icon": "😱", "skip": False, "immobile": False},
+    "grappled": {"label": "Grappled", "icon": "🤼", "skip": False, "immobile": True},
+    "incapacitated": {"label": "Incapacitated", "icon": "⛔", "skip": True, "immobile": False},
+    "invisible": {"label": "Invisible", "icon": "🫥", "skip": False, "immobile": False},
+    "paralyzed": {"label": "Paralyzed", "icon": "🧊", "skip": True, "immobile": True},
+    "petrified": {"label": "Petrified", "icon": "🪨", "skip": True, "immobile": True},
+    "poisoned": {"label": "Poisoned", "icon": "🤢", "skip": False, "immobile": False},
+    "prone": {"label": "Prone", "icon": "🛌", "skip": False, "immobile": False},
+    "restrained": {"label": "Restrained", "icon": "⛓", "skip": False, "immobile": True},
+    "stunned": {"label": "Stunned", "icon": "💫", "skip": True, "immobile": True},
+    "unconscious": {"label": "Unconscious", "icon": "😴", "skip": True, "immobile": True},
+}
+
+DOT_META = {
+    "burn": {"label": "Burn", "icon": "🔥"},
+    "poison": {"label": "Poison", "icon": "☠"},
+    "necrotic": {"label": "Necrotic", "icon": "💀"},
+
+}
+DEFAULT_STARTING_PLAYERS = [
+    "John Twilight",
+    "стихия",
+    "Thibble Wobblepop",
+    "Throat Goat",
+    "Dorian Vandergraff",
+    "Old Man",
+    "Fred Figglehorn",
+    "Malagrou Thunderclopper",
+    "Johnny Morris",
+]
+
+
+
+
+@dataclass
+class DotStack:
+    sid: int
+    dtype: str  # burn / poison / necrotic
+    dice: Dict[int, int]  # {6:1, 4:2} = 1d6+2d4
+    remaining_turns: int
+
+
+@dataclass
+class ConditionStack:
+    sid: int
+    ctype: str  # key in CONDITIONS_META (except exhaustion, which is level-based)
+    remaining_turns: Optional[int]  # None = indefinite
+
+
+@dataclass
+class Combatant:
+    cid: int
+    name: str
+    hp: int
+    speed: int
+    swim_speed: int
+    water_mode: bool
+    move_remaining: int
+    initiative: int
+    dex: Optional[int] = None
+    roll: Optional[int] = None
+    nat20: bool = False
+    ally: bool = False
+    is_pc: bool = False
+
+
+    # Effects / statuses
+    star_advantage: bool = False
+    dot_stacks: List[DotStack] = field(default_factory=list)
+    condition_stacks: List[ConditionStack] = field(default_factory=list)
+    exhaustion_level: int = 0  # 0-6
+
+
+class InitiativeTracker(tk.Tk):
+    def __init__(self) -> None:
+        super().__init__()
+        self.title("DnD Initiative Tracker v18")
+        self.geometry("1120x720")
+
+        self._next_id = 1
+        self._next_stack_id = 1
+        self.combatants: Dict[int, Combatant] = {}
+
+        # Remember roles for name-based log styling (pc/ally/enemy)
+        self._name_role_memory: Dict[str, str] = {}
+        try:
+            for _nm in self._load_starting_players_roster():
+                self._name_role_memory[str(_nm)] = "pc"
+        except Exception:
+            pass
+
+        self.start_cid: Optional[int] = None
+
+        # Turn tracker state
+        self.current_cid: Optional[int] = None
+        self.round_num: int = 1
+        self.turn_num: int = 0
+
+        self._build_ui()
+        self._load_history_into_log()
+        self._log("=== Session started ===")
+        self._open_starting_players_dialog()
+        self._rebuild_table()
+
+    # -------------------------- UI --------------------------
+    def _build_ui(self) -> None:
+        style = ttk.Style(self)
+        try:
+            style.theme_use("clam")
+        except Exception:
+            pass
+
+        style.configure("DnD.TLabelframe", padding=8)
+        style.configure("DnD.Treeview", rowheight=24)
+
+        container = ttk.Frame(self, padding=10)
+        container.pack(fill=tk.BOTH, expand=True)
+
+        # Add frame
+        add_frame = ttk.LabelFrame(container, text="Add Combatant", style="DnD.TLabelframe")
+        add_frame.pack(fill=tk.X, pady=(0, 8))
+
+        ttk.Label(add_frame, text="Name").grid(row=0, column=0, sticky="w")
+        self.name_var = tk.StringVar()
+        ttk.Entry(add_frame, textvariable=self.name_var, width=20).grid(row=1, column=0, padx=(0, 8))
+
+        ttk.Label(add_frame, text="Init (total)").grid(row=0, column=1, sticky="w")
+        self.init_var = tk.StringVar()
+        ttk.Entry(add_frame, textvariable=self.init_var, width=10).grid(row=1, column=1, padx=(0, 8))
+
+        ttk.Label(add_frame, text="HP").grid(row=0, column=2, sticky="w")
+        self.hp_var = tk.StringVar()
+        ttk.Entry(add_frame, textvariable=self.hp_var, width=8).grid(row=1, column=2, padx=(0, 8))
+
+        ttk.Label(add_frame, text="Speed (ft)").grid(row=0, column=3, sticky="w")
+        self.speed_var = tk.StringVar(value="30")
+        ttk.Entry(add_frame, textvariable=self.speed_var, width=8).grid(row=1, column=3, padx=(0, 8))
+
+        ttk.Label(add_frame, text="Swim (ft)").grid(row=0, column=4, sticky="w")
+        self.swim_var = tk.StringVar()
+        ttk.Entry(add_frame, textvariable=self.swim_var, width=8).grid(row=1, column=4, padx=(0, 8))
+
+
+        ttk.Label(add_frame, text="Dex (opt)").grid(row=0, column=5, sticky="w")
+        self.dex_var = tk.StringVar()
+        ttk.Entry(add_frame, textvariable=self.dex_var, width=8).grid(row=1, column=5, padx=(0, 8))
+
+        self.ally_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(add_frame, text="Ally", variable=self.ally_var).grid(row=1, column=6, padx=(0, 8))
+
+        self.water_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(add_frame, text="Water", variable=self.water_var).grid(row=1, column=7, padx=(0, 8))
+
+        ttk.Button(add_frame, text="Add", command=self._add_single).grid(row=1, column=8, padx=(0, 8))
+        ttk.Button(add_frame, text="Bulk Add…", command=self._open_bulk_dialog).grid(row=1, column=9, padx=(0, 8))
+        ttk.Button(add_frame, text="Remove Selected", command=self._remove_selected).grid(row=1, column=10, padx=(0, 8))
+        ttk.Button(add_frame, text="Damage/Heal…", command=self._open_hp_tool).grid(row=1, column=11, padx=(0, 8))
+        ttk.Button(add_frame, text="DoT…", command=self._open_dot_tool).grid(row=1, column=12, padx=(0, 8))
+        ttk.Button(add_frame, text="Conditions…", command=self._open_condition_tool).grid(row=1, column=13, padx=(0, 8))
+        ttk.Button(add_frame, text="⭐ Adv", command=self._toggle_star_advantage_selected).grid(row=1, column=14, padx=(0, 8))
+        ttk.Button(add_frame, text="Set Start Here", command=self._set_start_here).grid(row=1, column=15, padx=(0, 8))
+        ttk.Button(add_frame, text="Clear Start", command=self._clear_start).grid(row=1, column=16)
+
+        # Turn frame
+        turn_frame = ttk.LabelFrame(container, text="Turn Tracker", style="DnD.TLabelframe")
+        turn_frame.pack(fill=tk.X, pady=(0, 8))
+
+        self.turn_current_var = tk.StringVar(value="(not started)")
+        self.turn_round_var = tk.StringVar(value="1")
+        self.turn_count_var = tk.StringVar(value="0")
+        self.turn_move_var = tk.StringVar(value="—")
+        self.start_last_var = tk.StringVar(value="")
+
+        ttk.Label(turn_frame, text="Current:").grid(row=0, column=0, sticky="w")
+        ttk.Label(turn_frame, textvariable=self.turn_current_var).grid(row=0, column=1, sticky="w", padx=(0, 20))
+
+        ttk.Label(turn_frame, text="Round:").grid(row=0, column=2, sticky="w")
+        ttk.Label(turn_frame, textvariable=self.turn_round_var, width=6).grid(row=0, column=3, sticky="w", padx=(0, 20))
+
+        ttk.Label(turn_frame, text="Turn:").grid(row=0, column=4, sticky="w")
+        ttk.Label(turn_frame, textvariable=self.turn_count_var, width=8).grid(row=0, column=5, sticky="w", padx=(0, 20))
+
+        ttk.Label(turn_frame, text="Move:").grid(row=0, column=6, sticky="w")
+        ttk.Label(turn_frame, textvariable=self.turn_move_var, width=12).grid(row=0, column=7, sticky="w")
+
+        btn_row = ttk.Frame(turn_frame)
+        btn_row.grid(row=1, column=0, columnspan=8, sticky="w", pady=(6, 0))
+
+        ttk.Button(btn_row, text="Start/Reset", command=self._start_turns).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Set Turn Here", command=self._set_turn_here).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Prev Turn", command=self._prev_turn).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Next Turn", command=self._next_turn).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Stand Up", command=self._stand_up_current).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Move…", command=self._open_move_tool).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Toggle Water", command=self._toggle_water_selected).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Map Mode…", command=self._open_map_mode).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Clear", command=self._clear_turns).pack(side=tk.LEFT, padx=(0, 8))
+
+        ttk.Label(btn_row, text="Shortcuts: Space=Next, Shift+Space=Prev, C=Conditions, D=Damage, M=Move, W=Water, P=Map").pack(
+            side=tk.LEFT, padx=(14, 0)
+        )
+
+        ttk.Label(turn_frame, text="Start-of-turn log:").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(turn_frame, textvariable=self.start_last_var, wraplength=1000).grid(
+            row=2, column=1, columnspan=7, sticky="w", pady=(6, 0)
+        )
+
+
+        # Table + Log (split pane)
+        paned = ttk.PanedWindow(container, orient=tk.VERTICAL)
+        paned.pack(fill=tk.BOTH, expand=True)
+
+        table_frame = ttk.LabelFrame(paned, text="Initiative Order", style="DnD.TLabelframe")
+        log_frame = ttk.LabelFrame(paned, text="Log", style="DnD.TLabelframe")
+        paned.add(table_frame, weight=4)
+        paned.add(log_frame, weight=1)
+
+        columns = ("name", "side", "hp", "spd", "swim", "mode", "move", "effects", "init", "nat")
+        self.tree = ttk.Treeview(
+            table_frame, columns=columns, show="headings", selectmode="extended", style="DnD.Treeview"
+        )
+
+        self.tree.heading("name", text="Name", anchor="w")
+        self.tree.heading("side", text="Side", anchor="center")
+        self.tree.heading("hp", text="HP", anchor="center")
+        self.tree.heading("spd", text="Land", anchor="center")
+        self.tree.heading("swim", text="Swim", anchor="center")
+        self.tree.heading("mode", text="Mode", anchor="center")
+        self.tree.heading("move", text="Move", anchor="center")
+        self.tree.heading("effects", text="Effects", anchor="center")
+        self.tree.heading("init", text="Init", anchor="center")
+        self.tree.heading("nat", text="Nat20", anchor="center")
+
+        self.tree.column("name", width=320, anchor=tk.W)
+        self.tree.column("side", width=70, anchor=tk.CENTER)
+        self.tree.column("hp", width=60, anchor=tk.CENTER)
+        self.tree.column("spd", width=60, anchor=tk.CENTER)
+        self.tree.column("swim", width=60, anchor=tk.CENTER)
+        self.tree.column("mode", width=70, anchor=tk.CENTER)
+        self.tree.column("move", width=70, anchor=tk.CENTER)
+        self.tree.column("effects", width=260, anchor=tk.CENTER)
+        self.tree.column("init", width=60, anchor=tk.CENTER)
+        self.tree.column("nat", width=60, anchor=tk.CENTER)
+
+        scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scroll.set)
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Log box
+        log_top = ttk.Frame(log_frame)
+        log_top.pack(fill=tk.X, padx=6, pady=(6, 0))
+        self.show_timestamps_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(log_top, text="Timestamp", variable=self.show_timestamps_var, command=self._toggle_log_timestamps).pack(
+            side=tk.RIGHT, padx=(0, 8)
+        )
+        ttk.Button(log_top, text="Clear Log", command=self._clear_log).pack(side=tk.RIGHT)
+
+        log_body = ttk.Frame(log_frame)
+        log_body.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+
+        self.log_text = tk.Text(log_body, height=10, wrap="word")
+        self.log_text.configure(state="disabled")
+        log_scroll = ttk.Scrollbar(log_body, orient="vertical", command=self.log_text.yview)
+        self.log_text.configure(yscrollcommand=log_scroll.set)
+        self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        log_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self._init_log_styles()
+
+        # row tags
+        self.tree.tag_configure("odd", background="#f7f1df")
+        self.tree.tag_configure("even", background="#fbf7eb")
+        self.tree.tag_configure("ally", foreground="#1b7f2a")
+        self.tree.tag_configure("enemy", foreground="#b02a2a")
+        self.tree.tag_configure("current", background="#fff2b2")
+        self.tree.tag_configure("start", background="#cfe8ff")
+
+        # bindings
+        self.tree.bind("<Double-1>", self._on_tree_double_click)
+        self.bind("<space>", lambda e: self._next_turn())
+        self.bind("<Shift-space>", lambda e: self._prev_turn())
+        self.bind("<KeyPress-d>", lambda e: self._open_hp_tool(default_mode="damage"))
+        self.bind("<KeyPress-h>", lambda e: self._open_hp_tool(default_mode="heal"))
+        self.bind("<KeyPress-c>", lambda e: self._open_condition_tool())
+        self.bind("<KeyPress-t>", lambda e: self._open_dot_tool())
+        self.bind("<KeyPress-m>", lambda e: self._open_move_tool())
+        self.bind("<KeyPress-w>", lambda e: self._toggle_water_selected())
+        self.bind("<KeyPress-p>", lambda e: self._open_map_mode())
+
+    
+
+    # --------------------- Map Mode ---------------------
+    def _open_map_mode(self) -> None:
+        """Open the battle map window (Map Mode)."""
+        try:
+            if self._map_window is not None and self._map_window.winfo_exists():
+                self._map_window.refresh_units()
+                self._map_window.lift()
+                self._map_window.focus_force()
+                return
+        except Exception:
+            pass
+
+        self._map_window = BattleMapWindow(self)
+        try:
+            # Highlight active combatant (if any) on open
+            if self.current_cid is not None:
+                self._map_window.set_active(self.current_cid)
+        except Exception:
+            pass
+
+    # --------------------- Startup players ---------------------
+    def _players_file_path(self) -> Path:
+        # Keep the roster file next to the script for easy editing/backup.
+        try:
+            base = Path(__file__).resolve().parent
+        except Exception:
+            base = Path.cwd()
+        return base / "startingplayers.yaml"
+
+
+    # --------------------- History / Log ---------------------
+    def _history_file_path(self) -> Path:
+        try:
+            base = Path(__file__).resolve().parent
+        except Exception:
+            base = Path.cwd()
+        return base / "dnd_initative_tracker_history.log"
+
+    def _init_log_styles(self) -> None:
+        """Configure log widget tags (timestamp toggle + name styling)."""
+        if not hasattr(self, "log_text"):
+            return
+
+        # Tab stop after the timestamp column.
+        try:
+            self.log_text.configure(tabs=(160,))
+        except Exception:
+            pass
+
+        base = tkfont.nametofont("TkDefaultFont")
+        self._log_font_bold = tkfont.Font(self, font=base)
+        self._log_font_bold.configure(weight="bold")
+        self._log_font_bold_italic = tkfont.Font(self, font=base)
+        self._log_font_bold_italic.configure(weight="bold", slant="italic")
+        self._log_font_bold_underline = tkfont.Font(self, font=base)
+        self._log_font_bold_underline.configure(weight="bold", underline=1)
+
+        # Timestamp tag (can be elided)
+        self.log_text.tag_configure("ts", foreground="#555555")
+        self._toggle_log_timestamps()
+
+        # Name tags
+        self.log_text.tag_configure("nm_ally", font=self._log_font_bold)
+        self.log_text.tag_configure("nm_enemy", font=self._log_font_bold_italic)
+        self.log_text.tag_configure("nm_pc", font=self._log_font_bold_underline)
+
+    def _toggle_log_timestamps(self) -> None:
+        if not hasattr(self, "log_text"):
+            return
+        show = True
+        if hasattr(self, "show_timestamps_var"):
+            show = bool(self.show_timestamps_var.get())
+        try:
+            self.log_text.tag_configure("ts", elide=(not show))
+        except Exception:
+            # Older Tk builds may not support elide; fall back to leaving them visible.
+            pass
+
+    def _remember_role(self, c: Combatant) -> None:
+        """Persist role memory for name-based styling in the log."""
+        if getattr(c, "is_pc", False):
+            role = "pc"
+        elif bool(getattr(c, "ally", False)):
+            role = "ally"
+        else:
+            role = "enemy"
+        self._name_role_memory[str(c.name)] = role
+
+    def _role_for_name(self, name: str) -> Optional[str]:
+        # Prefer current combatant state when present
+        for c in self.combatants.values():
+            if c.name == name:
+                if getattr(c, "is_pc", False):
+                    return "pc"
+                if c.ally:
+                    return "ally"
+                return "enemy"
+        return self._name_role_memory.get(name)
+
+    def _tag_for_name(self, name: str) -> Optional[str]:
+        role = self._role_for_name(name)
+        if role == "pc":
+            return "nm_pc"
+        if role == "enemy":
+            return "nm_enemy"
+        if role == "ally":
+            return "nm_ally"
+        return None
+
+    def _apply_name_tags_in_range(self, start: str, end: str) -> None:
+        """Bold/italic/underline known names in a given text range."""
+        if not hasattr(self, "log_text"):
+            return
+        # Build a de-duplicated name list (memory + current combatants)
+        names = set(self._name_role_memory.keys())
+        for c in self.combatants.values():
+            names.add(c.name)
+            # keep memory warm
+            self._remember_role(c)
+
+        # Longest names first to reduce partial overlaps.
+        ordered = sorted(names, key=lambda s: (-len(s), s))
+        for nm in ordered:
+            if not nm:
+                continue
+            tag = self._tag_for_name(nm)
+            if not tag:
+                continue
+            idx = start
+            while True:
+                try:
+                    pos = self.log_text.search(nm, idx, stopindex=end)
+                except Exception:
+                    break
+                if not pos:
+                    break
+                match_end = f"{pos}+{len(nm)}c"
+                try:
+                    self.log_text.tag_add(tag, pos, match_end)
+                except Exception:
+                    pass
+                idx = match_end
+
+    def _append_log_line(self, stamp: str, content: str, write_file: bool) -> None:
+        if not hasattr(self, "log_text"):
+            return
+        self.log_text.configure(state="normal")
+        # Timestamp column
+        self.log_text.insert(tk.END, stamp + "\t", ("ts",))
+        # Content column
+        content_start = self.log_text.index(tk.END)
+        self.log_text.insert(tk.END, content)
+        content_end = self.log_text.index(tk.END)
+        self.log_text.insert(tk.END, "\n")
+        self._apply_name_tags_in_range(content_start, content_end)
+        self.log_text.configure(state="disabled")
+        self.log_text.see(tk.END)
+
+        if write_file:
+            try:
+                with self._history_file_path().open("a", encoding="utf-8") as f:
+                    f.write(stamp + "\t" + content + "\n")
+            except Exception:
+                pass
+
+    def _load_history_into_log(self, max_lines: int = 2000) -> None:
+        """Load existing history file into the Log box."""
+        if not hasattr(self, "log_text"):
+            return
+        p = self._history_file_path()
+        if not p.exists():
+            return
+        try:
+            lines = p.read_text(encoding="utf-8", errors="ignore").splitlines()
+            if len(lines) > max_lines:
+                lines = lines[-max_lines:]
+
+            self.log_text.configure(state="normal")
+            self.log_text.delete("1.0", tk.END)
+            self.log_text.configure(state="disabled")
+
+            for line in lines:
+                if not line.strip():
+                    continue
+                # Skip old redundant "next up" lines if present
+                if " - next up" in line:
+                    continue
+                stamp = ""
+                content = line
+
+                if "\t" in line:
+                    stamp, content = line.split("\t", 1)
+                elif line.startswith("[") and "]" in line:
+                    # Legacy format: [timestamp] ... - msg
+                    try:
+                        stamp = line.split("]", 1)[0].lstrip("[")
+                        content = line.split("]", 1)[1].strip()
+                    except Exception:
+                        stamp = ""
+                        content = line
+
+                if not stamp:
+                    stamp = "[" + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "]"
+
+                self._append_log_line(stamp, content, write_file=False)
+        except Exception:
+            pass
+
+    def _log(self, msg: str, cid: Optional[int] = None) -> None:
+        """Append a line to the on-screen log and the history file."""
+        stamp = "[" + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "]"
+
+        content = msg
+        if cid is not None and cid in self.combatants:
+            # Prefix with the creature name for generic events
+            nm = self.combatants[cid].name
+            content = f"{nm}: {msg}"
+
+        self._append_log_line(stamp, content, write_file=True)
+    def _clear_log(self) -> None:
+        """Archive the current history log to ./old logs/<timestamp>.log and start fresh."""
+        # 1) Archive existing history file on disk
+        p = self._history_file_path()
+        try:
+            base = p.parent
+            old_dir = base / "old logs"
+            old_dir.mkdir(parents=True, exist_ok=True)
+
+            if p.exists():
+                # Rename to timestamp (and keep .log extension)
+                stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                dest = old_dir / f"{stamp}.log"
+                # Avoid collisions if user clears multiple times quickly
+                n = 1
+                while dest.exists():
+                    dest = old_dir / f"{stamp}_{n}.log"
+                    n += 1
+                shutil.move(str(p), str(dest))
+
+            # Recreate a fresh empty history file
+            p.write_text("", encoding="utf-8")
+        except Exception:
+            # Best effort: at least try to truncate the current log
+            try:
+                p.write_text("", encoding="utf-8")
+            except Exception:
+                pass
+
+        # 2) Clear on-screen log
+        if hasattr(self, "log_text"):
+            self.log_text.configure(state="normal")
+            self.log_text.delete("1.0", tk.END)
+            self.log_text.configure(state="disabled")
+
+    def _load_starting_players_roster(self) -> List[str]:
+        p = self._players_file_path()
+        if p.exists():
+            try:
+                raw = p.read_text(encoding="utf-8")
+                data = None
+                if yaml is not None:
+                    data = yaml.safe_load(raw)
+                # Accept either {"players": [..]} or a plain list.
+                players = None
+                if isinstance(data, dict):
+                    players = data.get("players")
+                elif isinstance(data, list):
+                    players = data
+                if isinstance(players, list):
+                    out: List[str] = []
+                    for it in players:
+                        if isinstance(it, str):
+                            nm = it.strip()
+                        elif isinstance(it, dict) and "name" in it:
+                            nm = str(it["name"]).strip()
+                        else:
+                            continue
+                        if nm and nm not in out:
+                            out.append(nm)
+                    if out:
+                        return out
+            except Exception:
+                pass
+
+        # If missing or unreadable, seed with defaults.
+        self._save_starting_players_roster(list(DEFAULT_STARTING_PLAYERS))
+        return list(DEFAULT_STARTING_PLAYERS)
+
+    def _save_starting_players_roster(self, roster: List[str]) -> None:
+        p = self._players_file_path()
+        uniq: List[str] = []
+        for n in roster:
+            n = str(n).strip()
+            if n and n not in uniq:
+                uniq.append(n)
+        data = {"players": uniq}
+        try:
+            if yaml is not None:
+                p.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+            else:
+                # Fallback to a simple YAML-ish format.
+                lines = ["players:"]
+                for nm in uniq:
+                    lines.append(f'  - "{nm}"')
+                p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        except Exception:
+            # Non-fatal: app still works, just won't persist roster edits.
+            pass
+
+    def _unique_name(self, base: str) -> str:
+        base = base.strip() or "Creature"
+        existing = {c.name for c in self.combatants.values()}
+        if base not in existing:
+            return base
+        i = 2
+        while f"{base} {i}" in existing:
+            i += 1
+        return f"{base} {i}"
+
+    def _open_starting_players_dialog(self) -> None:
+        roster = self._load_starting_players_roster()
+
+        win = tk.Toplevel(self)
+        win.title("Starting Players")
+        win.geometry("640x560")
+        win.transient(self)
+        win.after(0, win.grab_set)
+
+        ttk.Label(
+            win,
+            text="Pick who be startin’ this scrap (allies). Roll initiative per sailor, or type the total.",
+        ).pack(anchor="w", padx=12, pady=(12, 6))
+
+        # Scrollable roster list
+        outer = ttk.Frame(win)
+        outer.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 8))
+
+        canvas = tk.Canvas(outer, highlightthickness=0)
+        vsb = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vsb.set)
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        inner = ttk.Frame(canvas)
+        inner_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def _sync_scroll(_evt=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        inner.bind("<Configure>", _sync_scroll)
+
+        def _sync_width(evt):
+            canvas.itemconfigure(inner_id, width=evt.width)
+
+        canvas.bind("<Configure>", _sync_width)
+
+        rows: List[Dict[str, object]] = []
+
+        def rebuild_rows() -> None:
+            nonlocal rows
+            for child in inner.winfo_children():
+                child.destroy()
+            rows = []
+
+            ttk.Label(inner, text="Use").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=(0, 6))
+            ttk.Label(inner, text="Name").grid(row=0, column=1, sticky="w", padx=(0, 6), pady=(0, 6))
+            ttk.Label(inner, text="Roll?").grid(row=0, column=2, sticky="w", padx=(0, 6), pady=(0, 6))
+            ttk.Label(inner, text="Init total").grid(row=0, column=3, sticky="w", padx=(0, 6), pady=(0, 6))
+            ttk.Label(inner, text="Roster").grid(row=0, column=4, sticky="w", padx=(0, 6), pady=(0, 6))
+
+            for i, name in enumerate(roster, start=1):
+                use_var = tk.BooleanVar(value=True)
+                roll_var = tk.BooleanVar(value=True)
+                init_var = tk.StringVar(value="")
+
+                ttk.Checkbutton(inner, variable=use_var).grid(row=i, column=0, sticky="w", padx=(0, 6))
+                ttk.Label(inner, text=name).grid(row=i, column=1, sticky="w", padx=(0, 6))
+                ttk.Checkbutton(inner, variable=roll_var).grid(row=i, column=2, sticky="w", padx=(0, 6))
+
+                ent_init = ttk.Entry(inner, textvariable=init_var, width=10)
+                ent_init.grid(row=i, column=3, sticky="w", padx=(0, 6))
+                ent_init.state(["disabled"])
+
+                def on_roll_change(*_a, rv=roll_var, ent=ent_init):
+                    if rv.get():
+                        ent.state(["disabled"])
+                    else:
+                        ent.state(["!disabled"])
+
+                roll_var.trace_add("write", on_roll_change)
+
+                def remove_name(nm=name):
+                    nonlocal roster
+                    if messagebox.askyesno("Remove player", f"Remove '{nm}' from roster?", parent=win):
+                        roster = [x for x in roster if x != nm]
+                        self._save_starting_players_roster(roster)
+                        rebuild_rows()
+
+                ttk.Button(inner, text="Remove", command=remove_name).grid(row=i, column=4, sticky="w")
+
+                rows.append({"name": name, "use": use_var, "roll": roll_var, "init": init_var})
+
+        rebuild_rows()
+
+        # Add new player controls
+        add_bar = ttk.Frame(win)
+        add_bar.pack(fill=tk.X, padx=12, pady=(0, 8))
+        new_name = tk.StringVar()
+        ttk.Label(add_bar, text="New player").pack(side=tk.LEFT)
+        ttk.Entry(add_bar, textvariable=new_name, width=26).pack(side=tk.LEFT, padx=(8, 8))
+
+        def add_player():
+            nm = new_name.get().strip()
+            if not nm:
+                return
+            if nm in roster:
+                messagebox.showinfo("Roster", "That name be already in yer roster.", parent=win)
+                return
+            roster.append(nm)
+            self._save_starting_players_roster(roster)
+            new_name.set("")
+            rebuild_rows()
+
+        ttk.Button(add_bar, text="Add to roster", command=add_player).pack(side=tk.LEFT)
+
+        # Bottom controls
+        btns = ttk.Frame(win)
+        btns.pack(fill=tk.X, padx=12, pady=(0, 12))
+
+        def select_all(val: bool):
+            for r in rows:
+                v = r.get("use")
+                if isinstance(v, tk.BooleanVar):
+                    v.set(val)
+
+        ttk.Button(btns, text="Select All", command=lambda: select_all(True)).pack(side=tk.LEFT)
+        ttk.Button(btns, text="Select None", command=lambda: select_all(False)).pack(side=tk.LEFT, padx=(8, 0))
+
+        def roll_all(val: bool):
+            for r in rows:
+                v = r.get("roll")
+                if isinstance(v, tk.BooleanVar):
+                    v.set(val)
+
+        ttk.Button(btns, text="Roll All", command=lambda: roll_all(True)).pack(side=tk.LEFT, padx=(16, 0))
+        ttk.Button(btns, text="No Roll", command=lambda: roll_all(False)).pack(side=tk.LEFT, padx=(8, 0))
+
+        def do_start():
+            any_added = False
+            for r in rows:
+                name = str(r.get("name", "")).strip()
+                use_var = r.get("use")
+                roll_var = r.get("roll")
+                init_var = r.get("init")
+                if not name or not isinstance(use_var, tk.BooleanVar) or not isinstance(roll_var, tk.BooleanVar) or not isinstance(init_var, tk.StringVar):
+                    continue
+                if not use_var.get():
+                    continue
+
+                if roll_var.get():
+                    nat = random.randint(1, 20)
+                    init_total = nat
+                    nat20 = (nat == 20)
+                    roll_val = nat
+                else:
+                    txt = init_var.get().strip()
+                    try:
+                        init_total = int(txt)
+                    except ValueError:
+                        messagebox.showerror("Input error", f"Init total must be a number for '{name}'.", parent=win)
+                        return
+                    nat20 = False
+                    roll_val = None
+
+                cname = self._unique_name(name)
+                cid = self._create_combatant(name=cname, hp=0, speed=30, initiative=init_total, dex=None, ally=True, is_pc=True)
+                c = self.combatants.get(cid)
+                if c is not None:
+                    c.nat20 = nat20
+                    c.roll = roll_val
+                any_added = True
+
+            if any_added:
+                self.current_cid = None
+                self.round_num = 1
+                self.turn_num = 0
+                self.start_cid = None
+
+            win.destroy()
+
+        ttk.Button(btns, text="Start Combat", command=do_start).pack(side=tk.RIGHT)
+        ttk.Button(btns, text="Skip", command=win.destroy).pack(side=tk.RIGHT, padx=(0, 8))
+
+        win.protocol("WM_DELETE_WINDOW", win.destroy)
+        self.wait_window(win)
+
+    # -------------------------- Data helpers --------------------------
+    def _safe_int(self, s: str, default: int = 0) -> int:
+        s = (s or "").strip()
+        if s == "":
+            return default
+        return int(s)
+
+    
+    def _parse_int_expr(self, expr: str) -> int:
+        """Parse a small math expression into an int (supports + - * / // and parentheses)."""
+        expr = (expr or "").strip()
+        if expr == "":
+            raise ValueError("empty")
+
+        tree = ast.parse(expr, mode="eval")
+
+        def _eval(n):
+            if isinstance(n, ast.Expression):
+                return _eval(n.body)
+            if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):
+                return n.value
+            if isinstance(n, ast.UnaryOp) and isinstance(n.op, (ast.UAdd, ast.USub)):
+                v = _eval(n.operand)
+                return +v if isinstance(n.op, ast.UAdd) else -v
+            if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod)):
+                a = _eval(n.left)
+                b = _eval(n.right)
+                if isinstance(n.op, ast.Add):
+                    return a + b
+                if isinstance(n.op, ast.Sub):
+                    return a - b
+                if isinstance(n.op, ast.Mult):
+                    return a * b
+                if isinstance(n.op, ast.Div):
+                    return a / b
+                if isinstance(n.op, ast.FloorDiv):
+                    return a // b
+                if isinstance(n.op, ast.Mod):
+                    return a % b
+            raise ValueError("unsupported expression")
+
+        val = _eval(tree)
+        return int(val)
+
+    def _sorted_combatants(self) -> List[Combatant]:
+        ordered = list(self.combatants.values())
+
+        def key(c: Combatant) -> Tuple[int, int, int, str]:
+            # initiative desc, nat20 first, dex desc, name
+            return (-int(c.initiative), -(1 if c.nat20 else 0), -(int(c.dex or 0)), c.name.lower())
+
+        ordered.sort(key=key)
+        return ordered
+
+    def _display_order(self) -> List[Combatant]:
+        ordered = self._sorted_combatants()
+        if self.start_cid is None:
+            return ordered
+        try:
+            idx = next(i for i, c in enumerate(ordered) if c.cid == self.start_cid)
+        except StopIteration:
+            return ordered
+        return ordered[idx:] + ordered[:idx]
+
+    def _label_for(self, c: Combatant) -> str:
+        return f"{c.name} [#{c.cid}]"
+
+    def _cid_from_label(self, lbl: str) -> Optional[int]:
+        """Parse a combobox label like 'Goblin [#12]' back into a cid.
+
+        If the user typed a raw name, we try an exact (case-insensitive) match.
+        """
+        lbl = (lbl or "").strip()
+        if not lbl:
+            return None
+
+        # Raw cid
+        if lbl.isdigit():
+            try:
+                return int(lbl)
+            except Exception:
+                return None
+
+        # Standard label: Name [#123]
+        if "[#" in lbl:
+            try:
+                tail = lbl.split("[#", 1)[1]
+                num = tail.split("]", 1)[0]
+                return int(num)
+            except Exception:
+                return None
+
+        # Fallback: exact name match (case-insensitive) in display order
+        low = lbl.lower()
+        for c in self._display_order():
+            if c.name.lower() == low:
+                return c.cid
+        return None
+
+    def _target_labels(self) -> List[str]:
+        """Labels for all combatants, in current displayed order."""
+        return [self._label_for(c) for c in self._display_order()]
+
+    def _roll_dice_dict(self, dice: Dict[int, int]) -> int:
+        """Roll a dice dict like {6:1, 4:2} -> 1d6 + 2d4."""
+        total = 0
+        for die, cnt in (dice or {}).items():
+            try:
+                d = int(die)
+                n = int(cnt)
+            except Exception:
+                continue
+            if d <= 0 or n <= 0:
+                continue
+            for _ in range(n):
+                total += random.randint(1, d)
+        return int(total)
+
+
+    def _mode_speed(self, c: Combatant) -> int:
+        """Base movement speed for the creature's current mode (land vs water)."""
+        if bool(getattr(c, "water_mode", False)):
+            swim = max(0, int(getattr(c, "swim_speed", 0)))
+            return swim if swim > 0 else 0
+        return max(0, int(getattr(c, "speed", 0)))
+
+    def _effective_speed(self, c: Combatant) -> int:
+        """Effective movement for THIS TURN (mode speed, but immobilizing conditions force 0)."""
+        # immobilizing conditions set movement to 0 for the turn
+        for st in c.condition_stacks:
+            meta = CONDITIONS_META.get(st.ctype, {})
+            if bool(meta.get("immobile")):
+                return 0
+        return self._mode_speed(c)
+
+
+    def _has_condition(self, c: Combatant, ctype: str) -> bool:
+        return any(st.ctype == ctype for st in c.condition_stacks)
+
+    def _remove_condition_type(self, c: Combatant, ctype: str) -> None:
+        c.condition_stacks = [st for st in c.condition_stacks if st.ctype != ctype]
+
+    # -------------------------- Add / remove --------------------------
+    def _create_combatant(self, name: str, hp: int, speed: int, initiative: int, dex: Optional[int], ally: bool, swim_speed: int = 0, water_mode: bool = False, is_pc: bool = False) -> int:
+        cid = self._next_id
+        self._next_id += 1
+        spd = max(0, int(speed))
+        swim = max(0, int(swim_speed))
+        wm = bool(water_mode)
+
+        base = swim if (wm and swim > 0) else (0 if wm else spd)
+        c = Combatant(
+            cid=cid,
+            name=name,
+            hp=int(hp),
+            speed=spd,
+            swim_speed=swim,
+            water_mode=wm,
+            move_remaining=base,
+            initiative=int(initiative),
+            dex=dex,
+            nat20=False,
+            roll=None,
+            ally=ally,
+            is_pc=bool(is_pc),
+        )
+        self.combatants[cid] = c
+        self._remember_role(c)
+        return cid
+
+    def _add_single(self) -> None:
+        name = self.name_var.get().strip()
+        if not name:
+            messagebox.showerror("Input error", "Name is required.")
+            return
+
+        try:
+            init_total = int(self.init_var.get().strip())
+        except ValueError:
+            messagebox.showerror("Input error", "Initiative must be an integer (the total).")
+            return
+
+        hp_txt = self.hp_var.get().strip()
+        if hp_txt == "":
+            hp = 0
+        else:
+            try:
+                hp = int(hp_txt)
+            except ValueError:
+                messagebox.showerror("Input error", "HP must be an integer (or blank).")
+                return
+
+        spd_txt = self.speed_var.get().strip()
+        if spd_txt == "":
+            speed = 30
+        else:
+            try:
+                speed = int(spd_txt)
+            except ValueError:
+                messagebox.showerror("Input error", "Speed must be an integer (feet).")
+                return
+
+
+        swim_txt = self.swim_var.get().strip()
+        if swim_txt == "":
+            swim_speed = 0
+        else:
+            try:
+                swim_speed = int(swim_txt)
+            except ValueError:
+                messagebox.showerror("Input error", "Swim speed must be an integer (feet) (or blank).")
+                return
+
+        water_mode = bool(self.water_var.get())
+
+        dex = None
+        dex_txt = self.dex_var.get().strip()
+        if dex_txt:
+            try:
+                dex = int(dex_txt)
+            except ValueError:
+                messagebox.showerror("Input error", "Dex must be an integer (modifier).")
+                return
+
+        ally = bool(self.ally_var.get())
+        cid = self._create_combatant(name=name, hp=hp, speed=speed, swim_speed=swim_speed, water_mode=water_mode, initiative=init_total, dex=dex, ally=ally)
+        self._log("added to initiative", cid=cid)
+        self._clear_add_inputs()
+        self._rebuild_table(scroll_to_current=True)
+
+    def _clear_add_inputs(self) -> None:
+        self.name_var.set("")
+        self.init_var.set("")
+        self.hp_var.set("")
+        self.speed_var.set("30")
+        self.swim_var.set("")
+        self.dex_var.set("")
+        self.ally_var.set(False)
+        self.water_var.set(False)
+
+    def _remove_selected(self) -> None:
+        items = self.tree.selection()
+        if not items:
+            return
+        to_remove: List[int] = []
+        for it in items:
+            try:
+                cid = int(it)
+            except ValueError:
+                continue
+            if cid in self.combatants:
+                to_remove.append(cid)
+
+        if not to_remove:
+            return
+
+        for cid in to_remove:
+            self.combatants.pop(cid, None)
+
+        if self.start_cid in to_remove:
+            self.start_cid = None
+
+        self._retarget_current_after_removal(to_remove)
+        self._rebuild_table(scroll_to_current=True)
+
+    def _retarget_current_after_removal(self, removed: List[int], pre_order: Optional[List[int]] = None) -> None:
+        if self.current_cid is None:
+            return
+        if self.current_cid not in removed:
+            return
+
+        ordered_now = self._display_order()
+        if not ordered_now:
+            self.current_cid = None
+            self.turn_num = 0
+            self.round_num = 1
+            return
+
+        if pre_order is None:
+            pre_order = [c.cid for c in ordered_now]
+
+        # Try to move to the next cid after the removed current cid, based on prior order
+        try:
+            old_idx = pre_order.index(self.current_cid)
+        except ValueError:
+            self.current_cid = ordered_now[0].cid
+            return
+
+        for step in range(1, len(pre_order) + 1):
+            cand = pre_order[(old_idx + step) % len(pre_order)]
+            if cand in self.combatants:
+                self.current_cid = cand
+                return
+
+        self.current_cid = ordered_now[0].cid
+
+    # -------------------------- Start list rotation --------------------------
+    def _set_start_here(self) -> None:
+        items = self.tree.selection()
+        if not items:
+            messagebox.showinfo("Start", "Select a combatant row first.")
+            return
+        try:
+            cid = int(items[0])
+        except ValueError:
+            return
+        if cid not in self.combatants:
+            return
+        self.start_cid = cid
+        self._rebuild_table()
+
+    def _clear_start(self) -> None:
+        self.start_cid = None
+        self._rebuild_table()
+
+    # -------------------------- Turn tracker --------------------------
+    def _update_turn_ui(self) -> None:
+        if self.current_cid is None or self.current_cid not in self.combatants:
+            self.turn_current_var.set("(not started)")
+            self.turn_move_var.set("—")
+        else:
+            c = self.combatants[self.current_cid]
+            self.turn_current_var.set(self._label_for(c))
+            eff = self._effective_speed(c)
+            if eff <= 0:
+                self.turn_move_var.set("0")
+            else:
+                mode = "Water" if getattr(c, "water_mode", False) else "Land"
+                self.turn_move_var.set(f"{c.move_remaining}/{eff} {mode}")
+
+        self.turn_round_var.set(str(max(1, int(self.round_num))))
+        # In D&D terms, each creature's "turn number" matches the round.
+        self.turn_count_var.set(str(max(1, int(self.round_num))))
+
+    
+    def _log_turn_start(self, cid: int) -> None:
+        c = self.combatants.get(cid)
+        if c is None:
+            return
+        self._log(f"START R{self.round_num} {c.name}")
+
+    def _log_turn_end(self, cid: int, note: str = "") -> None:
+        c = self.combatants.get(cid)
+        name = c.name if c is not None else f"#{cid}"
+        extra = f" ({note})" if note else ""
+        self._log(f"END R{self.round_num} {name}{extra}")
+    def _start_turns(self) -> None:
+        ordered = self._display_order()
+        if not ordered:
+            messagebox.showinfo("Turn Tracker", "No combatants in the list yet.")
+            return
+        self.current_cid = ordered[0].cid
+        self.round_num = 1
+        self.turn_num = 1
+        self._log("--- COMBAT STARTED ---")
+        self._log("--- ROUND 1 ---")
+        self._enter_turn_with_auto_skip(starting=True)
+        self._rebuild_table(scroll_to_current=True)
+
+    def _clear_turns(self) -> None:
+        self.current_cid = None
+        self.round_num = 1
+        self.turn_num = 0
+        self.start_last_var.set("")
+        self._rebuild_table(scroll_to_current=True)
+
+    def _set_turn_here(self) -> None:
+        items = self.tree.selection()
+        if not items:
+            messagebox.showinfo("Turn Tracker", "Select a combatant row first.")
+            return
+        try:
+            cid = int(items[0])
+        except ValueError:
+            return
+        if cid not in self.combatants:
+            return
+        self.current_cid = cid
+        if self.turn_num <= 0:
+            self.turn_num = 1
+        self._enter_turn_with_auto_skip(starting=True)
+        self._rebuild_table(scroll_to_current=True)
+
+    def _prev_turn(self) -> None:
+        ordered = self._display_order()
+        if not ordered:
+            return
+
+        if self.current_cid is None or self.current_cid not in {c.cid for c in ordered}:
+            self.current_cid = ordered[0].cid
+            self.round_num = max(1, self.round_num)
+            self.turn_num = max(1, self.turn_num)
+            self._rebuild_table(scroll_to_current=True)
+            return
+
+        ids = [c.cid for c in ordered]
+        idx = ids.index(self.current_cid)
+        prv = idx - 1
+        wrapped = False
+        if prv < 0:
+            prv = len(ids) - 1
+            wrapped = True
+
+        self.current_cid = ids[prv]
+        if self.turn_num > 0:
+            self.turn_num = max(0, self.turn_num - 1)
+        if wrapped and self.round_num > 1:
+            self.round_num -= 1
+
+        # Going backwards should not re-apply start-of-turn effects.
+        self.start_last_var.set("")
+        self._rebuild_table(scroll_to_current=True)
+
+    def _end_turn_cleanup(self, cid: Optional[int], skip_decrement_types: Optional[set[str]] = None) -> None:
+        """End-of-turn: reset movement and tick down timed conditions."""
+        if cid is None or cid not in self.combatants:
+            return
+        c = self.combatants[cid]
+
+        # Tick down timed conditions at the END of the creature's turn.
+        expired: List[str] = []
+        for st in list(c.condition_stacks):
+            if st.remaining_turns is None:
+                continue
+            if skip_decrement_types and st.ctype in skip_decrement_types:
+                continue
+            if st.remaining_turns > 0:
+                st.remaining_turns -= 1
+            if st.remaining_turns <= 0:
+                expired.append(st.ctype)
+                try:
+                    c.condition_stacks.remove(st)
+                except ValueError:
+                    pass
+
+        # Reset movement at end of each turn (start-of-turn will set effective movement).
+        c.move_remaining = self._mode_speed(c)
+
+        if expired:
+            labs = ", ".join(str(CONDITIONS_META.get(k, {}).get("label", k)) for k in expired)
+            self._log(f"conditions ended: {labs}", cid=cid)
+
+
+    def _next_turn(self) -> None:
+        ordered = self._display_order()
+        if not ordered:
+            return
+
+        if self.current_cid is None or self.current_cid not in {c.cid for c in ordered}:
+            # not started -> jump to top
+            self.current_cid = ordered[0].cid
+            self.round_num = max(1, self.round_num)
+            self.turn_num = max(1, self.turn_num)
+            self._enter_turn_with_auto_skip(starting=True)
+            self._rebuild_table(scroll_to_current=True)
+            return
+
+        # end current creature turn
+        ended_cid = self.current_cid
+        self._end_turn_cleanup(self.current_cid)
+        if ended_cid is not None:
+            self._log_turn_end(ended_cid)
+
+        ids = [c.cid for c in ordered]
+        idx = ids.index(self.current_cid)
+        nxt = (idx + 1) % len(ids)
+        wrapped = nxt == 0
+
+        self.current_cid = ids[nxt]
+        self.turn_num += 1
+        if wrapped:
+            self.round_num += 1
+            self._log(f"--- ROUND {self.round_num} ---")
+
+        self._enter_turn_with_auto_skip(starting=False)
+        self._rebuild_table(scroll_to_current=True)
+    def _enter_turn_with_auto_skip(self, starting: bool) -> None:
+        """Enter the current creature's turn.
+
+        Applies start-of-turn effects (DoT, star advantage expiry, condition skip checks).
+        If the creature's turn is skipped (Stunned/Paralyzed/etc), the turn ends immediately and we advance.
+        """
+        logs: List[str] = []
+        safety = 0
+
+        while safety < 200:
+            safety += 1
+            if self.current_cid is None or self.current_cid not in self.combatants:
+                break
+
+            cid_before = self.current_cid
+            c = self.combatants[self.current_cid]
+
+            # Update map highlight (if map is open)
+            try:
+                if self._map_window is not None and self._map_window.winfo_exists():
+                    self._map_window.set_active(c.cid)
+            except Exception:
+                pass
+
+            # Always log a turn start for the current creature.
+            self._log_turn_start(c.cid)
+
+            skip, msg, dec_skip = self._process_start_of_turn(c)
+            if msg:
+                logs.append(f"{c.name}: {msg}")
+                self._log(msg, cid=c.cid)
+
+            # if creature died/removed during start-of-turn, current may have changed
+            if cid_before not in self.combatants:
+                continue
+
+            if not skip:
+                break
+
+            # skipped: end the turn immediately (tick other conditions at end-of-turn, but don't double-tick skip cond)
+            self._end_turn_cleanup(self.current_cid, skip_decrement_types=dec_skip)
+            self._log_turn_end(c.cid, note="skipped")
+
+            ordered = self._display_order()
+            if not ordered:
+                self.current_cid = None
+                break
+
+            ids = [x.cid for x in ordered]
+            if self.current_cid not in ids:
+                # already retargeted
+                continue
+
+            idx = ids.index(self.current_cid)
+            nxt = (idx + 1) % len(ids)
+            wrapped = nxt == 0
+
+            self.current_cid = ids[nxt]
+            self.turn_num += 1
+            if wrapped:
+                self.round_num += 1
+                self._log(f"--- ROUND {self.round_num} ---")
+
+            if safety >= len(ids) + 10:
+                # likely stuck in a skip loop; stop so we don't spin forever
+                break
+
+        self.start_last_var.set(" | ".join(logs))
+        self._update_turn_ui()
+
+    def _process_start_of_turn(self, c: Combatant) -> Tuple[bool, str, set[str]]:
+        """Start-of-turn processing.
+
+        Returns (skip_turn, message, decremented_skip_types).
+
+        Rules for condition durations:
+        - Most timed conditions tick down at the END of the creature's turn.
+        - Conditions that skip a turn (Stunned/Paralyzed/etc) tick down by 1 at the START of the creature's turn,
+          then the turn ends immediately.
+        """
+        msgs: List[str] = []
+        decremented_skip: set[str] = set()
+
+        # reset movement at start (effective, taking immobile conditions into account)
+        eff = self._effective_speed(c)
+        c.move_remaining = eff
+
+        # expire star advantage at start of creature's turn
+        if c.star_advantage:
+            c.star_advantage = False
+            msgs.append("⭐ advantage ended")
+
+        # DoT stacks roll at start (even if the turn will be skipped)
+        if c.dot_stacks:
+            total_dmg = 0
+            details: List[str] = []
+            for st in list(c.dot_stacks):
+                roll = self._roll_dice_dict(st.dice)
+                total_dmg += roll
+                details.append(f"{DOT_META.get(st.dtype, {}).get('icon','•')}{roll}")
+                st.remaining_turns -= 1
+                if st.remaining_turns <= 0:
+                    c.dot_stacks.remove(st)
+
+            if total_dmg > 0:
+                old_hp = c.hp
+                c.hp = max(0, int(c.hp) - int(total_dmg))
+                msgs.append(f"DoT {total_dmg} ({', '.join(details)})")
+
+                # auto-remove ONLY if they were >0 and this drop made them 0
+                if old_hp > 0 and c.hp == 0:
+                    pre_order = [x.cid for x in self._display_order()]
+                    dead_id = c.cid
+                    self.combatants.pop(dead_id, None)
+                    if self.start_cid == dead_id:
+                        self.start_cid = None
+                    self._retarget_current_after_removal([dead_id], pre_order=pre_order)
+                    msgs.append("dropped to 0 -> removed")
+                    return False, "; ".join(msgs), decremented_skip
+
+        # Check for skip-turn conditions
+        skip_types_present: List[str] = []
+        for st in list(c.condition_stacks):
+            meta = CONDITIONS_META.get(st.ctype, {})
+            if bool(meta.get("skip")):
+                # Treat as active if indefinite or remaining > 0
+                if st.remaining_turns is None or st.remaining_turns > 0:
+                    skip_types_present.append(st.ctype)
+
+        skip = bool(skip_types_present)
+
+        # If skipping: tick down the skip condition(s) NOW (once), then turn will auto-end.
+        if skip:
+            for st in list(c.condition_stacks):
+                if st.ctype in skip_types_present and st.remaining_turns is not None:
+                    st.remaining_turns -= 1
+                    decremented_skip.add(st.ctype)
+                    if st.remaining_turns <= 0:
+                        try:
+                            c.condition_stacks.remove(st)
+                        except ValueError:
+                            pass
+
+        # summarize conditions (after any skip decrement)
+        if c.condition_stacks:
+            shown = []
+            for st in sorted(c.condition_stacks, key=lambda x: x.ctype):
+                icon = str(CONDITIONS_META.get(st.ctype, {}).get("icon", "•"))
+                if st.remaining_turns is None:
+                    shown.append(icon)
+                else:
+                    shown.append(f"{icon}({st.remaining_turns})")
+            msgs.append("cond " + " ".join(shown))
+        if c.exhaustion_level > 0:
+            msgs.append(f"exh {c.exhaustion_level}")
+
+        if skip:
+            # mention which condition caused it (best-effort)
+            labels = []
+            for k in skip_types_present:
+                labels.append(str(CONDITIONS_META.get(k, {}).get("label", k)))
+            if labels:
+                msgs.append("skip: " + ", ".join(sorted(set(labels))))
+            msgs.append("turn skipped")
+
+        return skip, "; ".join(msgs), decremented_skip
+
+
+    # -------------------------- Movement actions --------------------------
+    def _stand_up_current(self) -> None:
+        if self.current_cid is None or self.current_cid not in self.combatants:
+            return
+        c = self.combatants[self.current_cid]
+        if not self._has_condition(c, "prone"):
+            return
+
+        eff = self._effective_speed(c)
+        if eff <= 0:
+            messagebox.showinfo("Stand Up", "Can't stand up right now (speed is 0).")
+            return
+
+        cost = max(0, eff // 2)
+        if c.move_remaining < cost:
+            messagebox.showinfo("Stand Up", f"Not enough movement to stand (need {cost} ft).")
+            return
+
+        c.move_remaining -= cost
+        self._remove_condition_type(c, "prone")
+        self.start_last_var.set(f"{c.name}: stood up (-{cost} ft)")
+        self._log(f"stood up (spent {cost} ft, prone removed)", cid=c.cid)
+        self._rebuild_table(scroll_to_current=True)
+
+
+    def _open_move_tool(self) -> None:
+        dlg = tk.Toplevel(self)
+        dlg.title("Spend Movement")
+        dlg.transient(self)
+        dlg.after(0, dlg.grab_set)
+
+        frm = ttk.Frame(dlg, padding=10)
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frm, text="Target").grid(row=0, column=0, sticky="w")
+        targets = self._target_labels()
+        target_var = tk.StringVar(value=(targets[0] if targets else ""))
+        target_combo = ttk.Combobox(frm, textvariable=target_var, values=targets, state="readonly", width=36)
+        target_combo.grid(row=1, column=0, columnspan=3, sticky="we", pady=(0, 8))
+        frm.columnconfigure(0, weight=1)
+
+        ttk.Label(frm, text="Move (ft)").grid(row=2, column=0, sticky="w")
+        amt_var = tk.StringVar()
+        amt_entry = ttk.Entry(frm, textvariable=amt_var, width=12)
+        amt_entry.grid(row=3, column=0, sticky="w")
+
+        difficult_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(frm, text="Difficult terrain (double cost)", variable=difficult_var).grid(
+            row=3, column=1, sticky="w", padx=(12, 0)
+        )
+
+        apply_selected = tk.BooleanVar(value=False)
+        ttk.Checkbutton(frm, text="Apply to selected rows", variable=apply_selected).grid(
+            row=4, column=0, sticky="w", pady=(6, 0)
+        )
+
+        water_mode_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(frm, text="Water mode (use Swim speed)", variable=water_mode_var).grid(
+            row=4, column=1, sticky="w", padx=(12, 0), pady=(6, 0)
+        )
+
+        # Auto-pick selected row if any
+        sel = self.tree.selection()
+        if sel:
+            try:
+                scid = int(sel[0])
+                if scid in self.combatants:
+                    target_var.set(self._label_for(self.combatants[scid]))
+                    water_mode_var.set(bool(self.combatants[scid].water_mode))
+            except ValueError:
+                pass
+        elif self.current_cid is not None and self.current_cid in self.combatants:
+            target_var.set(self._label_for(self.combatants[self.current_cid]))
+            water_mode_var.set(bool(self.combatants[self.current_cid].water_mode))
+
+        def refresh_targets(keep: str = ""):
+            vals = self._target_labels()
+            target_combo.configure(values=vals)
+            if keep in vals:
+                target_var.set(keep)
+            elif vals:
+                target_var.set(vals[0])
+            else:
+                target_var.set("")
+
+        def apply(_evt=None):
+            expr = amt_var.get().strip()
+            try:
+                feet = self._parse_int_expr(expr)
+            except Exception:
+                messagebox.showerror("Move", "Move must be a number (you can use simple math like 10+5).")
+                return
+            if feet < 0:
+                messagebox.showerror("Move", "Move can't be negative.")
+                return
+
+            cost = feet * (2 if difficult_var.get() else 1)
+
+            # Determine targets
+            cids: List[int] = []
+            if apply_selected.get():
+                for it in self.tree.selection():
+                    try:
+                        cid = int(it)
+                    except ValueError:
+                        continue
+                    if cid in self.combatants:
+                        cids.append(cid)
+                if not cids:
+                    messagebox.showinfo("Move", "No selected rows to apply to.")
+                    return
+            else:
+                lbl = target_var.get().strip()
+                cid = self._cid_from_label(lbl)
+                if cid is None or cid not in self.combatants:
+                    messagebox.showerror("Move", "Pick a valid target.")
+                    return
+                cids = [cid]
+
+            for cid in cids:
+                # Apply water-mode toggle first (only logs if it actually changes)
+                self._toggle_water_mode(cid, force=bool(water_mode_var.get()))
+                c = self.combatants.get(cid)
+                if c is None:
+                    continue
+
+                old = int(c.move_remaining)
+                c.move_remaining = max(0, old - int(cost))
+                note = f"moved {feet} ft"
+                note += f" (difficult: -{cost})" if difficult_var.get() else f" (-{cost})"
+                self._log(note + f" (move {old} -> {c.move_remaining})", cid=cid)
+
+            keep_lbl = target_var.get().strip()
+            self._rebuild_table(scroll_to_current=True)
+            refresh_targets(keep_lbl)
+
+            amt_entry.focus_set()
+            amt_entry.selection_range(0, tk.END)
+
+        def cancel(_evt=None):
+            dlg.destroy()
+
+        btn_row = ttk.Frame(frm)
+        btn_row.grid(row=6, column=0, columnspan=3, sticky="e", pady=(10, 0))
+        ttk.Button(btn_row, text="Apply", command=apply).pack(side=tk.RIGHT)
+        ttk.Button(btn_row, text="Cancel", command=cancel).pack(side=tk.RIGHT, padx=(0, 8))
+
+        dlg.bind("<Return>", apply)
+        dlg.bind("<Escape>", cancel)
+        amt_entry.focus_set()
+
+    # -------------------------- Effects formatting --------------------------
+    def _format_effects(self, c: Combatant) -> str:
+        parts: List[str] = []
+        if c.star_advantage:
+            parts.append("⭐")
+
+        # DoT: count per type
+        if c.dot_stacks:
+            counts: Dict[str, int] = {}
+            for st in c.dot_stacks:
+                counts[st.dtype] = counts.get(st.dtype, 0) + 1
+            for dtype in ["burn", "poison", "necrotic"]:
+                n = counts.get(dtype, 0)
+                if n <= 0:
+                    continue
+                icon = DOT_META.get(dtype, {}).get("icon", "•")
+                parts.append(f"{icon}x{n}" if n > 1 else str(icon))
+
+        # Conditions (non-stacking; Exhaustion handled separately)
+        if c.condition_stacks:
+            for st in sorted(c.condition_stacks, key=lambda x: x.ctype):
+                icon = str(CONDITIONS_META.get(st.ctype, {}).get("icon", "•"))
+                if st.remaining_turns is None:
+                    parts.append(icon)
+                else:
+                    parts.append(f"{icon}({st.remaining_turns})")
+
+        if c.exhaustion_level > 0:
+            parts.append(f"{CONDITIONS_META['exhaustion']['icon']}{c.exhaustion_level}")
+
+        return " ".join(parts)
+
+    # -------------------------- Table maintenance --------------------------
+    def _rebuild_table(self, scroll_to_top: bool = False, scroll_to_current: bool = False) -> None:
+        # preserve selection
+        prev_sel = set(self.tree.selection())
+        try:
+            prev_y = self.tree.yview()[0]
+        except Exception:
+            prev_y = 0.0
+
+        self.tree.delete(*self.tree.get_children())
+
+        ordered = self._display_order()
+        for i, c in enumerate(ordered):
+            side = "Player Character" if getattr(c, "is_pc", False) else ("Ally" if c.ally else "Enemy")
+            nat = "Yes" if c.nat20 else ""
+            mode = "Water" if getattr(c, "water_mode", False) else "Land"
+            swim_disp = "" if int(getattr(c, "swim_speed", 0) or 0) == 0 else int(getattr(c, "swim_speed", 0))
+            values = (c.name, side, c.hp, c.speed, swim_disp, mode, c.move_remaining, self._format_effects(c), c.initiative, nat)
+
+            tags: List[str] = []
+            tags.append("odd" if i % 2 else "even")
+            tags.append("ally" if (c.ally or getattr(c, "is_pc", False)) else "enemy")
+            if self.current_cid == c.cid:
+                tags.append("current")
+            if self.start_cid == c.cid:
+                tags.append("start")
+
+            self.tree.insert("", tk.END, iid=str(c.cid), values=values, tags=tuple(tags))
+
+        # restore selection
+        for it in prev_sel:
+            if it in self.tree.get_children():
+                self.tree.selection_add(it)
+
+        if scroll_to_top:
+            self.tree.yview_moveto(0.0)
+        elif scroll_to_current and self.current_cid is not None:
+            try:
+                self.tree.see(str(self.current_cid))
+            except Exception:
+                pass
+        else:
+            try:
+                self.tree.yview_moveto(prev_y)
+            except Exception:
+                pass
+
+        self._update_turn_ui()
+
+    # -------------------------- Inline editing / clicks --------------------------
+    def _on_tree_double_click(self, event) -> None:
+        item = self.tree.identify_row(event.y)
+        column = self.tree.identify_column(event.x)
+        if not item:
+            return
+        try:
+            cid = int(item)
+        except ValueError:
+            return
+        if cid not in self.combatants:
+            return
+
+        # Columns:
+        # #1 name, #2 side, #3 hp, #4 land spd, #5 swim spd, #6 mode, #7 move, #8 effects, #9 init, #10 nat
+        if column == "#9":
+            self._inline_edit_cell(item, column, str(self.combatants[cid].initiative), int, lambda v: self._set_initiative(cid, v))
+            return
+        if column == "#3":
+            self._inline_edit_cell(item, column, str(self.combatants[cid].hp), int, lambda v: self._set_hp(cid, v))
+            return
+        if column == "#4":
+            self._inline_edit_cell(item, column, str(self.combatants[cid].speed), int, lambda v: self._set_speed(cid, v))
+            return
+        if column == "#5":
+            self._inline_edit_cell(item, column, str(self.combatants[cid].swim_speed), int, lambda v: self._set_swim_speed(cid, v))
+            return
+        if column == "#2":
+            c = self.combatants[cid]
+            # Cycle Side: Enemy -> Ally -> Player Character -> Enemy
+            if getattr(c, "is_pc", False):
+                c.is_pc = False
+                c.ally = False
+            elif c.ally:
+                c.is_pc = True
+                c.ally = True
+            else:
+                c.ally = True
+                c.is_pc = False
+            self._remember_role(c)
+            self._rebuild_table(scroll_to_current=True)
+            return
+        if column == "#10":
+            c = self.combatants[cid]
+            c.nat20 = not c.nat20
+            self._rebuild_table(scroll_to_current=True)
+            return
+        if column == "#6":
+            self._toggle_water_mode(cid)
+            self._rebuild_table(scroll_to_current=True)
+            return
+        if column == "#7":
+            self.tree.selection_set(item)
+            self._open_move_tool()
+            return
+        if column == "#8":
+            self.tree.selection_set(item)
+            self._open_condition_tool()
+            return
+
+    def _inline_edit_cell(self, item: str, column: str, initial: str, caster, setter) -> None:
+        x, y, w, h = self.tree.bbox(item, column)
+        if w == 0 and h == 0:
+            return
+        entry = ttk.Entry(self.tree)
+        entry.insert(0, initial)
+        entry.select_range(0, tk.END)
+        entry.focus_set()
+        entry.place(x=x, y=y, width=w, height=h)
+
+        def commit(_evt=None):
+            val = entry.get().strip()
+            if val == "":
+                entry.destroy()
+                return
+            try:
+                v = caster(val)
+            except Exception:
+                entry.destroy()
+                return
+            entry.destroy()
+            setter(v)
+            self._rebuild_table(scroll_to_current=True)
+
+        def cancel(_evt=None):
+            entry.destroy()
+
+        entry.bind("<Return>", commit)
+        entry.bind("<FocusOut>", commit)
+        entry.bind("<Escape>", cancel)
+
+    def _set_initiative(self, cid: int, new_init: int) -> None:
+        if cid in self.combatants:
+            self.combatants[cid].initiative = int(new_init)
+
+    def _set_hp(self, cid: int, new_hp: int) -> None:
+        if cid in self.combatants:
+            self.combatants[cid].hp = max(0, int(new_hp))
+
+    def _set_speed(self, cid: int, new_spd: int) -> None:
+        if cid not in self.combatants:
+            return
+        c = self.combatants[cid]
+        c.speed = max(0, int(new_spd))
+        if self.current_cid == cid:
+            c.move_remaining = min(c.move_remaining, self._effective_speed(c))
+        else:
+            c.move_remaining = self._mode_speed(c)
+
+    def _set_swim_speed(self, cid: int, new_spd: int) -> None:
+        if cid not in self.combatants:
+            return
+        c = self.combatants[cid]
+        c.swim_speed = max(0, int(new_spd))
+        if self.current_cid == cid:
+            c.move_remaining = min(c.move_remaining, self._effective_speed(c))
+        else:
+            c.move_remaining = self._mode_speed(c)
+
+    def _toggle_water_mode(self, cid: int, force: Optional[bool] = None) -> None:
+        if cid not in self.combatants:
+            return
+        c = self.combatants[cid]
+        old_mode = bool(getattr(c, "water_mode", False))
+        c.water_mode = (not old_mode) if force is None else bool(force)
+        # Adjust movement bookkeeping
+        if self.current_cid == cid:
+            c.move_remaining = min(c.move_remaining, self._effective_speed(c))
+        else:
+            c.move_remaining = self._mode_speed(c)
+        if c.water_mode != old_mode:
+            self._log(f"water mode {'ON' if c.water_mode else 'OFF'}", cid=cid)
+
+    def _toggle_water_selected(self) -> None:
+        items = list(self.tree.selection())
+        if not items and self.current_cid is not None:
+            items = [str(self.current_cid)]
+        if not items:
+            return
+        for it in items:
+            try:
+                cid = int(it)
+            except ValueError:
+                continue
+            if cid in self.combatants:
+                self._toggle_water_mode(cid)
+
+    # -------------------------- Star advantage toggle --------------------------
+    def _toggle_star_advantage_selected(self) -> None:
+        items = self.tree.selection()
+        if not items:
+            return
+        for it in items:
+            try:
+                cid = int(it)
+            except ValueError:
+                continue
+            if cid in self.combatants:
+                self.combatants[cid].star_advantage = not self.combatants[cid].star_advantage
+        self._rebuild_table(scroll_to_current=True)
+
+    # -------------------------- Bulk add --------------------------
+    def _open_bulk_dialog(self) -> None:
+        dlg = tk.Toplevel(self)
+        dlg.title("Bulk Add")
+        dlg.transient(self)
+        dlg.after(0, dlg.grab_set)
+
+        frm = ttk.Frame(dlg, padding=10)
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frm, text="Base Name (e.g. Goblin)").grid(row=0, column=0, sticky="w")
+        name_var = tk.StringVar()
+        ttk.Entry(frm, textvariable=name_var, width=22).grid(row=1, column=0, padx=(0, 8))
+
+        ttk.Label(frm, text="Count").grid(row=0, column=1, sticky="w")
+        count_var = tk.StringVar(value="1")
+        ttk.Entry(frm, textvariable=count_var, width=8).grid(row=1, column=1, padx=(0, 8))
+
+        ttk.Label(frm, text="Dex mod (blank = 0)").grid(row=0, column=2, sticky="w")
+        dex_var = tk.StringVar()
+        ttk.Entry(frm, textvariable=dex_var, width=10).grid(row=1, column=2, padx=(0, 8))
+
+        ttk.Label(frm, text="HP (blank = 0)").grid(row=0, column=3, sticky="w")
+        hp_var = tk.StringVar()
+        ttk.Entry(frm, textvariable=hp_var, width=10).grid(row=1, column=3, padx=(0, 8))
+
+        ttk.Label(frm, text="Speed (ft, default 30)").grid(row=0, column=4, sticky="w")
+        spd_var = tk.StringVar(value="30")
+        ttk.Entry(frm, textvariable=spd_var, width=12).grid(row=1, column=4, padx=(0, 8))
+
+        ttk.Label(frm, text="Swim (ft, blank = 0)").grid(row=0, column=5, sticky="w")
+        swim_var = tk.StringVar()
+        ttk.Entry(frm, textvariable=swim_var, width=12).grid(row=1, column=5, padx=(0, 8))
+
+
+        ally_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(frm, text="Mark as ally", variable=ally_var).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        water_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(frm, text="Water mode", variable=water_var).grid(row=2, column=1, sticky="w", pady=(8, 0))
+
+        def on_add():
+            base = name_var.get().strip()
+            if not base:
+                messagebox.showerror("Input error", "Name is required.")
+                return
+            try:
+                count = int(count_var.get().strip())
+                if count <= 0:
+                    raise ValueError()
+            except ValueError:
+                messagebox.showerror("Input error", "Count must be a positive integer.")
+                return
+
+            dex_txt = dex_var.get().strip()
+            if dex_txt == "":
+                dex = 0
+                dex_opt: Optional[int] = None
+            else:
+                try:
+                    dex = int(dex_txt)
+                    dex_opt = dex
+                except ValueError:
+                    messagebox.showerror("Input error", "Dex must be an integer (or blank).")
+                    return
+
+            hp_txt = hp_var.get().strip()
+            if hp_txt == "":
+                hp = 0
+            else:
+                try:
+                    hp = int(hp_txt)
+                except ValueError:
+                    messagebox.showerror("Input error", "HP must be an integer (or blank).")
+                    return
+
+            spd_txt = spd_var.get().strip()
+            if spd_txt == "":
+                speed = 30
+            else:
+                try:
+                    speed = int(spd_txt)
+                except ValueError:
+                    messagebox.showerror("Input error", "Speed must be an integer (feet).")
+                    return
+
+
+            swim_txt = swim_var.get().strip()
+            if swim_txt == "":
+                swim_speed = 0
+            else:
+                try:
+                    swim_speed = int(swim_txt)
+                except ValueError:
+                    messagebox.showerror("Input error", "Swim speed must be an integer (or blank).")
+                    return
+
+            water_mode = bool(water_var.get())
+
+            for i in range(1, count + 1):
+                roll = random.randint(1, 20)
+                total = roll + dex
+                name = base if count == 1 else f"{base} {i}"
+                cid = self._create_combatant(name=name, hp=hp, speed=speed, swim_speed=swim_speed, water_mode=water_mode, initiative=total, dex=dex_opt, ally=ally_var.get())
+                c = self.combatants[cid]
+                c.roll = roll
+                c.nat20 = (roll == 20)
+
+            self._rebuild_table(scroll_to_current=True)
+            dlg.destroy()
+
+        btns = ttk.Frame(frm)
+        btns.grid(row=3, column=0, columnspan=6, pady=(10, 0), sticky="e")
+        ttk.Button(btns, text="Roll & Add", command=on_add).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.LEFT)
+
+    # -------------------------- Damage/Heal tool --------------------------
+
+    def _open_hp_tool(self, default_mode: str = "damage") -> None:
+        """Open the Damage/Heal tool.
+
+        Supports:
+        - math expressions in amount (e.g. 10+10+10)
+        - multi-target via table multi-selection (Apply to selected rows)
+        - multiple damage/heal "sources" (each with its own attacker/target/type/resist/immune)
+        - optional attacker in log via a toggle (defaults OFF)
+        """
+        dlg = tk.Toplevel(self)
+        dlg.title("Damage / Heal")
+        dlg.geometry("980x560")
+        dlg.minsize(760, 420)
+        dlg.transient(self)
+        dlg.after(0, dlg.grab_set)
+
+        outer = ttk.Frame(dlg, padding=10)
+        outer.pack(fill=tk.BOTH, expand=True)
+
+        targets = self._target_labels()
+
+        # Pre-detect multi-selection: if user shift-selected multiple rows and opened the tool,
+        # default to applying the action to the selected set.
+        selected_cids = self._selected_cids()
+        multi_selected = len(selected_cids) > 1
+
+        # ---- Options row (mode + use attacker) ----
+        opts = ttk.Frame(outer)
+        opts.pack(fill=tk.X)
+
+        mode_var = tk.StringVar(value=default_mode)
+        ttk.Label(opts, text="Mode:").pack(side=tk.LEFT)
+        ttk.Radiobutton(opts, text="Damage", variable=mode_var, value="damage").pack(side=tk.LEFT, padx=(6, 6))
+        ttk.Radiobutton(opts, text="Heal", variable=mode_var, value="heal").pack(side=tk.LEFT, padx=(0, 10))
+
+        # Default attacker: whoever's turn it is (if any).
+        attacker_default = ""
+        if getattr(self, "current_cid", None) is not None and self.current_cid in self.combatants:
+            attacker_default = self._label_for(self.combatants[self.current_cid])
+        elif targets:
+            attacker_default = targets[0]
+
+        use_attacker_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            opts,
+            text="Use attacker in log (unchecked = anonymous)",
+            variable=use_attacker_var,
+        ).pack(side=tk.LEFT)
+
+        # ---- Sources table ----
+        src_box = ttk.LabelFrame(outer, text="Damage/Heal sources", padding=8)
+        src_box.pack(fill=tk.BOTH, expand=True, pady=(10, 8))
+
+        # Header
+        headers = ["Attacker", "Target", "Amount (math ok)", "Type", "Resist", "Immune", ""]
+        for col, h in enumerate(headers):
+            ttk.Label(src_box, text=h).grid(row=0, column=col, sticky="w", padx=(0, 8))
+
+        # Shared damage types list
+        damage_types = [
+            "",
+            "Acid",
+            "Bludgeoning",
+            "Cold",
+            "Fire",
+            "Force",
+            "Lightning",
+            "Necrotic",
+            "Piercing",
+            "Poison",
+            "Psychic",
+            "Radiant",
+            "Slashing",
+            "Thunder",
+        ]
+
+        # Choose a sensible default target: selected row if any, else first in list.
+        target_default = (targets[0] if targets else "")
+        if self.tree.selection():
+            try:
+                scid = int(self.tree.selection()[0])
+                if scid in self.combatants:
+                    target_default = self._label_for(self.combatants[scid])
+            except Exception:
+                pass
+
+        source_rows: list[dict] = []
+
+        def _parse_name_from_label(lbl: str) -> Optional[str]:
+            lbl = (lbl or "").strip()
+            if not lbl:
+                return None
+            cid = self._cid_from_label(lbl)
+            if cid is not None and cid in self.combatants:
+                return self.combatants[cid].name
+            return lbl.split(" [#")[0].strip()
+
+        def _targets_in_display_order(cids: list[int]) -> list[int]:
+            want = set(cids)
+            out: list[int] = []
+            for c in self._display_order():
+                if c.cid in want:
+                    out.append(c.cid)
+            for cid in cids:
+                if cid in want and cid not in out:
+                    out.append(cid)
+            return out
+
+        def _refresh_targets_enabled() -> None:
+            state = "readonly" if not apply_selected.get() else "disabled"
+            for row in source_rows:
+                try:
+                    row["target_combo"].configure(state=state)
+                except Exception:
+                    pass
+
+        def _regrid_sources() -> None:
+            # Move each row's widgets to the correct grid row
+            for i, row in enumerate(source_rows, start=1):
+                r = i
+                row["attacker_combo"].grid(row=r, column=0, sticky="we", padx=(0, 8), pady=2)
+                row["target_combo"].grid(row=r, column=1, sticky="we", padx=(0, 8), pady=2)
+                row["amt_entry"].grid(row=r, column=2, sticky="we", padx=(0, 8), pady=2)
+                row["dtype_combo"].grid(row=r, column=3, sticky="we", padx=(0, 8), pady=2)
+                row["res_cb"].grid(row=r, column=4, sticky="w", padx=(0, 8), pady=2)
+                row["imm_cb"].grid(row=r, column=5, sticky="w", padx=(0, 8), pady=2)
+                row["rm_btn"].grid(row=r, column=6, sticky="e", pady=2)
+
+            _refresh_targets_enabled()
+
+        def add_source_row() -> None:
+            attacker_var = tk.StringVar(value=attacker_default)
+            target_var = tk.StringVar(value=target_default)
+            amt_var = tk.StringVar(value="")
+            dtype_var = tk.StringVar(value="")
+            resistant_var = tk.BooleanVar(value=False)
+            immune_var = tk.BooleanVar(value=False)
+
+            attacker_combo = ttk.Combobox(
+                src_box,
+                textvariable=attacker_var,
+                values=targets,
+                state=("readonly" if targets else "disabled"),
+                width=24,
+            )
+
+            def _on_attacker_pick(_evt=None):
+                # If user deliberately picks an attacker, assume they want it used.
+                use_attacker_var.set(True)
+
+            attacker_combo.bind("<<ComboboxSelected>>", _on_attacker_pick)
+
+            target_combo = ttk.Combobox(
+                src_box,
+                textvariable=target_var,
+                values=targets,
+                state="readonly",
+                width=24,
+            )
+
+            amt_entry = ttk.Entry(src_box, textvariable=amt_var, width=16)
+
+            dtype_combo = ttk.Combobox(
+                src_box,
+                textvariable=dtype_var,
+                values=damage_types,
+                state="readonly",
+                width=16,
+            )
+
+            res_cb = ttk.Checkbutton(src_box, text="", variable=resistant_var)
+            imm_cb = ttk.Checkbutton(src_box, text="", variable=immune_var)
+
+            def remove_this():
+                # Keep at least one row
+                if len(source_rows) <= 1:
+                    # just clear values
+                    amt_var.set("")
+                    dtype_var.set("")
+                    resistant_var.set(False)
+                    immune_var.set(False)
+                    return
+                # destroy widgets
+                for w in (attacker_combo, target_combo, amt_entry, dtype_combo, res_cb, imm_cb, rm_btn):
+                    try:
+                        w.destroy()
+                    except Exception:
+                        pass
+                try:
+                    source_rows.remove(row_dict)
+                except ValueError:
+                    pass
+                _regrid_sources()
+
+            rm_btn = ttk.Button(src_box, text="✕", width=3, command=remove_this)
+
+            row_dict = dict(
+                attacker_var=attacker_var,
+                target_var=target_var,
+                amt_var=amt_var,
+                dtype_var=dtype_var,
+                resistant_var=resistant_var,
+                immune_var=immune_var,
+                attacker_combo=attacker_combo,
+                target_combo=target_combo,
+                amt_entry=amt_entry,
+                dtype_combo=dtype_combo,
+                res_cb=res_cb,
+                imm_cb=imm_cb,
+                rm_btn=rm_btn,
+            )
+            source_rows.append(row_dict)
+            _regrid_sources()
+
+        # One default source row
+        add_source_row()
+
+        # column stretch
+        for col in range(len(headers)):
+            src_box.columnconfigure(col, weight=(1 if col in (0, 1, 2, 3) else 0))
+
+        # ---- Multi-target controls ----
+        ctl = ttk.Frame(outer)
+        ctl.pack(fill=tk.X)
+
+        apply_selected = tk.BooleanVar(value=multi_selected)
+        ttk.Checkbutton(ctl, text="Apply to selected rows", variable=apply_selected).pack(side=tk.LEFT)
+
+        selected_summary = tk.StringVar(value="")
+        ttk.Label(ctl, textvariable=selected_summary).pack(side=tk.LEFT, padx=(10, 0))
+
+        close_after = tk.BooleanVar(value=False)
+        ttk.Checkbutton(ctl, text="Close after apply", variable=close_after).pack(side=tk.RIGHT)
+
+        def _refresh_selected_summary() -> None:
+            if not apply_selected.get():
+                selected_summary.set("")
+                _refresh_targets_enabled()
+                return
+            cids = self._selected_cids()
+            if not cids:
+                selected_summary.set("(no rows selected)")
+            else:
+                order = [c.cid for c in self._display_order()]
+                ordered = [cid for cid in order if cid in cids]
+                names = [self.combatants[cid].name for cid in ordered if cid in self.combatants]
+                if len(names) > 6:
+                    selected_summary.set(f"{len(names)} targets selected")
+                else:
+                    selected_summary.set(", ".join(names))
+            _refresh_targets_enabled()
+
+        apply_selected.trace_add("write", lambda *_: _refresh_selected_summary())
+        if multi_selected:
+            _refresh_selected_summary()
+        else:
+            _refresh_targets_enabled()
+
+        # ---- Buttons ----
+        btn_row = ttk.Frame(outer)
+        btn_row.pack(fill=tk.X, pady=(8, 0))
+
+        def on_add_source():
+            add_source_row()
+            try:
+                source_rows[-1]["amt_entry"].focus_set()
+            except Exception:
+                pass
+
+        ttk.Button(btn_row, text="Add source", command=on_add_source).pack(side=tk.LEFT)
+
+        def on_apply():
+            # Determine target list (if applying to selection)
+            if apply_selected.get():
+                t_cids = _targets_in_display_order(self._selected_cids())
+                if not t_cids:
+                    messagebox.showinfo("Damage/Heal", "No rows selected.", parent=dlg)
+                    return
+            else:
+                t_cids = []
+
+            removed_all: list[int] = []
+            pre_order = [x.cid for x in self._display_order()]
+            mode = mode_var.get()
+
+            for idx, row in enumerate(source_rows, start=1):
+                # Parse amount per row
+                try:
+                    amt = self._parse_int_expr(row["amt_var"].get())
+                except Exception:
+                    messagebox.showerror(
+                        "Damage/Heal",
+                        f"Row {idx}: Amount must be a number or a small math expression (e.g. 10+10+10).",
+                        parent=dlg,
+                    )
+                    return
+                if amt < 0:
+                    messagebox.showerror("Damage/Heal", f"Row {idx}: Amount must be positive.", parent=dlg)
+                    return
+
+                # Resolve attacker name (optional, controlled by toggle)
+                attacker_name = None
+                if use_attacker_var.get():
+                    attacker_name = _parse_name_from_label(row["attacker_var"].get())
+
+                # Resolve targets for this row
+                if apply_selected.get():
+                    target_cids = [cid for cid in t_cids if cid in self.combatants]
+                else:
+                    cid = self._cid_from_label(row["target_var"].get())
+                    if cid is None or cid not in self.combatants:
+                        messagebox.showerror("Damage/Heal", f"Row {idx}: Pick a valid target.", parent=dlg)
+                        return
+                    target_cids = [cid]
+
+                names = [self.combatants[cid].name for cid in target_cids if cid in self.combatants]
+                if not names:
+                    continue
+                targets_str = ", ".join(names)
+                plural = len(names) != 1
+
+                dtype = (row["dtype_var"].get() or "").strip()
+                dtype_l = (dtype.lower() + " ") if dtype else ""
+
+                if mode == "heal":
+                    for cid in target_cids:
+                        c = self.combatants.get(cid)
+                        if c is None:
+                            continue
+                        c.hp = max(0, int(c.hp) + int(amt))
+                    tail = " each" if plural else ""
+                    if attacker_name:
+                        self._log(f"{attacker_name} heals {targets_str} for {amt} HP{tail}")
+                    else:
+                        self._log(f"{targets_str} heals {amt} HP{tail}")
+                    continue
+
+                # damage
+                if row["immune_var"].get():
+                    if attacker_name:
+                        if dtype:
+                            self._log(
+                                f"{attacker_name} did {dtype_l}damage to {targets_str}, but "
+                                f"{'they are' if plural else 'it is'} immune to {dtype.lower()}."
+                            )
+                        else:
+                            self._log(
+                                f"{attacker_name} tried to deal damage to {targets_str}, but "
+                                f"{'they are' if plural else 'it is'} immune."
+                            )
+                    else:
+                        if dtype:
+                            self._log(f"Damage to {targets_str} was blocked — immune to {dtype.lower()}.")
+                        else:
+                            self._log("Damage was blocked — immune.")
+                    continue
+
+                applied = int(amt)
+                resist_note = ""
+                if row["resistant_var"].get():
+                    applied = applied // 2
+                    resist_note = " (resistant)"
+
+                local_removed: list[int] = []
+                for cid in target_cids:
+                    c = self.combatants.get(cid)
+                    if c is None:
+                        continue
+                    old_hp = int(c.hp)
+                    c.hp = max(0, old_hp - int(applied))
+                    if old_hp > 0 and int(c.hp) == 0:
+                        local_removed.append(cid)
+
+                if attacker_name:
+                    self._log(f"{attacker_name} does {applied} {dtype_l}damage to {targets_str}{resist_note}")
+                else:
+                    self._log(f"{targets_str} takes {applied} {dtype_l}damage{resist_note}")
+
+                # Remove anyone who hit 0 from >0
+                for cid in local_removed:
+                    nm = self.combatants[cid].name if cid in self.combatants else "(unknown)"
+                    self._log(f"{nm} drops to 0 HP and is removed from initiative.")
+                    self.combatants.pop(cid, None)
+                    removed_all.append(cid)
+
+            if removed_all:
+                if getattr(self, "start_cid", None) in removed_all:
+                    self.start_cid = None
+                self._retarget_current_after_removal(removed_all, pre_order=pre_order)
+
+            self._rebuild_table(scroll_to_current=True)
+            if close_after.get():
+                dlg.destroy()
+
+        ttk.Button(btn_row, text="Apply", command=on_apply).pack(side=tk.RIGHT, padx=(6, 0))
+        ttk.Button(btn_row, text="Close", command=dlg.destroy).pack(side=tk.RIGHT)
+
+        # Focus first amount entry
+        try:
+            source_rows[0]["amt_entry"].focus_set()
+        except Exception:
+            pass
+    def _open_dot_tool(self) -> None:
+        dlg = tk.Toplevel(self)
+        dlg.title("Damage over Time (DoT)")
+        dlg.geometry("620x420")
+        dlg.minsize(520, 360)
+        dlg.transient(self)
+        dlg.after(0, dlg.grab_set)
+
+        frm = ttk.Frame(dlg, padding=10)
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        sel_cids = self._selected_cids()
+        if not sel_cids:
+            ttk.Label(frm, text="Select 1+ creatures in the table first.").pack(anchor="w")
+        else:
+            names = ", ".join(self.combatants[cid].name for cid in sel_cids if cid in self.combatants)
+            ttk.Label(frm, text=f"Applying to: {names}").pack(anchor="w")
+
+        row = ttk.Frame(frm)
+        row.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Label(row, text="Type").grid(row=0, column=0, sticky="w")
+        dtype_var = tk.StringVar(value="burn")
+        ttk.Combobox(row, textvariable=dtype_var, values=list(DOT_META.keys()), state="readonly", width=12).grid(
+            row=1, column=0, sticky="w", padx=(0, 10)
+        )
+
+        ttk.Label(row, text="Turns").grid(row=0, column=1, sticky="w")
+        turns_var = tk.StringVar(value="1")
+        ttk.Entry(row, textvariable=turns_var, width=6).grid(row=1, column=1, sticky="w", padx=(0, 10))
+
+        dice_frame = ttk.LabelFrame(frm, text="Dice", padding=8)
+        dice_frame.pack(fill=tk.X, pady=(10, 0))
+
+        dice_vars: Dict[int, tk.IntVar] = {}
+        col = 0
+        for die in [4, 6, 8, 10, 12]:
+            v = tk.IntVar(value=0)
+            dice_vars[die] = v
+            ttk.Label(dice_frame, text=f"d{die}").grid(row=0, column=col, sticky="w")
+            ttk.Spinbox(dice_frame, from_=0, to=9, width=5, textvariable=v).grid(row=1, column=col, padx=(0, 10))
+            col += 1
+
+        def apply():
+            if not sel_cids:
+                messagebox.showerror("DoT", "Select 1+ creatures first.")
+                return
+            try:
+                turns = int(turns_var.get().strip())
+                if turns <= 0:
+                    raise ValueError()
+            except ValueError:
+                messagebox.showerror("DoT", "Turns must be a positive integer.")
+                return
+
+            dice: Dict[int, int] = {die: int(v.get()) for die, v in dice_vars.items() if int(v.get()) > 0}
+            if not dice:
+                messagebox.showerror("DoT", "Pick at least one die.")
+                return
+
+            dtype = dtype_var.get().strip()
+            for cid in sel_cids:
+                if cid not in self.combatants:
+                    continue
+                st = DotStack(sid=self._next_stack_id, dtype=dtype, dice=dice.copy(), remaining_turns=turns)
+                self._next_stack_id += 1
+                self.combatants[cid].dot_stacks.append(st)
+
+            self._rebuild_table(scroll_to_current=True)
+
+        btns = ttk.Frame(frm)
+        btns.pack(anchor="e", pady=(10, 0))
+        ttk.Button(btns, text="Add Stack(s)", command=apply).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btns, text="Close", command=dlg.destroy).pack(side=tk.LEFT)
+
+    # -------------------------- Conditions tool --------------------------
+    def _open_condition_tool(self) -> None:
+        dlg = tk.Toplevel(self)
+        dlg.title("Conditions (2024)")
+        dlg.geometry("900x640")
+        dlg.minsize(700, 520)
+        dlg.transient(self)
+        dlg.after(0, dlg.grab_set)
+
+        frm = ttk.Frame(dlg, padding=10)
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        sel_cids = self._selected_cids()
+        if not sel_cids:
+            ttk.Label(frm, text="Select 1+ creatures in the table first.").pack(anchor="w")
+        else:
+            names = ", ".join(self.combatants[cid].name for cid in sel_cids if cid in self.combatants)
+            ttk.Label(frm, text=f"Target(s): {names}").pack(anchor="w")
+
+        # --- Set a condition (non-stacking; overwrites duration if already present) ---
+        set_box = ttk.LabelFrame(frm, text="Set condition (doesn't stack)", padding=8)
+        set_box.pack(fill=tk.X, pady=(10, 0))
+
+        cond_keys = [k for k in CONDITIONS_META.keys() if k != "exhaustion"]
+        cond_labels = [str(CONDITIONS_META[k]["label"]) for k in cond_keys]
+
+        cond_var = tk.StringVar(value=(cond_labels[0] if cond_labels else ""))
+        ttk.Label(set_box, text="Condition").grid(row=0, column=0, sticky="w")
+        ttk.Combobox(set_box, textvariable=cond_var, values=cond_labels, state="readonly", width=22).grid(
+            row=1, column=0, sticky="w", padx=(0, 10)
+        )
+
+        turns_var = tk.StringVar(value="1")
+        ttk.Label(set_box, text="Turns (0=indef)").grid(row=0, column=1, sticky="w")
+        ttk.Entry(set_box, textvariable=turns_var, width=10).grid(row=1, column=1, sticky="w", padx=(0, 10))
+
+        def resolve_key(label: str) -> Optional[str]:
+            for k in cond_keys:
+                if str(CONDITIONS_META[k]["label"]) == label:
+                    return k
+            return None
+
+        def apply_condition():
+            if not sel_cids:
+                messagebox.showerror("Conditions", "Select 1+ creatures first.", parent=dlg)
+                return
+            ckey = resolve_key(cond_var.get())
+            if not ckey:
+                messagebox.showerror("Conditions", "Pick a condition.", parent=dlg)
+                return
+            ttxt = turns_var.get().strip()
+            try:
+                t = int(ttxt)
+            except ValueError:
+                messagebox.showerror("Conditions", "Turns must be an integer (0=indef).", parent=dlg)
+                return
+            remaining = None if t == 0 else max(1, t)
+
+            for cid in sel_cids:
+                if cid not in self.combatants:
+                    continue
+                c = self.combatants[cid]
+                # non-stacking: remove existing of same type
+                c.condition_stacks = [st for st in c.condition_stacks if st.ctype != ckey]
+                st = ConditionStack(sid=self._next_stack_id, ctype=ckey, remaining_turns=remaining)
+                self._next_stack_id += 1
+                c.condition_stacks.append(st)
+                lab = str(CONDITIONS_META.get(ckey, {}).get("label", ckey))
+                if remaining is None:
+                    self._log(f"set condition: {lab} (indef)", cid=cid)
+                else:
+                    self._log(f"set condition: {lab} ({remaining} turn(s))", cid=cid)
+
+            self._rebuild_table(scroll_to_current=True)
+
+        ttk.Button(set_box, text="Apply", command=apply_condition).grid(row=1, column=2, sticky="w")
+
+        # --- Exhaustion level (stacks by level) ---
+        exh_box = ttk.LabelFrame(frm, text="Exhaustion (level)", padding=8)
+        exh_box.pack(fill=tk.X, pady=(10, 0))
+
+        exh_var = tk.StringVar(value="0")
+        ttk.Label(exh_box, text="Set level (0-6)").grid(row=0, column=0, sticky="w")
+        ttk.Spinbox(exh_box, from_=0, to=6, width=6, textvariable=exh_var).grid(row=1, column=0, sticky="w", padx=(0, 10))
+
+        def set_exhaustion():
+            if not sel_cids:
+                messagebox.showerror("Conditions", "Select 1+ creatures first.", parent=dlg)
+                return
+            try:
+                lvl = int(exh_var.get().strip())
+            except ValueError:
+                messagebox.showerror("Conditions", "Exhaustion must be 0-6.", parent=dlg)
+                return
+            lvl = max(0, min(6, lvl))
+            for cid in sel_cids:
+                if cid in self.combatants:
+                    self.combatants[cid].exhaustion_level = lvl
+                    self._log(f"set exhaustion level to {lvl}", cid=cid)
+            self._rebuild_table(scroll_to_current=True)
+
+        ttk.Button(exh_box, text="Set", command=set_exhaustion).grid(row=1, column=1, sticky="w")
+
+        # --- If exactly one target, show and allow removing existing effects ---
+        if len(sel_cids) == 1 and sel_cids[0] in self.combatants:
+            cid = sel_cids[0]
+            c = self.combatants[cid]
+            lst_box = ttk.LabelFrame(frm, text="Current (double-click to remove)", padding=8)
+            lst_box.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+
+            lb = tk.Listbox(lst_box, height=10)
+            lb.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            sb = ttk.Scrollbar(lst_box, orient="vertical", command=lb.yview)
+            sb.pack(side=tk.RIGHT, fill=tk.Y)
+            lb.configure(yscrollcommand=sb.set)
+
+            rows: List[Tuple[str, int]] = []  # (kind, sid)
+
+            def refresh_list():
+                nonlocal rows
+                rows = []
+                lb.delete(0, tk.END)
+                for st in sorted(c.condition_stacks, key=lambda x: x.ctype):
+                    lab = str(CONDITIONS_META.get(st.ctype, {}).get("label", st.ctype))
+                    if st.remaining_turns is None:
+                        txt = f"[C:{st.sid}] {lab} (indef)"
+                    else:
+                        txt = f"[C:{st.sid}] {lab} ({st.remaining_turns})"
+                    lb.insert(tk.END, txt)
+                    rows.append(("cond", st.sid))
+                if c.exhaustion_level > 0:
+                    lb.insert(tk.END, f"[E] Exhaustion level {c.exhaustion_level}")
+                for st in c.dot_stacks:
+                    lab = DOT_META.get(st.dtype, {}).get("label", st.dtype)
+                    lb.insert(tk.END, f"[D:{st.sid}] DoT {lab} ({st.remaining_turns}t)")
+                    rows.append(("dot", st.sid))
+
+            def remove_selected(_evt=None):
+                sel = lb.curselection()
+                if not sel:
+                    return
+                txt = lb.get(sel[0])
+                if txt.startswith("[E]"):
+                    c.exhaustion_level = 0
+                    self._log("cleared exhaustion", cid=cid)
+                    refresh_list()
+                    self._rebuild_table(scroll_to_current=True)
+                    return
+                try:
+                    sid = int(txt.split(":")[1].split("]")[0])
+                except Exception:
+                    return
+                if txt.startswith("[C:"):
+                    # remove condition by sid
+                    for st in list(c.condition_stacks):
+                        if st.sid == sid:
+                            lab = str(CONDITIONS_META.get(st.ctype, {}).get("label", st.ctype))
+                            c.condition_stacks.remove(st)
+                            self._log(f"removed condition: {lab}", cid=cid)
+                            break
+                elif txt.startswith("[D:"):
+                    c.dot_stacks = [st for st in c.dot_stacks if st.sid != sid]
+                    self._log("removed DoT stack", cid=cid)
+                refresh_list()
+                self._rebuild_table(scroll_to_current=True)
+
+            lb.bind("<Double-Button-1>", remove_selected)
+            refresh_list()
+
+        btns = ttk.Frame(frm)
+        btns.pack(anchor="e", pady=(10, 0))
+        ttk.Button(btns, text="Close", command=dlg.destroy).pack(side=tk.LEFT)
+
+
+    def _selected_cids(self) -> List[int]:
+        items = self.tree.selection()
+        out: List[int] = []
+        for it in items:
+            try:
+                cid = int(it)
+            except ValueError:
+                continue
+            if cid in self.combatants:
+                out.append(cid)
+        return out
+
+
+
+
+class BattleMapWindow(tk.Toplevel):
+    """A simple grid battle map with draggable unit tokens and AoE overlays."""
+
+    def __init__(self, app: InitiativeTracker) -> None:
+        super().__init__(app)
+        self.app = app
+        self.title("Map Mode")
+        self.geometry("980x720")
+        self.minsize(720, 520)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        # Map size prompt
+        size = self._prompt_map_size()
+        if size is None:
+            self.after(0, self.destroy)
+            return
+        self.cols, self.rows = size  # squares
+        self.feet_per_square = 5
+
+        # Grid layout metrics (computed on resize)
+        self.cell = 32.0
+        self.x0 = 0.0
+        self.y0 = 0.0
+
+        # Units and overlays
+        self.unit_tokens: Dict[int, Dict[str, object]] = {}  # cid -> {col,row,oval,text}
+        self._active_cid: Optional[int] = None
+
+        self._next_aoe_id = 1
+        self.aoes: Dict[int, Dict[str, object]] = {}  # aid -> overlay data
+        self._selected_aoe: Optional[int] = None
+
+        # Measurement
+        self._measure_start: Optional[Tuple[float, float]] = None
+        self._measure_items: List[int] = []
+
+        # Drag state
+        self._drag_kind: Optional[str] = None  # "unit" | "aoe"
+        self._drag_id: Optional[int] = None
+        self._drag_offset: Tuple[float, float] = (0.0, 0.0)
+
+        # Listbox drag-from-roster state
+        self._dragging_from_list: Optional[int] = None
+        self._drag_ghost: Optional[tk.Label] = None
+
+        # Background images
+        self._next_bg_id = 1
+        self.bg_images: Dict[int, Dict[str, object]] = {}  # bid -> {path,pil,tk,item,x,y,alpha,scale,locked}
+        self._selected_bg: Optional[int] = None
+
+        self._build_ui()
+        self.refresh_units()
+
+        # Keybindings
+        self.bind("<Escape>", lambda e: self._clear_measure())
+        self.bind("<KeyPress-r>", lambda e: self.refresh_units())
+
+    def _on_close(self) -> None:
+        try:
+            if getattr(self.app, "_map_window", None) is self:
+                self.app._map_window = None
+        except Exception:
+            pass
+        self.destroy()
+
+    def _prompt_map_size(self) -> Optional[Tuple[int, int]]:
+        cols = simpledialog.askinteger(
+            "Battle Map Size",
+            "Map width (squares, 5 ft each):",
+            initialvalue=20,
+            minvalue=5,
+            maxvalue=200,
+            parent=self,
+        )
+        if cols is None:
+            return None
+        rows = simpledialog.askinteger(
+            "Battle Map Size",
+            "Map height (squares, 5 ft each):",
+            initialvalue=20,
+            minvalue=5,
+            maxvalue=200,
+            parent=self,
+        )
+        if rows is None:
+            return None
+        return int(cols), int(rows)
+
+    def _build_ui(self) -> None:
+        outer = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
+        outer.pack(fill=tk.BOTH, expand=True)
+
+        left = ttk.Frame(outer, padding=8)
+        outer.add(left, weight=0)
+
+        right = ttk.Frame(outer, padding=8)
+        outer.add(right, weight=1)
+
+        # --- Units panel ---
+        ttk.Label(left, text="Units (drag onto map)").pack(anchor="w")
+        unit_frame = ttk.Frame(left)
+        unit_frame.pack(fill=tk.BOTH, expand=False, pady=(4, 10))
+
+        self.units_list = tk.Listbox(unit_frame, height=14, exportselection=False)
+        self.units_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        sb = ttk.Scrollbar(unit_frame, orient=tk.VERTICAL, command=self.units_list.yview)
+        sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.units_list.config(yscrollcommand=sb.set)
+
+        self.units_list.bind("<ButtonPress-1>", self._on_units_press)
+        self.units_list.bind("<B1-Motion>", self._on_units_motion)
+        self.units_list.bind("<ButtonRelease-1>", self._on_units_release)
+
+        btns = ttk.Frame(left)
+        btns.pack(fill=tk.X, pady=(0, 10))
+        ttk.Button(btns, text="Refresh Units (R)", command=self.refresh_units).pack(side=tk.LEFT)
+        ttk.Button(btns, text="Clear Measure (Esc)", command=self._clear_measure).pack(side=tk.LEFT, padx=(8, 0))
+
+        # --- AoE panel ---
+        ttk.Separator(left).pack(fill=tk.X, pady=(6, 10))
+        ttk.Label(left, text="Spell Overlays (AoE)").pack(anchor="w")
+
+        aoe_btns = ttk.Frame(left)
+        aoe_btns.pack(fill=tk.X, pady=(4, 6))
+        ttk.Button(aoe_btns, text="Add Circle", command=self._add_circle_aoe).pack(side=tk.LEFT)
+        ttk.Button(aoe_btns, text="Add Square", command=self._add_square_aoe).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(aoe_btns, text="Remove", command=self._remove_selected_aoe).pack(side=tk.LEFT, padx=(8, 0))
+
+        self.aoe_list = tk.Listbox(left, height=8, exportselection=False)
+        self.aoe_list.pack(fill=tk.BOTH, expand=False)
+        self.aoe_list.bind("<<ListboxSelect>>", lambda e: self._select_aoe_from_list())
+        self.aoe_list.bind("<Double-Button-1>", lambda e: self._rename_selected_aoe())
+
+        self.pin_var = tk.BooleanVar(value=False)
+        self.pin_chk = ttk.Checkbutton(left, text="Stationary (pinned)", variable=self.pin_var, command=self._toggle_pin_selected)
+        self.pin_chk.pack(anchor="w", pady=(6, 0))
+
+        ttk.Label(left, text="Included in selected AoE:").pack(anchor="w", pady=(10, 0))
+        self.included_box = tk.Text(left, height=8, width=28, wrap="word")
+        self.included_box.pack(fill=tk.BOTH, expand=True, pady=(4, 0))
+        self.included_box.config(state=tk.DISABLED)
+
+        dmg_row = ttk.Frame(left)
+        dmg_row.pack(fill=tk.X, pady=(6, 0))
+        self.aoe_damage_btn = ttk.Button(dmg_row, text="AoE Damage…", command=self._open_aoe_damage)
+        self.aoe_damage_btn.pack(side=tk.LEFT)
+        try:
+            self.aoe_damage_btn.state(["disabled"])
+        except Exception:
+            pass
+
+        ttk.Label(left, text="Tip: Right-click two points to measure distance (crow flies).").pack(anchor="w", pady=(10, 0))
+
+        # --- Background images panel ---
+        ttk.Separator(left).pack(fill=tk.X, pady=(10, 10))
+        ttk.Label(left, text="Background Images").pack(anchor="w")
+
+        bg_btns = ttk.Frame(left)
+        bg_btns.pack(fill=tk.X, pady=(4, 6))
+        ttk.Button(bg_btns, text="Add Image…", command=self._add_bg_image).pack(side=tk.LEFT)
+        ttk.Button(bg_btns, text="Remove", command=self._remove_selected_bg_image).pack(side=tk.LEFT, padx=(8, 0))
+
+        self.bg_list = tk.Listbox(left, height=6, exportselection=False)
+        self.bg_list.pack(fill=tk.BOTH, expand=False)
+        self.bg_list.bind("<<ListboxSelect>>", lambda e: self._select_bg_from_list())
+
+        self.bg_lock_var = tk.BooleanVar(value=False)
+        self.bg_scale_var = tk.DoubleVar(value=100.0)          # percent
+        self.bg_transparency_var = tk.DoubleVar(value=0.0)     # percent (0=opaque, 100=invisible)
+
+        ctrl = ttk.Frame(left)
+        ctrl.pack(fill=tk.X, pady=(6, 0))
+        self.bg_lock_chk = ttk.Checkbutton(ctrl, text="Lock", variable=self.bg_lock_var, command=self._on_bg_lock_toggle)
+        self.bg_lock_chk.grid(row=0, column=0, sticky="w")
+
+        ttk.Label(ctrl, text="Scale %").grid(row=1, column=0, sticky="w", pady=(6, 0))
+        self.bg_scale = ttk.Scale(ctrl, from_=10, to=300, variable=self.bg_scale_var, command=self._on_bg_scale_change)
+        self.bg_scale.grid(row=1, column=1, sticky="ew", padx=(8, 0))
+        self.bg_scale_val = ttk.Label(ctrl, text="100%")
+        self.bg_scale_val.grid(row=1, column=2, sticky="e", padx=(6, 0))
+
+        ttk.Label(ctrl, text="Transparency %").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        self.bg_alpha = ttk.Scale(ctrl, from_=0, to=100, variable=self.bg_transparency_var, command=self._on_bg_transparency_change)
+        self.bg_alpha.grid(row=2, column=1, sticky="ew", padx=(8, 0))
+        self.bg_alpha_val = ttk.Label(ctrl, text="0%")
+        self.bg_alpha_val.grid(row=2, column=2, sticky="e", padx=(6, 0))
+
+        ctrl.columnconfigure(1, weight=1)
+        self._set_bg_controls_enabled(False)
+
+        # --- Map canvas ---
+        self.canvas = tk.Canvas(right, background="#f8f1d4", highlightthickness=1, highlightbackground="#8b6a3d")
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        self.canvas.bind("<Configure>", lambda e: self._redraw_all())
+        self.canvas.bind("<ButtonPress-1>", self._on_canvas_press)
+        self.canvas.bind("<B1-Motion>", self._on_canvas_motion)
+        self.canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
+        self.canvas.bind("<Button-3>", self._on_canvas_right_click)
+
+    # ---------------- Units list / drag placement ----------------
+    def refresh_units(self) -> None:
+        """Refresh the roster list and drop tokens that no longer exist."""
+        # Remove tokens for missing combatants
+        existing = set(self.app.combatants.keys())
+        for cid in list(self.unit_tokens.keys()):
+            if cid not in existing:
+                self._delete_unit_token(cid)
+
+        self.units_list.delete(0, tk.END)
+        self._units_index_to_cid: List[int] = []
+        # show in initiative display order first, then others
+        ordered = [c.cid for c in self.app._display_order()] if hasattr(self.app, "_display_order") else list(existing)
+        seen = set()
+        for cid in ordered + [cid for cid in existing if cid not in set(ordered)]:
+            if cid in seen or cid not in existing:
+                continue
+            seen.add(cid)
+            c = self.app.combatants[cid]
+            label = f"{c.name}  [#{cid}]"
+            if cid in self.unit_tokens:
+                label += "  (on map)"
+            self.units_list.insert(tk.END, label)
+            self._units_index_to_cid.append(cid)
+
+    def _on_units_press(self, event: tk.Event) -> None:
+        idx = self.units_list.nearest(event.y)
+        if idx < 0 or idx >= len(getattr(self, "_units_index_to_cid", [])):
+            return
+        self.units_list.selection_clear(0, tk.END)
+        self.units_list.selection_set(idx)
+        cid = self._units_index_to_cid[idx]
+        self._dragging_from_list = cid
+        name = self.app.combatants[cid].name if cid in self.app.combatants else str(cid)
+        self._make_ghost(f"➜ {name}")
+
+    def _make_ghost(self, text: str) -> None:
+        if self._drag_ghost is None or not self._drag_ghost.winfo_exists():
+            self._drag_ghost = tk.Label(self, text=text, relief="solid", borderwidth=1, background="#fff7c2")
+        self._drag_ghost.lift()
+
+    def _on_units_motion(self, event: tk.Event) -> None:
+        if self._dragging_from_list is None:
+            return
+        if self._drag_ghost is None:
+            return
+        # position ghost near cursor (window coords)
+        x = event.x_root - self.winfo_rootx() + 12
+        y = event.y_root - self.winfo_rooty() + 12
+        self._drag_ghost.place(x=x, y=y)
+
+    def _on_units_release(self, event: tk.Event) -> None:
+        cid = self._dragging_from_list
+        self._dragging_from_list = None
+        if self._drag_ghost is not None and self._drag_ghost.winfo_exists():
+            self._drag_ghost.place_forget()
+
+        if cid is None or cid not in self.app.combatants:
+            return
+
+        w = self.winfo_containing(event.x_root, event.y_root)
+        if w is None:
+            return
+
+        # Drop only if over the canvas (or a child of it)
+        if w is self.canvas or str(w).startswith(str(self.canvas)):
+            x = event.x_root - self.canvas.winfo_rootx()
+            y = event.y_root - self.canvas.winfo_rooty()
+            self._place_unit_at_pixel(cid, x, y)
+
+    def _place_unit_at_pixel(self, cid: int, x: float, y: float) -> None:
+        col, row = self._pixel_to_grid(x, y)
+        if col is None or row is None:
+            return
+        if cid in self.unit_tokens:
+            # move existing token
+            self.unit_tokens[cid]["col"] = col
+            self.unit_tokens[cid]["row"] = row
+            self._layout_unit(cid)
+        else:
+            self._create_unit_token(cid, col, row)
+        self.refresh_units()
+        self._update_included_for_selected()
+
+    def _create_unit_token(self, cid: int, col: int, row: int) -> None:
+        c = self.app.combatants[cid]
+        x, y = self._grid_to_pixel(col, row)
+        r = self.cell * 0.42
+
+        # Color cues
+        if c.is_pc:
+            fill = "#cfead1"
+            outline = "#1d6b26"
+        elif c.ally:
+            fill = "#d6f5d6"
+            outline = "#2b8a3e"
+        else:
+            fill = "#f6d6d6"
+            outline = "#8a2b2b"
+
+        oval = self.canvas.create_oval(x - r, y - r, x + r, y + r, fill=fill, outline=outline, width=2,
+                                      tags=(f"unit:{cid}", "unit"))
+        text = self.canvas.create_text(x, y, text=c.name, font=("TkDefaultFont", 9, "bold"),
+                                       tags=(f"unit:{cid}", "unittext"))
+
+        self.unit_tokens[cid] = {"col": col, "row": row, "oval": oval, "text": text}
+        self._apply_active_highlight()
+
+    def _delete_unit_token(self, cid: int) -> None:
+        tok = self.unit_tokens.get(cid)
+        if not tok:
+            return
+        try:
+            self.canvas.delete(int(tok["oval"]))
+            self.canvas.delete(int(tok["text"]))
+        except Exception:
+            pass
+        self.unit_tokens.pop(cid, None)
+        self._update_included_for_selected()
+
+    # ---------------- Canvas grid & geometry ----------------
+    def _compute_metrics(self) -> None:
+        cw = max(1, self.canvas.winfo_width())
+        ch = max(1, self.canvas.winfo_height())
+        self.cell = float(max(10.0, min(cw / self.cols, ch / self.rows)))
+        gw = self.cell * self.cols
+        gh = self.cell * self.rows
+        self.x0 = (cw - gw) / 2.0
+        self.y0 = (ch - gh) / 2.0
+
+    def _grid_to_pixel(self, col: int, row: int) -> Tuple[float, float]:
+        x = self.x0 + (col + 0.5) * self.cell
+        y = self.y0 + (row + 0.5) * self.cell
+        return x, y
+
+    def _pixel_to_grid(self, x: float, y: float) -> Tuple[Optional[int], Optional[int]]:
+        # x,y are canvas-local
+        if x < self.x0 or y < self.y0:
+            return None, None
+        col = int((x - self.x0) // self.cell)
+        row = int((y - self.y0) // self.cell)
+        if col < 0 or row < 0 or col >= self.cols or row >= self.rows:
+            return None, None
+        return col, row
+
+    def _redraw_all(self) -> None:
+        self._compute_metrics()
+        self.canvas.delete("grid")
+        self.canvas.delete("measure")
+        # Recreate measure items later if needed
+        self._measure_items = []
+        self._measure_start = None
+
+        # Draw grid
+        # border
+        self.canvas.create_rectangle(
+            self.x0, self.y0, self.x0 + self.cols * self.cell, self.y0 + self.rows * self.cell,
+            outline="#7a5a30", width=2, tags=("grid",)
+        )
+        for i in range(1, self.cols):
+            x = self.x0 + i * self.cell
+            self.canvas.create_line(x, self.y0, x, self.y0 + self.rows * self.cell, fill="#d0c3a0", tags=("grid",))
+        for j in range(1, self.rows):
+            y = self.y0 + j * self.cell
+            self.canvas.create_line(self.x0, y, self.x0 + self.cols * self.cell, y, fill="#d0c3a0", tags=("grid",))
+
+        # Layout tokens and overlays
+        for cid in list(self.unit_tokens.keys()):
+            self._layout_unit(cid)
+        for aid in list(self.aoes.keys()):
+            self._layout_aoe(aid)
+
+        self._apply_active_highlight()
+        self._update_included_for_selected()
+
+    def _layout_unit(self, cid: int) -> None:
+        tok = self.unit_tokens.get(cid)
+        if not tok:
+            return
+        col = int(tok["col"])
+        row = int(tok["row"])
+        x, y = self._grid_to_pixel(col, row)
+        r = self.cell * 0.42
+        self.canvas.coords(int(tok["oval"]), x - r, y - r, x + r, y + r)
+        self.canvas.coords(int(tok["text"]), x, y)
+
+    def _prompt_circle_aoe_params(self) -> Optional[Tuple[int, str]]:
+        """Prompt for circle size and whether it's radius or diameter (required, mutually exclusive)."""
+        dlg = tk.Toplevel(self)
+        dlg.title("Circle AoE")
+        dlg.transient(self)
+        dlg.after(0, dlg.grab_set)
+
+        out: dict[str, object] = {"value": None, "mode": "radius"}
+
+        frm = ttk.Frame(dlg, padding=10)
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frm, text="Enter size (ft):").grid(row=0, column=0, sticky="w")
+        val_var = tk.StringVar(value="20")
+        ent = ttk.Entry(frm, textvariable=val_var, width=10)
+        ent.grid(row=0, column=1, sticky="w", padx=(6, 0))
+
+        mode_var = tk.StringVar(value="radius")
+        mode_box = ttk.Frame(frm)
+        mode_box.grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        ttk.Label(mode_box, text="Interpret as:").pack(side=tk.LEFT)
+        ttk.Radiobutton(mode_box, text="Radius", variable=mode_var, value="radius").pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Radiobutton(mode_box, text="Diameter", variable=mode_var, value="diameter").pack(side=tk.LEFT, padx=(8, 0))
+
+        btns = ttk.Frame(frm)
+        btns.grid(row=2, column=0, columnspan=2, sticky="e", pady=(12, 0))
+
+        def on_ok() -> None:
+            raw = (val_var.get() or "").strip()
+            try:
+                v = int(raw)
+            except Exception:
+                messagebox.showerror("Circle AoE", "Size must be an integer (ft).", parent=dlg)
+                return
+            if v <= 0:
+                messagebox.showerror("Circle AoE", "Size must be greater than 0.", parent=dlg)
+                return
+            out["value"] = v
+            out["mode"] = mode_var.get()
+            dlg.destroy()
+
+        def on_cancel() -> None:
+            out["value"] = None
+            dlg.destroy()
+
+        ttk.Button(btns, text="OK", command=on_ok).pack(side=tk.LEFT)
+        ttk.Button(btns, text="Cancel", command=on_cancel).pack(side=tk.LEFT, padx=(8, 0))
+
+        dlg.bind("<Return>", lambda e: on_ok())
+        dlg.bind("<Escape>", lambda e: on_cancel())
+        try:
+            ent.focus_set()
+            ent.select_range(0, tk.END)
+        except Exception:
+            pass
+
+        self.wait_window(dlg)
+        if out["value"] is None:
+            return None
+        return int(out["value"]), str(out["mode"])
+
+    # ---------------- AoE overlays ----------------
+    def _add_circle_aoe(self) -> None:
+        res = self._prompt_circle_aoe_params()
+        if res is None:
+            return
+        ft, mode = res
+        radius_ft = float(ft) / 2.0 if mode == "diameter" else float(ft)
+        radius_sq = max(0.5, radius_ft / self.feet_per_square)
+
+        aid = self._next_aoe_id
+        self._next_aoe_id += 1
+
+        # place at center
+        cx = (self.cols - 1) / 2.0
+        cy = (self.rows - 1) / 2.0
+
+        self.aoes[aid] = {"kind": "circle", "radius_sq": radius_sq, "cx": cx, "cy": cy, "pinned": False,
+                          "name": f"AoE {aid}", "shape": None, "label": None}
+        self._create_aoe_items(aid)
+        self._refresh_aoe_list(select=aid)
+
+    def _add_square_aoe(self) -> None:
+        ft = simpledialog.askinteger("Square AoE", "Enter side length (ft):", initialvalue=15, minvalue=5, maxvalue=1000, parent=self)
+        if ft is None:
+            return
+        side_sq = max(1.0, float(ft) / self.feet_per_square)
+
+        aid = self._next_aoe_id
+        self._next_aoe_id += 1
+
+        cx = (self.cols - 1) / 2.0
+        cy = (self.rows - 1) / 2.0
+
+        self.aoes[aid] = {"kind": "square", "side_sq": side_sq, "cx": cx, "cy": cy, "pinned": False,
+                          "name": f"AoE {aid}", "shape": None, "label": None}
+        self._create_aoe_items(aid)
+        self._refresh_aoe_list(select=aid)
+
+    def _create_aoe_items(self, aid: int) -> None:
+        d = self.aoes[aid]
+        kind = str(d["kind"])
+        shape_id: int
+        label_id: int
+
+        # initial placeholder coords, then layout
+        if kind == "circle":
+            shape_id = self.canvas.create_oval(0, 0, 1, 1, outline="#2d4f8a", width=3, dash=(6, 4),
+                                               fill="#a8c5ff", stipple="gray25",
+                                               tags=(f"aoe:{aid}", "aoe"))
+        else:
+            shape_id = self.canvas.create_rectangle(0, 0, 1, 1, outline="#6b3d8a", width=3, dash=(6, 4),
+                                                    fill="#e2b6ff", stipple="gray25",
+                                                    tags=(f"aoe:{aid}", "aoe"))
+        label_id = self.canvas.create_text(0, 0, text=str(d.get("name") or f"AoE {aid}"), font=("TkDefaultFont", 9, "bold"),
+                                           tags=(f"aoe:{aid}", "aoelabel"))
+
+        d["shape"] = shape_id
+        d["label"] = label_id
+        self._layout_aoe(aid)
+
+    def _layout_aoe(self, aid: int) -> None:
+        d = self.aoes.get(aid)
+        if not d:
+            return
+        cx = float(d["cx"])
+        cy = float(d["cy"])
+        x = self.x0 + (cx + 0.5) * self.cell
+        y = self.y0 + (cy + 0.5) * self.cell
+
+        kind = str(d["kind"])
+        if kind == "circle":
+            r = float(d["radius_sq"]) * self.cell
+            self.canvas.coords(int(d["shape"]), x - r, y - r, x + r, y + r)
+        else:
+            half = float(d["side_sq"]) * self.cell / 2.0
+            self.canvas.coords(int(d["shape"]), x - half, y - half, x + half, y + half)
+
+        self.canvas.coords(int(d["label"]), x, y)
+
+    def _refresh_aoe_list(self, select: Optional[int] = None) -> None:
+        self.aoe_list.delete(0, tk.END)
+        self._aoe_index_to_id: List[int] = []
+        for aid in sorted(self.aoes.keys()):
+            d = self.aoes[aid]
+            kind = "◯" if d["kind"] == "circle" else "□"
+            pin = " (pinned)" if d.get("pinned") else ""
+            name = str(d.get("name") or f"AoE {aid}")
+            self.aoe_list.insert(tk.END, f"{kind} {name} [{aid}]{pin}")
+            self._aoe_index_to_id.append(aid)
+
+        if select is not None and select in self.aoes:
+            try:
+                idx = self._aoe_index_to_id.index(select)
+                self.aoe_list.selection_clear(0, tk.END)
+                self.aoe_list.selection_set(idx)
+                self.aoe_list.see(idx)
+                self._selected_aoe = select
+                self.pin_var.set(bool(self.aoes[select].get("pinned")))
+            except Exception:
+                pass
+        self._update_included_for_selected()
+
+    def _select_aoe_from_list(self) -> None:
+        sel = self.aoe_list.curselection()
+        if not sel:
+            self._selected_aoe = None
+            self.pin_var.set(False)
+            self._update_included_for_selected()
+            self._update_aoe_damage_button([])
+            return
+        idx = int(sel[0])
+        if idx < 0 or idx >= len(getattr(self, "_aoe_index_to_id", [])):
+            return
+        aid = self._aoe_index_to_id[idx]
+        self._selected_aoe = aid
+        self.pin_var.set(bool(self.aoes[aid].get("pinned")))
+        # bring to front
+        try:
+            self.canvas.tag_raise(f"aoe:{aid}")
+            self.canvas.tag_raise(f"aoe:{aid}")
+        except Exception:
+            pass
+        self._update_included_for_selected()
+
+    def _toggle_pin_selected(self) -> None:
+        aid = self._selected_aoe
+        if aid is None or aid not in self.aoes:
+            return
+        self.aoes[aid]["pinned"] = bool(self.pin_var.get())
+        self._refresh_aoe_list(select=aid)
+
+
+
+    def _rename_selected_aoe(self) -> None:
+        """Rename the selected AoE overlay (double-click in the AoE list)."""
+        aid = self._selected_aoe
+        if aid is None:
+            sel = self.aoe_list.curselection()
+            if sel and 0 <= int(sel[0]) < len(getattr(self, "_aoe_index_to_id", [])):
+                aid = self._aoe_index_to_id[int(sel[0])]
+        if aid is None or aid not in self.aoes:
+            return
+        cur = str(self.aoes[aid].get("name") or f"AoE {aid}")
+        name = simpledialog.askstring("Rename AoE", "Enter AoE name:", initialvalue=cur, parent=self)
+        if name is None:
+            return
+        name = name.strip()
+        if not name:
+            name = f"AoE {aid}"
+        self.aoes[aid]["name"] = name
+        self._refresh_aoe_list(select=aid)
+        # Update label text immediately (count will be appended by _update_included_for_selected)
+        self._update_included_for_selected()
+
+    # ---------------- Background images ----------------
+    def _set_bg_controls_enabled(self, enabled: bool) -> None:
+        widgets = [getattr(self, "bg_lock_chk", None), getattr(self, "bg_scale", None), getattr(self, "bg_alpha", None)]
+        for w in widgets:
+            if w is None:
+                continue
+            try:
+                w.state(["!disabled"] if enabled else ["disabled"])
+            except Exception:
+                try:
+                    w.config(state=tk.NORMAL if enabled else tk.DISABLED)
+                except Exception:
+                    pass
+
+    def _refresh_bg_list(self, select: Optional[int] = None) -> None:
+        lb = getattr(self, "bg_list", None)
+        if lb is None:
+            return
+        lb.delete(0, tk.END)
+        self._bg_index_to_id = []
+        for bid in sorted(self.bg_images.keys()):
+            d = self.bg_images[bid]
+            path = str(d.get("path") or "")
+            name = Path(path).name if path else f"Image {bid}"
+            lock = " 🔒" if bool(d.get("locked")) else ""
+            lb.insert(tk.END, f"{name} [{bid}]{lock}")
+            self._bg_index_to_id.append(bid)
+
+        if select is not None and select in self.bg_images:
+            try:
+                idx = self._bg_index_to_id.index(select)
+                lb.selection_clear(0, tk.END)
+                lb.selection_set(idx)
+                lb.see(idx)
+                self._selected_bg = select
+            except Exception:
+                pass
+
+    def _select_bg_from_list(self) -> None:
+        sel = self.bg_list.curselection()
+        if not sel:
+            self._selected_bg = None
+            self._set_bg_controls_enabled(False)
+            return
+        idx = int(sel[0])
+        if idx < 0 or idx >= len(getattr(self, "_bg_index_to_id", [])):
+            return
+        bid = self._bg_index_to_id[idx]
+        self._selected_bg = bid
+        d = self.bg_images.get(bid, {})
+        try:
+            self.bg_lock_var.set(bool(d.get("locked")))
+            self.bg_scale_var.set(float(d.get("scale_pct", 100.0)))
+            self.bg_transparency_var.set(float(d.get("trans_pct", 0.0)))
+            self.bg_scale_val.config(text=f"{int(float(self.bg_scale_var.get()))}%")
+            self.bg_alpha_val.config(text=f"{int(float(self.bg_transparency_var.get()))}%")
+        except Exception:
+            pass
+        self._set_bg_controls_enabled(True)
+
+        # Bring selection to front slightly (still under grid)
+        try:
+            self.canvas.tag_raise(f"bg:{bid}")
+            self.canvas.tag_lower(f"bg:{bid}", "grid")
+        except Exception:
+            pass
+
+    def _add_bg_image(self) -> None:
+        if Image is None or ImageTk is None:
+            messagebox.showerror("Background Images", "Pillow (PIL) is required to load images.", parent=self)
+            return
+        path = filedialog.askopenfilename(
+            parent=self,
+            title="Select background image",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("PNG", "*.png"),
+                ("JPEG", "*.jpg *.jpeg"),
+                ("All files", "*.*"),
+            ],
+        )
+        if not path:
+            return
+        try:
+            pil = Image.open(path).convert("RGBA")
+        except Exception as e:
+            messagebox.showerror("Background Images", f"Failed to open image:\n{e}", parent=self)
+            return
+
+        # Default placement: center of map bounds
+        self._compute_metrics()
+        cx = self.x0 + (self.cols * self.cell) / 2.0
+        cy = self.y0 + (self.rows * self.cell) / 2.0
+
+        bid = self._next_bg_id
+        self._next_bg_id += 1
+
+        d: Dict[str, object] = {
+            "path": path,
+            "pil": pil,          # original RGBA
+            "tk": None,          # ImageTk.PhotoImage
+            "item": None,        # canvas item id
+            "x": cx,
+            "y": cy,
+            "scale_pct": 100.0,
+            "trans_pct": 0.0,    # transparency percent
+            "locked": False,
+        }
+        self.bg_images[bid] = d
+        self._update_bg_canvas_item(bid, recreate=True)
+        self._refresh_bg_list(select=bid)
+        self._select_bg_from_list()
+
+    def _remove_selected_bg_image(self) -> None:
+        bid = self._selected_bg
+        if bid is None or bid not in self.bg_images:
+            return
+        d = self.bg_images.pop(bid)
+        try:
+            item = int(d.get("item") or 0)
+            if item:
+                self.canvas.delete(item)
+        except Exception:
+            pass
+        self._selected_bg = None
+        self._refresh_bg_list()
+        self._set_bg_controls_enabled(False)
+
+    def _on_bg_lock_toggle(self) -> None:
+        bid = self._selected_bg
+        if bid is None or bid not in self.bg_images:
+            return
+        self.bg_images[bid]["locked"] = bool(self.bg_lock_var.get())
+        self._refresh_bg_list(select=bid)
+
+    def _on_bg_scale_change(self, value: object) -> None:
+        try:
+            v = float(value)
+        except Exception:
+            try:
+                v = float(self.bg_scale_var.get())
+            except Exception:
+                return
+        self.bg_scale_val.config(text=f"{int(v)}%")
+        bid = self._selected_bg
+        if bid is None or bid not in self.bg_images:
+            return
+        self.bg_images[bid]["scale_pct"] = float(v)
+        self._update_bg_canvas_item(bid)
+
+    def _on_bg_transparency_change(self, value: object) -> None:
+        try:
+            v = float(value)
+        except Exception:
+            try:
+                v = float(self.bg_transparency_var.get())
+            except Exception:
+                return
+        self.bg_alpha_val.config(text=f"{int(v)}%")
+        bid = self._selected_bg
+        if bid is None or bid not in self.bg_images:
+            return
+        self.bg_images[bid]["trans_pct"] = float(v)
+        self._update_bg_canvas_item(bid)
+
+    def _make_tk_image(self, pil: object, scale_pct: float, trans_pct: float) -> object:
+        """Return an ImageTk.PhotoImage with scaling and transparency applied."""
+        if Image is None or ImageTk is None:
+            return None
+        im = pil.copy()
+        try:
+            im = im.convert("RGBA")
+        except Exception:
+            pass
+
+        # transparency percent: 0=opaque, 100=fully transparent
+        alpha = max(0.0, min(1.0, 1.0 - (float(trans_pct) / 100.0)))
+        if alpha < 1.0:
+            r, g, b, a = im.split()
+            a = a.point(lambda p: int(p * alpha))
+            im = Image.merge("RGBA", (r, g, b, a))
+
+        scale = max(0.05, float(scale_pct) / 100.0)
+        if abs(scale - 1.0) > 1e-6:
+            w, h = im.size
+            nw = max(1, int(w * scale))
+            nh = max(1, int(h * scale))
+            im = im.resize((nw, nh), Image.LANCZOS)
+
+        return ImageTk.PhotoImage(im)
+
+    def _update_bg_canvas_item(self, bid: int, recreate: bool = False) -> None:
+        d = self.bg_images.get(bid)
+        if not d:
+            return
+        pil = d.get("pil")
+        if pil is None:
+            return
+        tkimg = self._make_tk_image(pil, float(d.get("scale_pct", 100.0)), float(d.get("trans_pct", 0.0)))
+        if tkimg is None:
+            return
+        d["tk"] = tkimg  # keep reference
+
+        item = d.get("item")
+        if recreate or not item:
+            x = float(d.get("x", 0.0))
+            y = float(d.get("y", 0.0))
+            item_id = self.canvas.create_image(x, y, image=tkimg, anchor="center", tags=("bgimg", f"bg:{bid}"))
+            d["item"] = item_id
+            # keep behind everything interactable, but allow click-through via hit test
+            try:
+                self.canvas.tag_lower(item_id, "grid")
+            except Exception:
+                try:
+                    self.canvas.tag_lower(item_id)
+                except Exception:
+                    pass
+        else:
+            try:
+                self.canvas.itemconfigure(int(item), image=tkimg)
+            except Exception:
+                pass
+    def _remove_selected_aoe(self) -> None:
+        aid = self._selected_aoe
+        if aid is None or aid not in self.aoes:
+            return
+        d = self.aoes.pop(aid)
+        try:
+            self.canvas.delete(int(d["shape"]))
+            self.canvas.delete(int(d["label"]))
+        except Exception:
+            pass
+        self._selected_aoe = None
+        self.pin_var.set(False)
+        self._refresh_aoe_list()
+        self._update_included_for_selected()
+
+    # ---------------- Canvas interactions ----------------
+    def _on_canvas_press(self, event: tk.Event) -> None:
+        # Determine clicked object (click-through grid/measure)
+        item = None
+        items = self.canvas.find_withtag("current")
+        if items:
+            item = items[0]
+
+        if item is not None:
+            tags0 = self.canvas.gettags(item)
+            if "grid" in tags0 or "measure" in tags0:
+                overl = self.canvas.find_overlapping(event.x, event.y, event.x, event.y)
+                for cand in reversed(overl):
+                    tg = self.canvas.gettags(cand)
+                    if "grid" in tg or "measure" in tg:
+                        continue
+                    item = cand
+                    break
+                else:
+                    item = None
+
+        if item is None:
+            self._drag_kind = None
+            self._drag_id = None
+            return
+
+        tags = self.canvas.gettags(item)
+        for t in tags:
+            if t.startswith("bg:"):
+                bid = int(t.split(":", 1)[1])
+                self._selected_bg = bid
+                try:
+                    self._refresh_bg_list(select=bid)
+                    self._select_bg_from_list()
+                except Exception:
+                    pass
+                if bool(self.bg_images.get(bid, {}).get("locked")):
+                    self._drag_kind = None
+                    self._drag_id = None
+                    return
+                self._drag_kind = "bg"
+                self._drag_id = bid
+                try:
+                    x, y = self.canvas.coords(int(self.bg_images[bid]["item"]))
+                    self._drag_offset = (x - event.x, y - event.y)
+                except Exception:
+                    self._drag_offset = (0.0, 0.0)
+                return
+
+            if t.startswith("unit:"):
+                cid = int(t.split(":", 1)[1])
+                self._drag_kind = "unit"
+                self._drag_id = cid
+                cx, cy = self._grid_to_pixel(int(self.unit_tokens[cid]["col"]), int(self.unit_tokens[cid]["row"]))
+                self._drag_offset = (cx - event.x, cy - event.y)
+                return
+
+            if t.startswith("aoe:"):
+                aid = int(t.split(":", 1)[1])
+                if bool(self.aoes.get(aid, {}).get("pinned")):
+                    # pinned overlay - just select
+                    self._selected_aoe = aid
+                    self._refresh_aoe_list(select=aid)
+                    return
+                self._drag_kind = "aoe"
+                self._drag_id = aid
+                d = self.aoes[aid]
+                cx = self.x0 + (float(d["cx"]) + 0.5) * self.cell
+                cy = self.y0 + (float(d["cy"]) + 0.5) * self.cell
+                self._drag_offset = (cx - event.x, cy - event.y)
+                self._selected_aoe = aid
+                self._refresh_aoe_list(select=aid)
+                return
+
+        self._drag_kind = None
+        self._drag_id = None
+
+
+    def _on_canvas_motion(self, event: tk.Event) -> None:
+        if self._drag_kind is None or self._drag_id is None:
+            return
+
+        x = float(event.x) + float(self._drag_offset[0])
+        y = float(event.y) + float(self._drag_offset[1])
+
+        if self._drag_kind == "bg":
+            bid = int(self._drag_id)
+            d = self.bg_images.get(bid)
+            if not d:
+                return
+            item = int(d.get("item") or 0)
+            if not item:
+                return
+            self.canvas.coords(item, x, y)
+            d["x"] = x
+            d["y"] = y
+
+        elif self._drag_kind == "unit":
+            col, row = self._pixel_to_grid(x, y)
+            if col is None or row is None:
+                return
+            self.unit_tokens[self._drag_id]["col"] = col
+            self.unit_tokens[self._drag_id]["row"] = row
+            self._layout_unit(self._drag_id)
+
+        elif self._drag_kind == "aoe":
+            # allow half-square precision for overlays
+            if x < self.x0 or y < self.y0:
+                return
+            cx = (x - self.x0) / self.cell - 0.5
+            cy = (y - self.y0) / self.cell - 0.5
+            cx = max(0.0, min(float(self.cols - 1), cx))
+            cy = max(0.0, min(float(self.rows - 1), cy))
+            self.aoes[self._drag_id]["cx"] = cx
+            self.aoes[self._drag_id]["cy"] = cy
+            self._layout_aoe(self._drag_id)
+
+        self._update_included_for_selected()
+
+
+    def _on_canvas_release(self, event: tk.Event) -> None:
+        # snap unit to grid already done; overlays keep float center
+        self._drag_kind = None
+        self._drag_id = None
+
+    # ---------------- Measurement ----------------
+    def _on_canvas_right_click(self, event: tk.Event) -> None:
+        # Two-click measurement in feet (crow flies)
+        col, row = self._pixel_to_grid(event.x, event.y)
+        if col is None or row is None:
+            return
+        px, py = self._grid_to_pixel(col, row)
+
+        if self._measure_start is None:
+            self._clear_measure()
+            self._measure_start = (px, py)
+            dot = self.canvas.create_oval(px - 4, py - 4, px + 4, py + 4, fill="#333", outline="", tags=("measure",))
+            self._measure_items.append(dot)
+            return
+
+        sx, sy = self._measure_start
+        dx = (px - sx) / self.cell
+        dy = (py - sy) / self.cell
+        dist_sq = (dx * dx + dy * dy) ** 0.5
+        dist_ft = dist_sq * self.feet_per_square
+
+        line = self.canvas.create_line(sx, sy, px, py, fill="#333", width=2, arrow=tk.LAST, tags=("measure",))
+        label = self.canvas.create_text((sx + px) / 2.0, (sy + py) / 2.0 - 10,
+                                        text=f"{dist_ft:.1f} ft", font=("TkDefaultFont", 10, "bold"),
+                                        tags=("measure",))
+        self._measure_items.extend([line, label])
+        self._measure_start = None
+
+    def _clear_measure(self) -> None:
+        try:
+            self.canvas.delete("measure")
+        except Exception:
+            pass
+        self._measure_start = None
+        self._measure_items = []
+
+    # ---------------- AoE inclusion ----------------
+    def _update_included_for_selected(self) -> None:
+        aid = self._selected_aoe
+        if aid is None or aid not in self.aoes:
+            self._set_included_text("")
+            self._update_aoe_damage_button([])
+            return
+        included = self._compute_included_units(aid)
+        lines = []
+        for cid in included:
+            c = self.app.combatants.get(cid)
+            if not c:
+                continue
+            lines.append(f"- {c.name}  [#{cid}]")
+        self._set_included_text("\n".join(lines) if lines else "(none)")
+        self._update_aoe_damage_button(included)
+
+        # Update overlay label with count
+        try:
+            d = self.aoes[aid]
+            nm = str(d.get("name") or f"AoE {aid}")
+            self.canvas.itemconfigure(int(d["label"]), text=f"{nm} ({len(included)})")
+        except Exception:
+            pass
+
+    
+    def _update_aoe_damage_button(self, included: Optional[List[int]] = None) -> None:
+        """Enable/disable AoE Damage button based on current selection."""
+        btn = getattr(self, "aoe_damage_btn", None)
+        if btn is None:
+            return
+        aid = self._selected_aoe
+        if aid is None or aid not in self.aoes:
+            try:
+                btn.state(["disabled"])
+            except Exception:
+                btn.config(state=tk.DISABLED)
+            return
+        if included is None:
+            try:
+                included = self._compute_included_units(aid)
+            except Exception:
+                included = []
+        if included:
+            try:
+                btn.state(["!disabled"])
+            except Exception:
+                btn.config(state=tk.NORMAL)
+        else:
+            try:
+                btn.state(["disabled"])
+            except Exception:
+                btn.config(state=tk.DISABLED)
+
+    def _open_aoe_damage(self) -> None:
+        """AoE save roller + manual damage apply to all units inside the selected AoE."""
+        aid = self._selected_aoe
+        if aid is None or aid not in self.aoes:
+            messagebox.showinfo("AoE Damage", "Select an AoE first.", parent=self)
+            return
+        included = self._compute_included_units(aid)
+        if not included:
+            messagebox.showinfo("AoE Damage", "No units are inside the selected AoE.", parent=self)
+            return
+
+        dlg = tk.Toplevel(self)
+        dname = str(self.aoes[aid].get("name") or f"AoE {aid}")
+        dlg.title(f"AoE Damage ({dname})")
+        dlg.transient(self)
+        dlg.after(0, dlg.grab_set)
+
+        outer = ttk.Frame(dlg, padding=10)
+        outer.pack(fill=tk.BOTH, expand=True)
+
+        # --- Controls ---
+        controls = ttk.Frame(outer)
+        controls.pack(fill=tk.X, expand=False)
+
+        # Attacker list
+        attacker_names = [""]
+        order = [c.cid for c in self.app._display_order()] if hasattr(self.app, "_display_order") else []
+        seen: set[int] = set()
+        for cid in order + [cid for cid in self.app.combatants.keys() if cid not in set(order)]:
+            if cid in seen:
+                continue
+            seen.add(cid)
+            c = self.app.combatants.get(cid)
+            if c:
+                attacker_names.append(c.name)
+
+        attacker_var = tk.StringVar(value="")
+        if getattr(self.app, "current_cid", None) in self.app.combatants:
+            attacker_var.set(self.app.combatants[self.app.current_cid].name)
+
+        use_attacker_var = tk.BooleanVar(value=False)
+
+        ttk.Label(controls, text="Spellcaster:").grid(row=0, column=0, sticky="w")
+        attacker_cb = ttk.Combobox(controls, textvariable=attacker_var, values=attacker_names, state="readonly", width=22)
+        attacker_cb.grid(row=0, column=1, sticky="w", padx=(6, 12))
+        ttk.Checkbutton(controls, text="Use attacker in log", variable=use_attacker_var).grid(row=0, column=2, sticky="w")
+
+        # Damage type
+        dmg_types = ["", "Acid", "Bludgeoning", "Cold", "Fire", "Force", "Lightning", "Necrotic",
+                     "Piercing", "Poison", "Psychic", "Radiant", "Slashing", "Thunder"]
+        dtype_var = tk.StringVar(value="")
+        ttk.Label(controls, text="Damage type:").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        dtype_cb = ttk.Combobox(controls, textvariable=dtype_var, values=dmg_types, state="readonly", width=14)
+        dtype_cb.grid(row=1, column=1, sticky="w", padx=(6, 12), pady=(8, 0))
+
+        # Save DC + save type
+        dc_var = tk.StringVar(value="15")
+        ttk.Label(controls, text="Save DC:").grid(row=0, column=3, sticky="w")
+        dc_ent = ttk.Entry(controls, textvariable=dc_var, width=6)
+        dc_ent.grid(row=0, column=4, sticky="w", padx=(6, 12))
+
+        save_types = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
+        save_var = tk.StringVar(value="DEX")
+        ttk.Label(controls, text="Save:").grid(row=1, column=3, sticky="w", pady=(8, 0))
+        save_cb = ttk.Combobox(controls, textvariable=save_var, values=save_types, state="readonly", width=5)
+        save_cb.grid(row=1, column=4, sticky="w", padx=(6, 12), pady=(8, 0))
+
+        half_on_pass = tk.BooleanVar(value=False)
+        ttk.Checkbutton(controls, text="Half on pass", variable=half_on_pass).grid(row=1, column=2, sticky="w", pady=(8, 0))
+
+        # Damage amount (manual, math ok)
+        dmg_amt_var = tk.StringVar(value="")
+        ttk.Label(controls, text="Damage amount:").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        dmg_amt_ent = ttk.Entry(controls, textvariable=dmg_amt_var, width=10)
+        dmg_amt_ent.grid(row=2, column=1, sticky="w", padx=(6, 12), pady=(8, 0))
+        ttk.Label(controls, text="(math ok)").grid(row=2, column=2, sticky="w", pady=(8, 0))
+
+        # --- Table ---
+        mid = ttk.Frame(outer)
+        mid.pack(fill=tk.BOTH, expand=True, pady=(12, 0))
+
+        cols = ("name", "roll", "mod", "total", "result")
+        tv = ttk.Treeview(mid, columns=cols, show="headings", selectmode="extended", height=12)
+        tv.heading("name", text="Creature")
+        tv.heading("roll", text="d20")
+        tv.heading("mod", text="Mod")
+        tv.heading("total", text="Total")
+        tv.heading("result", text="Pass?")
+        tv.column("name", width=240, anchor="w")
+        tv.column("roll", width=60, anchor="center")
+        tv.column("mod", width=60, anchor="center")
+        tv.column("total", width=70, anchor="center")
+        tv.column("result", width=70, anchor="center")
+        tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        sb = ttk.Scrollbar(mid, orient=tk.VERTICAL, command=tv.yview)
+        sb.pack(side=tk.RIGHT, fill=tk.Y)
+        tv.config(yscrollcommand=sb.set)
+
+        cid_by_iid: Dict[str, int] = {}
+        rolls: Dict[int, int] = {}
+        mods: Dict[int, int] = {}
+
+        # Populate rows
+        for cid in included:
+            c = self.app.combatants.get(cid)
+            if not c:
+                continue
+            iid = tv.insert("", tk.END, values=(c.name, "", "0", "", ""))
+            cid_by_iid[iid] = cid
+            mods[cid] = 0
+
+        def _parse_dc() -> int:
+            try:
+                return int((dc_var.get() or "").strip())
+            except Exception:
+                raise ValueError
+
+        def refresh() -> None:
+            try:
+                dc = _parse_dc()
+            except Exception:
+                dc = 0
+            for iid, cid in cid_by_iid.items():
+                r = int(rolls.get(cid, 0))
+                m = int(mods.get(cid, 0))
+                tot = r + m
+                passed = (r > 0 and tot >= dc)
+                tv.set(iid, "roll", str(r) if r > 0 else "")
+                tv.set(iid, "mod", str(m))
+                tv.set(iid, "total", str(tot) if r > 0 else "")
+                tv.set(iid, "result", "PASS" if passed else ("FAIL" if r > 0 else ""))
+
+        def roll_all() -> None:
+            try:
+                _parse_dc()
+            except Exception:
+                messagebox.showerror("AoE Damage", "Save DC must be an integer.", parent=dlg)
+                return
+            for cid in list(mods.keys()):
+                rolls[cid] = random.randint(1, 20)
+            refresh()
+
+        # Bulk modifier control
+        bulk = ttk.Frame(outer)
+        bulk.pack(fill=tk.X, pady=(10, 0))
+        ttk.Label(bulk, text="Set mod (selected rows):").pack(side=tk.LEFT)
+        bulk_mod_var = tk.StringVar(value="0")
+        bulk_ent = ttk.Entry(bulk, textvariable=bulk_mod_var, width=8)
+        bulk_ent.pack(side=tk.LEFT, padx=(6, 0))
+
+        def apply_mod() -> None:
+            try:
+                v = int((bulk_mod_var.get() or "").strip())
+            except Exception:
+                messagebox.showerror("AoE Damage", "Modifier must be an integer.", parent=dlg)
+                return
+            sel = tv.selection()
+            targets = sel if sel else list(cid_by_iid.keys())
+            for iid in targets:
+                cid = cid_by_iid.get(iid)
+                if cid is None:
+                    continue
+                mods[cid] = v
+            refresh()
+
+        ttk.Button(bulk, text="Apply", command=apply_mod).pack(side=tk.LEFT, padx=(8, 0))
+
+        # Buttons
+        btns = ttk.Frame(outer)
+        btns.pack(fill=tk.X, pady=(12, 0))
+        ttk.Button(btns, text="Roll", command=roll_all).pack(side=tk.LEFT)
+
+        def apply_damage() -> None:
+            if not rolls:
+                messagebox.showinfo("AoE Damage", "Roll saves first.", parent=dlg)
+                return
+            try:
+                dc = _parse_dc()
+            except Exception:
+                messagebox.showerror("AoE Damage", "Save DC must be an integer.", parent=dlg)
+                return
+            raw = (dmg_amt_var.get() or "").strip()
+            if raw == "":
+                messagebox.showerror("AoE Damage", "Enter a damage amount (math ok).", parent=dlg)
+                return
+            try:
+                dmg_full = int(self.app._parse_int_expr(raw))
+            except Exception:
+                messagebox.showerror("AoE Damage", "Damage amount must be a number or simple math expression.", parent=dlg)
+                return
+            dmg_full = max(0, dmg_full)
+
+            dtype = (dtype_var.get() or "").strip()
+            dtype_l = (dtype.lower() + " ") if dtype else ""
+            attacker = (attacker_var.get() or "").strip()
+            use_att = bool(use_attacker_var.get()) and attacker != ""
+            save_name = save_var.get()
+
+            removed: List[int] = []
+
+            for cid in included:
+                c = self.app.combatants.get(cid)
+                if not c:
+                    continue
+                r = int(rolls.get(cid, 0))
+                m = int(mods.get(cid, 0))
+                tot = r + m
+                passed = (tot >= dc)
+                if passed:
+                    dmg = dmg_full // 2 if half_on_pass.get() else 0
+                else:
+                    dmg = dmg_full
+
+                before = int(getattr(c, "hp", 0))
+                if dmg > 0:
+                    c.hp = max(0, before - int(dmg))
+                after = int(getattr(c, "hp", 0))
+
+                # Log
+                if dmg == 0:
+                    if use_att:
+                        self.app._log(f"{attacker} hits {c.name} with AoE (save {save_name} {tot} vs DC {dc}) — no damage")
+                    else:
+                        self.app._log(f"{c.name} avoids AoE damage (save {save_name} {tot} vs DC {dc})")
+                else:
+                    half_note = " (half on pass)" if (passed and half_on_pass.get()) else ""
+                    if use_att:
+                        self.app._log(f"{attacker} does {dmg} {dtype_l}damage to {c.name} (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note})")
+                    else:
+                        self.app._log(f"{c.name} takes {dmg} {dtype_l}damage (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note})")
+
+                if before > 0 and after == 0:
+                    removed.append(cid)
+
+            if removed:
+                for cid in removed:
+                    nm = self.app.combatants[cid].name if cid in self.app.combatants else "(unknown)"
+                    self.app._log(f"{nm} drops to 0 HP and is removed from initiative.")
+                    self.app.combatants.pop(cid, None)
+                if getattr(self.app, "current_cid", None) in removed:
+                    self.app.current_cid = None
+                self.app._rebuild_table()
+                self.refresh_units()
+
+            self.app._rebuild_table()
+            self._update_included_for_selected()
+            refresh()
+
+        ttk.Button(btns, text="Apply damage", command=apply_damage).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(btns, text="Close", command=dlg.destroy).pack(side=tk.RIGHT)
+
+        dlg.bind("<Escape>", lambda e: dlg.destroy())
+        try:
+            dmg_amt_ent.focus_set()
+        except Exception:
+            pass
+
+        refresh()
+
+    def _set_included_text(self, text: str) -> None:
+        self.included_box.config(state=tk.NORMAL)
+        self.included_box.delete("1.0", tk.END)
+        self.included_box.insert("1.0", text)
+        self.included_box.config(state=tk.DISABLED)
+
+    def _compute_included_units(self, aid: int) -> List[int]:
+        d = self.aoes[aid]
+        kind = str(d["kind"])
+        cx_px = self.x0 + (float(d["cx"]) + 0.5) * self.cell
+        cy_px = self.y0 + (float(d["cy"]) + 0.5) * self.cell
+
+        included: List[int] = []
+        if kind == "circle":
+            r_px = float(d["radius_sq"]) * self.cell
+            r2 = r_px * r_px
+            for cid, tok in self.unit_tokens.items():
+                x, y = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
+                if (x - cx_px) ** 2 + (y - cy_px) ** 2 <= r2:
+                    included.append(cid)
+        else:
+            half = float(d["side_sq"]) * self.cell / 2.0
+            x1, y1 = cx_px - half, cy_px - half
+            x2, y2 = cx_px + half, cy_px + half
+            for cid, tok in self.unit_tokens.items():
+                x, y = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
+                if x1 <= x <= x2 and y1 <= y <= y2:
+                    included.append(cid)
+
+        # stable order: by initiative order if possible
+        order = [c.cid for c in self.app._display_order()] if hasattr(self.app, "_display_order") else []
+        order_index = {cid: i for i, cid in enumerate(order)}
+        included.sort(key=lambda cid: order_index.get(cid, 10**9))
+        return included
+
+    # ---------------- Active token highlight ----------------
+    def set_active(self, cid: Optional[int]) -> None:
+        self._active_cid = cid
+        self._apply_active_highlight()
+
+    def _apply_active_highlight(self) -> None:
+        # reset all outlines to width=2
+        for cid, tok in self.unit_tokens.items():
+            try:
+                self.canvas.itemconfigure(int(tok["oval"]), width=2)
+            except Exception:
+                pass
+        if self._active_cid is None or self._active_cid not in self.unit_tokens:
+            return
+        tok = self.unit_tokens[self._active_cid]
+        try:
+            self.canvas.itemconfigure(int(tok["oval"]), width=4)
+            self.canvas.tag_raise(int(tok["oval"]))
+            self.canvas.tag_raise(int(tok["text"]))
+        except Exception:
+            pass
+
+
+
+if __name__ == "__main__":
+    app = InitiativeTracker()
+    app.mainloop()
