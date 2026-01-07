@@ -668,7 +668,7 @@ class LanController:
             return HTMLResponse(HTML_INDEX)
 
         @app.websocket("/ws")
-        async def ws_endpoint(ws):
+        async def ws_endpoint(ws: WebSocket):
             await ws.accept()
             ws_id = id(ws)
             # record client meta
