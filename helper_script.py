@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-DnD Initiative Tracker (v23)
+DnD Initiative Tracker (v29)
 
 Run:
-  python3 dnd_initative_tracker_v23.py
+  python3 dnd_initative_tracker_v28.py
 
 Features:
 - Initiative order with configurable "Start Here" rotation
@@ -22,6 +22,7 @@ Features:
 from __future__ import annotations
 
 import random
+import math
 import os
 import shutil
 import ast
@@ -35,14 +36,24 @@ except Exception:  # pragma: no cover
 import tkinter as tk
 import tkinter.font as tkfont
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 from tkinter import messagebox, ttk, simpledialog, filedialog
 
+PIL_IMAGE_IMPORT_ERROR: Optional[str] = None
+PIL_IMAGETK_IMPORT_ERROR: Optional[str] = None
+
 try:
-    from PIL import Image, ImageTk  # type: ignore
-except Exception:  # pragma: no cover
+    from PIL import Image  # type: ignore
+except Exception as e:  # pragma: no cover
     Image = None
+    PIL_IMAGE_IMPORT_ERROR = str(e)
+
+try:
+    from PIL import ImageTk  # type: ignore
+except Exception as e:  # pragma: no cover
     ImageTk = None
+    PIL_IMAGETK_IMPORT_ERROR = str(e)
+
 
 
 # --- 2024 Basic Rules (conditions list) ---
@@ -119,6 +130,7 @@ class Combatant:
     nat20: bool = False
     ally: bool = False
     is_pc: bool = False
+    move_total: int = 0
 
 
     # Effects / statuses
@@ -131,7 +143,7 @@ class Combatant:
 class InitiativeTracker(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("DnD Initiative Tracker v18")
+        self.title("DnD Initiative Tracker v26")
         self.geometry("1120x720")
 
         self._next_id = 1
@@ -249,6 +261,7 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(btn_row, text="Next Turn", command=self._next_turn).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Stand Up", command=self._stand_up_current).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Move…", command=self._open_move_tool).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Dash", command=self._dash_current).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Toggle Water", command=self._toggle_water_selected).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Map Mode…", command=self._open_map_mode).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Clear", command=self._clear_turns).pack(side=tk.LEFT, padx=(0, 8))
@@ -566,6 +579,72 @@ class InitiativeTracker(tk.Tk):
             content = f"{nm}: {msg}"
 
         self._append_log_line(stamp, content, write_file=True)
+
+    def _death_flavor_line(self, attacker_name: Optional[str], amount: int, dtype: str, target_name: str) -> str:
+        """Return a flavorful log line for a creature killed by damage."""
+        attacker = (attacker_name or "").strip() or "Something"
+        dt = (dtype or "").strip().lower()
+
+        # Generic templates that include type (dtype). Use only if we have a dtype.
+        generic_with_type = [
+            "{attacker} deals a final blow of {amount} {dtype} damage to {target}. That’ll leave a mark! (Dead)",
+            "{attacker} deals a final blow of {amount} {dtype} damage to {target}. Lights out, pal. (Dead)",
+            "{attacker} deals a final blow of {amount} {dtype} damage to {target}. That’s not gonna buff out. (Dead)",
+            "{attacker} deals a final blow of {amount} {dtype} damage to {target}. Should’ve zigged. (Dead)",
+            "{attacker} deals a final blow of {amount} {dtype} damage to {target}. And there it goes! (Dead)",
+            "{attacker} deals a final blow of {amount} {dtype} damage to {target}. Thanks for playin’. (Dead)",
+            "{attacker} deals {amount} {dtype} to {target}. Now with 100% less menace. (Dead)",
+            "{attacker} deals {amount} {dtype} to {target}. Reduced to loot. (Dead)",
+        ]
+
+        # Templates that do not require a type (fallback when dtype is blank)
+        generic_no_type = [
+            "{attacker} drops {target} with {amount} damage. That’ll leave a mark! (Dead)",
+            "{attacker} drops {target} with {amount} damage. Lights out, pal. (Dead)",
+            "{attacker} drops {target} with {amount} damage. Thanks for playin’. (Dead)",
+            "{attacker} drops {target} with {amount} damage. Reduced to loot. (Dead)",
+        ]
+
+        typed = {
+            "fire": [
+                "{attacker} deals {amount} fire to {target}. Extra crispy. (Dead)",
+                "{attacker} deals {amount} fire to {target}. Smells like victory. And smoke. (Dead)",
+            ],
+            "acid": [
+                "{attacker} deals a final blow of {amount} acid damage to {target}. Now in soup form. (Dead)",
+                "{attacker} deals a final blow of {amount} acid damage to {target}. Dissolved: mostly. (Dead)",
+            ],
+            "cold": [
+                "{attacker} deals a final blow of {amount} cold damage to {target}. Put on ice. (Dead)",
+                "{attacker} deals {amount} cold to {target}. Put on ice. (Dead)",
+            ],
+            "lightning": [
+                "{attacker} deals {amount} lightning to {target}. Performed an impromptu reboot. (Dead)",
+            ],
+            "force": [
+                "{attacker} deals {amount} force to {target}. Became a fun physics example. (Dead)",
+                "{attacker} deals {amount} force to {target}. Gravity sends its regards. (Dead)",
+            ],
+            "psychic": [
+                "{attacker} deals {amount} psychic to {target}. Out-thought. Out-fought. (Dead)",
+            ],
+        }
+
+        pool: list[str] = []
+        if dt and dt in typed:
+            pool.extend(typed[dt])
+        if dt:
+            pool.extend(generic_with_type)
+        else:
+            pool.extend(generic_no_type)
+
+        if not pool:
+            pool = generic_no_type
+
+        tmpl = random.choice(pool)
+        if "{dtype}" in tmpl:
+            return tmpl.format(attacker=attacker, amount=amount, dtype=dt, target=target_name)
+        return tmpl.format(attacker=attacker, amount=amount, target=target_name)
     def _clear_log(self) -> None:
         """Archive the current history log to ./old logs/<timestamp>.log and start fresh."""
         # 1) Archive existing history file on disk
@@ -1002,6 +1081,7 @@ class InitiativeTracker(tk.Tk):
             swim_speed=swim,
             water_mode=wm,
             move_remaining=base,
+            move_total=base,
             initiative=int(initiative),
             dex=dex,
             nat20=False,
@@ -1174,7 +1254,8 @@ class InitiativeTracker(tk.Tk):
                 self.turn_move_var.set(f"{c.move_remaining}/{eff} {mode}")
 
         self.turn_round_var.set(str(max(1, int(self.round_num))))
-        self.turn_count_var.set(str(max(0, int(self.turn_num))))
+        # In D&D terms, each creature's "turn number" matches the round.
+        self.turn_count_var.set(str(max(1, int(self.round_num))))
 
     
     def _log_turn_start(self, cid: int) -> None:
@@ -1278,7 +1359,9 @@ class InitiativeTracker(tk.Tk):
                     pass
 
         # Reset movement at end of each turn (start-of-turn will set effective movement).
-        c.move_remaining = self._mode_speed(c)
+        base_spd = self._mode_speed(c)
+        c.move_total = int(base_spd)
+        c.move_remaining = int(base_spd)
 
         if expired:
             labs = ", ".join(str(CONDITIONS_META.get(k, {}).get("label", k)) for k in expired)
@@ -1514,6 +1597,8 @@ class InitiativeTracker(tk.Tk):
     def _open_move_tool(self) -> None:
         dlg = tk.Toplevel(self)
         dlg.title("Spend Movement")
+        dlg.geometry("540x380")
+        dlg.minsize(480, 320)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
@@ -1670,6 +1755,48 @@ class InitiativeTracker(tk.Tk):
         return " ".join(parts)
 
     # -------------------------- Table maintenance --------------------------
+
+    def _move_cell(self, c: Combatant) -> str:
+        """Display movement as remaining/total for the current turn."""
+        base = int(self._mode_speed(c))
+        total = int(getattr(c, "move_total", 0) or 0)
+        if total <= 0:
+            total = base
+        rem = int(getattr(c, "move_remaining", 0) or 0)
+        # Clamp
+        rem = max(0, min(rem, total))
+        return f"{rem}/{total}"
+
+    def _dash_current(self) -> None:
+        """Add one more 'speed' worth of movement to the current creature (Dash)."""
+        cid = self.current_cid
+        if cid is None:
+            # fall back to first selected
+            try:
+                sel = self.tree.selection()
+                if sel:
+                    cid = int(sel[0])
+            except Exception:
+                cid = None
+        if cid is None or cid not in self.combatants:
+            return
+        c = self.combatants[cid]
+        base = int(self._mode_speed(c))
+        total = int(getattr(c, "move_total", 0) or 0)
+        if total <= 0:
+            total = base
+        rem = int(getattr(c, "move_remaining", 0) or 0)
+
+        c.move_total = total + base
+        c.move_remaining = rem + base
+        self._log(f"{c.name} dashes: move {self._move_cell(c)} ft.", cid=cid)
+        self._rebuild_table(scroll_to_current=True)
+        try:
+            if self._map_window is not None and self._map_window.winfo_exists():
+                self._map_window._update_move_highlight()
+        except Exception:
+            pass
+
     def _rebuild_table(self, scroll_to_top: bool = False, scroll_to_current: bool = False) -> None:
         # preserve selection
         prev_sel = set(self.tree.selection())
@@ -1686,7 +1813,7 @@ class InitiativeTracker(tk.Tk):
             nat = "Yes" if c.nat20 else ""
             mode = "Water" if getattr(c, "water_mode", False) else "Land"
             swim_disp = "" if int(getattr(c, "swim_speed", 0) or 0) == 0 else int(getattr(c, "swim_speed", 0))
-            values = (c.name, side, c.hp, c.speed, swim_disp, mode, c.move_remaining, self._format_effects(c), c.initiative, nat)
+            values = (c.name, side, c.hp, c.speed, swim_disp, mode, self._move_cell(c), self._format_effects(c), c.initiative, nat)
 
             tags: List[str] = []
             tags.append("odd" if i % 2 else "even")
@@ -1825,7 +1952,9 @@ class InitiativeTracker(tk.Tk):
         if self.current_cid == cid:
             c.move_remaining = min(c.move_remaining, self._effective_speed(c))
         else:
-            c.move_remaining = self._mode_speed(c)
+            base_spd = self._mode_speed(c)
+            c.move_total = int(base_spd)
+            c.move_remaining = int(base_spd)
 
     def _set_swim_speed(self, cid: int, new_spd: int) -> None:
         if cid not in self.combatants:
@@ -1835,7 +1964,9 @@ class InitiativeTracker(tk.Tk):
         if self.current_cid == cid:
             c.move_remaining = min(c.move_remaining, self._effective_speed(c))
         else:
-            c.move_remaining = self._mode_speed(c)
+            base_spd = self._mode_speed(c)
+            c.move_total = int(base_spd)
+            c.move_remaining = int(base_spd)
 
     def _toggle_water_mode(self, cid: int, force: Optional[bool] = None) -> None:
         if cid not in self.combatants:
@@ -1847,7 +1978,9 @@ class InitiativeTracker(tk.Tk):
         if self.current_cid == cid:
             c.move_remaining = min(c.move_remaining, self._effective_speed(c))
         else:
-            c.move_remaining = self._mode_speed(c)
+            base_spd = self._mode_speed(c)
+            c.move_total = int(base_spd)
+            c.move_remaining = int(base_spd)
         if c.water_mode != old_mode:
             self._log(f"water mode {'ON' if c.water_mode else 'OFF'}", cid=cid)
 
@@ -1883,6 +2016,8 @@ class InitiativeTracker(tk.Tk):
     def _open_bulk_dialog(self) -> None:
         dlg = tk.Toplevel(self)
         dlg.title("Bulk Add")
+        dlg.geometry("760x260")
+        dlg.minsize(680, 240)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
@@ -1996,65 +2131,109 @@ class InitiativeTracker(tk.Tk):
 
     # -------------------------- Damage/Heal tool --------------------------
 
+
     def _open_hp_tool(self, default_mode: str = "damage") -> None:
         """Open the Damage/Heal tool.
 
-        Supports:
-        - math expressions in amount (e.g. 10+10+10)
-        - multi-target via table multi-selection (Apply to selected rows)
-        - multiple damage/heal "sources" (each with its own attacker/target/type/resist/immune)
-        - optional attacker in log via a toggle (defaults OFF)
+        This dialog supports:
+        - Multiple entries (one per target by default if multiple rows are selected)
+        - Math expressions in Amount (e.g. 10+10+10)
+        - Per-entry damage type + resist + immune
+        - Optional attacker (blank attacker = anonymous)
         """
         dlg = tk.Toplevel(self)
         dlg.title("Damage / Heal")
-        dlg.geometry("980x560")
-        dlg.minsize(760, 420)
+        dlg.geometry("1040x600")
+        dlg.minsize(820, 480)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
         outer = ttk.Frame(dlg, padding=10)
         outer.pack(fill=tk.BOTH, expand=True)
 
-        targets = self._target_labels()
-
-        # Pre-detect multi-selection: if user shift-selected multiple rows and opened the tool,
-        # default to applying the action to the selected set.
-        selected_cids = self._selected_cids()
-        multi_selected = len(selected_cids) > 1
-
-        # ---- Options row (mode + use attacker) ----
-        opts = ttk.Frame(outer)
-        opts.pack(fill=tk.X)
-
-        mode_var = tk.StringVar(value=default_mode)
-        ttk.Label(opts, text="Mode:").pack(side=tk.LEFT)
-        ttk.Radiobutton(opts, text="Damage", variable=mode_var, value="damage").pack(side=tk.LEFT, padx=(6, 6))
-        ttk.Radiobutton(opts, text="Heal", variable=mode_var, value="heal").pack(side=tk.LEFT, padx=(0, 10))
-
-        # Default attacker: whoever's turn it is (if any).
+        # Labels used for Comboboxes (include [#cid] suffix so duplicates are unambiguous).
+        labels = self._target_labels()
         attacker_default = ""
         if getattr(self, "current_cid", None) is not None and self.current_cid in self.combatants:
             attacker_default = self._label_for(self.combatants[self.current_cid])
-        elif targets:
-            attacker_default = targets[0]
+        elif labels:
+            attacker_default = labels[0]
 
-        use_attacker_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            opts,
-            text="Use attacker in log (unchecked = anonymous)",
-            variable=use_attacker_var,
-        ).pack(side=tk.LEFT)
+        # Determine default targets:
+        # - If user has multiple selection, create one entry per selected target (in display order)
+        # - Else, use current single selection (if any), otherwise first in list
+        selected = self._selected_cids()
+        ordered_sel: list[int] = []
+        if selected:
+            want = set(selected)
+            for c in self._display_order():
+                if c.cid in want:
+                    ordered_sel.append(c.cid)
+            for cid in selected:
+                if cid not in ordered_sel:
+                    ordered_sel.append(cid)
 
-        # ---- Sources table ----
-        src_box = ttk.LabelFrame(outer, text="Damage/Heal sources", padding=8)
-        src_box.pack(fill=tk.BOTH, expand=True, pady=(10, 8))
+        if not ordered_sel:
+            # fall back to tree selection (single)
+            target_default = labels[0] if labels else ""
+            if self.tree.selection():
+                try:
+                    cid = int(self.tree.selection()[0])
+                    if cid in self.combatants:
+                        target_default = self._label_for(self.combatants[cid])
+                except Exception:
+                    pass
+            ordered_sel = [self._cid_from_label(target_default)] if target_default else []
+            ordered_sel = [cid for cid in ordered_sel if cid is not None and cid in self.combatants]
 
-        # Header
-        headers = ["Attacker", "Target", "Amount (math ok)", "Type", "Resist", "Immune", ""]
+        mode_var = tk.StringVar(value=default_mode)
+
+        # ---- Top options ----
+        top = ttk.Frame(outer)
+        top.pack(fill=tk.X)
+
+        ttk.Label(top, text="Mode:").pack(side=tk.LEFT)
+        ttk.Radiobutton(top, text="Damage", variable=mode_var, value="damage").pack(side=tk.LEFT, padx=(6, 8))
+        ttk.Radiobutton(top, text="Heal", variable=mode_var, value="heal").pack(side=tk.LEFT, padx=(0, 12))
+
+        ttk.Label(top, text="Tip: Amount supports math (10+10+10). Blank Attacker = anonymous log.").pack(
+            side=tk.LEFT
+        )
+
+        # ---- Scrollable entries area ----
+        entries_box = ttk.LabelFrame(outer, text="Entries", padding=8)
+        entries_box.pack(fill=tk.BOTH, expand=True, pady=(10, 8))
+
+        # Scroll container
+        cont = ttk.Frame(entries_box)
+        cont.pack(fill=tk.BOTH, expand=True)
+
+        canvas = tk.Canvas(cont, highlightthickness=0)
+        vbar = ttk.Scrollbar(cont, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vbar.set)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        inner = ttk.Frame(canvas)
+        inner_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def _on_inner_config(_evt=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_config(evt):
+            # Make the inner frame match canvas width for nicer resizing
+            try:
+                canvas.itemconfigure(inner_id, width=evt.width)
+            except Exception:
+                pass
+
+        inner.bind("<Configure>", _on_inner_config)
+        canvas.bind("<Configure>", _on_canvas_config)
+
+        headers = ["Attacker", "Target", "Amount", "Type", "Resist", "Immune", ""]
         for col, h in enumerate(headers):
-            ttk.Label(src_box, text=h).grid(row=0, column=col, sticky="w", padx=(0, 8))
+            ttk.Label(inner, text=h).grid(row=0, column=col, sticky="w", padx=(0, 8))
 
-        # Shared damage types list
         damage_types = [
             "",
             "Acid",
@@ -2072,17 +2251,10 @@ class InitiativeTracker(tk.Tk):
             "Thunder",
         ]
 
-        # Choose a sensible default target: selected row if any, else first in list.
-        target_default = (targets[0] if targets else "")
-        if self.tree.selection():
-            try:
-                scid = int(self.tree.selection()[0])
-                if scid in self.combatants:
-                    target_default = self._label_for(self.combatants[scid])
-            except Exception:
-                pass
+        # Combobox values (include a blank "none" option for attacker)
+        attacker_values = [""] + (labels or [])
 
-        source_rows: list[dict] = []
+        rows: list[dict] = []
 
         def _parse_name_from_label(lbl: str) -> Optional[str]:
             lbl = (lbl or "").strip()
@@ -2091,30 +2263,11 @@ class InitiativeTracker(tk.Tk):
             cid = self._cid_from_label(lbl)
             if cid is not None and cid in self.combatants:
                 return self.combatants[cid].name
+            # For external strings like "Goblin"
             return lbl.split(" [#")[0].strip()
 
-        def _targets_in_display_order(cids: list[int]) -> list[int]:
-            want = set(cids)
-            out: list[int] = []
-            for c in self._display_order():
-                if c.cid in want:
-                    out.append(c.cid)
-            for cid in cids:
-                if cid in want and cid not in out:
-                    out.append(cid)
-            return out
-
-        def _refresh_targets_enabled() -> None:
-            state = "readonly" if not apply_selected.get() else "disabled"
-            for row in source_rows:
-                try:
-                    row["target_combo"].configure(state=state)
-                except Exception:
-                    pass
-
-        def _regrid_sources() -> None:
-            # Move each row's widgets to the correct grid row
-            for i, row in enumerate(source_rows, start=1):
+        def _regrid() -> None:
+            for i, row in enumerate(rows, start=1):
                 r = i
                 row["attacker_combo"].grid(row=r, column=0, sticky="we", padx=(0, 8), pady=2)
                 row["target_combo"].grid(row=r, column=1, sticky="we", padx=(0, 8), pady=2)
@@ -2124,81 +2277,61 @@ class InitiativeTracker(tk.Tk):
                 row["imm_cb"].grid(row=r, column=5, sticky="w", padx=(0, 8), pady=2)
                 row["rm_btn"].grid(row=r, column=6, sticky="e", pady=2)
 
-            _refresh_targets_enabled()
+            # Stretch columns
+            inner.columnconfigure(0, weight=2)
+            inner.columnconfigure(1, weight=2)
+            inner.columnconfigure(2, weight=1)
+            inner.columnconfigure(3, weight=1)
 
-        def add_source_row() -> None:
-            attacker_var = tk.StringVar(value=attacker_default)
-            target_var = tk.StringVar(value=target_default)
+        def add_entry(target_label: str = "", attacker_label: str = "") -> None:
+            atk_var = tk.StringVar(value=attacker_label)
+            tgt_var = tk.StringVar(value=target_label)
             amt_var = tk.StringVar(value="")
             dtype_var = tk.StringVar(value="")
-            resistant_var = tk.BooleanVar(value=False)
-            immune_var = tk.BooleanVar(value=False)
+            res_var = tk.BooleanVar(value=False)
+            imm_var = tk.BooleanVar(value=False)
 
             attacker_combo = ttk.Combobox(
-                src_box,
-                textvariable=attacker_var,
-                values=targets,
-                state=("readonly" if targets else "disabled"),
-                width=24,
+                inner, textvariable=atk_var, values=attacker_values, state=("readonly" if attacker_values else "disabled")
             )
-
-            def _on_attacker_pick(_evt=None):
-                # If user deliberately picks an attacker, assume they want it used.
-                use_attacker_var.set(True)
-
-            attacker_combo.bind("<<ComboboxSelected>>", _on_attacker_pick)
-
             target_combo = ttk.Combobox(
-                src_box,
-                textvariable=target_var,
-                values=targets,
-                state="readonly",
-                width=24,
+                inner, textvariable=tgt_var, values=(labels or []), state=("readonly" if labels else "disabled")
             )
-
-            amt_entry = ttk.Entry(src_box, textvariable=amt_var, width=16)
-
-            dtype_combo = ttk.Combobox(
-                src_box,
-                textvariable=dtype_var,
-                values=damage_types,
-                state="readonly",
-                width=16,
-            )
-
-            res_cb = ttk.Checkbutton(src_box, text="", variable=resistant_var)
-            imm_cb = ttk.Checkbutton(src_box, text="", variable=immune_var)
+            amt_entry = ttk.Entry(inner, textvariable=amt_var, width=12)
+            dtype_combo = ttk.Combobox(inner, textvariable=dtype_var, values=damage_types, state="readonly", width=14)
+            res_cb = ttk.Checkbutton(inner, text="", variable=res_var)
+            imm_cb = ttk.Checkbutton(inner, text="", variable=imm_var)
 
             def remove_this():
-                # Keep at least one row
-                if len(source_rows) <= 1:
-                    # just clear values
+                if len(rows) <= 1:
+                    # keep one row; just clear
+                    atk_var.set(attacker_default)
+                    tgt_var.set("")
                     amt_var.set("")
                     dtype_var.set("")
-                    resistant_var.set(False)
-                    immune_var.set(False)
+                    res_var.set(False)
+                    imm_var.set(False)
                     return
-                # destroy widgets
                 for w in (attacker_combo, target_combo, amt_entry, dtype_combo, res_cb, imm_cb, rm_btn):
                     try:
                         w.destroy()
                     except Exception:
                         pass
                 try:
-                    source_rows.remove(row_dict)
+                    rows.remove(row)
                 except ValueError:
                     pass
-                _regrid_sources()
+                _regrid()
 
-            rm_btn = ttk.Button(src_box, text="✕", width=3, command=remove_this)
+            rm_btn = ttk.Button(inner, text="Keelhaul", command=remove_this)
 
-            row_dict = dict(
-                attacker_var=attacker_var,
-                target_var=target_var,
+            row = dict(
+                attacker_var=atk_var,
+                target_var=tgt_var,
                 amt_var=amt_var,
                 dtype_var=dtype_var,
-                resistant_var=resistant_var,
-                immune_var=immune_var,
+                resistant_var=res_var,
+                immune_var=imm_var,
                 attacker_combo=attacker_combo,
                 target_combo=target_combo,
                 amt_entry=amt_entry,
@@ -2207,93 +2340,54 @@ class InitiativeTracker(tk.Tk):
                 imm_cb=imm_cb,
                 rm_btn=rm_btn,
             )
-            source_rows.append(row_dict)
-            _regrid_sources()
+            rows.append(row)
+            _regrid()
 
-        # One default source row
-        add_source_row()
+        # Create default entries
+        if ordered_sel:
+            for cid in ordered_sel:
+                if cid in self.combatants:
+                    add_entry(target_label=self._label_for(self.combatants[cid]), attacker_label=attacker_default)
+        else:
+            add_entry(target_label=(labels[0] if labels else ""), attacker_label=attacker_default)
 
-        # column stretch
-        for col in range(len(headers)):
-            src_box.columnconfigure(col, weight=(1 if col in (0, 1, 2, 3) else 0))
+        # ---- Add entry button (below list) ----
+        add_row = ttk.Frame(outer)
+        add_row.pack(fill=tk.X)
 
-        # ---- Multi-target controls ----
-        ctl = ttk.Frame(outer)
-        ctl.pack(fill=tk.X)
-
-        apply_selected = tk.BooleanVar(value=multi_selected)
-        ttk.Checkbutton(ctl, text="Apply to selected rows", variable=apply_selected).pack(side=tk.LEFT)
-
-        selected_summary = tk.StringVar(value="")
-        ttk.Label(ctl, textvariable=selected_summary).pack(side=tk.LEFT, padx=(10, 0))
-
-        close_after = tk.BooleanVar(value=False)
-        ttk.Checkbutton(ctl, text="Close after apply", variable=close_after).pack(side=tk.RIGHT)
-
-        selected_frame = ttk.Frame(outer)
-        selected_frame.pack(fill=tk.X, pady=(4, 0))
-        ttk.Label(selected_frame, text="Selected targets:").pack(anchor="w")
-        selected_list = tk.Listbox(selected_frame, height=6)
-        selected_list.pack(fill=tk.X, padx=(0, 4))
-
-        def _refresh_selected_summary() -> None:
-            if not apply_selected.get():
-                selected_summary.set("")
-                selected_list.delete(0, tk.END)
-                selected_frame.pack_forget()
-                _refresh_targets_enabled()
-                return
-            cids = self._selected_cids()
-            if not cids:
-                selected_summary.set("(no rows selected)")
-                selected_list.delete(0, tk.END)
-            else:
-                order = [c.cid for c in self._display_order()]
-                ordered = [cid for cid in order if cid in cids]
-                names = [self.combatants[cid].name for cid in ordered if cid in self.combatants]
-                if len(names) > 6:
-                    selected_summary.set(f"{len(names)} targets selected")
-                else:
-                    selected_summary.set(", ".join(names))
-                selected_list.delete(0, tk.END)
-                for nm in names:
-                    selected_list.insert(tk.END, nm)
-            if not selected_frame.winfo_ismapped():
-                selected_frame.pack(fill=tk.X, pady=(4, 0))
-            _refresh_targets_enabled()
-
-        apply_selected.trace_add("write", lambda *_: _refresh_selected_summary())
-        _refresh_selected_summary()
-
-        # ---- Buttons ----
-        btn_row = ttk.Frame(outer)
-        btn_row.pack(fill=tk.X, pady=(8, 0))
-
-        def on_add_source():
-            add_source_row()
+        def on_add():
+            add_entry(target_label="", attacker_label=attacker_default)
             try:
-                source_rows[-1]["amt_entry"].focus_set()
+                rows[-1]["amt_entry"].focus_set()
             except Exception:
                 pass
 
-        ttk.Button(btn_row, text="Add source", command=on_add_source).pack(side=tk.LEFT)
+        ttk.Button(add_row, text="Add another hit", command=on_add).pack(side=tk.LEFT)
 
-        def on_apply():
-            # Determine target list (if applying to selection)
-            if apply_selected.get():
-                t_cids = _targets_in_display_order(self._selected_cids())
-                if not t_cids:
-                    messagebox.showinfo("Damage/Heal", "No rows selected.", parent=dlg)
-                    return
-            else:
-                t_cids = []
+        close_after = tk.BooleanVar(value=False)
+        ttk.Checkbutton(add_row, text="Close after apply", variable=close_after).pack(side=tk.RIGHT)
 
+        # ---- Bottom action buttons ----
+        bottom = ttk.Frame(outer)
+        bottom.pack(fill=tk.X, pady=(10, 0))
+
+        # Make a red-ish button using tk.Button for reliable background color
+        def _apply():
+            mode = mode_var.get()
             removed_all: list[int] = []
             pre_order = [x.cid for x in self._display_order()]
-            mode = mode_var.get()
 
-            for idx, row in enumerate(source_rows, start=1):
-                # Parse amount per row
+            if not rows:
+                return
+
+            for idx, row in enumerate(rows, start=1):
+                # Resolve target
+                cid = self._cid_from_label(row["target_var"].get())
+                if cid is None or cid not in self.combatants:
+                    messagebox.showerror("Damage/Heal", f"Row {idx}: pick a valid target.", parent=dlg)
+                    return
+
+                # Parse amount
                 try:
                     amt = self._parse_int_expr(row["amt_var"].get())
                 except Exception:
@@ -2307,90 +2401,61 @@ class InitiativeTracker(tk.Tk):
                     messagebox.showerror("Damage/Heal", f"Row {idx}: Amount must be positive.", parent=dlg)
                     return
 
-                # Resolve attacker name (optional, controlled by toggle)
-                attacker_name = None
-                if use_attacker_var.get():
-                    attacker_name = _parse_name_from_label(row["attacker_var"].get())
-
-                # Resolve targets for this row
-                if apply_selected.get():
-                    target_cids = [cid for cid in t_cids if cid in self.combatants]
-                else:
-                    cid = self._cid_from_label(row["target_var"].get())
-                    if cid is None or cid not in self.combatants:
-                        messagebox.showerror("Damage/Heal", f"Row {idx}: Pick a valid target.", parent=dlg)
-                        return
-                    target_cids = [cid]
-
-                names = [self.combatants[cid].name for cid in target_cids if cid in self.combatants]
-                if not names:
+                c = self.combatants.get(cid)
+                if c is None:
                     continue
-                targets_str = ", ".join(names)
-                plural = len(names) != 1
 
+                target_name = c.name
+                attacker_name = _parse_name_from_label(row["attacker_var"].get())
                 dtype = (row["dtype_var"].get() or "").strip()
                 dtype_l = (dtype.lower() + " ") if dtype else ""
+                resist_note = ""
+                imm_note = ""
 
                 if mode == "heal":
-                    for cid in target_cids:
-                        c = self.combatants.get(cid)
-                        if c is None:
-                            continue
-                        c.hp = max(0, int(c.hp) + int(amt))
-                    tail = " each" if plural else ""
+                    c.hp = max(0, int(c.hp) + int(amt))
                     if attacker_name:
-                        self._log(f"{attacker_name} heals {targets_str} for {amt} HP{tail}")
+                        self._log(f"{attacker_name} heals {target_name} for {amt} HP")
                     else:
-                        self._log(f"{targets_str} heals {amt} HP{tail}")
+                        self._log(f"{target_name} heals {amt} HP")
                     continue
 
-                # damage
+                # Damage mode
                 if row["immune_var"].get():
+                    imm_note = " (immune)"
                     if attacker_name:
                         if dtype:
                             self._log(
-                                f"{attacker_name} did {dtype_l}damage to {targets_str}, but "
-                                f"{'they are' if plural else 'it is'} immune to {dtype.lower()}."
+                                f"{attacker_name} tries to deal {dtype.lower()} damage to {target_name}, but {target_name} is immune to {dtype.lower()}.{imm_note}"
                             )
                         else:
-                            self._log(
-                                f"{attacker_name} tried to deal damage to {targets_str}, but "
-                                f"{'they are' if plural else 'it is'} immune."
-                            )
+                            self._log(f"{attacker_name} tries to deal damage to {target_name}, but {target_name} is immune.{imm_note}")
                     else:
                         if dtype:
-                            self._log(f"Damage to {targets_str} was blocked — immune to {dtype.lower()}.")
+                            self._log(f"Damage to {target_name} was blocked — immune to {dtype.lower()}.{imm_note}")
                         else:
-                            self._log("Damage was blocked — immune.")
+                            self._log(f"Damage to {target_name} was blocked — immune.{imm_note}")
                     continue
 
                 applied = int(amt)
-                resist_note = ""
                 if row["resistant_var"].get():
                     applied = applied // 2
                     resist_note = " (resistant)"
 
-                local_removed: list[int] = []
-                for cid in target_cids:
-                    c = self.combatants.get(cid)
-                    if c is None:
-                        continue
-                    old_hp = int(c.hp)
-                    c.hp = max(0, old_hp - int(applied))
-                    if old_hp > 0 and int(c.hp) == 0:
-                        local_removed.append(cid)
+                old_hp = int(c.hp)
+                c.hp = max(0, old_hp - int(applied))
 
-                if attacker_name:
-                    self._log(f"{attacker_name} does {applied} {dtype_l}damage to {targets_str}{resist_note}")
-                else:
-                    self._log(f"{targets_str} takes {applied} {dtype_l}damage{resist_note}")
-
-                # Remove anyone who hit 0 from >0
-                for cid in local_removed:
-                    nm = self.combatants[cid].name if cid in self.combatants else "(unknown)"
-                    self._log(f"{nm} drops to 0 HP and is removed from initiative.")
+                # If they died from above 0 -> 0, log flavor and remove
+                if old_hp > 0 and int(c.hp) == 0:
+                    flavor = self._death_flavor_line(attacker_name, applied, dtype, target_name)
+                    self._log(flavor)
                     self.combatants.pop(cid, None)
                     removed_all.append(cid)
+                else:
+                    if attacker_name:
+                        self._log(f"{attacker_name} deals {applied} {dtype_l}damage to {target_name}{resist_note}")
+                    else:
+                        self._log(f"{target_name} takes {applied} {dtype_l}damage{resist_note}")
 
             if removed_all:
                 if getattr(self, "start_cid", None) in removed_all:
@@ -2398,17 +2463,29 @@ class InitiativeTracker(tk.Tk):
                 self._retarget_current_after_removal(removed_all, pre_order=pre_order)
 
             self._rebuild_table(scroll_to_current=True)
+
             if close_after.get():
                 dlg.destroy()
 
-        ttk.Button(btn_row, text="Apply", command=on_apply).pack(side=tk.RIGHT, padx=(6, 0))
-        ttk.Button(btn_row, text="Close", command=dlg.destroy).pack(side=tk.RIGHT)
+        def _set_button_label(*_):
+            if mode_var.get() == "heal":
+                act_btn.configure(text="Apply heal", bg="#2d7d46")
+            else:
+                act_btn.configure(text="Deal damage", bg="#8b1e1e")
+
+        act_btn = tk.Button(bottom, text="Deal damage", command=_apply, bg="#8b1e1e", fg="white", padx=14, pady=6)
+        act_btn.pack(side=tk.RIGHT)
+        ttk.Button(bottom, text="Close", command=dlg.destroy).pack(side=tk.RIGHT, padx=(0, 8))
+
+        mode_var.trace_add("write", _set_button_label)
+        _set_button_label()
 
         # Focus first amount entry
         try:
-            source_rows[0]["amt_entry"].focus_set()
+            rows[0]["amt_entry"].focus_set()
         except Exception:
             pass
+
     def _open_dot_tool(self) -> None:
         dlg = tk.Toplevel(self)
         dlg.title("Damage over Time (DoT)")
@@ -2692,14 +2769,36 @@ class BattleMapWindow(tk.Toplevel):
         self.cols, self.rows = size  # squares
         self.feet_per_square = 5
 
-        # Grid layout metrics (computed on resize)
+        # Map rendering controls
+        self._map_margin = 24  # pixels of padding around the grid
+        self.zoom_var = tk.DoubleVar(value=32.0)  # pixels per square (5 ft)
+        self.obstacle_mode_var = tk.BooleanVar(value=False)
+        self._last_roster_sig: Optional[Tuple[int, ...]] = None
+        self._poll_after_id: Optional[str] = None
+
+        # Grid layout metrics
         self.cell = 32.0
         self.x0 = 0.0
         self.y0 = 0.0
 
         # Units and overlays
-        self.unit_tokens: Dict[int, Dict[str, object]] = {}  # cid -> {col,row,oval,text}
+        self.unit_tokens: Dict[int, Dict[str, object]] = {}  # cid -> {col,row,oval,text,marker}
         self._active_cid: Optional[int] = None
+        self.obstacles: Set[Tuple[int, int]] = set()  # blocked squares
+        self._drawing_obstacles: bool = False
+
+        # Grouping: multiple units can occupy the same square. We show a single group label and fan the tokens slightly.
+        self._cell_to_cids: Dict[Tuple[int, int], List[int]] = {}
+
+        # Move-range highlight for the active creature
+        self._movehl_items: List[int] = []
+
+        # Auto-placement offsets near the map center (for quick placement)
+        self._spawn_offsets: List[Tuple[int, int]] = self._build_spawn_offsets()
+        self._spawn_index: int = 0
+
+        # Drag origin (to enforce movement for the active creature)
+        self._drag_origin_cell: Optional[Tuple[int, int]] = None
 
         self._next_aoe_id = 1
         self.aoes: Dict[int, Dict[str, object]] = {}  # aid -> overlay data
@@ -2730,7 +2829,14 @@ class BattleMapWindow(tk.Toplevel):
         self.bind("<Escape>", lambda e: self._clear_measure())
         self.bind("<KeyPress-r>", lambda e: self.refresh_units())
 
+        # Auto-refresh units/markers so slain creatures disappear without manual refresh.
+        self._start_polling()
+
     def _on_close(self) -> None:
+        try:
+            self._stop_polling()
+        except Exception:
+            pass
         try:
             if getattr(self.app, "_map_window", None) is self:
                 self.app._map_window = None
@@ -2771,6 +2877,21 @@ class BattleMapWindow(tk.Toplevel):
         right = ttk.Frame(outer, padding=8)
         outer.add(right, weight=1)
 
+        # --- Map view ---
+        view = ttk.LabelFrame(left, text="Map View", padding=6)
+        view.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(view, text="Zoom (px / square):").grid(row=0, column=0, sticky="w")
+        self._zoom_slider = ttk.Scale(view, from_=12, to=80, variable=self.zoom_var, command=self._on_zoom_change)
+        self._zoom_slider.grid(row=0, column=1, sticky="ew", padx=(8, 0))
+        self._zoom_val = ttk.Label(view, text="32")
+        self._zoom_val.grid(row=0, column=2, sticky="e", padx=(6, 0))
+        ttk.Button(view, text="Fit", command=self._fit_to_window).grid(row=1, column=0, sticky="w", pady=(6, 0))
+        ttk.Button(view, text="Center", command=self._center_view).grid(row=1, column=1, sticky="w", pady=(6, 0))
+        ttk.Button(view, text="Dash (+spd)", command=self._dash_active).grid(row=1, column=2, sticky="e", pady=(6, 0))
+        ttk.Checkbutton(view, text="Draw Obstacles", variable=self.obstacle_mode_var).grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Button(view, text="Clear Obstacles", command=self._clear_obstacles).grid(row=2, column=1, sticky="w", pady=(6, 0))
+        view.columnconfigure(1, weight=1)
+
         # --- Units panel ---
         ttk.Label(left, text="Units (drag onto map)").pack(anchor="w")
         unit_frame = ttk.Frame(left)
@@ -2785,10 +2906,14 @@ class BattleMapWindow(tk.Toplevel):
         self.units_list.bind("<ButtonPress-1>", self._on_units_press)
         self.units_list.bind("<B1-Motion>", self._on_units_motion)
         self.units_list.bind("<ButtonRelease-1>", self._on_units_release)
+        self.units_list.bind("<Double-Button-1>", self._on_units_double_click)
+        self.units_list.bind("<Return>", lambda e: self._place_selected_units_near_center())
 
         btns = ttk.Frame(left)
         btns.pack(fill=tk.X, pady=(0, 10))
         ttk.Button(btns, text="Refresh Units (R)", command=self.refresh_units).pack(side=tk.LEFT)
+        ttk.Button(btns, text="Place Selected", command=self._place_selected_units_near_center).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(btns, text="Place All", command=self._place_all_units_near_center).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(btns, text="Clear Measure (Esc)", command=self._clear_measure).pack(side=tk.LEFT, padx=(8, 0))
 
         # --- AoE panel ---
@@ -2799,6 +2924,7 @@ class BattleMapWindow(tk.Toplevel):
         aoe_btns.pack(fill=tk.X, pady=(4, 6))
         ttk.Button(aoe_btns, text="Add Circle", command=self._add_circle_aoe).pack(side=tk.LEFT)
         ttk.Button(aoe_btns, text="Add Square", command=self._add_square_aoe).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(aoe_btns, text="Add Line", command=self._add_line_aoe).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(aoe_btns, text="Remove", command=self._remove_selected_aoe).pack(side=tk.LEFT, padx=(8, 0))
 
         self.aoe_list = tk.Listbox(left, height=8, exportselection=False)
@@ -2863,9 +2989,20 @@ class BattleMapWindow(tk.Toplevel):
         ctrl.columnconfigure(1, weight=1)
         self._set_bg_controls_enabled(False)
 
-        # --- Map canvas ---
-        self.canvas = tk.Canvas(right, background="#f8f1d4", highlightthickness=1, highlightbackground="#8b6a3d")
-        self.canvas.pack(fill=tk.BOTH, expand=True)
+        # --- Map canvas (scrollable) ---
+        canvas_frame = ttk.Frame(right)
+        canvas_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.canvas = tk.Canvas(canvas_frame, background="#f8f1d4", highlightthickness=1, highlightbackground="#8b6a3d")
+        self.vsb = ttk.Scrollbar(canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+        self.hsb = ttk.Scrollbar(canvas_frame, orient=tk.HORIZONTAL, command=self.canvas.xview)
+        self.canvas.configure(xscrollcommand=self.hsb.set, yscrollcommand=self.vsb.set)
+
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.vsb.grid(row=0, column=1, sticky="ns")
+        self.hsb.grid(row=1, column=0, sticky="ew")
+        canvas_frame.rowconfigure(0, weight=1)
+        canvas_frame.columnconfigure(0, weight=1)
 
         self.canvas.bind("<Configure>", lambda e: self._redraw_all())
         self.canvas.bind("<ButtonPress-1>", self._on_canvas_press)
@@ -2897,6 +3034,186 @@ class BattleMapWindow(tk.Toplevel):
                 label += "  (on map)"
             self.units_list.insert(tk.END, label)
             self._units_index_to_cid.append(cid)
+
+
+    def _start_polling(self) -> None:
+        self._stop_polling()
+        self._poll_once()
+
+    def _stop_polling(self) -> None:
+        if self._poll_after_id is not None:
+            try:
+                self.after_cancel(self._poll_after_id)
+            except Exception:
+                pass
+            self._poll_after_id = None
+
+    def _poll_once(self) -> None:
+        if not self.winfo_exists():
+            return
+        try:
+            sig = tuple(sorted(self.app.combatants.keys()))
+            if sig != self._last_roster_sig:
+                self._last_roster_sig = sig
+                self.refresh_units()
+            else:
+                existing = set(sig)
+                for cid in list(self.unit_tokens.keys()):
+                    if cid not in existing:
+                        self._delete_unit_token(cid)
+
+            # Keep labels/markers in sync with the main tracker
+            for cid, tok in list(self.unit_tokens.items()):
+                c = self.app.combatants.get(cid)
+                if not c:
+                    continue
+                try:
+                    self.canvas.itemconfigure(int(tok["text"]), text=c.name)
+                except Exception:
+                    pass
+                if "marker" in tok:
+                    mt = self._marker_text_for(cid)
+                    try:
+                        self.canvas.itemconfigure(int(tok["marker"]), text=mt, state=("normal" if mt else "hidden"))
+                    except Exception:
+                        pass
+
+            self._apply_active_highlight()
+            self._update_move_highlight()
+            self._update_included_for_selected()
+        except Exception:
+            pass
+
+        try:
+            self._poll_after_id = self.after(750, self._poll_once)
+        except Exception:
+            self._poll_after_id = None
+
+    def _on_zoom_change(self, _val: object = None) -> None:
+        try:
+            self._zoom_val.config(text=str(int(float(self.zoom_var.get()))))
+        except Exception:
+            pass
+        self._redraw_all()
+
+    def _fit_to_window(self) -> None:
+        try:
+            cw = max(1, self.canvas.winfo_width())
+            ch = max(1, self.canvas.winfo_height())
+            cell = max(
+                10.0,
+                min(
+                    (cw - 2 * self._map_margin) / float(self.cols),
+                    (ch - 2 * self._map_margin) / float(self.rows),
+                ),
+            )
+            self.zoom_var.set(cell)
+        except Exception:
+            return
+        self._on_zoom_change()
+
+    def _center_view(self) -> None:
+        # Center the view on the middle of the grid (best-effort).
+        try:
+            sr = tuple(map(float, self.canvas.cget("scrollregion").split()))
+            sw = max(1.0, sr[2] - sr[0])
+            sh = max(1.0, sr[3] - sr[1])
+            cw = max(1.0, float(self.canvas.winfo_width()))
+            ch = max(1.0, float(self.canvas.winfo_height()))
+            gw = float(self.cols) * float(self.cell)
+            gh = float(self.rows) * float(self.cell)
+            cx = self._map_margin + gw / 2.0
+            cy = self._map_margin + gh / 2.0
+            left = max(0.0, min(1.0, (cx - cw / 2.0) / sw))
+            top = max(0.0, min(1.0, (cy - ch / 2.0) / sh))
+            self.canvas.xview_moveto(left)
+            self.canvas.yview_moveto(top)
+        except Exception:
+            pass
+
+
+
+    def _dash_active(self) -> None:
+        """Dash the active creature on the map: add one more speed's worth of movement this turn."""
+        if self._active_cid is None:
+            return
+        c = self.app.combatants.get(self._active_cid)
+        if not c:
+            return
+        try:
+            base = int(self.app._mode_speed(c))
+        except Exception:
+            base = int(getattr(c, "speed", 30) or 30)
+        total = int(getattr(c, "move_total", 0) or 0)
+        if total <= 0:
+            total = base
+        rem = int(getattr(c, "move_remaining", 0) or 0)
+
+        c.move_total = total + base
+        c.move_remaining = rem + base
+        try:
+            self.app._log(f"{c.name} dashes: move {self.app._move_cell(c)} ft.", cid=c.cid)
+        except Exception:
+            pass
+        try:
+            self.app._rebuild_table(scroll_to_current=True)
+        except Exception:
+            pass
+        self._update_move_highlight()
+
+    def _clear_obstacles(self) -> None:
+        self.obstacles.clear()
+        self._redraw_all()
+
+    def _draw_obstacles(self) -> None:
+        """Render obstacle squares on top of the grid."""
+        try:
+            self.canvas.delete("obstacle")
+        except Exception:
+            pass
+        if not self.obstacles:
+            return
+        for (col, row) in sorted(self.obstacles):
+            x1 = self.x0 + col * self.cell
+            y1 = self.y0 + row * self.cell
+            x2 = x1 + self.cell
+            y2 = y1 + self.cell
+            try:
+                self.canvas.create_rectangle(
+                    x1, y1, x2, y2,
+                    fill="#343a40",
+                    outline="",
+                    stipple="gray50",
+                    tags=("obstacle",)
+                )
+            except Exception:
+                pass
+        try:
+            self.canvas.tag_raise("obstacle", "grid")
+        except Exception:
+            pass
+
+    def _paint_obstacle_from_event(self, event: tk.Event) -> None:
+        """Paint or erase an obstacle cell based on the pointer location."""
+        cx = float(self.canvas.canvasx(event.x))
+        cy = float(self.canvas.canvasy(event.y))
+        col, row = self._pixel_to_grid(cx, cy)
+        if col is None or row is None:
+            return
+        if col < 0 or row < 0 or col >= self.cols or row >= self.rows:
+            return
+        # Shift = erase
+        erase = bool(event.state & 0x0001)
+        key = (int(col), int(row))
+        if erase:
+            if key in self.obstacles:
+                self.obstacles.discard(key)
+        else:
+            self.obstacles.add(key)
+        # Redraw obstacles + recompute movement highlight (obstacles affect it)
+        self._draw_obstacles()
+        self._update_move_highlight()
+
 
     def _on_units_press(self, event: tk.Event) -> None:
         idx = self.units_list.nearest(event.y)
@@ -2939,9 +3256,90 @@ class BattleMapWindow(tk.Toplevel):
 
         # Drop only if over the canvas (or a child of it)
         if w is self.canvas or str(w).startswith(str(self.canvas)):
-            x = event.x_root - self.canvas.winfo_rootx()
-            y = event.y_root - self.canvas.winfo_rooty()
+            xw = event.x_root - self.canvas.winfo_rootx()
+            yw = event.y_root - self.canvas.winfo_rooty()
+            x = self.canvas.canvasx(xw)
+            y = self.canvas.canvasy(yw)
             self._place_unit_at_pixel(cid, x, y)
+
+    
+    def _build_spawn_offsets(self) -> List[Tuple[int, int]]:
+        """Build a spiral of offsets around (0,0) used for quick placement near map center."""
+        offsets: List[Tuple[int, int]] = []
+        x = 0
+        y = 0
+        dx = 0
+        dy = -1
+        steps = max(64, self.cols * self.rows * 2)
+        for _ in range(steps):
+            offsets.append((x, y))
+            # turn at the corners of a square spiral
+            if (x == y) or (x < 0 and x == -y) or (x > 0 and x == 1 - y):
+                dx, dy = -dy, dx
+            x += dx
+            y += dy
+            if len(offsets) >= self.cols * self.rows:
+                break
+        if not offsets:
+            offsets = [(0, 0)]
+        return offsets
+
+    def _next_spawn_cell(self) -> Tuple[int, int]:
+        cx = self.cols // 2
+        cy = self.rows // 2
+        n = max(1, len(self._spawn_offsets))
+        tried = 0
+        while tried < n:
+            ox, oy = self._spawn_offsets[self._spawn_index % n]
+            self._spawn_index += 1
+            tried += 1
+            col = cx + ox
+            row = cy + oy
+            if 0 <= col < self.cols and 0 <= row < self.rows:
+                return col, row
+        return max(0, min(self.cols - 1, cx)), max(0, min(self.rows - 1, cy))
+
+    def _on_units_double_click(self, event: tk.Event) -> None:
+        idx = self.units_list.nearest(event.y)
+        try:
+            idx_int = int(idx)
+        except Exception:
+            return
+        if 0 <= idx_int < len(getattr(self, "_units_index_to_cid", [])):
+            cid = self._units_index_to_cid[idx_int]
+            self._place_units_near_center([cid])
+
+    def _place_selected_units_near_center(self) -> None:
+        cids: List[int] = []
+        for idx in list(self.units_list.curselection()):
+            if 0 <= idx < len(getattr(self, "_units_index_to_cid", [])):
+                cids.append(self._units_index_to_cid[idx])
+        if not cids:
+            return
+        self._place_units_near_center(cids)
+
+    def _place_all_units_near_center(self) -> None:
+        cids = [cid for cid in sorted(self.app.combatants.keys()) if cid not in self.unit_tokens]
+        if not cids:
+            return
+        self._place_units_near_center(cids)
+
+    def _place_units_near_center(self, cids: List[int]) -> None:
+        placed_any = False
+        for cid in cids:
+            if cid not in self.app.combatants:
+                continue
+            if cid in self.unit_tokens:
+                continue
+            col, row = self._next_spawn_cell()
+            self._create_unit_token(cid, col, row)
+            placed_any = True
+
+        if placed_any:
+            self.refresh_units()
+            self._update_groups()
+            self._update_move_highlight()
+            self._update_included_for_selected()
 
     def _place_unit_at_pixel(self, cid: int, x: float, y: float) -> None:
         col, row = self._pixel_to_grid(x, y)
@@ -2951,10 +3349,12 @@ class BattleMapWindow(tk.Toplevel):
             # move existing token
             self.unit_tokens[cid]["col"] = col
             self.unit_tokens[cid]["row"] = row
-            self._layout_unit(cid)
         else:
             self._create_unit_token(cid, col, row)
+
         self.refresh_units()
+        self._update_groups()
+        self._update_move_highlight()
         self._update_included_for_selected()
 
     def _create_unit_token(self, cid: int, col: int, row: int) -> None:
@@ -2973,13 +3373,43 @@ class BattleMapWindow(tk.Toplevel):
             fill = "#f6d6d6"
             outline = "#8a2b2b"
 
-        oval = self.canvas.create_oval(x - r, y - r, x + r, y + r, fill=fill, outline=outline, width=2,
-                                      tags=(f"unit:{cid}", "unit"))
-        text = self.canvas.create_text(x, y, text=c.name, font=("TkDefaultFont", 9, "bold"),
-                                       tags=(f"unit:{cid}", "unittext"))
+        oval = self.canvas.create_oval(
+            x - r, y - r, x + r, y + r,
+            fill=fill, outline=outline, width=2,
+            tags=(f"unit:{cid}", "unit")
+        )
 
-        self.unit_tokens[cid] = {"col": col, "row": row, "oval": oval, "text": text}
+        # Name lives ABOVE the token, so the token interior can show condition markers
+        name_y = y - r - 2
+        name_text = self.canvas.create_text(
+            x, name_y,
+            text=c.name,
+            anchor="s",
+            font=("TkDefaultFont", 9, "bold"),
+            tags=(f"unit:{cid}", "unitname")
+        )
+
+        # Condition / effect markers (DoT, conditions, star advantage, etc.)
+        mt = self._marker_text_for(cid)
+        marker_text = self.canvas.create_text(
+            x, y,
+            text=mt,
+            font=("TkDefaultFont", 9),
+            tags=(f"unit:{cid}", "unitmarker")
+        )
+        if not mt:
+            try:
+                self.canvas.itemconfigure(marker_text, state="hidden")
+            except Exception:
+                pass
+
+        self.unit_tokens[cid] = {"col": col, "row": row, "oval": oval, "text": name_text, "marker": marker_text}
+
+        # Re-evaluate grouping + labels now that a token exists
+        self._update_groups()
         self._apply_active_highlight()
+        self._update_move_highlight()
+
 
     def _delete_unit_token(self, cid: int) -> None:
         tok = self.unit_tokens.get(cid)
@@ -2988,20 +3418,35 @@ class BattleMapWindow(tk.Toplevel):
         try:
             self.canvas.delete(int(tok["oval"]))
             self.canvas.delete(int(tok["text"]))
+            if "marker" in tok:
+                self.canvas.delete(int(tok["marker"]))
         except Exception:
             pass
         self.unit_tokens.pop(cid, None)
+
+        # Group labels and move highlight may change when a token leaves the map
+        self._update_groups()
+        self._update_move_highlight()
         self._update_included_for_selected()
 
     # ---------------- Canvas grid & geometry ----------------
     def _compute_metrics(self) -> None:
-        cw = max(1, self.canvas.winfo_width())
-        ch = max(1, self.canvas.winfo_height())
-        self.cell = float(max(10.0, min(cw / self.cols, ch / self.rows)))
-        gw = self.cell * self.cols
-        gh = self.cell * self.rows
-        self.x0 = (cw - gw) / 2.0
-        self.y0 = (ch - gh) / 2.0
+        # Scrollable + zoomable grid: cell size comes from the zoom slider.
+        try:
+            self.cell = float(self.zoom_var.get())
+        except Exception:
+            self.cell = 32.0
+        self.x0 = float(self._map_margin)
+        self.y0 = float(self._map_margin)
+
+        # Ensure the scroll region always contains the full grid plus margins.
+        gw = float(self.cols) * float(self.cell)
+        gh = float(self.rows) * float(self.cell)
+        try:
+            self.canvas.config(scrollregion=(0, 0, gw + 2 * self._map_margin, gh + 2 * self._map_margin))
+        except Exception:
+            pass
+
 
     def _grid_to_pixel(self, col: int, row: int) -> Tuple[float, float]:
         x = self.x0 + (col + 0.5) * self.cell
@@ -3022,6 +3467,8 @@ class BattleMapWindow(tk.Toplevel):
         self._compute_metrics()
         self.canvas.delete("grid")
         self.canvas.delete("measure")
+        self.canvas.delete("movehl")
+        self.canvas.delete("group")
         # Recreate measure items later if needed
         self._measure_items = []
         self._measure_start = None
@@ -3039,30 +3486,293 @@ class BattleMapWindow(tk.Toplevel):
             y = self.y0 + j * self.cell
             self.canvas.create_line(self.x0, y, self.x0 + self.cols * self.cell, y, fill="#d0c3a0", tags=("grid",))
 
-        # Layout tokens and overlays
-        for cid in list(self.unit_tokens.keys()):
-            self._layout_unit(cid)
+        # Obstacles (block movement)
+        self._draw_obstacles()
+
+        # Move-range overlay goes above the grid but below tokens
+        self._update_move_highlight()
+
+        # Layout tokens (incl. grouping + condition markers)
+        self._update_groups()
+
+        # Layout AoEs (kept above tokens)
         for aid in list(self.aoes.keys()):
             self._layout_aoe(aid)
 
         self._apply_active_highlight()
         self._update_included_for_selected()
 
+
     def _layout_unit(self, cid: int) -> None:
         tok = self.unit_tokens.get(cid)
         if not tok:
             return
+
         col = int(tok["col"])
         row = int(tok["row"])
         x, y = self._grid_to_pixel(col, row)
         r = self.cell * 0.42
+
+        # If multiple units share the same square, fan them slightly so they can still be selected.
+        mates = self._cell_to_cids.get((col, row), [cid])
+        if len(mates) > 1:
+            mates2 = list(mates)
+            try:
+                mates2.sort()
+            except Exception:
+                pass
+            try:
+                idx = mates2.index(cid)
+            except ValueError:
+                idx = 0
+            n = max(1, len(mates2))
+            ang = (2.0 * math.pi * idx) / float(n)
+            rad = self.cell * 0.18
+            x = x + math.cos(ang) * rad
+            y = y + math.sin(ang) * rad
+
         self.canvas.coords(int(tok["oval"]), x - r, y - r, x + r, y + r)
-        self.canvas.coords(int(tok["text"]), x, y)
+
+        # Name above token
+        name_y = y - r - 2
+        self.canvas.coords(int(tok["text"]), x, name_y)
+
+        # Condition markers in the token
+        if "marker" in tok:
+            self.canvas.coords(int(tok["marker"]), x, y)
+            try:
+                mt = self._marker_text_for(cid)
+                self.canvas.itemconfigure(int(tok["marker"]), text=mt, state=("normal" if mt else "hidden"))
+            except Exception:
+                pass
+
+    
+    def _marker_text_for(self, cid: int) -> str:
+        c = self.app.combatants.get(cid)
+        if not c:
+            return ""
+        try:
+            s = self.app._format_effects(c)
+        except Exception:
+            s = ""
+        return (s or "").strip()
+
+    def _update_groups(self) -> None:
+        """Recompute shared-square groups, update group labels, and relayout all tokens."""
+        cell_to: Dict[Tuple[int, int], List[int]] = {}
+        for cid, tok in self.unit_tokens.items():
+            try:
+                col = int(tok["col"])
+                row = int(tok["row"])
+            except Exception:
+                continue
+            cell_to.setdefault((col, row), []).append(cid)
+
+        self._cell_to_cids = cell_to
+
+        # Clear old group labels and rebuild
+        try:
+            self.canvas.delete("group")
+        except Exception:
+            pass
+
+        # Show/hide individual name labels
+        for (col, row), cids in cell_to.items():
+            if len(cids) > 1:
+                for cid in cids:
+                    tok = self.unit_tokens.get(cid)
+                    if not tok:
+                        continue
+                    try:
+                        self.canvas.itemconfigure(int(tok["text"]), state="hidden")
+                    except Exception:
+                        pass
+            else:
+                cid = cids[0]
+                tok = self.unit_tokens.get(cid)
+                if not tok:
+                    continue
+                c = self.app.combatants.get(cid)
+                try:
+                    self.canvas.itemconfigure(int(tok["text"]), state="normal")
+                    if c is not None:
+                        self.canvas.itemconfigure(int(tok["text"]), text=c.name)
+                except Exception:
+                    pass
+
+        # Create group labels
+        for (col, row), cids in cell_to.items():
+            if len(cids) <= 1:
+                continue
+            names: List[str] = []
+            for cid in sorted(cids):
+                c = self.app.combatants.get(cid)
+                if c:
+                    names.append(c.name)
+            label = f"Group ({len(names)}): " + ", ".join(names)
+
+            x, y = self._grid_to_pixel(col, row)
+            r = self.cell * 0.42
+            gy = y - r - 2
+            try:
+                gid = self.canvas.create_text(
+                    x, gy,
+                    text=label,
+                    anchor="s",
+                    width=max(120, int(self.cell * 3.8)),
+                    font=("TkDefaultFont", 9, "bold"),
+                    tags=("group",)
+                )
+                self.canvas.tag_raise(gid)
+            except Exception:
+                pass
+
+        # Relayout all units (this also refreshes condition markers)
+        for cid in list(self.unit_tokens.keys()):
+            self._layout_unit(cid)
+
+        # Ensure stacking order
+        try:
+            self.canvas.tag_raise("movehl")
+            self.canvas.tag_raise("unit")
+            self.canvas.tag_raise("unitmarker")
+            self.canvas.tag_raise("unitname")
+            self.canvas.tag_raise("group")
+            self.canvas.tag_raise("aoe")
+        except Exception:
+            pass
+
+
+    def _movement_cost_map(self, start_col: int, start_row: int, max_ft: int) -> Dict[Tuple[int, int], int]:
+        """
+        Compute minimal movement cost (in feet) from a start square to all squares, up to max_ft.
+
+        Uses the common 5e diagonal rule: diagonals alternate 5/10 ft (scaled by feet_per_square).
+        Blocks movement through obstacles and prevents corner-cutting around obstacle squares.
+        """
+        import heapq
+
+        step = int(self.feet_per_square)
+        diag5 = step
+        diag10 = step * 2
+
+        # State includes diagonal parity: 0 -> next diagonal costs 5, 1 -> next diagonal costs 10
+        start = (start_col, start_row, 0)
+        pq: List[Tuple[int, int, int, int]] = [(0, start_col, start_row, 0)]
+        best: Dict[Tuple[int, int, int], int] = {start: 0}
+        best_sq: Dict[Tuple[int, int], int] = {(start_col, start_row): 0}
+
+        obstacles = getattr(self, "obstacles", set()) or set()
+
+        while pq:
+            cost, col, row, parity = heapq.heappop(pq)
+            if cost != best.get((col, row, parity), None):
+                continue
+            if cost > max_ft:
+                continue
+
+            prev = best_sq.get((col, row))
+            if prev is None or cost < prev:
+                best_sq[(col, row)] = cost
+
+            for dc, dr, is_diag in (
+                (-1, 0, False), (1, 0, False), (0, -1, False), (0, 1, False),
+                (-1, -1, True), (1, -1, True), (-1, 1, True), (1, 1, True),
+            ):
+                nc, nr = col + dc, row + dr
+                if nc < 0 or nr < 0 or nc >= self.cols or nr >= self.rows:
+                    continue
+                if (nc, nr) in obstacles:
+                    continue
+
+                # no corner-cutting
+                if is_diag:
+                    if (col + dc, row) in obstacles or (col, row + dr) in obstacles:
+                        continue
+                    step_cost = diag5 if parity == 0 else diag10
+                    npar = 1 - parity
+                else:
+                    step_cost = step
+                    npar = parity
+
+                ncost = cost + step_cost
+                if ncost > max_ft:
+                    continue
+                key = (nc, nr, npar)
+                if ncost < best.get(key, 10**9):
+                    best[key] = ncost
+                    heapq.heappush(pq, (ncost, nc, nr, npar))
+
+        return best_sq
+
+    def _update_move_highlight(self) -> None:
+        """Highlight reachable squares for the active creature, based on its remaining movement."""
+        try:
+            self.canvas.delete("movehl")
+        except Exception:
+            pass
+        self._movehl_items = []
+
+        if self._active_cid is None:
+            return
+        if self._active_cid not in self.unit_tokens:
+            return
+
+        c = self.app.combatants.get(self._active_cid)
+        if not c:
+            return
+
+        move_ft = int(getattr(c, "move_remaining", 0) or 0)
+        if move_ft <= 0:
+            return
+
+        tok = self.unit_tokens[self._active_cid]
+        col0 = int(tok["col"])
+        row0 = int(tok["row"])
+
+        cost_map = self._movement_cost_map(col0, row0, move_ft)
+
+        for (col, row), cost in cost_map.items():
+            if cost <= 0:
+                continue
+            x1 = self.x0 + col * self.cell
+            y1 = self.y0 + row * self.cell
+            x2 = x1 + self.cell
+            y2 = y1 + self.cell
+            try:
+                rid = self.canvas.create_rectangle(
+                    x1, y1, x2, y2,
+                    fill="#74c0fc",
+                    outline="",
+                    stipple="gray25",
+                    tags=("movehl",)
+                )
+                self._movehl_items.append(rid)
+            except Exception:
+                pass
+
+        # Keep the overlay above the grid/obstacles but below tokens
+        try:
+            self.canvas.tag_raise("movehl", "grid")
+            self.canvas.tag_lower("movehl", "unit")
+        except Exception:
+            try:
+                self.canvas.tag_raise("movehl")
+            except Exception:
+                pass
+
+    def _movement_cost_between(self, origin: Tuple[int, int], dest: Tuple[int, int], max_ft: int) -> Optional[int]:
+        if origin == dest:
+            return 0
+        cost_map = self._movement_cost_map(origin[0], origin[1], max_ft)
+        return cost_map.get(dest)
 
     def _prompt_circle_aoe_params(self) -> Optional[Tuple[int, str]]:
         """Prompt for circle size and whether it's radius or diameter (required, mutually exclusive)."""
         dlg = tk.Toplevel(self)
         dlg.title("Circle AoE")
+        dlg.geometry("420x220")
+        dlg.minsize(380, 200)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
@@ -3158,6 +3868,90 @@ class BattleMapWindow(tk.Toplevel):
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
 
+
+    def _prompt_line_aoe_params(self) -> Optional[Tuple[int, int, str]]:
+        """Prompt for line AoE length and width in feet, and orientation (horizontal/vertical)."""
+        dlg = tk.Toplevel(self)
+        dlg.title("Line AoE")
+        dlg.geometry("460x260")
+        dlg.minsize(420, 230)
+        dlg.transient(self)
+        dlg.after(0, dlg.grab_set)
+
+        out: dict[str, object] = {"length": None, "width": None, "orient": "vertical"}
+
+        frm = ttk.Frame(dlg, padding=10)
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frm, text="Length (ft):").grid(row=0, column=0, sticky="w")
+        length_var = tk.StringVar(value="100")
+        length_ent = ttk.Entry(frm, textvariable=length_var, width=10)
+        length_ent.grid(row=0, column=1, sticky="w", padx=(6, 0))
+
+        ttk.Label(frm, text="Width (ft):").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        width_var = tk.StringVar(value="5")
+        width_ent = ttk.Entry(frm, textvariable=width_var, width=10)
+        width_ent.grid(row=1, column=1, sticky="w", padx=(6, 0), pady=(8, 0))
+
+        orient_var = tk.StringVar(value="vertical")
+        orient_box = ttk.Frame(frm)
+        orient_box.grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        ttk.Label(orient_box, text="Orientation:").pack(side=tk.LEFT)
+        ttk.Radiobutton(orient_box, text="Horizontal", variable=orient_var, value="horizontal").pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Radiobutton(orient_box, text="Vertical", variable=orient_var, value="vertical").pack(side=tk.LEFT, padx=(8, 0))
+
+        btns = ttk.Frame(frm)
+        btns.grid(row=3, column=0, columnspan=2, sticky="e", pady=(14, 0))
+
+        def on_ok() -> None:
+            try:
+                L = int((length_var.get() or "").strip())
+                W = int((width_var.get() or "").strip())
+            except Exception:
+                messagebox.showerror("Line AoE", "Length/Width must be integers (ft).", parent=dlg)
+                return
+            if L <= 0 or W <= 0:
+                messagebox.showerror("Line AoE", "Length/Width must be positive.", parent=dlg)
+                return
+            out["length"] = L
+            out["width"] = W
+            out["orient"] = str(orient_var.get() or "vertical")
+            dlg.destroy()
+
+        ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.RIGHT)
+        ttk.Button(btns, text="OK", command=on_ok).pack(side=tk.RIGHT, padx=(0, 8))
+
+        dlg.bind("<Return>", lambda e: on_ok())
+        dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+        dlg.after(150, lambda: (length_ent.focus_set(), length_ent.select_range(0, tk.END)))
+        self.wait_window(dlg)
+
+        if out["length"] is None or out["width"] is None:
+            return None
+        return int(out["length"]), int(out["width"]), str(out["orient"])
+
+    def _add_line_aoe(self) -> None:
+        res = self._prompt_line_aoe_params()
+        if res is None:
+            return
+        length_ft, width_ft, orient = res
+        length_sq = max(1.0, float(length_ft) / self.feet_per_square)
+        width_sq = max(1.0, float(width_ft) / self.feet_per_square)
+
+        aid = self._next_aoe_id
+        self._next_aoe_id += 1
+
+        cx = (self.cols - 1) / 2.0
+        cy = (self.rows - 1) / 2.0
+
+        self.aoes[aid] = {"kind": "line", "length_sq": length_sq, "width_sq": width_sq, "orient": orient,
+                          "cx": cx, "cy": cy, "pinned": False,
+                          "name": f"AoE {aid}", "shape": None, "label": None}
+        self._create_aoe_items(aid)
+        self._refresh_aoe_list(select=aid)
+
+
     def _create_aoe_items(self, aid: int) -> None:
         d = self.aoes[aid]
         kind = str(d["kind"])
@@ -3169,6 +3963,10 @@ class BattleMapWindow(tk.Toplevel):
             shape_id = self.canvas.create_oval(0, 0, 1, 1, outline="#2d4f8a", width=3, dash=(6, 4),
                                                fill="#a8c5ff", stipple="gray25",
                                                tags=(f"aoe:{aid}", "aoe"))
+        elif kind == "line":
+            shape_id = self.canvas.create_rectangle(0, 0, 1, 1, outline="#2d8a57", width=3, dash=(6, 4),
+                                                    fill="#b7ffe0", stipple="gray25",
+                                                    tags=(f"aoe:{aid}", "aoe"))
         else:
             shape_id = self.canvas.create_rectangle(0, 0, 1, 1, outline="#6b3d8a", width=3, dash=(6, 4),
                                                     fill="#e2b6ff", stipple="gray25",
@@ -3193,6 +3991,17 @@ class BattleMapWindow(tk.Toplevel):
         if kind == "circle":
             r = float(d["radius_sq"]) * self.cell
             self.canvas.coords(int(d["shape"]), x - r, y - r, x + r, y + r)
+        elif kind == "line":
+            length_px = float(d["length_sq"]) * self.cell
+            width_px = float(d["width_sq"]) * self.cell
+            orient = str(d.get("orient") or "vertical")
+            if orient == "horizontal":
+                half_w = length_px / 2.0
+                half_h = width_px / 2.0
+            else:
+                half_w = width_px / 2.0
+                half_h = length_px / 2.0
+            self.canvas.coords(int(d["shape"]), x - half_w, y - half_h, x + half_w, y + half_h)
         else:
             half = float(d["side_sq"]) * self.cell / 2.0
             self.canvas.coords(int(d["shape"]), x - half, y - half, x + half, y + half)
@@ -3204,7 +4013,7 @@ class BattleMapWindow(tk.Toplevel):
         self._aoe_index_to_id: List[int] = []
         for aid in sorted(self.aoes.keys()):
             d = self.aoes[aid]
-            kind = "◯" if d["kind"] == "circle" else "□"
+            kind = "◯" if d["kind"] == "circle" else ("▭" if d["kind"] == "line" else "□")
             pin = " (pinned)" if d.get("pinned") else ""
             name = str(d.get("name") or f"AoE {aid}")
             self.aoe_list.insert(tk.END, f"{kind} {name} [{aid}]{pin}")
@@ -3342,8 +4151,21 @@ class BattleMapWindow(tk.Toplevel):
             pass
 
     def _add_bg_image(self) -> None:
-        if Image is None or ImageTk is None:
-            messagebox.showerror("Background Images", "Pillow (PIL) is required to load images.", parent=self)
+        if Image is None:
+            msg = "Pillow (PIL) is required to load images."
+            if PIL_IMAGE_IMPORT_ERROR:
+                msg += f"\n\nImport error: {PIL_IMAGE_IMPORT_ERROR}"
+            msg += "\n\nUbuntu/Debian: sudo apt install python3-pil"
+            msg += "\nOr (pip): python3 -m pip install --user pillow"
+            messagebox.showerror("Background Images", msg, parent=self)
+            return
+        if ImageTk is None:
+            msg = "Pillow ImageTk support is required to display images in Tk."
+            if PIL_IMAGETK_IMPORT_ERROR:
+                msg += f"\n\nImport error: {PIL_IMAGETK_IMPORT_ERROR}"
+            msg += "\n\nUbuntu/Debian: sudo apt install python3-pil.imagetk"
+            msg += "\nOr (pip): python3 -m pip install --user pillow"
+            messagebox.showerror("Background Images", msg, parent=self)
             return
         path = filedialog.askopenfilename(
             parent=self,
@@ -3513,6 +4335,19 @@ class BattleMapWindow(tk.Toplevel):
 
     # ---------------- Canvas interactions ----------------
     def _on_canvas_press(self, event: tk.Event) -> None:
+        # Use canvas coordinates (scroll-safe)
+        mx = float(self.canvas.canvasx(event.x))
+        my = float(self.canvas.canvasy(event.y))
+
+        # Obstacle paint mode (disables other interactions while enabled)
+        try:
+            if bool(self.obstacle_mode_var.get()):
+                self._drawing_obstacles = True
+                self._paint_obstacle_from_event(event)
+                return
+        except Exception:
+            pass
+
         # Determine clicked object (click-through grid/measure)
         item = None
         items = self.canvas.find_withtag("current")
@@ -3521,11 +4356,11 @@ class BattleMapWindow(tk.Toplevel):
 
         if item is not None:
             tags0 = self.canvas.gettags(item)
-            if "grid" in tags0 or "measure" in tags0:
-                overl = self.canvas.find_overlapping(event.x, event.y, event.x, event.y)
+            if "grid" in tags0 or "measure" in tags0 or "movehl" in tags0:
+                overl = self.canvas.find_overlapping(mx, my, mx, my)
                 for cand in reversed(overl):
                     tg = self.canvas.gettags(cand)
-                    if "grid" in tg or "measure" in tg:
+                    if "grid" in tg or "measure" in tg or "movehl" in tg:
                         continue
                     item = cand
                     break
@@ -3535,6 +4370,7 @@ class BattleMapWindow(tk.Toplevel):
         if item is None:
             self._drag_kind = None
             self._drag_id = None
+            self._drag_origin_cell = None
             return
 
         tags = self.canvas.gettags(item)
@@ -3555,7 +4391,7 @@ class BattleMapWindow(tk.Toplevel):
                 self._drag_id = bid
                 try:
                     x, y = self.canvas.coords(int(self.bg_images[bid]["item"]))
-                    self._drag_offset = (x - event.x, y - event.y)
+                    self._drag_offset = (x - mx, y - my)
                 except Exception:
                     self._drag_offset = (0.0, 0.0)
                 return
@@ -3564,8 +4400,13 @@ class BattleMapWindow(tk.Toplevel):
                 cid = int(t.split(":", 1)[1])
                 self._drag_kind = "unit"
                 self._drag_id = cid
+                # record origin cell for movement enforcement
+                try:
+                    self._drag_origin_cell = (int(self.unit_tokens[cid]["col"]), int(self.unit_tokens[cid]["row"]))
+                except Exception:
+                    self._drag_origin_cell = None
                 cx, cy = self._grid_to_pixel(int(self.unit_tokens[cid]["col"]), int(self.unit_tokens[cid]["row"]))
-                self._drag_offset = (cx - event.x, cy - event.y)
+                self._drag_offset = (cx - mx, cy - my)
                 return
 
             if t.startswith("aoe:"):
@@ -3580,21 +4421,30 @@ class BattleMapWindow(tk.Toplevel):
                 d = self.aoes[aid]
                 cx = self.x0 + (float(d["cx"]) + 0.5) * self.cell
                 cy = self.y0 + (float(d["cy"]) + 0.5) * self.cell
-                self._drag_offset = (cx - event.x, cy - event.y)
+                self._drag_offset = (cx - mx, cy - my)
                 self._selected_aoe = aid
                 self._refresh_aoe_list(select=aid)
                 return
 
         self._drag_kind = None
         self._drag_id = None
+        self._drag_origin_cell = None
+
 
 
     def _on_canvas_motion(self, event: tk.Event) -> None:
+        # Obstacle paint mode
+        if getattr(self, "_drawing_obstacles", False):
+            self._paint_obstacle_from_event(event)
+            return
+
         if self._drag_kind is None or self._drag_id is None:
             return
 
-        x = float(event.x) + float(self._drag_offset[0])
-        y = float(event.y) + float(self._drag_offset[1])
+        mx = float(self.canvas.canvasx(event.x))
+        my = float(self.canvas.canvasy(event.y))
+        x = mx + float(self._drag_offset[0])
+        y = my + float(self._drag_offset[1])
 
         if self._drag_kind == "bg":
             bid = int(self._drag_id)
@@ -3631,15 +4481,81 @@ class BattleMapWindow(tk.Toplevel):
         self._update_included_for_selected()
 
 
+
     def _on_canvas_release(self, event: tk.Event) -> None:
-        # snap unit to grid already done; overlays keep float center
+        # Finish obstacle painting
+        if getattr(self, "_drawing_obstacles", False):
+            self._drawing_obstacles = False
+            return
+
+        # Finalize drags, enforce movement for the active creature, then refresh grouping/highlights.
+        if self._drag_kind == "unit" and self._drag_id is not None:
+            cid = int(self._drag_id)
+            origin = self._drag_origin_cell
+            if origin and cid in self.unit_tokens:
+                new_col = int(self.unit_tokens[cid]["col"])
+                new_row = int(self.unit_tokens[cid]["row"])
+
+                if self._active_cid == cid:
+                    c = self.app.combatants.get(cid)
+                    if c is not None:
+                        # Compute movement cost using diagonal 5/10 rule + obstacles.
+                        req = None
+                        try:
+                            max_query = int(self.feet_per_square) * (self.cols + self.rows) * 4
+                            req = self._movement_cost_between(origin, (new_col, new_row), max_query)
+                        except Exception:
+                            req = None
+
+                        if req is None:
+                            # Unreachable (blocked by obstacles / no valid path); snap back and ignore.
+                            self.unit_tokens[cid]["col"] = origin[0]
+                            self.unit_tokens[cid]["row"] = origin[1]
+                            self._layout_unit(cid)
+                            try:
+                                self.app._log(f"{c.name} can't reach that square (blocked).", cid=cid)
+                            except Exception:
+                                pass
+                            cost = 0
+                        else:
+                            cost = int(req)
+                        if cost > 0:
+                            if cost > int(getattr(c, "move_remaining", 0) or 0):
+                                # Snap back
+                                self.unit_tokens[cid]["col"] = origin[0]
+                                self.unit_tokens[cid]["row"] = origin[1]
+                                self._layout_unit(cid)
+                                try:
+                                    self.app._log(f"{c.name} tries to move {cost} ft on the map, but only {c.move_remaining} ft be left.", cid=cid)
+                                except Exception:
+                                    pass
+                            else:
+                                try:
+                                    c.move_remaining = int(c.move_remaining) - cost
+                                except Exception:
+                                    c.move_remaining = max(0, int(getattr(c, "move_remaining", 0) or 0) - cost)
+                                try:
+                                    self.app._log(f"{c.name} moves {cost} ft on the map.", cid=cid)
+                                    self.app._rebuild_table(scroll_to_current=True)
+                                except Exception:
+                                    pass
+
+        if self._drag_kind in ("unit", "aoe"):
+            self._update_groups()
+            self._update_move_highlight()
+            self._update_included_for_selected()
+
+        # overlays keep float center
         self._drag_kind = None
         self._drag_id = None
+        self._drag_origin_cell = None
 
     # ---------------- Measurement ----------------
     def _on_canvas_right_click(self, event: tk.Event) -> None:
         # Two-click measurement in feet (crow flies)
-        col, row = self._pixel_to_grid(event.x, event.y)
+        mx = float(self.canvas.canvasx(event.x))
+        my = float(self.canvas.canvasy(event.y))
+        col, row = self._pixel_to_grid(mx, my)
         if col is None or row is None:
             return
         px, py = self._grid_to_pixel(col, row)
@@ -3740,6 +4656,8 @@ class BattleMapWindow(tk.Toplevel):
         dlg = tk.Toplevel(self)
         dname = str(self.aoes[aid].get("name") or f"AoE {aid}")
         dlg.title(f"AoE Damage ({dname})")
+        dlg.geometry("980x560")
+        dlg.minsize(760, 420)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
@@ -3766,7 +4684,7 @@ class BattleMapWindow(tk.Toplevel):
         if getattr(self.app, "current_cid", None) in self.app.combatants:
             attacker_var.set(self.app.combatants[self.app.current_cid].name)
 
-        use_attacker_var = tk.BooleanVar(value=False)
+        use_attacker_var = tk.BooleanVar(value=True)
 
         ttk.Label(controls, text="Spellcaster:").grid(row=0, column=0, sticky="w")
         attacker_cb = ttk.Combobox(controls, textvariable=attacker_var, values=attacker_names, state="readonly", width=22)
@@ -3964,7 +4882,7 @@ class BattleMapWindow(tk.Toplevel):
             if removed:
                 for cid in removed:
                     nm = self.app.combatants[cid].name if cid in self.app.combatants else "(unknown)"
-                    self.app._log(f"{nm} drops to 0 HP and is removed from initiative.")
+                    self.app._log(self.app._death_flavor_line(None, 0, "", nm))
                     self.app.combatants.pop(cid, None)
                 if getattr(self.app, "current_cid", None) in removed:
                     self.app.current_cid = None
@@ -4006,6 +4924,22 @@ class BattleMapWindow(tk.Toplevel):
                 x, y = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
                 if (x - cx_px) ** 2 + (y - cy_px) ** 2 <= r2:
                     included.append(cid)
+        elif kind == "line":
+            length_px = float(d["length_sq"]) * self.cell
+            width_px = float(d["width_sq"]) * self.cell
+            orient = str(d.get("orient") or "vertical")
+            if orient == "horizontal":
+                half_w = length_px / 2.0
+                half_h = width_px / 2.0
+            else:
+                half_w = width_px / 2.0
+                half_h = length_px / 2.0
+            x1, y1 = cx_px - half_w, cy_px - half_h
+            x2, y2 = cx_px + half_w, cy_px + half_h
+            for cid, tok in self.unit_tokens.items():
+                x, y = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
+                if x1 <= x <= x2 and y1 <= y <= y2:
+                    included.append(cid)
         else:
             half = float(d["side_sq"]) * self.cell / 2.0
             x1, y1 = cx_px - half, cy_px - half
@@ -4025,6 +4959,9 @@ class BattleMapWindow(tk.Toplevel):
     def set_active(self, cid: Optional[int]) -> None:
         self._active_cid = cid
         self._apply_active_highlight()
+        self._update_move_highlight()
+        # Conditions / markers often change on turn transitions; refresh token markers + group labels.
+        self._update_groups()
 
     def _apply_active_highlight(self) -> None:
         # reset all outlines to width=2
@@ -4039,6 +4976,8 @@ class BattleMapWindow(tk.Toplevel):
         try:
             self.canvas.itemconfigure(int(tok["oval"]), width=4)
             self.canvas.tag_raise(int(tok["oval"]))
+            if "marker" in tok:
+                self.canvas.tag_raise(int(tok["marker"]))
             self.canvas.tag_raise(int(tok["text"]))
         except Exception:
             pass

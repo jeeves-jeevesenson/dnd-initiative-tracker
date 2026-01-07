@@ -1,0 +1,248 @@
+version: 1
+schema: dnd2024_monster
+source:
+  title: "Monster stat block (user pasted)"
+  notes: "Technical extraction only; lore text omitted."
+
+monster:
+  id: aboleth_2024_example
+  name: Aboleth
+  size: Large
+  type: aberration
+  alignment: lawful_evil
+
+  ecology:
+    habitats:
+      - Underdark
+      - Underwater
+    treasure:
+      - Relics
+
+  challenge:
+    cr: 10
+    proficiency_bonus: 4
+    xp: 5900
+    xp_in_lair: 7200
+
+  defenses:
+    armor_class:
+      value: 17
+      notes: "Type not specified in pasted block."
+    hit_points:
+      average: 150
+      formula: "20d10+40"
+    legendary_resistance:
+      uses_per_day: 3
+      uses_per_day_in_lair: 4
+
+  initiative:
+    modifier: 7
+    score: 17
+
+  speed:
+    walk_ft: 10
+    swim_ft: 40
+
+  abilities:
+    str: 21
+    dex: 9
+    con: 15
+    int: 18
+    wis: 15
+    cha: 18
+
+  saving_throws:
+    str: 5
+    dex: 3
+    con: 6
+    int: 8
+    wis: 6
+    cha: 4
+
+  skills:
+    history: 12
+    perception: 10
+
+  senses:
+    darkvision_ft: 120
+    passive_perception: 20
+
+  languages:
+    spoken:
+      - Deep Speech
+    telepathy_ft: 120
+
+  traits:
+    - name: Amphibious
+      type: passive
+      rules:
+        - "Can breathe air and water."
+
+    - name: Eldritch Restoration
+      type: passive
+      trigger: "If destroyed"
+      rules:
+        - "Gains a new body in 5d10 days, reviving with all Hit Points in the Far Realm or another location chosen by the DM."
+
+    - name: Mucus Cloud
+      type: aura
+      requirement: "While underwater"
+      timing: "At the end of the aboleth's turn"
+      area:
+        shape: emanation
+        radius_ft: 5
+        origin: self
+      save:
+        ability: con
+        dc: 14
+      on_fail:
+        - apply_condition: cursed
+          notes: "Curse details tracked below."
+        - effect:
+            name: Slimy Skin
+            rules:
+              - "Target can breathe air and water."
+              - "Target can't regain Hit Points unless it is underwater."
+        - over_time:
+            timing: "End of every 10 minutes while outside a body of water"
+            prevent_if: "Moisture applied to skin before the 10 minutes pass"
+            damage:
+              amount_average: 6
+              dice: "1d12"
+              type: acid
+      on_success: []
+
+    - name: Probing Telepathy
+      type: passive
+      trigger: "If a creature the aboleth can see communicates telepathically with it"
+      rules:
+        - "The aboleth learns the creature's greatest desires."
+
+    - name: Psionic Projection
+      type: lair_trait
+      requirement: "While in its lair"
+      rules:
+        - spell:
+            name: Project Image
+            components_required: false
+            spellcasting_ability: int
+            save_dc: 16
+            range: "1 mile"
+            notes:
+              - "Can use its telepathy as if it were in the illusion's space."
+        - "If the aboleth dies or moves its lair elsewhere, this effect ends immediately."
+
+  actions:
+    - name: Multiattack
+      type: multiattack
+      rules:
+        - "Makes two Tentacle attacks."
+        - "Uses either Consume Memories or Dominate Mind if available."
+
+    - name: Tentacle
+      type: attack
+      attack:
+        kind: melee
+        attack_bonus: 9
+        reach_ft: 15
+        target: "one creature"
+      hit:
+        damage:
+          - amount_average: 12
+            dice: "2d6+5"
+            type: bludgeoning
+      rider:
+        - if_target_size: "Large_or_smaller"
+          apply_condition: grappled
+          escape_dc: 14
+          limit:
+            max_targets: 4
+            notes: "One grapple per tentacle (four tentacles)."
+
+    - name: Consume Memories
+      type: save
+      requirements:
+        - "Target within 30 ft"
+        - "Target is Charmed or Grappled by the aboleth"
+      target: "one creature"
+      save:
+        ability: int
+        dc: 15
+      on_fail:
+        - damage:
+            amount_average: 10
+            dice: "3d6"
+            type: psychic
+      on_success:
+        - damage:
+            half: true
+            amount_average: 10
+            dice: "3d6"
+            type: psychic
+      always:
+        - if:
+            all:
+              - target_type: humanoid
+              - reduced_to_0_hp_by_this_action: true
+          effect:
+            name: Steal Memories
+            rules:
+              - "The aboleth gains the target's memories."
+
+    - name: Dominate Mind
+      type: save
+      uses:
+        kind: per_day
+        amount: 2
+      target: "one creature the aboleth can see within 30 ft"
+      save:
+        ability: wis
+        dc: 15
+      on_fail:
+        - apply_condition: charmed
+          duration: "Until the aboleth dies or is on a different plane of existence from the target"
+        - effect:
+            name: Dominated Servant
+            rules:
+              - "While Charmed, the target acts as an ally to the aboleth."
+              - "Target is under the aboleth's control while within 50 ft of it."
+              - "Aboleth and target can communicate telepathically over any distance."
+        - repeats_save:
+            triggers:
+              - "Whenever the target takes damage"
+              - "After every 24 hours the target spends at least 1 mile away from the aboleth"
+            on_success:
+              - end_effect: true
+
+  legendary_actions:
+    uses: 3
+    uses_in_lair: 4
+    timing: "Immediately after another creature's turn"
+    regain: "At the start of each of its turns"
+    options:
+      - name: Lash
+        cost: 1
+        rules:
+          - "Makes one Tentacle attack."
+
+      - name: Psychic Drain
+        cost: 1
+        requirements:
+          - "Has at least one creature Charmed or Grappled"
+        rules:
+          - "Uses Consume Memories."
+          - heal:
+              amount_average: 5
+              dice: "1d10"
+
+  regional_effects:
+    - name: Foul Water
+      radius: "1 mile"
+      rules:
+        - trigger: "A creature other than the aboleth and its allies drinks water from sources in the region"
+          save:
+            ability: con
+            dc: 15
+          on_fail:
+            - apply_condition: poisoned
+              duration: "1 hour"
