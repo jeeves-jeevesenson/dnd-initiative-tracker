@@ -490,6 +490,7 @@ HTML_INDEX = r"""<!doctype html>
     ws = new WebSocket(wsUrl);
     ws.addEventListener("open", () => {
       setConn(true, "Connected");
+      send({type:"grid_request"});
       send({type:"hello", claimed: claimedCid ? Number(claimedCid) : null});
     });
     ws.addEventListener("close", () => {
@@ -553,6 +554,16 @@ HTML_INDEX = r"""<!doctype html>
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
+      } else if (msg.type === "grid_update"){
+        if (!state){ state = {}; }
+        state.grid = msg.grid || state.grid;
+        if (state.grid){
+          state._fitted = false;
+          lastGrid = {cols: state.grid.cols, rows: state.grid.rows};
+        }
+        lastGridVersion = msg.version ?? lastGridVersion;
+        send({type:"grid_ack", version: msg.version});
+        draw();
       }
     });
   }
@@ -776,6 +787,7 @@ class LanController:
                 self._clients_meta[ws_id] = {"host": host, "port": port, "ua": ua, "connected_at": connected_at}
             self.app._oplog(f"LAN session connected ws_id={ws_id} host={host}:{port} ua={ua}")
             try:
+                await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
                 # Immediately send snapshot + claimable list
                 await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
                 while True:
@@ -978,6 +990,71 @@ class LanController:
                         self._cid_to_ws.pop(int(old_cid), None)
                     self._clients.pop(ws_id, None)
                     self._clients_meta.pop(ws_id, None)
+
+    def _broadcast_grid_update(self, grid: Dict[str, Any]) -> None:
+        if not self._loop:
+            return
+        coro = self._broadcast_grid_update_async(grid)
+        try:
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
+        except Exception:
+            pass
+
+    async def _broadcast_grid_update_async(self, grid: Dict[str, Any]) -> None:
+        payload = json.dumps({"type": "grid_update", "grid": grid, "version": self._grid_version})
+        now = time.time()
+        with self._clients_lock:
+            items = list(self._clients.items())
+        for ws_id, ws in items:
+            try:
+                await ws.send_text(payload)
+                with self._clients_lock:
+                    self._grid_pending[ws_id] = (self._grid_version, now)
+            except Exception:
+                with self._clients_lock:
+                    self._grid_pending.pop(ws_id, None)
+
+    async def _send_grid_update_async(self, ws_id: int, grid: Dict[str, Any]) -> None:
+        payload = json.dumps({"type": "grid_update", "grid": grid, "version": self._grid_version})
+        with self._clients_lock:
+            ws = self._clients.get(ws_id)
+        if not ws:
+            return
+        try:
+            await ws.send_text(payload)
+            with self._clients_lock:
+                self._grid_pending[ws_id] = (self._grid_version, time.time())
+        except Exception:
+            with self._clients_lock:
+                self._grid_pending.pop(ws_id, None)
+
+    def _resend_grid_updates(self) -> None:
+        if not self._loop or not self._grid_pending:
+            return
+        now = time.time()
+        with self._clients_lock:
+            pending = list(self._grid_pending.items())
+            clients = dict(self._clients)
+        for ws_id, (ver, last_sent) in pending:
+            if ver != self._grid_version:
+                with self._clients_lock:
+                    self._grid_pending.pop(ws_id, None)
+                continue
+            if now - last_sent < self._grid_resend_seconds:
+                continue
+            ws = clients.get(ws_id)
+            if not ws:
+                with self._clients_lock:
+                    self._grid_pending.pop(ws_id, None)
+                continue
+            payload = {"type": "grid_update", "grid": self._cached_snapshot.get("grid", {}), "version": self._grid_version}
+            try:
+                asyncio.run_coroutine_threadsafe(ws.send_text(json.dumps(payload)), self._loop)
+                with self._clients_lock:
+                    self._grid_pending[ws_id] = (self._grid_version, now)
+            except Exception:
+                with self._clients_lock:
+                    self._grid_pending.pop(ws_id, None)
 
     def toast(self, ws_id: Optional[int], text: str) -> None:
         """Send a small toast to one client (best effort)."""
