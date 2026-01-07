@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-DnD Initiative Tracker (v41) — LAN Proof-of-Concept
+DnD Initiative Tracker — LAN Proof-of-Concept
 
-This version layers a small LAN/mobile web client on top of v29 without rewriting the Tk app.
+This edition layers a small LAN/mobile web client on top of the Tk app without rewriting it.
 - DM runs the Tk app.
 - LAN server starts automatically (and can be stopped/restarted from the "LAN" menu).
 - Players open the LAN URL on mobile and claim any Player Character, then can move their token (on their turn).
@@ -32,14 +32,14 @@ try:
 except Exception:
     yaml = None  # type: ignore
 
-# Import the full v29 tracker as the base.
+# Import the full tracker as the base.
 # Keep this file in the same folder as helper_script.py
 try:
     import helper_script as base
 except Exception as e:  # pragma: no cover
     raise SystemExit(
         "Arrr! I can’t find/load helper_script.py in this folder.\n"
-        "Make sure helper_script and v41 be in the same directory.\n\n"
+        "Make sure helper_script and dnd_initative_tracker be in the same directory.\n\n"
         f"Import error: {e}"
     )
 
@@ -88,6 +88,9 @@ def _make_ops_logger() -> logging.Logger:
     setattr(lg, "_inittracker_configured", True)
     return lg
 
+
+# --- App metadata ---
+APP_VERSION = "41"
 
 # --- LAN POC switches ---
 POC_AUTO_START_LAN = True
@@ -1178,14 +1181,14 @@ class LanController:
         return f"cid:{cid}"
 
 
-# ----------------------------- v41 Tracker -----------------------------
+# ----------------------------- Tracker -----------------------------
 
 class InitiativeTracker(base.InitiativeTracker):
-    """v29 tracker + LAN proof-of-concept server."""
+    """Tk tracker + LAN proof-of-concept server."""
 
     def __init__(self) -> None:
         super().__init__()
-        self.title("DnD Initiative Tracker v41")
+        self.title(f"DnD Initiative Tracker — v{APP_VERSION}")
 
         # Operations logger (terminal + ./logs/operations.log)
         self._ops_logger = _make_ops_logger()
