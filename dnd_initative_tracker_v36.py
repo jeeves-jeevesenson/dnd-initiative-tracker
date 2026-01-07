@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DnD Initiative Tracker (v36) — LAN Proof-of-Concept
+DnD Initiative Tracker (v39) — LAN Proof-of-Concept
 
 This version layers a small LAN/mobile web client on top of v29 without rewriting the Tk app.
 - DM runs the Tk app.
@@ -39,7 +39,7 @@ try:
 except Exception as e:  # pragma: no cover
     raise SystemExit(
         "Arrr! I can’t find/load helper_script.py in this folder.\n"
-        "Make sure helper_script and v36 be in the same directory.\n\n"
+        "Make sure helper_script and v39 be in the same directory.\n\n"
         f"Import error: {e}"
     )
 
@@ -187,6 +187,7 @@ HTML_INDEX = r"""<!doctype html>
     <div class="pill" id="conn">Connecting…</div>
     <div class="spacer"></div>
     <button class="btn" id="changeChar">Change</button>
+    <button class="btn" id="lockMap">Lock Map</button>
     <button class="btn accent" id="zoomIn">Zoom +</button>
     <button class="btn accent" id="zoomOut">Zoom −</button>
   </div>
@@ -249,6 +250,9 @@ HTML_INDEX = r"""<!doctype html>
   let panX = 0, panY = 0;
   let dragging = null; // {cid, startX, startY, origCol, origRow}
   let panning = null;  // {x,y, panX, panY}
+  let centeredCid = null;
+  let lockMap = false;
+  let lastGrid = {cols: null, rows: null};
 
   function setConn(ok, txt){
     connEl.textContent = txt;
@@ -262,6 +266,9 @@ HTML_INDEX = r"""<!doctype html>
     canvas.width = Math.max(1, Math.floor(r.width * dpr));
     canvas.height = Math.max(1, Math.floor(r.height * dpr));
     ctx.setTransform(dpr,0,0,dpr,0,0);
+    if (lockMap){
+      centerOnClaimed();
+    }
     draw();
   }
   window.addEventListener("resize", resize);
@@ -311,6 +318,10 @@ HTML_INDEX = r"""<!doctype html>
     ctx.fillRect(0,0,w,h);
 
     const cols = state.grid.cols, rows = state.grid.rows;
+    if (cols !== lastGrid.cols || rows !== lastGrid.rows){
+      state._fitted = false;
+      lastGrid = {cols, rows};
+    }
 
     // auto-fit on first draw
     if (!state._fitted){
@@ -323,6 +334,9 @@ HTML_INDEX = r"""<!doctype html>
       panY = Math.floor((h - rows*zoom)/2);
       state._fitted = true;
     }
+    if (lockMap){
+      centerOnClaimed();
+    }
 
     // grid
     ctx.strokeStyle = "rgba(255,255,255,0.07)";
@@ -334,6 +348,29 @@ HTML_INDEX = r"""<!doctype html>
     for(let r=0;r<=rows;r++){
       const y = panY + r*zoom;
       ctx.beginPath(); ctx.moveTo(panX, y); ctx.lineTo(panX + cols*zoom, y); ctx.stroke();
+    }
+
+    // movement range (claimed token)
+    if (claimedCid && state.units){
+      const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
+      if (me){
+        const move = Math.max(0, Number(me.move_remaining || 0));
+        const feet = Math.max(1, Number(state.grid.feet_per_square || 5));
+        const rangeSquares = move / feet;
+        if (rangeSquares > 0){
+          const {x,y} = gridToScreen(me.pos.col, me.pos.row);
+          const radius = rangeSquares * zoom;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(106,169,255,0.12)";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "rgba(106,169,255,0.35)";
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
     }
 
     // obstacles
@@ -409,6 +446,32 @@ HTML_INDEX = r"""<!doctype html>
 
   }
 
+  function centerOnClaimed(){
+    if (!state || !state.units || !claimedCid) return;
+    const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
+    if (!me) return;
+    const w = canvas.getBoundingClientRect().width;
+    const h = canvas.getBoundingClientRect().height;
+    const cols = state.grid.cols, rows = state.grid.rows;
+    const desiredX = (w / 2) - (me.pos.col + 0.5) * zoom;
+    const desiredY = (h / 2) - (me.pos.row + 0.5) * zoom;
+    const gridW = cols * zoom;
+    const gridH = rows * zoom;
+    if (gridW <= w) {
+      panX = Math.floor((w - gridW) / 2);
+    } else {
+      const minX = w - gridW;
+      panX = Math.min(0, Math.max(minX, desiredX));
+    }
+    if (gridH <= h) {
+      panY = Math.floor((h - gridH) / 2);
+    } else {
+      const minY = h - gridH;
+      panY = Math.min(0, Math.max(minY, desiredY));
+    }
+    centeredCid = String(claimedCid);
+  }
+
   function updateHud(){
     if (!state){ return; }
     const active = state.active_cid;
@@ -439,6 +502,9 @@ HTML_INDEX = r"""<!doctype html>
       if (msg.type === "state"){
         state = msg.state;
         lastPcList = msg.pcs || msg.claimable || [];
+        if (lockMap){
+          centerOnClaimed();
+        }
         draw();
         updateHud();
         // show claim if needed
@@ -459,6 +525,9 @@ HTML_INDEX = r"""<!doctype html>
               showClaim(pcs);
             }
           }
+          if (lockMap){
+            centerOnClaimed();
+          }
         }
       } else if (msg.type === "force_claim"){
         if (msg.cid !== null && msg.cid !== undefined){
@@ -466,6 +535,9 @@ HTML_INDEX = r"""<!doctype html>
           localStorage.setItem("inittracker_claimedCid", claimedCid);
         }
         claimModal.classList.remove("show");
+        if (lockMap){
+          centerOnClaimed();
+        }
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
       } else if (msg.type === "force_unclaim"){
@@ -522,8 +594,10 @@ HTML_INDEX = r"""<!doctype html>
         return;
       }
     }
-    // else pan
-    panning = {x: p.x, y: p.y, panX, panY};
+    // else pan (if map not locked)
+    if (!lockMap){
+      panning = {x: p.x, y: p.y, panX, panY};
+    }
   });
 
   canvas.addEventListener("pointermove", (ev) => {
@@ -559,8 +633,16 @@ HTML_INDEX = r"""<!doctype html>
     panning = null;
   });
 
-  document.getElementById("zoomIn").addEventListener("click", () => { zoom = Math.min(90, zoom+4); draw(); });
-  document.getElementById("zoomOut").addEventListener("click", () => { zoom = Math.max(14, zoom-4); draw(); });
+  document.getElementById("zoomIn").addEventListener("click", () => { zoom = Math.min(90, zoom+4); if (lockMap){ centerOnClaimed(); } draw(); });
+  document.getElementById("zoomOut").addEventListener("click", () => { zoom = Math.max(14, zoom-4); if (lockMap){ centerOnClaimed(); } draw(); });
+  document.getElementById("lockMap").addEventListener("click", (ev) => {
+    lockMap = !lockMap;
+    ev.target.textContent = lockMap ? "Unlock Map" : "Lock Map";
+    if (lockMap){
+      centerOnClaimed();
+      draw();
+    }
+  });
 
   document.getElementById("changeChar").addEventListener("click", () => {
     const pcs = lastPcList || [];
@@ -580,6 +662,11 @@ HTML_INDEX = r"""<!doctype html>
     send({type:"end_turn", cid: Number(claimedCid)});
   });
 
+  const mapWrap = document.querySelector(".mapWrap");
+  if (mapWrap && window.ResizeObserver){
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(mapWrap);
+  }
   resize();
   connect();
 })();
@@ -627,6 +714,14 @@ class LanController:
         self._actions: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._last_state_json: Optional[str] = None
         self._polling: bool = False
+        self._cached_snapshot: Dict[str, Any] = {
+            "grid": {"cols": 20, "rows": 20, "feet_per_square": 5},
+            "obstacles": [],
+            "units": [],
+            "active_cid": None,
+            "round_num": 0,
+        }
+        self._cached_pcs: List[Dict[str, Any]] = []
 
     # ---------- Tk thread API ----------
 
@@ -660,7 +755,7 @@ class LanController:
             return HTMLResponse(HTML_INDEX)
 
         @app.websocket("/ws")
-        async def ws_endpoint(ws):
+        async def ws_endpoint(ws: WebSocket):
             await ws.accept()
             ws_id = id(ws)
             # record client meta
@@ -679,9 +774,10 @@ class LanController:
             with self._clients_lock:
                 self._clients[ws_id] = ws
                 self._clients_meta[ws_id] = {"host": host, "port": port, "ua": ua, "connected_at": connected_at}
+            self.app._oplog(f"LAN session connected ws_id={ws_id} host={host}:{port} ua={ua}")
             try:
                 # Immediately send snapshot + claimable list
-                await ws.send_text(json.dumps({"type": "state", "state": self.app._lan_snapshot(), "pcs": self._pcs_payload()}))
+                await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
                 while True:
                     raw = await ws.receive_text()
                     try:
@@ -694,12 +790,12 @@ class LanController:
                         claimed = msg.get("claimed")
                         if isinstance(claimed, int):
                             await self._claim_ws_async(ws_id, claimed, note="Reconnected.")
-                        await ws.send_text(json.dumps({"type": "state", "state": self.app._lan_snapshot(), "pcs": self._pcs_payload()}))
+                        await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
                     elif typ == "claim":
                         cid = msg.get("cid")
                         if isinstance(cid, int):
                             await self._claim_ws_async(ws_id, cid, note="Claimed. Drag yer token, matey.")
-                            await ws.send_text(json.dumps({"type": "state", "state": self.app._lan_snapshot(), "pcs": self._pcs_payload()}))
+                            await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
                     elif typ in ("move", "dash", "end_turn"):
                         # enqueue for Tk thread
                         with self._clients_lock:
@@ -721,8 +817,21 @@ class LanController:
                     old = self._claims.pop(ws_id, None)
                     if old is not None:
                         self._cid_to_ws.pop(int(old), None)
+                if old is not None:
+                    name = self._pc_name_for(int(old))
+                    self.app._oplog(f"LAN session disconnected ws_id={ws_id} (claimed {name})")
+                else:
+                    self.app._oplog(f"LAN session disconnected ws_id={ws_id}")
 
         # Start uvicorn server in a thread (with its own event loop).
+        try:
+            self._cached_snapshot = self.app._lan_snapshot()
+            self._cached_pcs = list(
+                self.app._lan_pcs() if hasattr(self.app, "_lan_pcs") else self.app._lan_claimable()
+            )
+        except Exception:
+            pass
+
         def run_server():
             # Create fresh loop for this thread
             loop = asyncio.new_event_loop()
@@ -811,6 +920,13 @@ class LanController:
 
         # 2) broadcast snapshot if changed (polling-based, avoids wiring every hook)
         snap = self.app._lan_snapshot()
+        self._cached_snapshot = snap
+        try:
+            self._cached_pcs = list(
+                self.app._lan_pcs() if hasattr(self.app, "_lan_pcs") else self.app._lan_claimable()
+            )
+        except Exception:
+            self._cached_pcs = []
         snap_json = json.dumps(snap, sort_keys=True, separators=(",", ":"))
         if snap_json != self._last_state_json:
             self._last_state_json = snap_json
@@ -821,7 +937,7 @@ class LanController:
             self.app.after(120, self._tick)
 
     def _pcs_payload(self) -> List[Dict[str, Any]]:
-        pcs = self.app._lan_pcs() if hasattr(self.app, "_lan_pcs") else self.app._lan_claimable()
+        pcs = list(self._cached_pcs)
         with self._clients_lock:
             cid_to_ws = dict(self._cid_to_ws)
         out: List[Dict[str, Any]] = []
@@ -899,11 +1015,14 @@ class LanController:
             old = self._claims.pop(ws_id, None)
             if old is not None:
                 self._cid_to_ws.pop(int(old), None)
+        if old is not None:
+            name = self._pc_name_for(int(old))
+            self.app._oplog(f"LAN session ws_id={ws_id} unclaimed {name} ({reason})")
         await self._send_async(ws_id, {"type": "force_unclaim", "text": reason, "pcs": self._pcs_payload()})
 
     async def _claim_ws_async(self, ws_id: int, cid: int, note: str = "Claimed") -> None:
         # Ensure cid is a PC
-        pcs = {int(p.get("cid")): p for p in (self.app._lan_pcs() if hasattr(self.app, "_lan_pcs") else self.app._lan_claimable())}
+        pcs = {int(p.get("cid")): p for p in self._cached_pcs}
         if int(cid) not in pcs:
             await self._send_async(ws_id, {"type": "toast", "text": "That character ain't claimable, matey."})
             return
@@ -929,6 +1048,8 @@ class LanController:
             await self._send_async(steal_from, {"type": "force_unclaim", "text": "Yer character got reassigned by the DM.", "pcs": self._pcs_payload()})
 
         await self._send_async(ws_id, {"type": "force_claim", "cid": int(cid), "text": note})
+        name = self._pc_name_for(int(cid))
+        self.app._oplog(f"LAN session ws_id={ws_id} claimed {name} ({note})")
 
     # ---------- helpers ----------
 
@@ -947,15 +1068,26 @@ class LanController:
                 ip = "127.0.0.1"
         return f"http://{ip}:{self.cfg.port}/"
 
+    def _cached_snapshot_payload(self) -> Dict[str, Any]:
+        return dict(self._cached_snapshot)
 
-# ----------------------------- v33 Tracker -----------------------------
+    def _pc_name_for(self, cid: int) -> str:
+        for pc in self._cached_pcs:
+            if int(pc.get("cid", -1)) == int(cid):
+                name = pc.get("name")
+                if name:
+                    return str(name)
+        return f"cid:{cid}"
+
+
+# ----------------------------- v39 Tracker -----------------------------
 
 class InitiativeTracker(base.InitiativeTracker):
     """v29 tracker + LAN proof-of-concept server."""
 
     def __init__(self) -> None:
         super().__init__()
-        self.title("DnD Initiative Tracker v36")
+        self.title("DnD Initiative Tracker v39")
 
         # Operations logger (terminal + ./logs/operations.log)
         self._ops_logger = _make_ops_logger()
