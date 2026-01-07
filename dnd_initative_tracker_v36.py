@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DnD Initiative Tracker (v40) — LAN Proof-of-Concept
+DnD Initiative Tracker (v39) — LAN Proof-of-Concept
 
 This version layers a small LAN/mobile web client on top of v29 without rewriting the Tk app.
 - DM runs the Tk app.
@@ -39,7 +39,7 @@ try:
 except Exception as e:  # pragma: no cover
     raise SystemExit(
         "Arrr! I can’t find/load helper_script.py in this folder.\n"
-        "Make sure helper_script and v40 be in the same directory.\n\n"
+        "Make sure helper_script and v39 be in the same directory.\n\n"
         f"Import error: {e}"
     )
 
@@ -253,7 +253,6 @@ HTML_INDEX = r"""<!doctype html>
   let centeredCid = null;
   let lockMap = false;
   let lastGrid = {cols: null, rows: null};
-  let lastGridVersion = null;
 
   function setConn(ok, txt){
     connEl.textContent = txt;
@@ -726,9 +725,6 @@ class LanController:
         self._actions: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._last_state_json: Optional[str] = None
         self._polling: bool = False
-        self._grid_version: int = 0
-        self._grid_pending: Dict[int, Tuple[int, float]] = {}
-        self._grid_resend_seconds: float = 1.5
         self._cached_snapshot: Dict[str, Any] = {
             "grid": {"cols": 20, "rows": 20, "feet_per_square": 5},
             "obstacles": [],
@@ -807,14 +803,6 @@ class LanController:
                         if isinstance(claimed, int):
                             await self._claim_ws_async(ws_id, claimed, note="Reconnected.")
                         await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
-                    elif typ == "grid_request":
-                        await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
-                    elif typ == "grid_ack":
-                        ver = msg.get("version")
-                        with self._clients_lock:
-                            pending = self._grid_pending.get(ws_id)
-                            if pending and pending[0] == ver:
-                                self._grid_pending.pop(ws_id, None)
                     elif typ == "claim":
                         cid = msg.get("cid")
                         if isinstance(cid, int):
@@ -841,7 +829,6 @@ class LanController:
                     old = self._claims.pop(ws_id, None)
                     if old is not None:
                         self._cid_to_ws.pop(int(old), None)
-                    self._grid_pending.pop(ws_id, None)
                 if old is not None:
                     name = self._pc_name_for(int(old))
                     self.app._oplog(f"LAN session disconnected ws_id={ws_id} (claimed {name})")
@@ -952,16 +939,6 @@ class LanController:
             )
         except Exception:
             self._cached_pcs = []
-        grid = snap.get("grid", {}) if isinstance(snap, dict) else {}
-        if isinstance(grid, dict):
-            cols = grid.get("cols")
-            rows = grid.get("rows")
-            last = self._cached_snapshot.get("_grid_last_sent")
-            if last != (cols, rows):
-                self._grid_version += 1
-                self._cached_snapshot["_grid_last_sent"] = (cols, rows)
-                self._broadcast_grid_update(grid)
-        self._resend_grid_updates()
         snap_json = json.dumps(snap, sort_keys=True, separators=(",", ":"))
         if snap_json != self._last_state_json:
             self._last_state_json = snap_json
@@ -1180,14 +1157,14 @@ class LanController:
         return f"cid:{cid}"
 
 
-# ----------------------------- v40 Tracker -----------------------------
+# ----------------------------- v39 Tracker -----------------------------
 
 class InitiativeTracker(base.InitiativeTracker):
     """v29 tracker + LAN proof-of-concept server."""
 
     def __init__(self) -> None:
         super().__init__()
-        self.title("DnD Initiative Tracker v40")
+        self.title("DnD Initiative Tracker v39")
 
         # Operations logger (terminal + ./logs/operations.log)
         self._ops_logger = _make_ops_logger()
