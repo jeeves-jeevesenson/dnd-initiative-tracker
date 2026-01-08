@@ -109,6 +109,23 @@ DEFAULT_STARTING_PLAYERS = [
     "Johnny Morris",
 ]
 
+DAMAGE_TYPES = [
+    "",
+    "Acid",
+    "Bludgeoning",
+    "Cold",
+    "Fire",
+    "Force",
+    "Lightning",
+    "Necrotic",
+    "Piercing",
+    "Poison",
+    "Psychic",
+    "Radiant",
+    "Slashing",
+    "Thunder",
+]
+
 
 
 
@@ -5336,11 +5353,9 @@ class BattleMapWindow(tk.Toplevel):
         )
 
         # Damage type
-        dmg_types = ["", "Acid", "Bludgeoning", "Cold", "Fire", "Force", "Lightning", "Necrotic",
-                     "Piercing", "Poison", "Psychic", "Radiant", "Slashing", "Thunder"]
         dtype_var = tk.StringVar(value="")
         ttk.Label(controls, text="Damage type:").grid(row=1, column=0, sticky="w", pady=(8, 0))
-        dtype_cb = ttk.Combobox(controls, textvariable=dtype_var, values=dmg_types, state="readonly", width=14)
+        dtype_cb = ttk.Combobox(controls, textvariable=dtype_var, values=DAMAGE_TYPES, state="readonly", width=14)
         dtype_cb.grid(row=1, column=1, sticky="w", padx=(6, 12), pady=(8, 0))
 
         # Save DC + save type
