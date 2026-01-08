@@ -2111,6 +2111,7 @@ class InitiativeTracker(base.InitiativeTracker):
         obstacles = set(self._lan_obstacles)
         positions = dict(self._lan_positions)
         map_ready = mw is not None
+        aoes: List[Dict[str, Any]] = []
 
         if mw is not None:
             try:
@@ -2125,6 +2126,29 @@ class InitiativeTracker(base.InitiativeTracker):
             try:
                 for cid, tok in (getattr(mw, "unit_tokens", {}) or {}).items():
                     positions[int(cid)] = (int(tok.get("col")), int(tok.get("row")))
+            except Exception:
+                pass
+            try:
+                for aid, d in sorted((getattr(mw, "aoes", {}) or {}).items()):
+                    kind = str(d.get("kind") or "")
+                    payload: Dict[str, Any] = {
+                        "aid": int(aid),
+                        "kind": kind,
+                        "name": str(d.get("name") or f"AoE {aid}"),
+                        "color": str(d.get("color") or ""),
+                        "cx": float(d.get("cx") or 0.0),
+                        "cy": float(d.get("cy") or 0.0),
+                        "pinned": bool(d.get("pinned")),
+                    }
+                    if kind == "circle":
+                        payload["radius_sq"] = float(d.get("radius_sq") or 0.0)
+                    elif kind == "line":
+                        payload["length_sq"] = float(d.get("length_sq") or 0.0)
+                        payload["width_sq"] = float(d.get("width_sq") or 0.0)
+                        payload["orient"] = str(d.get("orient") or "vertical")
+                    else:
+                        payload["side_sq"] = float(d.get("side_sq") or 0.0)
+                    aoes.append(payload)
             except Exception:
                 pass
 
@@ -2163,6 +2187,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "grid": grid_payload,
             "obstacles": [{"col": int(c), "row": int(r)} for (c, r) in sorted(obstacles)],
             "units": units,
+            "aoes": aoes,
             "active_cid": active,
             "round_num": int(getattr(self, "round_num", 0) or 0),
         }

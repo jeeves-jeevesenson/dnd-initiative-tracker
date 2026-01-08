@@ -86,6 +86,16 @@ DOT_META = {
     "necrotic": {"label": "Necrotic", "icon": "💀"},
 
 }
+AOE_COLOR_PRESETS = [
+    ("Blue", "#2d4f8a"),
+    ("Green", "#2d8a57"),
+    ("Purple", "#6b3d8a"),
+    ("Red", "#8a2d2d"),
+    ("Orange", "#c2651a"),
+    ("Yellow", "#b59a00"),
+    ("Gray", "#5c5c5c"),
+    ("Black", "#111111"),
+]
 DEFAULT_STARTING_PLAYERS = [
     "John Twilight",
     "стихия",
@@ -2879,6 +2889,24 @@ class BattleMapWindow(tk.Toplevel):
         self._next_aoe_id = 1
         self.aoes: Dict[int, Dict[str, object]] = {}  # aid -> overlay data
         self._selected_aoe: Optional[int] = None
+        self._aoe_default_colors = {
+            "circle": "#2d4f8a",
+            "line": "#2d8a57",
+            "square": "#6b3d8a",
+        }
+        self._aoe_fill_colors = {
+            "circle": "#a8c5ff",
+            "line": "#b7ffe0",
+            "square": "#e2b6ff",
+        }
+        self._aoe_color_labels: List[str] = []
+        self._aoe_color_by_label: Dict[str, str] = {}
+        self._aoe_label_by_color: Dict[str, str] = {}
+        for name, hex_value in AOE_COLOR_PRESETS:
+            label = f"{name} ({hex_value})"
+            self._aoe_color_labels.append(label)
+            self._aoe_color_by_label[label] = hex_value
+            self._aoe_label_by_color[hex_value] = label
 
         # Measurement
         self._measure_start: Optional[Tuple[float, float]] = None
@@ -3069,6 +3097,24 @@ class BattleMapWindow(tk.Toplevel):
         self.pin_var = tk.BooleanVar(value=False)
         self.pin_chk = ttk.Checkbutton(left, text="Stationary (pinned)", variable=self.pin_var, command=self._toggle_pin_selected)
         self.pin_chk.pack(anchor="w", pady=(6, 0))
+
+        color_row = ttk.Frame(left)
+        color_row.pack(anchor="w", pady=(6, 0))
+        ttk.Label(color_row, text="Color:").pack(side=tk.LEFT)
+        self.aoe_color_var = tk.StringVar(value=self._aoe_color_labels[0] if self._aoe_color_labels else "")
+        self.aoe_color_combo = ttk.Combobox(
+            color_row,
+            textvariable=self.aoe_color_var,
+            values=self._aoe_color_labels,
+            state="readonly",
+            width=18,
+        )
+        self.aoe_color_combo.pack(side=tk.LEFT, padx=(6, 0))
+        self.aoe_color_combo.bind("<<ComboboxSelected>>", lambda e: self._on_aoe_color_change())
+        try:
+            self.aoe_color_combo.state(["disabled"])
+        except Exception:
+            self.aoe_color_combo.config(state=tk.DISABLED)
 
         ttk.Label(left, text="Included in selected AoE:").pack(anchor="w", pady=(10, 0))
         self.included_box = tk.Text(left, height=8, width=28, wrap="word")
@@ -4056,6 +4102,71 @@ class BattleMapWindow(tk.Toplevel):
         cost_map = self._movement_cost_map(origin[0], origin[1], max_ft)
         return cost_map.get(dest)
 
+    def _aoe_default_color(self, kind: str) -> str:
+        return str(self._aoe_default_colors.get(kind, "#2d4f8a"))
+
+    def _aoe_fill_color(self, kind: str) -> str:
+        return str(self._aoe_fill_colors.get(kind, "#e2b6ff"))
+
+    def _normalize_aoe_color(self, color: object, kind: str) -> str:
+        if isinstance(color, str):
+            cleaned = color.strip()
+            if cleaned:
+                return cleaned
+        return self._aoe_default_color(kind)
+
+    def _sync_aoe_color_ui(self, aid: Optional[int]) -> None:
+        combo = getattr(self, "aoe_color_combo", None)
+        var = getattr(self, "aoe_color_var", None)
+        if combo is None or var is None:
+            return
+        if aid is None or aid not in self.aoes:
+            var.set("")
+            try:
+                combo.state(["disabled"])
+            except Exception:
+                combo.config(state=tk.DISABLED)
+            return
+        d = self.aoes[aid]
+        kind = str(d.get("kind") or "")
+        color = self._normalize_aoe_color(d.get("color"), kind)
+        d["color"] = color
+        label = self._aoe_label_by_color.get(color)
+        if label is None:
+            label = self._aoe_color_labels[0] if self._aoe_color_labels else color
+        var.set(label)
+        try:
+            combo.state(["!disabled"])
+        except Exception:
+            combo.config(state=tk.NORMAL)
+
+    def _apply_aoe_color(self, aid: int) -> None:
+        d = self.aoes.get(aid)
+        if not d:
+            return
+        kind = str(d.get("kind") or "")
+        color = self._normalize_aoe_color(d.get("color"), kind)
+        d["color"] = color
+        try:
+            self.canvas.itemconfigure(int(d["shape"]), outline=color)
+        except Exception:
+            pass
+        try:
+            self.canvas.itemconfigure(int(d["label"]), fill=color)
+        except Exception:
+            pass
+
+    def _on_aoe_color_change(self) -> None:
+        aid = self._selected_aoe
+        if aid is None or aid not in self.aoes:
+            return
+        label = str(self.aoe_color_var.get() or "")
+        color = self._aoe_color_by_label.get(label)
+        if not color:
+            return
+        self.aoes[aid]["color"] = color
+        self._apply_aoe_color(aid)
+
     def _prompt_circle_aoe_params(self) -> Optional[Tuple[int, str]]:
         """Prompt for circle size and whether it's radius or diameter (required, mutually exclusive)."""
         dlg = tk.Toplevel(self)
@@ -4136,6 +4247,7 @@ class BattleMapWindow(tk.Toplevel):
         cy = (self.rows - 1) / 2.0
 
         self.aoes[aid] = {"kind": "circle", "radius_sq": radius_sq, "cx": cx, "cy": cy, "pinned": False,
+                          "color": self._aoe_default_color("circle"),
                           "name": f"AoE {aid}", "shape": None, "label": None}
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
@@ -4153,6 +4265,7 @@ class BattleMapWindow(tk.Toplevel):
         cy = (self.rows - 1) / 2.0
 
         self.aoes[aid] = {"kind": "square", "side_sq": side_sq, "cx": cx, "cy": cy, "pinned": False,
+                          "color": self._aoe_default_color("square"),
                           "name": f"AoE {aid}", "shape": None, "label": None}
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
@@ -4236,6 +4349,7 @@ class BattleMapWindow(tk.Toplevel):
 
         self.aoes[aid] = {"kind": "line", "length_sq": length_sq, "width_sq": width_sq, "orient": orient,
                           "cx": cx, "cy": cy, "pinned": False,
+                          "color": self._aoe_default_color("line"),
                           "name": f"AoE {aid}", "shape": None, "label": None}
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
@@ -4244,24 +4358,26 @@ class BattleMapWindow(tk.Toplevel):
     def _create_aoe_items(self, aid: int) -> None:
         d = self.aoes[aid]
         kind = str(d["kind"])
+        color = self._normalize_aoe_color(d.get("color"), kind)
+        d["color"] = color
         shape_id: int
         label_id: int
 
         # initial placeholder coords, then layout
         if kind == "circle":
-            shape_id = self.canvas.create_oval(0, 0, 1, 1, outline="#2d4f8a", width=3, dash=(6, 4),
-                                               fill="#a8c5ff", stipple="gray25",
+            shape_id = self.canvas.create_oval(0, 0, 1, 1, outline=color, width=3, dash=(6, 4),
+                                               fill=self._aoe_fill_color(kind), stipple="gray25",
                                                tags=(f"aoe:{aid}", "aoe"))
         elif kind == "line":
-            shape_id = self.canvas.create_rectangle(0, 0, 1, 1, outline="#2d8a57", width=3, dash=(6, 4),
-                                                    fill="#b7ffe0", stipple="gray25",
+            shape_id = self.canvas.create_rectangle(0, 0, 1, 1, outline=color, width=3, dash=(6, 4),
+                                                    fill=self._aoe_fill_color(kind), stipple="gray25",
                                                     tags=(f"aoe:{aid}", "aoe"))
         else:
-            shape_id = self.canvas.create_rectangle(0, 0, 1, 1, outline="#6b3d8a", width=3, dash=(6, 4),
-                                                    fill="#e2b6ff", stipple="gray25",
+            shape_id = self.canvas.create_rectangle(0, 0, 1, 1, outline=color, width=3, dash=(6, 4),
+                                                    fill=self._aoe_fill_color(kind), stipple="gray25",
                                                     tags=(f"aoe:{aid}", "aoe"))
         label_id = self.canvas.create_text(0, 0, text=str(d.get("name") or f"AoE {aid}"), font=("TkDefaultFont", 9, "bold"),
-                                           tags=(f"aoe:{aid}", "aoelabel"))
+                                           fill=color, tags=(f"aoe:{aid}", "aoelabel"))
 
         d["shape"] = shape_id
         d["label"] = label_id
@@ -4319,6 +4435,7 @@ class BattleMapWindow(tk.Toplevel):
             except Exception:
                 pass
         self._update_included_for_selected()
+        self._sync_aoe_color_ui(self._selected_aoe)
 
     def _select_aoe_from_list(self) -> None:
         sel = self.aoe_list.curselection()
@@ -4327,6 +4444,7 @@ class BattleMapWindow(tk.Toplevel):
             self.pin_var.set(False)
             self._update_included_for_selected()
             self._update_aoe_damage_button([])
+            self._sync_aoe_color_ui(None)
             return
         idx = int(sel[0])
         if idx < 0 or idx >= len(getattr(self, "_aoe_index_to_id", [])):
@@ -4341,6 +4459,7 @@ class BattleMapWindow(tk.Toplevel):
         except Exception:
             pass
         self._update_included_for_selected()
+        self._sync_aoe_color_ui(aid)
 
     def _toggle_pin_selected(self) -> None:
         aid = self._selected_aoe
