@@ -296,12 +296,13 @@ HTML_INDEX = r"""<!doctype html>
   const turnModalOk = document.getElementById("turnModalOk");
   const useActionBtn = document.getElementById("useAction");
   const useBonusActionBtn = document.getElementById("useBonusAction");
-  const turnAlertAudio = new Audio("assets/alert.wav");
+  const turnAlertAudio = new Audio("/assets/alert.wav");
   turnAlertAudio.preload = "auto";
   let audioUnlocked = false;
   let pendingTurnAlert = false;
   let pendingVibrate = false;
   let lastVibrateSupported = canVibrate;
+  let userHasInteracted = navigator.userActivation?.hasBeenActive ?? false;
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -588,7 +589,9 @@ HTML_INDEX = r"""<!doctype html>
 
   function playTurnAlert(){
     turnAlertAudio.currentTime = 0;
-    turnAlertAudio.play().catch(() => {});
+    turnAlertAudio.play().catch((err) => {
+      console.warn("Turn alert audio failed to play.", err);
+    });
   }
 
   function fireVibrate(){
@@ -602,6 +605,7 @@ HTML_INDEX = r"""<!doctype html>
   }
 
   function handleUserGesture(){
+    userHasInteracted = true;
     if (!audioUnlocked){
       turnAlertAudio.play().then(() => {
         turnAlertAudio.pause();
@@ -615,7 +619,9 @@ HTML_INDEX = r"""<!doctype html>
           fireVibrate();
           pendingVibrate = false;
         }
-      }).catch(() => {});
+      }).catch((err) => {
+        console.warn("Turn alert audio unlock failed.", err);
+      });
       return;
     }
     if (pendingTurnAlert){
@@ -638,7 +644,7 @@ HTML_INDEX = r"""<!doctype html>
     } else {
       pendingTurnAlert = true;
     }
-    if (navigator.userActivation?.isActive){
+    if (userHasInteracted || navigator.userActivation?.hasBeenActive){
       fireVibrate();
     } else {
       pendingVibrate = true;
