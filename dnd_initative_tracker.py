@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """
+<<<<<<< HEAD:dnd_initative_tracker.py
+DnD Initiative Tracker — LAN Proof-of-Concept
+=======
 DnD Initiative Tracker (v39) — LAN Proof-of-Concept
+>>>>>>> origin/main:dnd_initative_tracker_v36.py
 
-This version layers a small LAN/mobile web client on top of v29 without rewriting the Tk app.
+This edition layers a small LAN/mobile web client on top of the Tk app without rewriting it.
 - DM runs the Tk app.
 - LAN server starts automatically (and can be stopped/restarted from the "LAN" menu).
 - Players open the LAN URL on mobile and claim any Player Character, then can move their token (on their turn).
@@ -32,14 +36,18 @@ try:
 except Exception:
     yaml = None  # type: ignore
 
-# Import the full v29 tracker as the base.
+# Import the full tracker as the base.
 # Keep this file in the same folder as helper_script.py
 try:
     import helper_script as base
 except Exception as e:  # pragma: no cover
     raise SystemExit(
         "Arrr! I can’t find/load helper_script.py in this folder.\n"
+<<<<<<< HEAD:dnd_initative_tracker.py
+        "Make sure helper_script and dnd_initative_tracker be in the same directory.\n\n"
+=======
         "Make sure helper_script and v39 be in the same directory.\n\n"
+>>>>>>> origin/main:dnd_initative_tracker_v36.py
         f"Import error: {e}"
     )
 
@@ -88,6 +96,9 @@ def _make_ops_logger() -> logging.Logger:
     setattr(lg, "_inittracker_configured", True)
     return lg
 
+
+# --- App metadata ---
+APP_VERSION = "41"
 
 # --- LAN POC switches ---
 POC_AUTO_START_LAN = True
@@ -561,7 +572,10 @@ HTML_INDEX = r"""<!doctype html>
           state._fitted = false;
           lastGrid = {cols: state.grid.cols, rows: state.grid.rows};
         }
+<<<<<<< HEAD:dnd_initative_tracker.py
+=======
         lastGridVersion = msg.version ?? lastGridVersion;
+>>>>>>> origin/main:dnd_initative_tracker_v36.py
         send({type:"grid_ack", version: msg.version});
         draw();
       }
@@ -725,6 +739,13 @@ class LanController:
         self._actions: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._last_state_json: Optional[str] = None
         self._polling: bool = False
+<<<<<<< HEAD:dnd_initative_tracker.py
+        self._grid_version: int = 0
+        self._grid_pending: Dict[int, Tuple[int, float]] = {}
+        self._grid_resend_seconds: float = 1.5
+        self._grid_last_sent: Optional[Tuple[Optional[int], Optional[int]]] = None
+=======
+>>>>>>> origin/main:dnd_initative_tracker_v36.py
         self._cached_snapshot: Dict[str, Any] = {
             "grid": {"cols": 20, "rows": 20, "feet_per_square": 5},
             "obstacles": [],
@@ -803,6 +824,17 @@ class LanController:
                         if isinstance(claimed, int):
                             await self._claim_ws_async(ws_id, claimed, note="Reconnected.")
                         await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
+<<<<<<< HEAD:dnd_initative_tracker.py
+                    elif typ == "grid_request":
+                        await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
+                    elif typ == "grid_ack":
+                        ver = msg.get("version")
+                        with self._clients_lock:
+                            pending = self._grid_pending.get(ws_id)
+                            if pending and pending[0] == ver:
+                                self._grid_pending.pop(ws_id, None)
+=======
+>>>>>>> origin/main:dnd_initative_tracker_v36.py
                     elif typ == "claim":
                         cid = msg.get("cid")
                         if isinstance(cid, int):
@@ -829,6 +861,10 @@ class LanController:
                     old = self._claims.pop(ws_id, None)
                     if old is not None:
                         self._cid_to_ws.pop(int(old), None)
+<<<<<<< HEAD:dnd_initative_tracker.py
+                    self._grid_pending.pop(ws_id, None)
+=======
+>>>>>>> origin/main:dnd_initative_tracker_v36.py
                 if old is not None:
                     name = self._pc_name_for(int(old))
                     self.app._oplog(f"LAN session disconnected ws_id={ws_id} (claimed {name})")
@@ -939,6 +975,18 @@ class LanController:
             )
         except Exception:
             self._cached_pcs = []
+<<<<<<< HEAD:dnd_initative_tracker.py
+        grid = snap.get("grid", {}) if isinstance(snap, dict) else {}
+        if isinstance(grid, dict):
+            cols = grid.get("cols")
+            rows = grid.get("rows")
+            if self._grid_last_sent != (cols, rows):
+                self._grid_version += 1
+                self._grid_last_sent = (cols, rows)
+                self._broadcast_grid_update(grid)
+        self._resend_grid_updates()
+=======
+>>>>>>> origin/main:dnd_initative_tracker_v36.py
         snap_json = json.dumps(snap, sort_keys=True, separators=(",", ":"))
         if snap_json != self._last_state_json:
             self._last_state_json = snap_json
@@ -1157,14 +1205,22 @@ class LanController:
         return f"cid:{cid}"
 
 
+<<<<<<< HEAD:dnd_initative_tracker.py
+# ----------------------------- Tracker -----------------------------
+=======
 # ----------------------------- v39 Tracker -----------------------------
+>>>>>>> origin/main:dnd_initative_tracker_v36.py
 
 class InitiativeTracker(base.InitiativeTracker):
-    """v29 tracker + LAN proof-of-concept server."""
+    """Tk tracker + LAN proof-of-concept server."""
 
     def __init__(self) -> None:
         super().__init__()
+<<<<<<< HEAD:dnd_initative_tracker.py
+        self.title(f"DnD Initiative Tracker — v{APP_VERSION}")
+=======
         self.title("DnD Initiative Tracker v39")
+>>>>>>> origin/main:dnd_initative_tracker_v36.py
 
         # Operations logger (terminal + ./logs/operations.log)
         self._ops_logger = _make_ops_logger()
