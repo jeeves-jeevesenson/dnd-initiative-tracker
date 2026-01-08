@@ -292,6 +292,8 @@ HTML_INDEX = r"""<!doctype html>
   const useBonusActionBtn = document.getElementById("useBonusAction");
   const turnAlertAudio = new Audio("assets/alert.wav");
   turnAlertAudio.preload = "auto";
+  let audioUnlocked = false;
+  let pendingTurnAlert = false;
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -582,7 +584,11 @@ HTML_INDEX = r"""<!doctype html>
     turnModal.classList.add("show");
     turnModal.setAttribute("aria-hidden", "false");
     turnAlertAudio.currentTime = 0;
-    turnAlertAudio.play().catch(() => {});
+    if (audioUnlocked){
+      turnAlertAudio.play().catch(() => {});
+    } else {
+      pendingTurnAlert = true;
+    }
     navigator.vibrate?.([200, 120, 200]);
   }
 
@@ -797,7 +803,20 @@ HTML_INDEX = r"""<!doctype html>
     send({type:"end_turn", cid: Number(claimedCid)});
   });
   if (turnModalOk){
-    turnModalOk.addEventListener("click", hideTurnModal);
+    turnModalOk.addEventListener("click", () => {
+      if (!audioUnlocked){
+        turnAlertAudio.play().then(() => {
+          turnAlertAudio.pause();
+          turnAlertAudio.currentTime = 0;
+          audioUnlocked = true;
+          if (pendingTurnAlert){
+            pendingTurnAlert = false;
+            turnAlertAudio.play().catch(() => {});
+          }
+        }).catch(() => {});
+      }
+      hideTurnModal();
+    });
   }
 
   const mapWrap = document.querySelector(".mapWrap");
