@@ -5421,12 +5421,6 @@ class BattleMapWindow(tk.Toplevel):
             or spell_owner
         )
 
-        # Damage type
-        dtype_var = tk.StringVar(value="")
-        ttk.Label(controls, text="Damage type:").grid(row=1, column=0, sticky="w", pady=(8, 0))
-        dtype_cb = ttk.Combobox(controls, textvariable=dtype_var, values=DAMAGE_TYPES, state="readonly", width=14)
-        dtype_cb.grid(row=1, column=1, sticky="w", padx=(6, 12), pady=(8, 0))
-
         # Save DC + save type
         dc_var = tk.StringVar(value="15")
         ttk.Label(controls, text="Save DC:").grid(row=0, column=3, sticky="w")
@@ -5440,22 +5434,15 @@ class BattleMapWindow(tk.Toplevel):
         save_cb.grid(row=1, column=4, sticky="w", padx=(6, 12), pady=(8, 0))
 
         half_on_pass = tk.BooleanVar(value=False)
-        half_cb = ttk.Checkbutton(controls, text="Half on pass", variable=half_on_pass)
+        half_cb = ttk.Checkbutton(controls, text="Half on pass (per component)", variable=half_on_pass)
         half_cb.grid(row=1, column=2, sticky="w", pady=(8, 0))
-
-        # Damage amount (manual, math ok)
-        dmg_amt_var = tk.StringVar(value="")
-        ttk.Label(controls, text="Damage amount:").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        dmg_amt_ent = ttk.Entry(controls, textvariable=dmg_amt_var, width=10)
-        dmg_amt_ent.grid(row=2, column=1, sticky="w", padx=(6, 12), pady=(8, 0))
-        ttk.Label(controls, text="(math ok)").grid(row=2, column=2, sticky="w", pady=(8, 0))
 
         def _match_damage_type(value: str) -> str:
             val = (value or "").strip()
             if not val:
                 return ""
             val_lower = val.lower()
-            for dtype in dmg_types:
+            for dtype in DAMAGE_TYPES:
                 if dtype.lower() == val_lower:
                     return dtype
             return val
@@ -5469,12 +5456,8 @@ class BattleMapWindow(tk.Toplevel):
             save_choice = str(aoe_meta.get("save_type") or "").strip().upper()
             if save_choice in save_types:
                 save_var.set(save_choice)
-        if aoe_meta.get("damage_type"):
-            dtype_var.set(_match_damage_type(str(aoe_meta.get("damage_type") or "")))
         if aoe_meta.get("half_on_pass") is not None:
             half_on_pass.set(bool(aoe_meta.get("half_on_pass")))
-        if aoe_meta.get("default_damage") not in (None, ""):
-            dmg_amt_var.set(str(aoe_meta.get("default_damage")))
 
         if from_spell:
             note = "From spell"
@@ -5491,21 +5474,91 @@ class BattleMapWindow(tk.Toplevel):
                     save_cb.state(["disabled"])
                 except Exception:
                     save_cb.config(state=tk.DISABLED)
-            if aoe_meta.get("damage_type"):
-                try:
-                    dtype_cb.state(["disabled"])
-                except Exception:
-                    dtype_cb.config(state=tk.DISABLED)
             if aoe_meta.get("half_on_pass") is not None:
                 try:
                     half_cb.state(["disabled"])
                 except Exception:
                     half_cb.config(state=tk.DISABLED)
-            if aoe_meta.get("default_damage") not in (None, ""):
+
+        components_frame = ttk.LabelFrame(outer, text="Damage components")
+        components_frame.pack(fill=tk.X, pady=(12, 0))
+
+        comp_header = ttk.Frame(components_frame)
+        comp_header.pack(fill=tk.X)
+        ttk.Label(comp_header, text="Amount (math ok)").pack(side=tk.LEFT)
+        ttk.Label(comp_header, text="Type").pack(side=tk.LEFT, padx=(86, 0))
+
+        comp_rows = ttk.Frame(components_frame)
+        comp_rows.pack(fill=tk.X, pady=(4, 0))
+        damage_components: List[Dict[str, object]] = []
+
+        def _update_component_buttons() -> None:
+            for comp in damage_components:
+                btn = comp.get("remove_btn")
+                if not isinstance(btn, ttk.Button):
+                    continue
+                if len(damage_components) <= 1:
+                    btn.state(["disabled"])
+                else:
+                    btn.state(["!disabled"])
+
+        def _remove_component(row: ttk.Frame) -> None:
+            for idx, comp in enumerate(damage_components):
+                if comp.get("row") is row:
+                    damage_components.pop(idx)
+                    row.destroy()
+                    break
+            _update_component_buttons()
+
+        def _add_component(amount: str = "", dtype: str = "", locked: bool = False) -> None:
+            row = ttk.Frame(comp_rows)
+            amount_var = tk.StringVar(value=amount)
+            dtype_var = tk.StringVar(value=dtype)
+            amount_ent = ttk.Entry(row, textvariable=amount_var, width=10)
+            dtype_cb = ttk.Combobox(row, textvariable=dtype_var, values=DAMAGE_TYPES, state="readonly", width=14)
+            amount_ent.pack(side=tk.LEFT, padx=(0, 10))
+            dtype_cb.pack(side=tk.LEFT, padx=(0, 10))
+            remove_btn = ttk.Button(row, text="Remove", command=lambda: _remove_component(row))
+            remove_btn.pack(side=tk.LEFT)
+            row.pack(fill=tk.X, pady=2)
+            if locked:
                 try:
-                    dmg_amt_ent.state(["disabled"])
+                    amount_ent.state(["disabled"])
                 except Exception:
-                    dmg_amt_ent.config(state=tk.DISABLED)
+                    amount_ent.config(state=tk.DISABLED)
+                try:
+                    dtype_cb.state(["disabled"])
+                except Exception:
+                    dtype_cb.config(state=tk.DISABLED)
+            damage_components.append(
+                {
+                    "amount_var": amount_var,
+                    "dtype_var": dtype_var,
+                    "row": row,
+                    "remove_btn": remove_btn,
+                    "amount_ent": amount_ent,
+                    "dtype_cb": dtype_cb,
+                }
+            )
+            _update_component_buttons()
+
+        default_amount = ""
+        default_type = ""
+        if aoe_meta.get("default_damage") not in (None, ""):
+            default_amount = str(aoe_meta.get("default_damage"))
+        if aoe_meta.get("damage_type"):
+            default_type = _match_damage_type(str(aoe_meta.get("damage_type") or ""))
+
+        locked_component = bool(from_spell and (default_amount or default_type))
+        _add_component(default_amount, default_type, locked=locked_component)
+
+        add_comp_btn = ttk.Button(components_frame, text="Add damage type", command=_add_component)
+        add_comp_btn.pack(anchor="w", pady=(6, 0))
+        if locked_component:
+            try:
+                add_comp_btn.state(["disabled"])
+            except Exception:
+                add_comp_btn.config(state=tk.DISABLED)
 
         # --- Table ---
         mid = ttk.Frame(outer)
@@ -5612,19 +5665,26 @@ class BattleMapWindow(tk.Toplevel):
             except Exception:
                 messagebox.showerror("AoE Damage", "Save DC must be an integer.", parent=dlg)
                 return
-            raw = (dmg_amt_var.get() or "").strip()
-            if raw == "":
-                messagebox.showerror("AoE Damage", "Enter a damage amount (math ok).", parent=dlg)
-                return
-            try:
-                dmg_full = int(self.app._parse_int_expr(raw))
-            except Exception:
-                messagebox.showerror("AoE Damage", "Damage amount must be a number or simple math expression.", parent=dlg)
-                return
-            dmg_full = max(0, dmg_full)
+            components: List[Tuple[int, str]] = []
+            for comp in damage_components:
+                amount_raw = (comp["amount_var"].get() or "").strip()
+                dtype = (comp["dtype_var"].get() or "").strip()
+                if amount_raw == "":
+                    if dtype:
+                        messagebox.showerror("AoE Damage", "Enter a damage amount for each component.", parent=dlg)
+                        return
+                    continue
+                try:
+                    amount_val = int(self.app._parse_int_expr(amount_raw))
+                except Exception:
+                    messagebox.showerror("AoE Damage", "Damage amounts must be numbers or simple math expressions.", parent=dlg)
+                    return
+                components.append((max(0, amount_val), dtype))
 
-            dtype = (dtype_var.get() or "").strip()
-            dtype_l = (dtype.lower() + " ") if dtype else ""
+            if not components:
+                messagebox.showerror("AoE Damage", "Enter at least one damage component.", parent=dlg)
+                return
+
             attacker = (attacker_var.get() or "").strip()
             if not attacker and getattr(self.app, "current_cid", None) in self.app.combatants:
                 attacker = self.app.combatants[self.app.current_cid].name
@@ -5643,33 +5703,51 @@ class BattleMapWindow(tk.Toplevel):
                 m = int(mods.get(cid, 0))
                 tot = r + m
                 passed = (tot >= dc)
-                if passed:
-                    dmg = dmg_full // 2 if half_on_pass.get() else 0
-                else:
-                    dmg = dmg_full
+                applied_components: List[Tuple[int, str]] = []
+                total_damage = 0
+                for amount_val, dtype in components:
+                    if passed:
+                        applied = amount_val // 2 if half_on_pass.get() else 0
+                    else:
+                        applied = amount_val
+                    applied_components.append((applied, dtype))
+                    total_damage += applied
 
                 before = int(getattr(c, "hp", 0))
-                if dmg > 0:
-                    c.hp = max(0, before - int(dmg))
+                if total_damage > 0:
+                    c.hp = max(0, before - int(total_damage))
                 after = int(getattr(c, "hp", 0))
 
                 died = (before > 0 and after == 0)
                 if died:
-                    death_info[cid] = (attacker or None, int(dmg), dtype)
+                    dtype_note = " + ".join([d for _, d in applied_components if d]).strip()
+                    death_info[cid] = (attacker or None, int(total_damage), dtype_note)
+
+                component_desc = " + ".join(
+                    [
+                        f"{amt} {dtype}".strip()
+                        for amt, dtype in applied_components
+                        if amt > 0
+                    ]
+                )
 
                 # Log
-                if dmg == 0:
+                if total_damage == 0:
                     if use_att:
                         self.app._log(f"{attacker} hits {c.name} with AoE (save {save_name} {tot} vs DC {dc}) — no damage")
                     else:
                         self.app._log(f"{c.name} avoids AoE damage (save {save_name} {tot} vs DC {dc})")
                 else:
-                    half_note = " (half on pass)" if (passed and half_on_pass.get()) else ""
+                    half_note = " (half on pass per component)" if (passed and half_on_pass.get()) else ""
                     dead_note = " (Dead)" if (died and use_att) else ""
                     if use_att:
-                        self.app._log(f"{attacker} does {dmg} {dtype_l}damage to {c.name} (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note}){dead_note}")
+                        self.app._log(
+                            f"{attacker} does {component_desc} damage to {c.name} (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note}){dead_note}"
+                        )
                     else:
-                        self.app._log(f"{c.name} takes {dmg} {dtype_l}damage (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note})")
+                        self.app._log(
+                            f"{c.name} takes {component_desc} damage (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note})"
+                        )
 
                 if died and use_att:
                     death_logged.add(cid)
@@ -5700,7 +5778,10 @@ class BattleMapWindow(tk.Toplevel):
 
         dlg.bind("<Escape>", lambda e: dlg.destroy())
         try:
-            dmg_amt_ent.focus_set()
+            if damage_components:
+                first_ent = damage_components[0].get("amount_ent")
+                if isinstance(first_ent, ttk.Entry):
+                    first_ent.focus_set()
         except Exception:
             pass
 
