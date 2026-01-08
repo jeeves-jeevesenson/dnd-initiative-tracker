@@ -1816,6 +1816,7 @@ class MonsterSpec:
     swim_speed: Optional[int]
     dex: Optional[int]
     init_mod: Optional[int]
+    saving_throws: Dict[str, int]
 
 class LanController:
     """Runs a FastAPI+WebSocket server in a background thread and bridges actions into the Tk thread."""
@@ -3554,6 +3555,27 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 init_mod = None
 
+            saving_throws: Dict[str, int] = {}
+            try:
+                saves = mon.get("saving_throws") or {}
+                if isinstance(saves, dict):
+                    for key, val in saves.items():
+                        if not isinstance(key, str):
+                            continue
+                        ability = key.strip().lower()
+                        if ability not in {"str", "dex", "con", "int", "wis", "cha"}:
+                            continue
+                        if isinstance(val, int):
+                            saving_throws[ability] = int(val)
+                        elif isinstance(val, str):
+                            raw = val.strip()
+                            if raw.startswith("+"):
+                                raw = raw[1:]
+                            if raw.lstrip("-").isdigit():
+                                saving_throws[ability] = int(raw)
+            except Exception:
+                saving_throws = {}
+
             spec = MonsterSpec(
                 filename=str(fp.name),
                 name=name,
@@ -3564,6 +3586,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 swim_speed=swim_speed,
                 dex=dex,
                 init_mod=init_mod,
+                saving_throws=saving_throws,
             )
 
             if name not in self._monsters_by_name:
