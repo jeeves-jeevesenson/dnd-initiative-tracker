@@ -290,6 +290,8 @@ HTML_INDEX = r"""<!doctype html>
   const turnModalOk = document.getElementById("turnModalOk");
   const useActionBtn = document.getElementById("useAction");
   const useBonusActionBtn = document.getElementById("useBonusAction");
+  const turnAlertAudio = new Audio("assets/alert.wav");
+  turnAlertAudio.preload = "auto";
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -579,6 +581,8 @@ HTML_INDEX = r"""<!doctype html>
     if (document.visibilityState === "hidden") return;
     turnModal.classList.add("show");
     turnModal.setAttribute("aria-hidden", "false");
+    turnAlertAudio.currentTime = 0;
+    turnAlertAudio.play().catch(() => {});
     navigator.vibrate?.([200, 120, 200]);
   }
 
