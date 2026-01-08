@@ -2956,8 +2956,27 @@ class BattleMapWindow(tk.Toplevel):
         outer = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
         outer.pack(fill=tk.BOTH, expand=True)
 
-        left = ttk.Frame(outer, padding=8)
-        outer.add(left, weight=0)
+        left_container = ttk.Frame(outer)
+        outer.add(left_container, weight=0)
+
+        left_canvas = tk.Canvas(left_container, highlightthickness=0)
+        left_scroll = ttk.Scrollbar(left_container, orient=tk.VERTICAL, command=left_canvas.yview)
+        left_canvas.configure(yscrollcommand=left_scroll.set)
+        left_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        left_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        left = ttk.Frame(left_canvas, padding=8)
+        left_window = left_canvas.create_window((0, 0), window=left, anchor="nw")
+
+        def _sync_left_scroll(_evt=None):
+            left_canvas.configure(scrollregion=left_canvas.bbox("all"))
+
+        left.bind("<Configure>", _sync_left_scroll)
+
+        def _sync_left_width(evt):
+            left_canvas.itemconfigure(left_window, width=evt.width)
+
+        left_canvas.bind("<Configure>", _sync_left_width)
 
         right = ttk.Frame(outer, padding=8)
         outer.add(right, weight=1)
