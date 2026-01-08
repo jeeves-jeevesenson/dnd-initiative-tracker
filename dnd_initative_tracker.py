@@ -948,6 +948,7 @@ class LanController:
         try:
             from fastapi import FastAPI, WebSocket, WebSocketDisconnect
             from fastapi.responses import HTMLResponse
+            from fastapi.staticfiles import StaticFiles
             import uvicorn
             # Expose these in module globals so FastAPI's type resolver can see 'em even from nested defs.
             globals()["WebSocket"] = WebSocket
@@ -963,6 +964,13 @@ class LanController:
             return
 
         app = FastAPI()
+        assets_dir = Path(__file__).parent / "assets"
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        if not (assets_dir / "alert.wav").exists():
+            self.app._oplog(
+                f"LAN assets missing alert.wav at {assets_dir / 'alert.wav'} (check assets_dir path).",
+                level="warning",
+            )
 
         @app.get("/")
         async def index():
