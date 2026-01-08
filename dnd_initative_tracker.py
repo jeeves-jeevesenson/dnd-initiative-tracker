@@ -2204,6 +2204,29 @@ class InitiativeTracker(base.InitiativeTracker):
                     positions[int(cid)] = (int(tok.get("col")), int(tok.get("row")))
             except Exception:
                 pass
+            try:
+                for aid, d in sorted((getattr(mw, "aoes", {}) or {}).items()):
+                    kind = str(d.get("kind") or "")
+                    payload: Dict[str, Any] = {
+                        "aid": int(aid),
+                        "kind": kind,
+                        "name": str(d.get("name") or f"AoE {aid}"),
+                        "color": str(d.get("color") or ""),
+                        "cx": float(d.get("cx") or 0.0),
+                        "cy": float(d.get("cy") or 0.0),
+                        "pinned": bool(d.get("pinned")),
+                    }
+                    if kind == "circle":
+                        payload["radius_sq"] = float(d.get("radius_sq") or 0.0)
+                    elif kind == "line":
+                        payload["length_sq"] = float(d.get("length_sq") or 0.0)
+                        payload["width_sq"] = float(d.get("width_sq") or 0.0)
+                        payload["orient"] = str(d.get("orient") or "vertical")
+                    else:
+                        payload["side_sq"] = float(d.get("side_sq") or 0.0)
+                    aoes.append(payload)
+            except Exception:
+                pass
 
         # Ensure any combatant has a position (spawn near center in a square spiral)
         if self.combatants and len(positions) < len(self.combatants):
@@ -2241,6 +2264,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "obstacles": [{"col": int(c), "row": int(r)} for (c, r) in sorted(obstacles)],
             "aoes": aoes,
             "units": units,
+            "aoes": aoes,
             "active_cid": active,
             "round_num": int(getattr(self, "round_num", 0) or 0),
         }
