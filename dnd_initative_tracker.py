@@ -619,6 +619,58 @@ HTML_INDEX = r"""<!doctype html>
       });
     }
 
+    // AoE overlays
+    if (state.aoes && state.aoes.length){
+      state.aoes.forEach(a => {
+        if (!a || !a.kind) return;
+        const {x,y} = gridToScreen(a.cx, a.cy);
+        ctx.save();
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6,4]);
+        if (a.kind === "circle"){
+          const r = Math.max(0, Number(a.radius_sq || 0)) * zoom;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(168,197,255,0.32)";
+          ctx.strokeStyle = "rgba(45,79,138,0.85)";
+          ctx.fill();
+          ctx.stroke();
+        } else if (a.kind === "line"){
+          const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
+          const widthPx = Math.max(0, Number(a.width_sq || 0)) * zoom;
+          const orient = a.orient === "horizontal" ? "horizontal" : "vertical";
+          const halfW = orient === "horizontal" ? lengthPx / 2 : widthPx / 2;
+          const halfH = orient === "horizontal" ? widthPx / 2 : lengthPx / 2;
+          ctx.beginPath();
+          ctx.rect(x - halfW, y - halfH, halfW * 2, halfH * 2);
+          ctx.fillStyle = "rgba(183,255,224,0.32)";
+          ctx.strokeStyle = "rgba(45,138,87,0.85)";
+          ctx.fill();
+          ctx.stroke();
+        } else if (a.kind === "square"){
+          const sidePx = Math.max(0, Number(a.side_sq || 0)) * zoom;
+          const half = sidePx / 2;
+          ctx.beginPath();
+          ctx.rect(x - half, y - half, sidePx, sidePx);
+          ctx.fillStyle = "rgba(226,182,255,0.32)";
+          ctx.strokeStyle = "rgba(107,61,138,0.85)";
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        if (a.name){
+          ctx.font = `700 ${Math.max(10, Math.floor(zoom*0.32))}px system-ui`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = "rgba(20,25,35,0.9)";
+          ctx.fillText(String(a.name), x + 1, y + 1);
+          ctx.fillStyle = "rgba(232,238,247,0.95)";
+          ctx.fillText(String(a.name), x, y);
+        }
+        ctx.restore();
+      });
+    }
+
     // tokens
     const tokens = state.units || [];
     // group labels by cell
@@ -2111,11 +2163,36 @@ class InitiativeTracker(base.InitiativeTracker):
         obstacles = set(self._lan_obstacles)
         positions = dict(self._lan_positions)
         map_ready = mw is not None
+        aoes: List[Dict[str, Any]] = []
 
         if mw is not None:
             try:
                 cols = int(getattr(mw, "cols", cols))
                 rows = int(getattr(mw, "rows", rows))
+            except Exception:
+                pass
+            try:
+                aoe_src = getattr(mw, "aoes", {}) or {}
+                for aid in sorted(aoe_src.keys()):
+                    data = aoe_src.get(aid) or {}
+                    kind = str(data.get("kind") or "")
+                    if kind not in ("circle", "square", "line"):
+                        continue
+                    payload: Dict[str, Any] = {
+                        "kind": kind,
+                        "cx": float(data.get("cx", 0.0)),
+                        "cy": float(data.get("cy", 0.0)),
+                        "name": str(data.get("name") or f"AoE {aid}"),
+                    }
+                    if kind == "circle":
+                        payload["radius_sq"] = float(data.get("radius_sq", 0.0))
+                    elif kind == "square":
+                        payload["side_sq"] = float(data.get("side_sq", 0.0))
+                    else:
+                        payload["length_sq"] = float(data.get("length_sq", 0.0))
+                        payload["width_sq"] = float(data.get("width_sq", 0.0))
+                        payload["orient"] = str(data.get("orient") or "vertical")
+                    aoes.append(payload)
             except Exception:
                 pass
             try:
@@ -2162,6 +2239,7 @@ class InitiativeTracker(base.InitiativeTracker):
         snap: Dict[str, Any] = {
             "grid": grid_payload,
             "obstacles": [{"col": int(c), "row": int(r)} for (c, r) in sorted(obstacles)],
+            "aoes": aoes,
             "units": units,
             "active_cid": active,
             "round_num": int(getattr(self, "round_num", 0) or 0),
