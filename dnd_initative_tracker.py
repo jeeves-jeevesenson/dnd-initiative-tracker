@@ -117,13 +117,14 @@ HTML_INDEX = r"""<!doctype html>
       --safeInsetTop: env(safe-area-inset-top, 0px);
       --safeInsetBottom: env(safe-area-inset-bottom, 0px);
     }
-    html,body{height:100%; margin:0; background:var(--bg); color:var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;}
-    .app{height:100%; display:flex; flex-direction:column;}
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; overflow:hidden;}
+    .app{height:100dvh; display:flex; flex-direction:column; min-height:0;}
     .topbar{
       padding: calc(10px + var(--safeInsetTop)) 12px 10px 12px;
       background: linear-gradient(180deg, var(--panel), var(--panel2));
       border-bottom: 1px solid rgba(255,255,255,0.08);
-      display:flex; align-items:center; gap:10px;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      position:sticky; top:0; z-index:20;
     }
     .topbar h1{font-size:14px; margin:0; font-weight:650;}
     .pill{font-size:12px; color:var(--muted); padding:6px 10px; border:1px solid rgba(255,255,255,0.10); border-radius:999px;}
@@ -133,8 +134,8 @@ HTML_INDEX = r"""<!doctype html>
       background: rgba(255,255,255,0.06);
       color: var(--text);
       border-radius: 10px;
-      padding: 10px 12px;
-      font-size: 14px;
+      padding: 8px 10px;
+      font-size: 13px;
       font-weight: 650;
       touch-action: manipulation;
     }
@@ -142,7 +143,7 @@ HTML_INDEX = r"""<!doctype html>
     .btn.danger{background: rgba(255,91,91,0.14); border-color: rgba(255,91,91,0.35);}
     .btn.accent{background: rgba(106,169,255,0.14); border-color: rgba(106,169,255,0.35);}
 
-    .mapWrap{flex:1; position:relative; overflow:hidden; background:#0a0c12;}
+    .mapWrap{flex:1; min-height:0; position:relative; overflow:hidden; background:#0a0c12;}
     canvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none;}
     .waiting{
       position:absolute; inset:0; display:none; align-items:center; justify-content:center;
@@ -156,6 +157,7 @@ HTML_INDEX = r"""<!doctype html>
       background: rgba(20,25,35,0.92);
       border-top: 1px solid rgba(255,255,255,0.08);
       backdrop-filter: blur(10px);
+      position:sticky; bottom:0; z-index:20;
     }
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
     .row + .row{margin-top:10px;}
@@ -220,6 +222,22 @@ HTML_INDEX = r"""<!doctype html>
       box-shadow: 0 16px 40px rgba(0,0,0,0.5);
     }
     .turn-card h2{margin:0 0 12px 0; font-size:18px;}
+    .log-content{
+      max-height: 55vh;
+      overflow:auto;
+      padding: 10px;
+      border:1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      background: rgba(8,10,16,0.65);
+      font-size: 12px;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+    @media (max-width: 720px), (max-height: 720px){
+      .btn{padding: 6px 8px; font-size: 12px;}
+      .topbar{gap:8px; padding: calc(8px + var(--safeInsetTop)) 10px 8px 10px;}
+      .sheet{padding: 8px 10px calc(10px + var(--safeInsetBottom)) 10px;}
+    }
   </style>
 </head>
 <body>
@@ -233,6 +251,7 @@ HTML_INDEX = r"""<!doctype html>
     <button class="btn" id="centerMap">Center on Me</button>
     <button class="btn accent" id="zoomIn">Zoom +</button>
     <button class="btn accent" id="zoomOut">Zoom −</button>
+    <button class="btn" id="battleLog">Battle Log</button>
   </div>
 
   <div class="mapWrap">
@@ -273,6 +292,16 @@ HTML_INDEX = r"""<!doctype html>
         </div>
       </div>
     </div>
+    <div class="modal" id="logModal" aria-hidden="true">
+      <div class="card">
+        <h2>Battle Log</h2>
+        <div class="log-content" id="logContent">Loading…</div>
+        <div class="modal-actions">
+          <button class="btn accent" id="logRefresh">Refresh</button>
+          <button class="btn" id="logClose">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="sheet">
@@ -283,6 +312,7 @@ HTML_INDEX = r"""<!doctype html>
       <button class="btn" id="useAction">Use Action</button>
       <button class="btn" id="useBonusAction">Use Bonus Action</button>
       <button class="btn" id="dash">Dash</button>
+      <button class="btn" id="resetTurn">Reset Turn</button>
       <button class="btn danger" id="endTurn">End Turn</button>
     </div>
     <div class="row">
@@ -332,11 +362,17 @@ HTML_INDEX = r"""<!doctype html>
   const dashActionBtn = document.getElementById("dashAction");
   const dashBonusActionBtn = document.getElementById("dashBonusAction");
   const dashCancelBtn = document.getElementById("dashCancel");
+  const battleLogBtn = document.getElementById("battleLog");
+  const logModal = document.getElementById("logModal");
+  const logContent = document.getElementById("logContent");
+  const logRefreshBtn = document.getElementById("logRefresh");
+  const logCloseBtn = document.getElementById("logClose");
   const waitingOverlay = document.getElementById("waitingOverlay");
   const turnModal = document.getElementById("turnModal");
   const turnModalOk = document.getElementById("turnModalOk");
   const useActionBtn = document.getElementById("useAction");
   const useBonusActionBtn = document.getElementById("useBonusAction");
+  const resetTurnBtn = document.getElementById("resetTurn");
   const showAllNamesEl = document.getElementById("showAllNames");
   const turnAlertAudio = new Audio("/assets/alert.wav");
   turnAlertAudio.preload = "auto";
@@ -519,6 +555,25 @@ HTML_INDEX = r"""<!doctype html>
     dashModal.setAttribute("aria-hidden", "true");
   }
 
+  function showLogModal(){
+    if (!logModal) return;
+    logModal.classList.add("show");
+    logModal.setAttribute("aria-hidden", "false");
+  }
+
+  function hideLogModal(){
+    if (!logModal) return;
+    logModal.classList.remove("show");
+    logModal.setAttribute("aria-hidden", "true");
+  }
+
+  function requestBattleLog(){
+    if (logContent){
+      logContent.textContent = "Loading…";
+    }
+    send({type:"log_request"});
+  }
+
   function gridToScreen(col,row){
     return {x: panX + col*zoom + zoom/2, y: panY + row*zoom + zoom/2};
   }
@@ -623,7 +678,10 @@ HTML_INDEX = r"""<!doctype html>
     if (state.aoes && state.aoes.length){
       state.aoes.forEach(a => {
         if (!a || !a.kind) return;
-        const {x,y} = gridToScreen(a.cx, a.cy);
+        const cx = Number(a.cx ?? 0);
+        const cy = Number(a.cy ?? 0);
+        const {x,y} = gridToScreen(cx, cy);
+        const colorHex = normalizeHexColor(a.color || "");
         ctx.save();
         ctx.lineWidth = 2;
         ctx.setLineDash([6,4]);
@@ -631,29 +689,41 @@ HTML_INDEX = r"""<!doctype html>
           const r = Math.max(0, Number(a.radius_sq || 0)) * zoom;
           ctx.beginPath();
           ctx.arc(x, y, r, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(168,197,255,0.32)";
-          ctx.strokeStyle = "rgba(45,79,138,0.85)";
+          ctx.fillStyle = colorHex ? rgbaFromHex(colorHex, 0.28) : "rgba(168,197,255,0.32)";
+          ctx.strokeStyle = colorHex || "rgba(45,79,138,0.85)";
           ctx.fill();
           ctx.stroke();
         } else if (a.kind === "line"){
           const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
           const widthPx = Math.max(0, Number(a.width_sq || 0)) * zoom;
+          const angleDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : null;
           const orient = a.orient === "horizontal" ? "horizontal" : "vertical";
           const halfW = orient === "horizontal" ? lengthPx / 2 : widthPx / 2;
           const halfH = orient === "horizontal" ? widthPx / 2 : lengthPx / 2;
-          ctx.beginPath();
-          ctx.rect(x - halfW, y - halfH, halfW * 2, halfH * 2);
-          ctx.fillStyle = "rgba(183,255,224,0.32)";
-          ctx.strokeStyle = "rgba(45,138,87,0.85)";
-          ctx.fill();
-          ctx.stroke();
+          ctx.fillStyle = colorHex ? rgbaFromHex(colorHex, 0.28) : "rgba(183,255,224,0.32)";
+          ctx.strokeStyle = colorHex || "rgba(45,138,87,0.85)";
+          if (angleDeg !== null){
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate((angleDeg * Math.PI) / 180);
+            ctx.beginPath();
+            ctx.rect(-lengthPx / 2, -widthPx / 2, lengthPx, widthPx);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+          } else {
+            ctx.beginPath();
+            ctx.rect(x - halfW, y - halfH, halfW * 2, halfH * 2);
+            ctx.fill();
+            ctx.stroke();
+          }
         } else if (a.kind === "square"){
           const sidePx = Math.max(0, Number(a.side_sq || 0)) * zoom;
           const half = sidePx / 2;
           ctx.beginPath();
           ctx.rect(x - half, y - half, sidePx, sidePx);
-          ctx.fillStyle = "rgba(226,182,255,0.32)";
-          ctx.strokeStyle = "rgba(107,61,138,0.85)";
+          ctx.fillStyle = colorHex ? rgbaFromHex(colorHex, 0.28) : "rgba(226,182,255,0.32)";
+          ctx.strokeStyle = colorHex || "rgba(107,61,138,0.85)";
           ctx.fill();
           ctx.stroke();
         }
@@ -814,6 +884,10 @@ HTML_INDEX = r"""<!doctype html>
     const active = state.active_cid;
     const round = state.round_num;
     turnEl.textContent = (active === null) ? "Turn: (not started)" : `Round ${round}`;
+    const myTurn = claimedCid && active !== null && String(active) === String(claimedCid);
+    if (resetTurnBtn){
+      resetTurnBtn.disabled = !myTurn;
+    }
     if (claimedCid && state.units){
       const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
       if (me){
@@ -993,6 +1067,12 @@ HTML_INDEX = r"""<!doctype html>
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
+      } else if (msg.type === "battle_log"){
+        if (logContent){
+          const lines = Array.isArray(msg.lines) ? msg.lines : [];
+          logContent.textContent = lines.length ? lines.join("\n") : "No log entries yet.";
+        }
+        showLogModal();
       } else if (msg.type === "grid_update"){
         if (!state){ state = {}; }
         if ("grid" in msg){
@@ -1021,9 +1101,57 @@ HTML_INDEX = r"""<!doctype html>
     return {x: ev.clientX - r.left, y: ev.clientY - r.top};
   }
 
+  function clampZoom(value){
+    return Math.min(90, Math.max(12, value));
+  }
+
+  function zoomAt(newZoom, focusX, focusY){
+    const preZoom = zoom;
+    const nextZoom = clampZoom(newZoom);
+    if (Math.abs(nextZoom - preZoom) < 0.01) return;
+    const col = (focusX - panX) / preZoom;
+    const row = (focusY - panY) / preZoom;
+    zoom = nextZoom;
+    panX = focusX - col * zoom;
+    panY = focusY - row * zoom;
+    draw();
+  }
+
+  const activePointers = new Map();
+  let pinchState = null;
+
+  function startPinch(){
+    if (activePointers.size < 2) return;
+    const pts = Array.from(activePointers.values());
+    const dx = pts[0].x - pts[1].x;
+    const dy = pts[0].y - pts[1].y;
+    const dist = Math.hypot(dx, dy);
+    pinchState = {startDist: dist || 1, startZoom: zoom};
+  }
+
+  function updatePinch(){
+    if (!pinchState || activePointers.size < 2) return;
+    const pts = Array.from(activePointers.values());
+    const midX = (pts[0].x + pts[1].x) / 2;
+    const midY = (pts[0].y + pts[1].y) / 2;
+    const dx = pts[0].x - pts[1].x;
+    const dy = pts[0].y - pts[1].y;
+    const dist = Math.hypot(dx, dy);
+    if (pinchState.startDist <= 0) return;
+    const scale = dist / pinchState.startDist;
+    zoomAt(pinchState.startZoom * scale, midX, midY);
+  }
+
   canvas.addEventListener("pointerdown", (ev) => {
     canvas.setPointerCapture(ev.pointerId);
     const p = pointerPos(ev);
+    activePointers.set(ev.pointerId, p);
+    if (activePointers.size >= 2){
+      dragging = null;
+      panning = null;
+      startPinch();
+      return;
+    }
 
     // Try token hit
     if (state && state.units){
@@ -1060,6 +1188,13 @@ HTML_INDEX = r"""<!doctype html>
 
   canvas.addEventListener("pointermove", (ev) => {
     const p = pointerPos(ev);
+    if (activePointers.has(ev.pointerId)){
+      activePointers.set(ev.pointerId, p);
+    }
+    if (pinchState && activePointers.size >= 2){
+      updatePinch();
+      return;
+    }
     if (dragging){
       // update local preview by shifting pan temporarily? simplest: draw ghost at pointer
       draw();
@@ -1083,6 +1218,10 @@ HTML_INDEX = r"""<!doctype html>
 
   canvas.addEventListener("pointerup", (ev) => {
     const p = pointerPos(ev);
+    activePointers.delete(ev.pointerId);
+    if (activePointers.size < 2){
+      pinchState = null;
+    }
     dragging && (function(){
       const g = screenToGrid(p.x, p.y);
       send({type:"move", cid: Number(dragging.cid), to: {col: g.col, row: g.row}});
@@ -1091,8 +1230,30 @@ HTML_INDEX = r"""<!doctype html>
     panning = null;
   });
 
-  document.getElementById("zoomIn").addEventListener("click", () => { zoom = Math.min(90, zoom+4); draw(); });
-  document.getElementById("zoomOut").addEventListener("click", () => { zoom = Math.max(14, zoom-4); draw(); });
+  canvas.addEventListener("pointercancel", (ev) => {
+    activePointers.delete(ev.pointerId);
+    if (activePointers.size < 2){
+      pinchState = null;
+    }
+  });
+
+  canvas.addEventListener("wheel", (ev) => {
+    if (pinchState) return;
+    ev.preventDefault();
+    const p = pointerPos(ev);
+    const delta = ev.deltaY || 0;
+    const factor = delta > 0 ? 0.9 : 1.1;
+    zoomAt(zoom * factor, p.x, p.y);
+  }, {passive: false});
+
+  document.getElementById("zoomIn").addEventListener("click", () => {
+    const r = canvas.getBoundingClientRect();
+    zoomAt(zoom + 4, r.width / 2, r.height / 2);
+  });
+  document.getElementById("zoomOut").addEventListener("click", () => {
+    const r = canvas.getBoundingClientRect();
+    zoomAt(zoom - 4, r.width / 2, r.height / 2);
+  });
   document.getElementById("lockMap").addEventListener("click", (ev) => {
     lockMap = !lockMap;
     ev.target.textContent = lockMap ? "Unlock Map" : "Lock Map";
@@ -1169,6 +1330,22 @@ HTML_INDEX = r"""<!doctype html>
       hideDashModal();
     });
   }
+  if (battleLogBtn){
+    battleLogBtn.addEventListener("click", () => {
+      requestBattleLog();
+      showLogModal();
+    });
+  }
+  if (logRefreshBtn){
+    logRefreshBtn.addEventListener("click", () => {
+      requestBattleLog();
+    });
+  }
+  if (logCloseBtn){
+    logCloseBtn.addEventListener("click", () => {
+      hideLogModal();
+    });
+  }
   useActionBtn.addEventListener("click", () => {
     if (!claimedCid) return;
     send({type:"use_action", cid: Number(claimedCid)});
@@ -1177,6 +1354,12 @@ HTML_INDEX = r"""<!doctype html>
     if (!claimedCid) return;
     send({type:"use_bonus_action", cid: Number(claimedCid)});
   });
+  if (resetTurnBtn){
+    resetTurnBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      send({type:"reset_turn", cid: Number(claimedCid)});
+    });
+  }
   document.getElementById("endTurn").addEventListener("click", () => {
     if (!claimedCid) return;
     send({type:"end_turn", cid: Number(claimedCid)});
@@ -1363,7 +1546,13 @@ class LanController:
                         if isinstance(cid, int):
                             await self._claim_ws_async(ws_id, cid, note="Claimed. Drag yer token, matey.")
                             await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
-                    elif typ in ("move", "dash", "end_turn", "use_action", "use_bonus_action", "set_color"):
+                    elif typ == "log_request":
+                        try:
+                            lines = self.app._lan_battle_log_lines()
+                        except Exception:
+                            lines = []
+                        await ws.send_text(json.dumps({"type": "battle_log", "lines": lines}))
+                    elif typ in ("move", "dash", "end_turn", "use_action", "use_bonus_action", "set_color", "reset_turn"):
                         # enqueue for Tk thread
                         with self._clients_lock:
                             claimed_cid = self._claims.get(ws_id)
@@ -1803,6 +1992,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_grid_rows = 20
         self._lan_positions: Dict[int, Tuple[int, int]] = {}  # cid -> (col,row)
         self._lan_obstacles: set[Tuple[int, int]] = set()
+        self._turn_snapshots: Dict[int, Dict[str, Any]] = {}
 
         # POC helpers: seed all Player Characters and start the LAN server automatically.
         if POC_AUTO_SEED_PCS:
@@ -1831,6 +2021,18 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 pass
 
+    def _lan_battle_log_lines(self, limit: int = 200) -> List[str]:
+        path = self._history_file_path()
+        try:
+            if not path.exists():
+                return []
+            lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except Exception:
+            return []
+        if limit > 0:
+            return lines[-limit:]
+        return lines
+
     def _open_starting_players_dialog(self) -> None:
         """Suppress the startup roster popup during LAN POC, but keep it available later."""
         if POC_AUTO_SEED_PCS:
@@ -1839,6 +2041,76 @@ class InitiativeTracker(base.InitiativeTracker):
             super()._open_starting_players_dialog()
         except Exception:
             pass
+
+    def _process_start_of_turn(self, c: Any) -> Tuple[bool, str, set[str]]:
+        skip, msg, dec_skip = super()._process_start_of_turn(c)
+        try:
+            self._lan_record_turn_snapshot(int(getattr(c, "cid", -1)))
+        except Exception:
+            pass
+        return skip, msg, dec_skip
+
+    def _lan_current_position(self, cid: int) -> Optional[Tuple[int, int]]:
+        mw = None
+        try:
+            mw = getattr(self, "_map_window", None)
+            if mw is not None and not mw.winfo_exists():
+                mw = None
+        except Exception:
+            mw = None
+        if mw is not None:
+            try:
+                tok = getattr(mw, "unit_tokens", {}).get(cid)
+                if tok:
+                    return (int(tok.get("col")), int(tok.get("row")))
+            except Exception:
+                pass
+        return self._lan_positions.get(cid)
+
+    def _lan_record_turn_snapshot(self, cid: int) -> None:
+        if cid not in self.combatants:
+            return
+        pos = self._lan_current_position(cid)
+        if pos is None:
+            return
+        c = self.combatants[cid]
+        self._turn_snapshots[cid] = {
+            "col": int(pos[0]),
+            "row": int(pos[1]),
+            "move_remaining": int(getattr(c, "move_remaining", 0) or 0),
+            "move_total": int(getattr(c, "move_total", 0) or 0),
+            "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
+            "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
+        }
+
+    def _lan_restore_turn_snapshot(self, cid: int) -> bool:
+        snap = self._turn_snapshots.get(cid)
+        if not snap or cid not in self.combatants:
+            return False
+        c = self.combatants[cid]
+        c.move_remaining = int(snap.get("move_remaining", c.move_remaining))
+        c.move_total = int(snap.get("move_total", c.move_total))
+        c.action_remaining = int(snap.get("action_remaining", c.action_remaining))
+        c.bonus_action_remaining = int(snap.get("bonus_action_remaining", c.bonus_action_remaining))
+
+        col = int(snap.get("col", 0))
+        row = int(snap.get("row", 0))
+        self._lan_positions[cid] = (col, row)
+        mw = getattr(self, "_map_window", None)
+        try:
+            if mw is not None and mw.winfo_exists():
+                tok = getattr(mw, "unit_tokens", {}).get(cid)
+                if tok:
+                    tok["col"] = col
+                    tok["row"] = row
+                    mw._layout_unit(cid)
+                    mw._update_groups()
+                    mw._update_move_highlight()
+                    mw._update_included_for_selected()
+        except Exception:
+            pass
+        self._update_turn_ui()
+        return True
 
     def _install_lan_menu(self) -> None:
         try:
@@ -2172,41 +2444,10 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 pass
             try:
-                aoe_src = getattr(mw, "aoes", {}) or {}
-                for aid in sorted(aoe_src.keys()):
-                    data = aoe_src.get(aid) or {}
-                    kind = str(data.get("kind") or "")
-                    if kind not in ("circle", "square", "line"):
-                        continue
-                    payload: Dict[str, Any] = {
-                        "kind": kind,
-                        "cx": float(data.get("cx", 0.0)),
-                        "cy": float(data.get("cy", 0.0)),
-                        "name": str(data.get("name") or f"AoE {aid}"),
-                    }
-                    if kind == "circle":
-                        payload["radius_sq"] = float(data.get("radius_sq", 0.0))
-                    elif kind == "square":
-                        payload["side_sq"] = float(data.get("side_sq", 0.0))
-                    else:
-                        payload["length_sq"] = float(data.get("length_sq", 0.0))
-                        payload["width_sq"] = float(data.get("width_sq", 0.0))
-                        payload["orient"] = str(data.get("orient") or "vertical")
-                    aoes.append(payload)
-            except Exception:
-                pass
-            try:
-                obstacles = set(getattr(mw, "obstacles", obstacles) or set())
-            except Exception:
-                pass
-            try:
-                for cid, tok in (getattr(mw, "unit_tokens", {}) or {}).items():
-                    positions[int(cid)] = (int(tok.get("col")), int(tok.get("row")))
-            except Exception:
-                pass
-            try:
                 for aid, d in sorted((getattr(mw, "aoes", {}) or {}).items()):
                     kind = str(d.get("kind") or "")
+                    if kind not in ("circle", "square", "line"):
+                        continue
                     payload: Dict[str, Any] = {
                         "aid": int(aid),
                         "kind": kind,
@@ -2222,9 +2463,20 @@ class InitiativeTracker(base.InitiativeTracker):
                         payload["length_sq"] = float(d.get("length_sq") or 0.0)
                         payload["width_sq"] = float(d.get("width_sq") or 0.0)
                         payload["orient"] = str(d.get("orient") or "vertical")
+                        if d.get("angle_deg") is not None:
+                            payload["angle_deg"] = float(d.get("angle_deg") or 0.0)
                     else:
                         payload["side_sq"] = float(d.get("side_sq") or 0.0)
                     aoes.append(payload)
+            except Exception:
+                pass
+            try:
+                obstacles = set(getattr(mw, "obstacles", obstacles) or set())
+            except Exception:
+                pass
+            try:
+                for cid, tok in (getattr(mw, "unit_tokens", {}) or {}).items():
+                    positions[int(cid)] = (int(tok.get("col")), int(tok.get("row")))
             except Exception:
                 pass
 
@@ -2264,38 +2516,18 @@ class InitiativeTracker(base.InitiativeTracker):
             "obstacles": [{"col": int(c), "row": int(r)} for (c, r) in sorted(obstacles)],
             "aoes": aoes,
             "units": units,
-            "aoes": aoes,
             "active_cid": active,
             "round_num": int(getattr(self, "round_num", 0) or 0),
         }
         return snap
 
     def _lan_marks_for(self, c: Any) -> str:
-        # Markers are simple: star advantage + DOT icons if any, plus a short condition dot.
-        marks: List[str] = []
+        # Match main-map effect markers (conditions, DoT, star advantage, etc.)
         try:
-            if bool(getattr(c, "star_advantage", False)):
-                marks.append("⭐")
+            text = self._format_effects(c)
         except Exception:
-            pass
-        try:
-            stacks = getattr(c, "dot_stacks", []) or []
-            # show one icon per stack type present
-            seen = set()
-            for st in stacks:
-                t = str(getattr(st, "dtype", "") or "")
-                if t and t not in seen:
-                    seen.add(t)
-                    if t == "burn":
-                        marks.append("🔥")
-                    elif t == "poison":
-                        marks.append("☠")
-                    elif t == "necrotic":
-                        marks.append("💀")
-            # Keep it short
-        except Exception:
-            pass
-        return "".join(marks)[:6]
+            text = ""
+        return (text or "").strip()
 
     def _lan_seed_missing_positions(self, positions: Dict[int, Tuple[int, int]], cols: int, rows: int) -> Dict[int, Tuple[int, int]]:
         # place missing near center in a simple spiral, one square apart
@@ -2449,6 +2681,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             self._lan.toast(ws_id, "Bonus action used.")
             self._rebuild_table(scroll_to_current=True)
+        elif typ == "reset_turn":
+            if self._lan_restore_turn_snapshot(cid):
+                self._lan.toast(ws_id, "Turn reset.")
+                self._rebuild_table(scroll_to_current=True)
+            else:
+                self._lan.toast(ws_id, "No turn snapshot yet, matey.")
         elif typ == "end_turn":
             # Let player end their own turn.
             try:

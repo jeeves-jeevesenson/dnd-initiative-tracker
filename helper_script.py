@@ -3696,6 +3696,15 @@ class BattleMapWindow(tk.Toplevel):
             y = self.y0 + j * self.cell
             self.canvas.create_line(self.x0, y, self.x0 + self.cols * self.cell, y, fill="#d0c3a0", tags=("grid",))
 
+        # Keep background images beneath the grid and tokens.
+        try:
+            self.canvas.tag_lower("bgimg", "grid")
+        except Exception:
+            try:
+                self.canvas.tag_lower("bgimg")
+            except Exception:
+                pass
+
         # Obstacles (block movement)
         self._draw_obstacles()
 
@@ -4347,10 +4356,23 @@ class BattleMapWindow(tk.Toplevel):
         cx = (self.cols - 1) / 2.0
         cy = (self.rows - 1) / 2.0
 
-        self.aoes[aid] = {"kind": "line", "length_sq": length_sq, "width_sq": width_sq, "orient": orient,
-                          "cx": cx, "cy": cy, "pinned": False,
-                          "color": self._aoe_default_color("line"),
-                          "name": f"AoE {aid}", "shape": None, "label": None}
+        angle_deg = 0.0 if orient == "horizontal" else 90.0
+        self.aoes[aid] = {
+            "kind": "line",
+            "length_sq": length_sq,
+            "width_sq": width_sq,
+            "orient": orient,
+            "angle_deg": angle_deg,
+            "ax": cx,
+            "ay": cy,
+            "cx": cx,
+            "cy": cy,
+            "pinned": False,
+            "color": self._aoe_default_color("line"),
+            "name": f"AoE {aid}",
+            "shape": None,
+            "label": None,
+        }
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
 
@@ -4369,9 +4391,9 @@ class BattleMapWindow(tk.Toplevel):
                                                fill=self._aoe_fill_color(kind), stipple="gray25",
                                                tags=(f"aoe:{aid}", "aoe"))
         elif kind == "line":
-            shape_id = self.canvas.create_rectangle(0, 0, 1, 1, outline=color, width=3, dash=(6, 4),
-                                                    fill=self._aoe_fill_color(kind), stipple="gray25",
-                                                    tags=(f"aoe:{aid}", "aoe"))
+            shape_id = self.canvas.create_polygon(0, 0, 1, 1, 2, 2, 3, 3, outline=color, width=3, dash=(6, 4),
+                                                  fill=self._aoe_fill_color(kind), stipple="gray25",
+                                                  tags=(f"aoe:{aid}", "aoe"))
         else:
             shape_id = self.canvas.create_rectangle(0, 0, 1, 1, outline=color, width=3, dash=(6, 4),
                                                     fill=self._aoe_fill_color(kind), stipple="gray25",
@@ -4400,13 +4422,21 @@ class BattleMapWindow(tk.Toplevel):
             length_px = float(d["length_sq"]) * self.cell
             width_px = float(d["width_sq"]) * self.cell
             orient = str(d.get("orient") or "vertical")
-            if orient == "horizontal":
-                half_w = length_px / 2.0
-                half_h = width_px / 2.0
-            else:
-                half_w = width_px / 2.0
-                half_h = length_px / 2.0
-            self.canvas.coords(int(d["shape"]), x - half_w, y - half_h, x + half_w, y + half_h)
+            angle = d.get("angle_deg")
+            if angle is None:
+                angle = 0.0 if orient == "horizontal" else 90.0
+            angle_rad = math.radians(float(angle))
+            dx = math.cos(angle_rad)
+            dy = math.sin(angle_rad)
+            half_len = length_px / 2.0
+            half_w = width_px / 2.0
+            px = -dy
+            py = dx
+            p1 = (x + dx * half_len + px * half_w, y + dy * half_len + py * half_w)
+            p2 = (x + dx * half_len - px * half_w, y + dy * half_len - py * half_w)
+            p3 = (x - dx * half_len - px * half_w, y - dy * half_len - py * half_w)
+            p4 = (x - dx * half_len + px * half_w, y - dy * half_len + py * half_w)
+            self.canvas.coords(int(d["shape"]), p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1])
         else:
             half = float(d["side_sq"]) * self.cell / 2.0
             self.canvas.coords(int(d["shape"]), x - half, y - half, x + half, y + half)
@@ -4898,12 +4928,45 @@ class BattleMapWindow(tk.Toplevel):
             # allow half-square precision for overlays
             if x < self.x0 or y < self.y0:
                 return
-            cx = (x - self.x0) / self.cell - 0.5
-            cy = (y - self.y0) / self.cell - 0.5
-            cx = max(0.0, min(float(self.cols - 1), cx))
-            cy = max(0.0, min(float(self.rows - 1), cy))
-            self.aoes[self._drag_id]["cx"] = cx
-            self.aoes[self._drag_id]["cy"] = cy
+            d = self.aoes.get(self._drag_id)
+            if not d:
+                return
+            kind = str(d.get("kind") or "")
+            shift_held = bool(event.state & 0x0001)
+            if kind == "line" and shift_held:
+                ax = float(d.get("ax", d.get("cx", 0.0)))
+                ay = float(d.get("ay", d.get("cy", 0.0)))
+                ax_px = self.x0 + (ax + 0.5) * self.cell
+                ay_px = self.y0 + (ay + 0.5) * self.cell
+                dx = x - ax_px
+                dy = y - ay_px
+                if abs(dx) + abs(dy) < 0.01:
+                    return
+                angle = math.degrees(math.atan2(dy, dx))
+                d["angle_deg"] = angle
+                length_sq = float(d.get("length_sq") or 0.0)
+                half_len = length_sq / 2.0
+                rad = math.radians(angle)
+                cx = ax + math.cos(rad) * half_len
+                cy = ay + math.sin(rad) * half_len
+                cx = max(0.0, min(float(self.cols - 1), cx))
+                cy = max(0.0, min(float(self.rows - 1), cy))
+                d["cx"] = cx
+                d["cy"] = cy
+            else:
+                cx = (x - self.x0) / self.cell - 0.5
+                cy = (y - self.y0) / self.cell - 0.5
+                cx = max(0.0, min(float(self.cols - 1), cx))
+                cy = max(0.0, min(float(self.rows - 1), cy))
+                old_cx = float(d.get("cx", cx))
+                old_cy = float(d.get("cy", cy))
+                d["cx"] = cx
+                d["cy"] = cy
+                if kind == "line":
+                    ax = float(d.get("ax", old_cx))
+                    ay = float(d.get("ay", old_cy))
+                    d["ax"] = ax + (cx - old_cx)
+                    d["ay"] = ay + (cy - old_cy)
             self._layout_aoe(self._drag_id)
 
         self._update_included_for_selected()
