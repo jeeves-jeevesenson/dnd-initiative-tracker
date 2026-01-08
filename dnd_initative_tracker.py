@@ -187,6 +187,8 @@ HTML_INDEX = r"""<!doctype html>
     .item .meta{font-size:12px; color:var(--muted);}
     .item:active{background: rgba(255,255,255,0.04);}
     .hint{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.4;}
+    .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
+    .modal-actions .btn{flex:1; min-width:120px;}
     .turn-modal{
       position:fixed;
       inset:0;
@@ -242,6 +244,16 @@ HTML_INDEX = r"""<!doctype html>
         </div>
       </div>
     </div>
+    <div class="modal" id="dashModal" aria-hidden="true">
+      <div class="card">
+        <h2>Use Action or Bonus Action?</h2>
+        <div class="modal-actions">
+          <button class="btn accent" id="dashAction">Use Action</button>
+          <button class="btn accent" id="dashBonusAction">Use Bonus Action</button>
+          <button class="btn" id="dashCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="sheet">
@@ -291,6 +303,10 @@ HTML_INDEX = r"""<!doctype html>
   const noteEl = document.getElementById("note");
   const claimModal = document.getElementById("claimModal");
   const claimList = document.getElementById("claimList");
+  const dashModal = document.getElementById("dashModal");
+  const dashActionBtn = document.getElementById("dashAction");
+  const dashBonusActionBtn = document.getElementById("dashBonusAction");
+  const dashCancelBtn = document.getElementById("dashCancel");
   const waitingOverlay = document.getElementById("waitingOverlay");
   const turnModal = document.getElementById("turnModal");
   const turnModalOk = document.getElementById("turnModalOk");
@@ -364,6 +380,18 @@ HTML_INDEX = r"""<!doctype html>
       claimList.appendChild(div);
     });
     claimModal.classList.add("show");
+  }
+
+  function showDashModal(){
+    if (!dashModal) return;
+    dashModal.classList.add("show");
+    dashModal.setAttribute("aria-hidden", "false");
+  }
+
+  function hideDashModal(){
+    if (!dashModal) return;
+    dashModal.classList.remove("show");
+    dashModal.setAttribute("aria-hidden", "true");
   }
 
   function gridToScreen(col,row){
@@ -850,8 +878,27 @@ HTML_INDEX = r"""<!doctype html>
 
   document.getElementById("dash").addEventListener("click", () => {
     if (!claimedCid) return;
-    send({type:"dash", cid: Number(claimedCid)});
+    showDashModal();
   });
+  if (dashActionBtn){
+    dashActionBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      send({type:"dash", cid: Number(claimedCid), spend:"action"});
+      hideDashModal();
+    });
+  }
+  if (dashBonusActionBtn){
+    dashBonusActionBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      send({type:"dash", cid: Number(claimedCid), spend:"bonus"});
+      hideDashModal();
+    });
+  }
+  if (dashCancelBtn){
+    dashCancelBtn.addEventListener("click", () => {
+      hideDashModal();
+    });
+  }
   useActionBtn.addEventListener("click", () => {
     if (!claimedCid) return;
     send({type:"use_action", cid: Number(claimedCid)});
@@ -1919,6 +1966,20 @@ class InitiativeTracker(base.InitiativeTracker):
             c = self.combatants.get(cid)
             if not c:
                 return
+            spend = str(msg.get("spend") or "").lower()
+            if spend not in ("action", "bonus"):
+                self._lan.toast(ws_id, "Choose action or bonus action, matey.")
+                return
+            if spend == "action":
+                if not self._use_action(c):
+                    self._lan.toast(ws_id, "No actions left, matey.")
+                    return
+                spend_label = "action"
+            else:
+                if not self._use_bonus_action(c):
+                    self._lan.toast(ws_id, "No bonus actions left, matey.")
+                    return
+                spend_label = "bonus action"
             try:
                 base_speed = int(self._mode_speed(c))
             except Exception:
@@ -1930,6 +1991,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 setattr(c, "move_total", total + base_speed)
                 setattr(c, "move_remaining", rem + base_speed)
                 self._log(f"{c.name} dashed (move {rem}/{total} -> {c.move_remaining}/{c.move_total})", cid=cid)
+                self._lan.toast(ws_id, f"Dashed ({spend_label}).")
                 self._rebuild_table(scroll_to_current=True)
             except Exception:
                 pass
