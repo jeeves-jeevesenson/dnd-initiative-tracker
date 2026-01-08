@@ -2867,6 +2867,14 @@ class BattleMapWindow(tk.Toplevel):
             return None
         return int(cols), int(rows)
 
+    @property
+    def grid_cols(self) -> int:
+        return int(self.cols)
+
+    @property
+    def grid_rows(self) -> int:
+        return int(self.rows)
+
     def _build_ui(self) -> None:
         outer = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
         outer.pack(fill=tk.BOTH, expand=True)

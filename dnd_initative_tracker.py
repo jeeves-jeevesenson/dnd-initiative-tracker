@@ -1578,8 +1578,8 @@ class InitiativeTracker(base.InitiativeTracker):
 
         if mw is not None:
             try:
-                cols = int(getattr(mw, "grid_cols", cols))
-                rows = int(getattr(mw, "grid_rows", rows))
+                cols = int(getattr(mw, "cols", cols))
+                rows = int(getattr(mw, "rows", rows))
             except Exception:
                 pass
             try:
@@ -1816,8 +1816,8 @@ class InitiativeTracker(base.InitiativeTracker):
         mw = getattr(self, "_map_window", None)
         try:
             if mw is not None and mw.winfo_exists():
-                cols = int(getattr(mw, "grid_cols", cols))
-                rows = int(getattr(mw, "grid_rows", rows))
+                cols = int(getattr(mw, "cols", cols))
+                rows = int(getattr(mw, "rows", rows))
                 obstacles = set(getattr(mw, "obstacles", obstacles) or set())
                 for cid, tok in (getattr(mw, "unit_tokens", {}) or {}).items():
                     try:
