@@ -374,14 +374,27 @@ HTML_INDEX = r"""<!doctype html>
           <div class="form-field">
             <label for="castShape">Shape</label>
             <select id="castShape">
+              <option value="" selected>Choose shape</option>
               <option value="circle">Circle</option>
               <option value="square">Square</option>
               <option value="line">Line</option>
             </select>
           </div>
           <div class="form-field">
-            <label for="castSize">Size (squares)</label>
-            <input id="castSize" type="number" min="0.5" step="0.5" value="2" />
+            <label for="castRadius">Radius (ft)</label>
+            <input id="castRadius" type="number" min="5" step="5" value="10" readonly disabled />
+          </div>
+          <div class="form-field">
+            <label for="castSide">Side (ft)</label>
+            <input id="castSide" type="number" min="5" step="5" value="10" readonly disabled />
+          </div>
+          <div class="form-field">
+            <label for="castLength">Length (ft)</label>
+            <input id="castLength" type="number" min="5" step="5" value="30" readonly disabled />
+          </div>
+          <div class="form-field">
+            <label for="castWidth">Width (ft)</label>
+            <input id="castWidth" type="number" min="5" step="5" value="5" readonly disabled />
           </div>
           <div class="form-field">
             <label for="castDcType">DC Type</label>
@@ -469,7 +482,10 @@ HTML_INDEX = r"""<!doctype html>
   const castForm = document.getElementById("castForm");
   const castNameInput = document.getElementById("castName");
   const castShapeInput = document.getElementById("castShape");
-  const castSizeInput = document.getElementById("castSize");
+  const castRadiusInput = document.getElementById("castRadius");
+  const castSideInput = document.getElementById("castSide");
+  const castLengthInput = document.getElementById("castLength");
+  const castWidthInput = document.getElementById("castWidth");
   const castDcTypeInput = document.getElementById("castDcType");
   const castDcValueInput = document.getElementById("castDcValue");
   const castDamageTypeInput = document.getElementById("castDamageType");
@@ -1582,6 +1598,28 @@ HTML_INDEX = r"""<!doctype html>
     });
   }
 
+  const setCastFieldEnabled = (input, enabled) => {
+    if (!input) return;
+    input.disabled = !enabled;
+    input.readOnly = !enabled;
+  };
+
+  const updateCastShapeFields = () => {
+    const shape = String(castShapeInput?.value || "").toLowerCase();
+    const isCircle = shape === "circle";
+    const isSquare = shape === "square";
+    const isLine = shape === "line";
+    setCastFieldEnabled(castRadiusInput, isCircle);
+    setCastFieldEnabled(castSideInput, isSquare);
+    setCastFieldEnabled(castLengthInput, isLine);
+    setCastFieldEnabled(castWidthInput, isLine);
+  };
+
+  if (castShapeInput){
+    castShapeInput.addEventListener("change", updateCastShapeFields);
+    updateCastShapeFields();
+  }
+
   if (castForm){
     castForm.addEventListener("submit", (ev) => {
       ev.preventDefault();
@@ -1593,10 +1631,29 @@ HTML_INDEX = r"""<!doctype html>
         localToast("Map not ready yet, matey.");
         return;
       }
-      const shape = String(castShapeInput?.value || "circle").toLowerCase();
-      const size = parseFloat(castSizeInput?.value || "");
-      if (!Number.isFinite(size) || size <= 0){
-        localToast("Enter a valid size, matey.");
+      const shape = String(castShapeInput?.value || "").toLowerCase();
+      if (!shape){
+        localToast("Pick a spell shape first, matey.");
+        return;
+      }
+      const parsePositive = (value) => {
+        const num = parseFloat(value || "");
+        return Number.isFinite(num) && num > 0 ? num : null;
+      };
+      const radiusFt = parsePositive(castRadiusInput?.value);
+      const sideFt = parsePositive(castSideInput?.value);
+      const lengthFt = parsePositive(castLengthInput?.value);
+      const widthFt = parsePositive(castWidthInput?.value);
+      if (shape === "circle" && radiusFt === null){
+        localToast("Enter a valid radius, matey.");
+        return;
+      }
+      if (shape === "square" && sideFt === null){
+        localToast("Enter a valid side length, matey.");
+        return;
+      }
+      if (shape === "line" && (lengthFt === null || widthFt === null)){
+        localToast("Enter a valid line size, matey.");
         return;
       }
       const dcType = String(castDcTypeInput?.value || "").trim().toLowerCase();
@@ -1607,7 +1664,6 @@ HTML_INDEX = r"""<!doctype html>
       const center = defaultAoeCenter();
       const payload = {
         shape,
-        size,
         dc: Number.isFinite(dcValue) ? dcValue : null,
         save_type: dcType || null,
         damage_type: damageType || null,
@@ -1616,6 +1672,14 @@ HTML_INDEX = r"""<!doctype html>
         cx: center.cx,
         cy: center.cy,
       };
+      if (shape === "circle"){
+        payload.radius_ft = radiusFt;
+      } else if (shape === "square"){
+        payload.side_ft = sideFt;
+      } else if (shape === "line"){
+        payload.length_ft = lengthFt;
+        payload.width_ft = widthFt;
+      }
       send({type: "cast_aoe", payload});
     });
   }
@@ -2951,13 +3015,20 @@ class InitiativeTracker(base.InitiativeTracker):
             if shape not in ("circle", "square", "line"):
                 self._lan.toast(ws_id, "Pick a valid spell shape, matey.")
                 return
-            try:
-                size = float(payload.get("size") or 0)
-            except Exception:
-                size = 0.0
-            if size <= 0:
-                self._lan.toast(ws_id, "Pick a valid spell size, matey.")
-                return
+            def parse_positive_float(value: Any) -> Optional[float]:
+                try:
+                    num = float(value)
+                except Exception:
+                    return None
+                if num <= 0:
+                    return None
+                return num
+
+            size = parse_positive_float(payload.get("size"))
+            radius_ft = parse_positive_float(payload.get("radius_ft"))
+            side_ft = parse_positive_float(payload.get("side_ft"))
+            length_ft = parse_positive_float(payload.get("length_ft"))
+            width_ft = parse_positive_float(payload.get("width_ft"))
             color = self._normalize_token_color(payload.get("color")) or ""
             name = str(payload.get("name") or "").strip()
             save_type = str(payload.get("save_type") or "").strip().lower()
@@ -2972,6 +3043,12 @@ class InitiativeTracker(base.InitiativeTracker):
             if mw is None or not mw.winfo_exists():
                 self._lan.toast(ws_id, "Map window not open, matey.")
                 return
+            try:
+                feet_per_square = float(getattr(mw, "feet_per_square", 5.0) or 5.0)
+            except Exception:
+                feet_per_square = 5.0
+            if feet_per_square <= 0:
+                feet_per_square = 5.0
             try:
                 cols = int(getattr(mw, "cols", 0))
                 rows = int(getattr(mw, "rows", 0))
@@ -3021,13 +3098,34 @@ class InitiativeTracker(base.InitiativeTracker):
             if default_damage not in (None, ""):
                 aoe["default_damage"] = default_damage
             if shape == "circle":
-                aoe["radius_sq"] = float(size)
+                if radius_ft is None and size is None:
+                    self._lan.toast(ws_id, "Pick a valid spell radius, matey.")
+                    return
+                if radius_ft is not None:
+                    aoe["radius_sq"] = max(0.5, float(radius_ft) / feet_per_square)
+                else:
+                    aoe["radius_sq"] = float(size)
             elif shape == "square":
-                aoe["side_sq"] = float(size)
+                if side_ft is None and size is None:
+                    self._lan.toast(ws_id, "Pick a valid spell side length, matey.")
+                    return
+                if side_ft is not None:
+                    aoe["side_sq"] = max(1.0, float(side_ft) / feet_per_square)
+                else:
+                    aoe["side_sq"] = float(size)
             else:
-                width = float(payload.get("width") or 1.0)
-                aoe["length_sq"] = float(size)
-                aoe["width_sq"] = max(0.5, float(width))
+                if length_ft is None and size is None:
+                    self._lan.toast(ws_id, "Pick a valid spell length, matey.")
+                    return
+                if length_ft is not None:
+                    aoe["length_sq"] = max(1.0, float(length_ft) / feet_per_square)
+                else:
+                    aoe["length_sq"] = float(size)
+                if width_ft is not None:
+                    aoe["width_sq"] = max(1.0, float(width_ft) / feet_per_square)
+                else:
+                    width = parse_positive_float(payload.get("width")) or 1.0
+                    aoe["width_sq"] = max(1.0, float(width))
                 aoe["orient"] = str(payload.get("orient") or "vertical")
                 aoe["angle_deg"] = float(payload.get("angle_deg") or 90.0)
                 aoe["ax"] = float(cx)
