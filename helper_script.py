@@ -2854,6 +2854,7 @@ class BattleMapWindow(tk.Toplevel):
         self._map_margin = 24  # pixels of padding around the grid
         self.zoom_var = tk.DoubleVar(value=32.0)  # pixels per square (5 ft)
         self.obstacle_mode_var = tk.BooleanVar(value=False)
+        self.obstacle_erase_var = tk.BooleanVar(value=False)
         self.show_all_names_var = tk.BooleanVar(value=False)
         self._last_roster_sig: Optional[Tuple[int, ...]] = None
         self._poll_after_id: Optional[str] = None
@@ -3022,12 +3023,15 @@ class BattleMapWindow(tk.Toplevel):
         ttk.Button(view, text="Center", command=self._center_view).grid(row=1, column=1, sticky="w", pady=(6, 0))
         ttk.Button(view, text="Dash (+spd)", command=self._dash_active).grid(row=1, column=2, sticky="e", pady=(6, 0))
         ttk.Checkbutton(view, text="Draw Obstacles", variable=self.obstacle_mode_var).grid(row=2, column=0, sticky="w", pady=(6, 0))
-        ttk.Button(view, text="Clear Obstacles", command=self._clear_obstacles).grid(row=2, column=1, sticky="w", pady=(6, 0))
+        ttk.Checkbutton(view, text="Erase Obstacles (Shift)", variable=self.obstacle_erase_var).grid(
+            row=2, column=1, sticky="w", pady=(6, 0)
+        )
+        ttk.Button(view, text="Clear Obstacles", command=self._clear_obstacles).grid(row=2, column=2, sticky="w", pady=(6, 0))
         ttk.Checkbutton(view, text="Show All Names", variable=self.show_all_names_var, command=self._redraw_all).grid(
-            row=2, column=2, sticky="e", pady=(6, 0)
+            row=3, column=0, columnspan=3, sticky="w", pady=(6, 0)
         )
         preset_btns = ttk.Frame(view)
-        preset_btns.grid(row=3, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        preset_btns.grid(row=4, column=0, columnspan=3, sticky="w", pady=(6, 0))
         ttk.Button(preset_btns, text="Save Preset", command=self._save_obstacle_preset).pack(side=tk.LEFT)
         ttk.Button(preset_btns, text="Load Preset", command=self._load_obstacle_preset).pack(side=tk.LEFT, padx=(8, 0))
         view.columnconfigure(1, weight=1)
@@ -3481,8 +3485,8 @@ class BattleMapWindow(tk.Toplevel):
             return
         if col < 0 or row < 0 or col >= self.cols or row >= self.rows:
             return
-        # Shift = erase
-        erase = bool(event.state & 0x0001)
+        # Shift = erase (or toggle on the UI)
+        erase = bool(self.obstacle_erase_var.get()) or bool(event.state & 0x0001)
         key = (int(col), int(row))
         if erase:
             if key in self.obstacles:
