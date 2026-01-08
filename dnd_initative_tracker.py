@@ -351,6 +351,20 @@ HTML_INDEX = r"""<!doctype html>
 
   let ws = null;
   let state = null;
+  const clientId = (() => {
+    const key = "inittracker_clientId";
+    let value = localStorage.getItem(key);
+    if (!value){
+      if (crypto && typeof crypto.randomUUID === "function"){
+        value = crypto.randomUUID();
+      } else {
+        const rand = Math.random().toString(36).slice(2, 10);
+        value = `${Date.now().toString(36)}-${rand}`;
+      }
+      localStorage.setItem(key, value);
+    }
+    return value;
+  })();
   let claimedCid = localStorage.getItem("inittracker_claimedCid") || null;
   let pendingClaim = null;
   let lastPcList = [];
@@ -861,7 +875,7 @@ HTML_INDEX = r"""<!doctype html>
     ws.addEventListener("open", () => {
       setConn(true, "Connected");
       send({type:"grid_request"});
-      send({type:"hello", claimed: claimedCid ? Number(claimedCid) : null});
+      send({type:"hello", claimed: claimedCid ? Number(claimedCid) : null, client_id: clientId});
     });
     ws.addEventListener("close", () => {
       setConn(false, "Disconnected");
@@ -877,6 +891,16 @@ HTML_INDEX = r"""<!doctype html>
         draw();
         updateHud();
         maybeShowTurnAlert();
+        if (claimedCid && clientId && state && Array.isArray(state.units)){
+          const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
+          const serverOwner = me ? (me.claimed_by ?? null) : null;
+          if (me && serverOwner !== clientId){
+            claimedCid = null;
+            localStorage.removeItem("inittracker_claimedCid");
+            meEl.textContent = "(unclaimed)";
+            updateHud();
+          }
+        }
         // show claim if needed
         if (!claimedCid){
           const pcs = (msg.pcs || msg.claimable || []);
@@ -1164,6 +1188,9 @@ class LanController:
         self._clients_meta: Dict[int, Dict[str, Any]] = {}  # id(websocket) -> {host,port,ua,connected_at}
         self._claims: Dict[int, int] = {}   # id(websocket) -> cid
         self._cid_to_ws: Dict[int, int] = {}  # cid -> id(websocket) (1 owner at a time)
+        self._client_ids: Dict[int, str] = {}  # id(websocket) -> client_id
+        self._client_claims: Dict[str, int] = {}  # client_id -> cid (last known claim)
+        self._cid_to_client: Dict[int, str] = {}  # cid -> client_id (active claim)
 
         self._actions: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._last_state_json: Optional[str] = None
@@ -1255,8 +1282,21 @@ class LanController:
                     if typ == "hello":
                         # If client sends previous claim, remember it (optional).
                         claimed = msg.get("claimed")
-                        if isinstance(claimed, int):
-                            await self._claim_ws_async(ws_id, claimed, note="Reconnected.")
+                        client_id = msg.get("client_id")
+                        if isinstance(client_id, str):
+                            client_id = client_id.strip()
+                        else:
+                            client_id = None
+                        if client_id:
+                            with self._clients_lock:
+                                self._client_ids[ws_id] = client_id
+                            known_claim = self._client_claims.get(client_id)
+                            if known_claim is not None and self._can_auto_claim(int(known_claim)):
+                                await self._claim_ws_async(ws_id, int(known_claim), note="Reconnected.")
+                            elif isinstance(claimed, int) and self._can_auto_claim(int(claimed)):
+                                await self._claim_ws_async(ws_id, int(claimed), note="Reconnected.")
+                        elif isinstance(claimed, int) and self._can_auto_claim(int(claimed)):
+                            await self._claim_ws_async(ws_id, int(claimed), note="Reconnected.")
                         await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
                     elif typ == "grid_request":
                         await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
@@ -1292,6 +1332,8 @@ class LanController:
                     old = self._claims.pop(ws_id, None)
                     if old is not None:
                         self._cid_to_ws.pop(int(old), None)
+                        self._cid_to_client.pop(int(old), None)
+                    self._client_ids.pop(ws_id, None)
                     self._grid_pending.pop(ws_id, None)
                 if old is not None:
                     name = self._pc_name_for(int(old))
@@ -1424,14 +1466,25 @@ class LanController:
     def _pcs_payload(self) -> List[Dict[str, Any]]:
         pcs = list(self._cached_pcs)
         with self._clients_lock:
-            cid_to_ws = dict(self._cid_to_ws)
+            cid_to_client = dict(self._cid_to_client)
         out: List[Dict[str, Any]] = []
         for p in pcs:
             pp = dict(p)
-            pp["claimed_by"] = cid_to_ws.get(int(pp.get("cid", -1)))
+            pp["claimed_by"] = cid_to_client.get(int(pp.get("cid", -1)))
             out.append(pp)
         out.sort(key=lambda d: str(d.get("name", "")))
         return out
+
+    def _can_auto_claim(self, cid: int) -> bool:
+        try:
+            cid = int(cid)
+        except Exception:
+            return False
+        pcs = {int(p.get("cid")) for p in self._cached_pcs if isinstance(p.get("cid"), int)}
+        if cid not in pcs:
+            return False
+        with self._clients_lock:
+            return self._cid_to_ws.get(cid) is None
 
     # ---------- Server-thread safe broadcast ----------
 
@@ -1445,7 +1498,7 @@ class LanController:
             pass
 
     async def _broadcast_state_async(self, snap: Dict[str, Any]) -> None:
-        payload = json.dumps({"type": "state", "state": snap, "pcs": self._pcs_payload()})
+        payload = json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()})
         to_drop: List[int] = []
         with self._clients_lock:
             items = list(self._clients.items())
@@ -1461,8 +1514,10 @@ class LanController:
                     old_cid = self._claims.pop(ws_id, None)
                     if old_cid is not None:
                         self._cid_to_ws.pop(int(old_cid), None)
+                        self._cid_to_client.pop(int(old_cid), None)
                     self._clients.pop(ws_id, None)
                     self._clients_meta.pop(ws_id, None)
+                    self._client_ids.pop(ws_id, None)
 
     def _broadcast_grid_update(self, grid: Dict[str, Any]) -> None:
         if not self._loop:
@@ -1565,6 +1620,10 @@ class LanController:
             old = self._claims.pop(ws_id, None)
             if old is not None:
                 self._cid_to_ws.pop(int(old), None)
+                self._cid_to_client.pop(int(old), None)
+            client_id = self._client_ids.get(ws_id)
+            if client_id:
+                self._client_claims.pop(client_id, None)
         if old is not None:
             name = self._pc_name_for(int(old))
             self.app._oplog(f"LAN session ws_id={ws_id} unclaimed {name} ({reason})")
@@ -1580,11 +1639,14 @@ class LanController:
         # Steal/assign with single-owner logic
         steal_from: Optional[int] = None
         prev_owned: Optional[int] = None
+        client_id: Optional[str] = None
+        steal_client_id: Optional[str] = None
         with self._clients_lock:
             # if this ws had old claim, clear reverse map
             prev_owned = self._claims.get(ws_id)
             if prev_owned is not None:
                 self._cid_to_ws.pop(int(prev_owned), None)
+                self._cid_to_client.pop(int(prev_owned), None)
 
             # if cid is owned, we'll steal
             steal_from = self._cid_to_ws.get(int(cid))
@@ -1593,6 +1655,20 @@ class LanController:
             # assign
             self._claims[ws_id] = int(cid)
             self._cid_to_ws[int(cid)] = ws_id
+            client_id = self._client_ids.get(ws_id)
+            if client_id:
+                self._client_claims[client_id] = int(cid)
+                self._cid_to_client[int(cid)] = client_id
+            else:
+                self._cid_to_client.pop(int(cid), None)
+            if steal_from is not None and steal_from != ws_id:
+                steal_client_id = self._client_ids.get(steal_from)
+                if steal_client_id:
+                    self._client_claims.pop(steal_client_id, None)
+                    if client_id:
+                        self._cid_to_client[int(cid)] = client_id
+                    else:
+                        self._cid_to_client.pop(int(cid), None)
 
         if steal_from is not None and steal_from != ws_id:
             await self._send_async(steal_from, {"type": "force_unclaim", "text": "Yer character got reassigned by the DM.", "pcs": self._pcs_payload()})
@@ -1619,7 +1695,25 @@ class LanController:
         return f"http://{ip}:{self.cfg.port}/"
 
     def _cached_snapshot_payload(self) -> Dict[str, Any]:
-        return dict(self._cached_snapshot)
+        snap = dict(self._cached_snapshot)
+        units = snap.get("units")
+        if isinstance(units, list):
+            with self._clients_lock:
+                cid_to_client = dict(self._cid_to_client)
+            enriched = []
+            for unit in units:
+                if not isinstance(unit, dict):
+                    enriched.append(unit)
+                    continue
+                copy_unit = dict(unit)
+                try:
+                    cid = int(copy_unit.get("cid", -1))
+                except Exception:
+                    cid = -1
+                copy_unit["claimed_by"] = cid_to_client.get(cid)
+                enriched.append(copy_unit)
+            snap["units"] = enriched
+        return snap
 
     def _pc_name_for(self, cid: int) -> str:
         for pc in self._cached_pcs:
