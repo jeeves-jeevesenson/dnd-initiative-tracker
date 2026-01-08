@@ -364,6 +364,7 @@ HTML_INDEX = r"""<!doctype html>
   let panning = null;  // {x,y, panX, panY}
   let centeredCid = null;
   let lockMap = false;
+  let fitted = false;
   let lastGrid = {cols: null, rows: null};
   let lastGridVersion = null;
   let showAllNames = localStorage.getItem("inittracker_showAllNames") === "1";
@@ -540,12 +541,12 @@ HTML_INDEX = r"""<!doctype html>
 
     const cols = state.grid.cols, rows = state.grid.rows;
     if (cols !== lastGrid.cols || rows !== lastGrid.rows){
-      state._fitted = false;
+      fitted = false;
       lastGrid = {cols, rows};
     }
 
     // auto-fit on first draw
-    if (!state._fitted){
+    if (!fitted){
       const pad = 24;
       const sx = (w - pad*2) / (cols*zoom);
       const sy = (h - pad*2) / (rows*zoom);
@@ -553,7 +554,7 @@ HTML_INDEX = r"""<!doctype html>
       zoom = Math.floor(zoom * s);
       panX = Math.floor((w - cols*zoom)/2);
       panY = Math.floor((h - rows*zoom)/2);
-      state._fitted = true;
+      fitted = true;
     }
 
     // grid
@@ -872,6 +873,15 @@ HTML_INDEX = r"""<!doctype html>
       if (msg.type === "state"){
         state = msg.state;
         lastPcList = msg.pcs || msg.claimable || [];
+        if (gridReady()){
+          const cols = state.grid.cols;
+          const rows = state.grid.rows;
+          const gridChanged = cols !== lastGrid.cols || rows !== lastGrid.rows;
+          if (gridChanged){
+            fitted = false;
+            lastGrid = {cols, rows};
+          }
+        }
         updateWaitingOverlay();
         draw();
         updateHud();
@@ -926,7 +936,7 @@ HTML_INDEX = r"""<!doctype html>
           const rows = state.grid.rows;
           const gridChanged = cols !== lastGrid.cols || rows !== lastGrid.rows;
           if (gridChanged){
-            state._fitted = false;
+            fitted = false;
             lastGrid = {cols, rows};
           }
         }
