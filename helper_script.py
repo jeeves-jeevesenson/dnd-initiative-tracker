@@ -2857,6 +2857,11 @@ class BattleMapWindow(tk.Toplevel):
 
         # Grouping: multiple units can occupy the same square. We show a single group label and fan the tokens slightly.
         self._cell_to_cids: Dict[Tuple[int, int], List[int]] = {}
+        self._group_cells_index: List[Tuple[int, int]] = []
+        self._group_members_index: List[int] = []
+        self._selected_group_cell: Optional[Tuple[int, int]] = None
+        self._group_preferred_cid: Optional[int] = None
+        self._suspend_group_ui: bool = False
 
         # Move-range highlight for the active creature
         self._movehl_items: List[int] = []
@@ -2991,6 +2996,33 @@ class BattleMapWindow(tk.Toplevel):
         ttk.Button(btns, text="Place Selected", command=self._place_selected_units_near_center).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(btns, text="Place All", command=self._place_all_units_near_center).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(btns, text="Clear Measure (Esc)", command=self._clear_measure).pack(side=tk.LEFT, padx=(8, 0))
+
+        # --- Groups panel ---
+        ttk.Separator(left).pack(fill=tk.X, pady=(6, 10))
+        groups_notebook = ttk.Notebook(left)
+        groups_notebook.pack(fill=tk.BOTH, expand=False)
+        groups_tab = ttk.Frame(groups_notebook)
+        groups_notebook.add(groups_tab, text="Groups")
+
+        ttk.Label(groups_tab, text="Grouped Squares").pack(anchor="w")
+        group_cells_frame = ttk.Frame(groups_tab)
+        group_cells_frame.pack(fill=tk.BOTH, expand=False, pady=(4, 6))
+        self.group_cells_list = tk.Listbox(group_cells_frame, height=6, exportselection=False)
+        self.group_cells_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        group_cells_sb = ttk.Scrollbar(group_cells_frame, orient=tk.VERTICAL, command=self.group_cells_list.yview)
+        group_cells_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.group_cells_list.config(yscrollcommand=group_cells_sb.set)
+        self.group_cells_list.bind("<<ListboxSelect>>", lambda e: self._on_group_cell_select())
+
+        ttk.Label(groups_tab, text="Members").pack(anchor="w")
+        group_members_frame = ttk.Frame(groups_tab)
+        group_members_frame.pack(fill=tk.BOTH, expand=False)
+        self.group_members_list = tk.Listbox(group_members_frame, height=6, exportselection=False)
+        self.group_members_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        group_members_sb = ttk.Scrollbar(group_members_frame, orient=tk.VERTICAL, command=self.group_members_list.yview)
+        group_members_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.group_members_list.config(yscrollcommand=group_members_sb.set)
+        self.group_members_list.bind("<<ListboxSelect>>", lambda e: self._on_group_member_select())
 
         # --- AoE panel ---
         ttk.Separator(left).pack(fill=tk.X, pady=(6, 10))
@@ -3703,20 +3735,93 @@ class BattleMapWindow(tk.Toplevel):
             except Exception:
                 pass
 
-        # Relayout all units (this also refreshes condition markers)
-        for cid in list(self.unit_tokens.keys()):
-            self._layout_unit(cid)
+        self._refresh_groups_panel()
 
-        # Ensure stacking order
+    def _refresh_groups_panel(self) -> None:
+        if not hasattr(self, "group_cells_list"):
+            return
+        self._suspend_group_ui = True
         try:
-            self.canvas.tag_raise("movehl")
-            self.canvas.tag_raise("unit")
-            self.canvas.tag_raise("unitmarker")
-            self.canvas.tag_raise("unitname")
-            self.canvas.tag_raise("group")
-            self.canvas.tag_raise("aoe")
-        except Exception:
-            pass
+            grouped_cells = [
+                (cell, cids)
+                for cell, cids in sorted(self._cell_to_cids.items(), key=lambda item: (item[0][1], item[0][0]))
+                if len(cids) > 1
+            ]
+            self.group_cells_list.delete(0, tk.END)
+            self._group_cells_index = []
+            for (col, row), cids in grouped_cells:
+                self.group_cells_list.insert(tk.END, f"({col},{row}) — {len(cids)} members")
+                self._group_cells_index.append((col, row))
+
+            if self._selected_group_cell in self._group_cells_index:
+                idx = self._group_cells_index.index(self._selected_group_cell)
+                self.group_cells_list.selection_set(idx)
+                self.group_cells_list.activate(idx)
+            else:
+                self._selected_group_cell = None
+                self.group_cells_list.selection_clear(0, tk.END)
+
+            self._refresh_group_members_list()
+        finally:
+            self._suspend_group_ui = False
+
+    def _refresh_group_members_list(self) -> None:
+        if not hasattr(self, "group_members_list"):
+            return
+        self.group_members_list.delete(0, tk.END)
+        self._group_members_index = []
+        if self._selected_group_cell is None:
+            self._group_preferred_cid = None
+            return
+        cids = list(self._cell_to_cids.get(self._selected_group_cell, []))
+        if len(cids) <= 1:
+            self._selected_group_cell = None
+            self._group_preferred_cid = None
+            return
+        order = [c.cid for c in self.app._display_order()] if hasattr(self.app, "_display_order") else []
+        order_index = {cid: i for i, cid in enumerate(order)}
+        cids.sort(key=lambda cid: order_index.get(cid, 10**9))
+        for cid in cids:
+            c = self.app.combatants.get(cid)
+            name = c.name if c else f"#{cid}"
+            self.group_members_list.insert(tk.END, f"{name} [#{cid}]")
+            self._group_members_index.append(cid)
+        if self._group_preferred_cid in self._group_members_index:
+            idx = self._group_members_index.index(self._group_preferred_cid)
+            self.group_members_list.selection_set(idx)
+            self.group_members_list.activate(idx)
+        else:
+            self._group_preferred_cid = None
+            self.group_members_list.selection_clear(0, tk.END)
+
+    def _on_group_cell_select(self) -> None:
+        if self._suspend_group_ui:
+            return
+        selection = self.group_cells_list.curselection()
+        if not selection:
+            self._selected_group_cell = None
+            self._group_preferred_cid = None
+            self._refresh_group_members_list()
+            return
+        idx = int(selection[0])
+        if idx < 0 or idx >= len(self._group_cells_index):
+            return
+        self._selected_group_cell = self._group_cells_index[idx]
+        self._refresh_group_members_list()
+
+    def _on_group_member_select(self) -> None:
+        if self._suspend_group_ui:
+            return
+        selection = self.group_members_list.curselection()
+        if not selection:
+            self._group_preferred_cid = None
+            return
+        idx = int(selection[0])
+        if idx < 0 or idx >= len(self._group_members_index):
+            return
+        cid = self._group_members_index[idx]
+        self._group_preferred_cid = cid
+        self.set_active(cid)
 
 
     def _movement_cost_map(self, start_col: int, start_row: int, max_ft: int) -> Dict[Tuple[int, int], int]:
@@ -4443,6 +4548,20 @@ class BattleMapWindow(tk.Toplevel):
                 else:
                     item = None
 
+        preferred_cid = self._group_preferred_cid
+        if preferred_cid is not None:
+            col, row = self._pixel_to_grid(mx, my)
+            if col is not None and row is not None:
+                cell_cids = self._cell_to_cids.get((col, row), [])
+                if preferred_cid in cell_cids and len(cell_cids) > 1:
+                    if item is None:
+                        self._begin_unit_drag(preferred_cid, mx, my)
+                        return
+                    tags = self.canvas.gettags(item)
+                    if "grid" in tags or "measure" in tags or "movehl" in tags or "group" in tags:
+                        self._begin_unit_drag(preferred_cid, mx, my)
+                        return
+
         if item is None:
             self._drag_kind = None
             self._drag_id = None
@@ -4474,15 +4593,7 @@ class BattleMapWindow(tk.Toplevel):
 
             if t.startswith("unit:"):
                 cid = int(t.split(":", 1)[1])
-                self._drag_kind = "unit"
-                self._drag_id = cid
-                # record origin cell for movement enforcement
-                try:
-                    self._drag_origin_cell = (int(self.unit_tokens[cid]["col"]), int(self.unit_tokens[cid]["row"]))
-                except Exception:
-                    self._drag_origin_cell = None
-                cx, cy = self._grid_to_pixel(int(self.unit_tokens[cid]["col"]), int(self.unit_tokens[cid]["row"]))
-                self._drag_offset = (cx - mx, cy - my)
+                self._begin_unit_drag(cid, mx, my)
                 return
 
             if t.startswith("aoe:"):
@@ -4505,6 +4616,20 @@ class BattleMapWindow(tk.Toplevel):
         self._drag_kind = None
         self._drag_id = None
         self._drag_origin_cell = None
+
+    def _begin_unit_drag(self, cid: int, mx: float, my: float) -> None:
+        self._drag_kind = "unit"
+        self._drag_id = cid
+        # record origin cell for movement enforcement
+        try:
+            self._drag_origin_cell = (int(self.unit_tokens[cid]["col"]), int(self.unit_tokens[cid]["row"]))
+        except Exception:
+            self._drag_origin_cell = None
+        try:
+            cx, cy = self._grid_to_pixel(int(self.unit_tokens[cid]["col"]), int(self.unit_tokens[cid]["row"]))
+            self._drag_offset = (cx - mx, cy - my)
+        except Exception:
+            self._drag_offset = (0.0, 0.0)
 
 
 
