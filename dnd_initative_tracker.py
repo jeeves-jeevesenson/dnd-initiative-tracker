@@ -431,7 +431,10 @@ HTML_INDEX = r"""<!doctype html>
     }
 
     // movement range (claimed token)
-    if (claimedCid && state.units){
+    const isMyTurn = claimedCid != null
+      && state.active_cid != null
+      && Number(state.active_cid) === Number(claimedCid);
+    if (isMyTurn && state.units){
       const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
       if (me){
         const move = Math.max(0, Number(me.move_remaining || 0));
