@@ -27,6 +27,7 @@ import os
 import shutil
 import ast
 import re
+import json
 from pathlib import Path
 from datetime import datetime
 
@@ -3025,6 +3026,10 @@ class BattleMapWindow(tk.Toplevel):
         ttk.Checkbutton(view, text="Show All Names", variable=self.show_all_names_var, command=self._redraw_all).grid(
             row=2, column=2, sticky="e", pady=(6, 0)
         )
+        preset_btns = ttk.Frame(view)
+        preset_btns.grid(row=3, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        ttk.Button(preset_btns, text="Save Preset", command=self._save_obstacle_preset).pack(side=tk.LEFT)
+        ttk.Button(preset_btns, text="Load Preset", command=self._load_obstacle_preset).pack(side=tk.LEFT, padx=(8, 0))
         view.columnconfigure(1, weight=1)
 
         # --- Units panel ---
@@ -3345,6 +3350,99 @@ class BattleMapWindow(tk.Toplevel):
     def _clear_obstacles(self) -> None:
         self.obstacles.clear()
         self._redraw_all()
+        self._update_move_highlight()
+
+    def _ensure_preset_dir(self) -> Path:
+        preset_dir = Path(__file__).resolve().parent / "presets"
+        preset_dir.mkdir(parents=True, exist_ok=True)
+        return preset_dir
+
+    def _save_obstacle_preset(self) -> None:
+        preset_dir = self._ensure_preset_dir()
+        path = filedialog.asksaveasfilename(
+            parent=self,
+            title="Save Obstacle Preset",
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            initialdir=str(preset_dir),
+        )
+        if not path:
+            return
+        data = {
+            "cols": int(self.cols),
+            "rows": int(self.rows),
+            "obstacles": sorted([list(pair) for pair in self.obstacles]),
+        }
+        try:
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(data, handle, indent=2)
+        except OSError as exc:
+            messagebox.showerror("Save Preset", f"Failed to save preset:\n{exc}", parent=self)
+
+    def _load_obstacle_preset(self) -> None:
+        preset_dir = self._ensure_preset_dir()
+        path = filedialog.askopenfilename(
+            parent=self,
+            title="Load Obstacle Preset",
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            initialdir=str(preset_dir),
+        )
+        if not path:
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            messagebox.showerror("Load Preset", f"Failed to load preset:\n{exc}", parent=self)
+            return
+        if not isinstance(data, dict):
+            messagebox.showerror("Load Preset", "Preset data is not a valid object.", parent=self)
+            return
+        try:
+            preset_cols = int(data.get("cols"))
+            preset_rows = int(data.get("rows"))
+        except (TypeError, ValueError):
+            messagebox.showerror("Load Preset", "Preset is missing valid grid dimensions.", parent=self)
+            return
+        obstacles = data.get("obstacles", [])
+        if not isinstance(obstacles, list):
+            messagebox.showerror("Load Preset", "Preset obstacle list is invalid.", parent=self)
+            return
+        target_cols = int(self.cols)
+        target_rows = int(self.rows)
+        if preset_cols != self.cols or preset_rows != self.rows:
+            choice = messagebox.askyesnocancel(
+                "Preset Size Mismatch",
+                (
+                    f"Preset is {preset_cols}x{preset_rows}, but the map is {int(self.cols)}x{int(self.rows)}.\n\n"
+                    "Yes: resize map to match the preset.\n"
+                    "No: keep current size and load only obstacles that fit.\n"
+                    "Cancel: abort loading."
+                ),
+                parent=self,
+            )
+            if choice is None:
+                return
+            if choice:
+                self.cols = preset_cols
+                self.rows = preset_rows
+                target_cols = preset_cols
+                target_rows = preset_rows
+        loaded: Set[Tuple[int, int]] = set()
+        for item in obstacles:
+            if not isinstance(item, (list, tuple)) or len(item) != 2:
+                continue
+            try:
+                col = int(item[0])
+                row = int(item[1])
+            except (TypeError, ValueError):
+                continue
+            if 0 <= col < target_cols and 0 <= row < target_rows:
+                loaded.add((col, row))
+        self.obstacles = loaded
+        self._redraw_all()
+        self._update_move_highlight()
 
     def _draw_obstacles(self) -> None:
         """Render obstacle squares on top of the grid."""
