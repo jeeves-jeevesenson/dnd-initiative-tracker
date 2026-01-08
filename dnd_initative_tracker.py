@@ -151,6 +151,12 @@ HTML_INDEX = r"""<!doctype html>
 
     .mapWrap{flex:1; position:relative; overflow:hidden; background:#0a0c12;}
     canvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none;}
+    .waiting{
+      position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+      background: rgba(10,12,18,0.82); color: var(--muted); font-size: 16px; letter-spacing: 0.4px;
+      text-transform: lowercase;
+    }
+    .waiting.show{display:flex;}
 
     .sheet{
       padding: 10px 12px calc(12px + var(--safeInsetBottom)) 12px;
@@ -205,6 +211,7 @@ HTML_INDEX = r"""<!doctype html>
 
   <div class="mapWrap">
     <canvas id="c"></canvas>
+    <div class="waiting" id="waitingOverlay">(waiting for combat...)</div>
 
     <div class="modal" id="claimModal">
       <div class="card">
@@ -247,6 +254,7 @@ HTML_INDEX = r"""<!doctype html>
   const noteEl = document.getElementById("note");
   const claimModal = document.getElementById("claimModal");
   const claimList = document.getElementById("claimList");
+  const waitingOverlay = document.getElementById("waitingOverlay");
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -317,8 +325,24 @@ HTML_INDEX = r"""<!doctype html>
     return {col: Math.floor((x - panX)/zoom), row: Math.floor((y - panY)/zoom)};
   }
 
+  function gridReady(){
+    if (!state || !state.grid) return false;
+    if (state.grid.ready === false) return false;
+    return Number.isFinite(state.grid.cols) && Number.isFinite(state.grid.rows);
+  }
+
+  function updateWaitingOverlay(){
+    if (!waitingOverlay) return;
+    waitingOverlay.classList.toggle("show", !gridReady());
+  }
+
   function draw(){
     if (!state) return;
+    if (!gridReady()){
+      updateWaitingOverlay();
+      return;
+    }
+    updateWaitingOverlay();
     const w = canvas.getBoundingClientRect().width;
     const h = canvas.getBoundingClientRect().height;
 
@@ -459,6 +483,7 @@ HTML_INDEX = r"""<!doctype html>
 
   function centerOnClaimed(){
     if (!state || !state.units || !claimedCid) return;
+    if (!gridReady()) return;
     const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
     if (!me) return;
     const w = canvas.getBoundingClientRect().width;
@@ -514,6 +539,7 @@ HTML_INDEX = r"""<!doctype html>
       if (msg.type === "state"){
         state = msg.state;
         lastPcList = msg.pcs || msg.claimable || [];
+        updateWaitingOverlay();
         if (lockMap){
           centerOnClaimed();
         }
@@ -567,11 +593,14 @@ HTML_INDEX = r"""<!doctype html>
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
       } else if (msg.type === "grid_update"){
         if (!state){ state = {}; }
-        state.grid = msg.grid || state.grid;
-        if (state.grid){
+        if ("grid" in msg){
+          state.grid = msg.grid;
+        }
+        if (gridReady()){
           state._fitted = false;
           lastGrid = {cols: state.grid.cols, rows: state.grid.rows};
         }
+        updateWaitingOverlay();
 <<<<<<< HEAD:dnd_initative_tracker.py
 =======
         lastGridVersion = msg.version ?? lastGridVersion;
@@ -693,6 +722,7 @@ HTML_INDEX = r"""<!doctype html>
     ro.observe(mapWrap);
   }
   resize();
+  updateWaitingOverlay();
   connect();
 })();
 </script>
@@ -747,7 +777,7 @@ class LanController:
 =======
 >>>>>>> origin/main:dnd_initative_tracker_v36.py
         self._cached_snapshot: Dict[str, Any] = {
-            "grid": {"cols": 20, "rows": 20, "feet_per_square": 5},
+            "grid": None,
             "obstacles": [],
             "units": [],
             "active_cid": None,
@@ -1575,6 +1605,7 @@ class InitiativeTracker(base.InitiativeTracker):
         rows = self._lan_grid_rows
         obstacles = set(self._lan_obstacles)
         positions = dict(self._lan_positions)
+        map_ready = mw is not None
 
         if mw is not None:
             try:
@@ -1617,8 +1648,11 @@ class InitiativeTracker(base.InitiativeTracker):
         # Active creature
         active = self.current_cid if getattr(self, "current_cid", None) is not None else None
 
+        grid_payload = None
+        if map_ready:
+            grid_payload = {"cols": int(cols), "rows": int(rows), "feet_per_square": 5}
         snap: Dict[str, Any] = {
-            "grid": {"cols": int(cols), "rows": int(rows), "feet_per_square": 5},
+            "grid": grid_payload,
             "obstacles": [{"col": int(c), "row": int(r)} for (c, r) in sorted(obstacles)],
             "units": units,
             "active_cid": active,
