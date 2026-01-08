@@ -174,6 +174,19 @@ class Combatant:
     exhaustion_level: int = 0  # 0-6
 
 
+@dataclass
+class MonsterSpec:
+    filename: str
+    name: str
+    mtype: str
+    cr: Optional[float]
+    hp: Optional[int]
+    speed: Optional[int]
+    swim_speed: Optional[int]
+    dex: Optional[int]
+    init_mod: Optional[int]
+
+
 class InitiativeTracker(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -183,6 +196,8 @@ class InitiativeTracker(tk.Tk):
         self._next_id = 1
         self._next_stack_id = 1
         self.combatants: Dict[int, Combatant] = {}
+        self._monster_specs: List[MonsterSpec] = []
+        self._monsters_by_name: Dict[str, MonsterSpec] = {}
 
         # Remember roles for name-based log styling (pc/ally/enemy)
         self._name_role_memory: Dict[str, str] = {}
@@ -199,6 +214,7 @@ class InitiativeTracker(tk.Tk):
         self.round_num: int = 1
         self.turn_num: int = 0
 
+        self._load_monsters_index()
         self._build_ui()
         self._load_history_into_log()
         self._log("=== Session started ===")
@@ -2110,8 +2126,155 @@ class InitiativeTracker(tk.Tk):
                 self.combatants[cid].star_advantage = not self.combatants[cid].star_advantage
         self._rebuild_table(scroll_to_current=True)
 
+    # --------------------- Monsters (YAML library) ---------------------
+    def _monsters_dir_path(self) -> Path:
+        return Path.cwd() / "Monsters"
+
+    def _load_monsters_index(self) -> None:
+        """Load ./Monsters/*.yml|*.yaml and build a small index for the add dropdown."""
+        self._monster_specs = []
+        self._monsters_by_name = {}
+
+        mdir = self._monsters_dir_path()
+        try:
+            mdir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+        files: List[Path] = []
+        try:
+            files = sorted(list(mdir.glob("*.yml")) + list(mdir.glob("*.yaml")))
+        except Exception:
+            files = []
+
+        if not files:
+            return
+
+        if yaml is None:
+            try:
+                self._log("Monster YAML support requires PyYAML. Install: sudo apt install python3-yaml")
+            except Exception:
+                pass
+            return
+
+        for fp in files:
+            try:
+                raw = fp.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            try:
+                data = yaml.safe_load(raw)
+            except Exception:
+                continue
+            if not isinstance(data, dict):
+                continue
+            mon = data.get("monster")
+            if not isinstance(mon, dict):
+                continue
+
+            name = str(mon.get("name") or fp.stem).strip()
+            if not name:
+                continue
+
+            mtype = str(mon.get("type") or "unknown").strip() or "unknown"
+
+            cr_val = None
+            try:
+                ch = mon.get("challenge") or {}
+                if isinstance(ch, dict) and "cr" in ch:
+                    cr_val = ch.get("cr")
+            except Exception:
+                cr_val = None
+            cr: Optional[float] = None
+            try:
+                if isinstance(cr_val, (int, float)):
+                    cr = float(cr_val)
+                elif isinstance(cr_val, str) and cr_val.strip():
+                    cr = float(cr_val.strip())
+            except Exception:
+                cr = None
+
+            hp = None
+            try:
+                defs = mon.get("defenses") or {}
+                if isinstance(defs, dict):
+                    hp_block = defs.get("hit_points") or {}
+                    if isinstance(hp_block, dict):
+                        avg = hp_block.get("average")
+                        if isinstance(avg, int):
+                            hp = int(avg)
+                        elif isinstance(avg, str) and avg.strip().isdigit():
+                            hp = int(avg.strip())
+            except Exception:
+                hp = None
+
+            speed = None
+            swim_speed = None
+            try:
+                sp = mon.get("speed") or {}
+                if isinstance(sp, dict):
+                    wf = sp.get("walk_ft")
+                    sf = sp.get("swim_ft")
+                    if isinstance(wf, int):
+                        speed = int(wf)
+                    elif isinstance(wf, str) and wf.strip().isdigit():
+                        speed = int(wf.strip())
+                    if isinstance(sf, int):
+                        swim_speed = int(sf)
+                    elif isinstance(sf, str) and sf.strip().isdigit():
+                        swim_speed = int(sf.strip())
+            except Exception:
+                speed = None
+                swim_speed = None
+
+            dex = None
+            try:
+                ab = mon.get("abilities") or {}
+                if isinstance(ab, dict):
+                    dv = ab.get("dex")
+                    if isinstance(dv, int):
+                        dex = int(dv)
+                    elif isinstance(dv, str) and dv.strip().lstrip("-").isdigit():
+                        dex = int(dv.strip())
+            except Exception:
+                dex = None
+
+            init_mod = None
+            try:
+                ini = mon.get("initiative") or {}
+                if isinstance(ini, dict):
+                    mv = ini.get("modifier")
+                    if isinstance(mv, int):
+                        init_mod = int(mv)
+                    elif isinstance(mv, str) and mv.strip().lstrip("-").isdigit():
+                        init_mod = int(mv.strip())
+            except Exception:
+                init_mod = None
+
+            spec = MonsterSpec(
+                filename=str(fp.name),
+                name=name,
+                mtype=mtype,
+                cr=cr,
+                hp=hp,
+                speed=speed,
+                swim_speed=swim_speed,
+                dex=dex,
+                init_mod=init_mod,
+            )
+
+            if name not in self._monsters_by_name:
+                self._monsters_by_name[name] = spec
+            self._monster_specs.append(spec)
+
+        self._monster_specs.sort(key=lambda s: s.name.lower())
+
+    def _monster_names_sorted(self) -> List[str]:
+        return [s.name for s in self._monster_specs]
+
     # -------------------------- Bulk add --------------------------
     def _open_bulk_dialog(self) -> None:
+        self._load_monsters_index()
         dlg = tk.Toplevel(self)
         dlg.title("Bulk Add")
         dlg.geometry("760x260")
@@ -2124,7 +2287,9 @@ class InitiativeTracker(tk.Tk):
 
         ttk.Label(frm, text="Base Name (e.g. Goblin)").grid(row=0, column=0, sticky="w")
         name_var = tk.StringVar()
-        ttk.Entry(frm, textvariable=name_var, width=22).grid(row=1, column=0, padx=(0, 8))
+        monster_values = self._monster_names_sorted()
+        name_combo = ttk.Combobox(frm, textvariable=name_var, values=monster_values, width=22)
+        name_combo.grid(row=1, column=0, padx=(0, 8))
 
         ttk.Label(frm, text="Count").grid(row=0, column=1, sticky="w")
         count_var = tk.StringVar(value="1")
@@ -2151,6 +2316,39 @@ class InitiativeTracker(tk.Tk):
         ttk.Checkbutton(frm, text="Mark as ally", variable=ally_var).grid(row=2, column=0, sticky="w", pady=(8, 0))
         water_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(frm, text="Water mode", variable=water_var).grid(row=2, column=1, sticky="w", pady=(8, 0))
+
+        def apply_monster_defaults() -> None:
+            nm = name_var.get().strip()
+            spec = self._monsters_by_name.get(nm)
+            if not spec:
+                return
+            if spec.hp is not None:
+                hp_var.set(str(spec.hp))
+            if spec.speed is not None:
+                spd_var.set(str(spec.speed))
+            if spec.swim_speed is not None and spec.swim_speed > 0:
+                swim_var.set(str(spec.swim_speed))
+            else:
+                swim_var.set("")
+
+            dex_mod = None
+            if spec.dex is not None:
+                try:
+                    dex_mod = (int(spec.dex) - 10) // 2
+                except Exception:
+                    dex_mod = None
+
+            mod = spec.init_mod
+            if mod is None:
+                mod = dex_mod
+            if mod is not None:
+                dex_var.set(str(mod))
+
+        name_combo.bind("<<ComboboxSelected>>", lambda _e: apply_monster_defaults())
+
+        if monster_values and not name_var.get().strip():
+            name_var.set(monster_values[0])
+            apply_monster_defaults()
 
         def on_add():
             base = name_var.get().strip()
