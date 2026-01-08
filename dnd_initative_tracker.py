@@ -2683,6 +2683,9 @@ class InitiativeTracker(base.InitiativeTracker):
             self._rebuild_table(scroll_to_current=True)
         elif typ == "reset_turn":
             if self._lan_restore_turn_snapshot(cid):
+                c = self.combatants.get(cid)
+                if c:
+                    self._log(f"{c.name} reset their turn snapshot.", cid=cid)
                 self._lan.toast(ws_id, "Turn reset.")
                 self._rebuild_table(scroll_to_current=True)
             else:
