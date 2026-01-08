@@ -165,6 +165,7 @@ class Combatant:
     bonus_action_remaining: int = 1
     extra_action_pool: int = 0
     extra_bonus_pool: int = 0
+    saving_throws: Dict[str, int] = field(default_factory=dict)
 
 
     # Effects / statuses
@@ -185,6 +186,7 @@ class MonsterSpec:
     swim_speed: Optional[int]
     dex: Optional[int]
     init_mod: Optional[int]
+    saving_throws: Dict[str, int]
 
 
 class InitiativeTracker(tk.Tk):
@@ -1117,7 +1119,19 @@ class InitiativeTracker(tk.Tk):
         c.condition_stacks = [st for st in c.condition_stacks if st.ctype != ctype]
 
     # -------------------------- Add / remove --------------------------
-    def _create_combatant(self, name: str, hp: int, speed: int, initiative: int, dex: Optional[int], ally: bool, swim_speed: int = 0, water_mode: bool = False, is_pc: bool = False) -> int:
+    def _create_combatant(
+        self,
+        name: str,
+        hp: int,
+        speed: int,
+        initiative: int,
+        dex: Optional[int],
+        ally: bool,
+        swim_speed: int = 0,
+        water_mode: bool = False,
+        is_pc: bool = False,
+        saving_throws: Optional[Dict[str, int]] = None,
+    ) -> int:
         cid = self._next_id
         self._next_id += 1
         spd = max(0, int(speed))
@@ -1140,6 +1154,7 @@ class InitiativeTracker(tk.Tk):
             roll=None,
             ally=ally,
             is_pc=bool(is_pc),
+            saving_throws=dict(saving_throws or {}),
         )
         self.combatants[cid] = c
         self._remember_role(c)
@@ -1200,7 +1215,21 @@ class InitiativeTracker(tk.Tk):
                 return
 
         ally = bool(self.ally_var.get())
-        cid = self._create_combatant(name=name, hp=hp, speed=speed, swim_speed=swim_speed, water_mode=water_mode, initiative=init_total, dex=dex, ally=ally)
+        saving_throws: Optional[Dict[str, int]] = None
+        spec = self._monsters_by_name.get(name)
+        if spec and spec.saving_throws:
+            saving_throws = dict(spec.saving_throws)
+        cid = self._create_combatant(
+            name=name,
+            hp=hp,
+            speed=speed,
+            swim_speed=swim_speed,
+            water_mode=water_mode,
+            initiative=init_total,
+            dex=dex,
+            ally=ally,
+            saving_throws=saving_throws,
+        )
         self._log("added to initiative", cid=cid)
         self._clear_add_inputs()
         self._rebuild_table(scroll_to_current=True)
@@ -2251,6 +2280,27 @@ class InitiativeTracker(tk.Tk):
             except Exception:
                 init_mod = None
 
+            saving_throws: Dict[str, int] = {}
+            try:
+                saves = mon.get("saving_throws") or {}
+                if isinstance(saves, dict):
+                    for key, val in saves.items():
+                        if not isinstance(key, str):
+                            continue
+                        ability = key.strip().lower()
+                        if ability not in {"str", "dex", "con", "int", "wis", "cha"}:
+                            continue
+                        if isinstance(val, int):
+                            saving_throws[ability] = int(val)
+                        elif isinstance(val, str):
+                            raw = val.strip()
+                            if raw.startswith("+"):
+                                raw = raw[1:]
+                            if raw.lstrip("-").isdigit():
+                                saving_throws[ability] = int(raw)
+            except Exception:
+                saving_throws = {}
+
             spec = MonsterSpec(
                 filename=str(fp.name),
                 name=name,
@@ -2261,6 +2311,7 @@ class InitiativeTracker(tk.Tk):
                 swim_speed=swim_speed,
                 dex=dex,
                 init_mod=init_mod,
+                saving_throws=saving_throws,
             )
 
             if name not in self._monsters_by_name:
@@ -2355,6 +2406,8 @@ class InitiativeTracker(tk.Tk):
             if not base:
                 messagebox.showerror("Input error", "Name is required.")
                 return
+            spec = self._monsters_by_name.get(base)
+            saving_throws = dict(spec.saving_throws) if spec and spec.saving_throws else None
             try:
                 count = int(count_var.get().strip())
                 if count <= 0:
@@ -2412,7 +2465,17 @@ class InitiativeTracker(tk.Tk):
                 roll = random.randint(1, 20)
                 total = roll + dex
                 name = base if count == 1 else f"{base} {i}"
-                cid = self._create_combatant(name=name, hp=hp, speed=speed, swim_speed=swim_speed, water_mode=water_mode, initiative=total, dex=dex_opt, ally=ally_var.get())
+                cid = self._create_combatant(
+                    name=name,
+                    hp=hp,
+                    speed=speed,
+                    swim_speed=swim_speed,
+                    water_mode=water_mode,
+                    initiative=total,
+                    dex=dex_opt,
+                    ally=ally_var.get(),
+                    saving_throws=saving_throws,
+                )
                 c = self.combatants[cid]
                 c.roll = roll
                 c.nat20 = (roll == 20)
@@ -5784,14 +5847,40 @@ class BattleMapWindow(tk.Toplevel):
         rolls: Dict[int, int] = {}
         mods: Dict[int, int] = {}
 
+        def _save_key() -> str:
+            return (save_var.get() or "").strip().lower()
+
+        def _lookup_save_mod(c: Combatant, save_key: str) -> int:
+            if not save_key:
+                return 0
+            saves = getattr(c, "saving_throws", None)
+            if isinstance(saves, dict):
+                val = saves.get(save_key)
+                if isinstance(val, int):
+                    return int(val)
+                if isinstance(val, str):
+                    raw = val.strip()
+                    if raw.startswith("+"):
+                        raw = raw[1:]
+                    if raw.lstrip("-").isdigit():
+                        return int(raw)
+            return 0
+
+        def _reset_mods_from_saves() -> None:
+            save_key = _save_key()
+            for cid in list(mods.keys()):
+                c = self.app.combatants.get(cid)
+                mods[cid] = _lookup_save_mod(c, save_key) if c else 0
+
         # Populate rows
         for cid in included:
             c = self.app.combatants.get(cid)
             if not c:
                 continue
-            iid = tv.insert("", tk.END, values=(c.name, "", "0", "", ""))
+            mod = _lookup_save_mod(c, _save_key())
+            iid = tv.insert("", tk.END, values=(c.name, "", str(mod), "", ""))
             cid_by_iid[iid] = cid
-            mods[cid] = 0
+            mods[cid] = mod
 
         def _parse_dc() -> int:
             try:
@@ -5813,6 +5902,12 @@ class BattleMapWindow(tk.Toplevel):
                 tv.set(iid, "mod", str(m))
                 tv.set(iid, "total", str(tot) if r > 0 else "")
                 tv.set(iid, "result", "PASS" if passed else ("FAIL" if r > 0 else ""))
+
+        def _on_save_change(*_args: object) -> None:
+            _reset_mods_from_saves()
+            refresh()
+
+        save_var.trace_add("write", _on_save_change)
 
         def roll_all() -> None:
             try:
