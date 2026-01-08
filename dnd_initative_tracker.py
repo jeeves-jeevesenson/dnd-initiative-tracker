@@ -161,6 +161,7 @@ HTML_INDEX = r"""<!doctype html>
     .label{font-size:12px; color:var(--muted);}
     .value{font-size:14px; font-weight:700;}
     .chip{font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);}
+    .chip input{margin-right:6px;}
     .modal{
       position:absolute; inset:0; background: rgba(0,0,0,0.55);
       display:none; align-items:center; justify-content:center; padding: 20px 14px;
@@ -272,6 +273,7 @@ HTML_INDEX = r"""<!doctype html>
       <div class="chip" id="bonusAction">Bonus Action: —</div>
       <div class="chip" id="turn">Turn: —</div>
       <div class="chip" id="note">Tip: drag yer token</div>
+      <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
     </div>
   </div>
 </div>
@@ -312,6 +314,7 @@ HTML_INDEX = r"""<!doctype html>
   const turnModalOk = document.getElementById("turnModalOk");
   const useActionBtn = document.getElementById("useAction");
   const useBonusActionBtn = document.getElementById("useBonusAction");
+  const showAllNamesEl = document.getElementById("showAllNames");
   const turnAlertAudio = new Audio("/assets/alert.wav");
   turnAlertAudio.preload = "auto";
   let audioUnlocked = false;
@@ -339,6 +342,15 @@ HTML_INDEX = r"""<!doctype html>
   let lockMap = false;
   let lastGrid = {cols: null, rows: null};
   let lastGridVersion = null;
+  let showAllNames = localStorage.getItem("inittracker_showAllNames") === "1";
+  if (showAllNamesEl){
+    showAllNamesEl.checked = showAllNames;
+    showAllNamesEl.addEventListener("change", (ev) => {
+      showAllNames = !!ev.target.checked;
+      localStorage.setItem("inittracker_showAllNames", showAllNames ? "1" : "0");
+      draw();
+    });
+  }
 
   function setConn(ok, txt){
     connEl.textContent = txt;
@@ -534,13 +546,16 @@ HTML_INDEX = r"""<!doctype html>
     });
 
     // labels above: name or group name
+    const labelBoxes = [];
+    const labelFontSize = Math.max(11, Math.floor(zoom*0.32));
+    const labelOffset = zoom*0.40;
+    const labelPad = 2;
+    const labelStep = Math.max(6, Math.floor(labelFontSize * 0.7));
+    const labelOffsets = [0, -labelStep, labelStep, -2*labelStep, 2*labelStep];
+    const labelEntries = [];
     cellMap.forEach((arr, key) => {
       const [col,row] = key.split(",").map(Number);
       const {x,y} = gridToScreen(col,row);
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.fillStyle = "rgba(232,238,247,0.92)";
-      ctx.font = `600 ${Math.max(11, Math.floor(zoom*0.32))}px system-ui`;
       let label = "";
       if (arr.length >= 2){
         const names = arr.map(a => a.name).join(", ");
@@ -548,11 +563,50 @@ HTML_INDEX = r"""<!doctype html>
       } else {
         label = arr[0].name;
       }
-      // shadow
-      ctx.fillStyle = "rgba(0,0,0,0.55)";
-      ctx.fillText(label, x+1, y - zoom*0.40 + 1);
-      ctx.fillStyle = "rgba(232,238,247,0.92)";
-      ctx.fillText(label, x, y - zoom*0.40);
+      const isActive = arr.some(a => state.active_cid !== null && Number(state.active_cid) === Number(a.cid));
+      labelEntries.push({label, x, y: y - labelOffset, isActive});
+    });
+    labelEntries.sort((a, b) => Number(a.isActive) - Number(b.isActive));
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.font = `600 ${labelFontSize}px system-ui`;
+    const overlaps = (a, b) => !(a.x2 < b.x1 || a.x1 > b.x2 || a.y2 < b.y1 || a.y1 > b.y2);
+    labelEntries.forEach(entry => {
+      const width = ctx.measureText(entry.label).width;
+      let placed = false;
+      for (const offset of labelOffsets){
+        const y = entry.y + offset;
+        const box = {
+          x1: entry.x - width / 2 - labelPad,
+          x2: entry.x + width / 2 + labelPad,
+          y1: y - labelFontSize - labelPad,
+          y2: y + labelPad,
+        };
+        if (!labelBoxes.some(b => overlaps(b, box))){
+          // shadow
+          ctx.fillStyle = "rgba(0,0,0,0.55)";
+          ctx.fillText(entry.label, entry.x + 1, y + 1);
+          ctx.fillStyle = "rgba(232,238,247,0.92)";
+          ctx.fillText(entry.label, entry.x, y);
+          labelBoxes.push(box);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed && (showAllNames || entry.isActive)){
+        const y = entry.y;
+        const box = {
+          x1: entry.x - width / 2 - labelPad,
+          x2: entry.x + width / 2 + labelPad,
+          y1: y - labelFontSize - labelPad,
+          y2: y + labelPad,
+        };
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.fillText(entry.label, entry.x + 1, y + 1);
+        ctx.fillStyle = "rgba(232,238,247,0.92)";
+        ctx.fillText(entry.label, entry.x, y);
+        labelBoxes.push(box);
+      }
     });
 
   }
