@@ -223,6 +223,7 @@ HTML_INDEX = r"""<!doctype html>
     <div class="spacer"></div>
     <button class="btn" id="changeChar">Change</button>
     <button class="btn" id="lockMap">Lock Map</button>
+    <button class="btn" id="centerMap">Center on Me</button>
     <button class="btn accent" id="zoomIn">Zoom +</button>
     <button class="btn accent" id="zoomOut">Zoom −</button>
   </div>
@@ -322,9 +323,6 @@ HTML_INDEX = r"""<!doctype html>
     canvas.width = Math.max(1, Math.floor(r.width * dpr));
     canvas.height = Math.max(1, Math.floor(r.height * dpr));
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    if (lockMap){
-      centerOnClaimed();
-    }
     draw();
   }
   window.addEventListener("resize", resize);
@@ -405,9 +403,6 @@ HTML_INDEX = r"""<!doctype html>
       panX = Math.floor((w - cols*zoom)/2);
       panY = Math.floor((h - rows*zoom)/2);
       state._fitted = true;
-    }
-    if (lockMap){
-      centerOnClaimed();
     }
 
     // grid
@@ -620,9 +615,6 @@ HTML_INDEX = r"""<!doctype html>
         state = msg.state;
         lastPcList = msg.pcs || msg.claimable || [];
         updateWaitingOverlay();
-        if (lockMap){
-          centerOnClaimed();
-        }
         draw();
         updateHud();
         maybeShowTurnAlert();
@@ -644,9 +636,6 @@ HTML_INDEX = r"""<!doctype html>
               showClaim(pcs);
             }
           }
-          if (lockMap){
-            centerOnClaimed();
-          }
         }
       } else if (msg.type === "force_claim"){
         if (msg.cid !== null && msg.cid !== undefined){
@@ -654,9 +643,6 @@ HTML_INDEX = r"""<!doctype html>
           localStorage.setItem("inittracker_claimedCid", claimedCid);
         }
         claimModal.classList.remove("show");
-        if (lockMap){
-          centerOnClaimed();
-        }
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
       } else if (msg.type === "force_unclaim"){
@@ -678,8 +664,13 @@ HTML_INDEX = r"""<!doctype html>
           state.grid = msg.grid;
         }
         if (gridReady()){
-          state._fitted = false;
-          lastGrid = {cols: state.grid.cols, rows: state.grid.rows};
+          const cols = state.grid.cols;
+          const rows = state.grid.rows;
+          const gridChanged = cols !== lastGrid.cols || rows !== lastGrid.rows;
+          if (gridChanged){
+            state._fitted = false;
+            lastGrid = {cols, rows};
+          }
         }
         updateWaitingOverlay();
         lastGridVersion = msg.version ?? lastGridVersion;
@@ -765,15 +756,15 @@ HTML_INDEX = r"""<!doctype html>
     panning = null;
   });
 
-  document.getElementById("zoomIn").addEventListener("click", () => { zoom = Math.min(90, zoom+4); if (lockMap){ centerOnClaimed(); } draw(); });
-  document.getElementById("zoomOut").addEventListener("click", () => { zoom = Math.max(14, zoom-4); if (lockMap){ centerOnClaimed(); } draw(); });
+  document.getElementById("zoomIn").addEventListener("click", () => { zoom = Math.min(90, zoom+4); draw(); });
+  document.getElementById("zoomOut").addEventListener("click", () => { zoom = Math.max(14, zoom-4); draw(); });
   document.getElementById("lockMap").addEventListener("click", (ev) => {
     lockMap = !lockMap;
     ev.target.textContent = lockMap ? "Unlock Map" : "Lock Map";
-    if (lockMap){
-      centerOnClaimed();
-      draw();
-    }
+  });
+  document.getElementById("centerMap").addEventListener("click", () => {
+    centerOnClaimed();
+    draw();
   });
 
   document.getElementById("changeChar").addEventListener("click", () => {
