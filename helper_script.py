@@ -2868,6 +2868,7 @@ class BattleMapWindow(tk.Toplevel):
         self.unit_tokens: Dict[int, Dict[str, object]] = {}  # cid -> {col,row,oval,text,marker}
         self._active_cid: Optional[int] = None
         self.obstacles: Set[Tuple[int, int]] = set()  # blocked squares
+        self._obstacle_history: List[Set[Tuple[int, int]]] = []
         self._drawing_obstacles: bool = False
 
         # Grouping: multiple units can occupy the same square. We show a single group label and fan the tokens slightly.
@@ -2935,6 +2936,7 @@ class BattleMapWindow(tk.Toplevel):
         # Keybindings
         self.bind("<Escape>", lambda e: self._clear_measure())
         self.bind("<KeyPress-r>", lambda e: self.refresh_units())
+        self.bind("<Control-z>", lambda e: self._undo_obstacle())
 
         # Auto-refresh units/markers so slain creatures disappear without manual refresh.
         self._start_polling()
@@ -3354,6 +3356,13 @@ class BattleMapWindow(tk.Toplevel):
     def _clear_obstacles(self) -> None:
         self.obstacles.clear()
         self._redraw_all()
+        self._update_move_highlight()
+
+    def _undo_obstacle(self) -> None:
+        if not self._obstacle_history:
+            return
+        self.obstacles = self._obstacle_history.pop()
+        self._draw_obstacles()
         self._update_move_highlight()
 
     def _ensure_preset_dir(self) -> Path:
@@ -4882,6 +4891,8 @@ class BattleMapWindow(tk.Toplevel):
         # Obstacle paint mode (disables other interactions while enabled)
         try:
             if bool(self.obstacle_mode_var.get()):
+                if not self._drawing_obstacles:
+                    self._obstacle_history.append(set(self.obstacles))
                 self._drawing_obstacles = True
                 self._paint_obstacle_from_event(event)
                 return
