@@ -266,6 +266,8 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(btn_row, text="Stand Up", command=self._stand_up_current).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Move…", command=self._open_move_tool).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Dash", command=self._dash_current).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Give Action", command=self._give_action).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Give Bonus Action", command=self._give_bonus_action).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Toggle Water", command=self._toggle_water_selected).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Map Mode…", command=self._open_map_mode).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Clear", command=self._clear_turns).pack(side=tk.LEFT, padx=(0, 8))
@@ -1591,6 +1593,48 @@ class InitiativeTracker(tk.Tk):
         c.bonus_action_remaining -= 1
         self._log(f"{c.name} used a bonus action", cid=c.cid)
         return True
+
+    def _grant_action_targets(self) -> List[Combatant]:
+        selected = self._selected_cids()
+        targets: List[Combatant] = []
+        if selected:
+            for cid in selected:
+                if cid in self.combatants:
+                    targets.append(self.combatants[cid])
+            return targets
+        if self.current_cid is not None and self.current_cid in self.combatants:
+            return [self.combatants[self.current_cid]]
+        return []
+
+    def _give_action(self) -> None:
+        targets = self._grant_action_targets()
+        if not targets:
+            messagebox.showinfo("Turn Tracker", "Select a combatant row first.")
+            return
+        for c in targets:
+            if self.current_cid == c.cid:
+                c.action_remaining += 1
+                note = "extra action granted"
+            else:
+                c.extra_action_pool = int(getattr(c, "extra_action_pool", 0) or 0) + 1
+                note = "extra action queued"
+            self._log(note, cid=c.cid)
+        self._rebuild_table(scroll_to_current=True)
+
+    def _give_bonus_action(self) -> None:
+        targets = self._grant_action_targets()
+        if not targets:
+            messagebox.showinfo("Turn Tracker", "Select a combatant row first.")
+            return
+        for c in targets:
+            if self.current_cid == c.cid:
+                c.bonus_action_remaining += 1
+                note = "extra bonus action granted"
+            else:
+                c.extra_bonus_pool = int(getattr(c, "extra_bonus_pool", 0) or 0) + 1
+                note = "extra bonus action queued"
+            self._log(note, cid=c.cid)
+        self._rebuild_table(scroll_to_current=True)
 
 
     # -------------------------- Movement actions --------------------------
