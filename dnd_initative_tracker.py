@@ -19,6 +19,7 @@ import socket
 import threading
 import time
 import logging
+import re
 from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
@@ -190,6 +191,9 @@ HTML_INDEX = r"""<!doctype html>
     .hint{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.4;}
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
     .modal-actions .btn{flex:1; min-width:120px;}
+    .color-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+    .color-swatch{width:36px; height:36px; border-radius:50%; border:2px solid rgba(255,255,255,0.2); background:#6aa9ff;}
+    .color-input{width:64px; height:44px; border:none; background:none; padding:0;}
     .turn-modal{
       position:fixed;
       inset:0;
@@ -242,6 +246,20 @@ HTML_INDEX = r"""<!doctype html>
         <div class="hint">
           This be a LAN proof-o’-concept. Ye can drag <b>only yer own token</b>, and only <b>on yer turn</b>.<br/>
           If the list be empty, tell the DM to mark ye as a Player Character or add ye from the starting roster.
+        </div>
+      </div>
+    </div>
+    <div class="modal" id="colorModal" aria-hidden="true">
+      <div class="card">
+        <h2>Pick yer token color</h2>
+        <div class="row color-row">
+          <div class="color-swatch" id="tokenColorSwatch"></div>
+          <input class="color-input" type="color" id="tokenColorInput" value="#6aa9ff" />
+          <div class="label">No red or white, matey.</div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn accent" id="tokenColorConfirm">Confirm</button>
+          <button class="btn" id="tokenColorCancel">Cancel</button>
         </div>
       </div>
     </div>
@@ -305,6 +323,11 @@ HTML_INDEX = r"""<!doctype html>
   const noteEl = document.getElementById("note");
   const claimModal = document.getElementById("claimModal");
   const claimList = document.getElementById("claimList");
+  const colorModal = document.getElementById("colorModal");
+  const tokenColorInput = document.getElementById("tokenColorInput");
+  const tokenColorSwatch = document.getElementById("tokenColorSwatch");
+  const tokenColorConfirm = document.getElementById("tokenColorConfirm");
+  const tokenColorCancel = document.getElementById("tokenColorCancel");
   const dashModal = document.getElementById("dashModal");
   const dashActionBtn = document.getElementById("dashAction");
   const dashBonusActionBtn = document.getElementById("dashBonusAction");
@@ -329,6 +352,7 @@ HTML_INDEX = r"""<!doctype html>
   let ws = null;
   let state = null;
   let claimedCid = localStorage.getItem("inittracker_claimedCid") || null;
+  let pendingClaim = null;
   let lastPcList = [];
   let lastActiveCid = null;
   let lastTurnRound = null;
@@ -373,6 +397,83 @@ HTML_INDEX = r"""<!doctype html>
     ws.send(JSON.stringify(msg));
   }
 
+  function localToast(text){
+    if (!noteEl) return;
+    noteEl.textContent = text || "…";
+    setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
+  }
+
+  function normalizeHexColor(raw){
+    if (!raw) return null;
+    const value = String(raw).trim().toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(value)) return null;
+    return value;
+  }
+
+  function hexToRgb(hex){
+    const value = normalizeHexColor(hex);
+    if (!value) return null;
+    return {
+      r: parseInt(value.slice(1, 3), 16),
+      g: parseInt(value.slice(3, 5), 16),
+      b: parseInt(value.slice(5, 7), 16),
+    };
+  }
+
+  function isForbiddenColor(hex){
+    const rgb = hexToRgb(hex);
+    if (!rgb) return false;
+    if (rgb.r >= 245 && rgb.g >= 245 && rgb.b >= 245) return true;
+    if (rgb.r >= 200 && rgb.g <= 80 && rgb.b <= 80) return true;
+    return false;
+  }
+
+  function rgbaFromHex(hex, alpha){
+    const rgb = hexToRgb(hex);
+    if (!rgb) return null;
+    return `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+  }
+
+  function updateTokenColorSwatch(color){
+    if (!tokenColorSwatch) return;
+    tokenColorSwatch.style.background = color || "#6aa9ff";
+  }
+
+  function openColorModal(unit){
+    if (!colorModal || !tokenColorInput) return;
+    pendingClaim = unit || null;
+    let preferred = normalizeHexColor(unit?.token_color)
+      || normalizeHexColor(localStorage.getItem("inittracker_tokenColor"))
+      || "#6aa9ff";
+    if (isForbiddenColor(preferred)){
+      preferred = "#6aa9ff";
+    }
+    tokenColorInput.value = preferred;
+    updateTokenColorSwatch(preferred);
+    colorModal.classList.add("show");
+    colorModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeColorModal(){
+    if (!colorModal) return;
+    colorModal.classList.remove("show");
+    colorModal.setAttribute("aria-hidden", "true");
+    pendingClaim = null;
+  }
+
+  function validateTokenColor(raw){
+    const color = normalizeHexColor(raw);
+    if (!color){
+      localToast("Pick a valid hex color, matey.");
+      return null;
+    }
+    if (isForbiddenColor(color)){
+      localToast("No red or white, matey.");
+      return null;
+    }
+    return color;
+  }
+
   function showClaim(list){
     claimList.innerHTML = "";
     list.forEach(u => {
@@ -383,11 +484,8 @@ HTML_INDEX = r"""<!doctype html>
       const btnTxt = taken ? "Take" : "Claim";
       div.innerHTML = `<div style="flex:1"><div class="name">${u.name}</div><div class="meta">Player Character • ${meta}</div></div><button class="btn accent">${btnTxt}</button>`;
       div.querySelector("button").addEventListener("click", () => {
-        claimedCid = String(u.cid);
-        localStorage.setItem("inittracker_claimedCid", claimedCid);
-        send({type:"claim", cid: Number(u.cid)});
         claimModal.classList.remove("show");
-        meEl.textContent = u.name;
+        openColorModal(u);
       });
       claimList.appendChild(div);
     });
@@ -526,8 +624,14 @@ HTML_INDEX = r"""<!doctype html>
       ctx.arc(x,y,r,0,Math.PI*2);
 
       // color
-      if (u.role === "enemy") ctx.fillStyle = "rgba(255,91,91,0.28)";
-      else ctx.fillStyle = "rgba(106,255,176,0.18)";
+      const customFill = u.token_color ? rgbaFromHex(u.token_color, 0.28) : null;
+      if (customFill){
+        ctx.fillStyle = customFill;
+      } else if (u.role === "enemy") {
+        ctx.fillStyle = "rgba(255,91,91,0.28)";
+      } else {
+        ctx.fillStyle = "rgba(106,255,176,0.18)";
+      }
       ctx.fill();
 
       ctx.lineWidth = active ? 3 : 2;
@@ -930,6 +1034,41 @@ HTML_INDEX = r"""<!doctype html>
     }
   });
 
+  if (tokenColorInput){
+    tokenColorInput.addEventListener("input", (ev) => {
+      updateTokenColorSwatch(ev.target.value);
+    });
+  }
+  if (tokenColorConfirm){
+    tokenColorConfirm.addEventListener("click", () => {
+      if (!pendingClaim){
+        closeColorModal();
+        return;
+      }
+      const color = validateTokenColor(tokenColorInput ? tokenColorInput.value : "");
+      if (!color) return;
+      claimedCid = String(pendingClaim.cid);
+      localStorage.setItem("inittracker_claimedCid", claimedCid);
+      localStorage.setItem("inittracker_tokenColor", color);
+      send({type:"claim", cid: Number(pendingClaim.cid)});
+      send({type:"set_color", cid: Number(pendingClaim.cid), color});
+      meEl.textContent = pendingClaim.name;
+      closeColorModal();
+      claimModal.classList.remove("show");
+    });
+  }
+  if (tokenColorCancel){
+    tokenColorCancel.addEventListener("click", () => {
+      closeColorModal();
+      const pcs = lastPcList || [];
+      if (pcs && pcs.length){
+        showClaim(pcs);
+      } else {
+        claimModal.classList.add("show");
+      }
+    });
+  }
+
   document.getElementById("dash").addEventListener("click", () => {
     if (!claimedCid) return;
     showDashModal();
@@ -1131,7 +1270,7 @@ class LanController:
                         if isinstance(cid, int):
                             await self._claim_ws_async(ws_id, cid, note="Claimed. Drag yer token, matey.")
                             await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
-                    elif typ in ("move", "dash", "end_turn", "use_action", "use_bonus_action"):
+                    elif typ in ("move", "dash", "end_turn", "use_action", "use_bonus_action", "set_color"):
                         # enqueue for Tk thread
                         with self._clients_lock:
                             claimed_cid = self._claims.get(ws_id)
@@ -1838,6 +1977,30 @@ class InitiativeTracker(base.InitiativeTracker):
         """Alias for LAN client character selection."""
         return self._lan_claimable()
 
+    def _normalize_token_color(self, color: Any) -> Optional[str]:
+        if not isinstance(color, str):
+            return None
+        value = color.strip().lower()
+        if not re.fullmatch(r"#[0-9a-f]{6}", value):
+            return None
+        return value
+
+    def _token_color_forbidden(self, color: str) -> bool:
+        try:
+            r = int(color[1:3], 16)
+            g = int(color[3:5], 16)
+            b = int(color[5:7], 16)
+        except Exception:
+            return True
+        if r >= 245 and g >= 245 and b >= 245:
+            return True
+        if r >= 200 and g <= 80 and b <= 80:
+            return True
+        return False
+
+    def _token_color_payload(self, c: Any) -> Optional[str]:
+        return self._normalize_token_color(getattr(c, "token_color", None))
+
     def _lan_snapshot(self) -> Dict[str, Any]:
         # Prefer map window live state when available
         mw = None
@@ -1884,6 +2047,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "cid": c.cid,
                     "name": str(c.name),
                     "role": role if role in ("pc", "ally", "enemy") else "enemy",
+                    "token_color": self._token_color_payload(c),
                     "hp": int(getattr(c, "hp", 0) or 0),
                     "move_remaining": int(getattr(c, "move_remaining", 0) or 0),
                     "move_total": int(getattr(c, "move_total", 0) or 0),
@@ -1996,6 +2160,27 @@ class InitiativeTracker(base.InitiativeTracker):
         # Must exist
         if cid not in self.combatants:
             self._lan.toast(ws_id, "That scallywag ain’t in combat no more.")
+            return
+
+        if typ == "set_color":
+            color = self._normalize_token_color(msg.get("color"))
+            if not color:
+                self._lan.toast(ws_id, "Pick a valid hex color, matey.")
+                return
+            if self._token_color_forbidden(color):
+                self._lan.toast(ws_id, "No red or white, matey.")
+                return
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            setattr(c, "token_color", color)
+            mw = getattr(self, "_map_window", None)
+            if mw is not None and hasattr(mw, "update_unit_token_colors"):
+                try:
+                    if mw.winfo_exists():
+                        mw.update_unit_token_colors()
+                except Exception:
+                    pass
             return
 
         # Only allow controlling on your turn (POC)

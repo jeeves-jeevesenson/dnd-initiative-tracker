@@ -26,6 +26,7 @@ import math
 import os
 import shutil
 import ast
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -130,6 +131,7 @@ class Combatant:
     nat20: bool = False
     ally: bool = False
     is_pc: bool = False
+    token_color: Optional[str] = None
     move_total: int = 0
     action_remaining: int = 1
     bonus_action_remaining: int = 1
@@ -3191,6 +3193,7 @@ class BattleMapWindow(tk.Toplevel):
                     except Exception:
                         pass
 
+            self.update_unit_token_colors()
             self._apply_active_highlight()
             self._update_move_highlight()
             self._update_included_for_selected()
@@ -3470,21 +3473,50 @@ class BattleMapWindow(tk.Toplevel):
         self._update_move_highlight()
         self._update_included_for_selected()
 
+    def _normalize_token_color(self, color: object) -> Optional[str]:
+        if not isinstance(color, str):
+            return None
+        value = color.strip().lower()
+        if not re.fullmatch(r"#[0-9a-f]{6}", value):
+            return None
+        return value
+
+    def _darken_color(self, color: str, factor: float = 0.55) -> str:
+        r = max(0, min(255, int(int(color[1:3], 16) * factor)))
+        g = max(0, min(255, int(int(color[3:5], 16) * factor)))
+        b = max(0, min(255, int(int(color[5:7], 16) * factor)))
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _role_token_colors(self, c: Combatant) -> Tuple[str, str]:
+        if c.is_pc:
+            return "#cfead1", "#1d6b26"
+        if c.ally:
+            return "#d6f5d6", "#2b8a3e"
+        return "#f6d6d6", "#8a2b2b"
+
+    def _token_colors_for(self, c: Combatant) -> Tuple[str, str]:
+        token_color = self._normalize_token_color(getattr(c, "token_color", None))
+        if token_color:
+            return token_color, self._darken_color(token_color)
+        return self._role_token_colors(c)
+
+    def update_unit_token_colors(self) -> None:
+        for cid, tok in self.unit_tokens.items():
+            c = self.app.combatants.get(cid)
+            if not c:
+                continue
+            fill, outline = self._token_colors_for(c)
+            try:
+                self.canvas.itemconfigure(int(tok["oval"]), fill=fill, outline=outline)
+            except Exception:
+                pass
+
     def _create_unit_token(self, cid: int, col: int, row: int) -> None:
         c = self.app.combatants[cid]
         x, y = self._grid_to_pixel(col, row)
         r = self.cell * 0.42
 
-        # Color cues
-        if c.is_pc:
-            fill = "#cfead1"
-            outline = "#1d6b26"
-        elif c.ally:
-            fill = "#d6f5d6"
-            outline = "#2b8a3e"
-        else:
-            fill = "#f6d6d6"
-            outline = "#8a2b2b"
+        fill, outline = self._token_colors_for(c)
 
         oval = self.canvas.create_oval(
             x - r, y - r, x + r, y + r,
