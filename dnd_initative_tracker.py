@@ -272,8 +272,9 @@ HTML_INDEX = r"""<!doctype html>
 
 <script>
 (() => {
+  const canVibrate = "vibrate" in navigator;
   function vibrate(pattern){
-    if (!("vibrate" in navigator)) return false;
+    if (!canVibrate) return false;
     return navigator.vibrate(pattern);
   }
 
@@ -300,6 +301,7 @@ HTML_INDEX = r"""<!doctype html>
   let audioUnlocked = false;
   let pendingTurnAlert = false;
   let pendingVibrate = false;
+  let lastVibrateSupported = canVibrate;
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -584,18 +586,63 @@ HTML_INDEX = r"""<!doctype html>
     turnModal.setAttribute("aria-hidden", "true");
   }
 
+  function playTurnAlert(){
+    turnAlertAudio.currentTime = 0;
+    turnAlertAudio.play().catch(() => {});
+  }
+
+  function fireVibrate(){
+    if (!lastVibrateSupported) return false;
+    const didVibrate = vibrate([200, 120, 200]);
+    if (!didVibrate){
+      lastVibrateSupported = false;
+      console.debug("Vibration blocked or unsupported.");
+    }
+    return didVibrate;
+  }
+
+  function handleUserGesture(){
+    if (!audioUnlocked){
+      turnAlertAudio.play().then(() => {
+        turnAlertAudio.pause();
+        turnAlertAudio.currentTime = 0;
+        audioUnlocked = true;
+        if (pendingTurnAlert){
+          pendingTurnAlert = false;
+          playTurnAlert();
+        }
+        if (pendingVibrate){
+          fireVibrate();
+          pendingVibrate = false;
+        }
+      }).catch(() => {});
+      return;
+    }
+    if (pendingTurnAlert){
+      pendingTurnAlert = false;
+      playTurnAlert();
+    }
+    if (pendingVibrate){
+      fireVibrate();
+      pendingVibrate = false;
+    }
+  }
+
   function showTurnModal(){
     if (!turnModal) return;
     if (document.visibilityState === "hidden") return;
     turnModal.classList.add("show");
     turnModal.setAttribute("aria-hidden", "false");
-    turnAlertAudio.currentTime = 0;
     if (audioUnlocked){
-      turnAlertAudio.play().catch(() => {});
+      playTurnAlert();
     } else {
       pendingTurnAlert = true;
     }
-    pendingVibrate = true;
+    if (navigator.userActivation?.isActive){
+      fireVibrate();
+    } else {
+      pendingVibrate = true;
+    }
   }
 
   function maybeShowTurnAlert(){
@@ -810,27 +857,13 @@ HTML_INDEX = r"""<!doctype html>
   });
   if (turnModalOk){
     turnModalOk.addEventListener("click", () => {
-      if (!audioUnlocked){
-        turnAlertAudio.play().then(() => {
-          turnAlertAudio.pause();
-          turnAlertAudio.currentTime = 0;
-          audioUnlocked = true;
-          if (pendingTurnAlert){
-            pendingTurnAlert = false;
-            turnAlertAudio.play().catch(() => {});
-          }
-        }).catch(() => {});
-      }
-      if (pendingVibrate){
-        const didVibrate = vibrate([200, 120, 200]);
-        if (!didVibrate){
-          console.debug("Vibration blocked or unsupported.");
-        }
-        pendingVibrate = false;
-      }
+      handleUserGesture();
       hideTurnModal();
     });
   }
+
+  document.addEventListener("pointerdown", handleUserGesture, {passive: true});
+  document.addEventListener("keydown", handleUserGesture);
 
   const mapWrap = document.querySelector(".mapWrap");
   if (mapWrap && window.ResizeObserver){
