@@ -131,6 +131,10 @@ class Combatant:
     ally: bool = False
     is_pc: bool = False
     move_total: int = 0
+    action_remaining: int = 1
+    bonus_action_remaining: int = 1
+    extra_action_pool: int = 0
+    extra_bonus_pool: int = 0
 
 
     # Effects / statuses
@@ -1487,6 +1491,10 @@ class InitiativeTracker(tk.Tk):
         # reset movement at start (effective, taking immobile conditions into account)
         eff = self._effective_speed(c)
         c.move_remaining = eff
+        c.action_remaining = 1 + max(0, int(getattr(c, "extra_action_pool", 0) or 0))
+        c.bonus_action_remaining = 1 + max(0, int(getattr(c, "extra_bonus_pool", 0) or 0))
+        c.extra_action_pool = 0
+        c.extra_bonus_pool = 0
 
         # expire star advantage at start of creature's turn
         if c.star_advantage:
@@ -1567,6 +1575,22 @@ class InitiativeTracker(tk.Tk):
             msgs.append("turn skipped")
 
         return skip, "; ".join(msgs), decremented_skip
+
+
+    # -------------------------- Action usage --------------------------
+    def _use_action(self, c: Combatant) -> bool:
+        if c.action_remaining <= 0:
+            return False
+        c.action_remaining -= 1
+        self._log(f"{c.name} used an action", cid=c.cid)
+        return True
+
+    def _use_bonus_action(self, c: Combatant) -> bool:
+        if c.bonus_action_remaining <= 0:
+            return False
+        c.bonus_action_remaining -= 1
+        self._log(f"{c.name} used a bonus action", cid=c.cid)
+        return True
 
 
     # -------------------------- Movement actions --------------------------
