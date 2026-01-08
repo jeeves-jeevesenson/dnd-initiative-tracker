@@ -2236,7 +2236,8 @@ class InitiativeTracker(tk.Tk):
         This dialog supports:
         - Multiple entries (one per target by default if multiple rows are selected)
         - Math expressions in Amount (e.g. 10+10+10)
-        - Per-entry damage type + resist + immune
+        - Multiple damage components per entry (amount + type)
+        - Per-entry resist + immune
         - Optional attacker (blank attacker = anonymous)
         """
         dlg = tk.Toplevel(self)
@@ -2328,7 +2329,7 @@ class InitiativeTracker(tk.Tk):
         inner.bind("<Configure>", _on_inner_config)
         canvas.bind("<Configure>", _on_canvas_config)
 
-        headers = ["Attacker", "Target", "Amount", "Type", "Resist", "Immune", ""]
+        headers = ["Attacker", "Target", "Damage (Amount + Type)", "Resist", "Immune", "", ""]
         for col, h in enumerate(headers):
             ttk.Label(inner, text=h).grid(row=0, column=col, sticky="w", padx=(0, 8))
 
@@ -2369,23 +2370,22 @@ class InitiativeTracker(tk.Tk):
                 r = i
                 row["attacker_combo"].grid(row=r, column=0, sticky="we", padx=(0, 8), pady=2)
                 row["target_combo"].grid(row=r, column=1, sticky="we", padx=(0, 8), pady=2)
-                row["amt_entry"].grid(row=r, column=2, sticky="we", padx=(0, 8), pady=2)
-                row["dtype_combo"].grid(row=r, column=3, sticky="we", padx=(0, 8), pady=2)
-                row["res_cb"].grid(row=r, column=4, sticky="w", padx=(0, 8), pady=2)
-                row["imm_cb"].grid(row=r, column=5, sticky="w", padx=(0, 8), pady=2)
+                row["components_frame"].grid(row=r, column=2, sticky="we", padx=(0, 8), pady=2)
+                row["res_cb"].grid(row=r, column=3, sticky="w", padx=(0, 8), pady=2)
+                row["imm_cb"].grid(row=r, column=4, sticky="w", padx=(0, 8), pady=2)
+                row["add_damage_btn"].grid(row=r, column=5, sticky="w", padx=(0, 8), pady=2)
                 row["rm_btn"].grid(row=r, column=6, sticky="e", pady=2)
 
             # Stretch columns
             inner.columnconfigure(0, weight=2)
             inner.columnconfigure(1, weight=2)
-            inner.columnconfigure(2, weight=1)
+            inner.columnconfigure(2, weight=3)
             inner.columnconfigure(3, weight=1)
+            inner.columnconfigure(4, weight=1)
 
         def add_entry(target_label: str = "", attacker_label: str = "") -> None:
             atk_var = tk.StringVar(value=attacker_label)
             tgt_var = tk.StringVar(value=target_label)
-            amt_var = tk.StringVar(value="")
-            dtype_var = tk.StringVar(value="")
             res_var = tk.BooleanVar(value=False)
             imm_var = tk.BooleanVar(value=False)
 
@@ -2395,8 +2395,9 @@ class InitiativeTracker(tk.Tk):
             target_combo = ttk.Combobox(
                 inner, textvariable=tgt_var, values=(labels or []), state=("readonly" if labels else "disabled")
             )
-            amt_entry = ttk.Entry(inner, textvariable=amt_var, width=12)
-            dtype_combo = ttk.Combobox(inner, textvariable=dtype_var, values=damage_types, state="readonly", width=14)
+            components_frame = ttk.Frame(inner)
+            components_frame.columnconfigure(0, weight=1)
+            components_frame.columnconfigure(1, weight=1)
             res_cb = ttk.Checkbutton(inner, text="", variable=res_var)
             imm_cb = ttk.Checkbutton(inner, text="", variable=imm_var)
 
@@ -2405,12 +2406,26 @@ class InitiativeTracker(tk.Tk):
                     # keep one row; just clear
                     atk_var.set(attacker_default)
                     tgt_var.set("")
-                    amt_var.set("")
-                    dtype_var.set("")
+                    for comp in row["components"][1:]:
+                        for w in (comp["amt_entry"], comp["dtype_combo"]):
+                            try:
+                                w.destroy()
+                            except Exception:
+                                pass
+                    row["components"] = row["components"][:1]
+                    if row["components"]:
+                        row["components"][0]["amt_var"].set("")
+                        row["components"][0]["dtype_var"].set("")
                     res_var.set(False)
                     imm_var.set(False)
                     return
-                for w in (attacker_combo, target_combo, amt_entry, dtype_combo, res_cb, imm_cb, rm_btn):
+                for comp in row["components"]:
+                    for w in (comp["amt_entry"], comp["dtype_combo"]):
+                        try:
+                            w.destroy()
+                        except Exception:
+                            pass
+                for w in (attacker_combo, target_combo, components_frame, res_cb, imm_cb, add_damage_btn, rm_btn):
                     try:
                         w.destroy()
                     except Exception:
@@ -2423,22 +2438,43 @@ class InitiativeTracker(tk.Tk):
 
             rm_btn = ttk.Button(inner, text="Keelhaul", command=remove_this)
 
+            def add_component(amount: str = "", dtype: str = "") -> None:
+                comp_row = len(row["components"])
+                amt_var = tk.StringVar(value=amount)
+                dtype_var = tk.StringVar(value=dtype)
+                amt_entry = ttk.Entry(components_frame, textvariable=amt_var, width=10)
+                dtype_combo = ttk.Combobox(
+                    components_frame, textvariable=dtype_var, values=damage_types, state="readonly", width=14
+                )
+                amt_entry.grid(row=comp_row, column=0, sticky="we", padx=(0, 6), pady=1)
+                dtype_combo.grid(row=comp_row, column=1, sticky="we", pady=1)
+                row["components"].append(
+                    dict(
+                        amt_var=amt_var,
+                        dtype_var=dtype_var,
+                        amt_entry=amt_entry,
+                        dtype_combo=dtype_combo,
+                    )
+                )
+
+            add_damage_btn = ttk.Button(inner, text="Add damage type", command=add_component)
+
             row = dict(
                 attacker_var=atk_var,
                 target_var=tgt_var,
-                amt_var=amt_var,
-                dtype_var=dtype_var,
                 resistant_var=res_var,
                 immune_var=imm_var,
                 attacker_combo=attacker_combo,
                 target_combo=target_combo,
-                amt_entry=amt_entry,
-                dtype_combo=dtype_combo,
+                components_frame=components_frame,
+                components=[],
                 res_cb=res_cb,
                 imm_cb=imm_cb,
+                add_damage_btn=add_damage_btn,
                 rm_btn=rm_btn,
             )
             rows.append(row)
+            add_component()
             _regrid()
 
         # Create default entries
@@ -2456,7 +2492,8 @@ class InitiativeTracker(tk.Tk):
         def on_add():
             add_entry(target_label="", attacker_label=attacker_default)
             try:
-                rows[-1]["amt_entry"].focus_set()
+                if rows[-1]["components"]:
+                    rows[-1]["components"][0]["amt_entry"].focus_set()
             except Exception:
                 pass
 
@@ -2485,18 +2522,35 @@ class InitiativeTracker(tk.Tk):
                     messagebox.showerror("Damage/Heal", f"Row {idx}: pick a valid target.", parent=dlg)
                     return
 
-                # Parse amount
-                try:
-                    amt = self._parse_int_expr(row["amt_var"].get())
-                except Exception:
-                    messagebox.showerror(
-                        "Damage/Heal",
-                        f"Row {idx}: Amount must be a number or a small math expression (e.g. 10+10+10).",
-                        parent=dlg,
-                    )
-                    return
-                if amt < 0:
-                    messagebox.showerror("Damage/Heal", f"Row {idx}: Amount must be positive.", parent=dlg)
+                components: list[dict] = []
+                for comp in row["components"]:
+                    amt_text = comp["amt_var"].get().strip()
+                    dtype = (comp["dtype_var"].get() or "").strip()
+                    if not amt_text and not dtype:
+                        continue
+                    if not amt_text:
+                        messagebox.showerror(
+                            "Damage/Heal",
+                            f"Row {idx}: Amount must be a number or a small math expression (e.g. 10+10+10).",
+                            parent=dlg,
+                        )
+                        return
+                    try:
+                        amt = self._parse_int_expr(amt_text)
+                    except Exception:
+                        messagebox.showerror(
+                            "Damage/Heal",
+                            f"Row {idx}: Amount must be a number or a small math expression (e.g. 10+10+10).",
+                            parent=dlg,
+                        )
+                        return
+                    if amt < 0:
+                        messagebox.showerror("Damage/Heal", f"Row {idx}: Amount must be positive.", parent=dlg)
+                        return
+                    components.append(dict(amount=amt, dtype=dtype))
+
+                if not components:
+                    messagebox.showerror("Damage/Heal", f"Row {idx}: add at least one damage component.", parent=dlg)
                     return
 
                 c = self.combatants.get(cid)
@@ -2505,55 +2559,69 @@ class InitiativeTracker(tk.Tk):
 
                 target_name = c.name
                 attacker_name = _parse_name_from_label(row["attacker_var"].get())
-                dtype = (row["dtype_var"].get() or "").strip()
-                dtype_l = (dtype.lower() + " ") if dtype else ""
                 resist_note = ""
                 imm_note = ""
 
                 if mode == "heal":
-                    c.hp = max(0, int(c.hp) + int(amt))
+                    total_heal = sum(comp["amount"] for comp in components)
+                    c.hp = max(0, int(c.hp) + int(total_heal))
                     if attacker_name:
-                        self._log(f"{attacker_name} heals {target_name} for {amt} HP")
+                        self._log(f"{attacker_name} heals {target_name} for {total_heal} HP")
                     else:
-                        self._log(f"{target_name} heals {amt} HP")
+                        self._log(f"{target_name} heals {total_heal} HP")
                     continue
 
                 # Damage mode
+                base_components = []
+                applied_components = []
+                total_applied = 0
+                for comp in components:
+                    dtype_display = comp["dtype"].lower() if comp["dtype"] else "untyped"
+                    base_components.append(f"{comp['amount']} {dtype_display}")
+                    applied = comp["amount"]
+                    if row["resistant_var"].get():
+                        applied = applied // 2
+                    total_applied += int(applied)
+                    applied_components.append(f"{applied} {dtype_display}")
+
+                component_summary = " + ".join(base_components)
+                applied_summary = " + ".join(applied_components)
+
                 if row["immune_var"].get():
                     imm_note = " (immune)"
                     if attacker_name:
-                        if dtype:
+                        if component_summary:
                             self._log(
-                                f"{attacker_name} tries to deal {dtype.lower()} damage to {target_name}, but {target_name} is immune to {dtype.lower()}.{imm_note}"
+                                f"{attacker_name} tries to deal {component_summary} damage to {target_name}, but {target_name} is immune.{imm_note}"
                             )
                         else:
                             self._log(f"{attacker_name} tries to deal damage to {target_name}, but {target_name} is immune.{imm_note}")
                     else:
-                        if dtype:
-                            self._log(f"Damage to {target_name} was blocked — immune to {dtype.lower()}.{imm_note}")
+                        if component_summary:
+                            self._log(f"Damage to {target_name} was blocked — immune to {component_summary}.{imm_note}")
                         else:
                             self._log(f"Damage to {target_name} was blocked — immune.{imm_note}")
                     continue
 
-                applied = int(amt)
                 if row["resistant_var"].get():
-                    applied = applied // 2
                     resist_note = " (resistant)"
 
                 old_hp = int(c.hp)
-                c.hp = max(0, old_hp - int(applied))
+                c.hp = max(0, old_hp - int(total_applied))
 
                 # If they died from above 0 -> 0, log flavor and remove
                 if old_hp > 0 and int(c.hp) == 0:
-                    flavor = self._death_flavor_line(attacker_name, applied, dtype, target_name)
+                    dtype_flavor = components[0]["dtype"] if len(components) == 1 else ""
+                    flavor = self._death_flavor_line(attacker_name, total_applied, dtype_flavor, target_name)
                     self._log(flavor)
                     self.combatants.pop(cid, None)
                     removed_all.append(cid)
                 else:
+                    summary = applied_summary if row["resistant_var"].get() else component_summary
                     if attacker_name:
-                        self._log(f"{attacker_name} deals {applied} {dtype_l}damage to {target_name}{resist_note}")
+                        self._log(f"{attacker_name} deals {summary} damage to {target_name}{resist_note}")
                     else:
-                        self._log(f"{target_name} takes {applied} {dtype_l}damage{resist_note}")
+                        self._log(f"{target_name} takes {summary} damage{resist_note}")
 
             if removed_all:
                 if getattr(self, "start_cid", None) in removed_all:
@@ -2580,7 +2648,8 @@ class InitiativeTracker(tk.Tk):
 
         # Focus first amount entry
         try:
-            rows[0]["amt_entry"].focus_set()
+            if rows[0]["components"]:
+                rows[0]["components"][0]["amt_entry"].focus_set()
         except Exception:
             pass
 
