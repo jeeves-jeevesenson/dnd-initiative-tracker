@@ -187,6 +187,32 @@ HTML_INDEX = r"""<!doctype html>
     .item .meta{font-size:12px; color:var(--muted);}
     .item:active{background: rgba(255,255,255,0.04);}
     .hint{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.4;}
+    .turn-modal{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 20px 14px;
+      background: rgba(0,0,0,0.6);
+      opacity:0;
+      pointer-events:none;
+      transition: opacity 0.2s ease;
+    }
+    .turn-modal.show{
+      opacity:1;
+      pointer-events:auto;
+    }
+    .turn-card{
+      width:min(380px, 100%);
+      background: var(--panel);
+      border:1px solid rgba(255,255,255,0.16);
+      border-radius: 16px;
+      padding: 18px 16px;
+      text-align:center;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    }
+    .turn-card h2{margin:0 0 12px 0; font-size:18px;}
   </style>
 </head>
 <body>
@@ -232,6 +258,12 @@ HTML_INDEX = r"""<!doctype html>
     </div>
   </div>
 </div>
+<div class="turn-modal" id="turnModal" aria-hidden="true">
+  <div class="turn-card" role="dialog" aria-live="assertive">
+    <h2>It’s your turn!</h2>
+    <button class="btn accent" id="turnModalOk">OK</button>
+  </div>
+</div>
 
 <script>
 (() => {
@@ -247,6 +279,8 @@ HTML_INDEX = r"""<!doctype html>
   const claimModal = document.getElementById("claimModal");
   const claimList = document.getElementById("claimList");
   const waitingOverlay = document.getElementById("waitingOverlay");
+  const turnModal = document.getElementById("turnModal");
+  const turnModalOk = document.getElementById("turnModalOk");
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -255,6 +289,8 @@ HTML_INDEX = r"""<!doctype html>
   let state = null;
   let claimedCid = localStorage.getItem("inittracker_claimedCid") || null;
   let lastPcList = [];
+  let lastActiveCid = null;
+  let lastTurnRound = null;
 
   // view transform
   let zoom = 32; // px per square
@@ -515,6 +551,35 @@ HTML_INDEX = r"""<!doctype html>
     }
   }
 
+  function hideTurnModal(){
+    if (!turnModal) return;
+    turnModal.classList.remove("show");
+    turnModal.setAttribute("aria-hidden", "true");
+  }
+
+  function showTurnModal(){
+    if (!turnModal) return;
+    if (document.visibilityState === "hidden") return;
+    turnModal.classList.add("show");
+    turnModal.setAttribute("aria-hidden", "false");
+    navigator.vibrate?.([200, 120, 200]);
+  }
+
+  function maybeShowTurnAlert(){
+    if (!state || !claimedCid) return;
+    const activeCid = state.active_cid;
+    const round = state.round_num;
+    const isNowMyTurn = (activeCid !== null && String(activeCid) === String(claimedCid));
+    const wasMyTurn = (lastActiveCid !== null && String(lastActiveCid) === String(claimedCid));
+    const activeChanged = String(activeCid) !== String(lastActiveCid);
+    const roundChanged = round !== lastTurnRound;
+    if (isNowMyTurn && (!wasMyTurn || activeChanged || roundChanged)){
+      showTurnModal();
+    }
+    lastActiveCid = activeCid;
+    lastTurnRound = round;
+  }
+
   function connect(){
     ws = new WebSocket(wsUrl);
     ws.addEventListener("open", () => {
@@ -538,6 +603,7 @@ HTML_INDEX = r"""<!doctype html>
         }
         draw();
         updateHud();
+        maybeShowTurnAlert();
         // show claim if needed
         if (!claimedCid){
           const pcs = (msg.pcs || msg.claimable || []);
@@ -705,6 +771,9 @@ HTML_INDEX = r"""<!doctype html>
     if (!claimedCid) return;
     send({type:"end_turn", cid: Number(claimedCid)});
   });
+  if (turnModalOk){
+    turnModalOk.addEventListener("click", hideTurnModal);
+  }
 
   const mapWrap = document.querySelector(".mapWrap");
   if (mapWrap && window.ResizeObserver){
