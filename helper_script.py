@@ -2841,6 +2841,7 @@ class BattleMapWindow(tk.Toplevel):
         self._map_margin = 24  # pixels of padding around the grid
         self.zoom_var = tk.DoubleVar(value=32.0)  # pixels per square (5 ft)
         self.obstacle_mode_var = tk.BooleanVar(value=False)
+        self.show_all_names_var = tk.BooleanVar(value=False)
         self._last_roster_sig: Optional[Tuple[int, ...]] = None
         self._poll_after_id: Optional[str] = None
 
@@ -2880,6 +2881,7 @@ class BattleMapWindow(tk.Toplevel):
         # Measurement
         self._measure_start: Optional[Tuple[float, float]] = None
         self._measure_items: List[int] = []
+        self._label_bounds: List[Tuple[int, int, int, int]] = []
 
         # Drag state
         self._drag_kind: Optional[str] = None  # "unit" | "aoe"
@@ -2971,6 +2973,9 @@ class BattleMapWindow(tk.Toplevel):
         ttk.Button(view, text="Dash (+spd)", command=self._dash_active).grid(row=1, column=2, sticky="e", pady=(6, 0))
         ttk.Checkbutton(view, text="Draw Obstacles", variable=self.obstacle_mode_var).grid(row=2, column=0, sticky="w", pady=(6, 0))
         ttk.Button(view, text="Clear Obstacles", command=self._clear_obstacles).grid(row=2, column=1, sticky="w", pady=(6, 0))
+        ttk.Checkbutton(view, text="Show All Names", variable=self.show_all_names_var, command=self._redraw_all).grid(
+            row=2, column=2, sticky="e", pady=(6, 0)
+        )
         view.columnconfigure(1, weight=1)
 
         # --- Units panel ---
@@ -3643,7 +3648,18 @@ class BattleMapWindow(tk.Toplevel):
 
         # Name above token
         name_y = y - r - 2
-        self.canvas.coords(int(tok["text"]), x, name_y)
+        text_id = int(tok["text"])
+        try:
+            state = self.canvas.itemcget(text_id, "state")
+        except Exception:
+            state = "normal"
+        prefer_show = self._active_cid == cid
+        if state != "hidden" or prefer_show:
+            try:
+                self.canvas.itemconfigure(text_id, state="normal")
+            except Exception:
+                pass
+            self._resolve_label_position(text_id, x, name_y, prefer_show)
 
         # Condition markers in the token
         if "marker" in tok:
@@ -3692,7 +3708,10 @@ class BattleMapWindow(tk.Toplevel):
                     if not tok:
                         continue
                     try:
-                        self.canvas.itemconfigure(int(tok["text"]), state="hidden")
+                        if cid == self._active_cid:
+                            self.canvas.itemconfigure(int(tok["text"]), state="normal")
+                        else:
+                            self.canvas.itemconfigure(int(tok["text"]), state="hidden")
                     except Exception:
                         pass
             else:
@@ -3707,6 +3726,10 @@ class BattleMapWindow(tk.Toplevel):
                         self.canvas.itemconfigure(int(tok["text"]), text=c.name)
                 except Exception:
                     pass
+
+        self._label_bounds = []
+        for cid in self.unit_tokens.keys():
+            self._layout_unit(cid)
 
         # Create group labels
         for (col, row), cids in cell_to.items():
@@ -3731,11 +3754,45 @@ class BattleMapWindow(tk.Toplevel):
                     font=("TkDefaultFont", 9, "bold"),
                     tags=("group",)
                 )
+                prefer_show = self._active_cid in cids
+                self._resolve_label_position(gid, x, gy, prefer_show)
                 self.canvas.tag_raise(gid)
             except Exception:
                 pass
 
         self._refresh_groups_panel()
+
+    def _labels_overlap(self, a: Tuple[int, int, int, int], b: Tuple[int, int, int, int]) -> bool:
+        return not (a[2] < b[0] or a[0] > b[2] or a[3] < b[1] or a[1] > b[3])
+
+    def _resolve_label_position(self, item_id: int, x: float, y: float, prefer_show: bool) -> None:
+        step = max(6.0, float(self.cell) * 0.35)
+        offsets = (0.0, -step, step, -2 * step, 2 * step)
+        allow_hide = not bool(self.show_all_names_var.get())
+        for dy in offsets:
+            try:
+                self.canvas.coords(item_id, x, y + dy)
+            except Exception:
+                continue
+            bbox = self.canvas.bbox(item_id)
+            if not bbox:
+                continue
+            if not any(self._labels_overlap(bbox, existing) for existing in self._label_bounds):
+                self._label_bounds.append(bbox)
+                return
+        if allow_hide and not prefer_show:
+            try:
+                self.canvas.itemconfigure(item_id, state="hidden")
+            except Exception:
+                pass
+            return
+        try:
+            self.canvas.coords(item_id, x, y)
+        except Exception:
+            return
+        bbox = self.canvas.bbox(item_id)
+        if bbox:
+            self._label_bounds.append(bbox)
 
     def _refresh_groups_panel(self) -> None:
         if not hasattr(self, "group_cells_list"):
