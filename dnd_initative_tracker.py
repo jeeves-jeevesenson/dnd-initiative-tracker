@@ -272,6 +272,11 @@ HTML_INDEX = r"""<!doctype html>
 
 <script>
 (() => {
+  function vibrate(pattern){
+    if (!("vibrate" in navigator)) return false;
+    return navigator.vibrate(pattern);
+  }
+
   const qs = new URLSearchParams(location.search);
   const wsProto = (location.protocol === "https:") ? "wss" : "ws";
   const wsUrl = `${wsProto}://${location.host}/ws`;
@@ -294,6 +299,7 @@ HTML_INDEX = r"""<!doctype html>
   turnAlertAudio.preload = "auto";
   let audioUnlocked = false;
   let pendingTurnAlert = false;
+  let pendingVibrate = false;
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -589,7 +595,7 @@ HTML_INDEX = r"""<!doctype html>
     } else {
       pendingTurnAlert = true;
     }
-    navigator.vibrate?.([200, 120, 200]);
+    pendingVibrate = true;
   }
 
   function maybeShowTurnAlert(){
@@ -814,6 +820,13 @@ HTML_INDEX = r"""<!doctype html>
             turnAlertAudio.play().catch(() => {});
           }
         }).catch(() => {});
+      }
+      if (pendingVibrate){
+        const didVibrate = vibrate([200, 120, 200]);
+        if (!didVibrate){
+          console.debug("Vibration blocked or unsupported.");
+        }
+        pendingVibrate = false;
       }
       hideTurnModal();
     });
