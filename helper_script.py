@@ -5316,6 +5316,14 @@ class BattleMapWindow(tk.Toplevel):
         attacker_cb.grid(row=0, column=1, sticky="w", padx=(6, 12))
         ttk.Checkbutton(controls, text="Use attacker in log", variable=use_attacker_var).grid(row=0, column=2, sticky="w")
 
+        aoe_meta = self.aoes.get(aid, {})
+        spell_owner = str(aoe_meta.get("owner") or "").strip()
+        from_spell = bool(
+            aoe_meta.get("from_spell")
+            or aoe_meta.get("owner_cid") is not None
+            or spell_owner
+        )
+
         # Damage type
         dmg_types = ["", "Acid", "Bludgeoning", "Cold", "Fire", "Force", "Lightning", "Necrotic",
                      "Piercing", "Poison", "Psychic", "Radiant", "Slashing", "Thunder"]
@@ -5337,7 +5345,8 @@ class BattleMapWindow(tk.Toplevel):
         save_cb.grid(row=1, column=4, sticky="w", padx=(6, 12), pady=(8, 0))
 
         half_on_pass = tk.BooleanVar(value=False)
-        ttk.Checkbutton(controls, text="Half on pass", variable=half_on_pass).grid(row=1, column=2, sticky="w", pady=(8, 0))
+        half_cb = ttk.Checkbutton(controls, text="Half on pass", variable=half_on_pass)
+        half_cb.grid(row=1, column=2, sticky="w", pady=(8, 0))
 
         # Damage amount (manual, math ok)
         dmg_amt_var = tk.StringVar(value="")
@@ -5345,6 +5354,63 @@ class BattleMapWindow(tk.Toplevel):
         dmg_amt_ent = ttk.Entry(controls, textvariable=dmg_amt_var, width=10)
         dmg_amt_ent.grid(row=2, column=1, sticky="w", padx=(6, 12), pady=(8, 0))
         ttk.Label(controls, text="(math ok)").grid(row=2, column=2, sticky="w", pady=(8, 0))
+
+        def _match_damage_type(value: str) -> str:
+            val = (value or "").strip()
+            if not val:
+                return ""
+            val_lower = val.lower()
+            for dtype in dmg_types:
+                if dtype.lower() == val_lower:
+                    return dtype
+            return val
+
+        if aoe_meta.get("dc") not in (None, ""):
+            try:
+                dc_var.set(str(int(aoe_meta.get("dc"))))
+            except Exception:
+                dc_var.set(str(aoe_meta.get("dc")))
+        if aoe_meta.get("save_type"):
+            save_choice = str(aoe_meta.get("save_type") or "").strip().upper()
+            if save_choice in save_types:
+                save_var.set(save_choice)
+        if aoe_meta.get("damage_type"):
+            dtype_var.set(_match_damage_type(str(aoe_meta.get("damage_type") or "")))
+        if aoe_meta.get("half_on_pass") is not None:
+            half_on_pass.set(bool(aoe_meta.get("half_on_pass")))
+        if aoe_meta.get("default_damage") not in (None, ""):
+            dmg_amt_var.set(str(aoe_meta.get("default_damage")))
+
+        if from_spell:
+            note = "From spell"
+            if spell_owner:
+                note = f"{note} ({spell_owner})"
+            ttk.Label(controls, text=note, foreground="#666").grid(row=2, column=3, columnspan=2, sticky="w", pady=(8, 0))
+            if aoe_meta.get("dc") not in (None, ""):
+                try:
+                    dc_ent.state(["disabled"])
+                except Exception:
+                    dc_ent.config(state=tk.DISABLED)
+            if aoe_meta.get("save_type"):
+                try:
+                    save_cb.state(["disabled"])
+                except Exception:
+                    save_cb.config(state=tk.DISABLED)
+            if aoe_meta.get("damage_type"):
+                try:
+                    dtype_cb.state(["disabled"])
+                except Exception:
+                    dtype_cb.config(state=tk.DISABLED)
+            if aoe_meta.get("half_on_pass") is not None:
+                try:
+                    half_cb.state(["disabled"])
+                except Exception:
+                    half_cb.config(state=tk.DISABLED)
+            if aoe_meta.get("default_damage") not in (None, ""):
+                try:
+                    dmg_amt_ent.state(["disabled"])
+                except Exception:
+                    dmg_amt_ent.config(state=tk.DISABLED)
 
         # --- Table ---
         mid = ttk.Frame(outer)

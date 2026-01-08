@@ -2781,7 +2781,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         "cy": float(d.get("cy") or 0.0),
                         "pinned": bool(d.get("pinned")),
                     }
-                    for extra_key in ("dc", "save_type", "damage_type", "owner", "owner_cid"):
+                    for extra_key in ("dc", "save_type", "damage_type", "half_on_pass", "default_damage", "owner", "owner_cid"):
                         if d.get(extra_key) not in (None, ""):
                             payload[extra_key] = d.get(extra_key)
                     if kind == "circle":
@@ -2962,6 +2962,8 @@ class InitiativeTracker(base.InitiativeTracker):
             name = str(payload.get("name") or "").strip()
             save_type = str(payload.get("save_type") or "").strip().lower()
             damage_type = str(payload.get("damage_type") or "").strip()
+            half_on_pass = payload.get("half_on_pass")
+            default_damage = payload.get("default_damage")
             try:
                 dc_val = int(payload.get("dc"))
             except Exception:
@@ -3014,6 +3016,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 aoe["save_type"] = save_type
             if damage_type:
                 aoe["damage_type"] = damage_type
+            if half_on_pass is not None:
+                aoe["half_on_pass"] = bool(half_on_pass)
+            if default_damage not in (None, ""):
+                aoe["default_damage"] = default_damage
             if shape == "circle":
                 aoe["radius_sq"] = float(size)
             elif shape == "square":
