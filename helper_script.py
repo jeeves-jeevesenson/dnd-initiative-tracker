@@ -5268,10 +5268,14 @@ class BattleMapWindow(tk.Toplevel):
             dtype = (dtype_var.get() or "").strip()
             dtype_l = (dtype.lower() + " ") if dtype else ""
             attacker = (attacker_var.get() or "").strip()
+            if not attacker and getattr(self.app, "current_cid", None) in self.app.combatants:
+                attacker = self.app.combatants[self.app.current_cid].name
             use_att = bool(use_attacker_var.get()) and attacker != ""
             save_name = save_var.get()
 
             removed: List[int] = []
+            death_info: Dict[int, Tuple[Optional[str], int, str]] = {}
+            death_logged: set[int] = set()
 
             for cid in included:
                 c = self.app.combatants.get(cid)
@@ -5291,6 +5295,10 @@ class BattleMapWindow(tk.Toplevel):
                     c.hp = max(0, before - int(dmg))
                 after = int(getattr(c, "hp", 0))
 
+                died = (before > 0 and after == 0)
+                if died:
+                    death_info[cid] = (attacker or None, int(dmg), dtype)
+
                 # Log
                 if dmg == 0:
                     if use_att:
@@ -5299,18 +5307,26 @@ class BattleMapWindow(tk.Toplevel):
                         self.app._log(f"{c.name} avoids AoE damage (save {save_name} {tot} vs DC {dc})")
                 else:
                     half_note = " (half on pass)" if (passed and half_on_pass.get()) else ""
+                    dead_note = " (Dead)" if (died and use_att) else ""
                     if use_att:
-                        self.app._log(f"{attacker} does {dmg} {dtype_l}damage to {c.name} (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note})")
+                        self.app._log(f"{attacker} does {dmg} {dtype_l}damage to {c.name} (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note}){dead_note}")
                     else:
                         self.app._log(f"{c.name} takes {dmg} {dtype_l}damage (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note})")
 
-                if before > 0 and after == 0:
+                if died and use_att:
+                    death_logged.add(cid)
+
+                if died:
                     removed.append(cid)
 
             if removed:
                 for cid in removed:
                     nm = self.app.combatants[cid].name if cid in self.app.combatants else "(unknown)"
-                    self.app._log(self.app._death_flavor_line(None, 0, "", nm))
+                    if cid in death_logged:
+                        self.app.combatants.pop(cid, None)
+                        continue
+                    attacker, dmg, dtype = death_info.get(cid, (None, 0, ""))
+                    self.app._log(self.app._death_flavor_line(attacker, dmg, dtype, nm))
                     self.app.combatants.pop(cid, None)
                 if getattr(self.app, "current_cid", None) in removed:
                     self.app.current_cid = None
