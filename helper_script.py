@@ -2856,6 +2856,7 @@ class BattleMapWindow(tk.Toplevel):
         self.obstacle_mode_var = tk.BooleanVar(value=False)
         self.obstacle_erase_var = tk.BooleanVar(value=False)
         self.obstacle_brush_var = tk.DoubleVar(value=1.0)
+        self.obstacle_single_var = tk.BooleanVar(value=False)
         self.show_all_names_var = tk.BooleanVar(value=False)
         self._last_roster_sig: Optional[Tuple[int, ...]] = None
         self._poll_after_id: Optional[str] = None
@@ -3039,6 +3040,9 @@ class BattleMapWindow(tk.Toplevel):
             state="readonly",
         )
         self._obstacle_brush_combo.grid(row=3, column=1, sticky="w", pady=(6, 0))
+        ttk.Checkbutton(view, text="Single square", variable=self.obstacle_single_var).grid(
+            row=3, column=2, sticky="w", pady=(6, 0)
+        )
         ttk.Checkbutton(view, text="Show All Names", variable=self.show_all_names_var, command=self._redraw_all).grid(
             row=4, column=0, columnspan=3, sticky="w", pady=(6, 0)
         )
@@ -3507,22 +3511,29 @@ class BattleMapWindow(tk.Toplevel):
         # Shift = erase (or toggle on the UI)
         erase = bool(self.obstacle_erase_var.get()) or bool(event.state & 0x0001)
         radius = float(self.obstacle_brush_var.get())
-        max_delta = int(math.ceil(radius))
         base_col = int(col)
         base_row = int(row)
-        for dc in range(-max_delta, max_delta + 1):
-            for dr in range(-max_delta, max_delta + 1):
-                if math.hypot(dc, dr) > radius:
-                    continue
-                target_col = base_col + dc
-                target_row = base_row + dr
-                if target_col < 0 or target_row < 0 or target_col >= self.cols or target_row >= self.rows:
-                    continue
-                key = (target_col, target_row)
-                if erase:
-                    self.obstacles.discard(key)
-                else:
-                    self.obstacles.add(key)
+        if self.obstacle_single_var.get():
+            key = (base_col, base_row)
+            if erase:
+                self.obstacles.discard(key)
+            else:
+                self.obstacles.add(key)
+        else:
+            max_delta = int(math.ceil(radius))
+            for dc in range(-max_delta, max_delta + 1):
+                for dr in range(-max_delta, max_delta + 1):
+                    if math.hypot(dc, dr) > radius:
+                        continue
+                    target_col = base_col + dc
+                    target_row = base_row + dr
+                    if target_col < 0 or target_row < 0 or target_col >= self.cols or target_row >= self.rows:
+                        continue
+                    key = (target_col, target_row)
+                    if erase:
+                        self.obstacles.discard(key)
+                    else:
+                        self.obstacles.add(key)
         # Redraw obstacles + recompute movement highlight (obstacles affect it)
         self._draw_obstacles()
         self._update_move_highlight()
