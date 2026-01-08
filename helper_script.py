@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-DnD Initiative Tracker (v29)
+DnD Initiative Tracker
 
 Run:
-  python3 dnd_initative_tracker_v28.py
+  python3 dnd_initative_tracker.py
 
 Features:
 - Initiative order with configurable "Start Here" rotation
@@ -147,7 +147,7 @@ class Combatant:
 class InitiativeTracker(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("DnD Initiative Tracker v26")
+        self.title("DnD Initiative Tracker")
         self.geometry("1120x720")
 
         self._next_id = 1
