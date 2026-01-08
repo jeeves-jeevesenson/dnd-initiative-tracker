@@ -248,11 +248,15 @@ HTML_INDEX = r"""<!doctype html>
       <div class="label">Ye be:</div>
       <div class="value" id="me">(unclaimed)</div>
       <div class="spacer"></div>
+      <button class="btn" id="useAction">Use Action</button>
+      <button class="btn" id="useBonusAction">Use Bonus Action</button>
       <button class="btn" id="dash">Dash</button>
       <button class="btn danger" id="endTurn">End Turn</button>
     </div>
     <div class="row">
       <div class="chip" id="move">Move: —</div>
+      <div class="chip" id="action">Action: —</div>
+      <div class="chip" id="bonusAction">Bonus Action: —</div>
       <div class="chip" id="turn">Turn: —</div>
       <div class="chip" id="note">Tip: drag yer token</div>
     </div>
@@ -274,6 +278,8 @@ HTML_INDEX = r"""<!doctype html>
   const connEl = document.getElementById("conn");
   const meEl = document.getElementById("me");
   const moveEl = document.getElementById("move");
+  const actionEl = document.getElementById("action");
+  const bonusActionEl = document.getElementById("bonusAction");
   const turnEl = document.getElementById("turn");
   const noteEl = document.getElementById("note");
   const claimModal = document.getElementById("claimModal");
@@ -281,6 +287,8 @@ HTML_INDEX = r"""<!doctype html>
   const waitingOverlay = document.getElementById("waitingOverlay");
   const turnModal = document.getElementById("turnModal");
   const turnModalOk = document.getElementById("turnModalOk");
+  const useActionBtn = document.getElementById("useAction");
+  const useBonusActionBtn = document.getElementById("useBonusAction");
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -547,7 +555,21 @@ HTML_INDEX = r"""<!doctype html>
       if (me){
         meEl.textContent = me.name;
         moveEl.textContent = `Move: ${me.move_remaining}/${me.move_total}`;
+        actionEl.textContent = `Action: ${me.action_remaining ?? 0}`;
+        bonusActionEl.textContent = `Bonus Action: ${me.bonus_action_remaining ?? 0}`;
+        useActionBtn.disabled = Number(me.action_remaining || 0) <= 0;
+        useBonusActionBtn.disabled = Number(me.bonus_action_remaining || 0) <= 0;
+      } else {
+        actionEl.textContent = "Action: —";
+        bonusActionEl.textContent = "Bonus Action: —";
+        useActionBtn.disabled = true;
+        useBonusActionBtn.disabled = true;
       }
+    } else {
+      actionEl.textContent = "Action: —";
+      bonusActionEl.textContent = "Bonus Action: —";
+      useActionBtn.disabled = true;
+      useBonusActionBtn.disabled = true;
     }
   }
 
@@ -767,6 +789,14 @@ HTML_INDEX = r"""<!doctype html>
     if (!claimedCid) return;
     send({type:"dash", cid: Number(claimedCid)});
   });
+  useActionBtn.addEventListener("click", () => {
+    if (!claimedCid) return;
+    send({type:"use_action", cid: Number(claimedCid)});
+  });
+  useBonusActionBtn.addEventListener("click", () => {
+    if (!claimedCid) return;
+    send({type:"use_bonus_action", cid: Number(claimedCid)});
+  });
   document.getElementById("endTurn").addEventListener("click", () => {
     if (!claimedCid) return;
     send({type:"end_turn", cid: Number(claimedCid)});
@@ -923,7 +953,7 @@ class LanController:
                         if isinstance(cid, int):
                             await self._claim_ws_async(ws_id, cid, note="Claimed. Drag yer token, matey.")
                             await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
-                    elif typ in ("move", "dash", "end_turn"):
+                    elif typ in ("move", "dash", "end_turn", "use_action", "use_bonus_action"):
                         # enqueue for Tk thread
                         with self._clients_lock:
                             claimed_cid = self._claims.get(ws_id)
@@ -1679,6 +1709,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     "hp": int(getattr(c, "hp", 0) or 0),
                     "move_remaining": int(getattr(c, "move_remaining", 0) or 0),
                     "move_total": int(getattr(c, "move_total", 0) or 0),
+                    "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
+                    "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
                     "marks": marks,
                 }
@@ -1824,6 +1856,24 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._rebuild_table(scroll_to_current=True)
             except Exception:
                 pass
+        elif typ == "use_action":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            if not self._use_action(c):
+                self._lan.toast(ws_id, "No actions left, matey.")
+                return
+            self._lan.toast(ws_id, "Action used.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "use_bonus_action":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            if not self._use_bonus_action(c):
+                self._lan.toast(ws_id, "No bonus actions left, matey.")
+                return
+            self._lan.toast(ws_id, "Bonus action used.")
+            self._rebuild_table(scroll_to_current=True)
         elif typ == "end_turn":
             # Let player end their own turn.
             try:
