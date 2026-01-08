@@ -394,19 +394,19 @@ HTML_INDEX = r"""<!doctype html>
               <option value="line">Line</option>
             </select>
           </div>
-          <div class="form-field">
+          <div class="form-field cast-size-field" id="castRadiusField">
             <label for="castRadius">Radius (ft)</label>
             <input id="castRadius" type="number" min="5" step="5" value="10" readonly disabled />
           </div>
-          <div class="form-field">
+          <div class="form-field cast-size-field" id="castSideField">
             <label for="castSide">Side (ft)</label>
             <input id="castSide" type="number" min="5" step="5" value="10" readonly disabled />
           </div>
-          <div class="form-field">
+          <div class="form-field cast-size-field" id="castLengthField">
             <label for="castLength">Length (ft)</label>
             <input id="castLength" type="number" min="5" step="5" value="30" readonly disabled />
           </div>
-          <div class="form-field">
+          <div class="form-field cast-size-field" id="castWidthField">
             <label for="castWidth">Width (ft)</label>
             <input id="castWidth" type="number" min="5" step="5" value="5" readonly disabled />
           </div>
@@ -498,6 +498,10 @@ __DAMAGE_TYPE_OPTIONS__
   const castForm = document.getElementById("castForm");
   const castNameInput = document.getElementById("castName");
   const castShapeInput = document.getElementById("castShape");
+  const castRadiusField = document.getElementById("castRadiusField");
+  const castSideField = document.getElementById("castSideField");
+  const castLengthField = document.getElementById("castLengthField");
+  const castWidthField = document.getElementById("castWidthField");
   const castRadiusInput = document.getElementById("castRadius");
   const castSideInput = document.getElementById("castSide");
   const castLengthInput = document.getElementById("castLength");
@@ -1620,11 +1624,20 @@ __DAMAGE_TYPE_OPTIONS__
     input.readOnly = !enabled;
   };
 
+  const setCastFieldVisible = (field, visible) => {
+    if (!field) return;
+    field.style.display = visible ? "" : "none";
+  };
+
   const updateCastShapeFields = () => {
     const shape = String(castShapeInput?.value || "").toLowerCase();
     const isCircle = shape === "circle";
     const isSquare = shape === "square";
     const isLine = shape === "line";
+    setCastFieldVisible(castRadiusField, isCircle);
+    setCastFieldVisible(castSideField, isSquare);
+    setCastFieldVisible(castLengthField, isLine);
+    setCastFieldVisible(castWidthField, isLine);
     setCastFieldEnabled(castRadiusInput, isCircle);
     setCastFieldEnabled(castSideInput, isSquare);
     setCastFieldEnabled(castLengthInput, isLine);
