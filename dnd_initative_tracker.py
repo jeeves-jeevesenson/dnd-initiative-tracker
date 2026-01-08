@@ -366,6 +366,7 @@ HTML_INDEX = r"""<!doctype html>
   let lockMap = false;
   let lastGrid = {cols: null, rows: null};
   let lastGridVersion = null;
+  let fittedToGrid = false;
   let showAllNames = localStorage.getItem("inittracker_showAllNames") === "1";
   if (showAllNamesEl){
     showAllNamesEl.checked = showAllNames;
@@ -540,12 +541,12 @@ HTML_INDEX = r"""<!doctype html>
 
     const cols = state.grid.cols, rows = state.grid.rows;
     if (cols !== lastGrid.cols || rows !== lastGrid.rows){
-      state._fitted = false;
+      fittedToGrid = false;
       lastGrid = {cols, rows};
     }
 
     // auto-fit on first draw
-    if (!state._fitted){
+    if (!fittedToGrid){
       const pad = 24;
       const sx = (w - pad*2) / (cols*zoom);
       const sy = (h - pad*2) / (rows*zoom);
@@ -553,7 +554,7 @@ HTML_INDEX = r"""<!doctype html>
       zoom = Math.floor(zoom * s);
       panX = Math.floor((w - cols*zoom)/2);
       panY = Math.floor((h - rows*zoom)/2);
-      state._fitted = true;
+      fittedToGrid = true;
     }
 
     // grid
@@ -926,7 +927,7 @@ HTML_INDEX = r"""<!doctype html>
           const rows = state.grid.rows;
           const gridChanged = cols !== lastGrid.cols || rows !== lastGrid.rows;
           if (gridChanged){
-            state._fitted = false;
+            fittedToGrid = false;
             lastGrid = {cols, rows};
           }
         }
