@@ -97,6 +97,20 @@ APP_VERSION = "41"
 POC_AUTO_START_LAN = True
 POC_AUTO_SEED_PCS = True  # auto-add Player Characters from startingplayers.yaml (useful over SSH testing)
 
+DAMAGE_TYPES = list(base.DAMAGE_TYPES)
+
+
+def _build_damage_type_options(damage_types: List[str]) -> str:
+    return "\n".join(
+        f'              <option value="{damage_type}">{damage_type}</option>'
+        if damage_type
+        else '              <option value=""></option>'
+        for damage_type in damage_types
+    )
+
+
+DAMAGE_TYPE_OPTIONS = _build_damage_type_options(DAMAGE_TYPES)
+
 # ----------------------------- LAN Server -----------------------------
 
 HTML_INDEX = r"""<!doctype html>
@@ -414,7 +428,9 @@ HTML_INDEX = r"""<!doctype html>
           </div>
           <div class="form-field">
             <label for="castDamageType">Damage Type</label>
-            <input id="castDamageType" type="text" placeholder="Fire" />
+            <select id="castDamageType">
+__DAMAGE_TYPE_OPTIONS__
+            </select>
           </div>
           <div class="form-field">
             <label for="castColor">Color</label>
@@ -1765,6 +1781,8 @@ HTML_INDEX = r"""<!doctype html>
 </body>
 </html>
 """
+
+HTML_INDEX = HTML_INDEX.replace("__DAMAGE_TYPE_OPTIONS__", DAMAGE_TYPE_OPTIONS)
 
 # ----------------------------- LAN plumbing -----------------------------
 
