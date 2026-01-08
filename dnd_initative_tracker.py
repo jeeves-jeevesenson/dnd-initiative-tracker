@@ -249,6 +249,8 @@ HTML_INDEX = r"""<!doctype html>
     <button class="btn" id="changeChar">Change</button>
     <button class="btn" id="lockMap">Lock Map</button>
     <button class="btn" id="centerMap">Center on Me</button>
+    <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
+    <button class="btn" id="measureClear">Clear Measure</button>
     <button class="btn accent" id="zoomIn">Zoom +</button>
     <button class="btn accent" id="zoomOut">Zoom −</button>
     <button class="btn" id="battleLog">Battle Log</button>
@@ -363,6 +365,8 @@ HTML_INDEX = r"""<!doctype html>
   const dashBonusActionBtn = document.getElementById("dashBonusAction");
   const dashCancelBtn = document.getElementById("dashCancel");
   const battleLogBtn = document.getElementById("battleLog");
+  const measureToggle = document.getElementById("measureToggle");
+  const measureClear = document.getElementById("measureClear");
   const logModal = document.getElementById("logModal");
   const logContent = document.getElementById("logContent");
   const logRefreshBtn = document.getElementById("logRefresh");
@@ -418,6 +422,8 @@ HTML_INDEX = r"""<!doctype html>
   let lastGridVersion = null;
   let fittedToGrid = false;
   let showAllNames = localStorage.getItem("inittracker_showAllNames") === "1";
+  let measurementMode = false;
+  let measurement = {start: null, end: null};
   if (showAllNamesEl){
     showAllNamesEl.checked = showAllNames;
     showAllNamesEl.addEventListener("change", (ev) => {
@@ -592,6 +598,42 @@ HTML_INDEX = r"""<!doctype html>
     waitingOverlay.classList.toggle("show", !gridReady());
   }
 
+  function formatFeet(feet){
+    const rounded = Math.round(feet * 10) / 10;
+    const label = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+    return `${label} ft`;
+  }
+
+  function updateMeasurementControls(){
+    if (measureToggle){
+      measureToggle.textContent = measurementMode ? "Measuring…" : "Measure";
+      measureToggle.classList.toggle("accent", measurementMode);
+      measureToggle.setAttribute("aria-pressed", measurementMode ? "true" : "false");
+    }
+    if (measureClear){
+      measureClear.disabled = !(measurement.start || measurement.end);
+    }
+  }
+
+  function clearMeasurement(){
+    measurement = {start: null, end: null};
+    updateMeasurementControls();
+    draw();
+  }
+
+  function setMeasurementPoint(p){
+    if (!gridReady()) return;
+    const g = screenToGrid(p.x, p.y);
+    const point = {col: g.col, row: g.row};
+    if (!measurement.start || measurement.end){
+      measurement = {start: point, end: null};
+    } else {
+      measurement.end = point;
+    }
+    updateMeasurementControls();
+    draw();
+  }
+
   function draw(){
     if (!state) return;
     if (!gridReady()){
@@ -739,6 +781,43 @@ HTML_INDEX = r"""<!doctype html>
         }
         ctx.restore();
       });
+    }
+
+    // measurement line
+    if (measurement.start){
+      const start = gridToScreen(measurement.start.col, measurement.start.row);
+      ctx.save();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255,233,106,0.9)";
+      ctx.fillStyle = "rgba(255,233,106,0.9)";
+      ctx.beginPath();
+      ctx.arc(start.x, start.y, Math.max(6, zoom * 0.12), 0, Math.PI * 2);
+      ctx.fill();
+      if (measurement.end){
+        const end = gridToScreen(measurement.end.col, measurement.end.row);
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(end.x, end.y, Math.max(6, zoom * 0.12), 0, Math.PI * 2);
+        ctx.fill();
+        const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
+        const dx = measurement.end.col - measurement.start.col;
+        const dy = measurement.end.row - measurement.start.row;
+        const feet = Math.hypot(dx, dy) * feetPerSquare;
+        const label = formatFeet(feet);
+        const midX = (start.x + end.x) / 2;
+        const midY = (start.y + end.y) / 2;
+        ctx.font = `700 ${Math.max(11, Math.floor(zoom * 0.32))}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillText(label, midX + 1, midY - 7 + 1);
+        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        ctx.fillText(label, midX, midY - 7);
+      }
+      ctx.restore();
     }
 
     // tokens
@@ -1152,6 +1231,10 @@ HTML_INDEX = r"""<!doctype html>
       startPinch();
       return;
     }
+    if (measurementMode){
+      setMeasurementPoint(p);
+      return;
+    }
 
     // Try token hit
     if (state && state.units){
@@ -1262,6 +1345,17 @@ HTML_INDEX = r"""<!doctype html>
     centerOnClaimed();
     draw();
   });
+  if (measureToggle){
+    measureToggle.addEventListener("click", () => {
+      measurementMode = !measurementMode;
+      updateMeasurementControls();
+    });
+  }
+  if (measureClear){
+    measureClear.addEventListener("click", () => {
+      clearMeasurement();
+    });
+  }
 
   document.getElementById("changeChar").addEventListener("click", () => {
     const pcs = lastPcList || [];
@@ -1380,6 +1474,7 @@ HTML_INDEX = r"""<!doctype html>
     ro.observe(mapWrap);
   }
   resize();
+  updateMeasurementControls();
   updateWaitingOverlay();
   connect();
 })();
