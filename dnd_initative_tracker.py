@@ -159,6 +159,44 @@ HTML_INDEX = r"""<!doctype html>
       backdrop-filter: blur(10px);
       position:sticky; bottom:0; z-index:20;
     }
+    .cast-panel{
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(10,14,22,0.55);
+    }
+    .cast-panel summary{
+      cursor:pointer;
+      font-weight:700;
+      list-style:none;
+    }
+    .cast-panel summary::-webkit-details-marker{display:none;}
+    .cast-panel[open] summary{margin-bottom:8px;}
+    .form-grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap:8px;
+    }
+    .form-field{display:flex; flex-direction:column; gap:4px;}
+    .form-field label{font-size:11px; color:var(--muted);}
+    .form-field input,
+    .form-field select{
+      border:1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+    .form-field input[type="color"]{
+      padding:0;
+      height:36px;
+      width:100%;
+      border:none;
+      background:none;
+    }
+    .form-actions{margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;}
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
     .row + .row{margin-top:10px;}
     .label{font-size:12px; color:var(--muted);}
@@ -325,6 +363,56 @@ HTML_INDEX = r"""<!doctype html>
       <div class="chip" id="note">Tip: drag yer token</div>
       <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
     </div>
+    <details class="cast-panel" id="castPanel">
+      <summary>Cast Spell</summary>
+      <form id="castForm">
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="castName">Name</label>
+            <input id="castName" type="text" placeholder="Fireball" />
+          </div>
+          <div class="form-field">
+            <label for="castShape">Shape</label>
+            <select id="castShape">
+              <option value="circle">Circle</option>
+              <option value="square">Square</option>
+              <option value="line">Line</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="castSize">Size (squares)</label>
+            <input id="castSize" type="number" min="0.5" step="0.5" value="2" />
+          </div>
+          <div class="form-field">
+            <label for="castDcType">DC Type</label>
+            <select id="castDcType">
+              <option value="">None</option>
+              <option value="str">STR</option>
+              <option value="dex">DEX</option>
+              <option value="con">CON</option>
+              <option value="int">INT</option>
+              <option value="wis">WIS</option>
+              <option value="cha">CHA</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="castDcValue">Save DC</label>
+            <input id="castDcValue" type="number" min="1" step="1" placeholder="15" />
+          </div>
+          <div class="form-field">
+            <label for="castDamageType">Damage Type</label>
+            <input id="castDamageType" type="text" placeholder="Fire" />
+          </div>
+          <div class="form-field">
+            <label for="castColor">Color</label>
+            <input id="castColor" type="color" value="#6aa9ff" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn accent" type="submit">Cast</button>
+        </div>
+      </form>
+    </details>
   </div>
 </div>
 <div class="turn-modal" id="turnModal" aria-hidden="true">
@@ -378,6 +466,14 @@ HTML_INDEX = r"""<!doctype html>
   const useBonusActionBtn = document.getElementById("useBonusAction");
   const resetTurnBtn = document.getElementById("resetTurn");
   const showAllNamesEl = document.getElementById("showAllNames");
+  const castForm = document.getElementById("castForm");
+  const castNameInput = document.getElementById("castName");
+  const castShapeInput = document.getElementById("castShape");
+  const castSizeInput = document.getElementById("castSize");
+  const castDcTypeInput = document.getElementById("castDcType");
+  const castDcValueInput = document.getElementById("castDcValue");
+  const castDamageTypeInput = document.getElementById("castDamageType");
+  const castColorInput = document.getElementById("castColor");
   const turnAlertAudio = new Audio("/assets/alert.wav");
   turnAlertAudio.preload = "auto";
   let audioUnlocked = false;
@@ -415,6 +511,7 @@ HTML_INDEX = r"""<!doctype html>
   let zoom = 32; // px per square
   let panX = 0, panY = 0;
   let dragging = null; // {cid, startX, startY, origCol, origRow}
+  let draggingAoe = null; // {aid, cx, cy}
   let panning = null;  // {x,y, panX, panY}
   let centeredCid = null;
   let lockMap = false;
@@ -586,6 +683,47 @@ HTML_INDEX = r"""<!doctype html>
   function screenToGrid(x,y){
     return {col: Math.floor((x - panX)/zoom), row: Math.floor((y - panY)/zoom)};
   }
+  function screenToGridFloat(x,y){
+    const col = (x - panX) / zoom;
+    const row = (y - panY) / zoom;
+    return {col: Math.round(col * 2) / 2, row: Math.round(row * 2) / 2};
+  }
+
+  function hitTestAoe(p){
+    if (!state || !state.aoes || !state.aoes.length) return null;
+    for (let i = state.aoes.length - 1; i >= 0; i--){
+      const a = state.aoes[i];
+      if (!a || !a.kind) continue;
+      const cx = Number(a.cx ?? 0);
+      const cy = Number(a.cy ?? 0);
+      const center = gridToScreen(cx, cy);
+      const dx = p.x - center.x;
+      const dy = p.y - center.y;
+      if (a.kind === "circle"){
+        const r = Math.max(0, Number(a.radius_sq || 0)) * zoom;
+        if (dx * dx + dy * dy <= r * r){
+          return a;
+        }
+      } else if (a.kind === "square"){
+        const half = Math.max(0, Number(a.side_sq || 0)) * zoom / 2;
+        if (Math.abs(dx) <= half && Math.abs(dy) <= half){
+          return a;
+        }
+      } else if (a.kind === "line"){
+        const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
+        const widthPx = Math.max(0, Number(a.width_sq || 0)) * zoom;
+        const orient = a.orient === "horizontal" ? "horizontal" : "vertical";
+        const angleDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : (orient === "horizontal" ? 0 : 90);
+        const angle = (-angleDeg * Math.PI) / 180;
+        const rx = dx * Math.cos(angle) - dy * Math.sin(angle);
+        const ry = dx * Math.sin(angle) + dy * Math.cos(angle);
+        if (Math.abs(rx) <= lengthPx / 2 && Math.abs(ry) <= widthPx / 2){
+          return a;
+        }
+      }
+    }
+    return null;
+  }
 
   function gridReady(){
     if (!state || !state.grid) return false;
@@ -613,6 +751,21 @@ HTML_INDEX = r"""<!doctype html>
     if (measureClear){
       measureClear.disabled = !(measurement.start || measurement.end);
     }
+  }
+
+  function getClaimedUnit(){
+    if (!state || !state.units || claimedCid === null) return null;
+    return state.units.find(u => Number(u.cid) === Number(claimedCid)) || null;
+  }
+
+  function defaultAoeCenter(){
+    const unit = getClaimedUnit();
+    if (unit){
+      return {cx: Number(unit.pos.col), cy: Number(unit.pos.row)};
+    }
+    const cols = state?.grid?.cols ?? 0;
+    const rows = state?.grid?.rows ?? 0;
+    return {cx: Math.max(0, (cols - 1) / 2), cy: Math.max(0, (rows - 1) / 2)};
   }
 
   function clearMeasurement(){
@@ -720,8 +873,9 @@ HTML_INDEX = r"""<!doctype html>
     if (state.aoes && state.aoes.length){
       state.aoes.forEach(a => {
         if (!a || !a.kind) return;
-        const cx = Number(a.cx ?? 0);
-        const cy = Number(a.cy ?? 0);
+        const preview = (draggingAoe && draggingAoe.aid === a.aid) ? draggingAoe : null;
+        const cx = Number(preview ? preview.cx : a.cx ?? 0);
+        const cy = Number(preview ? preview.cy : a.cy ?? 0);
         const {x,y} = gridToScreen(cx, cy);
         const colorHex = normalizeHexColor(a.color || "");
         ctx.save();
@@ -1227,6 +1381,7 @@ HTML_INDEX = r"""<!doctype html>
     activePointers.set(ev.pointerId, p);
     if (activePointers.size >= 2){
       dragging = null;
+      draggingAoe = null;
       panning = null;
       startPinch();
       return;
@@ -1263,6 +1418,20 @@ HTML_INDEX = r"""<!doctype html>
         return;
       }
     }
+    const aoeHit = hitTestAoe(p);
+    if (aoeHit){
+      if (!claimedCid){
+        localToast("Claim a character first, matey.");
+        return;
+      }
+      if (aoeHit.owner_cid !== null && aoeHit.owner_cid !== undefined
+          && Number(aoeHit.owner_cid) !== Number(claimedCid)){
+        localToast("That spell be not yers.");
+        return;
+      }
+      draggingAoe = {aid: aoeHit.aid, cx: aoeHit.cx, cy: aoeHit.cy};
+      return;
+    }
     // else pan (if map not locked)
     if (!lockMap){
       panning = {x: p.x, y: p.y, panX, panY};
@@ -1292,6 +1461,11 @@ HTML_INDEX = r"""<!doctype html>
       ctx.strokeStyle = "rgba(106,169,255,0.95)";
       ctx.stroke();
       ctx.restore();
+    } else if (draggingAoe){
+      const g = screenToGridFloat(p.x, p.y);
+      draggingAoe.cx = g.col;
+      draggingAoe.cy = g.row;
+      draw();
     } else if (panning){
       panX = panning.panX + (p.x - panning.x);
       panY = panning.panY + (p.y - panning.y);
@@ -1310,6 +1484,12 @@ HTML_INDEX = r"""<!doctype html>
       send({type:"move", cid: Number(dragging.cid), to: {col: g.col, row: g.row}});
       dragging = null;
     })();
+    draggingAoe && (function(){
+      const g = screenToGridFloat(p.x, p.y);
+      send({type:"aoe_move", aid: Number(draggingAoe.aid), to: {cx: g.col, cy: g.row}});
+      draggingAoe = null;
+      draw();
+    })();
     panning = null;
   });
 
@@ -1318,6 +1498,7 @@ HTML_INDEX = r"""<!doctype html>
     if (activePointers.size < 2){
       pinchState = null;
     }
+    draggingAoe = null;
   });
 
   canvas.addEventListener("wheel", (ev) => {
@@ -1398,6 +1579,44 @@ HTML_INDEX = r"""<!doctype html>
       } else {
         claimModal.classList.add("show");
       }
+    });
+  }
+
+  if (castForm){
+    castForm.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      if (!claimedCid){
+        localToast("Claim a character first, matey.");
+        return;
+      }
+      if (!state || !gridReady()){
+        localToast("Map not ready yet, matey.");
+        return;
+      }
+      const shape = String(castShapeInput?.value || "circle").toLowerCase();
+      const size = parseFloat(castSizeInput?.value || "");
+      if (!Number.isFinite(size) || size <= 0){
+        localToast("Enter a valid size, matey.");
+        return;
+      }
+      const dcType = String(castDcTypeInput?.value || "").trim().toLowerCase();
+      const dcValue = parseInt(castDcValueInput?.value || "", 10);
+      const damageType = String(castDamageTypeInput?.value || "").trim();
+      const name = String(castNameInput?.value || "").trim();
+      const color = normalizeHexColor(castColorInput?.value || "") || null;
+      const center = defaultAoeCenter();
+      const payload = {
+        shape,
+        size,
+        dc: Number.isFinite(dcValue) ? dcValue : null,
+        save_type: dcType || null,
+        damage_type: damageType || null,
+        name: name || null,
+        color,
+        cx: center.cx,
+        cy: center.cy,
+      };
+      send({type: "cast_aoe", payload});
     });
   }
 
@@ -1647,7 +1866,17 @@ class LanController:
                         except Exception:
                             lines = []
                         await ws.send_text(json.dumps({"type": "battle_log", "lines": lines}))
-                    elif typ in ("move", "dash", "end_turn", "use_action", "use_bonus_action", "set_color", "reset_turn"):
+                    elif typ in (
+                        "move",
+                        "dash",
+                        "end_turn",
+                        "use_action",
+                        "use_bonus_action",
+                        "set_color",
+                        "reset_turn",
+                        "cast_aoe",
+                        "aoe_move",
+                    ):
                         # enqueue for Tk thread
                         with self._clients_lock:
                             claimed_cid = self._claims.get(ws_id)
@@ -2552,6 +2781,9 @@ class InitiativeTracker(base.InitiativeTracker):
                         "cy": float(d.get("cy") or 0.0),
                         "pinned": bool(d.get("pinned")),
                     }
+                    for extra_key in ("dc", "save_type", "damage_type", "owner", "owner_cid"):
+                        if d.get(extra_key) not in (None, ""):
+                            payload[extra_key] = d.get(extra_key)
                     if kind == "circle":
                         payload["radius_sq"] = float(d.get("radius_sq") or 0.0)
                     elif kind == "line":
@@ -2708,8 +2940,143 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         # Only allow controlling on your turn (POC)
-        if self.current_cid is None or int(self.current_cid) != int(cid):
-            self._lan.toast(ws_id, "Not yer turn yet, matey.")
+        if typ not in ("cast_aoe", "aoe_move"):
+            if self.current_cid is None or int(self.current_cid) != int(cid):
+                self._lan.toast(ws_id, "Not yer turn yet, matey.")
+                return
+
+        if typ == "cast_aoe":
+            payload = msg.get("payload") or {}
+            shape = str(payload.get("shape") or payload.get("kind") or "").strip().lower()
+            if shape not in ("circle", "square", "line"):
+                self._lan.toast(ws_id, "Pick a valid spell shape, matey.")
+                return
+            try:
+                size = float(payload.get("size") or 0)
+            except Exception:
+                size = 0.0
+            if size <= 0:
+                self._lan.toast(ws_id, "Pick a valid spell size, matey.")
+                return
+            color = self._normalize_token_color(payload.get("color")) or ""
+            name = str(payload.get("name") or "").strip()
+            save_type = str(payload.get("save_type") or "").strip().lower()
+            damage_type = str(payload.get("damage_type") or "").strip()
+            try:
+                dc_val = int(payload.get("dc"))
+            except Exception:
+                dc_val = None
+            mw = getattr(self, "_map_window", None)
+            if mw is None or not mw.winfo_exists():
+                self._lan.toast(ws_id, "Map window not open, matey.")
+                return
+            try:
+                cols = int(getattr(mw, "cols", 0))
+                rows = int(getattr(mw, "rows", 0))
+            except Exception:
+                cols = 0
+                rows = 0
+            try:
+                cx = float(payload.get("cx"))
+                cy = float(payload.get("cy"))
+            except Exception:
+                cx = None
+                cy = None
+            if cx is None or cy is None:
+                _, _, _, positions = self._lan_live_map_data()
+                if cid in positions:
+                    cx = float(positions[cid][0])
+                    cy = float(positions[cid][1])
+                else:
+                    cx = max(0.0, (cols - 1) / 2.0) if cols else 0.0
+                    cy = max(0.0, (rows - 1) / 2.0) if rows else 0.0
+            if cols and rows:
+                cx = max(0.0, min(cx, cols - 1))
+                cy = max(0.0, min(cy, rows - 1))
+            aid = int(getattr(mw, "_next_aoe_id", 1))
+            setattr(mw, "_next_aoe_id", aid + 1)
+            owner = str(self.combatants[cid].name)
+            aoe: Dict[str, Any] = {
+                "kind": shape,
+                "cx": float(cx),
+                "cy": float(cy),
+                "pinned": False,
+                "color": color or (mw._aoe_default_color(shape) if hasattr(mw, "_aoe_default_color") else ""),
+                "name": name or f"AoE {aid}",
+                "shape": None,
+                "label": None,
+                "owner": owner,
+                "owner_cid": int(cid),
+            }
+            if dc_val is not None:
+                aoe["dc"] = int(dc_val)
+            if save_type:
+                aoe["save_type"] = save_type
+            if damage_type:
+                aoe["damage_type"] = damage_type
+            if shape == "circle":
+                aoe["radius_sq"] = float(size)
+            elif shape == "square":
+                aoe["side_sq"] = float(size)
+            else:
+                width = float(payload.get("width") or 1.0)
+                aoe["length_sq"] = float(size)
+                aoe["width_sq"] = max(0.5, float(width))
+                aoe["orient"] = str(payload.get("orient") or "vertical")
+                aoe["angle_deg"] = float(payload.get("angle_deg") or 90.0)
+                aoe["ax"] = float(cx)
+                aoe["ay"] = float(cy)
+            mw.aoes[aid] = aoe
+            try:
+                if hasattr(mw, "_create_aoe_items"):
+                    mw._create_aoe_items(aid)
+                if hasattr(mw, "_refresh_aoe_list"):
+                    mw._refresh_aoe_list(select=aid)
+            except Exception:
+                pass
+            self._lan.toast(ws_id, f"Casted {aoe['name']}.")
+            return
+        elif typ == "aoe_move":
+            aid = msg.get("aid")
+            to = msg.get("to") or {}
+            if not isinstance(aid, int):
+                self._lan.toast(ws_id, "Pick a spell first, matey.")
+                return
+            try:
+                cx = float(to.get("cx"))
+                cy = float(to.get("cy"))
+            except Exception:
+                return
+            mw = getattr(self, "_map_window", None)
+            if mw is None or not mw.winfo_exists():
+                self._lan.toast(ws_id, "Map window not open, matey.")
+                return
+            d = (getattr(mw, "aoes", {}) or {}).get(aid)
+            if not d:
+                return
+            if bool(d.get("pinned")):
+                self._lan.toast(ws_id, "That spell be pinned.")
+                return
+            owner_cid = d.get("owner_cid")
+            if owner_cid is not None and int(owner_cid) != int(cid):
+                self._lan.toast(ws_id, "That spell be not yers.")
+                return
+            try:
+                cols = int(getattr(mw, "cols", 0))
+                rows = int(getattr(mw, "rows", 0))
+            except Exception:
+                cols = 0
+                rows = 0
+            if cols and rows:
+                cx = max(0.0, min(cx, cols - 1))
+                cy = max(0.0, min(cy, rows - 1))
+            d["cx"] = float(cx)
+            d["cy"] = float(cy)
+            try:
+                if hasattr(mw, "_layout_aoe"):
+                    mw._layout_aoe(aid)
+            except Exception:
+                pass
             return
 
         if typ == "move":
