@@ -869,6 +869,17 @@ __DAMAGE_TYPE_OPTIONS__
       ctx.beginPath(); ctx.moveTo(panX, y); ctx.lineTo(panX + cols*zoom, y); ctx.stroke();
     }
 
+    // rough terrain
+    if (state.rough_terrain && state.rough_terrain.length){
+      state.rough_terrain.forEach(cell => {
+        const x = panX + cell.col*zoom;
+        const y = panY + cell.row*zoom;
+        const colorHex = normalizeHexColor(cell.color || "");
+        ctx.fillStyle = colorHex ? rgbaFromHex(colorHex, 0.25) : "rgba(141,110,99,0.25)";
+        ctx.fillRect(x+1,y+1,zoom-2,zoom-2);
+      });
+    }
+
     // movement range (claimed token)
     const isMyTurn = claimedCid != null
       && state.active_cid != null
@@ -2856,6 +2867,7 @@ class InitiativeTracker(base.InitiativeTracker):
         positions = dict(self._lan_positions)
         map_ready = mw is not None
         aoes: List[Dict[str, Any]] = []
+        rough_terrain: Dict[Tuple[int, int], str] = {}
 
         if mw is not None:
             try:
@@ -2898,6 +2910,10 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 pass
             try:
+                rough_terrain = dict(getattr(mw, "rough_terrain", rough_terrain) or {})
+            except Exception:
+                pass
+            try:
                 for cid, tok in (getattr(mw, "unit_tokens", {}) or {}).items():
                     positions[int(cid)] = (int(tok.get("col")), int(tok.get("row")))
             except Exception:
@@ -2937,6 +2953,10 @@ class InitiativeTracker(base.InitiativeTracker):
         snap: Dict[str, Any] = {
             "grid": grid_payload,
             "obstacles": [{"col": int(c), "row": int(r)} for (c, r) in sorted(obstacles)],
+            "rough_terrain": [
+                {"col": int(c), "row": int(r), "color": str(color)}
+                for (c, r), color in sorted(rough_terrain.items())
+            ],
             "aoes": aoes,
             "units": units,
             "active_cid": active,
