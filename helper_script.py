@@ -690,6 +690,7 @@ class InitiativeTracker(tk.Tk):
             ],
             "psychic": [
                 "{attacker} deals {amount} psychic to {target}. Out-thought. Out-fought. (Dead)",
+                "{target} thought a forbidden thought. (Dead)",
             ],
         }
 
