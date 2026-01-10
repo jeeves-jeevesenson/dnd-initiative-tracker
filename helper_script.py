@@ -5894,6 +5894,43 @@ class BattleMapWindow(tk.Toplevel):
         half_cb = ttk.Checkbutton(controls, text="Half on pass (per component)", variable=half_on_pass)
         half_cb.grid(row=1, column=2, sticky="w", pady=(8, 0))
 
+        apply_condition_var = tk.BooleanVar(value=False)
+        cond_keys = [k for k in CONDITIONS_META.keys() if k != "exhaustion"]
+        cond_labels = [str(CONDITIONS_META[k]["label"]) for k in cond_keys]
+        condition_var = tk.StringVar(value=(cond_labels[0] if cond_labels else ""))
+        condition_turns_var = tk.StringVar(value="0")
+
+        ttk.Checkbutton(
+            controls,
+            text="Apply condition on failed save",
+            variable=apply_condition_var,
+        ).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(controls, text="Condition:").grid(row=2, column=1, sticky="w", pady=(8, 0))
+        condition_cb = ttk.Combobox(
+            controls,
+            textvariable=condition_var,
+            values=cond_labels,
+            state="readonly",
+            width=18,
+        )
+        condition_cb.grid(row=2, column=2, sticky="w", pady=(8, 0))
+        ttk.Label(controls, text="Turns (0=indef):").grid(row=2, column=3, sticky="w", pady=(8, 0))
+        condition_turns_ent = ttk.Entry(controls, textvariable=condition_turns_var, width=8)
+        condition_turns_ent.grid(row=2, column=4, sticky="w", pady=(8, 0))
+
+        def _toggle_condition_controls(*_args: object) -> None:
+            state = ["!disabled"] if apply_condition_var.get() else ["disabled"]
+            try:
+                condition_cb.state(state)
+            except Exception:
+                condition_cb.config(state=(tk.NORMAL if apply_condition_var.get() else tk.DISABLED))
+            try:
+                condition_turns_ent.state(state)
+            except Exception:
+                condition_turns_ent.config(state=(tk.NORMAL if apply_condition_var.get() else tk.DISABLED))
+
+        apply_condition_var.trace_add("write", _toggle_condition_controls)
+
         def _match_damage_type(value: str) -> str:
             val = (value or "").strip()
             if not val:
@@ -5915,12 +5952,20 @@ class BattleMapWindow(tk.Toplevel):
                 save_var.set(save_choice)
         if aoe_meta.get("half_on_pass") is not None:
             half_on_pass.set(bool(aoe_meta.get("half_on_pass")))
+        if aoe_meta.get("condition_on_fail") is not None:
+            apply_condition_var.set(bool(aoe_meta.get("condition_on_fail")))
+        if aoe_meta.get("condition_key") in cond_keys:
+            label = str(CONDITIONS_META.get(aoe_meta.get("condition_key"), {}).get("label", ""))
+            if label:
+                condition_var.set(label)
+        if aoe_meta.get("condition_turns") not in (None, ""):
+            condition_turns_var.set(str(aoe_meta.get("condition_turns")))
 
         if from_spell:
             note = "From spell"
             if spell_owner:
                 note = f"{note} ({spell_owner})"
-            ttk.Label(controls, text=note, foreground="#666").grid(row=2, column=3, columnspan=2, sticky="w", pady=(8, 0))
+            ttk.Label(controls, text=note, foreground="#666").grid(row=3, column=3, columnspan=2, sticky="w", pady=(8, 0))
             if aoe_meta.get("dc") not in (None, ""):
                 try:
                     dc_ent.state(["disabled"])
@@ -6148,6 +6193,29 @@ class BattleMapWindow(tk.Toplevel):
             except Exception:
                 messagebox.showerror("AoE Damage", "Save DC must be an integer.", parent=dlg)
                 return
+            apply_condition = bool(apply_condition_var.get())
+            condition_key: Optional[str] = None
+            condition_turns: Optional[int] = None
+            if apply_condition:
+                label = condition_var.get()
+                for key in cond_keys:
+                    if str(CONDITIONS_META[key]["label"]) == label:
+                        condition_key = key
+                        break
+                if not condition_key:
+                    messagebox.showerror("AoE Damage", "Pick a condition to apply.", parent=dlg)
+                    return
+                try:
+                    raw_turns = int((condition_turns_var.get() or "").strip())
+                except ValueError:
+                    messagebox.showerror("AoE Damage", "Condition turns must be an integer (0=indef).", parent=dlg)
+                    return
+                condition_turns = None if raw_turns == 0 else max(1, raw_turns)
+
+            aoe_meta["condition_on_fail"] = apply_condition
+            if condition_key:
+                aoe_meta["condition_key"] = condition_key
+            aoe_meta["condition_turns"] = condition_turns_var.get().strip()
             components: List[Tuple[int, str]] = []
             for comp in damage_components:
                 amount_raw = (comp["amount_var"].get() or "").strip()
@@ -6235,6 +6303,21 @@ class BattleMapWindow(tk.Toplevel):
                 if died and use_att:
                     death_logged.add(cid)
 
+                if apply_condition and (r > 0 and not passed) and condition_key:
+                    c.condition_stacks = [st for st in c.condition_stacks if st.ctype != condition_key]
+                    st = ConditionStack(
+                        sid=self.app._next_stack_id,
+                        ctype=condition_key,
+                        remaining_turns=condition_turns,
+                    )
+                    self.app._next_stack_id += 1
+                    c.condition_stacks.append(st)
+                    lab = str(CONDITIONS_META.get(condition_key, {}).get("label", condition_key))
+                    if condition_turns is None:
+                        self.app._log(f"set condition: {lab} (indef)", cid=cid)
+                    else:
+                        self.app._log(f"set condition: {lab} ({condition_turns} turn(s))", cid=cid)
+
                 if died:
                     removed.append(cid)
 
@@ -6267,6 +6350,8 @@ class BattleMapWindow(tk.Toplevel):
                     first_ent.focus_set()
         except Exception:
             pass
+
+        _toggle_condition_controls()
 
         refresh()
 
