@@ -248,6 +248,9 @@ HTML_INDEX = r"""<!doctype html>
       border-radius: 14px;
       padding: 14px;
       box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      display:flex;
+      flex-direction:column;
+      max-height: calc(100vh - var(--safeInsetTop) - var(--safeInsetBottom) - 40px);
     }
     .card h2{margin:0 0 8px 0; font-size:16px;}
     .list{max-height: 50vh; overflow:auto; border:1px solid rgba(255,255,255,0.10); border-radius:12px;}
@@ -291,11 +294,15 @@ HTML_INDEX = r"""<!doctype html>
       padding: 18px 16px;
       text-align:center;
       box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+      display:flex;
+      flex-direction:column;
+      max-height: calc(100vh - var(--safeInsetTop) - var(--safeInsetBottom) - 40px);
     }
     .turn-card h2{margin:0 0 12px 0; font-size:18px;}
     .log-content{
-      max-height: 55vh;
       overflow:auto;
+      flex:1;
+      min-height:0;
       padding: 10px;
       border:1px solid rgba(255,255,255,0.1);
       border-radius: 12px;
@@ -303,6 +310,11 @@ HTML_INDEX = r"""<!doctype html>
       font-size: 12px;
       white-space: pre-wrap;
       line-height: 1.4;
+    }
+    .initiative-order-content{
+      flex:1;
+      min-height:0;
+      overflow:auto;
     }
     @media (max-width: 720px), (max-height: 720px){
       .btn{padding: 6px 8px; font-size: 12px;}
@@ -389,7 +401,9 @@ HTML_INDEX = r"""<!doctype html>
       <button class="btn danger" id="endTurn">End Turn</button>
     </div>
     <div class="row">
-      <div class="turn-order" id="turnOrder" aria-label="Turn order"></div>
+      <div class="initiative-order-content">
+        <div class="turn-order" id="turnOrder" aria-label="Turn order"></div>
+      </div>
     </div>
     <div class="row">
       <div class="chip" id="move">Move: —</div>
