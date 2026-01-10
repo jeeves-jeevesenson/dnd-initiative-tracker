@@ -97,14 +97,14 @@ AOE_COLOR_PRESETS = [
     ("Gray", "#5c5c5c"),
     ("Black", "#111111"),
 ]
-ROUGH_TERRAIN_COLOR_PRESETS = [
-    ("Mud", "#8d6e63"),
-    ("Water", "#4aa3df"),
-    ("Grass", "#6ab04c"),
-    ("Stone", "#9e9e9e"),
-    ("Sand", "#d4a373"),
-    ("Magic", "#8e44ad"),
-    ("Shadow", "#4b4b4b"),
+DEFAULT_ROUGH_TERRAIN_PRESETS = [
+    {"label": "Mud", "color": "#8d6e63", "is_swim": False, "is_rough": True},
+    {"label": "Water", "color": "#4aa3df", "is_swim": True, "is_rough": False},
+    {"label": "Grass", "color": "#6ab04c", "is_swim": False, "is_rough": True},
+    {"label": "Stone", "color": "#9e9e9e", "is_swim": False, "is_rough": True},
+    {"label": "Sand", "color": "#d4a373", "is_swim": False, "is_rough": True},
+    {"label": "Magic", "color": "#8e44ad", "is_swim": False, "is_rough": True},
+    {"label": "Shadow", "color": "#4b4b4b", "is_swim": False, "is_rough": True},
 ]
 DEFAULT_STARTING_PLAYERS = [
     "John Twilight",
@@ -209,6 +209,78 @@ class MonsterSpec:
     saving_throws: Dict[str, int]
 
 
+@dataclass(frozen=True)
+class TerrainPreset:
+    label: str
+    color: str
+    is_swim: bool
+    is_rough: bool
+
+
+def _normalize_hex_color_value(color: object) -> Optional[str]:
+    if not isinstance(color, str):
+        return None
+    value = color.strip().lower()
+    if not re.fullmatch(r"#[0-9a-f]{6}", value):
+        return None
+    return value
+
+
+def _terrain_preset_from_entry(entry: object) -> Optional[TerrainPreset]:
+    if not isinstance(entry, dict):
+        return None
+    label = str(entry.get("label") or "").strip()
+    color = _normalize_hex_color_value(entry.get("color"))
+    is_swim = bool(entry.get("is_swim", False))
+    is_rough = bool(entry.get("is_rough", False))
+    if not label:
+        label = color or "Terrain"
+    if not color:
+        return None
+    return TerrainPreset(label=label, color=color, is_swim=is_swim, is_rough=is_rough)
+
+
+def _load_rough_terrain_presets() -> List[TerrainPreset]:
+    preset_dir = Path(__file__).resolve().parent / "presets" / "rough_terrain"
+    presets: List[TerrainPreset] = []
+    if preset_dir.exists():
+        for path in sorted(preset_dir.iterdir()):
+            if not path.is_file():
+                continue
+            suffix = path.suffix.lower()
+            if suffix not in (".json", ".yml", ".yaml"):
+                continue
+            data: object = None
+            try:
+                with open(path, "r", encoding="utf-8") as handle:
+                    if suffix == ".json":
+                        data = json.load(handle)
+                    elif yaml is not None:
+                        data = yaml.safe_load(handle)
+            except Exception:
+                continue
+            entries: List[object] = []
+            if isinstance(data, list):
+                entries = data
+            elif isinstance(data, dict):
+                raw_entries = data.get("terrains")
+                if isinstance(raw_entries, list):
+                    entries = raw_entries
+            for entry in entries:
+                preset = _terrain_preset_from_entry(entry)
+                if preset is None:
+                    continue
+                presets.append(preset)
+    if presets:
+        return presets
+    fallback: List[TerrainPreset] = []
+    for entry in DEFAULT_ROUGH_TERRAIN_PRESETS:
+        preset = _terrain_preset_from_entry(entry)
+        if preset is not None:
+            fallback.append(preset)
+    return fallback
+
+
 class InitiativeTracker(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -220,6 +292,7 @@ class InitiativeTracker(tk.Tk):
         self.combatants: Dict[int, Combatant] = {}
         self._monster_specs: List[MonsterSpec] = []
         self._monsters_by_name: Dict[str, MonsterSpec] = {}
+        self.rough_terrain_presets: List[TerrainPreset] = _load_rough_terrain_presets()
 
         # Remember roles for name-based log styling (pc/ally/enemy)
         self._name_role_memory: Dict[str, str] = {}
@@ -3285,7 +3358,7 @@ class BattleMapWindow(tk.Toplevel):
         self.obstacles: Set[Tuple[int, int]] = set()  # blocked squares
         self._obstacle_history: List[Set[Tuple[int, int]]] = []
         self._drawing_obstacles: bool = False
-        self.rough_terrain: Dict[Tuple[int, int], str] = {}
+        self.rough_terrain: Dict[Tuple[int, int], Dict[str, object]] = {}
         self._drawing_rough: bool = False
 
         # Grouping: multiple units can occupy the same square. We show a single group label and fan the tokens slightly.
@@ -3328,15 +3401,24 @@ class BattleMapWindow(tk.Toplevel):
             self._aoe_color_by_label[label] = hex_value
             self._aoe_label_by_color[hex_value] = label
         self._rough_color_labels: List[str] = []
-        self._rough_color_by_label: Dict[str, str] = {}
+        self._rough_preset_by_label: Dict[str, TerrainPreset] = {}
         self._rough_label_by_color: Dict[str, str] = {}
-        for name, hex_value in ROUGH_TERRAIN_COLOR_PRESETS:
-            label = f"{name} ({hex_value})"
+        self._rough_presets: List[TerrainPreset] = list(getattr(self.app, "rough_terrain_presets", []) or [])
+        if not self._rough_presets:
+            self._rough_presets = _load_rough_terrain_presets()
+        for preset in self._rough_presets:
+            flags: List[str] = []
+            if preset.is_swim:
+                flags.append("swim")
+            if preset.is_rough:
+                flags.append("rough")
+            flag_label = f" • {', '.join(flags)}" if flags else ""
+            label = f"{preset.label} ({preset.color}){flag_label}"
             self._rough_color_labels.append(label)
-            self._rough_color_by_label[label] = hex_value
-            self._rough_label_by_color[hex_value] = label
+            self._rough_preset_by_label[label] = preset
+            self._rough_label_by_color[preset.color] = label
         self._rough_color_labels.append("Custom")
-        default_rough = ROUGH_TERRAIN_COLOR_PRESETS[0][1] if ROUGH_TERRAIN_COLOR_PRESETS else "#8d6e63"
+        default_rough = self._rough_presets[0].color if self._rough_presets else "#8d6e63"
         self.rough_color_var.set(self._rough_label_by_color.get(default_rough, "Custom"))
         self.rough_color_hex_var.set(default_rough)
 
@@ -3955,20 +4037,25 @@ class BattleMapWindow(tk.Toplevel):
             pass
         if not self.rough_terrain:
             return
-        for (col, row), color in sorted(self.rough_terrain.items()):
+        for (col, row), cell in sorted(self.rough_terrain.items()):
             x1 = self.x0 + col * self.cell
             y1 = self.y0 + row * self.cell
             x2 = x1 + self.cell
             y2 = y1 + self.cell
-            fill = self._normalize_hex_color(color) or "#8d6e63"
+            cell_data = self._rough_cell_data(cell)
+            fill = self._normalize_hex_color(cell_data.get("color")) or "#8d6e63"
+            is_rough = bool(cell_data.get("is_rough"))
+            is_swim = bool(cell_data.get("is_swim"))
+            stipple = "gray50" if is_rough else ("gray25" if is_swim else "")
             try:
-                self.canvas.create_rectangle(
-                    x1, y1, x2, y2,
-                    fill=fill,
-                    outline="",
-                    stipple="gray50",
-                    tags=("rough",)
-                )
+                options = {
+                    "fill": fill,
+                    "outline": "",
+                    "tags": ("rough",),
+                }
+                if stipple:
+                    options["stipple"] = stipple
+                self.canvas.create_rectangle(x1, y1, x2, y2, **options)
             except Exception:
                 pass
         try:
@@ -4029,13 +4116,13 @@ class BattleMapWindow(tk.Toplevel):
         radius = float(self.obstacle_brush_var.get())
         base_col = int(col)
         base_row = int(row)
-        color = self._rough_color_from_ui()
+        terrain = self._rough_preset_from_ui()
         if self.obstacle_single_var.get():
             key = (base_col, base_row)
             if erase:
                 self.rough_terrain.pop(key, None)
             else:
-                self.rough_terrain[key] = color
+                self.rough_terrain[key] = terrain
         else:
             max_delta = int(math.ceil(radius))
             for dc in range(-max_delta, max_delta + 1):
@@ -4050,7 +4137,7 @@ class BattleMapWindow(tk.Toplevel):
                     if erase:
                         self.rough_terrain.pop(key, None)
                     else:
-                        self.rough_terrain[key] = color
+                        self.rough_terrain[key] = dict(terrain)
         self._draw_rough_terrain()
         self._update_move_highlight()
 
@@ -4213,29 +4300,62 @@ class BattleMapWindow(tk.Toplevel):
             return None
         return value
 
-    def _rough_color_from_ui(self) -> str:
-        raw = self.rough_color_hex_var.get()
-        normalized = self._normalize_hex_color(raw)
-        if normalized:
-            return normalized
+    def _rough_cell_data(self, cell: object) -> Dict[str, object]:
+        if isinstance(cell, dict):
+            color = self._normalize_hex_color(cell.get("color"))
+            label = str(cell.get("label") or "")
+            is_swim = bool(cell.get("is_swim", False))
+            is_rough = bool(cell.get("is_rough", False))
+            return {
+                "color": color or "#8d6e63",
+                "label": label,
+                "is_swim": is_swim,
+                "is_rough": is_rough,
+            }
+        if isinstance(cell, str):
+            color = self._normalize_hex_color(cell) or "#8d6e63"
+            return {"color": color, "label": "", "is_swim": False, "is_rough": True}
+        return {"color": "#8d6e63", "label": "", "is_swim": False, "is_rough": True}
+
+    def _rough_preset_from_ui(self) -> Dict[str, object]:
         label = str(self.rough_color_var.get() or "")
-        preset = self._rough_color_by_label.get(label)
+        preset = self._rough_preset_by_label.get(label)
+        color = self._normalize_hex_color(self.rough_color_hex_var.get())
         if preset:
-            return preset
-        if self._rough_color_by_label:
-            return next(iter(self._rough_color_by_label.values()))
-        return "#8d6e63"
+            return {
+                "label": preset.label,
+                "color": color or preset.color,
+                "is_swim": preset.is_swim,
+                "is_rough": preset.is_rough,
+            }
+        if not color:
+            color = self._rough_presets[0].color if self._rough_presets else "#8d6e63"
+        return {"label": "Custom", "color": color, "is_swim": False, "is_rough": True}
+
+    def _water_movement_multiplier(self, c: Optional[Combatant]) -> float:
+        if c is None:
+            return 1.0
+        land_speed = max(0, int(getattr(c, "speed", 0) or 0))
+        if land_speed <= 0:
+            return 1.0
+        swim_speed = max(0, int(getattr(c, "swim_speed", 0) or 0))
+        if swim_speed <= 0:
+            swim_speed = max(1, int(land_speed / 2))
+        if swim_speed <= 0:
+            return 1.0
+        return float(land_speed) / float(swim_speed)
 
     def _on_rough_color_select(self) -> None:
         label = str(self.rough_color_var.get() or "")
-        preset = self._rough_color_by_label.get(label)
+        preset = self._rough_preset_by_label.get(label)
         if preset:
-            self.rough_color_hex_var.set(preset)
+            self.rough_color_hex_var.set(preset.color)
         else:
             self.rough_color_var.set("Custom")
 
     def _sync_rough_color_hex(self) -> None:
-        color = self._rough_color_from_ui()
+        preset = self._rough_preset_from_ui()
+        color = str(preset.get("color") or "#8d6e63")
         self.rough_color_hex_var.set(color)
         label = self._rough_label_by_color.get(color)
         if label:
@@ -4687,13 +4807,19 @@ class BattleMapWindow(tk.Toplevel):
         self.set_active(cid)
 
 
-    def _movement_cost_map(self, start_col: int, start_row: int, max_ft: int) -> Dict[Tuple[int, int], int]:
+    def _movement_cost_map(
+        self,
+        start_col: int,
+        start_row: int,
+        max_ft: int,
+        creature: Optional[Combatant] = None,
+    ) -> Dict[Tuple[int, int], int]:
         """
         Compute minimal movement cost (in feet) from a start square to all squares, up to max_ft.
 
         Uses the common 5e diagonal rule: diagonals alternate 5/10 ft (scaled by feet_per_square).
-        Blocks movement through obstacles, doubles cost for rough terrain, and prevents corner-cutting
-        around obstacle squares.
+        Blocks movement through obstacles, applies swim/rough terrain multipliers, and prevents
+        corner-cutting around obstacle squares.
         """
         import heapq
 
@@ -4709,6 +4835,7 @@ class BattleMapWindow(tk.Toplevel):
 
         obstacles = getattr(self, "obstacles", set()) or set()
         rough_terrain = getattr(self, "rough_terrain", {}) or {}
+        water_multiplier = self._water_movement_multiplier(creature)
 
         while pq:
             cost, col, row, parity = heapq.heappop(pq)
@@ -4741,7 +4868,11 @@ class BattleMapWindow(tk.Toplevel):
                     step_cost = step
                     npar = parity
 
-                if (nc, nr) in rough_terrain:
+                current_cell = self._rough_cell_data(rough_terrain.get((col, row)))
+                target_cell = self._rough_cell_data(rough_terrain.get((nc, nr)))
+                if bool(current_cell.get("is_swim")) or bool(target_cell.get("is_swim")):
+                    step_cost = int(math.ceil(step_cost * water_multiplier))
+                if bool(target_cell.get("is_rough")):
                     step_cost *= 2
 
                 ncost = cost + step_cost
@@ -4779,7 +4910,7 @@ class BattleMapWindow(tk.Toplevel):
         col0 = int(tok["col"])
         row0 = int(tok["row"])
 
-        cost_map = self._movement_cost_map(col0, row0, move_ft)
+        cost_map = self._movement_cost_map(col0, row0, move_ft, c)
 
         for (col, row), cost in cost_map.items():
             if cost <= 0:
@@ -4810,10 +4941,16 @@ class BattleMapWindow(tk.Toplevel):
             except Exception:
                 pass
 
-    def _movement_cost_between(self, origin: Tuple[int, int], dest: Tuple[int, int], max_ft: int) -> Optional[int]:
+    def _movement_cost_between(
+        self,
+        origin: Tuple[int, int],
+        dest: Tuple[int, int],
+        max_ft: int,
+        creature: Optional[Combatant] = None,
+    ) -> Optional[int]:
         if origin == dest:
             return 0
-        cost_map = self._movement_cost_map(origin[0], origin[1], max_ft)
+        cost_map = self._movement_cost_map(origin[0], origin[1], max_ft, creature)
         return cost_map.get(dest)
 
     def _aoe_default_color(self, kind: str) -> str:
@@ -5717,7 +5854,7 @@ class BattleMapWindow(tk.Toplevel):
                         req = None
                         try:
                             max_query = int(self.feet_per_square) * (self.cols + self.rows) * 4
-                            req = self._movement_cost_between(origin, (new_col, new_row), max_query)
+                            req = self._movement_cost_between(origin, (new_col, new_row), max_query, c)
                         except Exception:
                             req = None
 

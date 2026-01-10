@@ -1,0 +1,44 @@
+[
+  {
+    "label": "Mud",
+    "color": "#8d6e63",
+    "is_swim": false,
+    "is_rough": true
+  },
+  {
+    "label": "Water",
+    "color": "#4aa3df",
+    "is_swim": true,
+    "is_rough": false
+  },
+  {
+    "label": "Grass",
+    "color": "#6ab04c",
+    "is_swim": false,
+    "is_rough": true
+  },
+  {
+    "label": "Stone",
+    "color": "#9e9e9e",
+    "is_swim": false,
+    "is_rough": true
+  },
+  {
+    "label": "Sand",
+    "color": "#d4a373",
+    "is_swim": false,
+    "is_rough": true
+  },
+  {
+    "label": "Magic",
+    "color": "#8e44ad",
+    "is_swim": false,
+    "is_rough": true
+  },
+  {
+    "label": "Shadow",
+    "color": "#4b4b4b",
+    "is_swim": false,
+    "is_rough": true
+  }
+]
