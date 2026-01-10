@@ -490,6 +490,7 @@ __DAMAGE_TYPE_OPTIONS__
 
 <script>
 (() => {
+  document.addEventListener("contextmenu", (e) => e.preventDefault());
   const canVibrate = "vibrate" in navigator;
   function vibrate(pattern){
     if (!canVibrate) return false;
