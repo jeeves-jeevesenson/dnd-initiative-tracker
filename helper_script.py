@@ -5810,16 +5810,10 @@ class BattleMapWindow(tk.Toplevel):
         if aoe_meta.get("damage_type"):
             default_type = _match_damage_type(str(aoe_meta.get("damage_type") or ""))
 
-        locked_component = bool(from_spell and (default_amount or default_type))
-        _add_component(default_amount, default_type, locked=locked_component)
+        _add_component(default_amount, default_type, locked=False)
 
         add_comp_btn = ttk.Button(components_frame, text="Add damage type", command=_add_component)
         add_comp_btn.pack(anchor="w", pady=(6, 0))
-        if locked_component:
-            try:
-                add_comp_btn.state(["disabled"])
-            except Exception:
-                add_comp_btn.config(state=tk.DISABLED)
 
         # --- Table ---
         mid = ttk.Frame(outer)
