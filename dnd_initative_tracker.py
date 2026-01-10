@@ -629,6 +629,7 @@ __DAMAGE_TYPE_OPTIONS__
   let panX = 0, panY = 0;
   let dragging = null; // {cid, startX, startY, origCol, origRow}
   let draggingAoe = null; // {aid, cx, cy}
+  const aoeDragOverrides = new Map(); // aid -> {cx, cy}
   let panning = null;  // {x,y, panX, panY}
   let centeredCid = null;
   let lockMap = false;
@@ -679,6 +680,14 @@ __DAMAGE_TYPE_OPTIONS__
     const value = String(raw).trim().toLowerCase();
     if (!/^#[0-9a-f]{6}$/.test(value)) return null;
     return value;
+  }
+
+  function setLocalAoeCenter(aid, cx, cy){
+    if (!state || !Array.isArray(state.aoes)) return;
+    const target = state.aoes.find(a => Number(a.aid) === Number(aid));
+    if (!target) return;
+    target.cx = cx;
+    target.cy = cy;
   }
 
   function hexToRgb(hex){
@@ -1002,8 +1011,9 @@ __DAMAGE_TYPE_OPTIONS__
       state.aoes.forEach(a => {
         if (!a || !a.kind) return;
         const preview = (draggingAoe && draggingAoe.aid === a.aid) ? draggingAoe : null;
-        const cx = Number(preview ? preview.cx : a.cx ?? 0);
-        const cy = Number(preview ? preview.cy : a.cy ?? 0);
+        const override = aoeDragOverrides.get(Number(a.aid));
+        const cx = Number((preview || override) ? (preview || override).cx : a.cx ?? 0);
+        const cy = Number((preview || override) ? (preview || override).cy : a.cy ?? 0);
         const {x,y} = gridToScreen(cx, cy);
         const colorHex = normalizeHexColor(a.color || "");
         ctx.save();
@@ -1413,6 +1423,7 @@ __DAMAGE_TYPE_OPTIONS__
       try { msg = JSON.parse(ev.data); } catch(e){ return; }
       if (msg.type === "state"){
         state = msg.state;
+        aoeDragOverrides.clear();
         lastPcList = msg.pcs || msg.claimable || [];
         updateWaitingOverlay();
         draw();
@@ -1633,6 +1644,7 @@ __DAMAGE_TYPE_OPTIONS__
       const g = screenToGridFloat(p.x, p.y);
       draggingAoe.cx = g.col;
       draggingAoe.cy = g.row;
+      aoeDragOverrides.set(Number(draggingAoe.aid), {cx: g.col, cy: g.row});
       draw();
     } else if (panning){
       panX = panning.panX + (p.x - panning.x);
@@ -1654,6 +1666,9 @@ __DAMAGE_TYPE_OPTIONS__
     })();
     draggingAoe && (function(){
       const g = screenToGridFloat(p.x, p.y);
+      const aid = Number(draggingAoe.aid);
+      aoeDragOverrides.set(aid, {cx: g.col, cy: g.row});
+      setLocalAoeCenter(aid, g.col, g.row);
       send({type:"aoe_move", aid: Number(draggingAoe.aid), to: {cx: g.col, cy: g.row}});
       draggingAoe = null;
       draw();
@@ -1666,7 +1681,11 @@ __DAMAGE_TYPE_OPTIONS__
     if (activePointers.size < 2){
       pinchState = null;
     }
-    draggingAoe = null;
+    if (draggingAoe){
+      aoeDragOverrides.delete(Number(draggingAoe.aid));
+      draggingAoe = null;
+      draw();
+    }
   });
 
   canvas.addEventListener("wheel", (ev) => {
