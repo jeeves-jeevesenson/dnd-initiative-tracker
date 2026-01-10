@@ -397,6 +397,7 @@ HTML_INDEX = r"""<!doctype html>
       <button class="btn" id="useAction">Use Action</button>
       <button class="btn" id="useBonusAction">Use Bonus Action</button>
       <button class="btn" id="dash">Dash</button>
+      <button class="btn" id="standUp">Stand Up</button>
       <button class="btn" id="resetTurn">Reset Turn</button>
       <button class="btn danger" id="endTurn">End Turn</button>
     </div>
@@ -531,6 +532,7 @@ __DAMAGE_TYPE_OPTIONS__
   const useActionBtn = document.getElementById("useAction");
   const useBonusActionBtn = document.getElementById("useBonusAction");
   const resetTurnBtn = document.getElementById("resetTurn");
+  const standUpBtn = document.getElementById("standUp");
   const showAllNamesEl = document.getElementById("showAllNames");
   const castForm = document.getElementById("castForm");
   const castNameInput = document.getElementById("castName");
@@ -1244,17 +1246,26 @@ __DAMAGE_TYPE_OPTIONS__
         bonusActionEl.textContent = `Bonus Action: ${me.bonus_action_remaining ?? 0}`;
         useActionBtn.disabled = Number(me.action_remaining || 0) <= 0;
         useBonusActionBtn.disabled = Number(me.bonus_action_remaining || 0) <= 0;
+        if (standUpBtn){
+          standUpBtn.disabled = !(myTurn && me.is_prone);
+        }
       } else {
         actionEl.textContent = "Action: —";
         bonusActionEl.textContent = "Bonus Action: —";
         useActionBtn.disabled = true;
         useBonusActionBtn.disabled = true;
+        if (standUpBtn){
+          standUpBtn.disabled = true;
+        }
       }
     } else {
       actionEl.textContent = "Action: —";
       bonusActionEl.textContent = "Bonus Action: —";
       useActionBtn.disabled = true;
       useBonusActionBtn.disabled = true;
+      if (standUpBtn){
+        standUpBtn.disabled = true;
+      }
     }
     updateTurnOrder();
   }
@@ -1839,6 +1850,12 @@ __DAMAGE_TYPE_OPTIONS__
     if (!claimedCid) return;
     send({type:"use_bonus_action", cid: Number(claimedCid)});
   });
+  if (standUpBtn){
+    standUpBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      send({type:"stand_up", cid: Number(claimedCid)});
+    });
+  }
   if (resetTurnBtn){
     resetTurnBtn.addEventListener("click", () => {
       if (!claimedCid) return;
@@ -3007,6 +3024,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "move_total": int(getattr(c, "move_total", 0) or 0),
                     "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
                     "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
+                    "is_prone": self._has_condition(c, "prone"),
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
                     "marks": marks,
                 }
@@ -3376,6 +3394,25 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "No bonus actions left, matey.")
                 return
             self._lan.toast(ws_id, "Bonus action used.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "stand_up":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            if not self._has_condition(c, "prone"):
+                return
+            eff = self._effective_speed(c)
+            if eff <= 0:
+                self._lan.toast(ws_id, "Can't stand up right now (speed is 0).")
+                return
+            cost = max(0, eff // 2)
+            if c.move_remaining < cost:
+                self._lan.toast(ws_id, f"Not enough movement to stand (need {cost} ft).")
+                return
+            c.move_remaining -= cost
+            self._remove_condition_type(c, "prone")
+            self._log(f"stood up (spent {cost} ft, prone removed)", cid=c.cid)
+            self._lan.toast(ws_id, "Stood up.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "reset_turn":
             if self._lan_restore_turn_snapshot(cid):
