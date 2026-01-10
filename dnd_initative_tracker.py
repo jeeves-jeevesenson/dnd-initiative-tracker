@@ -965,7 +965,14 @@ __DAMAGE_TYPE_OPTIONS__
         const x = panX + cell.col*zoom;
         const y = panY + cell.row*zoom;
         const colorHex = normalizeHexColor(cell.color || "");
-        ctx.fillStyle = colorHex ? rgbaFromHex(colorHex, 0.25) : "rgba(141,110,99,0.25)";
+        const isSwim = !!cell.is_swim;
+        const isRough = !!cell.is_rough;
+        let alpha = isSwim ? 0.35 : 0.25;
+        if (isRough && !isSwim){
+          alpha = 0.3;
+        }
+        const fallback = isSwim ? "rgba(74,163,223,0.32)" : "rgba(141,110,99,0.25)";
+        ctx.fillStyle = colorHex ? rgbaFromHex(colorHex, alpha) : fallback;
         ctx.fillRect(x+1,y+1,zoom-2,zoom-2);
       });
     }
@@ -3063,7 +3070,7 @@ class InitiativeTracker(base.InitiativeTracker):
         positions = dict(self._lan_positions)
         map_ready = mw is not None
         aoes: List[Dict[str, Any]] = []
-        rough_terrain: Dict[Tuple[int, int], str] = {}
+        rough_terrain: Dict[Tuple[int, int], object] = {}
 
         if mw is not None:
             try:
@@ -3156,13 +3163,30 @@ class InitiativeTracker(base.InitiativeTracker):
                 turn_order = [int(c.cid) for c in sorted(self.combatants.values(), key=lambda x: int(x.cid))]
             except Exception:
                 turn_order = []
+        rough_payload: List[Dict[str, Any]] = []
+        for (c, r), cell in sorted(rough_terrain.items()):
+            if isinstance(cell, dict):
+                color = str(cell.get("color") or "")
+                is_swim = bool(cell.get("is_swim", False))
+                is_rough = bool(cell.get("is_rough", False))
+            else:
+                color = str(cell)
+                is_swim = False
+                is_rough = True
+            rough_payload.append(
+                {
+                    "col": int(c),
+                    "row": int(r),
+                    "color": color,
+                    "is_swim": is_swim,
+                    "is_rough": is_rough,
+                }
+            )
+
         snap: Dict[str, Any] = {
             "grid": grid_payload,
             "obstacles": [{"col": int(c), "row": int(r)} for (c, r) in sorted(obstacles)],
-            "rough_terrain": [
-                {"col": int(c), "row": int(r), "color": str(color)}
-                for (c, r), color in sorted(rough_terrain.items())
-            ],
+            "rough_terrain": rough_payload,
             "aoes": aoes,
             "units": units,
             "active_cid": active,
