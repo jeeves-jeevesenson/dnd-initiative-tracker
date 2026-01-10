@@ -217,6 +217,25 @@ HTML_INDEX = r"""<!doctype html>
     .value{font-size:14px; font-weight:700;}
     .chip{font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);}
     .chip input{margin-right:6px;}
+    .turn-order{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+    .turn-chip{
+      min-width: 26px;
+      text-align:center;
+      font-size:12px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+    }
+    .turn-chip.claimed{
+      border-color: rgba(106,169,255,0.45);
+      box-shadow: inset 0 0 0 1px rgba(106,169,255,0.18);
+    }
+    .turn-chip.active{
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(106,169,255,0.35);
+    }
     .modal{
       position:absolute; inset:0; background: rgba(0,0,0,0.55);
       display:none; align-items:center; justify-content:center; padding: 20px 14px;
@@ -370,6 +389,9 @@ HTML_INDEX = r"""<!doctype html>
       <button class="btn danger" id="endTurn">End Turn</button>
     </div>
     <div class="row">
+      <div class="turn-order" id="turnOrder" aria-label="Turn order"></div>
+    </div>
+    <div class="row">
       <div class="chip" id="move">Move: —</div>
       <div class="chip" id="action">Action: —</div>
       <div class="chip" id="bonusAction">Bonus Action: —</div>
@@ -469,6 +491,7 @@ __DAMAGE_TYPE_OPTIONS__
   const actionEl = document.getElementById("action");
   const bonusActionEl = document.getElementById("bonusAction");
   const turnEl = document.getElementById("turn");
+  const turnOrderEl = document.getElementById("turnOrder");
   const noteEl = document.getElementById("note");
   const claimModal = document.getElementById("claimModal");
   const claimList = document.getElementById("claimList");
@@ -1159,6 +1182,36 @@ __DAMAGE_TYPE_OPTIONS__
     centeredCid = String(claimedCid);
   }
 
+  function updateTurnOrder(){
+    if (!turnOrderEl){
+      return;
+    }
+    const order = Array.isArray(state?.turn_order) ? state.turn_order : [];
+    turnOrderEl.innerHTML = "";
+    if (!order.length){
+      return;
+    }
+    const activeCid = state?.active_cid;
+    const activeIndex = (activeCid === null || activeCid === undefined)
+      ? -1
+      : order.findIndex(cid => Number(cid) === Number(activeCid));
+    const claimedIndex = (claimedCid === null || claimedCid === undefined)
+      ? -1
+      : order.findIndex(cid => Number(cid) === Number(claimedCid));
+    order.forEach((_, idx) => {
+      const chip = document.createElement("div");
+      chip.className = "turn-chip";
+      if (idx === claimedIndex){
+        chip.classList.add("claimed");
+      }
+      if (idx === activeIndex){
+        chip.classList.add("active");
+      }
+      chip.textContent = String(idx + 1);
+      turnOrderEl.appendChild(chip);
+    });
+  }
+
   function updateHud(){
     if (!state){ return; }
     const active = state.active_cid;
@@ -1189,6 +1242,7 @@ __DAMAGE_TYPE_OPTIONS__
       useActionBtn.disabled = true;
       useBonusActionBtn.disabled = true;
     }
+    updateTurnOrder();
   }
 
   function hideTurnModal(){
@@ -2950,6 +3004,15 @@ class InitiativeTracker(base.InitiativeTracker):
         grid_payload = None
         if map_ready:
             grid_payload = {"cols": int(cols), "rows": int(rows), "feet_per_square": 5}
+        turn_order: List[int] = []
+        try:
+            ordered = self._display_order()
+            turn_order = [int(c.cid) for c in ordered if getattr(c, "cid", None) is not None]
+        except Exception:
+            try:
+                turn_order = [int(c.cid) for c in sorted(self.combatants.values(), key=lambda x: int(x.cid))]
+            except Exception:
+                turn_order = []
         snap: Dict[str, Any] = {
             "grid": grid_payload,
             "obstacles": [{"col": int(c), "row": int(r)} for (c, r) in sorted(obstacles)],
@@ -2961,6 +3024,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "units": units,
             "active_cid": active,
             "round_num": int(getattr(self, "round_num", 0) or 0),
+            "turn_order": turn_order,
         }
         return snap
 
