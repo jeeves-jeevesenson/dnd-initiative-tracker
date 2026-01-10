@@ -2012,6 +2012,9 @@ class InitiativeTracker(tk.Tk):
 
         # Columns:
         # #1 name, #2 side, #3 hp, #4 land spd, #5 swim spd, #6 mode, #7 move, #8 effects, #9 init, #10 nat
+        if column == "#1":
+            self._inline_edit_cell(item, column, str(self.combatants[cid].name), str, lambda v: self._set_name(cid, v), rebuild=False)
+            return
         if column == "#9":
             self._inline_edit_cell(item, column, str(self.combatants[cid].initiative), int, lambda v: self._set_initiative(cid, v))
             return
@@ -2057,7 +2060,7 @@ class InitiativeTracker(tk.Tk):
             self._open_condition_tool()
             return
 
-    def _inline_edit_cell(self, item: str, column: str, initial: str, caster, setter) -> None:
+    def _inline_edit_cell(self, item: str, column: str, initial: str, caster, setter, rebuild: bool = True) -> None:
         x, y, w, h = self.tree.bbox(item, column)
         if w == 0 and h == 0:
             return
@@ -2079,7 +2082,8 @@ class InitiativeTracker(tk.Tk):
                 return
             entry.destroy()
             setter(v)
-            self._rebuild_table(scroll_to_current=True)
+            if rebuild:
+                self._rebuild_table(scroll_to_current=True)
 
         def cancel(_evt=None):
             entry.destroy()
@@ -2091,6 +2095,26 @@ class InitiativeTracker(tk.Tk):
     def _set_initiative(self, cid: int, new_init: int) -> None:
         if cid in self.combatants:
             self.combatants[cid].initiative = int(new_init)
+
+    def _set_name(self, cid: int, new_name: str) -> None:
+        if cid not in self.combatants:
+            return
+        name = (new_name or "").strip()
+        if not name:
+            return
+        c = self.combatants[cid]
+        old_name = c.name
+        unique_name = old_name if name == old_name else self._unique_name(name)
+        if old_name != unique_name and old_name in self._name_role_memory:
+            del self._name_role_memory[old_name]
+        c.name = unique_name
+        self._remember_role(c)
+        self._rebuild_table(scroll_to_current=True)
+        try:
+            if self._map_window is not None and self._map_window.winfo_exists():
+                self._map_window.refresh_units()
+        except Exception:
+            pass
 
     def _set_hp(self, cid: int, new_hp: int) -> None:
         if cid in self.combatants:
