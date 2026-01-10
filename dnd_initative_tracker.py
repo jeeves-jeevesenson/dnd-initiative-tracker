@@ -453,6 +453,12 @@ HTML_INDEX = r"""<!doctype html>
       <form id="castForm">
         <div class="form-grid">
           <div class="form-field">
+            <label for="castPreset">Preset</label>
+            <select id="castPreset">
+              <option value="" selected>Custom</option>
+            </select>
+          </div>
+          <div class="form-field">
             <label for="castName">Name</label>
             <input id="castName" type="text" placeholder="Fireball" />
           </div>
@@ -575,6 +581,7 @@ __DAMAGE_TYPE_OPTIONS__
   const standUpBtn = document.getElementById("standUp");
   const showAllNamesEl = document.getElementById("showAllNames");
   const castForm = document.getElementById("castForm");
+  const castPresetInput = document.getElementById("castPreset");
   const castNameInput = document.getElementById("castName");
   const castShapeInput = document.getElementById("castShape");
   const castRadiusField = document.getElementById("castRadiusField");
@@ -1430,6 +1437,7 @@ __DAMAGE_TYPE_OPTIONS__
       try { msg = JSON.parse(ev.data); } catch(e){ return; }
       if (msg.type === "state"){
         state = msg.state;
+        updateSpellPresetOptions(state?.spell_presets);
         aoeDragOverrides.clear();
         lastPcList = msg.pcs || msg.claimable || [];
         updateWaitingOverlay();
@@ -1776,6 +1784,37 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
+  let lastSpellPresetSignature = "";
+  const normalizeSpellPresets = (presets) => Array.isArray(presets) ? presets.filter(p => p && typeof p === "object") : [];
+  const updateSpellPresetOptions = (presets) => {
+    if (!castPresetInput) return;
+    const list = normalizeSpellPresets(presets);
+    const signature = JSON.stringify(list.map(p => String(p.name || "")));
+    if (signature === lastSpellPresetSignature){
+      return;
+    }
+    lastSpellPresetSignature = signature;
+    const currentValue = String(castPresetInput.value || "");
+    castPresetInput.textContent = "";
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "Custom";
+    castPresetInput.appendChild(blank);
+    list.forEach(preset => {
+      const name = String(preset.name || "").trim();
+      if (!name) return;
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      castPresetInput.appendChild(opt);
+    });
+    if (currentValue && list.some(p => String(p.name || "") === currentValue)){
+      castPresetInput.value = currentValue;
+    } else {
+      castPresetInput.value = "";
+    }
+  };
+
   const setCastFieldEnabled = (input, enabled) => {
     if (!input) return;
     input.disabled = !enabled;
@@ -1808,6 +1847,18 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   const castDamageTypes = new Set();
+  const setCastDamageTypes = (types) => {
+    castDamageTypes.clear();
+    if (Array.isArray(types)){
+      types.forEach((entry) => {
+        const dtype = String(entry || "").trim();
+        if (dtype){
+          castDamageTypes.add(dtype);
+        }
+      });
+    }
+    renderCastDamageTypes();
+  };
   const renderCastDamageTypes = () => {
     if (!castDamageTypeList) return;
     castDamageTypeList.textContent = "";
@@ -1842,6 +1893,49 @@ __DAMAGE_TYPE_OPTIONS__
     castDamageTypes.add(dtype);
     renderCastDamageTypes();
   };
+
+  const applySpellPreset = (preset) => {
+    if (!preset || typeof preset !== "object") return;
+    if (castNameInput && preset.name){
+      castNameInput.value = String(preset.name || "");
+    }
+    if (castShapeInput && preset.shape){
+      castShapeInput.value = String(preset.shape || "").toLowerCase();
+    }
+    updateCastShapeFields();
+    if (castRadiusInput){
+      castRadiusInput.value = Number.isFinite(Number(preset.radius_ft)) ? Number(preset.radius_ft) : "";
+    }
+    if (castSideInput){
+      castSideInput.value = Number.isFinite(Number(preset.side_ft)) ? Number(preset.side_ft) : "";
+    }
+    if (castLengthInput){
+      castLengthInput.value = Number.isFinite(Number(preset.length_ft)) ? Number(preset.length_ft) : "";
+    }
+    if (castWidthInput){
+      castWidthInput.value = Number.isFinite(Number(preset.width_ft)) ? Number(preset.width_ft) : "";
+    }
+    if (castDcTypeInput){
+      castDcTypeInput.value = preset.save_type ? String(preset.save_type || "").toLowerCase() : "";
+    }
+    if (castDcValueInput){
+      castDcValueInput.value = Number.isFinite(Number(preset.save_dc)) ? Number(preset.save_dc) : "";
+    }
+    if (castColorInput && preset.color){
+      castColorInput.value = String(preset.color || "");
+    }
+    setCastDamageTypes(preset.damage_types);
+  };
+
+  if (castPresetInput){
+    castPresetInput.addEventListener("change", () => {
+      const name = String(castPresetInput.value || "").trim();
+      if (!name) return;
+      const presets = normalizeSpellPresets(state?.spell_presets);
+      const preset = presets.find(p => String(p.name || "") === name);
+      applySpellPreset(preset);
+    });
+  }
 
   if (castAddDamageTypeBtn){
     castAddDamageTypeBtn.addEventListener("click", () => {
@@ -3192,6 +3286,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "active_cid": active,
             "round_num": int(getattr(self, "round_num", 0) or 0),
             "turn_order": turn_order,
+            "spell_presets": self._spell_presets_payload(),
         }
         return snap
 
@@ -3202,6 +3297,25 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             text = ""
         return (text or "").strip()
+
+    def _spell_presets_payload(self) -> List[Dict[str, Any]]:
+        presets: List[Dict[str, Any]] = []
+        for preset in getattr(self, "_spell_presets", []) or []:
+            presets.append(
+                {
+                    "name": str(preset.name),
+                    "shape": str(preset.shape),
+                    "radius_ft": preset.radius_ft,
+                    "side_ft": preset.side_ft,
+                    "length_ft": preset.length_ft,
+                    "width_ft": preset.width_ft,
+                    "save_type": preset.save_type,
+                    "save_dc": preset.save_dc,
+                    "damage_types": list(preset.damage_types or []),
+                    "color": preset.color,
+                }
+            )
+        return presets
 
     def _lan_seed_missing_positions(self, positions: Dict[int, Tuple[int, int]], cols: int, rows: int) -> Dict[int, Tuple[int, int]]:
         # place missing near center in a simple spiral, one square apart

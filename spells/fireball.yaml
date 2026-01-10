@@ -1,0 +1,10 @@
+spell:
+  name: Fireball
+  shape: circle
+  radius_ft: 20
+  damage_types:
+    - Fire
+  save:
+    type: dex
+    dc: 15
+  color: "#ff6a2a"

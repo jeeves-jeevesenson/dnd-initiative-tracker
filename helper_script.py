@@ -209,6 +209,21 @@ class MonsterSpec:
     saving_throws: Dict[str, int]
 
 
+@dataclass
+class SpellPreset:
+    filename: str
+    name: str
+    shape: str
+    radius_ft: Optional[int]
+    side_ft: Optional[int]
+    length_ft: Optional[int]
+    width_ft: Optional[int]
+    save_type: Optional[str]
+    save_dc: Optional[int]
+    damage_types: List[str]
+    color: Optional[str]
+
+
 @dataclass(frozen=True)
 class TerrainPreset:
     label: str
@@ -292,6 +307,8 @@ class InitiativeTracker(tk.Tk):
         self.combatants: Dict[int, Combatant] = {}
         self._monster_specs: List[MonsterSpec] = []
         self._monsters_by_name: Dict[str, MonsterSpec] = {}
+        self._spell_presets: List[SpellPreset] = []
+        self._spells_by_name: Dict[str, SpellPreset] = {}
         self.rough_terrain_presets: List[TerrainPreset] = _load_rough_terrain_presets()
 
         # Remember roles for name-based log styling (pc/ally/enemy)
@@ -310,6 +327,7 @@ class InitiativeTracker(tk.Tk):
         self.turn_num: int = 0
 
         self._load_monsters_index()
+        self._load_spells_index()
         self._build_ui()
         self._load_history_into_log()
         self._log("=== Session started ===")
@@ -2451,6 +2469,120 @@ class InitiativeTracker(tk.Tk):
 
     def _monster_names_sorted(self) -> List[str]:
         return [s.name for s in self._monster_specs]
+
+    # --------------------- Spells (YAML library) ---------------------
+    def _spells_dir_path(self) -> Path:
+        return Path.cwd() / "spells"
+
+    def _load_spells_index(self) -> None:
+        """Load ./spells/*.yml|*.yaml and build a list of LAN spell presets."""
+        self._spell_presets = []
+        self._spells_by_name = {}
+
+        sdir = self._spells_dir_path()
+        try:
+            sdir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+        files: List[Path] = []
+        try:
+            files = sorted(list(sdir.glob("*.yml")) + list(sdir.glob("*.yaml")))
+        except Exception:
+            files = []
+
+        if not files:
+            return
+
+        if yaml is None:
+            try:
+                self._log("Spell YAML support requires PyYAML. Install: sudo apt install python3-yaml")
+            except Exception:
+                pass
+            return
+
+        def parse_int(value: object) -> Optional[int]:
+            if isinstance(value, int):
+                return int(value)
+            if isinstance(value, str):
+                raw = value.strip()
+                if raw.lstrip("-").isdigit():
+                    return int(raw)
+            return None
+
+        for fp in files:
+            try:
+                raw = fp.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            try:
+                data = yaml.safe_load(raw)
+            except Exception:
+                continue
+            if not isinstance(data, dict):
+                continue
+
+            spell_block = data.get("spell")
+            if not isinstance(spell_block, dict):
+                spell_block = data
+            if not isinstance(spell_block, dict):
+                continue
+
+            name = str(spell_block.get("name") or fp.stem).strip()
+            if not name:
+                continue
+
+            shape = str(spell_block.get("shape") or "").strip().lower()
+            if shape not in {"circle", "square", "line"}:
+                continue
+
+            radius_ft = parse_int(spell_block.get("radius_ft"))
+            side_ft = parse_int(spell_block.get("side_ft"))
+            length_ft = parse_int(spell_block.get("length_ft"))
+            width_ft = parse_int(spell_block.get("width_ft"))
+
+            damage_types: List[str] = []
+            raw_damage = spell_block.get("damage_types") or []
+            if isinstance(raw_damage, list):
+                for entry in raw_damage:
+                    if isinstance(entry, str):
+                        dtype = entry.strip()
+                        if dtype:
+                            damage_types.append(dtype)
+
+            save_type = None
+            save_dc = None
+            save_block = spell_block.get("save") or {}
+            if isinstance(save_block, dict):
+                stype = save_block.get("type")
+                if isinstance(stype, str) and stype.strip():
+                    save_type = stype.strip().lower()
+                save_dc = parse_int(save_block.get("dc"))
+
+            color = None
+            raw_color = spell_block.get("color")
+            if isinstance(raw_color, str) and raw_color.strip():
+                color = raw_color.strip()
+
+            spec = SpellPreset(
+                filename=str(fp.name),
+                name=name,
+                shape=shape,
+                radius_ft=radius_ft,
+                side_ft=side_ft,
+                length_ft=length_ft,
+                width_ft=width_ft,
+                save_type=save_type,
+                save_dc=save_dc,
+                damage_types=damage_types,
+                color=color,
+            )
+
+            if name not in self._spells_by_name:
+                self._spells_by_name[name] = spec
+            self._spell_presets.append(spec)
+
+        self._spell_presets.sort(key=lambda s: s.name.lower())
 
     # -------------------------- Bulk add --------------------------
     def _open_bulk_dialog(self) -> None:
