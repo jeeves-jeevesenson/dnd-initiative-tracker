@@ -136,6 +136,17 @@ DAMAGE_TYPES = [
 ]
 
 
+def _apply_dialog_geometry(dlg: tk.Toplevel, width: int, height: int, min_w: int, min_h: int) -> None:
+    dlg.geometry(f"{width}x{height}")
+    dlg.minsize(min_w, min_h)
+    dlg.update_idletasks()
+    req_w = max(dlg.winfo_reqwidth(), min_w)
+    req_h = max(dlg.winfo_reqheight(), min_h)
+    dlg.minsize(req_w, req_h)
+    if dlg.winfo_width() < req_w or dlg.winfo_height() < req_h:
+        dlg.geometry(f"{max(dlg.winfo_width(), req_w)}x{max(dlg.winfo_height(), req_h)}")
+
+
 
 
 @dataclass
@@ -2548,8 +2559,8 @@ class InitiativeTracker(tk.Tk):
         """
         dlg = tk.Toplevel(self)
         dlg.title("Damage / Heal")
-        dlg.geometry("1040x600")
-        dlg.minsize(820, 480)
+        dlg.geometry("1120x720")
+        dlg.minsize(920, 600)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
@@ -2952,6 +2963,8 @@ class InitiativeTracker(tk.Tk):
         mode_var.trace_add("write", _set_button_label)
         _set_button_label()
 
+        _apply_dialog_geometry(dlg, 1120, 720, 920, 600)
+
         # Focus first amount entry
         try:
             if rows[0]["components"]:
@@ -2962,8 +2975,8 @@ class InitiativeTracker(tk.Tk):
     def _open_dot_tool(self) -> None:
         dlg = tk.Toplevel(self)
         dlg.title("Damage over Time (DoT)")
-        dlg.geometry("620x420")
-        dlg.minsize(520, 360)
+        dlg.geometry("720x520")
+        dlg.minsize(640, 460)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
@@ -3034,12 +3047,14 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(btns, text="Add Stack(s)", command=apply).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btns, text="Close", command=dlg.destroy).pack(side=tk.LEFT)
 
+        _apply_dialog_geometry(dlg, 720, 520, 640, 460)
+
     # -------------------------- Conditions tool --------------------------
     def _open_condition_tool(self) -> None:
         dlg = tk.Toplevel(self)
         dlg.title("Conditions (2024)")
-        dlg.geometry("900x640")
-        dlg.minsize(700, 520)
+        dlg.geometry("1040x720")
+        dlg.minsize(880, 620)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
@@ -3206,6 +3221,8 @@ class InitiativeTracker(tk.Tk):
         btns = ttk.Frame(frm)
         btns.pack(anchor="e", pady=(10, 0))
         ttk.Button(btns, text="Close", command=dlg.destroy).pack(side=tk.LEFT)
+
+        _apply_dialog_geometry(dlg, 1040, 720, 880, 620)
 
 
     def _selected_cids(self) -> List[int]:
@@ -5853,8 +5870,8 @@ class BattleMapWindow(tk.Toplevel):
         dlg = tk.Toplevel(self)
         dname = str(self.aoes[aid].get("name") or f"AoE {aid}")
         dlg.title(f"AoE Damage ({dname})")
-        dlg.geometry("980x560")
-        dlg.minsize(760, 420)
+        dlg.geometry("1120x720")
+        dlg.minsize(900, 600)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
@@ -5895,12 +5912,26 @@ class BattleMapWindow(tk.Toplevel):
             or aoe_meta.get("owner_cid") is not None
             or spell_owner
         )
+        owner_cid = aoe_meta.get("owner_cid")
+        owner_combatant = None
+        if isinstance(owner_cid, int) and owner_cid in self.app.combatants:
+            owner_combatant = self.app.combatants[owner_cid]
+        elif spell_owner:
+            for c in self.app.combatants.values():
+                if c.name == spell_owner:
+                    owner_combatant = c
+                    break
 
         # Save DC + save type
         dc_var = tk.StringVar(value="15")
         ttk.Label(controls, text="Save DC:").grid(row=0, column=3, sticky="w")
         dc_ent = ttk.Entry(controls, textvariable=dc_var, width=6)
         dc_ent.grid(row=0, column=4, sticky="w", padx=(6, 12))
+
+        max_nat1_var = tk.StringVar(value="")
+        ttk.Label(controls, text="Max on nat 1:").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        max_nat1_ent = ttk.Entry(controls, textvariable=max_nat1_var, width=10)
+        max_nat1_ent.grid(row=1, column=1, sticky="w", padx=(6, 12), pady=(8, 0))
 
         save_types = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
         save_var = tk.StringVar(value="DEX")
@@ -6266,11 +6297,31 @@ class BattleMapWindow(tk.Toplevel):
                 messagebox.showerror("AoE Damage", "Enter at least one damage component.", parent=dlg)
                 return
 
+            max_nat1_total: Optional[int] = None
+            max_nat1_raw = (max_nat1_var.get() or "").strip()
+            if max_nat1_raw:
+                try:
+                    max_nat1_total = int(self.app._parse_int_expr(max_nat1_raw))
+                except Exception:
+                    messagebox.showerror(
+                        "AoE Damage",
+                        "Max damage on nat 1 must be a number or simple math expression.",
+                        parent=dlg,
+                    )
+                    return
+                if max_nat1_total < 0:
+                    messagebox.showerror("AoE Damage", "Max damage on nat 1 must be a positive number.", parent=dlg)
+                    return
+
             attacker = (attacker_var.get() or "").strip()
             if not attacker and getattr(self.app, "current_cid", None) in self.app.combatants:
                 attacker = self.app.combatants[self.app.current_cid].name
             use_att = bool(use_attacker_var.get()) and attacker != ""
             save_name = save_var.get()
+
+            if from_spell and owner_combatant:
+                if not self.app._use_action(owner_combatant):
+                    self.app._log(f"{owner_combatant.name} has no actions left to spend", cid=owner_combatant.cid)
 
             removed: List[int] = []
             death_info: Dict[int, Tuple[Optional[str], int, str]] = {}
@@ -6285,15 +6336,28 @@ class BattleMapWindow(tk.Toplevel):
                 m = int(mods.get(cid, 0))
                 tot = r + m
                 passed = (r > 0 and r != 1 and tot >= dc)
+                nat1_max_applied = bool(max_nat1_total is not None and r == 1)
                 applied_components: List[Tuple[int, str]] = []
                 total_damage = 0
-                for amount_val, dtype in components:
-                    if passed:
-                        applied = amount_val // 2 if half_on_pass.get() else 0
-                    else:
-                        applied = amount_val
-                    applied_components.append((applied, dtype))
-                    total_damage += applied
+                component_desc = ""
+                if nat1_max_applied:
+                    total_damage = int(max_nat1_total or 0)
+                    component_desc = f"{total_damage} (max on nat 1)"
+                else:
+                    for amount_val, dtype in components:
+                        if passed:
+                            applied = amount_val // 2 if half_on_pass.get() else 0
+                        else:
+                            applied = amount_val
+                        applied_components.append((applied, dtype))
+                        total_damage += applied
+                    component_desc = " + ".join(
+                        [
+                            f"{amt} {dtype}".strip()
+                            for amt, dtype in applied_components
+                            if amt > 0
+                        ]
+                    )
 
                 before = int(getattr(c, "hp", 0))
                 if total_damage > 0:
@@ -6306,20 +6370,15 @@ class BattleMapWindow(tk.Toplevel):
                     dtype_note = " + ".join([d for _, d in applied_components if d]).strip()
                     death_info[cid] = (attacker or None, int(total_damage), dtype_note)
 
-                component_desc = " + ".join(
-                    [
-                        f"{amt} {dtype}".strip()
-                        for amt, dtype in applied_components
-                        if amt > 0
-                    ]
-                )
-
                 # Log
+                nat1_note = " (max on nat 1)" if nat1_max_applied else ""
                 if total_damage == 0:
                     if use_att:
-                        self.app._log(f"{attacker} hits {c.name} with AoE (save {save_name} {tot} vs DC {dc}) — no damage")
+                        self.app._log(
+                            f"{attacker} hits {c.name} with AoE (save {save_name} {tot} vs DC {dc}) — no damage{nat1_note}"
+                        )
                     else:
-                        self.app._log(f"{c.name} avoids AoE damage (save {save_name} {tot} vs DC {dc})")
+                        self.app._log(f"{c.name} avoids AoE damage (save {save_name} {tot} vs DC {dc}){nat1_note}")
                 else:
                     half_note = " (half on pass per component)" if (passed and half_on_pass.get()) else ""
                     dead_note = " (Dead)" if (died and use_att) else ""
@@ -6372,9 +6431,13 @@ class BattleMapWindow(tk.Toplevel):
             refresh()
             if damage_dealt and self.aoes.get(aid, {}).get("pinned") is False:
                 self._remove_aoe_by_id(aid)
+            if close_after_var.get():
+                dlg.destroy()
 
         ttk.Button(btns, text="Apply damage", command=apply_damage).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(btns, text="Close", command=dlg.destroy).pack(side=tk.RIGHT)
+        close_after_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(btns, text="Close after apply", variable=close_after_var).pack(side=tk.RIGHT, padx=(0, 8))
 
         dlg.bind("<Escape>", lambda e: dlg.destroy())
         try:
@@ -6388,6 +6451,8 @@ class BattleMapWindow(tk.Toplevel):
         _toggle_condition_controls()
 
         refresh()
+
+        _apply_dialog_geometry(dlg, 1120, 720, 900, 600)
 
     def _set_included_text(self, text: str) -> None:
         self.included_box.config(state=tk.NORMAL)
