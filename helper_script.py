@@ -5434,7 +5434,12 @@ class BattleMapWindow(tk.Toplevel):
                 pass
     def _remove_selected_aoe(self) -> None:
         aid = self._selected_aoe
-        if aid is None or aid not in self.aoes:
+        if aid is None:
+            return
+        self._remove_aoe_by_id(aid)
+
+    def _remove_aoe_by_id(self, aid: int) -> None:
+        if aid not in self.aoes:
             return
         d = self.aoes.pop(aid)
         try:
@@ -5442,8 +5447,9 @@ class BattleMapWindow(tk.Toplevel):
             self.canvas.delete(int(d["label"]))
         except Exception:
             pass
-        self._selected_aoe = None
-        self.pin_var.set(False)
+        if self._selected_aoe == aid:
+            self._selected_aoe = None
+            self.pin_var.set(False)
         self._refresh_aoe_list()
         self._update_included_for_selected()
 
@@ -6245,6 +6251,7 @@ class BattleMapWindow(tk.Toplevel):
             removed: List[int] = []
             death_info: Dict[int, Tuple[Optional[str], int, str]] = {}
             death_logged: set[int] = set()
+            damage_dealt = False
 
             for cid in included:
                 c = self.app.combatants.get(cid)
@@ -6266,6 +6273,7 @@ class BattleMapWindow(tk.Toplevel):
 
                 before = int(getattr(c, "hp", 0))
                 if total_damage > 0:
+                    damage_dealt = True
                     c.hp = max(0, before - int(total_damage))
                 after = int(getattr(c, "hp", 0))
 
@@ -6338,6 +6346,8 @@ class BattleMapWindow(tk.Toplevel):
             self.app._rebuild_table()
             self._update_included_for_selected()
             refresh()
+            if damage_dealt and self.aoes.get(aid, {}).get("pinned") is False:
+                self._remove_aoe_by_id(aid)
 
         ttk.Button(btns, text="Apply damage", command=apply_damage).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(btns, text="Close", command=dlg.destroy).pack(side=tk.RIGHT)
