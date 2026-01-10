@@ -97,6 +97,15 @@ AOE_COLOR_PRESETS = [
     ("Gray", "#5c5c5c"),
     ("Black", "#111111"),
 ]
+ROUGH_TERRAIN_COLOR_PRESETS = [
+    ("Mud", "#8d6e63"),
+    ("Water", "#4aa3df"),
+    ("Grass", "#6ab04c"),
+    ("Stone", "#9e9e9e"),
+    ("Sand", "#d4a373"),
+    ("Magic", "#8e44ad"),
+    ("Shadow", "#4b4b4b"),
+]
 DEFAULT_STARTING_PLAYERS = [
     "John Twilight",
     "стихия",
@@ -3204,6 +3213,10 @@ class BattleMapWindow(tk.Toplevel):
         self.obstacle_erase_var = tk.BooleanVar(value=False)
         self.obstacle_brush_var = tk.DoubleVar(value=1.0)
         self.obstacle_single_var = tk.BooleanVar(value=False)
+        self.rough_mode_var = tk.BooleanVar(value=False)
+        self.rough_erase_var = tk.BooleanVar(value=False)
+        self.rough_color_var = tk.StringVar()
+        self.rough_color_hex_var = tk.StringVar()
         self.show_all_names_var = tk.BooleanVar(value=False)
         self._last_roster_sig: Optional[Tuple[int, ...]] = None
         self._poll_after_id: Optional[str] = None
@@ -3219,6 +3232,8 @@ class BattleMapWindow(tk.Toplevel):
         self.obstacles: Set[Tuple[int, int]] = set()  # blocked squares
         self._obstacle_history: List[Set[Tuple[int, int]]] = []
         self._drawing_obstacles: bool = False
+        self.rough_terrain: Dict[Tuple[int, int], str] = {}
+        self._drawing_rough: bool = False
 
         # Grouping: multiple units can occupy the same square. We show a single group label and fan the tokens slightly.
         self._cell_to_cids: Dict[Tuple[int, int], List[int]] = {}
@@ -3259,6 +3274,18 @@ class BattleMapWindow(tk.Toplevel):
             self._aoe_color_labels.append(label)
             self._aoe_color_by_label[label] = hex_value
             self._aoe_label_by_color[hex_value] = label
+        self._rough_color_labels: List[str] = []
+        self._rough_color_by_label: Dict[str, str] = {}
+        self._rough_label_by_color: Dict[str, str] = {}
+        for name, hex_value in ROUGH_TERRAIN_COLOR_PRESETS:
+            label = f"{name} ({hex_value})"
+            self._rough_color_labels.append(label)
+            self._rough_color_by_label[label] = hex_value
+            self._rough_label_by_color[hex_value] = label
+        self._rough_color_labels.append("Custom")
+        default_rough = ROUGH_TERRAIN_COLOR_PRESETS[0][1] if ROUGH_TERRAIN_COLOR_PRESETS else "#8d6e63"
+        self.rough_color_var.set(self._rough_label_by_color.get(default_rough, "Custom"))
+        self.rough_color_hex_var.set(default_rough)
 
         # Measurement
         self._measure_start: Optional[Tuple[float, float]] = None
@@ -3378,7 +3405,29 @@ class BattleMapWindow(tk.Toplevel):
             row=2, column=1, sticky="w", pady=(6, 0)
         )
         ttk.Button(view, text="Clear Obstacles", command=self._clear_obstacles).grid(row=2, column=2, sticky="w", pady=(6, 0))
-        ttk.Label(view, text="Brush Size (cells):").grid(row=3, column=0, sticky="w", pady=(6, 0))
+        ttk.Checkbutton(view, text="Draw Rough Terrain", variable=self.rough_mode_var).grid(
+            row=3, column=0, sticky="w", pady=(6, 0)
+        )
+        ttk.Checkbutton(view, text="Erase Rough (Shift)", variable=self.rough_erase_var).grid(
+            row=3, column=1, sticky="w", pady=(6, 0)
+        )
+        rough_color_row = ttk.Frame(view)
+        rough_color_row.grid(row=3, column=2, sticky="w", pady=(6, 0))
+        ttk.Label(rough_color_row, text="Color:").pack(side=tk.LEFT)
+        self.rough_color_combo = ttk.Combobox(
+            rough_color_row,
+            textvariable=self.rough_color_var,
+            values=self._rough_color_labels,
+            state="readonly",
+            width=14,
+        )
+        self.rough_color_combo.pack(side=tk.LEFT, padx=(6, 0))
+        self.rough_color_combo.bind("<<ComboboxSelected>>", lambda e: self._on_rough_color_select())
+        ttk.Label(rough_color_row, text="Hex:").pack(side=tk.LEFT, padx=(8, 0))
+        self.rough_color_entry = ttk.Entry(rough_color_row, textvariable=self.rough_color_hex_var, width=8)
+        self.rough_color_entry.pack(side=tk.LEFT, padx=(4, 0))
+        self.rough_color_entry.bind("<FocusOut>", lambda e: self._sync_rough_color_hex())
+        ttk.Label(view, text="Brush Size (cells):").grid(row=4, column=0, sticky="w", pady=(6, 0))
         self._obstacle_brush_combo = ttk.Combobox(
             view,
             textvariable=self.obstacle_brush_var,
@@ -3386,15 +3435,15 @@ class BattleMapWindow(tk.Toplevel):
             width=6,
             state="readonly",
         )
-        self._obstacle_brush_combo.grid(row=3, column=1, sticky="w", pady=(6, 0))
+        self._obstacle_brush_combo.grid(row=4, column=1, sticky="w", pady=(6, 0))
         ttk.Checkbutton(view, text="Single square", variable=self.obstacle_single_var).grid(
-            row=3, column=2, sticky="w", pady=(6, 0)
+            row=4, column=2, sticky="w", pady=(6, 0)
         )
         ttk.Checkbutton(view, text="Show All Names", variable=self.show_all_names_var, command=self._redraw_all).grid(
-            row=4, column=0, columnspan=3, sticky="w", pady=(6, 0)
+            row=5, column=0, columnspan=3, sticky="w", pady=(6, 0)
         )
         preset_btns = ttk.Frame(view)
-        preset_btns.grid(row=5, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        preset_btns.grid(row=6, column=0, columnspan=3, sticky="w", pady=(6, 0))
         ttk.Button(preset_btns, text="Save Preset", command=self._save_obstacle_preset).pack(side=tk.LEFT)
         ttk.Button(preset_btns, text="Load Preset", command=self._load_obstacle_preset).pack(side=tk.LEFT, padx=(8, 0))
         view.columnconfigure(1, weight=1)
@@ -3834,15 +3883,44 @@ class BattleMapWindow(tk.Toplevel):
             try:
                 self.canvas.create_rectangle(
                     x1, y1, x2, y2,
-                    fill="#343a40",
+                    fill="#000000",
                     outline="",
-                    stipple="gray50",
                     tags=("obstacle",)
                 )
             except Exception:
                 pass
         try:
             self.canvas.tag_raise("obstacle", "grid")
+        except Exception:
+            pass
+
+    def _draw_rough_terrain(self) -> None:
+        """Render rough terrain squares above the grid but beneath tokens."""
+        try:
+            self.canvas.delete("rough")
+        except Exception:
+            pass
+        if not self.rough_terrain:
+            return
+        for (col, row), color in sorted(self.rough_terrain.items()):
+            x1 = self.x0 + col * self.cell
+            y1 = self.y0 + row * self.cell
+            x2 = x1 + self.cell
+            y2 = y1 + self.cell
+            fill = self._normalize_hex_color(color) or "#8d6e63"
+            try:
+                self.canvas.create_rectangle(
+                    x1, y1, x2, y2,
+                    fill=fill,
+                    outline="",
+                    stipple="gray50",
+                    tags=("rough",)
+                )
+            except Exception:
+                pass
+        try:
+            self.canvas.tag_raise("rough", "grid")
+            self.canvas.tag_lower("rough", "unit")
         except Exception:
             pass
 
@@ -3883,6 +3961,44 @@ class BattleMapWindow(tk.Toplevel):
                         self.obstacles.add(key)
         # Redraw obstacles + recompute movement highlight (obstacles affect it)
         self._draw_obstacles()
+        self._update_move_highlight()
+
+    def _paint_rough_terrain_from_event(self, event: tk.Event) -> None:
+        """Paint or erase a rough terrain cell based on the pointer location."""
+        cx = float(self.canvas.canvasx(event.x))
+        cy = float(self.canvas.canvasy(event.y))
+        col, row = self._pixel_to_grid(cx, cy)
+        if col is None or row is None:
+            return
+        if col < 0 or row < 0 or col >= self.cols or row >= self.rows:
+            return
+        erase = bool(self.rough_erase_var.get()) or bool(event.state & 0x0001)
+        radius = float(self.obstacle_brush_var.get())
+        base_col = int(col)
+        base_row = int(row)
+        color = self._rough_color_from_ui()
+        if self.obstacle_single_var.get():
+            key = (base_col, base_row)
+            if erase:
+                self.rough_terrain.pop(key, None)
+            else:
+                self.rough_terrain[key] = color
+        else:
+            max_delta = int(math.ceil(radius))
+            for dc in range(-max_delta, max_delta + 1):
+                for dr in range(-max_delta, max_delta + 1):
+                    if math.hypot(dc, dr) > radius:
+                        continue
+                    target_col = base_col + dc
+                    target_row = base_row + dr
+                    if target_col < 0 or target_row < 0 or target_col >= self.cols or target_row >= self.rows:
+                        continue
+                    key = (target_col, target_row)
+                    if erase:
+                        self.rough_terrain.pop(key, None)
+                    else:
+                        self.rough_terrain[key] = color
+        self._draw_rough_terrain()
         self._update_move_highlight()
 
 
@@ -4035,6 +4151,44 @@ class BattleMapWindow(tk.Toplevel):
         if not re.fullmatch(r"#[0-9a-f]{6}", value):
             return None
         return value
+
+    def _normalize_hex_color(self, color: object) -> Optional[str]:
+        if not isinstance(color, str):
+            return None
+        value = color.strip().lower()
+        if not re.fullmatch(r"#[0-9a-f]{6}", value):
+            return None
+        return value
+
+    def _rough_color_from_ui(self) -> str:
+        raw = self.rough_color_hex_var.get()
+        normalized = self._normalize_hex_color(raw)
+        if normalized:
+            return normalized
+        label = str(self.rough_color_var.get() or "")
+        preset = self._rough_color_by_label.get(label)
+        if preset:
+            return preset
+        if self._rough_color_by_label:
+            return next(iter(self._rough_color_by_label.values()))
+        return "#8d6e63"
+
+    def _on_rough_color_select(self) -> None:
+        label = str(self.rough_color_var.get() or "")
+        preset = self._rough_color_by_label.get(label)
+        if preset:
+            self.rough_color_hex_var.set(preset)
+        else:
+            self.rough_color_var.set("Custom")
+
+    def _sync_rough_color_hex(self) -> None:
+        color = self._rough_color_from_ui()
+        self.rough_color_hex_var.set(color)
+        label = self._rough_label_by_color.get(color)
+        if label:
+            self.rough_color_var.set(label)
+        else:
+            self.rough_color_var.set("Custom")
 
     def _darken_color(self, color: str, factor: float = 0.55) -> str:
         r = max(0, min(255, int(int(color[1:3], 16) * factor)))
@@ -4194,6 +4348,9 @@ class BattleMapWindow(tk.Toplevel):
                 self.canvas.tag_lower("bgimg")
             except Exception:
                 pass
+
+        # Rough terrain (slow movement)
+        self._draw_rough_terrain()
 
         # Obstacles (block movement)
         self._draw_obstacles()
@@ -4482,7 +4639,8 @@ class BattleMapWindow(tk.Toplevel):
         Compute minimal movement cost (in feet) from a start square to all squares, up to max_ft.
 
         Uses the common 5e diagonal rule: diagonals alternate 5/10 ft (scaled by feet_per_square).
-        Blocks movement through obstacles and prevents corner-cutting around obstacle squares.
+        Blocks movement through obstacles, doubles cost for rough terrain, and prevents corner-cutting
+        around obstacle squares.
         """
         import heapq
 
@@ -4497,6 +4655,7 @@ class BattleMapWindow(tk.Toplevel):
         best_sq: Dict[Tuple[int, int], int] = {(start_col, start_row): 0}
 
         obstacles = getattr(self, "obstacles", set()) or set()
+        rough_terrain = getattr(self, "rough_terrain", {}) or {}
 
         while pq:
             cost, col, row, parity = heapq.heappop(pq)
@@ -4528,6 +4687,9 @@ class BattleMapWindow(tk.Toplevel):
                 else:
                     step_cost = step
                     npar = parity
+
+                if (nc, nr) in rough_terrain:
+                    step_cost *= 2
 
                 ncost = cost + step_cost
                 if ncost > max_ft:
@@ -5269,6 +5431,10 @@ class BattleMapWindow(tk.Toplevel):
 
         # Obstacle paint mode (disables other interactions while enabled)
         try:
+            if bool(self.rough_mode_var.get()):
+                self._drawing_rough = True
+                self._paint_rough_terrain_from_event(event)
+                return
             if bool(self.obstacle_mode_var.get()):
                 if not self._drawing_obstacles:
                     self._obstacle_history.append(set(self.obstacles))
@@ -5387,6 +5553,9 @@ class BattleMapWindow(tk.Toplevel):
         if getattr(self, "_drawing_obstacles", False):
             self._paint_obstacle_from_event(event)
             return
+        if getattr(self, "_drawing_rough", False):
+            self._paint_rough_terrain_from_event(event)
+            return
 
         if self._drag_kind is None or self._drag_id is None:
             return
@@ -5469,6 +5638,9 @@ class BattleMapWindow(tk.Toplevel):
         # Finish obstacle painting
         if getattr(self, "_drawing_obstacles", False):
             self._drawing_obstacles = False
+            return
+        if getattr(self, "_drawing_rough", False):
+            self._drawing_rough = False
             return
 
         # Finalize drags, enforce movement for the active creature, then refresh grouping/highlights.
