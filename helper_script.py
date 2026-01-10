@@ -6132,7 +6132,7 @@ class BattleMapWindow(tk.Toplevel):
                 r = int(rolls.get(cid, 0))
                 m = int(mods.get(cid, 0))
                 tot = r + m
-                passed = (r > 0 and tot >= dc)
+                passed = (r > 0 and r != 1 and tot >= dc)
                 tv.set(iid, "roll", str(r) if r > 0 else "")
                 tv.set(iid, "mod", str(m))
                 tv.set(iid, "total", str(tot) if r > 0 else "")
@@ -6253,7 +6253,7 @@ class BattleMapWindow(tk.Toplevel):
                 r = int(rolls.get(cid, 0))
                 m = int(mods.get(cid, 0))
                 tot = r + m
-                passed = (tot >= dc)
+                passed = (r > 0 and r != 1 and tot >= dc)
                 applied_components: List[Tuple[int, str]] = []
                 total_damage = 0
                 for amount_val, dtype in components:
