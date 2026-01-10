@@ -1270,6 +1270,17 @@ class InitiativeTracker(tk.Tk):
         if not to_remove:
             return
 
+        names = [self.combatants[cid].name for cid in to_remove if cid in self.combatants]
+        prompt_lines = [f"Remove {len(to_remove)} selected combatant(s)?"]
+        if names:
+            preview = ", ".join(names[:5])
+            if len(names) > 5:
+                preview = f"{preview}, ..."
+            prompt_lines.append("")
+            prompt_lines.append(f"Names: {preview}")
+        if not messagebox.askyesno("Confirm Removal", "\n".join(prompt_lines)):
+            return
+
         for cid in to_remove:
             self.combatants.pop(cid, None)
 
