@@ -349,6 +349,38 @@ HTML_INDEX = r"""<!doctype html>
       flex:1;
       min-height:0;
       overflow:auto;
+      position:relative;
+    }
+    .turn-order-status{
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .turn-order-bubble{
+      position:absolute;
+      left:0;
+      top:0;
+      transform: translate(-50%, 0);
+      background: rgba(16,20,28,0.95);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.4);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      z-index: 2;
+      max-width: 240px;
+      text-align: center;
+    }
+    .turn-order-bubble.show{
+      opacity: 1;
+    }
+    .turn-chip.selected{
+      border-color: rgba(255,255,255,0.5);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
     }
     @media (max-width: 720px), (max-height: 720px){
       .btn{padding: 6px 8px; font-size: 12px;}
@@ -438,6 +470,8 @@ HTML_INDEX = r"""<!doctype html>
     <div class="row">
       <div class="initiative-order-content">
         <div class="turn-order" id="turnOrder" aria-label="Turn order"></div>
+        <div class="turn-order-status" id="turnOrderStatus"></div>
+        <div class="turn-order-bubble" id="turnOrderBubble" role="status" aria-live="polite"></div>
       </div>
     </div>
     <div class="row">
@@ -501,7 +535,7 @@ HTML_INDEX = r"""<!doctype html>
           </div>
           <div class="form-field">
             <label for="castDcValue">Save DC</label>
-            <input id="castDcValue" type="number" min="1" step="1" placeholder="15" />
+            <input id="castDcValue" type="number" min="0" step="1" placeholder="15" />
           </div>
           <div class="form-field">
             <label for="castDamageType">Damage Types</label>
@@ -553,6 +587,8 @@ __DAMAGE_TYPE_OPTIONS__
   const bonusActionEl = document.getElementById("bonusAction");
   const turnEl = document.getElementById("turn");
   const turnOrderEl = document.getElementById("turnOrder");
+  const turnOrderStatusEl = document.getElementById("turnOrderStatus");
+  const turnOrderBubbleEl = document.getElementById("turnOrderBubble");
   const noteEl = document.getElementById("note");
   const claimModal = document.getElementById("claimModal");
   const claimList = document.getElementById("claimList");
@@ -630,6 +666,7 @@ __DAMAGE_TYPE_OPTIONS__
   let lastPcList = [];
   let lastActiveCid = null;
   let lastTurnRound = null;
+  let selectedTurnCid = null;
 
   // view transform
   let zoom = 32; // px per square
@@ -1264,6 +1301,42 @@ __DAMAGE_TYPE_OPTIONS__
     centeredCid = String(claimedCid);
   }
 
+  function formatTurnOrderLabel(unit){
+    if (!unit) return "";
+    const role = String(unit.role || "enemy");
+    let label = `${unit.name} (${role})`;
+    if ((role === "pc" || role === "ally") && Number.isFinite(Number(unit.hp))){
+      label += ` ${Number(unit.hp)} HP`;
+    }
+    return label;
+  }
+
+  function showTurnOrderBubble(chip, unit){
+    if (!turnOrderBubbleEl){
+      return;
+    }
+    if (!chip || !unit){
+      turnOrderBubbleEl.classList.remove("show");
+      return;
+    }
+    turnOrderBubbleEl.textContent = formatTurnOrderLabel(unit);
+    turnOrderBubbleEl.classList.add("show");
+    const container = turnOrderBubbleEl.offsetParent || turnOrderEl;
+    if (!container){
+      return;
+    }
+    const containerRect = container.getBoundingClientRect();
+    const chipRect = chip.getBoundingClientRect();
+    const bubbleRect = turnOrderBubbleEl.getBoundingClientRect();
+    const left = chipRect.left - containerRect.left + (chipRect.width / 2);
+    let top = chipRect.top - containerRect.top - bubbleRect.height - 8;
+    if (top < 0){
+      top = chipRect.bottom - containerRect.top + 8;
+    }
+    turnOrderBubbleEl.style.left = `${left}px`;
+    turnOrderBubbleEl.style.top = `${top}px`;
+  }
+
   function updateTurnOrder(){
     if (!turnOrderEl){
       return;
@@ -1271,6 +1344,12 @@ __DAMAGE_TYPE_OPTIONS__
     const order = Array.isArray(state?.turn_order) ? state.turn_order : [];
     turnOrderEl.innerHTML = "";
     if (!order.length){
+      if (turnOrderStatusEl){
+        turnOrderStatusEl.textContent = "";
+      }
+      if (turnOrderBubbleEl){
+        turnOrderBubbleEl.classList.remove("show");
+      }
       return;
     }
     const activeCid = state?.active_cid;
@@ -1280,7 +1359,16 @@ __DAMAGE_TYPE_OPTIONS__
     const claimedIndex = (claimedCid === null || claimedCid === undefined)
       ? -1
       : order.findIndex(cid => Number(cid) === Number(claimedCid));
-    order.forEach((_, idx) => {
+    const unitsByCid = new Map();
+    if (Array.isArray(state?.units)){
+      state.units.forEach((unit) => {
+        if (unit && unit.cid !== undefined && unit.cid !== null){
+          unitsByCid.set(Number(unit.cid), unit);
+        }
+      });
+    }
+    const chipByCid = new Map();
+    order.forEach((cid, idx) => {
       const chip = document.createElement("div");
       chip.className = "turn-chip";
       if (idx === claimedIndex){
@@ -1289,9 +1377,47 @@ __DAMAGE_TYPE_OPTIONS__
       if (idx === activeIndex){
         chip.classList.add("active");
       }
+      chip.setAttribute("role", "button");
+      chip.setAttribute("tabindex", "0");
       chip.textContent = String(idx + 1);
+      chip.addEventListener("click", () => {
+        setSelectedTurnCid(Number(cid));
+      });
+      chip.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " "){
+          ev.preventDefault();
+          setSelectedTurnCid(Number(cid));
+        }
+      });
       turnOrderEl.appendChild(chip);
+      chipByCid.set(Number(cid), chip);
     });
+    const setSelectedTurnCid = (cid) => {
+      selectedTurnCid = cid;
+      chipByCid.forEach((chip, key) => {
+        chip.classList.toggle("selected", Number(key) === Number(cid));
+      });
+      showTurnOrderBubble(chipByCid.get(Number(cid)), unitsByCid.get(Number(cid)));
+    };
+    const claimedUnit = claimedIndex >= 0 ? unitsByCid.get(Number(claimedCid)) : null;
+    if (turnOrderStatusEl){
+      if (claimedIndex >= 0 && claimedUnit){
+        turnOrderStatusEl.textContent = `You are #${claimedIndex + 1}: ${claimedUnit.name}`;
+      } else {
+        turnOrderStatusEl.textContent = "You are not in initiative.";
+      }
+    }
+    let fallbackCid = selectedTurnCid;
+    if (fallbackCid === null || !chipByCid.has(Number(fallbackCid))){
+      if (claimedIndex >= 0){
+        fallbackCid = Number(claimedCid);
+      } else if (activeIndex >= 0){
+        fallbackCid = Number(order[activeIndex]);
+      } else {
+        fallbackCid = Number(order[0]);
+      }
+    }
+    setSelectedTurnCid(fallbackCid);
   }
 
   function updateHud(){
@@ -3311,6 +3437,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "width_ft": preset.width_ft,
                     "save_type": preset.save_type,
                     "save_dc": preset.save_dc,
+                    "dice": getattr(preset, "dice", None),
                     "damage_types": list(preset.damage_types or []),
                     "color": preset.color,
                 }

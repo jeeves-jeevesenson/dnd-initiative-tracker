@@ -15,7 +15,7 @@ spell:
     - Fire
   save:
     type: dex
-    dc: 15
+  dice: 8d6
   color: "#ff6a2a"
 ```
 
@@ -30,5 +30,6 @@ spell:
 - `damage_types` (list of strings, optional): One or more damage types.
 - `save` (mapping, optional):
   - `type` (string): Save type, e.g. `dex`, `con`, `wis`.
-  - `dc` (number): Default save DC.
+  - `dc` (number, optional): Default save DC.
+- `dice` (string, optional): `#d#` hit dice for spell damage (die must be 4, 6, 8, 10, or 12).
 - `color` (string, optional): Hex color (e.g., `"#6aa9ff"`) used for the cast AoE.

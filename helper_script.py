@@ -220,6 +220,7 @@ class SpellPreset:
     width_ft: Optional[int]
     save_type: Optional[str]
     save_dc: Optional[int]
+    dice: Optional[str]
     damage_types: List[str]
     color: Optional[str]
 
@@ -2510,6 +2511,18 @@ class InitiativeTracker(tk.Tk):
                     return int(raw)
             return None
 
+        def parse_dice(value: object) -> Optional[str]:
+            if not isinstance(value, str):
+                return None
+            raw = value.strip().lower()
+            match = re.fullmatch(r"(\\d+)d(4|6|8|10|12)", raw)
+            if not match:
+                return None
+            count = int(match.group(1))
+            if count <= 0:
+                return None
+            return f"{count}d{match.group(2)}"
+
         for fp in files:
             try:
                 raw = fp.read_text(encoding="utf-8")
@@ -2559,6 +2572,8 @@ class InitiativeTracker(tk.Tk):
                     save_type = stype.strip().lower()
                 save_dc = parse_int(save_block.get("dc"))
 
+            dice = parse_dice(spell_block.get("dice"))
+
             color = None
             raw_color = spell_block.get("color")
             if isinstance(raw_color, str) and raw_color.strip():
@@ -2574,6 +2589,7 @@ class InitiativeTracker(tk.Tk):
                 width_ft=width_ft,
                 save_type=save_type,
                 save_dc=save_dc,
+                dice=dice,
                 damage_types=damage_types,
                 color=color,
             )
