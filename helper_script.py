@@ -6069,7 +6069,19 @@ class BattleMapWindow(tk.Toplevel):
         if aoe_meta.get("damage_type"):
             default_type = _match_damage_type(str(aoe_meta.get("damage_type") or ""))
 
-        _add_component(default_amount, default_type, locked=False)
+        damage_type_list: List[str] = []
+        raw_damage_types = aoe_meta.get("damage_types")
+        if isinstance(raw_damage_types, (list, tuple)):
+            for entry in raw_damage_types:
+                matched = _match_damage_type(str(entry or ""))
+                if matched:
+                    damage_type_list.append(matched)
+
+        if damage_type_list:
+            for dtype in damage_type_list:
+                _add_component(default_amount, dtype, locked=False)
+        else:
+            _add_component(default_amount, default_type, locked=False)
 
         add_comp_btn = ttk.Button(components_frame, text="Add damage type", command=_add_component)
         add_comp_btn.pack(anchor="w", pady=(6, 0))

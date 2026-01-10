@@ -203,12 +203,46 @@ HTML_INDEX = r"""<!doctype html>
       padding: 6px 8px;
       font-size: 12px;
     }
+    .form-field select{
+      background: var(--panel2);
+      color: var(--text);
+    }
+    .form-field select option{
+      background: var(--panel2);
+      color: var(--text);
+    }
     .form-field input[type="color"]{
       padding:0;
       height:36px;
       width:100%;
       border:none;
       background:none;
+    }
+    .damage-type-controls{
+      display:flex;
+      gap:6px;
+      align-items:center;
+    }
+    .damage-type-controls select{flex:1;}
+    .damage-type-list{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      min-height:24px;
+    }
+    .damage-type-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .chip button{
+      border:none;
+      background:none;
+      color: var(--text);
+      font-size: 14px;
+      cursor:pointer;
+      padding:0;
+      line-height:1;
     }
     .form-actions{margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;}
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
@@ -464,10 +498,15 @@ HTML_INDEX = r"""<!doctype html>
             <input id="castDcValue" type="number" min="1" step="1" placeholder="15" />
           </div>
           <div class="form-field">
-            <label for="castDamageType">Damage Type</label>
-            <select id="castDamageType">
+            <label for="castDamageType">Damage Types</label>
+            <div class="damage-type-controls">
+              <select id="castDamageType">
+                <option value="" selected>Select a type</option>
 __DAMAGE_TYPE_OPTIONS__
-            </select>
+              </select>
+              <button class="btn" type="button" id="castAddDamageType">Add</button>
+            </div>
+            <div class="damage-type-list" id="castDamageTypeList" aria-live="polite"></div>
           </div>
           <div class="form-field">
             <label for="castColor">Color</label>
@@ -549,6 +588,8 @@ __DAMAGE_TYPE_OPTIONS__
   const castDcTypeInput = document.getElementById("castDcType");
   const castDcValueInput = document.getElementById("castDcValue");
   const castDamageTypeInput = document.getElementById("castDamageType");
+  const castDamageTypeList = document.getElementById("castDamageTypeList");
+  const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
   const turnAlertAudio = new Audio("/assets/alert.wav");
   turnAlertAudio.preload = "auto";
@@ -1740,6 +1781,48 @@ __DAMAGE_TYPE_OPTIONS__
     updateCastShapeFields();
   }
 
+  const castDamageTypes = new Set();
+  const renderCastDamageTypes = () => {
+    if (!castDamageTypeList) return;
+    castDamageTypeList.textContent = "";
+    for (const dtype of castDamageTypes){
+      const chip = document.createElement("span");
+      chip.className = "chip damage-type-chip";
+      const label = document.createElement("span");
+      label.textContent = dtype;
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.setAttribute("aria-label", `Remove ${dtype}`);
+      removeBtn.textContent = "×";
+      removeBtn.addEventListener("click", () => {
+        castDamageTypes.delete(dtype);
+        renderCastDamageTypes();
+      });
+      chip.appendChild(label);
+      chip.appendChild(removeBtn);
+      castDamageTypeList.appendChild(chip);
+    }
+  };
+  const addCastDamageType = (value) => {
+    const dtype = String(value || "").trim();
+    if (!dtype){
+      localToast("Choose a damage type first, matey.");
+      return;
+    }
+    if (castDamageTypes.has(dtype)){
+      localToast("That damage type be added already.");
+      return;
+    }
+    castDamageTypes.add(dtype);
+    renderCastDamageTypes();
+  };
+
+  if (castAddDamageTypeBtn){
+    castAddDamageTypeBtn.addEventListener("click", () => {
+      addCastDamageType(castDamageTypeInput?.value || "");
+    });
+  }
+
   if (castForm){
     castForm.addEventListener("submit", (ev) => {
       ev.preventDefault();
@@ -1778,7 +1861,14 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const dcType = String(castDcTypeInput?.value || "").trim().toLowerCase();
       const dcValue = parseInt(castDcValueInput?.value || "", 10);
-      const damageType = String(castDamageTypeInput?.value || "").trim();
+      const damageTypes = Array.from(castDamageTypes);
+      if (!damageTypes.length){
+        const fallbackType = String(castDamageTypeInput?.value || "").trim();
+        if (fallbackType){
+          damageTypes.push(fallbackType);
+        }
+      }
+      const damageType = damageTypes.length === 1 ? damageTypes[0] : "";
       const name = String(castNameInput?.value || "").trim();
       const color = normalizeHexColor(castColorInput?.value || "") || null;
       const center = defaultAoeCenter();
@@ -1787,6 +1877,7 @@ __DAMAGE_TYPE_OPTIONS__
         dc: Number.isFinite(dcValue) ? dcValue : null,
         save_type: dcType || null,
         damage_type: damageType || null,
+        damage_types: damageTypes,
         name: name || null,
         color,
         cx: center.cx,
@@ -3182,6 +3273,15 @@ class InitiativeTracker(base.InitiativeTracker):
             name = str(payload.get("name") or "").strip()
             save_type = str(payload.get("save_type") or "").strip().lower()
             damage_type = str(payload.get("damage_type") or "").strip()
+            raw_damage_types = payload.get("damage_types")
+            damage_types: List[str] = []
+            if isinstance(raw_damage_types, (list, tuple)):
+                for entry in raw_damage_types:
+                    dtype = str(entry or "").strip()
+                    if dtype:
+                        damage_types.append(dtype)
+            if damage_types and not damage_type:
+                damage_type = damage_types[0]
             half_on_pass = payload.get("half_on_pass")
             default_damage = payload.get("default_damage")
             try:
@@ -3240,6 +3340,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 aoe["dc"] = int(dc_val)
             if save_type:
                 aoe["save_type"] = save_type
+            if damage_types:
+                aoe["damage_types"] = list(damage_types)
             if damage_type:
                 aoe["damage_type"] = damage_type
             if half_on_pass is not None:
