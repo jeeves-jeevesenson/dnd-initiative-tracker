@@ -1,0 +1,11 @@
+spell:
+  name: Ice Storm
+  shape: circle
+  radius_ft: 20
+  damage_types:
+    - Bludgeoning
+    - Cold
+  save:
+    type: dex
+    dc: 15
+  color: "#7fb7ff"
