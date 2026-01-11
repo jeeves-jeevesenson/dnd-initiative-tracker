@@ -683,6 +683,8 @@ __DAMAGE_TYPE_OPTIONS__
   let showAllNames = localStorage.getItem("inittracker_showAllNames") === "1";
   let measurementMode = false;
   let measurement = {start: null, end: null};
+  let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
+  const LOS_PREVIEW_MS = 900;
   if (showAllNamesEl){
     showAllNamesEl.checked = showAllNames;
     showAllNamesEl.addEventListener("change", (ev) => {
@@ -938,6 +940,65 @@ __DAMAGE_TYPE_OPTIONS__
     return {cx: Math.max(0, (cols - 1) / 2), cy: Math.max(0, (rows - 1) / 2)};
   }
 
+  function toGridPoint(point){
+    if (!point) return {col: 0, row: 0};
+    const colValue = point.col ?? point.cx ?? 0;
+    const rowValue = point.row ?? point.cy ?? 0;
+    return {col: Math.round(Number(colValue)), row: Math.round(Number(rowValue))};
+  }
+
+  function isLineOfSightBlocked(startPoint, endPoint){
+    if (!state || !state.obstacles || !state.obstacles.length) return false;
+    const start = toGridPoint(startPoint);
+    const end = toGridPoint(endPoint);
+    const obstacles = new Set(state.obstacles.map(o => `${Number(o.col)},${Number(o.row)}`));
+    let x0 = start.col;
+    let y0 = start.row;
+    const x1 = end.col;
+    const y1 = end.row;
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    let first = true;
+    while (true){
+      if (!first && obstacles.has(`${x0},${y0}`)){
+        return true;
+      }
+      if (x0 === x1 && y0 === y1){
+        break;
+      }
+      const e2 = 2 * err;
+      if (e2 > -dy){
+        err -= dy;
+        x0 += sx;
+      }
+      if (e2 < dx){
+        err += dx;
+        y0 += sy;
+      }
+      first = false;
+    }
+    return false;
+  }
+
+  function setLosPreview(startPoint, endPoint, blocked){
+    losPreview = {
+      start: toGridPoint(startPoint),
+      end: toGridPoint(endPoint),
+      blocked: !!blocked,
+      expiresAt: Date.now() + LOS_PREVIEW_MS,
+    };
+    setTimeout(() => {
+      if (losPreview && Date.now() >= losPreview.expiresAt){
+        losPreview = null;
+        draw();
+      }
+    }, LOS_PREVIEW_MS + 25);
+    draw();
+  }
+
   function clearMeasurement(){
     measurement = {start: null, end: null};
     updateMeasurementControls();
@@ -1160,6 +1221,20 @@ __DAMAGE_TYPE_OPTIONS__
         ctx.fillStyle = "rgba(255,255,255,0.95)";
         ctx.fillText(label, midX, midY - 7);
       }
+      ctx.restore();
+    }
+
+    if (losPreview && Date.now() <= losPreview.expiresAt){
+      const start = gridToScreen(losPreview.start.col, losPreview.start.row);
+      const end = gridToScreen(losPreview.end.col, losPreview.end.row);
+      ctx.save();
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 6]);
+      ctx.strokeStyle = losPreview.blocked ? "rgba(255,120,120,0.95)" : "rgba(123,233,173,0.95)";
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
       ctx.restore();
     }
 
@@ -2118,6 +2193,19 @@ __DAMAGE_TYPE_OPTIONS__
       const name = String(castNameInput?.value || "").trim();
       const color = normalizeHexColor(castColorInput?.value || "") || null;
       const center = defaultAoeCenter();
+      if (shape !== "line"){
+        const caster = getClaimedUnit();
+        if (caster && caster.pos){
+          const start = {col: Number(caster.pos.col), row: Number(caster.pos.row)};
+          const end = {col: Number(center.cx), row: Number(center.cy)};
+          const blocked = isLineOfSightBlocked(start, end);
+          setLosPreview(start, end, blocked);
+          if (blocked){
+            localToast("No line of sight to spell center.");
+            return;
+          }
+        }
+      }
       const payload = {
         shape,
         dc: Number.isFinite(dcValue) ? dcValue : null,
