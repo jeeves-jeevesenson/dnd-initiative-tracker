@@ -36,6 +36,24 @@ spell:
 - `duration_turns` (number, optional): Default AoE duration in rounds (0 = indefinite).
 - `over_time` (boolean, optional): Whether the AoE applies damage on start/enter triggers.
 - `move_per_turn_ft` (number, optional): How far (in feet) the owner can reposition the AoE each turn.
-- `trigger_on_start_or_enter` (string, optional): `start`, `enter`, or `start_or_enter` to control when over-time damage triggers.
+- `trigger_on_start_or_enter` (string, optional): Controls when over-time damage triggers and is only used when `over_time: true`.
+  - `start`: applies damage at the start of the target's turn.
+  - `enter`: applies damage when a target enters the AoE.
+  - `start_or_enter`: applies damage on either start of turn or enter; accepts aliases `start-or-enter` and `start/enter`.
 - `persistent` (boolean, optional): Keep the AoE after applying damage (defaults to true for over-time effects).
 - `pinned_default` (boolean, optional): Default pinned state for the AoE in the map UI.
+
+## Example: over-time AoE
+
+```yaml
+spell:
+  name: Moonbeam
+  shape: circle
+  radius_ft: 5
+  damage_types:
+    - Radiant
+  dice: 2d10
+  over_time: true
+  move_per_turn_ft: 60
+  trigger_on_start_or_enter: start_or_enter
+```
