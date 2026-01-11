@@ -342,6 +342,7 @@ HTML_INDEX = r"""<!doctype html>
     .item .meta{font-size:12px; color:var(--muted);}
     .item:active{background: rgba(255,255,255,0.04);}
     .hint{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.4;}
+    .hint.hidden{display:none;}
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
     .modal-actions .btn{flex:1; min-width:120px;}
     .config-list{
@@ -540,6 +541,10 @@ HTML_INDEX = r"""<!doctype html>
             <input type="checkbox" id="toggleLockMenus" />
           </div>
         </div>
+        <div class="hint hidden" id="iosInstallHint">
+          Open Safari → Share → Add to Home Screen.
+          <a href="https://support.apple.com/en-us/HT201366" target="_blank" rel="noopener">Learn more</a>
+        </div>
         <div class="modal-actions">
           <button class="btn" id="configClose">Close</button>
         </div>
@@ -717,6 +722,7 @@ __DAMAGE_TYPE_OPTIONS__
   const toggleTopbarControls = document.getElementById("toggleTopbarControls");
   const toggleSheetActions = document.getElementById("toggleSheetActions");
   const toggleLockMenus = document.getElementById("toggleLockMenus");
+  const iosInstallHint = document.getElementById("iosInstallHint");
   const measureToggle = document.getElementById("measureToggle");
   const measureClear = document.getElementById("measureClear");
   const logModal = document.getElementById("logModal");
@@ -817,6 +823,14 @@ __DAMAGE_TYPE_OPTIONS__
   let showSheetActions = readToggle(uiToggleKeys.sheetActions, true);
   let menusLocked = readToggle(uiToggleKeys.lockMenus, false);
   let sheetHeight = null;
+  if (iosInstallHint){
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafariEngine = /AppleWebKit/.test(navigator.userAgent);
+    const isAltBrowser = /CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true;
+    const showHint = isIOS && isSafariEngine && !isAltBrowser && !isStandalone;
+    iosInstallHint.classList.toggle("hidden", !showHint);
+  }
   if (showAllNamesEl){
     showAllNamesEl.checked = showAllNames;
     showAllNamesEl.addEventListener("change", (ev) => {
