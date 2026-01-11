@@ -868,6 +868,10 @@ __DAMAGE_TYPE_OPTIONS__
     for (let i = state.aoes.length - 1; i >= 0; i--){
       const a = state.aoes[i];
       if (!a || !a.kind) continue;
+      const remainingTurns = Number(a.remaining_turns);
+      if (Number.isFinite(remainingTurns) && remainingTurns <= 0){
+        continue;
+      }
       const cx = Number(a.cx ?? 0);
       const cy = Number(a.cy ?? 0);
       const center = gridToScreen(cx, cy);
@@ -1124,6 +1128,10 @@ __DAMAGE_TYPE_OPTIONS__
     if (state.aoes && state.aoes.length){
       state.aoes.forEach(a => {
         if (!a || !a.kind) return;
+        const remainingTurns = Number(a.remaining_turns);
+        if (Number.isFinite(remainingTurns) && remainingTurns <= 0){
+          return;
+        }
         const preview = (draggingAoe && draggingAoe.aid === a.aid) ? draggingAoe : null;
         const override = aoeDragOverrides.get(Number(a.aid));
         const cx = Number((preview || override) ? (preview || override).cx : a.cx ?? 0);
@@ -1176,14 +1184,18 @@ __DAMAGE_TYPE_OPTIONS__
           ctx.stroke();
         }
         ctx.setLineDash([]);
-        if (a.name){
+        const label = a.name ? String(a.name) : "";
+        const labelText = label
+          ? (a.pinned && Number.isFinite(remainingTurns) ? `${label} (${remainingTurns}t)` : label)
+          : "";
+        if (labelText){
           ctx.font = `700 ${Math.max(10, Math.floor(zoom*0.32))}px system-ui`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillStyle = "rgba(20,25,35,0.9)";
-          ctx.fillText(String(a.name), x + 1, y + 1);
+          ctx.fillText(labelText, x + 1, y + 1);
           ctx.fillStyle = "rgba(232,238,247,0.95)";
-          ctx.fillText(String(a.name), x, y);
+          ctx.fillText(labelText, x, y);
         }
         ctx.restore();
       });
@@ -2069,6 +2081,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   const castDamageTypes = new Set();
+  let castDurationTurns = null;
   const setCastDamageTypes = (types) => {
     castDamageTypes.clear();
     if (Array.isArray(types)){
@@ -2147,12 +2160,20 @@ __DAMAGE_TYPE_OPTIONS__
       castColorInput.value = String(preset.color || "");
     }
     setCastDamageTypes(preset.damage_types);
+    if (Number.isFinite(Number(preset.duration_turns))){
+      castDurationTurns = Number(preset.duration_turns);
+    } else {
+      castDurationTurns = null;
+    }
   };
 
   if (castPresetInput){
     castPresetInput.addEventListener("change", () => {
       const name = String(castPresetInput.value || "").trim();
-      if (!name) return;
+      if (!name){
+        castDurationTurns = null;
+        return;
+      }
       const presets = normalizeSpellPresets(state?.spell_presets);
       const preset = presets.find(p => String(p.name || "") === name);
       applySpellPreset(preset);
@@ -2238,6 +2259,9 @@ __DAMAGE_TYPE_OPTIONS__
         cx: center.cx,
         cy: center.cy,
       };
+      if (Number.isFinite(Number(castDurationTurns)) && Number(castDurationTurns) >= 0){
+        payload.duration_turns = Number(castDurationTurns);
+      }
       if (shape === "circle"){
         payload.radius_ft = radiusFt;
       } else if (shape === "square"){
@@ -3451,6 +3475,8 @@ class InitiativeTracker(base.InitiativeTracker):
                         "cx": float(d.get("cx") or 0.0),
                         "cy": float(d.get("cy") or 0.0),
                         "pinned": bool(d.get("pinned")),
+                        "duration_turns": d.get("duration_turns"),
+                        "remaining_turns": d.get("remaining_turns"),
                     }
                     for extra_key in ("dc", "save_type", "damage_type", "half_on_pass", "default_damage", "owner", "owner_cid"):
                         if d.get(extra_key) not in (None, ""):
@@ -3580,6 +3606,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "dice": getattr(preset, "dice", None),
                     "damage_types": list(preset.damage_types or []),
                     "color": preset.color,
+                    "duration_turns": getattr(preset, "duration_turns", None),
                 }
             )
         return presets
@@ -3693,6 +3720,7 @@ class InitiativeTracker(base.InitiativeTracker):
             side_ft = parse_positive_float(payload.get("side_ft"))
             length_ft = parse_positive_float(payload.get("length_ft"))
             width_ft = parse_positive_float(payload.get("width_ft"))
+            duration_turns = payload.get("duration_turns")
             color = self._normalize_token_color(payload.get("color")) or ""
             name = str(payload.get("name") or "").strip()
             save_type = str(payload.get("save_type") or "").strip().lower()
@@ -3712,6 +3740,16 @@ class InitiativeTracker(base.InitiativeTracker):
                 dc_val = int(payload.get("dc"))
             except Exception:
                 dc_val = None
+            duration_turns_val: Optional[int]
+            if duration_turns in (None, ""):
+                duration_turns_val = None
+            else:
+                try:
+                    duration_turns_val = int(duration_turns)
+                except Exception:
+                    duration_turns_val = None
+                if duration_turns_val is not None and duration_turns_val < 0:
+                    duration_turns_val = None
             mw = getattr(self, "_map_window", None)
             if mw is None or not mw.winfo_exists():
                 self._lan.toast(ws_id, "Map window not open, matey.")
@@ -3759,6 +3797,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 "label": None,
                 "owner": owner,
                 "owner_cid": int(cid),
+                "duration_turns": duration_turns_val,
+                "remaining_turns": duration_turns_val if (duration_turns_val or 0) > 0 else None,
             }
             if dc_val is not None:
                 aoe["dc"] = int(dc_val)
