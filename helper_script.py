@@ -3103,7 +3103,9 @@ class InitiativeTracker(tk.Tk):
                     continue
 
                 target_name = c.name
-                attacker_name = _parse_name_from_label(row["attacker_var"].get())
+                attacker_label = row["attacker_var"].get()
+                attacker_name = _parse_name_from_label(attacker_label)
+                attacker_cid = self._cid_from_label(attacker_label) if attacker_label else None
                 resist_note = ""
                 imm_note = ""
                 crit_suffix = " Critical Hit!" if row["crit_var"].get() else ""
@@ -3161,6 +3163,9 @@ class InitiativeTracker(tk.Tk):
                     dtype_flavor = components[0]["dtype"] if len(components) == 1 else ""
                     flavor = self._death_flavor_line(attacker_name, total_applied, dtype_flavor, target_name) + crit_suffix
                     self._log(flavor)
+                    lan = getattr(self, "_lan", None)
+                    if lan:
+                        lan.play_ko(attacker_cid)
                     self.combatants.pop(cid, None)
                     removed_all.append(cid)
                 else:
@@ -6639,6 +6644,18 @@ class BattleMapWindow(tk.Toplevel):
                 attacker = self.app.combatants[self.app.current_cid].name
             use_att = bool(use_attacker_var.get()) and attacker != ""
             save_name = save_var.get()
+            attacker_cid: Optional[int] = None
+            if isinstance(owner_cid, int):
+                attacker_cid = owner_cid
+            elif attacker and getattr(self.app, "current_cid", None) in self.app.combatants:
+                cur = self.app.combatants.get(self.app.current_cid)
+                if cur and cur.name == attacker:
+                    attacker_cid = cur.cid
+            elif attacker:
+                for combatant in self.app.combatants.values():
+                    if combatant.name == attacker:
+                        attacker_cid = combatant.cid
+                        break
 
             if from_spell and owner_combatant:
                 if not self.app._use_action(owner_combatant):
@@ -6703,6 +6720,9 @@ class BattleMapWindow(tk.Toplevel):
                 if died and not is_immune:
                     dtype_note = " + ".join([d for _, d in applied_components if d]).strip()
                     death_info[cid] = (attacker or None, int(total_damage), dtype_note)
+                    lan = getattr(self.app, "_lan", None)
+                    if lan:
+                        lan.play_ko(attacker_cid)
 
                 # Log
                 if not is_immune:
