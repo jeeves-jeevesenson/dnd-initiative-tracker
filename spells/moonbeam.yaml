@@ -1,0 +1,14 @@
+spell:
+  name: Moonbeam
+  shape: circle
+  radius_ft: 5
+  duration_turns: 10
+  over_time: true
+  move_per_turn_ft: 60
+  trigger_on_start_or_enter: start_or_enter
+  damage_types:
+    - Radiant
+  save:
+    type: con
+  dice: 2d10
+  color: "#9ad9ff"
