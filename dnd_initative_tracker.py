@@ -1841,6 +1841,10 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("That spell be not yers.");
         return;
       }
+      if (aoeHit.pinned){
+        localToast("That spell be pinned.");
+        return;
+      }
       draggingAoe = {aid: aoeHit.aid, cx: aoeHit.cx, cy: aoeHit.cy};
       return;
     }
