@@ -636,6 +636,8 @@ __DAMAGE_TYPE_OPTIONS__
   const castColorInput = document.getElementById("castColor");
   const turnAlertAudio = new Audio("/assets/alert.wav");
   turnAlertAudio.preload = "auto";
+  const koAlertAudio = new Audio("/assets/ko.wav");
+  koAlertAudio.preload = "auto";
   let audioUnlocked = false;
   let pendingTurnAlert = false;
   let pendingVibrate = false;
@@ -1550,6 +1552,13 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
+  function playKoAlert(){
+    koAlertAudio.currentTime = 0;
+    koAlertAudio.play().catch((err) => {
+      console.warn("KO audio failed to play.", err);
+    });
+  }
+
   function fireVibrate(){
     if (!lastVibrateSupported) return false;
     const didVibrate = vibrate([200, 120, 200]);
@@ -1719,6 +1728,14 @@ __DAMAGE_TYPE_OPTIONS__
         lastGridVersion = msg.version ?? lastGridVersion;
         send({type:"grid_ack", version: msg.version});
         draw();
+      } else if (msg.type === "play_audio"){
+        if (!msg.audio) return;
+        if (msg.audio !== "ko") return;
+        if (!audioUnlocked) return;
+        if (msg.cid !== undefined && msg.cid !== null){
+          if (!claimedCid || String(msg.cid) !== String(claimedCid)) return;
+        }
+        playKoAlert();
       }
     });
   }
@@ -2366,6 +2383,8 @@ class LanController:
         self._grid_pending: Dict[int, Tuple[int, float]] = {}
         self._grid_resend_seconds: float = 1.5
         self._grid_last_sent: Optional[Tuple[Optional[int], Optional[int]]] = None
+        self._ko_round_num: Optional[int] = None
+        self._ko_played: bool = False
         self._cached_snapshot: Dict[str, Any] = {
             "grid": None,
             "obstacles": [],
@@ -2404,11 +2423,12 @@ class LanController:
         app = FastAPI()
         assets_dir = Path(__file__).parent / "assets"
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-        if not (assets_dir / "alert.wav").exists():
-            self.app._oplog(
-                f"LAN assets missing alert.wav at {assets_dir / 'alert.wav'} (check assets_dir path).",
-                level="warning",
-            )
+        for asset_name in ("alert.wav", "ko.wav"):
+            if not (assets_dir / asset_name).exists():
+                self.app._oplog(
+                    f"LAN assets missing {asset_name} at {assets_dir / asset_name} (check assets_dir path).",
+                    level="warning",
+                )
 
         @app.get("/")
         async def index():
@@ -2772,6 +2792,34 @@ class LanController:
         if ws_id is None or not self._loop:
             return
         coro = self._toast_async(ws_id, text)
+        try:
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
+        except Exception:
+            pass
+
+    def play_ko(self, attacker_cid: Optional[int]) -> None:
+        """Play a KO sound on the attacker's claimed LAN client (once per round)."""
+        if not self._loop or attacker_cid is None:
+            return
+        try:
+            attacker_cid = int(attacker_cid)
+        except Exception:
+            return
+        round_num = int(getattr(self.app, "round_num", 0) or 0)
+        if self._ko_round_num != round_num:
+            self._ko_round_num = round_num
+            self._ko_played = False
+        if self._ko_played:
+            return
+        pc_cids = {int(p.get("cid")) for p in self._cached_pcs if isinstance(p.get("cid"), int)}
+        if attacker_cid not in pc_cids:
+            return
+        with self._clients_lock:
+            ws_id = self._cid_to_ws.get(attacker_cid)
+        if ws_id is None:
+            return
+        self._ko_played = True
+        coro = self._send_async(ws_id, {"type": "play_audio", "audio": "ko", "cid": attacker_cid})
         try:
             asyncio.run_coroutine_threadsafe(coro, self._loop)
         except Exception:
