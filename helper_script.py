@@ -220,6 +220,7 @@ class SpellPreset:
     width_ft: Optional[int]
     save_type: Optional[str]
     save_dc: Optional[int]
+    default_damage: Optional[str]
     dice: Optional[str]
     damage_types: List[str]
     color: Optional[str]
@@ -2630,6 +2631,14 @@ class InitiativeTracker(tk.Tk):
                 return None
             return f"{count}d{match.group(2)}"
 
+        def parse_default_damage(value: object) -> Optional[str]:
+            if isinstance(value, (int, float)):
+                return str(int(value))
+            if isinstance(value, str):
+                raw = value.strip()
+                return raw or None
+            return None
+
         for fp in files:
             try:
                 raw = fp.read_text(encoding="utf-8")
@@ -2685,6 +2694,7 @@ class InitiativeTracker(tk.Tk):
                     save_type = stype.strip().lower()
                 save_dc = parse_int(save_block.get("dc"))
 
+            default_damage = parse_default_damage(spell_block.get("default_damage"))
             dice = parse_dice(spell_block.get("dice"))
 
             color = None
@@ -2702,6 +2712,7 @@ class InitiativeTracker(tk.Tk):
                 width_ft=width_ft,
                 save_type=save_type,
                 save_dc=save_dc,
+                default_damage=default_damage,
                 dice=dice,
                 damage_types=damage_types,
                 color=color,
@@ -6597,6 +6608,8 @@ class BattleMapWindow(tk.Toplevel):
         default_type = ""
         if aoe_meta.get("default_damage") not in (None, ""):
             default_amount = str(aoe_meta.get("default_damage"))
+        elif aoe_meta.get("dice") not in (None, ""):
+            default_amount = str(aoe_meta.get("dice"))
         if aoe_meta.get("damage_type"):
             default_type = _match_damage_type(str(aoe_meta.get("damage_type") or ""))
 
@@ -6805,6 +6818,18 @@ class BattleMapWindow(tk.Toplevel):
                 aoe_meta["condition_key"] = condition_key
             aoe_meta["condition_turns"] = condition_turns_var.get().strip()
             components: List[Tuple[int, str]] = []
+
+            def _parse_damage_amount(amount_raw: str) -> int:
+                raw = amount_raw.strip().lower()
+                match = re.fullmatch(r"(\\d+)d(4|6|8|10|12)", raw)
+                if match:
+                    count = int(match.group(1))
+                    die = int(match.group(2))
+                    if count <= 0:
+                        raise ValueError("Dice count must be positive.")
+                    return int(self.app._roll_dice_dict({die: count}))
+                return int(self.app._parse_int_expr(amount_raw))
+
             for comp in damage_components:
                 amount_raw = (comp["amount_var"].get() or "").strip()
                 dtype = (comp["dtype_var"].get() or "").strip()
@@ -6814,9 +6839,13 @@ class BattleMapWindow(tk.Toplevel):
                         return
                     continue
                 try:
-                    amount_val = int(self.app._parse_int_expr(amount_raw))
+                    amount_val = _parse_damage_amount(amount_raw)
                 except Exception:
-                    messagebox.showerror("AoE Damage", "Damage amounts must be numbers or simple math expressions.", parent=dlg)
+                    messagebox.showerror(
+                        "AoE Damage",
+                        "Damage amounts must be numbers, dice (e.g. 8d6), or simple math expressions.",
+                        parent=dlg,
+                    )
                     return
                 components.append((max(0, amount_val), dtype))
 

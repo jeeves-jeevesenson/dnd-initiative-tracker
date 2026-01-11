@@ -31,6 +31,7 @@ spell:
 - `save` (mapping, optional):
   - `type` (string): Save type, e.g. `dex`, `con`, `wis`.
   - `dc` (number, optional): Default save DC.
+- `default_damage` (string or number, optional): Default damage amount or math expression (e.g. `28` or `5+3`).
 - `dice` (string, optional): `#d#` hit dice for spell damage (die must be 4, 6, 8, 10, or 12).
 - `color` (string, optional): Hex color (e.g., `"#6aa9ff"`) used for the cast AoE.
 - `duration_turns` (number, optional): Default AoE duration in rounds (0 = indefinite).
@@ -42,6 +43,11 @@ spell:
   - `start_or_enter`: applies damage on either start of turn or enter; accepts aliases `start-or-enter` and `start/enter`.
 - `persistent` (boolean, optional): Keep the AoE after applying damage (defaults to true for over-time effects).
 - `pinned_default` (boolean, optional): Default pinned state for the AoE in the map UI.
+
+### Damage dice behavior
+
+- Instant AoE damage: `dice` (or `default_damage`) is used to prefill the AoE damage dialog. If the amount is dice like `8d6`, it is rolled once per Apply Damage action.
+- Over-time AoE damage: triggers open the AoE damage dialog and roll the `dice` amount each time you apply damage. Use `default_damage` if you want a fixed value instead of dice rolls.
 
 ## Example: over-time AoE
 

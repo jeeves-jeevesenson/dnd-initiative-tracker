@@ -629,6 +629,14 @@ HTML_INDEX = r"""<!doctype html>
               <input id="castDcValue" type="number" min="0" step="1" placeholder="15" />
             </div>
             <div class="form-field">
+              <label for="castDefaultDamage">Default Damage</label>
+              <input id="castDefaultDamage" type="text" placeholder="28" />
+            </div>
+            <div class="form-field">
+              <label for="castDice">Damage Dice</label>
+              <input id="castDice" type="text" placeholder="8d6" />
+            </div>
+            <div class="form-field">
               <label for="castDamageType">Damage Types</label>
               <div class="damage-type-controls">
                 <select id="castDamageType">
@@ -728,6 +736,8 @@ __DAMAGE_TYPE_OPTIONS__
   const castWidthInput = document.getElementById("castWidth");
   const castDcTypeInput = document.getElementById("castDcType");
   const castDcValueInput = document.getElementById("castDcValue");
+  const castDefaultDamageInput = document.getElementById("castDefaultDamage");
+  const castDiceInput = document.getElementById("castDice");
   const castDamageTypeInput = document.getElementById("castDamageType");
   const castDamageTypeList = document.getElementById("castDamageTypeList");
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
@@ -2422,6 +2432,14 @@ __DAMAGE_TYPE_OPTIONS__
     if (castDcValueInput){
       castDcValueInput.value = Number.isFinite(Number(preset.save_dc)) ? Number(preset.save_dc) : "";
     }
+    if (castDefaultDamageInput){
+      const defaultDamage = preset.default_damage;
+      castDefaultDamageInput.value = defaultDamage !== undefined && defaultDamage !== null ? String(defaultDamage) : "";
+    }
+    if (castDiceInput){
+      const dice = preset.dice;
+      castDiceInput.value = dice !== undefined && dice !== null ? String(dice) : "";
+    }
     if (castColorInput && preset.color){
       castColorInput.value = String(preset.color || "");
     }
@@ -2469,6 +2487,12 @@ __DAMAGE_TYPE_OPTIONS__
         castTriggerOnStartOrEnter = null;
         castPersistent = null;
         castPinnedDefault = null;
+        if (castDefaultDamageInput){
+          castDefaultDamageInput.value = "";
+        }
+        if (castDiceInput){
+          castDiceInput.value = "";
+        }
         return;
       }
       const presets = normalizeSpellPresets(state?.spell_presets);
@@ -2531,6 +2555,8 @@ __DAMAGE_TYPE_OPTIONS__
       const damageType = damageTypes.length === 1 ? damageTypes[0] : "";
       const name = String(castNameInput?.value || "").trim();
       const color = normalizeHexColor(castColorInput?.value || "") || null;
+      const defaultDamage = String(castDefaultDamageInput?.value || "").trim();
+      const dice = String(castDiceInput?.value || "").trim();
       const center = defaultAoeCenter();
       if (shape !== "line"){
         const caster = getClaimedUnit();
@@ -2556,6 +2582,12 @@ __DAMAGE_TYPE_OPTIONS__
         cx: center.cx,
         cy: center.cy,
       };
+      if (defaultDamage){
+        payload.default_damage = defaultDamage;
+      }
+      if (dice){
+        payload.dice = dice;
+      }
       if (Number.isFinite(Number(castDurationTurns)) && Number(castDurationTurns) >= 0){
         payload.duration_turns = Number(castDurationTurns);
       }
@@ -4018,6 +4050,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "width_ft": preset.width_ft,
                     "save_type": preset.save_type,
                     "save_dc": preset.save_dc,
+                    "default_damage": getattr(preset, "default_damage", None),
                     "dice": getattr(preset, "dice", None),
                     "damage_types": list(preset.damage_types or []),
                     "color": preset.color,
@@ -4165,6 +4198,28 @@ class InitiativeTracker(base.InitiativeTracker):
                     return "start_or_enter"
                 return None
 
+            def parse_default_damage(value: Any) -> Optional[str]:
+                if value in (None, ""):
+                    return None
+                if isinstance(value, (int, float)):
+                    return str(int(value))
+                if isinstance(value, str):
+                    raw = value.strip()
+                    return raw or None
+                return None
+
+            def parse_dice(value: Any) -> Optional[str]:
+                if not isinstance(value, str):
+                    return None
+                raw = value.strip().lower()
+                match = re.fullmatch(r"(\\d+)d(4|6|8|10|12)", raw)
+                if not match:
+                    return None
+                count = int(match.group(1))
+                if count <= 0:
+                    return None
+                return f"{count}d{match.group(2)}"
+
             size = parse_positive_float(payload.get("size"))
             radius_ft = parse_positive_float(payload.get("radius_ft"))
             side_ft = parse_positive_float(payload.get("side_ft"))
@@ -4190,7 +4245,8 @@ class InitiativeTracker(base.InitiativeTracker):
             if damage_types and not damage_type:
                 damage_type = damage_types[0]
             half_on_pass = payload.get("half_on_pass")
-            default_damage = payload.get("default_damage")
+            default_damage = parse_default_damage(payload.get("default_damage"))
+            dice = parse_dice(payload.get("dice"))
             try:
                 dc_val = int(payload.get("dc"))
             except Exception:
@@ -4298,7 +4354,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 aoe["damage_type"] = damage_type
             if half_on_pass is not None:
                 aoe["half_on_pass"] = bool(half_on_pass)
-            if default_damage not in (None, ""):
+            if dice:
+                aoe["dice"] = dice
+                if default_damage is None:
+                    default_damage = dice
+            if default_damage is not None:
                 aoe["default_damage"] = default_damage
             if shape == "circle":
                 if radius_ft is None and size is None:
