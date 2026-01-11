@@ -2867,7 +2867,7 @@ class InitiativeTracker(tk.Tk):
         inner.bind("<Configure>", _on_inner_config)
         canvas.bind("<Configure>", _on_canvas_config)
 
-        headers = ["Attacker", "Target", "Damage (Amount + Type)", "Resist", "Immune", "", ""]
+        headers = ["Attacker", "Target", "Damage (Amount + Type)", "Resist", "Immune", "Crit", "", ""]
         for col, h in enumerate(headers):
             ttk.Label(inner, text=h).grid(row=0, column=col, sticky="w", padx=(0, 8))
 
@@ -2911,8 +2911,9 @@ class InitiativeTracker(tk.Tk):
                 row["components_frame"].grid(row=r, column=2, sticky="we", padx=(0, 8), pady=2)
                 row["res_cb"].grid(row=r, column=3, sticky="w", padx=(0, 8), pady=2)
                 row["imm_cb"].grid(row=r, column=4, sticky="w", padx=(0, 8), pady=2)
-                row["add_damage_btn"].grid(row=r, column=5, sticky="w", padx=(0, 8), pady=2)
-                row["rm_btn"].grid(row=r, column=6, sticky="e", pady=2)
+                row["crit_cb"].grid(row=r, column=5, sticky="w", padx=(0, 8), pady=2)
+                row["add_damage_btn"].grid(row=r, column=6, sticky="w", padx=(0, 8), pady=2)
+                row["rm_btn"].grid(row=r, column=7, sticky="e", pady=2)
 
             # Stretch columns
             inner.columnconfigure(0, weight=2)
@@ -2920,12 +2921,14 @@ class InitiativeTracker(tk.Tk):
             inner.columnconfigure(2, weight=3)
             inner.columnconfigure(3, weight=1)
             inner.columnconfigure(4, weight=1)
+            inner.columnconfigure(5, weight=1)
 
         def add_entry(target_label: str = "", attacker_label: str = "") -> None:
             atk_var = tk.StringVar(value=attacker_label)
             tgt_var = tk.StringVar(value=target_label)
             res_var = tk.BooleanVar(value=False)
             imm_var = tk.BooleanVar(value=False)
+            crit_var = tk.BooleanVar(value=False)
 
             attacker_combo = ttk.Combobox(
                 inner, textvariable=atk_var, values=attacker_values, state=("readonly" if attacker_values else "disabled")
@@ -2938,6 +2941,7 @@ class InitiativeTracker(tk.Tk):
             components_frame.columnconfigure(1, weight=1)
             res_cb = ttk.Checkbutton(inner, text="", variable=res_var)
             imm_cb = ttk.Checkbutton(inner, text="", variable=imm_var)
+            crit_cb = ttk.Checkbutton(inner, text="", variable=crit_var)
 
             def remove_this():
                 if len(rows) <= 1:
@@ -2956,6 +2960,7 @@ class InitiativeTracker(tk.Tk):
                         row["components"][0]["dtype_var"].set("")
                     res_var.set(False)
                     imm_var.set(False)
+                    crit_var.set(False)
                     return
                 for comp in row["components"]:
                     for w in (comp["amt_entry"], comp["dtype_combo"]):
@@ -2963,7 +2968,7 @@ class InitiativeTracker(tk.Tk):
                             w.destroy()
                         except Exception:
                             pass
-                for w in (attacker_combo, target_combo, components_frame, res_cb, imm_cb, add_damage_btn, rm_btn):
+                for w in (attacker_combo, target_combo, components_frame, res_cb, imm_cb, crit_cb, add_damage_btn, rm_btn):
                     try:
                         w.destroy()
                     except Exception:
@@ -3002,12 +3007,14 @@ class InitiativeTracker(tk.Tk):
                 target_var=tgt_var,
                 resistant_var=res_var,
                 immune_var=imm_var,
+                crit_var=crit_var,
                 attacker_combo=attacker_combo,
                 target_combo=target_combo,
                 components_frame=components_frame,
                 components=[],
                 res_cb=res_cb,
                 imm_cb=imm_cb,
+                crit_cb=crit_cb,
                 add_damage_btn=add_damage_btn,
                 rm_btn=rm_btn,
             )
@@ -3099,6 +3106,7 @@ class InitiativeTracker(tk.Tk):
                 attacker_name = _parse_name_from_label(row["attacker_var"].get())
                 resist_note = ""
                 imm_note = ""
+                crit_suffix = " Critical Hit!" if row["crit_var"].get() else ""
 
                 if mode == "heal":
                     total_heal = sum(comp["amount"] for comp in components)
@@ -3121,6 +3129,7 @@ class InitiativeTracker(tk.Tk):
                         applied = applied // 2
                     total_applied += int(applied)
                     applied_components.append(f"{applied} {dtype_display}")
+                crit_suffix = " Critical Hit!" if row["crit_var"].get() and total_applied > 0 else ""
 
                 component_summary = " + ".join(base_components)
                 applied_summary = " + ".join(applied_components)
@@ -3150,16 +3159,16 @@ class InitiativeTracker(tk.Tk):
                 # If they died from above 0 -> 0, log flavor and remove
                 if old_hp > 0 and int(c.hp) == 0:
                     dtype_flavor = components[0]["dtype"] if len(components) == 1 else ""
-                    flavor = self._death_flavor_line(attacker_name, total_applied, dtype_flavor, target_name)
+                    flavor = self._death_flavor_line(attacker_name, total_applied, dtype_flavor, target_name) + crit_suffix
                     self._log(flavor)
                     self.combatants.pop(cid, None)
                     removed_all.append(cid)
                 else:
                     summary = applied_summary if row["resistant_var"].get() else component_summary
                     if attacker_name:
-                        self._log(f"{attacker_name} deals {summary} damage to {target_name}{resist_note}")
+                        self._log(f"{attacker_name} deals {summary} damage to {target_name}{resist_note}{crit_suffix}")
                     else:
-                        self._log(f"{target_name} takes {summary} damage{resist_note}")
+                        self._log(f"{target_name} takes {summary} damage{resist_note}{crit_suffix}")
 
             if removed_all:
                 if getattr(self, "start_cid", None) in removed_all:
