@@ -156,6 +156,13 @@ HTML_INDEX = r"""<!doctype html>
     .btn:active{transform: translateY(1px);}
     .btn.danger{background: rgba(255,91,91,0.14); border-color: rgba(255,91,91,0.35);}
     .btn.accent{background: rgba(106,169,255,0.14); border-color: rgba(106,169,255,0.35);}
+    .topbar-controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
+    .hide-topbar-controls .topbar-controls{display:none;}
 
     .mapWrap{flex:1 1 auto; min-height:0; position:relative; overflow:hidden; background:#0a0c12;}
     canvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none;}
@@ -183,6 +190,11 @@ HTML_INDEX = r"""<!doctype html>
       cursor: ns-resize;
       touch-action: none;
       flex:0 0 auto;
+    }
+    .menus-locked .sheet-handle{
+      cursor: not-allowed;
+      opacity: 0.45;
+      pointer-events: none;
     }
     .sheet-handle::before{
       content:"";
@@ -271,6 +283,8 @@ HTML_INDEX = r"""<!doctype html>
     .form-actions{margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;}
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
     .row + .row{margin-top:10px;}
+    .sheet-actions{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+    .hide-sheet-actions .sheet-actions{display:none;}
     .label{font-size:12px; color:var(--muted);}
     .value{font-size:14px; font-weight:700;}
     .chip{font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);}
@@ -325,6 +339,30 @@ HTML_INDEX = r"""<!doctype html>
     .hint{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.4;}
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
     .modal-actions .btn{flex:1; min-width:120px;}
+    .config-list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:8px;
+    }
+    .config-item{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding: 10px;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,0.1);
+      background: rgba(10,14,22,0.55);
+    }
+    .config-item label{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:13px;
+      font-weight:650;
+    }
+    .config-item input{transform: scale(1.05);}
     .color-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
     .color-swatch{width:36px; height:36px; border-radius:50%; border:2px solid rgba(255,255,255,0.2); background:#6aa9ff;}
     .color-input{width:64px; height:44px; border:none; background:none; padding:0;}
@@ -419,14 +457,17 @@ HTML_INDEX = r"""<!doctype html>
     <h1>InitTracker LAN</h1>
     <div class="pill" id="conn">Connecting…</div>
     <div class="spacer"></div>
-    <button class="btn" id="changeChar">Change</button>
-    <button class="btn" id="lockMap">Lock Map</button>
-    <button class="btn" id="centerMap">Center on Me</button>
-    <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
-    <button class="btn" id="measureClear">Clear Measure</button>
-    <button class="btn accent" id="zoomIn">Zoom +</button>
-    <button class="btn accent" id="zoomOut">Zoom −</button>
-    <button class="btn" id="battleLog">Battle Log</button>
+    <button class="btn" id="configBtn">Config</button>
+    <div class="topbar-controls">
+      <button class="btn" id="changeChar">Change</button>
+      <button class="btn" id="lockMap">Lock Map</button>
+      <button class="btn" id="centerMap">Center on Me</button>
+      <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
+      <button class="btn" id="measureClear">Clear Measure</button>
+      <button class="btn accent" id="zoomIn">Zoom +</button>
+      <button class="btn accent" id="zoomOut">Zoom −</button>
+      <button class="btn" id="battleLog">Battle Log</button>
+    </div>
   </div>
 
   <div class="mapWrap">
@@ -477,6 +518,28 @@ HTML_INDEX = r"""<!doctype html>
         </div>
       </div>
     </div>
+    <div class="modal" id="configModal" aria-hidden="true">
+      <div class="card">
+        <h2>Config</h2>
+        <div class="config-list">
+          <div class="config-item">
+            <label for="toggleTopbarControls">Topbar controls</label>
+            <input type="checkbox" id="toggleTopbarControls" />
+          </div>
+          <div class="config-item">
+            <label for="toggleSheetActions">Bottom-sheet actions</label>
+            <input type="checkbox" id="toggleSheetActions" />
+          </div>
+          <div class="config-item">
+            <label for="toggleLockMenus">Lock Menus</label>
+            <input type="checkbox" id="toggleLockMenus" />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="configClose">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="sheet-wrap" id="sheetWrap">
@@ -486,12 +549,14 @@ HTML_INDEX = r"""<!doctype html>
         <div class="label">Ye be:</div>
         <div class="value" id="me">(unclaimed)</div>
         <div class="spacer"></div>
-        <button class="btn" id="useAction">Use Action</button>
-        <button class="btn" id="useBonusAction">Use Bonus Action</button>
-        <button class="btn" id="dash">Dash</button>
-        <button class="btn" id="standUp">Stand Up</button>
-        <button class="btn" id="resetTurn">Reset Turn</button>
-        <button class="btn danger" id="endTurn">End Turn</button>
+        <div class="sheet-actions">
+          <button class="btn" id="useAction">Use Action</button>
+          <button class="btn" id="useBonusAction">Use Bonus Action</button>
+          <button class="btn" id="dash">Dash</button>
+          <button class="btn" id="standUp">Stand Up</button>
+          <button class="btn" id="resetTurn">Reset Turn</button>
+          <button class="btn danger" id="endTurn">End Turn</button>
+        </div>
       </div>
       <div class="row">
         <div class="initiative-order-content">
@@ -629,6 +694,12 @@ __DAMAGE_TYPE_OPTIONS__
   const dashBonusActionBtn = document.getElementById("dashBonusAction");
   const dashCancelBtn = document.getElementById("dashCancel");
   const battleLogBtn = document.getElementById("battleLog");
+  const configBtn = document.getElementById("configBtn");
+  const configModal = document.getElementById("configModal");
+  const configCloseBtn = document.getElementById("configClose");
+  const toggleTopbarControls = document.getElementById("toggleTopbarControls");
+  const toggleSheetActions = document.getElementById("toggleSheetActions");
+  const toggleLockMenus = document.getElementById("toggleLockMenus");
   const measureToggle = document.getElementById("measureToggle");
   const measureClear = document.getElementById("measureClear");
   const logModal = document.getElementById("logModal");
@@ -717,6 +788,14 @@ __DAMAGE_TYPE_OPTIONS__
   let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
   const LOS_PREVIEW_MS = 900;
   const sheetHeightKey = "inittracker_sheetHeight";
+  const uiToggleKeys = {
+    topbarControls: "inittracker_showTopbarControls",
+    sheetActions: "inittracker_showSheetActions",
+    lockMenus: "inittracker_lockMenus",
+  };
+  let showTopbarControls = readToggle(uiToggleKeys.topbarControls, true);
+  let showSheetActions = readToggle(uiToggleKeys.sheetActions, true);
+  let menusLocked = readToggle(uiToggleKeys.lockMenus, false);
   let sheetHeight = null;
   if (showAllNamesEl){
     showAllNamesEl.checked = showAllNames;
@@ -727,10 +806,12 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
+  applyUiConfig();
   loadSheetHeight();
   if (sheetHandle && sheetWrap){
     let dragState = null;
     sheetHandle.addEventListener("pointerdown", (event) => {
+      if (menusLocked) return;
       sheetHandle.setPointerCapture(event.pointerId);
       dragState = {
         startY: event.clientY,
@@ -808,6 +889,40 @@ __DAMAGE_TYPE_OPTIONS__
     if (!sheetWrap) return;
     const stored = Number(localStorage.getItem(sheetHeightKey));
     applySheetHeight(stored);
+  }
+
+  function readToggle(key, defaultValue){
+    const stored = localStorage.getItem(key);
+    if (stored === null || stored === undefined) return defaultValue;
+    return stored === "1";
+  }
+
+  function persistToggle(key, value){
+    localStorage.setItem(key, value ? "1" : "0");
+  }
+
+  function applyUiConfig(){
+    document.body.classList.toggle("hide-topbar-controls", !showTopbarControls);
+    document.body.classList.toggle("hide-sheet-actions", !showSheetActions);
+    document.body.classList.toggle("menus-locked", menusLocked);
+    if (toggleTopbarControls) toggleTopbarControls.checked = showTopbarControls;
+    if (toggleSheetActions) toggleSheetActions.checked = showSheetActions;
+    if (toggleLockMenus) toggleLockMenus.checked = menusLocked;
+    if (sheetHandle){
+      sheetHandle.setAttribute("aria-disabled", menusLocked ? "true" : "false");
+    }
+  }
+
+  function showConfigModal(){
+    if (!configModal) return;
+    configModal.classList.add("show");
+    configModal.setAttribute("aria-hidden", "false");
+  }
+
+  function hideConfigModal(){
+    if (!configModal) return;
+    configModal.classList.remove("show");
+    configModal.setAttribute("aria-hidden", "true");
   }
 
   function send(msg){
@@ -2508,6 +2623,44 @@ __DAMAGE_TYPE_OPTIONS__
   if (logCloseBtn){
     logCloseBtn.addEventListener("click", () => {
       hideLogModal();
+    });
+  }
+  if (configBtn){
+    configBtn.addEventListener("click", () => {
+      showConfigModal();
+    });
+  }
+  if (configCloseBtn){
+    configCloseBtn.addEventListener("click", () => {
+      hideConfigModal();
+    });
+  }
+  if (configModal){
+    configModal.addEventListener("click", (event) => {
+      if (event.target === configModal){
+        hideConfigModal();
+      }
+    });
+  }
+  if (toggleTopbarControls){
+    toggleTopbarControls.addEventListener("change", (event) => {
+      showTopbarControls = !!event.target.checked;
+      persistToggle(uiToggleKeys.topbarControls, showTopbarControls);
+      applyUiConfig();
+    });
+  }
+  if (toggleSheetActions){
+    toggleSheetActions.addEventListener("change", (event) => {
+      showSheetActions = !!event.target.checked;
+      persistToggle(uiToggleKeys.sheetActions, showSheetActions);
+      applyUiConfig();
+    });
+  }
+  if (toggleLockMenus){
+    toggleLockMenus.addEventListener("change", (event) => {
+      menusLocked = !!event.target.checked;
+      persistToggle(uiToggleKeys.lockMenus, menusLocked);
+      applyUiConfig();
     });
   }
   useActionBtn.addEventListener("click", () => {
