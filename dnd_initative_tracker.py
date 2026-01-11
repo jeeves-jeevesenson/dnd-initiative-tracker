@@ -637,6 +637,10 @@ HTML_INDEX = r"""<!doctype html>
               <input id="castDice" type="text" placeholder="8d6" />
             </div>
             <div class="form-field">
+              <label for="castSlotLevel">Slot Level</label>
+              <input id="castSlotLevel" type="number" min="0" step="1" placeholder="1" disabled />
+            </div>
+            <div class="form-field">
               <label for="castDamageType">Damage Types</label>
               <div class="damage-type-controls">
                 <select id="castDamageType">
@@ -738,6 +742,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castDcValueInput = document.getElementById("castDcValue");
   const castDefaultDamageInput = document.getElementById("castDefaultDamage");
   const castDiceInput = document.getElementById("castDice");
+  const castSlotLevelInput = document.getElementById("castSlotLevel");
   const castDamageTypeInput = document.getElementById("castDamageType");
   const castDamageTypeList = document.getElementById("castDamageTypeList");
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
@@ -2351,6 +2356,94 @@ __DAMAGE_TYPE_OPTIONS__
     updateCastShapeFields();
   }
 
+  const parseDiceSpec = (value) => {
+    if (typeof value !== "string") return null;
+    const raw = value.trim().toLowerCase();
+    const match = raw.match(/^(\\d+)d(4|6|8|10|12)$/);
+    if (!match) return null;
+    const count = Number(match[1]);
+    const sides = Number(match[2]);
+    if (!Number.isFinite(count) || count <= 0) return null;
+    return {count, sides};
+  };
+
+  const formatDiceSpec = (spec) => `${spec.count}d${spec.sides}`;
+
+  const normalizeUpcastConfig = (upcast) => {
+    if (!upcast || typeof upcast !== "object") return null;
+    const baseLevel = Number(upcast.base_level);
+    if (!Number.isFinite(baseLevel) || baseLevel < 0){
+      console.warn("Invalid upcast base_level; ignoring upcast config.", upcast);
+      return null;
+    }
+    const rawIncrements = Array.isArray(upcast.increments) ? upcast.increments : [];
+    const increments = [];
+    rawIncrements.forEach((entry) => {
+      if (!entry || typeof entry !== "object"){
+        console.warn("Invalid upcast increment entry; skipping.", entry);
+        return;
+      }
+      const levelsPer = Number(entry.levels_per_increment);
+      const addDice = typeof entry.add_dice === "string" ? entry.add_dice : "";
+      if (!Number.isFinite(levelsPer) || levelsPer <= 0){
+        console.warn("Invalid upcast levels_per_increment; skipping.", entry);
+        return;
+      }
+      if (!parseDiceSpec(addDice)){
+        console.warn("Invalid upcast add_dice; skipping.", entry);
+        return;
+      }
+      increments.push({
+        levels_per_increment: levelsPer,
+        add_dice: addDice,
+      });
+    });
+    if (!increments.length){
+      console.warn("Upcast increments contained no valid entries; ignoring upcast config.", upcast);
+      return null;
+    }
+    return {base_level: baseLevel, increments};
+  };
+
+  const computeUpcastValues = (baseDice, baseDefaultDamage, upcastConfig, slotLevel) => {
+    if (!upcastConfig || !Number.isFinite(slotLevel)) return {dice: baseDice, defaultDamage: baseDefaultDamage};
+    const baseLevel = Number(upcastConfig.base_level);
+    if (!Number.isFinite(baseLevel)) return {dice: baseDice, defaultDamage: baseDefaultDamage};
+    const deltaLevels = Math.floor(slotLevel - baseLevel);
+    if (deltaLevels <= 0) return {dice: baseDice, defaultDamage: baseDefaultDamage};
+    const baseDiceSpec = parseDiceSpec(baseDice) || parseDiceSpec(baseDefaultDamage);
+    let totalDiceSpec = baseDiceSpec ? {count: baseDiceSpec.count, sides: baseDiceSpec.sides} : null;
+    let applied = false;
+    (upcastConfig.increments || []).forEach((inc) => {
+      const levelsPer = Number(inc.levels_per_increment);
+      const addDiceSpec = parseDiceSpec(inc.add_dice);
+      if (!Number.isFinite(levelsPer) || !addDiceSpec) return;
+      const steps = Math.floor(deltaLevels / levelsPer);
+      if (steps <= 0) return;
+      const addCount = addDiceSpec.count * steps;
+      if (!totalDiceSpec){
+        totalDiceSpec = {count: addCount, sides: addDiceSpec.sides};
+        applied = true;
+        return;
+      }
+      if (totalDiceSpec.sides !== addDiceSpec.sides){
+        console.warn("Upcast dice sides mismatch; skipping increment.", inc);
+        return;
+      }
+      totalDiceSpec.count += addCount;
+      applied = true;
+    });
+    const dice = totalDiceSpec ? formatDiceSpec(totalDiceSpec) : baseDice;
+    let defaultDamage = baseDefaultDamage;
+    if (applied){
+      const defaultDamageDice = parseDiceSpec(baseDefaultDamage);
+      if (defaultDamageDice || baseDefaultDamage === null || baseDefaultDamage === ""){
+        defaultDamage = dice;
+      }
+    }
+    return {dice, defaultDamage};
+  };
+
   const castDamageTypes = new Set();
   let castDurationTurns = null;
   let castOverTime = null;
@@ -2358,6 +2451,9 @@ __DAMAGE_TYPE_OPTIONS__
   let castTriggerOnStartOrEnter = null;
   let castPersistent = null;
   let castPinnedDefault = null;
+  let castUpcastConfig = null;
+  let castBaseDice = null;
+  let castBaseDefaultDamage = null;
   const setCastDamageTypes = (types) => {
     castDamageTypes.clear();
     if (Array.isArray(types)){
@@ -2435,10 +2531,12 @@ __DAMAGE_TYPE_OPTIONS__
     if (castDefaultDamageInput){
       const defaultDamage = preset.default_damage;
       castDefaultDamageInput.value = defaultDamage !== undefined && defaultDamage !== null ? String(defaultDamage) : "";
+      castBaseDefaultDamage = defaultDamage !== undefined && defaultDamage !== null ? String(defaultDamage) : "";
     }
     if (castDiceInput){
       const dice = preset.dice;
       castDiceInput.value = dice !== undefined && dice !== null ? String(dice) : "";
+      castBaseDice = dice !== undefined && dice !== null ? String(dice) : "";
     }
     if (castColorInput && preset.color){
       castColorInput.value = String(preset.color || "");
@@ -2475,6 +2573,40 @@ __DAMAGE_TYPE_OPTIONS__
     } else {
       castPinnedDefault = null;
     }
+    castUpcastConfig = normalizeUpcastConfig(preset.upcast);
+    if (castSlotLevelInput){
+      if (castUpcastConfig){
+        castSlotLevelInput.disabled = false;
+        castSlotLevelInput.readOnly = false;
+        castSlotLevelInput.value = Number.isFinite(Number(castUpcastConfig.base_level))
+          ? String(castUpcastConfig.base_level)
+          : "";
+      } else {
+        castSlotLevelInput.value = "";
+        castSlotLevelInput.disabled = true;
+        castSlotLevelInput.readOnly = true;
+      }
+    }
+    const slotLevelValue = Number(castSlotLevelInput?.value);
+    const upcastValues = computeUpcastValues(castBaseDice, castBaseDefaultDamage, castUpcastConfig, slotLevelValue);
+    if (castDiceInput && upcastValues.dice !== undefined && upcastValues.dice !== null){
+      castDiceInput.value = String(upcastValues.dice || "");
+    }
+    if (castDefaultDamageInput && upcastValues.defaultDamage !== undefined && upcastValues.defaultDamage !== null){
+      castDefaultDamageInput.value = String(upcastValues.defaultDamage || "");
+    }
+  };
+
+  const updateUpcastFields = () => {
+    if (!castUpcastConfig) return;
+    const slotLevelValue = Number(castSlotLevelInput?.value);
+    const upcastValues = computeUpcastValues(castBaseDice, castBaseDefaultDamage, castUpcastConfig, slotLevelValue);
+    if (castDiceInput && upcastValues.dice !== undefined && upcastValues.dice !== null){
+      castDiceInput.value = String(upcastValues.dice || "");
+    }
+    if (castDefaultDamageInput && upcastValues.defaultDamage !== undefined && upcastValues.defaultDamage !== null){
+      castDefaultDamageInput.value = String(upcastValues.defaultDamage || "");
+    }
   };
 
   if (castPresetInput){
@@ -2487,17 +2619,31 @@ __DAMAGE_TYPE_OPTIONS__
         castTriggerOnStartOrEnter = null;
         castPersistent = null;
         castPinnedDefault = null;
+        castUpcastConfig = null;
+        castBaseDice = null;
+        castBaseDefaultDamage = null;
         if (castDefaultDamageInput){
           castDefaultDamageInput.value = "";
         }
         if (castDiceInput){
           castDiceInput.value = "";
         }
+        if (castSlotLevelInput){
+          castSlotLevelInput.value = "";
+          castSlotLevelInput.disabled = true;
+          castSlotLevelInput.readOnly = true;
+        }
         return;
       }
       const presets = normalizeSpellPresets(state?.spell_presets);
       const preset = presets.find(p => String(p.name || "") === name);
       applySpellPreset(preset);
+    });
+  }
+
+  if (castSlotLevelInput){
+    castSlotLevelInput.addEventListener("input", () => {
+      updateUpcastFields();
     });
   }
 
@@ -2555,8 +2701,23 @@ __DAMAGE_TYPE_OPTIONS__
       const damageType = damageTypes.length === 1 ? damageTypes[0] : "";
       const name = String(castNameInput?.value || "").trim();
       const color = normalizeHexColor(castColorInput?.value || "") || null;
-      const defaultDamage = String(castDefaultDamageInput?.value || "").trim();
-      const dice = String(castDiceInput?.value || "").trim();
+      let defaultDamage = String(castDefaultDamageInput?.value || "").trim();
+      let dice = String(castDiceInput?.value || "").trim();
+      if (castUpcastConfig){
+        const slotLevelValue = Number(castSlotLevelInput?.value);
+        const upcastValues = computeUpcastValues(
+          castBaseDice || dice,
+          castBaseDefaultDamage || defaultDamage,
+          castUpcastConfig,
+          slotLevelValue
+        );
+        if (upcastValues.dice !== undefined && upcastValues.dice !== null){
+          dice = String(upcastValues.dice || "");
+        }
+        if (upcastValues.defaultDamage !== undefined && upcastValues.defaultDamage !== null){
+          defaultDamage = String(upcastValues.defaultDamage || "");
+        }
+      }
       const center = defaultAoeCenter();
       if (shape !== "line"){
         const caster = getClaimedUnit();
@@ -4060,6 +4221,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "trigger_on_start_or_enter": getattr(preset, "trigger_on_start_or_enter", None),
                     "persistent": getattr(preset, "persistent", None),
                     "pinned_default": getattr(preset, "pinned_default", None),
+                    "upcast": getattr(preset, "upcast", None),
                 }
             )
         return presets
