@@ -3109,6 +3109,8 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_grid_rows = 20
         self._lan_positions: Dict[int, Tuple[int, int]] = {}  # cid -> (col,row)
         self._lan_obstacles: set[Tuple[int, int]] = set()
+        self._lan_aoes: Dict[int, Dict[str, Any]] = {}
+        self._lan_next_aoe_id = 1
         self._turn_snapshots: Dict[int, Dict[str, Any]] = {}
 
         # POC helpers: seed all Player Characters and start the LAN server automatically.
@@ -3537,6 +3539,42 @@ class InitiativeTracker(base.InitiativeTracker):
     def _token_color_payload(self, c: Any) -> Optional[str]:
         return self._normalize_token_color(getattr(c, "token_color", None))
 
+    def _lan_sync_aoes_to_map(self, mw: Any) -> None:
+        store = getattr(self, "_lan_aoes", {}) or {}
+        if not store:
+            return
+        try:
+            mw_aoes = getattr(mw, "aoes", None)
+            if mw_aoes is None:
+                mw_aoes = {}
+                setattr(mw, "aoes", mw_aoes)
+            changed = False
+            for aid, aoe in store.items():
+                aid_int = int(aid)
+                if aid_int not in mw_aoes:
+                    mw_aoes[aid_int] = dict(aoe)
+                    if hasattr(mw, "_create_aoe_items"):
+                        try:
+                            mw._create_aoe_items(aid_int)
+                        except Exception:
+                            pass
+                    changed = True
+            if changed and hasattr(mw, "_refresh_aoe_list"):
+                try:
+                    mw._refresh_aoe_list()
+                except Exception:
+                    pass
+            if mw_aoes:
+                max_aid = max(int(a) for a in mw_aoes.keys())
+                try:
+                    next_aid = int(getattr(mw, "_next_aoe_id", max_aid + 1))
+                except Exception:
+                    next_aid = max_aid + 1
+                if next_aid <= max_aid:
+                    setattr(mw, "_next_aoe_id", max_aid + 1)
+        except Exception:
+            pass
+
     def _lan_snapshot(self) -> Dict[str, Any]:
         # Prefer map window live state when available
         mw = None
@@ -3553,6 +3591,7 @@ class InitiativeTracker(base.InitiativeTracker):
         positions = dict(self._lan_positions)
         map_ready = mw is not None
         aoes: List[Dict[str, Any]] = []
+        aoe_source: Dict[int, Dict[str, Any]] = dict(getattr(self, "_lan_aoes", {}) or {})
         rough_terrain: Dict[Tuple[int, int], object] = {}
 
         if mw is not None:
@@ -3562,48 +3601,8 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 pass
             try:
-                for aid, d in sorted((getattr(mw, "aoes", {}) or {}).items()):
-                    kind = str(d.get("kind") or "")
-                    if kind not in ("circle", "square", "line"):
-                        continue
-                    payload: Dict[str, Any] = {
-                        "aid": int(aid),
-                        "kind": kind,
-                        "name": str(d.get("name") or f"AoE {aid}"),
-                        "color": str(d.get("color") or ""),
-                        "cx": float(d.get("cx") or 0.0),
-                        "cy": float(d.get("cy") or 0.0),
-                        "pinned": bool(d.get("pinned")),
-                        "duration_turns": d.get("duration_turns"),
-                        "remaining_turns": d.get("remaining_turns"),
-                    }
-                    for extra_key in (
-                        "dc",
-                        "save_type",
-                        "damage_type",
-                        "half_on_pass",
-                        "default_damage",
-                        "owner",
-                        "owner_cid",
-                        "over_time",
-                        "move_per_turn_ft",
-                        "move_remaining_ft",
-                        "trigger_on_start_or_enter",
-                        "persistent",
-                    ):
-                        if d.get(extra_key) not in (None, ""):
-                            payload[extra_key] = d.get(extra_key)
-                    if kind == "circle":
-                        payload["radius_sq"] = float(d.get("radius_sq") or 0.0)
-                    elif kind == "line":
-                        payload["length_sq"] = float(d.get("length_sq") or 0.0)
-                        payload["width_sq"] = float(d.get("width_sq") or 0.0)
-                        payload["orient"] = str(d.get("orient") or "vertical")
-                        if d.get("angle_deg") is not None:
-                            payload["angle_deg"] = float(d.get("angle_deg") or 0.0)
-                    else:
-                        payload["side_sq"] = float(d.get("side_sq") or 0.0)
-                    aoes.append(payload)
+                self._lan_sync_aoes_to_map(mw)
+                aoe_source = dict(getattr(mw, "aoes", {}) or {})
             except Exception:
                 pass
             try:
@@ -3619,6 +3618,59 @@ class InitiativeTracker(base.InitiativeTracker):
                     positions[int(cid)] = (int(tok.get("col")), int(tok.get("row")))
             except Exception:
                 pass
+            try:
+                self._lan_aoes = dict(aoe_source)
+                if aoe_source:
+                    max_aid = max(int(aid) for aid in aoe_source.keys())
+                    self._lan_next_aoe_id = max(self._lan_next_aoe_id, max_aid + 1)
+            except Exception:
+                pass
+
+        try:
+            for aid, d in sorted((aoe_source or {}).items()):
+                kind = str(d.get("kind") or "")
+                if kind not in ("circle", "square", "line"):
+                    continue
+                payload: Dict[str, Any] = {
+                    "aid": int(aid),
+                    "kind": kind,
+                    "name": str(d.get("name") or f"AoE {aid}"),
+                    "color": str(d.get("color") or ""),
+                    "cx": float(d.get("cx") or 0.0),
+                    "cy": float(d.get("cy") or 0.0),
+                    "pinned": bool(d.get("pinned")),
+                    "duration_turns": d.get("duration_turns"),
+                    "remaining_turns": d.get("remaining_turns"),
+                }
+                for extra_key in (
+                    "dc",
+                    "save_type",
+                    "damage_type",
+                    "half_on_pass",
+                    "default_damage",
+                    "owner",
+                    "owner_cid",
+                    "over_time",
+                    "move_per_turn_ft",
+                    "move_remaining_ft",
+                    "trigger_on_start_or_enter",
+                    "persistent",
+                ):
+                    if d.get(extra_key) not in (None, ""):
+                        payload[extra_key] = d.get(extra_key)
+                if kind == "circle":
+                    payload["radius_sq"] = float(d.get("radius_sq") or 0.0)
+                elif kind == "line":
+                    payload["length_sq"] = float(d.get("length_sq") or 0.0)
+                    payload["width_sq"] = float(d.get("width_sq") or 0.0)
+                    payload["orient"] = str(d.get("orient") or "vertical")
+                    if d.get("angle_deg") is not None:
+                        payload["angle_deg"] = float(d.get("angle_deg") or 0.0)
+                else:
+                    payload["side_sq"] = float(d.get("side_sq") or 0.0)
+                aoes.append(payload)
+        except Exception:
+            pass
 
         # Ensure any combatant has a position (spawn near center in a square spiral)
         if self.combatants and len(positions) < len(self.combatants):
@@ -3906,18 +3958,25 @@ class InitiativeTracker(base.InitiativeTracker):
                 if duration_turns_val is not None and duration_turns_val < 0:
                     duration_turns_val = None
             mw = getattr(self, "_map_window", None)
-            if mw is None or not mw.winfo_exists():
-                self._lan.toast(ws_id, "Map window not open, matey.")
-                return
+            map_ready = mw is not None and mw.winfo_exists()
+            if map_ready:
+                try:
+                    self._lan_sync_aoes_to_map(mw)
+                except Exception:
+                    pass
             try:
-                feet_per_square = float(getattr(mw, "feet_per_square", 5.0) or 5.0)
+                feet_per_square = float(getattr(mw, "feet_per_square", 5.0) or 5.0) if map_ready else 5.0
             except Exception:
                 feet_per_square = 5.0
             if feet_per_square <= 0:
                 feet_per_square = 5.0
             try:
-                cols = int(getattr(mw, "cols", 0))
-                rows = int(getattr(mw, "rows", 0))
+                if map_ready:
+                    cols = int(getattr(mw, "cols", 0))
+                    rows = int(getattr(mw, "rows", 0))
+                else:
+                    cols = int(self._lan_grid_cols)
+                    rows = int(self._lan_grid_rows)
             except Exception:
                 cols = 0
                 rows = 0
@@ -3938,15 +3997,29 @@ class InitiativeTracker(base.InitiativeTracker):
             if cols and rows:
                 cx = max(0.0, min(cx, cols - 1))
                 cy = max(0.0, min(cy, rows - 1))
-            aid = int(getattr(mw, "_next_aoe_id", 1))
-            setattr(mw, "_next_aoe_id", aid + 1)
+            if map_ready:
+                aid = int(getattr(mw, "_next_aoe_id", 1))
+                setattr(mw, "_next_aoe_id", aid + 1)
+            else:
+                aid = int(getattr(self, "_lan_next_aoe_id", 1))
+                store = getattr(self, "_lan_aoes", {}) or {}
+                if store:
+                    max_aid = max(int(a) for a in store.keys())
+                    if aid <= max_aid:
+                        aid = max_aid + 1
+                self._lan_next_aoe_id = aid + 1
             owner = str(self.combatants[cid].name)
             aoe: Dict[str, Any] = {
                 "kind": shape,
                 "cx": float(cx),
                 "cy": float(cy),
                 "pinned": pinned_flag,
-                "color": color or (mw._aoe_default_color(shape) if hasattr(mw, "_aoe_default_color") else ""),
+                "color": color
+                or (
+                    mw._aoe_default_color(shape)
+                    if map_ready and hasattr(mw, "_aoe_default_color")
+                    else ""
+                ),
                 "name": name or f"AoE {aid}",
                 "shape": None,
                 "label": None,
@@ -4009,14 +4082,24 @@ class InitiativeTracker(base.InitiativeTracker):
                 aoe["angle_deg"] = float(payload.get("angle_deg") or 90.0)
                 aoe["ax"] = float(cx)
                 aoe["ay"] = float(cy)
-            mw.aoes[aid] = aoe
-            try:
-                if hasattr(mw, "_create_aoe_items"):
-                    mw._create_aoe_items(aid)
-                if hasattr(mw, "_refresh_aoe_list"):
-                    mw._refresh_aoe_list(select=aid)
-            except Exception:
-                pass
+            if map_ready:
+                mw.aoes[aid] = aoe
+                try:
+                    if hasattr(mw, "_create_aoe_items"):
+                        mw._create_aoe_items(aid)
+                    if hasattr(mw, "_refresh_aoe_list"):
+                        mw._refresh_aoe_list(select=aid)
+                except Exception:
+                    pass
+                try:
+                    self._lan_aoes = dict(getattr(mw, "aoes", {}) or {})
+                    self._lan_next_aoe_id = max(self._lan_next_aoe_id, aid + 1)
+                except Exception:
+                    pass
+            else:
+                store = getattr(self, "_lan_aoes", {}) or {}
+                store[int(aid)] = aoe
+                self._lan_aoes = store
             self._lan.toast(ws_id, f"Casted {aoe['name']}.")
             return
         elif typ == "aoe_move":
