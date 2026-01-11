@@ -157,7 +157,7 @@ HTML_INDEX = r"""<!doctype html>
     .btn.danger{background: rgba(255,91,91,0.14); border-color: rgba(255,91,91,0.35);}
     .btn.accent{background: rgba(106,169,255,0.14); border-color: rgba(106,169,255,0.35);}
 
-    .mapWrap{flex:1; min-height:0; position:relative; overflow:hidden; background:#0a0c12;}
+    .mapWrap{flex:1 1 auto; min-height:0; position:relative; overflow:hidden; background:#0a0c12;}
     canvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none;}
     .waiting{
       position:absolute; inset:0; display:none; align-items:center; justify-content:center;
@@ -166,12 +166,36 @@ HTML_INDEX = r"""<!doctype html>
     }
     .waiting.show{display:flex;}
 
-    .sheet{
-      padding: 10px 12px calc(12px + var(--safeInsetBottom)) 12px;
+    .sheet-wrap{
+      position:sticky; bottom:0; z-index:20;
+      display:flex; flex-direction:column;
       background: rgba(20,25,35,0.92);
       border-top: 1px solid rgba(255,255,255,0.08);
       backdrop-filter: blur(10px);
-      position:sticky; bottom:0; z-index:20;
+      min-height: 180px;
+      max-height: 75vh;
+    }
+    .sheet-handle{
+      height: 18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor: ns-resize;
+      touch-action: none;
+      flex:0 0 auto;
+    }
+    .sheet-handle::before{
+      content:"";
+      width: 44px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.25);
+    }
+    .sheet{
+      padding: 10px 12px calc(12px + var(--safeInsetBottom)) 12px;
+      overflow:auto;
+      flex:1 1 auto;
+      min-height:0;
     }
     .cast-panel{
       margin-top: 10px;
@@ -455,109 +479,112 @@ HTML_INDEX = r"""<!doctype html>
     </div>
   </div>
 
-  <div class="sheet">
-    <div class="row">
-      <div class="label">Ye be:</div>
-      <div class="value" id="me">(unclaimed)</div>
-      <div class="spacer"></div>
-      <button class="btn" id="useAction">Use Action</button>
-      <button class="btn" id="useBonusAction">Use Bonus Action</button>
-      <button class="btn" id="dash">Dash</button>
-      <button class="btn" id="standUp">Stand Up</button>
-      <button class="btn" id="resetTurn">Reset Turn</button>
-      <button class="btn danger" id="endTurn">End Turn</button>
-    </div>
-    <div class="row">
-      <div class="initiative-order-content">
-        <div class="turn-order" id="turnOrder" aria-label="Turn order"></div>
-        <div class="turn-order-status" id="turnOrderStatus"></div>
-        <div class="turn-order-bubble" id="turnOrderBubble" role="status" aria-live="polite"></div>
+  <div class="sheet-wrap" id="sheetWrap">
+    <div class="sheet-handle" id="sheetHandle" role="separator" aria-orientation="horizontal" aria-label="Resize sheet"></div>
+    <div class="sheet" id="sheet">
+      <div class="row">
+        <div class="label">Ye be:</div>
+        <div class="value" id="me">(unclaimed)</div>
+        <div class="spacer"></div>
+        <button class="btn" id="useAction">Use Action</button>
+        <button class="btn" id="useBonusAction">Use Bonus Action</button>
+        <button class="btn" id="dash">Dash</button>
+        <button class="btn" id="standUp">Stand Up</button>
+        <button class="btn" id="resetTurn">Reset Turn</button>
+        <button class="btn danger" id="endTurn">End Turn</button>
       </div>
-    </div>
-    <div class="row">
-      <div class="chip" id="move">Move: —</div>
-      <div class="chip" id="action">Action: —</div>
-      <div class="chip" id="bonusAction">Bonus Action: —</div>
-      <div class="chip" id="turn">Turn: —</div>
-      <div class="chip" id="note">Tip: drag yer token</div>
-      <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
-    </div>
-    <details class="cast-panel" id="castPanel">
-      <summary>Cast Spell</summary>
-      <form id="castForm">
-        <div class="form-grid">
-          <div class="form-field">
-            <label for="castPreset">Preset</label>
-            <select id="castPreset">
-              <option value="" selected>Custom</option>
-            </select>
-          </div>
-          <div class="form-field">
-            <label for="castName">Name</label>
-            <input id="castName" type="text" placeholder="Fireball" />
-          </div>
-          <div class="form-field">
-            <label for="castShape">Shape</label>
-            <select id="castShape">
-              <option value="" selected>Choose shape</option>
-              <option value="circle">Circle</option>
-              <option value="square">Square</option>
-              <option value="line">Line</option>
-            </select>
-          </div>
-          <div class="form-field cast-size-field" id="castRadiusField">
-            <label for="castRadius">Radius (ft)</label>
-            <input id="castRadius" type="number" min="5" step="5" value="10" readonly disabled />
-          </div>
-          <div class="form-field cast-size-field" id="castSideField">
-            <label for="castSide">Side (ft)</label>
-            <input id="castSide" type="number" min="5" step="5" value="10" readonly disabled />
-          </div>
-          <div class="form-field cast-size-field" id="castLengthField">
-            <label for="castLength">Length (ft)</label>
-            <input id="castLength" type="number" min="5" step="5" value="30" readonly disabled />
-          </div>
-          <div class="form-field cast-size-field" id="castWidthField">
-            <label for="castWidth">Width (ft)</label>
-            <input id="castWidth" type="number" min="5" step="5" value="5" readonly disabled />
-          </div>
-          <div class="form-field">
-            <label for="castDcType">DC Type</label>
-            <select id="castDcType">
-              <option value="">None</option>
-              <option value="str">STR</option>
-              <option value="dex">DEX</option>
-              <option value="con">CON</option>
-              <option value="int">INT</option>
-              <option value="wis">WIS</option>
-              <option value="cha">CHA</option>
-            </select>
-          </div>
-          <div class="form-field">
-            <label for="castDcValue">Save DC</label>
-            <input id="castDcValue" type="number" min="0" step="1" placeholder="15" />
-          </div>
-          <div class="form-field">
-            <label for="castDamageType">Damage Types</label>
-            <div class="damage-type-controls">
-              <select id="castDamageType">
-                <option value="" selected>Select a type</option>
-__DAMAGE_TYPE_OPTIONS__
+      <div class="row">
+        <div class="initiative-order-content">
+          <div class="turn-order" id="turnOrder" aria-label="Turn order"></div>
+          <div class="turn-order-status" id="turnOrderStatus"></div>
+          <div class="turn-order-bubble" id="turnOrderBubble" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="chip" id="move">Move: —</div>
+        <div class="chip" id="action">Action: —</div>
+        <div class="chip" id="bonusAction">Bonus Action: —</div>
+        <div class="chip" id="turn">Turn: —</div>
+        <div class="chip" id="note">Tip: drag yer token</div>
+        <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
+      </div>
+      <details class="cast-panel" id="castPanel">
+        <summary>Cast Spell</summary>
+        <form id="castForm">
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="castPreset">Preset</label>
+              <select id="castPreset">
+                <option value="" selected>Custom</option>
               </select>
-              <button class="btn" type="button" id="castAddDamageType">Add</button>
             </div>
-            <div class="damage-type-list" id="castDamageTypeList" aria-live="polite"></div>
+            <div class="form-field">
+              <label for="castName">Name</label>
+              <input id="castName" type="text" placeholder="Fireball" />
+            </div>
+            <div class="form-field">
+              <label for="castShape">Shape</label>
+              <select id="castShape">
+                <option value="" selected>Choose shape</option>
+                <option value="circle">Circle</option>
+                <option value="square">Square</option>
+                <option value="line">Line</option>
+              </select>
+            </div>
+            <div class="form-field cast-size-field" id="castRadiusField">
+              <label for="castRadius">Radius (ft)</label>
+              <input id="castRadius" type="number" min="5" step="5" value="10" readonly disabled />
+            </div>
+            <div class="form-field cast-size-field" id="castSideField">
+              <label for="castSide">Side (ft)</label>
+              <input id="castSide" type="number" min="5" step="5" value="10" readonly disabled />
+            </div>
+            <div class="form-field cast-size-field" id="castLengthField">
+              <label for="castLength">Length (ft)</label>
+              <input id="castLength" type="number" min="5" step="5" value="30" readonly disabled />
+            </div>
+            <div class="form-field cast-size-field" id="castWidthField">
+              <label for="castWidth">Width (ft)</label>
+              <input id="castWidth" type="number" min="5" step="5" value="5" readonly disabled />
+            </div>
+            <div class="form-field">
+              <label for="castDcType">DC Type</label>
+              <select id="castDcType">
+                <option value="">None</option>
+                <option value="str">STR</option>
+                <option value="dex">DEX</option>
+                <option value="con">CON</option>
+                <option value="int">INT</option>
+                <option value="wis">WIS</option>
+                <option value="cha">CHA</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label for="castDcValue">Save DC</label>
+              <input id="castDcValue" type="number" min="0" step="1" placeholder="15" />
+            </div>
+            <div class="form-field">
+              <label for="castDamageType">Damage Types</label>
+              <div class="damage-type-controls">
+                <select id="castDamageType">
+                  <option value="" selected>Select a type</option>
+__DAMAGE_TYPE_OPTIONS__
+                </select>
+                <button class="btn" type="button" id="castAddDamageType">Add</button>
+              </div>
+              <div class="damage-type-list" id="castDamageTypeList" aria-live="polite"></div>
+            </div>
+            <div class="form-field">
+              <label for="castColor">Color</label>
+              <input id="castColor" type="color" value="#6aa9ff" />
+            </div>
           </div>
-          <div class="form-field">
-            <label for="castColor">Color</label>
-            <input id="castColor" type="color" value="#6aa9ff" />
+          <div class="form-actions">
+            <button class="btn accent" type="submit">Cast</button>
           </div>
-        </div>
-        <div class="form-actions">
-          <button class="btn accent" type="submit">Cast</button>
-        </div>
-      </form>
-    </details>
+        </form>
+      </details>
+    </div>
   </div>
 </div>
 <div class="turn-modal" id="turnModal" aria-hidden="true">
@@ -634,6 +661,8 @@ __DAMAGE_TYPE_OPTIONS__
   const castDamageTypeList = document.getElementById("castDamageTypeList");
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
+  const sheetWrap = document.getElementById("sheetWrap");
+  const sheetHandle = document.getElementById("sheetHandle");
   const turnAlertAudio = new Audio("/assets/alert.wav");
   turnAlertAudio.preload = "auto";
   const koAlertAudio = new Audio("/assets/ko.wav");
@@ -687,6 +716,8 @@ __DAMAGE_TYPE_OPTIONS__
   let measurement = {start: null, end: null};
   let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
   const LOS_PREVIEW_MS = 900;
+  const sheetHeightKey = "inittracker_sheetHeight";
+  let sheetHeight = null;
   if (showAllNamesEl){
     showAllNamesEl.checked = showAllNames;
     showAllNamesEl.addEventListener("change", (ev) => {
@@ -695,6 +726,40 @@ __DAMAGE_TYPE_OPTIONS__
       draw();
     });
   }
+
+  loadSheetHeight();
+  if (sheetHandle && sheetWrap){
+    let dragState = null;
+    sheetHandle.addEventListener("pointerdown", (event) => {
+      sheetHandle.setPointerCapture(event.pointerId);
+      dragState = {
+        startY: event.clientY,
+        startHeight: sheetWrap.getBoundingClientRect().height,
+      };
+      event.preventDefault();
+    });
+    sheetHandle.addEventListener("pointermove", (event) => {
+      if (!dragState) return;
+      const delta = dragState.startY - event.clientY;
+      applySheetHeight(dragState.startHeight + delta);
+    });
+    sheetHandle.addEventListener("pointerup", () => {
+      if (!dragState) return;
+      dragState = null;
+      persistSheetHeight();
+    });
+    sheetHandle.addEventListener("pointercancel", () => {
+      if (!dragState) return;
+      dragState = null;
+      persistSheetHeight();
+    });
+  }
+
+  window.addEventListener("resize", () => {
+    if (sheetWrap){
+      applySheetHeight(sheetHeight);
+    }
+  });
 
   function setConn(ok, txt){
     connEl.textContent = txt;
@@ -711,6 +776,39 @@ __DAMAGE_TYPE_OPTIONS__
     draw();
   }
   window.addEventListener("resize", resize);
+
+  function getSheetConstraints(){
+    const viewportHeight = window.innerHeight || 0;
+    const min = Math.max(180, Math.round(viewportHeight * 0.2));
+    const max = Math.max(min + 80, Math.round(viewportHeight * 0.7));
+    return {min, max};
+  }
+
+  function applySheetHeight(value){
+    if (!sheetWrap) return;
+    const {min, max} = getSheetConstraints();
+    let target = Number(value);
+    if (!Number.isFinite(target)){
+      target = Math.round((min + max) / 2);
+    }
+    target = Math.min(max, Math.max(min, target));
+    sheetWrap.style.height = `${target}px`;
+    sheetWrap.style.minHeight = `${min}px`;
+    sheetWrap.style.maxHeight = `${max}px`;
+    sheetHeight = target;
+    resize();
+  }
+
+  function persistSheetHeight(){
+    if (!Number.isFinite(sheetHeight)) return;
+    localStorage.setItem(sheetHeightKey, String(Math.round(sheetHeight)));
+  }
+
+  function loadSheetHeight(){
+    if (!sheetWrap) return;
+    const stored = Number(localStorage.getItem(sheetHeightKey));
+    applySheetHeight(stored);
+  }
 
   function send(msg){
     if (!ws || ws.readyState !== 1) return;
