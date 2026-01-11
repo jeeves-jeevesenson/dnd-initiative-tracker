@@ -3879,7 +3879,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
         try:
             for aid, d in sorted((aoe_source or {}).items()):
-                kind = str(d.get("kind") or "")
+                kind = str(d.get("kind") or d.get("shape") or "").lower()
                 if kind not in ("circle", "square", "line"):
                     continue
                 payload: Dict[str, Any] = {
