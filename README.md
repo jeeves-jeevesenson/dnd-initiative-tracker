@@ -102,6 +102,13 @@ The DM uses the Tk window for initiative and the map, and the crew can join via 
 
 ---
 
+## iOS/iPadOS Web Push (16.4+)
+
+- iOS Web Push requires Add to Home Screen — Web Push only works for web apps saved to the Home Screen.
+- Notification haptics/vibration are OS-controlled and not configurable in this app.
+
+---
+
 ## YAML files
 
 ### `startingplayers.yaml` (optional roster seed)
