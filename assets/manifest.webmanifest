@@ -1,0 +1,12 @@
+{
+  "name": "InitTracker LAN",
+  "short_name": "InitTracker",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "/assets/graphic.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
