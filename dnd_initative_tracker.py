@@ -738,6 +738,13 @@ __DAMAGE_TYPE_OPTIONS__
     target.cy = cy;
   }
 
+  function setLocalAoeMoveRemaining(aid, remaining){
+    if (!state || !Array.isArray(state.aoes)) return;
+    const target = state.aoes.find(a => Number(a.aid) === Number(aid));
+    if (!target) return;
+    target.move_remaining_ft = remaining;
+  }
+
   function hexToRgb(hex){
     const value = normalizeHexColor(hex);
     if (!value) return null;
@@ -1857,7 +1864,30 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("That spell be pinned.");
         return;
       }
-      draggingAoe = {aid: aoeHit.aid, cx: aoeHit.cx, cy: aoeHit.cy};
+      const movePerTurn = Number(aoeHit.move_per_turn_ft);
+      const hasMoveLimit = Number.isFinite(movePerTurn) && movePerTurn > 0;
+      const moveRemaining = Number.isFinite(Number(aoeHit.move_remaining_ft))
+        ? Number(aoeHit.move_remaining_ft)
+        : (hasMoveLimit ? movePerTurn : null);
+      if (hasMoveLimit){
+        if (state?.active_cid === null || Number(state.active_cid) !== Number(claimedCid)){
+          localToast("Not yer turn yet, matey.");
+          return;
+        }
+        if (!Number.isFinite(moveRemaining) || moveRemaining <= 0){
+          localToast("That spell can't move any more this turn.");
+          return;
+        }
+      }
+      draggingAoe = {
+        aid: aoeHit.aid,
+        cx: aoeHit.cx,
+        cy: aoeHit.cy,
+        startCx: aoeHit.cx,
+        startCy: aoeHit.cy,
+        moveRemainingFt: moveRemaining,
+        movePerTurnFt: hasMoveLimit ? movePerTurn : null,
+      };
       return;
     }
     // else pan (if map not locked)
@@ -1916,6 +1946,24 @@ __DAMAGE_TYPE_OPTIONS__
     draggingAoe && (function(){
       const g = screenToGridFloat(p.x, p.y);
       const aid = Number(draggingAoe.aid);
+      const movePerTurn = Number(draggingAoe.movePerTurnFt);
+      if (Number.isFinite(movePerTurn) && movePerTurn > 0){
+        const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
+        const dx = Number(g.col) - Number(draggingAoe.startCx);
+        const dy = Number(g.row) - Number(draggingAoe.startCy);
+        const distFt = Math.hypot(dx, dy) * feetPerSquare;
+        const remaining = Number(draggingAoe.moveRemainingFt);
+        if (!Number.isFinite(remaining) || distFt > remaining + 0.01){
+          localToast(`That spell can only move ${Number.isFinite(remaining) ? remaining.toFixed(1) : 0} ft this turn.`);
+          aoeDragOverrides.delete(aid);
+          setLocalAoeCenter(aid, draggingAoe.startCx, draggingAoe.startCy);
+          draggingAoe = null;
+          draw();
+          return;
+        }
+        const nextRemaining = Math.max(0, remaining - distFt);
+        setLocalAoeMoveRemaining(aid, nextRemaining);
+      }
       aoeDragOverrides.set(aid, {cx: g.col, cy: g.row});
       setLocalAoeCenter(aid, g.col, g.row);
       send({type:"aoe_move", aid: Number(draggingAoe.aid), to: {cx: g.col, cy: g.row}});
@@ -2082,6 +2130,11 @@ __DAMAGE_TYPE_OPTIONS__
 
   const castDamageTypes = new Set();
   let castDurationTurns = null;
+  let castOverTime = null;
+  let castMovePerTurnFt = null;
+  let castTriggerOnStartOrEnter = null;
+  let castPersistent = null;
+  let castPinnedDefault = null;
   const setCastDamageTypes = (types) => {
     castDamageTypes.clear();
     if (Array.isArray(types)){
@@ -2165,6 +2218,32 @@ __DAMAGE_TYPE_OPTIONS__
     } else {
       castDurationTurns = null;
     }
+    if (typeof preset.over_time === "boolean"){
+      castOverTime = preset.over_time;
+    } else {
+      castOverTime = null;
+    }
+    const movePerTurn = Number(preset.move_per_turn_ft);
+    if (Number.isFinite(movePerTurn)){
+      castMovePerTurnFt = movePerTurn;
+    } else {
+      castMovePerTurnFt = null;
+    }
+    if (preset.trigger_on_start_or_enter){
+      castTriggerOnStartOrEnter = String(preset.trigger_on_start_or_enter || "").toLowerCase();
+    } else {
+      castTriggerOnStartOrEnter = null;
+    }
+    if (typeof preset.persistent === "boolean"){
+      castPersistent = preset.persistent;
+    } else {
+      castPersistent = null;
+    }
+    if (typeof preset.pinned_default === "boolean"){
+      castPinnedDefault = preset.pinned_default;
+    } else {
+      castPinnedDefault = null;
+    }
   };
 
   if (castPresetInput){
@@ -2172,6 +2251,11 @@ __DAMAGE_TYPE_OPTIONS__
       const name = String(castPresetInput.value || "").trim();
       if (!name){
         castDurationTurns = null;
+        castOverTime = null;
+        castMovePerTurnFt = null;
+        castTriggerOnStartOrEnter = null;
+        castPersistent = null;
+        castPinnedDefault = null;
         return;
       }
       const presets = normalizeSpellPresets(state?.spell_presets);
@@ -2261,6 +2345,21 @@ __DAMAGE_TYPE_OPTIONS__
       };
       if (Number.isFinite(Number(castDurationTurns)) && Number(castDurationTurns) >= 0){
         payload.duration_turns = Number(castDurationTurns);
+      }
+      if (typeof castOverTime === "boolean"){
+        payload.over_time = castOverTime;
+      }
+      if (Number.isFinite(Number(castMovePerTurnFt)) && Number(castMovePerTurnFt) >= 0){
+        payload.move_per_turn_ft = Number(castMovePerTurnFt);
+      }
+      if (castTriggerOnStartOrEnter){
+        payload.trigger_on_start_or_enter = castTriggerOnStartOrEnter;
+      }
+      if (typeof castPersistent === "boolean"){
+        payload.persistent = castPersistent;
+      }
+      if (typeof castPinnedDefault === "boolean"){
+        payload.pinned_default = castPinnedDefault;
       }
       if (shape === "circle"){
         payload.radius_ft = radiusFt;
@@ -3478,7 +3577,20 @@ class InitiativeTracker(base.InitiativeTracker):
                         "duration_turns": d.get("duration_turns"),
                         "remaining_turns": d.get("remaining_turns"),
                     }
-                    for extra_key in ("dc", "save_type", "damage_type", "half_on_pass", "default_damage", "owner", "owner_cid"):
+                    for extra_key in (
+                        "dc",
+                        "save_type",
+                        "damage_type",
+                        "half_on_pass",
+                        "default_damage",
+                        "owner",
+                        "owner_cid",
+                        "over_time",
+                        "move_per_turn_ft",
+                        "move_remaining_ft",
+                        "trigger_on_start_or_enter",
+                        "persistent",
+                    ):
                         if d.get(extra_key) not in (None, ""):
                             payload[extra_key] = d.get(extra_key)
                     if kind == "circle":
@@ -3607,6 +3719,11 @@ class InitiativeTracker(base.InitiativeTracker):
                     "damage_types": list(preset.damage_types or []),
                     "color": preset.color,
                     "duration_turns": getattr(preset, "duration_turns", None),
+                    "over_time": getattr(preset, "over_time", None),
+                    "move_per_turn_ft": getattr(preset, "move_per_turn_ft", None),
+                    "trigger_on_start_or_enter": getattr(preset, "trigger_on_start_or_enter", None),
+                    "persistent": getattr(preset, "persistent", None),
+                    "pinned_default": getattr(preset, "pinned_default", None),
                 }
             )
         return presets
@@ -3715,12 +3832,47 @@ class InitiativeTracker(base.InitiativeTracker):
                     return None
                 return num
 
+            def parse_nonnegative_float(value: Any) -> Optional[float]:
+                try:
+                    num = float(value)
+                except Exception:
+                    return None
+                if num < 0:
+                    return None
+                return num
+
+            def parse_bool(value: Any) -> Optional[bool]:
+                if isinstance(value, bool):
+                    return value
+                if isinstance(value, str):
+                    raw = value.strip().lower()
+                    if raw in ("true", "yes", "y", "1"):
+                        return True
+                    if raw in ("false", "no", "n", "0"):
+                        return False
+                return None
+
+            def parse_trigger(value: Any) -> Optional[str]:
+                if not isinstance(value, str):
+                    return None
+                raw = value.strip().lower()
+                if raw in ("start", "enter"):
+                    return raw
+                if raw in ("start_or_enter", "start-or-enter", "start/enter"):
+                    return "start_or_enter"
+                return None
+
             size = parse_positive_float(payload.get("size"))
             radius_ft = parse_positive_float(payload.get("radius_ft"))
             side_ft = parse_positive_float(payload.get("side_ft"))
             length_ft = parse_positive_float(payload.get("length_ft"))
             width_ft = parse_positive_float(payload.get("width_ft"))
             duration_turns = payload.get("duration_turns")
+            over_time = parse_bool(payload.get("over_time"))
+            move_per_turn_ft = parse_nonnegative_float(payload.get("move_per_turn_ft"))
+            trigger_on_start_or_enter = parse_trigger(payload.get("trigger_on_start_or_enter"))
+            persistent = parse_bool(payload.get("persistent"))
+            pinned_default = parse_bool(payload.get("pinned_default"))
             color = self._normalize_token_color(payload.get("color")) or ""
             name = str(payload.get("name") or "").strip()
             save_type = str(payload.get("save_type") or "").strip().lower()
@@ -3740,6 +3892,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 dc_val = int(payload.get("dc"))
             except Exception:
                 dc_val = None
+            over_time_flag = bool(over_time) if over_time is not None else False
+            persistent_flag = bool(persistent) if persistent is not None else over_time_flag
+            pinned_flag = bool(pinned_default) if pinned_default is not None else False
             duration_turns_val: Optional[int]
             if duration_turns in (None, ""):
                 duration_turns_val = None
@@ -3790,7 +3945,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "kind": shape,
                 "cx": float(cx),
                 "cy": float(cy),
-                "pinned": False,
+                "pinned": pinned_flag,
                 "color": color or (mw._aoe_default_color(shape) if hasattr(mw, "_aoe_default_color") else ""),
                 "name": name or f"AoE {aid}",
                 "shape": None,
@@ -3800,6 +3955,15 @@ class InitiativeTracker(base.InitiativeTracker):
                 "duration_turns": duration_turns_val,
                 "remaining_turns": duration_turns_val if (duration_turns_val or 0) > 0 else None,
             }
+            if over_time_flag:
+                aoe["over_time"] = True
+            if persistent_flag:
+                aoe["persistent"] = True
+            if trigger_on_start_or_enter:
+                aoe["trigger_on_start_or_enter"] = trigger_on_start_or_enter
+            if move_per_turn_ft is not None:
+                aoe["move_per_turn_ft"] = move_per_turn_ft
+                aoe["move_remaining_ft"] = move_per_turn_ft
             if dc_val is not None:
                 aoe["dc"] = int(dc_val)
             if save_type:
@@ -3880,6 +4044,36 @@ class InitiativeTracker(base.InitiativeTracker):
             if owner_cid is not None and int(owner_cid) != int(cid):
                 self._lan.toast(ws_id, "That spell be not yers.")
                 return
+            move_per_turn_ft = d.get("move_per_turn_ft")
+            move_remaining_ft = d.get("move_remaining_ft")
+            if move_per_turn_ft not in (None, ""):
+                if self.current_cid is None or int(self.current_cid) != int(cid):
+                    self._lan.toast(ws_id, "Not yer turn yet, matey.")
+                    return
+                try:
+                    move_limit = float(move_per_turn_ft)
+                except Exception:
+                    move_limit = None
+                if move_limit is None or move_limit <= 0:
+                    self._lan.toast(ws_id, "That spell can't move this turn.")
+                    return
+                try:
+                    remaining = float(move_remaining_ft)
+                except Exception:
+                    remaining = move_limit
+                try:
+                    feet_per_square = float(getattr(mw, "feet_per_square", 5.0) or 5.0)
+                except Exception:
+                    feet_per_square = 5.0
+                if feet_per_square <= 0:
+                    feet_per_square = 5.0
+                dx = float(cx) - float(d.get("cx") or 0.0)
+                dy = float(cy) - float(d.get("cy") or 0.0)
+                dist_ft = (dx * dx + dy * dy) ** 0.5 * feet_per_square
+                if dist_ft > remaining + 0.01:
+                    self._lan.toast(ws_id, f"That spell can only move {remaining:.1f} ft this turn.")
+                    return
+                d["move_remaining_ft"] = max(0.0, float(remaining) - dist_ft)
             try:
                 cols = int(getattr(mw, "cols", 0))
                 rows = int(getattr(mw, "rows", 0))

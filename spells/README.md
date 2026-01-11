@@ -33,3 +33,9 @@ spell:
   - `dc` (number, optional): Default save DC.
 - `dice` (string, optional): `#d#` hit dice for spell damage (die must be 4, 6, 8, 10, or 12).
 - `color` (string, optional): Hex color (e.g., `"#6aa9ff"`) used for the cast AoE.
+- `duration_turns` (number, optional): Default AoE duration in rounds (0 = indefinite).
+- `over_time` (boolean, optional): Whether the AoE applies damage on start/enter triggers.
+- `move_per_turn_ft` (number, optional): How far (in feet) the owner can reposition the AoE each turn.
+- `trigger_on_start_or_enter` (string, optional): `start`, `enter`, or `start_or_enter` to control when over-time damage triggers.
+- `persistent` (boolean, optional): Keep the AoE after applying damage (defaults to true for over-time effects).
+- `pinned_default` (boolean, optional): Default pinned state for the AoE in the map UI.

@@ -224,6 +224,11 @@ class SpellPreset:
     damage_types: List[str]
     color: Optional[str]
     duration_turns: Optional[int]
+    over_time: Optional[bool]
+    move_per_turn_ft: Optional[int]
+    trigger_on_start_or_enter: Optional[str]
+    persistent: Optional[bool]
+    pinned_default: Optional[bool]
 
 
 @dataclass(frozen=True)
@@ -1769,6 +1774,46 @@ class InitiativeTracker(tk.Tk):
                     msgs.append("dropped to 0 -> removed")
                     return False, "; ".join(msgs), decremented_skip
 
+        mw = getattr(self, "_map_window", None)
+        if mw is not None and getattr(mw, "winfo_exists", None) and mw.winfo_exists():
+            try:
+                aoes = dict(getattr(mw, "aoes", {}) or {})
+            except Exception:
+                aoes = {}
+            if aoes:
+                for aid, d in aoes.items():
+                    try:
+                        owner_cid = d.get("owner_cid")
+                        move_per_turn_ft = d.get("move_per_turn_ft")
+                        if owner_cid is None or int(owner_cid) != int(c.cid):
+                            continue
+                        if move_per_turn_ft in (None, ""):
+                            continue
+                        move_val = float(move_per_turn_ft)
+                    except Exception:
+                        continue
+                    if move_val > 0:
+                        d["move_remaining_ft"] = move_val
+                for aid, d in aoes.items():
+                    if not d.get("over_time"):
+                        continue
+                    trigger = str(d.get("trigger_on_start_or_enter") or "").strip().lower()
+                    if trigger in {"enter"}:
+                        continue
+                    remaining_turns = d.get("remaining_turns")
+                    if isinstance(remaining_turns, (int, float)) and remaining_turns <= 0:
+                        continue
+                    try:
+                        included = mw._compute_included_units(aid)
+                    except Exception:
+                        included = []
+                    if c.cid not in included:
+                        continue
+                    try:
+                        mw._open_aoe_damage(aid=aid, included_override=[c.cid])
+                    except Exception:
+                        pass
+
         # Check for skip-turn conditions
         skip_types_present: List[str] = []
         for st in list(c.condition_stacks):
@@ -2550,6 +2595,29 @@ class InitiativeTracker(tk.Tk):
                     return int(raw)
             return None
 
+        def parse_bool(value: object) -> Optional[bool]:
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str):
+                raw = value.strip().lower()
+                if raw in {"true", "yes", "y", "1"}:
+                    return True
+                if raw in {"false", "no", "n", "0"}:
+                    return False
+            return None
+
+        def parse_trigger(value: object) -> Optional[str]:
+            if not isinstance(value, str):
+                return None
+            raw = value.strip().lower()
+            if not raw:
+                return None
+            if raw in {"start", "enter"}:
+                return raw
+            if raw in {"start_or_enter", "start-or-enter", "start/enter"}:
+                return "start_or_enter"
+            return None
+
         def parse_dice(value: object) -> Optional[str]:
             if not isinstance(value, str):
                 return None
@@ -2593,6 +2661,11 @@ class InitiativeTracker(tk.Tk):
             length_ft = parse_int(spell_block.get("length_ft"))
             width_ft = parse_int(spell_block.get("width_ft"))
             duration_turns = parse_int(spell_block.get("duration_turns"))
+            over_time = parse_bool(spell_block.get("over_time"))
+            move_per_turn_ft = parse_int(spell_block.get("move_per_turn_ft"))
+            trigger_on_start_or_enter = parse_trigger(spell_block.get("trigger_on_start_or_enter"))
+            persistent = parse_bool(spell_block.get("persistent"))
+            pinned_default = parse_bool(spell_block.get("pinned_default"))
 
             damage_types: List[str] = []
             raw_damage = spell_block.get("damage_types") or []
@@ -2633,6 +2706,11 @@ class InitiativeTracker(tk.Tk):
                 damage_types=damage_types,
                 color=color,
                 duration_turns=duration_turns,
+                over_time=over_time,
+                move_per_turn_ft=move_per_turn_ft,
+                trigger_on_start_or_enter=trigger_on_start_or_enter,
+                persistent=persistent,
+                pinned_default=pinned_default,
             )
 
             if name not in self._spells_by_name:
@@ -6274,13 +6352,17 @@ class BattleMapWindow(tk.Toplevel):
             except Exception:
                 btn.config(state=tk.DISABLED)
 
-    def _open_aoe_damage(self) -> None:
+    def _open_aoe_damage(self, aid: Optional[int] = None, included_override: Optional[List[int]] = None) -> None:
         """AoE save roller + manual damage apply to all units inside the selected AoE."""
-        aid = self._selected_aoe
+        if aid is None:
+            aid = self._selected_aoe
         if aid is None or aid not in self.aoes:
             messagebox.showinfo("AoE Damage", "Select an AoE first.", parent=self)
             return
-        included = self._compute_included_units(aid)
+        if included_override is None:
+            included = self._compute_included_units(aid)
+        else:
+            included = [cid for cid in included_override if cid in self.app.combatants]
         if not included:
             messagebox.showinfo("AoE Damage", "No units are inside the selected AoE.", parent=self)
             return
@@ -6903,7 +6985,7 @@ class BattleMapWindow(tk.Toplevel):
             self.app._rebuild_table()
             self._update_included_for_selected()
             refresh()
-            if damage_dealt and self.aoes.get(aid, {}).get("pinned") is False:
+            if damage_dealt and self.aoes.get(aid, {}).get("pinned") is False and not self.aoes.get(aid, {}).get("persistent"):
                 self._remove_aoe_by_id(aid)
             if close_after_var.get():
                 dlg.destroy()
