@@ -6415,18 +6415,20 @@ class BattleMapWindow(tk.Toplevel):
         mid = ttk.Frame(outer)
         mid.pack(fill=tk.BOTH, expand=True, pady=(12, 0))
 
-        cols = ("name", "roll", "mod", "total", "result")
+        cols = ("name", "roll", "mod", "total", "result", "immune")
         tv = ttk.Treeview(mid, columns=cols, show="headings", selectmode="extended", height=12)
         tv.heading("name", text="Creature")
         tv.heading("roll", text="d20")
         tv.heading("mod", text="Mod")
         tv.heading("total", text="Total")
         tv.heading("result", text="Pass?")
+        tv.heading("immune", text="Immune?")
         tv.column("name", width=240, anchor="w")
         tv.column("roll", width=60, anchor="center")
         tv.column("mod", width=60, anchor="center")
         tv.column("total", width=70, anchor="center")
         tv.column("result", width=70, anchor="center")
+        tv.column("immune", width=80, anchor="center")
         tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         sb = ttk.Scrollbar(mid, orient=tk.VERTICAL, command=tv.yview)
@@ -6436,6 +6438,7 @@ class BattleMapWindow(tk.Toplevel):
         cid_by_iid: Dict[str, int] = {}
         rolls: Dict[int, int] = {}
         mods: Dict[int, int] = {}
+        immune: Dict[int, bool] = {}
 
         def _save_key() -> str:
             return (save_var.get() or "").strip().lower()
@@ -6468,9 +6471,33 @@ class BattleMapWindow(tk.Toplevel):
             if not c:
                 continue
             mod = _lookup_save_mod(c, _save_key())
-            iid = tv.insert("", tk.END, values=(c.name, "", str(mod), "", ""))
+            iid = tv.insert("", tk.END, values=(c.name, "", str(mod), "", "", "No"))
             cid_by_iid[iid] = cid
             mods[cid] = mod
+            immune[cid] = False
+
+        def _immune_col_index() -> str:
+            return f"#{cols.index('immune') + 1}"
+
+        def _update_immune_cell(iid: str, cid: int) -> None:
+            tv.set(iid, "immune", "Yes" if immune.get(cid, False) else "No")
+
+        def _toggle_immune(event: tk.Event) -> Optional[str]:
+            if tv.identify("region", event.x, event.y) != "cell":
+                return None
+            if tv.identify_column(event.x) != _immune_col_index():
+                return None
+            iid = tv.identify_row(event.y)
+            if not iid:
+                return None
+            cid = cid_by_iid.get(iid)
+            if cid is None:
+                return None
+            immune[cid] = not immune.get(cid, False)
+            _update_immune_cell(iid, cid)
+            return "break"
+
+        tv.bind("<Button-1>", _toggle_immune, add=True)
 
         def _parse_dc() -> int:
             try:
@@ -6622,6 +6649,15 @@ class BattleMapWindow(tk.Toplevel):
             death_logged: set[int] = set()
             damage_dealt = False
 
+            def _format_component_desc(items: List[Tuple[int, str]]) -> str:
+                return " + ".join(
+                    [
+                        f"{amt} {dtype}".strip()
+                        for amt, dtype in items
+                        if amt > 0
+                    ]
+                )
+
             for cid in included:
                 c = self.app.combatants.get(cid)
                 if not c:
@@ -6630,6 +6666,7 @@ class BattleMapWindow(tk.Toplevel):
                 m = int(mods.get(cid, 0))
                 tot = r + m
                 passed = (r > 0 and r != 1 and tot >= dc)
+                is_immune = immune.get(cid, False)
                 nat1_max_applied = bool(max_nat1_total is not None and r == 1)
                 applied_components: List[Tuple[int, str]] = []
                 total_damage = 0
@@ -6645,47 +6682,51 @@ class BattleMapWindow(tk.Toplevel):
                             applied = amount_val
                         applied_components.append((applied, dtype))
                         total_damage += applied
-                    component_desc = " + ".join(
-                        [
-                            f"{amt} {dtype}".strip()
-                            for amt, dtype in applied_components
-                            if amt > 0
-                        ]
-                    )
+                    component_desc = _format_component_desc(applied_components)
+
+                immune_desc = component_desc
+                if not immune_desc:
+                    immune_desc = _format_component_desc(components)
 
                 before = int(getattr(c, "hp", 0))
-                if total_damage > 0:
+                if is_immune:
+                    if immune_desc:
+                        self.app._log(f"Damage to {c.name} was blocked — immune to {immune_desc}.")
+                    else:
+                        self.app._log(f"Damage to {c.name} was blocked — immune.")
+                elif total_damage > 0:
                     damage_dealt = True
                     c.hp = max(0, before - int(total_damage))
                 after = int(getattr(c, "hp", 0))
 
                 died = (before > 0 and after == 0)
-                if died:
+                if died and not is_immune:
                     dtype_note = " + ".join([d for _, d in applied_components if d]).strip()
                     death_info[cid] = (attacker or None, int(total_damage), dtype_note)
 
                 # Log
-                nat1_note = " (max on nat 1)" if nat1_max_applied else ""
-                if total_damage == 0:
-                    if use_att:
-                        self.app._log(
-                            f"{attacker} hits {c.name} with AoE (save {save_name} {tot} vs DC {dc}) — no damage{nat1_note}"
-                        )
+                if not is_immune:
+                    nat1_note = " (max on nat 1)" if nat1_max_applied else ""
+                    if total_damage == 0:
+                        if use_att:
+                            self.app._log(
+                                f"{attacker} hits {c.name} with AoE (save {save_name} {tot} vs DC {dc}) — no damage{nat1_note}"
+                            )
+                        else:
+                            self.app._log(f"{c.name} avoids AoE damage (save {save_name} {tot} vs DC {dc}){nat1_note}")
                     else:
-                        self.app._log(f"{c.name} avoids AoE damage (save {save_name} {tot} vs DC {dc}){nat1_note}")
-                else:
-                    half_note = " (half on pass per component)" if (passed and half_on_pass.get()) else ""
-                    dead_note = " (Dead)" if (died and use_att) else ""
-                    if use_att:
-                        self.app._log(
-                            f"{attacker} does {component_desc} damage to {c.name} (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note}){dead_note}"
-                        )
-                    else:
-                        self.app._log(
-                            f"{c.name} takes {component_desc} damage (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note})"
-                        )
+                        half_note = " (half on pass per component)" if (passed and half_on_pass.get()) else ""
+                        dead_note = " (Dead)" if (died and use_att) else ""
+                        if use_att:
+                            self.app._log(
+                                f"{attacker} does {component_desc} damage to {c.name} (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note}){dead_note}"
+                            )
+                        else:
+                            self.app._log(
+                                f"{c.name} takes {component_desc} damage (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note})"
+                            )
 
-                if died and use_att:
+                if died and use_att and not is_immune:
                     death_logged.add(cid)
 
                 if apply_condition and (r > 0 and not passed) and condition_key:
