@@ -230,6 +230,7 @@ class SpellPreset:
     trigger_on_start_or_enter: Optional[str]
     persistent: Optional[bool]
     pinned_default: Optional[bool]
+    upcast: Optional[Dict[str, object]]
 
 
 @dataclass(frozen=True)
@@ -2639,6 +2640,44 @@ class InitiativeTracker(tk.Tk):
                 return raw or None
             return None
 
+        def parse_upcast(value: object) -> Optional[Dict[str, object]]:
+            if not isinstance(value, dict):
+                return None
+            base_level = parse_int(value.get("base_level"))
+            if base_level is None or base_level < 0:
+                log_notice("Spell preset upcast missing valid base_level; ignoring upcast block.")
+                return None
+            raw_increments = value.get("increments")
+            if not isinstance(raw_increments, list):
+                log_notice("Spell preset upcast missing increments list; ignoring upcast block.")
+                return None
+            increments: List[Dict[str, object]] = []
+            for entry in raw_increments:
+                if not isinstance(entry, dict):
+                    log_notice("Spell preset upcast increment must be a mapping; skipping invalid entry.")
+                    continue
+                levels_per_increment = parse_int(entry.get("levels_per_increment"))
+                add_dice = parse_dice(entry.get("add_dice"))
+                if levels_per_increment is None or levels_per_increment <= 0:
+                    log_notice("Spell preset upcast increment missing valid levels_per_increment; skipping entry.")
+                    continue
+                if add_dice is None:
+                    log_notice("Spell preset upcast increment missing valid add_dice; skipping entry.")
+                    continue
+                increments.append(
+                    {
+                        "levels_per_increment": levels_per_increment,
+                        "add_dice": add_dice,
+                    }
+                )
+            if not increments:
+                log_notice("Spell preset upcast increments list had no valid entries; ignoring upcast block.")
+                return None
+            return {
+                "base_level": base_level,
+                "increments": increments,
+            }
+
         def log_notice(message: str) -> None:
             try:
                 self._log(message)
@@ -2707,6 +2746,7 @@ class InitiativeTracker(tk.Tk):
 
             default_damage = parse_default_damage(spell_block.get("default_damage"))
             dice = parse_dice(spell_block.get("dice"))
+            upcast = parse_upcast(spell_block.get("upcast"))
 
             color = None
             raw_color = spell_block.get("color")
@@ -2740,6 +2780,7 @@ class InitiativeTracker(tk.Tk):
                 trigger_on_start_or_enter=trigger_on_start_or_enter,
                 persistent=persistent,
                 pinned_default=pinned_default,
+                upcast=upcast,
             )
 
             if name not in self._spells_by_name:

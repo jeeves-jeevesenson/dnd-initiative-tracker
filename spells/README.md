@@ -33,6 +33,11 @@ spell:
   - `dc` (number, optional): Default save DC.
 - `default_damage` (string or number, optional): Default damage amount or math expression (e.g. `28` or `5+3`).
 - `dice` (string, optional): `#d#` hit dice for spell damage (die must be 4, 6, 8, 10, or 12).
+- `upcast` (mapping, optional): Rules for adding dice when cast at a higher slot level.
+  - `base_level` (number): Spell slot level the preset is balanced around.
+  - `increments` (list of mappings): Each entry describes how often to add dice.
+    - `levels_per_increment` (number): Levels per increment (e.g. `1` = every level, `2` = every 2 levels).
+    - `add_dice` (string): Dice to add per increment (e.g. `1d10`, `2d6`).
 - `color` (string, optional): Hex color (e.g., `"#6aa9ff"`) used for the cast AoE.
 - `duration_turns` (number, optional): Default AoE duration in rounds (0 = indefinite).
 - `over_time` (boolean, optional): Whether the AoE applies damage on start/enter triggers.
@@ -62,4 +67,22 @@ spell:
   over_time: true
   move_per_turn_ft: 60
   trigger_on_start_or_enter: start_or_enter
+```
+
+## Example: upcast dice
+
+```yaml
+spell:
+  name: Scorching Ray
+  shape: line
+  length_ft: 60
+  width_ft: 5
+  damage_types:
+    - Fire
+  dice: 2d6
+  upcast:
+    base_level: 2
+    increments:
+      - levels_per_increment: 1
+        add_dice: 1d6
 ```
