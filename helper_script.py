@@ -2639,6 +2639,15 @@ class InitiativeTracker(tk.Tk):
                 return raw or None
             return None
 
+        def log_notice(message: str) -> None:
+            try:
+                self._log(message)
+            except Exception:
+                pass
+
+        def log_skip(path: Path, reason: str) -> None:
+            log_notice(f"Spell preset '{path.name}' skipped: {reason}")
+
         for fp in files:
             try:
                 raw = fp.read_text(encoding="utf-8")
@@ -2659,10 +2668,12 @@ class InitiativeTracker(tk.Tk):
 
             name = str(spell_block.get("name") or fp.stem).strip()
             if not name:
+                log_skip(fp, "missing name")
                 continue
 
             shape = str(spell_block.get("shape") or "").strip().lower()
             if shape not in {"circle", "square", "line"}:
+                log_skip(fp, "missing or invalid shape")
                 continue
 
             radius_ft = parse_int(spell_block.get("radius_ft"))
@@ -2701,6 +2712,13 @@ class InitiativeTracker(tk.Tk):
             raw_color = spell_block.get("color")
             if isinstance(raw_color, str) and raw_color.strip():
                 color = raw_color.strip()
+
+            if shape == "circle" and radius_ft is None:
+                log_notice(f"Spell preset '{fp.name}' missing radius_ft for circle; UI will block casting.")
+            elif shape == "square" and side_ft is None:
+                log_notice(f"Spell preset '{fp.name}' missing side_ft for square; UI will block casting.")
+            elif shape == "line" and (length_ft is None or width_ft is None):
+                log_notice(f"Spell preset '{fp.name}' missing length_ft/width_ft for line; UI will block casting.")
 
             spec = SpellPreset(
                 filename=str(fp.name),
