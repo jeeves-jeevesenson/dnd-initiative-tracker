@@ -223,6 +223,7 @@ class SpellPreset:
     dice: Optional[str]
     damage_types: List[str]
     color: Optional[str]
+    duration_turns: Optional[int]
 
 
 @dataclass(frozen=True)
@@ -1568,9 +1569,47 @@ class InitiativeTracker(tk.Tk):
         c.move_total = int(base_spd)
         c.move_remaining = int(base_spd)
 
+        self._tick_aoe_durations()
+
         if expired:
             labs = ", ".join(str(CONDITIONS_META.get(k, {}).get("label", k)) for k in expired)
             self._log(f"conditions ended: {labs}", cid=cid)
+
+    def _tick_aoe_durations(self) -> None:
+        mw = getattr(self, "_map_window", None)
+        if mw is None or not getattr(mw, "winfo_exists", lambda: False)():
+            return
+        aoes = getattr(mw, "aoes", None)
+        if not isinstance(aoes, dict) or not aoes:
+            return
+        expired: List[int] = []
+        changed = False
+        for aid, data in list(aoes.items()):
+            if not bool(data.get("pinned")):
+                continue
+            remaining = data.get("remaining_turns")
+            if remaining is None:
+                continue
+            try:
+                turns = int(remaining)
+            except Exception:
+                continue
+            if turns > 0:
+                turns -= 1
+            data["remaining_turns"] = turns
+            changed = True
+            if turns <= 0:
+                expired.append(aid)
+        for aid in expired:
+            try:
+                mw._remove_aoe_by_id(aid)
+            except Exception:
+                pass
+        if changed and not expired:
+            try:
+                mw._refresh_aoe_list(select=getattr(mw, "_selected_aoe", None))
+            except Exception:
+                pass
 
 
     def _next_turn(self) -> None:
@@ -2553,6 +2592,7 @@ class InitiativeTracker(tk.Tk):
             side_ft = parse_int(spell_block.get("side_ft"))
             length_ft = parse_int(spell_block.get("length_ft"))
             width_ft = parse_int(spell_block.get("width_ft"))
+            duration_turns = parse_int(spell_block.get("duration_turns"))
 
             damage_types: List[str] = []
             raw_damage = spell_block.get("damage_types") or []
@@ -2592,6 +2632,7 @@ class InitiativeTracker(tk.Tk):
                 dice=dice,
                 damage_types=damage_types,
                 color=color,
+                duration_turns=duration_turns,
             )
 
             if name not in self._spells_by_name:
@@ -3815,6 +3856,19 @@ class BattleMapWindow(tk.Toplevel):
         self.pin_var = tk.BooleanVar(value=False)
         self.pin_chk = ttk.Checkbutton(left, text="Stationary (pinned)", variable=self.pin_var, command=self._toggle_pin_selected)
         self.pin_chk.pack(anchor="w", pady=(6, 0))
+
+        duration_row = ttk.Frame(left)
+        duration_row.pack(anchor="w", pady=(6, 0))
+        ttk.Label(duration_row, text="Duration (turns):").pack(side=tk.LEFT)
+        self.aoe_duration_var = tk.StringVar(value="")
+        self.aoe_duration_ent = ttk.Entry(duration_row, textvariable=self.aoe_duration_var, width=6)
+        self.aoe_duration_ent.pack(side=tk.LEFT, padx=(6, 0))
+        self.aoe_duration_ent.bind("<Return>", lambda _e: self._apply_aoe_duration())
+        self.aoe_duration_ent.bind("<FocusOut>", lambda _e: self._apply_aoe_duration())
+        try:
+            self.aoe_duration_ent.state(["disabled"])
+        except Exception:
+            self.aoe_duration_ent.config(state=tk.DISABLED)
 
         color_row = ttk.Frame(left)
         color_row.pack(anchor="w", pady=(6, 0))
@@ -5153,6 +5207,49 @@ class BattleMapWindow(tk.Toplevel):
         except Exception:
             combo.config(state=tk.NORMAL)
 
+    def _sync_aoe_duration_ui(self, aid: Optional[int]) -> None:
+        entry = getattr(self, "aoe_duration_ent", None)
+        var = getattr(self, "aoe_duration_var", None)
+        if entry is None or var is None:
+            return
+        if aid is None or aid not in self.aoes:
+            var.set("")
+            try:
+                entry.state(["disabled"])
+            except Exception:
+                entry.config(state=tk.DISABLED)
+            return
+        duration = self.aoes[aid].get("duration_turns")
+        if duration is None:
+            var.set("")
+        else:
+            var.set(str(duration))
+        try:
+            entry.state(["!disabled"])
+        except Exception:
+            entry.config(state=tk.NORMAL)
+
+    def _apply_aoe_duration(self) -> None:
+        aid = self._selected_aoe
+        if aid is None or aid not in self.aoes:
+            return
+        raw = str(self.aoe_duration_var.get() or "").strip()
+        if raw == "":
+            duration = None
+        else:
+            try:
+                duration = int(raw)
+            except Exception:
+                messagebox.showerror("AoE Duration", "Duration must be an integer (0=indefinite).", parent=self)
+                self._sync_aoe_duration_ui(aid)
+                return
+            if duration < 0:
+                messagebox.showerror("AoE Duration", "Duration must be 0 or greater.", parent=self)
+                self._sync_aoe_duration_ui(aid)
+                return
+        self.aoes[aid]["duration_turns"] = duration
+        self._refresh_aoe_list(select=aid)
+
     def _apply_aoe_color(self, aid: int) -> None:
         d = self.aoes.get(aid)
         if not d:
@@ -5261,7 +5358,8 @@ class BattleMapWindow(tk.Toplevel):
 
         self.aoes[aid] = {"kind": "circle", "radius_sq": radius_sq, "cx": cx, "cy": cy, "pinned": False,
                           "color": self._aoe_default_color("circle"),
-                          "name": f"AoE {aid}", "shape": None, "label": None}
+                          "name": f"AoE {aid}", "shape": None, "label": None,
+                          "duration_turns": None, "remaining_turns": None}
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
 
@@ -5279,7 +5377,8 @@ class BattleMapWindow(tk.Toplevel):
 
         self.aoes[aid] = {"kind": "square", "side_sq": side_sq, "cx": cx, "cy": cy, "pinned": False,
                           "color": self._aoe_default_color("square"),
-                          "name": f"AoE {aid}", "shape": None, "label": None}
+                          "name": f"AoE {aid}", "shape": None, "label": None,
+                          "duration_turns": None, "remaining_turns": None}
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
 
@@ -5376,6 +5475,8 @@ class BattleMapWindow(tk.Toplevel):
             "name": f"AoE {aid}",
             "shape": None,
             "label": None,
+            "duration_turns": None,
+            "remaining_turns": None,
         }
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
@@ -5453,7 +5554,13 @@ class BattleMapWindow(tk.Toplevel):
         for aid in sorted(self.aoes.keys()):
             d = self.aoes[aid]
             kind = "◯" if d["kind"] == "circle" else ("▭" if d["kind"] == "line" else "□")
-            pin = " (pinned)" if d.get("pinned") else ""
+            pin = ""
+            if d.get("pinned"):
+                remaining = d.get("remaining_turns")
+                if isinstance(remaining, int):
+                    pin = f" (pinned, {remaining}t)"
+                else:
+                    pin = " (pinned)"
             name = str(d.get("name") or f"AoE {aid}")
             self.aoe_list.insert(tk.END, f"{kind} {name} [{aid}]{pin}")
             self._aoe_index_to_id.append(aid)
@@ -5470,6 +5577,7 @@ class BattleMapWindow(tk.Toplevel):
                 pass
         self._update_included_for_selected()
         self._sync_aoe_color_ui(self._selected_aoe)
+        self._sync_aoe_duration_ui(self._selected_aoe)
 
     def _select_aoe_from_list(self) -> None:
         sel = self.aoe_list.curselection()
@@ -5479,6 +5587,7 @@ class BattleMapWindow(tk.Toplevel):
             self._update_included_for_selected()
             self._update_aoe_damage_button([])
             self._sync_aoe_color_ui(None)
+            self._sync_aoe_duration_ui(None)
             return
         idx = int(sel[0])
         if idx < 0 or idx >= len(getattr(self, "_aoe_index_to_id", [])):
@@ -5494,12 +5603,22 @@ class BattleMapWindow(tk.Toplevel):
             pass
         self._update_included_for_selected()
         self._sync_aoe_color_ui(aid)
+        self._sync_aoe_duration_ui(aid)
 
     def _toggle_pin_selected(self) -> None:
         aid = self._selected_aoe
         if aid is None or aid not in self.aoes:
             return
-        self.aoes[aid]["pinned"] = bool(self.pin_var.get())
+        pinned = bool(self.pin_var.get())
+        self.aoes[aid]["pinned"] = pinned
+        if pinned:
+            duration = self.aoes[aid].get("duration_turns")
+            if isinstance(duration, int) and duration > 0:
+                self.aoes[aid]["remaining_turns"] = duration
+            else:
+                self.aoes[aid]["remaining_turns"] = None
+        else:
+            self.aoes[aid]["remaining_turns"] = None
         self._refresh_aoe_list(select=aid)
 
 
