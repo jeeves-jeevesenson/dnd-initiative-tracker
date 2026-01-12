@@ -7937,7 +7937,20 @@ class InitiativeTracker(base.InitiativeTracker):
             spec = self._monsters_by_name.get(nm)
             self._open_monster_stat_block(spec)
 
+        def on_keypress(event):
+            ch = (event.char or "").lower()
+            if len(ch) != 1 or ch < "a" or ch > "z":
+                return
+            for iid in tree.get_children():
+                values = tree.item(iid, "values")
+                if values and values[0].lower().startswith(ch):
+                    tree.selection_set(iid)
+                    tree.focus(iid)
+                    tree.see(iid)
+                    break
+
         tree.bind("<Double-1>", on_select)
+        tree.bind("<KeyPress>", on_keypress)
         type_box.bind("<<ComboboxSelected>>", lambda e: refresh())
         sort_box.bind("<<ComboboxSelected>>", lambda e: refresh())
         search_var.trace_add("write", lambda *_: refresh())
