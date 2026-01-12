@@ -341,6 +341,7 @@ class InitiativeTracker(tk.Tk):
         self._load_monsters_index()
         self._load_spells_index()
         self._build_ui()
+        self.after(0, self._install_monster_dropdown_widget)
         self._load_history_into_log()
         self._log("=== Session started ===")
         self._open_starting_players_dialog()
@@ -535,7 +536,283 @@ class InitiativeTracker(tk.Tk):
         self.bind("<KeyPress-w>", lambda e: self._toggle_water_selected())
         self.bind("<KeyPress-p>", lambda e: self._open_map_mode())
 
-    
+    def _install_monster_dropdown_widget(self) -> None:
+        """Replace the Name Entry with a Combobox listing ./Monsters YAML files."""
+        try:
+            add_frame = None
+
+            def walk(w):
+                nonlocal add_frame
+                try:
+                    if isinstance(w, ttk.Labelframe) and str(w.cget("text")) == "Add Combatant":
+                        add_frame = w
+                        return
+                except Exception:
+                    pass
+                for ch in w.winfo_children():
+                    walk(ch)
+
+            walk(self)
+            if add_frame is None:
+                return
+
+            target = None
+            for ch in add_frame.winfo_children():
+                try:
+                    gi = ch.grid_info()
+                    if int(gi.get("row", -1)) == 1 and int(gi.get("column", -1)) == 0:
+                        target = ch
+                        break
+                except Exception:
+                    continue
+
+            if target is not None:
+                try:
+                    target.destroy()
+                except Exception:
+                    pass
+
+            holder = ttk.Frame(add_frame)
+            holder.grid(row=1, column=0, padx=(0, 8), sticky="w")
+
+            values = self._monster_names_sorted()
+            combo = ttk.Combobox(holder, textvariable=self.name_var, values=values, width=22)
+            combo.pack(side="left")
+            combo.bind("<<ComboboxSelected>>", lambda _e: self._apply_monster_defaults())
+
+            info_btn = ttk.Button(holder, text="Info", width=5, command=self._open_monster_stat_block)
+            info_btn.pack(side="left", padx=(4, 0))
+
+            self._monster_combo = combo  # type: ignore[attr-defined]
+
+            if values and not self.name_var.get().strip():
+                self.name_var.set(values[0])
+                self._apply_monster_defaults()
+        except Exception:
+            return
+
+    def _apply_monster_defaults(self) -> None:
+        nm = self.name_var.get().strip()
+        spec = self._monsters_by_name.get(nm)
+        if not spec:
+            return
+        try:
+            if spec.hp is not None:
+                self.hp_var.set(str(spec.hp))
+            if spec.speed is not None:
+                self.speed_var.set(str(spec.speed))
+            if spec.swim_speed is not None and spec.swim_speed > 0:
+                self.swim_var.set(str(spec.swim_speed))
+            else:
+                self.swim_var.set("")
+            if spec.dex is not None:
+                try:
+                    dex_mod = (int(spec.dex) - 10) // 2
+                except Exception:
+                    dex_mod = None
+                if dex_mod is not None:
+                    self.dex_var.set(str(dex_mod))
+        except Exception:
+            pass
+
+    def _monster_int_from_value(self, value: object) -> Optional[int]:
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float) and value.is_integer():
+            return int(value)
+        if isinstance(value, str):
+            raw = value.strip()
+            if raw.startswith("+"):
+                raw = raw[1:]
+            if raw.lstrip("-").isdigit():
+                return int(raw)
+        return None
+
+    def _format_monster_simple_value(self, value: object) -> str:
+        if value is None:
+            return "—"
+        if isinstance(value, float) and value.is_integer():
+            return str(int(value))
+        return str(value)
+
+    def _format_monster_modifier(self, value: object) -> str:
+        mod = self._monster_int_from_value(value)
+        if mod is None:
+            return self._format_monster_simple_value(value)
+        return f"{mod:+d}"
+
+    def _format_monster_initiative(self, value: object) -> str:
+        if isinstance(value, dict):
+            if "modifier" in value:
+                return self._format_monster_modifier(value.get("modifier"))
+            return self._format_monster_simple_value(value)
+        return self._format_monster_modifier(value)
+
+    def _format_monster_ac(self, value: object) -> str:
+        if isinstance(value, dict):
+            for key in ("value", "ac"):
+                if key in value:
+                    return self._format_monster_simple_value(value.get(key))
+        return self._format_monster_simple_value(value)
+
+    def _format_monster_hp(self, value: object) -> str:
+        if isinstance(value, dict):
+            if "average" in value:
+                return self._format_monster_simple_value(value.get("average"))
+        return self._format_monster_simple_value(value)
+
+    def _format_monster_speed(self, value: object) -> str:
+        if value is None:
+            return "—"
+        if isinstance(value, dict):
+            parts = []
+            for key, val in value.items():
+                label = str(key).replace("_", " ")
+                parts.append(f"{label} {self._format_monster_simple_value(val)}")
+            return ", ".join(parts) if parts else "—"
+        return self._format_monster_simple_value(value)
+
+    def _format_monster_text_block(self, value: object) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, list):
+            parts = []
+            for entry in value:
+                text = self._format_monster_text_block(entry)
+                if text:
+                    parts.append(text)
+            return "; ".join(parts)
+        if isinstance(value, dict):
+            parts = []
+            for key, entry in value.items():
+                text = self._format_monster_text_block(entry)
+                if text:
+                    parts.append(f"{key}: {text}")
+            return ", ".join(parts)
+        return str(value)
+
+    def _format_monster_feature_lines(self, value: object) -> List[str]:
+        lines: List[str] = []
+        if isinstance(value, list):
+            for entry in value:
+                if isinstance(entry, dict):
+                    name = entry.get("name") or entry.get("title")
+                    desc = entry.get("desc") or entry.get("description") or entry.get("text")
+                    if name and desc:
+                        lines.append(f"- {name}: {self._format_monster_text_block(desc)}")
+                    elif name:
+                        lines.append(f"- {name}")
+                    elif desc:
+                        lines.append(f"- {self._format_monster_text_block(desc)}")
+                elif isinstance(entry, str):
+                    text = entry.strip()
+                    if text:
+                        lines.append(f"- {text}")
+        elif isinstance(value, dict):
+            for key, entry in value.items():
+                text = self._format_monster_text_block(entry)
+                if text:
+                    lines.append(f"- {key}: {text}")
+        elif isinstance(value, str):
+            text = value.strip()
+            if text:
+                lines.append(text)
+        return lines
+
+    def _monster_stat_block_text(self, spec: MonsterSpec) -> str:
+        raw = spec.raw_data or {}
+        lines: List[str] = []
+        lines.append(spec.name)
+        lines.append("")
+        lines.append("Identity")
+        lines.append(f"Name: {spec.name}")
+        lines.append(f"Size: {self._format_monster_simple_value(raw.get('size'))}")
+        lines.append(f"Type: {self._format_monster_simple_value(raw.get('type') or spec.mtype)}")
+        lines.append(f"Alignment: {self._format_monster_simple_value(raw.get('alignment'))}")
+        lines.append(f"Initiative: {self._format_monster_initiative(raw.get('initiative'))}")
+        lines.append(f"AC: {self._format_monster_ac(raw.get('ac'))}")
+        lines.append(f"HP: {self._format_monster_hp(raw.get('hp'))}")
+        lines.append(f"Speed: {self._format_monster_speed(raw.get('speed'))}")
+        lines.append("")
+        lines.append("Ability Scores")
+        abilities = raw.get("abilities")
+        ability_lines = []
+        if isinstance(abilities, dict):
+            for ab in ("str", "dex", "con", "int", "wis", "cha"):
+                if ab not in abilities:
+                    continue
+                score = self._monster_int_from_value(abilities.get(ab))
+                if score is None:
+                    continue
+                mod = (score - 10) // 2
+                ability_lines.append(f"{ab.upper()} {score} ({mod:+d})")
+        if ability_lines:
+            lines.append("  " + " | ".join(ability_lines))
+        else:
+            lines.append("  No ability scores available.")
+
+        def add_section(title: str, value: object) -> None:
+            lines.append("")
+            lines.append(title)
+            entries = self._format_monster_feature_lines(value)
+            if entries:
+                lines.extend(entries)
+            else:
+                lines.append(f"No {title.lower()} available.")
+
+        add_section("Traits", raw.get("traits"))
+        add_section("Actions", raw.get("actions"))
+        add_section("Legendary Actions", raw.get("legendary_actions"))
+
+        def add_single_line_section(title: str, value: object) -> None:
+            text = self._format_monster_text_block(value)
+            lines.append("")
+            lines.append(title)
+            if text:
+                lines.append(text)
+            else:
+                lines.append(f"No {title.lower()} available.")
+
+        add_single_line_section("Description", raw.get("description"))
+        add_single_line_section("Habitat", raw.get("habitat"))
+        add_single_line_section("Treasure", raw.get("treasure"))
+        return "\n".join(lines)
+
+    def _open_monster_stat_block(self, spec: Optional[MonsterSpec] = None) -> None:
+        if spec is None:
+            nm = self.name_var.get().strip()
+            spec = self._monsters_by_name.get(nm)
+
+        win = tk.Toplevel(self)
+        title = f"{spec.name} Stat Block" if spec else "Monster Info"
+        win.title(title)
+        win.geometry("560x680")
+        win.transient(self)
+        win.after(0, win.grab_set)
+
+        body = ttk.Frame(win, padding=10)
+        body.pack(fill="both", expand=True)
+
+        if not spec or not spec.raw_data:
+            ttk.Label(
+                body,
+                text="No stat block available for this monster.",
+                wraplength=520,
+                justify="left",
+            ).pack(anchor="w")
+            return
+
+        text = tk.Text(body, wrap="word")
+        scroll = ttk.Scrollbar(body, orient="vertical", command=text.yview)
+        text.configure(yscrollcommand=scroll.set)
+        text.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+
+        text.insert("1.0", self._monster_stat_block_text(spec))
+        text.configure(state="disabled")
+
 
     # --------------------- Map Mode ---------------------
     def _open_map_mode(self) -> None:
@@ -2453,6 +2730,11 @@ class InitiativeTracker(tk.Tk):
             abilities: Dict[str, Any] = {}
             if not is_legacy:
                 for key in (
+                    "name",
+                    "size",
+                    "type",
+                    "alignment",
+                    "initiative",
                     "challenge_rating",
                     "ac",
                     "hp",
