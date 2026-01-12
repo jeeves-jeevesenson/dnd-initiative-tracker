@@ -178,6 +178,28 @@ class LanAccountStore:
         self.save()
         return account
 
+    def create_account(self, username: str, preset: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        username = str(username).strip()
+        if not username:
+            raise ValueError("Username required.")
+        if preset is not None and not isinstance(preset, dict):
+            raise ValueError("Preset must be a JSON object.")
+        accounts = self._data.setdefault("accounts", {})
+        if username in accounts:
+            raise ValueError("Account already exists.")
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        account: Dict[str, Any] = {
+            "username": username,
+            "created_at": created_at,
+            "owned_cids": [],
+            "push_subscriptions": [],
+        }
+        if preset is not None:
+            account["preset"] = preset
+        accounts[username] = account
+        self.save()
+        return account
+
     def has_account(self, username: str) -> bool:
         username = str(username).strip()
         if not username:
@@ -4974,6 +4996,16 @@ class LanController:
             self._broadcast_state(self._cached_snapshot)
         return ok
 
+    def admin_create_account(
+        self, username: str, preset: Optional[Dict[str, Any]] = None
+    ) -> Tuple[bool, str]:
+        with self._store_lock:
+            try:
+                self._account_store.create_account(username, preset)
+            except ValueError as exc:
+                return False, str(exc)
+        return True, ""
+
     def admin_clear_owner(self, cid: int) -> bool:
         with self._store_lock:
             ok = self._account_store.clear_owner(cid)
@@ -6284,11 +6316,69 @@ class InitiativeTracker(base.InitiativeTracker):
             self._lan.admin_disconnect_session(ws_id)
             self.after(500, refresh_admin)
 
+        def open_create_account() -> None:
+            dialog = tk.Toplevel(win)
+            dialog.title("Create Account")
+            dialog.transient(win)
+            dialog.grab_set()
+            dialog.resizable(False, False)
+
+            frame = tk.Frame(dialog, padx=12, pady=12)
+            frame.pack(fill=tk.BOTH, expand=True)
+
+            tk.Label(frame, text="Username:").grid(row=0, column=0, sticky="w")
+            username_var = tk.StringVar()
+            username_entry = ttk.Entry(frame, textvariable=username_var, width=32)
+            username_entry.grid(row=0, column=1, sticky="w", pady=(0, 8))
+
+            tk.Label(frame, text="Preset JSON (optional):").grid(row=1, column=0, sticky="nw")
+            preset_text = tk.Text(frame, width=46, height=6)
+            preset_text.grid(row=1, column=1, sticky="w")
+
+            preset_help = tk.Label(
+                frame,
+                text="Leave blank for no preset. Paste a JSON object if you want to prefill GUI settings.",
+                wraplength=320,
+                justify="left",
+                fg="#666666",
+            )
+            preset_help.grid(row=2, column=1, sticky="w", pady=(4, 8))
+
+            def submit_account() -> None:
+                username = username_var.get().strip()
+                raw_preset = preset_text.get("1.0", "end").strip()
+                preset = None
+                if raw_preset:
+                    try:
+                        preset = json.loads(raw_preset)
+                    except Exception:
+                        messagebox.showerror("Create Account", "Preset must be valid JSON.")
+                        return
+                    if not isinstance(preset, dict):
+                        messagebox.showerror("Create Account", "Preset must be a JSON object.")
+                        return
+                ok, err = self._lan.admin_create_account(username, preset)
+                if not ok:
+                    messagebox.showerror("Create Account", err or "Unable to create account.")
+                    return
+                refresh_admin()
+                dialog.destroy()
+
+            actions_row = tk.Frame(frame)
+            actions_row.grid(row=3, column=1, sticky="e")
+            ttk.Button(actions_row, text="Create", command=submit_account).pack(side=tk.LEFT, padx=(0, 6))
+            ttk.Button(actions_row, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT)
+
+            username_entry.focus_set()
+
         ttk.Button(actions, text="Clear Ownership", command=do_clear_owner).grid(row=0, column=4, padx=(0, 6), pady=6)
         ttk.Button(actions, text="Assign Owner", command=do_assign_owner).grid(row=0, column=5, padx=(0, 6), pady=6)
         ttk.Button(actions, text="Disconnect Session", command=do_disconnect).grid(row=0, column=6, padx=(0, 6), pady=6)
         ttk.Button(actions, text="Refresh", command=refresh_admin).grid(row=0, column=7, padx=(0, 6), pady=6)
         ttk.Button(actions, text="Close", command=win.destroy).grid(row=0, column=8, padx=(0, 6), pady=6)
+        ttk.Button(actions, text="Create Account…", command=open_create_account).grid(
+            row=1, column=0, padx=(6, 0), pady=(0, 6), sticky="w"
+        )
 
         refresh_admin()
 
