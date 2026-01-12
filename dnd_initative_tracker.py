@@ -1082,6 +1082,7 @@ HTML_INDEX = r"""<!doctype html>
       </div>
     </div>
     <div class="spacer"></div>
+    <button class="btn" id="loginBtn" type="button">Login</button>
     <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
     <div class="topbar-controls">
       <button class="btn" id="lockMap">Lock Map</button>
@@ -1699,6 +1700,7 @@ __DAMAGE_TYPE_OPTIONS__
   const zoomInBtn = document.getElementById("zoomIn");
   const zoomOutBtn = document.getElementById("zoomOut");
   const dashBtn = document.getElementById("dash");
+  const loginBtn = document.getElementById("loginBtn");
   const configBtn = document.getElementById("configBtn");
   const configModal = document.getElementById("configModal");
   const configCloseBtn = document.getElementById("configClose");
@@ -1827,6 +1829,7 @@ __DAMAGE_TYPE_OPTIONS__
   let lastTurnRound = null;
   let selectedTurnCid = null;
   let loggedIn = false;
+  let loginRequired = false;
 
   // view transform
   let zoom = 32; // px per square
@@ -2504,10 +2507,19 @@ __DAMAGE_TYPE_OPTIONS__
 
   function setLoginState(isLoggedIn){
     loggedIn = isLoggedIn;
-    document.body.classList.toggle("login-required", !isLoggedIn);
     if (isLoggedIn && loginError){
       loginError.textContent = "";
     }
+    updateLoginRequiredState();
+  }
+
+  function isMapViewActive(){
+    return gridReady();
+  }
+
+  function updateLoginRequiredState(){
+    loginRequired = !loggedIn || (isMapViewActive() && !claimedCid);
+    document.body.classList.toggle("login-required", loginRequired);
   }
 
   function setLoginError(text){
@@ -2730,6 +2742,7 @@ __DAMAGE_TYPE_OPTIONS__
   function updateWaitingOverlay(){
     if (!waitingOverlay) return;
     waitingOverlay.classList.toggle("show", !gridReady());
+    updateLoginRequiredState();
   }
 
   function formatFeet(feet){
@@ -3629,6 +3642,7 @@ __DAMAGE_TYPE_OPTIONS__
             showNoOwnedPcToast(msg.pcs || msg.claimable || []);
           }
         }
+        updateLoginRequiredState();
         refreshTurnAlertStatus();
       } else if (msg.type === "force_claim"){
         if (msg.cid !== null && msg.cid !== undefined){
@@ -3636,6 +3650,7 @@ __DAMAGE_TYPE_OPTIONS__
           shownNoOwnedToast = false;
           autoCenterOnJoin();
         }
+        updateLoginRequiredState();
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
         refreshTurnAlertStatus();
@@ -3644,6 +3659,7 @@ __DAMAGE_TYPE_OPTIONS__
         meEl.textContent = "(unclaimed)";
         shownNoOwnedToast = false;
         showNoOwnedPcToast(msg.pcs || lastPcList || []);
+        updateLoginRequiredState();
         refreshTurnAlertStatus();
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
@@ -3690,6 +3706,17 @@ __DAMAGE_TYPE_OPTIONS__
       sendHello();
     });
   }
+  if (loginBtn){
+    loginBtn.addEventListener("click", () => {
+      setLoginState(false);
+      requestAnimationFrame(() => {
+        if (loginNameInput){
+          loginNameInput.focus();
+          loginNameInput.select();
+        }
+      });
+    });
+  }
 
   // input
   function pointerPos(ev){
@@ -3716,6 +3743,19 @@ __DAMAGE_TYPE_OPTIONS__
   const activePointers = new Map();
   let pinchState = null;
 
+  function enforceLoginGate(){
+    if (!loginRequired) return false;
+    activePointers.clear();
+    pinchState = null;
+    dragging = null;
+    draggingAoe = null;
+    panning = null;
+    if (loginNameInput){
+      loginNameInput.focus();
+    }
+    return true;
+  }
+
   function startPinch(){
     if (activePointers.size < 2) return;
     const pts = Array.from(activePointers.values());
@@ -3739,6 +3779,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   canvas.addEventListener("pointerdown", (ev) => {
+    if (enforceLoginGate()) return;
     canvas.setPointerCapture(ev.pointerId);
     const p = pointerPos(ev);
     activePointers.set(ev.pointerId, p);
@@ -3829,6 +3870,7 @@ __DAMAGE_TYPE_OPTIONS__
   });
 
   canvas.addEventListener("pointermove", (ev) => {
+    if (enforceLoginGate()) return;
     const p = pointerPos(ev);
     if (activePointers.has(ev.pointerId)){
       activePointers.set(ev.pointerId, p);
@@ -3865,6 +3907,7 @@ __DAMAGE_TYPE_OPTIONS__
   });
 
   canvas.addEventListener("pointerup", (ev) => {
+    if (enforceLoginGate()) return;
     const p = pointerPos(ev);
     activePointers.delete(ev.pointerId);
     if (activePointers.size < 2){
@@ -3906,6 +3949,7 @@ __DAMAGE_TYPE_OPTIONS__
   });
 
   canvas.addEventListener("pointercancel", (ev) => {
+    if (enforceLoginGate()) return;
     activePointers.delete(ev.pointerId);
     if (activePointers.size < 2){
       pinchState = null;
@@ -3918,6 +3962,7 @@ __DAMAGE_TYPE_OPTIONS__
   });
 
   canvas.addEventListener("wheel", (ev) => {
+    if (enforceLoginGate()) return;
     if (pinchState) return;
     ev.preventDefault();
     const p = pointerPos(ev);
@@ -3928,24 +3973,28 @@ __DAMAGE_TYPE_OPTIONS__
 
   if (zoomInBtn){
     zoomInBtn.addEventListener("click", () => {
+      if (enforceLoginGate()) return;
       const r = canvas.getBoundingClientRect();
       zoomAt(zoom + 4, r.width / 2, r.height / 2);
     });
   }
   if (zoomOutBtn){
     zoomOutBtn.addEventListener("click", () => {
+      if (enforceLoginGate()) return;
       const r = canvas.getBoundingClientRect();
       zoomAt(zoom - 4, r.width / 2, r.height / 2);
     });
   }
   if (lockMapBtn){
     lockMapBtn.addEventListener("click", (ev) => {
+      if (enforceLoginGate()) return;
       lockMap = !lockMap;
       ev.target.textContent = lockMap ? "Unlock Map" : "Lock Map";
     });
   }
   if (centerMapBtn){
     centerMapBtn.addEventListener("click", () => {
+      if (enforceLoginGate()) return;
       if (!centerOnClaimed()){
         centerOnGridCenter();
       }
@@ -3953,12 +4002,14 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (measureToggle){
     measureToggle.addEventListener("click", () => {
+      if (enforceLoginGate()) return;
       measurementMode = !measurementMode;
       updateMeasurementControls();
     });
   }
   if (measureClear){
     measureClear.addEventListener("click", () => {
+      if (enforceLoginGate()) return;
       clearMeasurement();
     });
   }
@@ -3982,6 +4033,7 @@ __DAMAGE_TYPE_OPTIONS__
       send({type:"claim", cid: Number(pendingClaim.cid)});
       send({type:"set_color", cid: Number(pendingClaim.cid), color});
       meEl.textContent = pendingClaim.name;
+      updateLoginRequiredState();
       closeColorModal();
     });
   }
