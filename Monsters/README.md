@@ -2,8 +2,6 @@
 
 A repository of **per-monster YAML files** representing **DnD 2024 (5e 2024 / One D&D)** creature stat blocks.
 
-This repo is **the YAML data**, **not** the generator script.
-
 ---
 
 ## What’s included
