@@ -976,7 +976,7 @@ HTML_INDEX = r"""<!doctype html>
       </div>
     </div>
     <div class="spacer"></div>
-    <button class="btn" id="configBtn">Config</button>
+    <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
     <div class="topbar-controls">
       <button class="btn" id="lockMap">Lock Map</button>
       <button class="btn" id="centerMap">Center on Me</button>
@@ -2363,12 +2363,18 @@ __DAMAGE_TYPE_OPTIONS__
     if (!configModal) return;
     configModal.classList.add("show");
     configModal.setAttribute("aria-hidden", "false");
+    if (configBtn){
+      configBtn.setAttribute("aria-expanded", "true");
+    }
   }
 
   function hideConfigModal(){
     if (!configModal) return;
     configModal.classList.remove("show");
     configModal.setAttribute("aria-hidden", "true");
+    if (configBtn){
+      configBtn.setAttribute("aria-expanded", "false");
+    }
   }
 
   function send(msg){
@@ -4347,6 +4353,11 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (configBtn){
     configBtn.addEventListener("click", () => {
+      if (!configModal) return;
+      if (configModal.classList.contains("show")){
+        hideConfigModal();
+        return;
+      }
       showConfigModal();
     });
   }
