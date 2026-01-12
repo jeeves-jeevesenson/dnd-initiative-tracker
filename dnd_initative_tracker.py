@@ -122,6 +122,9 @@ class LanAccountStore:
             if not username:
                 continue
             created_at = str(entry.get("created_at", "")).strip() or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            preset = entry.get("preset")
+            if not isinstance(preset, dict):
+                preset = None
             owned_raw = entry.get("owned_cids", [])
             owned: List[int] = []
             if isinstance(owned_raw, list):
@@ -130,7 +133,10 @@ class LanAccountStore:
                         owned.append(int(cid))
                     except Exception:
                         continue
-            accounts[username] = {"username": username, "created_at": created_at, "owned_cids": owned}
+            account: Dict[str, Any] = {"username": username, "created_at": created_at, "owned_cids": owned}
+            if preset is not None:
+                account["preset"] = preset
+            accounts[username] = account
         self._data["accounts"] = accounts
         self._rebuild_ownership()
 
@@ -156,6 +162,35 @@ class LanAccountStore:
         accounts[username] = account
         self.save()
         return account
+
+    def preset_for(self, username: str) -> Optional[Dict[str, Any]]:
+        username = str(username).strip()
+        if not username:
+            return None
+        account = self._data.get("accounts", {}).get(username)
+        if not isinstance(account, dict):
+            return None
+        preset = account.get("preset")
+        if isinstance(preset, dict):
+            try:
+                return json.loads(json.dumps(preset))
+            except Exception:
+                return dict(preset)
+        return None
+
+    def set_preset(self, username: str, preset: Optional[Dict[str, Any]]) -> bool:
+        username = str(username).strip()
+        if not username:
+            return False
+        if preset is not None and not isinstance(preset, dict):
+            return False
+        account = self.ensure_account(username)
+        if preset is None:
+            account.pop("preset", None)
+        else:
+            account["preset"] = preset
+        self.save()
+        return True
 
     def owner_for(self, cid: int) -> Optional[str]:
         try:
@@ -627,6 +662,8 @@ HTML_INDEX = r"""<!doctype html>
     }
     .config-item-title{font-size:13px; font-weight:650;}
     .config-controls{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+    .preset-actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+    .preset-status{font-size:12px; color:var(--accent); min-height:16px;}
     .config-toggle{
       display:flex;
       align-items:center;
@@ -1017,6 +1054,14 @@ HTML_INDEX = r"""<!doctype html>
               </div>
               <div class="hotkey-hint">Settings are stored per device.</div>
             </div>
+            <div class="config-item">
+              <div class="config-item-title">GUI preset</div>
+              <div class="preset-actions">
+                <button class="btn" id="savePreset" type="button">Save Preset</button>
+                <button class="btn" id="loadPreset" type="button">Load Preset</button>
+                <div class="preset-status" id="presetStatus" aria-live="polite"></div>
+              </div>
+            </div>
           </div>
         </details>
         <div class="hint hidden" id="iosInstallHint">
@@ -1227,6 +1272,9 @@ __DAMAGE_TYPE_OPTIONS__
   const toggleResetTurn = document.getElementById("toggleResetTurn");
   const toggleSpellMenu = document.getElementById("toggleSpellMenu");
   const toggleLockMenus = document.getElementById("toggleLockMenus");
+  const presetSaveBtn = document.getElementById("savePreset");
+  const presetLoadBtn = document.getElementById("loadPreset");
+  const presetStatus = document.getElementById("presetStatus");
   const hotkeyTopbarTitleInput = document.getElementById("hotkeyTopbarTitle");
   const hotkeyConnStyleInput = document.getElementById("hotkeyConnStyle");
   const hotkeyLockMapInput = document.getElementById("hotkeyLockMap");
@@ -1699,6 +1747,175 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
+  let presetStatusTimer = null;
+  const presetStorageKey = "inittracker_gui_preset";
+
+  function setPresetStatus(text, durationMs=2000){
+    if (!presetStatus) return;
+    presetStatus.textContent = text || "";
+    if (presetStatusTimer){
+      clearTimeout(presetStatusTimer);
+      presetStatusTimer = null;
+    }
+    if (text && durationMs > 0){
+      presetStatusTimer = setTimeout(() => {
+        if (presetStatus) presetStatus.textContent = "";
+        presetStatusTimer = null;
+      }, durationMs);
+    }
+  }
+
+  function normalizePresetHotkey(value){
+    if (value === null || value === undefined) return "";
+    const normalized = String(value).trim();
+    return normalized;
+  }
+
+  function buildGuiPreset(){
+    const hotkeys = {};
+    Object.entries(hotkeyConfig).forEach(([action, config]) => {
+      if (!config || !config.storageKey) return;
+      hotkeys[action] = normalizePresetHotkey(localStorage.getItem(config.storageKey) || "");
+    });
+    return {
+      version: 1,
+      toggles: {
+        topbarTitle: showTopbarTitle,
+        connIndicator: showConnIndicator,
+        lockMap: showLockMap,
+        centerMap: showCenterMap,
+        measure: showMeasure,
+        measureClear: showMeasureClear,
+        zoomIn: showZoomIn,
+        zoomOut: showZoomOut,
+        battleLog: showBattleLog,
+        useAction: showUseAction,
+        useBonusAction: showUseBonusAction,
+        dash: showDash,
+        standUp: showStandUp,
+        resetTurn: showResetTurn,
+        hideSpellMenu: hideSpellMenu,
+        lockMenus: menusLocked,
+      },
+      choices: {
+        connStyle,
+        initiativeStyle,
+      },
+      showAllNames: showAllNames,
+      sheetHeight: Number.isFinite(sheetHeight) ? Math.round(sheetHeight) : null,
+      hotkeys,
+    };
+  }
+
+  function persistLocalPreset(preset){
+    try {
+      localStorage.setItem(presetStorageKey, JSON.stringify(preset));
+    } catch (err){
+      console.warn("Failed to persist GUI preset locally.", err);
+    }
+  }
+
+  function loadLocalPreset(){
+    try {
+      const raw = localStorage.getItem(presetStorageKey);
+      if (!raw) return null;
+      const preset = JSON.parse(raw);
+      if (preset && typeof preset === "object"){
+        return preset;
+      }
+    } catch (err){
+      console.warn("Failed to load GUI preset from storage.", err);
+    }
+    return null;
+  }
+
+  function applyGuiPreset(preset, options = {}){
+    if (!preset || typeof preset !== "object") return;
+    const persist = options.persist !== false;
+    const toggles = preset.toggles && typeof preset.toggles === "object" ? preset.toggles : {};
+    const choices = preset.choices && typeof preset.choices === "object" ? preset.choices : {};
+    if (typeof toggles.topbarTitle === "boolean") showTopbarTitle = toggles.topbarTitle;
+    if (typeof toggles.connIndicator === "boolean") showConnIndicator = toggles.connIndicator;
+    if (typeof toggles.lockMap === "boolean") showLockMap = toggles.lockMap;
+    if (typeof toggles.centerMap === "boolean") showCenterMap = toggles.centerMap;
+    if (typeof toggles.measure === "boolean") showMeasure = toggles.measure;
+    if (typeof toggles.measureClear === "boolean") showMeasureClear = toggles.measureClear;
+    if (typeof toggles.zoomIn === "boolean") showZoomIn = toggles.zoomIn;
+    if (typeof toggles.zoomOut === "boolean") showZoomOut = toggles.zoomOut;
+    if (typeof toggles.battleLog === "boolean") showBattleLog = toggles.battleLog;
+    if (typeof toggles.useAction === "boolean") showUseAction = toggles.useAction;
+    if (typeof toggles.useBonusAction === "boolean") showUseBonusAction = toggles.useBonusAction;
+    if (typeof toggles.dash === "boolean") showDash = toggles.dash;
+    if (typeof toggles.standUp === "boolean") showStandUp = toggles.standUp;
+    if (typeof toggles.resetTurn === "boolean") showResetTurn = toggles.resetTurn;
+    if (typeof toggles.hideSpellMenu === "boolean") hideSpellMenu = toggles.hideSpellMenu;
+    if (typeof toggles.lockMenus === "boolean") menusLocked = toggles.lockMenus;
+    if (persist){
+      persistToggle(uiToggleKeys.topbarTitle, showTopbarTitle);
+      persistToggle(uiToggleKeys.connIndicator, showConnIndicator);
+      persistToggle(uiToggleKeys.lockMap, showLockMap);
+      persistToggle(uiToggleKeys.centerMap, showCenterMap);
+      persistToggle(uiToggleKeys.measure, showMeasure);
+      persistToggle(uiToggleKeys.measureClear, showMeasureClear);
+      persistToggle(uiToggleKeys.zoomIn, showZoomIn);
+      persistToggle(uiToggleKeys.zoomOut, showZoomOut);
+      persistToggle(uiToggleKeys.battleLog, showBattleLog);
+      persistToggle(uiToggleKeys.useAction, showUseAction);
+      persistToggle(uiToggleKeys.useBonusAction, showUseBonusAction);
+      persistToggle(uiToggleKeys.dash, showDash);
+      persistToggle(uiToggleKeys.standUp, showStandUp);
+      persistToggle(uiToggleKeys.resetTurn, showResetTurn);
+      persistToggle(uiToggleKeys.hideSpellMenu, hideSpellMenu);
+      persistToggle(uiToggleKeys.lockMenus, menusLocked);
+    }
+    if (choices.connStyle && ["full", "compact"].includes(choices.connStyle)){
+      connStyle = choices.connStyle;
+      if (persist){
+        persistChoice(uiSelectKeys.connStyle, connStyle);
+      }
+    }
+    if (choices.initiativeStyle && ["full", "compact", "hidden"].includes(choices.initiativeStyle)){
+      initiativeStyle = choices.initiativeStyle;
+      if (persist){
+        persistChoice(uiSelectKeys.initiativeStyle, initiativeStyle);
+      }
+    }
+    if (typeof preset.showAllNames === "boolean"){
+      showAllNames = preset.showAllNames;
+      if (showAllNamesEl){
+        showAllNamesEl.checked = showAllNames;
+      }
+      if (persist){
+        localStorage.setItem("inittracker_showAllNames", showAllNames ? "1" : "0");
+      }
+    }
+    if (Number.isFinite(Number(preset.sheetHeight))){
+      applySheetHeight(Number(preset.sheetHeight));
+      if (persist){
+        persistSheetHeight();
+      }
+    }
+    if (preset.hotkeys && typeof preset.hotkeys === "object"){
+      Object.entries(preset.hotkeys).forEach(([action, value]) => {
+        const config = hotkeyConfig[action];
+        if (!config || !config.storageKey) return;
+        const normalized = normalizePresetHotkey(value);
+        if (persist){
+          if (normalized){
+            localStorage.setItem(config.storageKey, normalized);
+          } else {
+            localStorage.removeItem(config.storageKey);
+          }
+        }
+        if (config.input){
+          config.input.value = normalized;
+        }
+      });
+    }
+    applyUiConfig();
+    updateHotkeyInputs();
+  }
+
   function applyConnStyle(){
     if (!connEl) return;
     connEl.classList.toggle("conn-compact", connStyle === "compact");
@@ -1758,8 +1975,16 @@ __DAMAGE_TYPE_OPTIONS__
     updateSpellPanelVisibility();
   }
 
-  applyUiConfig();
-  loadSheetHeight();
+  const localPreset = loadLocalPreset();
+  if (localPreset){
+    applyGuiPreset(localPreset, {persist: true});
+    if (!Number.isFinite(Number(localPreset.sheetHeight))){
+      loadSheetHeight();
+    }
+  } else {
+    applyUiConfig();
+    loadSheetHeight();
+  }
   if (sheetHandle && sheetWrap){
     let dragState = null;
     sheetHandle.addEventListener("pointerdown", (event) => {
@@ -2845,6 +3070,17 @@ __DAMAGE_TYPE_OPTIONS__
       } else if (msg.type === "login_error"){
         setLoginState(false);
         setLoginError(msg.error || "Username required.");
+      } else if (msg.type === "preset"){
+        if (msg.preset && typeof msg.preset === "object"){
+          applyGuiPreset(msg.preset, {persist: true});
+          persistLocalPreset(msg.preset);
+        } else {
+          setPresetStatus("No preset saved.", 2500);
+        }
+      } else if (msg.type === "preset_saved"){
+        setPresetStatus("Saved!");
+      } else if (msg.type === "preset_error"){
+        setPresetStatus(msg.error || "Preset error.", 2500);
       } else if (msg.type === "state"){
         state = msg.state;
         updateSpellPresetOptions(state?.spell_presets);
@@ -3776,6 +4012,26 @@ __DAMAGE_TYPE_OPTIONS__
       }
     });
   }
+  if (presetSaveBtn){
+    presetSaveBtn.addEventListener("click", () => {
+      const preset = buildGuiPreset();
+      persistLocalPreset(preset);
+      if (!loggedIn){
+        setPresetStatus("Login required.");
+        return;
+      }
+      send({type: "save_preset", preset});
+    });
+  }
+  if (presetLoadBtn){
+    presetLoadBtn.addEventListener("click", () => {
+      if (!loggedIn){
+        setPresetStatus("Login required.");
+        return;
+      }
+      send({type: "load_preset"});
+    });
+  }
   if (connEl && connPopoverEl){
     connEl.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -4094,6 +4350,14 @@ class LanController:
         with self._store_lock:
             return self._account_store.clear_owner(cid)
 
+    def _preset_for_username(self, username: str) -> Optional[Dict[str, Any]]:
+        with self._store_lock:
+            return self._account_store.preset_for(username)
+
+    def _save_preset_for_username(self, username: str, preset: Optional[Dict[str, Any]]) -> bool:
+        with self._store_lock:
+            return self._account_store.set_preset(username, preset)
+
     def accounts_snapshot(self) -> List[Dict[str, Any]]:
         with self._store_lock:
             accounts = self._account_store.accounts_snapshot()
@@ -4232,6 +4496,9 @@ class LanController:
                         except Exception:
                             pass
                         await ws.send_text(json.dumps({"type": "login_ok", "username": username}))
+                        preset = self._preset_for_username(username)
+                        if preset is not None:
+                            await ws.send_text(json.dumps({"type": "preset", "preset": preset}))
                         if client_id:
                             with self._clients_lock:
                                 self._client_ids[ws_id] = client_id
@@ -4243,6 +4510,29 @@ class LanController:
                         elif isinstance(claimed, int) and self._can_auto_claim(int(claimed), username):
                             await self._claim_ws_async(ws_id, int(claimed), note="Reconnected.")
                         await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
+                    elif typ == "save_preset":
+                        with self._clients_lock:
+                            username = self._client_usernames.get(ws_id)
+                        if not username:
+                            await ws.send_text(json.dumps({"type": "login_error", "error": "Login required before saving presets."}))
+                            continue
+                        preset = msg.get("preset")
+                        if preset is not None and not isinstance(preset, dict):
+                            await ws.send_text(json.dumps({"type": "preset_error", "error": "Invalid preset payload."}))
+                            continue
+                        ok = self._save_preset_for_username(username, preset)
+                        if ok:
+                            await ws.send_text(json.dumps({"type": "preset_saved"}))
+                        else:
+                            await ws.send_text(json.dumps({"type": "preset_error", "error": "Unable to save preset."}))
+                    elif typ == "load_preset":
+                        with self._clients_lock:
+                            username = self._client_usernames.get(ws_id)
+                        if not username:
+                            await ws.send_text(json.dumps({"type": "login_error", "error": "Login required before loading presets."}))
+                            continue
+                        preset = self._preset_for_username(username)
+                        await ws.send_text(json.dumps({"type": "preset", "preset": preset}))
                     elif typ == "grid_request":
                         await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
                     elif typ == "grid_ack":
