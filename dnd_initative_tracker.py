@@ -1029,7 +1029,7 @@ HTML_INDEX = r"""<!doctype html>
     <div class="modal" id="configModal" aria-hidden="true">
       <div class="card">
         <h2>Config</h2>
-        <details class="config-section" open>
+        <details class="config-section">
           <summary>Top Bar</summary>
           <div class="config-list">
             <div class="config-item">
