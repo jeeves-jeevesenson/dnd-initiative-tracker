@@ -123,6 +123,7 @@ class LanAccountStore:
             if not username:
                 continue
             created_at = str(entry.get("created_at", "")).strip() or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            last_logged_in = str(entry.get("last_logged_in", "")).strip()
             preset = entry.get("preset")
             if not isinstance(preset, dict):
                 preset = None
@@ -136,6 +137,8 @@ class LanAccountStore:
                     except Exception:
                         continue
             account: Dict[str, Any] = {"username": username, "created_at": created_at, "owned_cids": owned}
+            if last_logged_in:
+                account["last_logged_in"] = last_logged_in
             if preset is not None:
                 account["preset"] = preset
             if push_subs:
@@ -164,10 +167,24 @@ class LanAccountStore:
                 account["push_subscriptions"] = []
             return account
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        account = {"username": username, "created_at": created_at, "owned_cids": [], "push_subscriptions": []}
+        account = {
+            "username": username,
+            "created_at": created_at,
+            "owned_cids": [],
+            "push_subscriptions": [],
+            "last_logged_in": created_at,
+        }
         accounts[username] = account
         self.save()
         return account
+
+    def mark_login(self, username: str) -> None:
+        username = str(username).strip()
+        if not username:
+            return
+        account = self.ensure_account(username)
+        account["last_logged_in"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.save()
 
     def push_subscriptions_for(self, username: str) -> List[Dict[str, Any]]:
         username = str(username).strip()
@@ -1716,6 +1733,7 @@ __DAMAGE_TYPE_OPTIONS__
     return value;
   })();
   const usernameKey = "inittracker_username";
+  const loginStateKey = "inittracker_logged_in";
   let storedUsername = localStorage.getItem(usernameKey) || "";
   let claimedCid = null;
   let shownNoOwnedToast = false;
@@ -1734,6 +1752,8 @@ __DAMAGE_TYPE_OPTIONS__
   const aoeDragOverrides = new Map(); // aid -> {cx, cy}
   let panning = null;  // {x,y, panX, panY}
   let centeredCid = null;
+  let initialCenterDone = false;
+  let initialCenterFallback = false;
   let lockMap = false;
   let lastGrid = {cols: null, rows: null};
   let lastGridVersion = null;
@@ -1788,7 +1808,9 @@ __DAMAGE_TYPE_OPTIONS__
   if (loginNameInput){
     loginNameInput.value = storedUsername;
   }
-  setLoginState(false);
+  const cachedLoginRaw = localStorage.getItem(loginStateKey);
+  const cachedLogin = cachedLoginRaw === null ? !!storedUsername : cachedLoginRaw === "1";
+  setLoginState(!!storedUsername && cachedLogin);
   if (turnAlertStatus){
     refreshTurnAlertStatus();
   }
@@ -3093,16 +3115,14 @@ __DAMAGE_TYPE_OPTIONS__
 
   }
 
-  function centerOnClaimed(){
-    if (!state || !state.units || !claimedCid) return;
-    if (!gridReady()) return;
-    const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
-    if (!me) return;
+  function centerOnPoint(col, row){
+    if (!state || !state.grid) return false;
+    if (!gridReady()) return false;
     const w = canvas.getBoundingClientRect().width;
     const h = canvas.getBoundingClientRect().height;
     const cols = state.grid.cols, rows = state.grid.rows;
-    const desiredX = (w / 2) - (me.pos.col + 0.5) * zoom;
-    const desiredY = (h / 2) - (me.pos.row + 0.5) * zoom;
+    const desiredX = (w / 2) - (Number(col) + 0.5) * zoom;
+    const desiredY = (h / 2) - (Number(row) + 0.5) * zoom;
     const gridW = cols * zoom;
     const gridH = rows * zoom;
     if (gridW <= w) {
@@ -3117,7 +3137,51 @@ __DAMAGE_TYPE_OPTIONS__
       const minY = h - gridH;
       panY = Math.min(0, Math.max(minY, desiredY));
     }
-    centeredCid = String(claimedCid);
+    return true;
+  }
+
+  function centerOnClaimed(){
+    if (!state || !state.units || claimedCid === null || claimedCid === undefined) return false;
+    if (!gridReady()) return false;
+    const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
+    if (!me) return false;
+    const ok = centerOnPoint(me.pos.col, me.pos.row);
+    if (ok){
+      centeredCid = String(claimedCid);
+      draw();
+    }
+    return ok;
+  }
+
+  function centerOnGridCenter(){
+    if (!state || !state.grid) return false;
+    if (!gridReady()) return false;
+    const cols = Number(state.grid.cols || 0);
+    const rows = Number(state.grid.rows || 0);
+    const col = Math.max(0, (cols - 1) / 2);
+    const row = Math.max(0, (rows - 1) / 2);
+    const ok = centerOnPoint(col, row);
+    if (ok){
+      draw();
+    }
+    return ok;
+  }
+
+  function autoCenterOnJoin(){
+    if (!gridReady()) return;
+    if (claimedCid !== null && claimedCid !== undefined){
+      if (!initialCenterDone || (initialCenterFallback && centeredCid !== String(claimedCid))){
+        if (centerOnClaimed()){
+          initialCenterDone = true;
+          initialCenterFallback = false;
+        }
+      }
+    } else if (!initialCenterDone) {
+      if (centerOnGridCenter()){
+        initialCenterDone = true;
+        initialCenterFallback = true;
+      }
+    }
   }
 
   function formatTurnOrderLabel(unit){
@@ -3404,7 +3468,7 @@ __DAMAGE_TYPE_OPTIONS__
       send({type:"grid_request"});
       if (loginNameInput && loginNameInput.value.trim()){
         sendHello();
-      } else {
+      } else if (!storedUsername) {
         setLoginState(false);
       }
     });
@@ -3426,6 +3490,7 @@ __DAMAGE_TYPE_OPTIONS__
         const username = String(msg.username || "").trim();
         if (username){
           localStorage.setItem(usernameKey, username);
+          localStorage.setItem(loginStateKey, "1");
           if (loginNameInput){
             loginNameInput.value = username;
           }
@@ -3436,6 +3501,7 @@ __DAMAGE_TYPE_OPTIONS__
         refreshTurnAlertStatus();
       } else if (msg.type === "login_error"){
         setLoginState(false);
+        localStorage.removeItem(loginStateKey);
         setLoginError(msg.error || "Username required.");
       } else if (msg.type === "preset"){
         if (msg.preset && typeof msg.preset === "object"){
@@ -3457,6 +3523,7 @@ __DAMAGE_TYPE_OPTIONS__
         draw();
         updateHud();
         maybeShowTurnAlert();
+        autoCenterOnJoin();
         if (claimedCid && clientId && state && Array.isArray(state.units)){
           const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
           const serverOwner = me ? (me.claimed_by ?? null) : null;
@@ -3483,6 +3550,7 @@ __DAMAGE_TYPE_OPTIONS__
         if (msg.cid !== null && msg.cid !== undefined){
           claimedCid = String(msg.cid);
           shownNoOwnedToast = false;
+          autoCenterOnJoin();
         }
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
@@ -3794,8 +3862,9 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (centerMapBtn){
     centerMapBtn.addEventListener("click", () => {
-      centerOnClaimed();
-      draw();
+      if (!centerOnClaimed()){
+        centerOnGridCenter();
+      }
     });
   }
   if (measureToggle){
@@ -4838,6 +4907,10 @@ class LanController:
         with self._store_lock:
             self._account_store.ensure_account(username)
 
+    def _mark_login(self, username: str) -> None:
+        with self._store_lock:
+            self._account_store.mark_login(username)
+
     def _owner_for(self, cid: int) -> Optional[str]:
         with self._store_lock:
             return self._account_store.owner_for(cid)
@@ -5039,7 +5112,7 @@ class LanController:
                         with self._clients_lock:
                             self._client_usernames[ws_id] = username
                         try:
-                            self._ensure_account(username)
+                            self._mark_login(username)
                         except Exception:
                             pass
                         await ws.send_text(json.dumps({"type": "login_ok", "username": username}))
@@ -5850,6 +5923,9 @@ class InitiativeTracker(base.InitiativeTracker):
             lan.add_separator()
             lan.add_command(label="Sessions…", command=self._open_lan_sessions)
             menubar.add_cascade(label="LAN", menu=lan)
+            users = tk.Menu(menubar, tearoff=0)
+            users.add_command(label="User Management…", command=self._open_lan_admin)
+            menubar.add_cascade(label="Users", menu=users)
             self.config(menu=menubar)
         except Exception:
             pass
@@ -5859,7 +5935,7 @@ class InitiativeTracker(base.InitiativeTracker):
         messagebox.showinfo("LAN URL", f"Open this on yer LAN devices:\n\n{url}")
 
     def _show_lan_qr(self) -> None:
-        url = self._lan._best_lan_url()
+        url = "https://dnd.3045.network"
         try:
             import qrcode  # type: ignore
         except Exception as e:
@@ -6012,7 +6088,6 @@ class InitiativeTracker(base.InitiativeTracker):
             self.after(300, refresh_sessions)
 
         ttk.Button(controls, text="Refresh", command=refresh_sessions).pack(side=tk.LEFT)
-        ttk.Button(controls, text="LAN Admin…", command=self._open_lan_admin).pack(side=tk.LEFT, padx=(10, 0))
         ttk.Button(controls, text="Assign", command=do_assign).pack(side=tk.LEFT, padx=(10, 0))
         ttk.Button(controls, text="Unassign", command=do_kick).pack(side=tk.LEFT, padx=(6, 0))
         ttk.Button(controls, text="Close", command=win.destroy).pack(side=tk.RIGHT)
@@ -6022,7 +6097,7 @@ class InitiativeTracker(base.InitiativeTracker):
     def _open_lan_admin(self) -> None:
         """DM utility: manage LAN accounts, ownership, and sessions."""
         win = tk.Toplevel(self)
-        win.title("LAN Admin")
+        win.title("User Management")
         win.geometry("960x680")
         win.transient(self)
 
@@ -6049,17 +6124,19 @@ class InitiativeTracker(base.InitiativeTracker):
         tables = tk.Frame(outer)
         tables.pack(fill=tk.BOTH, expand=True)
 
-        accounts_frame = tk.LabelFrame(tables, text="Known Accounts")
+        accounts_frame = tk.LabelFrame(tables, text="Accounts Overview")
         accounts_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 6))
 
-        accounts_cols = ("username", "owned", "created_at")
+        accounts_cols = ("username", "owned", "created_at", "last_logged_in")
         accounts_tree = ttk.Treeview(accounts_frame, columns=accounts_cols, show="headings", height=8)
         accounts_tree.heading("username", text="Username")
         accounts_tree.heading("owned", text="Owned PCs")
         accounts_tree.heading("created_at", text="Created")
+        accounts_tree.heading("last_logged_in", text="Last Login")
         accounts_tree.column("username", width=160, anchor="w")
         accounts_tree.column("owned", width=220, anchor="w")
         accounts_tree.column("created_at", width=140, anchor="w")
+        accounts_tree.column("last_logged_in", width=160, anchor="w")
         accounts_tree.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
         ownership_frame = tk.LabelFrame(tables, text="PC Ownership")
@@ -6118,6 +6195,7 @@ class InitiativeTracker(base.InitiativeTracker):
             for account in accounts:
                 username = str(account.get("username", ""))
                 created_at = str(account.get("created_at", ""))
+                last_logged_in = str(account.get("last_logged_in", ""))
                 owned_names = []
                 for cid in account.get("owned_cids", []) or []:
                     try:
@@ -6125,7 +6203,9 @@ class InitiativeTracker(base.InitiativeTracker):
                     except Exception:
                         continue
                 owned_text = ", ".join(owned_names)
-                accounts_tree.insert("", "end", iid=username, values=(username, owned_text, created_at))
+                accounts_tree.insert(
+                    "", "end", iid=username, values=(username, owned_text, created_at, last_logged_in)
+                )
 
             ownership = self._lan.ownership_snapshot()
             for cid, name in cid_to_name.items():
