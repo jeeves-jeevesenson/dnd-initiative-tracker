@@ -395,6 +395,7 @@ HTML_INDEX = r"""<!doctype html>
   <link rel="apple-touch-icon" href="/assets/graphic.png" />
   <link rel="manifest" href="/assets/manifest.webmanifest" />
   <title>InitTracker LAN</title>
+  <script>window.PUSH_PUBLIC_KEY=__PUSH_PUBLIC_KEY__;</script>
   <style>
     :root{
       --bg:#0b0d10;
@@ -4934,7 +4935,9 @@ class LanController:
 
         @app.get("/")
         async def index():
-            return HTMLResponse(HTML_INDEX)
+            push_key = self.cfg.vapid_public_key
+            push_key_value = json.dumps(push_key) if push_key else "undefined"
+            return HTMLResponse(HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value))
 
         @app.get("/sw.js")
         async def service_worker():
