@@ -178,13 +178,23 @@ class LanAccountStore:
         self.save()
         return account
 
-    def mark_login(self, username: str) -> None:
+    def has_account(self, username: str) -> bool:
         username = str(username).strip()
         if not username:
-            return
-        account = self.ensure_account(username)
+            return False
+        account = self._data.get("accounts", {}).get(username)
+        return isinstance(account, dict)
+
+    def mark_login(self, username: str) -> bool:
+        username = str(username).strip()
+        if not username:
+            return False
+        account = self._data.get("accounts", {}).get(username)
+        if not isinstance(account, dict):
+            return False
         account["last_logged_in"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.save()
+        return True
 
     def push_subscriptions_for(self, username: str) -> List[Dict[str, Any]]:
         username = str(username).strip()
@@ -4907,9 +4917,13 @@ class LanController:
         with self._store_lock:
             self._account_store.ensure_account(username)
 
-    def _mark_login(self, username: str) -> None:
+    def _has_account(self, username: str) -> bool:
         with self._store_lock:
-            self._account_store.mark_login(username)
+            return self._account_store.has_account(username)
+
+    def _mark_login(self, username: str) -> bool:
+        with self._store_lock:
+            return self._account_store.mark_login(username)
 
     def _owner_for(self, cid: int) -> Optional[str]:
         with self._store_lock:
@@ -5108,6 +5122,16 @@ class LanController:
                             username = None
                         if not username:
                             await ws.send_text(json.dumps({"type": "login_error", "error": "Username required."}))
+                            continue
+                        if not self._has_account(username):
+                            await ws.send_text(
+                                json.dumps(
+                                    {
+                                        "type": "login_error",
+                                        "error": "Unknown username. Ask the DM to create your account first.",
+                                    }
+                                )
+                            )
                             continue
                         with self._clients_lock:
                             self._client_usernames[ws_id] = username
