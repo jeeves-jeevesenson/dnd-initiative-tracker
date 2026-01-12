@@ -1251,6 +1251,7 @@ HTML_INDEX = r"""<!doctype html>
         <div class="turn-alerts-row">
           <div class="turn-alerts-status" id="turnAlertStatus" aria-live="polite">Not installed.</div>
           <button class="btn" id="enableTurnAlerts" type="button">Enable Turn Alerts</button>
+          <button class="btn" id="hideTurnAlerts" type="button">Hide</button>
         </div>
         <div class="turn-alerts-note">Only works when installed as an app.</div>
       </fieldset>
@@ -1367,6 +1368,7 @@ __DAMAGE_TYPE_OPTIONS__
   const wsUrl = `${wsProto}://${location.host}/ws`;
   const pushPublicKey = (window.PUSH_PUBLIC_KEY || "").trim();
   const turnAlertStorageKey = "inittracker_turnAlertSubscription";
+  const turnAlertHideKey = "inittracker_hideTurnAlerts";
   let swRegistration = null;
 
   function setNotificationStatus(message){
@@ -1617,6 +1619,8 @@ __DAMAGE_TYPE_OPTIONS__
   const enableNotificationsBtn = document.getElementById("enableNotifications");
   const notificationStatus = document.getElementById("notificationStatus");
   const enableTurnAlertsBtn = document.getElementById("enableTurnAlerts");
+  const hideTurnAlertsBtn = document.getElementById("hideTurnAlerts");
+  const turnAlertsPanel = document.getElementById("turnAlertsPanel");
   const turnAlertStatus = document.getElementById("turnAlertStatus");
   const hotkeyTopbarTitleInput = document.getElementById("hotkeyTopbarTitle");
   const hotkeyConnStyleInput = document.getElementById("hotkeyConnStyle");
@@ -1783,13 +1787,18 @@ __DAMAGE_TYPE_OPTIONS__
   if (turnAlertStatus){
     refreshTurnAlertStatus();
   }
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isSafariEngine = /AppleWebKit/.test(navigator.userAgent);
+  const isAltBrowser = /CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true;
   if (iosInstallHint){
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isSafariEngine = /AppleWebKit/.test(navigator.userAgent);
-    const isAltBrowser = /CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
-    const isStandalone = window.navigator.standalone === true;
     const showHint = isIOS && isSafariEngine && !isAltBrowser && !isStandalone;
     iosInstallHint.classList.toggle("hidden", !showHint);
+  }
+  if (turnAlertsPanel){
+    const hideTurnAlerts = localStorage.getItem(turnAlertHideKey) === "1";
+    const shouldHideAlerts = !isIOS || hideTurnAlerts;
+    turnAlertsPanel.classList.toggle("hidden", shouldHideAlerts);
   }
   if (showAllNamesEl){
     showAllNamesEl.checked = showAllNames;
@@ -4454,6 +4463,12 @@ __DAMAGE_TYPE_OPTIONS__
         setTurnAlertStatus(message);
         localToast(message);
       }
+    });
+  }
+  if (hideTurnAlertsBtn && turnAlertsPanel){
+    hideTurnAlertsBtn.addEventListener("click", () => {
+      localStorage.setItem(turnAlertHideKey, "1");
+      turnAlertsPanel.classList.add("hidden");
     });
   }
   if (connEl && connPopoverEl){
