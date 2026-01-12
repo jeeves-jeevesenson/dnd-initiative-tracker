@@ -90,6 +90,132 @@ def _make_ops_logger() -> logging.Logger:
     return lg
 
 
+class LanAccountStore:
+    """Persist LAN accounts + ownership into a simple JSON file."""
+
+    def __init__(self, path: Optional[Path] = None, logger: Optional[logging.Logger] = None) -> None:
+        self._path = path or (_ensure_logs_dir() / "lan_accounts.json")
+        self._logger = logger
+        self._data: Dict[str, Any] = {"accounts": {}}
+        self._ownership: Dict[int, str] = {}
+        self.load()
+
+    def load(self) -> None:
+        try:
+            if not self._path.exists():
+                return
+            raw = json.loads(self._path.read_text(encoding="utf-8"))
+        except Exception:
+            return
+        accounts_raw = raw.get("accounts", {})
+        accounts: Dict[str, Dict[str, Any]] = {}
+        if isinstance(accounts_raw, dict):
+            candidates = list(accounts_raw.values())
+        elif isinstance(accounts_raw, list):
+            candidates = accounts_raw
+        else:
+            candidates = []
+        for entry in candidates:
+            if not isinstance(entry, dict):
+                continue
+            username = str(entry.get("username", "")).strip()
+            if not username:
+                continue
+            created_at = str(entry.get("created_at", "")).strip() or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            owned_raw = entry.get("owned_cids", [])
+            owned: List[int] = []
+            if isinstance(owned_raw, list):
+                for cid in owned_raw:
+                    try:
+                        owned.append(int(cid))
+                    except Exception:
+                        continue
+            accounts[username] = {"username": username, "created_at": created_at, "owned_cids": owned}
+        self._data["accounts"] = accounts
+        self._rebuild_ownership()
+
+    def save(self) -> None:
+        try:
+            payload = {"accounts": list(self._data.get("accounts", {}).values())}
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            self._path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        except Exception as exc:
+            if self._logger:
+                self._logger.warning("Failed to save LAN accounts: %s", exc)
+
+    def ensure_account(self, username: str) -> Dict[str, Any]:
+        username = str(username).strip()
+        if not username:
+            raise ValueError("Username required.")
+        accounts = self._data.setdefault("accounts", {})
+        account = accounts.get(username)
+        if account:
+            return account
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        account = {"username": username, "created_at": created_at, "owned_cids": []}
+        accounts[username] = account
+        self.save()
+        return account
+
+    def owner_for(self, cid: int) -> Optional[str]:
+        try:
+            cid = int(cid)
+        except Exception:
+            return None
+        return self._ownership.get(cid)
+
+    def claim(self, cid: int, username: str, force: bool = False) -> bool:
+        try:
+            cid = int(cid)
+        except Exception:
+            return False
+        username = str(username).strip()
+        if not username:
+            return False
+        owner = self._ownership.get(cid)
+        if owner and owner != username and not force:
+            return False
+        if owner and owner != username and force:
+            old_account = self._data.get("accounts", {}).get(owner)
+            if old_account:
+                old_account["owned_cids"] = [c for c in old_account.get("owned_cids", []) if int(c) != cid]
+        account = self.ensure_account(username)
+        if cid not in account.get("owned_cids", []):
+            account["owned_cids"].append(cid)
+        self._ownership[cid] = username
+        self.save()
+        return True
+
+    def clear_owner(self, cid: int) -> bool:
+        try:
+            cid = int(cid)
+        except Exception:
+            return False
+        owner = self._ownership.get(cid)
+        if not owner:
+            return False
+        account = self._data.get("accounts", {}).get(owner)
+        if account:
+            account["owned_cids"] = [c for c in account.get("owned_cids", []) if int(c) != cid]
+        self._ownership.pop(cid, None)
+        self.save()
+        return True
+
+    def _rebuild_ownership(self) -> None:
+        self._ownership = {}
+        accounts = self._data.get("accounts", {})
+        if not isinstance(accounts, dict):
+            return
+        for username, account in accounts.items():
+            if not isinstance(account, dict):
+                continue
+            for cid in account.get("owned_cids", []):
+                try:
+                    self._ownership[int(cid)] = str(username)
+                except Exception:
+                    continue
+
+
 # --- App metadata ---
 APP_VERSION = "41"
 
@@ -1154,13 +1280,23 @@ __DAMAGE_TYPE_OPTIONS__
       const div = document.createElement("div");
       div.className = "item";
       const taken = (u.claimed_by !== null && u.claimed_by !== undefined);
-      const meta = taken ? `Claimed` : `Unclaimed`;
-      const btnTxt = taken ? "Take" : "Claim";
-      div.innerHTML = `<div style="flex:1"><div class="name">${u.name}</div><div class="meta">Player Character • ${meta}</div></div><button class="btn accent">${btnTxt}</button>`;
-      div.querySelector("button").addEventListener("click", () => {
-        claimModal.classList.remove("show");
-        openColorModal(u);
-      });
+      const owner = (u.owned_by !== null && u.owned_by !== undefined) ? String(u.owned_by) : "";
+      const me = (storedUsername || "").trim();
+      const ownedByMe = owner && me && owner === me;
+      const ownedByOther = owner && (!me || owner !== me);
+      const ownerLabel = owner ? (ownedByMe ? "Owned by you" : `Owned by ${owner}`) : "Unowned";
+      const meta = `Player Character • ${ownerLabel} • ${taken ? "Claimed" : "Unclaimed"}`;
+      const btnTxt = ownedByOther ? "Owned" : (taken ? "Take" : "Claim");
+      div.innerHTML = `<div style="flex:1"><div class="name">${u.name}</div><div class="meta">${meta}</div></div><button class="btn accent">${btnTxt}</button>`;
+      const button = div.querySelector("button");
+      if (ownedByOther){
+        button.disabled = true;
+      } else {
+        button.addEventListener("click", () => {
+          claimModal.classList.remove("show");
+          openColorModal(u);
+        });
+      }
       claimList.appendChild(div);
     });
     claimModal.classList.add("show");
@@ -3074,6 +3210,8 @@ class LanController:
         self._server_thread: Optional[threading.Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._uvicorn_server = None
+        self._account_store = LanAccountStore(logger=self.app._ops_logger)
+        self._store_lock = threading.Lock()
 
         self._clients_lock = threading.Lock()
         self._clients: Dict[int, Any] = {}  # id(websocket) -> websocket
@@ -3104,6 +3242,22 @@ class LanController:
         self._cached_pcs: List[Dict[str, Any]] = []
 
     # ---------- Tk thread API ----------
+
+    def _ensure_account(self, username: str) -> None:
+        with self._store_lock:
+            self._account_store.ensure_account(username)
+
+    def _owner_for(self, cid: int) -> Optional[str]:
+        with self._store_lock:
+            return self._account_store.owner_for(cid)
+
+    def _claim_owner(self, cid: int, username: str, allow_override: bool = False) -> bool:
+        with self._store_lock:
+            return self._account_store.claim(cid, username, force=allow_override)
+
+    def _clear_owner(self, cid: int) -> bool:
+        with self._store_lock:
+            return self._account_store.clear_owner(cid)
 
     def start(self, quiet: bool = False) -> None:
         if self._server_thread and self._server_thread.is_alive():
@@ -3193,16 +3347,20 @@ class LanController:
                             continue
                         with self._clients_lock:
                             self._client_usernames[ws_id] = username
+                        try:
+                            self._ensure_account(username)
+                        except Exception:
+                            pass
                         await ws.send_text(json.dumps({"type": "login_ok", "username": username}))
                         if client_id:
                             with self._clients_lock:
                                 self._client_ids[ws_id] = client_id
                             known_claim = self._client_claims.get(client_id)
-                            if known_claim is not None and self._can_auto_claim(int(known_claim)):
+                            if known_claim is not None and self._can_auto_claim(int(known_claim), username):
                                 await self._claim_ws_async(ws_id, int(known_claim), note="Reconnected.")
-                            elif isinstance(claimed, int) and self._can_auto_claim(int(claimed)):
+                            elif isinstance(claimed, int) and self._can_auto_claim(int(claimed), username):
                                 await self._claim_ws_async(ws_id, int(claimed), note="Reconnected.")
-                        elif isinstance(claimed, int) and self._can_auto_claim(int(claimed)):
+                        elif isinstance(claimed, int) and self._can_auto_claim(int(claimed), username):
                             await self._claim_ws_async(ws_id, int(claimed), note="Reconnected.")
                         await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
                     elif typ == "grid_request":
@@ -3221,6 +3379,10 @@ class LanController:
                             continue
                         cid = msg.get("cid")
                         if isinstance(cid, int):
+                            owner = self._owner_for(cid)
+                            if owner and owner != username:
+                                await self._send_async(ws_id, {"type": "toast", "text": f"{self._pc_name_for(cid)} belongs to {owner}."})
+                                continue
                             await self._claim_ws_async(ws_id, cid, note="Claimed. Drag yer token, matey.")
                             await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
                     elif typ == "log_request":
@@ -3354,9 +3516,9 @@ class LanController:
             return
         if cid is None:
             # unclaim
-            await self._unclaim_ws_async(ws_id, reason=note)
+            await self._unclaim_ws_async(ws_id, reason=note, clear_ownership=True)
             return
-        await self._claim_ws_async(ws_id, int(cid), note=note)
+        await self._claim_ws_async(ws_id, int(cid), note=note, allow_override=True)
 
     def _tick(self) -> None:
         """Runs on Tk thread: process actions and broadcast state when changed."""
@@ -3404,12 +3566,14 @@ class LanController:
         out: List[Dict[str, Any]] = []
         for p in pcs:
             pp = dict(p)
-            pp["claimed_by"] = cid_to_client.get(int(pp.get("cid", -1)))
+            cid = int(pp.get("cid", -1))
+            pp["claimed_by"] = cid_to_client.get(cid)
+            pp["owned_by"] = self._owner_for(cid)
             out.append(pp)
         out.sort(key=lambda d: str(d.get("name", "")))
         return out
 
-    def _can_auto_claim(self, cid: int) -> bool:
+    def _can_auto_claim(self, cid: int, username: Optional[str] = None) -> bool:
         try:
             cid = int(cid)
         except Exception:
@@ -3417,6 +3581,10 @@ class LanController:
         pcs = {int(p.get("cid")) for p in self._cached_pcs if isinstance(p.get("cid"), int)}
         if cid not in pcs:
             return False
+        if username:
+            owner = self._owner_for(cid)
+            if owner and owner != username:
+                return False
         with self._clients_lock:
             return self._cid_to_ws.get(cid) is None
 
@@ -3576,7 +3744,9 @@ class LanController:
         except Exception:
             pass
 
-    async def _unclaim_ws_async(self, ws_id: int, reason: str = "Unclaimed") -> None:
+    async def _unclaim_ws_async(
+        self, ws_id: int, reason: str = "Unclaimed", clear_ownership: bool = False
+    ) -> None:
         # Drop claim mapping
         with self._clients_lock:
             old = self._claims.pop(ws_id, None)
@@ -3586,17 +3756,28 @@ class LanController:
             client_id = self._client_ids.get(ws_id)
             if client_id:
                 self._client_claims.pop(client_id, None)
+        if old is not None and clear_ownership:
+            self._clear_owner(int(old))
         if old is not None:
             name = self._pc_name_for(int(old))
             self.app._oplog(f"LAN session ws_id={ws_id} unclaimed {name} ({reason})")
         await self._send_async(ws_id, {"type": "force_unclaim", "text": reason, "pcs": self._pcs_payload()})
 
-    async def _claim_ws_async(self, ws_id: int, cid: int, note: str = "Claimed") -> None:
+    async def _claim_ws_async(
+        self, ws_id: int, cid: int, note: str = "Claimed", allow_override: bool = False
+    ) -> None:
         # Ensure cid is a PC
         pcs = {int(p.get("cid")): p for p in self._cached_pcs}
         if int(cid) not in pcs:
             await self._send_async(ws_id, {"type": "toast", "text": "That character ain't claimable, matey."})
             return
+        with self._clients_lock:
+            username = self._client_usernames.get(ws_id)
+        if username:
+            owner = self._owner_for(cid)
+            if owner and owner != username and not allow_override:
+                await self._send_async(ws_id, {"type": "toast", "text": f"{self._pc_name_for(cid)} belongs to {owner}."})
+                return
 
         # Steal/assign with single-owner logic
         steal_from: Optional[int] = None
@@ -3631,6 +3812,9 @@ class LanController:
                         self._cid_to_client[int(cid)] = client_id
                     else:
                         self._cid_to_client.pop(int(cid), None)
+
+        if username:
+            self._claim_owner(int(cid), username, allow_override=allow_override)
 
         if steal_from is not None and steal_from != ws_id:
             await self._send_async(steal_from, {"type": "force_unclaim", "text": "Yer character got reassigned by the DM.", "pcs": self._pcs_payload()})
