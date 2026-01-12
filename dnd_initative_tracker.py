@@ -96,10 +96,13 @@ class LanAccountStore:
 
     def __init__(self, path: Optional[Path] = None, logger: Optional[logging.Logger] = None) -> None:
         self._path = path or (_ensure_logs_dir() / "lan_accounts.json")
+        self._links_path = _ensure_logs_dir() / "lan_account_links.json"
         self._logger = logger
         self._data: Dict[str, Any] = {"accounts": {}}
         self._ownership: Dict[int, str] = {}
+        self._linked_accounts: Dict[str, List[int]] = {}
         self.load()
+        self._load_links()
 
     def load(self) -> None:
         try:
@@ -363,6 +366,18 @@ class LanAccountStore:
     def ownership_snapshot(self) -> Dict[int, str]:
         return dict(self._ownership)
 
+    def apply_linked_ownership(self, username: str, force: bool = True) -> List[int]:
+        username = str(username).strip()
+        if not username:
+            return []
+        self._load_links()
+        linked = list(self._linked_accounts.get(username, []))
+        if not linked:
+            return []
+        for cid in linked:
+            self.claim(cid, username, force=force)
+        return linked
+
     def _rebuild_ownership(self) -> None:
         self._ownership = {}
         accounts = self._data.get("accounts", {})
@@ -376,6 +391,43 @@ class LanAccountStore:
                     self._ownership[int(cid)] = str(username)
                 except Exception:
                     continue
+
+    def _load_links(self) -> None:
+        links: Dict[str, List[int]] = {}
+        try:
+            if not self._links_path.exists():
+                self._linked_accounts = {}
+                return
+            raw = json.loads(self._links_path.read_text(encoding="utf-8"))
+        except Exception:
+            self._linked_accounts = {}
+            return
+        if isinstance(raw, dict) and "links" in raw:
+            mapping = raw.get("links")
+        else:
+            mapping = raw
+        candidates: List[Tuple[str, Any]] = []
+        if isinstance(mapping, dict):
+            candidates = [(str(k), v) for k, v in mapping.items()]
+        elif isinstance(mapping, list):
+            for entry in mapping:
+                if not isinstance(entry, dict):
+                    continue
+                username = str(entry.get("username", "")).strip()
+                if not username:
+                    continue
+                candidates.append((username, entry.get("cids") or entry.get("pc_ids")))
+        for username, ids in candidates:
+            cleaned: List[int] = []
+            if isinstance(ids, list):
+                for cid in ids:
+                    try:
+                        cleaned.append(int(cid))
+                    except Exception:
+                        continue
+            if cleaned:
+                links[username] = cleaned
+        self._linked_accounts = links
 
     @staticmethod
     def _normalize_push_subscriptions(raw: Any) -> List[Dict[str, Any]]:
@@ -4947,6 +4999,10 @@ class LanController:
         with self._store_lock:
             return self._account_store.mark_login(username)
 
+    def _apply_linked_ownership(self, username: str) -> List[int]:
+        with self._store_lock:
+            return self._account_store.apply_linked_ownership(username, force=True)
+
     def _owner_for(self, cid: int) -> Optional[str]:
         with self._store_lock:
             return self._account_store.owner_for(cid)
@@ -5169,6 +5225,10 @@ class LanController:
                             self._client_usernames[ws_id] = username
                         try:
                             self._mark_login(username)
+                        except Exception:
+                            pass
+                        try:
+                            self._apply_linked_ownership(username)
                         except Exception:
                             pass
                         await ws.send_text(json.dumps({"type": "login_ok", "username": username}))
