@@ -2032,6 +2032,14 @@ class InitiativeTracker(tk.Tk):
                 # likely stuck in a skip loop; stop so we don't spin forever
                 break
 
+        if self.current_cid is not None and self.current_cid in self.combatants:
+            lan = getattr(self, "_lan", None)
+            if lan and hasattr(lan, "notify_turn_start"):
+                try:
+                    lan.notify_turn_start(self.current_cid, self.round_num, self.turn_num)
+                except Exception:
+                    pass
+
         self.start_last_var.set(" | ".join(logs))
         self._update_turn_ui()
 

@@ -20,6 +20,7 @@ import threading
 import time
 import logging
 import re
+import os
 from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
@@ -125,6 +126,7 @@ class LanAccountStore:
             preset = entry.get("preset")
             if not isinstance(preset, dict):
                 preset = None
+            push_subs = self._normalize_push_subscriptions(entry.get("push_subscriptions"))
             owned_raw = entry.get("owned_cids", [])
             owned: List[int] = []
             if isinstance(owned_raw, list):
@@ -136,6 +138,8 @@ class LanAccountStore:
             account: Dict[str, Any] = {"username": username, "created_at": created_at, "owned_cids": owned}
             if preset is not None:
                 account["preset"] = preset
+            if push_subs:
+                account["push_subscriptions"] = push_subs
             accounts[username] = account
         self._data["accounts"] = accounts
         self._rebuild_ownership()
@@ -156,12 +160,77 @@ class LanAccountStore:
         accounts = self._data.setdefault("accounts", {})
         account = accounts.get(username)
         if account:
+            if "push_subscriptions" not in account:
+                account["push_subscriptions"] = []
             return account
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        account = {"username": username, "created_at": created_at, "owned_cids": []}
+        account = {"username": username, "created_at": created_at, "owned_cids": [], "push_subscriptions": []}
         accounts[username] = account
         self.save()
         return account
+
+    def push_subscriptions_for(self, username: str) -> List[Dict[str, Any]]:
+        username = str(username).strip()
+        if not username:
+            return []
+        account = self._data.get("accounts", {}).get(username)
+        if not isinstance(account, dict):
+            return []
+        subs = self._normalize_push_subscriptions(account.get("push_subscriptions"))
+        return [dict(sub) for sub in subs]
+
+    def upsert_push_subscription(self, username: str, subscription: Dict[str, Any]) -> bool:
+        username = str(username).strip()
+        if not username or not isinstance(subscription, dict):
+            return False
+        endpoint = str(subscription.get("endpoint", "") or "").strip()
+        keys = subscription.get("keys")
+        if not endpoint or not isinstance(keys, dict):
+            return False
+        p256dh = str(keys.get("p256dh", "") or "").strip()
+        auth = str(keys.get("auth", "") or "").strip()
+        if not p256dh or not auth:
+            return False
+        account = self.ensure_account(username)
+        subs = self._normalize_push_subscriptions(account.get("push_subscriptions"))
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        updated = False
+        for sub in subs:
+            if str(sub.get("endpoint", "")).strip() == endpoint:
+                sub["keys"] = {"p256dh": p256dh, "auth": auth}
+                sub["updated_at"] = now
+                updated = True
+                break
+        if not updated:
+            subs.append(
+                {
+                    "endpoint": endpoint,
+                    "keys": {"p256dh": p256dh, "auth": auth},
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            )
+        account["push_subscriptions"] = subs
+        self.save()
+        return True
+
+    def remove_push_subscription(self, username: str, endpoint: str) -> bool:
+        username = str(username).strip()
+        if not username:
+            return False
+        endpoint = str(endpoint).strip()
+        if not endpoint:
+            return False
+        account = self._data.get("accounts", {}).get(username)
+        if not isinstance(account, dict):
+            return False
+        subs = self._normalize_push_subscriptions(account.get("push_subscriptions"))
+        next_subs = [sub for sub in subs if str(sub.get("endpoint", "")).strip() != endpoint]
+        if len(next_subs) == len(subs):
+            return False
+        account["push_subscriptions"] = next_subs
+        self.save()
+        return True
 
     def preset_for(self, username: str) -> Optional[Dict[str, Any]]:
         username = str(username).strip()
@@ -258,6 +327,38 @@ class LanAccountStore:
                     self._ownership[int(cid)] = str(username)
                 except Exception:
                     continue
+
+    @staticmethod
+    def _normalize_push_subscriptions(raw: Any) -> List[Dict[str, Any]]:
+        if not isinstance(raw, list):
+            return []
+        cleaned: List[Dict[str, Any]] = []
+        for entry in raw:
+            if not isinstance(entry, dict):
+                continue
+            endpoint = str(entry.get("endpoint", "") or "").strip()
+            keys = entry.get("keys")
+            if not endpoint or not isinstance(keys, dict):
+                continue
+            p256dh = str(keys.get("p256dh", "") or "").strip()
+            auth = str(keys.get("auth", "") or "").strip()
+            if not p256dh or not auth:
+                continue
+            created_at = str(entry.get("created_at", "") or "").strip()
+            updated_at = str(entry.get("updated_at", "") or "").strip()
+            if not created_at:
+                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if not updated_at:
+                updated_at = created_at
+            cleaned.append(
+                {
+                    "endpoint": endpoint,
+                    "keys": {"p256dh": p256dh, "auth": auth},
+                    "created_at": created_at,
+                    "updated_at": updated_at,
+                }
+            )
+        return cleaned
 
 
 # --- App metadata ---
@@ -4629,6 +4730,20 @@ HTML_INDEX = HTML_INDEX.replace("__DAMAGE_TYPE_OPTIONS__", DAMAGE_TYPE_OPTIONS)
 class LanConfig:
     host: str = "0.0.0.0"
     port: int = 8787
+    vapid_public_key: Optional[str] = None
+    vapid_private_key: Optional[str] = None
+    vapid_subject: str = "mailto:dm@example.com"
+
+    def __post_init__(self) -> None:
+        env_public = os.getenv("INITTRACKER_VAPID_PUBLIC_KEY")
+        env_private = os.getenv("INITTRACKER_VAPID_PRIVATE_KEY")
+        env_subject = os.getenv("INITTRACKER_VAPID_SUBJECT")
+        if env_public:
+            self.vapid_public_key = env_public.strip()
+        if env_private:
+            self.vapid_private_key = env_private.strip()
+        if env_subject:
+            self.vapid_subject = env_subject.strip()
 
 
 @dataclass
@@ -4712,6 +4827,18 @@ class LanController:
         with self._store_lock:
             return self._account_store.set_preset(username, preset)
 
+    def _push_subscriptions_for_username(self, username: str) -> List[Dict[str, Any]]:
+        with self._store_lock:
+            return self._account_store.push_subscriptions_for(username)
+
+    def _save_push_subscription(self, username: str, subscription: Dict[str, Any]) -> bool:
+        with self._store_lock:
+            return self._account_store.upsert_push_subscription(username, subscription)
+
+    def _remove_push_subscription(self, username: str, endpoint: str) -> bool:
+        with self._store_lock:
+            return self._account_store.remove_push_subscription(username, endpoint)
+
     def accounts_snapshot(self) -> List[Dict[str, Any]]:
         with self._store_lock:
             accounts = self._account_store.accounts_snapshot()
@@ -4752,7 +4879,7 @@ class LanController:
 
         # Lazy imports so the base app still works without these deps installed.
         try:
-            from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+            from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
             from fastapi.responses import HTMLResponse, Response
             from fastapi.staticfiles import StaticFiles
             import uvicorn
@@ -4786,6 +4913,35 @@ class LanController:
         @app.get("/sw.js")
         async def service_worker():
             return Response(SERVICE_WORKER_JS, media_type="application/javascript")
+
+        @app.post("/api/push/subscribe")
+        async def push_subscribe(payload: Dict[str, Any] = Body(...)):
+            if not isinstance(payload, dict):
+                raise HTTPException(status_code=400, detail="Invalid payload.")
+            subscription = payload.get("subscription")
+            if subscription is None and "endpoint" in payload:
+                subscription = payload
+            if not isinstance(subscription, dict):
+                raise HTTPException(status_code=400, detail="Invalid subscription.")
+            username = payload.get("username")
+            if isinstance(username, str):
+                username = username.strip()
+            else:
+                username = None
+            player_id = payload.get("playerId")
+            if username is None and player_id is not None:
+                try:
+                    owner = self._owner_for(int(player_id))
+                except Exception:
+                    owner = None
+                if owner:
+                    username = owner
+            if not username:
+                raise HTTPException(status_code=404, detail="Unable to resolve username.")
+            ok = self._save_push_subscription(username, subscription)
+            if not ok:
+                raise HTTPException(status_code=400, detail="Invalid subscription payload.")
+            return {"ok": True, "username": username}
 
         @app.websocket("/ws")
         async def ws_endpoint(ws: WebSocket):
@@ -5004,6 +5160,79 @@ class LanController:
             except Exception:
                 pass
         self.app._oplog("LAN server be lowerin' sails (stoppin').")
+
+    def notify_turn_start(self, cid: int, round_num: int, turn_num: int) -> None:
+        """Send push notification for the newly active combatant (if subscribed)."""
+        try:
+            cid = int(cid)
+        except Exception:
+            return
+        worker = threading.Thread(
+            target=self._dispatch_turn_notification,
+            args=(cid, int(round_num), int(turn_num)),
+            daemon=True,
+        )
+        worker.start()
+
+    def _dispatch_turn_notification(self, cid: int, round_num: int, turn_num: int) -> None:
+        username = self._owner_for(cid)
+        if not username:
+            return
+        subscriptions = self._push_subscriptions_for_username(username)
+        if not subscriptions:
+            return
+        name = self._pc_name_for(cid)
+        payload = {
+            "title": "Your turn!",
+            "body": f"{name} is up (round {round_num}, turn {turn_num}).",
+            "url": "/",
+        }
+        invalid = self._send_push_notifications(subscriptions, payload)
+        for endpoint in invalid:
+            self._remove_push_subscription(username, endpoint)
+
+    def _send_push_notifications(self, subscriptions: List[Dict[str, Any]], payload: Dict[str, Any]) -> List[str]:
+        if not subscriptions:
+            return []
+        try:
+            from pywebpush import webpush, WebPushException  # type: ignore
+        except Exception as exc:
+            self.app._oplog(f"Push notifications unavailable (pywebpush missing): {exc}", level="warning")
+            return []
+        if not self.cfg.vapid_private_key or not self.cfg.vapid_public_key:
+            self.app._oplog(
+                "Push notifications skipped (missing VAPID keys). Set INITTRACKER_VAPID_PUBLIC_KEY/PRIVATE_KEY.",
+                level="warning",
+            )
+            return []
+        invalid: List[str] = []
+        data = json.dumps(payload)
+        for sub in subscriptions:
+            endpoint = str(sub.get("endpoint", "") or "").strip()
+            keys = sub.get("keys") if isinstance(sub, dict) else None
+            if not endpoint or not isinstance(keys, dict):
+                continue
+            p256dh = str(keys.get("p256dh", "") or "").strip()
+            auth = str(keys.get("auth", "") or "").strip()
+            if not p256dh or not auth:
+                continue
+            subscription_info = {"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth}}
+            try:
+                webpush(
+                    subscription_info,
+                    data=data,
+                    vapid_private_key=self.cfg.vapid_private_key,
+                    vapid_claims={"sub": self.cfg.vapid_subject},
+                )
+            except WebPushException as exc:
+                status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                if status_code in (404, 410):
+                    invalid.append(endpoint)
+                else:
+                    self.app._oplog(f"Push send failed for {endpoint}: {exc}", level="warning")
+            except Exception as exc:
+                self.app._oplog(f"Push send failed for {endpoint}: {exc}", level="warning")
+        return invalid
 
     # ---------- Sessions / Claims (Tk thread safe) ----------
 
