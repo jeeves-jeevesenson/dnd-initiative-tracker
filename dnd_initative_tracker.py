@@ -1064,6 +1064,18 @@ HTML_INDEX = r"""<!doctype html>
             </div>
           </div>
         </details>
+        <details class="config-section">
+          <summary>Notifications</summary>
+          <div class="config-list">
+            <div class="config-item">
+              <div class="config-item-title">Push notifications</div>
+              <div class="config-controls">
+                <button class="btn" id="enableNotifications" type="button">Enable</button>
+                <div class="preset-status" id="notificationStatus" aria-live="polite"></div>
+              </div>
+            </div>
+          </div>
+        </details>
         <div class="hint hidden" id="iosInstallHint">
           Open Safari → Share → Add to Home Screen.
           <a href="https://support.apple.com/en-us/HT201366" target="_blank" rel="noopener">Learn more</a>
@@ -1218,6 +1230,55 @@ __DAMAGE_TYPE_OPTIONS__
   const qs = new URLSearchParams(location.search);
   const wsProto = (location.protocol === "https:") ? "wss" : "ws";
   const wsUrl = `${wsProto}://${location.host}/ws`;
+  const pushPublicKey = (window.PUSH_PUBLIC_KEY || "").trim();
+  let swRegistration = null;
+
+  function setNotificationStatus(message){
+    if (!notificationStatus) return;
+    notificationStatus.textContent = message;
+  }
+
+  function routeDeepLink(url){
+    if (!url) return;
+    try {
+      const target = new URL(url, location.origin);
+      if (target.origin === location.origin){
+        location.href = target.href;
+      } else {
+        location.href = url;
+      }
+    } catch (err){
+      location.href = url;
+    }
+  }
+
+  function urlBase64ToUint8Array(base64String){
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i){
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  if ("serviceWorker" in navigator){
+    navigator.serviceWorker.register("/sw.js")
+      .then(() => navigator.serviceWorker.ready)
+      .then((registration) => {
+        swRegistration = registration;
+        navigator.serviceWorker.addEventListener("message", (event) => {
+          const data = event.data || {};
+          if (data && data.type === "deep-link" && typeof data.url === "string"){
+            routeDeepLink(data.url);
+          }
+        });
+      })
+      .catch((err) => {
+        console.warn("Service worker registration failed.", err);
+      });
+  }
 
   const connEl = document.getElementById("conn");
   const connFullTextEl = document.getElementById("connFullText");
@@ -1275,6 +1336,8 @@ __DAMAGE_TYPE_OPTIONS__
   const presetSaveBtn = document.getElementById("savePreset");
   const presetLoadBtn = document.getElementById("loadPreset");
   const presetStatus = document.getElementById("presetStatus");
+  const enableNotificationsBtn = document.getElementById("enableNotifications");
+  const notificationStatus = document.getElementById("notificationStatus");
   const hotkeyTopbarTitleInput = document.getElementById("hotkeyTopbarTitle");
   const hotkeyConnStyleInput = document.getElementById("hotkeyConnStyle");
   const hotkeyLockMapInput = document.getElementById("hotkeyLockMap");
@@ -4032,6 +4095,52 @@ __DAMAGE_TYPE_OPTIONS__
       send({type: "load_preset"});
     });
   }
+  if (enableNotificationsBtn){
+    enableNotificationsBtn.addEventListener("click", async () => {
+      if (!("Notification" in window)){
+        setNotificationStatus("Notifications are not supported.");
+        return;
+      }
+      try {
+        if (!swRegistration){
+          swRegistration = await navigator.serviceWorker.ready;
+        }
+      } catch (err){
+        console.warn("Service worker not ready.", err);
+        setNotificationStatus("Service worker not ready.");
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted"){
+        setNotificationStatus("Notifications blocked.");
+        return;
+      }
+      if (!("PushManager" in window)){
+        setNotificationStatus("Push is not supported.");
+        return;
+      }
+      try {
+        const existing = await swRegistration.pushManager.getSubscription();
+        if (existing){
+          setNotificationStatus("Notifications already enabled.");
+          return;
+        }
+        if (!pushPublicKey){
+          setNotificationStatus("Missing push public key.");
+          return;
+        }
+        const subscription = await swRegistration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(pushPublicKey),
+        });
+        console.log("Push subscription:", JSON.stringify(subscription));
+        setNotificationStatus("Notifications enabled.");
+      } catch (err){
+        console.warn("Push subscription failed.", err);
+        setNotificationStatus("Failed to enable notifications.");
+      }
+    });
+  }
   if (connEl && connPopoverEl){
     connEl.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -4267,6 +4376,48 @@ __DAMAGE_TYPE_OPTIONS__
 </html>
 """
 
+SERVICE_WORKER_JS = r"""self.addEventListener("push", (event) => {
+  let payload = {};
+  if (event.data){
+    try {
+      payload = event.data.json();
+    } catch (err){
+      try {
+        payload = { body: event.data.text() };
+      } catch (parseErr){
+        payload = {};
+      }
+    }
+  }
+  const title = payload.title || "InitTracker LAN";
+  const body = payload.body || "You have a new alert.";
+  const url = payload.url || "/";
+  const options = {
+    body,
+    data: { url },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification && event.notification.data && event.notification.data.url) ? event.notification.data.url : "/";
+  event.waitUntil((async () => {
+    const clientList = await clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of clientList){
+      client.postMessage({ type: "deep-link", url });
+      if ("focus" in client){
+        await client.focus();
+        return;
+      }
+    }
+    if (clients.openWindow){
+      await clients.openWindow(url);
+    }
+  })());
+});
+"""
+
 HTML_INDEX = HTML_INDEX.replace("__DAMAGE_TYPE_OPTIONS__", DAMAGE_TYPE_OPTIONS)
 
 # ----------------------------- LAN plumbing -----------------------------
@@ -4399,7 +4550,7 @@ class LanController:
         # Lazy imports so the base app still works without these deps installed.
         try:
             from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-            from fastapi.responses import HTMLResponse
+            from fastapi.responses import HTMLResponse, Response
             from fastapi.staticfiles import StaticFiles
             import uvicorn
             # Expose these in module globals so FastAPI's type resolver can see 'em even from nested defs.
@@ -4428,6 +4579,10 @@ class LanController:
         @app.get("/")
         async def index():
             return HTMLResponse(HTML_INDEX)
+
+        @app.get("/sw.js")
+        async def service_worker():
+            return Response(SERVICE_WORKER_JS, media_type="application/javascript")
 
         @app.websocket("/ws")
         async def ws_endpoint(ws: WebSocket):
