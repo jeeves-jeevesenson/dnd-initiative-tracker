@@ -38,7 +38,7 @@ except Exception:  # pragma: no cover
 import tkinter as tk
 import tkinter.font as tkfont
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Set
+from typing import Any, Dict, List, Optional, Tuple, Set
 from tkinter import messagebox, ttk, simpledialog, filedialog
 
 PIL_IMAGE_IMPORT_ERROR: Optional[str] = None
@@ -207,6 +207,7 @@ class MonsterSpec:
     dex: Optional[int]
     init_mod: Optional[int]
     saving_throws: Dict[str, int]
+    raw_data: Dict[str, Any]
 
 
 @dataclass
@@ -2431,11 +2432,42 @@ class InitiativeTracker(tk.Tk):
                 continue
             if not isinstance(data, dict):
                 continue
-            mon = data.get("monster")
-            if not isinstance(mon, dict):
-                continue
+            legacy_mon = data.get("monster")
+            is_legacy = "monster" in data
+            if is_legacy:
+                if not isinstance(legacy_mon, dict):
+                    continue
+                mon = legacy_mon
+            else:
+                mon = data
 
-            name = str(mon.get("name") or fp.stem).strip()
+            raw_data: Dict[str, Any] = {}
+            abilities: Dict[str, Any] = {}
+            if not is_legacy:
+                for key in (
+                    "challenge_rating",
+                    "ac",
+                    "hp",
+                    "speed",
+                    "traits",
+                    "actions",
+                    "legendary_actions",
+                    "description",
+                    "habitat",
+                    "treasure",
+                ):
+                    if key in mon:
+                        raw_data[key] = mon.get(key)
+                ab = mon.get("abilities")
+                if isinstance(ab, dict):
+                    for key, val in ab.items():
+                        if not isinstance(key, str):
+                            continue
+                        abilities[key.strip().lower()] = val
+                    if abilities:
+                        raw_data["abilities"] = abilities
+
+            name = str(mon.get("name") or (fp.stem if is_legacy else "")).strip()
             if not name:
                 continue
 
@@ -2443,9 +2475,12 @@ class InitiativeTracker(tk.Tk):
 
             cr_val = None
             try:
-                ch = mon.get("challenge") or {}
-                if isinstance(ch, dict) and "cr" in ch:
-                    cr_val = ch.get("cr")
+                if is_legacy:
+                    ch = mon.get("challenge") or {}
+                    if isinstance(ch, dict) and "cr" in ch:
+                        cr_val = ch.get("cr")
+                else:
+                    cr_val = mon.get("challenge_rating")
             except Exception:
                 cr_val = None
             cr: Optional[float] = None
@@ -2459,40 +2494,54 @@ class InitiativeTracker(tk.Tk):
 
             hp = None
             try:
-                defs = mon.get("defenses") or {}
-                if isinstance(defs, dict):
-                    hp_block = defs.get("hit_points") or {}
-                    if isinstance(hp_block, dict):
-                        avg = hp_block.get("average")
-                        if isinstance(avg, int):
-                            hp = int(avg)
-                        elif isinstance(avg, str) and avg.strip().isdigit():
-                            hp = int(avg.strip())
+                if is_legacy:
+                    defs = mon.get("defenses") or {}
+                    if isinstance(defs, dict):
+                        hp_block = defs.get("hit_points") or {}
+                        if isinstance(hp_block, dict):
+                            avg = hp_block.get("average")
+                            if isinstance(avg, int):
+                                hp = int(avg)
+                            elif isinstance(avg, str) and avg.strip().isdigit():
+                                hp = int(avg.strip())
+                else:
+                    hp_val = mon.get("hp")
+                    if isinstance(hp_val, int):
+                        hp = int(hp_val)
+                    elif isinstance(hp_val, str) and hp_val.strip().lstrip("-").isdigit():
+                        hp = int(hp_val.strip())
             except Exception:
                 hp = None
 
             speed = None
             swim_speed = None
             try:
-                sp = mon.get("speed") or {}
-                if isinstance(sp, dict):
-                    wf = sp.get("walk_ft")
-                    sf = sp.get("swim_ft")
-                    if isinstance(wf, int):
-                        speed = int(wf)
-                    elif isinstance(wf, str) and wf.strip().isdigit():
-                        speed = int(wf.strip())
-                    if isinstance(sf, int):
-                        swim_speed = int(sf)
-                    elif isinstance(sf, str) and sf.strip().isdigit():
-                        swim_speed = int(sf.strip())
+                if is_legacy:
+                    sp = mon.get("speed") or {}
+                    if isinstance(sp, dict):
+                        wf = sp.get("walk_ft")
+                        sf = sp.get("swim_ft")
+                        if isinstance(wf, int):
+                            speed = int(wf)
+                        elif isinstance(wf, str) and wf.strip().isdigit():
+                            speed = int(wf.strip())
+                        if isinstance(sf, int):
+                            swim_speed = int(sf)
+                        elif isinstance(sf, str) and sf.strip().isdigit():
+                            swim_speed = int(sf.strip())
+                else:
+                    sp = mon.get("speed")
+                    if isinstance(sp, int):
+                        speed = int(sp)
+                    elif isinstance(sp, str) and sp.strip().lstrip("-").isdigit():
+                        speed = int(sp.strip())
             except Exception:
                 speed = None
                 swim_speed = None
 
             dex = None
             try:
-                ab = mon.get("abilities") or {}
+                ab = abilities if abilities else (mon.get("abilities") or {})
                 if isinstance(ab, dict):
                     dv = ab.get("dex")
                     if isinstance(dv, int):
@@ -2546,6 +2595,7 @@ class InitiativeTracker(tk.Tk):
                 dex=dex,
                 init_mod=init_mod,
                 saving_throws=saving_throws,
+                raw_data=raw_data,
             )
 
             if name not in self._monsters_by_name:
