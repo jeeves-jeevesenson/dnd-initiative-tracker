@@ -649,7 +649,6 @@ HTML_INDEX = r"""<!doctype html>
     <div class="spacer"></div>
     <button class="btn" id="configBtn">Config</button>
     <div class="topbar-controls">
-      <button class="btn" id="changeChar">Change</button>
       <button class="btn" id="lockMap">Lock Map</button>
       <button class="btn" id="centerMap">Center on Me</button>
       <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
@@ -664,16 +663,6 @@ HTML_INDEX = r"""<!doctype html>
     <canvas id="c"></canvas>
     <div class="waiting" id="waitingOverlay">(waiting for combat...)</div>
 
-    <div class="modal" id="claimModal">
-      <div class="card">
-        <h2>Choose yer character</h2>
-        <div class="list" id="claimList"></div>
-        <div class="hint">
-          This be a LAN proof-o’-concept. Ye can drag <b>only yer own token</b>, and only <b>on yer turn</b>.<br/>
-          If the list be empty, tell the DM to mark ye as a Player Character or add ye from the starting roster.
-        </div>
-      </div>
-    </div>
     <div class="modal" id="colorModal" aria-hidden="true">
       <div class="card">
         <h2>Pick yer token color</h2>
@@ -888,8 +877,6 @@ __DAMAGE_TYPE_OPTIONS__
   const turnOrderStatusEl = document.getElementById("turnOrderStatus");
   const turnOrderBubbleEl = document.getElementById("turnOrderBubble");
   const noteEl = document.getElementById("note");
-  const claimModal = document.getElementById("claimModal");
-  const claimList = document.getElementById("claimList");
   const colorModal = document.getElementById("colorModal");
   const tokenColorInput = document.getElementById("tokenColorInput");
   const tokenColorSwatch = document.getElementById("tokenColorSwatch");
@@ -979,7 +966,8 @@ __DAMAGE_TYPE_OPTIONS__
   })();
   const usernameKey = "inittracker_username";
   let storedUsername = localStorage.getItem(usernameKey) || "";
-  let claimedCid = localStorage.getItem("inittracker_claimedCid") || null;
+  let claimedCid = null;
+  let shownNoOwnedToast = false;
   let pendingClaim = null;
   let lastPcList = [];
   let lastActiveCid = null;
@@ -1283,32 +1271,16 @@ __DAMAGE_TYPE_OPTIONS__
     return color;
   }
 
-  function showClaim(list){
-    claimList.innerHTML = "";
-    list.forEach(u => {
-      const div = document.createElement("div");
-      div.className = "item";
-      const taken = (u.claimed_by !== null && u.claimed_by !== undefined);
-      const owner = (u.owned_by !== null && u.owned_by !== undefined) ? String(u.owned_by) : "";
-      const me = (storedUsername || "").trim();
-      const ownedByMe = owner && me && owner === me;
-      const ownedByOther = owner && (!me || owner !== me);
-      const ownerLabel = owner ? (ownedByMe ? "Owned by you" : `Owned by ${owner}`) : "Unowned";
-      const meta = `Player Character • ${ownerLabel} • ${taken ? "Claimed" : "Unclaimed"}`;
-      const btnTxt = ownedByOther ? "Owned" : (taken ? "Take" : "Claim");
-      div.innerHTML = `<div style="flex:1"><div class="name">${u.name}</div><div class="meta">${meta}</div></div><button class="btn accent">${btnTxt}</button>`;
-      const button = div.querySelector("button");
-      if (ownedByOther){
-        button.disabled = true;
-      } else {
-        button.addEventListener("click", () => {
-          claimModal.classList.remove("show");
-          openColorModal(u);
-        });
-      }
-      claimList.appendChild(div);
-    });
-    claimModal.classList.add("show");
+  function showNoOwnedPcToast(pcs){
+    if (shownNoOwnedToast) return;
+    if (!loggedIn) return;
+    const me = (storedUsername || "").trim();
+    if (!me) return;
+    const list = Array.isArray(pcs) ? pcs : [];
+    const ownedByMe = list.some(u => String(u.owned_by || "") === me);
+    if (ownedByMe) return;
+    localToast("No owned PCs found. Ask the DM to assign yer character.");
+    shownNoOwnedToast = true;
   }
 
   function showDashModal(){
@@ -2162,6 +2134,7 @@ __DAMAGE_TYPE_OPTIONS__
           storedUsername = username;
         }
         setLoginState(true);
+        shownNoOwnedToast = false;
       } else if (msg.type === "login_error"){
         setLoginState(false);
         setLoginError(msg.error || "Username required.");
@@ -2179,48 +2152,34 @@ __DAMAGE_TYPE_OPTIONS__
           const serverOwner = me ? (me.claimed_by ?? null) : null;
           if (me && serverOwner !== clientId){
             claimedCid = null;
-            localStorage.removeItem("inittracker_claimedCid");
             meEl.textContent = "(unclaimed)";
+            shownNoOwnedToast = false;
             updateHud();
           }
         }
-        // show claim if needed
         if (!claimedCid){
-          const pcs = (msg.pcs || msg.claimable || []);
-          if (pcs && pcs.length){
-            showClaim(pcs);
-          }
+          showNoOwnedPcToast(msg.pcs || msg.claimable || []);
         } else {
-          // if our cid no longer exists, clear
           const exists = (state.units || []).some(u => Number(u.cid) === Number(claimedCid));
           if (!exists){
             claimedCid = null;
-            localStorage.removeItem("inittracker_claimedCid");
             meEl.textContent = "(unclaimed)";
-            const pcs = (msg.pcs || msg.claimable || []);
-            if (pcs && pcs.length){
-              showClaim(pcs);
-            }
+            shownNoOwnedToast = false;
+            showNoOwnedPcToast(msg.pcs || msg.claimable || []);
           }
         }
       } else if (msg.type === "force_claim"){
         if (msg.cid !== null && msg.cid !== undefined){
           claimedCid = String(msg.cid);
-          localStorage.setItem("inittracker_claimedCid", claimedCid);
+          shownNoOwnedToast = false;
         }
-        claimModal.classList.remove("show");
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
       } else if (msg.type === "force_unclaim"){
         claimedCid = null;
-        localStorage.removeItem("inittracker_claimedCid");
         meEl.textContent = "(unclaimed)";
-        const pcs = (msg.pcs || lastPcList || []);
-        if (pcs && pcs.length){
-          showClaim(pcs);
-        } else {
-          claimModal.classList.add("show");
-        }
+        shownNoOwnedToast = false;
+        showNoOwnedPcToast(msg.pcs || lastPcList || []);
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
@@ -2530,15 +2489,6 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
-  document.getElementById("changeChar").addEventListener("click", () => {
-    const pcs = lastPcList || [];
-    if (pcs && pcs.length){
-      showClaim(pcs);
-    } else {
-      claimModal.classList.add("show");
-    }
-  });
-
   if (tokenColorInput){
     tokenColorInput.addEventListener("input", (ev) => {
       updateTokenColorSwatch(ev.target.value);
@@ -2553,24 +2503,18 @@ __DAMAGE_TYPE_OPTIONS__
       const color = validateTokenColor(tokenColorInput ? tokenColorInput.value : "");
       if (!color) return;
       claimedCid = String(pendingClaim.cid);
-      localStorage.setItem("inittracker_claimedCid", claimedCid);
+      shownNoOwnedToast = false;
       localStorage.setItem("inittracker_tokenColor", color);
       send({type:"claim", cid: Number(pendingClaim.cid)});
       send({type:"set_color", cid: Number(pendingClaim.cid), color});
       meEl.textContent = pendingClaim.name;
       closeColorModal();
-      claimModal.classList.remove("show");
     });
   }
   if (tokenColorCancel){
     tokenColorCancel.addEventListener("click", () => {
       closeColorModal();
-      const pcs = lastPcList || [];
-      if (pcs && pcs.length){
-        showClaim(pcs);
-      } else {
-        claimModal.classList.add("show");
-      }
+      showNoOwnedPcToast(lastPcList || []);
     });
   }
 
