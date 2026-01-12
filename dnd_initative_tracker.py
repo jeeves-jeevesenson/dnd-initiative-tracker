@@ -282,10 +282,18 @@ HTML_INDEX = r"""<!doctype html>
     }
     .topbar h1{font-size:14px; margin:0; font-weight:650;}
     .pill{font-size:12px; color:var(--muted); padding:6px 10px; border:1px solid rgba(255,255,255,0.10); border-radius:999px;}
+    .conn-wrap{
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+    }
     .conn-pill{
       display:inline-flex;
       align-items:center;
       gap:6px;
+      cursor:pointer;
+      background: transparent;
+      font: inherit;
     }
     .conn-full-text{display:inline;}
     .conn-compact-label,
@@ -299,6 +307,60 @@ HTML_INDEX = r"""<!doctype html>
       height:8px;
       border-radius:50%;
       background: var(--accent);
+    }
+    .conn-popover{
+      position:absolute;
+      top: calc(100% + 10px);
+      left: 0;
+      min-width: 160px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(15,19,32,0.98);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      opacity:0;
+      transform: translateY(-4px);
+      pointer-events:none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      z-index: 30;
+    }
+    .conn-popover::before{
+      content:"";
+      position:absolute;
+      top: -6px;
+      left: 16px;
+      width: 12px;
+      height: 12px;
+      background: rgba(15,19,32,0.98);
+      border-left: 1px solid rgba(255,255,255,0.12);
+      border-top: 1px solid rgba(255,255,255,0.12);
+      transform: rotate(45deg);
+    }
+    .conn-popover.show{
+      opacity:1;
+      transform: translateY(0);
+      pointer-events:auto;
+    }
+    .conn-popover-status{
+      font-size:12px;
+      color: var(--muted);
+    }
+    .conn-style-toggle{
+      display:inline-flex;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+    .conn-style-btn{
+      padding:6px 10px;
+      font-size:12px;
+    }
+    .conn-style-btn.active{
+      border-color: rgba(106,169,255,0.65);
+      background: rgba(106,169,255,0.2);
+      color: var(--text);
     }
     .hidden{display:none !important;}
     .spacer{flex:1;}
@@ -738,10 +800,16 @@ HTML_INDEX = r"""<!doctype html>
 <div class="app">
   <div class="topbar">
     <h1 id="topbarTitle">InitTracker LAN</h1>
-    <div class="pill conn-pill" id="conn" title="Connecting…">
-      <span class="conn-full-text" id="connFullText">Connecting…</span>
-      <span class="conn-compact-label" id="connCompactLabel" aria-hidden="true">C</span>
-      <span class="conn-compact-dot" id="connDot" aria-hidden="true"></span>
+    <div class="conn-wrap">
+      <button class="pill conn-pill" id="conn" type="button" title="Connecting…" aria-haspopup="dialog" aria-expanded="false">
+        <span class="conn-full-text" id="connFullText">Connecting…</span>
+        <span class="conn-compact-label" id="connCompactLabel" aria-hidden="true">C</span>
+        <span class="conn-compact-dot" id="connDot" aria-hidden="true"></span>
+      </button>
+      <div class="conn-popover" id="connPopover" role="dialog" aria-hidden="true">
+        <div class="conn-popover-status" id="connPopoverStatus">Connecting…</div>
+        <button class="btn" id="connReconnectBtn" type="button">Reconnect</button>
+      </div>
     </div>
     <div class="spacer"></div>
     <button class="btn" id="configBtn">Config</button>
@@ -812,10 +880,10 @@ HTML_INDEX = r"""<!doctype html>
               <div class="config-item-title">Connection indicator</div>
               <div class="config-controls">
                 <label class="config-toggle"><input type="checkbox" id="toggleConnIndicator" />Show</label>
-                <select id="connStyleSelect">
-                  <option value="full">Full text</option>
-                  <option value="compact">Compact C + dot</option>
-                </select>
+                <div class="conn-style-toggle" role="group" aria-label="Connection indicator style">
+                  <button class="btn conn-style-btn" type="button" data-conn-style="full">Full</button>
+                  <button class="btn conn-style-btn" type="button" data-conn-style="compact">Compact</button>
+                </div>
                 <input class="hotkey-input" id="hotkeyConnStyle" data-hotkey-action="toggleConnStyle" placeholder="Hotkey" readonly />
               </div>
               <div class="hotkey-conflict" id="hotkeyConflictConnStyle"></div>
@@ -1111,6 +1179,10 @@ __DAMAGE_TYPE_OPTIONS__
   const connCompactLabelEl = document.getElementById("connCompactLabel");
   const connDotEl = document.getElementById("connDot");
   const topbarTitleEl = document.getElementById("topbarTitle");
+  const connPopoverEl = document.getElementById("connPopover");
+  const connPopoverStatusEl = document.getElementById("connPopoverStatus");
+  const connReconnectBtn = document.getElementById("connReconnectBtn");
+  const connStyleButtons = Array.from(document.querySelectorAll(".conn-style-btn"));
   const meEl = document.getElementById("me");
   const moveEl = document.getElementById("move");
   const actionEl = document.getElementById("action");
@@ -1140,7 +1212,6 @@ __DAMAGE_TYPE_OPTIONS__
   const configCloseBtn = document.getElementById("configClose");
   const toggleTopbarTitle = document.getElementById("toggleTopbarTitle");
   const toggleConnIndicator = document.getElementById("toggleConnIndicator");
-  const connStyleSelect = document.getElementById("connStyleSelect");
   const toggleLockMap = document.getElementById("toggleLockMap");
   const toggleCenterMap = document.getElementById("toggleCenterMap");
   const toggleMeasure = document.getElementById("toggleMeasure");
@@ -1228,6 +1299,8 @@ __DAMAGE_TYPE_OPTIONS__
 
   let ws = null;
   let state = null;
+  let reconnectTimer = null;
+  let reconnecting = false;
   const clientId = (() => {
     const key = "inittracker_clientId";
     let value = localStorage.getItem(key);
@@ -1346,6 +1419,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (connDotEl){
       connDotEl.style.background = connStatusOk ? "var(--accent)" : "var(--danger)";
     }
+    if (connPopoverStatusEl){
+      connPopoverStatusEl.textContent = connStatusText;
+    }
   }
 
   function setConn(ok, txt){
@@ -1356,6 +1432,38 @@ __DAMAGE_TYPE_OPTIONS__
       connEl.style.background = connStatusOk ? "rgba(106,169,255,0.14)" : "rgba(255,91,91,0.14)";
     }
     updateConnDisplay();
+  }
+
+  function setConnPopover(open){
+    if (!connPopoverEl || !connEl) return;
+    connPopoverEl.classList.toggle("show", open);
+    connPopoverEl.setAttribute("aria-hidden", open ? "false" : "true");
+    connEl.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  function closeConnPopover(){
+    setConnPopover(false);
+  }
+
+  function scheduleReconnect(delayMs){
+    if (reconnectTimer){
+      clearTimeout(reconnectTimer);
+    }
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      connect();
+    }, delayMs);
+  }
+
+  function softReconnect(){
+    reconnecting = true;
+    setConn(false, "Reconnecting…");
+    closeConnPopover();
+    if (ws && ws.readyState === 1){
+      ws.close(4001, "reconnect");
+    } else {
+      scheduleReconnect(200);
+    }
   }
 
   function resize(){
@@ -1603,6 +1711,9 @@ __DAMAGE_TYPE_OPTIONS__
     document.body.classList.toggle("initiative-hidden", initiativeStyle === "hidden");
     if (topbarTitleEl) topbarTitleEl.classList.toggle("hidden", !showTopbarTitle);
     if (connEl) connEl.classList.toggle("hidden", !showConnIndicator);
+    if (!showConnIndicator){
+      closeConnPopover();
+    }
     if (lockMapBtn) lockMapBtn.classList.toggle("hidden", !showLockMap);
     if (centerMapBtn) centerMapBtn.classList.toggle("hidden", !showCenterMap);
     if (measureToggle) measureToggle.classList.toggle("hidden", !showMeasure);
@@ -1617,7 +1728,13 @@ __DAMAGE_TYPE_OPTIONS__
     if (resetTurnBtn) resetTurnBtn.classList.toggle("hidden", !showResetTurn);
     if (toggleTopbarTitle) toggleTopbarTitle.checked = showTopbarTitle;
     if (toggleConnIndicator) toggleConnIndicator.checked = showConnIndicator;
-    if (connStyleSelect) connStyleSelect.value = connStyle;
+    if (connStyleButtons.length){
+      connStyleButtons.forEach((button) => {
+        const isActive = button.dataset.connStyle === connStyle;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
+    }
     if (toggleLockMap) toggleLockMap.checked = showLockMap;
     if (toggleCenterMap) toggleCenterMap.checked = showCenterMap;
     if (toggleMeasure) toggleMeasure.checked = showMeasure;
@@ -2691,6 +2808,7 @@ __DAMAGE_TYPE_OPTIONS__
   function connect(){
     ws = new WebSocket(wsUrl);
     ws.addEventListener("open", () => {
+      reconnecting = false;
       setConn(true, "Connected");
       send({type:"grid_request"});
       if (loginNameInput && loginNameInput.value.trim()){
@@ -2700,8 +2818,15 @@ __DAMAGE_TYPE_OPTIONS__
       }
     });
     ws.addEventListener("close", () => {
-      setConn(false, "Disconnected");
-      setTimeout(connect, 1000);
+      const wasReconnect = reconnecting;
+      reconnecting = false;
+      if (wasReconnect){
+        setConn(false, "Reconnecting…");
+        scheduleReconnect(200);
+      } else {
+        setConn(false, "Disconnected");
+        scheduleReconnect(1000);
+      }
     });
     ws.addEventListener("message", (ev) => {
       let msg = null;
@@ -3651,6 +3776,28 @@ __DAMAGE_TYPE_OPTIONS__
       }
     });
   }
+  if (connEl && connPopoverEl){
+    connEl.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isOpen = connPopoverEl.classList.contains("show");
+      setConnPopover(!isOpen);
+    });
+  }
+  if (connReconnectBtn){
+    connReconnectBtn.addEventListener("click", () => {
+      softReconnect();
+    });
+  }
+  document.addEventListener("click", (event) => {
+    if (!connPopoverEl || !connEl) return;
+    if (connPopoverEl.contains(event.target) || connEl.contains(event.target)) return;
+    closeConnPopover();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape"){
+      closeConnPopover();
+    }
+  });
   if (toggleTopbarTitle){
     toggleTopbarTitle.addEventListener("change", (event) => {
       showTopbarTitle = !!event.target.checked;
@@ -3665,11 +3812,15 @@ __DAMAGE_TYPE_OPTIONS__
       applyUiConfig();
     });
   }
-  if (connStyleSelect){
-    connStyleSelect.addEventListener("change", (event) => {
-      connStyle = event.target.value === "compact" ? "compact" : "full";
-      persistChoice(uiSelectKeys.connStyle, connStyle);
-      applyUiConfig();
+  if (connStyleButtons.length){
+    connStyleButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const nextStyle = button.dataset.connStyle === "compact" ? "compact" : "full";
+        if (connStyle === nextStyle) return;
+        connStyle = nextStyle;
+        persistChoice(uiSelectKeys.connStyle, connStyle);
+        applyUiConfig();
+      });
     });
   }
   if (toggleLockMap){
