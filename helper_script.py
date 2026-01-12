@@ -187,6 +187,7 @@ class Combatant:
     extra_bonus_pool: int = 0
     saving_throws: Dict[str, int] = field(default_factory=dict)
     ability_mods: Dict[str, int] = field(default_factory=dict)
+    monster_spec: Optional[MonsterSpec] = None
 
 
     # Effects / statuses
@@ -526,6 +527,7 @@ class InitiativeTracker(tk.Tk):
 
         # bindings
         self.tree.bind("<Double-1>", self._on_tree_double_click)
+        self.tree.bind("<Button-3>", self._on_tree_right_click)
         self.bind("<space>", lambda e: self._next_turn())
         self.bind("<Shift-space>", lambda e: self._prev_turn())
         self.bind("<KeyPress-d>", lambda e: self._open_hp_tool(default_mode="damage"))
@@ -535,6 +537,13 @@ class InitiativeTracker(tk.Tk):
         self.bind("<KeyPress-m>", lambda e: self._open_move_tool())
         self.bind("<KeyPress-w>", lambda e: self._toggle_water_selected())
         self.bind("<KeyPress-p>", lambda e: self._open_map_mode())
+
+        self._tree_context_menu = tk.Menu(self, tearoff=0)
+        self._tree_context_menu.add_command(
+            label="View Monster Info",
+            command=self._open_selected_monster_info,
+            state=tk.DISABLED,
+        )
 
     def _install_monster_dropdown_widget(self) -> None:
         """Replace the Name Entry with a Combobox listing ./Monsters YAML files."""
@@ -1533,6 +1542,7 @@ class InitiativeTracker(tk.Tk):
         is_pc: bool = False,
         saving_throws: Optional[Dict[str, int]] = None,
         ability_mods: Optional[Dict[str, int]] = None,
+        monster_spec: Optional[MonsterSpec] = None,
     ) -> int:
         cid = self._next_id
         self._next_id += 1
@@ -1558,6 +1568,7 @@ class InitiativeTracker(tk.Tk):
             is_pc=bool(is_pc),
             saving_throws=dict(saving_throws or {}),
             ability_mods=dict(ability_mods or {}),
+            monster_spec=monster_spec,
         )
         self.combatants[cid] = c
         self._remember_role(c)
@@ -1636,6 +1647,7 @@ class InitiativeTracker(tk.Tk):
             ally=ally,
             saving_throws=saving_throws,
             ability_mods=ability_mods,
+            monster_spec=spec,
         )
         self._log("added to initiative", cid=cid)
         self._clear_add_inputs()
@@ -2485,6 +2497,44 @@ class InitiativeTracker(tk.Tk):
         self._update_turn_ui()
 
     # -------------------------- Inline editing / clicks --------------------------
+    def _selected_enemy_combatant(self) -> Optional[Combatant]:
+        items = self.tree.selection()
+        if not items:
+            return None
+        try:
+            cid = int(items[0])
+        except ValueError:
+            return None
+        c = self.combatants.get(cid)
+        if not c or c.ally:
+            return None
+        return c
+
+    def _on_tree_right_click(self, event) -> None:
+        item = self.tree.identify_row(event.y)
+        if item:
+            self.tree.selection_set(item)
+        else:
+            self.tree.selection_remove(self.tree.selection())
+
+        can_view = self._selected_enemy_combatant() is not None
+        state = tk.NORMAL if can_view else tk.DISABLED
+        self._tree_context_menu.entryconfigure("View Monster Info", state=state)
+        try:
+            self._tree_context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self._tree_context_menu.grab_release()
+
+    def _open_selected_monster_info(self) -> None:
+        c = self._selected_enemy_combatant()
+        if not c:
+            return
+        spec = c.monster_spec or self._monsters_by_name.get(c.name)
+        if not spec:
+            messagebox.showinfo("Monster Info", f"No stat block available for {c.name}.")
+            return
+        self._open_monster_stat_block(spec)
+
     def _on_tree_double_click(self, event) -> None:
         item = self.tree.identify_row(event.y)
         column = self.tree.identify_column(event.x)
@@ -3314,6 +3364,7 @@ class InitiativeTracker(tk.Tk):
                     ally=ally_var.get(),
                     saving_throws=saving_throws,
                     ability_mods=ability_mods,
+                    monster_spec=spec,
                 )
                 c = self.combatants[cid]
                 c.roll = roll
