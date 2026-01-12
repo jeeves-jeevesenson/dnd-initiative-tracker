@@ -186,6 +186,7 @@ class Combatant:
     extra_action_pool: int = 0
     extra_bonus_pool: int = 0
     saving_throws: Dict[str, int] = field(default_factory=dict)
+    ability_mods: Dict[str, int] = field(default_factory=dict)
 
 
     # Effects / statuses
@@ -207,6 +208,7 @@ class MonsterSpec:
     dex: Optional[int]
     init_mod: Optional[int]
     saving_throws: Dict[str, int]
+    ability_mods: Dict[str, int]
     raw_data: Dict[str, Any]
 
 
@@ -1253,6 +1255,7 @@ class InitiativeTracker(tk.Tk):
         water_mode: bool = False,
         is_pc: bool = False,
         saving_throws: Optional[Dict[str, int]] = None,
+        ability_mods: Optional[Dict[str, int]] = None,
     ) -> int:
         cid = self._next_id
         self._next_id += 1
@@ -1277,6 +1280,7 @@ class InitiativeTracker(tk.Tk):
             ally=ally,
             is_pc=bool(is_pc),
             saving_throws=dict(saving_throws or {}),
+            ability_mods=dict(ability_mods or {}),
         )
         self.combatants[cid] = c
         self._remember_role(c)
@@ -1338,9 +1342,12 @@ class InitiativeTracker(tk.Tk):
 
         ally = bool(self.ally_var.get())
         saving_throws: Optional[Dict[str, int]] = None
+        ability_mods: Optional[Dict[str, int]] = None
         spec = self._monsters_by_name.get(name)
         if spec and spec.saving_throws:
             saving_throws = dict(spec.saving_throws)
+        if spec and spec.ability_mods:
+            ability_mods = dict(spec.ability_mods)
         cid = self._create_combatant(
             name=name,
             hp=hp,
@@ -1351,6 +1358,7 @@ class InitiativeTracker(tk.Tk):
             dex=dex,
             ally=ally,
             saving_throws=saving_throws,
+            ability_mods=ability_mods,
         )
         self._log("added to initiative", cid=cid)
         self._clear_add_inputs()
@@ -2466,6 +2474,13 @@ class InitiativeTracker(tk.Tk):
                         abilities[key.strip().lower()] = val
                     if abilities:
                         raw_data["abilities"] = abilities
+            else:
+                ab = mon.get("abilities")
+                if isinstance(ab, dict):
+                    for key, val in ab.items():
+                        if not isinstance(key, str):
+                            continue
+                        abilities[key.strip().lower()] = val
 
             name = str(mon.get("name") or (fp.stem if is_legacy else "")).strip()
             if not name:
@@ -2584,6 +2599,29 @@ class InitiativeTracker(tk.Tk):
             except Exception:
                 saving_throws = {}
 
+            ability_mods: Dict[str, int] = {}
+            try:
+                ab = abilities if abilities else (mon.get("abilities") or {})
+                if isinstance(ab, dict):
+                    for key, val in ab.items():
+                        if not isinstance(key, str):
+                            continue
+                        ability = key.strip().lower()
+                        if ability not in {"str", "dex", "con", "int", "wis", "cha"}:
+                            continue
+                        score = None
+                        if isinstance(val, int):
+                            score = int(val)
+                        elif isinstance(val, str):
+                            raw = val.strip()
+                            if raw.lstrip("-").isdigit():
+                                score = int(raw)
+                        if score is None:
+                            continue
+                        ability_mods[ability] = (score - 10) // 2
+            except Exception:
+                ability_mods = {}
+
             spec = MonsterSpec(
                 filename=str(fp.name),
                 name=name,
@@ -2595,6 +2633,7 @@ class InitiativeTracker(tk.Tk):
                 dex=dex,
                 init_mod=init_mod,
                 saving_throws=saving_throws,
+                ability_mods=ability_mods,
                 raw_data=raw_data,
             )
 
@@ -2924,6 +2963,7 @@ class InitiativeTracker(tk.Tk):
                 return
             spec = self._monsters_by_name.get(base)
             saving_throws = dict(spec.saving_throws) if spec and spec.saving_throws else None
+            ability_mods = dict(spec.ability_mods) if spec and spec.ability_mods else None
             try:
                 count = int(count_var.get().strip())
                 if count <= 0:
@@ -2991,6 +3031,7 @@ class InitiativeTracker(tk.Tk):
                     dex=dex_opt,
                     ally=ally_var.get(),
                     saving_throws=saving_throws,
+                    ability_mods=ability_mods,
                 )
                 c = self.combatants[cid]
                 c.roll = roll
@@ -6776,15 +6817,21 @@ class BattleMapWindow(tk.Toplevel):
                 return 0
             saves = getattr(c, "saving_throws", None)
             if isinstance(saves, dict):
-                val = saves.get(save_key)
+                if save_key in saves:
+                    val = saves.get(save_key)
+                    if isinstance(val, int):
+                        return int(val)
+                    if isinstance(val, str):
+                        raw = val.strip()
+                        if raw.startswith("+"):
+                            raw = raw[1:]
+                        if raw.lstrip("-").isdigit():
+                            return int(raw)
+            mods = getattr(c, "ability_mods", None)
+            if isinstance(mods, dict):
+                val = mods.get(save_key)
                 if isinstance(val, int):
                     return int(val)
-                if isinstance(val, str):
-                    raw = val.strip()
-                    if raw.startswith("+"):
-                        raw = raw[1:]
-                    if raw.lstrip("-").isdigit():
-                        return int(raw)
             return 0
 
         def _reset_mods_from_saves() -> None:

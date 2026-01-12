@@ -2946,6 +2946,7 @@ class MonsterSpec:
     dex: Optional[int]
     init_mod: Optional[int]
     saving_throws: Dict[str, int]
+    ability_mods: Dict[str, int]
     raw_data: Dict[str, Any]
 
 class LanController:
@@ -4978,6 +4979,13 @@ class InitiativeTracker(base.InitiativeTracker):
                         abilities[key.strip().lower()] = val
                     if abilities:
                         raw_data["abilities"] = abilities
+            else:
+                ab = mon.get("abilities")
+                if isinstance(ab, dict):
+                    for key, val in ab.items():
+                        if not isinstance(key, str):
+                            continue
+                        abilities[key.strip().lower()] = val
 
             name = str(mon.get("name") or (fp.stem if is_legacy else "")).strip()
             if not name:
@@ -5096,6 +5104,29 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 saving_throws = {}
 
+            ability_mods: Dict[str, int] = {}
+            try:
+                ab = abilities if abilities else (mon.get("abilities") or {})
+                if isinstance(ab, dict):
+                    for key, val in ab.items():
+                        if not isinstance(key, str):
+                            continue
+                        ability = key.strip().lower()
+                        if ability not in {"str", "dex", "con", "int", "wis", "cha"}:
+                            continue
+                        score = None
+                        if isinstance(val, int):
+                            score = int(val)
+                        elif isinstance(val, str):
+                            raw = val.strip()
+                            if raw.lstrip("-").isdigit():
+                                score = int(raw)
+                        if score is None:
+                            continue
+                        ability_mods[ability] = (score - 10) // 2
+            except Exception:
+                ability_mods = {}
+
             spec = MonsterSpec(
                 filename=str(fp.name),
                 name=name,
@@ -5107,6 +5138,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 dex=dex,
                 init_mod=init_mod,
                 saving_throws=saving_throws,
+                ability_mods=ability_mods,
                 raw_data=raw_data,
             )
 
