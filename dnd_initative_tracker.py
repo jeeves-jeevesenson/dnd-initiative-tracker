@@ -282,6 +282,25 @@ HTML_INDEX = r"""<!doctype html>
     }
     .topbar h1{font-size:14px; margin:0; font-weight:650;}
     .pill{font-size:12px; color:var(--muted); padding:6px 10px; border:1px solid rgba(255,255,255,0.10); border-radius:999px;}
+    .conn-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .conn-full-text{display:inline;}
+    .conn-compact-label,
+    .conn-compact-dot{display:none;}
+    .conn-compact .conn-full-text{display:none;}
+    .conn-compact .conn-compact-label,
+    .conn-compact .conn-compact-dot{display:inline-flex;}
+    .conn-compact-label{font-weight:700; letter-spacing:0.5px;}
+    .conn-compact-dot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background: var(--accent);
+    }
+    .hidden{display:none !important;}
     .spacer{flex:1;}
     .btn{
       border:1px solid rgba(255,255,255,0.14);
@@ -302,7 +321,6 @@ HTML_INDEX = r"""<!doctype html>
       gap:10px;
       align-items:center;
     }
-    .hide-topbar-controls .topbar-controls{display:none;}
 
     .mapWrap{flex:1 1 auto; min-height:0; position:relative; overflow:hidden; background:#0a0c12;}
     canvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none;}
@@ -431,7 +449,9 @@ HTML_INDEX = r"""<!doctype html>
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
     .row + .row{margin-top:10px;}
     .sheet-actions{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
-    .hide-sheet-actions .sheet-actions{display:none;}
+    .initiative-hidden .sheet-turn-order-row{display:none;}
+    .initiative-compact .turn-order{max-height: 60px; overflow:auto;}
+    .initiative-compact .turn-order-status{display:none;}
     .label{font-size:12px; color:var(--muted);}
     .value{font-size:14px; font-weight:700;}
     .chip{font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);}
@@ -487,30 +507,60 @@ HTML_INDEX = r"""<!doctype html>
     .hint.hidden{display:none;}
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
     .modal-actions .btn{flex:1; min-width:120px;}
+    .config-section{margin-top:8px;}
+    .config-section summary{
+      cursor:pointer;
+      list-style:none;
+      font-weight:700;
+      font-size:14px;
+      padding: 6px 4px;
+    }
+    .config-section summary::-webkit-details-marker{display:none;}
     .config-list{
       display:flex;
       flex-direction:column;
-      gap:8px;
+      gap:10px;
       margin-top:8px;
     }
     .config-item{
       display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
+      flex-direction:column;
+      gap:8px;
       padding: 10px;
       border-radius: 12px;
       border:1px solid rgba(255,255,255,0.1);
       background: rgba(10,14,22,0.55);
     }
-    .config-item label{
+    .config-item-title{font-size:13px; font-weight:650;}
+    .config-controls{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+    .config-toggle{
       display:flex;
       align-items:center;
-      gap:8px;
-      font-size:13px;
-      font-weight:650;
+      gap:6px;
+      font-size:12px;
+      color: var(--muted);
     }
-    .config-item input{transform: scale(1.05);}
+    .config-toggle input{transform: scale(1.05);}
+    .hotkey-input{
+      width:120px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      padding:6px 8px;
+      font-size:12px;
+    }
+    .hotkey-input.conflict{
+      border-color: rgba(255,91,91,0.55);
+      box-shadow: 0 0 0 1px rgba(255,91,91,0.3);
+    }
+    .hotkey-conflict{
+      min-height:14px;
+      font-size:11px;
+      color: var(--danger);
+    }
+    .hotkey-hint{font-size:11px; color: var(--muted);}
+    .hide-spell-menu .cast-panel{display:none;}
     .color-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
     .color-swatch{width:36px; height:36px; border-radius:50%; border:2px solid rgba(255,255,255,0.2); background:#6aa9ff;}
     .color-input{width:64px; height:44px; border:none; background:none; padding:0;}
@@ -656,8 +706,12 @@ HTML_INDEX = r"""<!doctype html>
 </div>
 <div class="app">
   <div class="topbar">
-    <h1>InitTracker LAN</h1>
-    <div class="pill" id="conn">Connecting…</div>
+    <h1 id="topbarTitle">InitTracker LAN</h1>
+    <div class="pill conn-pill" id="conn" title="Connecting…">
+      <span class="conn-full-text" id="connFullText">Connecting…</span>
+      <span class="conn-compact-label" id="connCompactLabel" aria-hidden="true">C</span>
+      <span class="conn-compact-dot" id="connDot" aria-hidden="true"></span>
+    </div>
     <div class="spacer"></div>
     <button class="btn" id="configBtn">Config</button>
     <div class="topbar-controls">
@@ -712,20 +766,160 @@ HTML_INDEX = r"""<!doctype html>
     <div class="modal" id="configModal" aria-hidden="true">
       <div class="card">
         <h2>Config</h2>
-        <div class="config-list">
-          <div class="config-item">
-            <label for="toggleTopbarControls">Topbar controls</label>
-            <input type="checkbox" id="toggleTopbarControls" />
+        <details class="config-section" open>
+          <summary>Top Bar</summary>
+          <div class="config-list">
+            <div class="config-item">
+              <div class="config-item-title">InitTracker LAN title</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleTopbarTitle" />Show</label>
+                <input class="hotkey-input" id="hotkeyTopbarTitle" data-hotkey-action="toggleTopbarTitle" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictTopbarTitle"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Connection indicator</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleConnIndicator" />Show</label>
+                <select id="connStyleSelect">
+                  <option value="full">Full text</option>
+                  <option value="compact">Compact C + dot</option>
+                </select>
+                <input class="hotkey-input" id="hotkeyConnStyle" data-hotkey-action="toggleConnStyle" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictConnStyle"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Lock Map</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleLockMap" />Show</label>
+                <input class="hotkey-input" id="hotkeyLockMap" data-hotkey-action="lockMap" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictLockMap"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Center on Me</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleCenterMap" />Show</label>
+                <input class="hotkey-input" id="hotkeyCenterMap" data-hotkey-action="centerMap" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictCenterMap"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Measure</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleMeasure" />Show</label>
+                <input class="hotkey-input" id="hotkeyMeasure" data-hotkey-action="measure" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictMeasure"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Clear Measure</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleMeasureClear" />Show</label>
+                <input class="hotkey-input" id="hotkeyMeasureClear" data-hotkey-action="measureClear" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictMeasureClear"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Zoom +</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleZoomIn" />Show</label>
+                <input class="hotkey-input" id="hotkeyZoomIn" data-hotkey-action="zoomIn" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictZoomIn"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Zoom -</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleZoomOut" />Show</label>
+                <input class="hotkey-input" id="hotkeyZoomOut" data-hotkey-action="zoomOut" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictZoomOut"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Battle Log</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleBattleLog" />Show</label>
+                <input class="hotkey-input" id="hotkeyBattleLog" data-hotkey-action="battleLog" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictBattleLog"></div>
+            </div>
           </div>
-          <div class="config-item">
-            <label for="toggleSheetActions">Bottom-sheet actions</label>
-            <input type="checkbox" id="toggleSheetActions" />
+        </details>
+        <details class="config-section">
+          <summary>Bottom Bar</summary>
+          <div class="config-list">
+            <div class="config-item">
+              <div class="config-item-title">Initiative strip</div>
+              <div class="config-controls">
+                <select id="initiativeStyleSelect">
+                  <option value="full">Full</option>
+                  <option value="compact">Compact</option>
+                  <option value="hidden">Hidden</option>
+                </select>
+              </div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Action</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleUseAction" />Show</label>
+                <input class="hotkey-input" id="hotkeyUseAction" data-hotkey-action="useAction" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictUseAction"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Bonus Action</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleUseBonusAction" />Show</label>
+                <input class="hotkey-input" id="hotkeyUseBonusAction" data-hotkey-action="useBonusAction" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictUseBonusAction"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Dash</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleDash" />Show</label>
+                <input class="hotkey-input" id="hotkeyDash" data-hotkey-action="dash" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictDash"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Stand</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleStandUp" />Show</label>
+                <input class="hotkey-input" id="hotkeyStandUp" data-hotkey-action="standUp" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictStandUp"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Reset</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleResetTurn" />Show</label>
+                <input class="hotkey-input" id="hotkeyResetTurn" data-hotkey-action="resetTurn" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictResetTurn"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Hide spell menu for non spell casters</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleSpellMenu" />Hide</label>
+              </div>
+            </div>
           </div>
-          <div class="config-item">
-            <label for="toggleLockMenus">Lock Menus</label>
-            <input type="checkbox" id="toggleLockMenus" />
+        </details>
+        <details class="config-section">
+          <summary>Presets</summary>
+          <div class="config-list">
+            <div class="config-item">
+              <div class="config-item-title">Lock menus</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleLockMenus" />Lock</label>
+              </div>
+              <div class="hotkey-hint">Settings are stored per device.</div>
+            </div>
           </div>
-        </div>
+        </details>
         <div class="hint hidden" id="iosInstallHint">
           Open Safari → Share → Add to Home Screen.
           <a href="https://support.apple.com/en-us/HT201366" target="_blank" rel="noopener">Learn more</a>
@@ -882,6 +1076,10 @@ __DAMAGE_TYPE_OPTIONS__
   const wsUrl = `${wsProto}://${location.host}/ws`;
 
   const connEl = document.getElementById("conn");
+  const connFullTextEl = document.getElementById("connFullText");
+  const connCompactLabelEl = document.getElementById("connCompactLabel");
+  const connDotEl = document.getElementById("connDot");
+  const topbarTitleEl = document.getElementById("topbarTitle");
   const meEl = document.getElementById("me");
   const moveEl = document.getElementById("move");
   const actionEl = document.getElementById("action");
@@ -901,12 +1099,46 @@ __DAMAGE_TYPE_OPTIONS__
   const dashBonusActionBtn = document.getElementById("dashBonusAction");
   const dashCancelBtn = document.getElementById("dashCancel");
   const battleLogBtn = document.getElementById("battleLog");
+  const lockMapBtn = document.getElementById("lockMap");
+  const centerMapBtn = document.getElementById("centerMap");
+  const zoomInBtn = document.getElementById("zoomIn");
+  const zoomOutBtn = document.getElementById("zoomOut");
+  const dashBtn = document.getElementById("dash");
   const configBtn = document.getElementById("configBtn");
   const configModal = document.getElementById("configModal");
   const configCloseBtn = document.getElementById("configClose");
-  const toggleTopbarControls = document.getElementById("toggleTopbarControls");
-  const toggleSheetActions = document.getElementById("toggleSheetActions");
+  const toggleTopbarTitle = document.getElementById("toggleTopbarTitle");
+  const toggleConnIndicator = document.getElementById("toggleConnIndicator");
+  const connStyleSelect = document.getElementById("connStyleSelect");
+  const toggleLockMap = document.getElementById("toggleLockMap");
+  const toggleCenterMap = document.getElementById("toggleCenterMap");
+  const toggleMeasure = document.getElementById("toggleMeasure");
+  const toggleMeasureClear = document.getElementById("toggleMeasureClear");
+  const toggleZoomIn = document.getElementById("toggleZoomIn");
+  const toggleZoomOut = document.getElementById("toggleZoomOut");
+  const toggleBattleLog = document.getElementById("toggleBattleLog");
+  const initiativeStyleSelect = document.getElementById("initiativeStyleSelect");
+  const toggleUseAction = document.getElementById("toggleUseAction");
+  const toggleUseBonusAction = document.getElementById("toggleUseBonusAction");
+  const toggleDash = document.getElementById("toggleDash");
+  const toggleStandUp = document.getElementById("toggleStandUp");
+  const toggleResetTurn = document.getElementById("toggleResetTurn");
+  const toggleSpellMenu = document.getElementById("toggleSpellMenu");
   const toggleLockMenus = document.getElementById("toggleLockMenus");
+  const hotkeyTopbarTitleInput = document.getElementById("hotkeyTopbarTitle");
+  const hotkeyConnStyleInput = document.getElementById("hotkeyConnStyle");
+  const hotkeyLockMapInput = document.getElementById("hotkeyLockMap");
+  const hotkeyCenterMapInput = document.getElementById("hotkeyCenterMap");
+  const hotkeyMeasureInput = document.getElementById("hotkeyMeasure");
+  const hotkeyMeasureClearInput = document.getElementById("hotkeyMeasureClear");
+  const hotkeyZoomInInput = document.getElementById("hotkeyZoomIn");
+  const hotkeyZoomOutInput = document.getElementById("hotkeyZoomOut");
+  const hotkeyBattleLogInput = document.getElementById("hotkeyBattleLog");
+  const hotkeyUseActionInput = document.getElementById("hotkeyUseAction");
+  const hotkeyUseBonusActionInput = document.getElementById("hotkeyUseBonusAction");
+  const hotkeyDashInput = document.getElementById("hotkeyDash");
+  const hotkeyStandUpInput = document.getElementById("hotkeyStandUp");
+  const hotkeyResetTurnInput = document.getElementById("hotkeyResetTurn");
   const iosInstallHint = document.getElementById("iosInstallHint");
   const measureToggle = document.getElementById("measureToggle");
   const measureClear = document.getElementById("measureClear");
@@ -922,6 +1154,7 @@ __DAMAGE_TYPE_OPTIONS__
   const resetTurnBtn = document.getElementById("resetTurn");
   const standUpBtn = document.getElementById("standUp");
   const showAllNamesEl = document.getElementById("showAllNames");
+  const castPanel = document.getElementById("castPanel");
   const castForm = document.getElementById("castForm");
   const castPresetInput = document.getElementById("castPreset");
   const castNameInput = document.getElementById("castName");
@@ -1008,13 +1241,45 @@ __DAMAGE_TYPE_OPTIONS__
   const LOS_PREVIEW_MS = 900;
   const sheetHeightKey = "inittracker_sheetHeight";
   const uiToggleKeys = {
-    topbarControls: "inittracker_showTopbarControls",
-    sheetActions: "inittracker_showSheetActions",
+    topbarTitle: "inittracker_ui_topbarTitle",
+    connIndicator: "inittracker_ui_connIndicator",
+    lockMap: "inittracker_ui_lockMap",
+    centerMap: "inittracker_ui_centerMap",
+    measure: "inittracker_ui_measure",
+    measureClear: "inittracker_ui_measureClear",
+    zoomIn: "inittracker_ui_zoomIn",
+    zoomOut: "inittracker_ui_zoomOut",
+    battleLog: "inittracker_ui_battleLog",
+    useAction: "inittracker_ui_useAction",
+    useBonusAction: "inittracker_ui_useBonusAction",
+    dash: "inittracker_ui_dash",
+    standUp: "inittracker_ui_standUp",
+    resetTurn: "inittracker_ui_resetTurn",
+    hideSpellMenu: "inittracker_ui_hideSpellMenu",
     lockMenus: "inittracker_lockMenus",
   };
-  let showTopbarControls = readToggle(uiToggleKeys.topbarControls, true);
-  let showSheetActions = readToggle(uiToggleKeys.sheetActions, true);
+  const uiSelectKeys = {
+    connStyle: "inittracker_ui_connStyle",
+    initiativeStyle: "inittracker_ui_initiativeStyle",
+  };
+  let showTopbarTitle = readToggle(uiToggleKeys.topbarTitle, true);
+  let showConnIndicator = readToggle(uiToggleKeys.connIndicator, true);
+  let showLockMap = readToggle(uiToggleKeys.lockMap, true);
+  let showCenterMap = readToggle(uiToggleKeys.centerMap, true);
+  let showMeasure = readToggle(uiToggleKeys.measure, true);
+  let showMeasureClear = readToggle(uiToggleKeys.measureClear, true);
+  let showZoomIn = readToggle(uiToggleKeys.zoomIn, true);
+  let showZoomOut = readToggle(uiToggleKeys.zoomOut, true);
+  let showBattleLog = readToggle(uiToggleKeys.battleLog, true);
+  let showUseAction = readToggle(uiToggleKeys.useAction, true);
+  let showUseBonusAction = readToggle(uiToggleKeys.useBonusAction, true);
+  let showDash = readToggle(uiToggleKeys.dash, true);
+  let showStandUp = readToggle(uiToggleKeys.standUp, true);
+  let showResetTurn = readToggle(uiToggleKeys.resetTurn, true);
+  let hideSpellMenu = readToggle(uiToggleKeys.hideSpellMenu, false);
   let menusLocked = readToggle(uiToggleKeys.lockMenus, false);
+  let connStyle = "full";
+  let initiativeStyle = "full";
   let sheetHeight = null;
   if (loginNameInput){
     loginNameInput.value = storedUsername;
@@ -1037,46 +1302,29 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
-  applyUiConfig();
-  loadSheetHeight();
-  if (sheetHandle && sheetWrap){
-    let dragState = null;
-    sheetHandle.addEventListener("pointerdown", (event) => {
-      if (menusLocked) return;
-      sheetHandle.setPointerCapture(event.pointerId);
-      dragState = {
-        startY: event.clientY,
-        startHeight: sheetWrap.getBoundingClientRect().height,
-      };
-      event.preventDefault();
-    });
-    sheetHandle.addEventListener("pointermove", (event) => {
-      if (!dragState) return;
-      const delta = dragState.startY - event.clientY;
-      applySheetHeight(dragState.startHeight + delta);
-    });
-    sheetHandle.addEventListener("pointerup", () => {
-      if (!dragState) return;
-      dragState = null;
-      persistSheetHeight();
-    });
-    sheetHandle.addEventListener("pointercancel", () => {
-      if (!dragState) return;
-      dragState = null;
-      persistSheetHeight();
-    });
-  }
-
   window.addEventListener("resize", () => {
     if (sheetWrap){
       applySheetHeight(sheetHeight);
     }
   });
 
+  function updateConnDisplay(){
+    if (connFullTextEl) connFullTextEl.textContent = connStatusText;
+    if (connEl) connEl.setAttribute("title", connStatusText);
+    if (connCompactLabelEl) connCompactLabelEl.textContent = "C";
+    if (connDotEl){
+      connDotEl.style.background = connStatusOk ? "var(--accent)" : "var(--danger)";
+    }
+  }
+
   function setConn(ok, txt){
-    connEl.textContent = txt;
-    connEl.style.borderColor = ok ? "rgba(106,169,255,0.35)" : "rgba(255,91,91,0.35)";
-    connEl.style.background = ok ? "rgba(106,169,255,0.14)" : "rgba(255,91,91,0.14)";
+    connStatusOk = !!ok;
+    connStatusText = String(txt || "");
+    if (connEl){
+      connEl.style.borderColor = connStatusOk ? "rgba(106,169,255,0.35)" : "rgba(255,91,91,0.35)";
+      connEl.style.background = connStatusOk ? "rgba(106,169,255,0.14)" : "rgba(255,91,91,0.14)";
+    }
+    updateConnDisplay();
   }
 
   function resize(){
@@ -1128,20 +1376,269 @@ __DAMAGE_TYPE_OPTIONS__
     return stored === "1";
   }
 
+  function readChoice(key, allowed, defaultValue){
+    const stored = localStorage.getItem(key);
+    if (stored && allowed.includes(stored)) return stored;
+    return defaultValue;
+  }
+
   function persistToggle(key, value){
     localStorage.setItem(key, value ? "1" : "0");
   }
 
+  function persistChoice(key, value){
+    if (!value){
+      localStorage.removeItem(key);
+      return;
+    }
+    localStorage.setItem(key, value);
+  }
+
+  connStyle = readChoice(uiSelectKeys.connStyle, ["full", "compact"], "full");
+  initiativeStyle = readChoice(uiSelectKeys.initiativeStyle, ["full", "compact", "hidden"], "full");
+  let connStatusText = "Connecting…";
+  let connStatusOk = false;
+
+  const hotkeyConfig = {
+    toggleTopbarTitle: {
+      input: hotkeyTopbarTitleInput,
+      conflictEl: document.getElementById("hotkeyConflictTopbarTitle"),
+      storageKey: "inittracker_hotkey_toggleTopbarTitle",
+      action: () => {
+        showTopbarTitle = !showTopbarTitle;
+        persistToggle(uiToggleKeys.topbarTitle, showTopbarTitle);
+        applyUiConfig();
+      },
+    },
+    toggleConnStyle: {
+      input: hotkeyConnStyleInput,
+      conflictEl: document.getElementById("hotkeyConflictConnStyle"),
+      storageKey: "inittracker_hotkey_toggleConnStyle",
+      action: () => {
+        connStyle = connStyle === "compact" ? "full" : "compact";
+        persistChoice(uiSelectKeys.connStyle, connStyle);
+        applyUiConfig();
+      },
+    },
+    lockMap: {
+      input: hotkeyLockMapInput,
+      conflictEl: document.getElementById("hotkeyConflictLockMap"),
+      storageKey: "inittracker_hotkey_lockMap",
+      action: () => lockMapBtn && lockMapBtn.click(),
+    },
+    centerMap: {
+      input: hotkeyCenterMapInput,
+      conflictEl: document.getElementById("hotkeyConflictCenterMap"),
+      storageKey: "inittracker_hotkey_centerMap",
+      action: () => centerMapBtn && centerMapBtn.click(),
+    },
+    measure: {
+      input: hotkeyMeasureInput,
+      conflictEl: document.getElementById("hotkeyConflictMeasure"),
+      storageKey: "inittracker_hotkey_measure",
+      action: () => measureToggle && measureToggle.click(),
+    },
+    measureClear: {
+      input: hotkeyMeasureClearInput,
+      conflictEl: document.getElementById("hotkeyConflictMeasureClear"),
+      storageKey: "inittracker_hotkey_measureClear",
+      action: () => measureClear && measureClear.click(),
+    },
+    zoomIn: {
+      input: hotkeyZoomInInput,
+      conflictEl: document.getElementById("hotkeyConflictZoomIn"),
+      storageKey: "inittracker_hotkey_zoomIn",
+      action: () => zoomInBtn && zoomInBtn.click(),
+    },
+    zoomOut: {
+      input: hotkeyZoomOutInput,
+      conflictEl: document.getElementById("hotkeyConflictZoomOut"),
+      storageKey: "inittracker_hotkey_zoomOut",
+      action: () => zoomOutBtn && zoomOutBtn.click(),
+    },
+    battleLog: {
+      input: hotkeyBattleLogInput,
+      conflictEl: document.getElementById("hotkeyConflictBattleLog"),
+      storageKey: "inittracker_hotkey_battleLog",
+      action: () => battleLogBtn && battleLogBtn.click(),
+    },
+    useAction: {
+      input: hotkeyUseActionInput,
+      conflictEl: document.getElementById("hotkeyConflictUseAction"),
+      storageKey: "inittracker_hotkey_useAction",
+      action: () => useActionBtn && useActionBtn.click(),
+    },
+    useBonusAction: {
+      input: hotkeyUseBonusActionInput,
+      conflictEl: document.getElementById("hotkeyConflictUseBonusAction"),
+      storageKey: "inittracker_hotkey_useBonusAction",
+      action: () => useBonusActionBtn && useBonusActionBtn.click(),
+    },
+    dash: {
+      input: hotkeyDashInput,
+      conflictEl: document.getElementById("hotkeyConflictDash"),
+      storageKey: "inittracker_hotkey_dash",
+      action: () => dashBtn && dashBtn.click(),
+    },
+    standUp: {
+      input: hotkeyStandUpInput,
+      conflictEl: document.getElementById("hotkeyConflictStandUp"),
+      storageKey: "inittracker_hotkey_standUp",
+      action: () => standUpBtn && standUpBtn.click(),
+    },
+    resetTurn: {
+      input: hotkeyResetTurnInput,
+      conflictEl: document.getElementById("hotkeyConflictResetTurn"),
+      storageKey: "inittracker_hotkey_resetTurn",
+      action: () => resetTurnBtn && resetTurnBtn.click(),
+    },
+  };
+
+  let hotkeyBindings = new Map();
+
+  function normalizeHotkeyEvent(event){
+    if (!event) return null;
+    if (event.key === "Shift" || event.key === "Control" || event.key === "Alt" || event.key === "Meta"){
+      return null;
+    }
+    const parts = [];
+    if (event.ctrlKey) parts.push("Ctrl");
+    if (event.altKey) parts.push("Alt");
+    if (event.metaKey) parts.push("Meta");
+    if (event.shiftKey) parts.push("Shift");
+    let key = event.key;
+    if (key === " ") key = "Space";
+    if (key.length === 1) key = key.toUpperCase();
+    parts.push(key);
+    return parts.join("+");
+  }
+
+  function isTypingTarget(target){
+    if (!target) return false;
+    const tag = target.tagName ? target.tagName.toLowerCase() : "";
+    if (tag === "input" || tag === "textarea" || tag === "select") return true;
+    if (target.isContentEditable) return true;
+    return false;
+  }
+
+  function setHotkey(action, value){
+    const config = hotkeyConfig[action];
+    if (!config) return;
+    const stored = value ? String(value) : "";
+    if (stored){
+      localStorage.setItem(config.storageKey, stored);
+    } else {
+      localStorage.removeItem(config.storageKey);
+    }
+    updateHotkeyInputs();
+  }
+
+  function updateHotkeyInputs(){
+    const usage = {};
+    hotkeyBindings = new Map();
+    Object.entries(hotkeyConfig).forEach(([action, config]) => {
+      if (!config || !config.input) return;
+      const stored = localStorage.getItem(config.storageKey) || "";
+      const normalized = stored.trim();
+      config.input.value = normalized;
+      if (normalized){
+        if (!usage[normalized]) usage[normalized] = [];
+        usage[normalized].push(action);
+      }
+    });
+    Object.entries(hotkeyConfig).forEach(([action, config]) => {
+      if (!config || !config.input) return;
+      const stored = (localStorage.getItem(config.storageKey) || "").trim();
+      const conflicts = stored && usage[stored] && usage[stored].length > 1;
+      config.input.classList.toggle("conflict", !!conflicts);
+      if (config.conflictEl){
+        config.conflictEl.textContent = conflicts ? "Conflict" : "";
+      }
+      if (stored && !conflicts){
+        hotkeyBindings.set(stored, action);
+      }
+    });
+  }
+
+  function applyConnStyle(){
+    if (!connEl) return;
+    connEl.classList.toggle("conn-compact", connStyle === "compact");
+    updateConnDisplay();
+  }
+
   function applyUiConfig(){
-    document.body.classList.toggle("hide-topbar-controls", !showTopbarControls);
-    document.body.classList.toggle("hide-sheet-actions", !showSheetActions);
     document.body.classList.toggle("menus-locked", menusLocked);
-    if (toggleTopbarControls) toggleTopbarControls.checked = showTopbarControls;
-    if (toggleSheetActions) toggleSheetActions.checked = showSheetActions;
+    document.body.classList.toggle("initiative-compact", initiativeStyle === "compact");
+    document.body.classList.toggle("initiative-hidden", initiativeStyle === "hidden");
+    document.body.classList.toggle("hide-spell-menu", hideSpellMenu);
+    if (topbarTitleEl) topbarTitleEl.classList.toggle("hidden", !showTopbarTitle);
+    if (connEl) connEl.classList.toggle("hidden", !showConnIndicator);
+    if (lockMapBtn) lockMapBtn.classList.toggle("hidden", !showLockMap);
+    if (centerMapBtn) centerMapBtn.classList.toggle("hidden", !showCenterMap);
+    if (measureToggle) measureToggle.classList.toggle("hidden", !showMeasure);
+    if (measureClear) measureClear.classList.toggle("hidden", !showMeasureClear);
+    if (zoomInBtn) zoomInBtn.classList.toggle("hidden", !showZoomIn);
+    if (zoomOutBtn) zoomOutBtn.classList.toggle("hidden", !showZoomOut);
+    if (battleLogBtn) battleLogBtn.classList.toggle("hidden", !showBattleLog);
+    if (useActionBtn) useActionBtn.classList.toggle("hidden", !showUseAction);
+    if (useBonusActionBtn) useBonusActionBtn.classList.toggle("hidden", !showUseBonusAction);
+    if (dashBtn) dashBtn.classList.toggle("hidden", !showDash);
+    if (standUpBtn) standUpBtn.classList.toggle("hidden", !showStandUp);
+    if (resetTurnBtn) resetTurnBtn.classList.toggle("hidden", !showResetTurn);
+    if (castPanel) castPanel.classList.toggle("hidden", hideSpellMenu);
+    if (toggleTopbarTitle) toggleTopbarTitle.checked = showTopbarTitle;
+    if (toggleConnIndicator) toggleConnIndicator.checked = showConnIndicator;
+    if (connStyleSelect) connStyleSelect.value = connStyle;
+    if (toggleLockMap) toggleLockMap.checked = showLockMap;
+    if (toggleCenterMap) toggleCenterMap.checked = showCenterMap;
+    if (toggleMeasure) toggleMeasure.checked = showMeasure;
+    if (toggleMeasureClear) toggleMeasureClear.checked = showMeasureClear;
+    if (toggleZoomIn) toggleZoomIn.checked = showZoomIn;
+    if (toggleZoomOut) toggleZoomOut.checked = showZoomOut;
+    if (toggleBattleLog) toggleBattleLog.checked = showBattleLog;
+    if (initiativeStyleSelect) initiativeStyleSelect.value = initiativeStyle;
+    if (toggleUseAction) toggleUseAction.checked = showUseAction;
+    if (toggleUseBonusAction) toggleUseBonusAction.checked = showUseBonusAction;
+    if (toggleDash) toggleDash.checked = showDash;
+    if (toggleStandUp) toggleStandUp.checked = showStandUp;
+    if (toggleResetTurn) toggleResetTurn.checked = showResetTurn;
+    if (toggleSpellMenu) toggleSpellMenu.checked = hideSpellMenu;
     if (toggleLockMenus) toggleLockMenus.checked = menusLocked;
     if (sheetHandle){
       sheetHandle.setAttribute("aria-disabled", menusLocked ? "true" : "false");
     }
+    applyConnStyle();
+    updateHotkeyInputs();
+  }
+
+  applyUiConfig();
+  loadSheetHeight();
+  if (sheetHandle && sheetWrap){
+    let dragState = null;
+    sheetHandle.addEventListener("pointerdown", (event) => {
+      if (menusLocked) return;
+      sheetHandle.setPointerCapture(event.pointerId);
+      dragState = {
+        startY: event.clientY,
+        startHeight: sheetWrap.getBoundingClientRect().height,
+      };
+      event.preventDefault();
+    });
+    sheetHandle.addEventListener("pointermove", (event) => {
+      if (!dragState) return;
+      const delta = dragState.startY - event.clientY;
+      applySheetHeight(dragState.startHeight + delta);
+    });
+    sheetHandle.addEventListener("pointerup", () => {
+      if (!dragState) return;
+      dragState = null;
+      persistSheetHeight();
+    });
+    sheetHandle.addEventListener("pointercancel", () => {
+      if (!dragState) return;
+      dragState = null;
+      persistSheetHeight();
+    });
   }
 
   function showConfigModal(){
@@ -2475,22 +2972,30 @@ __DAMAGE_TYPE_OPTIONS__
     zoomAt(zoom * factor, p.x, p.y);
   }, {passive: false});
 
-  document.getElementById("zoomIn").addEventListener("click", () => {
-    const r = canvas.getBoundingClientRect();
-    zoomAt(zoom + 4, r.width / 2, r.height / 2);
-  });
-  document.getElementById("zoomOut").addEventListener("click", () => {
-    const r = canvas.getBoundingClientRect();
-    zoomAt(zoom - 4, r.width / 2, r.height / 2);
-  });
-  document.getElementById("lockMap").addEventListener("click", (ev) => {
-    lockMap = !lockMap;
-    ev.target.textContent = lockMap ? "Unlock Map" : "Lock Map";
-  });
-  document.getElementById("centerMap").addEventListener("click", () => {
-    centerOnClaimed();
-    draw();
-  });
+  if (zoomInBtn){
+    zoomInBtn.addEventListener("click", () => {
+      const r = canvas.getBoundingClientRect();
+      zoomAt(zoom + 4, r.width / 2, r.height / 2);
+    });
+  }
+  if (zoomOutBtn){
+    zoomOutBtn.addEventListener("click", () => {
+      const r = canvas.getBoundingClientRect();
+      zoomAt(zoom - 4, r.width / 2, r.height / 2);
+    });
+  }
+  if (lockMapBtn){
+    lockMapBtn.addEventListener("click", (ev) => {
+      lockMap = !lockMap;
+      ev.target.textContent = lockMap ? "Unlock Map" : "Lock Map";
+    });
+  }
+  if (centerMapBtn){
+    centerMapBtn.addEventListener("click", () => {
+      centerOnClaimed();
+      draw();
+    });
+  }
   if (measureToggle){
     measureToggle.addEventListener("click", () => {
       measurementMode = !measurementMode;
@@ -3017,10 +3522,12 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
-  document.getElementById("dash").addEventListener("click", () => {
-    if (!claimedCid) return;
-    showDashModal();
-  });
+  if (dashBtn){
+    dashBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      showDashModal();
+    });
+  }
   if (dashActionBtn){
     dashActionBtn.addEventListener("click", () => {
       if (!claimedCid) return;
@@ -3073,17 +3580,123 @@ __DAMAGE_TYPE_OPTIONS__
       }
     });
   }
-  if (toggleTopbarControls){
-    toggleTopbarControls.addEventListener("change", (event) => {
-      showTopbarControls = !!event.target.checked;
-      persistToggle(uiToggleKeys.topbarControls, showTopbarControls);
+  if (toggleTopbarTitle){
+    toggleTopbarTitle.addEventListener("change", (event) => {
+      showTopbarTitle = !!event.target.checked;
+      persistToggle(uiToggleKeys.topbarTitle, showTopbarTitle);
       applyUiConfig();
     });
   }
-  if (toggleSheetActions){
-    toggleSheetActions.addEventListener("change", (event) => {
-      showSheetActions = !!event.target.checked;
-      persistToggle(uiToggleKeys.sheetActions, showSheetActions);
+  if (toggleConnIndicator){
+    toggleConnIndicator.addEventListener("change", (event) => {
+      showConnIndicator = !!event.target.checked;
+      persistToggle(uiToggleKeys.connIndicator, showConnIndicator);
+      applyUiConfig();
+    });
+  }
+  if (connStyleSelect){
+    connStyleSelect.addEventListener("change", (event) => {
+      connStyle = event.target.value === "compact" ? "compact" : "full";
+      persistChoice(uiSelectKeys.connStyle, connStyle);
+      applyUiConfig();
+    });
+  }
+  if (toggleLockMap){
+    toggleLockMap.addEventListener("change", (event) => {
+      showLockMap = !!event.target.checked;
+      persistToggle(uiToggleKeys.lockMap, showLockMap);
+      applyUiConfig();
+    });
+  }
+  if (toggleCenterMap){
+    toggleCenterMap.addEventListener("change", (event) => {
+      showCenterMap = !!event.target.checked;
+      persistToggle(uiToggleKeys.centerMap, showCenterMap);
+      applyUiConfig();
+    });
+  }
+  if (toggleMeasure){
+    toggleMeasure.addEventListener("change", (event) => {
+      showMeasure = !!event.target.checked;
+      persistToggle(uiToggleKeys.measure, showMeasure);
+      applyUiConfig();
+    });
+  }
+  if (toggleMeasureClear){
+    toggleMeasureClear.addEventListener("change", (event) => {
+      showMeasureClear = !!event.target.checked;
+      persistToggle(uiToggleKeys.measureClear, showMeasureClear);
+      applyUiConfig();
+    });
+  }
+  if (toggleZoomIn){
+    toggleZoomIn.addEventListener("change", (event) => {
+      showZoomIn = !!event.target.checked;
+      persistToggle(uiToggleKeys.zoomIn, showZoomIn);
+      applyUiConfig();
+    });
+  }
+  if (toggleZoomOut){
+    toggleZoomOut.addEventListener("change", (event) => {
+      showZoomOut = !!event.target.checked;
+      persistToggle(uiToggleKeys.zoomOut, showZoomOut);
+      applyUiConfig();
+    });
+  }
+  if (toggleBattleLog){
+    toggleBattleLog.addEventListener("change", (event) => {
+      showBattleLog = !!event.target.checked;
+      persistToggle(uiToggleKeys.battleLog, showBattleLog);
+      applyUiConfig();
+    });
+  }
+  if (initiativeStyleSelect){
+    initiativeStyleSelect.addEventListener("change", (event) => {
+      const value = event.target.value;
+      initiativeStyle = ["full", "compact", "hidden"].includes(value) ? value : "full";
+      persistChoice(uiSelectKeys.initiativeStyle, initiativeStyle);
+      applyUiConfig();
+    });
+  }
+  if (toggleUseAction){
+    toggleUseAction.addEventListener("change", (event) => {
+      showUseAction = !!event.target.checked;
+      persistToggle(uiToggleKeys.useAction, showUseAction);
+      applyUiConfig();
+    });
+  }
+  if (toggleUseBonusAction){
+    toggleUseBonusAction.addEventListener("change", (event) => {
+      showUseBonusAction = !!event.target.checked;
+      persistToggle(uiToggleKeys.useBonusAction, showUseBonusAction);
+      applyUiConfig();
+    });
+  }
+  if (toggleDash){
+    toggleDash.addEventListener("change", (event) => {
+      showDash = !!event.target.checked;
+      persistToggle(uiToggleKeys.dash, showDash);
+      applyUiConfig();
+    });
+  }
+  if (toggleStandUp){
+    toggleStandUp.addEventListener("change", (event) => {
+      showStandUp = !!event.target.checked;
+      persistToggle(uiToggleKeys.standUp, showStandUp);
+      applyUiConfig();
+    });
+  }
+  if (toggleResetTurn){
+    toggleResetTurn.addEventListener("change", (event) => {
+      showResetTurn = !!event.target.checked;
+      persistToggle(uiToggleKeys.resetTurn, showResetTurn);
+      applyUiConfig();
+    });
+  }
+  if (toggleSpellMenu){
+    toggleSpellMenu.addEventListener("change", (event) => {
+      hideSpellMenu = !!event.target.checked;
+      persistToggle(uiToggleKeys.hideSpellMenu, hideSpellMenu);
       applyUiConfig();
     });
   }
@@ -3094,6 +3707,26 @@ __DAMAGE_TYPE_OPTIONS__
       applyUiConfig();
     });
   }
+  Object.entries(hotkeyConfig).forEach(([action, config]) => {
+    if (!config || !config.input) return;
+    config.input.addEventListener("keydown", (event) => {
+      event.preventDefault();
+      if (event.key === "Escape"){
+        config.input.blur();
+        return;
+      }
+      if (event.key === "Backspace" || event.key === "Delete"){
+        setHotkey(action, "");
+        return;
+      }
+      const combo = normalizeHotkeyEvent(event);
+      if (!combo) return;
+      setHotkey(action, combo);
+    });
+    config.input.addEventListener("focus", () => {
+      config.input.select();
+    });
+  });
   useActionBtn.addEventListener("click", () => {
     if (!claimedCid) return;
     send({type:"use_action", cid: Number(claimedCid)});
@@ -3125,6 +3758,19 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
+  document.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented) return;
+    if (isTypingTarget(event.target)) return;
+    const combo = normalizeHotkeyEvent(event);
+    if (!combo) return;
+    const action = hotkeyBindings.get(combo);
+    if (!action) return;
+    event.preventDefault();
+    const config = hotkeyConfig[action];
+    if (config && typeof config.action === "function"){
+      config.action();
+    }
+  });
   document.addEventListener("pointerdown", handleUserGesture, {passive: true});
   document.addEventListener("keydown", handleUserGesture);
 
