@@ -201,6 +201,15 @@ class LanAccountStore:
         self.save()
         return True
 
+    def accounts_snapshot(self) -> List[Dict[str, Any]]:
+        accounts = self._data.get("accounts", {})
+        if not isinstance(accounts, dict):
+            return []
+        return [dict(account) for account in accounts.values() if isinstance(account, dict)]
+
+    def ownership_snapshot(self) -> Dict[int, str]:
+        return dict(self._ownership)
+
     def _rebuild_ownership(self) -> None:
         self._ownership = {}
         accounts = self._data.get("accounts", {})
@@ -3259,6 +3268,39 @@ class LanController:
         with self._store_lock:
             return self._account_store.clear_owner(cid)
 
+    def accounts_snapshot(self) -> List[Dict[str, Any]]:
+        with self._store_lock:
+            accounts = self._account_store.accounts_snapshot()
+        accounts.sort(key=lambda a: str(a.get("username", "")).lower())
+        return accounts
+
+    def ownership_snapshot(self) -> Dict[int, str]:
+        with self._store_lock:
+            return self._account_store.ownership_snapshot()
+
+    def admin_assign_owner(self, cid: int, username: str) -> bool:
+        with self._store_lock:
+            ok = self._account_store.claim(cid, username, force=True)
+        if ok:
+            self._broadcast_state(self._cached_snapshot)
+        return ok
+
+    def admin_clear_owner(self, cid: int) -> bool:
+        with self._store_lock:
+            ok = self._account_store.clear_owner(cid)
+        if ok:
+            self._broadcast_state(self._cached_snapshot)
+        return ok
+
+    def admin_disconnect_session(self, ws_id: int, reason: str = "Disconnected by the DM.") -> None:
+        if not self._loop:
+            return
+        coro = self._disconnect_session_async(int(ws_id), reason)
+        try:
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
+        except Exception:
+            pass
+
     def start(self, quiet: bool = False) -> None:
         if self._server_thread and self._server_thread.is_alive():
             self.app._oplog("LAN server already runnin'.")
@@ -3316,7 +3358,13 @@ class LanController:
 
             with self._clients_lock:
                 self._clients[ws_id] = ws
-                self._clients_meta[ws_id] = {"host": host, "port": port, "ua": ua, "connected_at": connected_at}
+                self._clients_meta[ws_id] = {
+                    "host": host,
+                    "port": port,
+                    "ua": ua,
+                    "connected_at": connected_at,
+                    "last_seen": connected_at,
+                }
             self.app._oplog(f"LAN session connected ws_id={ws_id} host={host}:{port} ua={ua}")
             try:
                 await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
@@ -3324,6 +3372,12 @@ class LanController:
                 await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
                 while True:
                     raw = await ws.receive_text()
+                    try:
+                        with self._clients_lock:
+                            if ws_id in self._clients_meta:
+                                self._clients_meta[ws_id]["last_seen"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        pass
                     try:
                         msg = json.loads(raw)
                     except Exception:
@@ -3486,14 +3540,17 @@ class LanController:
             for ws_id, ws in list(self._clients.items()):
                 meta = dict(self._clients_meta.get(ws_id, {}))
                 cid = self._claims.get(ws_id)
+                username = self._client_usernames.get(ws_id)
                 out.append(
                     {
                         "ws_id": int(ws_id),
                         "cid": int(cid) if cid is not None else None,
+                        "username": username,
                         "host": meta.get("host", "?"),
                         "port": meta.get("port", ""),
                         "user_agent": meta.get("ua", ""),
                         "connected_at": meta.get("connected_at", ""),
+                        "last_seen": meta.get("last_seen", meta.get("connected_at", "")),
                     }
                 )
         out.sort(key=lambda s: int(s.get("ws_id", 0)))
@@ -3519,6 +3576,24 @@ class LanController:
             await self._unclaim_ws_async(ws_id, reason=note, clear_ownership=True)
             return
         await self._claim_ws_async(ws_id, int(cid), note=note, allow_override=True)
+
+    async def _disconnect_session_async(self, ws_id: int, reason: str) -> None:
+        with self._clients_lock:
+            ws = self._clients.get(ws_id)
+        if not ws:
+            return
+        try:
+            await self._unclaim_ws_async(ws_id, reason=reason, clear_ownership=False)
+        except Exception:
+            pass
+        try:
+            await ws.close(code=1000)
+        except Exception:
+            pass
+        try:
+            await self._broadcast_state_async(self._cached_snapshot)
+        except Exception:
+            pass
 
     def _tick(self) -> None:
         """Runs on Tk thread: process actions and broadcast state when changed."""
@@ -4201,11 +4276,181 @@ class InitiativeTracker(base.InitiativeTracker):
             self.after(300, refresh_sessions)
 
         ttk.Button(controls, text="Refresh", command=refresh_sessions).pack(side=tk.LEFT)
+        ttk.Button(controls, text="LAN Admin…", command=self._open_lan_admin).pack(side=tk.LEFT, padx=(10, 0))
         ttk.Button(controls, text="Assign", command=do_assign).pack(side=tk.LEFT, padx=(10, 0))
         ttk.Button(controls, text="Unassign", command=do_kick).pack(side=tk.LEFT, padx=(6, 0))
         ttk.Button(controls, text="Close", command=win.destroy).pack(side=tk.RIGHT)
 
         refresh_sessions()
+
+    def _open_lan_admin(self) -> None:
+        """DM utility: manage LAN accounts, ownership, and sessions."""
+        win = tk.Toplevel(self)
+        win.title("LAN Admin")
+        win.geometry("960x680")
+        win.transient(self)
+
+        outer = tk.Frame(win)
+        outer.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        summary_frame = tk.LabelFrame(outer, text="Session Summary")
+        summary_frame.pack(fill=tk.BOTH, expand=False, pady=(0, 10))
+
+        summary_cols = ("ws_id", "username", "claimed", "last_seen", "client")
+        summary_tree = ttk.Treeview(summary_frame, columns=summary_cols, show="headings", height=6)
+        summary_tree.heading("ws_id", text="Session")
+        summary_tree.heading("username", text="Username")
+        summary_tree.heading("claimed", text="Claimed PC")
+        summary_tree.heading("last_seen", text="Last Seen")
+        summary_tree.heading("client", text="Client")
+        summary_tree.column("ws_id", width=90, anchor="center")
+        summary_tree.column("username", width=160, anchor="w")
+        summary_tree.column("claimed", width=200, anchor="w")
+        summary_tree.column("last_seen", width=160, anchor="w")
+        summary_tree.column("client", width=280, anchor="w")
+        summary_tree.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+
+        tables = tk.Frame(outer)
+        tables.pack(fill=tk.BOTH, expand=True)
+
+        accounts_frame = tk.LabelFrame(tables, text="Known Accounts")
+        accounts_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 6))
+
+        accounts_cols = ("username", "owned", "created_at")
+        accounts_tree = ttk.Treeview(accounts_frame, columns=accounts_cols, show="headings", height=8)
+        accounts_tree.heading("username", text="Username")
+        accounts_tree.heading("owned", text="Owned PCs")
+        accounts_tree.heading("created_at", text="Created")
+        accounts_tree.column("username", width=160, anchor="w")
+        accounts_tree.column("owned", width=220, anchor="w")
+        accounts_tree.column("created_at", width=140, anchor="w")
+        accounts_tree.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+
+        ownership_frame = tk.LabelFrame(tables, text="PC Ownership")
+        ownership_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(6, 0))
+
+        ownership_cols = ("pc", "owner")
+        ownership_tree = ttk.Treeview(ownership_frame, columns=ownership_cols, show="headings", height=8)
+        ownership_tree.heading("pc", text="Player Character")
+        ownership_tree.heading("owner", text="Owner")
+        ownership_tree.column("pc", width=220, anchor="w")
+        ownership_tree.column("owner", width=180, anchor="w")
+        ownership_tree.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+
+        actions = tk.LabelFrame(outer, text="Admin Actions")
+        actions.pack(fill=tk.X, pady=(10, 0))
+
+        pc_map: Dict[str, Optional[int]] = {}
+        pc_var = tk.StringVar()
+        pc_box = ttk.Combobox(actions, textvariable=pc_var, values=[], width=28, state="readonly")
+        pc_box.grid(row=0, column=1, padx=(6, 16), pady=6, sticky="w")
+        tk.Label(actions, text="PC:").grid(row=0, column=0, padx=(6, 0), pady=6, sticky="w")
+
+        tk.Label(actions, text="Username:").grid(row=0, column=2, padx=(6, 0), pady=6, sticky="w")
+        user_var = tk.StringVar()
+        user_entry = ttk.Combobox(actions, textvariable=user_var, values=[], width=22)
+        user_entry.grid(row=0, column=3, padx=(6, 16), pady=6, sticky="w")
+
+        def refresh_admin() -> None:
+            summary_tree.delete(*summary_tree.get_children())
+            accounts_tree.delete(*accounts_tree.get_children())
+            ownership_tree.delete(*ownership_tree.get_children())
+
+            cid_to_name: Dict[int, str] = {}
+            try:
+                for p in self._lan_pcs():
+                    if isinstance(p.get("cid"), int):
+                        cid_to_name[int(p["cid"])] = str(p.get("name", ""))
+            except Exception:
+                pass
+
+            sessions = self._lan.sessions_snapshot()
+            for s in sessions:
+                ws_id = int(s.get("ws_id"))
+                username = s.get("username") or ""
+                cid = s.get("cid")
+                claimed = ""
+                if isinstance(cid, int):
+                    claimed = cid_to_name.get(int(cid), f"cid {cid}")
+                last_seen = s.get("last_seen", "") or s.get("connected_at", "")
+                host = str(s.get("host", "?"))
+                port = str(s.get("port", ""))
+                client = f"{host}:{port}" if port else host
+                summary_tree.insert("", "end", iid=str(ws_id), values=(ws_id, username, claimed, last_seen, client))
+
+            accounts = self._lan.accounts_snapshot()
+            for account in accounts:
+                username = str(account.get("username", ""))
+                created_at = str(account.get("created_at", ""))
+                owned_names = []
+                for cid in account.get("owned_cids", []) or []:
+                    try:
+                        owned_names.append(cid_to_name.get(int(cid), f"cid {cid}"))
+                    except Exception:
+                        continue
+                owned_text = ", ".join(owned_names)
+                accounts_tree.insert("", "end", iid=username, values=(username, owned_text, created_at))
+
+            ownership = self._lan.ownership_snapshot()
+            for cid, name in cid_to_name.items():
+                owner = ownership.get(int(cid), "")
+                ownership_tree.insert("", "end", iid=str(cid), values=(name, owner))
+
+            pc_map.clear()
+            for cid, name in cid_to_name.items():
+                pc_map[name] = int(cid)
+            pc_names = sorted(pc_map.keys())
+            pc_box["values"] = pc_names
+            if pc_names:
+                pc_var.set(pc_names[0])
+            usernames = [str(a.get("username", "")) for a in accounts if a.get("username")]
+            user_entry["values"] = usernames
+
+        def selected_ws_id() -> Optional[int]:
+            sel = summary_tree.selection()
+            if not sel:
+                return None
+            try:
+                return int(sel[0])
+            except Exception:
+                return None
+
+        def selected_cid() -> Optional[int]:
+            name = pc_var.get()
+            cid = pc_map.get(name)
+            if isinstance(cid, int):
+                return cid
+            return None
+
+        def do_clear_owner() -> None:
+            cid = selected_cid()
+            if cid is None:
+                return
+            self._lan.admin_clear_owner(cid)
+            self.after(300, refresh_admin)
+
+        def do_assign_owner() -> None:
+            cid = selected_cid()
+            username = user_var.get().strip()
+            if cid is None or not username:
+                return
+            self._lan.admin_assign_owner(cid, username)
+            self.after(300, refresh_admin)
+
+        def do_disconnect() -> None:
+            ws_id = selected_ws_id()
+            if ws_id is None:
+                return
+            self._lan.admin_disconnect_session(ws_id)
+            self.after(500, refresh_admin)
+
+        ttk.Button(actions, text="Clear Ownership", command=do_clear_owner).grid(row=0, column=4, padx=(0, 6), pady=6)
+        ttk.Button(actions, text="Assign Owner", command=do_assign_owner).grid(row=0, column=5, padx=(0, 6), pady=6)
+        ttk.Button(actions, text="Disconnect Session", command=do_disconnect).grid(row=0, column=6, padx=(0, 6), pady=6)
+        ttk.Button(actions, text="Refresh", command=refresh_admin).grid(row=0, column=7, padx=(0, 6), pady=6)
+        ttk.Button(actions, text="Close", command=win.destroy).grid(row=0, column=8, padx=(0, 6), pady=6)
+
+        refresh_admin()
 
 
     
