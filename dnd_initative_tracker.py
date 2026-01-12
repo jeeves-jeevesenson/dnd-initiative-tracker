@@ -478,6 +478,32 @@ HTML_INDEX = r"""<!doctype html>
       border: 1px solid rgba(255,255,255,0.1);
       background: rgba(10,14,22,0.55);
     }
+    .turn-alerts-panel{
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(10,14,22,0.55);
+    }
+    .turn-alerts-panel legend{
+      padding: 0 6px;
+      font-weight: 700;
+    }
+    .turn-alerts-row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .turn-alerts-status{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .turn-alerts-note{
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--muted);
+    }
     .cast-panel summary{
       cursor:pointer;
       font-weight:700;
@@ -1119,6 +1145,14 @@ HTML_INDEX = r"""<!doctype html>
         <div class="chip" id="note">Tip: drag yer token</div>
         <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
       </div>
+      <fieldset class="turn-alerts-panel" id="turnAlertsPanel">
+        <legend>Turn Alerts</legend>
+        <div class="turn-alerts-row">
+          <div class="turn-alerts-status" id="turnAlertStatus" aria-live="polite">Not installed.</div>
+          <button class="btn" id="enableTurnAlerts" type="button">Enable Turn Alerts</button>
+        </div>
+        <div class="turn-alerts-note">Only works when installed as an app.</div>
+      </fieldset>
       <details class="cast-panel" id="castPanel">
         <summary>Cast Spell</summary>
         <form id="castForm">
@@ -1231,11 +1265,154 @@ __DAMAGE_TYPE_OPTIONS__
   const wsProto = (location.protocol === "https:") ? "wss" : "ws";
   const wsUrl = `${wsProto}://${location.host}/ws`;
   const pushPublicKey = (window.PUSH_PUBLIC_KEY || "").trim();
+  const turnAlertStorageKey = "inittracker_turnAlertSubscription";
   let swRegistration = null;
 
   function setNotificationStatus(message){
     if (!notificationStatus) return;
     notificationStatus.textContent = message;
+  }
+
+  function setTurnAlertStatus(message){
+    if (!turnAlertStatus) return;
+    turnAlertStatus.textContent = message;
+  }
+
+  function isStandaloneDisplay(){
+    return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+  }
+
+  function getTurnAlertIdentity(){
+    const username = (storedUsername || "").trim();
+    const playerId = claimedCid !== null && claimedCid !== undefined ? Number(claimedCid) : null;
+    const claimedUnit = getClaimedUnit();
+    const playerName = claimedUnit?.name ? String(claimedUnit.name) : "";
+    return {
+      playerId,
+      username: username || null,
+      playerName: playerName || null,
+    };
+  }
+
+  function formatTurnAlertLabel(identity){
+    if (identity?.playerName) return identity.playerName;
+    if (identity?.username) return identity.username;
+    if (identity?.playerId !== null && identity?.playerId !== undefined){
+      return `#${identity.playerId}`;
+    }
+    return "";
+  }
+
+  function persistTurnAlertSubscription(subscription, identity){
+    if (!subscription) return;
+    const payload = {
+      subscription: subscription.toJSON ? subscription.toJSON() : subscription,
+      playerId: identity?.playerId ?? null,
+      username: identity?.username ?? null,
+      label: formatTurnAlertLabel(identity),
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      localStorage.setItem(turnAlertStorageKey, JSON.stringify(payload));
+    } catch (err){
+      console.warn("Unable to store turn alert subscription.", err);
+    }
+  }
+
+  function loadTurnAlertSubscription(){
+    try {
+      const raw = localStorage.getItem(turnAlertStorageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch (err){
+      console.warn("Unable to read turn alert subscription.", err);
+    }
+    return null;
+  }
+
+  function formatTurnAlertStatus(identity){
+    const label = formatTurnAlertLabel(identity);
+    return label ? `Subscribed (${label})` : "Subscribed";
+  }
+
+  async function refreshTurnAlertStatus(){
+    if (!turnAlertStatus) return;
+    if (!isStandaloneDisplay()){
+      setTurnAlertStatus("Not installed.");
+      return;
+    }
+    if (!("Notification" in window)){
+      setTurnAlertStatus("Notifications not supported.");
+      return;
+    }
+    if (Notification.permission === "denied"){
+      setTurnAlertStatus("Permission denied.");
+      return;
+    }
+    if (!("serviceWorker" in navigator)){
+      setTurnAlertStatus("Service worker unsupported.");
+      return;
+    }
+    if (!("PushManager" in window)){
+      setTurnAlertStatus("Push not supported.");
+      return;
+    }
+    setTurnAlertStatus("Not subscribed.");
+    try {
+      swRegistration = swRegistration || await navigator.serviceWorker.ready;
+      const existing = await swRegistration.pushManager.getSubscription();
+      if (existing){
+        const stored = loadTurnAlertSubscription();
+        setTurnAlertStatus(formatTurnAlertStatus(stored || getTurnAlertIdentity()));
+      }
+    } catch (err){
+      console.warn("Unable to check push subscription.", err);
+    }
+  }
+
+  async function ensurePushSubscribed({vapidPublicKey, playerId, username}){
+    if (!isStandaloneDisplay()){
+      throw new Error("Not installed.");
+    }
+    if (!vapidPublicKey){
+      throw new Error("Missing push public key.");
+    }
+    if (!playerId && !username){
+      throw new Error("Claim a character or login first.");
+    }
+    if (!("Notification" in window)){
+      throw new Error("Notifications are not supported.");
+    }
+    if (!("serviceWorker" in navigator)){
+      throw new Error("Service worker unsupported.");
+    }
+    if (!("PushManager" in window)){
+      throw new Error("Push is not supported.");
+    }
+    try {
+      swRegistration = swRegistration || await navigator.serviceWorker.ready;
+    } catch (err){
+      throw new Error("Service worker not ready.");
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted"){
+      throw new Error(permission === "denied" ? "Permission denied." : "Permission required.");
+    }
+    const existing = await swRegistration.pushManager.getSubscription();
+    if (existing){
+      const identity = getTurnAlertIdentity();
+      setTurnAlertStatus(formatTurnAlertStatus(identity));
+      return existing;
+    }
+    const subscription = await swRegistration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+    });
+    const identity = getTurnAlertIdentity();
+    persistTurnAlertSubscription(subscription, identity);
+    setTurnAlertStatus(formatTurnAlertStatus(identity));
+    return subscription;
   }
 
   function routeDeepLink(url){
@@ -1338,6 +1515,8 @@ __DAMAGE_TYPE_OPTIONS__
   const presetStatus = document.getElementById("presetStatus");
   const enableNotificationsBtn = document.getElementById("enableNotifications");
   const notificationStatus = document.getElementById("notificationStatus");
+  const enableTurnAlertsBtn = document.getElementById("enableTurnAlerts");
+  const turnAlertStatus = document.getElementById("turnAlertStatus");
   const hotkeyTopbarTitleInput = document.getElementById("hotkeyTopbarTitle");
   const hotkeyConnStyleInput = document.getElementById("hotkeyConnStyle");
   const hotkeyLockMapInput = document.getElementById("hotkeyLockMap");
@@ -1500,6 +1679,9 @@ __DAMAGE_TYPE_OPTIONS__
     loginNameInput.value = storedUsername;
   }
   setLoginState(false);
+  if (turnAlertStatus){
+    refreshTurnAlertStatus();
+  }
   if (iosInstallHint){
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isSafariEngine = /AppleWebKit/.test(navigator.userAgent);
@@ -3130,6 +3312,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
         setLoginState(true);
         shownNoOwnedToast = false;
+        refreshTurnAlertStatus();
       } else if (msg.type === "login_error"){
         setLoginState(false);
         setLoginError(msg.error || "Username required.");
@@ -3174,6 +3357,7 @@ __DAMAGE_TYPE_OPTIONS__
             showNoOwnedPcToast(msg.pcs || msg.claimable || []);
           }
         }
+        refreshTurnAlertStatus();
       } else if (msg.type === "force_claim"){
         if (msg.cid !== null && msg.cid !== undefined){
           claimedCid = String(msg.cid);
@@ -3181,11 +3365,13 @@ __DAMAGE_TYPE_OPTIONS__
         }
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
+        refreshTurnAlertStatus();
       } else if (msg.type === "force_unclaim"){
         claimedCid = null;
         meEl.textContent = "(unclaimed)";
         shownNoOwnedToast = false;
         showNoOwnedPcToast(msg.pcs || lastPcList || []);
+        refreshTurnAlertStatus();
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
@@ -4138,6 +4324,23 @@ __DAMAGE_TYPE_OPTIONS__
       } catch (err){
         console.warn("Push subscription failed.", err);
         setNotificationStatus("Failed to enable notifications.");
+      }
+    });
+  }
+  if (enableTurnAlertsBtn){
+    enableTurnAlertsBtn.addEventListener("click", async () => {
+      try {
+        const identity = getTurnAlertIdentity();
+        await ensurePushSubscribed({
+          vapidPublicKey: pushPublicKey,
+          playerId: identity.playerId,
+          username: identity.username,
+        });
+        localToast("Turn alerts enabled.");
+      } catch (err){
+        const message = err?.message ? String(err.message) : "Failed to enable alerts.";
+        setTurnAlertStatus(message);
+        localToast(message);
       }
     });
   }
