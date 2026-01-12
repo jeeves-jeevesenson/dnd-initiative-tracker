@@ -459,13 +459,45 @@ HTML_INDEX = r"""<!doctype html>
     .turn-order{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
     .turn-chip{
       min-width: 26px;
-      text-align:center;
       font-size:12px;
       padding:4px 8px;
       border-radius:999px;
       border:1px solid rgba(255,255,255,0.12);
       background: rgba(255,255,255,0.04);
       color: var(--text);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .turn-chip-index{font-weight:700;}
+    .turn-chip-name{
+      max-width: 140px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .turn-chip-marker{
+      display:none;
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background: rgba(255,255,255,0.3);
+      flex:0 0 auto;
+    }
+    .turn-chip-marker.active-marker{
+      background: var(--accent);
+      box-shadow: 0 0 6px rgba(106,169,255,0.6);
+    }
+    .turn-chip-marker.claimed-marker{
+      background: rgba(106,169,255,0.55);
+      border: 1px solid rgba(106,169,255,0.85);
+    }
+    .initiative-compact .turn-chip-name{display:none;}
+    .initiative-compact .turn-chip-marker{display:inline-block;}
+    .initiative-compact .turn-chip.active{
+      background: rgba(106,169,255,0.2);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(106,169,255,0.5);
     }
     .turn-chip.claimed{
       border-color: rgba(106,169,255,0.45);
@@ -560,7 +592,6 @@ HTML_INDEX = r"""<!doctype html>
       color: var(--danger);
     }
     .hotkey-hint{font-size:11px; color: var(--muted);}
-    .hide-spell-menu .cast-panel{display:none;}
     .color-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
     .color-swatch{width:36px; height:36px; border-radius:50%; border:2px solid rgba(255,255,255,0.2); background:#6aa9ff;}
     .color-input{width:64px; height:44px; border:none; background:none; padding:0;}
@@ -1570,7 +1601,6 @@ __DAMAGE_TYPE_OPTIONS__
     document.body.classList.toggle("menus-locked", menusLocked);
     document.body.classList.toggle("initiative-compact", initiativeStyle === "compact");
     document.body.classList.toggle("initiative-hidden", initiativeStyle === "hidden");
-    document.body.classList.toggle("hide-spell-menu", hideSpellMenu);
     if (topbarTitleEl) topbarTitleEl.classList.toggle("hidden", !showTopbarTitle);
     if (connEl) connEl.classList.toggle("hidden", !showConnIndicator);
     if (lockMapBtn) lockMapBtn.classList.toggle("hidden", !showLockMap);
@@ -1585,7 +1615,6 @@ __DAMAGE_TYPE_OPTIONS__
     if (dashBtn) dashBtn.classList.toggle("hidden", !showDash);
     if (standUpBtn) standUpBtn.classList.toggle("hidden", !showStandUp);
     if (resetTurnBtn) resetTurnBtn.classList.toggle("hidden", !showResetTurn);
-    if (castPanel) castPanel.classList.toggle("hidden", hideSpellMenu);
     if (toggleTopbarTitle) toggleTopbarTitle.checked = showTopbarTitle;
     if (toggleConnIndicator) toggleConnIndicator.checked = showConnIndicator;
     if (connStyleSelect) connStyleSelect.value = connStyle;
@@ -1609,6 +1638,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     applyConnStyle();
     updateHotkeyInputs();
+    updateSpellPanelVisibility();
   }
 
   applyUiConfig();
@@ -1908,6 +1938,24 @@ __DAMAGE_TYPE_OPTIONS__
   function getClaimedUnit(){
     if (!state || !state.units || claimedCid === null) return null;
     return state.units.find(u => Number(u.cid) === Number(claimedCid)) || null;
+  }
+
+  function isUnitSpellcaster(unit){
+    if (!unit) return false;
+    if (unit.is_spellcaster !== undefined && unit.is_spellcaster !== null){
+      return !!unit.is_spellcaster;
+    }
+    if (unit.spellcaster !== undefined && unit.spellcaster !== null){
+      return !!unit.spellcaster;
+    }
+    return true;
+  }
+
+  function updateSpellPanelVisibility(){
+    if (!castPanel) return;
+    const claimedUnit = getClaimedUnit();
+    const hideForNonCaster = hideSpellMenu && claimedUnit && !isUnitSpellcaster(claimedUnit);
+    castPanel.classList.toggle("hidden", hideForNonCaster);
   }
 
   function defaultAoeCenter(){
@@ -2432,6 +2480,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const chipByCid = new Map();
     order.forEach((cid, idx) => {
+      const unit = unitsByCid.get(Number(cid));
       const chip = document.createElement("div");
       chip.className = "turn-chip";
       if (idx === claimedIndex){
@@ -2442,7 +2491,28 @@ __DAMAGE_TYPE_OPTIONS__
       }
       chip.setAttribute("role", "button");
       chip.setAttribute("tabindex", "0");
-      chip.textContent = String(idx + 1);
+      const unitName = unit?.name ? String(unit.name) : `#${cid}`;
+      chip.setAttribute("aria-label", `Turn ${idx + 1}: ${unitName}`);
+      if (idx === claimedIndex){
+        const claimedMarker = document.createElement("span");
+        claimedMarker.className = "turn-chip-marker claimed-marker";
+        claimedMarker.setAttribute("aria-hidden", "true");
+        chip.appendChild(claimedMarker);
+      }
+      if (idx === activeIndex){
+        const activeMarker = document.createElement("span");
+        activeMarker.className = "turn-chip-marker active-marker";
+        activeMarker.setAttribute("aria-hidden", "true");
+        chip.appendChild(activeMarker);
+      }
+      const indexEl = document.createElement("span");
+      indexEl.className = "turn-chip-index";
+      indexEl.textContent = String(idx + 1);
+      chip.appendChild(indexEl);
+      const nameEl = document.createElement("span");
+      nameEl.className = "turn-chip-name";
+      nameEl.textContent = unitName;
+      chip.appendChild(nameEl);
       chip.addEventListener("click", () => {
         setSelectedTurnCid(Number(cid));
       });
@@ -2523,6 +2593,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
     }
     updateTurnOrder();
+    updateSpellPanelVisibility();
   }
 
   function hideTurnModal(){
@@ -5330,6 +5401,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
                     "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
                     "is_prone": self._has_condition(c, "prone"),
+                    "is_spellcaster": bool(getattr(c, "is_spellcaster", False)),
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
                     "marks": marks,
                 }
