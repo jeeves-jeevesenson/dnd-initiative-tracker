@@ -450,6 +450,41 @@ HTML_INDEX = r"""<!doctype html>
       border-color: rgba(255,255,255,0.5);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
     }
+    .login-screen{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background: radial-gradient(circle at top, rgba(20,25,35,0.95), rgba(10,12,18,0.98));
+      padding: 20px;
+      z-index: 40;
+    }
+    .login-card{
+      width: min(360px, 100%);
+      background: rgba(20,25,35,0.95);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .login-card h2{margin:0; font-size: 18px;}
+    .login-card p{margin:0; color: var(--muted); font-size: 13px;}
+    .login-actions{
+      display:flex;
+      justify-content:flex-end;
+      margin-top: 4px;
+    }
+    .login-error{
+      color: var(--danger);
+      font-size: 12px;
+      min-height: 16px;
+    }
+    body.login-required .app{display:none;}
+    body.login-required .login-screen{display:flex;}
     @media (max-width: 720px), (max-height: 720px){
       .btn{padding: 6px 8px; font-size: 12px;}
       .topbar{gap:8px; padding: calc(8px + var(--safeInsetTop)) 10px 8px 10px;}
@@ -458,6 +493,20 @@ HTML_INDEX = r"""<!doctype html>
   </style>
 </head>
 <body>
+<div class="login-screen" id="loginScreen" aria-live="polite">
+  <form class="login-card" id="loginForm">
+    <h2>Join the table</h2>
+    <p>Enter a username to connect to the initiative tracker.</p>
+    <div class="form-field">
+      <label for="loginName">Username</label>
+      <input id="loginName" type="text" autocomplete="name" maxlength="32" placeholder="E.g. Captain Rook" required />
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-actions">
+      <button class="btn accent" type="submit">Enter</button>
+    </div>
+  </form>
+</div>
 <div class="app">
   <div class="topbar">
     <h1>InitTracker LAN</h1>
@@ -758,6 +807,10 @@ __DAMAGE_TYPE_OPTIONS__
   const castDamageTypeList = document.getElementById("castDamageTypeList");
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
+  const loginScreen = document.getElementById("loginScreen");
+  const loginForm = document.getElementById("loginForm");
+  const loginNameInput = document.getElementById("loginName");
+  const loginError = document.getElementById("loginError");
   const sheetWrap = document.getElementById("sheetWrap");
   const sheetHandle = document.getElementById("sheetHandle");
   const turnAlertAudio = new Audio("/assets/alert.wav");
@@ -789,12 +842,15 @@ __DAMAGE_TYPE_OPTIONS__
     }
     return value;
   })();
+  const usernameKey = "inittracker_username";
+  let storedUsername = localStorage.getItem(usernameKey) || "";
   let claimedCid = localStorage.getItem("inittracker_claimedCid") || null;
   let pendingClaim = null;
   let lastPcList = [];
   let lastActiveCid = null;
   let lastTurnRound = null;
   let selectedTurnCid = null;
+  let loggedIn = false;
 
   // view transform
   let zoom = 32; // px per square
@@ -823,6 +879,10 @@ __DAMAGE_TYPE_OPTIONS__
   let showSheetActions = readToggle(uiToggleKeys.sheetActions, true);
   let menusLocked = readToggle(uiToggleKeys.lockMenus, false);
   let sheetHeight = null;
+  if (loginNameInput){
+    loginNameInput.value = storedUsername;
+  }
+  setLoginState(false);
   if (iosInstallHint){
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isSafariEngine = /AppleWebKit/.test(navigator.userAgent);
@@ -962,6 +1022,38 @@ __DAMAGE_TYPE_OPTIONS__
   function send(msg){
     if (!ws || ws.readyState !== 1) return;
     ws.send(JSON.stringify(msg));
+  }
+
+  function setLoginState(isLoggedIn){
+    loggedIn = isLoggedIn;
+    document.body.classList.toggle("login-required", !isLoggedIn);
+    if (isLoggedIn && loginError){
+      loginError.textContent = "";
+    }
+  }
+
+  function setLoginError(text){
+    if (!loginError) return;
+    loginError.textContent = text || "";
+  }
+
+  function sendHello(){
+    if (!loginNameInput) return;
+    const username = loginNameInput.value.trim();
+    if (!username){
+      setLoginError("Username required.");
+      return;
+    }
+    if (!ws || ws.readyState !== 1){
+      setLoginError("Not connected yet. Try again in a moment.");
+      return;
+    }
+    send({
+      type: "hello",
+      username,
+      claimed: claimedCid ? Number(claimedCid) : null,
+      client_id: clientId,
+    });
   }
 
   function localToast(text){
@@ -1902,7 +1994,11 @@ __DAMAGE_TYPE_OPTIONS__
     ws.addEventListener("open", () => {
       setConn(true, "Connected");
       send({type:"grid_request"});
-      send({type:"hello", claimed: claimedCid ? Number(claimedCid) : null, client_id: clientId});
+      if (loginNameInput && loginNameInput.value.trim()){
+        sendHello();
+      } else {
+        setLoginState(false);
+      }
     });
     ws.addEventListener("close", () => {
       setConn(false, "Disconnected");
@@ -1911,7 +2007,20 @@ __DAMAGE_TYPE_OPTIONS__
     ws.addEventListener("message", (ev) => {
       let msg = null;
       try { msg = JSON.parse(ev.data); } catch(e){ return; }
-      if (msg.type === "state"){
+      if (msg.type === "login_ok"){
+        const username = String(msg.username || "").trim();
+        if (username){
+          localStorage.setItem(usernameKey, username);
+          if (loginNameInput){
+            loginNameInput.value = username;
+          }
+          storedUsername = username;
+        }
+        setLoginState(true);
+      } else if (msg.type === "login_error"){
+        setLoginState(false);
+        setLoginError(msg.error || "Username required.");
+      } else if (msg.type === "state"){
         state = msg.state;
         updateSpellPresetOptions(state?.spell_presets);
         aoeDragOverrides.clear();
@@ -2003,6 +2112,13 @@ __DAMAGE_TYPE_OPTIONS__
         }
         playKoAlert();
       }
+    });
+  }
+
+  if (loginForm){
+    loginForm.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      sendHello();
     });
   }
 
@@ -2967,6 +3083,7 @@ class LanController:
         self._client_ids: Dict[int, str] = {}  # id(websocket) -> client_id
         self._client_claims: Dict[str, int] = {}  # client_id -> cid (last known claim)
         self._cid_to_client: Dict[int, str] = {}  # cid -> client_id (active claim)
+        self._client_usernames: Dict[int, str] = {}  # id(websocket) -> username
 
         self._actions: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._last_state_json: Optional[str] = None
@@ -3062,10 +3179,21 @@ class LanController:
                         # If client sends previous claim, remember it (optional).
                         claimed = msg.get("claimed")
                         client_id = msg.get("client_id")
+                        username = msg.get("username")
                         if isinstance(client_id, str):
                             client_id = client_id.strip()
                         else:
                             client_id = None
+                        if isinstance(username, str):
+                            username = username.strip()
+                        else:
+                            username = None
+                        if not username:
+                            await ws.send_text(json.dumps({"type": "login_error", "error": "Username required."}))
+                            continue
+                        with self._clients_lock:
+                            self._client_usernames[ws_id] = username
+                        await ws.send_text(json.dumps({"type": "login_ok", "username": username}))
                         if client_id:
                             with self._clients_lock:
                                 self._client_ids[ws_id] = client_id
@@ -3086,6 +3214,11 @@ class LanController:
                             if pending and pending[0] == ver:
                                 self._grid_pending.pop(ws_id, None)
                     elif typ == "claim":
+                        with self._clients_lock:
+                            username = self._client_usernames.get(ws_id)
+                        if not username:
+                            await ws.send_text(json.dumps({"type": "login_error", "error": "Login required before claiming."}))
+                            continue
                         cid = msg.get("cid")
                         if isinstance(cid, int):
                             await self._claim_ws_async(ws_id, cid, note="Claimed. Drag yer token, matey.")
@@ -3107,6 +3240,11 @@ class LanController:
                         "cast_aoe",
                         "aoe_move",
                     ):
+                        with self._clients_lock:
+                            username = self._client_usernames.get(ws_id)
+                        if not username:
+                            await ws.send_text(json.dumps({"type": "login_error", "error": "Login required before actions."}))
+                            continue
                         # enqueue for Tk thread
                         with self._clients_lock:
                             claimed_cid = self._claims.get(ws_id)
@@ -3129,6 +3267,7 @@ class LanController:
                         self._cid_to_ws.pop(int(old), None)
                         self._cid_to_client.pop(int(old), None)
                     self._client_ids.pop(ws_id, None)
+                    self._client_usernames.pop(ws_id, None)
                     self._grid_pending.pop(ws_id, None)
                 if old is not None:
                     name = self._pc_name_for(int(old))
