@@ -345,7 +345,14 @@ HTML_INDEX = r"""<!doctype html>
     }
     .sheet{
       padding: 10px 12px calc(12px + var(--safeInsetBottom)) 12px;
-      overflow:auto;
+      display:flex;
+      flex-direction:column;
+      flex:1 1 auto;
+      min-height:0;
+    }
+    .sheet-content{
+      display:flex;
+      flex-direction:column;
       flex:1 1 auto;
       min-height:0;
     }
@@ -549,10 +556,15 @@ HTML_INDEX = r"""<!doctype html>
       line-height: 1.4;
     }
     .initiative-order-content{
-      flex:1;
+      flex:1 1 auto;
       min-height:0;
       overflow:auto;
       position:relative;
+    }
+    .sheet-turn-order-row{
+      flex:1 1 auto;
+      min-height:0;
+      align-items:stretch;
     }
     .turn-order-status{
       margin-top: 6px;
@@ -728,6 +740,7 @@ HTML_INDEX = r"""<!doctype html>
   <div class="sheet-wrap" id="sheetWrap">
     <div class="sheet-handle" id="sheetHandle" role="separator" aria-orientation="horizontal" aria-label="Resize sheet"></div>
     <div class="sheet" id="sheet">
+      <div class="sheet-content">
       <div class="row">
         <div class="label">Ye be:</div>
         <div class="value" id="me">(unclaimed)</div>
@@ -741,7 +754,7 @@ HTML_INDEX = r"""<!doctype html>
           <button class="btn danger" id="endTurn">End Turn</button>
         </div>
       </div>
-      <div class="row">
+      <div class="row sheet-turn-order-row">
         <div class="initiative-order-content">
           <div class="turn-order" id="turnOrder" aria-label="Turn order"></div>
           <div class="turn-order-status" id="turnOrderStatus"></div>
@@ -844,6 +857,7 @@ __DAMAGE_TYPE_OPTIONS__
           </div>
         </form>
       </details>
+      </div>
     </div>
   </div>
 </div>
