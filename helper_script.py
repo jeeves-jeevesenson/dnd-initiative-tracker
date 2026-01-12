@@ -3306,6 +3306,18 @@ class InitiativeTracker(tk.Tk):
                 dex_var.set(str(mod))
 
         name_combo.bind("<<ComboboxSelected>>", lambda _e: apply_monster_defaults())
+        def on_name_keypress(event: tk.Event) -> None:
+            key = event.char
+            if not key or not key.isalpha():
+                return
+            target = key.lower()
+            for name in monster_values:
+                if name and name[0].lower() == target:
+                    name_var.set(name)
+                    apply_monster_defaults()
+                    return
+
+        name_combo.bind("<KeyPress>", on_name_keypress)
 
         if monster_values and not name_var.get().strip():
             name_var.set(monster_values[0])
