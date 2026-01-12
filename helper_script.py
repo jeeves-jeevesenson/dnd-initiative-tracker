@@ -179,6 +179,7 @@ class Combatant:
     nat20: bool = False
     ally: bool = False
     is_pc: bool = False
+    is_spellcaster: bool = False
     token_color: Optional[str] = None
     move_total: int = 0
     action_remaining: int = 1
@@ -1540,6 +1541,7 @@ class InitiativeTracker(tk.Tk):
         swim_speed: int = 0,
         water_mode: bool = False,
         is_pc: bool = False,
+        is_spellcaster: Optional[bool] = None,
         saving_throws: Optional[Dict[str, int]] = None,
         ability_mods: Optional[Dict[str, int]] = None,
         monster_spec: Optional[MonsterSpec] = None,
@@ -1551,6 +1553,18 @@ class InitiativeTracker(tk.Tk):
         wm = bool(water_mode)
 
         base = swim if (wm and swim > 0) else (0 if wm else spd)
+        inferred_spellcaster = None
+        raw_spec = getattr(monster_spec, "raw_data", None)
+        if isinstance(raw_spec, dict):
+            for key in ("is_spellcaster", "spellcaster", "spellcasting"):
+                if key in raw_spec:
+                    inferred_spellcaster = bool(raw_spec.get(key))
+                    break
+        if inferred_spellcaster is None:
+            inferred_spellcaster = bool(is_pc)
+        if is_spellcaster is None:
+            is_spellcaster = inferred_spellcaster
+
         c = Combatant(
             cid=cid,
             name=name,
@@ -1566,6 +1580,7 @@ class InitiativeTracker(tk.Tk):
             roll=None,
             ally=ally,
             is_pc=bool(is_pc),
+            is_spellcaster=bool(is_spellcaster),
             saving_throws=dict(saving_throws or {}),
             ability_mods=dict(ability_mods or {}),
             monster_spec=monster_spec,
