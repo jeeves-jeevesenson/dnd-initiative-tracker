@@ -444,6 +444,7 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(btn_row, text="Give Bonus Action", command=self._give_bonus_action).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Toggle Water", command=self._toggle_water_selected).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Map Mode…", command=self._open_map_mode).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="LAN Admin…", command=self._open_lan_admin).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Clear", command=self._clear_turns).pack(side=tk.LEFT, padx=(0, 8))
 
         ttk.Label(btn_row, text="Shortcuts: Space=Next, Shift+Space=Prev, C=Conditions, D=Damage, M=Move, W=Water, P=Map").pack(
@@ -2395,6 +2396,12 @@ class InitiativeTracker(tk.Tk):
         dlg.bind("<Return>", apply)
         dlg.bind("<Escape>", cancel)
         amt_entry.focus_set()
+
+    def _open_lan_admin(self) -> None:
+        messagebox.showinfo(
+            "LAN Admin",
+            "LAN admin tools are available in the LAN-enabled app.",
+        )
 
     # -------------------------- Effects formatting --------------------------
     def _format_effects(self, c: Combatant) -> str:
