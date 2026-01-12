@@ -1,11 +1,19 @@
 {
   "name": "InitTracker LAN",
   "short_name": "InitTracker",
+  "id": "/?app=initiative",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "icons": [
     {
-      "src": "/assets/graphic.png",
-      "sizes": "180x180",
+      "src": "/assets/graphic-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/graphic-512.png",
+      "sizes": "512x512",
       "type": "image/png"
     }
   ]
