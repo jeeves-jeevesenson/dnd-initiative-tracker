@@ -746,7 +746,11 @@ HTML_INDEX = r"""<!doctype html>
       box-shadow: 0 12px 40px rgba(0,0,0,0.5);
       display:flex;
       flex-direction:column;
+      overflow:auto;
       max-height: calc(100vh - var(--safeInsetTop) - var(--safeInsetBottom) - 40px);
+    }
+    .card-scroll{
+      max-height: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - 40px);
     }
     .card h2{margin:0 0 8px 0; font-size:16px;}
     .list{max-height: 50vh; overflow:auto; border:1px solid rgba(255,255,255,0.10); border-radius:12px;}
@@ -1018,7 +1022,7 @@ HTML_INDEX = r"""<!doctype html>
       </div>
     </div>
     <div class="modal" id="logModal" aria-hidden="true">
-      <div class="card">
+      <div class="card card-scroll">
         <h2>Battle Log</h2>
         <div class="log-content" id="logContent">Loading…</div>
         <div class="modal-actions">
@@ -1028,7 +1032,7 @@ HTML_INDEX = r"""<!doctype html>
       </div>
     </div>
     <div class="modal" id="configModal" aria-hidden="true">
-      <div class="card">
+      <div class="card card-scroll">
         <h2>Config</h2>
         <details class="config-section">
           <summary>Top Bar</summary>
