@@ -7859,8 +7859,19 @@ class InitiativeTracker(base.InitiativeTracker):
         ttk.Button(ctrl, text="Reload", command=lambda: self._monster_library_reload(win)).pack(side="right")
         ttk.Button(ctrl, text="Info", command=lambda: open_info()).pack(side="right", padx=(0, 8))
 
+        search_row = ttk.Frame(top)
+        search_row.pack(fill="x", pady=(0, 8))
+
+        ttk.Label(search_row, text="Search").pack(side="left")
+        search_var = tk.StringVar()
+        search_entry = ttk.Entry(search_row, textvariable=search_var)
+        search_entry.pack(side="left", fill="x", expand=True, padx=(6, 0))
+
         cols = ("name", "type", "cr", "file")
-        tree = ttk.Treeview(top, columns=cols, show="headings", height=18)
+        tree_frame = ttk.Frame(top)
+        tree_frame.pack(fill="both", expand=True)
+
+        tree = ttk.Treeview(tree_frame, columns=cols, show="headings", height=18)
         tree.heading("name", text="Name")
         tree.heading("type", text="Type")
         tree.heading("cr", text="CR")
@@ -7871,13 +7882,20 @@ class InitiativeTracker(base.InitiativeTracker):
         tree.column("cr", width=70, anchor="center")
         tree.column("file", width=200, anchor="w")
 
-        tree.pack(fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+
+        tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
         def get_filtered() -> List[MonsterSpec]:
             tsel = type_var.get()
             specs = self._monster_specs
             if tsel and tsel != "All":
                 specs = [s for s in specs if s.mtype == tsel]
+            query = search_var.get().strip().lower()
+            if query:
+                specs = [s for s in specs if query in s.name.lower()]
             sm = sort_var.get()
             if sm == "Type":
                 return sorted(specs, key=lambda s: (s.mtype.lower(), s.name.lower()))
@@ -7922,6 +7940,7 @@ class InitiativeTracker(base.InitiativeTracker):
         tree.bind("<Double-1>", on_select)
         type_box.bind("<<ComboboxSelected>>", lambda e: refresh())
         sort_box.bind("<<ComboboxSelected>>", lambda e: refresh())
+        search_var.trace_add("write", lambda *_: refresh())
 
         refresh()
 
