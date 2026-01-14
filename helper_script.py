@@ -28,6 +28,7 @@ import shutil
 import ast
 import re
 import json
+import hashlib
 from pathlib import Path
 from datetime import datetime
 
@@ -323,6 +324,8 @@ class InitiativeTracker(tk.Tk):
         self._monsters_by_name: Dict[str, MonsterSpec] = {}
         self._spell_presets: List[SpellPreset] = []
         self._spells_by_name: Dict[str, SpellPreset] = {}
+        self._monster_index_cache: Optional[Dict[str, object]] = None
+        self._spells_index_cache: Optional[Dict[str, object]] = None
         self.rough_terrain_presets: List[TerrainPreset] = _load_rough_terrain_presets()
 
         # Remember roles for name-based log styling (pc/ally/enemy)
@@ -407,6 +410,9 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(add_frame, text="⭐ Adv", command=self._toggle_star_advantage_selected).grid(row=1, column=14, padx=(0, 8))
         ttk.Button(add_frame, text="Set Start Here", command=self._set_start_here).grid(row=1, column=15, padx=(0, 8))
         ttk.Button(add_frame, text="Clear Start", command=self._clear_start).grid(row=1, column=16)
+        ttk.Button(add_frame, text="Refresh monsters/spells", command=self._refresh_monsters_spells).grid(
+            row=1, column=17, padx=(8, 0)
+        )
 
         # Turn frame
         turn_frame = ttk.LabelFrame(container, text="Turn Tracker", style="DnD.TLabelframe")
@@ -2755,26 +2761,87 @@ class InitiativeTracker(tk.Tk):
                 self.combatants[cid].star_advantage = not self.combatants[cid].star_advantage
         self._rebuild_table(scroll_to_current=True)
 
+    # --------------------- Index cache helpers ---------------------
+    def _build_dir_cache_signature(self, dir_path: Path, patterns: Tuple[str, ...]) -> Tuple[float, str, List[Path]]:
+        files: List[Path] = []
+        seen: Set[str] = set()
+        for pattern in patterns:
+            try:
+                for fp in dir_path.glob(pattern):
+                    key = str(fp)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    files.append(fp)
+            except Exception:
+                continue
+        files.sort(key=lambda p: p.name.lower())
+
+        try:
+            dir_mtime = dir_path.stat().st_mtime
+        except Exception:
+            dir_mtime = 0.0
+
+        hasher = hashlib.sha256()
+        for fp in files:
+            try:
+                stat = fp.stat()
+                hasher.update(fp.name.encode("utf-8"))
+                hasher.update(str(stat.st_mtime_ns).encode("utf-8"))
+                hasher.update(str(stat.st_size).encode("utf-8"))
+            except Exception:
+                hasher.update(fp.name.encode("utf-8"))
+        return dir_mtime, hasher.hexdigest(), files
+
+    def _is_index_cache_valid(self, cache: Optional[Dict[str, object]], dir_mtime: float, files_hash: str) -> bool:
+        if not cache:
+            return False
+        return cache.get("dir_mtime") == dir_mtime and cache.get("files_hash") == files_hash
+
+    def _invalidate_monster_index_cache(self) -> None:
+        self._monster_index_cache = None
+
+    def _invalidate_spells_index_cache(self) -> None:
+        self._spells_index_cache = None
+
+    def ensure_monster_index_loaded(self) -> None:
+        mdir = self._monsters_dir_path()
+        dir_mtime, files_hash, _files = self._build_dir_cache_signature(mdir, ("*.yml", "*.yaml"))
+        if self._is_index_cache_valid(self._monster_index_cache, dir_mtime, files_hash):
+            return
+        self._load_monsters_index()
+
+    def _refresh_monsters_spells(self) -> None:
+        self._invalidate_monster_index_cache()
+        self._invalidate_spells_index_cache()
+        self._load_monsters_index()
+        self._load_spells_index()
+        combo = getattr(self, "_monster_combo", None)
+        if combo is not None:
+            try:
+                combo.configure(values=self._monster_names_sorted())
+            except Exception:
+                pass
+
     # --------------------- Monsters (YAML library) ---------------------
     def _monsters_dir_path(self) -> Path:
         return Path.cwd() / "Monsters"
 
     def _load_monsters_index(self) -> None:
         """Load ./Monsters/*.yml|*.yaml and build a small index for the add dropdown."""
-        self._monster_specs = []
-        self._monsters_by_name = {}
-
         mdir = self._monsters_dir_path()
         try:
             mdir.mkdir(parents=True, exist_ok=True)
         except Exception:
             pass
 
-        files: List[Path] = []
-        try:
-            files = sorted(list(mdir.glob("*.yml")) + list(mdir.glob("*.yaml")))
-        except Exception:
-            files = []
+        dir_mtime, files_hash, files = self._build_dir_cache_signature(mdir, ("*.yml", "*.yaml"))
+        if self._is_index_cache_valid(self._monster_index_cache, dir_mtime, files_hash):
+            return
+
+        self._monster_specs = []
+        self._monsters_by_name = {}
+        self._monster_index_cache = {"dir_mtime": dir_mtime, "files_hash": files_hash}
 
         if not files:
             return
@@ -3014,20 +3081,19 @@ class InitiativeTracker(tk.Tk):
 
     def _load_spells_index(self) -> None:
         """Load ./spells/*.yml|*.yaml and build a list of LAN spell presets."""
-        self._spell_presets = []
-        self._spells_by_name = {}
-
         sdir = self._spells_dir_path()
         try:
             sdir.mkdir(parents=True, exist_ok=True)
         except Exception:
             pass
 
-        files: List[Path] = []
-        try:
-            files = sorted(list(sdir.glob("*.yml")) + list(sdir.glob("*.yaml")))
-        except Exception:
-            files = []
+        dir_mtime, files_hash, files = self._build_dir_cache_signature(sdir, ("*.yml", "*.yaml"))
+        if self._is_index_cache_valid(self._spells_index_cache, dir_mtime, files_hash):
+            return
+
+        self._spell_presets = []
+        self._spells_by_name = {}
+        self._spells_index_cache = {"dir_mtime": dir_mtime, "files_hash": files_hash}
 
         if not files:
             return
@@ -3242,7 +3308,7 @@ class InitiativeTracker(tk.Tk):
 
     # -------------------------- Bulk add --------------------------
     def _open_bulk_dialog(self) -> None:
-        self._load_monsters_index()
+        self.ensure_monster_index_loaded()
         dlg = tk.Toplevel(self)
         dlg.title("Bulk Add")
         dlg.geometry("760x260")
