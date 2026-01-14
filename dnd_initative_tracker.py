@@ -334,7 +334,15 @@ class LanAccountStore:
         if owner and owner != username and force:
             old_account = self._data.get("accounts", {}).get(owner)
             if old_account:
-                old_account["owned_cids"] = [c for c in old_account.get("owned_cids", []) if int(c) != cid]
+                cleaned: List[int] = []
+                for entry in old_account.get("owned_cids", []):
+                    try:
+                        entry_id = int(entry)
+                    except Exception:
+                        continue
+                    if entry_id != cid:
+                        cleaned.append(entry_id)
+                old_account["owned_cids"] = cleaned
         account = self.ensure_account(username)
         if cid not in account.get("owned_cids", []):
             account["owned_cids"].append(cid)
@@ -352,7 +360,15 @@ class LanAccountStore:
             return False
         account = self._data.get("accounts", {}).get(owner)
         if account:
-            account["owned_cids"] = [c for c in account.get("owned_cids", []) if int(c) != cid]
+            cleaned: List[int] = []
+            for entry in account.get("owned_cids", []):
+                try:
+                    entry_id = int(entry)
+                except Exception:
+                    continue
+                if entry_id != cid:
+                    cleaned.append(entry_id)
+            account["owned_cids"] = cleaned
         self._ownership.pop(cid, None)
         self.save()
         return True
