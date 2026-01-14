@@ -326,6 +326,8 @@ class InitiativeTracker(tk.Tk):
         self._spells_by_name: Dict[str, SpellPreset] = {}
         self._monster_index_cache: Optional[Dict[str, object]] = None
         self._spells_index_cache: Optional[Dict[str, object]] = None
+        self._monster_detail_cache: Dict[str, Dict[str, Any]] = {}
+        self._spell_detail_cache: Dict[str, SpellPreset] = {}
         self.rough_terrain_presets: List[TerrainPreset] = _load_rough_terrain_presets()
 
         # Remember roles for name-based log styling (pc/ally/enemy)
@@ -610,7 +612,7 @@ class InitiativeTracker(tk.Tk):
 
     def _apply_monster_defaults(self) -> None:
         nm = self.name_var.get().strip()
-        spec = self._monsters_by_name.get(nm)
+        spec = self._load_monster_details(nm) or self._monsters_by_name.get(nm)
         if not spec:
             return
         try:
@@ -801,6 +803,8 @@ class InitiativeTracker(tk.Tk):
         if spec is None:
             nm = self.name_var.get().strip()
             spec = self._monsters_by_name.get(nm)
+        if spec is not None:
+            spec = self._load_monster_details(spec.name) or spec
 
         win = tk.Toplevel(self)
         title = f"{spec.name} Stat Block" if spec else "Monster Info"
@@ -1653,7 +1657,7 @@ class InitiativeTracker(tk.Tk):
         ally = bool(self.ally_var.get())
         saving_throws: Optional[Dict[str, int]] = None
         ability_mods: Optional[Dict[str, int]] = None
-        spec = self._monsters_by_name.get(name)
+        spec = self._load_monster_details(name) or self._monsters_by_name.get(name)
         if spec and spec.saving_throws:
             saving_throws = dict(spec.saving_throws)
         if spec and spec.ability_mods:
@@ -2566,6 +2570,8 @@ class InitiativeTracker(tk.Tk):
         if not c:
             return
         spec = c.monster_spec or self._monsters_by_name.get(c.name)
+        if spec is not None:
+            spec = self._load_monster_details(spec.name) or spec
         if not spec:
             messagebox.showinfo("Monster Info", f"No stat block available for {c.name}.")
             return
@@ -2800,9 +2806,11 @@ class InitiativeTracker(tk.Tk):
 
     def _invalidate_monster_index_cache(self) -> None:
         self._monster_index_cache = None
+        self._monster_detail_cache = {}
 
     def _invalidate_spells_index_cache(self) -> None:
         self._spells_index_cache = None
+        self._spell_detail_cache = {}
 
     def ensure_monster_index_loaded(self) -> None:
         mdir = self._monsters_dir_path()
@@ -2841,6 +2849,7 @@ class InitiativeTracker(tk.Tk):
 
         self._monster_specs = []
         self._monsters_by_name = {}
+        self._monster_detail_cache = {}
         self._monster_index_cache = {"dir_mtime": dir_mtime, "files_hash": files_hash}
 
         if not files:
@@ -2873,36 +2882,14 @@ class InitiativeTracker(tk.Tk):
             else:
                 mon = data
 
-            raw_data: Dict[str, Any] = {}
             abilities: Dict[str, Any] = {}
             if not is_legacy:
-                for key in (
-                    "name",
-                    "size",
-                    "type",
-                    "alignment",
-                    "initiative",
-                    "challenge_rating",
-                    "ac",
-                    "hp",
-                    "speed",
-                    "traits",
-                    "actions",
-                    "legendary_actions",
-                    "description",
-                    "habitat",
-                    "treasure",
-                ):
-                    if key in mon:
-                        raw_data[key] = mon.get(key)
                 ab = mon.get("abilities")
                 if isinstance(ab, dict):
                     for key, val in ab.items():
                         if not isinstance(key, str):
                             continue
                         abilities[key.strip().lower()] = val
-                    if abilities:
-                        raw_data["abilities"] = abilities
             else:
                 ab = mon.get("abilities")
                 if isinstance(ab, dict):
@@ -3063,7 +3050,7 @@ class InitiativeTracker(tk.Tk):
                 init_mod=init_mod,
                 saving_throws=saving_throws,
                 ability_mods=ability_mods,
-                raw_data=raw_data,
+                raw_data={},
             )
 
             if name not in self._monsters_by_name:
@@ -3071,6 +3058,75 @@ class InitiativeTracker(tk.Tk):
             self._monster_specs.append(spec)
 
         self._monster_specs.sort(key=lambda s: s.name.lower())
+
+    def _load_monster_details(self, name: str) -> Optional[MonsterSpec]:
+        spec = self._monsters_by_name.get(name)
+        if not spec:
+            return None
+        filename = spec.filename
+        if filename in self._monster_detail_cache:
+            spec.raw_data = self._monster_detail_cache[filename]
+            return spec
+        if spec.raw_data:
+            self._monster_detail_cache[filename] = spec.raw_data
+            return spec
+        if yaml is None:
+            return spec
+        fp = self._monsters_dir_path() / filename
+        try:
+            raw = fp.read_text(encoding="utf-8")
+        except Exception:
+            return spec
+        try:
+            data = yaml.safe_load(raw)
+        except Exception:
+            return spec
+        if not isinstance(data, dict):
+            return spec
+        legacy_mon = data.get("monster")
+        is_legacy = "monster" in data
+        if is_legacy:
+            if not isinstance(legacy_mon, dict):
+                return spec
+            mon = legacy_mon
+        else:
+            mon = data
+
+        abilities: Dict[str, Any] = {}
+        ab = mon.get("abilities")
+        if isinstance(ab, dict):
+            for key, val in ab.items():
+                if not isinstance(key, str):
+                    continue
+                abilities[key.strip().lower()] = val
+
+        raw_data: Dict[str, Any] = {}
+        if not is_legacy:
+            for key in (
+                "name",
+                "size",
+                "type",
+                "alignment",
+                "initiative",
+                "challenge_rating",
+                "ac",
+                "hp",
+                "speed",
+                "traits",
+                "actions",
+                "legendary_actions",
+                "description",
+                "habitat",
+                "treasure",
+            ):
+                if key in mon:
+                    raw_data[key] = mon.get(key)
+            if abilities:
+                raw_data["abilities"] = abilities
+
+        self._monster_detail_cache[filename] = raw_data
+        spec.raw_data = raw_data
+        return spec
 
     def _monster_names_sorted(self) -> List[str]:
         return [s.name for s in self._monster_specs]
@@ -3093,6 +3149,7 @@ class InitiativeTracker(tk.Tk):
 
         self._spell_presets = []
         self._spells_by_name = {}
+        self._spell_detail_cache = {}
         self._spells_index_cache = {"dir_mtime": dir_mtime, "files_hash": files_hash}
 
         if not files:
@@ -3104,6 +3161,100 @@ class InitiativeTracker(tk.Tk):
             except Exception:
                 pass
             return
+        def log_notice(message: str) -> None:
+            try:
+                self._log(message)
+            except Exception:
+                pass
+
+        def log_skip(path: Path, reason: str) -> None:
+            log_notice(f"Spell preset '{path.name}' skipped: {reason}")
+
+        for fp in files:
+            try:
+                raw = fp.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            try:
+                data = yaml.safe_load(raw)
+            except Exception:
+                continue
+            if not isinstance(data, dict):
+                continue
+
+            spell_block = data.get("spell")
+            if not isinstance(spell_block, dict):
+                spell_block = data
+            if not isinstance(spell_block, dict):
+                continue
+
+            name = str(spell_block.get("name") or fp.stem).strip()
+            if not name:
+                log_skip(fp, "missing name")
+                continue
+
+            shape = str(spell_block.get("shape") or "").strip().lower()
+            if shape not in {"circle", "square", "line"}:
+                log_skip(fp, "missing or invalid shape")
+                continue
+
+            spec = SpellPreset(
+                filename=str(fp.name),
+                name=name,
+                shape=shape,
+                radius_ft=None,
+                side_ft=None,
+                length_ft=None,
+                width_ft=None,
+                save_type=None,
+                save_dc=None,
+                default_damage=None,
+                dice=None,
+                damage_types=[],
+                color=None,
+                duration_turns=None,
+                over_time=None,
+                move_per_turn_ft=None,
+                trigger_on_start_or_enter=None,
+                persistent=None,
+                pinned_default=None,
+                upcast=None,
+            )
+
+            if name not in self._spells_by_name:
+                self._spells_by_name[name] = spec
+            self._spell_presets.append(spec)
+
+        self._spell_presets.sort(key=lambda s: s.name.lower())
+
+    def _load_spell_details(self, name: str) -> Optional[SpellPreset]:
+        spec = self._spells_by_name.get(name)
+        if not spec:
+            return None
+        filename = spec.filename
+        if filename in self._spell_detail_cache:
+            detail = self._spell_detail_cache[filename]
+            spec.__dict__.update(detail.__dict__)
+            return spec
+        if yaml is None:
+            return spec
+        fp = self._spells_dir_path() / filename
+        try:
+            raw = fp.read_text(encoding="utf-8")
+        except Exception:
+            return spec
+        try:
+            data = yaml.safe_load(raw)
+        except Exception:
+            return spec
+        if not isinstance(data, dict):
+            return spec
+
+        spell_block = data.get("spell")
+        if not isinstance(spell_block, dict):
+            spell_block = data
+        if not isinstance(spell_block, dict):
+            return spec
 
         def parse_int(value: object) -> Optional[int]:
             if isinstance(value, int):
@@ -3157,6 +3308,12 @@ class InitiativeTracker(tk.Tk):
                 return raw or None
             return None
 
+        def log_notice(message: str) -> None:
+            try:
+                self._log(message)
+            except Exception:
+                pass
+
         def parse_upcast(value: object) -> Optional[Dict[str, object]]:
             if not isinstance(value, dict):
                 return None
@@ -3195,116 +3352,82 @@ class InitiativeTracker(tk.Tk):
                 "increments": increments,
             }
 
-        def log_notice(message: str) -> None:
-            try:
-                self._log(message)
-            except Exception:
-                pass
+        name = str(spell_block.get("name") or fp.stem).strip() or spec.name
+        shape = str(spell_block.get("shape") or "").strip().lower()
+        if shape not in {"circle", "square", "line"}:
+            return spec
 
-        def log_skip(path: Path, reason: str) -> None:
-            log_notice(f"Spell preset '{path.name}' skipped: {reason}")
+        radius_ft = parse_int(spell_block.get("radius_ft"))
+        side_ft = parse_int(spell_block.get("side_ft"))
+        length_ft = parse_int(spell_block.get("length_ft"))
+        width_ft = parse_int(spell_block.get("width_ft"))
+        duration_turns = parse_int(spell_block.get("duration_turns"))
+        over_time = parse_bool(spell_block.get("over_time"))
+        move_per_turn_ft = parse_int(spell_block.get("move_per_turn_ft"))
+        trigger_on_start_or_enter = parse_trigger(spell_block.get("trigger_on_start_or_enter"))
+        persistent = parse_bool(spell_block.get("persistent"))
+        pinned_default = parse_bool(spell_block.get("pinned_default"))
 
-        for fp in files:
-            try:
-                raw = fp.read_text(encoding="utf-8")
-            except Exception:
-                continue
-            try:
-                data = yaml.safe_load(raw)
-            except Exception:
-                continue
-            if not isinstance(data, dict):
-                continue
+        damage_types: List[str] = []
+        raw_damage = spell_block.get("damage_types") or []
+        if isinstance(raw_damage, list):
+            for entry in raw_damage:
+                if isinstance(entry, str):
+                    dtype = entry.strip()
+                    if dtype:
+                        damage_types.append(dtype)
 
-            spell_block = data.get("spell")
-            if not isinstance(spell_block, dict):
-                spell_block = data
-            if not isinstance(spell_block, dict):
-                continue
+        save_type = None
+        save_dc = None
+        save_block = spell_block.get("save") or {}
+        if isinstance(save_block, dict):
+            stype = save_block.get("type")
+            if isinstance(stype, str) and stype.strip():
+                save_type = stype.strip().lower()
+            save_dc = parse_int(save_block.get("dc"))
 
-            name = str(spell_block.get("name") or fp.stem).strip()
-            if not name:
-                log_skip(fp, "missing name")
-                continue
+        default_damage = parse_default_damage(spell_block.get("default_damage"))
+        dice = parse_dice(spell_block.get("dice"))
+        upcast = parse_upcast(spell_block.get("upcast"))
 
-            shape = str(spell_block.get("shape") or "").strip().lower()
-            if shape not in {"circle", "square", "line"}:
-                log_skip(fp, "missing or invalid shape")
-                continue
+        color = None
+        raw_color = spell_block.get("color")
+        if isinstance(raw_color, str) and raw_color.strip():
+            color = raw_color.strip()
 
-            radius_ft = parse_int(spell_block.get("radius_ft"))
-            side_ft = parse_int(spell_block.get("side_ft"))
-            length_ft = parse_int(spell_block.get("length_ft"))
-            width_ft = parse_int(spell_block.get("width_ft"))
-            duration_turns = parse_int(spell_block.get("duration_turns"))
-            over_time = parse_bool(spell_block.get("over_time"))
-            move_per_turn_ft = parse_int(spell_block.get("move_per_turn_ft"))
-            trigger_on_start_or_enter = parse_trigger(spell_block.get("trigger_on_start_or_enter"))
-            persistent = parse_bool(spell_block.get("persistent"))
-            pinned_default = parse_bool(spell_block.get("pinned_default"))
+        if shape == "circle" and radius_ft is None:
+            log_notice(f"Spell preset '{fp.name}' missing radius_ft for circle; UI will block casting.")
+        elif shape == "square" and side_ft is None:
+            log_notice(f"Spell preset '{fp.name}' missing side_ft for square; UI will block casting.")
+        elif shape == "line" and (length_ft is None or width_ft is None):
+            log_notice(f"Spell preset '{fp.name}' missing length_ft/width_ft for line; UI will block casting.")
 
-            damage_types: List[str] = []
-            raw_damage = spell_block.get("damage_types") or []
-            if isinstance(raw_damage, list):
-                for entry in raw_damage:
-                    if isinstance(entry, str):
-                        dtype = entry.strip()
-                        if dtype:
-                            damage_types.append(dtype)
+        detail = SpellPreset(
+            filename=spec.filename,
+            name=name,
+            shape=shape,
+            radius_ft=radius_ft,
+            side_ft=side_ft,
+            length_ft=length_ft,
+            width_ft=width_ft,
+            save_type=save_type,
+            save_dc=save_dc,
+            default_damage=default_damage,
+            dice=dice,
+            damage_types=damage_types,
+            color=color,
+            duration_turns=duration_turns,
+            over_time=over_time,
+            move_per_turn_ft=move_per_turn_ft,
+            trigger_on_start_or_enter=trigger_on_start_or_enter,
+            persistent=persistent,
+            pinned_default=pinned_default,
+            upcast=upcast,
+        )
 
-            save_type = None
-            save_dc = None
-            save_block = spell_block.get("save") or {}
-            if isinstance(save_block, dict):
-                stype = save_block.get("type")
-                if isinstance(stype, str) and stype.strip():
-                    save_type = stype.strip().lower()
-                save_dc = parse_int(save_block.get("dc"))
-
-            default_damage = parse_default_damage(spell_block.get("default_damage"))
-            dice = parse_dice(spell_block.get("dice"))
-            upcast = parse_upcast(spell_block.get("upcast"))
-
-            color = None
-            raw_color = spell_block.get("color")
-            if isinstance(raw_color, str) and raw_color.strip():
-                color = raw_color.strip()
-
-            if shape == "circle" and radius_ft is None:
-                log_notice(f"Spell preset '{fp.name}' missing radius_ft for circle; UI will block casting.")
-            elif shape == "square" and side_ft is None:
-                log_notice(f"Spell preset '{fp.name}' missing side_ft for square; UI will block casting.")
-            elif shape == "line" and (length_ft is None or width_ft is None):
-                log_notice(f"Spell preset '{fp.name}' missing length_ft/width_ft for line; UI will block casting.")
-
-            spec = SpellPreset(
-                filename=str(fp.name),
-                name=name,
-                shape=shape,
-                radius_ft=radius_ft,
-                side_ft=side_ft,
-                length_ft=length_ft,
-                width_ft=width_ft,
-                save_type=save_type,
-                save_dc=save_dc,
-                default_damage=default_damage,
-                dice=dice,
-                damage_types=damage_types,
-                color=color,
-                duration_turns=duration_turns,
-                over_time=over_time,
-                move_per_turn_ft=move_per_turn_ft,
-                trigger_on_start_or_enter=trigger_on_start_or_enter,
-                persistent=persistent,
-                pinned_default=pinned_default,
-                upcast=upcast,
-            )
-
-            if name not in self._spells_by_name:
-                self._spells_by_name[name] = spec
-            self._spell_presets.append(spec)
-
-        self._spell_presets.sort(key=lambda s: s.name.lower())
+        self._spell_detail_cache[filename] = detail
+        spec.__dict__.update(detail.__dict__)
+        return spec
 
     # -------------------------- Bulk add --------------------------
     def _open_bulk_dialog(self) -> None:
@@ -3353,7 +3476,7 @@ class InitiativeTracker(tk.Tk):
 
         def apply_monster_defaults() -> None:
             nm = name_var.get().strip()
-            spec = self._monsters_by_name.get(nm)
+            spec = self._load_monster_details(nm) or self._monsters_by_name.get(nm)
             if not spec:
                 return
             if spec.hp is not None:
@@ -3401,7 +3524,7 @@ class InitiativeTracker(tk.Tk):
             if not base:
                 messagebox.showerror("Input error", "Name is required.")
                 return
-            spec = self._monsters_by_name.get(base)
+            spec = self._load_monster_details(base) or self._monsters_by_name.get(base)
             saving_throws = dict(spec.saving_throws) if spec and spec.saving_throws else None
             ability_mods = dict(spec.ability_mods) if spec and spec.ability_mods else None
             try:
