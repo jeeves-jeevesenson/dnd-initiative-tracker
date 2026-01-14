@@ -29,6 +29,7 @@ import ast
 import re
 import json
 import hashlib
+import threading
 from pathlib import Path
 from datetime import datetime
 
@@ -39,7 +40,7 @@ except Exception:  # pragma: no cover
 import tkinter as tk
 import tkinter.font as tkfont
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Set
+from typing import Any, Callable, Dict, List, Optional, Tuple, Set
 from tkinter import messagebox, ttk, simpledialog, filedialog
 
 PIL_IMAGE_IMPORT_ERROR: Optional[str] = None
@@ -329,6 +330,8 @@ class InitiativeTracker(tk.Tk):
         self._monster_detail_cache: Dict[str, Dict[str, Any]] = {}
         self._spell_detail_cache: Dict[str, SpellPreset] = {}
         self.rough_terrain_presets: List[TerrainPreset] = _load_rough_terrain_presets()
+        self._index_loading = False
+        self._index_loading_callbacks: List[Callable[[], None]] = []
 
         # Remember roles for name-based log styling (pc/ally/enemy)
         self._name_role_memory: Dict[str, str] = {}
@@ -345,10 +348,9 @@ class InitiativeTracker(tk.Tk):
         self.round_num: int = 1
         self.turn_num: int = 0
 
-        self._load_monsters_index()
-        self._load_spells_index()
         self._build_ui()
         self.after(0, self._install_monster_dropdown_widget)
+        self._load_indexes_async(self._refresh_monster_combo_values)
         self._load_history_into_log()
         self._log("=== Session started ===")
         self._open_starting_players_dialog()
@@ -2822,14 +2824,44 @@ class InitiativeTracker(tk.Tk):
     def _refresh_monsters_spells(self) -> None:
         self._invalidate_monster_index_cache()
         self._invalidate_spells_index_cache()
-        self._load_monsters_index()
-        self._load_spells_index()
+        self._load_indexes_async(self._refresh_monster_combo_values)
+
+    def _refresh_monster_combo_values(self) -> None:
         combo = getattr(self, "_monster_combo", None)
+        values = self._monster_names_sorted()
         if combo is not None:
             try:
-                combo.configure(values=self._monster_names_sorted())
+                combo.configure(values=values, state="normal")
             except Exception:
                 pass
+        if values and not self.name_var.get().strip():
+            self.name_var.set(values[0])
+            self._apply_monster_defaults()
+
+    def _load_indexes_async(self, on_complete: Optional[Callable[[], None]] = None) -> None:
+        if on_complete is not None:
+            self._index_loading_callbacks.append(on_complete)
+        if self._index_loading:
+            return
+        self._index_loading = True
+        worker = threading.Thread(target=self._load_monsters_and_spells, daemon=True)
+        worker.start()
+
+        def check_done() -> None:
+            if worker.is_alive():
+                self.after(50, check_done)
+                return
+            self._index_loading = False
+            callbacks = list(self._index_loading_callbacks)
+            self._index_loading_callbacks.clear()
+            for callback in callbacks:
+                callback()
+
+        self.after(50, check_done)
+
+    def _load_monsters_and_spells(self) -> None:
+        self._load_monsters_index()
+        self._load_spells_index()
 
     # --------------------- Monsters (YAML library) ---------------------
     def _monsters_dir_path(self) -> Path:
@@ -3431,7 +3463,6 @@ class InitiativeTracker(tk.Tk):
 
     # -------------------------- Bulk add --------------------------
     def _open_bulk_dialog(self) -> None:
-        self.ensure_monster_index_loaded()
         dlg = tk.Toplevel(self)
         dlg.title("Bulk Add")
         dlg.geometry("760x260")
@@ -3447,6 +3478,10 @@ class InitiativeTracker(tk.Tk):
         monster_values = self._monster_names_sorted()
         name_combo = ttk.Combobox(frm, textvariable=name_var, values=monster_values, width=22)
         name_combo.grid(row=1, column=0, padx=(0, 8))
+        name_combo.configure(state="disabled")
+
+        loading_label = ttk.Label(frm, text="Loading…")
+        loading_label.grid(row=2, column=2, sticky="w", pady=(8, 0))
 
         ttk.Label(frm, text="Count").grid(row=0, column=1, sticky="w")
         count_var = tk.StringVar(value="1")
@@ -3515,9 +3550,19 @@ class InitiativeTracker(tk.Tk):
 
         name_combo.bind("<KeyPress>", on_name_keypress)
 
-        if monster_values and not name_var.get().strip():
-            name_var.set(monster_values[0])
-            apply_monster_defaults()
+        def on_indexes_loaded() -> None:
+            nonlocal monster_values
+            if not name_combo.winfo_exists():
+                return
+            monster_values = self._monster_names_sorted()
+            name_combo.configure(values=monster_values, state="normal")
+            if loading_label.winfo_exists():
+                loading_label.destroy()
+            if monster_values and not name_var.get().strip():
+                name_var.set(monster_values[0])
+                apply_monster_defaults()
+
+        self._load_indexes_async(on_indexes_loaded)
 
         def on_add():
             base = name_var.get().strip()
