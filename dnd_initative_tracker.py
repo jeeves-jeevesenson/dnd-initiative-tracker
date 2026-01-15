@@ -126,393 +126,6 @@ def _hash_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-class LanAccountStore:
-    """Persist LAN accounts + ownership into a simple JSON file."""
-
-    def __init__(self, path: Optional[Path] = None, logger: Optional[logging.Logger] = None) -> None:
-        self._path = path or (_ensure_logs_dir() / "lan_accounts.json")
-        self._links_path = _ensure_logs_dir() / "lan_account_links.json"
-        self._logger = logger
-        self._data: Dict[str, Any] = {"accounts": {}}
-        self._ownership: Dict[int, str] = {}
-        self._linked_accounts: Dict[str, List[int]] = {}
-        self.load()
-        self._load_links()
-
-    def load(self) -> None:
-        try:
-            if not self._path.exists():
-                return
-            raw = json.loads(self._path.read_text(encoding="utf-8"))
-        except Exception:
-            return
-        accounts_raw = raw.get("accounts", {})
-        accounts: Dict[str, Dict[str, Any]] = {}
-        if isinstance(accounts_raw, dict):
-            candidates = list(accounts_raw.values())
-        elif isinstance(accounts_raw, list):
-            candidates = accounts_raw
-        else:
-            candidates = []
-        for entry in candidates:
-            if not isinstance(entry, dict):
-                continue
-            username = str(entry.get("username", "")).strip()
-            if not username:
-                continue
-            created_at = str(entry.get("created_at", "")).strip() or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            last_logged_in = str(entry.get("last_logged_in", "")).strip()
-            preset = entry.get("preset")
-            if not isinstance(preset, dict):
-                preset = None
-            push_subs = self._normalize_push_subscriptions(entry.get("push_subscriptions"))
-            owned_raw = entry.get("owned_cids", [])
-            owned: List[int] = []
-            if isinstance(owned_raw, list):
-                for cid in owned_raw:
-                    try:
-                        owned.append(int(cid))
-                    except Exception:
-                        continue
-            account: Dict[str, Any] = {"username": username, "created_at": created_at, "owned_cids": owned}
-            if last_logged_in:
-                account["last_logged_in"] = last_logged_in
-            if preset is not None:
-                account["preset"] = preset
-            if push_subs:
-                account["push_subscriptions"] = push_subs
-            accounts[username] = account
-        self._data["accounts"] = accounts
-        self._rebuild_ownership()
-
-    def save(self) -> None:
-        try:
-            payload = {"accounts": list(self._data.get("accounts", {}).values())}
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            self._path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-        except Exception as exc:
-            if self._logger:
-                self._logger.warning("Failed to save LAN accounts: %s", exc)
-
-    def ensure_account(self, username: str) -> Dict[str, Any]:
-        username = str(username).strip()
-        if not username:
-            raise ValueError("Username required.")
-        accounts = self._data.setdefault("accounts", {})
-        account = accounts.get(username)
-        if account:
-            if "push_subscriptions" not in account:
-                account["push_subscriptions"] = []
-            return account
-        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        account = {
-            "username": username,
-            "created_at": created_at,
-            "owned_cids": [],
-            "push_subscriptions": [],
-            "last_logged_in": created_at,
-        }
-        accounts[username] = account
-        self.save()
-        return account
-
-    def create_account(self, username: str, preset: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        username = str(username).strip()
-        if not username:
-            raise ValueError("Username required.")
-        if preset is not None and not isinstance(preset, dict):
-            raise ValueError("Preset must be a JSON object.")
-        accounts = self._data.setdefault("accounts", {})
-        if username in accounts:
-            raise ValueError("Account already exists.")
-        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        account: Dict[str, Any] = {
-            "username": username,
-            "created_at": created_at,
-            "owned_cids": [],
-            "push_subscriptions": [],
-        }
-        if preset is not None:
-            account["preset"] = preset
-        accounts[username] = account
-        self.save()
-        return account
-
-    def has_account(self, username: str) -> bool:
-        username = str(username).strip()
-        if not username:
-            return False
-        account = self._data.get("accounts", {}).get(username)
-        return isinstance(account, dict)
-
-    def mark_login(self, username: str) -> bool:
-        username = str(username).strip()
-        if not username:
-            return False
-        account = self._data.get("accounts", {}).get(username)
-        if not isinstance(account, dict):
-            return False
-        account["last_logged_in"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.save()
-        return True
-
-    def push_subscriptions_for(self, username: str) -> List[Dict[str, Any]]:
-        username = str(username).strip()
-        if not username:
-            return []
-        account = self._data.get("accounts", {}).get(username)
-        if not isinstance(account, dict):
-            return []
-        subs = self._normalize_push_subscriptions(account.get("push_subscriptions"))
-        return [dict(sub) for sub in subs]
-
-    def upsert_push_subscription(self, username: str, subscription: Dict[str, Any]) -> bool:
-        username = str(username).strip()
-        if not username or not isinstance(subscription, dict):
-            return False
-        endpoint = str(subscription.get("endpoint", "") or "").strip()
-        keys = subscription.get("keys")
-        if not endpoint or not isinstance(keys, dict):
-            return False
-        p256dh = str(keys.get("p256dh", "") or "").strip()
-        auth = str(keys.get("auth", "") or "").strip()
-        if not p256dh or not auth:
-            return False
-        account = self.ensure_account(username)
-        subs = self._normalize_push_subscriptions(account.get("push_subscriptions"))
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        updated = False
-        for sub in subs:
-            if str(sub.get("endpoint", "")).strip() == endpoint:
-                sub["keys"] = {"p256dh": p256dh, "auth": auth}
-                sub["updated_at"] = now
-                updated = True
-                break
-        if not updated:
-            subs.append(
-                {
-                    "endpoint": endpoint,
-                    "keys": {"p256dh": p256dh, "auth": auth},
-                    "created_at": now,
-                    "updated_at": now,
-                }
-            )
-        account["push_subscriptions"] = subs
-        self.save()
-        return True
-
-    def remove_push_subscription(self, username: str, endpoint: str) -> bool:
-        username = str(username).strip()
-        if not username:
-            return False
-        endpoint = str(endpoint).strip()
-        if not endpoint:
-            return False
-        account = self._data.get("accounts", {}).get(username)
-        if not isinstance(account, dict):
-            return False
-        subs = self._normalize_push_subscriptions(account.get("push_subscriptions"))
-        next_subs = [sub for sub in subs if str(sub.get("endpoint", "")).strip() != endpoint]
-        if len(next_subs) == len(subs):
-            return False
-        account["push_subscriptions"] = next_subs
-        self.save()
-        return True
-
-    def preset_for(self, username: str) -> Optional[Dict[str, Any]]:
-        username = str(username).strip()
-        if not username:
-            return None
-        account = self._data.get("accounts", {}).get(username)
-        if not isinstance(account, dict):
-            return None
-        preset = account.get("preset")
-        if isinstance(preset, dict):
-            try:
-                return json.loads(json.dumps(preset))
-            except Exception:
-                return dict(preset)
-        return None
-
-    def set_preset(self, username: str, preset: Optional[Dict[str, Any]]) -> bool:
-        username = str(username).strip()
-        if not username:
-            return False
-        if preset is not None and not isinstance(preset, dict):
-            return False
-        account = self.ensure_account(username)
-        if preset is None:
-            account.pop("preset", None)
-        else:
-            account["preset"] = preset
-        self.save()
-        return True
-
-    def owner_for(self, cid: int) -> Optional[str]:
-        try:
-            cid = int(cid)
-        except Exception:
-            return None
-        return self._ownership.get(cid)
-
-    def claim(self, cid: int, username: str, force: bool = False) -> bool:
-        try:
-            cid = int(cid)
-        except Exception:
-            return False
-        username = str(username).strip()
-        if not username:
-            return False
-        owner = self._ownership.get(cid)
-        if owner and owner != username and not force:
-            return False
-        if owner and owner != username and force:
-            old_account = self._data.get("accounts", {}).get(owner)
-            if old_account:
-                cleaned: List[int] = []
-                for entry in old_account.get("owned_cids", []):
-                    try:
-                        entry_id = int(entry)
-                    except Exception:
-                        continue
-                    if entry_id != cid:
-                        cleaned.append(entry_id)
-                old_account["owned_cids"] = cleaned
-        account = self.ensure_account(username)
-        if cid not in account.get("owned_cids", []):
-            account["owned_cids"].append(cid)
-        self._ownership[cid] = username
-        self.save()
-        return True
-
-    def clear_owner(self, cid: int) -> bool:
-        try:
-            cid = int(cid)
-        except Exception:
-            return False
-        owner = self._ownership.get(cid)
-        if not owner:
-            return False
-        account = self._data.get("accounts", {}).get(owner)
-        if account:
-            cleaned: List[int] = []
-            for entry in account.get("owned_cids", []):
-                try:
-                    entry_id = int(entry)
-                except Exception:
-                    continue
-                if entry_id != cid:
-                    cleaned.append(entry_id)
-            account["owned_cids"] = cleaned
-        self._ownership.pop(cid, None)
-        self.save()
-        return True
-
-    def accounts_snapshot(self) -> List[Dict[str, Any]]:
-        accounts = self._data.get("accounts", {})
-        if not isinstance(accounts, dict):
-            return []
-        return [dict(account) for account in accounts.values() if isinstance(account, dict)]
-
-    def ownership_snapshot(self) -> Dict[int, str]:
-        return dict(self._ownership)
-
-    def apply_linked_ownership(self, username: str, force: bool = True) -> List[int]:
-        username = str(username).strip()
-        if not username:
-            return []
-        self._load_links()
-        linked = list(self._linked_accounts.get(username, []))
-        if not linked:
-            return []
-        for cid in linked:
-            self.claim(cid, username, force=force)
-        return linked
-
-    def _rebuild_ownership(self) -> None:
-        self._ownership = {}
-        accounts = self._data.get("accounts", {})
-        if not isinstance(accounts, dict):
-            return
-        for username, account in accounts.items():
-            if not isinstance(account, dict):
-                continue
-            for cid in account.get("owned_cids", []):
-                try:
-                    self._ownership[int(cid)] = str(username)
-                except Exception:
-                    continue
-
-    def _load_links(self) -> None:
-        links: Dict[str, List[int]] = {}
-        try:
-            if not self._links_path.exists():
-                self._linked_accounts = {}
-                return
-            raw = json.loads(self._links_path.read_text(encoding="utf-8"))
-        except Exception:
-            self._linked_accounts = {}
-            return
-        if isinstance(raw, dict) and "links" in raw:
-            mapping = raw.get("links")
-        else:
-            mapping = raw
-        candidates: List[Tuple[str, Any]] = []
-        if isinstance(mapping, dict):
-            candidates = [(str(k), v) for k, v in mapping.items()]
-        elif isinstance(mapping, list):
-            for entry in mapping:
-                if not isinstance(entry, dict):
-                    continue
-                username = str(entry.get("username", "")).strip()
-                if not username:
-                    continue
-                candidates.append((username, entry.get("cids") or entry.get("pc_ids")))
-        for username, ids in candidates:
-            cleaned: List[int] = []
-            if isinstance(ids, list):
-                for cid in ids:
-                    try:
-                        cleaned.append(int(cid))
-                    except Exception:
-                        continue
-            if cleaned:
-                links[username] = cleaned
-        self._linked_accounts = links
-
-    @staticmethod
-    def _normalize_push_subscriptions(raw: Any) -> List[Dict[str, Any]]:
-        if not isinstance(raw, list):
-            return []
-        cleaned: List[Dict[str, Any]] = []
-        for entry in raw:
-            if not isinstance(entry, dict):
-                continue
-            endpoint = str(entry.get("endpoint", "") or "").strip()
-            keys = entry.get("keys")
-            if not endpoint or not isinstance(keys, dict):
-                continue
-            p256dh = str(keys.get("p256dh", "") or "").strip()
-            auth = str(keys.get("auth", "") or "").strip()
-            if not p256dh or not auth:
-                continue
-            created_at = str(entry.get("created_at", "") or "").strip()
-            updated_at = str(entry.get("updated_at", "") or "").strip()
-            if not created_at:
-                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            if not updated_at:
-                updated_at = created_at
-            cleaned.append(
-                {
-                    "endpoint": endpoint,
-                    "keys": {"p256dh": p256dh, "auth": auth},
-                    "created_at": created_at,
-                    "updated_at": updated_at,
-                }
-            )
-        return cleaned
-
-
 # --- App metadata ---
 APP_VERSION = "41"
 
@@ -1061,41 +674,6 @@ HTML_INDEX = r"""<!doctype html>
       border-color: rgba(255,255,255,0.5);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
     }
-    .login-screen{
-      position:fixed;
-      inset:0;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      background: radial-gradient(circle at top, rgba(20,25,35,0.95), rgba(10,12,18,0.98));
-      padding: 20px;
-      z-index: 40;
-    }
-    .login-card{
-      width: min(360px, 100%);
-      background: rgba(20,25,35,0.95);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 16px;
-      padding: 18px;
-      box-shadow: 0 16px 40px rgba(0,0,0,0.45);
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-    .login-card h2{margin:0; font-size: 18px;}
-    .login-card p{margin:0; color: var(--muted); font-size: 13px;}
-    .login-actions{
-      display:flex;
-      justify-content:flex-end;
-      margin-top: 4px;
-    }
-    .login-error{
-      color: var(--danger);
-      font-size: 12px;
-      min-height: 16px;
-    }
-    body.login-required .app{display:none;}
-    body.login-required .login-screen{display:flex;}
     @media (max-width: 720px), (max-height: 720px){
       .btn{padding: 6px 8px; font-size: 12px;}
       .topbar{gap:8px; padding: calc(8px + var(--safeInsetTop)) 10px 8px 10px;}
@@ -1104,20 +682,6 @@ HTML_INDEX = r"""<!doctype html>
   </style>
 </head>
 <body>
-<div class="login-screen" id="loginScreen" aria-live="polite">
-  <form class="login-card" id="loginForm">
-    <h2>Join the table</h2>
-    <p>Enter a username to connect to the initiative tracker.</p>
-    <div class="form-field">
-      <label for="loginName">Username</label>
-      <input id="loginName" type="text" autocomplete="name" maxlength="32" placeholder="E.g. Captain Rook" required />
-    </div>
-    <div class="login-error" id="loginError"></div>
-    <div class="login-actions">
-      <button class="btn accent" type="submit">Enter</button>
-    </div>
-  </form>
-</div>
 <div class="app">
   <div class="topbar">
     <h1 id="topbarTitle">InitTracker LAN</h1>
@@ -1133,7 +697,6 @@ HTML_INDEX = r"""<!doctype html>
       </div>
     </div>
     <div class="spacer"></div>
-    <button class="btn" id="loginBtn" type="button">Login</button>
     <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
     <div class="topbar-controls">
       <button class="btn" id="lockMap">Lock Map</button>
@@ -1544,13 +1107,12 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function getTurnAlertIdentity(){
-    const username = (storedUsername || "").trim();
     const playerId = claimedCid !== null && claimedCid !== undefined ? Number(claimedCid) : null;
     const claimedUnit = getClaimedUnit();
     const playerName = claimedUnit?.name ? String(claimedUnit.name) : "";
     return {
       playerId,
-      username: username || null,
+      username: null,
       playerName: playerName || null,
     };
   }
@@ -1597,6 +1159,23 @@ __DAMAGE_TYPE_OPTIONS__
     return label ? `Subscribed (${label})` : "Subscribed";
   }
 
+  async function syncTurnAlertSubscription(subscription, identity){
+    if (!subscription || !identity?.playerId) return;
+    const payload = {
+      subscription: subscription.toJSON ? subscription.toJSON() : subscription,
+      playerId: identity.playerId,
+    };
+    try {
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      });
+    } catch (err){
+      console.warn("Unable to sync turn alert subscription.", err);
+    }
+  }
+
   async function refreshTurnAlertStatus(){
     if (!turnAlertStatus) return;
     if (!isStandaloneDisplay()){
@@ -1632,15 +1211,15 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
-  async function ensurePushSubscribed({vapidPublicKey, playerId, username}){
+  async function ensurePushSubscribed({vapidPublicKey, playerId}){
     if (!isStandaloneDisplay()){
       throw new Error("Not installed.");
     }
     if (!vapidPublicKey){
       throw new Error("Missing push public key.");
     }
-    if (!playerId && !username){
-      throw new Error("Claim a character or login first.");
+    if (!playerId){
+      throw new Error("Claim a character first.");
     }
     if (!("Notification" in window)){
       throw new Error("Notifications are not supported.");
@@ -1664,6 +1243,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (existing){
       const identity = getTurnAlertIdentity();
       setTurnAlertStatus(formatTurnAlertStatus(identity));
+      await syncTurnAlertSubscription(existing, identity);
       return existing;
     }
     const subscription = await swRegistration.pushManager.subscribe({
@@ -1673,6 +1253,7 @@ __DAMAGE_TYPE_OPTIONS__
     const identity = getTurnAlertIdentity();
     persistTurnAlertSubscription(subscription, identity);
     setTurnAlertStatus(formatTurnAlertStatus(identity));
+    await syncTurnAlertSubscription(subscription, identity);
     return subscription;
   }
 
@@ -1751,7 +1332,6 @@ __DAMAGE_TYPE_OPTIONS__
   const zoomInBtn = document.getElementById("zoomIn");
   const zoomOutBtn = document.getElementById("zoomOut");
   const dashBtn = document.getElementById("dash");
-  const loginBtn = document.getElementById("loginBtn");
   const configBtn = document.getElementById("configBtn");
   const configModal = document.getElementById("configModal");
   const configCloseBtn = document.getElementById("configClose");
@@ -1832,10 +1412,6 @@ __DAMAGE_TYPE_OPTIONS__
   const castDamageTypeList = document.getElementById("castDamageTypeList");
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
-  const loginScreen = document.getElementById("loginScreen");
-  const loginForm = document.getElementById("loginForm");
-  const loginNameInput = document.getElementById("loginName");
-  const loginError = document.getElementById("loginError");
   const sheetWrap = document.getElementById("sheetWrap");
   const sheetHandle = document.getElementById("sheetHandle");
   const turnAlertAudio = new Audio("/assets/alert.wav");
@@ -1855,23 +1431,6 @@ __DAMAGE_TYPE_OPTIONS__
   let state = null;
   let reconnectTimer = null;
   let reconnecting = false;
-  const clientId = (() => {
-    const key = "inittracker_clientId";
-    let value = localStorage.getItem(key);
-    if (!value){
-      if (crypto && typeof crypto.randomUUID === "function"){
-        value = crypto.randomUUID();
-      } else {
-        const rand = Math.random().toString(36).slice(2, 10);
-        value = `${Date.now().toString(36)}-${rand}`;
-      }
-      localStorage.setItem(key, value);
-    }
-    return value;
-  })();
-  const usernameKey = "inittracker_username";
-  const loginStateKey = "inittracker_logged_in";
-  let storedUsername = localStorage.getItem(usernameKey) || "";
   let claimedCid = null;
   let shownNoOwnedToast = false;
   let pendingClaim = null;
@@ -1879,8 +1438,6 @@ __DAMAGE_TYPE_OPTIONS__
   let lastActiveCid = null;
   let lastTurnRound = null;
   let selectedTurnCid = null;
-  let loggedIn = false;
-  let loginRequired = false;
 
   // view transform
   let zoom = 32; // px per square
@@ -1943,12 +1500,6 @@ __DAMAGE_TYPE_OPTIONS__
   let connStyle = "full";
   let initiativeStyle = "full";
   let sheetHeight = null;
-  if (loginNameInput){
-    loginNameInput.value = storedUsername;
-  }
-  const cachedLoginRaw = localStorage.getItem(loginStateKey);
-  const cachedLogin = cachedLoginRaw === null ? !!storedUsername : cachedLoginRaw === "1";
-  setLoginState(!!storedUsername && cachedLogin);
   if (turnAlertStatus){
     refreshTurnAlertStatus();
   }
@@ -2556,47 +2107,6 @@ __DAMAGE_TYPE_OPTIONS__
     ws.send(JSON.stringify(msg));
   }
 
-  function setLoginState(isLoggedIn){
-    loggedIn = isLoggedIn;
-    if (isLoggedIn && loginError){
-      loginError.textContent = "";
-    }
-    updateLoginRequiredState();
-  }
-
-  function isMapViewActive(){
-    return gridReady();
-  }
-
-  function updateLoginRequiredState(){
-    loginRequired = !loggedIn || (isMapViewActive() && !claimedCid);
-    document.body.classList.toggle("login-required", loginRequired);
-  }
-
-  function setLoginError(text){
-    if (!loginError) return;
-    loginError.textContent = text || "";
-  }
-
-  function sendHello(){
-    if (!loginNameInput) return;
-    const username = loginNameInput.value.trim();
-    if (!username){
-      setLoginError("Username required.");
-      return;
-    }
-    if (!ws || ws.readyState !== 1){
-      setLoginError("Not connected yet. Try again in a moment.");
-      return;
-    }
-    send({
-      type: "hello",
-      username,
-      claimed: claimedCid ? Number(claimedCid) : null,
-      client_id: clientId,
-    });
-  }
-
   function localToast(text){
     if (!noteEl) return;
     noteEl.textContent = text || "…";
@@ -2691,13 +2201,10 @@ __DAMAGE_TYPE_OPTIONS__
 
   function showNoOwnedPcToast(pcs){
     if (shownNoOwnedToast) return;
-    if (!loggedIn) return;
-    const me = (storedUsername || "").trim();
-    if (!me) return;
+    if (claimedCid) return;
     const list = Array.isArray(pcs) ? pcs : [];
-    const ownedByMe = list.some(u => String(u.owned_by || "") === me);
-    if (ownedByMe) return;
-    localToast("No owned PCs found. Ask the DM to assign yer character.");
+    if (!list.length) return;
+    localToast("No assigned PCs found. Ask the DM to assign yer character.");
     shownNoOwnedToast = true;
   }
 
@@ -2793,7 +2300,6 @@ __DAMAGE_TYPE_OPTIONS__
   function updateWaitingOverlay(){
     if (!waitingOverlay) return;
     waitingOverlay.classList.toggle("show", !gridReady());
-    updateLoginRequiredState();
   }
 
   function formatFeet(feet){
@@ -3614,11 +3120,6 @@ __DAMAGE_TYPE_OPTIONS__
       reconnecting = false;
       setConn(true, "Connected");
       send({type:"grid_request"});
-      if (loginNameInput && loginNameInput.value.trim()){
-        sendHello();
-      } else if (!storedUsername) {
-        setLoginState(false);
-      }
     });
     ws.addEventListener("close", () => {
       const wasReconnect = reconnecting;
@@ -3634,24 +3135,7 @@ __DAMAGE_TYPE_OPTIONS__
     ws.addEventListener("message", (ev) => {
       let msg = null;
       try { msg = JSON.parse(ev.data); } catch(e){ return; }
-      if (msg.type === "login_ok"){
-        const username = String(msg.username || "").trim();
-        if (username){
-          localStorage.setItem(usernameKey, username);
-          localStorage.setItem(loginStateKey, "1");
-          if (loginNameInput){
-            loginNameInput.value = username;
-          }
-          storedUsername = username;
-        }
-        setLoginState(true);
-        shownNoOwnedToast = false;
-        refreshTurnAlertStatus();
-      } else if (msg.type === "login_error"){
-        setLoginState(false);
-        localStorage.removeItem(loginStateKey);
-        setLoginError(msg.error || "Username required.");
-      } else if (msg.type === "preset"){
+      if (msg.type === "preset"){
         if (msg.preset && typeof msg.preset === "object"){
           applyGuiPreset(msg.preset, {persist: true});
           persistLocalPreset(msg.preset);
@@ -3672,16 +3156,6 @@ __DAMAGE_TYPE_OPTIONS__
         updateHud();
         maybeShowTurnAlert();
         autoCenterOnJoin();
-        if (claimedCid && clientId && state && Array.isArray(state.units)){
-          const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
-          const serverOwner = me ? (me.claimed_by ?? null) : null;
-          if (me && serverOwner !== clientId){
-            claimedCid = null;
-            meEl.textContent = "(unclaimed)";
-            shownNoOwnedToast = false;
-            updateHud();
-          }
-        }
         if (!claimedCid){
           showNoOwnedPcToast(msg.pcs || msg.claimable || []);
         } else {
@@ -3693,7 +3167,6 @@ __DAMAGE_TYPE_OPTIONS__
             showNoOwnedPcToast(msg.pcs || msg.claimable || []);
           }
         }
-        updateLoginRequiredState();
         refreshTurnAlertStatus();
       } else if (msg.type === "force_claim"){
         if (msg.cid !== null && msg.cid !== undefined){
@@ -3701,7 +3174,6 @@ __DAMAGE_TYPE_OPTIONS__
           shownNoOwnedToast = false;
           autoCenterOnJoin();
         }
-        updateLoginRequiredState();
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
         refreshTurnAlertStatus();
@@ -3710,7 +3182,6 @@ __DAMAGE_TYPE_OPTIONS__
         meEl.textContent = "(unclaimed)";
         shownNoOwnedToast = false;
         showNoOwnedPcToast(msg.pcs || lastPcList || []);
-        updateLoginRequiredState();
         refreshTurnAlertStatus();
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
@@ -3751,24 +3222,6 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
-  if (loginForm){
-    loginForm.addEventListener("submit", (ev) => {
-      ev.preventDefault();
-      sendHello();
-    });
-  }
-  if (loginBtn){
-    loginBtn.addEventListener("click", () => {
-      setLoginState(false);
-      requestAnimationFrame(() => {
-        if (loginNameInput){
-          loginNameInput.focus();
-          loginNameInput.select();
-        }
-      });
-    });
-  }
-
   // input
   function pointerPos(ev){
     const r = canvas.getBoundingClientRect();
@@ -3795,16 +3248,7 @@ __DAMAGE_TYPE_OPTIONS__
   let pinchState = null;
 
   function enforceLoginGate(){
-    if (!loginRequired) return false;
-    activePointers.clear();
-    pinchState = null;
-    dragging = null;
-    draggingAoe = null;
-    panning = null;
-    if (loginNameInput){
-      loginNameInput.focus();
-    }
-    return true;
+    return false;
   }
 
   function startPinch(){
@@ -4078,13 +3522,9 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const color = validateTokenColor(tokenColorInput ? tokenColorInput.value : "");
       if (!color) return;
-      claimedCid = String(pendingClaim.cid);
-      shownNoOwnedToast = false;
       localStorage.setItem("inittracker_tokenColor", color);
-      send({type:"claim", cid: Number(pendingClaim.cid)});
       send({type:"set_color", cid: Number(pendingClaim.cid), color});
       meEl.textContent = pendingClaim.name;
-      updateLoginRequiredState();
       closeColorModal();
     });
   }
@@ -4647,19 +4087,11 @@ __DAMAGE_TYPE_OPTIONS__
     presetSaveBtn.addEventListener("click", () => {
       const preset = buildGuiPreset();
       persistLocalPreset(preset);
-      if (!loggedIn){
-        setPresetStatus("Login required.");
-        return;
-      }
       send({type: "save_preset", preset});
     });
   }
   if (presetLoadBtn){
     presetLoadBtn.addEventListener("click", () => {
-      if (!loggedIn){
-        setPresetStatus("Login required.");
-        return;
-      }
       send({type: "load_preset"});
     });
   }
@@ -4716,7 +4148,6 @@ __DAMAGE_TYPE_OPTIONS__
         await ensurePushSubscribed({
           vapidPublicKey: pushPublicKey,
           playerId: identity.playerId,
-          username: identity.username,
         });
         localToast("Turn alerts enabled.");
       } catch (err){
@@ -5057,18 +4488,17 @@ class LanController:
         self._server_thread: Optional[threading.Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._uvicorn_server = None
-        self._account_store = LanAccountStore(logger=self.app._ops_logger)
-        self._store_lock = threading.Lock()
 
         self._clients_lock = threading.Lock()
         self._clients: Dict[int, Any] = {}  # id(websocket) -> websocket
         self._clients_meta: Dict[int, Dict[str, Any]] = {}  # id(websocket) -> {host,port,ua,connected_at}
+        self._client_hosts: Dict[int, str] = {}  # id(websocket) -> host
         self._claims: Dict[int, int] = {}   # id(websocket) -> cid
         self._cid_to_ws: Dict[int, int] = {}  # cid -> id(websocket) (1 owner at a time)
-        self._client_ids: Dict[int, str] = {}  # id(websocket) -> client_id
-        self._client_claims: Dict[str, int] = {}  # client_id -> cid (last known claim)
-        self._cid_to_client: Dict[int, str] = {}  # cid -> client_id (active claim)
-        self._client_usernames: Dict[int, str] = {}  # id(websocket) -> username
+        self._cid_to_host: Dict[int, str] = {}  # cid -> host (active claim)
+        self._host_claims: Dict[str, int] = {}  # host -> cid (remembered claim)
+        self._host_presets: Dict[str, Dict[str, Any]] = {}
+        self._cid_push_subscriptions: Dict[int, List[Dict[str, Any]]] = {}
 
         self._actions: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._last_state_json: Optional[str] = None
@@ -5090,88 +4520,6 @@ class LanController:
 
     # ---------- Tk thread API ----------
 
-    def _ensure_account(self, username: str) -> None:
-        with self._store_lock:
-            self._account_store.ensure_account(username)
-
-    def _has_account(self, username: str) -> bool:
-        with self._store_lock:
-            return self._account_store.has_account(username)
-
-    def _mark_login(self, username: str) -> bool:
-        with self._store_lock:
-            return self._account_store.mark_login(username)
-
-    def _apply_linked_ownership(self, username: str) -> List[int]:
-        with self._store_lock:
-            return self._account_store.apply_linked_ownership(username, force=True)
-
-    def _owner_for(self, cid: int) -> Optional[str]:
-        with self._store_lock:
-            return self._account_store.owner_for(cid)
-
-    def _claim_owner(self, cid: int, username: str, allow_override: bool = False) -> bool:
-        with self._store_lock:
-            return self._account_store.claim(cid, username, force=allow_override)
-
-    def _clear_owner(self, cid: int) -> bool:
-        with self._store_lock:
-            return self._account_store.clear_owner(cid)
-
-    def _preset_for_username(self, username: str) -> Optional[Dict[str, Any]]:
-        with self._store_lock:
-            return self._account_store.preset_for(username)
-
-    def _save_preset_for_username(self, username: str, preset: Optional[Dict[str, Any]]) -> bool:
-        with self._store_lock:
-            return self._account_store.set_preset(username, preset)
-
-    def _push_subscriptions_for_username(self, username: str) -> List[Dict[str, Any]]:
-        with self._store_lock:
-            return self._account_store.push_subscriptions_for(username)
-
-    def _save_push_subscription(self, username: str, subscription: Dict[str, Any]) -> bool:
-        with self._store_lock:
-            return self._account_store.upsert_push_subscription(username, subscription)
-
-    def _remove_push_subscription(self, username: str, endpoint: str) -> bool:
-        with self._store_lock:
-            return self._account_store.remove_push_subscription(username, endpoint)
-
-    def accounts_snapshot(self) -> List[Dict[str, Any]]:
-        with self._store_lock:
-            accounts = self._account_store.accounts_snapshot()
-        accounts.sort(key=lambda a: str(a.get("username", "")).lower())
-        return accounts
-
-    def ownership_snapshot(self) -> Dict[int, str]:
-        with self._store_lock:
-            return self._account_store.ownership_snapshot()
-
-    def admin_assign_owner(self, cid: int, username: str) -> bool:
-        with self._store_lock:
-            ok = self._account_store.claim(cid, username, force=True)
-        if ok:
-            self._broadcast_state(self._cached_snapshot)
-        return ok
-
-    def admin_create_account(
-        self, username: str, preset: Optional[Dict[str, Any]] = None
-    ) -> Tuple[bool, str]:
-        with self._store_lock:
-            try:
-                self._account_store.create_account(username, preset)
-            except ValueError as exc:
-                return False, str(exc)
-        return True, ""
-
-    def admin_clear_owner(self, cid: int) -> bool:
-        with self._store_lock:
-            ok = self._account_store.clear_owner(cid)
-        if ok:
-            self._broadcast_state(self._cached_snapshot)
-        return ok
-
     def admin_disconnect_session(self, ws_id: int, reason: str = "Disconnected by the DM.") -> None:
         if not self._loop:
             return
@@ -5180,6 +4528,48 @@ class LanController:
             asyncio.run_coroutine_threadsafe(coro, self._loop)
         except Exception:
             pass
+
+    @staticmethod
+    def _normalize_push_subscription(subscription: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if not isinstance(subscription, dict):
+            return None
+        endpoint = str(subscription.get("endpoint", "") or "").strip()
+        keys = subscription.get("keys")
+        if not endpoint or not isinstance(keys, dict):
+            return None
+        p256dh = str(keys.get("p256dh", "") or "").strip()
+        auth = str(keys.get("auth", "") or "").strip()
+        if not p256dh or not auth:
+            return None
+        return {"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth}}
+
+    def _save_push_subscription(self, cid: int, subscription: Dict[str, Any]) -> bool:
+        sub = self._normalize_push_subscription(subscription)
+        if not sub:
+            return False
+        with self._clients_lock:
+            existing = self._cid_push_subscriptions.setdefault(int(cid), [])
+            for entry in existing:
+                if entry.get("endpoint") == sub["endpoint"]:
+                    entry["keys"] = sub["keys"]
+                    return True
+            existing.append(sub)
+        return True
+
+    def _subscriptions_for_cid(self, cid: int) -> List[Dict[str, Any]]:
+        with self._clients_lock:
+            subs = self._cid_push_subscriptions.get(int(cid), [])
+            return [dict(entry) for entry in subs]
+
+    def _remove_push_subscription(self, cid: int, endpoint: str) -> None:
+        endpoint = str(endpoint).strip()
+        if not endpoint:
+            return
+        with self._clients_lock:
+            subs = self._cid_push_subscriptions.get(int(cid), [])
+            self._cid_push_subscriptions[int(cid)] = [
+                entry for entry in subs if str(entry.get("endpoint", "")) != endpoint
+            ]
 
     def start(self, quiet: bool = False) -> None:
         if self._server_thread and self._server_thread.is_alive():
@@ -5234,25 +4624,17 @@ class LanController:
                 subscription = payload
             if not isinstance(subscription, dict):
                 raise HTTPException(status_code=400, detail="Invalid subscription.")
-            username = payload.get("username")
-            if isinstance(username, str):
-                username = username.strip()
-            else:
-                username = None
             player_id = payload.get("playerId")
-            if username is None and player_id is not None:
-                try:
-                    owner = self._owner_for(int(player_id))
-                except Exception:
-                    owner = None
-                if owner:
-                    username = owner
-            if not username:
-                raise HTTPException(status_code=404, detail="Unable to resolve username.")
-            ok = self._save_push_subscription(username, subscription)
+            try:
+                player_id = int(player_id)
+            except Exception:
+                player_id = None
+            if player_id is None:
+                raise HTTPException(status_code=404, detail="Unable to resolve player.")
+            ok = self._save_push_subscription(player_id, subscription)
             if not ok:
                 raise HTTPException(status_code=400, detail="Invalid subscription payload.")
-            return {"ok": True, "username": username}
+            return {"ok": True, "playerId": player_id}
 
         @app.websocket("/ws")
         async def ws_endpoint(ws: WebSocket):
@@ -5280,11 +4662,13 @@ class LanController:
                     "connected_at": connected_at,
                     "last_seen": connected_at,
                 }
+                self._client_hosts[ws_id] = host
             self.app._oplog(f"LAN session connected ws_id={ws_id} host={host}:{port} ua={ua}")
             try:
                 await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
                 # Immediately send snapshot + claimable list
                 await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
+                await self._auto_assign_host(ws_id, host)
                 while True:
                     raw = await ws.receive_text()
                     try:
@@ -5298,79 +4682,20 @@ class LanController:
                     except Exception:
                         continue
                     typ = str(msg.get("type") or "")
-                    if typ == "hello":
-                        # If client sends previous claim, remember it (optional).
-                        claimed = msg.get("claimed")
-                        client_id = msg.get("client_id")
-                        username = msg.get("username")
-                        if isinstance(client_id, str):
-                            client_id = client_id.strip()
-                        else:
-                            client_id = None
-                        if isinstance(username, str):
-                            username = username.strip()
-                        else:
-                            username = None
-                        if not username:
-                            await ws.send_text(json.dumps({"type": "login_error", "error": "Username required."}))
-                            continue
-                        if not self._has_account(username):
-                            await ws.send_text(
-                                json.dumps(
-                                    {
-                                        "type": "login_error",
-                                        "error": "Unknown username. Ask the DM to create your account first.",
-                                    }
-                                )
-                            )
-                            continue
-                        with self._clients_lock:
-                            self._client_usernames[ws_id] = username
-                        try:
-                            self._mark_login(username)
-                        except Exception:
-                            pass
-                        try:
-                            self._apply_linked_ownership(username)
-                        except Exception:
-                            pass
-                        await ws.send_text(json.dumps({"type": "login_ok", "username": username}))
-                        preset = self._preset_for_username(username)
-                        if preset is not None:
-                            await ws.send_text(json.dumps({"type": "preset", "preset": preset}))
-                        if client_id:
-                            with self._clients_lock:
-                                self._client_ids[ws_id] = client_id
-                            known_claim = self._client_claims.get(client_id)
-                            if known_claim is not None and self._can_auto_claim(int(known_claim), username):
-                                await self._claim_ws_async(ws_id, int(known_claim), note="Reconnected.")
-                            elif isinstance(claimed, int) and self._can_auto_claim(int(claimed), username):
-                                await self._claim_ws_async(ws_id, int(claimed), note="Reconnected.")
-                        elif isinstance(claimed, int) and self._can_auto_claim(int(claimed), username):
-                            await self._claim_ws_async(ws_id, int(claimed), note="Reconnected.")
-                        await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
-                    elif typ == "save_preset":
-                        with self._clients_lock:
-                            username = self._client_usernames.get(ws_id)
-                        if not username:
-                            await ws.send_text(json.dumps({"type": "login_error", "error": "Login required before saving presets."}))
-                            continue
+                    if typ == "save_preset":
                         preset = msg.get("preset")
                         if preset is not None and not isinstance(preset, dict):
                             await ws.send_text(json.dumps({"type": "preset_error", "error": "Invalid preset payload."}))
                             continue
-                        ok = self._save_preset_for_username(username, preset)
-                        if ok:
-                            await ws.send_text(json.dumps({"type": "preset_saved"}))
+                        host_key = self._client_hosts.get(ws_id) or f"ws:{ws_id}"
+                        if preset is None:
+                            self._host_presets.pop(host_key, None)
                         else:
-                            await ws.send_text(json.dumps({"type": "preset_error", "error": "Unable to save preset."}))
+                            self._host_presets[host_key] = preset
+                        await ws.send_text(json.dumps({"type": "preset_saved"}))
                     elif typ == "load_preset":
-                        with self._clients_lock:
-                            username = self._client_usernames.get(ws_id)
-                        if not username:
-                            await ws.send_text(json.dumps({"type": "login_error", "error": "Login required before loading presets."}))
-                            continue
-                        preset = self._preset_for_username(username)
+                        host_key = self._client_hosts.get(ws_id) or f"ws:{ws_id}"
+                        preset = self._host_presets.get(host_key)
                         await ws.send_text(json.dumps({"type": "preset", "preset": preset}))
                     elif typ == "grid_request":
                         await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
@@ -5380,20 +4705,6 @@ class LanController:
                             pending = self._grid_pending.get(ws_id)
                             if pending and pending[0] == ver:
                                 self._grid_pending.pop(ws_id, None)
-                    elif typ == "claim":
-                        with self._clients_lock:
-                            username = self._client_usernames.get(ws_id)
-                        if not username:
-                            await ws.send_text(json.dumps({"type": "login_error", "error": "Login required before claiming."}))
-                            continue
-                        cid = msg.get("cid")
-                        if isinstance(cid, int):
-                            owner = self._owner_for(cid)
-                            if owner and owner != username:
-                                await self._send_async(ws_id, {"type": "toast", "text": f"{self._pc_name_for(cid)} belongs to {owner}."})
-                                continue
-                            await self._claim_ws_async(ws_id, cid, note="Claimed. Drag yer token, matey.")
-                            await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
                     elif typ == "log_request":
                         try:
                             lines = self.app._lan_battle_log_lines()
@@ -5411,11 +4722,6 @@ class LanController:
                         "cast_aoe",
                         "aoe_move",
                     ):
-                        with self._clients_lock:
-                            username = self._client_usernames.get(ws_id)
-                        if not username:
-                            await ws.send_text(json.dumps({"type": "login_error", "error": "Login required before actions."}))
-                            continue
                         # enqueue for Tk thread
                         with self._clients_lock:
                             claimed_cid = self._claims.get(ws_id)
@@ -5433,12 +4739,11 @@ class LanController:
                 with self._clients_lock:
                     self._clients.pop(ws_id, None)
                     self._clients_meta.pop(ws_id, None)
+                    self._client_hosts.pop(ws_id, None)
                     old = self._claims.pop(ws_id, None)
                     if old is not None:
                         self._cid_to_ws.pop(int(old), None)
-                        self._cid_to_client.pop(int(old), None)
-                    self._client_ids.pop(ws_id, None)
-                    self._client_usernames.pop(ws_id, None)
+                        self._cid_to_host.pop(int(old), None)
                     self._grid_pending.pop(ws_id, None)
                 if old is not None:
                     name = self._pc_name_for(int(old))
@@ -5500,10 +4805,7 @@ class LanController:
         worker.start()
 
     def _dispatch_turn_notification(self, cid: int, round_num: int, turn_num: int) -> None:
-        username = self._owner_for(cid)
-        if not username:
-            return
-        subscriptions = self._push_subscriptions_for_username(username)
+        subscriptions = self._subscriptions_for_cid(cid)
         if not subscriptions:
             return
         name = self._pc_name_for(cid)
@@ -5514,7 +4816,7 @@ class LanController:
         }
         invalid = self._send_push_notifications(subscriptions, payload)
         for endpoint in invalid:
-            self._remove_push_subscription(username, endpoint)
+            self._remove_push_subscription(cid, endpoint)
 
     def _send_push_notifications(self, subscriptions: List[Dict[str, Any]], payload: Dict[str, Any]) -> List[str]:
         if not subscriptions:
@@ -5559,6 +4861,20 @@ class LanController:
                 self.app._oplog(f"Push send failed for {endpoint}: {exc}", level="warning")
         return invalid
 
+    async def _auto_assign_host(self, ws_id: int, host: str) -> None:
+        host = str(host or "").strip()
+        if not host:
+            return
+        preferred = self._host_claims.get(host)
+        if isinstance(preferred, int) and self._can_auto_claim(preferred):
+            await self._claim_ws_async(ws_id, int(preferred), note="Reconnected.")
+            return
+        for pc in self._cached_pcs:
+            cid = pc.get("cid")
+            if isinstance(cid, int) and self._can_auto_claim(int(cid)):
+                await self._claim_ws_async(ws_id, int(cid), note="Assigned.")
+                return
+
     # ---------- Sessions / Claims (Tk thread safe) ----------
 
     def sessions_snapshot(self) -> List[Dict[str, Any]]:
@@ -5568,12 +4884,10 @@ class LanController:
             for ws_id, ws in list(self._clients.items()):
                 meta = dict(self._clients_meta.get(ws_id, {}))
                 cid = self._claims.get(ws_id)
-                username = self._client_usernames.get(ws_id)
                 out.append(
                     {
                         "ws_id": int(ws_id),
                         "cid": int(cid) if cid is not None else None,
-                        "username": username,
                         "host": meta.get("host", "?"),
                         "port": meta.get("port", ""),
                         "user_agent": meta.get("ua", ""),
@@ -5665,18 +4979,17 @@ class LanController:
     def _pcs_payload(self) -> List[Dict[str, Any]]:
         pcs = list(self._cached_pcs)
         with self._clients_lock:
-            cid_to_client = dict(self._cid_to_client)
+            cid_to_host = dict(self._cid_to_host)
         out: List[Dict[str, Any]] = []
         for p in pcs:
             pp = dict(p)
             cid = int(pp.get("cid", -1))
-            pp["claimed_by"] = cid_to_client.get(cid)
-            pp["owned_by"] = self._owner_for(cid)
+            pp["claimed_by"] = cid_to_host.get(cid)
             out.append(pp)
         out.sort(key=lambda d: str(d.get("name", "")))
         return out
 
-    def _can_auto_claim(self, cid: int, username: Optional[str] = None) -> bool:
+    def _can_auto_claim(self, cid: int) -> bool:
         try:
             cid = int(cid)
         except Exception:
@@ -5684,10 +4997,6 @@ class LanController:
         pcs = {int(p.get("cid")) for p in self._cached_pcs if isinstance(p.get("cid"), int)}
         if cid not in pcs:
             return False
-        if username:
-            owner = self._owner_for(cid)
-            if owner and owner != username:
-                return False
         with self._clients_lock:
             return self._cid_to_ws.get(cid) is None
 
@@ -5719,10 +5028,10 @@ class LanController:
                     old_cid = self._claims.pop(ws_id, None)
                     if old_cid is not None:
                         self._cid_to_ws.pop(int(old_cid), None)
-                        self._cid_to_client.pop(int(old_cid), None)
+                        self._cid_to_host.pop(int(old_cid), None)
                     self._clients.pop(ws_id, None)
                     self._clients_meta.pop(ws_id, None)
-                    self._client_ids.pop(ws_id, None)
+                    self._client_hosts.pop(ws_id, None)
 
     def _broadcast_grid_update(self, grid: Dict[str, Any]) -> None:
         if not self._loop:
@@ -5855,12 +5164,11 @@ class LanController:
             old = self._claims.pop(ws_id, None)
             if old is not None:
                 self._cid_to_ws.pop(int(old), None)
-                self._cid_to_client.pop(int(old), None)
-            client_id = self._client_ids.get(ws_id)
-            if client_id:
-                self._client_claims.pop(client_id, None)
-        if old is not None and clear_ownership:
-            self._clear_owner(int(old))
+                self._cid_to_host.pop(int(old), None)
+            host = self._client_hosts.get(ws_id)
+            if clear_ownership and host:
+                if self._host_claims.get(host) == old:
+                    self._host_claims.pop(host, None)
         if old is not None:
             name = self._pc_name_for(int(old))
             self.app._oplog(f"LAN session ws_id={ws_id} unclaimed {name} ({reason})")
@@ -5874,25 +5182,18 @@ class LanController:
         if int(cid) not in pcs:
             await self._send_async(ws_id, {"type": "toast", "text": "That character ain't claimable, matey."})
             return
-        with self._clients_lock:
-            username = self._client_usernames.get(ws_id)
-        if username:
-            owner = self._owner_for(cid)
-            if owner and owner != username and not allow_override:
-                await self._send_async(ws_id, {"type": "toast", "text": f"{self._pc_name_for(cid)} belongs to {owner}."})
-                return
 
         # Steal/assign with single-owner logic
         steal_from: Optional[int] = None
         prev_owned: Optional[int] = None
-        client_id: Optional[str] = None
-        steal_client_id: Optional[str] = None
         with self._clients_lock:
+            host = self._client_hosts.get(ws_id, "")
             # if this ws had old claim, clear reverse map
             prev_owned = self._claims.get(ws_id)
             if prev_owned is not None:
                 self._cid_to_ws.pop(int(prev_owned), None)
-                self._cid_to_client.pop(int(prev_owned), None)
+                if self._cid_to_host.get(int(prev_owned)) == host:
+                    self._cid_to_host.pop(int(prev_owned), None)
 
             # if cid is owned, we'll steal
             steal_from = self._cid_to_ws.get(int(cid))
@@ -5901,23 +5202,13 @@ class LanController:
             # assign
             self._claims[ws_id] = int(cid)
             self._cid_to_ws[int(cid)] = ws_id
-            client_id = self._client_ids.get(ws_id)
-            if client_id:
-                self._client_claims[client_id] = int(cid)
-                self._cid_to_client[int(cid)] = client_id
-            else:
-                self._cid_to_client.pop(int(cid), None)
+            if host:
+                self._cid_to_host[int(cid)] = host
+                self._host_claims[host] = int(cid)
             if steal_from is not None and steal_from != ws_id:
-                steal_client_id = self._client_ids.get(steal_from)
-                if steal_client_id:
-                    self._client_claims.pop(steal_client_id, None)
-                    if client_id:
-                        self._cid_to_client[int(cid)] = client_id
-                    else:
-                        self._cid_to_client.pop(int(cid), None)
-
-        if username:
-            self._claim_owner(int(cid), username, allow_override=allow_override)
+                steal_host = self._client_hosts.get(steal_from)
+                if steal_host:
+                    self._host_claims.pop(steal_host, None)
 
         if steal_from is not None and steal_from != ws_id:
             await self._send_async(steal_from, {"type": "force_unclaim", "text": "Yer character got reassigned by the DM.", "pcs": self._pcs_payload()})
@@ -5948,7 +5239,7 @@ class LanController:
         units = snap.get("units")
         if isinstance(units, list):
             with self._clients_lock:
-                cid_to_client = dict(self._cid_to_client)
+                cid_to_host = dict(self._cid_to_host)
             enriched = []
             for unit in units:
                 if not isinstance(unit, dict):
@@ -5959,7 +5250,7 @@ class LanController:
                     cid = int(copy_unit.get("cid", -1))
                 except Exception:
                     cid = -1
-                copy_unit["claimed_by"] = cid_to_client.get(cid)
+                copy_unit["claimed_by"] = cid_to_host.get(cid)
                 enriched.append(copy_unit)
             snap["units"] = enriched
         return snap
@@ -6142,9 +5433,6 @@ class InitiativeTracker(base.InitiativeTracker):
             lan.add_separator()
             lan.add_command(label="Sessions…", command=self._open_lan_sessions)
             menubar.add_cascade(label="LAN", menu=lan)
-            users = tk.Menu(menubar, tearoff=0)
-            users.add_command(label="User Management…", command=self._open_lan_admin)
-            menubar.add_cascade(label="Users", menu=users)
             self.config(menu=menubar)
         except Exception:
             pass
@@ -6312,240 +5600,6 @@ class InitiativeTracker(base.InitiativeTracker):
         ttk.Button(controls, text="Close", command=win.destroy).pack(side=tk.RIGHT)
 
         refresh_sessions()
-
-    def _open_lan_admin(self) -> None:
-        """DM utility: manage LAN accounts, ownership, and sessions."""
-        win = tk.Toplevel(self)
-        win.title("User Management")
-        win.geometry("960x680")
-        win.transient(self)
-
-        outer = tk.Frame(win)
-        outer.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        summary_frame = tk.LabelFrame(outer, text="Session Summary")
-        summary_frame.pack(fill=tk.BOTH, expand=False, pady=(0, 10))
-
-        summary_cols = ("ws_id", "username", "claimed", "last_seen", "client")
-        summary_tree = ttk.Treeview(summary_frame, columns=summary_cols, show="headings", height=6)
-        summary_tree.heading("ws_id", text="Session")
-        summary_tree.heading("username", text="Username")
-        summary_tree.heading("claimed", text="Claimed PC")
-        summary_tree.heading("last_seen", text="Last Seen")
-        summary_tree.heading("client", text="Client")
-        summary_tree.column("ws_id", width=90, anchor="center")
-        summary_tree.column("username", width=160, anchor="w")
-        summary_tree.column("claimed", width=200, anchor="w")
-        summary_tree.column("last_seen", width=160, anchor="w")
-        summary_tree.column("client", width=280, anchor="w")
-        summary_tree.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
-
-        tables = tk.Frame(outer)
-        tables.pack(fill=tk.BOTH, expand=True)
-
-        accounts_frame = tk.LabelFrame(tables, text="Accounts Overview")
-        accounts_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 6))
-
-        accounts_cols = ("username", "owned", "created_at", "last_logged_in")
-        accounts_tree = ttk.Treeview(accounts_frame, columns=accounts_cols, show="headings", height=8)
-        accounts_tree.heading("username", text="Username")
-        accounts_tree.heading("owned", text="Owned PCs")
-        accounts_tree.heading("created_at", text="Created")
-        accounts_tree.heading("last_logged_in", text="Last Login")
-        accounts_tree.column("username", width=160, anchor="w")
-        accounts_tree.column("owned", width=220, anchor="w")
-        accounts_tree.column("created_at", width=140, anchor="w")
-        accounts_tree.column("last_logged_in", width=160, anchor="w")
-        accounts_tree.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
-
-        ownership_frame = tk.LabelFrame(tables, text="PC Ownership")
-        ownership_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(6, 0))
-
-        ownership_cols = ("pc", "owner")
-        ownership_tree = ttk.Treeview(ownership_frame, columns=ownership_cols, show="headings", height=8)
-        ownership_tree.heading("pc", text="Player Character")
-        ownership_tree.heading("owner", text="Owner")
-        ownership_tree.column("pc", width=220, anchor="w")
-        ownership_tree.column("owner", width=180, anchor="w")
-        ownership_tree.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
-
-        actions = tk.LabelFrame(outer, text="Admin Actions")
-        actions.pack(fill=tk.X, pady=(10, 0))
-
-        pc_map: Dict[str, Optional[int]] = {}
-        pc_var = tk.StringVar()
-        pc_box = ttk.Combobox(actions, textvariable=pc_var, values=[], width=28, state="readonly")
-        pc_box.grid(row=0, column=1, padx=(6, 16), pady=6, sticky="w")
-        tk.Label(actions, text="PC:").grid(row=0, column=0, padx=(6, 0), pady=6, sticky="w")
-
-        tk.Label(actions, text="Username:").grid(row=0, column=2, padx=(6, 0), pady=6, sticky="w")
-        user_var = tk.StringVar()
-        user_entry = ttk.Combobox(actions, textvariable=user_var, values=[], width=22)
-        user_entry.grid(row=0, column=3, padx=(6, 16), pady=6, sticky="w")
-
-        def refresh_admin() -> None:
-            summary_tree.delete(*summary_tree.get_children())
-            accounts_tree.delete(*accounts_tree.get_children())
-            ownership_tree.delete(*ownership_tree.get_children())
-
-            cid_to_name: Dict[int, str] = {}
-            try:
-                for p in self._lan_pcs():
-                    if isinstance(p.get("cid"), int):
-                        cid_to_name[int(p["cid"])] = str(p.get("name", ""))
-            except Exception:
-                pass
-
-            sessions = self._lan.sessions_snapshot()
-            for s in sessions:
-                ws_id = int(s.get("ws_id"))
-                username = s.get("username") or ""
-                cid = s.get("cid")
-                claimed = ""
-                if isinstance(cid, int):
-                    claimed = cid_to_name.get(int(cid), f"cid {cid}")
-                last_seen = s.get("last_seen", "") or s.get("connected_at", "")
-                host = str(s.get("host", "?"))
-                port = str(s.get("port", ""))
-                client = f"{host}:{port}" if port else host
-                summary_tree.insert("", "end", iid=str(ws_id), values=(ws_id, username, claimed, last_seen, client))
-
-            accounts = self._lan.accounts_snapshot()
-            for account in accounts:
-                username = str(account.get("username", ""))
-                created_at = str(account.get("created_at", ""))
-                last_logged_in = str(account.get("last_logged_in", ""))
-                owned_names = []
-                for cid in account.get("owned_cids", []) or []:
-                    try:
-                        owned_names.append(cid_to_name.get(int(cid), f"cid {cid}"))
-                    except Exception:
-                        continue
-                owned_text = ", ".join(owned_names)
-                accounts_tree.insert(
-                    "", "end", iid=username, values=(username, owned_text, created_at, last_logged_in)
-                )
-
-            ownership = self._lan.ownership_snapshot()
-            for cid, name in cid_to_name.items():
-                owner = ownership.get(int(cid), "")
-                ownership_tree.insert("", "end", iid=str(cid), values=(name, owner))
-
-            pc_map.clear()
-            for cid, name in cid_to_name.items():
-                pc_map[name] = int(cid)
-            pc_names = sorted(pc_map.keys())
-            pc_box["values"] = pc_names
-            if pc_names:
-                pc_var.set(pc_names[0])
-            usernames = [str(a.get("username", "")) for a in accounts if a.get("username")]
-            user_entry["values"] = usernames
-
-        def selected_ws_id() -> Optional[int]:
-            sel = summary_tree.selection()
-            if not sel:
-                return None
-            try:
-                return int(sel[0])
-            except Exception:
-                return None
-
-        def selected_cid() -> Optional[int]:
-            name = pc_var.get()
-            cid = pc_map.get(name)
-            if isinstance(cid, int):
-                return cid
-            return None
-
-        def do_clear_owner() -> None:
-            cid = selected_cid()
-            if cid is None:
-                return
-            self._lan.admin_clear_owner(cid)
-            self.after(300, refresh_admin)
-
-        def do_assign_owner() -> None:
-            cid = selected_cid()
-            username = user_var.get().strip()
-            if cid is None or not username:
-                return
-            self._lan.admin_assign_owner(cid, username)
-            self.after(300, refresh_admin)
-
-        def do_disconnect() -> None:
-            ws_id = selected_ws_id()
-            if ws_id is None:
-                return
-            self._lan.admin_disconnect_session(ws_id)
-            self.after(500, refresh_admin)
-
-        def open_create_account() -> None:
-            dialog = tk.Toplevel(win)
-            dialog.title("Create Account")
-            dialog.transient(win)
-            dialog.grab_set()
-            dialog.resizable(False, False)
-
-            frame = tk.Frame(dialog, padx=12, pady=12)
-            frame.pack(fill=tk.BOTH, expand=True)
-
-            tk.Label(frame, text="Username:").grid(row=0, column=0, sticky="w")
-            username_var = tk.StringVar()
-            username_entry = ttk.Entry(frame, textvariable=username_var, width=32)
-            username_entry.grid(row=0, column=1, sticky="w", pady=(0, 8))
-
-            tk.Label(frame, text="Preset JSON (optional):").grid(row=1, column=0, sticky="nw")
-            preset_text = tk.Text(frame, width=46, height=6)
-            preset_text.grid(row=1, column=1, sticky="w")
-
-            preset_help = tk.Label(
-                frame,
-                text="Leave blank for no preset. Paste a JSON object if you want to prefill GUI settings.",
-                wraplength=320,
-                justify="left",
-                fg="#666666",
-            )
-            preset_help.grid(row=2, column=1, sticky="w", pady=(4, 8))
-
-            def submit_account() -> None:
-                username = username_var.get().strip()
-                raw_preset = preset_text.get("1.0", "end").strip()
-                preset = None
-                if raw_preset:
-                    try:
-                        preset = json.loads(raw_preset)
-                    except Exception:
-                        messagebox.showerror("Create Account", "Preset must be valid JSON.")
-                        return
-                    if not isinstance(preset, dict):
-                        messagebox.showerror("Create Account", "Preset must be a JSON object.")
-                        return
-                ok, err = self._lan.admin_create_account(username, preset)
-                if not ok:
-                    messagebox.showerror("Create Account", err or "Unable to create account.")
-                    return
-                refresh_admin()
-                dialog.destroy()
-
-            actions_row = tk.Frame(frame)
-            actions_row.grid(row=3, column=1, sticky="e")
-            ttk.Button(actions_row, text="Create", command=submit_account).pack(side=tk.LEFT, padx=(0, 6))
-            ttk.Button(actions_row, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT)
-
-            username_entry.focus_set()
-
-        ttk.Button(actions, text="Clear Ownership", command=do_clear_owner).grid(row=0, column=4, padx=(0, 6), pady=6)
-        ttk.Button(actions, text="Assign Owner", command=do_assign_owner).grid(row=0, column=5, padx=(0, 6), pady=6)
-        ttk.Button(actions, text="Disconnect Session", command=do_disconnect).grid(row=0, column=6, padx=(0, 6), pady=6)
-        ttk.Button(actions, text="Refresh", command=refresh_admin).grid(row=0, column=7, padx=(0, 6), pady=6)
-        ttk.Button(actions, text="Close", command=win.destroy).grid(row=0, column=8, padx=(0, 6), pady=6)
-        ttk.Button(actions, text="Create Account…", command=open_create_account).grid(
-            row=1, column=0, padx=(6, 0), pady=(0, 6), sticky="w"
-        )
-
-        refresh_admin()
-
-
     
     def _poc_seed_all_player_characters(self) -> None:
         """Temporary POC behavior: add all starting roster PCs to initiative and roll initiative.
