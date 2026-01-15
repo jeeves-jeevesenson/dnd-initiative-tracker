@@ -6570,6 +6570,25 @@ class InitiativeTracker(base.InitiativeTracker):
             players_dir = Path.cwd() / "players"
 
         ymod = getattr(base, "yaml", None)
+        cfg_cache: Dict[str, Optional[Dict[str, Any]]] = getattr(
+            self, "_player_config_cache", None
+        )
+        if cfg_cache is None:
+            cfg_cache = {}
+            self._player_config_cache = cfg_cache
+        cfg_paths: Optional[Dict[str, Path]] = getattr(self, "_player_config_paths", None)
+        if cfg_paths is None:
+            cfg_paths = {}
+            try:
+                if players_dir.exists():
+                    cfg_paths = {
+                        path.stem: path
+                        for path in players_dir.glob("*.yaml")
+                        if path.is_file()
+                    }
+            except Exception:
+                cfg_paths = {}
+            self._player_config_paths = cfg_paths
 
         for name in roster:
             nm = str(name).strip()
@@ -6583,20 +6602,25 @@ class InitiativeTracker(base.InitiativeTracker):
             water = False
 
             # Future-facing: per-PC config file players/<Name>.yaml (optional)
-            try:
-                cfg_path = players_dir / f"{nm}.yaml"
-                if cfg_path.exists():
-                    raw = cfg_path.read_text(encoding="utf-8")
+            data = cfg_cache.get(nm, None)
+            if nm not in cfg_cache:
+                try:
+                    cfg_path = cfg_paths.get(nm) if cfg_paths is not None else None
+                    if cfg_path is not None:
+                        raw = cfg_path.read_text(encoding="utf-8")
+                        if ymod is not None:
+                            data = ymod.safe_load(raw)
+                        if not isinstance(data, dict):
+                            data = None
+                    cfg_cache[nm] = data
+                except Exception:
+                    cfg_cache[nm] = None
                     data = None
-                    if ymod is not None:
-                        data = ymod.safe_load(raw)
-                    if isinstance(data, dict):
-                        # accept a few key names
-                        speed = int(data.get("base_movement", data.get("speed", speed)) or speed)
-                        swim = int(data.get("swim_speed", swim) or swim)
-                        hp = int(data.get("hp", hp) or hp)
-            except Exception:
-                pass
+            if isinstance(data, dict):
+                # accept a few key names
+                speed = int(data.get("base_movement", data.get("speed", speed)) or speed)
+                swim = int(data.get("swim_speed", swim) or swim)
+                hp = int(data.get("hp", hp) or hp)
 
             try:
                 init_total = random.randint(1, 20)
