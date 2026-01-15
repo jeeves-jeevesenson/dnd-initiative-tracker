@@ -26,6 +26,8 @@ import logging
 import re
 import os
 import hashlib
+import hmac
+import secrets
 from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
@@ -658,6 +660,25 @@ HTML_INDEX = r"""<!doctype html>
       padding: 6px 8px;
       font-size: 12px;
     }
+    .admin-login-fields{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      margin-top: 10px;
+    }
+    .admin-login-fields label{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .admin-login-input{
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: #0f1422;
+      color: var(--text);
+      font-size: 14px;
+    }
     .config-section{margin-top:8px;}
     .config-section summary{
       cursor:pointer;
@@ -1081,6 +1102,21 @@ HTML_INDEX = r"""<!doctype html>
         </div>
       </div>
     </div>
+    <div class="modal" id="adminLoginModal" aria-hidden="true">
+      <div class="card">
+        <h2>Admin Login</h2>
+        <div class="hint">Enter the DM password to manage LAN sessions.</div>
+        <div class="admin-login-fields">
+          <label for="adminPasswordInput">Admin password</label>
+          <input class="admin-login-input" id="adminPasswordInput" type="password" autocomplete="current-password" />
+        </div>
+        <div class="admin-status" id="adminLoginStatus"></div>
+        <div class="modal-actions">
+          <button class="btn" id="adminLoginSubmit" type="button">Login</button>
+          <button class="btn" id="adminLoginCancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="sheet-wrap" id="sheetWrap">
@@ -1488,6 +1524,11 @@ __DAMAGE_TYPE_OPTIONS__
   const configModal = document.getElementById("configModal");
   const configCloseBtn = document.getElementById("configClose");
   const adminModal = document.getElementById("adminModal");
+  const adminLoginModal = document.getElementById("adminLoginModal");
+  const adminPasswordInput = document.getElementById("adminPasswordInput");
+  const adminLoginStatus = document.getElementById("adminLoginStatus");
+  const adminLoginSubmit = document.getElementById("adminLoginSubmit");
+  const adminLoginCancel = document.getElementById("adminLoginCancel");
   const adminSessionList = document.getElementById("adminSessionList");
   const adminStatus = document.getElementById("adminStatus");
   const adminRefreshBtn = document.getElementById("adminRefresh");
@@ -1597,6 +1638,10 @@ __DAMAGE_TYPE_OPTIONS__
   let selectedTurnCid = null;
   let adminSessions = [];
   let adminPcs = [];
+  const adminTokenKey = "inittracker_admin_auth";
+  let adminAuthPromise = null;
+  let adminAuthResolve = null;
+  let adminAuthReject = null;
 
   // view transform
   let zoom = 32; // px per square
@@ -2284,9 +2329,108 @@ __DAMAGE_TYPE_OPTIONS__
     adminModal.setAttribute("aria-hidden", "true");
   }
 
+  function showAdminLoginModal(){
+    if (!adminLoginModal) return;
+    adminLoginModal.classList.add("show");
+    adminLoginModal.setAttribute("aria-hidden", "false");
+    if (adminPasswordInput){
+      adminPasswordInput.value = "";
+      setTimeout(() => adminPasswordInput.focus(), 50);
+    }
+  }
+
+  function hideAdminLoginModal(){
+    if (!adminLoginModal) return;
+    adminLoginModal.classList.remove("show");
+    adminLoginModal.setAttribute("aria-hidden", "true");
+    setAdminLoginStatus("");
+  }
+
   function setAdminStatus(text){
     if (!adminStatus) return;
     adminStatus.textContent = text || "";
+  }
+
+  function setAdminLoginStatus(text){
+    if (!adminLoginStatus) return;
+    adminLoginStatus.textContent = text || "";
+  }
+
+  function getAdminAuth(){
+    try {
+      const raw = sessionStorage.getItem(adminTokenKey);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== "object") return null;
+      if (!data.token) return null;
+      if (data.expiresAt && Date.now() > Number(data.expiresAt)){
+        sessionStorage.removeItem(adminTokenKey);
+        return null;
+      }
+      return data.token;
+    } catch (err){
+      sessionStorage.removeItem(adminTokenKey);
+      return null;
+    }
+  }
+
+  function setAdminAuth(token, expiresIn){
+    if (!token) return;
+    const expiresMs = Math.max(1, Number(expiresIn || 0)) * 1000;
+    const payload = {token, expiresAt: Date.now() + expiresMs};
+    sessionStorage.setItem(adminTokenKey, JSON.stringify(payload));
+  }
+
+  function clearAdminAuth(){
+    sessionStorage.removeItem(adminTokenKey);
+  }
+
+  function requestAdminLogin(){
+    if (getAdminAuth()){
+      return Promise.resolve(getAdminAuth());
+    }
+    if (adminAuthPromise){
+      return adminAuthPromise;
+    }
+    adminAuthPromise = new Promise((resolve, reject) => {
+      adminAuthResolve = resolve;
+      adminAuthReject = reject;
+      showAdminLoginModal();
+    });
+    return adminAuthPromise;
+  }
+
+  function finalizeAdminLogin(success, token){
+    if (!adminAuthPromise) return;
+    const resolve = adminAuthResolve;
+    const reject = adminAuthReject;
+    adminAuthPromise = null;
+    adminAuthResolve = null;
+    adminAuthReject = null;
+    if (success && resolve){
+      resolve(token);
+    } else if (!success && reject){
+      reject(new Error("Admin login canceled."));
+    }
+  }
+
+  async function adminFetch(url, options = {}){
+    const token = await requestAdminLogin();
+    const headers = new Headers(options.headers || {});
+    if (token){
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    const res = await fetch(url, {...options, headers});
+    if ((res.status === 401 || res.status === 403) && !options._retry){
+      clearAdminAuth();
+      try {
+        await requestAdminLogin();
+      } catch (err){
+        return res;
+      }
+      return adminFetch(url, {...options, _retry: true});
+    }
+    return res;
   }
 
   function buildAdminPcOptions(selectedCid){
@@ -2305,6 +2449,41 @@ __DAMAGE_TYPE_OPTIONS__
       options.push(opt);
     });
     return options;
+  }
+
+  async function submitAdminLogin(){
+    const password = adminPasswordInput ? adminPasswordInput.value : "";
+    if (!password){
+      setAdminLoginStatus("Enter a password to continue.");
+      return;
+    }
+    try {
+      setAdminLoginStatus("Signing in…");
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({password}),
+      });
+      if (!res.ok){
+        if (res.status === 403){
+          setAdminLoginStatus("Admin password is not configured.");
+        } else {
+          setAdminLoginStatus("Invalid password. Try again.");
+        }
+        return;
+      }
+      const payload = await res.json();
+      if (!payload || !payload.token){
+        setAdminLoginStatus("Login failed.");
+        return;
+      }
+      setAdminAuth(payload.token, payload.expires_in);
+      hideAdminLoginModal();
+      finalizeAdminLogin(true, payload.token);
+    } catch (err){
+      console.warn("Admin login failed.", err);
+      setAdminLoginStatus("Login failed. Try again.");
+    }
   }
 
   function renderAdminSessions(){
@@ -2370,7 +2549,7 @@ __DAMAGE_TYPE_OPTIONS__
   async function fetchAdminSessions({silent} = {}){
     try {
       if (!silent) setAdminStatus("Loading sessions…");
-      const res = await fetch("/api/admin/sessions");
+      const res = await adminFetch("/api/admin/sessions");
       if (!res.ok){
         throw new Error(`HTTP ${res.status}`);
       }
@@ -2393,7 +2572,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     try {
       setAdminStatus("Saving assignment…");
-      const res = await fetch("/api/admin/assign_ip", {
+      const res = await adminFetch("/api/admin/assign_ip", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ip: host, cid}),
@@ -4399,16 +4578,26 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
   if (adminMenuOpenBtn){
-    adminMenuOpenBtn.addEventListener("click", () => {
+    adminMenuOpenBtn.addEventListener("click", async () => {
+      closeAdminMenu();
+      try {
+        await requestAdminLogin();
+      } catch (err){
+        return;
+      }
       showAdminModal();
       fetchAdminSessions();
-      closeAdminMenu();
     });
   }
   if (adminMenuRefreshBtn){
-    adminMenuRefreshBtn.addEventListener("click", () => {
-      fetchAdminSessions();
+    adminMenuRefreshBtn.addEventListener("click", async () => {
       closeAdminMenu();
+      try {
+        await requestAdminLogin();
+      } catch (err){
+        return;
+      }
+      fetchAdminSessions();
     });
   }
   if (adminRefreshBtn){
@@ -4425,6 +4614,33 @@ __DAMAGE_TYPE_OPTIONS__
     adminModal.addEventListener("click", (event) => {
       if (event.target === adminModal){
         hideAdminModal();
+      }
+    });
+  }
+  if (adminLoginSubmit){
+    adminLoginSubmit.addEventListener("click", () => {
+      submitAdminLogin();
+    });
+  }
+  if (adminLoginCancel){
+    adminLoginCancel.addEventListener("click", () => {
+      hideAdminLoginModal();
+      finalizeAdminLogin(false);
+    });
+  }
+  if (adminLoginModal){
+    adminLoginModal.addEventListener("click", (event) => {
+      if (event.target === adminLoginModal){
+        hideAdminLoginModal();
+        finalizeAdminLogin(false);
+      }
+    });
+  }
+  if (adminPasswordInput){
+    adminPasswordInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter"){
+        event.preventDefault();
+        submitAdminLogin();
       }
     });
   }
@@ -4806,6 +5022,7 @@ class LanConfig:
     allowlist: List[str] = field(default_factory=list)
     denylist: List[str] = field(default_factory=list)
     access_file: Optional[str] = None
+    admin_password: Optional[str] = None
 
     def __post_init__(self) -> None:
         env_public = os.getenv("INITTRACKER_VAPID_PUBLIC_KEY")
@@ -4814,6 +5031,7 @@ class LanConfig:
         env_allowlist = os.getenv("INITTRACKER_LAN_ALLOWLIST")
         env_denylist = os.getenv("INITTRACKER_LAN_DENYLIST")
         env_access_file = os.getenv("INITTRACKER_LAN_ACCESS_FILE")
+        env_admin_password = os.getenv("INITTRACKER_ADMIN_PASSWORD")
         if env_public:
             self.vapid_public_key = env_public.strip()
         if env_private:
@@ -4826,6 +5044,11 @@ class LanConfig:
         if file_config:
             self.allowlist.extend(file_config.get("allowlist", []))
             self.denylist.extend(file_config.get("denylist", []))
+            file_admin_password = str(file_config.get("admin_password") or "").strip()
+            if file_admin_password:
+                self.admin_password = file_admin_password
+        if env_admin_password:
+            self.admin_password = env_admin_password.strip()
         self.allowlist.extend(self._parse_access_entries(env_allowlist))
         self.denylist.extend(self._parse_access_entries(env_denylist))
         self.allowlist = self._normalize_access_entries(self.allowlist)
@@ -4861,7 +5084,7 @@ class LanConfig:
         return [part for part in (p.strip() for p in parts) if part]
 
     @staticmethod
-    def _load_access_file(path: Optional[str]) -> Dict[str, List[str]]:
+    def _load_access_file(path: Optional[str]) -> Dict[str, Any]:
         if not path:
             return {}
         file_path = Path(path)
@@ -4889,9 +5112,11 @@ class LanConfig:
         if isinstance(parsed, dict):
             allowlist = parsed.get("allowlist", []) if isinstance(parsed.get("allowlist", []), list) else []
             denylist = parsed.get("denylist", []) if isinstance(parsed.get("denylist", []), list) else []
+            admin_password = parsed.get("admin_password")
             return {
                 "allowlist": [str(entry).strip() for entry in allowlist if str(entry).strip()],
                 "denylist": [str(entry).strip() for entry in denylist if str(entry).strip()],
+                "admin_password": admin_password,
             }
         return {}
 
@@ -4920,6 +5145,10 @@ class LanController:
         self._server_thread: Optional[threading.Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._uvicorn_server = None
+        self._admin_password_hash: Optional[bytes] = None
+        self._admin_password_salt: Optional[bytes] = None
+        self._admin_tokens: Dict[str, float] = {}
+        self._admin_token_ttl_seconds: int = 15 * 60
 
         self._clients_lock = threading.Lock()
         self._clients: Dict[int, Any] = {}  # id(websocket) -> websocket
@@ -4949,6 +5178,7 @@ class LanController:
             "round_num": 0,
         }
         self._cached_pcs: List[Dict[str, Any]] = []
+        self._init_admin_auth()
 
     # ---------- Tk thread API ----------
 
@@ -4995,6 +5225,55 @@ class LanController:
         if not self.cfg.allowlist:
             return True
         return any(self._host_matches_entry(host, entry) for entry in self.cfg.allowlist)
+
+    def _init_admin_auth(self) -> None:
+        password = str(self.cfg.admin_password or "").strip()
+        if not password:
+            return
+        salt = os.urandom(16)
+        self._admin_password_salt = salt
+        self._admin_password_hash = self._derive_admin_password_hash(password, salt)
+        self.cfg.admin_password = None
+
+    @staticmethod
+    def _derive_admin_password_hash(password: str, salt: bytes) -> bytes:
+        return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120_000)
+
+    def _admin_password_matches(self, password: str) -> bool:
+        if not self._admin_password_hash or not self._admin_password_salt:
+            return False
+        candidate = self._derive_admin_password_hash(password, self._admin_password_salt)
+        return hmac.compare_digest(candidate, self._admin_password_hash)
+
+    def _issue_admin_token(self) -> str:
+        token = secrets.token_urlsafe(32)
+        self._admin_tokens[token] = time.time() + float(self._admin_token_ttl_seconds)
+        return token
+
+    def _is_admin_token_valid(self, token: str) -> bool:
+        token = str(token or "").strip()
+        if not token:
+            return False
+        expires = self._admin_tokens.get(token)
+        if not expires:
+            return False
+        now = time.time()
+        if expires <= now:
+            self._admin_tokens.pop(token, None)
+            return False
+        return True
+
+    def _require_admin(self, request: "Request") -> None:
+        from fastapi import HTTPException
+
+        if not self._admin_password_hash:
+            raise HTTPException(status_code=403, detail="Admin password is not configured.")
+        header = request.headers.get("authorization", "")
+        token = ""
+        if header.lower().startswith("bearer "):
+            token = header.split(" ", 1)[1].strip()
+        if not self._is_admin_token_valid(token):
+            raise HTTPException(status_code=401, detail="Unauthorized.")
 
     def admin_disconnect_session(self, ws_id: int, reason: str = "Disconnected by the DM.") -> None:
         if not self._loop:
@@ -5096,7 +5375,7 @@ class LanController:
 
         # Lazy imports so the base app still works without these deps installed.
         try:
-            from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+            from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request
             from fastapi.responses import HTMLResponse, Response
             from fastapi.staticfiles import StaticFiles
             import uvicorn
@@ -5154,12 +5433,28 @@ class LanController:
                 raise HTTPException(status_code=400, detail="Invalid subscription payload.")
             return {"ok": True, "playerId": player_id}
 
+        @app.post("/api/admin/login")
+        async def admin_login(payload: Dict[str, Any] = Body(...)):
+            if not isinstance(payload, dict):
+                raise HTTPException(status_code=400, detail="Invalid payload.")
+            password = str(payload.get("password") or "")
+            if not password:
+                raise HTTPException(status_code=400, detail="Missing password.")
+            if not self._admin_password_hash:
+                raise HTTPException(status_code=403, detail="Admin password is not configured.")
+            if not self._admin_password_matches(password):
+                raise HTTPException(status_code=401, detail="Invalid password.")
+            token = self._issue_admin_token()
+            return {"token": token, "expires_in": self._admin_token_ttl_seconds}
+
         @app.get("/api/admin/sessions")
-        async def admin_sessions():
+        async def admin_sessions(request: Request):
+            self._require_admin(request)
             return self._admin_sessions_payload()
 
         @app.post("/api/admin/assign_ip")
-        async def admin_assign_ip(payload: Dict[str, Any] = Body(...)):
+        async def admin_assign_ip(request: Request, payload: Dict[str, Any] = Body(...)):
+            self._require_admin(request)
             if not isinstance(payload, dict):
                 raise HTTPException(status_code=400, detail="Invalid payload.")
             host = str(payload.get("ip") or "").strip()
