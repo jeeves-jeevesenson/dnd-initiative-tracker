@@ -2766,10 +2766,54 @@ class InitiativeTracker(tk.Tk):
             except ValueError:
                 continue
             if cid in self.combatants:
-                self.combatants[cid].star_advantage = not self.combatants[cid].star_advantage
+            self.combatants[cid].star_advantage = not self.combatants[cid].star_advantage
         self._rebuild_table(scroll_to_current=True)
 
     # --------------------- Index cache helpers ---------------------
+    def _logs_dir_path(self) -> Path:
+        try:
+            base_dir = Path.cwd()
+        except Exception:
+            base_dir = Path(".")
+        logs = base_dir / "logs"
+        try:
+            logs.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        return logs
+
+    def _index_file_path(self, name: str) -> Path:
+        return self._logs_dir_path() / name
+
+    def _read_index_file(self, path: Path) -> Dict[str, Any]:
+        try:
+            if not path.exists():
+                return {}
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        return raw if isinstance(raw, dict) else {}
+
+    def _write_index_file(self, path: Path, payload: Dict[str, Any]) -> None:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        except Exception:
+            pass
+
+    def _file_stat_metadata(self, fp: Path) -> Dict[str, object]:
+        try:
+            stat = fp.stat()
+            return {"mtime_ns": stat.st_mtime_ns, "size": stat.st_size}
+        except Exception:
+            return {"mtime_ns": 0, "size": 0}
+
+    def _metadata_matches(self, entry: Dict[str, object], meta: Dict[str, object]) -> bool:
+        return entry.get("mtime_ns") == meta.get("mtime_ns") and entry.get("size") == meta.get("size")
+
+    def _hash_text(self, text: str) -> str:
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
     def _build_dir_cache_signature(self, dir_path: Path, patterns: Tuple[str, ...]) -> Tuple[float, str, List[Path]]:
         files: List[Path] = []
         seen: Set[str] = set()
@@ -2815,10 +2859,6 @@ class InitiativeTracker(tk.Tk):
         self._spell_detail_cache = {}
 
     def ensure_monster_index_loaded(self) -> None:
-        mdir = self._monsters_dir_path()
-        dir_mtime, files_hash, _files = self._build_dir_cache_signature(mdir, ("*.yml", "*.yaml"))
-        if self._is_index_cache_valid(self._monster_index_cache, dir_mtime, files_hash):
-            return
         self._load_monsters_index()
 
     def _refresh_monsters_spells(self) -> None:
@@ -2875,26 +2915,74 @@ class InitiativeTracker(tk.Tk):
         except Exception:
             pass
 
-        dir_mtime, files_hash, files = self._build_dir_cache_signature(mdir, ("*.yml", "*.yaml"))
-        if self._is_index_cache_valid(self._monster_index_cache, dir_mtime, files_hash):
-            return
+        files: List[Path] = []
+        try:
+            files = sorted(list(mdir.glob("*.yml")) + list(mdir.glob("*.yaml")))
+        except Exception:
+            files = []
+
+        index_path = self._index_file_path("monster_index.json")
+        index_data = self._read_index_file(index_path)
+        cached_entries = index_data.get("entries") if isinstance(index_data.get("entries"), dict) else {}
 
         self._monster_specs = []
         self._monsters_by_name = {}
         self._monster_detail_cache = {}
-        self._monster_index_cache = {"dir_mtime": dir_mtime, "files_hash": files_hash}
+
+        new_entries: Dict[str, Any] = {}
+        yaml_missing_logged = False
 
         if not files:
-            return
-
-        if yaml is None:
-            try:
-                self._log("Monster YAML support requires PyYAML. Install: sudo apt install python3-yaml")
-            except Exception:
-                pass
+            self._write_index_file(index_path, {"version": 1, "entries": {}})
             return
 
         for fp in files:
+            meta = self._file_stat_metadata(fp)
+            entry = cached_entries.get(fp.name) if isinstance(cached_entries, dict) else None
+            if isinstance(entry, dict) and self._metadata_matches(entry, meta):
+                summary = entry.get("summary")
+                if isinstance(summary, dict):
+                    name = str(summary.get("name") or "").strip()
+                    if name:
+                        spec = MonsterSpec(
+                            filename=str(fp.name),
+                            name=name,
+                            mtype=str(summary.get("mtype") or "unknown").strip() or "unknown",
+                            cr=summary.get("cr"),
+                            hp=summary.get("hp"),
+                            speed=summary.get("speed"),
+                            swim_speed=summary.get("swim_speed"),
+                            dex=summary.get("dex"),
+                            init_mod=summary.get("init_mod"),
+                            saving_throws=summary.get("saving_throws") if isinstance(summary.get("saving_throws"), dict) else {},
+                            ability_mods=summary.get("ability_mods") if isinstance(summary.get("ability_mods"), dict) else {},
+                            raw_data={},
+                        )
+                        if name not in self._monsters_by_name:
+                            self._monsters_by_name[name] = spec
+                        self._monster_specs.append(spec)
+
+                        new_entry = dict(entry)
+                        new_entry["mtime_ns"] = meta.get("mtime_ns")
+                        new_entry["size"] = meta.get("size")
+                        if not new_entry.get("hash"):
+                            try:
+                                raw = fp.read_text(encoding="utf-8")
+                                new_entry["hash"] = self._hash_text(raw)
+                            except Exception:
+                                pass
+                        new_entries[fp.name] = new_entry
+                        continue
+
+            if yaml is None:
+                if not yaml_missing_logged:
+                    try:
+                        self._log("Monster YAML support requires PyYAML. Install: sudo apt install python3-yaml")
+                    except Exception:
+                        pass
+                    yaml_missing_logged = True
+                continue
+
             try:
                 raw = fp.read_text(encoding="utf-8")
             except Exception:
@@ -2915,20 +3003,12 @@ class InitiativeTracker(tk.Tk):
                 mon = data
 
             abilities: Dict[str, Any] = {}
-            if not is_legacy:
-                ab = mon.get("abilities")
-                if isinstance(ab, dict):
-                    for key, val in ab.items():
-                        if not isinstance(key, str):
-                            continue
-                        abilities[key.strip().lower()] = val
-            else:
-                ab = mon.get("abilities")
-                if isinstance(ab, dict):
-                    for key, val in ab.items():
-                        if not isinstance(key, str):
-                            continue
-                        abilities[key.strip().lower()] = val
+            ab = mon.get("abilities")
+            if isinstance(ab, dict):
+                for key, val in ab.items():
+                    if not isinstance(key, str):
+                        continue
+                    abilities[key.strip().lower()] = val
 
             name = str(mon.get("name") or (fp.stem if is_legacy else "")).strip()
             if not name:
@@ -3089,7 +3169,26 @@ class InitiativeTracker(tk.Tk):
                 self._monsters_by_name[name] = spec
             self._monster_specs.append(spec)
 
+            new_entries[fp.name] = {
+                "mtime_ns": meta.get("mtime_ns"),
+                "size": meta.get("size"),
+                "hash": self._hash_text(raw),
+                "summary": {
+                    "name": name,
+                    "mtype": mtype,
+                    "cr": cr,
+                    "hp": hp,
+                    "speed": speed,
+                    "swim_speed": swim_speed,
+                    "dex": dex,
+                    "init_mod": init_mod,
+                    "saving_throws": saving_throws,
+                    "ability_mods": ability_mods,
+                },
+            }
+
         self._monster_specs.sort(key=lambda s: s.name.lower())
+        self._write_index_file(index_path, {"version": 1, "entries": new_entries})
 
     def _load_monster_details(self, name: str) -> Optional[MonsterSpec]:
         spec = self._monsters_by_name.get(name)
@@ -3175,23 +3274,22 @@ class InitiativeTracker(tk.Tk):
         except Exception:
             pass
 
-        dir_mtime, files_hash, files = self._build_dir_cache_signature(sdir, ("*.yml", "*.yaml"))
-        if self._is_index_cache_valid(self._spells_index_cache, dir_mtime, files_hash):
-            return
+        files: List[Path] = []
+        try:
+            files = sorted(list(sdir.glob("*.yml")) + list(sdir.glob("*.yaml")))
+        except Exception:
+            files = []
+
+        index_path = self._index_file_path("spell_index.json")
+        index_data = self._read_index_file(index_path)
+        cached_entries = index_data.get("entries") if isinstance(index_data.get("entries"), dict) else {}
 
         self._spell_presets = []
         self._spells_by_name = {}
         self._spell_detail_cache = {}
-        self._spells_index_cache = {"dir_mtime": dir_mtime, "files_hash": files_hash}
 
         if not files:
-            return
-
-        if yaml is None:
-            try:
-                self._log("Spell YAML support requires PyYAML. Install: sudo apt install python3-yaml")
-            except Exception:
-                pass
+            self._write_index_file(index_path, {"version": 1, "entries": {}})
             return
         def log_notice(message: str) -> None:
             try:
@@ -3202,7 +3300,62 @@ class InitiativeTracker(tk.Tk):
         def log_skip(path: Path, reason: str) -> None:
             log_notice(f"Spell preset '{path.name}' skipped: {reason}")
 
+        new_entries: Dict[str, Any] = {}
+        yaml_missing_logged = False
+
         for fp in files:
+            meta = self._file_stat_metadata(fp)
+            entry = cached_entries.get(fp.name) if isinstance(cached_entries, dict) else None
+            if isinstance(entry, dict) and self._metadata_matches(entry, meta):
+                summary = entry.get("summary")
+                if isinstance(summary, dict):
+                    name = str(summary.get("name") or "").strip()
+                    shape = str(summary.get("shape") or "").strip().lower()
+                    if name and shape in {"circle", "square", "line"}:
+                        spec = SpellPreset(
+                            filename=str(fp.name),
+                            name=name,
+                            shape=shape,
+                            radius_ft=None,
+                            side_ft=None,
+                            length_ft=None,
+                            width_ft=None,
+                            save_type=None,
+                            save_dc=None,
+                            default_damage=None,
+                            dice=None,
+                            damage_types=[],
+                            color=None,
+                            duration_turns=None,
+                            over_time=None,
+                            move_per_turn_ft=None,
+                            trigger_on_start_or_enter=None,
+                            persistent=None,
+                            pinned_default=None,
+                            upcast=None,
+                        )
+                        if name not in self._spells_by_name:
+                            self._spells_by_name[name] = spec
+                        self._spell_presets.append(spec)
+
+                        new_entry = dict(entry)
+                        new_entry["mtime_ns"] = meta.get("mtime_ns")
+                        new_entry["size"] = meta.get("size")
+                        if not new_entry.get("hash"):
+                            try:
+                                raw = fp.read_text(encoding="utf-8")
+                                new_entry["hash"] = self._hash_text(raw)
+                            except Exception:
+                                pass
+                        new_entries[fp.name] = new_entry
+                        continue
+
+            if yaml is None:
+                if not yaml_missing_logged:
+                    log_notice("Spell YAML support requires PyYAML. Install: sudo apt install python3-yaml")
+                    yaml_missing_logged = True
+                continue
+
             try:
                 raw = fp.read_text(encoding="utf-8")
             except Exception:
@@ -3257,7 +3410,15 @@ class InitiativeTracker(tk.Tk):
                 self._spells_by_name[name] = spec
             self._spell_presets.append(spec)
 
+            new_entries[fp.name] = {
+                "mtime_ns": meta.get("mtime_ns"),
+                "size": meta.get("size"),
+                "hash": self._hash_text(raw),
+                "summary": {"name": name, "shape": shape},
+            }
+
         self._spell_presets.sort(key=lambda s: s.name.lower())
+        self._write_index_file(index_path, {"version": 1, "entries": new_entries})
 
     def _load_spell_details(self, name: str) -> Optional[SpellPreset]:
         spec = self._spells_by_name.get(name)

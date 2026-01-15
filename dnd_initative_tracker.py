@@ -21,6 +21,7 @@ import time
 import logging
 import re
 import os
+import hashlib
 from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
@@ -89,6 +90,40 @@ def _make_ops_logger() -> logging.Logger:
     lg.propagate = False
     setattr(lg, "_inittracker_configured", True)
     return lg
+
+
+def _read_index_file(path: Path) -> Dict[str, Any]:
+    try:
+        if not path.exists():
+            return {}
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _write_index_file(path: Path, payload: Dict[str, Any]) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _file_stat_metadata(fp: Path) -> Dict[str, object]:
+    try:
+        stat = fp.stat()
+        return {"mtime_ns": stat.st_mtime_ns, "size": stat.st_size}
+    except Exception:
+        return {"mtime_ns": 0, "size": 0}
+
+
+def _metadata_matches(entry: Dict[str, object], meta: Dict[str, object]) -> bool:
+    return entry.get("mtime_ns") == meta.get("mtime_ns") and entry.get("size") == meta.get("size")
+
+
+def _hash_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 class LanAccountStore:
@@ -7550,18 +7585,64 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             files = []
 
-        if not files:
-            return
+        index_path = _ensure_logs_dir() / "monster_index.json"
+        index_data = _read_index_file(index_path)
+        cached_entries = index_data.get("entries") if isinstance(index_data.get("entries"), dict) else {}
+        new_entries: Dict[str, Any] = {}
+        yaml_missing_logged = False
 
-        if yaml is None:
-            # Monster files are complex; be explicit so the user knows what to install.
-            try:
-                self._log("Monster YAML support requires PyYAML. Install: sudo apt install python3-yaml")
-            except Exception:
-                pass
+        if not files:
+            _write_index_file(index_path, {"version": 1, "entries": {}})
             return
 
         for fp in files:
+            meta = _file_stat_metadata(fp)
+            entry = cached_entries.get(fp.name) if isinstance(cached_entries, dict) else None
+            if isinstance(entry, dict) and _metadata_matches(entry, meta):
+                summary = entry.get("summary")
+                if isinstance(summary, dict):
+                    name = str(summary.get("name") or "").strip()
+                    if name:
+                        spec = MonsterSpec(
+                            filename=str(fp.name),
+                            name=name,
+                            mtype=str(summary.get("mtype") or "unknown").strip() or "unknown",
+                            cr=summary.get("cr"),
+                            hp=summary.get("hp"),
+                            speed=summary.get("speed"),
+                            swim_speed=summary.get("swim_speed"),
+                            dex=summary.get("dex"),
+                            init_mod=summary.get("init_mod"),
+                            saving_throws=summary.get("saving_throws") if isinstance(summary.get("saving_throws"), dict) else {},
+                            ability_mods=summary.get("ability_mods") if isinstance(summary.get("ability_mods"), dict) else {},
+                            raw_data=summary.get("raw_data") if isinstance(summary.get("raw_data"), dict) else {},
+                        )
+                        if name not in self._monsters_by_name:
+                            self._monsters_by_name[name] = spec
+                        self._monster_specs.append(spec)
+
+                        new_entry = dict(entry)
+                        new_entry["mtime_ns"] = meta.get("mtime_ns")
+                        new_entry["size"] = meta.get("size")
+                        if not new_entry.get("hash"):
+                            try:
+                                raw = fp.read_text(encoding="utf-8")
+                                new_entry["hash"] = _hash_text(raw)
+                            except Exception:
+                                pass
+                        new_entries[fp.name] = new_entry
+                        continue
+
+            if yaml is None:
+                if not yaml_missing_logged:
+                    # Monster files are complex; be explicit so the user knows what to install.
+                    try:
+                        self._log("Monster YAML support requires PyYAML. Install: sudo apt install python3-yaml")
+                    except Exception:
+                        pass
+                    yaml_missing_logged = True
+                continue
+
             try:
                 raw = fp.read_text(encoding="utf-8")
             except Exception:
@@ -7778,7 +7859,27 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._monsters_by_name[name] = spec
             self._monster_specs.append(spec)
 
+            new_entries[fp.name] = {
+                "mtime_ns": meta.get("mtime_ns"),
+                "size": meta.get("size"),
+                "hash": _hash_text(raw),
+                "summary": {
+                    "name": name,
+                    "mtype": mtype,
+                    "cr": cr,
+                    "hp": hp,
+                    "speed": speed,
+                    "swim_speed": swim_speed,
+                    "dex": dex,
+                    "init_mod": init_mod,
+                    "saving_throws": saving_throws,
+                    "ability_mods": ability_mods,
+                    "raw_data": raw_data,
+                },
+            }
+
         self._monster_specs.sort(key=lambda s: s.name.lower())
+        _write_index_file(index_path, {"version": 1, "entries": new_entries})
 
     def _monster_names_sorted(self) -> List[str]:
         return [s.name for s in self._monster_specs]
