@@ -5,7 +5,7 @@ DnD Initiative Tracker (v41) — LAN Proof-of-Concept
 This edition layers a small LAN/mobile web client on top of the Tk app without rewriting it.
 - DM runs the Tk app.
 - LAN server starts automatically (and can be stopped/restarted from the "LAN" menu).
-- Players open the LAN URL on mobile and claim any Player Character, then can move their token (on their turn).
+- Players open the LAN URL on mobile and are auto-assigned a Player Character by IP, then can move their token (on their turn).
 """
 
 from __future__ import annotations
@@ -267,6 +267,56 @@ HTML_INDEX = r"""<!doctype html>
       border-color: rgba(106,169,255,0.65);
       background: rgba(106,169,255,0.2);
       color: var(--text);
+    }
+    .menu-wrap{
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+    }
+    .menu-btn{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .menu-popover{
+      position:absolute;
+      top: calc(100% + 10px);
+      left: 0;
+      min-width: 190px;
+      padding: 6px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(15,19,32,0.98);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      opacity:0;
+      transform: translateY(-4px);
+      pointer-events:none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      z-index: 30;
+    }
+    .menu-popover.show{
+      opacity:1;
+      transform: translateY(0);
+      pointer-events:auto;
+    }
+    .menu-item{
+      border:none;
+      background: transparent;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: 10px;
+      cursor:pointer;
+    }
+    .menu-item:hover,
+    .menu-item:focus{
+      background: rgba(255,255,255,0.08);
+      outline:none;
     }
     .hidden{display:none !important;}
     .spacer{flex:1;}
@@ -537,6 +587,77 @@ HTML_INDEX = r"""<!doctype html>
     .hint.hidden{display:none;}
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
     .modal-actions .btn{flex:1; min-width:120px;}
+    .admin-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .admin-status{
+      font-size:12px;
+      color: var(--muted);
+      margin-bottom:8px;
+    }
+    .admin-session-list{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:6px;
+    }
+    .admin-session{
+      border:1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(10,14,22,0.55);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .admin-session-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .admin-session-ip{
+      font-weight:700;
+      font-size:13px;
+    }
+    .admin-session-meta{
+      font-size:12px;
+      color: var(--muted);
+    }
+    .admin-session-status{
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.16);
+    }
+    .admin-session-status.connected{
+      border-color: rgba(106,169,255,0.55);
+      color: var(--accent);
+    }
+    .admin-session-status.offline{
+      border-color: rgba(255,255,255,0.2);
+      color: var(--muted);
+    }
+    .admin-session-assign{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .admin-session-assign select{
+      flex:1 1 200px;
+      border:1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
     .config-section{margin-top:8px;}
     .config-section summary{
       cursor:pointer;
@@ -698,6 +819,15 @@ HTML_INDEX = r"""<!doctype html>
       <div class="conn-popover" id="connPopover" role="dialog" aria-hidden="true">
         <div class="conn-popover-status" id="connPopoverStatus">Connecting…</div>
         <button class="btn" id="connReconnectBtn" type="button">Reconnect</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="btn menu-btn" id="adminMenuBtn" type="button" aria-haspopup="menu" aria-expanded="false">
+        Admin <span aria-hidden="true">▾</span>
+      </button>
+      <div class="menu-popover" id="adminMenuPopover" role="menu" aria-hidden="true">
+        <button class="menu-item" id="adminMenuOpen" type="button" role="menuitem">Sessions</button>
+        <button class="menu-item" id="adminMenuRefresh" type="button" role="menuitem">Refresh Sessions</button>
       </div>
     </div>
     <div class="spacer"></div>
@@ -934,6 +1064,20 @@ HTML_INDEX = r"""<!doctype html>
         </div>
         <div class="modal-actions">
           <button class="btn" id="configClose">Close</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal" id="adminModal" aria-hidden="true">
+      <div class="card card-scroll">
+        <div class="admin-header">
+          <h2>Admin Sessions</h2>
+          <button class="btn" id="adminRefresh" type="button">Refresh</button>
+        </div>
+        <div class="admin-status" id="adminStatus">Loading…</div>
+        <div class="admin-session-list" id="adminSessionList"></div>
+        <div class="hint">Assignments persist per IP address and auto-apply on reconnect.</div>
+        <div class="modal-actions">
+          <button class="btn" id="adminClose">Close</button>
         </div>
       </div>
     </div>
@@ -1337,8 +1481,17 @@ __DAMAGE_TYPE_OPTIONS__
   const zoomOutBtn = document.getElementById("zoomOut");
   const dashBtn = document.getElementById("dash");
   const configBtn = document.getElementById("configBtn");
+  const adminMenuBtn = document.getElementById("adminMenuBtn");
+  const adminMenuPopover = document.getElementById("adminMenuPopover");
+  const adminMenuOpenBtn = document.getElementById("adminMenuOpen");
+  const adminMenuRefreshBtn = document.getElementById("adminMenuRefresh");
   const configModal = document.getElementById("configModal");
   const configCloseBtn = document.getElementById("configClose");
+  const adminModal = document.getElementById("adminModal");
+  const adminSessionList = document.getElementById("adminSessionList");
+  const adminStatus = document.getElementById("adminStatus");
+  const adminRefreshBtn = document.getElementById("adminRefresh");
+  const adminCloseBtn = document.getElementById("adminClose");
   const toggleTopbarTitle = document.getElementById("toggleTopbarTitle");
   const toggleConnIndicator = document.getElementById("toggleConnIndicator");
   const toggleLockMap = document.getElementById("toggleLockMap");
@@ -1442,6 +1595,8 @@ __DAMAGE_TYPE_OPTIONS__
   let lastActiveCid = null;
   let lastTurnRound = null;
   let selectedTurnCid = null;
+  let adminSessions = [];
+  let adminPcs = [];
 
   // view transform
   let zoom = 32; // px per square
@@ -2103,6 +2258,155 @@ __DAMAGE_TYPE_OPTIONS__
     configModal.setAttribute("aria-hidden", "true");
     if (configBtn){
       configBtn.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function setAdminMenu(open){
+    if (!adminMenuPopover || !adminMenuBtn) return;
+    adminMenuPopover.classList.toggle("show", open);
+    adminMenuPopover.setAttribute("aria-hidden", open ? "false" : "true");
+    adminMenuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  function closeAdminMenu(){
+    setAdminMenu(false);
+  }
+
+  function showAdminModal(){
+    if (!adminModal) return;
+    adminModal.classList.add("show");
+    adminModal.setAttribute("aria-hidden", "false");
+  }
+
+  function hideAdminModal(){
+    if (!adminModal) return;
+    adminModal.classList.remove("show");
+    adminModal.setAttribute("aria-hidden", "true");
+  }
+
+  function setAdminStatus(text){
+    if (!adminStatus) return;
+    adminStatus.textContent = text || "";
+  }
+
+  function buildAdminPcOptions(selectedCid){
+    const options = [];
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "(unassigned)";
+    options.push(blank);
+    adminPcs.forEach((pc) => {
+      const opt = document.createElement("option");
+      opt.value = String(pc.cid);
+      opt.textContent = pc.name || `cid ${pc.cid}`;
+      if (selectedCid !== null && selectedCid !== undefined && String(pc.cid) === String(selectedCid)){
+        opt.selected = true;
+      }
+      options.push(opt);
+    });
+    return options;
+  }
+
+  function renderAdminSessions(){
+    if (!adminSessionList) return;
+    adminSessionList.innerHTML = "";
+    if (!adminSessions.length){
+      const empty = document.createElement("div");
+      empty.className = "hint";
+      empty.textContent = "No sessions found yet.";
+      adminSessionList.appendChild(empty);
+      return;
+    }
+    adminSessions.forEach((session) => {
+      const row = document.createElement("div");
+      row.className = "admin-session";
+      const top = document.createElement("div");
+      top.className = "admin-session-top";
+      const ipWrap = document.createElement("div");
+      const ipText = document.createElement("div");
+      ipText.className = "admin-session-ip";
+      ipText.textContent = session.ip || session.host || "(unknown)";
+      const metaText = document.createElement("div");
+      metaText.className = "admin-session-meta";
+      const reverseDns = session.reverse_dns ? `rDNS: ${session.reverse_dns}` : "rDNS: —";
+      const lastSeen = session.last_seen ? `Last seen: ${session.last_seen}` : "";
+      metaText.textContent = [reverseDns, lastSeen].filter(Boolean).join(" · ");
+      ipWrap.appendChild(ipText);
+      ipWrap.appendChild(metaText);
+      const status = document.createElement("span");
+      status.className = "admin-session-status";
+      const statusValue = String(session.status || "offline").toLowerCase();
+      status.classList.add(statusValue === "connected" ? "connected" : "offline");
+      status.textContent = statusValue === "connected" ? "Connected" : "Offline";
+      top.appendChild(ipWrap);
+      top.appendChild(status);
+
+      const assignRow = document.createElement("div");
+      assignRow.className = "admin-session-assign";
+      const assignedText = document.createElement("div");
+      assignedText.className = "admin-session-meta";
+      assignedText.textContent = `Assigned: ${session.assigned_name || "Unassigned"}`;
+      const select = document.createElement("select");
+      buildAdminPcOptions(session.assigned_cid).forEach((opt) => select.appendChild(opt));
+      const assignBtn = document.createElement("button");
+      assignBtn.className = "btn";
+      assignBtn.type = "button";
+      assignBtn.textContent = "Save";
+      assignBtn.addEventListener("click", async () => {
+        const value = select.value;
+        const cid = value ? Number(value) : null;
+        await assignAdminIp(session.ip || session.host || "", cid);
+      });
+      assignRow.appendChild(assignedText);
+      assignRow.appendChild(select);
+      assignRow.appendChild(assignBtn);
+
+      row.appendChild(top);
+      row.appendChild(assignRow);
+      adminSessionList.appendChild(row);
+    });
+  }
+
+  async function fetchAdminSessions({silent} = {}){
+    try {
+      if (!silent) setAdminStatus("Loading sessions…");
+      const res = await fetch("/api/admin/sessions");
+      if (!res.ok){
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const payload = await res.json();
+      adminSessions = Array.isArray(payload.sessions) ? payload.sessions : [];
+      adminPcs = Array.isArray(payload.pcs) ? payload.pcs : [];
+      setAdminStatus(`Loaded ${adminSessions.length} session${adminSessions.length === 1 ? "" : "s"}.`);
+      renderAdminSessions();
+    } catch (err){
+      console.warn("Failed to load admin sessions.", err);
+      setAdminStatus("Failed to load sessions.");
+    }
+  }
+
+  async function assignAdminIp(ip, cid){
+    const host = String(ip || "").trim();
+    if (!host){
+      setAdminStatus("Missing IP address.");
+      return;
+    }
+    try {
+      setAdminStatus("Saving assignment…");
+      const res = await fetch("/api/admin/assign_ip", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ip: host, cid}),
+      });
+      if (!res.ok){
+        throw new Error(`HTTP ${res.status}`);
+      }
+      await res.json();
+      await fetchAdminSessions({silent: true});
+      setAdminStatus("Assignment saved.");
+    } catch (err){
+      console.warn("Failed to assign session.", err);
+      setAdminStatus("Failed to save assignment.");
     }
   }
 
@@ -4087,6 +4391,43 @@ __DAMAGE_TYPE_OPTIONS__
       }
     });
   }
+  if (adminMenuBtn && adminMenuPopover){
+    adminMenuBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isOpen = adminMenuPopover.classList.contains("show");
+      setAdminMenu(!isOpen);
+    });
+  }
+  if (adminMenuOpenBtn){
+    adminMenuOpenBtn.addEventListener("click", () => {
+      showAdminModal();
+      fetchAdminSessions();
+      closeAdminMenu();
+    });
+  }
+  if (adminMenuRefreshBtn){
+    adminMenuRefreshBtn.addEventListener("click", () => {
+      fetchAdminSessions();
+      closeAdminMenu();
+    });
+  }
+  if (adminRefreshBtn){
+    adminRefreshBtn.addEventListener("click", () => {
+      fetchAdminSessions();
+    });
+  }
+  if (adminCloseBtn){
+    adminCloseBtn.addEventListener("click", () => {
+      hideAdminModal();
+    });
+  }
+  if (adminModal){
+    adminModal.addEventListener("click", (event) => {
+      if (event.target === adminModal){
+        hideAdminModal();
+      }
+    });
+  }
   if (presetSaveBtn){
     presetSaveBtn.addEventListener("click", () => {
       const preset = buildGuiPreset();
@@ -4184,9 +4525,16 @@ __DAMAGE_TYPE_OPTIONS__
     if (connPopoverEl.contains(event.target) || connEl.contains(event.target)) return;
     closeConnPopover();
   });
+  document.addEventListener("click", (event) => {
+    if (!adminMenuPopover || !adminMenuBtn) return;
+    if (adminMenuPopover.contains(event.target) || adminMenuBtn.contains(event.target)) return;
+    closeAdminMenu();
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape"){
       closeConnPopover();
+      closeAdminMenu();
+      hideAdminModal();
     }
   });
   if (toggleTopbarTitle){
@@ -4580,7 +4928,7 @@ class LanController:
         self._claims: Dict[int, int] = {}   # id(websocket) -> cid
         self._cid_to_ws: Dict[int, int] = {}  # cid -> id(websocket) (1 owner at a time)
         self._cid_to_host: Dict[int, str] = {}  # cid -> host (active claim)
-        self._host_claims: Dict[str, int] = {}  # host -> cid (remembered claim)
+        self._host_assignments: Dict[str, int] = self._load_host_assignments()  # host -> cid (persistent)
         self._host_presets: Dict[str, Dict[str, Any]] = {}
         self._cid_push_subscriptions: Dict[int, List[Dict[str, Any]]] = {}
 
@@ -4699,6 +5047,48 @@ class LanController:
                 entry for entry in subs if str(entry.get("endpoint", "")) != endpoint
             ]
 
+    def _host_assignments_path(self) -> Path:
+        return _ensure_logs_dir() / "lan_assignments.json"
+
+    def _load_host_assignments(self) -> Dict[str, int]:
+        data = _read_index_file(self._host_assignments_path())
+        raw = data.get("assignments") if isinstance(data, dict) else None
+        assignments: Dict[str, int] = {}
+        if isinstance(raw, dict):
+            for host, cid in raw.items():
+                key = str(host or "").strip()
+                if not key:
+                    continue
+                try:
+                    cid_int = int(cid)
+                except Exception:
+                    continue
+                assignments[key] = cid_int
+        return assignments
+
+    def _save_host_assignments(self) -> None:
+        payload = {"version": 1, "assignments": dict(self._host_assignments)}
+        _write_index_file(self._host_assignments_path(), payload)
+
+    def _set_host_assignment(self, host: str, cid: Optional[int]) -> None:
+        host = str(host or "").strip()
+        if not host:
+            return
+        with self._clients_lock:
+            if cid is None:
+                self._host_assignments.pop(host, None)
+            else:
+                self._host_assignments[host] = int(cid)
+        self._save_host_assignments()
+
+    def _assigned_cid_for_host(self, host: str) -> Optional[int]:
+        host = str(host or "").strip()
+        if not host:
+            return None
+        with self._clients_lock:
+            cid = self._host_assignments.get(host)
+        return int(cid) if isinstance(cid, int) else None
+
     def start(self, quiet: bool = False) -> None:
         if self._server_thread and self._server_thread.is_alive():
             self.app._oplog("LAN server already runnin'.")
@@ -4763,6 +5153,32 @@ class LanController:
             if not ok:
                 raise HTTPException(status_code=400, detail="Invalid subscription payload.")
             return {"ok": True, "playerId": player_id}
+
+        @app.get("/api/admin/sessions")
+        async def admin_sessions():
+            return self._admin_sessions_payload()
+
+        @app.post("/api/admin/assign_ip")
+        async def admin_assign_ip(payload: Dict[str, Any] = Body(...)):
+            if not isinstance(payload, dict):
+                raise HTTPException(status_code=400, detail="Invalid payload.")
+            host = str(payload.get("ip") or "").strip()
+            if not host:
+                raise HTTPException(status_code=400, detail="Missing IP address.")
+            cid_raw = payload.get("cid")
+            cid: Optional[int]
+            if cid_raw is None or cid_raw == "":
+                cid = None
+            else:
+                try:
+                    cid = int(cid_raw)
+                except Exception:
+                    raise HTTPException(status_code=400, detail="Invalid character id.")
+                if not self._pc_exists(cid):
+                    raise HTTPException(status_code=404, detail="Unknown character id.")
+            self._set_host_assignment(host, cid)
+            await self._apply_host_assignment_async(host, cid, note="Assigned by the DM.")
+            return {"ok": True, "ip": host, "cid": cid}
 
         @app.websocket("/ws")
         async def ws_endpoint(ws: WebSocket):
@@ -5000,15 +5416,12 @@ class LanController:
         host = str(host or "").strip()
         if not host:
             return
-        preferred = self._host_claims.get(host)
-        if isinstance(preferred, int) and self._can_auto_claim(preferred):
-            await self._claim_ws_async(ws_id, int(preferred), note="Reconnected.")
+        preferred = self._assigned_cid_for_host(host)
+        if preferred is None:
             return
-        for pc in self._cached_pcs:
-            cid = pc.get("cid")
-            if isinstance(cid, int) and self._can_auto_claim(int(cid)):
-                await self._claim_ws_async(ws_id, int(cid), note="Assigned.")
-                return
+        if not self._pc_exists(preferred):
+            return
+        await self._claim_ws_async(ws_id, int(preferred), note="Assigned.", allow_override=True)
 
     # ---------- Sessions / Claims (Tk thread safe) ----------
 
@@ -5025,7 +5438,8 @@ class LanController:
                     reverse_dns = self._resolve_reverse_dns(host)
                     if ws_id in self._clients_meta:
                         self._clients_meta[ws_id]["reverse_dns"] = reverse_dns
-                host_claimed_cid = self._host_claims.get(host)
+                assigned_cid = self._host_assignments.get(host)
+                assigned_name = self._pc_name_for(int(assigned_cid)) if isinstance(assigned_cid, int) else None
                 out.append(
                     {
                         "ws_id": int(ws_id),
@@ -5036,11 +5450,72 @@ class LanController:
                         "connected_at": meta.get("connected_at", ""),
                         "last_seen": meta.get("last_seen", meta.get("connected_at", "")),
                         "reverse_dns": reverse_dns,
-                        "host_claimed_cid": int(host_claimed_cid) if host_claimed_cid is not None else None,
+                        "assigned_cid": int(assigned_cid) if assigned_cid is not None else None,
+                        "assigned_name": assigned_name,
+                        "status": "connected",
                     }
                 )
         out.sort(key=lambda s: int(s.get("ws_id", 0)))
         return out
+
+    def _pc_exists(self, cid: int) -> bool:
+        try:
+            cid = int(cid)
+        except Exception:
+            return False
+        pcs = {int(p.get("cid")) for p in self._cached_pcs if isinstance(p.get("cid"), int)}
+        return cid in pcs
+
+    def _admin_sessions_payload(self) -> Dict[str, Any]:
+        sessions = self.sessions_snapshot()
+        connected_hosts = {str(s.get("host")) for s in sessions if str(s.get("host"))}
+        offline_entries: List[Dict[str, Any]] = []
+        with self._clients_lock:
+            assignments = dict(self._host_assignments)
+        for host, cid in assignments.items():
+            if host in connected_hosts:
+                continue
+            reverse_dns = self._resolve_reverse_dns(host)
+            offline_entries.append(
+                {
+                    "ws_id": None,
+                    "cid": None,
+                    "host": host,
+                    "ip": host,
+                    "reverse_dns": reverse_dns,
+                    "assigned_cid": int(cid),
+                    "assigned_name": self._pc_name_for(int(cid)),
+                    "status": "offline",
+                    "last_seen": "",
+                }
+            )
+        all_sessions = sessions + offline_entries
+        for entry in all_sessions:
+            if "ip" not in entry:
+                entry["ip"] = entry.get("host")
+        all_sessions.sort(key=lambda s: str(s.get("ip", "")))
+        pcs_payload = [
+            {"cid": int(p.get("cid")), "name": str(p.get("name", ""))}
+            for p in self._cached_pcs
+            if isinstance(p.get("cid"), int)
+        ]
+        pcs_payload.sort(key=lambda p: str(p.get("name", "")).lower())
+        return {"sessions": all_sessions, "pcs": pcs_payload}
+
+    async def _apply_host_assignment_async(self, host: str, cid: Optional[int], note: str) -> None:
+        host = str(host or "").strip()
+        if not host:
+            return
+        with self._clients_lock:
+            ws_ids = [ws_id for ws_id, ws_host in self._client_hosts.items() if ws_host == host]
+        if not ws_ids:
+            return
+        if cid is None:
+            for ws_id in ws_ids:
+                await self._unclaim_ws_async(ws_id, reason=note, clear_ownership=False)
+            return
+        for ws_id in ws_ids:
+            await self._claim_ws_async(ws_id, int(cid), note=note, allow_override=True)
 
     def assign_session(self, ws_id: int, cid: Optional[int], note: str = "Assigned by the DM.") -> None:
         """DM assigns a PC to a session (or clears assignment if cid is None)."""
@@ -5055,11 +5530,14 @@ class LanController:
     async def _assign_session_async(self, ws_id: int, cid: Optional[int], note: str) -> None:
         with self._clients_lock:
             ws = self._clients.get(ws_id)
+            host = self._client_hosts.get(ws_id)
         if not ws:
             return
+        if host:
+            self._set_host_assignment(host, cid)
         if cid is None:
             # unclaim
-            await self._unclaim_ws_async(ws_id, reason=note, clear_ownership=True)
+            await self._unclaim_ws_async(ws_id, reason=note, clear_ownership=False)
             return
         await self._claim_ws_async(ws_id, int(cid), note=note, allow_override=True)
 
@@ -5309,10 +5787,6 @@ class LanController:
             if old is not None:
                 self._cid_to_ws.pop(int(old), None)
                 self._cid_to_host.pop(int(old), None)
-            host = self._client_hosts.get(ws_id)
-            if clear_ownership and host:
-                if self._host_claims.get(host) == old:
-                    self._host_claims.pop(host, None)
         if old is not None:
             name = self._pc_name_for(int(old))
             self.app._oplog(f"LAN session ws_id={ws_id} unclaimed {name} ({reason})")
@@ -5342,17 +5816,15 @@ class LanController:
             # if cid is owned, we'll steal
             steal_from = self._cid_to_ws.get(int(cid))
             if steal_from is not None and steal_from != ws_id:
+                if not allow_override:
+                    await self._send_async(ws_id, {"type": "toast", "text": "That character be claimed already."})
+                    return
                 self._claims.pop(steal_from, None)
             # assign
             self._claims[ws_id] = int(cid)
             self._cid_to_ws[int(cid)] = ws_id
             if host:
                 self._cid_to_host[int(cid)] = host
-                self._host_claims[host] = int(cid)
-            if steal_from is not None and steal_from != ws_id:
-                steal_host = self._client_hosts.get(steal_from)
-                if steal_host:
-                    self._host_claims.pop(steal_host, None)
 
         if steal_from is not None and steal_from != ws_id:
             await self._send_async(steal_from, {"type": "force_unclaim", "text": "Yer character got reassigned by the DM.", "pcs": self._pcs_payload()})
