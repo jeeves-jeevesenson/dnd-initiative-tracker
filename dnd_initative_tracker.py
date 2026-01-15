@@ -16,6 +16,10 @@ from pathlib import Path
 import json
 import queue
 import socket
+import ipaddress
+import fnmatch
+import importlib.util
+import importlib
 import threading
 import time
 import logging
@@ -23,7 +27,7 @@ import re
 import os
 import hashlib
 from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 import tkinter as tk
@@ -4451,17 +4455,97 @@ class LanConfig:
     vapid_public_key: Optional[str] = None
     vapid_private_key: Optional[str] = None
     vapid_subject: str = "mailto:dm@example.com"
+    allowlist: List[str] = field(default_factory=list)
+    denylist: List[str] = field(default_factory=list)
+    access_file: Optional[str] = None
 
     def __post_init__(self) -> None:
         env_public = os.getenv("INITTRACKER_VAPID_PUBLIC_KEY")
         env_private = os.getenv("INITTRACKER_VAPID_PRIVATE_KEY")
         env_subject = os.getenv("INITTRACKER_VAPID_SUBJECT")
+        env_allowlist = os.getenv("INITTRACKER_LAN_ALLOWLIST")
+        env_denylist = os.getenv("INITTRACKER_LAN_DENYLIST")
+        env_access_file = os.getenv("INITTRACKER_LAN_ACCESS_FILE")
         if env_public:
             self.vapid_public_key = env_public.strip()
         if env_private:
             self.vapid_private_key = env_private.strip()
         if env_subject:
             self.vapid_subject = env_subject.strip()
+        if env_access_file:
+            self.access_file = env_access_file.strip()
+        file_config = self._load_access_file(self.access_file)
+        if file_config:
+            self.allowlist.extend(file_config.get("allowlist", []))
+            self.denylist.extend(file_config.get("denylist", []))
+        self.allowlist.extend(self._parse_access_entries(env_allowlist))
+        self.denylist.extend(self._parse_access_entries(env_denylist))
+        self.allowlist = self._normalize_access_entries(self.allowlist)
+        self.denylist = self._normalize_access_entries(self.denylist)
+
+    @staticmethod
+    def _normalize_access_entries(entries: List[str]) -> List[str]:
+        seen = set()
+        normalized: List[str] = []
+        for entry in entries:
+            cleaned = str(entry or "").strip()
+            if not cleaned or cleaned in seen:
+                continue
+            seen.add(cleaned)
+            normalized.append(cleaned)
+        return normalized
+
+    @staticmethod
+    def _parse_access_entries(value: Optional[str]) -> List[str]:
+        if not value:
+            return []
+        raw = value.strip()
+        if not raw:
+            return []
+        if raw.startswith("[") or raw.startswith("{"):
+            try:
+                parsed = json.loads(raw)
+            except Exception:
+                parsed = None
+            if isinstance(parsed, list):
+                return [str(entry).strip() for entry in parsed if str(entry).strip()]
+        parts = re.split(r"[,\s]+", raw)
+        return [part for part in (p.strip() for p in parts) if part]
+
+    @staticmethod
+    def _load_access_file(path: Optional[str]) -> Dict[str, List[str]]:
+        if not path:
+            return {}
+        file_path = Path(path)
+        if not file_path.exists():
+            return {}
+        try:
+            content = file_path.read_text(encoding="utf-8")
+        except Exception:
+            return {}
+        parsed: Any = None
+        try:
+            parsed = json.loads(content)
+        except Exception:
+            parsed = None
+        if parsed is None:
+            yaml_spec = importlib.util.find_spec("yaml")
+            if yaml_spec is not None:
+                yaml = importlib.import_module("yaml")
+                try:
+                    parsed = yaml.safe_load(content)
+                except Exception:
+                    parsed = None
+        if isinstance(parsed, list):
+            return {"allowlist": [str(entry).strip() for entry in parsed if str(entry).strip()]}
+        if isinstance(parsed, dict):
+            allowlist = parsed.get("allowlist", []) if isinstance(parsed.get("allowlist", []), list) else []
+            denylist = parsed.get("denylist", []) if isinstance(parsed.get("denylist", []), list) else []
+            return {
+                "allowlist": [str(entry).strip() for entry in allowlist if str(entry).strip()],
+                "denylist": [str(entry).strip() for entry in denylist if str(entry).strip()],
+            }
+        return {}
 
 
 @dataclass
@@ -4519,6 +4603,50 @@ class LanController:
         self._cached_pcs: List[Dict[str, Any]] = []
 
     # ---------- Tk thread API ----------
+
+    def _resolve_reverse_dns(self, host: str) -> Optional[str]:
+        host = str(host or "").strip()
+        if not host:
+            return None
+        try:
+            resolved, _, _ = socket.gethostbyaddr(host)
+        except Exception:
+            return None
+        resolved = str(resolved or "").strip()
+        return resolved or None
+
+    def _host_matches_entry(self, host: str, entry: str) -> bool:
+        host = str(host or "").strip()
+        entry = str(entry or "").strip()
+        if not host or not entry:
+            return False
+        if entry == "*":
+            return True
+        if "*" in entry:
+            return fnmatch.fnmatch(host, entry)
+        host_ip: Optional[ipaddress._BaseAddress]
+        try:
+            host_ip = ipaddress.ip_address(host)
+        except ValueError:
+            host_ip = None
+        if host_ip is not None:
+            try:
+                network = ipaddress.ip_network(entry, strict=False)
+                return host_ip in network
+            except ValueError:
+                pass
+        return host == entry
+
+    def _is_host_allowed(self, host: str) -> bool:
+        host = str(host or "").strip()
+        if not host:
+            return False if self.cfg.allowlist else True
+        for entry in self.cfg.denylist:
+            if self._host_matches_entry(host, entry):
+                return False
+        if not self.cfg.allowlist:
+            return True
+        return any(self._host_matches_entry(host, entry) for entry in self.cfg.allowlist)
 
     def admin_disconnect_session(self, ws_id: int, reason: str = "Disconnected by the DM.") -> None:
         if not self._loop:
@@ -4638,9 +4766,6 @@ class LanController:
 
         @app.websocket("/ws")
         async def ws_endpoint(ws: WebSocket):
-            await ws.accept()
-            ws_id = id(ws)
-            # record client meta
             try:
                 host = getattr(getattr(ws, "client", None), "host", "?")
                 port = getattr(getattr(ws, "client", None), "port", "")
@@ -4652,6 +4777,15 @@ class LanController:
                 connected_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             except Exception:
                 host, port, ua, connected_at = "?", "", "", ""
+            if not self._is_host_allowed(host):
+                await ws.accept()
+                await ws.close(code=1008, reason="Unauthorized IP.")
+                self.app._oplog(f"LAN session rejected host={host}:{port} ua={ua}", level="warning")
+                return
+
+            await ws.accept()
+            ws_id = id(ws)
+            reverse_dns = self._resolve_reverse_dns(host)
 
             with self._clients_lock:
                 self._clients[ws_id] = ws
@@ -4661,6 +4795,7 @@ class LanController:
                     "ua": ua,
                     "connected_at": connected_at,
                     "last_seen": connected_at,
+                    "reverse_dns": reverse_dns,
                 }
                 self._client_hosts[ws_id] = host
             self.app._oplog(f"LAN session connected ws_id={ws_id} host={host}:{port} ua={ua}")
@@ -4884,15 +5019,24 @@ class LanController:
             for ws_id, ws in list(self._clients.items()):
                 meta = dict(self._clients_meta.get(ws_id, {}))
                 cid = self._claims.get(ws_id)
+                host = meta.get("host", "?")
+                reverse_dns = meta.get("reverse_dns")
+                if reverse_dns is None and host not in ("", "?"):
+                    reverse_dns = self._resolve_reverse_dns(host)
+                    if ws_id in self._clients_meta:
+                        self._clients_meta[ws_id]["reverse_dns"] = reverse_dns
+                host_claimed_cid = self._host_claims.get(host)
                 out.append(
                     {
                         "ws_id": int(ws_id),
                         "cid": int(cid) if cid is not None else None,
-                        "host": meta.get("host", "?"),
+                        "host": host,
                         "port": meta.get("port", ""),
                         "user_agent": meta.get("ua", ""),
                         "connected_at": meta.get("connected_at", ""),
                         "last_seen": meta.get("last_seen", meta.get("connected_at", "")),
+                        "reverse_dns": reverse_dns,
+                        "host_claimed_cid": int(host_claimed_cid) if host_claimed_cid is not None else None,
                     }
                 )
         out.sort(key=lambda s: int(s.get("ws_id", 0)))
