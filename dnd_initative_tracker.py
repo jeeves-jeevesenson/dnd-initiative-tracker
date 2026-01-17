@@ -180,6 +180,8 @@ HTML_INDEX = r"""<!doctype html>
       --safeInsetBottom: env(safe-area-inset-bottom, 0px);
       --modalTopOffset: 0px;
       --modalBottomOffset: 0px;
+      --topbar-height: 0px;
+      --bottombar-height: 0px;
     }
     html,body{height:100%; margin:0; background:var(--bg); color:var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; overflow:hidden;}
     .app{height:100dvh; display:flex; flex-direction:column; min-height:0;}
@@ -505,6 +507,133 @@ HTML_INDEX = r"""<!doctype html>
       padding: 0;
       border: none;
       background: transparent;
+    }
+    .spell-select-overlay{
+      position:fixed;
+      inset: 0;
+      top: var(--topbar-height);
+      bottom: var(--bottombar-height);
+      background: var(--bg);
+      display:none;
+      flex-direction:column;
+      padding: 10px 12px calc(12px + var(--safeInsetBottom)) 12px;
+      z-index:45;
+      min-height:0;
+    }
+    .spell-select-overlay.show{
+      display:flex;
+    }
+    .spell-select-header{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding-bottom:8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-wrap:wrap;
+    }
+    .spell-select-title{
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .spell-select-spacer{
+      flex:1;
+    }
+    .spell-select-body{
+      margin-top: 10px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      flex:1 1 auto;
+      min-height:0;
+    }
+    .spell-select-summary{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .spell-select-table-wrap{
+      overflow:auto;
+      max-height: calc(100dvh - var(--topbar-height) - var(--bottombar-height) - 170px);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(8,12,20,0.6);
+    }
+    .spell-select-table{
+      width:100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .spell-select-table th,
+    .spell-select-table td{
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      text-align:left;
+      vertical-align:top;
+    }
+    .spell-select-table th{
+      position: sticky;
+      top: 0;
+      background: rgba(12,16,26,0.98);
+      z-index: 2;
+      font-size: 11px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .spell-select-table tr:last-child td{
+      border-bottom:none;
+    }
+    .spell-select-name-btn{
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--accent);
+      cursor:pointer;
+      font-weight: 600;
+      text-align:left;
+    }
+    .spell-select-link{
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .spell-select-link:hover{
+      text-decoration: underline;
+    }
+    .spell-select-details-row td{
+      padding-top: 0;
+      background: rgba(10,14,22,0.45);
+    }
+    .spell-select-details-row details{
+      padding: 6px 0 10px 0;
+    }
+    .spell-select-details-row summary{
+      cursor:pointer;
+      list-style:none;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .spell-select-details-row summary::-webkit-details-marker{display:none;}
+    .spell-select-details-grid{
+      margin-top: 8px;
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .spell-select-details-item strong{
+      color: var(--text);
+      font-weight: 600;
+      display:block;
+      margin-bottom: 2px;
+    }
+    .spell-select-controls{
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .spell-select-controls select{
+      flex:1;
     }
     .form-grid{
       display:grid;
@@ -1400,9 +1529,12 @@ HTML_INDEX = r"""<!doctype html>
           <div class="form-grid">
             <div class="form-field">
               <label for="castPreset">Preset <span class="manual-entry-badge" id="castManualEntryBadge" title="Manual entry required.">Manual entry required</span></label>
-              <select id="castPreset">
-                <option value="" selected>Custom</option>
-              </select>
+              <div class="spell-select-controls">
+                <select id="castPreset">
+                  <option value="" selected>Custom</option>
+                </select>
+                <button class="btn" id="spellSelectOpen" type="button">Select Spells</button>
+              </div>
             </div>
             <div class="form-field">
               <label for="castName">Name</label>
@@ -1508,6 +1640,32 @@ __DAMAGE_TYPE_OPTIONS__
             <button class="btn accent" type="submit">Cast</button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+  <div class="spell-select-overlay" id="spellSelectOverlay" aria-hidden="true">
+    <div class="spell-select-header">
+      <button class="btn" id="spellSelectBack" type="button">Back</button>
+      <div class="spell-select-title" id="spellSelectTitle">Select Spells</div>
+      <div class="spell-select-spacer"></div>
+      <button class="btn" id="spellSelectClose" type="button">Close</button>
+    </div>
+    <div class="spell-select-body" role="dialog" aria-modal="true" aria-labelledby="spellSelectTitle">
+      <div class="spell-select-summary" id="spellSelectSummary">Loading spell presets…</div>
+      <div class="spell-select-table-wrap" id="spellSelectTableWrap">
+        <table class="spell-select-table">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Damage</th>
+              <th scope="col">AoE</th>
+              <th scope="col">Level</th>
+              <th scope="col">School</th>
+              <th scope="col">Link</th>
+            </tr>
+          </thead>
+          <tbody id="spellSelectTableBody"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -1918,6 +2076,12 @@ __DAMAGE_TYPE_OPTIONS__
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
   const spellPresetDetails = document.getElementById("spellPresetDetails");
+  const spellSelectOverlay = document.getElementById("spellSelectOverlay");
+  const spellSelectOpenBtn = document.getElementById("spellSelectOpen");
+  const spellSelectBackBtn = document.getElementById("spellSelectBack");
+  const spellSelectCloseBtn = document.getElementById("spellSelectClose");
+  const spellSelectSummary = document.getElementById("spellSelectSummary");
+  const spellSelectTableBody = document.getElementById("spellSelectTableBody");
   const spellConfigOpenBtn = document.getElementById("spellConfigOpen");
   const spellConfigModal = document.getElementById("spellConfigModal");
   const spellConfigForm = document.getElementById("spellConfigForm");
@@ -1938,6 +2102,7 @@ __DAMAGE_TYPE_OPTIONS__
   let lastVibrateSupported = canVibrate;
   let userHasInteracted = navigator.userActivation?.hasBeenActive ?? false;
   let castOverlayPreviousFocus = null;
+  let spellSelectPreviousFocus = null;
   let spellConfigPreviousFocus = null;
   const spellConfigDefaults = {cantrips: 0, spells: 15};
 
@@ -2133,6 +2298,8 @@ __DAMAGE_TYPE_OPTIONS__
     const rootStyle = document.documentElement.style;
     rootStyle.setProperty("--modalTopOffset", `${topbarHeight}px`);
     rootStyle.setProperty("--modalBottomOffset", `${sheetHeight}px`);
+    rootStyle.setProperty("--topbar-height", `${topbarHeight}px`);
+    rootStyle.setProperty("--bottombar-height", `${sheetHeight}px`);
   }
 
   function applySheetHeight(value){
@@ -2157,6 +2324,9 @@ __DAMAGE_TYPE_OPTIONS__
     castOverlay.setAttribute("aria-hidden", open ? "false" : "true");
     if (sheetWrap){
       sheetWrap.classList.toggle("is-hidden", open);
+    }
+    if (!open){
+      setSpellSelectOverlayOpen(false);
     }
     if (open){
       castOverlayPreviousFocus = document.activeElement instanceof HTMLElement
@@ -2200,6 +2370,23 @@ __DAMAGE_TYPE_OPTIONS__
     } catch (err){
       console.warn("Unable to load spell config.", err);
       return defaults;
+    }
+  }
+
+  function setSpellSelectOverlayOpen(open){
+    if (!spellSelectOverlay) return;
+    spellSelectOverlay.classList.toggle("show", open);
+    spellSelectOverlay.setAttribute("aria-hidden", open ? "false" : "true");
+    if (open){
+      spellSelectPreviousFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      requestAnimationFrame(() => {
+        spellSelectCloseBtn?.focus();
+      });
+    } else if (spellSelectPreviousFocus){
+      spellSelectPreviousFocus.focus();
+      spellSelectPreviousFocus = null;
     }
   }
 
@@ -4864,6 +5051,157 @@ __DAMAGE_TYPE_OPTIONS__
     spellPresetDetails.textContent = "";
     spellPresetDetails.appendChild(detailsGrid);
   };
+  const formatSpellDamageLabel = (preset) => {
+    const base = preset?.default_damage ?? preset?.dice ?? "";
+    const baseLabel = base !== null && base !== undefined && String(base).trim() ? String(base).trim() : "";
+    const damageTypes = Array.isArray(preset?.damage_types)
+      ? preset.damage_types.map((entry) => String(entry || "").trim()).filter(Boolean)
+      : [];
+    if (baseLabel && damageTypes.length){
+      return `${baseLabel} (${damageTypes.join(", ")})`;
+    }
+    if (baseLabel) return baseLabel;
+    if (damageTypes.length) return damageTypes.join(", ");
+    return "—";
+  };
+  const hasAoeShape = (preset) => {
+    if (!preset || typeof preset !== "object") return false;
+    return Boolean(
+      preset.shape ||
+      preset.radius_ft ||
+      preset.side_ft ||
+      preset.length_ft ||
+      preset.width_ft ||
+      preset.angle_deg ||
+      preset.height_ft ||
+      preset.thickness_ft
+    );
+  };
+  const buildOptionalSpellDetails = (preset) => {
+    if (!preset || typeof preset !== "object") return [];
+    const tags = Array.isArray(preset.tags) ? preset.tags.filter(Boolean) : [];
+    const lists = getSpellListEntries(preset.lists);
+    const listLabel = lists.length
+      ? lists.map((entry) => `${formatListGroupLabel(entry.group)}: ${entry.value}`).join(" · ")
+      : "";
+    const fields = [
+      {label: "Casting Time", value: normalizeTextValue(preset.casting_time)},
+      {label: "Range", value: normalizeTextValue(preset.range)},
+      {label: "Ritual", value: preset.ritual === true ? "Yes" : preset.ritual === false ? "No" : ""},
+      {label: "Concentration", value: preset.concentration === true ? "Yes" : preset.concentration === false ? "No" : ""},
+      {label: "Tags", value: tags.length ? tags.join(", ") : ""},
+      {label: "Lists", value: listLabel},
+      {label: "Shape", value: normalizeTextValue(preset.shape)},
+      {label: "Radius (ft)", value: Number.isFinite(Number(preset.radius_ft)) ? String(preset.radius_ft) : ""},
+      {label: "Side (ft)", value: Number.isFinite(Number(preset.side_ft)) ? String(preset.side_ft) : ""},
+      {label: "Length (ft)", value: Number.isFinite(Number(preset.length_ft)) ? String(preset.length_ft) : ""},
+      {label: "Width (ft)", value: Number.isFinite(Number(preset.width_ft)) ? String(preset.width_ft) : ""},
+      {label: "Angle (deg)", value: Number.isFinite(Number(preset.angle_deg)) ? String(preset.angle_deg) : ""},
+      {label: "Height (ft)", value: Number.isFinite(Number(preset.height_ft)) ? String(preset.height_ft) : ""},
+      {label: "Duration (turns)", value: Number.isFinite(Number(preset.duration_turns)) ? String(preset.duration_turns) : ""},
+      {label: "Save", value: preset.save_type ? String(preset.save_type || "").toUpperCase() : ""},
+      {label: "Save DC", value: Number.isFinite(Number(preset.save_dc)) ? String(preset.save_dc) : ""},
+    ];
+    return fields.filter((field) => field.value);
+  };
+  const renderSpellSelectTable = (presets) => {
+    if (!spellSelectTableBody || !spellSelectSummary) return;
+    const list = normalizeSpellPresets(presets).slice().sort((a, b) => {
+      return normalizeTextValue(a.name).localeCompare(normalizeTextValue(b.name));
+    });
+    spellSelectTableBody.textContent = "";
+    if (!list.length){
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 6;
+      cell.textContent = "No spell presets available.";
+      row.appendChild(cell);
+      spellSelectTableBody.appendChild(row);
+      spellSelectSummary.textContent = "0 spells available.";
+      return;
+    }
+    spellSelectSummary.textContent = `${list.length} spell${list.length === 1 ? "" : "s"} available.`;
+    const fragment = document.createDocumentFragment();
+    list.forEach((preset) => {
+      const name = normalizeTextValue(preset.name) || "Unnamed";
+      const row = document.createElement("tr");
+      row.className = "spell-select-row";
+      const nameCell = document.createElement("td");
+      const nameBtn = document.createElement("button");
+      nameBtn.type = "button";
+      nameBtn.className = "spell-select-name-btn";
+      nameBtn.textContent = name;
+      nameBtn.addEventListener("click", () => {
+        const optionExists = castPresetInput
+          ? Array.from(castPresetInput.options).some((option) => option.value === name)
+          : false;
+        if (castPresetInput && optionExists){
+          castPresetInput.value = name;
+        }
+        updateSpellPresetDetails(preset);
+        applySpellPreset(preset);
+        setSpellSelectOverlayOpen(false);
+      });
+      nameCell.appendChild(nameBtn);
+      const damageCell = document.createElement("td");
+      damageCell.textContent = formatSpellDamageLabel(preset);
+      const aoeCell = document.createElement("td");
+      aoeCell.textContent = hasAoeShape(preset) ? "Yes" : "No";
+      const levelCell = document.createElement("td");
+      levelCell.textContent = formatSpellLevelLabel(preset.level);
+      const schoolCell = document.createElement("td");
+      schoolCell.textContent = normalizeTextValue(preset.school) || "—";
+      const linkCell = document.createElement("td");
+      if (preset.url){
+        const link = document.createElement("a");
+        link.href = String(preset.url);
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.className = "spell-select-link";
+        link.textContent = "Open";
+        linkCell.appendChild(link);
+      } else {
+        linkCell.textContent = "—";
+      }
+      row.appendChild(nameCell);
+      row.appendChild(damageCell);
+      row.appendChild(aoeCell);
+      row.appendChild(levelCell);
+      row.appendChild(schoolCell);
+      row.appendChild(linkCell);
+      fragment.appendChild(row);
+
+      const detailFields = buildOptionalSpellDetails(preset);
+      if (detailFields.length){
+        const detailRow = document.createElement("tr");
+        detailRow.className = "spell-select-details-row";
+        const detailCell = document.createElement("td");
+        detailCell.colSpan = 6;
+        const details = document.createElement("details");
+        const summary = document.createElement("summary");
+        summary.textContent = "More details";
+        const detailsGrid = document.createElement("div");
+        detailsGrid.className = "spell-select-details-grid";
+        detailFields.forEach((field) => {
+          const item = document.createElement("div");
+          item.className = "spell-select-details-item";
+          const label = document.createElement("strong");
+          label.textContent = field.label;
+          const value = document.createElement("span");
+          value.textContent = field.value;
+          item.appendChild(label);
+          item.appendChild(value);
+          detailsGrid.appendChild(item);
+        });
+        details.appendChild(summary);
+        details.appendChild(detailsGrid);
+        detailCell.appendChild(details);
+        detailRow.appendChild(detailCell);
+        fragment.appendChild(detailRow);
+      }
+    });
+    spellSelectTableBody.appendChild(fragment);
+  };
   const updateSelectOptions = (selectEl, values) => {
     if (!selectEl) return;
     const currentValue = selectEl.value;
@@ -5089,6 +5427,7 @@ __DAMAGE_TYPE_OPTIONS__
     cachedSpellPresets = list;
     updateSpellFilterOptions();
     refreshSpellPresetOptions();
+    renderSpellSelectTable(cachedSpellPresets);
   };
 
   const registerSpellFilterListener = (input, useInputEvent = false) => {
@@ -5923,6 +6262,21 @@ __DAMAGE_TYPE_OPTIONS__
   if (castOverlayBackBtn){
     castOverlayBackBtn.addEventListener("click", () => {
       setCastOverlayOpen(false);
+    });
+  }
+  if (spellSelectOpenBtn){
+    spellSelectOpenBtn.addEventListener("click", () => {
+      setSpellSelectOverlayOpen(true);
+    });
+  }
+  if (spellSelectBackBtn){
+    spellSelectBackBtn.addEventListener("click", () => {
+      setSpellSelectOverlayOpen(false);
+    });
+  }
+  if (spellSelectCloseBtn){
+    spellSelectCloseBtn.addEventListener("click", () => {
+      setSpellSelectOverlayOpen(false);
     });
   }
   if (spellConfigOpenBtn){
