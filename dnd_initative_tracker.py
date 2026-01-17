@@ -4554,6 +4554,7 @@ __DAMAGE_TYPE_OPTIONS__
             selectedKnownSpellKeys = new Set();
             updateSpellSelectSummary();
             renderSpellSelectTable(cachedSpellPresets);
+            refreshSpellPresetOptions();
           }
         }
         refreshTurnAlertStatus();
@@ -4565,6 +4566,7 @@ __DAMAGE_TYPE_OPTIONS__
           const stored = loadKnownSpells(claimedCid);
           selectedKnownSpellKeys = new Set(stored.map(getSpellKey));
           renderSpellSelectTable(cachedSpellPresets);
+          refreshSpellPresetOptions();
         }
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
@@ -4585,6 +4587,7 @@ __DAMAGE_TYPE_OPTIONS__
         selectedKnownSpellKeys = new Set();
         updateSpellSelectSummary();
         renderSpellSelectTable(cachedSpellPresets);
+        refreshSpellPresetOptions();
         refreshTurnAlertStatus();
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
@@ -5046,6 +5049,34 @@ __DAMAGE_TYPE_OPTIONS__
   const normalizeTextValue = (value) => String(value || "").trim();
   const normalizeLowerValue = (value) => normalizeTextValue(value).toLowerCase();
   const getSpellKey = (name) => normalizeLowerValue(name);
+  const loadKnownSpellFilterList = (cid) => {
+    const key = getKnownSpellsKey(cid);
+    if (!key) return null;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return null;
+      return parsed.map(normalizeTextValue).filter(Boolean);
+    } catch (err){
+      console.warn("Unable to load known spells.", err);
+      return null;
+    }
+  };
+  const getKnownSpellFilterSet = () => {
+    if (!claimedCid) return null;
+    const list = loadKnownSpellFilterList(claimedCid);
+    if (!list) return null;
+    return new Set(list.map(getSpellKey));
+  };
+  const filterPresetsByKnownList = (presets, knownSpellSet) => {
+    if (!knownSpellSet) return presets;
+    return presets.filter((preset) => {
+      const name = normalizeTextValue(preset.name);
+      if (!name) return false;
+      return knownSpellSet.has(getSpellKey(name));
+    });
+  };
   const getSpellListEntries = (lists) => {
     if (!lists || typeof lists !== "object") return [];
     const entries = [];
@@ -5299,7 +5330,10 @@ __DAMAGE_TYPE_OPTIONS__
   };
   const renderSpellSelectTable = (presets) => {
     if (!spellSelectTableBody || !spellSelectSummary) return;
-    const list = normalizeSpellPresets(presets).slice().sort((a, b) => {
+    const knownSpellSet = spellSelectMode ? null : getKnownSpellFilterSet();
+    const list = filterPresetsByKnownList(normalizeSpellPresets(presets), knownSpellSet)
+      .slice()
+      .sort((a, b) => {
       return normalizeTextValue(a.name).localeCompare(normalizeTextValue(b.name));
     });
     spellPresetIndex = buildSpellPresetIndex(list);
@@ -5571,7 +5605,9 @@ __DAMAGE_TYPE_OPTIONS__
     blank.value = "";
     blank.textContent = "Custom";
     castPresetInput.appendChild(blank);
-    const filtered = cachedSpellPresets.filter(matchesSpellFilters);
+    const knownSpellSet = getKnownSpellFilterSet();
+    const filtered = filterPresetsByKnownList(cachedSpellPresets, knownSpellSet)
+      .filter(matchesSpellFilters);
     if (!filtered.length){
       const empty = document.createElement("option");
       empty.value = "";
@@ -6516,6 +6552,8 @@ __DAMAGE_TYPE_OPTIONS__
       const names = getSelectedKnownSpellNames();
       saveKnownSpells(claimedCid, names);
       localToast("Known spells saved.");
+      refreshSpellPresetOptions();
+      renderSpellSelectTable(cachedSpellPresets);
     });
   }
   if (spellConfigOpenBtn){
