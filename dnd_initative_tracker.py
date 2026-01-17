@@ -1279,7 +1279,6 @@ __DAMAGE_TYPE_OPTIONS__
           </div>
           <div class="form-actions">
             <button class="btn accent" type="submit">Cast</button>
-            <button class="btn danger" type="button" id="aoeRemoveBtn" disabled>Remove Selected AoE</button>
           </div>
         </form>
       </details>
@@ -1648,7 +1647,6 @@ __DAMAGE_TYPE_OPTIONS__
   const castDamageTypeList = document.getElementById("castDamageTypeList");
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
-  const aoeRemoveBtn = document.getElementById("aoeRemoveBtn");
   const sheetWrap = document.getElementById("sheetWrap");
   const sheetHandle = document.getElementById("sheetHandle");
   const tokenTooltip = document.getElementById("tokenTooltip");
@@ -2664,11 +2662,6 @@ __DAMAGE_TYPE_OPTIONS__
     target.move_remaining_ft = remaining;
   }
 
-  function updateAoeRemoveButton(){
-    if (!aoeRemoveBtn) return;
-    aoeRemoveBtn.disabled = selectedAoeId === null || selectedAoeId === undefined;
-  }
-
   function setSelectedAoe(aid){
     if (aid === null || aid === undefined){
       selectedAoeId = null;
@@ -2676,12 +2669,10 @@ __DAMAGE_TYPE_OPTIONS__
       const parsed = Number(aid);
       selectedAoeId = Number.isFinite(parsed) ? parsed : null;
     }
-    updateAoeRemoveButton();
   }
 
   function syncSelectedAoe(){
     if (selectedAoeId === null || selectedAoeId === undefined){
-      updateAoeRemoveButton();
       return;
     }
     const exists = Array.isArray(state?.aoes)
@@ -2689,7 +2680,6 @@ __DAMAGE_TYPE_OPTIONS__
     if (!exists){
       selectedAoeId = null;
     }
-    updateAoeRemoveButton();
   }
 
   function hexToRgb(hex){
@@ -4790,20 +4780,6 @@ __DAMAGE_TYPE_OPTIONS__
         payload.width_ft = widthFt;
       }
       send({type: "cast_aoe", payload});
-    });
-  }
-  if (aoeRemoveBtn){
-    aoeRemoveBtn.addEventListener("click", () => {
-      if (selectedAoeId === null || selectedAoeId === undefined){
-        localToast("Select a spell first, matey.");
-        return;
-      }
-      const payload = {type: "aoe_remove", aid: Number(selectedAoeId)};
-      const adminToken = getAdminAuth();
-      if (adminToken){
-        payload.admin_token = adminToken;
-      }
-      send(payload);
     });
   }
 
@@ -7390,16 +7366,15 @@ class InitiativeTracker(base.InitiativeTracker):
         # Basic sanity: claimed cid must match the action cid (if provided)
         cid = msg.get("cid")
         if isinstance(cid, int):
-            if claimed is not None and cid != claimed:
+            if not is_admin and claimed is not None and cid != claimed:
                 self._lan.toast(ws_id, "Arrr, that token ain’t yers.")
                 return
         else:
             cid = claimed
 
-        if cid is None:
-            if not (typ == "aoe_remove" and is_admin):
-                self._lan.toast(ws_id, "Claim a character first, matey.")
-                return
+        if cid is None and not is_admin:
+            self._lan.toast(ws_id, "Claim a character first, matey.")
+            return
 
         # Must exist
         if cid is not None and cid not in self.combatants:
@@ -7428,7 +7403,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         # Only allow controlling on your turn (POC)
-        if typ not in ("cast_aoe", "aoe_move", "aoe_remove"):
+        if not is_admin and typ not in ("cast_aoe", "aoe_move", "aoe_remove"):
             if self.current_cid is None or int(self.current_cid) != int(cid):
                 self._lan.toast(ws_id, "Not yer turn yet, matey.")
                 return
@@ -7595,7 +7570,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     if aid <= max_aid:
                         aid = max_aid + 1
                 self._lan_next_aoe_id = aid + 1
-            owner = str(self.combatants[cid].name)
+            if cid is not None and cid in self.combatants:
+                owner = str(self.combatants[cid].name)
+                owner_cid = int(cid)
+            else:
+                owner = "DM"
+                owner_cid = None
             aoe: Dict[str, Any] = {
                 "kind": shape,
                 "cx": float(cx),
@@ -7611,7 +7591,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "shape": None,
                 "label": None,
                 "owner": owner,
-                "owner_cid": int(cid),
+                "owner_cid": owner_cid,
                 "duration_turns": duration_turns_val,
                 "remaining_turns": duration_turns_val if (duration_turns_val or 0) > 0 else None,
             }
@@ -7711,16 +7691,16 @@ class InitiativeTracker(base.InitiativeTracker):
             d = (getattr(mw, "aoes", {}) or {}).get(aid)
             if not d:
                 return
-            if bool(d.get("pinned")):
+            if bool(d.get("pinned")) and not is_admin:
                 self._lan.toast(ws_id, "That spell be pinned.")
                 return
             owner_cid = d.get("owner_cid")
-            if owner_cid is not None and int(owner_cid) != int(cid):
+            if owner_cid is not None and int(owner_cid) != int(cid) and not is_admin:
                 self._lan.toast(ws_id, "That spell be not yers.")
                 return
             move_per_turn_ft = d.get("move_per_turn_ft")
             move_remaining_ft = d.get("move_remaining_ft")
-            if move_per_turn_ft not in (None, ""):
+            if not is_admin and move_per_turn_ft not in (None, ""):
                 if self.current_cid is None or int(self.current_cid) != int(cid):
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
                     return
@@ -7778,7 +7758,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 d = (getattr(self, "_lan_aoes", {}) or {}).get(aid)
             if not d:
                 return
-            if bool(d.get("pinned")):
+            if bool(d.get("pinned")) and not is_admin:
                 self._lan.toast(ws_id, "That spell be pinned.")
                 return
             owner_cid = d.get("owner_cid")
