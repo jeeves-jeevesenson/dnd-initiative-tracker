@@ -7026,6 +7026,11 @@ class BattleMapWindow(tk.Toplevel):
         if aid not in self.aoes:
             return
         d = self.aoes.pop(aid)
+        app = getattr(self, "app", None)
+        if app is not None:
+            lan_store = getattr(app, "_lan_aoes", None)
+            if isinstance(lan_store, dict):
+                lan_store.pop(aid, None)
         try:
             self.canvas.delete(int(d["shape"]))
             self.canvas.delete(int(d["label"]))
