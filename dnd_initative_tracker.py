@@ -3274,8 +3274,11 @@ __DAMAGE_TYPE_OPTIONS__
     if (state.aoes && state.aoes.length){
       state.aoes.forEach(a => {
         if (!a || !a.kind) return;
-        const remainingTurns = Number(a.remaining_turns);
-        if (Number.isFinite(remainingTurns) && remainingTurns <= 0){
+        const remainingTurnsRaw = a.remaining_turns;
+        const remainingTurnsValue = (remainingTurnsRaw === null || remainingTurnsRaw === undefined)
+          ? null
+          : Number(remainingTurnsRaw);
+        if (Number.isFinite(remainingTurnsValue) && remainingTurnsValue <= 0){
           return;
         }
         const preview = (draggingAoe && draggingAoe.aid === a.aid) ? draggingAoe : null;
