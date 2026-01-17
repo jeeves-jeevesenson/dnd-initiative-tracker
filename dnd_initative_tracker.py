@@ -5375,13 +5375,14 @@ class LanController:
 
         # Lazy imports so the base app still works without these deps installed.
         try:
-            from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request
+            from fastapi import Body, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
             from fastapi.responses import HTMLResponse, Response
             from fastapi.staticfiles import StaticFiles
             import uvicorn
             # Expose these in module globals so FastAPI's type resolver can see 'em even from nested defs.
             globals()["WebSocket"] = WebSocket
             globals()["WebSocketDisconnect"] = WebSocketDisconnect
+            globals()["Request"] = Request
         except Exception as e:
             if quiet:
                 self.app._oplog(f"LAN server needs fastapi + uvicorn (missing): {e}")
@@ -6149,19 +6150,7 @@ class LanController:
     # ---------- helpers ----------
 
     def _best_lan_url(self) -> str:
-        ip = "127.0.0.1"
-        try:
-            # Try common LAN interfaces
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
-            s.close()
-        except Exception:
-            try:
-                ip = socket.gethostbyname(socket.gethostname())
-            except Exception:
-                ip = "127.0.0.1"
-        return f"http://{ip}:{self.cfg.port}/"
+        return f"http://{self.cfg.host}:{self.cfg.port}/"
 
     def _cached_snapshot_payload(self) -> Dict[str, Any]:
         snap = dict(self._cached_snapshot)
