@@ -4647,6 +4647,8 @@ class BattleMapWindow(tk.Toplevel):
         # Listbox drag-from-roster state
         self._dragging_from_list: Optional[int] = None
         self._drag_ghost: Optional[tk.Label] = None
+        self._hover_tooltip: Optional[tk.Label] = None
+        self._hover_tooltip_text: Optional[str] = None
 
         # Background images
         self._next_bg_id = 1
@@ -4965,11 +4967,24 @@ class BattleMapWindow(tk.Toplevel):
         canvas_frame.rowconfigure(0, weight=1)
         canvas_frame.columnconfigure(0, weight=1)
 
+        self._hover_tooltip = tk.Label(
+            self.canvas,
+            text="",
+            background="#1f1f1f",
+            foreground="#eef2f7",
+            borderwidth=1,
+            relief="solid",
+            font=("TkDefaultFont", 9, "bold"),
+        )
+        self._hover_tooltip.place_forget()
+
         self.canvas.bind("<Configure>", lambda e: self._redraw_all())
         self.canvas.bind("<ButtonPress-1>", self._on_canvas_press)
         self.canvas.bind("<B1-Motion>", self._on_canvas_motion)
         self.canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
         self.canvas.bind("<Button-3>", self._on_canvas_right_click)
+        self.canvas.bind("<Motion>", self._on_canvas_hover)
+        self.canvas.bind("<Leave>", lambda _e: self._hide_hover_tooltip())
 
     # ---------------- Units list / drag placement ----------------
     def refresh_units(self) -> None:
@@ -7032,6 +7047,105 @@ class BattleMapWindow(tk.Toplevel):
         except Exception:
             self._drag_offset = (0.0, 0.0)
 
+    def _group_label_for_cids(self, cids: List[int]) -> str:
+        names: List[str] = []
+        for cid in cids:
+            c = self.app.combatants.get(cid)
+            if c:
+                names.append(c.name)
+        if not names:
+            return f"Group ({len(cids)})"
+        first = names[0]
+        if all(name == first for name in names):
+            return f"{len(names)}x {first}"
+        if bool(self.show_all_names_var.get()):
+            return f"Group ({len(names)}): " + ", ".join(names)
+        return f"Group ({len(names)})"
+
+    def _hover_label_for_cell(self, col: int, row: int) -> Optional[str]:
+        cids = list(self._cell_to_cids.get((col, row), []))
+        if not cids:
+            return None
+        if len(cids) == 1:
+            c = self.app.combatants.get(cids[0])
+            return c.name if c else f"#{cids[0]}"
+        return self._group_label_for_cids(cids)
+
+    def _show_hover_tooltip(self, text: str, event: tk.Event) -> None:
+        if self._hover_tooltip is None:
+            return
+        if self._hover_tooltip_text != text:
+            try:
+                self._hover_tooltip.config(text=text)
+            except Exception:
+                pass
+            self._hover_tooltip_text = text
+        try:
+            self._hover_tooltip.place(x=int(event.x + 12), y=int(event.y + 12))
+        except Exception:
+            pass
+
+    def _hide_hover_tooltip(self) -> None:
+        if self._hover_tooltip is None:
+            return
+        if self._hover_tooltip_text is None:
+            return
+        try:
+            self._hover_tooltip.place_forget()
+        except Exception:
+            pass
+        self._hover_tooltip_text = None
+
+    def _on_canvas_hover(self, event: tk.Event) -> None:
+        if getattr(self, "_drawing_obstacles", False) or getattr(self, "_drawing_rough", False):
+            self._hide_hover_tooltip()
+            return
+        if self._drag_kind is not None or self._drag_id is not None:
+            self._hide_hover_tooltip()
+            return
+        if self._dragging_from_list is not None:
+            self._hide_hover_tooltip()
+            return
+
+        item = self.canvas.find_withtag("current")
+        if not item:
+            self._hide_hover_tooltip()
+            return
+        tags = self.canvas.gettags(item)
+        cid: Optional[int] = None
+        for t in tags:
+            if t.startswith("unit:"):
+                try:
+                    cid = int(t.split(":", 1)[1])
+                except Exception:
+                    cid = None
+                break
+
+        label: Optional[str] = None
+        if cid is not None and cid in self.unit_tokens:
+            try:
+                col = int(self.unit_tokens[cid]["col"])
+                row = int(self.unit_tokens[cid]["row"])
+            except Exception:
+                col = row = None
+            if col is not None and row is not None:
+                cids = list(self._cell_to_cids.get((col, row), []))
+                if len(cids) > 1:
+                    label = self._group_label_for_cids(cids)
+                else:
+                    label = self._hover_label_for_cell(col, row)
+        elif "group" in tags:
+            mx = float(self.canvas.canvasx(event.x))
+            my = float(self.canvas.canvasy(event.y))
+            col, row = self._pixel_to_grid(mx, my)
+            if col is not None and row is not None:
+                label = self._hover_label_for_cell(int(col), int(row))
+
+        if label:
+            self._show_hover_tooltip(label, event)
+        else:
+            self._hide_hover_tooltip()
+
 
 
     def _on_canvas_motion(self, event: tk.Event) -> None:
@@ -7042,6 +7156,7 @@ class BattleMapWindow(tk.Toplevel):
         if getattr(self, "_drawing_rough", False):
             self._paint_rough_terrain_from_event(event)
             return
+        self._hide_hover_tooltip()
 
         if self._drag_kind is None or self._drag_id is None:
             return
