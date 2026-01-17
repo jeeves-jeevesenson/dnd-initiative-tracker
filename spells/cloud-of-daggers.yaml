@@ -1,0 +1,51 @@
+schema: dnd55.spell.v1
+id: cloud-of-daggers
+name: Cloud of Daggers
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 2
+school: conjuration
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 60 feet
+components: V, S, M (a sliver of glass)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: cloud-of-daggers
+  url: https://www.aidedd.org/spell/cloud-of-daggers
+  raw:
+    description: You conjure spinning daggers in a 5-foot Cube centered on a point
+      within range. Each creature in that area takes 4d4 Slashing damage. A creature
+      also takes this damage if it enters the Cube or ends its turn there or if the
+      Cube moves into its space. A creature takes this damage only once per turn.
+      On your later turns, you can take a Magic action to teleport the Cube up to
+      30 feet. Using a Higher-Level Spell Slot . The damage increases by 2d4 for each
+      spell slot level above 2.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

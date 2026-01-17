@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: blade-ward
+name: Blade Ward
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 0
+school: abjuration
+tags: []
+casting_time: Action
+range: Self
+components: V, S
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: blade-ward
+  url: https://www.aidedd.org/spell/blade-ward
+  raw:
+    description: Whenever a creature makes an attack roll against you before the spell
+      ends, the attacker subtracts 1d4 from the attack roll.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

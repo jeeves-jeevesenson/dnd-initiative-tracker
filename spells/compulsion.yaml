@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: compulsion
+name: Compulsion
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: enchantment
+tags: []
+casting_time: Action
+range: 30 feet
+components: V, S
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: compulsion
+  url: https://www.aidedd.org/spell/compulsion
+  raw:
+    description: Each creature of your choice that you can see within range must succeed
+      on a Wisdom saving throw or have the Charmed condition until the spell ends.
+      For the duration, you can take a Bonus Action to designate a direction that
+      is horizontal to you. Each Charmed target must use as much of its movement as
+      possible to move in that direction on its next turn, taking the safest route.
+      After moving in this way, a target repeats the save, ending the spell on itself
+      on a success.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

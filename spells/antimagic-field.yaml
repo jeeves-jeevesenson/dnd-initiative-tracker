@@ -1,0 +1,51 @@
+schema: dnd55.spell.v1
+id: antimagic-field
+name: Antimagic Field
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 8
+school: abjuration
+tags: []
+casting_time: Action
+range: Self
+components: V, S, M (iron filings)
+duration: Concentration, up to 1 hour
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: antimagic-field
+  url: https://www.aidedd.org/spell/antimagic-field
+  raw:
+    description: An aura of antimagic surrounds you in 10-foot Emanation. No one can
+      cast spells, take Magic actions, or create other magical effects inside the
+      aura, and those things can't target or otherwise affect anything inside it.
+      Magical properties of magic items don't work inside the aura or on anything
+      inside it. Areas of effect created by spells or other magic can't extend into
+      the aura, and no one can teleport into or out of it or use planar travel there.
+      Portals close temporarily while in the aura. Ongoing spells, except those cast
+      by an Artifact or a deity, are suppressed in the area. While an effect is suppressed,
+      it doesn't function, but the time it spends suppressed counts against its duration.
+      Dispel Magic has no effect on the aura, and the auras created by different Antimagic
+      Field spells don't nullify each other.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,53 @@
+schema: dnd55.spell.v1
+id: commune-with-nature
+name: Commune with Nature
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 5
+school: divination
+tags: []
+casting_time: 1 minute or Ritual
+range: Self
+components: V, S
+duration: Instantaneous
+ritual: true
+concentration: false
+lists:
+  classes:
+  - druid
+  - ranger
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: commune-with-nature
+  url: https://www.aidedd.org/spell/commune-with-nature
+  raw:
+    description: "You commune with nature spirits and gain knowledge of the surrounding\
+      \ area. In the outdoors, the spell gives you knowledge of the area within 3\
+      \ miles of you. In caves and other natural underground settings, the radius\
+      \ is limited to 300 feet. The spell doesn't function where nature has been replaced\
+      \ by construction, such as in castles and settlements. Choose three of the following\
+      \ facts; you learn those facts as they pertain to the spell's area: \u2022 Locations\
+      \ of settlements \u2022 Locations of portals to other planes of existence \u2022\
+      \ Location of one Challenge Rating 10+ creature (DM's choice) that is a Celestial,\
+      \ an Elemental, a Fey, a Fiend, or an Undead \u2022 The most prevalent kind\
+      \ of plant, mineral, or Beast (you choose which to learn) \u2022 Locations of\
+      \ bodies of water For example, you could determine the location of a powerful\
+      \ monster in the area, the locations of bodies of water, and the locations of\
+      \ any towns."
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

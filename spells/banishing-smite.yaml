@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: banishing-smite
+name: Banishing Smite
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 5
+school: conjuration
+tags: []
+casting_time: Bonus Action, which you take immediately after hitting a creature with
+  a Melee weapon or an Unarmed Strike
+range: Self
+components: V
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: banishing-smite
+  url: https://www.aidedd.org/spell/banishing-smite
+  raw:
+    description: The target hit by the attack roll takes an extra 5d10 Force damage
+      from the attack. If the attack reduces the target to 50 Hit Points or fewer,
+      the target must succeed on a Charisma saving throw or be transported to a harmless
+      demiplane for the duration. While there, the target has the Incapacitated condition.
+      When the spell ends, the target reappears in the space it left or in the nearest
+      unoccupied space if that space is occupied.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

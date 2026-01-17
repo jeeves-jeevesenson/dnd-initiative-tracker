@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: armor-of-agathys
+name: Armor of Agathys
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 1
+school: abjuration
+tags: []
+casting_time: Bonus Action
+range: Self
+components: V, S, M (a shard of blue glass)
+duration: 1 hour
+ritual: false
+concentration: false
+lists:
+  classes:
+  - warlock
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: armor-of-agathys
+  url: https://www.aidedd.org/spell/armor-of-agathys
+  raw:
+    description: Protective magical frost surrounds you. You gain 5 Temporary Hit
+      Points. If a creature hits you with a melee attack roll before the spell ends,
+      the creature takes 5 Cold damage. The spell ends early if you have no Temporary
+      Hit Points. Using a Higher-Level Spell Slot . The Temporary Hit Points and the
+      Cold damage both increase by 5 for each spell slot level above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,53 @@
+schema: dnd55.spell.v1
+id: creation
+name: Creation
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 5
+school: illusion
+tags:
+- damage
+- aoe
+casting_time: 1 minute
+range: 30 feet
+components: V, S, M (a paintbrush)
+duration: Special
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: creation
+  url: https://www.aidedd.org/spell/creation
+  raw:
+    description: You pull wisps of shadow material from the Shadowfell to create an
+      object within range. It is either an object of vegetable matter (soft goods,
+      rope, wood, and the like) or mineral matter (stone, crystal, metal, and the
+      like). The object must be no larger than a 5-foot Cube, and the object must
+      be of a form and material that you have seen. The spell's duration depends on
+      the object's material, as shown in the Materials table. If the object is composed
+      of multiple materials, use the shortest duration. Using any object created by
+      this spell as another spell's Material component causes the other spell to fail.
+      Material Duration Vegetable matter 24 hours Stone or crystal 12 hours Precious
+      metals 1 hour Gems 10 minutes Adamantine or mithral 1 minute Using a Higher-Level
+      Spell Slot . The Cube increases by 5 feet for each spell slot level above 5.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: cure-wounds
+name: Cure Wounds
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: abjuration
+tags: []
+casting_time: Action
+range: Touch
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - druid
+  - paladin
+  - ranger
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: cure-wounds
+  url: https://www.aidedd.org/spell/cure-wounds
+  raw:
+    description: A creature you touch regains a number of Hit Points equal to 2d8
+      plus your spellcasting ability modifier. Using a Higher-Level Spell Slot . The
+      healing increases by 2d8 for each spell slot level above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

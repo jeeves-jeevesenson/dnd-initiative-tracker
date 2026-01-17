@@ -1,0 +1,51 @@
+schema: dnd55.spell.v1
+id: calm-emotions
+name: Calm Emotions
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: enchantment
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: calm-emotions
+  url: https://www.aidedd.org/spell/calm-emotions
+  raw:
+    description: "Each Humanoid in a 20-foot-radius Sphere centered on a point you\
+      \ choose within range must succeed on a Charisma saving throw or be affected\
+      \ by one of the following effects (choose for each creature): \u2022 The creature\
+      \ has Immunity to the Charmed and Frightened conditions until the spell ends.\
+      \ If the creature was already Charmed or Frightened, those conditions are suppressed\
+      \ for the duration. \u2022 The creature becomes Indifferent about creatures\
+      \ of your choice that it's Hostile toward. This indifference ends if the target\
+      \ takes damage or witnesses its allies taking damage. When the spell ends, the\
+      \ creature's attitude returns to normal."
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

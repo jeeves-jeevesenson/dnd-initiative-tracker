@@ -1,0 +1,43 @@
+schema: dnd55.spell.v1
+id: beast-sense
+name: Beast Sense
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 2
+school: divination
+tags: []
+casting_time: Action or Ritual
+range: Touch
+components: S
+duration: Concentration, up to 1 hour
+ritual: true
+concentration: true
+lists:
+  classes:
+  - druid
+  - ranger
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: beast-sense
+  url: https://www.aidedd.org/spell/beast-sense
+  raw:
+    description: You touch a willing Beast. For the duration, you can perceive through
+      the Beast's senses as well as your own. When perceiving through the Beast's
+      senses, you benefit from any special senses it has.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

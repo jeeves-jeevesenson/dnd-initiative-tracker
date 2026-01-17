@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: create-food-and-water
+name: Create Food and Water
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 3
+school: conjuration
+tags: []
+casting_time: Action
+range: 30 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: create-food-and-water
+  url: https://www.aidedd.org/spell/create-food-and-water
+  raw:
+    description: "You create 45 pounds of food and 30 gallons of fresh water on the\
+      \ ground or in containers within range\u2014both useful in fending off the hazards\
+      \ of malnutrition and dehydration. The food is bland but nourishing and looks\
+      \ like a food of your choice, and the water is clean. The food spoils after\
+      \ 24 hours if uneaten."
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

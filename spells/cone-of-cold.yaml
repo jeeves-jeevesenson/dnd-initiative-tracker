@@ -1,0 +1,79 @@
+schema: dnd55.spell.v1
+id: cone-of-cold
+name: Cone of Cold
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 5
+school: evocation
+tags:
+- damage
+- aoe
+casting_time: Action
+range: Self
+components: V, S, M (a small crystal or glass cone)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - druid
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: cone-of-cold
+  url: https://www.aidedd.org/spell/cone-of-cold
+  raw:
+    description: You unleash a blast of cold air. Each creature in a 60-foot Cone
+      originating from you makes a Constitution saving throw, taking 8d8 Cold damage
+      on a failed save or half as much damage on a successful one. A creature killed
+      by this spell becomes a frozen statue until it thaws. Using a Higher-Level Spell
+      Slot . The damage increases by 1d8 for each spell slot level above 5.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: cone
+      length_ft: 60
+      angle_deg: 90
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: constitution
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: cold
+        dice: 8d8
+        scaling: &id001
+          kind: slot_level
+          base_slot: 5
+          add_per_slot_above: 1d8
+      success:
+      - effect: damage
+        damage_type: cold
+        dice: 8d8
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
+  ui:
+    template_preview: true
+  notes: []

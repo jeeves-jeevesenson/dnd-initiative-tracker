@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: aura-of-vitality
+name: Aura of Vitality
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 3
+school: abjuration
+tags: []
+casting_time: Action
+range: Self
+components: V
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  - druid
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: aura-of-vitality
+  url: https://www.aidedd.org/spell/aura-of-vitality
+  raw:
+    description: An aura radiates from you in a 30-foot Emanation for the duration.
+      When you create the aura and at the start of each of your turns while it persists,
+      you can restore 2d6 Hit Points to one creature in it.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

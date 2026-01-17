@@ -1,0 +1,42 @@
+schema: dnd55.spell.v1
+id: beacon-of-hope
+name: Beacon of Hope
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 3
+school: abjuration
+tags: []
+casting_time: Action
+range: 30 feet
+components: V, S
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: beacon-of-hope
+  url: https://www.aidedd.org/spell/beacon-of-hope
+  raw:
+    description: Choose any number of creatures within range. For the duration, each
+      target has Advantage on Wisdom saving throws and Death Saving Throws and regains
+      the maximum number of Hit Points possible from any healing.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

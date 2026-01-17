@@ -1,0 +1,79 @@
+schema: dnd55.spell.v1
+id: circle-of-death
+name: Circle of Death
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 6
+school: necromancy
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 150 feet
+components: V, S, M (the powder of a crushed black pearl worth 500+ GP)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: circle-of-death
+  url: https://www.aidedd.org/spell/circle-of-death
+  raw:
+    description: Negative energy ripples out in a 60-foot-radius Sphere from a point
+      you choose within range. Each creature in that area makes a Constitution saving
+      throw, taking 8d8 Necrotic damage on a failed save or half as much damage on
+      a successful one. Using a Higher-Level Spell Slot . The damage increases by
+      2d8 for each spell slot level above 6.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: null
+    area:
+      shape: sphere
+      radius_ft: 60
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: constitution
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: necrotic
+        dice: 8d8
+        scaling: &id001
+          kind: slot_level
+          base_slot: 6
+          add_per_slot_above: 2d8
+      success:
+      - effect: damage
+        damage_type: necrotic
+        dice: 8d8
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
+  ui:
+    template_preview: true
+  notes: []

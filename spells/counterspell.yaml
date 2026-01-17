@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: counterspell
+name: Counterspell
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 3
+school: abjuration
+tags: []
+casting_time: Reaction, which you take when you see a creature within 60 feet of yourself
+  casting a spell with Verbal, Somatic, or Material components
+range: 60 feet
+components: S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: counterspell
+  url: https://www.aidedd.org/spell/counterspell
+  raw:
+    description: You attempt to interrupt a creature in the process of casting a spell.
+      The creature must make a Constitution saving throw. On a failed save, the spell
+      dissipates with no effect, and the action, Bonus Action, or Reaction used to
+      cast it is wasted. If that spell was cast with a spell slot, the slot isn't
+      expended.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

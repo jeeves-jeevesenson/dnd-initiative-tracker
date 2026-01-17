@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: arcane-eye
+name: Arcane Eye
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: divination
+tags: []
+casting_time: Action
+range: 30 feet
+components: V, S, M (a bit of bat fur)
+duration: Concentration, up to 1 hour
+ritual: false
+concentration: true
+lists:
+  classes:
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: arcane-eye
+  url: https://www.aidedd.org/spell/arcane-eye
+  raw:
+    description: You create an Invisible, invulnerable eye within range that hovers
+      for the duration. You mentally receive visual information from the eye, which
+      can see in every direction. It also has Darkvision with a range of 30 feet.
+      As a Bonus Action, you can move the eye up to 30 feet in any direction. A solid
+      barrier blocks the eye's movement, but the eye can pass through an opening as
+      small as 1 inch in diameter.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

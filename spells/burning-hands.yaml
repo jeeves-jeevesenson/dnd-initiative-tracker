@@ -1,0 +1,78 @@
+schema: dnd55.spell.v1
+id: burning-hands
+name: Burning Hands
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: evocation
+tags:
+- damage
+- aoe
+casting_time: Action
+range: Self
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: burning-hands
+  url: https://www.aidedd.org/spell/burning-hands
+  raw:
+    description: A thin sheet of flames shoots forth from you. Each creature in a
+      15-foot Cone makes a Dexterity saving throw, taking 3d6 Fire damage on a failed
+      save or half as much damage on a successful one. Flammable objects in the Cone
+      that aren't being worn or carried start burning. Using a Higher-Level Spell
+      Slot . The damage increases by 1d6 for each spell slot level above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: cone
+      length_ft: 15
+      angle_deg: 90
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: fire
+        dice: 3d6
+        scaling: &id001
+          kind: slot_level
+          base_slot: 1
+          add_per_slot_above: 1d6
+      success:
+      - effect: damage
+        damage_type: fire
+        dice: 3d6
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
+  ui:
+    template_preview: true
+  notes: []

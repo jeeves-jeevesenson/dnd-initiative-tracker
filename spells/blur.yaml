@@ -1,0 +1,43 @@
+schema: dnd55.spell.v1
+id: blur
+name: Blur
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: illusion
+tags: []
+casting_time: Action
+range: Self
+components: V
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: blur
+  url: https://www.aidedd.org/spell/blur
+  raw:
+    description: Your body becomes blurred. For the duration, any creature has Disadvantage
+      on attack rolls against you. An attacker is immune to this effect if it perceives
+      you with Blindsight or Truesight.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

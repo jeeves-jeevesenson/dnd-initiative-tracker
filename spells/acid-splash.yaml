@@ -1,0 +1,77 @@
+schema: dnd55.spell.v1
+id: acid-splash
+name: Acid Splash
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: evocation
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: acid-splash
+  url: https://www.aidedd.org/spell/acid-splash
+  raw:
+    description: You create an acidic bubble at a point within range, where it explodes
+      in a 5-foot-radius Sphere. Each creature in that Sphere must succeed on a Dexterity
+      saving throw or take 1d6 Acid damage. Cantrip Upgrade . The damage increases
+      by 1d6 when you reach levels 5 (2d6), 11 (3d6), and 17 (4d6).
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: null
+    area:
+      shape: sphere
+      radius_ft: 5
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: acid
+        dice: 1d6
+        scaling: &id001
+          kind: character_level
+          thresholds:
+            '5':
+              add: 2d6
+            '11':
+              add: 3d6
+            '17':
+              add: 4d6
+      success: []
+  scaling: *id001
+  ui:
+    template_preview: true
+  notes: []

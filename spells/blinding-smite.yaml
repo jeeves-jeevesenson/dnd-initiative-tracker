@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: blinding-smite
+name: Blinding Smite
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 3
+school: evocation
+tags: []
+casting_time: Bonus Action, which you take immediately after hitting a creature with
+  a Melee weapon or an Unarmed Strike
+range: Self
+components: V
+duration: 1 minute
+ritual: false
+concentration: false
+lists:
+  classes:
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: blinding-smite
+  url: https://www.aidedd.org/spell/blinding-smite
+  raw:
+    description: The target hit by the strike takes an extra 3d8 Radiant damage from
+      the attack, and the target has the Blinded condition until the spell ends. At
+      the end of each of its turns, the Blinded target makes a Constitution saving
+      throw, ending the spell on itself on a success. Using a Higher-Level Spell Slot
+      . The extra damage increases by 1d8 for each spell slot level above 3.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

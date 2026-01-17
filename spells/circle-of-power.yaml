@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: circle-of-power
+name: Circle of Power
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 5
+school: abjuration
+tags: []
+casting_time: Action
+range: Self
+components: V
+duration: Concentration, up to 10 minutes
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  - paladin
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: circle-of-power
+  url: https://www.aidedd.org/spell/circle-of-power
+  raw:
+    description: An aura radiates from you in a 30-foot Emanation for the duration.
+      While in the aura, you and your allies have Advantage on saving throws against
+      spells and other magical effects. When an affected creature makes a saving throw
+      against a spell or magical effect that allows a save to take only half damage,
+      it takes no damage if it succeeds on the save.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

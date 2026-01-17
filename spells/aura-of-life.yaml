@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: aura-of-life
+name: Aura of Life
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: abjuration
+tags: []
+casting_time: Action
+range: Self
+components: V
+duration: Concentration, up to 10 minutes
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: aura-of-life
+  url: https://www.aidedd.org/spell/aura-of-life
+  raw:
+    description: An aura radiates from you in a 30-foot Emanation for the duration.
+      While in the aura, you and your allies have Resistance to Necrotic damage, and
+      your Hit Point maximums can't be reduced. If an ally with 0 Hit Points starts
+      its turn in the aura, that ally regains 1 Hit Point.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

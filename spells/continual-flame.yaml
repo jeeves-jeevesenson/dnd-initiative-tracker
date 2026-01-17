@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: continual-flame
+name: Continual Flame
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: evocation
+tags: []
+casting_time: Action
+range: Touch
+components: V, S, M (ruby dust worth 50+ GP, which the spell consumes)
+duration: Until dispelled
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  - druid
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: continual-flame
+  url: https://www.aidedd.org/spell/continual-flame
+  raw:
+    description: A flame springs from an object that you touch. The effect casts Bright
+      Light in a 20-foot radius and Dim Light for an additional 20 feet. It looks
+      like a regular flame, but it creates no heat and consumes no fuel. The flame
+      can be covered or hidden but not smothered or quenched.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

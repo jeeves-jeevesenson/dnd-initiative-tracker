@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: animal-friendship
+name: Animal Friendship
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: enchantment
+tags: []
+casting_time: Action
+range: 30 feet
+components: V, S, M (a morsel of food)
+duration: 24 hours
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - druid
+  - ranger
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: animal-friendship
+  url: https://www.aidedd.org/spell/animal-friendship
+  raw:
+    description: Target a Beast that you can see within range. The target must succeed
+      on a Wisdom saving throw or have the Charmed condition for the duration. If
+      you or one of your allies deals damage to the target, the spell ends. Using
+      a Higher-Level Spell Slot . You can target one additional Beast for each spell
+      slot level above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

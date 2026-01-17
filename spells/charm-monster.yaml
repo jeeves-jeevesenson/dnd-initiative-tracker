@@ -1,0 +1,50 @@
+schema: dnd55.spell.v1
+id: charm-monster
+name: Charm Monster
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: enchantment
+tags: []
+casting_time: Action
+range: 30 feet
+components: V, S
+duration: 1 hour
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - druid
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: charm-monster
+  url: https://www.aidedd.org/spell/charm-monster
+  raw:
+    description: One creature you can see within range makes a Wisdom saving throw.
+      It does so with Advantage if you or your allies are fighting it. On a failed
+      save, the target has the Charmed condition until the spell ends or until you
+      or your allies damage it. The Charmed creature is Friendly to you. When the
+      spell ends, the target knows it was Charmed by you. Using a Higher-Level Spell
+      Slot . You can target one additional creature for each spell slot level above
+      4.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

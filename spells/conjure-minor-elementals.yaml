@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: conjure-minor-elementals
+name: Conjure Minor Elementals
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: conjuration
+tags: []
+casting_time: Action
+range: Self
+components: V, S
+duration: Concentration, up to 10 minutes
+ritual: false
+concentration: true
+lists:
+  classes:
+  - druid
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: conjure-minor-elementals
+  url: https://www.aidedd.org/spell/conjure-minor-elementals
+  raw:
+    description: You conjure spirits from the Elemental Planes that flit around you
+      in a 15-foot Emanation for the duration. Until the spell ends, any attack you
+      make deals an extra 2d8 damage when you hit a creature in the Emanation. This
+      damage is Acid, Cold, Fire, or Lightning (your choice when you make the attack).
+      In addition, the ground in the Emanation is Difficult Terrain for your enemies.
+      Using a Higher-Level Spell Slot . The damage increases by 1d8 for each spell
+      slot level above 4*.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

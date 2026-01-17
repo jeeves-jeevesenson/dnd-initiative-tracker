@@ -1,0 +1,42 @@
+schema: dnd55.spell.v1
+id: crusader-s-mantle
+name: Crusader's Mantle
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 3
+school: evocation
+tags: []
+casting_time: Action
+range: Self
+components: V
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: crusader-s-mantle
+  url: https://www.aidedd.org/spell/crusader-s-mantle
+  raw:
+    description: You radiate a magical aura in a 30-foot Emanation. While in the aura,
+      you and your allies each deal an extra 1d4 Radiant damage when hitting with
+      a weapon or an Unarmed Strike.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

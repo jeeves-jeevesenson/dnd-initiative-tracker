@@ -1,0 +1,48 @@
+schema: dnd55.spell.v1
+id: blight
+name: Blight
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: necromancy
+tags: []
+casting_time: Action
+range: 30 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - druid
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: blight
+  url: https://www.aidedd.org/spell/blight
+  raw:
+    description: A creature that you can see within range makes a Constitution saving
+      throw, taking 8d8 Necrotic damage on a failed save or half as much damage on
+      a successful one. A Plant creature automatically fails the save. Alternatively,
+      target a nonmagical plant that isn't a creature, such as a tree or shrub. It
+      doesn't make a save; it simply withers and dies. Using a Higher-Level Spell
+      Slot . The damage increases by 1d8 for each spell slot level above 4.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

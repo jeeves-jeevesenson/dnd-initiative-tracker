@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: arms-of-hadar
+name: Arms of Hadar
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 1
+school: conjuration
+tags: []
+casting_time: Action
+range: Self
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - warlock
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: arms-of-hadar
+  url: https://www.aidedd.org/spell/arms-of-hadar
+  raw:
+    description: Invoking Hadar, you cause tendrils to erupt from yourself. Each creature
+      in a 10-foot Emanation originating from you makes a Strength saving throw. On
+      a failed save, a target takes 2d6 Necrotic damage and can't take Reactions until
+      the start of its next turn. On a successful save, a target takes half as much
+      damage only. Using a Higher-Level Spell Slot . The damage increases by 1d6 for
+      each spell slot level above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

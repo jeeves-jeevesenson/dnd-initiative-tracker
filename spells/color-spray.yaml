@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: color-spray
+name: Color Spray
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: illusion
+tags:
+- damage
+- aoe
+casting_time: Action
+range: Self
+components: V, S, M (a pinch of colorful sand)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: color-spray
+  url: https://www.aidedd.org/spell/color-spray
+  raw:
+    description: You launch a dazzling array of flashing, colorful light. Each creature
+      in a 15-foot Cone originating from you must succeed on a Constitution saving
+      throw or have the Blinded condition until the end of your next turn.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []
