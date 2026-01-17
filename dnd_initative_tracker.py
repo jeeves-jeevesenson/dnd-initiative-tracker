@@ -1734,8 +1734,6 @@ __DAMAGE_TYPE_OPTIONS__
   const pushPublicKey = (window.PUSH_PUBLIC_KEY || "").trim();
   const turnAlertStorageKey = "inittracker_turnAlertSubscription";
   const turnAlertHideKey = "inittracker_hideTurnAlerts";
-  const spellConfigStoragePrefix = "inittracker_spellConfig_";
-  const spellKnownStoragePrefix = "inittracker_knownSpells_";
   let swRegistration = null;
 
   function setNotificationStatus(message){
@@ -2372,67 +2370,53 @@ __DAMAGE_TYPE_OPTIONS__
     resize();
   }
 
-  function getSpellConfigKey(cid){
-    if (!cid) return null;
-    return `${spellConfigStoragePrefix}${cid}`;
-  }
-
-  function getKnownSpellsKey(cid){
-    if (!cid) return null;
-    return `${spellKnownStoragePrefix}${cid}`;
-  }
-
   function normalizeSpellConfigValue(value, fallback){
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return fallback;
     return Math.max(0, Math.floor(parsed));
   }
 
-  function loadSpellConfig(cid){
+  function getClaimedPlayerName(){
+    const claimedUnit = getClaimedUnit();
+    if (!claimedUnit?.name) return null;
+    return String(claimedUnit.name);
+  }
+
+  function getPlayerSpellConfig(name){
     const defaults = {...spellConfigDefaults};
-    const key = getSpellConfigKey(cid);
-    if (!key) return defaults;
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return defaults;
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object") return defaults;
-      return {
-        cantrips: normalizeSpellConfigValue(parsed.cantrips, defaults.cantrips),
-        spells: normalizeSpellConfigValue(parsed.spells, defaults.spells),
-      };
-    } catch (err){
-      console.warn("Unable to load spell config.", err);
-      return defaults;
+    if (!name) return {cantrips: defaults.cantrips, spells: defaults.spells, names: []};
+    const store = state?.player_spells;
+    if (!store || typeof store !== "object") return {cantrips: defaults.cantrips, spells: defaults.spells, names: []};
+    const raw = store[name];
+    if (!raw || typeof raw !== "object"){
+      return {cantrips: defaults.cantrips, spells: defaults.spells, names: []};
     }
+    const names = Array.isArray(raw.known_spell_names)
+      ? raw.known_spell_names.map(normalizeTextValue).filter(Boolean)
+      : [];
+    return {
+      cantrips: normalizeSpellConfigValue(raw.known_cantrips, defaults.cantrips),
+      spells: normalizeSpellConfigValue(raw.known_spells, defaults.spells),
+      names,
+    };
+  }
+
+  function loadSpellConfig(cid){
+    const claimedUnit = getClaimedUnit();
+    if (!claimedUnit || String(claimedUnit.cid) !== String(cid)){
+      return {...spellConfigDefaults};
+    }
+    const config = getPlayerSpellConfig(String(claimedUnit.name || ""));
+    return {cantrips: config.cantrips, spells: config.spells};
   }
 
   function loadKnownSpells(cid){
-    const key = getKnownSpellsKey(cid);
-    if (!key) return [];
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed.map(normalizeTextValue).filter(Boolean);
-    } catch (err){
-      console.warn("Unable to load known spells.", err);
+    const claimedUnit = getClaimedUnit();
+    if (!claimedUnit || String(claimedUnit.cid) !== String(cid)){
       return [];
     }
-  }
-
-  function saveKnownSpells(cid, names){
-    const key = getKnownSpellsKey(cid);
-    if (!key) return;
-    const payload = Array.isArray(names)
-      ? names.map(normalizeTextValue).filter(Boolean)
-      : [];
-    try {
-      localStorage.setItem(key, JSON.stringify(payload));
-    } catch (err){
-      console.warn("Unable to persist known spells.", err);
-    }
+    const config = getPlayerSpellConfig(String(claimedUnit.name || ""));
+    return config.names;
   }
 
   function setSpellSelectOverlayOpen(open){
@@ -2463,17 +2447,60 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
-  function saveSpellConfig(cid, config){
-    const key = getSpellConfigKey(cid);
-    if (!key) return;
+  function updateLocalPlayerSpellConfig(name, config){
+    if (!name) return;
+    if (!state || typeof state !== "object") state = {};
+    if (!state.player_spells || typeof state.player_spells !== "object"){
+      state.player_spells = {};
+    }
+    state.player_spells[name] = {
+      known_cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
+      known_spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
+      known_spell_names: Array.isArray(config.names)
+        ? config.names.map(normalizeTextValue).filter(Boolean)
+        : [],
+    };
+  }
+
+  async function persistPlayerSpellConfig(name, config){
+    if (!name) return false;
     const payload = {
-      cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
-      spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
+      known_cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
+      known_spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
+      known_spell_names: Array.isArray(config.names)
+        ? config.names.map(normalizeTextValue).filter(Boolean)
+        : [],
     };
     try {
-      localStorage.setItem(key, JSON.stringify(payload));
+      const response = await fetch(`/api/players/${encodeURIComponent(name)}/spells`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok){
+        const detail = await response.text();
+        throw new Error(detail || "Save failed.");
+      }
+      const data = await response.json();
+      const player = data?.player;
+      if (player && typeof player === "object"){
+        updateLocalPlayerSpellConfig(name, {
+          cantrips: player.known_cantrips,
+          spells: player.known_spells,
+          names: player.known_spell_names,
+        });
+      } else {
+        updateLocalPlayerSpellConfig(name, {
+          cantrips: payload.known_cantrips,
+          spells: payload.known_spells,
+          names: payload.known_spell_names,
+        });
+      }
+      return true;
     } catch (err){
-      console.warn("Unable to persist spell config.", err);
+      console.warn("Unable to persist known spells.", err);
+      localToast("Unable to save known spells.");
+      return false;
     }
   }
 
@@ -4534,6 +4561,7 @@ __DAMAGE_TYPE_OPTIONS__
         updateHud();
         maybeShowTurnAlert();
         autoCenterOnJoin();
+        syncKnownSpellsFromState();
         if (!claimedCid){
           showNoOwnedPcToast(msg.pcs || msg.claimable || []);
         } else {
@@ -4563,10 +4591,7 @@ __DAMAGE_TYPE_OPTIONS__
           claimedCid = String(msg.cid);
           shownNoOwnedToast = false;
           autoCenterOnJoin();
-          const stored = loadKnownSpells(claimedCid);
-          selectedKnownSpellKeys = new Set(stored.map(getSpellKey));
-          renderSpellSelectTable(cachedSpellPresets);
-          refreshSpellPresetOptions();
+          syncKnownSpellsFromState({force: true});
         }
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
@@ -5049,23 +5074,16 @@ __DAMAGE_TYPE_OPTIONS__
   const normalizeTextValue = (value) => String(value || "").trim();
   const normalizeLowerValue = (value) => normalizeTextValue(value).toLowerCase();
   const getSpellKey = (name) => normalizeLowerValue(name);
-  const loadKnownSpellFilterList = (cid) => {
-    const key = getKnownSpellsKey(cid);
-    if (!key) return null;
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return null;
-      return parsed.map(normalizeTextValue).filter(Boolean);
-    } catch (err){
-      console.warn("Unable to load known spells.", err);
-      return null;
-    }
+  const loadKnownSpellFilterList = () => {
+    const name = getClaimedPlayerName();
+    if (!name) return null;
+    const config = getPlayerSpellConfig(name);
+    if (!config.names.length) return null;
+    return config.names.map(normalizeTextValue).filter(Boolean);
   };
   const getKnownSpellFilterSet = () => {
     if (!claimedCid) return null;
-    const list = loadKnownSpellFilterList(claimedCid);
+    const list = loadKnownSpellFilterList();
     if (!list) return null;
     return new Set(list.map(getSpellKey));
   };
@@ -5126,6 +5144,26 @@ __DAMAGE_TYPE_OPTIONS__
       }
     });
     return names.sort((a, b) => a.localeCompare(b));
+  };
+  const syncKnownSpellsFromState = ({force = false} = {}) => {
+    if (!claimedCid || spellSelectMode) return;
+    const stored = loadKnownSpells(claimedCid);
+    const nextKeys = new Set(stored.map(getSpellKey));
+    if (!force && nextKeys.size === selectedKnownSpellKeys.size){
+      let same = true;
+      nextKeys.forEach((key) => {
+        if (!selectedKnownSpellKeys.has(key)){
+          same = false;
+        }
+      });
+      if (same){
+        return;
+      }
+    }
+    selectedKnownSpellKeys = nextKeys;
+    updateSpellSelectSummary();
+    renderSpellSelectTable(cachedSpellPresets);
+    refreshSpellPresetOptions();
   };
   const updateManualEntryBadge = (preset) => {
     if (!castManualEntryBadge) return;
@@ -6540,7 +6578,7 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
   if (spellSelectSaveBtn){
-    spellSelectSaveBtn.addEventListener("click", () => {
+    spellSelectSaveBtn.addEventListener("click", async () => {
       if (!claimedCid){
         localToast("Claim a character first.");
         return;
@@ -6549,9 +6587,21 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Enable selection mode to save known spells.");
         return;
       }
+      const playerName = getClaimedPlayerName();
+      if (!playerName){
+        localToast("Unable to resolve player name.");
+        return;
+      }
+      const currentConfig = getPlayerSpellConfig(playerName);
       const names = getSelectedKnownSpellNames();
-      saveKnownSpells(claimedCid, names);
+      const saved = await persistPlayerSpellConfig(playerName, {
+        cantrips: currentConfig.cantrips,
+        spells: currentConfig.spells,
+        names,
+      });
+      if (!saved) return;
       localToast("Known spells saved.");
+      selectedKnownSpellKeys = new Set(names.map(getSpellKey));
       refreshSpellPresetOptions();
       renderSpellSelectTable(cachedSpellPresets);
     });
@@ -6567,15 +6617,23 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
   if (spellConfigSaveBtn){
-    spellConfigSaveBtn.addEventListener("click", () => {
+    spellConfigSaveBtn.addEventListener("click", async () => {
       if (!claimedCid){
         localToast("Claim a character first.");
         return;
       }
-      saveSpellConfig(claimedCid, {
+      const playerName = getClaimedPlayerName();
+      if (!playerName){
+        localToast("Unable to resolve player name.");
+        return;
+      }
+      const currentConfig = getPlayerSpellConfig(playerName);
+      const saved = await persistPlayerSpellConfig(playerName, {
         cantrips: spellConfigCantripsInput?.value,
         spells: spellConfigSpellsInput?.value,
+        names: currentConfig.names,
       });
+      if (!saved) return;
       setSpellConfigOpen(false);
       updateSpellSelectSummary();
       localToast("Known spells saved.");
@@ -7347,6 +7405,23 @@ class LanController:
             await self._apply_host_assignment_async(host, cid, note="Assigned by the DM.")
             return {"ok": True, "ip": host, "cid": cid}
 
+        @app.post("/api/players/{name}/spells")
+        async def update_player_spells(name: str, payload: Dict[str, Any] = Body(...)):
+            if not isinstance(payload, dict):
+                raise HTTPException(status_code=400, detail="Invalid payload.")
+            player_name = str(name or "").strip()
+            if not player_name:
+                raise HTTPException(status_code=400, detail="Missing player name.")
+            try:
+                normalized = self.app._save_player_spell_config(player_name, payload)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+            except RuntimeError as exc:
+                raise HTTPException(status_code=500, detail=str(exc))
+            except Exception:
+                raise HTTPException(status_code=500, detail="Failed to save player spells.")
+            return {"ok": True, "player": {"name": player_name, **normalized}}
+
         @app.websocket("/ws")
         async def ws_endpoint(ws: WebSocket):
             try:
@@ -8080,6 +8155,10 @@ class InitiativeTracker(base.InitiativeTracker):
         self._spell_presets_cache: Optional[List[Dict[str, Any]]] = None
         self._spell_index_entries: Dict[str, Any] = {}
         self._spell_index_loaded = False
+        self._player_yaml_cache_by_path: Dict[Path, Optional[Dict[str, Any]]] = {}
+        self._player_yaml_meta_by_path: Dict[Path, Dict[str, object]] = {}
+        self._player_yaml_data_by_name: Dict[str, Dict[str, Any]] = {}
+        self._player_yaml_name_map: Dict[str, Path] = {}
 
         # LAN state for when map window isn't open
         self._lan_grid_cols = 20
@@ -8926,6 +9005,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "round_num": int(getattr(self, "round_num", 0) or 0),
             "turn_order": turn_order,
             "spell_presets": self._spell_presets_payload(),
+            "player_spells": self._player_spell_config_payload(),
         }
         return snap
 
@@ -9324,6 +9404,150 @@ class InitiativeTracker(base.InitiativeTracker):
             _write_index_file(self._spell_index_path(), {"version": 1, "entries": new_entries})
 
         return presets
+
+    def _players_dir(self) -> Path:
+        try:
+            return Path(__file__).resolve().parent / "players"
+        except Exception:
+            return Path.cwd() / "players"
+
+    @staticmethod
+    def _sanitize_player_filename(name: str) -> str:
+        slug = re.sub(r"[^A-Za-z0-9._-]+", "-", str(name or "").strip())
+        slug = slug.strip("-._")
+        return slug or "player"
+
+    def _normalize_player_spell_config(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        def normalize_limit(value: Any, fallback: int) -> int:
+            try:
+                num = int(value)
+            except Exception:
+                return fallback
+            return max(0, num)
+
+        def normalize_name(value: Any) -> Optional[str]:
+            text = str(value or "").strip()
+            return text or None
+
+        known_cantrips = normalize_limit(data.get("known_cantrips"), 0)
+        known_spells = normalize_limit(data.get("known_spells"), 15)
+        raw_names = data.get("known_spell_names")
+        names: List[str] = []
+        if isinstance(raw_names, list):
+            names = [name for item in raw_names if (name := normalize_name(item))]
+        elif isinstance(raw_names, str):
+            name = normalize_name(raw_names)
+            names = [name] if name else []
+        return {
+            "known_cantrips": known_cantrips,
+            "known_spells": known_spells,
+            "known_spell_names": names,
+        }
+
+    def _load_player_yaml_cache(self) -> None:
+        if yaml is None:
+            self._player_yaml_cache_by_path = {}
+            self._player_yaml_meta_by_path = {}
+            self._player_yaml_data_by_name = {}
+            self._player_yaml_name_map = {}
+            return
+
+        players_dir = self._players_dir()
+        if not players_dir.exists():
+            self._player_yaml_cache_by_path = {}
+            self._player_yaml_meta_by_path = {}
+            self._player_yaml_data_by_name = {}
+            self._player_yaml_name_map = {}
+            return
+
+        try:
+            files = sorted(list(players_dir.glob("*.yaml")) + list(players_dir.glob("*.yml")))
+        except Exception:
+            files = []
+
+        data_by_path = dict(self._player_yaml_cache_by_path)
+        meta_by_path = dict(self._player_yaml_meta_by_path)
+
+        valid_paths = set(files)
+        for cached_path in list(data_by_path.keys()):
+            if cached_path not in valid_paths:
+                data_by_path.pop(cached_path, None)
+                meta_by_path.pop(cached_path, None)
+
+        for path in files:
+            meta = _file_stat_metadata(path)
+            cached_meta = meta_by_path.get(path)
+            if cached_meta and _metadata_matches(cached_meta, meta):
+                continue
+            try:
+                raw = path.read_text(encoding="utf-8")
+                parsed = yaml.safe_load(raw)
+            except Exception:
+                parsed = None
+            data_by_path[path] = parsed if isinstance(parsed, dict) else None
+            meta_by_path[path] = meta
+
+        name_map: Dict[str, Path] = {}
+        data_by_name: Dict[str, Dict[str, Any]] = {}
+        for path, data in data_by_path.items():
+            if not isinstance(data, dict):
+                continue
+            name = str(data.get("name") or path.stem).strip() or path.stem
+            data_by_name[name] = data
+            name_map[name.lower()] = path
+            name_map[path.stem.lower()] = path
+
+        self._player_yaml_cache_by_path = data_by_path
+        self._player_yaml_meta_by_path = meta_by_path
+        self._player_yaml_data_by_name = data_by_name
+        self._player_yaml_name_map = name_map
+
+    def _player_spell_config_payload(self) -> Dict[str, Dict[str, Any]]:
+        self._load_player_yaml_cache()
+        payload: Dict[str, Dict[str, Any]] = {}
+        for name, data in self._player_yaml_data_by_name.items():
+            if not isinstance(data, dict):
+                continue
+            payload[name] = self._normalize_player_spell_config(data)
+        return payload
+
+    def _save_player_spell_config(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if yaml is None:
+            raise RuntimeError("PyYAML is required for spell persistence.")
+        player_name = str(name or "").strip()
+        if not player_name:
+            raise ValueError("Player name is required.")
+        if not isinstance(payload, dict):
+            raise ValueError("Payload must be a dictionary.")
+        self._load_player_yaml_cache()
+        key = player_name.lower()
+        path = self._player_yaml_name_map.get(key)
+        if path is None:
+            players_dir = self._players_dir()
+            players_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"{self._sanitize_player_filename(player_name)}.yaml"
+            path = players_dir / filename
+
+        existing = self._player_yaml_cache_by_path.get(path) or {}
+        if not isinstance(existing, dict):
+            existing = {}
+        if "name" not in existing:
+            existing["name"] = player_name
+
+        normalized = self._normalize_player_spell_config(payload)
+        existing.update(normalized)
+
+        yaml_text = yaml.safe_dump(existing, sort_keys=False)
+        path.write_text(yaml_text, encoding="utf-8")
+
+        meta = _file_stat_metadata(path)
+        self._player_yaml_cache_by_path[path] = existing
+        self._player_yaml_meta_by_path[path] = meta
+        self._player_yaml_data_by_name[existing.get("name", player_name)] = existing
+        self._player_yaml_name_map[player_name.lower()] = path
+        self._player_yaml_name_map[path.stem.lower()] = path
+
+        return normalized
 
     def _lan_seed_missing_positions(self, positions: Dict[int, Tuple[int, int]], cols: int, rows: int) -> Dict[int, Tuple[int, int]]:
         # place missing near center in a simple spiral, one square apart
