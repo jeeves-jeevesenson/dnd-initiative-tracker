@@ -5797,6 +5797,24 @@ class LanController:
         pcs_payload.sort(key=lambda p: str(p.get("name", "")).lower())
         return {"sessions": all_sessions, "pcs": pcs_payload}
 
+    def admin_sessions_payload(self) -> Dict[str, Any]:
+        """Return admin sessions payload for both web and DM-side tooling."""
+        return self._admin_sessions_payload()
+
+    def assign_host(self, host: str, cid: Optional[int], note: str = "Assigned by the DM.") -> None:
+        """Assign a PC to all sessions from a host (or clear if cid is None)."""
+        host = str(host or "").strip()
+        if not host:
+            return
+        self._set_host_assignment(host, cid)
+        if not self._loop:
+            return
+        coro = self._apply_host_assignment_async(host, cid, note=note)
+        try:
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
+        except Exception:
+            pass
+
     async def _apply_host_assignment_async(self, host: str, cid: Optional[int], note: str) -> None:
         host = str(host or "").strip()
         if not host:
@@ -6343,6 +6361,7 @@ class InitiativeTracker(base.InitiativeTracker):
             lan.add_command(label="Show QR Code", command=self._show_lan_qr)
             lan.add_separator()
             lan.add_command(label="Sessions…", command=self._open_lan_sessions)
+            lan.add_command(label="Admin Assignments…", command=self._open_lan_admin_assignments)
             menubar.add_cascade(label="LAN", menu=lan)
             self.config(menu=menubar)
         except Exception:
@@ -6508,6 +6527,120 @@ class InitiativeTracker(base.InitiativeTracker):
         ttk.Button(controls, text="Refresh", command=refresh_sessions).pack(side=tk.LEFT)
         ttk.Button(controls, text="Assign", command=do_assign).pack(side=tk.LEFT, padx=(10, 0))
         ttk.Button(controls, text="Unassign", command=do_kick).pack(side=tk.LEFT, padx=(6, 0))
+        ttk.Button(controls, text="Close", command=win.destroy).pack(side=tk.RIGHT)
+
+        refresh_sessions()
+
+    def _open_lan_admin_assignments(self) -> None:
+        """DM utility: assign PCs by host/IP (mirrors web admin)."""
+        win = tk.Toplevel(self)
+        win.title("LAN Admin Assignments")
+        win.geometry("860x460")
+        win.transient(self)
+
+        outer = tk.Frame(win)
+        outer.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        cols = ("host", "status", "assigned", "last_seen", "user_agent")
+        tree = ttk.Treeview(outer, columns=cols, show="headings", height=12)
+        tree.heading("host", text="Host/IP")
+        tree.heading("status", text="Status")
+        tree.heading("assigned", text="Assigned PC")
+        tree.heading("last_seen", text="Last Seen")
+        tree.heading("user_agent", text="User Agent")
+        tree.column("host", width=200, anchor="w")
+        tree.column("status", width=90, anchor="center")
+        tree.column("assigned", width=180, anchor="w")
+        tree.column("last_seen", width=140, anchor="w")
+        tree.column("user_agent", width=230, anchor="w")
+        tree.pack(fill=tk.BOTH, expand=True)
+
+        controls = tk.Frame(outer)
+        controls.pack(fill=tk.X, pady=(10, 0))
+
+        tk.Label(controls, text="Assign to:").pack(side=tk.LEFT)
+
+        pc_var = tk.StringVar(value="(unassigned)")
+        pc_box = ttk.Combobox(controls, textvariable=pc_var, width=30, state="readonly")
+        pc_box.pack(side=tk.LEFT, padx=(6, 10))
+
+        host_by_iid: Dict[str, str] = {}
+        pc_map: Dict[str, Optional[int]] = {"(unassigned)": None}
+
+        def refresh_sessions() -> None:
+            tree.delete(*tree.get_children())
+            host_by_iid.clear()
+            payload = self._lan.admin_sessions_payload()
+            sessions = payload.get("sessions") if isinstance(payload, dict) else []
+            pcs = payload.get("pcs") if isinstance(payload, dict) else []
+
+            pc_map.clear()
+            pc_map["(unassigned)"] = None
+            if isinstance(pcs, list):
+                for pc in pcs:
+                    if not isinstance(pc, dict):
+                        continue
+                    name = str(pc.get("name", "")).strip()
+                    cid = pc.get("cid")
+                    if name and isinstance(cid, int):
+                        pc_map[name] = int(cid)
+
+            pc_names = sorted([k for k in pc_map.keys() if k != "(unassigned)"])
+            pc_names.insert(0, "(unassigned)")
+            pc_box["values"] = pc_names
+            if pc_var.get() not in pc_names:
+                pc_var.set("(unassigned)")
+
+            if not isinstance(sessions, list):
+                sessions = []
+            for idx, entry in enumerate(sessions):
+                if not isinstance(entry, dict):
+                    continue
+                host = str(entry.get("ip") or entry.get("host") or "").strip()
+                port = str(entry.get("port") or "").strip()
+                host_disp = f"{host}:{port}" if port else (host or "?")
+                reverse_dns = str(entry.get("reverse_dns") or "").strip()
+                if reverse_dns:
+                    host_disp = f"{host_disp} ({reverse_dns})"
+                status = str(entry.get("status") or "").strip() or "unknown"
+                assigned_name = entry.get("assigned_name")
+                assigned_cid = entry.get("assigned_cid")
+                assigned = ""
+                if assigned_name:
+                    assigned = str(assigned_name)
+                elif isinstance(assigned_cid, int):
+                    assigned = f"cid {assigned_cid}"
+                last_seen = str(entry.get("last_seen") or "").strip()
+                user_agent = str(entry.get("user_agent") or entry.get("ua") or "").strip()
+                iid = f"{idx}"
+                tree.insert("", "end", iid=iid, values=(host_disp, status, assigned, last_seen, user_agent))
+                if host:
+                    host_by_iid[iid] = host
+
+        def get_selected_host() -> Optional[str]:
+            sel = tree.selection()
+            if not sel:
+                return None
+            return host_by_iid.get(sel[0])
+
+        def do_assign() -> None:
+            host = get_selected_host()
+            if not host:
+                return
+            cid = pc_map.get(pc_var.get())
+            self._lan.assign_host(host, cid, note="Assigned by the DM.")
+            self.after(300, refresh_sessions)
+
+        def do_unassign() -> None:
+            host = get_selected_host()
+            if not host:
+                return
+            self._lan.assign_host(host, None, note="Unclaimed by the DM.")
+            self.after(300, refresh_sessions)
+
+        ttk.Button(controls, text="Refresh", command=refresh_sessions).pack(side=tk.LEFT)
+        ttk.Button(controls, text="Assign", command=do_assign).pack(side=tk.LEFT, padx=(10, 0))
+        ttk.Button(controls, text="Unassign", command=do_unassign).pack(side=tk.LEFT, padx=(6, 0))
         ttk.Button(controls, text="Close", command=win.destroy).pack(side=tk.RIGHT)
 
         refresh_sessions()
