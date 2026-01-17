@@ -7713,6 +7713,7 @@ class InitiativeTracker(base.InitiativeTracker):
             effect_scaling: Optional[Dict[str, Any]] = None
             save_type: Optional[str] = None
             save_dc: Optional[int] = None
+            half_on_pass: Optional[bool] = None
 
             sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
             for step in sequence:
@@ -7727,7 +7728,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     elif isinstance(dc_value, str) and dc_value.strip().isdigit():
                         save_dc = int(dc_value.strip())
                 outcomes = step.get("outcomes") if isinstance(step.get("outcomes"), dict) else {}
-                for outcome_list in outcomes.values():
+                for outcome_key, outcome_list in outcomes.items():
                     if not isinstance(outcome_list, list):
                         continue
                     for effect in outcome_list:
@@ -7742,6 +7743,12 @@ class InitiativeTracker(base.InitiativeTracker):
                             dice = parse_dice(effect.get("dice"))
                         if effect_scaling is None and isinstance(effect.get("scaling"), dict):
                             effect_scaling = effect.get("scaling")
+                        if half_on_pass is None:
+                            multiplier = parse_number(effect.get("multiplier"))
+                            if multiplier is not None and abs(multiplier - 0.5) < 1e-9:
+                                outcome_label = str(outcome_key or "").strip().lower()
+                                if outcome_label in ("success", "pass", "save", "saved", "succeed"):
+                                    half_on_pass = True
 
             scaling = mechanics.get("scaling") if isinstance(mechanics.get("scaling"), dict) else None
             if scaling is None:
@@ -7755,6 +7762,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 preset["dice"] = dice
             if damage_types:
                 preset["damage_types"] = damage_types
+            if half_on_pass:
+                preset["half_on_pass"] = True
 
             upcast: Optional[Dict[str, Any]] = None
             if isinstance(scaling, dict) and scaling.get("kind") == "slot_level":
