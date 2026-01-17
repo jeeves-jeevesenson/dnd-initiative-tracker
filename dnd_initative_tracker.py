@@ -571,7 +571,7 @@ HTML_INDEX = r"""<!doctype html>
       box-shadow: 0 0 0 1px rgba(106,169,255,0.35);
     }
     .modal{
-      position:absolute; inset:0; background: rgba(0,0,0,0.55);
+      position:fixed; inset:0; background: rgba(0,0,0,0.55);
       display:none; align-items:center; justify-content:center; padding: 20px 14px;
     }
     .modal.show{display:flex;}
@@ -585,10 +585,11 @@ HTML_INDEX = r"""<!doctype html>
       display:flex;
       flex-direction:column;
       overflow:auto;
-      max-height: calc(100vh - var(--safeInsetTop) - var(--safeInsetBottom) - 40px);
+      max-height: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - 40px);
     }
     .card-scroll{
       max-height: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - 40px);
+      overflow:auto;
     }
     .card h2{margin:0 0 8px 0; font-size:16px;}
     .list{max-height: 50vh; overflow:auto; border:1px solid rgba(255,255,255,0.10); border-radius:12px;}
