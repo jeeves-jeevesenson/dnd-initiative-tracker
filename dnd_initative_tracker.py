@@ -1246,6 +1246,7 @@ __DAMAGE_TYPE_OPTIONS__
           </div>
           <div class="form-actions">
             <button class="btn accent" type="submit">Cast</button>
+            <button class="btn danger" type="button" id="aoeRemoveBtn" disabled>Remove Selected AoE</button>
           </div>
         </form>
       </details>
@@ -1612,6 +1613,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castDamageTypeList = document.getElementById("castDamageTypeList");
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
+  const aoeRemoveBtn = document.getElementById("aoeRemoveBtn");
   const sheetWrap = document.getElementById("sheetWrap");
   const sheetHandle = document.getElementById("sheetHandle");
   const turnAlertAudio = new Audio("/assets/alert.wav");
@@ -1651,6 +1653,7 @@ __DAMAGE_TYPE_OPTIONS__
   let dragging = null; // {cid, startX, startY, origCol, origRow}
   let draggingAoe = null; // {aid, cx, cy}
   const aoeDragOverrides = new Map(); // aid -> {cx, cy}
+  let selectedAoeId = null;
   let panning = null;  // {x,y, panX, panY}
   let centeredCid = null;
   let initialCenterDone = false;
@@ -2624,6 +2627,34 @@ __DAMAGE_TYPE_OPTIONS__
     target.move_remaining_ft = remaining;
   }
 
+  function updateAoeRemoveButton(){
+    if (!aoeRemoveBtn) return;
+    aoeRemoveBtn.disabled = selectedAoeId === null || selectedAoeId === undefined;
+  }
+
+  function setSelectedAoe(aid){
+    if (aid === null || aid === undefined){
+      selectedAoeId = null;
+    } else {
+      const parsed = Number(aid);
+      selectedAoeId = Number.isFinite(parsed) ? parsed : null;
+    }
+    updateAoeRemoveButton();
+  }
+
+  function syncSelectedAoe(){
+    if (selectedAoeId === null || selectedAoeId === undefined){
+      updateAoeRemoveButton();
+      return;
+    }
+    const exists = Array.isArray(state?.aoes)
+      && state.aoes.some(a => Number(a.aid) === Number(selectedAoeId));
+    if (!exists){
+      selectedAoeId = null;
+    }
+    updateAoeRemoveButton();
+  }
+
   function hexToRgb(hex){
     const value = normalizeHexColor(hex);
     if (!value) return null;
@@ -3100,6 +3131,40 @@ __DAMAGE_TYPE_OPTIONS__
           ctx.fillText(labelText, x + 1, y + 1);
           ctx.fillStyle = "rgba(232,238,247,0.95)";
           ctx.fillText(labelText, x, y);
+        }
+        if (selectedAoeId !== null && Number(a.aid) === Number(selectedAoeId)){
+          ctx.save();
+          ctx.lineWidth = 3;
+          ctx.setLineDash([]);
+          ctx.strokeStyle = "rgba(255,214,102,0.95)";
+          if (a.kind === "circle"){
+            const r = Math.max(0, Number(a.radius_sq || 0)) * zoom;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (a.kind === "line"){
+            const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
+            const widthPx = Math.max(0, Number(a.width_sq || 0)) * zoom;
+            const angleDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : null;
+            if (angleDeg !== null){
+              ctx.translate(x, y);
+              ctx.rotate((angleDeg * Math.PI) / 180);
+              ctx.beginPath();
+              ctx.rect(-lengthPx / 2, -widthPx / 2, lengthPx, widthPx);
+              ctx.stroke();
+            } else {
+              ctx.beginPath();
+              ctx.rect(x - lengthPx / 2, y - widthPx / 2, lengthPx, widthPx);
+              ctx.stroke();
+            }
+          } else if (a.kind === "square"){
+            const sidePx = Math.max(0, Number(a.side_sq || 0)) * zoom;
+            const half = sidePx / 2;
+            ctx.beginPath();
+            ctx.rect(x - half, y - half, sidePx, sidePx);
+            ctx.stroke();
+          }
+          ctx.restore();
         }
         ctx.restore();
       });
@@ -3648,6 +3713,7 @@ __DAMAGE_TYPE_OPTIONS__
         state = msg.state;
         updateSpellPresetOptions(state?.spell_presets);
         aoeDragOverrides.clear();
+        syncSelectedAoe();
         lastPcList = msg.pcs || msg.claimable || [];
         updateWaitingOverlay();
         draw();
@@ -3817,6 +3883,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const aoeHit = hitTestAoe(p);
     if (aoeHit){
+      setSelectedAoe(aoeHit.aid);
       if (!claimedCid){
         localToast("Claim a character first, matey.");
         return;
@@ -3856,6 +3923,7 @@ __DAMAGE_TYPE_OPTIONS__
       };
       return;
     }
+    setSelectedAoe(null);
     // else pan (if map not locked)
     if (!lockMap){
       panning = {x: p.x, y: p.y, panX, panY};
@@ -4524,6 +4592,20 @@ __DAMAGE_TYPE_OPTIONS__
         payload.width_ft = widthFt;
       }
       send({type: "cast_aoe", payload});
+    });
+  }
+  if (aoeRemoveBtn){
+    aoeRemoveBtn.addEventListener("click", () => {
+      if (selectedAoeId === null || selectedAoeId === undefined){
+        localToast("Select a spell first, matey.");
+        return;
+      }
+      const payload = {type: "aoe_remove", aid: Number(selectedAoeId)};
+      const adminToken = getAdminAuth();
+      if (adminToken){
+        payload.admin_token = adminToken;
+      }
+      send(payload);
     });
   }
 
@@ -5588,6 +5670,7 @@ class LanController:
                         "reset_turn",
                         "cast_aoe",
                         "aoe_move",
+                        "aoe_remove",
                     ):
                         # enqueue for Tk thread
                         with self._clients_lock:
@@ -7083,6 +7166,8 @@ class InitiativeTracker(base.InitiativeTracker):
         typ = str(msg.get("type") or "")
         ws_id = msg.get("_ws_id")
         claimed = msg.get("_claimed_cid")
+        admin_token = str(msg.get("admin_token") or "").strip()
+        is_admin = bool(admin_token and self._is_admin_token_valid(admin_token))
 
         # Basic sanity: claimed cid must match the action cid (if provided)
         cid = msg.get("cid")
@@ -7094,11 +7179,12 @@ class InitiativeTracker(base.InitiativeTracker):
             cid = claimed
 
         if cid is None:
-            self._lan.toast(ws_id, "Claim a character first, matey.")
-            return
+            if not (typ == "aoe_remove" and is_admin):
+                self._lan.toast(ws_id, "Claim a character first, matey.")
+                return
 
         # Must exist
-        if cid not in self.combatants:
+        if cid is not None and cid not in self.combatants:
             self._lan.toast(ws_id, "That scallywag ain’t in combat no more.")
             return
 
@@ -7124,7 +7210,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         # Only allow controlling on your turn (POC)
-        if typ not in ("cast_aoe", "aoe_move"):
+        if typ not in ("cast_aoe", "aoe_move", "aoe_remove"):
             if self.current_cid is None or int(self.current_cid) != int(cid):
                 self._lan.toast(ws_id, "Not yer turn yet, matey.")
                 return
@@ -7460,6 +7546,51 @@ class InitiativeTracker(base.InitiativeTracker):
                     mw._layout_aoe(aid)
             except Exception:
                 pass
+            return
+        elif typ == "aoe_remove":
+            aid = msg.get("aid")
+            if not isinstance(aid, int):
+                self._lan.toast(ws_id, "Pick a spell first, matey.")
+                return
+            mw = getattr(self, "_map_window", None)
+            map_ready = mw is not None and mw.winfo_exists()
+            aoe_store = getattr(mw, "aoes", {}) if map_ready else (getattr(self, "_lan_aoes", {}) or {})
+            d = (aoe_store or {}).get(aid)
+            if not d and map_ready:
+                d = (getattr(self, "_lan_aoes", {}) or {}).get(aid)
+            if not d:
+                return
+            if bool(d.get("pinned")):
+                self._lan.toast(ws_id, "That spell be pinned.")
+                return
+            owner_cid = d.get("owner_cid")
+            if (
+                owner_cid is not None
+                and cid is not None
+                and int(owner_cid) != int(cid)
+                and not is_admin
+            ):
+                self._lan.toast(ws_id, "That spell be not yers.")
+                return
+            if owner_cid is not None and cid is None and not is_admin:
+                self._lan.toast(ws_id, "That spell be not yers.")
+                return
+            if map_ready:
+                try:
+                    if hasattr(mw, "aoes") and isinstance(mw.aoes, dict):
+                        mw.aoes.pop(aid, None)
+                    if hasattr(mw, "_refresh_aoe_list"):
+                        mw._refresh_aoe_list()
+                except Exception:
+                    pass
+                try:
+                    self._lan_aoes = dict(getattr(mw, "aoes", {}) or {})
+                except Exception:
+                    pass
+            else:
+                store = getattr(self, "_lan_aoes", {}) or {}
+                store.pop(aid, None)
+                self._lan_aoes = store
             return
 
         if typ == "move":
