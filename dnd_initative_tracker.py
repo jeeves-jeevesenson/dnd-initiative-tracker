@@ -7166,6 +7166,11 @@ class InitiativeTracker(base.InitiativeTracker):
         # Swap the Name entry for a monster dropdown + library button
         self.after(0, self._install_monster_dropdown_widget)
 
+        # Spell preset cache (YAML files in ./spells)
+        self._spell_presets_cache: Optional[List[Dict[str, Any]]] = None
+        self._spell_index_entries: Dict[str, Any] = {}
+        self._spell_index_loaded = False
+
         # LAN state for when map window isn't open
         self._lan_grid_cols = 20
         self._lan_grid_rows = 20
@@ -7181,6 +7186,33 @@ class InitiativeTracker(base.InitiativeTracker):
         # Start quietly (log on success; avoid popups if deps missing)
         if POC_AUTO_START_LAN:
             self.after(250, lambda: self._lan.start(quiet=True))
+
+    # --------------------- Spell preset cache ---------------------
+
+    def _spell_index_path(self) -> Path:
+        return _ensure_logs_dir() / "spell_index.json"
+
+    def _invalidate_spell_index_cache(self) -> None:
+        self._spell_presets_cache = None
+        self._spell_index_entries = {}
+        self._spell_index_loaded = False
+
+    def _load_spell_index_entries(self) -> Dict[str, Any]:
+        if self._spell_index_loaded:
+            return self._spell_index_entries
+        index_data = _read_index_file(self._spell_index_path())
+        entries = index_data.get("entries") if isinstance(index_data.get("entries"), dict) else {}
+        self._spell_index_entries = entries if isinstance(entries, dict) else {}
+        self._spell_index_loaded = True
+        return self._spell_index_entries
+
+    def _refresh_monsters_spells(self) -> None:
+        self._invalidate_spell_index_cache()
+        super()._refresh_monsters_spells()
+
+    def _load_monsters_and_spells(self) -> None:
+        self._load_monsters_index()
+        self._spell_presets_payload()
 
     # --------------------- Logging split: battle vs operations ---------------------
 
@@ -8007,10 +8039,36 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             files = []
 
+        ops = _make_ops_logger()
         if not files:
+            self._spell_presets_cache = []
+            self._spell_index_entries = {}
+            self._spell_index_loaded = True
+            _write_index_file(self._spell_index_path(), {"version": 1, "entries": {}})
             return []
 
-        ops = _make_ops_logger()
+        cached_entries = self._load_spell_index_entries()
+        cache_keys = set(cached_entries.keys()) if isinstance(cached_entries, dict) else set()
+        file_keys = {fp.name for fp in files}
+        cache_names_match = cache_keys == file_keys
+
+        def cache_is_valid(entries: Dict[str, Any]) -> bool:
+            if not cache_names_match:
+                return False
+            for fp in files:
+                meta = _file_stat_metadata(fp)
+                entry = entries.get(fp.name) if isinstance(entries, dict) else None
+                if not isinstance(entry, dict):
+                    return False
+                if not _metadata_matches(entry, meta):
+                    return False
+                if not isinstance(entry.get("preset"), dict):
+                    return False
+            return True
+
+        if self._spell_presets_cache is not None and cache_is_valid(cached_entries):
+            return list(self._spell_presets_cache)
+
         presets: List[Dict[str, Any]] = []
         ability_map = {
             "strength": "str",
@@ -8056,25 +8114,25 @@ class InitiativeTracker(base.InitiativeTracker):
             raw = str(value).strip().lower()
             return ability_map.get(raw, raw)
 
-        for fp in files:
+        def parse_spell_file(fp: Path) -> Optional[Tuple[Dict[str, Any], str]]:
             try:
                 raw = fp.read_text(encoding="utf-8")
             except Exception as exc:
                 ops.warning("Failed reading spell YAML %s: %s", fp.name, exc)
-                continue
+                return None
             try:
                 parsed = yaml.safe_load(raw)
             except Exception as exc:
                 ops.warning("Failed parsing spell YAML %s: %s", fp.name, exc)
-                continue
+                return None
             if not isinstance(parsed, dict):
                 ops.warning("Spell YAML %s did not parse to a dict.", fp.name)
-                continue
+                return None
 
             name = str(parsed.get("name") or "").strip()
             if not name:
                 ops.warning("Spell YAML %s missing name; skipping preset.", fp.name)
-                continue
+                return None
 
             schema = parsed.get("schema")
             spell_id = parsed.get("id")
@@ -8320,7 +8378,40 @@ class InitiativeTracker(base.InitiativeTracker):
             if warnings:
                 ops.warning("Spell YAML %s has automation warnings: %s", fp.name, ", ".join(warnings))
 
+            return preset, raw
+
+        new_entries: Dict[str, Any] = {}
+        used_cached_only = True
+        for fp in files:
+            meta = _file_stat_metadata(fp)
+            entry = cached_entries.get(fp.name) if isinstance(cached_entries, dict) else None
+            if isinstance(entry, dict) and _metadata_matches(entry, meta):
+                preset = entry.get("preset")
+                if isinstance(preset, dict):
+                    presets.append(preset)
+                    new_entry = dict(entry)
+                    new_entry["mtime_ns"] = meta.get("mtime_ns")
+                    new_entry["size"] = meta.get("size")
+                    new_entries[fp.name] = new_entry
+                    continue
+            used_cached_only = False
+            parsed = parse_spell_file(fp)
+            if parsed is None:
+                continue
+            preset, raw = parsed
             presets.append(preset)
+            new_entries[fp.name] = {
+                "mtime_ns": meta.get("mtime_ns"),
+                "size": meta.get("size"),
+                "hash": _hash_text(raw),
+                "preset": preset,
+            }
+
+        self._spell_presets_cache = presets
+        self._spell_index_entries = new_entries
+        self._spell_index_loaded = True
+        if not used_cached_only or not cache_names_match:
+            _write_index_file(self._spell_index_path(), {"version": 1, "entries": new_entries})
 
         return presets
 
