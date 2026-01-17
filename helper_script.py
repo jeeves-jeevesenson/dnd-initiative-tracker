@@ -4732,27 +4732,87 @@ class BattleMapWindow(tk.Toplevel):
         self.destroy()
 
     def _prompt_map_size(self) -> Optional[Tuple[int, int]]:
-        cols = simpledialog.askinteger(
-            "Battle Map Size",
-            "Map width (squares, 5 ft each):",
-            initialvalue=20,
-            minvalue=5,
-            maxvalue=200,
-            parent=self,
-        )
-        if cols is None:
-            return None
-        rows = simpledialog.askinteger(
-            "Battle Map Size",
-            "Map height (squares, 5 ft each):",
-            initialvalue=20,
-            minvalue=5,
-            maxvalue=200,
-            parent=self,
-        )
-        if rows is None:
-            return None
-        return int(cols), int(rows)
+        class _MapSizeDialog:
+            def __init__(self, parent: tk.Tk | tk.Toplevel) -> None:
+                self.result: Optional[Tuple[int, int]] = None
+                self._parent = parent
+                self._dialog = tk.Toplevel(parent)
+                self._dialog.title("Battle Map Size")
+                self._dialog.transient(parent)
+                self._dialog.grab_set()
+
+                self._min = 5
+                self._max = 200
+                self._cols_var = tk.StringVar(value="20")
+                self._rows_var = tk.StringVar(value="20")
+
+                container = ttk.Frame(self._dialog, padding=12)
+                container.grid(row=0, column=0, sticky="nsew")
+                container.columnconfigure(1, weight=1)
+
+                ttk.Label(container, text="Map width (squares, 5 ft each):").grid(row=0, column=0, sticky="w")
+                self._cols_entry = ttk.Entry(container, textvariable=self._cols_var, width=10)
+                self._cols_entry.grid(row=0, column=1, sticky="ew", padx=(8, 0))
+
+                ttk.Label(container, text="Map height (squares, 5 ft each):").grid(row=1, column=0, sticky="w", pady=(8, 0))
+                self._rows_entry = ttk.Entry(container, textvariable=self._rows_var, width=10)
+                self._rows_entry.grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=(8, 0))
+
+                button_row = ttk.Frame(container)
+                button_row.grid(row=2, column=0, columnspan=2, sticky="e", pady=(12, 0))
+                ttk.Button(button_row, text="Cancel", command=self._on_cancel).pack(side=tk.RIGHT, padx=(8, 0))
+                ttk.Button(button_row, text="OK", command=self._on_ok).pack(side=tk.RIGHT)
+
+                self._dialog.protocol("WM_DELETE_WINDOW", self._on_cancel)
+                self._dialog.bind("<Return>", lambda _evt: self._on_ok())
+                self._dialog.bind("<Escape>", lambda _evt: self._on_cancel())
+
+                self._dialog.update_idletasks()
+                self._dialog.wm_attributes("-topmost", True)
+                self._dialog.lift()
+                self._dialog.focus_force()
+                self._dialog.after_idle(lambda: self._dialog.wm_attributes("-topmost", False))
+
+                self._cols_entry.focus_set()
+                self._cols_entry.selection_range(0, tk.END)
+
+                self._dialog.wait_window(self._dialog)
+
+            def _parse_value(self, value: str, label: str) -> Optional[int]:
+                try:
+                    parsed = int(value)
+                except ValueError:
+                    messagebox.showerror("Battle Map Size", f"{label} must be a whole number.", parent=self._dialog)
+                    return None
+                if parsed < self._min or parsed > self._max:
+                    messagebox.showerror(
+                        "Battle Map Size",
+                        f"{label} must be between {self._min} and {self._max}.",
+                        parent=self._dialog,
+                    )
+                    return None
+                return parsed
+
+            def _on_ok(self) -> None:
+                cols = self._parse_value(self._cols_var.get(), "Map width")
+                if cols is None:
+                    self._cols_entry.focus_set()
+                    self._cols_entry.selection_range(0, tk.END)
+                    return
+                rows = self._parse_value(self._rows_var.get(), "Map height")
+                if rows is None:
+                    self._rows_entry.focus_set()
+                    self._rows_entry.selection_range(0, tk.END)
+                    return
+                self.result = (cols, rows)
+                self._dialog.destroy()
+
+            def _on_cancel(self) -> None:
+                self.result = None
+                self._dialog.destroy()
+
+        dialog = _MapSizeDialog(self)
+        return dialog.result
 
     @property
     def grid_cols(self) -> int:
