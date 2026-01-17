@@ -7630,43 +7630,83 @@ class InitiativeTracker(base.InitiativeTracker):
 
             targeting = mechanics.get("targeting") if isinstance(mechanics.get("targeting"), dict) else {}
             area = targeting.get("area") if isinstance(targeting.get("area"), dict) else {}
-            shape = str(area.get("shape") or "").strip().lower()
-            if shape in ("circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall"):
+            shape_raw = str(area.get("shape") or "").strip().lower()
+            shape_map = {
+                "circle": "sphere",
+                "square": "cube",
+            }
+            shape = shape_map.get(shape_raw, shape_raw)
+            if shape in ("sphere", "cube", "cone", "cylinder", "wall", "line"):
                 preset["shape"] = shape
-                if shape in ("circle", "sphere", "cylinder"):
+                missing_dimensions: List[str] = []
+                if shape == "sphere":
                     radius_ft = parse_number(area.get("radius_ft"))
                     if radius_ft is not None:
                         preset["radius_ft"] = radius_ft
-                    height_ft = parse_number(area.get("height_ft"))
-                    if height_ft is not None:
-                        preset["height_ft"] = height_ft
-                if shape in ("square", "cube"):
+                    else:
+                        missing_dimensions.append("radius_ft")
+                if shape == "cube":
                     side_ft = parse_number(area.get("side_ft"))
                     if side_ft is not None:
                         preset["side_ft"] = side_ft
-                if shape in ("line", "wall"):
+                    else:
+                        missing_dimensions.append("side_ft")
+                if shape == "cylinder":
+                    radius_ft = parse_number(area.get("radius_ft"))
+                    if radius_ft is not None:
+                        preset["radius_ft"] = radius_ft
+                    else:
+                        missing_dimensions.append("radius_ft")
+                    height_ft = parse_number(area.get("height_ft"))
+                    if height_ft is not None:
+                        preset["height_ft"] = height_ft
+                    else:
+                        missing_dimensions.append("height_ft")
+                if shape == "line":
                     length_ft = parse_number(area.get("length_ft"))
                     width_ft = parse_number(area.get("width_ft"))
                     if length_ft is not None:
                         preset["length_ft"] = length_ft
+                    else:
+                        missing_dimensions.append("length_ft")
                     if width_ft is not None:
                         preset["width_ft"] = width_ft
+                    else:
+                        missing_dimensions.append("width_ft")
                     angle_deg = parse_number(area.get("angle_deg"))
                     if angle_deg is not None:
                         preset["angle_deg"] = angle_deg
-                    thickness_ft = parse_number(area.get("thickness_ft"))
-                    if thickness_ft is not None:
-                        preset["thickness_ft"] = thickness_ft
-                    height_ft = parse_number(area.get("height_ft"))
-                    if height_ft is not None:
-                        preset["height_ft"] = height_ft
                 if shape == "cone":
                     length_ft = parse_number(area.get("length_ft"))
-                    angle_deg = parse_number(area.get("angle_deg"))
                     if length_ft is not None:
                         preset["length_ft"] = length_ft
+                    else:
+                        missing_dimensions.append("length_ft")
+                    angle_deg = parse_number(area.get("angle_deg"))
                     if angle_deg is not None:
                         preset["angle_deg"] = angle_deg
+                if shape == "wall":
+                    length_ft = parse_number(area.get("length_ft"))
+                    width_ft = parse_number(area.get("width_ft"))
+                    height_ft = parse_number(area.get("height_ft"))
+                    if length_ft is not None:
+                        preset["length_ft"] = length_ft
+                    else:
+                        missing_dimensions.append("length_ft")
+                    if width_ft is not None:
+                        preset["width_ft"] = width_ft
+                    else:
+                        missing_dimensions.append("width_ft")
+                    if height_ft is not None:
+                        preset["height_ft"] = height_ft
+                    else:
+                        missing_dimensions.append("height_ft")
+                    angle_deg = parse_number(area.get("angle_deg"))
+                    if angle_deg is not None:
+                        preset["angle_deg"] = angle_deg
+                if missing_dimensions:
+                    preset["incomplete"] = True
+                    preset["incomplete_fields"] = missing_dimensions
 
             damage_types: List[str] = []
             dice: Optional[str] = None
