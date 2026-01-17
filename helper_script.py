@@ -3762,6 +3762,25 @@ class InitiativeTracker(tk.Tk):
 
         listbox.bind("<<ListboxSelect>>", on_listbox_select)
 
+        def on_listbox_keypress(event: tk.Event) -> None:
+            if not show_all_var.get() or not listbox.winfo_ismapped():
+                return
+            key = event.char
+            if not key or len(key) != 1 or not key.isalpha():
+                return
+            target = key.lower()
+            for index in range(listbox.size()):
+                name = listbox.get(index)
+                if name and name[0].lower() == target:
+                    listbox.selection_clear(0, tk.END)
+                    listbox.selection_set(index)
+                    listbox.activate(index)
+                    listbox.see(index)
+                    return
+
+        listbox.bind("<KeyPress>", on_listbox_keypress)
+        dlg.bind("<KeyPress>", on_listbox_keypress)
+
         def update_list_mode() -> None:
             if show_all_var.get():
                 list_frame.grid()
