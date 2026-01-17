@@ -8067,7 +8067,7 @@ class BattleMapWindow(tk.Toplevel):
                 if died and use_att and not is_immune:
                     death_logged.add(cid)
 
-                if apply_condition and (r > 0 and not passed) and condition_key:
+                if apply_condition and (r > 0 and not passed) and condition_key and not is_immune:
                     c.condition_stacks = [st for st in c.condition_stacks if st.ctype != condition_key]
                     st = ConditionStack(
                         sid=self.app._next_stack_id,
@@ -8081,6 +8081,8 @@ class BattleMapWindow(tk.Toplevel):
                         self.app._log(f"set condition: {lab} (indef)", cid=cid)
                     else:
                         self.app._log(f"set condition: {lab} ({condition_turns} turn(s))", cid=cid)
+                elif apply_condition and (r > 0 and not passed) and condition_key and is_immune:
+                    self.app._log(f"Condition blocked for {c.name} — immune.", cid=cid)
 
                 if died:
                     removed.append(cid)
