@@ -97,7 +97,7 @@ The DM uses the Tk window for initiative and the map, and the crew can join via 
 
 ### Defaults ye can tweak (in `dnd_initative_tracker.py`)
 - `POC_AUTO_START_LAN = True` starts the LAN server at launch.
-- `POC_AUTO_SEED_PCS = True` auto-adds PCs from `startingplayers.yaml` and rolls initiative (handy for SSH testin’).
+- `POC_AUTO_SEED_PCS = True` auto-adds PCs from `players/` and rolls initiative (handy for SSH testin’).
 - Aye, the default bind be `0.0.0.0:8787`, and ye can change it in the `LanConfig` dataclass if ye fancy another port.
 
 ---
@@ -111,19 +111,18 @@ The DM uses the Tk window for initiative and the map, and the crew can join via 
 
 ## YAML files
 
-### `startingplayers.yaml` (optional roster seed)
-Aye, this file be read to seed PCs when `POC_AUTO_SEED_PCS` be enabled.
+### `players/` (optional roster seed)
+Aye, any `players/*.yaml` files be read to seed PCs when `POC_AUTO_SEED_PCS` be enabled.
 
 Example:
 ```yaml
-players:
-  - Alice
-  - Bob
-  - Cleric
+name: Alice
 ```
 
+Roster names come from the filename (e.g., `players/John-Twilight.yaml` → `John Twilight`).
+
 ### `players/<Name>.yaml` (optional per-PC defaults)
-If a file exists for a roster name, these keys be accepted:
+If a file exists for a roster name, these keys be accepted in that file:
 - `base_movement` or `speed` (feet per round).
 - `swim_speed` (feet per round).
 - `hp` (starting HP in the tracker).
