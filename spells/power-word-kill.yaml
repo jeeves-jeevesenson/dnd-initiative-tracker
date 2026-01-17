@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: power-word-kill
+name: Power Word Kill
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 9
+school: enchantment
+tags: []
+casting_time: Action
+range: 60 feet
+components: V
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: power-word-kill
+  url: https://www.aidedd.org/spell/power-word-kill
+  raw:
+    description: You compel one creature you can see within range to die. If the target
+      has 100 Hit Points or fewer, it dies. Otherwise, it takes 12d12 Psychic damage.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

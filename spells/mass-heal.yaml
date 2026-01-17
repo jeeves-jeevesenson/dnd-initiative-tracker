@@ -1,0 +1,43 @@
+schema: dnd55.spell.v1
+id: mass-heal
+name: Mass Heal
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 9
+school: abjuration
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: mass-heal
+  url: https://www.aidedd.org/spell/mass-heal
+  raw:
+    description: A flood of healing energy flows from you into creatures around you.
+      You restore up to 700 Hit Points, divided as you choose among any number of
+      creatures that you can see within range. Creatures healed by this spell also
+      have the Blinded, Deafened, and Poisoned conditions removed from them.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

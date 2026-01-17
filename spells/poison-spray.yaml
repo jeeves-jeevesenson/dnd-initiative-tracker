@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: poison-spray
+name: Poison Spray
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: necromancy
+tags: []
+casting_time: Action
+range: 30 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - druid
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: poison-spray
+  url: https://www.aidedd.org/spell/poison-spray
+  raw:
+    description: You spray toxic mist at a creature within range. Make a ranged spell
+      attack against the target. On a hit, the target takes 1d12 Poison damage. Cantrip
+      Upgrade . The damage increases by 1d12 when you reach levels 5 (2d12), 11 (3d12),
+      and 17 (4d12).
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

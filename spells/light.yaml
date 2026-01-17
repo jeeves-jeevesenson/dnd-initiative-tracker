@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: light
+name: Light
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: evocation
+tags: []
+casting_time: Action
+range: Touch
+components: V, M (a firefly or phosphorescent moss)
+duration: 1 hour
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: light
+  url: https://www.aidedd.org/spell/light
+  raw:
+    description: You touch one Large or smaller object that isn't being worn or carried
+      by someone else. Until the spell ends, the object sheds Bright Light in a 20-foot
+      radius and Dim Light for an additional 20 feet. The light can be colored as
+      you like. Covering the object with something opaque blocks the light. The spell
+      ends if you cast it again.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: ray-of-enfeeblement
+name: Ray of Enfeeblement
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: necromancy
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: ray-of-enfeeblement
+  url: https://www.aidedd.org/spell/ray-of-enfeeblement
+  raw:
+    description: A beam of enervating energy shoots from you toward a creature within
+      range. The target must make a Constitution saving throw. On a successful save,
+      the target has Disadvantage on the next attack roll it makes until the start
+      of your next turn. On a failed save, the target has Disadvantage on Strength-based
+      D20 Tests for the duration. During that time, it also subtracts 1d8 from all
+      its damage rolls. The target repeats the save at the end of each of its turns,
+      ending the spell on a success.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

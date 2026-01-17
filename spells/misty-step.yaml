@@ -1,0 +1,43 @@
+schema: dnd55.spell.v1
+id: misty-step
+name: Misty Step
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: conjuration
+tags: []
+casting_time: Bonus Action
+range: Self
+components: V
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: misty-step
+  url: https://www.aidedd.org/spell/misty-step
+  raw:
+    description: Briefly surrounded by silvery mist, you teleport up to 30 feet to
+      an unoccupied space you can see.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

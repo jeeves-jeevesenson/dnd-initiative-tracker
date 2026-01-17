@@ -1,0 +1,50 @@
+schema: dnd55.spell.v1
+id: mage-hand
+name: Mage Hand
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: conjuration
+tags: []
+casting_time: Action
+range: 30 feet
+components: V, S
+duration: 1 minute
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: mage-hand
+  url: https://www.aidedd.org/spell/mage-hand
+  raw:
+    description: A spectral, floating hand appears at a point you choose within range.
+      The hand lasts for the duration. The hand vanishes if it is ever more than 30
+      feet away from you or if you cast this spell again. When you cast the spell,
+      you can use the hand to manipulate an object, open an unlocked door or container,
+      stow or retrieve an item from an open container, or pour the contents out of
+      a vial. As a Magic action on your later turns, you can control the hand thus
+      again. As part of that action, you can move the hand up to 30 feet. The hand
+      can't attack, activate magic items, or carry more than 10 pounds.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

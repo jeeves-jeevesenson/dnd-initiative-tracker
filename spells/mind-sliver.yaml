@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: mind-sliver
+name: Mind Sliver
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 0
+school: enchantment
+tags: []
+casting_time: Action
+range: 60 feet
+components: V
+duration: 1 round
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: mind-sliver
+  url: https://www.aidedd.org/spell/mind-sliver
+  raw:
+    description: You try to temporarily sliver the mind of one creature you can see
+      within range. The target must succeed on an Intelligence saving throw or take
+      1d6 Psychic damage and subtract 1d4 from the next saving throw it makes before
+      the end of your next turn. Cantrip Upgrade . The damage increases by 1d6 when
+      you reach levels 5 (2d6), 11 (3d6), and 17 (4d6).
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

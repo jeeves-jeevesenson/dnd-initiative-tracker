@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: message
+name: Message
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: transmutation
+tags: []
+casting_time: Action
+range: 120 feet
+components: S, M (a copper wire)
+duration: 1 round
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - druid
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: message
+  url: https://www.aidedd.org/spell/message
+  raw:
+    description: You point toward a creature within range and whisper a message. The
+      target (and only the target) hears the message and can reply in a whisper that
+      only you can hear. You can cast this spell through solid objects if you are
+      familiar with the target and know it is beyond the barrier. Magical silence;
+      1 foot of stone, metal, or wood; or a thin sheet of lead blocks the spell.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

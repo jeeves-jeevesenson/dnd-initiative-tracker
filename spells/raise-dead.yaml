@@ -1,0 +1,50 @@
+schema: dnd55.spell.v1
+id: raise-dead
+name: Raise Dead
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 5
+school: necromancy
+tags: []
+casting_time: 1 hour
+range: Touch
+components: V, S, M (a diamond worth 500+ GP, which the spell consumes)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: raise-dead
+  url: https://www.aidedd.org/spell/raise-dead
+  raw:
+    description: "With a touch, you revive a dead creature if it has been dead no\
+      \ longer than 10 days and it wasn't Undead when it died. The creature returns\
+      \ to life with 1 Hit Point. This spell also neutralizes any poisons that affected\
+      \ the creature at the time of death. This spell closes all mortal wounds, but\
+      \ it doesn't restore missing body parts. If the creature is lacking body parts\
+      \ or organs integral for its survival\u2014its head, for instance\u2014the spell\
+      \ automatically fails. Coming back from the dead is an ordeal. The target takes\
+      \ a \u22124 penalty to D20 Tests. Every time the target finishes a Long Rest,\
+      \ the penalty is reduced by 1 until it becomes 0."
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

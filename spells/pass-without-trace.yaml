@@ -1,0 +1,43 @@
+schema: dnd55.spell.v1
+id: pass-without-trace
+name: Pass without Trace
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: abjuration
+tags: []
+casting_time: Action
+range: Self
+components: V, S, M (ashes from a burned mistletoe)
+duration: Concentration, up to 1 hour
+ritual: false
+concentration: true
+lists:
+  classes:
+  - druid
+  - ranger
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: pass-without-trace
+  url: https://www.aidedd.org/spell/pass-without-trace
+  raw:
+    description: You radiate a concealing aura in a 30-foot Emanation for the duration.
+      While in the aura, you and each creature you choose have a +10 bonus to Dexterity
+      (Stealth) checks and leave no tracks.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

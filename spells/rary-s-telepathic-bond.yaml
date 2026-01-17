@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: rary-s-telepathic-bond
+name: Rary's Telepathic Bond
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 5
+school: divination
+tags: []
+casting_time: Action or Ritual
+range: 30 feet
+components: V, S, M (two eggs)
+duration: 1 hour
+ritual: true
+concentration: false
+lists:
+  classes:
+  - bard
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: rary-s-telepathic-bond
+  url: https://www.aidedd.org/spell/rary-s-telepathic-bond
+  raw:
+    description: You forge a telepathic link among up to eight willing creatures of
+      your choice within range, psychically linking each creature to all the others
+      for the duration. Creatures that can't communicate in any languages aren't affected
+      by this spell. Until the spell ends, the targets can communicate telepathically
+      through the bond whether or not they share a language. The communication is
+      possible over any distance, though it can't extend to other planes of existence.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

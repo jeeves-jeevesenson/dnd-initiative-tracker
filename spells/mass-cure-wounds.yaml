@@ -1,0 +1,48 @@
+schema: dnd55.spell.v1
+id: mass-cure-wounds
+name: Mass Cure Wounds
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 5
+school: abjuration
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - druid
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: mass-cure-wounds
+  url: https://www.aidedd.org/spell/mass-cure-wounds
+  raw:
+    description: A wave of healing energy washes out from a point you can see within
+      range. Choose up to six creatures in a 30-foot-radius Sphere centered on that
+      point. Each target regains Hit Points equal to 5d8 plus your spellcasting ability
+      modifier. Using a Higher-Level Spell Slot . The healing increases by 1d8 for
+      each spell slot level above 5.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

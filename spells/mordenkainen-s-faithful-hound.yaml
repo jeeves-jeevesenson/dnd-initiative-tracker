@@ -1,0 +1,49 @@
+schema: dnd55.spell.v1
+id: mordenkainen-s-faithful-hound
+name: Mordenkainen's Faithful Hound
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: conjuration
+tags: []
+casting_time: Action
+range: 30 feet
+components: V, S, M (a silver whistle)
+duration: 8 hours
+ritual: false
+concentration: false
+lists:
+  classes:
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: mordenkainen-s-faithful-hound
+  url: https://www.aidedd.org/spell/mordenkainen-s-faithful-hound
+  raw:
+    description: You conjure a phantom watchdog in an unoccupied space that you can
+      see within range. The hound remains for the duration or until the two of you
+      are more than 300 feet apart from each other. No one but you can see the hound,
+      and it is intangible and invulnerable. When a Small or larger creature comes
+      within 30 feet of it without first speaking the password that you specify when
+      you cast this spell, the hound starts barking loudly. The hound has Truesight
+      with a range of 30 feet. At the start of each of your turns, the hound attempts
+      to bite one enemy within 5 feet of it. That enemy must succeed on a Dexterity
+      saving throw or take 4d8 Force damage. On your later turns, you can take a Magic
+      action to move the hound up to 30 feet.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,48 @@
+schema: dnd55.spell.v1
+id: mending
+name: Mending
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: transmutation
+tags: []
+casting_time: 1 minute
+range: Touch
+components: V, S, M (two lodestones)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - druid
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: mending
+  url: https://www.aidedd.org/spell/mending
+  raw:
+    description: This spell repairs a single break or tear in an object you touch,
+      such as a broken chain link, two halves of a broken key, a torn cloak, or a
+      leaking wineskin. As long as the break or tear is no larger than 1 foot in any
+      dimension, you mend it, leaving no trace of the former damage. This spell can
+      physically repair a magic item, but it can't restore magic to such an object.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

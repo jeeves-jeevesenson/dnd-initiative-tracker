@@ -1,0 +1,43 @@
+schema: dnd55.spell.v1
+id: inflict-wounds
+name: Inflict Wounds
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: necromancy
+tags: []
+casting_time: Action
+range: Touch
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: inflict-wounds
+  url: https://www.aidedd.org/spell/inflict-wounds
+  raw:
+    description: A creature you touch makes a Constitution saving throw, taking 2d10
+      Necrotic damage on a failed save or half as much damage on a successful one.
+      Using a Higher-Level Spell Slot . The damage increases by 1d10 for each spell
+      slot level above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

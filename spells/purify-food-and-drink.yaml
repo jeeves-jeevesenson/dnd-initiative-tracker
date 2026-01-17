@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: purify-food-and-drink
+name: Purify Food and Drink
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: transmutation
+tags:
+- damage
+- aoe
+casting_time: Action or Ritual
+range: 10 feet
+components: V, S
+duration: Instantaneous
+ritual: true
+concentration: false
+lists:
+  classes:
+  - cleric
+  - druid
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: purify-food-and-drink
+  url: https://www.aidedd.org/spell/purify-food-and-drink
+  raw:
+    description: You remove poison and rot from nonmagical food and drink in a 5-foot-radius
+      Sphere centered on a point within range.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

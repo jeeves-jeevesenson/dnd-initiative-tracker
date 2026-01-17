@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: mind-blank
+name: Mind Blank
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 8
+school: abjuration
+tags: []
+casting_time: Action
+range: Touch
+components: V, S
+duration: 24 hours
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: mind-blank
+  url: https://www.aidedd.org/spell/mind-blank
+  raw:
+    description: "Until the spell ends, one willing creature you touch has Immunity\
+      \ to Psychic damage and the Charmed condition. The target is also unaffected\
+      \ by anything that would sense its emotions or alignment, read its thoughts,\
+      \ or magically detect its location, and no spell\u2014not even Wish \u2014can\
+      \ gather information about the target, observe it remotely, or control its mind."
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

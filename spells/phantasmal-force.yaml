@@ -1,0 +1,85 @@
+schema: dnd55.spell.v1
+id: phantasmal-force
+name: Phantasmal Force
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: illusion
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 60 feet
+components: V, S, M (a bit of fleece)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: phantasmal-force
+  url: https://www.aidedd.org/spell/phantasmal-force
+  raw:
+    description: You attempt to craft an illusion in the mind of a creature you can
+      see within range. The target makes an Intelligence saving throw. On a failed
+      save, you create a phantasmal object, creature, or other phenomenon that is
+      no larger than a 10-foot Cube and that is perceivable only to the target for
+      the duration. The phantasm includes sound, temperature, and other stimuli. The
+      target can take a Study action to examine the phantasm with an Intelligence
+      (Investigation) check against your spell save DC. If the check succeeds, the
+      target realizes that the phantasm is an illusion, and the spell ends. While
+      affected by the spell, the target treats the phantasm as if it were real and
+      rationalizes any illogical outcomes from interacting with it. For example, if
+      the target steps through a phantasmal bridge and survives the fall, it believes
+      the bridge exists and something else caused it to fall. An affected target can
+      even take damage from the illusion if the phantasm represents a dangerous creature
+      or hazard. On each of your turns, such a phantasm can deal 2d8 Psychic damage
+      to the target if it is in the phantasm's area or within 5 feet of the phantasm.
+      The target perceives the damage as a type appropriate to the illusion.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: null
+    area:
+      shape: cube
+      side_ft: 10
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: intelligence
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: psychic
+        dice: 2d8
+      success:
+      - effect: damage
+        damage_type: psychic
+        dice: 2d8
+        multiplier: 0.5
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

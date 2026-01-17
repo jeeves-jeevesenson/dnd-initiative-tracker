@@ -1,0 +1,50 @@
+schema: dnd55.spell.v1
+id: mind-spike
+name: Mind Spike
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: divination
+tags: []
+casting_time: Action
+range: 120 feet
+components: S
+duration: Concentration, up to 1 hour
+ritual: false
+concentration: true
+lists:
+  classes:
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: mind-spike
+  url: https://www.aidedd.org/spell/mind-spike
+  raw:
+    description: You drive a spike of psionic energy into the mind of one creature
+      you can see within range. The target makes a Wisdom saving throw, taking 3d8
+      Psychic damage on a failed save or half as much damage on a successful one.
+      On a failed save, you also always know the target's location until the spell
+      ends, but only while the two of you are on the same plane of existence. While
+      you have this knowledge, the target can't become hidden from you, and if it
+      has the Invisible condition, it gains no benefit from that condition against
+      you. Using a Higher-Level Spell Slot . The damage increases by 1d8 for each
+      spell slot level above 2.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

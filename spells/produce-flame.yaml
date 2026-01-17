@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: produce-flame
+name: Produce Flame
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: conjuration
+tags: []
+casting_time: Bonus Action
+range: Self
+components: V, S
+duration: 10 minutes
+ritual: false
+concentration: false
+lists:
+  classes:
+  - druid
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: produce-flame
+  url: https://www.aidedd.org/spell/produce-flame
+  raw:
+    description: A flickering flame appears in your hand and remains there for the
+      duration. While there, the flame emits no heat and ignites nothing, and it sheds
+      Bright Light in a 20-foot radius and Dim Light for an additional 20 feet. The
+      spell ends if you cast it again. Until the spell ends, you can take a Magic
+      action to hurl fire at a creature or an object within 60 feet of you. Make a
+      ranged spell attack. On a hit, the target takes 1d8 Fire damage. Cantrip Upgrade
+      . The damage increases by 1d8 when you reach levels 5 (2d8), 11 (3d8), and 17
+      (4d8).
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

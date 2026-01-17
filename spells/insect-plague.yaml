@@ -1,0 +1,82 @@
+schema: dnd55.spell.v1
+id: insect-plague
+name: Insect Plague
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 5
+school: conjuration
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 300 feet
+components: V, S, M (a locust)
+duration: Concentration, up to 10 minutes
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  - druid
+  - sorcerer
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: insect-plague
+  url: https://www.aidedd.org/spell/insect-plague
+  raw:
+    description: Swarming locusts fill a 20-foot-radius Sphere centered on a point
+      you choose within range. The Sphere remains for the duration, and its area is
+      Lightly Obscured and Difficult Terrain. When the swarm appears, each creature
+      in it makes a Constitution saving throw, taking 4d10 Piercing damage on a failed
+      save or half as much damage on a successful one. A creature also makes this
+      save when it enters the spell's area for the first time on a turn or ends its
+      turn there. A creature makes this save only once per turn. Using a Higher-Level
+      Spell Slot . The damage increases by 1d10 for each spell slot level above 5.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: null
+    area:
+      shape: sphere
+      radius_ft: 20
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: constitution
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: piercing
+        dice: 4d10
+        scaling: &id001
+          kind: slot_level
+          base_slot: 5
+          add_per_slot_above: 1d10
+      success:
+      - effect: damage
+        damage_type: piercing
+        dice: 4d10
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
+  ui:
+    template_preview: true
+  notes: []

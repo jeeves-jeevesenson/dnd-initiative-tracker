@@ -1,0 +1,55 @@
+schema: dnd55.spell.v1
+id: polymorph
+name: Polymorph
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: transmutation
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S, M (a caterpillar cocoon)
+duration: Concentration, up to 1 hour
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - druid
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: polymorph
+  url: https://www.aidedd.org/spell/polymorph
+  raw:
+    description: You attempt to transform a creature that you can see within range
+      into a Beast. The target must succeed on a Wisdom saving throw or shape-shift
+      into Beast form for the duration. That form can be any Beast you choose that
+      has a Challenge Rating equal to or less than the target's (or the target's level
+      if it doesn't have a Challenge Rating). The target's game statistics are replaced
+      by the stat block of the chosen Beast, but the target retains its alignment,
+      personality, creature type, Hit Points, and Hit Point Dice. The target gains
+      a number of Temporary Hit Points equal to the Hit Points of the Beast form.
+      These Temporary Hit Points vanish if any remain when the spell ends*. The spell
+      ends early on the target if it has no Temporary Hit Points left. The target
+      is limited in the actions it can perform by the anatomy of its new form, and
+      it can't speak or cast spells. The target's gear melds into the new form. The
+      creature can't use or otherwise benefit from any of that equipment.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

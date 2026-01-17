@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: protection-from-energy
+name: Protection from Energy
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 3
+school: abjuration
+tags: []
+casting_time: Action
+range: Touch
+components: V, S
+duration: Concentration, up to 1 hour
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  - druid
+  - ranger
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: protection-from-energy
+  url: https://www.aidedd.org/spell/protection-from-energy
+  raw:
+    description: 'For the duration, the willing creature you touch has Resistance
+      to one damage type of your choice: Acid, Cold, Fire, Lightning, or Thunder.'
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

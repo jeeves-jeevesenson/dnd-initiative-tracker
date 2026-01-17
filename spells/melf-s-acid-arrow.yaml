@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: melf-s-acid-arrow
+name: Melf's Acid Arrow
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: evocation
+tags: []
+casting_time: Action
+range: 90 feet
+components: V, S, M (powdered rhubarb leaf)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: melf-s-acid-arrow
+  url: https://www.aidedd.org/spell/melf-s-acid-arrow
+  raw:
+    description: A shimmering green arrow streaks toward a target within range and
+      bursts in a spray of acid. Make a ranged spell attack against the target. On
+      a hit, the target takes 4d4 Acid damage and 2d4 Acid damage at the end of its
+      next turn. On a miss, the arrow splashes the target with acid for half as much
+      of the initial damage only. Using a Higher-Level Spell Slot . The damage (both
+      initial and later) increases by 1d4 for each spell slot level above 2.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: identify
+name: Identify
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: divination
+tags: []
+casting_time: 1 minute or Ritual
+range: Touch
+components: V, S, M (a pearl worth 100+ GP)
+duration: Instantaneous
+ritual: true
+concentration: false
+lists:
+  classes:
+  - bard
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: identify
+  url: https://www.aidedd.org/spell/identify
+  raw:
+    description: You touch an object throughout the spell's casting. If the object
+      is a magic item or some other magical object, you learn its properties and how
+      to use them, whether it requires Attunement, and how many charges it has, if
+      any. You learn whether any ongoing spells are affecting the item and what they
+      are. If the item was created by a spell, you learn that spell's name. If you
+      instead touch a creature throughout the casting, you learn which ongoing spells,
+      if any, are currently affecting it.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

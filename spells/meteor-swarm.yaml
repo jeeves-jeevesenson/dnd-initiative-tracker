@@ -1,0 +1,83 @@
+schema: dnd55.spell.v1
+id: meteor-swarm
+name: Meteor Swarm
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 9
+school: evocation
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 1 mile
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: meteor-swarm
+  url: https://www.aidedd.org/spell/meteor-swarm
+  raw:
+    description: Blazing orbs of fire plummet to the ground at four different points
+      you can see within range. Each creature in a 40-foot-radius Sphere centered
+      on each of those points makes a Dexterity saving throw. A creature takes 20d6
+      Fire damage and 20d6 Bludgeoning damage on a failed save or half as much damage
+      on a successful one. A creature in the area of more than one fiery Sphere is
+      affected only once. A nonmagical object that isn't being worn or carried also
+      takes the damage if it's in the spell's area, and the object starts burning
+      if it's flammable.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: null
+    area:
+      shape: sphere
+      radius_ft: 40
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: fire
+        dice: 20d6
+      - effect: damage
+        damage_type: bludgeoning
+        dice: 20d6
+      success:
+      - effect: damage
+        damage_type: fire
+        dice: 20d6
+        multiplier: 0.5
+      - effect: damage
+        damage_type: bludgeoning
+        dice: 20d6
+        multiplier: 0.5
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

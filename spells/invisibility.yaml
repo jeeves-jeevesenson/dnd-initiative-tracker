@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: invisibility
+name: Invisibility
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: illusion
+tags: []
+casting_time: Action
+range: Touch
+components: V, S, M (an eyelash in gum arabic)
+duration: Concentration, up to 1 hour
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: invisibility
+  url: https://www.aidedd.org/spell/invisibility
+  raw:
+    description: A creature you touch has the Invisible condition until the spell
+      ends. The spell ends early immediately after the target makes an attack roll,
+      deals damage, or casts a spell. Using a Higher-Level Spell Slot . You can target
+      one additional creature for each spell slot level above 2.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

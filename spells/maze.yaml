@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: maze
+name: Maze
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 8
+school: conjuration
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Concentration, up to 10 minutes
+ritual: false
+concentration: true
+lists:
+  classes:
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: maze
+  url: https://www.aidedd.org/spell/maze
+  raw:
+    description: You banish a creature that you can see within range into a labyrinthine
+      demiplane. The target remains there for the duration or until it escapes the
+      maze. The target can take a Study action to try to escape. When it does so,
+      it makes a DC 20 Intelligence (Investigation) check. If it succeeds, it escapes,
+      and the spell ends. When the spell ends, the target reappears in the space it
+      left or, if that space is occupied, in the nearest unoccupied space.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

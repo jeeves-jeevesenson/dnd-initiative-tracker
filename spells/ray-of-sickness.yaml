@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: ray-of-sickness
+name: Ray of Sickness
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: necromancy
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: ray-of-sickness
+  url: https://www.aidedd.org/spell/ray-of-sickness
+  raw:
+    description: You shoot a greenish ray at a creature within range. Make a ranged
+      spell attack against the target. On a hit, the target takes 2d8 Poison damage
+      and has the Poisoned condition until the end of your next turn. Using a Higher-Level
+      Spell Slot . The damage increases by 1d8 for each spell slot level above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

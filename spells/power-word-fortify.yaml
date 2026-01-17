@@ -1,0 +1,41 @@
+schema: dnd55.spell.v1
+id: power-word-fortify
+name: Power Word Fortify
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 7
+school: enchantment
+tags: []
+casting_time: Action
+range: 60 feet
+components: V
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: power-word-fortify
+  url: https://www.aidedd.org/spell/power-word-fortify
+  raw:
+    description: ''
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

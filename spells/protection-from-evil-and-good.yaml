@@ -1,0 +1,50 @@
+schema: dnd55.spell.v1
+id: protection-from-evil-and-good
+name: Protection from Evil and Good
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: abjuration
+tags: []
+casting_time: Action
+range: Touch
+components: V, S, M (a flask of Holy Water worth 25+ GP, which the spell consumes)
+duration: Concentration, up to 10 minutes
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  - druid
+  - paladin
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: protection-from-evil-and-good
+  url: https://www.aidedd.org/spell/protection-from-evil-and-good
+  raw:
+    description: Until the spell ends, one willing creature you touch is protected
+      against creatures that are Aberrations, Celestials, Elementals, Fey, Fiends,
+      or Undead. The protection grants several benefits. Creatures of those types
+      have Disadvantage on attack rolls against the target. The target also can't
+      be possessed by or gain the Charmed or Frightened conditions from them. If the
+      target is already possessed, Charmed, or Frightened by such a creature, the
+      target has Advantage on any new saving throw against the relevant effect.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

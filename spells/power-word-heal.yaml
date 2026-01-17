@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: power-word-heal
+name: Power Word Heal
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 9
+school: enchantment
+tags: []
+casting_time: Action
+range: 60 feet
+components: V
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: power-word-heal
+  url: https://www.aidedd.org/spell/power-word-heal
+  raw:
+    description: A wave of healing energy washes over one creature you can see within
+      range. The target regains all its Hit Points. If the creature has the Charmed,
+      Frightened, Paralyzed, Poisoned, or Stunned condition, the condition ends. If
+      the creature has the Prone condition, it can use its Reaction to stand up.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

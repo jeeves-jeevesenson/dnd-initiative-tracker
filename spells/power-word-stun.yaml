@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: power-word-stun
+name: Power Word Stun
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 8
+school: enchantment
+tags: []
+casting_time: Action
+range: 60 feet
+components: V
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: power-word-stun
+  url: https://www.aidedd.org/spell/power-word-stun
+  raw:
+    description: You overwhelm the mind of one creature you can see within range.
+      If the target has 150 Hit Points or fewer, it has the Stunned condition. Otherwise,
+      its Speed is 0 until the start of your next turn. The Stunned target makes a
+      Constitution saving throw at the end of each of its turns, ending the condition
+      on itself on a success.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []
