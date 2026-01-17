@@ -497,6 +497,23 @@ HTML_INDEX = r"""<!doctype html>
       color: var(--text);
       font-weight: 600;
     }
+    .manual-entry-badge{
+      display: none;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,180,90,0.6);
+      background: rgba(255,140,60,0.2);
+      color: #ffcc9b;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .manual-entry-badge.show{
+      display: inline-flex;
+    }
     .form-field{display:flex; flex-direction:column; gap:4px;}
     .form-field label{font-size:11px; color:var(--muted);}
     .form-field input,
@@ -1305,7 +1322,7 @@ HTML_INDEX = r"""<!doctype html>
           </fieldset>
           <div class="form-grid">
             <div class="form-field">
-              <label for="castPreset">Preset</label>
+              <label for="castPreset">Preset <span class="manual-entry-badge" id="castManualEntryBadge" title="Manual entry required.">Manual entry required</span></label>
               <select id="castPreset">
                 <option value="" selected>Custom</option>
               </select>
@@ -1769,6 +1786,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castFilterConcentrationInput = document.getElementById("castFilterConcentration");
   const castFilterListInput = document.getElementById("castFilterList");
   const castPresetInput = document.getElementById("castPreset");
+  const castManualEntryBadge = document.getElementById("castManualEntryBadge");
   const castNameInput = document.getElementById("castName");
   const castShapeInput = document.getElementById("castShape");
   const castRadiusField = document.getElementById("castRadiusField");
@@ -4529,12 +4547,54 @@ __DAMAGE_TYPE_OPTIONS__
     const num = Number(preset?.level);
     return Number.isFinite(num) ? num : null;
   };
+  const updateManualEntryBadge = (preset) => {
+    if (!castManualEntryBadge) return;
+    if (!preset){
+      castManualEntryBadge.classList.remove("show");
+      castManualEntryBadge.setAttribute("aria-hidden", "true");
+      castManualEntryBadge.removeAttribute("title");
+      castManualEntryBadge.removeAttribute("aria-label");
+      return;
+    }
+    const reasons = [];
+    const automation = normalizeLowerValue(preset.automation);
+    if (automation === "partial" || automation === "manual"){
+      reasons.push(`automation is ${automation}`);
+    }
+    if (!preset.shape){
+      reasons.push("shape is missing");
+    }
+    if (preset.incomplete){
+      const missing = Array.isArray(preset.incomplete_fields)
+        ? preset.incomplete_fields.map((field) => String(field || "").trim()).filter(Boolean)
+        : [];
+      if (missing.length){
+        reasons.push(`missing ${missing.join(", ")}`);
+      } else {
+        reasons.push("missing dimensions");
+      }
+    }
+    if (reasons.length){
+      const tooltip = `Manual entry required: ${reasons.join("; ")}.`;
+      castManualEntryBadge.classList.add("show");
+      castManualEntryBadge.setAttribute("aria-hidden", "false");
+      castManualEntryBadge.title = tooltip;
+      castManualEntryBadge.setAttribute("aria-label", tooltip);
+    } else {
+      castManualEntryBadge.classList.remove("show");
+      castManualEntryBadge.setAttribute("aria-hidden", "true");
+      castManualEntryBadge.removeAttribute("title");
+      castManualEntryBadge.removeAttribute("aria-label");
+    }
+  };
   const updateSpellPresetDetails = (preset) => {
     if (!spellPresetDetails) return;
     if (!preset){
       spellPresetDetails.textContent = "Select a preset to see spell details.";
+      updateManualEntryBadge(null);
       return;
     }
+    updateManualEntryBadge(preset);
     const detailsGrid = document.createElement("div");
     detailsGrid.className = "spell-details-grid";
     const levelLabel = formatSpellLevelLabel(preset.level);
@@ -5035,8 +5095,8 @@ __DAMAGE_TYPE_OPTIONS__
     if (castNameInput && preset.name){
       castNameInput.value = String(preset.name || "");
     }
-    if (castShapeInput && preset.shape){
-      castShapeInput.value = String(preset.shape || "").toLowerCase();
+    if (castShapeInput){
+      castShapeInput.value = preset.shape ? String(preset.shape || "").toLowerCase() : "";
     }
     updateCastShapeFields();
     if (castRadiusInput){
