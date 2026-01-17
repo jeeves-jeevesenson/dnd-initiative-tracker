@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: yolande-s-regal-presence
+name: Yolande's Regal Presence
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 5
+school: enchantment
+tags: []
+casting_time: Action
+range: Self
+components: V, S, M (a miniature tiara)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: yolande-s-regal-presence
+  url: https://www.aidedd.org/spell/yolande-s-regal-presence
+  raw:
+    description: You surround yourself with unearthly majesty in a 10-foot Emanation.
+      Whenever the Emanation enters the space of a creature you can see and whenever
+      a creature you can see enters the Emanation or ends its turn there, you can
+      force that creature to make a Wisdom saving throw. On a failed save, the target
+      takes 4d6 Psychic damage and has the Prone condition, and you can push it up
+      to 10 feet away. On a successful save, the target takes half as much damage
+      only. A creature makes this save only once per turn.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

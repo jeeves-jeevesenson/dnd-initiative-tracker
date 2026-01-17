@@ -1,0 +1,51 @@
+schema: dnd55.spell.v1
+id: zone-of-truth
+name: Zone of Truth
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: enchantment
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: 10 minutes
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: zone-of-truth
+  url: https://www.aidedd.org/spell/zone-of-truth
+  raw:
+    description: You create a magical zone that guards against deception in a 15-foot-radius
+      Sphere centered on a point within range. Until the spell ends, a creature that
+      enters the spell's area for the first time on a turn or starts its turn there
+      makes a Charisma saving throw. On a failed save, a creature can't speak a deliberate
+      lie while in the radius. You know whether a creature succeeds or fails on this
+      save. An affected creature is aware of the spell and can avoid answering questions
+      to which it would normally respond with a lie. Such a creature can be evasive
+      yet must be truthful.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

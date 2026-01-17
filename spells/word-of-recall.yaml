@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: word-of-recall
+name: Word of Recall
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 6
+school: conjuration
+tags: []
+casting_time: Action
+range: 5 feet
+components: V
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: word-of-recall
+  url: https://www.aidedd.org/spell/word-of-recall
+  raw:
+    description: You and up to five willing creatures within 5 feet of you instantly
+      teleport to a previously designated sanctuary. You and any creatures that teleport
+      with you appear in the nearest unoccupied space to the spot you designated when
+      you prepared your sanctuary (see below). If you cast this spell without first
+      preparing a sanctuary, the spell has no effect. You must designate a location,
+      such as a temple, as a sanctuary by casting this spell there.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,43 @@
+schema: dnd55.spell.v1
+id: word-of-radiance
+name: Word of Radiance
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 0
+school: evocation
+tags: []
+casting_time: Action
+range: Self
+components: V, M (a sunburst token)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: word-of-radiance
+  url: https://www.aidedd.org/spell/word-of-radiance
+  raw:
+    description: Burning radiance erupts from you in a 5-foot Emanation. Each creature
+      of your choice that you can see in it must succeed on a Constitution saving
+      throw or take 1d6 Radiant damage. Cantrip Upgrade . The damage increases by
+      1d6 when you reach levels 5 (2d6), 11 (3d6), and 17 (4d6).
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []
