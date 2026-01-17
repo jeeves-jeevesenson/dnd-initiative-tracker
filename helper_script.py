@@ -186,6 +186,8 @@ class Combatant:
     move_total: int = 0
     action_remaining: int = 1
     bonus_action_remaining: int = 1
+    actions: List[str] = field(default_factory=list)
+    bonus_actions: List[str] = field(default_factory=list)
     extra_action_pool: int = 0
     extra_bonus_pool: int = 0
     saving_throws: Dict[str, int] = field(default_factory=dict)
@@ -1557,6 +1559,8 @@ class InitiativeTracker(tk.Tk):
         is_spellcaster: Optional[bool] = None,
         saving_throws: Optional[Dict[str, int]] = None,
         ability_mods: Optional[Dict[str, int]] = None,
+        actions: Optional[List[str]] = None,
+        bonus_actions: Optional[List[str]] = None,
         monster_spec: Optional[MonsterSpec] = None,
     ) -> int:
         cid = self._next_id
@@ -1596,6 +1600,8 @@ class InitiativeTracker(tk.Tk):
             is_spellcaster=bool(is_spellcaster),
             saving_throws=dict(saving_throws or {}),
             ability_mods=dict(ability_mods or {}),
+            actions=list(actions or []),
+            bonus_actions=list(bonus_actions or []),
             monster_spec=monster_spec,
         )
         self.combatants[cid] = c
