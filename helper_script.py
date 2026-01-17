@@ -3051,8 +3051,10 @@ class InitiativeTracker(tk.Tk):
                     hp_val = mon.get("hp")
                     if isinstance(hp_val, int):
                         hp = int(hp_val)
-                    elif isinstance(hp_val, str) and hp_val.strip().lstrip("-").isdigit():
-                        hp = int(hp_val.strip())
+                    elif isinstance(hp_val, str):
+                        match = re.match(r"^\s*(\d+)", hp_val)
+                        if match:
+                            hp = int(match.group(1))
             except Exception:
                 hp = None
 
