@@ -7514,7 +7514,238 @@ class InitiativeTracker(base.InitiativeTracker):
         return (text or "").strip()
 
     def _spell_presets_payload(self) -> List[Dict[str, Any]]:
-        return []
+        if yaml is None:
+            return []
+        spells_dir = Path.cwd() / "spells"
+        if not spells_dir.exists():
+            return []
+
+        try:
+            files = sorted(list(spells_dir.glob("*.yaml")) + list(spells_dir.glob("*.yml")))
+        except Exception:
+            files = []
+
+        if not files:
+            return []
+
+        ops = _make_ops_logger()
+        presets: List[Dict[str, Any]] = []
+        ability_map = {
+            "strength": "str",
+            "str": "str",
+            "dexterity": "dex",
+            "dex": "dex",
+            "constitution": "con",
+            "con": "con",
+            "intelligence": "int",
+            "int": "int",
+            "wisdom": "wis",
+            "wis": "wis",
+            "charisma": "cha",
+            "cha": "cha",
+        }
+
+        def parse_number(value: Any) -> Optional[float]:
+            if value in (None, ""):
+                return None
+            try:
+                num = float(value)
+            except Exception:
+                return None
+            if not (num == num and abs(num) != float("inf")):
+                return None
+            return num
+
+        def parse_dice(value: Any) -> Optional[str]:
+            if value in (None, ""):
+                return None
+            raw = str(value).strip().lower()
+            match = re.fullmatch(r"(\\d+)d(4|6|8|10|12)", raw)
+            if not match:
+                return None
+            count = int(match.group(1))
+            if count <= 0:
+                return None
+            return f"{count}d{match.group(2)}"
+
+        def normalize_save_type(value: Any) -> Optional[str]:
+            if value in (None, ""):
+                return None
+            raw = str(value).strip().lower()
+            return ability_map.get(raw, raw)
+
+        for fp in files:
+            try:
+                raw = fp.read_text(encoding="utf-8")
+            except Exception as exc:
+                ops.warning("Failed reading spell YAML %s: %s", fp.name, exc)
+                continue
+            try:
+                parsed = yaml.safe_load(raw)
+            except Exception as exc:
+                ops.warning("Failed parsing spell YAML %s: %s", fp.name, exc)
+                continue
+            if not isinstance(parsed, dict):
+                ops.warning("Spell YAML %s did not parse to a dict.", fp.name)
+                continue
+
+            name = str(parsed.get("name") or "").strip()
+            if not name:
+                ops.warning("Spell YAML %s missing name; skipping preset.", fp.name)
+                continue
+
+            schema = parsed.get("schema")
+            spell_id = parsed.get("id")
+            level = parsed.get("level")
+            school = parsed.get("school")
+            tags_raw = parsed.get("tags")
+            tags = [str(tag).strip() for tag in tags_raw if str(tag).strip()] if isinstance(tags_raw, list) else []
+            lists = parsed.get("lists") if isinstance(parsed.get("lists"), dict) else {}
+            mechanics = parsed.get("mechanics") if isinstance(parsed.get("mechanics"), dict) else {}
+            automation_raw = str(mechanics.get("automation") or "").strip().lower()
+            automation = automation_raw if automation_raw in ("full", "partial", "manual") else "manual"
+            errors: List[str] = []
+            if not schema:
+                errors.append("missing schema")
+            if not spell_id:
+                errors.append("missing id")
+            if level is None:
+                errors.append("missing level")
+            if not school:
+                errors.append("missing school")
+            if errors:
+                ops.warning("Spell YAML %s has issues: %s", fp.name, ", ".join(errors))
+
+            preset: Dict[str, Any] = {
+                "schema": schema,
+                "id": spell_id,
+                "name": name,
+                "level": level,
+                "school": school,
+                "tags": tags,
+                "lists": lists,
+                "mechanics": mechanics,
+                "automation": automation,
+            }
+
+            targeting = mechanics.get("targeting") if isinstance(mechanics.get("targeting"), dict) else {}
+            area = targeting.get("area") if isinstance(targeting.get("area"), dict) else {}
+            shape = str(area.get("shape") or "").strip().lower()
+            if shape in ("circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall"):
+                preset["shape"] = shape
+                if shape in ("circle", "sphere", "cylinder"):
+                    radius_ft = parse_number(area.get("radius_ft"))
+                    if radius_ft is not None:
+                        preset["radius_ft"] = radius_ft
+                    height_ft = parse_number(area.get("height_ft"))
+                    if height_ft is not None:
+                        preset["height_ft"] = height_ft
+                if shape in ("square", "cube"):
+                    side_ft = parse_number(area.get("side_ft"))
+                    if side_ft is not None:
+                        preset["side_ft"] = side_ft
+                if shape in ("line", "wall"):
+                    length_ft = parse_number(area.get("length_ft"))
+                    width_ft = parse_number(area.get("width_ft"))
+                    if length_ft is not None:
+                        preset["length_ft"] = length_ft
+                    if width_ft is not None:
+                        preset["width_ft"] = width_ft
+                    angle_deg = parse_number(area.get("angle_deg"))
+                    if angle_deg is not None:
+                        preset["angle_deg"] = angle_deg
+                    thickness_ft = parse_number(area.get("thickness_ft"))
+                    if thickness_ft is not None:
+                        preset["thickness_ft"] = thickness_ft
+                    height_ft = parse_number(area.get("height_ft"))
+                    if height_ft is not None:
+                        preset["height_ft"] = height_ft
+                if shape == "cone":
+                    length_ft = parse_number(area.get("length_ft"))
+                    angle_deg = parse_number(area.get("angle_deg"))
+                    if length_ft is not None:
+                        preset["length_ft"] = length_ft
+                    if angle_deg is not None:
+                        preset["angle_deg"] = angle_deg
+
+            damage_types: List[str] = []
+            dice: Optional[str] = None
+            effect_scaling: Optional[Dict[str, Any]] = None
+            save_type: Optional[str] = None
+            save_dc: Optional[int] = None
+
+            sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
+            for step in sequence:
+                if not isinstance(step, dict):
+                    continue
+                check = step.get("check") if isinstance(step.get("check"), dict) else {}
+                if save_type is None and check.get("kind") == "saving_throw":
+                    save_type = normalize_save_type(check.get("ability"))
+                    dc_value = check.get("dc")
+                    if isinstance(dc_value, (int, float)):
+                        save_dc = int(dc_value)
+                    elif isinstance(dc_value, str) and dc_value.strip().isdigit():
+                        save_dc = int(dc_value.strip())
+                outcomes = step.get("outcomes") if isinstance(step.get("outcomes"), dict) else {}
+                for outcome_list in outcomes.values():
+                    if not isinstance(outcome_list, list):
+                        continue
+                    for effect in outcome_list:
+                        if not isinstance(effect, dict):
+                            continue
+                        if effect.get("effect") != "damage":
+                            continue
+                        dtype = str(effect.get("damage_type") or "").strip()
+                        if dtype and dtype not in damage_types:
+                            damage_types.append(dtype)
+                        if dice is None:
+                            dice = parse_dice(effect.get("dice"))
+                        if effect_scaling is None and isinstance(effect.get("scaling"), dict):
+                            effect_scaling = effect.get("scaling")
+
+            scaling = mechanics.get("scaling") if isinstance(mechanics.get("scaling"), dict) else None
+            if scaling is None:
+                scaling = effect_scaling
+
+            if save_type:
+                preset["save_type"] = save_type
+            if save_dc is not None:
+                preset["save_dc"] = save_dc
+            if dice:
+                preset["dice"] = dice
+            if damage_types:
+                preset["damage_types"] = damage_types
+
+            upcast: Optional[Dict[str, Any]] = None
+            if isinstance(scaling, dict) and scaling.get("kind") == "slot_level":
+                base_slot = scaling.get("base_slot")
+                add_per_slot = scaling.get("add_per_slot_above")
+                base_level = int(base_slot) if isinstance(base_slot, int) else None
+                add_dice = parse_dice(add_per_slot)
+                if base_level is None and isinstance(base_slot, str) and base_slot.strip().isdigit():
+                    base_level = int(base_slot.strip())
+                if base_level is not None and add_dice:
+                    upcast = {
+                        "base_level": base_level,
+                        "increments": [{"levels_per_increment": 1, "add_dice": add_dice}],
+                    }
+            if upcast:
+                preset["upcast"] = upcast
+
+            if automation == "full":
+                if "shape" not in preset:
+                    automation = "partial"
+                if not dice and not damage_types and not save_type:
+                    automation = "partial"
+            if not mechanics:
+                automation = "manual"
+            if errors and automation == "full":
+                automation = "partial"
+            preset["automation"] = automation
+
+            presets.append(preset)
+
+        return presets
 
     def _lan_seed_missing_positions(self, positions: Dict[int, Tuple[int, int]], cols: int, rows: int) -> Dict[int, Tuple[int, int]]:
         # place missing near center in a simple spiral, one square apart
