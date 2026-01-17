@@ -566,6 +566,15 @@ HTML_INDEX = r"""<!doctype html>
       text-align:left;
       vertical-align:top;
     }
+    .spell-select-check-col,
+    .spell-select-check-cell{
+      width: 38px;
+      text-align:center;
+    }
+    .spell-select-overlay:not(.selecting) .spell-select-check-col,
+    .spell-select-overlay:not(.selecting) .spell-select-check-cell{
+      display:none;
+    }
     .spell-select-table th{
       position: sticky;
       top: 0;
@@ -617,6 +626,15 @@ HTML_INDEX = r"""<!doctype html>
       gap: 6px;
       font-size: 11px;
       color: var(--muted);
+    }
+    .spell-select-actions{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .spell-select-overlay:not(.selecting) .spell-select-save-btn{
+      display:none;
     }
     .spell-select-details-item strong{
       color: var(--text);
@@ -1645,6 +1663,10 @@ __DAMAGE_TYPE_OPTIONS__
       <button class="btn" id="spellSelectBack" type="button">Back</button>
       <div class="spell-select-title" id="spellSelectTitle">Select Spells</div>
       <div class="spell-select-spacer"></div>
+      <div class="spell-select-actions">
+        <button class="btn" id="spellSelectModeToggle" type="button">Select Known</button>
+        <button class="btn accent spell-select-save-btn" id="spellSelectSaveKnown" type="button">Save Known Spells</button>
+      </div>
       <button class="btn" id="spellSelectClose" type="button">Close</button>
     </div>
     <div class="spell-select-body" role="dialog" aria-modal="true" aria-labelledby="spellSelectTitle">
@@ -1653,6 +1675,7 @@ __DAMAGE_TYPE_OPTIONS__
         <table class="spell-select-table">
           <thead>
             <tr>
+              <th scope="col" class="spell-select-check-col">Known</th>
               <th scope="col">Name</th>
               <th scope="col">Damage</th>
               <th scope="col">AoE</th>
@@ -1712,6 +1735,7 @@ __DAMAGE_TYPE_OPTIONS__
   const turnAlertStorageKey = "inittracker_turnAlertSubscription";
   const turnAlertHideKey = "inittracker_hideTurnAlerts";
   const spellConfigStoragePrefix = "inittracker_spellConfig_";
+  const spellKnownStoragePrefix = "inittracker_knownSpells_";
   let swRegistration = null;
 
   function setNotificationStatus(message){
@@ -2077,6 +2101,8 @@ __DAMAGE_TYPE_OPTIONS__
   const spellSelectOpenBtn = document.getElementById("spellSelectOpen");
   const spellSelectBackBtn = document.getElementById("spellSelectBack");
   const spellSelectCloseBtn = document.getElementById("spellSelectClose");
+  const spellSelectModeBtn = document.getElementById("spellSelectModeToggle");
+  const spellSelectSaveBtn = document.getElementById("spellSelectSaveKnown");
   const spellSelectSummary = document.getElementById("spellSelectSummary");
   const spellSelectTableBody = document.getElementById("spellSelectTableBody");
   const spellConfigOpenBtn = document.getElementById("spellConfigOpen");
@@ -2103,6 +2129,10 @@ __DAMAGE_TYPE_OPTIONS__
   let spellSelectPreviousFocus = null;
   let spellConfigPreviousFocus = null;
   const spellConfigDefaults = {cantrips: 0, spells: 15};
+  let spellSelectMode = false;
+  let spellSelectLastCount = 0;
+  let selectedKnownSpellKeys = new Set();
+  let spellPresetIndex = new Map();
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -2347,6 +2377,11 @@ __DAMAGE_TYPE_OPTIONS__
     return `${spellConfigStoragePrefix}${cid}`;
   }
 
+  function getKnownSpellsKey(cid){
+    if (!cid) return null;
+    return `${spellKnownStoragePrefix}${cid}`;
+  }
+
   function normalizeSpellConfigValue(value, fallback){
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return fallback;
@@ -2372,6 +2407,34 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  function loadKnownSpells(cid){
+    const key = getKnownSpellsKey(cid);
+    if (!key) return [];
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map(normalizeTextValue).filter(Boolean);
+    } catch (err){
+      console.warn("Unable to load known spells.", err);
+      return [];
+    }
+  }
+
+  function saveKnownSpells(cid, names){
+    const key = getKnownSpellsKey(cid);
+    if (!key) return;
+    const payload = Array.isArray(names)
+      ? names.map(normalizeTextValue).filter(Boolean)
+      : [];
+    try {
+      localStorage.setItem(key, JSON.stringify(payload));
+    } catch (err){
+      console.warn("Unable to persist known spells.", err);
+    }
+  }
+
   function setSpellSelectOverlayOpen(open){
     if (!spellSelectOverlay) return;
     spellSelectOverlay.classList.toggle("show", open);
@@ -2380,6 +2443,17 @@ __DAMAGE_TYPE_OPTIONS__
       spellSelectPreviousFocus = document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
+      if (claimedCid){
+        const stored = loadKnownSpells(claimedCid);
+        selectedKnownSpellKeys = new Set(stored.map(getSpellKey));
+      }
+      if (spellSelectModeBtn){
+        spellSelectModeBtn.textContent = spellSelectMode ? "Exit Selection" : "Select Known";
+      }
+      if (spellSelectSaveBtn){
+        spellSelectSaveBtn.disabled = !spellSelectMode;
+      }
+      renderSpellSelectTable(cachedSpellPresets);
       requestAnimationFrame(() => {
         spellSelectCloseBtn?.focus();
       });
@@ -4469,6 +4543,17 @@ __DAMAGE_TYPE_OPTIONS__
             meEl.textContent = "(unclaimed)";
             shownNoOwnedToast = false;
             showNoOwnedPcToast(msg.pcs || msg.claimable || []);
+            spellSelectMode = false;
+            spellSelectOverlay?.classList.remove("selecting");
+            if (spellSelectModeBtn){
+              spellSelectModeBtn.textContent = "Select Known";
+            }
+            if (spellSelectSaveBtn){
+              spellSelectSaveBtn.disabled = true;
+            }
+            selectedKnownSpellKeys = new Set();
+            updateSpellSelectSummary();
+            renderSpellSelectTable(cachedSpellPresets);
           }
         }
         refreshTurnAlertStatus();
@@ -4477,6 +4562,9 @@ __DAMAGE_TYPE_OPTIONS__
           claimedCid = String(msg.cid);
           shownNoOwnedToast = false;
           autoCenterOnJoin();
+          const stored = loadKnownSpells(claimedCid);
+          selectedKnownSpellKeys = new Set(stored.map(getSpellKey));
+          renderSpellSelectTable(cachedSpellPresets);
         }
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
@@ -4486,6 +4574,17 @@ __DAMAGE_TYPE_OPTIONS__
         meEl.textContent = "(unclaimed)";
         shownNoOwnedToast = false;
         showNoOwnedPcToast(msg.pcs || lastPcList || []);
+        spellSelectMode = false;
+        spellSelectOverlay?.classList.remove("selecting");
+        if (spellSelectModeBtn){
+          spellSelectModeBtn.textContent = "Select Known";
+        }
+        if (spellSelectSaveBtn){
+          spellSelectSaveBtn.disabled = true;
+        }
+        selectedKnownSpellKeys = new Set();
+        updateSpellSelectSummary();
+        renderSpellSelectTable(cachedSpellPresets);
         refreshTurnAlertStatus();
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
@@ -4946,6 +5045,7 @@ __DAMAGE_TYPE_OPTIONS__
     .replace(/\\b\\w/g, (char) => char.toUpperCase());
   const normalizeTextValue = (value) => String(value || "").trim();
   const normalizeLowerValue = (value) => normalizeTextValue(value).toLowerCase();
+  const getSpellKey = (name) => normalizeLowerValue(name);
   const getSpellListEntries = (lists) => {
     if (!lists || typeof lists !== "object") return [];
     const entries = [];
@@ -4962,6 +5062,39 @@ __DAMAGE_TYPE_OPTIONS__
   const getPresetLevelNumber = (preset) => {
     const num = Number(preset?.level);
     return Number.isFinite(num) ? num : null;
+  };
+  const buildSpellPresetIndex = (presets) => {
+    const index = new Map();
+    normalizeSpellPresets(presets).forEach((preset) => {
+      const name = normalizeTextValue(preset.name);
+      if (!name) return;
+      index.set(getSpellKey(name), {name, level: getPresetLevelNumber(preset)});
+    });
+    return index;
+  };
+  const getKnownSpellCounts = () => {
+    let cantrips = 0;
+    let spells = 0;
+    selectedKnownSpellKeys.forEach((key) => {
+      const entry = spellPresetIndex.get(key);
+      if (!entry) return;
+      if (entry.level === 0){
+        cantrips += 1;
+      } else {
+        spells += 1;
+      }
+    });
+    return {cantrips, spells};
+  };
+  const getSelectedKnownSpellNames = () => {
+    const names = [];
+    selectedKnownSpellKeys.forEach((key) => {
+      const entry = spellPresetIndex.get(key);
+      if (entry?.name){
+        names.push(entry.name);
+      }
+    });
+    return names.sort((a, b) => a.localeCompare(b));
   };
   const updateManualEntryBadge = (preset) => {
     if (!castManualEntryBadge) return;
@@ -5103,34 +5236,119 @@ __DAMAGE_TYPE_OPTIONS__
     ];
     return fields.filter((field) => field.value);
   };
+  const updateSpellSelectSummary = (totalCount = spellSelectLastCount) => {
+    if (!spellSelectSummary) return;
+    const count = Number.isFinite(totalCount) ? totalCount : 0;
+    if (!spellSelectMode){
+      spellSelectSummary.textContent = `${count} spell${count === 1 ? "" : "s"} available.`;
+      return;
+    }
+    const limits = claimedCid ? loadSpellConfig(claimedCid) : spellConfigDefaults;
+    const counts = getKnownSpellCounts();
+    const cantripLabel = `${counts.cantrips}/${limits.cantrips} cantrips selected`;
+    const spellLabel = `${counts.spells}/${limits.spells} spells selected`;
+    const availableLabel = `${count} spell${count === 1 ? "" : "s"} available.`;
+    if (!claimedCid){
+      spellSelectSummary.textContent = "Claim a character to track known spells.";
+      return;
+    }
+    spellSelectSummary.textContent = `${cantripLabel}, ${spellLabel}. ${availableLabel}`;
+  };
+  const setSpellSelectMode = (active) => {
+    if (active && !claimedCid){
+      localToast("Claim a character first.");
+      return;
+    }
+    spellSelectMode = !!active;
+    spellSelectOverlay?.classList.toggle("selecting", spellSelectMode);
+    if (spellSelectMode && claimedCid){
+      const stored = loadKnownSpells(claimedCid);
+      selectedKnownSpellKeys = new Set(stored.map(getSpellKey));
+    }
+    if (spellSelectModeBtn){
+      spellSelectModeBtn.textContent = spellSelectMode ? "Exit Selection" : "Select Known";
+    }
+    if (spellSelectSaveBtn){
+      spellSelectSaveBtn.disabled = !spellSelectMode;
+    }
+    renderSpellSelectTable(cachedSpellPresets);
+  };
+  const toggleKnownSpellSelection = (key, shouldSelect) => {
+    if (!claimedCid) return false;
+    if (shouldSelect){
+      const entry = spellPresetIndex.get(key);
+      const isCantrip = entry?.level === 0;
+      const limits = loadSpellConfig(claimedCid);
+      const counts = getKnownSpellCounts();
+      const nextCantrips = counts.cantrips + (isCantrip ? 1 : 0);
+      const nextSpells = counts.spells + (isCantrip ? 0 : 1);
+      if (isCantrip && nextCantrips > limits.cantrips){
+        localToast(`Cantrips limited to ${limits.cantrips}.`);
+        return false;
+      }
+      if (!isCantrip && nextSpells > limits.spells){
+        localToast(`Spells limited to ${limits.spells}.`);
+        return false;
+      }
+      selectedKnownSpellKeys.add(key);
+    } else {
+      selectedKnownSpellKeys.delete(key);
+    }
+    updateSpellSelectSummary();
+    return true;
+  };
   const renderSpellSelectTable = (presets) => {
     if (!spellSelectTableBody || !spellSelectSummary) return;
     const list = normalizeSpellPresets(presets).slice().sort((a, b) => {
       return normalizeTextValue(a.name).localeCompare(normalizeTextValue(b.name));
     });
+    spellPresetIndex = buildSpellPresetIndex(list);
     spellSelectTableBody.textContent = "";
     if (!list.length){
       const row = document.createElement("tr");
       const cell = document.createElement("td");
-      cell.colSpan = 6;
+      cell.colSpan = 7;
       cell.textContent = "No spell presets available.";
       row.appendChild(cell);
       spellSelectTableBody.appendChild(row);
-      spellSelectSummary.textContent = "0 spells available.";
+      spellSelectLastCount = 0;
+      updateSpellSelectSummary(0);
       return;
     }
-    spellSelectSummary.textContent = `${list.length} spell${list.length === 1 ? "" : "s"} available.`;
+    spellSelectLastCount = list.length;
+    updateSpellSelectSummary(list.length);
     const fragment = document.createDocumentFragment();
     list.forEach((preset) => {
       const name = normalizeTextValue(preset.name) || "Unnamed";
+      const spellKey = getSpellKey(name);
       const row = document.createElement("tr");
       row.className = "spell-select-row";
+      const checkCell = document.createElement("td");
+      checkCell.className = "spell-select-check-cell";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = selectedKnownSpellKeys.has(spellKey);
+      checkbox.disabled = !spellSelectMode || !claimedCid;
+      checkbox.addEventListener("change", () => {
+        const applied = toggleKnownSpellSelection(spellKey, checkbox.checked);
+        if (!applied){
+          checkbox.checked = false;
+        }
+      });
+      checkCell.appendChild(checkbox);
       const nameCell = document.createElement("td");
       const nameBtn = document.createElement("button");
       nameBtn.type = "button";
       nameBtn.className = "spell-select-name-btn";
       nameBtn.textContent = name;
       nameBtn.addEventListener("click", () => {
+        if (spellSelectMode){
+          const applied = toggleKnownSpellSelection(spellKey, !checkbox.checked);
+          if (applied){
+            checkbox.checked = !checkbox.checked;
+          }
+          return;
+        }
         const optionExists = castPresetInput
           ? Array.from(castPresetInput.options).some((option) => option.value === name)
           : false;
@@ -5162,6 +5380,7 @@ __DAMAGE_TYPE_OPTIONS__
       } else {
         linkCell.textContent = "—";
       }
+      row.appendChild(checkCell);
       row.appendChild(nameCell);
       row.appendChild(damageCell);
       row.appendChild(aoeCell);
@@ -5175,7 +5394,7 @@ __DAMAGE_TYPE_OPTIONS__
         const detailRow = document.createElement("tr");
         detailRow.className = "spell-select-details-row";
         const detailCell = document.createElement("td");
-        detailCell.colSpan = 6;
+        detailCell.colSpan = 7;
         const details = document.createElement("details");
         const summary = document.createElement("summary");
         summary.textContent = "More details";
@@ -5424,6 +5643,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     lastSpellPresetSignature = signature;
     cachedSpellPresets = list;
+    spellPresetIndex = buildSpellPresetIndex(list);
     updateSpellFilterOptions();
     refreshSpellPresetOptions();
     renderSpellSelectTable(cachedSpellPresets);
@@ -6278,6 +6498,26 @@ __DAMAGE_TYPE_OPTIONS__
       setSpellSelectOverlayOpen(false);
     });
   }
+  if (spellSelectModeBtn){
+    spellSelectModeBtn.addEventListener("click", () => {
+      setSpellSelectMode(!spellSelectMode);
+    });
+  }
+  if (spellSelectSaveBtn){
+    spellSelectSaveBtn.addEventListener("click", () => {
+      if (!claimedCid){
+        localToast("Claim a character first.");
+        return;
+      }
+      if (!spellSelectMode){
+        localToast("Enable selection mode to save known spells.");
+        return;
+      }
+      const names = getSelectedKnownSpellNames();
+      saveKnownSpells(claimedCid, names);
+      localToast("Known spells saved.");
+    });
+  }
   if (spellConfigOpenBtn){
     spellConfigOpenBtn.addEventListener("click", () => {
       setSpellConfigOpen(true);
@@ -6299,6 +6539,7 @@ __DAMAGE_TYPE_OPTIONS__
         spells: spellConfigSpellsInput?.value,
       });
       setSpellConfigOpen(false);
+      updateSpellSelectSummary();
       localToast("Known spells saved.");
     });
   }
