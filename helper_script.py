@@ -2766,7 +2766,7 @@ class InitiativeTracker(tk.Tk):
             except ValueError:
                 continue
             if cid in self.combatants:
-            self.combatants[cid].star_advantage = not self.combatants[cid].star_advantage
+                self.combatants[cid].star_advantage = not self.combatants[cid].star_advantage
         self._rebuild_table(scroll_to_current=True)
 
     # --------------------- Index cache helpers ---------------------
