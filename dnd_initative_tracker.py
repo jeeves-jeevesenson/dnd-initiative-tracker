@@ -648,9 +648,15 @@ HTML_INDEX = r"""<!doctype html>
       overflow:auto;
       max-height: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - var(--modalTopOffset) - var(--modalBottomOffset) - 24px);
     }
+    .config-card{overflow:hidden;}
     .card-scroll{
       max-height: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - var(--modalTopOffset) - var(--modalBottomOffset) - 24px);
       overflow:auto;
+    }
+    .modal-body{
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
     }
     .card h2{margin:0 0 8px 0; font-size:16px;}
     .list{max-height: 50vh; overflow:auto; border:1px solid rgba(255,255,255,0.10); border-radius:12px;}
@@ -984,80 +990,81 @@ HTML_INDEX = r"""<!doctype html>
       </div>
     </div>
     <div class="modal" id="configModal" aria-hidden="true">
-      <div class="card card-scroll">
+      <div class="card config-card">
         <h2>Config</h2>
-        <details class="config-section">
-          <summary>Top Bar</summary>
-          <div class="config-list">
-            <div class="config-item">
-              <div class="config-item-title">InitTracker LAN title</div>
-              <div class="config-controls">
-                <label class="config-toggle"><input type="checkbox" id="toggleTopbarTitle" />Show</label>
-                <input class="hotkey-input" id="hotkeyTopbarTitle" data-hotkey-action="toggleTopbarTitle" placeholder="Hotkey" readonly />
-              </div>
-              <div class="hotkey-conflict" id="hotkeyConflictTopbarTitle"></div>
-            </div>
-            <div class="config-item">
-              <div class="config-item-title">Connection indicator</div>
-              <div class="config-controls">
-                <label class="config-toggle"><input type="checkbox" id="toggleConnIndicator" />Show</label>
-                <div class="conn-style-toggle" role="group" aria-label="Connection indicator style">
-                  <button class="btn conn-style-btn" type="button" data-conn-style="full">Full</button>
-                  <button class="btn conn-style-btn" type="button" data-conn-style="compact">Compact</button>
+        <div class="modal-body">
+          <details class="config-section">
+            <summary>Top Bar</summary>
+            <div class="config-list">
+              <div class="config-item">
+                <div class="config-item-title">InitTracker LAN title</div>
+                <div class="config-controls">
+                  <label class="config-toggle"><input type="checkbox" id="toggleTopbarTitle" />Show</label>
+                  <input class="hotkey-input" id="hotkeyTopbarTitle" data-hotkey-action="toggleTopbarTitle" placeholder="Hotkey" readonly />
                 </div>
-                <input class="hotkey-input" id="hotkeyConnStyle" data-hotkey-action="toggleConnStyle" placeholder="Hotkey" readonly />
+                <div class="hotkey-conflict" id="hotkeyConflictTopbarTitle"></div>
               </div>
-              <div class="hotkey-conflict" id="hotkeyConflictConnStyle"></div>
-            </div>
-            <div class="config-item">
-              <div class="config-item-title">Lock Map</div>
-              <div class="config-controls">
-                <label class="config-toggle"><input type="checkbox" id="toggleLockMap" />Show</label>
-                <input class="hotkey-input" id="hotkeyLockMap" data-hotkey-action="lockMap" placeholder="Hotkey" readonly />
+              <div class="config-item">
+                <div class="config-item-title">Connection indicator</div>
+                <div class="config-controls">
+                  <label class="config-toggle"><input type="checkbox" id="toggleConnIndicator" />Show</label>
+                  <div class="conn-style-toggle" role="group" aria-label="Connection indicator style">
+                    <button class="btn conn-style-btn" type="button" data-conn-style="full">Full</button>
+                    <button class="btn conn-style-btn" type="button" data-conn-style="compact">Compact</button>
+                  </div>
+                  <input class="hotkey-input" id="hotkeyConnStyle" data-hotkey-action="toggleConnStyle" placeholder="Hotkey" readonly />
+                </div>
+                <div class="hotkey-conflict" id="hotkeyConflictConnStyle"></div>
               </div>
-              <div class="hotkey-conflict" id="hotkeyConflictLockMap"></div>
-            </div>
-            <div class="config-item">
-              <div class="config-item-title">Center on Me</div>
-              <div class="config-controls">
-                <label class="config-toggle"><input type="checkbox" id="toggleCenterMap" />Show</label>
-                <input class="hotkey-input" id="hotkeyCenterMap" data-hotkey-action="centerMap" placeholder="Hotkey" readonly />
+              <div class="config-item">
+                <div class="config-item-title">Lock Map</div>
+                <div class="config-controls">
+                  <label class="config-toggle"><input type="checkbox" id="toggleLockMap" />Show</label>
+                  <input class="hotkey-input" id="hotkeyLockMap" data-hotkey-action="lockMap" placeholder="Hotkey" readonly />
+                </div>
+                <div class="hotkey-conflict" id="hotkeyConflictLockMap"></div>
               </div>
-              <div class="hotkey-conflict" id="hotkeyConflictCenterMap"></div>
-            </div>
-            <div class="config-item">
-              <div class="config-item-title">Measure</div>
-              <div class="config-controls">
-                <label class="config-toggle"><input type="checkbox" id="toggleMeasure" />Show</label>
-                <input class="hotkey-input" id="hotkeyMeasure" data-hotkey-action="measure" placeholder="Hotkey" readonly />
+              <div class="config-item">
+                <div class="config-item-title">Center on Me</div>
+                <div class="config-controls">
+                  <label class="config-toggle"><input type="checkbox" id="toggleCenterMap" />Show</label>
+                  <input class="hotkey-input" id="hotkeyCenterMap" data-hotkey-action="centerMap" placeholder="Hotkey" readonly />
+                </div>
+                <div class="hotkey-conflict" id="hotkeyConflictCenterMap"></div>
               </div>
-              <div class="hotkey-conflict" id="hotkeyConflictMeasure"></div>
-            </div>
-            <div class="config-item">
-              <div class="config-item-title">Clear Measure</div>
-              <div class="config-controls">
-                <label class="config-toggle"><input type="checkbox" id="toggleMeasureClear" />Show</label>
-                <input class="hotkey-input" id="hotkeyMeasureClear" data-hotkey-action="measureClear" placeholder="Hotkey" readonly />
+              <div class="config-item">
+                <div class="config-item-title">Measure</div>
+                <div class="config-controls">
+                  <label class="config-toggle"><input type="checkbox" id="toggleMeasure" />Show</label>
+                  <input class="hotkey-input" id="hotkeyMeasure" data-hotkey-action="measure" placeholder="Hotkey" readonly />
+                </div>
+                <div class="hotkey-conflict" id="hotkeyConflictMeasure"></div>
               </div>
-              <div class="hotkey-conflict" id="hotkeyConflictMeasureClear"></div>
-            </div>
-            <div class="config-item">
-              <div class="config-item-title">Zoom +</div>
-              <div class="config-controls">
-                <label class="config-toggle"><input type="checkbox" id="toggleZoomIn" />Show</label>
-                <input class="hotkey-input" id="hotkeyZoomIn" data-hotkey-action="zoomIn" placeholder="Hotkey" readonly />
+              <div class="config-item">
+                <div class="config-item-title">Clear Measure</div>
+                <div class="config-controls">
+                  <label class="config-toggle"><input type="checkbox" id="toggleMeasureClear" />Show</label>
+                  <input class="hotkey-input" id="hotkeyMeasureClear" data-hotkey-action="measureClear" placeholder="Hotkey" readonly />
+                </div>
+                <div class="hotkey-conflict" id="hotkeyConflictMeasureClear"></div>
               </div>
-              <div class="hotkey-conflict" id="hotkeyConflictZoomIn"></div>
-            </div>
-            <div class="config-item">
-              <div class="config-item-title">Zoom -</div>
-              <div class="config-controls">
-                <label class="config-toggle"><input type="checkbox" id="toggleZoomOut" />Show</label>
-                <input class="hotkey-input" id="hotkeyZoomOut" data-hotkey-action="zoomOut" placeholder="Hotkey" readonly />
+              <div class="config-item">
+                <div class="config-item-title">Zoom +</div>
+                <div class="config-controls">
+                  <label class="config-toggle"><input type="checkbox" id="toggleZoomIn" />Show</label>
+                  <input class="hotkey-input" id="hotkeyZoomIn" data-hotkey-action="zoomIn" placeholder="Hotkey" readonly />
+                </div>
+                <div class="hotkey-conflict" id="hotkeyConflictZoomIn"></div>
               </div>
-              <div class="hotkey-conflict" id="hotkeyConflictZoomOut"></div>
-            </div>
-            <div class="config-item">
+              <div class="config-item">
+                <div class="config-item-title">Zoom -</div>
+                <div class="config-controls">
+                  <label class="config-toggle"><input type="checkbox" id="toggleZoomOut" />Show</label>
+                  <input class="hotkey-input" id="hotkeyZoomOut" data-hotkey-action="zoomOut" placeholder="Hotkey" readonly />
+                </div>
+                <div class="hotkey-conflict" id="hotkeyConflictZoomOut"></div>
+              </div>
+              <div class="config-item">
               <div class="config-item-title">Battle Log</div>
               <div class="config-controls">
                 <label class="config-toggle"><input type="checkbox" id="toggleBattleLog" />Show</label>
@@ -1163,6 +1170,7 @@ HTML_INDEX = r"""<!doctype html>
         <div class="hint hidden" id="iosInstallHint">
           Open Safari → Share → Add to Home Screen.
           <a href="https://support.apple.com/en-us/HT201366" target="_blank" rel="noopener">Learn more</a>
+        </div>
         </div>
         <div class="modal-actions">
           <button class="btn" id="configClose">Close</button>
