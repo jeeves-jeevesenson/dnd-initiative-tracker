@@ -1,0 +1,49 @@
+schema: dnd55.spell.v1
+id: tasha-s-hideous-laughter
+name: Tasha's Hideous Laughter
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: enchantment
+tags: []
+casting_time: Action
+range: 30 feet
+components: V, S, M (a tart and a feather)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: tasha-s-hideous-laughter
+  url: https://www.aidedd.org/spell/tasha-s-hideous-laughter
+  raw:
+    description: One creature of your choice that you can see within range makes a
+      Wisdom saving throw. On a failed save, it has the Prone and Incapacitated conditions
+      for the duration. During that time, it laughs uncontrollably if it's capable
+      of laughter, and it can't end the Prone condition on it self. At the end of
+      each of its turns and each time it takes damage, it makes another Wisdom saving
+      throw. The target has Advantage on the save if the save is triggered by damage.
+      On a successful save, the spell ends. Using a Higher-Level Spell Slot . You
+      can target one additional creature for each spell slot level about 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: swift-quiver
+name: Swift Quiver
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 5
+school: transmutation
+tags: []
+casting_time: Bonus Action
+range: Self
+components: V, S, M (a Quiver worth 1+ GP)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - ranger
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: swift-quiver
+  url: https://www.aidedd.org/spell/swift-quiver
+  raw:
+    description: When you cast the spell and as a Bonus Action until it ends, you
+      can make two attacks with a weapon that fires Arrows or Bolts, such as a Longbow
+      or a Light Crossbow. The spell magically creates the ammunition needed for each
+      attack. Each Arrow or Bolt created by the spell deals damage like a nonmagical
+      piece of ammunition of its kind and disintegrates immediately after it hits
+      or misses.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

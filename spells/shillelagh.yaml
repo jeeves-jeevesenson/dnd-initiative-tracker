@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: shillelagh
+name: Shillelagh
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: transmutation
+tags: []
+casting_time: Bonus Action
+range: Self
+components: V, S, M (mistletoe)
+duration: 1 minute
+ritual: false
+concentration: false
+lists:
+  classes:
+  - druid
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: shillelagh
+  url: https://www.aidedd.org/spell/shillelagh
+  raw:
+    description: A Club or Quarterstaff you are holding is imbued with nature's power.
+      For the duration, you can use your spellcasting ability instead of Strength
+      for the attack and damage rolls of melee attacks using that weapon, and the
+      weapon's damage die becomes a d8. If the attack deals damage, it can be Force
+      damage or the weapon's normal damage type (your choice). The spell ends early
+      if you cast it again or if you let go of the weapon. Cantrip Upgrade . The weapon's
+      damage die changes when you reach levels 5 (d10), 11 (d12), and 17 (2d6).
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

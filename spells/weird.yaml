@@ -1,0 +1,82 @@
+schema: dnd55.spell.v1
+id: weird
+name: Weird
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 9
+school: illusion
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 120 feet
+components: V, S
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: weird
+  url: https://www.aidedd.org/spell/weird
+  raw:
+    description: You try to create illusory terrors in others' minds. Each creature
+      of your choice in a 30-foot-radius Sphere centered on a point within range makes
+      a Wisdom saving throw. On a failed save, a target takes 10d10 Psychic damage
+      and has the Frightened condition for the duration. On a successful save, a target
+      takes half as much damage only. A Frightened target makes a Wisdom saving throw
+      at the end of each of its turns. On a failed save, it takes 5d10 Psychic damage.
+      On a successful save, the spell ends on that target.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: null
+    area:
+      shape: sphere
+      radius_ft: 30
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: wisdom
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: psychic
+        dice: 10d10
+      - effect: damage
+        damage_type: psychic
+        dice: 5d10
+      success:
+      - effect: damage
+        damage_type: psychic
+        dice: 10d10
+        multiplier: 0.5
+      - effect: damage
+        damage_type: psychic
+        dice: 5d10
+        multiplier: 0.5
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

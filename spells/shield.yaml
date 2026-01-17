@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: shield
+name: Shield
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: abjuration
+tags: []
+casting_time: Reaction, which you take when you are hit by an attack roll or targeted
+  by theMagic Missilespell
+range: Self
+components: V, S
+duration: 1 round
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: shield
+  url: https://www.aidedd.org/spell/shield
+  raw:
+    description: An imperceptible barrier of magical force protects you. Until the
+      start of your next turn, you have a +5 bonus to AC, including against the triggering
+      attack, and you take no damage from Magic Missile .
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,48 @@
+schema: dnd55.spell.v1
+id: speak-with-animals
+name: Speak with Animals
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: divination
+tags: []
+casting_time: Action or Ritual
+range: Self
+components: V, S
+duration: 10 minutes
+ritual: true
+concentration: false
+lists:
+  classes:
+  - bard
+  - druid
+  - ranger
+  - warlock
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: speak-with-animals
+  url: https://www.aidedd.org/spell/speak-with-animals
+  raw:
+    description: For the duration, you can comprehend and verbally communicate with
+      Beasts, and you can use any of the Influence action's skill options with them.
+      Most Beasts have little to say about topics that don't pertain to survival or
+      companionship, but at minimum, a Beast can give you information about nearby
+      locations and monsters, including whatever it has perceived within the past
+      day.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

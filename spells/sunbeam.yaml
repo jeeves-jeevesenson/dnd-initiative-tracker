@@ -1,0 +1,50 @@
+schema: dnd55.spell.v1
+id: sunbeam
+name: Sunbeam
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 6
+school: evocation
+tags: []
+casting_time: Action
+range: Self
+components: V, S, M (a magnifying glass)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  - druid
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: sunbeam
+  url: https://www.aidedd.org/spell/sunbeam
+  raw:
+    description: You launch a sunbeam in a 5-foot-wide, 60-foot-long Line. Each creature
+      in the Line makes a Constitution saving throw. On a failed save, a creature
+      takes 6d8 Radiant damage and has the Blinded condition until the start of your
+      next turn. On a successful save, it takes half as much damage only. Until the
+      spell ends, you can take a Magic action to create a new Line of radiance. For
+      the duration, a mote of brilliant radiance shines above you. It sheds Bright
+      Light in a 30-foot radius and Dim Light for an additional 30 feet. This light
+      is sunlight.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

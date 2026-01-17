@@ -1,0 +1,51 @@
+schema: dnd55.spell.v1
+id: sleep
+name: Sleep
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: enchantment
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 60 feet
+components: V, S, M (a pinch of sand or rose petals)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: sleep
+  url: https://www.aidedd.org/spell/sleep
+  raw:
+    description: Each creature of your choice in a 5-foot-radius Sphere centered on
+      a point within range must succeed on a Wisdom saving throw or have the Incapacitated
+      condition until the end of its next turn, at which point it must repeat the
+      save. If the target fails the second save, the target has the Unconscious condition
+      for the duration. The spell ends on a target if it takes damage or someone within
+      5 feet of it takes an action to shake it out of the spell's effect. Creatures
+      that don't sleep, such as elves, or that have Immunity to the Exhaustion condition
+      automatically succeed on saves against this spell.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

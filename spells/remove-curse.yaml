@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: remove-curse
+name: Remove Curse
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 3
+school: abjuration
+tags: []
+casting_time: Action
+range: Touch
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  - paladin
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: remove-curse
+  url: https://www.aidedd.org/spell/remove-curse
+  raw:
+    description: At your touch, all curses affecting one creature or object end. If
+      the object is a cursed magic item, its curse remains, but the spell breaks its
+      owner's Attunement to the object so it can be removed or discarded.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

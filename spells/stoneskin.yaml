@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: stoneskin
+name: Stoneskin
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: transmutation
+tags: []
+casting_time: Action
+range: Touch
+components: V, S, M (diamond dust worth 100+ GP, which the spell consumes)
+duration: Concentration, up to 1 hour
+ritual: false
+concentration: true
+lists:
+  classes:
+  - druid
+  - ranger
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: stoneskin
+  url: https://www.aidedd.org/spell/stoneskin
+  raw:
+    description: Until the spell ends, one willing creature you touch has Resistance
+      to Bludgeoning, Piercing, and Slashing damage.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

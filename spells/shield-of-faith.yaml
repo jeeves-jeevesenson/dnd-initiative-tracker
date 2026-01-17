@@ -1,0 +1,42 @@
+schema: dnd55.spell.v1
+id: shield-of-faith
+name: Shield of Faith
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: abjuration
+tags: []
+casting_time: Bonus Action
+range: 60 feet
+components: V, S, M (a prayer scroll)
+duration: Concentration, up to 10 minutes
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: shield-of-faith
+  url: https://www.aidedd.org/spell/shield-of-faith
+  raw:
+    description: A shimmering field surrounds a creature of your choice within range,
+      granting it a +2 bonus to AC for the duration.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

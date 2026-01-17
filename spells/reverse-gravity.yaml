@@ -1,0 +1,52 @@
+schema: dnd55.spell.v1
+id: reverse-gravity
+name: Reverse Gravity
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 7
+school: transmutation
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 100 feet
+components: V, S, M (a lodestone and iron filings)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - druid
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: reverse-gravity
+  url: https://www.aidedd.org/spell/reverse-gravity
+  raw:
+    description: This spell reverses gravity in a 50-foot-radius, 100-foot high Cylinder
+      centered on a point within range. All creatures and objects in that area that
+      aren't anchored to the ground fall upward and reach the top of the Cylinder.
+      A creature can make a Dexterity saving throw to grab a fixed object it can reach,
+      thus avoiding the fall upward. If a ceiling or an anchored object is encountered
+      in this upward fall, creatures and objects strike it just as they would during
+      a downward fall. If an affected creature or object reaches the Cylinder's top
+      without striking anything, it hovers there for the duration. When the spell
+      ends, affected objects and creatures fall downward.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

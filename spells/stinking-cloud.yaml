@@ -1,0 +1,50 @@
+schema: dnd55.spell.v1
+id: stinking-cloud
+name: Stinking Cloud
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 3
+school: conjuration
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 90 feet
+components: V, S, M (a rotten egg)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: stinking-cloud
+  url: https://www.aidedd.org/spell/stinking-cloud
+  raw:
+    description: You create a 20-foot-radius Sphere of yellow, nauseating gas centered
+      on a point within range. The cloud is Heavily Obscured. The cloud lingers in
+      the air for the duration or until a strong wind (such as the one created by
+      Gust of Wind ) disperses it. Each creature that starts its turn in the Sphere
+      must succeed on a Constitution saving throw or have the Poisoned condition until
+      the end of the current turn. While Poisoned in this way, the creature can't
+      take an action or a Bonus Action.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

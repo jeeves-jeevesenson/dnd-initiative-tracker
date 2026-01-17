@@ -1,0 +1,81 @@
+schema: dnd55.spell.v1
+id: shatter
+name: Shatter
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: evocation
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 60 feet
+components: V, S, M (a chip of mica)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: shatter
+  url: https://www.aidedd.org/spell/shatter
+  raw:
+    description: A loud noise erupts from a point of your choice within range. Each
+      creature in a 10-foot-radius Sphere centered there makes a Constitution saving
+      throw, taking 3d8 Thunder damage on a failed save or half as much damage on
+      a successful one. A Construct has Disadvantage on the save. A nonmagical object
+      that isn't being worn or carried also takes the damage if it's in the spell's
+      area. Using a Higher-Level Spell Slot . The damage increases by 1d8 for each
+      spell slot level above 2.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: null
+    area:
+      shape: sphere
+      radius_ft: 10
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: constitution
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: thunder
+        dice: 3d8
+        scaling: &id001
+          kind: slot_level
+          base_slot: 2
+          add_per_slot_above: 1d8
+      success:
+      - effect: damage
+        damage_type: thunder
+        dice: 3d8
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
+  ui:
+    template_preview: true
+  notes: []

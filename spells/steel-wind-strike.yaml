@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: steel-wind-strike
+name: Steel Wind Strike
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 5
+school: conjuration
+tags: []
+casting_time: Action
+range: 30 feet
+components: S, M (a Melee weapon worth 1+ SP)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - ranger
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: steel-wind-strike
+  url: https://www.aidedd.org/spell/steel-wind-strike
+  raw:
+    description: You flourish the weapon used in the casting and then vanish to strike
+      like the wind. Choose up to five creatures you can see within range. Make a
+      melee spell attack against each target. On a hit, a target takes 6d10 Force
+      damage. You then teleport to an unoccupied space you can see within 5 feet of
+      one of the targets.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

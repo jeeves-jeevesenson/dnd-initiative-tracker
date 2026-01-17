@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: starry-wisp
+name: Starry Wisp
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: evocation
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - druid
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: starry-wisp
+  url: https://www.aidedd.org/spell/starry-wisp
+  raw:
+    description: You launch a mote of light at one creature or object within range.
+      Make a ranged spell attack against the target. On a hit, the target takes 1d8
+      Radiant damage, and until the end of your next turn, it emits Dim Light in a
+      10-foot radius and can't benefit from the Invisible condition. Cantrip Upgrade
+      . The damage increases by 1d8 when you reach levels 5 (2d8), 11 (3d8), and 17
+      (4d8).
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

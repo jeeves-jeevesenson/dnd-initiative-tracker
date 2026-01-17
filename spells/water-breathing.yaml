@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: water-breathing
+name: Water Breathing
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 3
+school: transmutation
+tags: []
+casting_time: Action or Ritual
+range: 30 feet
+components: V, S, M (a short reed)
+duration: 24 hours
+ritual: true
+concentration: false
+lists:
+  classes:
+  - druid
+  - ranger
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: water-breathing
+  url: https://www.aidedd.org/spell/water-breathing
+  raw:
+    description: This spell grants up to ten willing creatures of your choice within
+      range the ability to breathe underwater until the spell ends. Affected creatures
+      also retain their normal mode of respiration.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

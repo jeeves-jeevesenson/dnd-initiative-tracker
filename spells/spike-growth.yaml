@@ -1,0 +1,50 @@
+schema: dnd55.spell.v1
+id: spike-growth
+name: Spike Growth
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: transmutation
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 150 feet
+components: V, S, M (seven thorns)
+duration: Concentration, up to 10 minutes
+ritual: false
+concentration: true
+lists:
+  classes:
+  - druid
+  - ranger
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: spike-growth
+  url: https://www.aidedd.org/spell/spike-growth
+  raw:
+    description: The ground in a 20-foot-radius Sphere centered on a point within
+      range sprouts hard spikes and thorns. The area becomes Difficult Terrain for
+      the duration. When a creature moves into or within the area, it takes 2d4 Piercing
+      damage for every 5 feet it travels. The transformation of the ground is camouflaged
+      to look natural. Any creature that can't see the area when the spell is cast
+      must take a Search action and succeed on a Wisdom (Perception or Survival) check
+      against your spell save DC to recognize the terrain as hazardous before entering
+      it.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

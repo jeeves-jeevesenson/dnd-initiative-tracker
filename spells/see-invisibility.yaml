@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: see-invisibility
+name: See Invisibility
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: divination
+tags: []
+casting_time: Action
+range: Self
+components: V, S, M (a pinch of talc)
+duration: 1 hour
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: see-invisibility
+  url: https://www.aidedd.org/spell/see-invisibility
+  raw:
+    description: For the duration, you see creatures and objects that have the Invisible
+      condition as if they were visible, and you can see into the Ethereal Plane.
+      Creatures and objects there appear ghostly.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,50 @@
+schema: dnd55.spell.v1
+id: water-walk
+name: Water Walk
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 3
+school: transmutation
+tags: []
+casting_time: Action or Ritual
+range: 30 feet
+components: V, S, M (a piece of cork)
+duration: 1 hour
+ritual: true
+concentration: false
+lists:
+  classes:
+  - cleric
+  - druid
+  - ranger
+  - sorcerer
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: water-walk
+  url: https://www.aidedd.org/spell/water-walk
+  raw:
+    description: "This spell grants the ability to move across any liquid surface\u2014\
+      such as water, acid, mud, snow, quicksand, or lava\u2014as if it were harmless\
+      \ solid ground (creatures crossing molten lava can still take damage from the\
+      \ heat). Up to ten willing creatures of your choice within range gain this ability\
+      \ for the duration. An affected target must take a Bonus Action to pass from\
+      \ the liquid's surface into the liquid itself and vice versa, but if the target\
+      \ falls into the liquid, the target passes through the surface into the liquid\
+      \ below."
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,40 @@
+schema: dnd55.spell.v1
+id: telepathy
+name: Telepathy
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 8
+school: divination
+tags: []
+casting_time: Action
+range: Unlimited
+components: V, S, M (a pair of linked silver rings)
+duration: 24 hours
+ritual: false
+concentration: false
+lists:
+  classes:
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: telepathy
+  url: https://www.aidedd.org/spell/telepathy
+  raw:
+    description: ''
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

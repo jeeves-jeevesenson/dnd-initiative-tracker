@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: tongues
+name: Tongues
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 3
+school: divination
+tags: []
+casting_time: Action
+range: Touch
+components: V, M (a miniature ziggurat)
+duration: 1 hour
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: tongues
+  url: https://www.aidedd.org/spell/tongues
+  raw:
+    description: This spell grants the creature you touch the ability to understand
+      any spoken or signed language that it hears or sees. Moreover, when the target
+      communicates by speaking or signing, any creature that knows at least one language
+      can understand it if that creature can hear the speech or see the signing.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

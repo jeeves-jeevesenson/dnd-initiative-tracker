@@ -1,0 +1,49 @@
+schema: dnd55.spell.v1
+id: true-strike
+name: True Strike
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: divination
+tags: []
+casting_time: Action
+range: Self
+components: S, M (a weapon with which you have proficiency and that is worth 1+ CP)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: true-strike
+  url: https://www.aidedd.org/spell/true-strike
+  raw:
+    description: Guided by a flash of magical insight, you make one attack with the
+      weapon used in the spell's casting. The attack uses your spellcasting ability
+      for the attack and damage rolls instead of using Strength or Dexterity. If the
+      attack deals damage, it can be Radiant damage or the weapon's normal damage
+      type (your choice). Cantrip Upgrade . Whether you deal Radiant damage or the
+      weapon's normal damage type, the attack deals extra Radiant damage when you
+      reach levels 5 (1d6), 11 (2d6), and 17 (3d6).
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

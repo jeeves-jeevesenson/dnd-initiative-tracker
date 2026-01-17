@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: true-seeing
+name: True Seeing
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 6
+school: divination
+tags: []
+casting_time: Action
+range: Touch
+components: V, S, M (mushroom powder worth 25+ GP, which the spell consumes)
+duration: 1 hour
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: true-seeing
+  url: https://www.aidedd.org/spell/true-seeing
+  raw:
+    description: For the duration, the willing creature you touch has Truesight with
+      a range of 120 feet.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

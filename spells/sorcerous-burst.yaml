@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: sorcerous-burst
+name: Sorcerous Burst
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: evocation
+tags: []
+casting_time: Action
+range: 120 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: sorcerous-burst
+  url: https://www.aidedd.org/spell/sorcerous-burst
+  raw:
+    description: 'You cast sorcerous energy at one creature or object within range.
+      Make a ranged attack roll against the target. On a hit, the target takes 1d8
+      damage of a type you choose: Acid, Cold, Fire, Lightning, Poison, Psychic, or
+      Thunder. If you roll an 8 on a d8 for this spell, you can roll another d8, and
+      add it to the damage. When you cast this spell, the maximum number of these
+      d8s you can add to the spell''s damage equals your spellcasting ability modifier.
+      Cantrip Upgrade . This damage increases by 1d8 when you reach level 5 (2d8),
+      11 (3d8), and 17 (4d8).'
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: searing-smite
+name: Searing Smite
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: evocation
+tags: []
+casting_time: Bonus Action, which you take immediately after hitting a target with
+  a Melee weapon or an Unarmed Strike
+range: Self
+components: V
+duration: 1 minute
+ritual: false
+concentration: false
+lists:
+  classes:
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: searing-smite
+  url: https://www.aidedd.org/spell/searing-smite
+  raw:
+    description: As you hit the target, it takes an extra 1d6 Fire damage from the
+      attack. At the start of each of its turns until the spell ends, the target takes
+      1d6 Fire damage and then makes a Constitution saving throw. On a failed save,
+      the spell continues. On a successful save, the spell ends. Using a Higher-Level
+      Spell Slot . All the damage increases by 1d6 for each spell slot level above
+      1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

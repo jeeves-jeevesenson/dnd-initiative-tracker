@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: staggering-smite
+name: Staggering Smite
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 4
+school: enchantment
+tags: []
+casting_time: Bonus Action, which you take immediately after hitting a creature with
+  a Melee weapon or an Unarmed Strike
+range: Self
+components: V
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: staggering-smite
+  url: https://www.aidedd.org/spell/staggering-smite
+  raw:
+    description: The target takes an extra 4d6 Psychic damage from the attack, and
+      the target must succeed on a Wisdom saving throw or have the Stunned condition
+      until the end of your next turn. Using a Higher-Level Spell Slot . The extra
+      damage increases by 1d6 for each spell slot level above 4.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

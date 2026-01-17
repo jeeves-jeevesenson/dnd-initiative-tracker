@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: sacred-flame
+name: Sacred Flame
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: evocation
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: sacred-flame
+  url: https://www.aidedd.org/spell/sacred-flame
+  raw:
+    description: Flame-like radiance descends on a creature that you can see within
+      range. The target must succeed on a Dexterity saving throw or take 1d8 Radiant
+      damage. The target gains no benefit from Half Cover or Three-Quarters Cover
+      for this save. Cantrip Upgrade . The damage increases by 1d8 when you reach
+      levels 5 (2d8), 11 (3d8), and 17 (4d8).
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []
