@@ -381,9 +381,6 @@ HTML_INDEX = r"""<!doctype html>
       min-height: 180px;
       max-height: 75vh;
     }
-    .sheet-wrap.is-hidden{
-      display:none;
-    }
     .sheet-handle{
       height: 18px;
       display:flex;
@@ -466,14 +463,14 @@ HTML_INDEX = r"""<!doctype html>
       flex:1;
     }
     .cast-overlay{
-      position:fixed;
-      inset: auto 0 0 0;
-      top: var(--modalTopOffset);
       background: var(--bg);
       display:none;
       flex-direction:column;
       padding: 10px 12px calc(12px + var(--safeInsetBottom)) 12px;
       z-index:40;
+      height:100%;
+      overflow:auto;
+      flex:1 1 auto;
       min-height: 0;
     }
     .cast-overlay.show{
@@ -1450,36 +1447,35 @@ HTML_INDEX = r"""<!doctype html>
       </div>
       </div>
     </div>
-  </div>
-  <div class="cast-overlay" id="castOverlay" aria-hidden="true">
-    <div class="cast-overlay-header">
-      <button class="btn" id="castOverlayBack" type="button">Back</button>
-      <div class="cast-overlay-title" id="castOverlayTitle">Cast Spell</div>
-      <div class="cast-overlay-spacer"></div>
-      <button class="btn" id="spellConfigOpen" type="button">Set Known Spells</button>
-    </div>
-    <div class="cast-overlay-body" role="dialog" aria-modal="true" aria-labelledby="castOverlayTitle">
-      <div class="cast-panel" id="castPanel">
-        <form id="castForm">
-          <fieldset class="spell-filter-panel" id="spellFilterPanel">
-            <legend>Spell Filters</legend>
-            <div class="form-grid">
-              <div class="form-field">
-                <label for="castFilterLevel">Level</label>
-                <select id="castFilterLevel">
-                  <option value="" selected>Any</option>
-                  <option value="0">Cantrip</option>
-                  <option value="1">1st</option>
-                  <option value="2">2nd</option>
-                  <option value="3">3rd</option>
-                  <option value="4">4th</option>
-                  <option value="5">5th</option>
-                  <option value="6">6th</option>
-                  <option value="7">7th</option>
-                  <option value="8">8th</option>
-                  <option value="9">9th</option>
-                </select>
-              </div>
+    <div class="cast-overlay hidden" id="sheetCastView" aria-hidden="true">
+      <div class="cast-overlay-header">
+        <button class="btn" id="castOverlayBack" type="button">Back</button>
+        <div class="cast-overlay-title" id="castOverlayTitle">Cast Spell</div>
+        <div class="cast-overlay-spacer"></div>
+        <button class="btn" id="spellConfigOpen" type="button">Set Known Spells</button>
+      </div>
+      <div class="cast-overlay-body" role="dialog" aria-modal="true" aria-labelledby="castOverlayTitle">
+        <div class="cast-panel" id="castPanel">
+          <form id="castForm">
+            <fieldset class="spell-filter-panel" id="spellFilterPanel">
+              <legend>Spell Filters</legend>
+              <div class="form-grid">
+                <div class="form-field">
+                  <label for="castFilterLevel">Level</label>
+                  <select id="castFilterLevel">
+                    <option value="" selected>Any</option>
+                    <option value="0">Cantrip</option>
+                    <option value="1">1st</option>
+                    <option value="2">2nd</option>
+                    <option value="3">3rd</option>
+                    <option value="4">4th</option>
+                    <option value="5">5th</option>
+                    <option value="6">6th</option>
+                    <option value="7">7th</option>
+                    <option value="8">8th</option>
+                    <option value="9">9th</option>
+                  </select>
+                </div>
               <div class="form-field">
                 <label for="castFilterSchool">School</label>
                 <select id="castFilterSchool">
@@ -1642,6 +1638,7 @@ __DAMAGE_TYPE_OPTIONS__
         </form>
       </div>
     </div>
+  </div>
   </div>
   <div class="spell-select-overlay" id="spellSelectOverlay" aria-hidden="true">
     <div class="spell-select-header">
@@ -2032,7 +2029,7 @@ __DAMAGE_TYPE_OPTIONS__
   const resetTurnBtn = document.getElementById("resetTurn");
   const standUpBtn = document.getElementById("standUp");
   const showAllNamesEl = document.getElementById("showAllNames");
-  const castOverlay = document.getElementById("castOverlay");
+  const castOverlay = document.getElementById("sheetCastView");
   const castOverlayOpenBtn = document.getElementById("castOverlayOpen");
   const castOverlayBackBtn = document.getElementById("castOverlayBack");
   const castMenuTrigger = document.getElementById("castMenuTrigger");
@@ -2090,6 +2087,7 @@ __DAMAGE_TYPE_OPTIONS__
   const spellConfigCancelBtn = document.getElementById("spellConfigCancel");
   const spellConfigSaveBtn = document.getElementById("spellConfigSave");
   const sheetWrap = document.getElementById("sheetWrap");
+  const sheet = document.getElementById("sheet");
   const sheetHandle = document.getElementById("sheetHandle");
   const tokenTooltip = document.getElementById("tokenTooltip");
   const turnAlertAudio = new Audio("/assets/alert.wav");
@@ -2321,9 +2319,10 @@ __DAMAGE_TYPE_OPTIONS__
   function setCastOverlayOpen(open){
     if (!castOverlay) return;
     castOverlay.classList.toggle("show", open);
+    castOverlay.classList.toggle("hidden", !open);
     castOverlay.setAttribute("aria-hidden", open ? "false" : "true");
-    if (sheetWrap){
-      sheetWrap.classList.toggle("is-hidden", open);
+    if (sheet){
+      sheet.classList.toggle("hidden", open);
     }
     if (!open){
       setSpellSelectOverlayOpen(false);
