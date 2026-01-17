@@ -1659,6 +1659,7 @@ __DAMAGE_TYPE_OPTIONS__
   let lastActiveCid = null;
   let lastTurnRound = null;
   let selectedTurnCid = null;
+  let hoveredTurnCid = null;
   let adminSessions = [];
   let adminPcs = [];
   const adminTokenKey = "inittracker_admin_auth";
@@ -3460,6 +3461,14 @@ __DAMAGE_TYPE_OPTIONS__
     if (!turnOrderEl){
       return;
     }
+    const TURN_CHIP_NAME_MAX = 20;
+    const formatTurnChipName = (name) => {
+      const fullName = String(name ?? "");
+      if (fullName.length <= TURN_CHIP_NAME_MAX){
+        return fullName;
+      }
+      return `${fullName.slice(0, TURN_CHIP_NAME_MAX - 1).trimEnd()}…`;
+    };
     const order = Array.isArray(state?.turn_order) ? state.turn_order : [];
     turnOrderEl.innerHTML = "";
     if (!order.length){
@@ -3500,7 +3509,10 @@ __DAMAGE_TYPE_OPTIONS__
       chip.setAttribute("role", "button");
       chip.setAttribute("tabindex", "0");
       const unitName = unit?.name ? String(unit.name) : `#${cid}`;
+      const truncatedUnitName = formatTurnChipName(unitName);
       chip.setAttribute("aria-label", `Turn ${idx + 1}: ${unitName}`);
+      chip.setAttribute("data-full-name", unitName);
+      chip.setAttribute("title", unitName);
       if (idx === claimedIndex){
         const claimedMarker = document.createElement("span");
         claimedMarker.className = "turn-chip-marker claimed-marker";
@@ -3519,7 +3531,9 @@ __DAMAGE_TYPE_OPTIONS__
       chip.appendChild(indexEl);
       const nameEl = document.createElement("span");
       nameEl.className = "turn-chip-name";
-      nameEl.textContent = unitName;
+      nameEl.textContent = truncatedUnitName;
+      nameEl.setAttribute("data-full-name", unitName);
+      nameEl.setAttribute("title", unitName);
       chip.appendChild(nameEl);
       chip.addEventListener("click", () => {
         setSelectedTurnCid(Number(cid));
@@ -3530,6 +3544,22 @@ __DAMAGE_TYPE_OPTIONS__
           setSelectedTurnCid(Number(cid));
         }
       });
+      chip.addEventListener("mouseenter", () => {
+        hoveredTurnCid = Number(cid);
+        showTurnOrderBubble(chip, unit);
+      });
+      chip.addEventListener("mouseleave", () => {
+        if (hoveredTurnCid === Number(cid)){
+          hoveredTurnCid = null;
+        }
+        if (selectedTurnCid !== null && chipByCid.has(Number(selectedTurnCid))){
+          const selectedChip = chipByCid.get(Number(selectedTurnCid));
+          const selectedUnit = unitsByCid.get(Number(selectedTurnCid));
+          showTurnOrderBubble(selectedChip, selectedUnit);
+        } else {
+          showTurnOrderBubble(null, null);
+        }
+      });
       turnOrderEl.appendChild(chip);
       chipByCid.set(Number(cid), chip);
     });
@@ -3538,7 +3568,9 @@ __DAMAGE_TYPE_OPTIONS__
       chipByCid.forEach((chip, key) => {
         chip.classList.toggle("selected", Number(key) === Number(cid));
       });
-      showTurnOrderBubble(chipByCid.get(Number(cid)), unitsByCid.get(Number(cid)));
+      if (hoveredTurnCid === null){
+        showTurnOrderBubble(chipByCid.get(Number(cid)), unitsByCid.get(Number(cid)));
+      }
     };
     const claimedUnit = claimedIndex >= 0 ? unitsByCid.get(Number(claimedCid)) : null;
     if (turnOrderStatusEl){
