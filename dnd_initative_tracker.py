@@ -484,6 +484,9 @@ HTML_INDEX = r"""<!doctype html>
       padding-bottom: 8px;
       border-bottom: 1px solid rgba(255,255,255,0.08);
     }
+    .cast-overlay-header .btn{
+      white-space: nowrap;
+    }
     .cast-overlay-title{
       font-size: 14px;
       font-weight: 700;
@@ -1324,6 +1327,7 @@ HTML_INDEX = r"""<!doctype html>
       <button class="btn" id="castOverlayBack" type="button">Back</button>
       <div class="cast-overlay-title" id="castOverlayTitle">Cast Spell</div>
       <div class="cast-overlay-spacer"></div>
+      <button class="btn" id="spellConfigOpen" type="button">Set Known Spells</button>
     </div>
     <div class="cast-overlay-body" role="dialog" aria-modal="true" aria-labelledby="castOverlayTitle">
       <div class="cast-panel" id="castPanel">
@@ -1514,6 +1518,28 @@ __DAMAGE_TYPE_OPTIONS__
     <button class="btn accent" id="turnModalOk">OK</button>
   </div>
 </div>
+<div class="modal" id="spellConfigModal" aria-hidden="true">
+  <div class="card">
+    <h2>Set Known Spells</h2>
+    <div class="hint">Track known spells for your claimed character.</div>
+    <form id="spellConfigForm">
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="spellConfigCantrips">Cantrips</label>
+          <input id="spellConfigCantrips" type="number" min="0" step="1" placeholder="0" />
+        </div>
+        <div class="form-field">
+          <label for="spellConfigSpells">Spells</label>
+          <input id="spellConfigSpells" type="number" min="0" step="1" value="15" />
+        </div>
+      </div>
+    </form>
+    <div class="modal-actions">
+      <button class="btn" id="spellConfigCancel" type="button">Cancel</button>
+      <button class="btn accent" id="spellConfigSave" type="button">Continue</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (() => {
@@ -1530,6 +1556,7 @@ __DAMAGE_TYPE_OPTIONS__
   const pushPublicKey = (window.PUSH_PUBLIC_KEY || "").trim();
   const turnAlertStorageKey = "inittracker_turnAlertSubscription";
   const turnAlertHideKey = "inittracker_hideTurnAlerts";
+  const spellConfigStoragePrefix = "inittracker_spellConfig_";
   let swRegistration = null;
 
   function setNotificationStatus(message){
@@ -1891,6 +1918,13 @@ __DAMAGE_TYPE_OPTIONS__
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
   const spellPresetDetails = document.getElementById("spellPresetDetails");
+  const spellConfigOpenBtn = document.getElementById("spellConfigOpen");
+  const spellConfigModal = document.getElementById("spellConfigModal");
+  const spellConfigForm = document.getElementById("spellConfigForm");
+  const spellConfigCantripsInput = document.getElementById("spellConfigCantrips");
+  const spellConfigSpellsInput = document.getElementById("spellConfigSpells");
+  const spellConfigCancelBtn = document.getElementById("spellConfigCancel");
+  const spellConfigSaveBtn = document.getElementById("spellConfigSave");
   const sheetWrap = document.getElementById("sheetWrap");
   const sheetHandle = document.getElementById("sheetHandle");
   const tokenTooltip = document.getElementById("tokenTooltip");
@@ -1904,6 +1938,8 @@ __DAMAGE_TYPE_OPTIONS__
   let lastVibrateSupported = canVibrate;
   let userHasInteracted = navigator.userActivation?.hasBeenActive ?? false;
   let castOverlayPreviousFocus = null;
+  let spellConfigPreviousFocus = null;
+  const spellConfigDefaults = {cantrips: 0, spells: 15};
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -2135,6 +2171,80 @@ __DAMAGE_TYPE_OPTIONS__
     }
     updateModalOffsets();
     resize();
+  }
+
+  function getSpellConfigKey(cid){
+    if (!cid) return null;
+    return `${spellConfigStoragePrefix}${cid}`;
+  }
+
+  function normalizeSpellConfigValue(value, fallback){
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(0, Math.floor(parsed));
+  }
+
+  function loadSpellConfig(cid){
+    const defaults = {...spellConfigDefaults};
+    const key = getSpellConfigKey(cid);
+    if (!key) return defaults;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return defaults;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return defaults;
+      return {
+        cantrips: normalizeSpellConfigValue(parsed.cantrips, defaults.cantrips),
+        spells: normalizeSpellConfigValue(parsed.spells, defaults.spells),
+      };
+    } catch (err){
+      console.warn("Unable to load spell config.", err);
+      return defaults;
+    }
+  }
+
+  function saveSpellConfig(cid, config){
+    const key = getSpellConfigKey(cid);
+    if (!key) return;
+    const payload = {
+      cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
+      spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
+    };
+    try {
+      localStorage.setItem(key, JSON.stringify(payload));
+    } catch (err){
+      console.warn("Unable to persist spell config.", err);
+    }
+  }
+
+  function setSpellConfigOpen(open){
+    if (!spellConfigModal) return;
+    if (open){
+      if (!claimedCid){
+        localToast("Claim a character first.");
+        return;
+      }
+      spellConfigPreviousFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      const config = loadSpellConfig(claimedCid);
+      if (spellConfigCantripsInput){
+        spellConfigCantripsInput.value = String(config.cantrips);
+      }
+      if (spellConfigSpellsInput){
+        spellConfigSpellsInput.value = String(config.spells);
+      }
+    }
+    spellConfigModal.classList.toggle("show", open);
+    spellConfigModal.setAttribute("aria-hidden", open ? "false" : "true");
+    if (open){
+      requestAnimationFrame(() => {
+        spellConfigCantripsInput?.focus();
+      });
+    } else if (spellConfigPreviousFocus){
+      spellConfigPreviousFocus.focus();
+      spellConfigPreviousFocus = null;
+    }
   }
 
   function persistSheetHeight(){
@@ -5815,6 +5925,36 @@ __DAMAGE_TYPE_OPTIONS__
       setCastOverlayOpen(false);
     });
   }
+  if (spellConfigOpenBtn){
+    spellConfigOpenBtn.addEventListener("click", () => {
+      setSpellConfigOpen(true);
+    });
+  }
+  if (spellConfigCancelBtn){
+    spellConfigCancelBtn.addEventListener("click", () => {
+      setSpellConfigOpen(false);
+    });
+  }
+  if (spellConfigSaveBtn){
+    spellConfigSaveBtn.addEventListener("click", () => {
+      if (!claimedCid){
+        localToast("Claim a character first.");
+        return;
+      }
+      saveSpellConfig(claimedCid, {
+        cantrips: spellConfigCantripsInput?.value,
+        spells: spellConfigSpellsInput?.value,
+      });
+      setSpellConfigOpen(false);
+      localToast("Known spells saved.");
+    });
+  }
+  if (spellConfigForm){
+    spellConfigForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      spellConfigSaveBtn?.click();
+    });
+  }
   if (connEl && connPopoverEl){
     connEl.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -5839,6 +5979,10 @@ __DAMAGE_TYPE_OPTIONS__
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape"){
+      if (spellConfigModal?.classList.contains("show")){
+        setSpellConfigOpen(false);
+        return;
+      }
       if (castOverlay?.classList.contains("show")){
         setCastOverlayOpen(false);
         return;
