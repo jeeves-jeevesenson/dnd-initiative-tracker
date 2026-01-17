@@ -8091,6 +8091,7 @@ class InitiativeTracker(base.InitiativeTracker):
             automation_raw = str(mechanics.get("automation") or "").strip().lower()
             automation = automation_raw if automation_raw in ("full", "partial", "manual") else "manual"
             errors: List[str] = []
+            warnings: List[str] = []
             if not schema:
                 errors.append("missing schema")
             if not spell_id:
@@ -8119,6 +8120,7 @@ class InitiativeTracker(base.InitiativeTracker):
             }
 
             targeting = mechanics.get("targeting") if isinstance(mechanics.get("targeting"), dict) else {}
+            range_data = targeting.get("range") if isinstance(targeting.get("range"), dict) else {}
             area = targeting.get("area") if isinstance(targeting.get("area"), dict) else {}
             shape_raw = str(area.get("shape") or "").strip().lower()
             shape_map = {
@@ -8126,6 +8128,16 @@ class InitiativeTracker(base.InitiativeTracker):
                 "square": "cube",
             }
             shape = shape_map.get(shape_raw, shape_raw)
+            missing_required_fields = False
+            if automation in ("full", "partial"):
+                if str(range_data.get("kind") or "").strip().lower() == "distance":
+                    distance_ft = parse_number(range_data.get("distance_ft"))
+                    if distance_ft is None:
+                        warnings.append("missing targeting.range.distance_ft")
+                        missing_required_fields = True
+                if shape and shape not in ("sphere", "cube", "cone", "cylinder", "wall", "line"):
+                    warnings.append(f"unsupported area shape '{shape_raw or shape}'")
+                    missing_required_fields = True
             if shape in ("sphere", "cube", "cone", "cylinder", "wall", "line"):
                 preset["shape"] = shape
                 missing_dimensions: List[str] = []
@@ -8197,6 +8209,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 if missing_dimensions:
                     preset["incomplete"] = True
                     preset["incomplete_fields"] = missing_dimensions
+                    if automation in ("full", "partial"):
+                        warnings.append("missing area dimensions: " + ", ".join(missing_dimensions))
+                        missing_required_fields = True
 
             damage_types: List[str] = []
             dice: Optional[str] = None
@@ -8297,9 +8312,13 @@ class InitiativeTracker(base.InitiativeTracker):
                     automation = "partial"
             if not mechanics:
                 automation = "manual"
+            if missing_required_fields and automation == "full":
+                automation = "partial"
             if errors and automation == "full":
                 automation = "partial"
             preset["automation"] = automation
+            if warnings:
+                ops.warning("Spell YAML %s has automation warnings: %s", fp.name, ", ".join(warnings))
 
             presets.append(preset)
 
