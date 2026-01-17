@@ -856,6 +856,7 @@ HTML_INDEX = r"""<!doctype html>
     <div class="topbar-controls">
       <button class="btn" id="lockMap">Lock Map</button>
       <button class="btn" id="centerMap">Center on Me</button>
+      <button class="btn" id="tokenColorModeBtn">Token Color</button>
       <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
       <button class="btn" id="measureClear">Clear Measure</button>
       <button class="btn accent" id="zoomIn">Zoom +</button>
@@ -1506,6 +1507,7 @@ __DAMAGE_TYPE_OPTIONS__
   const tokenColorSwatch = document.getElementById("tokenColorSwatch");
   const tokenColorConfirm = document.getElementById("tokenColorConfirm");
   const tokenColorCancel = document.getElementById("tokenColorCancel");
+  const tokenColorModeBtn = document.getElementById("tokenColorModeBtn");
   const dashModal = document.getElementById("dashModal");
   const dashActionBtn = document.getElementById("dashAction");
   const dashBonusActionBtn = document.getElementById("dashBonusAction");
@@ -2653,8 +2655,13 @@ __DAMAGE_TYPE_OPTIONS__
 
   function openColorModal(unit){
     if (!colorModal || !tokenColorInput) return;
-    pendingClaim = unit || null;
-    let preferred = normalizeHexColor(unit?.token_color)
+    const targetUnit = unit || getClaimedUnit();
+    if (!targetUnit){
+      localToast("Claim a character first, matey.");
+      return;
+    }
+    pendingClaim = targetUnit;
+    let preferred = normalizeHexColor(targetUnit?.token_color)
       || normalizeHexColor(localStorage.getItem("inittracker_tokenColor"))
       || "#6aa9ff";
     if (isForbiddenColor(preferred)){
@@ -2671,6 +2678,10 @@ __DAMAGE_TYPE_OPTIONS__
     colorModal.classList.remove("show");
     colorModal.setAttribute("aria-hidden", "true");
     pendingClaim = null;
+  }
+
+  function openClaimedColorModal(){
+    openColorModal(getClaimedUnit());
   }
 
   function validateTokenColor(raw){
@@ -3995,6 +4006,12 @@ __DAMAGE_TYPE_OPTIONS__
       clearMeasurement();
     });
   }
+  if (tokenColorModeBtn){
+    tokenColorModeBtn.addEventListener("click", () => {
+      if (enforceLoginGate()) return;
+      openClaimedColorModal();
+    });
+  }
 
   if (tokenColorInput){
     tokenColorInput.addEventListener("input", (ev) => {
@@ -4003,10 +4020,13 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (tokenColorConfirm){
     tokenColorConfirm.addEventListener("click", () => {
-      if (!pendingClaim){
+      const claimedUnit = getClaimedUnit();
+      if (!claimedUnit){
+        localToast("Claim a character first, matey.");
         closeColorModal();
         return;
       }
+      pendingClaim = claimedUnit;
       const color = validateTokenColor(tokenColorInput ? tokenColorInput.value : "");
       if (!color) return;
       localStorage.setItem("inittracker_tokenColor", color);
