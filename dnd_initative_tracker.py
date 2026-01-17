@@ -3817,8 +3817,11 @@ __DAMAGE_TYPE_OPTIONS__
       } else if (msg.type === "preset_error"){
         setPresetStatus(msg.error || "Preset error.", 2500);
       } else if (msg.type === "state"){
-        state = msg.state;
-        updateSpellPresetOptions(state?.spell_presets);
+        state = (msg.state && typeof msg.state === "object") ? msg.state : {};
+        if (!Array.isArray(state.spell_presets)){
+          state.spell_presets = [];
+        }
+        updateSpellPresetOptions(state.spell_presets);
         aoeDragOverrides.clear();
         syncSelectedAoe();
         lastPcList = msg.pcs || msg.claimable || [];
@@ -4310,6 +4313,16 @@ __DAMAGE_TYPE_OPTIONS__
     lastSpellPresetSignature = signature;
     const currentValue = String(castPresetInput.value || "");
     castPresetInput.textContent = "";
+    if (!list.length){
+      castPresetInput.disabled = true;
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Presets unavailable";
+      castPresetInput.appendChild(placeholder);
+      castPresetInput.value = "";
+      return;
+    }
+    castPresetInput.disabled = false;
     const blank = document.createElement("option");
     blank.value = "";
     blank.textContent = "Custom";
