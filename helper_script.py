@@ -841,12 +841,28 @@ class InitiativeTracker(tk.Tk):
 
     # --------------------- Startup players ---------------------
     def _players_file_path(self) -> Path:
-        # Keep the roster file next to the script for easy editing/backup.
+        # Keep the roster directory next to the script for easy editing/backup.
         try:
             base = Path(__file__).resolve().parent
         except Exception:
             base = Path.cwd()
-        return base / "startingplayers.yaml"
+        return base / "players"
+
+    def _player_name_from_filename(self, path: Path) -> Optional[str]:
+        stem = path.stem.strip()
+        if not stem:
+            return None
+        name = stem.replace("-", " ").replace("_", " ")
+        name = " ".join(name.split())
+        return name or None
+
+    def _player_filename_from_name(self, name: str) -> str:
+        base = " ".join(str(name).strip().split())
+        if not base:
+            return ""
+        base = re.sub(r"[\\/]+", "-", base)
+        base = re.sub(r"\s+", "-", base)
+        return f"{base}.yaml"
 
 
     # --------------------- History / Log ---------------------
@@ -1141,32 +1157,18 @@ class InitiativeTracker(tk.Tk):
             self.log_text.configure(state="disabled")
 
     def _load_starting_players_roster(self) -> List[str]:
-        p = self._players_file_path()
-        if p.exists():
+        players_dir = self._players_file_path()
+        if players_dir.exists():
             try:
-                raw = p.read_text(encoding="utf-8")
-                data = None
-                if yaml is not None:
-                    data = yaml.safe_load(raw)
-                # Accept either {"players": [..]} or a plain list.
-                players = None
-                if isinstance(data, dict):
-                    players = data.get("players")
-                elif isinstance(data, list):
-                    players = data
-                if isinstance(players, list):
-                    out: List[str] = []
-                    for it in players:
-                        if isinstance(it, str):
-                            nm = it.strip()
-                        elif isinstance(it, dict) and "name" in it:
-                            nm = str(it["name"]).strip()
-                        else:
-                            continue
-                        if nm and nm not in out:
-                            out.append(nm)
-                    if out:
-                        return out
+                out: List[str] = []
+                for path in sorted(players_dir.glob("*.yaml")):
+                    if not path.is_file():
+                        continue
+                    nm = self._player_name_from_filename(path)
+                    if nm and nm not in out:
+                        out.append(nm)
+                if out:
+                    return out
             except Exception:
                 pass
 
@@ -1175,22 +1177,32 @@ class InitiativeTracker(tk.Tk):
         return list(DEFAULT_STARTING_PLAYERS)
 
     def _save_starting_players_roster(self, roster: List[str]) -> None:
-        p = self._players_file_path()
+        players_dir = self._players_file_path()
         uniq: List[str] = []
         for n in roster:
             n = str(n).strip()
             if n and n not in uniq:
                 uniq.append(n)
-        data = {"players": uniq}
         try:
-            if yaml is not None:
-                p.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
-            else:
-                # Fallback to a simple YAML-ish format.
-                lines = ["players:"]
-                for nm in uniq:
-                    lines.append(f'  - "{nm}"')
-                p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            players_dir.mkdir(parents=True, exist_ok=True)
+            desired_files = {}
+            for nm in uniq:
+                filename = self._player_filename_from_name(nm)
+                if filename:
+                    desired_files[filename] = nm
+            existing_files = {
+                path.name: path
+                for path in players_dir.glob("*.yaml")
+                if path.is_file()
+            }
+            for filename, nm in desired_files.items():
+                path = players_dir / filename
+                if not path.exists():
+                    content = f"name: {nm}\n"
+                    path.write_text(content, encoding="utf-8")
+            for filename, path in existing_files.items():
+                if filename not in desired_files:
+                    path.unlink()
         except Exception:
             # Non-fatal: app still works, just won't persist roster edits.
             pass
