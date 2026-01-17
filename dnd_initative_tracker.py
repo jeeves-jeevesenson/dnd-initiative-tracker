@@ -456,6 +456,47 @@ HTML_INDEX = r"""<!doctype html>
       grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       gap:8px;
     }
+    .spell-filter-panel{
+      margin-bottom: 10px;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(8,12,20,0.6);
+    }
+    .spell-filter-panel legend{
+      padding: 0 6px;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    .spell-details{
+      margin-top: 10px;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(8,12,20,0.6);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .spell-details-grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 6px;
+    }
+    .spell-details-row{
+      display:flex;
+      gap:6px;
+      align-items:baseline;
+    }
+    .spell-details-label{
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 64px;
+    }
+    .spell-details-value{
+      font-size: 12px;
+      color: var(--text);
+      font-weight: 600;
+    }
     .form-field{display:flex; flex-direction:column; gap:4px;}
     .form-field label{font-size:11px; color:var(--muted);}
     .form-field input,
@@ -1197,6 +1238,71 @@ HTML_INDEX = r"""<!doctype html>
       <details class="cast-panel" id="castPanel">
         <summary>Cast Spell</summary>
         <form id="castForm">
+          <fieldset class="spell-filter-panel" id="spellFilterPanel">
+            <legend>Spell Filters</legend>
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="castFilterLevel">Level</label>
+                <select id="castFilterLevel">
+                  <option value="" selected>Any</option>
+                  <option value="0">Cantrip</option>
+                  <option value="1">1st</option>
+                  <option value="2">2nd</option>
+                  <option value="3">3rd</option>
+                  <option value="4">4th</option>
+                  <option value="5">5th</option>
+                  <option value="6">6th</option>
+                  <option value="7">7th</option>
+                  <option value="8">8th</option>
+                  <option value="9">9th</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="castFilterSchool">School</label>
+                <select id="castFilterSchool">
+                  <option value="" selected>Any</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="castFilterTags">Tags</label>
+                <input id="castFilterTags" type="text" placeholder="fire, area" />
+              </div>
+              <div class="form-field">
+                <label for="castFilterCastingTime">Casting Time</label>
+                <select id="castFilterCastingTime">
+                  <option value="" selected>Any</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="castFilterRange">Range</label>
+                <select id="castFilterRange">
+                  <option value="" selected>Any</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="castFilterRitual">Ritual</label>
+                <select id="castFilterRitual">
+                  <option value="" selected>Any</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="castFilterConcentration">Concentration</label>
+                <select id="castFilterConcentration">
+                  <option value="" selected>Any</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="castFilterList">Lists</label>
+                <select id="castFilterList">
+                  <option value="" selected>Any</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
           <div class="form-grid">
             <div class="form-field">
               <label for="castPreset">Preset</label>
@@ -1300,6 +1406,9 @@ __DAMAGE_TYPE_OPTIONS__
               <label for="castColor">Color</label>
               <input id="castColor" type="color" value="#6aa9ff" />
             </div>
+          </div>
+          <div class="spell-details" id="spellPresetDetails" aria-live="polite">
+            Select a preset to see spell details.
           </div>
           <div class="form-actions">
             <button class="btn accent" type="submit">Cast</button>
@@ -1651,6 +1760,14 @@ __DAMAGE_TYPE_OPTIONS__
   const showAllNamesEl = document.getElementById("showAllNames");
   const castPanel = document.getElementById("castPanel");
   const castForm = document.getElementById("castForm");
+  const castFilterLevelInput = document.getElementById("castFilterLevel");
+  const castFilterSchoolInput = document.getElementById("castFilterSchool");
+  const castFilterTagsInput = document.getElementById("castFilterTags");
+  const castFilterCastingTimeInput = document.getElementById("castFilterCastingTime");
+  const castFilterRangeInput = document.getElementById("castFilterRange");
+  const castFilterRitualInput = document.getElementById("castFilterRitual");
+  const castFilterConcentrationInput = document.getElementById("castFilterConcentration");
+  const castFilterListInput = document.getElementById("castFilterList");
   const castPresetInput = document.getElementById("castPreset");
   const castNameInput = document.getElementById("castName");
   const castShapeInput = document.getElementById("castShape");
@@ -1679,6 +1796,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castDamageTypeList = document.getElementById("castDamageTypeList");
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
+  const spellPresetDetails = document.getElementById("spellPresetDetails");
   const sheetWrap = document.getElementById("sheetWrap");
   const sheetHandle = document.getElementById("sheetHandle");
   const tokenTooltip = document.getElementById("tokenTooltip");
@@ -4380,24 +4498,226 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   let lastSpellPresetSignature = "";
+  let cachedSpellPresets = [];
   const normalizeSpellPresets = (presets) => Array.isArray(presets) ? presets.filter(p => p && typeof p === "object") : [];
-  const updateSpellPresetOptions = (presets) => {
-    if (!castPresetInput) return;
-    const list = normalizeSpellPresets(presets);
-    const signature = JSON.stringify(list.map(p => String(p.name || "")));
-    if (signature === lastSpellPresetSignature){
+  const formatSpellLevelLabel = (level) => {
+    const num = Number(level);
+    if (!Number.isFinite(num)) return "Unknown";
+    if (num === 0) return "Cantrip";
+    const suffix = num === 1 ? "st" : num === 2 ? "nd" : num === 3 ? "rd" : "th";
+    return `${num}${suffix}`;
+  };
+  const formatListGroupLabel = (value) => String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\\b\\w/g, (char) => char.toUpperCase());
+  const normalizeTextValue = (value) => String(value || "").trim();
+  const normalizeLowerValue = (value) => normalizeTextValue(value).toLowerCase();
+  const getSpellListEntries = (lists) => {
+    if (!lists || typeof lists !== "object") return [];
+    const entries = [];
+    Object.entries(lists).forEach(([group, values]) => {
+      if (!Array.isArray(values)) return;
+      values.forEach((value) => {
+        const trimmed = normalizeTextValue(value);
+        if (!trimmed) return;
+        entries.push({group, value: trimmed});
+      });
+    });
+    return entries;
+  };
+  const getPresetLevelNumber = (preset) => {
+    const num = Number(preset?.level);
+    return Number.isFinite(num) ? num : null;
+  };
+  const updateSpellPresetDetails = (preset) => {
+    if (!spellPresetDetails) return;
+    if (!preset){
+      spellPresetDetails.textContent = "Select a preset to see spell details.";
       return;
     }
-    lastSpellPresetSignature = signature;
+    const detailsGrid = document.createElement("div");
+    detailsGrid.className = "spell-details-grid";
+    const levelLabel = formatSpellLevelLabel(preset.level);
+    const tags = Array.isArray(preset.tags) ? preset.tags.filter(Boolean) : [];
+    const tagLabel = tags.length ? tags.join(", ") : "—";
+    const castingTime = normalizeTextValue(preset.casting_time) || "—";
+    const range = normalizeTextValue(preset.range) || "—";
+    const ritual = preset.ritual === true ? "Yes" : preset.ritual === false ? "No" : "—";
+    const concentration = preset.concentration === true ? "Yes" : preset.concentration === false ? "No" : "—";
+    const lists = getSpellListEntries(preset.lists);
+    const listLabel = lists.length
+      ? lists.map((entry) => `${formatListGroupLabel(entry.group)}: ${entry.value}`).join(" · ")
+      : "—";
+    const fields = [
+      {label: "Level", value: levelLabel},
+      {label: "School", value: normalizeTextValue(preset.school) || "—"},
+      {label: "Tags", value: tagLabel},
+      {label: "Casting", value: castingTime},
+      {label: "Range", value: range},
+      {label: "Ritual", value: ritual},
+      {label: "Concentration", value: concentration},
+      {label: "Lists", value: listLabel},
+    ];
+    fields.forEach((field) => {
+      const row = document.createElement("div");
+      row.className = "spell-details-row";
+      const label = document.createElement("span");
+      label.className = "spell-details-label";
+      label.textContent = field.label;
+      const value = document.createElement("span");
+      value.className = "spell-details-value";
+      value.textContent = field.value;
+      row.appendChild(label);
+      row.appendChild(value);
+      detailsGrid.appendChild(row);
+    });
+    spellPresetDetails.textContent = "";
+    spellPresetDetails.appendChild(detailsGrid);
+  };
+  const updateSelectOptions = (selectEl, values) => {
+    if (!selectEl) return;
+    const currentValue = selectEl.value;
+    selectEl.textContent = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Any";
+    selectEl.appendChild(placeholder);
+    values.forEach((value) => {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
+    });
+    if (currentValue && values.includes(currentValue)){
+      selectEl.value = currentValue;
+    } else {
+      selectEl.value = "";
+    }
+  };
+  const updateListFilterOptions = (listGroups) => {
+    if (!castFilterListInput) return;
+    const currentValue = castFilterListInput.value;
+    castFilterListInput.textContent = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Any";
+    castFilterListInput.appendChild(placeholder);
+    Array.from(listGroups.entries()).forEach(([group, values]) => {
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = formatListGroupLabel(group);
+      Array.from(values).sort((a, b) => a.localeCompare(b)).forEach((value) => {
+        const opt = document.createElement("option");
+        opt.value = `${group}::${value}`;
+        opt.textContent = value;
+        optgroup.appendChild(opt);
+      });
+      castFilterListInput.appendChild(optgroup);
+    });
+    if (currentValue){
+      castFilterListInput.value = currentValue;
+      if (castFilterListInput.value !== currentValue){
+        castFilterListInput.value = "";
+      }
+    }
+  };
+  const updateSpellFilterOptions = () => {
+    const schools = new Set();
+    const castingTimes = new Set();
+    const ranges = new Set();
+    const listGroups = new Map();
+    cachedSpellPresets.forEach((preset) => {
+      const school = normalizeTextValue(preset.school);
+      if (school) schools.add(school);
+      const castingTime = normalizeTextValue(preset.casting_time);
+      if (castingTime) castingTimes.add(castingTime);
+      const range = normalizeTextValue(preset.range);
+      if (range) ranges.add(range);
+      getSpellListEntries(preset.lists).forEach((entry) => {
+        if (!listGroups.has(entry.group)){
+          listGroups.set(entry.group, new Set());
+        }
+        listGroups.get(entry.group).add(entry.value);
+      });
+    });
+    updateSelectOptions(castFilterSchoolInput, Array.from(schools).sort((a, b) => a.localeCompare(b)));
+    updateSelectOptions(castFilterCastingTimeInput, Array.from(castingTimes).sort((a, b) => a.localeCompare(b)));
+    updateSelectOptions(castFilterRangeInput, Array.from(ranges).sort((a, b) => a.localeCompare(b)));
+    updateListFilterOptions(listGroups);
+  };
+  const getTagFilters = () => {
+    if (!castFilterTagsInput) return [];
+    const raw = normalizeLowerValue(castFilterTagsInput.value);
+    if (!raw) return [];
+    return raw.split(",").map(tag => tag.trim()).filter(Boolean);
+  };
+  const matchesSpellFilters = (preset) => {
+    const levelFilter = castFilterLevelInput ? normalizeTextValue(castFilterLevelInput.value) : "";
+    if (levelFilter){
+      const levelNum = getPresetLevelNumber(preset);
+      if (!Number.isFinite(levelNum) || levelNum !== Number(levelFilter)){
+        return false;
+      }
+    }
+    const schoolFilter = castFilterSchoolInput ? normalizeLowerValue(castFilterSchoolInput.value) : "";
+    if (schoolFilter){
+      if (normalizeLowerValue(preset.school) !== schoolFilter){
+        return false;
+      }
+    }
+    const castingTimeFilter = castFilterCastingTimeInput ? normalizeLowerValue(castFilterCastingTimeInput.value) : "";
+    if (castingTimeFilter){
+      if (!normalizeLowerValue(preset.casting_time).includes(castingTimeFilter)){
+        return false;
+      }
+    }
+    const rangeFilter = castFilterRangeInput ? normalizeLowerValue(castFilterRangeInput.value) : "";
+    if (rangeFilter){
+      if (!normalizeLowerValue(preset.range).includes(rangeFilter)){
+        return false;
+      }
+    }
+    const ritualFilter = castFilterRitualInput ? normalizeTextValue(castFilterRitualInput.value) : "";
+    if (ritualFilter){
+      const ritualValue = ritualFilter === "true";
+      if (preset.ritual !== ritualValue){
+        return false;
+      }
+    }
+    const concentrationFilter = castFilterConcentrationInput ? normalizeTextValue(castFilterConcentrationInput.value) : "";
+    if (concentrationFilter){
+      const concentrationValue = concentrationFilter === "true";
+      if (preset.concentration !== concentrationValue){
+        return false;
+      }
+    }
+    const listFilter = castFilterListInput ? normalizeTextValue(castFilterListInput.value) : "";
+    if (listFilter){
+      const [group, value] = listFilter.split("::");
+      const listValues = preset.lists && typeof preset.lists === "object" ? preset.lists[group] : null;
+      if (!Array.isArray(listValues) || !listValues.map(normalizeLowerValue).includes(normalizeLowerValue(value))){
+        return false;
+      }
+    }
+    const tagFilters = getTagFilters();
+    if (tagFilters.length){
+      const presetTags = Array.isArray(preset.tags) ? preset.tags.map(normalizeLowerValue) : [];
+      const matchesAll = tagFilters.every(tag => presetTags.includes(tag));
+      if (!matchesAll) return false;
+    }
+    return true;
+  };
+  const refreshSpellPresetOptions = () => {
+    if (!castPresetInput) return;
     const currentValue = String(castPresetInput.value || "");
     castPresetInput.textContent = "";
-    if (!list.length){
+    if (!cachedSpellPresets.length){
       castPresetInput.disabled = true;
       const placeholder = document.createElement("option");
       placeholder.value = "";
       placeholder.textContent = "Presets unavailable";
       castPresetInput.appendChild(placeholder);
       castPresetInput.value = "";
+      updateSpellPresetDetails(null);
       return;
     }
     castPresetInput.disabled = false;
@@ -4405,20 +4725,98 @@ __DAMAGE_TYPE_OPTIONS__
     blank.value = "";
     blank.textContent = "Custom";
     castPresetInput.appendChild(blank);
-    list.forEach(preset => {
-      const name = String(preset.name || "").trim();
-      if (!name) return;
-      const opt = document.createElement("option");
-      opt.value = name;
-      opt.textContent = name;
-      castPresetInput.appendChild(opt);
+    const filtered = cachedSpellPresets.filter(matchesSpellFilters);
+    if (!filtered.length){
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "No spells match filters";
+      empty.disabled = true;
+      castPresetInput.appendChild(empty);
+      castPresetInput.value = "";
+      updateSpellPresetDetails(null);
+      return;
+    }
+    const groups = new Map();
+    filtered.forEach((preset) => {
+      const level = getPresetLevelNumber(preset);
+      const key = level === null ? "unknown" : String(level);
+      if (!groups.has(key)){
+        groups.set(key, []);
+      }
+      groups.get(key).push(preset);
     });
-    if (currentValue && list.some(p => String(p.name || "") === currentValue)){
+    const orderedLevels = [];
+    for (let i = 0; i <= 9; i += 1){
+      if (groups.has(String(i))){
+        orderedLevels.push(String(i));
+      }
+    }
+    if (groups.has("unknown")){
+      orderedLevels.push("unknown");
+    }
+    orderedLevels.forEach((levelKey) => {
+      const list = groups.get(levelKey) || [];
+      list.sort((a, b) => normalizeTextValue(a.name).localeCompare(normalizeTextValue(b.name)));
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = levelKey === "unknown"
+        ? "Unknown Level"
+        : formatSpellLevelLabel(Number(levelKey));
+      list.forEach((preset) => {
+        const name = normalizeTextValue(preset.name);
+        if (!name) return;
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        optgroup.appendChild(opt);
+      });
+      castPresetInput.appendChild(optgroup);
+    });
+    if (currentValue && filtered.some(p => normalizeTextValue(p.name) === currentValue)){
       castPresetInput.value = currentValue;
     } else {
       castPresetInput.value = "";
     }
+    const selected = filtered.find(p => normalizeTextValue(p.name) === castPresetInput.value);
+    updateSpellPresetDetails(selected || null);
   };
+  const updateSpellPresetOptions = (presets) => {
+    const list = normalizeSpellPresets(presets);
+    const signature = JSON.stringify(list.map(p => [
+      String(p.name || ""),
+      String(p.level || ""),
+      String(p.school || ""),
+      String(p.casting_time || ""),
+      String(p.range || ""),
+      String(p.ritual || ""),
+      String(p.concentration || ""),
+      JSON.stringify(p.tags || []),
+      JSON.stringify(p.lists || {}),
+    ]));
+    if (signature === lastSpellPresetSignature){
+      return;
+    }
+    lastSpellPresetSignature = signature;
+    cachedSpellPresets = list;
+    updateSpellFilterOptions();
+    refreshSpellPresetOptions();
+  };
+
+  const registerSpellFilterListener = (input, useInputEvent = false) => {
+    if (!input) return;
+    const handler = () => refreshSpellPresetOptions();
+    input.addEventListener("change", handler);
+    if (useInputEvent){
+      input.addEventListener("input", handler);
+    }
+  };
+  registerSpellFilterListener(castFilterLevelInput);
+  registerSpellFilterListener(castFilterSchoolInput);
+  registerSpellFilterListener(castFilterTagsInput, true);
+  registerSpellFilterListener(castFilterCastingTimeInput);
+  registerSpellFilterListener(castFilterRangeInput);
+  registerSpellFilterListener(castFilterRitualInput);
+  registerSpellFilterListener(castFilterConcentrationInput);
+  registerSpellFilterListener(castFilterListInput);
 
   const setCastFieldEnabled = (input, enabled) => {
     if (!input) return;
@@ -4776,10 +5174,11 @@ __DAMAGE_TYPE_OPTIONS__
           castSlotLevelInput.disabled = true;
           castSlotLevelInput.readOnly = true;
         }
+        updateSpellPresetDetails(null);
         return;
       }
-      const presets = normalizeSpellPresets(state?.spell_presets);
-      const preset = presets.find(p => String(p.name || "") === name);
+      const preset = cachedSpellPresets.find(p => String(p.name || "") === name);
+      updateSpellPresetDetails(preset || null);
       applySpellPreset(preset);
     });
   }
@@ -7623,6 +8022,10 @@ class InitiativeTracker(base.InitiativeTracker):
             school = parsed.get("school")
             tags_raw = parsed.get("tags")
             tags = [str(tag).strip() for tag in tags_raw if str(tag).strip()] if isinstance(tags_raw, list) else []
+            casting_time = parsed.get("casting_time")
+            spell_range = parsed.get("range")
+            ritual = parsed.get("ritual")
+            concentration = parsed.get("concentration")
             lists = parsed.get("lists") if isinstance(parsed.get("lists"), dict) else {}
             mechanics = parsed.get("mechanics") if isinstance(parsed.get("mechanics"), dict) else {}
             automation_raw = str(mechanics.get("automation") or "").strip().lower()
@@ -7646,6 +8049,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 "level": level,
                 "school": school,
                 "tags": tags,
+                "casting_time": str(casting_time).strip() if casting_time not in (None, "") else None,
+                "range": str(spell_range).strip() if spell_range not in (None, "") else None,
+                "ritual": ritual if isinstance(ritual, bool) else None,
+                "concentration": concentration if isinstance(concentration, bool) else None,
                 "lists": lists,
                 "mechanics": mechanics,
                 "automation": automation,
