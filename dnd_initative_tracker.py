@@ -344,6 +344,23 @@ HTML_INDEX = r"""<!doctype html>
 
     .mapWrap{flex:1 1 auto; min-height:0; position:relative; overflow:hidden; background:#0a0c12;}
     canvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none;}
+    .map-tooltip{
+      position:absolute;
+      z-index:4;
+      pointer-events:none;
+      max-width:240px;
+      padding:4px 8px;
+      border-radius:6px;
+      background:rgba(16,18,24,0.92);
+      color:#eef2f7;
+      font-size:12px;
+      font-weight:600;
+      box-shadow:0 2px 8px rgba(0,0,0,0.35);
+      opacity:0;
+      transition:opacity 0.08s ease;
+      white-space:nowrap;
+    }
+    .map-tooltip.show{opacity:1;}
     .waiting{
       position:absolute; inset:0; display:none; align-items:center; justify-content:center;
       background: rgba(10,12,18,0.82); color: var(--muted); font-size: 16px; letter-spacing: 0.4px;
@@ -868,6 +885,7 @@ HTML_INDEX = r"""<!doctype html>
   <div class="mapWrap">
     <canvas id="c"></canvas>
     <div class="waiting" id="waitingOverlay">(waiting for combat...)</div>
+    <div class="map-tooltip" id="tokenTooltip" role="tooltip" aria-hidden="true"></div>
 
     <div class="modal" id="colorModal" aria-hidden="true">
       <div class="card">
@@ -1616,6 +1634,7 @@ __DAMAGE_TYPE_OPTIONS__
   const aoeRemoveBtn = document.getElementById("aoeRemoveBtn");
   const sheetWrap = document.getElementById("sheetWrap");
   const sheetHandle = document.getElementById("sheetHandle");
+  const tokenTooltip = document.getElementById("tokenTooltip");
   const turnAlertAudio = new Audio("/assets/alert.wav");
   turnAlertAudio.preload = "auto";
   const koAlertAudio = new Audio("/assets/ko.wav");
@@ -3792,6 +3811,69 @@ __DAMAGE_TYPE_OPTIONS__
     return {x: ev.clientX - r.left, y: ev.clientY - r.top};
   }
 
+  function hitTestToken(p){
+    if (!state || !state.units) return null;
+    for (let i=state.units.length-1; i>=0; i--){
+      const u = state.units[i];
+      const {x,y} = gridToScreen(u.pos.col,u.pos.row);
+      const r = Math.max(12, zoom*0.45);
+      const dx = p.x - x, dy = p.y - y;
+      if (dx*dx + dy*dy <= r*r){
+        return u;
+      }
+    }
+    return null;
+  }
+
+  function buildCellMap(tokens){
+    const cellMap = new Map();
+    tokens.forEach(u => {
+      const key = `${u.pos.col},${u.pos.row}`;
+      if (!cellMap.has(key)) cellMap.set(key, []);
+      cellMap.get(key).push(u);
+    });
+    return cellMap;
+  }
+
+  function groupLabelFromTokens(arr){
+    if (!arr || !arr.length) return "";
+    const groupName = arr.find(a => a.group_name || a.group_label || a.group)
+      ?.group_name
+      ?? arr.find(a => a.group_label)?.group_label
+      ?? arr.find(a => a.group)?.group;
+    if (groupName) return groupName;
+    const names = arr.map(a => a.name).filter(Boolean);
+    if (!names.length) return `Group (${arr.length})`;
+    const first = names[0];
+    const allSame = names.every(n => n === first);
+    if (allSame){
+      return `${arr.length}x ${first}`;
+    }
+    if (showAllNames){
+      return `Group (${arr.length}): ${names.join(", ")}`;
+    }
+    return `Group (${arr.length})`;
+  }
+
+  function setTokenTooltip(text, clientX, clientY){
+    if (!tokenTooltip) return;
+    if (!text){
+      tokenTooltip.classList.remove("show");
+      tokenTooltip.setAttribute("aria-hidden", "true");
+      return;
+    }
+    const wrapRect = mapWrap?.getBoundingClientRect();
+    if (!wrapRect) return;
+    tokenTooltip.textContent = text;
+    const pad = 12;
+    const left = clientX - wrapRect.left + pad;
+    const top = clientY - wrapRect.top + pad;
+    tokenTooltip.style.left = `${left}px`;
+    tokenTooltip.style.top = `${top}px`;
+    tokenTooltip.classList.add("show");
+    tokenTooltip.setAttribute("aria-hidden", "false");
+  }
+
   function clampZoom(value){
     return Math.min(90, Math.max(12, value));
   }
@@ -3839,6 +3921,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   canvas.addEventListener("pointerdown", (ev) => {
     if (enforceLoginGate()) return;
+    setTokenTooltip(null);
     canvas.setPointerCapture(ev.pointerId);
     const p = pointerPos(ev);
     activePointers.set(ev.pointerId, p);
@@ -3855,31 +3938,20 @@ __DAMAGE_TYPE_OPTIONS__
     }
 
     // Try token hit
-    if (state && state.units){
-      let hit = null;
-      for (let i=state.units.length-1; i>=0; i--){
-        const u = state.units[i];
-        const {x,y} = gridToScreen(u.pos.col,u.pos.row);
-        const r = Math.max(12, zoom*0.45);
-        const dx = p.x - x, dy = p.y - y;
-        if (dx*dx + dy*dy <= r*r){
-          hit = u; break;
-        }
-      }
-      if (hit){
-        // only drag own token
-        if (!claimedCid || Number(hit.cid) !== Number(claimedCid)){
-          send({type:"toast", text:"Arrr, that token ain’t yers."});
-          return;
-        }
-        // only on your turn
-        if (state.active_cid === null || Number(state.active_cid) !== Number(claimedCid)){
-          send({type:"toast", text:"Not yer turn yet, matey."});
-          return;
-        }
-        dragging = {cid: hit.cid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
+    const hit = hitTestToken(p);
+    if (hit){
+      // only drag own token
+      if (!claimedCid || Number(hit.cid) !== Number(claimedCid)){
+        send({type:"toast", text:"Arrr, that token ain’t yers."});
         return;
       }
+      // only on your turn
+      if (state.active_cid === null || Number(state.active_cid) !== Number(claimedCid)){
+        send({type:"toast", text:"Not yer turn yet, matey."});
+        return;
+      }
+      dragging = {cid: hit.cid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
+      return;
     }
     const aoeHit = hitTestAoe(p);
     if (aoeHit){
@@ -3938,6 +4010,11 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (pinchState && activePointers.size >= 2){
       updatePinch();
+      setTokenTooltip(null);
+      return;
+    }
+    if (ev.pointerType === "touch"){
+      setTokenTooltip(null);
       return;
     }
     if (dragging){
@@ -3954,16 +4031,33 @@ __DAMAGE_TYPE_OPTIONS__
       ctx.strokeStyle = "rgba(106,169,255,0.95)";
       ctx.stroke();
       ctx.restore();
+      setTokenTooltip(null);
     } else if (draggingAoe){
       const g = screenToGridFloat(p.x, p.y);
       draggingAoe.cx = g.col;
       draggingAoe.cy = g.row;
       aoeDragOverrides.set(Number(draggingAoe.aid), {cx: g.col, cy: g.row});
       draw();
+      setTokenTooltip(null);
     } else if (panning){
       panX = panning.panX + (p.x - panning.x);
       panY = panning.panY + (p.y - panning.y);
       draw();
+      setTokenTooltip(null);
+    } else if (measurementMode){
+      setTokenTooltip(null);
+    } else {
+      const tokens = state?.units || [];
+      const hit = hitTestToken(p);
+      if (hit){
+        const cellMap = buildCellMap(tokens);
+        const key = `${hit.pos.col},${hit.pos.row}`;
+        const group = cellMap.get(key) || [];
+        const label = group.length > 1 ? groupLabelFromTokens(group) : (hit.name || "Unknown");
+        setTokenTooltip(label, ev.clientX, ev.clientY);
+      } else {
+        setTokenTooltip(null);
+      }
     }
   });
 
@@ -3974,6 +4068,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (activePointers.size < 2){
       pinchState = null;
     }
+    setTokenTooltip(null);
     dragging && (function(){
       const g = screenToGrid(p.x, p.y);
       send({type:"move", cid: Number(dragging.cid), to: {col: g.col, row: g.row}});
@@ -4015,11 +4110,16 @@ __DAMAGE_TYPE_OPTIONS__
     if (activePointers.size < 2){
       pinchState = null;
     }
+    setTokenTooltip(null);
     if (draggingAoe){
       aoeDragOverrides.delete(Number(draggingAoe.aid));
       draggingAoe = null;
       draw();
     }
+  });
+
+  canvas.addEventListener("pointerleave", () => {
+    setTokenTooltip(null);
   });
 
   canvas.addEventListener("wheel", (ev) => {
