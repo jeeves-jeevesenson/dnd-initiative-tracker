@@ -45,7 +45,7 @@ mechanics:
     origin: point_within_range
     range:
       kind: distance
-      distance_ft: null
+      distance_ft: 150
     area:
       shape: sphere
       radius_ft: 20
