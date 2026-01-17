@@ -4486,25 +4486,40 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const rawIncrements = Array.isArray(upcast.increments) ? upcast.increments : [];
     const increments = [];
+    const slotAddDice = typeof upcast.add_per_slot_above === "string" ? upcast.add_per_slot_above : "";
+    if (slotAddDice && parseDiceSpec(slotAddDice)){
+      increments.push({
+        levels_per_increment: 1,
+        add_dice: slotAddDice,
+      });
+    }
     rawIncrements.forEach((entry) => {
       if (!entry || typeof entry !== "object"){
         console.warn("Invalid upcast increment entry; skipping.", entry);
         return;
       }
-      const levelsPer = Number(entry.levels_per_increment);
       const addDice = typeof entry.add_dice === "string" ? entry.add_dice : "";
-      if (!Number.isFinite(levelsPer) || levelsPer <= 0){
-        console.warn("Invalid upcast levels_per_increment; skipping.", entry);
-        return;
-      }
       if (!parseDiceSpec(addDice)){
         console.warn("Invalid upcast add_dice; skipping.", entry);
         return;
       }
-      increments.push({
-        levels_per_increment: levelsPer,
-        add_dice: addDice,
-      });
+      const levelsPer = Number(entry.levels_per_increment);
+      if (Number.isFinite(levelsPer) && levelsPer > 0){
+        increments.push({
+          levels_per_increment: levelsPer,
+          add_dice: addDice,
+        });
+        return;
+      }
+      const levelThreshold = Number(entry.level);
+      if (Number.isFinite(levelThreshold) && levelThreshold > baseLevel){
+        increments.push({
+          level: levelThreshold,
+          add_dice: addDice,
+        });
+        return;
+      }
+      console.warn("Invalid upcast increment entry; skipping.", entry);
     });
     if (!increments.length){
       console.warn("Upcast increments contained no valid entries; ignoring upcast config.", upcast);
@@ -4523,10 +4538,18 @@ __DAMAGE_TYPE_OPTIONS__
     let totalDiceSpec = baseDiceSpec ? {count: baseDiceSpec.count, sides: baseDiceSpec.sides} : null;
     let applied = false;
     (upcastConfig.increments || []).forEach((inc) => {
-      const levelsPer = Number(inc.levels_per_increment);
       const addDiceSpec = parseDiceSpec(inc.add_dice);
-      if (!Number.isFinite(levelsPer) || !addDiceSpec) return;
-      const steps = Math.floor(deltaLevels / levelsPer);
+      if (!addDiceSpec) return;
+      let steps = 0;
+      const levelsPer = Number(inc.levels_per_increment);
+      if (Number.isFinite(levelsPer) && levelsPer > 0){
+        steps = Math.floor(deltaLevels / levelsPer);
+      } else {
+        const levelThreshold = Number(inc.level);
+        if (Number.isFinite(levelThreshold) && slotLevel >= levelThreshold){
+          steps = 1;
+        }
+      }
       if (steps <= 0) return;
       const addCount = addDiceSpec.count * steps;
       if (!totalDiceSpec){
@@ -7776,7 +7799,26 @@ class InitiativeTracker(base.InitiativeTracker):
                 if base_level is not None and add_dice:
                     upcast = {
                         "base_level": base_level,
-                        "increments": [{"levels_per_increment": 1, "add_dice": add_dice}],
+                        "add_per_slot_above": add_dice,
+                    }
+            if isinstance(scaling, dict) and scaling.get("kind") == "character_level":
+                thresholds = scaling.get("thresholds") if isinstance(scaling.get("thresholds"), dict) else {}
+                increments: List[Dict[str, Any]] = []
+                for threshold, data in thresholds.items():
+                    if not isinstance(data, dict):
+                        continue
+                    try:
+                        level = int(str(threshold).strip())
+                    except ValueError:
+                        continue
+                    add_dice = parse_dice(data.get("add"))
+                    if add_dice:
+                        increments.append({"level": level, "add_dice": add_dice})
+                if increments:
+                    increments.sort(key=lambda entry: entry.get("level", 0))
+                    upcast = {
+                        "base_level": 1,
+                        "increments": increments,
                     }
             if upcast:
                 preset["upcast"] = upcast
