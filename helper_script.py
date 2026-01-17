@@ -319,6 +319,14 @@ class InitiativeTracker(tk.Tk):
         super().__init__()
         self.title("DnD Initiative Tracker")
         self.geometry("1120x720")
+        icon_path = Path(__file__).resolve().parent / "assets" / "graphic-512.png"
+        try:
+            if icon_path.exists():
+                photo = tk.PhotoImage(file=str(icon_path))
+                self.iconphoto(True, photo)
+                self._app_icon = photo
+        except Exception:
+            pass
 
         self._next_id = 1
         self._next_stack_id = 1
