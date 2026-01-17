@@ -3626,20 +3626,41 @@ class InitiativeTracker(tk.Tk):
     def _open_bulk_dialog(self) -> None:
         dlg = tk.Toplevel(self)
         dlg.title("Bulk Add")
-        dlg.geometry("760x260")
-        dlg.minsize(680, 240)
+        dlg.geometry("760x340")
+        dlg.minsize(680, 300)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
         frm = ttk.Frame(dlg, padding=10)
         frm.pack(fill=tk.BOTH, expand=True)
+        frm.rowconfigure(2, weight=1)
+        frm.columnconfigure(0, weight=1)
 
         ttk.Label(frm, text="Base Name (e.g. Goblin)").grid(row=0, column=0, sticky="w")
         name_var = tk.StringVar()
         monster_values = self._monster_names_sorted()
-        name_combo = ttk.Combobox(frm, textvariable=name_var, values=monster_values, width=22)
-        name_combo.grid(row=1, column=0, padx=(0, 8))
+        name_controls = ttk.Frame(frm)
+        name_controls.grid(row=1, column=0, padx=(0, 8), sticky="w")
+        name_combo = ttk.Combobox(name_controls, textvariable=name_var, values=monster_values, width=22)
+        name_combo.pack(side=tk.LEFT)
+        show_all_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            name_controls,
+            text="Show all creatures",
+            variable=show_all_var,
+        ).pack(side=tk.LEFT, padx=(6, 0))
         name_combo.configure(state="disabled")
+
+        list_frame = ttk.Frame(frm)
+        listbox = tk.Listbox(list_frame, height=8, exportselection=False)
+        list_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=listbox.yview)
+        listbox.configure(yscrollcommand=list_scroll.set)
+        listbox.grid(row=0, column=0, sticky="nsew")
+        list_scroll.grid(row=0, column=1, sticky="ns")
+        list_frame.grid_rowconfigure(0, weight=1)
+        list_frame.grid_columnconfigure(0, weight=1)
+        list_frame.grid(row=2, column=0, sticky="nsew", padx=(0, 8), pady=(6, 0))
+        list_frame.grid_remove()
 
         loading_label = ttk.Label(frm, text="Loading…")
         loading_label.grid(row=2, column=2, sticky="w", pady=(8, 0))
@@ -3666,9 +3687,9 @@ class InitiativeTracker(tk.Tk):
 
 
         ally_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(frm, text="Mark as ally", variable=ally_var).grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(frm, text="Mark as ally", variable=ally_var).grid(row=3, column=0, sticky="w", pady=(8, 0))
         water_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(frm, text="Water mode", variable=water_var).grid(row=2, column=1, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(frm, text="Water mode", variable=water_var).grid(row=3, column=1, sticky="w", pady=(8, 0))
 
         def apply_monster_defaults() -> None:
             nm = name_var.get().strip()
@@ -3711,12 +3732,36 @@ class InitiativeTracker(tk.Tk):
 
         name_combo.bind("<KeyPress>", on_name_keypress)
 
+        def set_listbox_values(values: list[str]) -> None:
+            listbox.delete(0, tk.END)
+            for value in values:
+                listbox.insert(tk.END, value)
+
+        def on_listbox_select(_event: tk.Event) -> None:
+            selection = listbox.curselection()
+            if not selection:
+                return
+            name_var.set(listbox.get(selection[0]))
+            apply_monster_defaults()
+
+        listbox.bind("<<ListboxSelect>>", on_listbox_select)
+
+        def update_list_mode() -> None:
+            if show_all_var.get():
+                list_frame.grid()
+                set_listbox_values(monster_values)
+            else:
+                list_frame.grid_remove()
+
+        show_all_var.trace_add("write", lambda *_args: update_list_mode())
+
         def on_indexes_loaded() -> None:
             nonlocal monster_values
             if not name_combo.winfo_exists():
                 return
             monster_values = self._monster_names_sorted()
             name_combo.configure(values=monster_values, state="normal")
+            set_listbox_values(monster_values)
             if loading_label.winfo_exists():
                 loading_label.destroy()
             if monster_values and not name_var.get().strip():
@@ -3811,7 +3856,7 @@ class InitiativeTracker(tk.Tk):
             dlg.destroy()
 
         btns = ttk.Frame(frm)
-        btns.grid(row=3, column=0, columnspan=6, pady=(10, 0), sticky="e")
+        btns.grid(row=4, column=0, columnspan=6, pady=(10, 0), sticky="e")
         ttk.Button(btns, text="Roll & Add", command=on_add).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.LEFT)
 
