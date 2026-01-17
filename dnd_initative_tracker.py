@@ -379,6 +379,9 @@ HTML_INDEX = r"""<!doctype html>
       min-height: 180px;
       max-height: 75vh;
     }
+    .sheet-wrap.is-hidden{
+      display:none;
+    }
     .sheet-handle{
       height: 18px;
       display:flex;
@@ -453,6 +456,53 @@ HTML_INDEX = r"""<!doctype html>
     }
     .cast-panel summary::-webkit-details-marker{display:none;}
     .cast-panel[open] summary{margin-bottom:8px;}
+    .cast-menu-trigger{
+      margin-top: 10px;
+      display:flex;
+    }
+    .cast-menu-trigger .btn{
+      flex:1;
+    }
+    .cast-overlay{
+      position:fixed;
+      inset: auto 0 0 0;
+      top: var(--modalTopOffset);
+      background: var(--bg);
+      display:none;
+      flex-direction:column;
+      padding: 10px 12px calc(12px + var(--safeInsetBottom)) 12px;
+      z-index:40;
+      min-height: 0;
+    }
+    .cast-overlay.show{
+      display:flex;
+    }
+    .cast-overlay-header{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .cast-overlay-title{
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .cast-overlay-spacer{
+      flex:1;
+    }
+    .cast-overlay-body{
+      margin-top: 10px;
+      overflow:auto;
+      flex:1 1 auto;
+      min-height:0;
+    }
+    .cast-overlay .cast-panel{
+      margin-top: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
     .form-grid{
       display:grid;
       grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -1263,8 +1313,20 @@ HTML_INDEX = r"""<!doctype html>
         </div>
         <div class="turn-alerts-note">Only works when installed as an app.</div>
       </fieldset>
-      <details class="cast-panel" id="castPanel">
-        <summary>Cast Spell</summary>
+      <div class="cast-menu-trigger" id="castMenuTrigger">
+        <button class="btn" id="castOverlayOpen" type="button">Cast Spell</button>
+      </div>
+      </div>
+    </div>
+  </div>
+  <div class="cast-overlay" id="castOverlay" aria-hidden="true">
+    <div class="cast-overlay-header">
+      <button class="btn" id="castOverlayBack" type="button">Back</button>
+      <div class="cast-overlay-title" id="castOverlayTitle">Cast Spell</div>
+      <div class="cast-overlay-spacer"></div>
+    </div>
+    <div class="cast-overlay-body" role="dialog" aria-modal="true" aria-labelledby="castOverlayTitle">
+      <div class="cast-panel" id="castPanel">
         <form id="castForm">
           <fieldset class="spell-filter-panel" id="spellFilterPanel">
             <legend>Spell Filters</legend>
@@ -1442,7 +1504,6 @@ __DAMAGE_TYPE_OPTIONS__
             <button class="btn accent" type="submit">Cast</button>
           </div>
         </form>
-      </details>
       </div>
     </div>
   </div>
@@ -1786,6 +1847,10 @@ __DAMAGE_TYPE_OPTIONS__
   const resetTurnBtn = document.getElementById("resetTurn");
   const standUpBtn = document.getElementById("standUp");
   const showAllNamesEl = document.getElementById("showAllNames");
+  const castOverlay = document.getElementById("castOverlay");
+  const castOverlayOpenBtn = document.getElementById("castOverlayOpen");
+  const castOverlayBackBtn = document.getElementById("castOverlayBack");
+  const castMenuTrigger = document.getElementById("castMenuTrigger");
   const castPanel = document.getElementById("castPanel");
   const castForm = document.getElementById("castForm");
   const castFilterLevelInput = document.getElementById("castFilterLevel");
@@ -1838,6 +1903,7 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingVibrate = false;
   let lastVibrateSupported = canVibrate;
   let userHasInteracted = navigator.userActivation?.hasBeenActive ?? false;
+  let castOverlayPreviousFocus = null;
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -2047,6 +2113,28 @@ __DAMAGE_TYPE_OPTIONS__
     sheetHeight = target;
     resize();
     updateModalOffsets();
+  }
+
+  function setCastOverlayOpen(open){
+    if (!castOverlay) return;
+    castOverlay.classList.toggle("show", open);
+    castOverlay.setAttribute("aria-hidden", open ? "false" : "true");
+    if (sheetWrap){
+      sheetWrap.classList.toggle("is-hidden", open);
+    }
+    if (open){
+      castOverlayPreviousFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      requestAnimationFrame(() => {
+        castOverlayBackBtn?.focus();
+      });
+    } else if (castOverlayPreviousFocus){
+      castOverlayPreviousFocus.focus();
+      castOverlayPreviousFocus = null;
+    }
+    updateModalOffsets();
+    resize();
   }
 
   function persistSheetHeight(){
@@ -3100,6 +3188,15 @@ __DAMAGE_TYPE_OPTIONS__
     const claimedUnit = getClaimedUnit();
     const hideForNonCaster = hideSpellMenu && claimedUnit && !isUnitSpellcaster(claimedUnit);
     castPanel.classList.toggle("hidden", hideForNonCaster);
+    if (castMenuTrigger){
+      castMenuTrigger.classList.toggle("hidden", hideForNonCaster);
+    }
+    if (castOverlay){
+      castOverlay.classList.toggle("hidden", hideForNonCaster);
+    }
+    if (hideForNonCaster && castOverlay?.classList.contains("show")){
+      setCastOverlayOpen(false);
+    }
   }
 
   function defaultAoeCenter(){
@@ -5708,6 +5805,16 @@ __DAMAGE_TYPE_OPTIONS__
       turnAlertsPanel.classList.add("hidden");
     });
   }
+  if (castOverlayOpenBtn){
+    castOverlayOpenBtn.addEventListener("click", () => {
+      setCastOverlayOpen(true);
+    });
+  }
+  if (castOverlayBackBtn){
+    castOverlayBackBtn.addEventListener("click", () => {
+      setCastOverlayOpen(false);
+    });
+  }
   if (connEl && connPopoverEl){
     connEl.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -5732,6 +5839,10 @@ __DAMAGE_TYPE_OPTIONS__
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape"){
+      if (castOverlay?.classList.contains("show")){
+        setCastOverlayOpen(false);
+        return;
+      }
       closeConnPopover();
       closeAdminMenu();
       hideAdminModal();
