@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: fount-of-moonlight
+name: Fount of Moonlight
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 4
+school: evocation
+tags: []
+casting_time: Action
+range: Self
+components: V, S
+duration: Concentration, up to 10 minutes
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - druid
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: fount-of-moonlight
+  url: https://www.aidedd.org/spell/fount-of-moonlight
+  raw:
+    description: A cool light wreathes your body for the duration, emitting Bright
+      Light in a 20-foot radius and Dim Light for an additional 20 feet. Until the
+      spell ends, you have Resistance to Radiant damage, and your melee attacks deal
+      an extra 2d6 Radiant damage on a hit. In addition, immediately after you take
+      damage from a creature you can see within 60 feet of yourself, you can take
+      a Reaction to force the creature to make a Constitution saving throw. On a failed
+      save, the creature has the Blinded condition until the end of your next turn.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

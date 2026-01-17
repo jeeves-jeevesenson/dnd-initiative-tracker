@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: detect-poison-and-disease
+name: Detect Poison and Disease
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: divination
+tags: []
+casting_time: Action or Ritual
+range: Self
+components: V, S, M (a yew leaf)
+duration: Concentration, up to 10 minutes
+ritual: true
+concentration: true
+lists:
+  classes:
+  - cleric
+  - druid
+  - paladin
+  - ranger
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: detect-poison-and-disease
+  url: https://www.aidedd.org/spell/detect-poison-and-disease
+  raw:
+    description: For the duration, you sense the location of poisons, poisonous or
+      venomous creatures, and magical contagions within 30 feet of yourself. You sense
+      the kind of poison, creature, or contagion in each case. The spell is blocked
+      by 1 foot of stone, dirt, or wood; 1 inch of metal; or a thin sheet of lead.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

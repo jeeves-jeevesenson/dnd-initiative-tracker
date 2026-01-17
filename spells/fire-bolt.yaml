@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: fire-bolt
+name: Fire Bolt
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: evocation
+tags: []
+casting_time: Action
+range: 120 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: fire-bolt
+  url: https://www.aidedd.org/spell/fire-bolt
+  raw:
+    description: You hurl a mote of fire at a creature or an object within range.
+      Make a ranged spell attack against the target. On a hit, the target takes 1d10
+      Fire damage. A flammable object hit by this spell starts burning if it isn't
+      being worn or carried. Cantrip Upgrade . The damage increases by 1d10 when you
+      reach levels 5 (2d10), 11 (3d10), and 17 (4d10).
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: guiding-bolt
+name: Guiding Bolt
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: evocation
+tags: []
+casting_time: Action
+range: 120 feet
+components: V, S
+duration: 1 round
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: guiding-bolt
+  url: https://www.aidedd.org/spell/guiding-bolt
+  raw:
+    description: You hurl a bolt of light toward a creature within range. Make a ranged
+      spell attack against the target. On a hit, it takes 4d6 Radiant damage, and
+      the next attack roll made against it before the end of your next turn has Advantage.
+      Using a Higher-Level Spell Slot . The damage increases by 1d6 for each spell
+      slot level above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

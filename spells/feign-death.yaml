@@ -1,0 +1,48 @@
+schema: dnd55.spell.v1
+id: feign-death
+name: Feign Death
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 3
+school: necromancy
+tags: []
+casting_time: Action or Ritual
+range: Touch
+components: V, S, M (a pinch of graveyard dirt)
+duration: 1 hour
+ritual: true
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - druid
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: feign-death
+  url: https://www.aidedd.org/spell/feign-death
+  raw:
+    description: You touch a willing creature and put it into a cataleptic state that
+      is indistinguishable from death. For the duration, the target appears dead to
+      outward inspection and to spells used to determine the target's status. The
+      target has the Blinded and Incapacitated conditions, and its Speed is 0. The
+      target also has Resistance to all damage except Psychic damage, and it has Immunity
+      to the Poisoned condition.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

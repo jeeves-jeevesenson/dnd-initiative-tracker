@@ -1,0 +1,51 @@
+schema: dnd55.spell.v1
+id: dispel-evil-and-good
+name: Dispel Evil and Good
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 5
+school: abjuration
+tags: []
+casting_time: Action
+range: Self
+components: V, S, M (powdered silver and iron)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: dispel-evil-and-good
+  url: https://www.aidedd.org/spell/dispel-evil-and-good
+  raw:
+    description: For the duration, Celestials, Elementals, Fey, Fiends, and Undead
+      have Disadvantage on attack rolls against you. You can end the spell early by
+      using either of the following special functions. Break Enchantment . As a Magic
+      action, you touch a creature that is possessed by or has the Charmed or Frightened
+      condition from one or more creatures of the types above. The target is no longer
+      possessed, Charmed, or Frightened by such creatures. Dismissal . As a Magic
+      action, you target one creature you can see within 5 feet of you that has one
+      of the creature types above. The target must succeed on a Charisma saving throw
+      or be sent back to its home plane if it isn't there already. If they aren't
+      on their home plane, Undead are sent to the Shadowfell, and Fey are sent to
+      the Feywild.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

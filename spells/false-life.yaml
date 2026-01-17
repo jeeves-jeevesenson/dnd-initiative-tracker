@@ -1,0 +1,43 @@
+schema: dnd55.spell.v1
+id: false-life
+name: False Life
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: necromancy
+tags: []
+casting_time: Action
+range: Self
+components: V, S, M (a drop of alcohol)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: false-life
+  url: https://www.aidedd.org/spell/false-life
+  raw:
+    description: You gain 2d4 + 4 Temporary Hit Points. Using a Higher-Level Spell
+      Slot . You gain 5 additional Temporary Hit Points for each spell slot level
+      above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

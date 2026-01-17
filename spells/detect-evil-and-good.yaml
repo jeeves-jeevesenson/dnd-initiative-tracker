@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: detect-evil-and-good
+name: Detect Evil and Good
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: divination
+tags: []
+casting_time: Action
+range: Self
+components: V, S
+duration: Concentration, up to 10 minutes
+ritual: false
+concentration: true
+lists:
+  classes:
+  - cleric
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: detect-evil-and-good
+  url: https://www.aidedd.org/spell/detect-evil-and-good
+  raw:
+    description: For the duration, you sense the location of any Aberration, Celestial,
+      Elemental, Fey, Fiend, or Undead within 30 feet of yourself. You also sense
+      whether the Hallow spell is active there and, if so, where. The spell is blocked
+      by 1 foot of stone, dirt, or wood; 1 inch of metal; or a thin sheet of lead.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

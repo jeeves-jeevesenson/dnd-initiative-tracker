@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: foresight
+name: Foresight
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 9
+school: divination
+tags: []
+casting_time: 1 minute
+range: Touch
+components: V, S, M (a hummingbird feather)
+duration: 8 hours
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - druid
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: foresight
+  url: https://www.aidedd.org/spell/foresight
+  raw:
+    description: You touch a willing creature and bestow a limited ability to see
+      into the immediate future. For the duration, the target has Advantage on D20
+      Tests, and other creatures have Disadvantage on attack rolls against it. The
+      spell ends early if you cast it again.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

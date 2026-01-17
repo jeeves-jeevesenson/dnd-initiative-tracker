@@ -1,0 +1,75 @@
+schema: dnd55.spell.v1
+id: fire-storm
+name: Fire Storm
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 7
+school: evocation
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 150 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  - druid
+  - sorcerer
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: fire-storm
+  url: https://www.aidedd.org/spell/fire-storm
+  raw:
+    description: A storm of fire appears within range. The area of the storm consists
+      of up to ten 10-foot Cubes, which you arrange as you like. Each Cube must be
+      contiguous with at least one other Cube. Each creature in the area makes a Dexterity
+      saving throw, taking 7d10 Fire damage on a failed save or half as much damage
+      on a successful one. Flammable objects in the area that aren't being worn or
+      carried start burning.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: null
+    area:
+      shape: cube
+      side_ft: 10
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: fire
+        dice: 7d10
+      success:
+      - effect: damage
+        damage_type: fire
+        dice: 7d10
+        multiplier: 0.5
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

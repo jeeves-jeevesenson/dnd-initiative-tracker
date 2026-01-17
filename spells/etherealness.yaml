@@ -1,0 +1,60 @@
+schema: dnd55.spell.v1
+id: etherealness
+name: Etherealness
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 7
+school: conjuration
+tags: []
+casting_time: Action
+range: Self
+components: V, S
+duration: Up to 8 hours
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: etherealness
+  url: https://www.aidedd.org/spell/etherealness
+  raw:
+    description: You step into the border regions of the Ethereal Plane, where it
+      overlaps with your current plane. You remain in the Border Ethereal for the
+      duration. During this time, you can move in any direction. If you move up or
+      down, every foot of movement costs an extra foot. You can perceive the plane
+      you left, which looks gray, and you can't see anything there more than 60 feet
+      away. While on the Ethereal Plane, you can affect and be affected only by creatures,
+      objects, and effects on that plane. Creatures that aren't on the Ethereal Plane
+      can't perceive or interact with you unless a feature gives them the ability
+      to do so. When the spell ends, you return to the plane you left in the spot
+      that corresponds to your space in the Border Ethereal. If you appear in an occupied
+      space, you are shunted to the nearest unoccupied space and take Force damage
+      equal to twice the number of feet you are moved. This spell ends instantly if
+      you cast it while you are on the Ethereal Plane or a plane that doesn't border
+      it, such as one of the Outer Planes. Using a Higher-Level Spell Slot . You can
+      target up to three willing creatures (including yourself) for each spell slot
+      level above 7. The creatures must be within 10 feet of you when you cast the
+      spell.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

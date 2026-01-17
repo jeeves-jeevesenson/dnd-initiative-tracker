@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: goodberry
+name: Goodberry
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: conjuration
+tags: []
+casting_time: Action
+range: Self
+components: V, S, M (a sprig of mistletoe)
+duration: 24 hours
+ritual: false
+concentration: false
+lists:
+  classes:
+  - druid
+  - ranger
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: goodberry
+  url: https://www.aidedd.org/spell/goodberry
+  raw:
+    description: Ten berries appear in your hand and are infused with magic for the
+      duration. A creature can take a Bonus Action to eat one berry. Eating a berry
+      restores 1 Hit Point, and the berry provides enough nourishment to sustain a
+      creature for one day. Uneaten berries disappear when the spell ends.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

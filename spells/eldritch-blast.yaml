@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: eldritch-blast
+name: Eldritch Blast
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 0
+school: evocation
+tags: []
+casting_time: Action
+range: 120 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - warlock
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: eldritch-blast
+  url: https://www.aidedd.org/spell/eldritch-blast
+  raw:
+    description: Your hurl a beam of crackling energy. Make a ranged spell attack
+      against one creature or object in range. On a hit, the target takes 1d10 Force
+      damage. Cantrip Upgrade . The spell creates two beams at level 5, three beams
+      at level 11, and four beams at level 17. You can direct the beams at the same
+      target or at different ones. Make a separate attack roll for each beam.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

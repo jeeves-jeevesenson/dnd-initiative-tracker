@@ -1,0 +1,49 @@
+schema: dnd55.spell.v1
+id: fog-cloud
+name: Fog Cloud
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: conjuration
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 120 feet
+components: V, S
+duration: Concentration, up to 1 hour
+ritual: false
+concentration: true
+lists:
+  classes:
+  - druid
+  - ranger
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: fog-cloud
+  url: https://www.aidedd.org/spell/fog-cloud
+  raw:
+    description: You create a 20-foot-radius Sphere of fog centered on a point within
+      range. The Sphere is Heavily Obscured. It lasts for the duration or until a
+      strong wind (such as one created by Gust of Wind ) disperses it. Using a Higher-Level
+      Spell Slot . The fog's radius increases by 20 feet for each spell slot level
+      above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

@@ -1,0 +1,47 @@
+schema: dnd55.spell.v1
+id: hex
+name: Hex
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: enchantment
+tags: []
+casting_time: Bonus Action
+range: 90 feet
+components: V, S, M (the petrified eye of a newt)
+duration: Concentration, up to 1 hour
+ritual: false
+concentration: true
+lists:
+  classes:
+  - warlock
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: hex
+  url: https://www.aidedd.org/spell/hex
+  raw:
+    description: You place a curse on a creature that you can see within range. Until
+      the spell ends, you deal an extra 1d6 Necrotic damage to the target whenever
+      you hit it with an attack roll. Also, choose one ability when you cast the spell.
+      The target has Disadvantage on ability checks made with the chosen ability.
+      If the target drops to 0 Hit Points before this spell ends, you can use a Bonus
+      Action on a later turn to curse a new creature. Using a Higher-Level Spell Slot
+      . Your Concentration can last longer with a spell slot of level 2 (up to 4 hours),
+      3-4 (up to 8 hours), or 5+ (up to 24 hours).
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

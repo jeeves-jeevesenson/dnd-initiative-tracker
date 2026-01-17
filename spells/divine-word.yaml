@@ -1,0 +1,50 @@
+schema: dnd55.spell.v1
+id: divine-word
+name: Divine Word
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 7
+school: evocation
+tags: []
+casting_time: Bonus Action
+range: 30 feet
+components: V
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: divine-word
+  url: https://www.aidedd.org/spell/divine-word
+  raw:
+    description: "You utter a word imbued with power from the Upper Planes. Each creature\
+      \ of your choice in range makes a Charisma saving throw. On a failed save, a\
+      \ target that has 50 Hit Points or fewer suffers an effect based on its current\
+      \ Hit Points, as shown in the Divine Word Effects table. Regardless of its Hit\
+      \ Points, a Celestial, an Elemental, a Fey, or a Fiend target that fails its\
+      \ save is forced back to its plane of origin (if it isn't there already) and\
+      \ can't return to the current plane for 24 hours by any means short of a Wish\
+      \ spell. Hit Points Effect 0\u201320 The target dies. 21\u201330 The target\
+      \ has the Blinded, Deafened, and Stunned conditions for 1 hour. 31\u201340 The\
+      \ target has the Blinded and Deafened conditions for 10 minutes. 41\u201350\
+      \ The target has the Deafened condition for 1 minute."
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: finger-of-death
+name: Finger of Death
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 7
+school: necromancy
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: finger-of-death
+  url: https://www.aidedd.org/spell/finger-of-death
+  raw:
+    description: You unleash negative energy toward a creature you can see within
+      range. The target makes a Constitution saving throw, taking 7d8 + 30 Necrotic
+      damage on a failed save or half as much damage on a successful one. A Humanoid
+      killed by this spell rises at the start of your next turn as a Zombie that follows
+      your verbal orders.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

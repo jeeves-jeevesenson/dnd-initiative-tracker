@@ -1,0 +1,51 @@
+schema: dnd55.spell.v1
+id: disintegrate
+name: Disintegrate
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 6
+school: transmutation
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S, M (a lodestone and dust)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: disintegrate
+  url: https://www.aidedd.org/spell/disintegrate
+  raw:
+    description: You launch a green ray at a target you can see within range. The
+      target can be a creature, a nonmagical object, or a creation of magical force,
+      such as the wall created by Wall of Force . A creature targeted by this spell
+      makes a Dexterity saving throw. On a failed save, the target takes 10d6 + 40
+      Force damage. If this damage reduces it to 0 Hit Points, it and everything nonmagical
+      it is wearing and carrying are disintegrated into gray dust. The target can
+      be revived only by a True Resurrection or a Wish spell. This spell automatically
+      disintegrates a Large or smaller nonmagical object or a creation of magical
+      force. If such a target is Huge or larger, this spell disintegrates a 10-foot-Cube
+      portion of it. Using a Higher-Level Spell Slot . The damage increases by 3d6
+      for each spell slot level above 6.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

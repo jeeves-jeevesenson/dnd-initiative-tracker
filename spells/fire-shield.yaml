@@ -1,0 +1,48 @@
+schema: dnd55.spell.v1
+id: fire-shield
+name: Fire Shield
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: evocation
+tags: []
+casting_time: Action
+range: Self
+components: V, S, M (a bit of phosphorus or a firefly)
+duration: 10 minutes
+ritual: false
+concentration: false
+lists:
+  classes:
+  - druid
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: fire-shield
+  url: https://www.aidedd.org/spell/fire-shield
+  raw:
+    description: Wispy flames wreathe your body for the duration, shedding Bright
+      Light in a 10-foot radius and Dim Light for an additional 10 feet. The flames
+      provide you with a warm shield or a chill shield, as you choose. The warm shield
+      grants you Resistance to Cold damage, and the chill shield grants you Resistance
+      to Fire damage. In addition, whenever a creature within 5 feet of you hits you
+      with a melee attack roll, the shield erupts with flame. The attacker takes 2d8
+      Fire damage from a warm shield or 2d8 Cold damage from a chill shield.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

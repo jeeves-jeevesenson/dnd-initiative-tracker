@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: death-ward
+name: Death Ward
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: abjuration
+tags: []
+casting_time: Action
+range: Touch
+components: V, S
+duration: 8 hours
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: death-ward
+  url: https://www.aidedd.org/spell/death-ward
+  raw:
+    description: You touch a creature and grant it a measure of protection from death.
+      The first time the target would drop to 0 Hit Points before the spell ends,
+      the target instead drops to 1 Hit Point, and the spell ends. If the spell is
+      still in effect when the target is subjected to an effect that would kill it
+      instantly without dealing damage, that effect is negated against the target,
+      and the spell ends.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

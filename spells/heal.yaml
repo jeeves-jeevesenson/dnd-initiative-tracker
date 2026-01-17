@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: heal
+name: Heal
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 6
+school: abjuration
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  - druid
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: heal
+  url: https://www.aidedd.org/spell/heal
+  raw:
+    description: Choose a creature that you can see within range. Positive energy
+      washes through the target, restoring 70 Hit Points. This spell also ends the
+      Blinded, Deafened, and Poisoned conditions on the target. Using a Higher-Level
+      Spell Slot . The healing increases by 10 for each spell slot level above 6.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,49 @@
+schema: dnd55.spell.v1
+id: hold-person
+name: Hold Person
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: enchantment
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S, M (a straight piece of iron)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - cleric
+  - druid
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: hold-person
+  url: https://www.aidedd.org/spell/hold-person
+  raw:
+    description: Choose a Humanoid that you can see within range. The target must
+      succeed on a Wisdom saving throw or have the Paralyzed condition for the duration.
+      At the end of each of its turns, the target repeats the save, ending the spell
+      on itself on a success. Using a Higher-Level Spell Slot . You can target one
+      additional Humanoid for each spell slot level above 2.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

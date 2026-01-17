@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: harm
+name: Harm
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 6
+school: necromancy
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: harm
+  url: https://www.aidedd.org/spell/harm
+  raw:
+    description: You unleash virulent magic on a creature you can see within range.
+      The target makes a Constitution saving throw. On a failed save, it takes 14d6
+      Necrotic damage, and its Hit Point maximum is reduced by an amount equal to
+      the Necrotic damage it took. On a successful save, it takes half as much damage
+      only. This spell can't reduce a target's Hit Point maximum below 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

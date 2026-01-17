@@ -1,0 +1,48 @@
+schema: dnd55.spell.v1
+id: dragon-s-breath
+name: Dragon's Breath
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: transmutation
+tags:
+- damage
+- aoe
+casting_time: Bonus Action
+range: Touch
+components: V, S, M (a hot pepper)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: dragon-s-breath
+  url: https://www.aidedd.org/spell/dragon-s-breath
+  raw:
+    description: You touch one willing creature, and choose Acid, Cold, Fire, Lightning,
+      or Poison. Until the spell ends, the target can take a Magic action to exhale
+      a 15-foot Cone. Each creature in that area makes a Dexterity saving throw, taking
+      3d6 damage of the chosen type on a failed save or half as much damage on a successful
+      one. Using a Higher-Level Spell Slot . The damage increases by 1d6 for each
+      spell slot level above 2.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

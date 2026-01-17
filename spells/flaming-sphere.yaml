@@ -1,0 +1,53 @@
+schema: dnd55.spell.v1
+id: flaming-sphere
+name: Flaming Sphere
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 2
+school: conjuration
+tags: []
+casting_time: Action
+range: 60 feet
+components: V, S, M (a ball of wax)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - druid
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: flaming-sphere
+  url: https://www.aidedd.org/spell/flaming-sphere
+  raw:
+    description: You create a 5-foot-diameter Sphere of fire in an unoccupied space
+      on the ground within range. It lasts for the duration. Any creature that ends
+      its turn within 5 feet of the sphere makes a Dexterity saving throw, taking
+      2d6 Fire damage on a failed save or half as much damage on a successful one.
+      As a Bonus Action, you can move the sphere up to 30 feet, rolling it along the
+      ground. If you move the sphere into a creature's space, that creature makes
+      the save against the sphere, and the sphere stops moving for the turn. When
+      you move the sphere, you can direct it over barriers up to 5 feet tall and jump
+      it across pits up to 10 feet wide. Flammable objects that aren't being worn
+      or carried start burning if touched by the sphere, and it sheds Bright Light
+      in a 20-foot radius and Dim Light for an additional 20 feet. Using a Higher-Level
+      Spell Slot . The damage increases by 1d6 for each spell slot level above 2.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

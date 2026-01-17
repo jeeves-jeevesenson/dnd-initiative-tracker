@@ -1,0 +1,43 @@
+schema: dnd55.spell.v1
+id: glibness
+name: Glibness
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 8
+school: enchantment
+tags: []
+casting_time: Action
+range: Self
+components: V
+duration: 1 hour
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - warlock
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: glibness
+  url: https://www.aidedd.org/spell/glibness
+  raw:
+    description: Until the spell ends, when you make a Charisma check, you can replace
+      the number you roll with a 15. Additionally, no matter what you say, magic that
+      would determine if you are telling the truth indicates that you are being truthful.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

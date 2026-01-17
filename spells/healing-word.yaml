@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: healing-word
+name: Healing Word
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: abjuration
+tags: []
+casting_time: Bonus Action
+range: 60 feet
+components: V
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - druid
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: healing-word
+  url: https://www.aidedd.org/spell/healing-word
+  raw:
+    description: A creature of your choice that you can see within range regains Hit
+      Points equal to 2d4 plus your spellcasting ability modifier. Using a Higher-Level
+      Spell Slot . The healing increases by 2d4 for each spell slot level above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

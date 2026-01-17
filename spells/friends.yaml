@@ -1,0 +1,49 @@
+schema: dnd55.spell.v1
+id: friends
+name: Friends
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 0
+school: enchantment
+tags: []
+casting_time: Action
+range: 10 feet
+components: S, M (some makeup)
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: friends
+  url: https://www.aidedd.org/spell/friends
+  raw:
+    description: You magically emanate a sense of friendship toward one creature you
+      can see within range. The target must succeed on a Wisdom saving throw or have
+      the Charmed condition for the duration. The target succeeds automatically if
+      it isn't a Humanoid, if you're fighting it, or if you have cast this spell on
+      it within the past 24 hours. The spell ends early if the target takes damage
+      or if you make an attack roll, deal damage, or force anyone to make a saving
+      throw. When the spell ends, the target knows it was Charmed by you.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

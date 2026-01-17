@@ -1,0 +1,53 @@
+schema: dnd55.spell.v1
+id: fabricate
+name: Fabricate
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: transmutation
+tags:
+- damage
+- aoe
+casting_time: 10 minutes
+range: 120 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: fabricate
+  url: https://www.aidedd.org/spell/fabricate
+  raw:
+    description: "You convert raw materials into products of the same material. For\
+      \ example, you can fabricate a wooden bridge from a clump of trees, a rope from\
+      \ a patch of hemp, or clothes from flax or wool. Choose raw materials that you\
+      \ can see within range. You can fabricate a Large or smaller object (contained\
+      \ within a 10-foot Cube or eight connected 5-foot Cubes) given a sufficient\
+      \ quantity of material. If you're working with metal, stone, or another mineral\
+      \ substance, however, the fabricated object can be no larger than Medium (contained\
+      \ within a 5-foot Cube). The quality of any fabricated objects is based on the\
+      \ quality of the raw materials. Creatures and magic items can't be created by\
+      \ this spell. You also can't use it to create items that require a high degree\
+      \ of skill\u2014such as weapons and armor\u2014unless you have proficiency with\
+      \ the type of Artisan's Tools used to craft such objects."
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes: []

@@ -1,0 +1,44 @@
+schema: dnd55.spell.v1
+id: destructive-wave
+name: Destructive Wave
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024"
+  page: null
+  srd: false
+level: 5
+school: evocation
+tags: []
+casting_time: Action
+range: Self
+components: V
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: destructive-wave
+  url: https://www.aidedd.org/spell/destructive-wave
+  raw:
+    description: Destructive energy ripples outward from you in a 30-foot Emanation.
+      Each creature you choose in the Emanation makes a Constitution saving throw.
+      On a failed save, a target takes 5d6 Thunder damage and 5d6 Radiant or Necrotic
+      damage (your choice) and has the Prone condition. On a successful save, a target
+      takes half as much damage only.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

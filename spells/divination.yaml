@@ -1,0 +1,48 @@
+schema: dnd55.spell.v1
+id: divination
+name: Divination
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: divination
+tags: []
+casting_time: Action or Ritual
+range: Self
+components: V, S, M (incense worth 25+ GP, which the spell consumes)
+duration: Instantaneous
+ritual: true
+concentration: false
+lists:
+  classes:
+  - cleric
+  - druid
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: divination
+  url: https://www.aidedd.org/spell/divination
+  raw:
+    description: This spell puts you in contact with a god or a god's servants. You
+      ask one question about a specific goal, event, or activity to occur within 7
+      days. The DM offers a truthful reply, which might be a short phrase or cryptic
+      rhyme. The spell doesn't account for circumstances that might change the answer,
+      such as the casting of other spells. If you cast the spell more than once before
+      finishing a Long Rest, there is a cumulative 25 percent chance for each casting
+      after the first that you get no answer.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

@@ -1,0 +1,48 @@
+schema: dnd55.spell.v1
+id: greater-restoration
+name: Greater Restoration
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 5
+school: abjuration
+tags: []
+casting_time: Action
+range: Touch
+components: V, S, M (diamond dust worth 100+ GP, which the spell consumes)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - druid
+  - paladin
+  - ranger
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: greater-restoration
+  url: https://www.aidedd.org/spell/greater-restoration
+  raw:
+    description: "You touch a creature and magically remove one of the following effects\
+      \ from it: \u2022 1 Exhaustion level \u2022 The Charmed or Petrified condition\
+      \ \u2022 A curse, including the target's Attunement to a cursed magic item \u2022\
+      \ Any reduction to one of the target's ability scores \u2022 Any reduction to\
+      \ the target's Hit Point maximum"
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

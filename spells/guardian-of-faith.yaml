@@ -1,0 +1,46 @@
+schema: dnd55.spell.v1
+id: guardian-of-faith
+name: Guardian of Faith
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 4
+school: conjuration
+tags: []
+casting_time: Action
+range: 30 feet
+components: V
+duration: 8 hours
+ritual: false
+concentration: false
+lists:
+  classes:
+  - cleric
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: guardian-of-faith
+  url: https://www.aidedd.org/spell/guardian-of-faith
+  raw:
+    description: A Large spectral guardian appears and hovers for the duration in
+      an unoccupied space that you can see within range. The guardian occupies that
+      space and is invulnerable, and it appears in a form appropriate for your deity
+      or pantheon. Any enemy that moves to a space within 10 feet of the guardian
+      for the first time on a turn or starts its turn there makes a Dexterity saving
+      throw, taking 20 Radiant damage on a failed save or half as much damage on a
+      successful one. The guardian vanishes when it has dealt a total of 60 damage.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

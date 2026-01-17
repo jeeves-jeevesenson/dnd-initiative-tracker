@@ -1,0 +1,48 @@
+schema: dnd55.spell.v1
+id: drawmij-s-instant-summons
+name: Drawmij's Instant Summons
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 6
+school: conjuration
+tags: []
+casting_time: 1 minute or Ritual
+range: Touch
+components: V, S, M (a sapphire worth 1,000+ GP)
+duration: Until dispelled
+ritual: true
+concentration: false
+lists:
+  classes:
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: drawmij-s-instant-summons
+  url: https://www.aidedd.org/spell/drawmij-s-instant-summons
+  raw:
+    description: You touch the sapphire used in the casting and an object weighing
+      10 pounds or less whose longest dimension is 6 feet or less. The spell leaves
+      an Invisible mark on that object and invisibly inscribes the object's name on
+      the sapphire. Each time you cast this spell, you must use a different sapphire.
+      Thereafter, you can take a Magic action to speak the object's name and crush
+      the sapphire. The object instantly appears in your hand regardless of physical
+      or planar distances, and the spell ends. If another creature is holding or carrying
+      the object, crushing the sapphire doesn't transport it, but instead you learn
+      who that creature is and where that creature is currently located.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

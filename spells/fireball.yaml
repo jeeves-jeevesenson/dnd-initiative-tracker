@@ -1,0 +1,80 @@
+schema: dnd55.spell.v1
+id: fireball
+name: Fireball
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 3
+school: evocation
+tags:
+- damage
+- aoe
+casting_time: Action
+range: 150 feet
+components: V, S, M (a ball of bat guano and sulfur)
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: fireball
+  url: https://www.aidedd.org/spell/fireball
+  raw:
+    description: A bright streak flashes from you to a point you choose within range
+      and then blossoms with a low roar into a fiery explosion. Each creature in a
+      20-foot-radius Sphere centered on that point makes a Dexterity saving throw,
+      taking 8d6 Fire damage on a failed save or half as much damage on a successful
+      one. Flammable objects in the area that aren't being worn or carried start burning.
+      Using a Higher-Level Spell Slot . The damage increases by 1d6 for each spell
+      slot level above 3.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: null
+    area:
+      shape: sphere
+      radius_ft: 20
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: fire
+        dice: 8d6
+        scaling: &id001
+          kind: slot_level
+          base_slot: 3
+          add_per_slot_above: 1d6
+      success:
+      - effect: damage
+        damage_type: fire
+        dice: 8d6
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
+  ui:
+    template_preview: true
+  notes: []

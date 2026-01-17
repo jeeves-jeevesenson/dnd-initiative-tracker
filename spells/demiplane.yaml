@@ -1,0 +1,53 @@
+schema: dnd55.spell.v1
+id: demiplane
+name: Demiplane
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 8
+school: conjuration
+tags: []
+casting_time: Action
+range: 60 feet
+components: S
+duration: 1 hour
+ritual: false
+concentration: false
+lists:
+  classes:
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: demiplane
+  url: https://www.aidedd.org/spell/demiplane
+  raw:
+    description: You create a shadowy Medium door on a flat solid surface that you
+      can see within range. This door can be opened and closed, and it leads to a
+      demiplane that is an empty room 30 feet in each dimension, made of wood or stone
+      (your choice). When the spell ends, the door vanishes, and any objects inside
+      the demiplane remain there. Any creatures inside also remain unless they opt
+      to be shunted through the door as it vanishes, landing with the Prone condition
+      in the unoccupied spaces closest to the door's former space. Each time you cast
+      this spell, you can create a new demiplane or connect the shadowy door to a
+      demiplane you created with a previous casting of this spell. Additionally, if
+      you know the nature and contents of a demiplane created by a casting of this
+      spell by another creature, you can connect the shadowy door to that demiplane
+      instead.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

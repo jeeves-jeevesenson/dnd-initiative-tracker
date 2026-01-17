@@ -1,0 +1,53 @@
+schema: dnd55.spell.v1
+id: dispel-magic
+name: Dispel Magic
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 3
+school: abjuration
+tags: []
+casting_time: Action
+range: 120 feet
+components: V, S
+duration: Instantaneous
+ritual: false
+concentration: false
+lists:
+  classes:
+  - bard
+  - cleric
+  - druid
+  - paladin
+  - ranger
+  - sorcerer
+  - warlock
+  - wizard
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: dispel-magic
+  url: https://www.aidedd.org/spell/dispel-magic
+  raw:
+    description: Choose one creature, object, or magical effect within range. Any
+      ongoing spell of level 3 or lower on the target ends. For each ongoing spell
+      of level 4 or higher on the target, make an ability check using your spellcasting
+      ability (DC 10 plus that spell's level). On a successful check, the spell ends.
+      Using a Higher-Level Spell Slot . You automatically end a spell on the target
+      if the spell's level is equal to or less than the level of the spell slot you
+      use.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []

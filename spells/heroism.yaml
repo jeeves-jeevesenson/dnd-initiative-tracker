@@ -1,0 +1,45 @@
+schema: dnd55.spell.v1
+id: heroism
+name: Heroism
+edition: '2024'
+source:
+  book: "Player\xB4s Handbook 2024 (BR)"
+  page: null
+  srd: false
+level: 1
+school: enchantment
+tags: []
+casting_time: Action
+range: Touch
+components: V, S
+duration: Concentration, up to 1 minute
+ritual: false
+concentration: true
+lists:
+  classes:
+  - bard
+  - paladin
+  subclasses: []
+import:
+  source: aidedd
+  aidedd_slug: heroism
+  url: https://www.aidedd.org/spell/heroism
+  raw:
+    description: A willing creature you touch is imbued with bravery. Until the spell
+      ends, the creature is immune to the Frightened condition and gains Temporary
+      Hit Points equal to your spellcasting ability modifier at the start of each
+      of its turns. Using a Higher-Level Spell Slot . You can target one additional
+      creature for each spell slot level above 1.
+    higher_level: null
+text:
+  summary: null
+  rules: null
+  higher_level: null
+mechanics:
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
+  ui:
+    template_preview: false
+  notes: []
