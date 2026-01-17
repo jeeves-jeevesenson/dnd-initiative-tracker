@@ -4282,13 +4282,23 @@ class BattleMapWindow(tk.Toplevel):
         self._selected_aoe: Optional[int] = None
         self._aoe_default_colors = {
             "circle": "#2d4f8a",
+            "sphere": "#2d4f8a",
+            "cylinder": "#2d4f8a",
             "line": "#2d8a57",
+            "wall": "#b57d22",
             "square": "#6b3d8a",
+            "cube": "#6b3d8a",
+            "cone": "#b56e22",
         }
         self._aoe_fill_colors = {
             "circle": "#a8c5ff",
+            "sphere": "#a8c5ff",
+            "cylinder": "#a8c5ff",
             "line": "#b7ffe0",
+            "wall": "#ffe699",
             "square": "#e2b6ff",
+            "cube": "#e2b6ff",
+            "cone": "#ffbd6e",
         }
         self._aoe_color_labels: List[str] = []
         self._aoe_color_by_label: Dict[str, str] = {}
@@ -6261,14 +6271,30 @@ class BattleMapWindow(tk.Toplevel):
         label_id: int
 
         # initial placeholder coords, then layout
-        if kind == "circle":
+        if kind in ("circle", "sphere", "cylinder"):
             shape_id = self.canvas.create_oval(0, 0, 1, 1, outline=color, width=3, dash=(6, 4),
                                                fill=self._aoe_fill_color(kind), stipple="gray25",
                                                tags=(f"aoe:{aid}", "aoe"))
-        elif kind == "line":
+        elif kind == "line" or kind == "wall":
             shape_id = self.canvas.create_polygon(0, 0, 1, 1, 2, 2, 3, 3, outline=color, width=3, dash=(6, 4),
                                                   fill=self._aoe_fill_color(kind), stipple="gray25",
                                                   tags=(f"aoe:{aid}", "aoe"))
+        elif kind == "cone":
+            shape_id = self.canvas.create_arc(
+                0,
+                0,
+                1,
+                1,
+                start=0,
+                extent=90,
+                style=tk.PIESLICE,
+                outline=color,
+                width=3,
+                dash=(6, 4),
+                fill=self._aoe_fill_color(kind),
+                stipple="gray25",
+                tags=(f"aoe:{aid}", "aoe"),
+            )
         else:
             shape_id = self.canvas.create_rectangle(0, 0, 1, 1, outline=color, width=3, dash=(6, 4),
                                                     fill=self._aoe_fill_color(kind), stipple="gray25",
@@ -6290,10 +6316,10 @@ class BattleMapWindow(tk.Toplevel):
         y = self.y0 + (cy + 0.5) * self.cell
 
         kind = str(d["kind"])
-        if kind == "circle":
+        if kind in ("circle", "sphere", "cylinder"):
             r = float(d["radius_sq"]) * self.cell
             self.canvas.coords(int(d["shape"]), x - r, y - r, x + r, y + r)
-        elif kind == "line":
+        elif kind == "line" or kind == "wall":
             length_px = float(d["length_sq"]) * self.cell
             width_px = float(d["width_sq"]) * self.cell
             orient = str(d.get("orient") or "vertical")
@@ -6312,6 +6338,21 @@ class BattleMapWindow(tk.Toplevel):
             p3 = (x - dx * half_len - px * half_w, y - dy * half_len - py * half_w)
             p4 = (x - dx * half_len + px * half_w, y - dy * half_len + py * half_w)
             self.canvas.coords(int(d["shape"]), p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1])
+        elif kind == "cone":
+            length_px = float(d["length_sq"]) * self.cell
+            spread_deg = d.get("angle_deg")
+            if spread_deg is None:
+                spread_deg = 90.0
+            else:
+                spread_deg = float(spread_deg)
+            orient = str(d.get("orient") or "vertical")
+            heading_deg = 0.0 if orient == "horizontal" else -90.0
+            start = heading_deg - (spread_deg / 2.0)
+            self.canvas.coords(int(d["shape"]), x - length_px, y - length_px, x + length_px, y + length_px)
+            try:
+                self.canvas.itemconfigure(int(d["shape"]), start=start, extent=spread_deg)
+            except Exception:
+                pass
         else:
             half = float(d["side_sq"]) * self.cell / 2.0
             self.canvas.coords(int(d["shape"]), x - half, y - half, x + half, y + half)
@@ -6321,9 +6362,20 @@ class BattleMapWindow(tk.Toplevel):
     def _refresh_aoe_list(self, select: Optional[int] = None) -> None:
         self.aoe_list.delete(0, tk.END)
         self._aoe_index_to_id: List[int] = []
+        kind_icons = {
+            "circle": "◯",
+            "sphere": "◯",
+            "cylinder": "◯",
+            "square": "□",
+            "cube": "□",
+            "line": "▭",
+            "wall": "▮",
+            "cone": "▲",
+        }
         for aid in sorted(self.aoes.keys()):
             d = self.aoes[aid]
-            kind = "◯" if d["kind"] == "circle" else ("▭" if d["kind"] == "line" else "□")
+            kind_name = str(d.get("kind") or "")
+            kind = kind_icons.get(kind_name, "□")
             pin = ""
             if d.get("pinned"):
                 remaining = d.get("remaining_turns")
@@ -6332,6 +6384,9 @@ class BattleMapWindow(tk.Toplevel):
                 else:
                     pin = " (pinned)"
             name = str(d.get("name") or f"AoE {aid}")
+            height_ft = d.get("height_ft")
+            if kind_name in ("sphere", "cylinder") and isinstance(height_ft, (int, float)) and height_ft > 0:
+                name = f"{name} (h {height_ft:g}ft)"
             self.aoe_list.insert(tk.END, f"{kind} {name} [{aid}]{pin}")
             self._aoe_index_to_id.append(aid)
 
