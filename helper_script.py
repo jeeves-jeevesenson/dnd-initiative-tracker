@@ -8163,7 +8163,14 @@ class BattleMapWindow(tk.Toplevel):
             x2, y2 = cx_px + half_w, cy_px + half_h
             for cid, tok in self.unit_tokens.items():
                 x, y = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
-                if x1 <= x <= x2 and y1 <= y <= y2:
+                token_half = self.cell / 2.0
+                token_left = x - token_half
+                token_right = x + token_half
+                token_top = y - token_half
+                token_bottom = y + token_half
+                overlap_w = max(0.0, min(token_right, x2) - max(token_left, x1))
+                overlap_h = max(0.0, min(token_bottom, y2) - max(token_top, y1))
+                if overlap_w * overlap_h >= 0.25 * self.cell * self.cell:
                     included.append(cid)
         else:
             half = float(d["side_sq"]) * self.cell / 2.0
