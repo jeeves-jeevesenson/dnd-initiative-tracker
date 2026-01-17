@@ -178,6 +178,8 @@ HTML_INDEX = r"""<!doctype html>
       --danger:#ff5b5b;
       --safeInsetTop: env(safe-area-inset-top, 0px);
       --safeInsetBottom: env(safe-area-inset-bottom, 0px);
+      --modalTopOffset: 0px;
+      --modalBottomOffset: 0px;
     }
     html,body{height:100%; margin:0; background:var(--bg); color:var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; overflow:hidden;}
     .app{height:100dvh; display:flex; flex-direction:column; min-height:0;}
@@ -630,7 +632,8 @@ HTML_INDEX = r"""<!doctype html>
     }
     .modal{
       position:fixed; inset:0; background: rgba(0,0,0,0.55);
-      display:none; align-items:center; justify-content:center; padding: 20px 14px;
+      display:none; align-items:center; justify-content:center;
+      padding: calc(var(--modalTopOffset) + 12px) 14px calc(var(--modalBottomOffset) + 12px);
     }
     .modal.show{display:flex;}
     .card{
@@ -643,10 +646,10 @@ HTML_INDEX = r"""<!doctype html>
       display:flex;
       flex-direction:column;
       overflow:auto;
-      max-height: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - 40px);
+      max-height: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - var(--modalTopOffset) - var(--modalBottomOffset) - 24px);
     }
     .card-scroll{
-      max-height: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - 40px);
+      max-height: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - var(--modalTopOffset) - var(--modalBottomOffset) - 24px);
       overflow:auto;
     }
     .card h2{margin:0 0 8px 0; font-size:16px;}
@@ -2014,6 +2017,14 @@ __DAMAGE_TYPE_OPTIONS__
     return {min, max};
   }
 
+  function updateModalOffsets(){
+    const topbarHeight = document.querySelector(".topbar")?.getBoundingClientRect().height || 0;
+    const sheetHeight = document.getElementById("sheetWrap")?.getBoundingClientRect().height || 0;
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty("--modalTopOffset", `${topbarHeight}px`);
+    rootStyle.setProperty("--modalBottomOffset", `${sheetHeight}px`);
+  }
+
   function applySheetHeight(value){
     if (!sheetWrap) return;
     const {min, max} = getSheetConstraints();
@@ -2027,6 +2038,7 @@ __DAMAGE_TYPE_OPTIONS__
     sheetWrap.style.maxHeight = `${max}px`;
     sheetHeight = target;
     resize();
+    updateModalOffsets();
   }
 
   function persistSheetHeight(){
