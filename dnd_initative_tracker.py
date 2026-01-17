@@ -7290,32 +7290,7 @@ class InitiativeTracker(base.InitiativeTracker):
         return (text or "").strip()
 
     def _spell_presets_payload(self) -> List[Dict[str, Any]]:
-        presets: List[Dict[str, Any]] = []
-        for preset in getattr(self, "_spell_presets", []) or []:
-            presets.append(
-                {
-                    "name": str(preset.name),
-                    "shape": str(preset.shape),
-                    "radius_ft": preset.radius_ft,
-                    "side_ft": preset.side_ft,
-                    "length_ft": preset.length_ft,
-                    "width_ft": preset.width_ft,
-                    "save_type": preset.save_type,
-                    "save_dc": preset.save_dc,
-                    "default_damage": getattr(preset, "default_damage", None),
-                    "dice": getattr(preset, "dice", None),
-                    "damage_types": list(preset.damage_types or []),
-                    "color": preset.color,
-                    "duration_turns": getattr(preset, "duration_turns", None),
-                    "over_time": getattr(preset, "over_time", None),
-                    "move_per_turn_ft": getattr(preset, "move_per_turn_ft", None),
-                    "trigger_on_start_or_enter": getattr(preset, "trigger_on_start_or_enter", None),
-                    "persistent": getattr(preset, "persistent", None),
-                    "pinned_default": getattr(preset, "pinned_default", None),
-                    "upcast": getattr(preset, "upcast", None),
-                }
-            )
-        return presets
+        return []
 
     def _lan_seed_missing_positions(self, positions: Dict[int, Tuple[int, int]], cols: int, rows: int) -> Dict[int, Tuple[int, int]]:
         # place missing near center in a simple spiral, one square apart
