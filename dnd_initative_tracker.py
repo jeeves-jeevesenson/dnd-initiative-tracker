@@ -1215,6 +1215,11 @@ HTML_INDEX = r"""<!doctype html>
                 <option value="circle">Circle</option>
                 <option value="square">Square</option>
                 <option value="line">Line</option>
+                <option value="sphere">Sphere</option>
+                <option value="cube">Cube</option>
+                <option value="cone">Cone</option>
+                <option value="cylinder">Cylinder</option>
+                <option value="wall">Wall</option>
               </select>
             </div>
             <div class="form-field cast-size-field" id="castRadiusField">
@@ -1232,6 +1237,18 @@ HTML_INDEX = r"""<!doctype html>
             <div class="form-field cast-size-field" id="castWidthField">
               <label for="castWidth">Width (ft)</label>
               <input id="castWidth" type="number" min="5" step="5" value="5" readonly disabled />
+            </div>
+            <div class="form-field cast-size-field" id="castAngleField">
+              <label for="castAngle">Angle (deg)</label>
+              <input id="castAngle" type="number" min="0" step="5" value="90" readonly disabled />
+            </div>
+            <div class="form-field cast-size-field" id="castThicknessField">
+              <label for="castThickness">Thickness (ft)</label>
+              <input id="castThickness" type="number" min="1" step="1" value="5" readonly disabled />
+            </div>
+            <div class="form-field cast-size-field" id="castHeightField">
+              <label for="castHeight">Height (ft)</label>
+              <input id="castHeight" type="number" min="1" step="1" value="10" readonly disabled />
             </div>
             <div class="form-field">
               <label for="castDcType">DC Type</label>
@@ -1634,10 +1651,16 @@ __DAMAGE_TYPE_OPTIONS__
   const castSideField = document.getElementById("castSideField");
   const castLengthField = document.getElementById("castLengthField");
   const castWidthField = document.getElementById("castWidthField");
+  const castAngleField = document.getElementById("castAngleField");
+  const castThicknessField = document.getElementById("castThicknessField");
+  const castHeightField = document.getElementById("castHeightField");
   const castRadiusInput = document.getElementById("castRadius");
   const castSideInput = document.getElementById("castSide");
   const castLengthInput = document.getElementById("castLength");
   const castWidthInput = document.getElementById("castWidth");
+  const castAngleInput = document.getElementById("castAngle");
+  const castThicknessInput = document.getElementById("castThickness");
+  const castHeightInput = document.getElementById("castHeight");
   const castDcTypeInput = document.getElementById("castDcType");
   const castDcValueInput = document.getElementById("castDcValue");
   const castDefaultDamageInput = document.getElementById("castDefaultDamage");
@@ -2821,17 +2844,17 @@ __DAMAGE_TYPE_OPTIONS__
       const center = gridToScreen(cx, cy);
       const dx = p.x - center.x;
       const dy = p.y - center.y;
-      if (a.kind === "circle"){
+      if (a.kind === "circle" || a.kind === "sphere" || a.kind === "cylinder"){
         const r = Math.max(0, Number(a.radius_sq || 0)) * zoom;
         if (dx * dx + dy * dy <= r * r){
           return a;
         }
-      } else if (a.kind === "square"){
+      } else if (a.kind === "square" || a.kind === "cube"){
         const half = Math.max(0, Number(a.side_sq || 0)) * zoom / 2;
         if (Math.abs(dx) <= half && Math.abs(dy) <= half){
           return a;
         }
-      } else if (a.kind === "line"){
+      } else if (a.kind === "line" || a.kind === "wall"){
         const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
         const widthPx = Math.max(0, Number(a.width_sq || 0)) * zoom;
         const orient = a.orient === "horizontal" ? "horizontal" : "vertical";
@@ -2841,6 +2864,22 @@ __DAMAGE_TYPE_OPTIONS__
         const ry = dx * Math.sin(angle) + dy * Math.cos(angle);
         if (Math.abs(rx) <= lengthPx / 2 && Math.abs(ry) <= widthPx / 2){
           return a;
+        }
+      } else if (a.kind === "cone"){
+        const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
+        const spreadDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : 90;
+        const headingDeg = a.orient === "horizontal" ? 0 : -90;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= lengthPx){
+          let angle = Math.atan2(dy, dx);
+          const heading = (headingDeg * Math.PI) / 180;
+          angle -= heading;
+          while (angle <= -Math.PI) angle += Math.PI * 2;
+          while (angle > Math.PI) angle -= Math.PI * 2;
+          const halfSpread = (spreadDeg * Math.PI) / 360;
+          if (Math.abs(angle) <= halfSpread){
+            return a;
+          }
         }
       }
     }
@@ -3103,7 +3142,7 @@ __DAMAGE_TYPE_OPTIONS__
         ctx.save();
         ctx.lineWidth = 2;
         ctx.setLineDash([6,4]);
-        if (a.kind === "circle"){
+        if (a.kind === "circle" || a.kind === "sphere" || a.kind === "cylinder"){
           const r = Math.max(0, Number(a.radius_sq || 0)) * zoom;
           ctx.beginPath();
           ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -3111,15 +3150,17 @@ __DAMAGE_TYPE_OPTIONS__
           ctx.strokeStyle = colorHex || "rgba(45,79,138,0.85)";
           ctx.fill();
           ctx.stroke();
-        } else if (a.kind === "line"){
+        } else if (a.kind === "line" || a.kind === "wall"){
           const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
           const widthPx = Math.max(0, Number(a.width_sq || 0)) * zoom;
           const angleDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : null;
           const orient = a.orient === "horizontal" ? "horizontal" : "vertical";
           const halfW = orient === "horizontal" ? lengthPx / 2 : widthPx / 2;
           const halfH = orient === "horizontal" ? widthPx / 2 : lengthPx / 2;
-          ctx.fillStyle = colorHex ? rgbaFromHex(colorHex, 0.28) : "rgba(183,255,224,0.32)";
-          ctx.strokeStyle = colorHex || "rgba(45,138,87,0.85)";
+          ctx.fillStyle = colorHex
+            ? rgbaFromHex(colorHex, 0.28)
+            : (a.kind === "wall" ? "rgba(255,230,153,0.32)" : "rgba(183,255,224,0.32)");
+          ctx.strokeStyle = colorHex || (a.kind === "wall" ? "rgba(181,125,34,0.85)" : "rgba(45,138,87,0.85)");
           if (angleDeg !== null){
             ctx.save();
             ctx.translate(x, y);
@@ -3135,13 +3176,27 @@ __DAMAGE_TYPE_OPTIONS__
             ctx.fill();
             ctx.stroke();
           }
-        } else if (a.kind === "square"){
+        } else if (a.kind === "square" || a.kind === "cube"){
           const sidePx = Math.max(0, Number(a.side_sq || 0)) * zoom;
           const half = sidePx / 2;
           ctx.beginPath();
           ctx.rect(x - half, y - half, sidePx, sidePx);
           ctx.fillStyle = colorHex ? rgbaFromHex(colorHex, 0.28) : "rgba(226,182,255,0.32)";
           ctx.strokeStyle = colorHex || "rgba(107,61,138,0.85)";
+          ctx.fill();
+          ctx.stroke();
+        } else if (a.kind === "cone"){
+          const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
+          const spreadDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : 90;
+          const headingDeg = a.orient === "horizontal" ? 0 : -90;
+          const halfSpread = (spreadDeg * Math.PI) / 360;
+          const headingRad = (headingDeg * Math.PI) / 180;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.arc(x, y, lengthPx, headingRad - halfSpread, headingRad + halfSpread);
+          ctx.closePath();
+          ctx.fillStyle = colorHex ? rgbaFromHex(colorHex, 0.28) : "rgba(255,189,110,0.32)";
+          ctx.strokeStyle = colorHex || "rgba(181,110,34,0.85)";
           ctx.fill();
           ctx.stroke();
         }
@@ -3164,12 +3219,12 @@ __DAMAGE_TYPE_OPTIONS__
           ctx.lineWidth = 3;
           ctx.setLineDash([]);
           ctx.strokeStyle = "rgba(255,214,102,0.95)";
-          if (a.kind === "circle"){
+          if (a.kind === "circle" || a.kind === "sphere" || a.kind === "cylinder"){
             const r = Math.max(0, Number(a.radius_sq || 0)) * zoom;
             ctx.beginPath();
             ctx.arc(x, y, r, 0, Math.PI * 2);
             ctx.stroke();
-          } else if (a.kind === "line"){
+          } else if (a.kind === "line" || a.kind === "wall"){
             const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
             const widthPx = Math.max(0, Number(a.width_sq || 0)) * zoom;
             const angleDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : null;
@@ -3180,15 +3235,29 @@ __DAMAGE_TYPE_OPTIONS__
               ctx.rect(-lengthPx / 2, -widthPx / 2, lengthPx, widthPx);
               ctx.stroke();
             } else {
+              const orient = a.orient === "horizontal" ? "horizontal" : "vertical";
+              const halfW = orient === "horizontal" ? lengthPx / 2 : widthPx / 2;
+              const halfH = orient === "horizontal" ? widthPx / 2 : lengthPx / 2;
               ctx.beginPath();
-              ctx.rect(x - lengthPx / 2, y - widthPx / 2, lengthPx, widthPx);
+              ctx.rect(x - halfW, y - halfH, halfW * 2, halfH * 2);
               ctx.stroke();
             }
-          } else if (a.kind === "square"){
+          } else if (a.kind === "square" || a.kind === "cube"){
             const sidePx = Math.max(0, Number(a.side_sq || 0)) * zoom;
             const half = sidePx / 2;
             ctx.beginPath();
             ctx.rect(x - half, y - half, sidePx, sidePx);
+            ctx.stroke();
+          } else if (a.kind === "cone"){
+            const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
+            const spreadDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : 90;
+            const headingDeg = a.orient === "horizontal" ? 0 : -90;
+            const halfSpread = (spreadDeg * Math.PI) / 360;
+            const headingRad = (headingDeg * Math.PI) / 180;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.arc(x, y, lengthPx, headingRad - halfSpread, headingRad + halfSpread);
+            ctx.closePath();
             ctx.stroke();
           }
           ctx.restore();
@@ -4355,17 +4424,27 @@ __DAMAGE_TYPE_OPTIONS__
 
   const updateCastShapeFields = () => {
     const shape = String(castShapeInput?.value || "").toLowerCase();
-    const isCircle = shape === "circle";
-    const isSquare = shape === "square";
-    const isLine = shape === "line";
-    setCastFieldVisible(castRadiusField, isCircle);
-    setCastFieldVisible(castSideField, isSquare);
-    setCastFieldVisible(castLengthField, isLine);
-    setCastFieldVisible(castWidthField, isLine);
-    setCastFieldEnabled(castRadiusInput, isCircle);
-    setCastFieldEnabled(castSideInput, isSquare);
-    setCastFieldEnabled(castLengthInput, isLine);
-    setCastFieldEnabled(castWidthInput, isLine);
+    const usesRadius = shape === "circle" || shape === "sphere" || shape === "cylinder";
+    const usesSide = shape === "square" || shape === "cube";
+    const usesLength = shape === "line" || shape === "cone" || shape === "wall";
+    const usesWidth = shape === "line" || shape === "wall";
+    const usesAngle = shape === "line" || shape === "cone" || shape === "wall";
+    const usesThickness = shape === "wall";
+    const usesHeight = shape === "wall";
+    setCastFieldVisible(castRadiusField, usesRadius);
+    setCastFieldVisible(castSideField, usesSide);
+    setCastFieldVisible(castLengthField, usesLength);
+    setCastFieldVisible(castWidthField, usesWidth);
+    setCastFieldVisible(castAngleField, usesAngle);
+    setCastFieldVisible(castThicknessField, usesThickness);
+    setCastFieldVisible(castHeightField, usesHeight);
+    setCastFieldEnabled(castRadiusInput, usesRadius);
+    setCastFieldEnabled(castSideInput, usesSide);
+    setCastFieldEnabled(castLengthInput, usesLength);
+    setCastFieldEnabled(castWidthInput, usesWidth);
+    setCastFieldEnabled(castAngleInput, usesAngle);
+    setCastFieldEnabled(castThicknessInput, usesThickness);
+    setCastFieldEnabled(castHeightInput, usesHeight);
   };
 
   if (castShapeInput){
@@ -4539,6 +4618,15 @@ __DAMAGE_TYPE_OPTIONS__
     if (castWidthInput){
       castWidthInput.value = Number.isFinite(Number(preset.width_ft)) ? Number(preset.width_ft) : "";
     }
+    if (castAngleInput){
+      castAngleInput.value = Number.isFinite(Number(preset.angle_deg)) ? Number(preset.angle_deg) : "";
+    }
+    if (castThicknessInput){
+      castThicknessInput.value = Number.isFinite(Number(preset.thickness_ft)) ? Number(preset.thickness_ft) : "";
+    }
+    if (castHeightInput){
+      castHeightInput.value = Number.isFinite(Number(preset.height_ft)) ? Number(preset.height_ft) : "";
+    }
     if (castDcTypeInput){
       castDcTypeInput.value = preset.save_type ? String(preset.save_type || "").toLowerCase() : "";
     }
@@ -4690,11 +4778,22 @@ __DAMAGE_TYPE_OPTIONS__
         const num = parseFloat(value || "");
         return Number.isFinite(num) && num > 0 ? num : null;
       };
+      const parseNonnegative = (value) => {
+        const num = parseFloat(value || "");
+        return Number.isFinite(num) && num >= 0 ? num : null;
+      };
       const radiusFt = parsePositive(castRadiusInput?.value);
       const sideFt = parsePositive(castSideInput?.value);
       const lengthFt = parsePositive(castLengthInput?.value);
       const widthFt = parsePositive(castWidthInput?.value);
+      const angleDeg = parseNonnegative(castAngleInput?.value);
+      const thicknessFt = parsePositive(castThicknessInput?.value);
+      const heightFt = parsePositive(castHeightInput?.value);
       if (shape === "circle" && radiusFt === null){
+        localToast("Enter a valid radius, matey.");
+        return;
+      }
+      if ((shape === "sphere" || shape === "cylinder") && radiusFt === null){
         localToast("Enter a valid radius, matey.");
         return;
       }
@@ -4702,9 +4801,27 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Enter a valid side length, matey.");
         return;
       }
+      if (shape === "cube" && sideFt === null){
+        localToast("Enter a valid side length, matey.");
+        return;
+      }
       if (shape === "line" && (lengthFt === null || widthFt === null)){
         localToast("Enter a valid line size, matey.");
         return;
+      }
+      if (shape === "cone" && (lengthFt === null || angleDeg === null || angleDeg <= 0)){
+        localToast("Enter a valid cone length and angle, matey.");
+        return;
+      }
+      if (shape === "wall"){
+        if (lengthFt === null){
+          localToast("Enter a valid wall length, matey.");
+          return;
+        }
+        if (widthFt === null && (thicknessFt === null || heightFt === null)){
+          localToast("Enter a valid wall thickness and height (or width), matey.");
+          return;
+        }
       }
       const dcType = String(castDcTypeInput?.value || "").trim().toLowerCase();
       const dcValue = parseInt(castDcValueInput?.value || "", 10);
@@ -4786,11 +4903,33 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (shape === "circle"){
         payload.radius_ft = radiusFt;
-      } else if (shape === "square"){
+      } else if (shape === "sphere" || shape === "cylinder"){
+        payload.radius_ft = radiusFt;
+      } else if (shape === "square" || shape === "cube"){
         payload.side_ft = sideFt;
       } else if (shape === "line"){
         payload.length_ft = lengthFt;
         payload.width_ft = widthFt;
+        if (angleDeg !== null){
+          payload.angle_deg = angleDeg;
+        }
+      } else if (shape === "cone"){
+        payload.length_ft = lengthFt;
+        payload.angle_deg = angleDeg;
+      } else if (shape === "wall"){
+        payload.length_ft = lengthFt;
+        if (widthFt !== null){
+          payload.width_ft = widthFt;
+        }
+        if (thicknessFt !== null){
+          payload.thickness_ft = thicknessFt;
+        }
+        if (heightFt !== null){
+          payload.height_ft = heightFt;
+        }
+        if (angleDeg !== null){
+          payload.angle_deg = angleDeg;
+        }
       }
       send({type: "cast_aoe", payload});
     });
@@ -7168,7 +7307,7 @@ class InitiativeTracker(base.InitiativeTracker):
         try:
             for aid, d in sorted((aoe_source or {}).items()):
                 kind = str(d.get("kind") or d.get("shape") or "").lower()
-                if kind not in ("circle", "square", "line"):
+                if kind not in ("circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall"):
                     continue
                 payload: Dict[str, Any] = {
                     "aid": int(aid),
@@ -7197,16 +7336,35 @@ class InitiativeTracker(base.InitiativeTracker):
                 ):
                     if d.get(extra_key) not in (None, ""):
                         payload[extra_key] = d.get(extra_key)
-                if kind == "circle":
+                if kind in ("circle", "sphere", "cylinder"):
                     payload["radius_sq"] = float(d.get("radius_sq") or 0.0)
-                elif kind == "line":
+                    if d.get("radius_ft") is not None:
+                        payload["radius_ft"] = float(d.get("radius_ft") or 0.0)
+                elif kind in ("line", "wall"):
                     payload["length_sq"] = float(d.get("length_sq") or 0.0)
                     payload["width_sq"] = float(d.get("width_sq") or 0.0)
                     payload["orient"] = str(d.get("orient") or "vertical")
                     if d.get("angle_deg") is not None:
                         payload["angle_deg"] = float(d.get("angle_deg") or 0.0)
+                    if d.get("length_ft") is not None:
+                        payload["length_ft"] = float(d.get("length_ft") or 0.0)
+                    if d.get("width_ft") is not None:
+                        payload["width_ft"] = float(d.get("width_ft") or 0.0)
+                    if d.get("thickness_ft") is not None:
+                        payload["thickness_ft"] = float(d.get("thickness_ft") or 0.0)
+                    if d.get("height_ft") is not None:
+                        payload["height_ft"] = float(d.get("height_ft") or 0.0)
+                elif kind == "cone":
+                    payload["length_sq"] = float(d.get("length_sq") or 0.0)
+                    payload["orient"] = str(d.get("orient") or "vertical")
+                    if d.get("angle_deg") is not None:
+                        payload["angle_deg"] = float(d.get("angle_deg") or 0.0)
+                    if d.get("length_ft") is not None:
+                        payload["length_ft"] = float(d.get("length_ft") or 0.0)
                 else:
                     payload["side_sq"] = float(d.get("side_sq") or 0.0)
+                    if d.get("side_ft") is not None:
+                        payload["side_ft"] = float(d.get("side_ft") or 0.0)
                 aoes.append(payload)
         except Exception:
             pass
@@ -7399,7 +7557,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if typ == "cast_aoe":
             payload = msg.get("payload") or {}
             shape = str(payload.get("shape") or payload.get("kind") or "").strip().lower()
-            if shape not in ("circle", "square", "line"):
+            if shape not in ("circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall"):
                 self._lan.toast(ws_id, "Pick a valid spell shape, matey.")
                 return
             def parse_positive_float(value: Any) -> Optional[float]:
@@ -7468,6 +7626,9 @@ class InitiativeTracker(base.InitiativeTracker):
             side_ft = parse_positive_float(payload.get("side_ft"))
             length_ft = parse_positive_float(payload.get("length_ft"))
             width_ft = parse_positive_float(payload.get("width_ft"))
+            thickness_ft = parse_positive_float(payload.get("thickness_ft"))
+            height_ft = parse_positive_float(payload.get("height_ft"))
+            angle_deg = parse_nonnegative_float(payload.get("angle_deg"))
             duration_turns = payload.get("duration_turns")
             over_time = parse_bool(payload.get("over_time"))
             move_per_turn_ft = parse_nonnegative_float(payload.get("move_per_turn_ft"))
@@ -7614,6 +7775,16 @@ class InitiativeTracker(base.InitiativeTracker):
                     return
                 if radius_ft is not None:
                     aoe["radius_sq"] = max(0.5, float(radius_ft) / feet_per_square)
+                    aoe["radius_ft"] = float(radius_ft)
+                else:
+                    aoe["radius_sq"] = float(size)
+            elif shape in ("sphere", "cylinder"):
+                if radius_ft is None and size is None:
+                    self._lan.toast(ws_id, "Pick a valid spell radius, matey.")
+                    return
+                if radius_ft is not None:
+                    aoe["radius_sq"] = max(0.5, float(radius_ft) / feet_per_square)
+                    aoe["radius_ft"] = float(radius_ft)
                 else:
                     aoe["radius_sq"] = float(size)
             elif shape == "square":
@@ -7622,23 +7793,78 @@ class InitiativeTracker(base.InitiativeTracker):
                     return
                 if side_ft is not None:
                     aoe["side_sq"] = max(1.0, float(side_ft) / feet_per_square)
+                    aoe["side_ft"] = float(side_ft)
                 else:
                     aoe["side_sq"] = float(size)
+            elif shape == "cube":
+                if side_ft is None and size is None:
+                    self._lan.toast(ws_id, "Pick a valid spell side length, matey.")
+                    return
+                if side_ft is not None:
+                    aoe["side_sq"] = max(1.0, float(side_ft) / feet_per_square)
+                    aoe["side_ft"] = float(side_ft)
+                else:
+                    aoe["side_sq"] = float(size)
+            elif shape == "cone":
+                if length_ft is None and size is None:
+                    self._lan.toast(ws_id, "Pick a valid spell length, matey.")
+                    return
+                if angle_deg is None or angle_deg <= 0:
+                    self._lan.toast(ws_id, "Pick a valid spell cone angle, matey.")
+                    return
+                if length_ft is not None:
+                    aoe["length_sq"] = max(1.0, float(length_ft) / feet_per_square)
+                    aoe["length_ft"] = float(length_ft)
+                else:
+                    aoe["length_sq"] = float(size)
+                aoe["angle_deg"] = float(angle_deg)
+                aoe["orient"] = str(payload.get("orient") or "vertical")
+                aoe["ax"] = float(cx)
+                aoe["ay"] = float(cy)
+            elif shape == "wall":
+                if length_ft is None and size is None:
+                    self._lan.toast(ws_id, "Pick a valid spell length, matey.")
+                    return
+                if length_ft is not None:
+                    aoe["length_sq"] = max(1.0, float(length_ft) / feet_per_square)
+                    aoe["length_ft"] = float(length_ft)
+                else:
+                    aoe["length_sq"] = float(size)
+                if width_ft is not None:
+                    aoe["width_sq"] = max(1.0, float(width_ft) / feet_per_square)
+                    aoe["width_ft"] = float(width_ft)
+                    if height_ft is not None:
+                        aoe["height_ft"] = float(height_ft)
+                elif thickness_ft is not None and height_ft is not None:
+                    aoe["width_sq"] = max(1.0, float(thickness_ft) / feet_per_square)
+                    aoe["thickness_ft"] = float(thickness_ft)
+                    aoe["height_ft"] = float(height_ft)
+                else:
+                    self._lan.toast(ws_id, "Pick a valid wall thickness and height, matey.")
+                    return
+                aoe["orient"] = str(payload.get("orient") or "vertical")
+                if angle_deg is not None:
+                    aoe["angle_deg"] = float(angle_deg)
+                aoe["ax"] = float(cx)
+                aoe["ay"] = float(cy)
             else:
                 if length_ft is None and size is None:
                     self._lan.toast(ws_id, "Pick a valid spell length, matey.")
                     return
                 if length_ft is not None:
                     aoe["length_sq"] = max(1.0, float(length_ft) / feet_per_square)
+                    aoe["length_ft"] = float(length_ft)
                 else:
                     aoe["length_sq"] = float(size)
                 if width_ft is not None:
                     aoe["width_sq"] = max(1.0, float(width_ft) / feet_per_square)
+                    aoe["width_ft"] = float(width_ft)
                 else:
                     width = parse_positive_float(payload.get("width")) or 1.0
                     aoe["width_sq"] = max(1.0, float(width))
                 aoe["orient"] = str(payload.get("orient") or "vertical")
-                aoe["angle_deg"] = float(payload.get("angle_deg") or 90.0)
+                if angle_deg is not None:
+                    aoe["angle_deg"] = float(angle_deg)
                 aoe["ax"] = float(cx)
                 aoe["ay"] = float(cy)
             if map_ready:
