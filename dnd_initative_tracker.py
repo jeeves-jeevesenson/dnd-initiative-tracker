@@ -1242,6 +1242,13 @@ HTML_INDEX = r"""<!doctype html>
               <label for="castAngle">Angle (deg)</label>
               <input id="castAngle" type="number" min="0" step="5" value="90" readonly disabled />
             </div>
+            <div class="form-field cast-size-field" id="castOrientField">
+              <label for="castOrient">Orientation</label>
+              <select id="castOrient" disabled>
+                <option value="vertical" selected>Vertical</option>
+                <option value="horizontal">Horizontal</option>
+              </select>
+            </div>
             <div class="form-field cast-size-field" id="castThicknessField">
               <label for="castThickness">Thickness (ft)</label>
               <input id="castThickness" type="number" min="1" step="1" value="5" readonly disabled />
@@ -1652,6 +1659,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castLengthField = document.getElementById("castLengthField");
   const castWidthField = document.getElementById("castWidthField");
   const castAngleField = document.getElementById("castAngleField");
+  const castOrientField = document.getElementById("castOrientField");
   const castThicknessField = document.getElementById("castThicknessField");
   const castHeightField = document.getElementById("castHeightField");
   const castRadiusInput = document.getElementById("castRadius");
@@ -1659,6 +1667,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castLengthInput = document.getElementById("castLength");
   const castWidthInput = document.getElementById("castWidth");
   const castAngleInput = document.getElementById("castAngle");
+  const castOrientInput = document.getElementById("castOrient");
   const castThicknessInput = document.getElementById("castThickness");
   const castHeightInput = document.getElementById("castHeight");
   const castDcTypeInput = document.getElementById("castDcType");
@@ -4429,13 +4438,15 @@ __DAMAGE_TYPE_OPTIONS__
     const usesLength = shape === "line" || shape === "cone" || shape === "wall";
     const usesWidth = shape === "line" || shape === "wall";
     const usesAngle = shape === "line" || shape === "cone" || shape === "wall";
+    const usesOrient = shape === "line" || shape === "cone" || shape === "wall";
     const usesThickness = shape === "wall";
-    const usesHeight = shape === "wall";
+    const usesHeight = shape === "wall" || shape === "cylinder";
     setCastFieldVisible(castRadiusField, usesRadius);
     setCastFieldVisible(castSideField, usesSide);
     setCastFieldVisible(castLengthField, usesLength);
     setCastFieldVisible(castWidthField, usesWidth);
     setCastFieldVisible(castAngleField, usesAngle);
+    setCastFieldVisible(castOrientField, usesOrient);
     setCastFieldVisible(castThicknessField, usesThickness);
     setCastFieldVisible(castHeightField, usesHeight);
     setCastFieldEnabled(castRadiusInput, usesRadius);
@@ -4443,6 +4454,7 @@ __DAMAGE_TYPE_OPTIONS__
     setCastFieldEnabled(castLengthInput, usesLength);
     setCastFieldEnabled(castWidthInput, usesWidth);
     setCastFieldEnabled(castAngleInput, usesAngle);
+    setCastFieldEnabled(castOrientInput, usesOrient);
     setCastFieldEnabled(castThicknessInput, usesThickness);
     setCastFieldEnabled(castHeightInput, usesHeight);
   };
@@ -4621,6 +4633,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (castAngleInput){
       castAngleInput.value = Number.isFinite(Number(preset.angle_deg)) ? Number(preset.angle_deg) : "";
     }
+    if (castOrientInput){
+      castOrientInput.value = preset.orient ? String(preset.orient || "").toLowerCase() : "vertical";
+    }
     if (castThicknessInput){
       castThicknessInput.value = Number.isFinite(Number(preset.thickness_ft)) ? Number(preset.thickness_ft) : "";
     }
@@ -4786,15 +4801,25 @@ __DAMAGE_TYPE_OPTIONS__
       const sideFt = parsePositive(castSideInput?.value);
       const lengthFt = parsePositive(castLengthInput?.value);
       const widthFt = parsePositive(castWidthInput?.value);
-      const angleDeg = parseNonnegative(castAngleInput?.value);
+      const angleRaw = String(castAngleInput?.value || "").trim();
+      const angleDeg = angleRaw ? parseNonnegative(castAngleInput?.value) : null;
+      const widthRaw = String(castWidthInput?.value || "").trim();
       const thicknessFt = parsePositive(castThicknessInput?.value);
+      const thicknessRaw = String(castThicknessInput?.value || "").trim();
       const heightFt = parsePositive(castHeightInput?.value);
+      const heightRaw = String(castHeightInput?.value || "").trim();
+      const orientValue = String(castOrientInput?.value || "vertical").toLowerCase();
+      const orient = orientValue === "horizontal" ? "horizontal" : "vertical";
       if (shape === "circle" && radiusFt === null){
         localToast("Enter a valid radius, matey.");
         return;
       }
       if ((shape === "sphere" || shape === "cylinder") && radiusFt === null){
         localToast("Enter a valid radius, matey.");
+        return;
+      }
+      if (shape === "cylinder" && heightRaw && heightFt === null){
+        localToast("Enter a valid height, matey.");
         return;
       }
       if (shape === "square" && sideFt === null){
@@ -4809,8 +4834,28 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Enter a valid line size, matey.");
         return;
       }
-      if (shape === "cone" && (lengthFt === null || angleDeg === null || angleDeg <= 0)){
-        localToast("Enter a valid cone length and angle, matey.");
+      if (shape === "cone" && lengthFt === null){
+        localToast("Enter a valid cone length, matey.");
+        return;
+      }
+      if (shape === "cone" && angleRaw && (angleDeg === null || angleDeg <= 0)){
+        localToast("Enter a valid cone angle, matey.");
+        return;
+      }
+      if ((shape === "line" || shape === "wall") && angleRaw && angleDeg === null){
+        localToast("Enter a valid angle, matey.");
+        return;
+      }
+      if (shape === "wall" && widthRaw && widthFt === null){
+        localToast("Enter a valid wall width, matey.");
+        return;
+      }
+      if (shape === "wall" && thicknessRaw && thicknessFt === null){
+        localToast("Enter a valid wall thickness, matey.");
+        return;
+      }
+      if (shape === "wall" && heightRaw && heightFt === null){
+        localToast("Enter a valid wall height, matey.");
         return;
       }
       if (shape === "wall"){
@@ -4905,19 +4950,25 @@ __DAMAGE_TYPE_OPTIONS__
         payload.radius_ft = radiusFt;
       } else if (shape === "sphere" || shape === "cylinder"){
         payload.radius_ft = radiusFt;
+        if (heightFt !== null){
+          payload.height_ft = heightFt;
+        }
       } else if (shape === "square" || shape === "cube"){
         payload.side_ft = sideFt;
       } else if (shape === "line"){
         payload.length_ft = lengthFt;
         payload.width_ft = widthFt;
+        payload.orient = orient;
         if (angleDeg !== null){
           payload.angle_deg = angleDeg;
         }
       } else if (shape === "cone"){
         payload.length_ft = lengthFt;
-        payload.angle_deg = angleDeg;
+        payload.angle_deg = angleDeg !== null ? angleDeg : 90;
+        payload.orient = orient;
       } else if (shape === "wall"){
         payload.length_ft = lengthFt;
+        payload.orient = orient;
         if (widthFt !== null){
           payload.width_ft = widthFt;
         }
@@ -7340,6 +7391,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     payload["radius_sq"] = float(d.get("radius_sq") or 0.0)
                     if d.get("radius_ft") is not None:
                         payload["radius_ft"] = float(d.get("radius_ft") or 0.0)
+                    if d.get("height_ft") is not None:
+                        payload["height_ft"] = float(d.get("height_ft") or 0.0)
                 elif kind in ("line", "wall"):
                     payload["length_sq"] = float(d.get("length_sq") or 0.0)
                     payload["width_sq"] = float(d.get("width_sq") or 0.0)
@@ -7787,6 +7840,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     aoe["radius_ft"] = float(radius_ft)
                 else:
                     aoe["radius_sq"] = float(size)
+                if height_ft is not None:
+                    aoe["height_ft"] = float(height_ft)
             elif shape == "square":
                 if side_ft is None and size is None:
                     self._lan.toast(ws_id, "Pick a valid spell side length, matey.")
