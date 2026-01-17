@@ -1155,6 +1155,20 @@ HTML_INDEX = r"""<!doctype html>
           <button class="btn danger" id="endTurn">End Turn</button>
         </div>
       </div>
+      <div class="row">
+        <div class="form-field">
+          <label for="actionSelect">Action</label>
+          <select id="actionSelect">
+            <option value="">None/Custom</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="bonusActionSelect">Bonus Action</label>
+          <select id="bonusActionSelect">
+            <option value="">None/Custom</option>
+          </select>
+        </div>
+      </div>
       <div class="row sheet-turn-order-row">
         <div class="initiative-order-content">
           <div class="turn-order" id="turnOrder" aria-label="Turn order"></div>
@@ -1606,6 +1620,8 @@ __DAMAGE_TYPE_OPTIONS__
   const turnModalOk = document.getElementById("turnModalOk");
   const useActionBtn = document.getElementById("useAction");
   const useBonusActionBtn = document.getElementById("useBonusAction");
+  const actionSelectEl = document.getElementById("actionSelect");
+  const bonusActionSelectEl = document.getElementById("bonusActionSelect");
   const resetTurnBtn = document.getElementById("resetTurn");
   const standUpBtn = document.getElementById("standUp");
   const showAllNamesEl = document.getElementById("showAllNames");
@@ -3593,6 +3609,31 @@ __DAMAGE_TYPE_OPTIONS__
     setSelectedTurnCid(fallbackCid);
   }
 
+  function populateActionSelect(selectEl, options, placeholder){
+    if (!selectEl) return;
+    const previousValue = selectEl.value;
+    selectEl.textContent = "";
+    const placeholderOption = document.createElement("option");
+    placeholderOption.value = "";
+    placeholderOption.textContent = placeholder;
+    selectEl.appendChild(placeholderOption);
+    const items = Array.isArray(options) ? options : [];
+    const normalized = items
+      .map((item) => String(item || "").trim())
+      .filter((item) => item.length > 0);
+    normalized.forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item;
+      option.textContent = item;
+      selectEl.appendChild(option);
+    });
+    if (previousValue && normalized.includes(previousValue)){
+      selectEl.value = previousValue;
+    } else {
+      selectEl.value = "";
+    }
+  }
+
   function updateHud(){
     if (!state){ return; }
     const active = state.active_cid;
@@ -3611,6 +3652,14 @@ __DAMAGE_TYPE_OPTIONS__
         bonusActionEl.textContent = `Bonus Action: ${me.bonus_action_remaining ?? 0}`;
         useActionBtn.disabled = Number(me.action_remaining || 0) <= 0;
         useBonusActionBtn.disabled = Number(me.bonus_action_remaining || 0) <= 0;
+        populateActionSelect(actionSelectEl, me.actions, "None/Custom");
+        populateActionSelect(bonusActionSelectEl, me.bonus_actions, "None/Custom");
+        if (actionSelectEl){
+          actionSelectEl.disabled = false;
+        }
+        if (bonusActionSelectEl){
+          bonusActionSelectEl.disabled = false;
+        }
         if (standUpBtn){
           standUpBtn.disabled = !(myTurn && me.is_prone);
         }
@@ -3619,6 +3668,14 @@ __DAMAGE_TYPE_OPTIONS__
         bonusActionEl.textContent = "Bonus Action: —";
         useActionBtn.disabled = true;
         useBonusActionBtn.disabled = true;
+        populateActionSelect(actionSelectEl, [], "None/Custom");
+        populateActionSelect(bonusActionSelectEl, [], "None/Custom");
+        if (actionSelectEl){
+          actionSelectEl.disabled = true;
+        }
+        if (bonusActionSelectEl){
+          bonusActionSelectEl.disabled = true;
+        }
         if (standUpBtn){
           standUpBtn.disabled = true;
         }
@@ -3628,6 +3685,14 @@ __DAMAGE_TYPE_OPTIONS__
       bonusActionEl.textContent = "Bonus Action: —";
       useActionBtn.disabled = true;
       useBonusActionBtn.disabled = true;
+      populateActionSelect(actionSelectEl, [], "None/Custom");
+      populateActionSelect(bonusActionSelectEl, [], "None/Custom");
+      if (actionSelectEl){
+        actionSelectEl.disabled = true;
+      }
+      if (bonusActionSelectEl){
+        bonusActionSelectEl.disabled = true;
+      }
       if (standUpBtn){
         standUpBtn.disabled = true;
       }
@@ -6922,6 +6987,8 @@ class InitiativeTracker(base.InitiativeTracker):
             speed = 30
             swim = 0
             water = False
+            actions: List[str] = []
+            bonus_actions: List[str] = []
 
             # Future-facing: per-PC config file players/<Name>.yaml (optional)
             data = cfg_cache.get(nm, None)
@@ -6939,10 +7006,18 @@ class InitiativeTracker(base.InitiativeTracker):
                     cfg_cache[nm] = None
                     data = None
             if isinstance(data, dict):
+                def normalize_action_list(value: Any) -> List[str]:
+                    if isinstance(value, list):
+                        return [str(item).strip() for item in value if str(item).strip()]
+                    if isinstance(value, str) and value.strip():
+                        return [value.strip()]
+                    return []
                 # accept a few key names
                 speed = int(data.get("base_movement", data.get("speed", speed)) or speed)
                 swim = int(data.get("swim_speed", swim) or swim)
                 hp = int(data.get("hp", hp) or hp)
+                actions = normalize_action_list(data.get("actions"))
+                bonus_actions = normalize_action_list(data.get("bonus_actions"))
 
             try:
                 init_total = random.randint(1, 20)
@@ -6960,6 +7035,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     dex=None,
                     ally=True,
                     is_pc=True,
+                    actions=actions,
+                    bonus_actions=bonus_actions,
                 )
                 existing.add(nm)
             except Exception:
@@ -7153,6 +7230,12 @@ class InitiativeTracker(base.InitiativeTracker):
             role = self._name_role_memory.get(str(c.name), "enemy")
             pos = positions.get(c.cid, (max(0, cols // 2), max(0, rows // 2)))
             marks = self._lan_marks_for(c)
+            actions = [str(item).strip() for item in (getattr(c, "actions", []) or []) if str(item).strip()]
+            bonus_actions = [
+                str(item).strip()
+                for item in (getattr(c, "bonus_actions", []) or [])
+                if str(item).strip()
+            ]
             units.append(
                 {
                     "cid": c.cid,
@@ -7164,6 +7247,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     "move_total": int(getattr(c, "move_total", 0) or 0),
                     "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
                     "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
+                    "actions": actions,
+                    "bonus_actions": bonus_actions,
                     "is_prone": self._has_condition(c, "prone"),
                     "is_spellcaster": bool(getattr(c, "is_spellcaster", False)),
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
