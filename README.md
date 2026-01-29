@@ -90,10 +90,13 @@ To install Python dependencies from `requirements.txt`, run:
 INSTALL_PIP_DEPS=1 ./scripts/install-linux.sh
 ```
 
-Or install them manually:
+This creates an installer-managed virtual environment at `${APPDIR:-$HOME/.local/share/dnd-initiative-tracker}/.venv` and installs the requirements inside it.
+
+If you prefer to manage dependencies yourself, create a virtual environment and install the requirements with it:
 
 ```bash
-python3 -m pip install --user -r requirements.txt
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
 ```
 
 ### Linux uninstall

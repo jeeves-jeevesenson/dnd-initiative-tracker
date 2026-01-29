@@ -10,6 +10,7 @@ ICON_BASE="$HOME/.local/share/icons/hicolor"
 DESKTOP_FILE="$HOME/.local/share/applications/inittracker.desktop"
 WRAPPER="${APPDIR}/launch-inittracker.sh"
 PYTHON_BIN="${PYTHON:-/usr/bin/python3}"
+VENV_DIR="${APPDIR}/.venv"
 
 if ! command -v rsync >/dev/null 2>&1; then
   echo "Error: rsync is required to install the app." >&2
@@ -27,9 +28,15 @@ rsync -a --delete \
 
 mkdir -p "${APPDIR}/logs"
 
+if [[ "${INSTALL_PIP_DEPS:-0}" == "1" || ! -d "${VENV_DIR}" ]]; then
+  if [[ ! -d "${VENV_DIR}" ]]; then
+    "${PYTHON_BIN}" -m venv "${VENV_DIR}"
+  fi
+fi
+
 if [[ "${INSTALL_PIP_DEPS:-0}" == "1" ]]; then
   if [[ -f "${APPDIR}/requirements.txt" ]]; then
-    "${PYTHON_BIN}" -m pip install --user -r "${APPDIR}/requirements.txt"
+    "${VENV_DIR}/bin/pip" install -r "${APPDIR}/requirements.txt"
   else
     echo "Warning: requirements.txt not found; skipping pip install."
   fi
@@ -42,6 +49,11 @@ set -euo pipefail
 APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="${APPDIR}/logs"
 PYTHON_BIN="${PYTHON:-/usr/bin/python3}"
+VENV_PYTHON="${APPDIR}/.venv/bin/python"
+
+if [[ -x "${VENV_PYTHON}" ]]; then
+  PYTHON_BIN="${VENV_PYTHON}"
+fi
 
 mkdir -p "${LOG_DIR}"
 cd "${APPDIR}"
