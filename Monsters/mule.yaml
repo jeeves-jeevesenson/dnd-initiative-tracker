@@ -1,0 +1,30 @@
+name: Mule
+size: Medium
+type: Beast
+alignment: Unaligned
+initiative: +0 (10)
+ac: '10'
+hp: 11 (2d8 + 2)
+speed: 40 ft.
+abilities:
+  Str: 14
+  Dex: 10
+  Con: 13
+  Int: 2
+  Wis: 10
+  Cha: 5
+skills: []
+immunities: []
+languages:
+- None
+senses: Passive Perception 10
+challenge_rating: 1/8 (XP 25; PB +2)
+description: ''
+habitat: Desert, Hill, Urban
+traits:
+- name: Beast of Burden
+  desc: The mule counts as one size larger for the purpose of determining its carrying
+    capacity.
+actions:
+- name: Hooves
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 4 (1d4 + 2) Bludgeoning damage.'

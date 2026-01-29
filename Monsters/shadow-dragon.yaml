@@ -1,0 +1,29 @@
+name: Shadow Dragon
+size: Huge
+type: Dragon
+alignment: Chaotic Evil
+initiative: +14 (24)
+ac: '16'
+hp: 189 (18d12 + 72)
+speed: 40 ft., Climb 40 ft., Fly 80 ft.
+abilities:
+  Str: 21
+  Dex: 19
+  Con: 18
+  Int: 14
+  Wis: 12
+  Cha: 18
+skills:
+- Perception +11
+- Stealth +14
+immunities:
+- Necrotic
+languages:
+- Common
+- Draconic
+senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 21
+challenge_rating: 13 (XP 10 000, or 11 500 in lair; PB +5)
+description: ''
+habitat: Planar (Shadowfell), Underdark
+treasure: Any
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair).'

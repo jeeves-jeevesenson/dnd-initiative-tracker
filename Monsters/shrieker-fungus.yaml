@@ -1,0 +1,34 @@
+name: Shrieker Fungus
+size: Medium
+type: Plant
+alignment: Unaligned
+initiative: -5 (5)
+ac: '5'
+hp: 13 (3d8)
+speed: 5 ft.
+abilities:
+  Str: 1
+  Dex: 1
+  Con: 10
+  Int: 1
+  Wis: 3
+  Cha: 1
+skills: []
+immunities:
+- Blinded
+- Charmed
+- Deafened
+- Frightened
+languages:
+- —
+senses: Blindsight 30 ft., Passive Perception 6
+challenge_rating: 0 (PB +2)
+description: If exposed to light or otherwise disturbed, mushroomlike shriekers emit
+  a high-pitched noise that gives them their name. This wailing might alert other
+  creatures or attract predators.
+habitat: Underdark
+actions:
+- name: Shriek
+  desc: 'Trigger: A creature or a source of Bright Light moves within 30 feet of the
+    shrieker. Response: The shrieker emits a shriek audible within 300 feet of itself
+    for 1 minute or until the shrieker dies.'

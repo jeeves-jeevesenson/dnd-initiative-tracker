@@ -1,0 +1,28 @@
+name: Mud Mephit
+size: Small
+type: Elemental
+alignment: Neutral Evil
+initiative: +1 (11)
+ac: '11'
+hp: 13 (3d6 + 3)
+speed: 20 ft., Fly 20 ft., Swim 20 ft.
+abilities:
+  Str: 8
+  Dex: 12
+  Con: 12
+  Int: 9
+  Wis: 11
+  Cha: 7
+skills:
+- Stealth +3
+immunities:
+- Poison; Exhaustion
+- Poisoned
+languages:
+- Primordial (Aquan
+- Terran)
+senses: Darkvision 60 ft., Passive Perception 10
+challenge_rating: 1/4 (XP 50; PB +2)
+description: A combination of earth and water, mud mephits are crude, disgusting creatures.
+  They take every opportunity to ruin objects and pollute food with muck.
+habitat: Planar (Elemental Planes), Swamp

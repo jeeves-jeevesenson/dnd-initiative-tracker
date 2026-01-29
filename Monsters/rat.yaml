@@ -1,0 +1,31 @@
+name: Rat
+size: Tiny
+type: Beast
+alignment: Unaligned
+initiative: +0 (10)
+ac: '10'
+hp: 1 (1d4 - 1)
+speed: 20 ft., Climb 20 ft.
+abilities:
+  Str: 2
+  Dex: 11
+  Con: 9
+  Int: 2
+  Wis: 10
+  Cha: 4
+skills:
+- Perception +2
+immunities: []
+languages:
+- None
+senses: Darkvision 30 ft., Passive Perception 12
+challenge_rating: 0 (XP 10; PB +2)
+description: ''
+habitat: Forest, Swamp, Underdark, Urban
+traits:
+- name: Agile
+  desc: The rat doesn't provoke Opportunity Attack action when it moves out of an
+    enemy's reach.
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +2, reach 5 ft. Hit: 1 Piercing damage.'

@@ -1,0 +1,34 @@
+name: Owlbear
+size: Large
+type: Monstrosity
+alignment: Unaligned
+initiative: +1 (11)
+ac: '13'
+hp: 59 (7d10 + 21)
+speed: 40 ft., Climb 40 ft.
+abilities:
+  Str: 20
+  Dex: 12
+  Con: 17
+  Int: 3
+  Wis: 12
+  Cha: 7
+skills:
+- Perception +5
+immunities: []
+languages:
+- None
+senses: Darkvision 60 ft., Passive Perception 15
+challenge_rating: 3 (XP 700; PB +2)
+description: Created long ago by misguided mages, owlbears combine keen avian eyes,
+  thick feathers, and a tearing beak with a mighty bearlike frame. Despite their magical
+  origins, owlbears have propagated and spread to wildernesses across the multiverse.
+  Owlbears dwell in distinctive dens.  Owlbears are tenacious hunters that might track
+  prey over miles and rarely give up their hunts.
+habitat: Forest
+treasure: None
+actions:
+- name: Multiattack
+  desc: The owlbear makes two Rend attacks.
+- name: Rend
+  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 14 (2d8 + 5) Slashing damage.'

@@ -1,0 +1,46 @@
+name: Salamander
+size: Large
+type: Elemental
+alignment: Neutral Evil
+initiative: +2 (12)
+ac: '15'
+hp: 90 (12d10 + 24)
+speed: 30 ft., Climb 30 ft.
+abilities:
+  Str: 18
+  Dex: 14
+  Con: 15
+  Int: 11
+  Wis: 10
+  Cha: 12
+skills: []
+immunities:
+- Fire
+languages:
+- Primordial (Ignan)
+senses: Darkvision 60 ft., Passive Perception 10
+challenge_rating: 5 (XP 1 800; PB +3)
+description: Most salamanders are arrogant yet curious, seeking to create artful blazes
+  or burn that which has never been burned. They eagerly explain their work to strangers
+  before trying to determine how the strangers burn. Salamanders radiate intense heat,
+  which is conducted by their blazing weapons.
+habitat: Planar (Elemental Plane of Fire), Underdark
+treasure: Armaments
+traits:
+- name: Fire Aura
+  desc: At the end of each of the salamander's turns, each creature of the salamander's
+    choice in a 5-foot Emanation originating from the salamander takes 7 (2d6) Fire
+    damage.
+actions:
+- name: Multiattack
+  desc: The salamander makes two Flame Spear attacks. It can replace one attack with
+    a use of Constrict.
+- name: Flame Spear
+  desc: 'Melee or Ranged Attack Roll: +7, reach 5 ft. or range 20/60 ft. Hit: 13 (2d8
+    + 4) Piercing damage plus 7 (2d6) Fire damage. Hit or Miss: The spear magically
+    returns to the salamander''s hand immediately after a ranged attack.'
+- name: Constrict
+  desc: 'Strength Saving Throw: DC 15, one Large or smaller creature the salamander
+    can see within 10 feet. Failure: 11 (2d6 + 4) Bludgeoning damage plus 7 (2d6)
+    Fire damage. The target has the Grappled condition (escape DC 14), and it has
+    the Restrained condition until the grapple ends.'

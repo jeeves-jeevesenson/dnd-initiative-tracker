@@ -1,0 +1,27 @@
+name: Scorpion
+size: Tiny
+type: Beast
+alignment: Unaligned
+initiative: +0 (10)
+ac: '11'
+hp: 1 (1d4 - 1)
+speed: 10 ft.
+abilities:
+  Str: 2
+  Dex: 11
+  Con: 8
+  Int: 1
+  Wis: 8
+  Cha: 2
+skills: []
+immunities: []
+languages:
+- None
+senses: Blindsight 10 ft., Passive Perception 9
+challenge_rating: 0 (XP 10; PB +2)
+description: ''
+habitat: Desert
+actions:
+- name: Sting
+  desc: 'Melee Attack Roll: +2, reach 5 ft. Hit: 1 Piercing damage plus 3 (1d6) Poison
+    damage.'

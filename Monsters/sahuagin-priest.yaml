@@ -1,0 +1,28 @@
+name: Sahuagin Priest
+size: Medium
+type: Fiend
+alignment: Lawful Evil
+initiative: +0 (10)
+ac: '12'
+hp: 38 (7d8 + 7)
+speed: 30 ft., Swim 40 ft.
+abilities:
+  Str: 13
+  Dex: 11
+  Con: 12
+  Int: 12
+  Wis: 14
+  Cha: 13
+skills:
+- Perception +6
+- Religion +3
+immunities: []
+languages:
+- Sahuagin
+senses: Darkvision 120 ft., Passive Perception 16
+challenge_rating: 2 (XP 450; PB +2)
+description: Sahuagin priests serve the will of Sekolah or other fiendish masters.
+  They direct and support other sahuagin, and they consider every combatant that falls
+  in battle—whether enemy or ally—a sacrifice to their fierce deities.
+habitat: Coastal, Underwater
+treasure: Any

@@ -1,0 +1,30 @@
+name: Smoke Mephit
+size: Small
+type: Elemental
+alignment: Neutral Evil
+initiative: +2 (12)
+ac: '12'
+hp: 13 (3d6 + 3)
+speed: 30 ft., Fly 30 ft.
+abilities:
+  Str: 6
+  Dex: 14
+  Con: 12
+  Int: 10
+  Wis: 10
+  Cha: 11
+skills:
+- Perception +2
+- Stealth +4
+immunities:
+- Fire
+- Poison; Exhaustion
+- Poisoned
+languages:
+- Primordial (Auran
+- Ignan)
+senses: Darkvision 60 ft., Passive Perception 12
+challenge_rating: 1/4 (XP 50; PB +2)
+description: Smoke mephits are elusive beings formed of fiery cinders and hot air.
+  They love misleading creatures and then mocking them for their gullibility.
+habitat: Planar (Elemental Planes)

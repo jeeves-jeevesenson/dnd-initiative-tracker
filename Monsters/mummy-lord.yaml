@@ -1,0 +1,93 @@
+name: Mummy Lord
+size: Medium
+type: or Small Undead (Cleric)
+alignment: Lawful Evil
+initiative: +10 (20)
+ac: '17'
+hp: 187 (25d8 + 75)
+speed: 30 ft.
+abilities:
+  Str: 18
+  Dex: 10
+  Con: 17
+  Int: 11
+  Wis: 19
+  Cha: 16
+skills:
+- History +5
+- Perception +9
+- Religion +5
+immunities:
+- Necrotic
+- Poison; Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Poisoned
+languages:
+- Common plus three other languages
+senses: Truesight 60 ft., Passive Perception 19
+challenge_rating: 15 (XP 13 000, or 15 000 in lair; PB +5)
+description: Those desperate to escape death sometimes make terrible bargains with
+  wicked deities. Devoting their hearts to evil forces, these villains gain power
+  over death and a cursed immortality that binds their minds and spirits within a
+  desiccated corpse. Freed from mortal concerns, these mummy lords pursue their obsessions
+  across ages. Most mummy lords linger amid the ruins of ancient palaces or temples
+  where they once held sway. Their age-old faith and ties to deathly forces grant
+  them fearful magic, which they use to sow ruin and animate undead servants. A mummy
+  lord's heart embodies the pact that grants it immortality. Rather than bearing its
+  heart within its corpse, a mummy lord removes and hides this accursed organ. As
+  long as its heart isn't destroyed by fire, a mummy lord can return to unlife no
+  matter what doom it meets. Mummy lords are usually consumed by ageless plots.
+habitat: Desert, Swamp
+treasure: Relics
+traits:
+- name: Legendary Resistance (3/Day, or 4/Day in Lair)
+  desc: If the mummy fails a saving throw, it can choose to succeed instead.
+- name: Magic Resistance
+  desc: The mummy has Advantage on saving throws against spells and other magical
+    effects.
+- name: Undead Restoration
+  desc: If destroyed, the mummy gains a new body in 24 hours if its heart is intact,
+    reviving with all its Hit Points. The new body appears in an unoccupied space
+    within the mummy's lair. The heart is a Tiny object that has AC 17, HP 10, and
+    Immunity to all damage except Fire.
+actions:
+- name: Multiattack
+  desc: The mummy makes one Rotting Fist or Channel Negative Energy attack, and it
+    uses Dreadful Glare.
+- name: Rotting Fist
+  desc: 'Melee Attack Roll: +9, reach 5 ft. Hit: 15 (2d10 + 4) Bludgeoning damage
+    plus 10 (3d6) Necrotic damage. If the target is a creature, it is cursed. While
+    cursed, the target can''t regain Hit Points, it gains no benefit from finishing
+    a Long Rest, and its Hit Point maximum decreases by 10 (3d6) every 24 hours that
+    elapse. A creature dies and turns to dust if reduced to 0 Hit Points by this attack.'
+- name: Channel Negative Energy
+  desc: 'Ranged Attack Roll: +9, range 60 ft. Hit: 25 (6d6 + 4) Necrotic damage.'
+- name: Dreadful Glare
+  desc: 'Wisdom Saving Throw: DC 17, one creature the mummy can see within 60 feet.
+    Failure: 25 (6d6 + 4) Psychic damage, and the target has the Paralyzed condition
+    until the end of the mummy''s next turn.'
+- name: Spellcasting
+  desc: 'The mummy casts one of the following spells, requiring no Material components
+    and using Wisdom as the spellcasting ability (spell save DC 17, +9 to hit with
+    spell attacks):'
+- name: Whirlwind of Sand
+  desc: 'Trigger: The mummy is hit by an attack roll. Response: The mummy adds 2 to
+    its AC against the attack, possibly causing the attack to miss, and the mummy
+    teleports up to 60 feet to an unoccupied space it can see. Each creature of its
+    choice that it can see within 5 feet of its destination space has the Blinded
+    condition until the end of the mummy''s next turn.'
+legendary_actions:
+- name: Dread Command
+  desc: The mummy casts Command (level 2 version), using the same spellcasting ability
+    as Spellcasting. The mummy can't take this action again until the start of its
+    next turn.
+- name: Glare
+  desc: The mummy uses Dreadful Glare. The mummy can't take this action again until
+    the start of its next turn.
+- name: Necrotic Strike
+  desc: The mummy makes one Rotting Fist or Channel Negative Energy attack
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s
+  turn, the mummy can expend a use to take one of the following actions. The mummy
+  regains all expended uses at the start of each of its turns.'

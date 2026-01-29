@@ -1,0 +1,32 @@
+name: Raven
+size: Tiny
+type: Beast
+alignment: Unaligned
+initiative: +2 (12)
+ac: '12'
+hp: 2 (1d4)
+speed: 10 ft., Fly 50 ft.
+abilities:
+  Str: 2
+  Dex: 14
+  Con: 10
+  Int: 5
+  Wis: 13
+  Cha: 6
+skills:
+- Perception +3
+immunities: []
+languages:
+- None
+senses: Passive Perception 13
+challenge_rating: 0 (XP 10; PB +2)
+description: ''
+habitat: Hill, Swamp, Urban
+traits:
+- name: Mimicry
+  desc: The raven can mimic simple sounds it has heard, such as a whisper or chitter.
+    A hearer can discern the sounds are imitations with a successful DC 10 Wisdom
+    (Insight) check.
+actions:
+- name: Beak
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 1 Piercing damage.'

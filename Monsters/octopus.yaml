@@ -1,0 +1,39 @@
+name: Octopus
+size: Small
+type: Beast
+alignment: Unaligned
+initiative: +2 (12)
+ac: '12'
+hp: 3 (1d6)
+speed: 5 ft., Swim 30 ft.
+abilities:
+  Str: 4
+  Dex: 15
+  Con: 11
+  Int: 3
+  Wis: 10
+  Cha: 4
+skills:
+- Perception +2
+- Stealth +6
+immunities: []
+languages:
+- None
+senses: Darkvision 30 ft., Passive Perception 12
+challenge_rating: 0 (XP 10; PB +2)
+description: ''
+habitat: Underwater
+traits:
+- name: Compression
+  desc: The octopus can move through a space as narrow as 1 inch without spending
+    extra movement to do so.
+- name: Water Breathing
+  desc: The octopus can breathe only underwater.
+actions:
+- name: Tentacles
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 1 Bludgeoning damage.'
+- name: Ink Cloud (1/Day)
+  desc: 'Trigger: A creature ends its turn within 5 feet of the octopus while underwater.
+    Response: The octopus releases ink that fills a 5-foot Cube centered on itself,
+    and the octopus moves up to its Swim Speed. The Cube is Heavily Obscured for 1
+    minute or until a strong current or similar effect disperses the ink.'

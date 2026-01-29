@@ -1,0 +1,30 @@
+name: Scarecrow
+size: Medium
+type: Construct
+alignment: Chaotic Evil
+initiative: +3 (13)
+ac: '11'
+hp: 27 (6d8)
+speed: 30 ft.
+abilities:
+  Str: 11
+  Dex: 13
+  Con: 11
+  Int: 10
+  Wis: 10
+  Cha: 13
+skills: []
+immunities:
+- Poison; Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified
+- Poisoned
+- Unconscious
+languages:
+- Common plus one other language
+senses: Darkvision 60 ft., Passive Perception 10
+challenge_rating: 1 (XP 200; PB +2)
+description: ''
+habitat: Grassland

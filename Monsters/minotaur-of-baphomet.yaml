@@ -1,0 +1,35 @@
+name: Minotaur of Baphomet
+size: Large
+type: Monstrosity
+alignment: Chaotic Evil
+initiative: +0 (10)
+ac: '14'
+hp: 85 (10d10 + 30)
+speed: 40 ft.
+abilities:
+  Str: 18
+  Dex: 11
+  Con: 16
+  Int: 6
+  Wis: 16
+  Cha: 9
+skills:
+- Perception +7
+- Survival +7
+immunities: []
+languages:
+- Abyssal
+senses: Darkvision 60 ft., Passive Perception 17
+challenge_rating: 3 (XP 700; PB +2)
+description: ''
+habitat: Underdark
+treasure: Armaments
+actions:
+- name: Abyssal Glaive
+  desc: 'Melee Attack Roll: +6, reach 10 ft. Hit: 10 (1d12 + 4) Slashing damage plus
+    10 (3d6) Necrotic damage.'
+- name: Gore (Recharge 5–6)
+  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 18 (4d6 + 4) Piercing damage. If
+    the target is a Large or smaller creature and the minotaur moved 10+ feet straight
+    toward it immediately before the hit, the target takes an extra 10 (3d6) Piercing
+    damage and has the Prone condition.'

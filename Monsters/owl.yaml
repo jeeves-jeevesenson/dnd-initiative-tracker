@@ -1,0 +1,32 @@
+name: Owl
+size: Tiny
+type: Beast
+alignment: Unaligned
+initiative: +1 (11)
+ac: '11'
+hp: 1 (1d4 - 1)
+speed: 5 ft., Fly 60 ft.
+abilities:
+  Str: 3
+  Dex: 13
+  Con: 8
+  Int: 2
+  Wis: 12
+  Cha: 7
+skills:
+- Perception +5
+- Stealth +5
+immunities: []
+languages:
+- None
+senses: Darkvision 120 ft., Passive Perception 15
+challenge_rating: 0 (XP 10; PB +2)
+description: ''
+habitat: Arctic, Forest, Hill
+traits:
+- name: Flyby
+  desc: The owl doesn't provoke Opportunity Attack action when it flies out of an
+    enemy's reach.
+actions:
+- name: Talons
+  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 1 Slashing damage.'

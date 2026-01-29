@@ -1,0 +1,46 @@
+name: Performer Maestro
+size: Medium
+type: or Small Humanoid
+alignment: Neutral
+initiative: +7 (17)
+ac: '18'
+hp: 110 (17d8 + 34)
+speed: 30 ft.
+abilities:
+  Str: 12
+  Dex: 18
+  Con: 14
+  Int: 13
+  Wis: 14
+  Cha: 19
+skills:
+- Acrobatics +10
+- Athletics +4
+- Perception +5
+- Performance +10
+- Stealth +7
+immunities: []
+languages:
+- Common plus one other language
+senses: Passive Perception 15
+challenge_rating: 6 (XP 2 300; PB +3)
+description: Maestros are headlining performers who enjoy considerable renown. They
+  might be theaters' marquee actors, astonishing daredevils, or jesters experienced
+  at entertaining fickle royals. Some share their techniques with apprentices, while
+  others jealously guard their secrets.
+habitat: Any
+treasure: Individual, Implements
+actions:
+- name: Multiattack
+  desc: The performer makes three Rapier attacks.
+- name: Rapier
+  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 8 (1d8 + 4) Piercing damage plus
+    7 (2d6) Psychic damage.'
+- name: Beguiling Song
+  desc: 'Wisdom Saving Throw: DC 15, each creature in a 20-foot-radius Sphere centered
+    on a point within 120 feet. Failure: 20 (3d10 + 4) Psychic damage, and the target
+    has the Charmed condition until the end of the performer''s next turn. Success:
+    Half damage only.'
+- name: Spellcasting
+  desc: 'The performer casts one of the following spells, requiring no Material components
+    and using Charisma as the spellcasting ability (spell save DC 15):'

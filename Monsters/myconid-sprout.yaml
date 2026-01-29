@@ -1,0 +1,24 @@
+name: Myconid Sprout
+size: Small
+type: Plant
+alignment: Lawful Neutral
+initiative: +0 (10)
+ac: '10'
+hp: 3 (1d6)
+speed: 10 ft.
+abilities:
+  Str: 8
+  Dex: 10
+  Con: 10
+  Int: 8
+  Wis: 11
+  Cha: 5
+skills: []
+immunities: []
+languages:
+- Telepathy 240 ft.
+senses: Darkvision 120 ft., Passive Perception 10
+challenge_rating: 0 (XP 10; PB +2)
+description: Myconid sprouts tend to their fungal homes and watch for trespassers.
+habitat: Underdark
+treasure: Any

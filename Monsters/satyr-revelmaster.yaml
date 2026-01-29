@@ -1,0 +1,30 @@
+name: Satyr Revelmaster
+size: Medium
+type: Fey
+alignment: Chaotic Neutral
+initiative: +7 (17)
+ac: '17'
+hp: 82 (15d8 + 15)
+speed: 40 ft.
+abilities:
+  Str: 12
+  Dex: 18
+  Con: 12
+  Int: 12
+  Wis: 14
+  Cha: 17
+skills:
+- Acrobatics +7
+- Perception +5
+- Performance +9
+immunities: []
+languages:
+- Common
+- Elvish
+- Sylvan
+senses: Passive Perception 15
+challenge_rating: 6 (XP 2 300; PB +3)
+description: Satyr revelmasters use magical music to change the moods of other creatures.
+  They do so to keep their celebrations exciting and to ward off foes.
+habitat: Forest, Planar (Feywild)
+treasure: Implements

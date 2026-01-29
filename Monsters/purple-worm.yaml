@@ -1,0 +1,49 @@
+name: Purple Worm
+size: Gargantuan
+type: Monstrosity
+alignment: Unaligned
+initiative: +3 (13)
+ac: '18'
+hp: 247 (15d20 + 90)
+speed: 50 ft., Burrow 50 ft.
+abilities:
+  Str: 28
+  Dex: 7
+  Con: 22
+  Int: 1
+  Wis: 8
+  Cha: 4
+skills: []
+immunities: []
+languages:
+- —
+senses: Blindsight 30 ft., Tremorsense 60 ft., Passive Perception 9
+challenge_rating: 15 (XP 13 000; PB +5)
+description: ''
+habitat: Desert, Underdark
+traits:
+- name: Tunneler
+  desc: The worm can burrow through solid rock at half its Burrow Speed and leaves
+    a 10-foot-diameter tunnel in its wake.
+actions:
+- name: Multiattack
+  desc: The worm makes one Bite attack and one Tail Stinger attack.
+- name: Bite
+  desc: 'Melee Attack Roll: +14, reach 10 ft. Hit: 22 (3d8 + 9) Piercing damage. If
+    the target is a Large or smaller creature, it has the Grappled condition (escape
+    DC 19), and it has the Restrained condition until the grapple ends.'
+- name: Tail Stinger
+  desc: 'Melee Attack Roll: +14, reach 10 ft. Hit: 16 (2d6 + 9) Piercing damage plus
+    35 (10d6) Poison damage.'
+- name: Swallow
+  desc: 'Strength Saving Throw: DC 19, one Large or smaller creature Grappled by the
+    worm (it can have up to three creatures swallowed at a time). Failure: The target
+    is swallowed by the worm, and the Grappled condition ends. A swallowed creature
+    has the Blinded and Restrained conditions, has Total Cover against attacks and
+    other effects outside the worm, and takes 17 (5d6) Acid damage at the start of
+    each of the worm''s turns. If the worm takes 30 damage or more on a single turn
+    from a creature inside it, the worm must succeed on a DC 21 Constitution saving
+    throw at the end of that turn or regurgitate all swallowed creatures, each of
+    which falls in a space within 5 feet of the worm and has the Prone condition.
+    If the worm dies, any swallowed creature no longer has the Restrained condition
+    and can escape from the corpse using 20 feet of movement, exiting Prone.'

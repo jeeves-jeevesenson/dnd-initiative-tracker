@@ -1,0 +1,27 @@
+name: Pixie
+size: Tiny
+type: Fey
+alignment: Neutral Good
+initiative: +5 (15)
+ac: '15'
+hp: 9 (6d4 - 6)
+speed: 10 ft., Fly 30 ft.
+abilities:
+  Str: 2
+  Dex: 20
+  Con: 8
+  Int: 10
+  Wis: 14
+  Cha: 15
+skills:
+- Perception +4
+- Stealth +7
+immunities: []
+languages:
+- Sylvan
+senses: Passive Perception 14
+challenge_rating: 1/4 (XP 50; PB +2)
+description: Pixies spend their days frolicking and exploring and avoid direct conflict
+  when they can.
+habitat: Forest, Planar (Feywild)
+treasure: Arcana

@@ -1,0 +1,29 @@
+name: Rhinoceros
+size: Large
+type: Beast
+alignment: Unaligned
+initiative: -1 (9)
+ac: '13'
+hp: 45 (6d10 + 12)
+speed: 40 ft.
+abilities:
+  Str: 21
+  Dex: 8
+  Con: 15
+  Int: 2
+  Wis: 12
+  Cha: 6
+skills: []
+immunities: []
+languages:
+- None
+senses: Passive Perception 11
+challenge_rating: 2 (XP 450; PB +2)
+description: ''
+habitat: Grassland
+actions:
+- name: Gore
+  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 14 (2d8 + 5) Piercing damage. If
+    target is a Large or smaller creature and the rhinoceros moved 20+ feet straight
+    toward it immediately before the hit, the target takes an extra 9 (2d8) Piercing
+    damage and has the Prone condition.'

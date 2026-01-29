@@ -1,0 +1,46 @@
+name: Red Dragon Wyrmling
+size: Medium
+type: Dragon (Chromatic)
+alignment: Chaotic Evil
+initiative: +2 (12)
+ac: '17'
+hp: 75 (10d8 + 30)
+speed: 30 ft., Climb 30 ft., Fly 60 ft.
+abilities:
+  Str: 19
+  Dex: 10
+  Con: 17
+  Int: 12
+  Wis: 11
+  Cha: 15
+skills:
+- Perception +4
+- Stealth +2
+immunities:
+- Fire
+languages:
+- Draconic
+senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 14
+challenge_rating: 4 (XP 1 100; PB +2)
+description: Red dragons take whatever they desire and burn to ash anything that stands
+  in their way. These chromatic dragons endlessly desire more—more magic, territory,
+  treasure, or whatever else inflames their cruel ambitions. Red dragons make their
+  lairs amid perilous cliffs and volcanoes. Within, they amass and fiercely protect
+  hoards of treasure, and many have perfect recall of the hoards' contents and the
+  locations of all they've collected. Should anything go missing, red dragons fly
+  into rages. They don't rest until their treasures are returned and the thieves have
+  burned. Red dragons believe themselves to be the greatest of all dragons and, by
+  extension, the greatest of all creatures. To them, pillaging and conquering are
+  their right—treasures can find no more honored place than in their hoards, and other
+  creatures are privileged to serve them.
+habitat: Hill, Mountain
+treasure: Any
+actions:
+- name: Multiattack
+  desc: The dragon makes two Rend attacks.
+- name: Rend
+  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 9 (1d10 + 4) Slashing damage plus
+    3 (1d6) Fire damage.'
+- name: Fire Breath (Recharge 5–6)
+  desc: 'Dexterity Saving Throw: DC 13, each creature in a 15-foot Cone. Failure:
+    24 (7d6) Fire damage. Success: Half damage.'

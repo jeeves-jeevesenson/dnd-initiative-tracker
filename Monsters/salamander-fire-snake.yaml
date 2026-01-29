@@ -1,0 +1,28 @@
+name: Salamander Fire Snake
+size: Medium
+type: Elemental
+alignment: Neutral Evil
+initiative: +2 (12)
+ac: '14'
+hp: 27 (6d8)
+speed: 30 ft., Climb 30 ft.
+abilities:
+  Str: 12
+  Dex: 14
+  Con: 11
+  Int: 7
+  Wis: 10
+  Cha: 8
+skills: []
+immunities:
+- Fire
+languages:
+- Understands Primordial but can't speak
+senses: Darkvision 60 ft., Passive Perception 10
+challenge_rating: 1 (XP 200; PB +2)
+description: Juvenile salamanders emerge from burning hot, two-foot-diameter eggs.
+  Called fire snakes, these serpentlike creatures slither through the Plane of Fire
+  and other intensely hot places. After consuming the proper fuels and exposing themselves
+  to fiery extremes, fire snakes grow into salamanders.
+habitat: Planar (Elemental Plane of Fire), Underdark
+treasure: Armaments

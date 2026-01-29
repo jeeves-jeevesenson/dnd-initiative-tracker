@@ -1,0 +1,34 @@
+name: Performer Legend
+size: Medium
+type: or Small Humanoid
+alignment: Neutral
+initiative: +9 (19)
+ac: '20'
+hp: 162 (25d8 + 50)
+speed: 30 ft.
+abilities:
+  Str: 12
+  Dex: 20
+  Con: 14
+  Int: 15
+  Wis: 16
+  Cha: 20
+skills:
+- Acrobatics +13
+- Athletics +5
+- Perception +7
+- Performance +13
+- Stealth +9
+immunities: []
+languages:
+- Common plus two other languages
+senses: Passive Perception 17
+challenge_rating: 10 (XP 5 900; PB +4)
+description: Performer legends are celebrities known across nations, continents, or
+  worlds. Their prestige might grant them access to the heights of society, or they
+  might use their performances to manipulate audiences. Performer legends usually
+  have signature traits or talents that set them apart from other entertainers, such
+  as a distinct voice, incredible athleticism, or a unique manner of dress. They often
+  travel with a retinue of other performers, guards, or noble patrons.
+habitat: Any
+treasure: Individual, Implements

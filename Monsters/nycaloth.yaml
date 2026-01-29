@@ -1,0 +1,29 @@
+name: Nycaloth
+size: Large
+type: Fiend (Yugoloth)
+alignment: Neutral Evil
+initiative: +4 (14)
+ac: '18'
+hp: 152 (16d10 + 64)
+speed: 40 ft., Fly 60 ft.
+abilities:
+  Str: 20
+  Dex: 11
+  Con: 19
+  Int: 12
+  Wis: 10
+  Cha: 15
+skills:
+- Perception +4
+- Stealth +4
+immunities:
+- Acid
+- Poison; Poisoned
+languages:
+- Abyssal
+- Infernal; telepathy 60 ft.
+senses: Blindsight 60 ft., Passive Perception 14
+challenge_rating: 9 (XP 5 000; PB +4)
+description: ''
+habitat: Planar (Gehenna)
+treasure: Armaments

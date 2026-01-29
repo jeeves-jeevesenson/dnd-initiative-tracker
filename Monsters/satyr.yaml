@@ -1,0 +1,42 @@
+name: Satyr
+size: Medium
+type: Fey
+alignment: Chaotic Neutral
+initiative: +3 (13)
+ac: '13'
+hp: 31 (7d8)
+speed: 40 ft.
+abilities:
+  Str: 12
+  Dex: 16
+  Con: 11
+  Int: 12
+  Wis: 10
+  Cha: 14
+skills:
+- Perception +2
+- Performance +6
+- Stealth +5
+immunities: []
+languages:
+- Common
+- Elvish
+- Sylvan
+senses: Passive Perception 12
+challenge_rating: 1/2 (XP 100; PB +2)
+description: Satyrs enjoy demonstrating their physicality through contests, evicting
+  party poopers, and defending Fey realms.
+habitat: Forest, Planar (Feywild)
+treasure: Implements
+traits:
+- name: Magic Resistance
+  desc: The satyr has Advantage on saving throws against spells and other magical
+    effects.
+actions:
+- name: Hooves
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 5 (1d4 + 3) Bludgeoning damage. If
+    the target is a Medium or smaller creature, the satyr pushes the target up to
+    10 feet straight away from itself.'
+- name: Mockery
+  desc: 'Wisdom Saving Throw: DC 12, one creature the satyr can see within 90 feet.
+    Failure: 5 (1d6 + 2) Psychic damage.'

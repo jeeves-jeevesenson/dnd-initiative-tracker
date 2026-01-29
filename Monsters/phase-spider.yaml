@@ -1,0 +1,46 @@
+name: Phase Spider
+size: Large
+type: Monstrosity
+alignment: Unaligned
+initiative: +3 (13)
+ac: '14'
+hp: 45 (7d10 + 7)
+speed: 30 ft., Climb 30 ft.
+abilities:
+  Str: 15
+  Dex: 16
+  Con: 12
+  Int: 6
+  Wis: 10
+  Cha: 6
+skills:
+- Stealth +7
+immunities: []
+languages:
+- —
+senses: Darkvision 60 ft., Passive Perception 10
+challenge_rating: 3 (XP 700; PB +2)
+description: ''
+habitat: Desert, Forest, Grassland, Hill, Planar (Ethereal Plane), Underdark, Urban
+treasure: Any
+traits:
+- name: Ethereal Sight
+  desc: The spider can see 60 feet into the Ethereal Plane while on the Material Plane
+    and vice versa.
+- name: Spider Climb
+  desc: The spider can climb difficult surfaces, including along ceilings, without
+    needing to make an ability check.
+- name: Web Walker
+  desc: The spider ignores movement restrictions caused by webs, and the spider knows
+    the location of any other creature in contact with the same web.
+actions:
+- name: Multiattack
+  desc: The spider makes two Bite attacks.
+- name: Bite
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 8 (1d10 + 3) Piercing damage plus
+    9 (2d8) Poison damage. If this damage reduces the target to 0 Hit Points, the
+    target becomes Stable, and it has the Poisoned condition for 1 hour. While Poisoned,
+    the target also has the Paralyzed condition.'
+- name: Ethereal Jaunt
+  desc: The spider teleports from the Material Plane to the Ethereal Plane or vice
+    versa.

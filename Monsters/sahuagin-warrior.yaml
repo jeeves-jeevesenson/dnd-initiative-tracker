@@ -1,0 +1,44 @@
+name: Sahuagin Warrior
+size: Medium
+type: Fiend
+alignment: Lawful Evil
+initiative: +0 (10)
+ac: '12'
+hp: 22 (4d8 + 4)
+speed: 30 ft., Swim 40 ft.
+abilities:
+  Str: 13
+  Dex: 11
+  Con: 12
+  Int: 12
+  Wis: 13
+  Cha: 9
+skills:
+- Perception +5
+immunities: []
+languages:
+- Sahuagin
+senses: Darkvision 120 ft., Passive Perception 15
+challenge_rating: 1/2 (XP 100; PB +2)
+description: Sahuagin warriors are vicious combatants that savage their foes with
+  webbed claws. Once sahuagin draw blood, they usually attack until either they or
+  their foe is slain.
+habitat: Coastal, Underwater
+treasure: Any
+traits:
+- name: Blood Frenzy
+  desc: The sahuagin has Advantage on attack rolls against any creature that doesn't
+    have all its Hit Points.
+- name: Limited Amphibiousness
+  desc: The sahuagin can breathe air and water, but it must be submerged at least
+    once every 4 hours to avoid suffocating outside water.
+- name: Shark Telepathy
+  desc: The sahuagin can magically control sharks within 120 feet of itself, using
+    a special telepathy.
+actions:
+- name: Multiattack
+  desc: The sahuagin makes two Claw attacks.
+- name: Claw
+  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 4 (1d6 + 1) Slashing damage.'
+- name: Aquatic Charge
+  desc: The sahuagin swims up to its Swim Speed straight toward an enemy it can see.

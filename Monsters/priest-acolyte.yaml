@@ -1,0 +1,40 @@
+name: Priest Acolyte
+size: Medium
+type: or Small Humanoid (Cleric)
+alignment: Neutral
+initiative: +0 (10)
+ac: '13'
+hp: 11 (2d8 + 2)
+speed: 30 ft.
+abilities:
+  Str: 14
+  Dex: 10
+  Con: 12
+  Int: 10
+  Wis: 14
+  Cha: 11
+skills:
+- Medicine +4
+- Religion +2
+immunities: []
+languages:
+- Common
+senses: Passive Perception 12
+challenge_rating: 1/4 (XP 50; PB +2)
+description: Priest acolytes have great faith but modest magical skill. Some might
+  be trainees in religious organizations or soldiers in zealous armies, while others
+  are faith leaders in small communities or wanderers on pilgrimages.
+habitat: Any
+treasure: Individual, Relics
+actions:
+- name: Mace
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Bludgeoning damage plus
+    2 (1d4) Radiant damage.'
+- name: Radiant Flame
+  desc: 'Ranged Attack Roll: +4, range 60 ft. Hit: 7 (2d6) Radiant damage.'
+- name: Spellcasting
+  desc: 'The priest casts one of the following spells, using Wisdom as the spellcasting
+    ability:'
+- name: Divine Aid (1/Day)
+  desc: The priest casts Bless, Healing Word, or Sanctuary, using the same spellcasting
+    ability as Spellcasting.

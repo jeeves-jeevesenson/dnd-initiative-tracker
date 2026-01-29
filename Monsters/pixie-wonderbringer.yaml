@@ -1,0 +1,30 @@
+name: Pixie Wonderbringer
+size: Tiny
+type: Fey
+alignment: Neutral Good
+initiative: +5 (15)
+ac: '15'
+hp: 60 (24d4)
+speed: 10 ft., Fly 30 ft.
+abilities:
+  Str: 2
+  Dex: 20
+  Con: 10
+  Int: 11
+  Wis: 14
+  Cha: 18
+skills:
+- Arcana +3
+- Perception +5
+- Stealth +8
+immunities: []
+languages:
+- Common
+- Elvish
+- Sylvan
+senses: Passive Perception 15
+challenge_rating: 5 (XP 1 800; PB +3)
+description: Energetic entertainers, wonderbringers use their magic in defense of
+  the wilderness when they must.
+habitat: Forest, Planar (Feywild)
+treasure: Arcana
