@@ -10,10 +10,10 @@ Features:
 - Turn tracker (current creature, round count, turn count) + loops
 - HP + Speed (movement) per creature
 - Damage/Heal tool (calculator-style) with auto-remove only when damage drops HP to 0
-- Damage-over-time stacks (Burn/Poison/Necrotic) that roll at start of creature's turn
+- Damage-over-time conditions (Burn/Poison/Necrotic) that roll at start of creature's turn
 - Conditions (2024 Basic Rules list) with stackable durations, auto-skip for certain conditions
 - Prone: Stand Up button spends half movement to remove Prone
-- Star Advantage: expires at start of creature's turn
+- Star Advantage condition: expires at start of creature's turn
 - Ally name text in green, enemies in red
 - Persistent log with history file
 - Conditions tick down at end of each creature's turn (non-stacking, Exhaustion excepted)
@@ -81,6 +81,8 @@ CONDITIONS_META: Dict[str, Dict[str, object]] = {
     "restrained": {"label": "Restrained", "icon": "⛓", "skip": False, "immobile": True},
     "stunned": {"label": "Stunned", "icon": "💫", "skip": True, "immobile": True},
     "unconscious": {"label": "Unconscious", "icon": "😴", "skip": True, "immobile": True},
+    "star_advantage": {"label": "Star Advantage", "icon": "⭐", "skip": False, "immobile": False},
+    "dot": {"label": "Damage over Time", "icon": "🩸", "skip": False, "immobile": False},
 }
 
 DOT_META = {
@@ -152,18 +154,12 @@ def _apply_dialog_geometry(dlg: tk.Toplevel, width: int, height: int, min_w: int
 
 
 @dataclass
-class DotStack:
-    sid: int
-    dtype: str  # burn / poison / necrotic
-    dice: Dict[int, int]  # {6:1, 4:2} = 1d6+2d4
-    remaining_turns: int
-
-
-@dataclass
 class ConditionStack:
     sid: int
     ctype: str  # key in CONDITIONS_META (except exhaustion, which is level-based)
     remaining_turns: Optional[int]  # None = indefinite
+    dot_type: Optional[str] = None
+    dice: Optional[Dict[int, int]] = None
 
 
 @dataclass
@@ -196,8 +192,6 @@ class Combatant:
 
 
     # Effects / statuses
-    star_advantage: bool = False
-    dot_stacks: List[DotStack] = field(default_factory=list)
     condition_stacks: List[ConditionStack] = field(default_factory=list)
     exhaustion_level: int = 0  # 0-6
 
@@ -391,13 +385,11 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(add_frame, text="Bulk Add…", command=self._open_bulk_dialog).grid(row=1, column=9, padx=(0, 8))
         ttk.Button(add_frame, text="Remove Selected", command=self._remove_selected).grid(row=1, column=10, padx=(0, 8))
         ttk.Button(add_frame, text="Damage/Heal…", command=self._open_hp_tool).grid(row=1, column=11, padx=(0, 8))
-        ttk.Button(add_frame, text="DoT…", command=self._open_dot_tool).grid(row=1, column=12, padx=(0, 8))
-        ttk.Button(add_frame, text="Conditions…", command=self._open_condition_tool).grid(row=1, column=13, padx=(0, 8))
-        ttk.Button(add_frame, text="⭐ Adv", command=self._toggle_star_advantage_selected).grid(row=1, column=14, padx=(0, 8))
-        ttk.Button(add_frame, text="Set Start Here", command=self._set_start_here).grid(row=1, column=15, padx=(0, 8))
-        ttk.Button(add_frame, text="Clear Start", command=self._clear_start).grid(row=1, column=16)
+        ttk.Button(add_frame, text="Conditions…", command=self._open_condition_tool).grid(row=1, column=12, padx=(0, 8))
+        ttk.Button(add_frame, text="Set Start Here", command=self._set_start_here).grid(row=1, column=13, padx=(0, 8))
+        ttk.Button(add_frame, text="Clear Start", command=self._clear_start).grid(row=1, column=14)
         ttk.Button(add_frame, text="Refresh monsters/spells", command=self._refresh_monsters_spells).grid(
-            row=1, column=17, padx=(8, 0)
+            row=1, column=15, padx=(8, 0)
         )
 
         # Turn frame
@@ -2076,21 +2068,35 @@ class InitiativeTracker(tk.Tk):
         c.extra_bonus_pool = 0
 
         # expire star advantage at start of creature's turn
-        if c.star_advantage:
-            c.star_advantage = False
+        star_stacks = [st for st in list(c.condition_stacks) if st.ctype == "star_advantage"]
+        if star_stacks:
+            for st in star_stacks:
+                try:
+                    c.condition_stacks.remove(st)
+                except ValueError:
+                    pass
             msgs.append("⭐ advantage ended")
 
         # DoT stacks roll at start (even if the turn will be skipped)
-        if c.dot_stacks:
+        dot_stacks = [st for st in list(c.condition_stacks) if st.ctype == "dot"]
+        if dot_stacks:
             total_dmg = 0
             details: List[str] = []
-            for st in list(c.dot_stacks):
-                roll = self._roll_dice_dict(st.dice)
+            for st in dot_stacks:
+                dice = st.dice or {}
+                if not dice:
+                    continue
+                roll = self._roll_dice_dict(dice)
                 total_dmg += roll
-                details.append(f"{DOT_META.get(st.dtype, {}).get('icon','•')}{roll}")
-                st.remaining_turns -= 1
-                if st.remaining_turns <= 0:
-                    c.dot_stacks.remove(st)
+                dot_type = st.dot_type or "dot"
+                details.append(f"{DOT_META.get(dot_type, {}).get('icon','•')}{roll}")
+                if st.remaining_turns is not None:
+                    st.remaining_turns -= 1
+                    if st.remaining_turns <= 0:
+                        try:
+                            c.condition_stacks.remove(st)
+                        except ValueError:
+                            pass
 
             if total_dmg > 0:
                 old_hp = c.hp
@@ -2172,14 +2178,16 @@ class InitiativeTracker(tk.Tk):
                             pass
 
         # summarize conditions (after any skip decrement)
-        if c.condition_stacks:
-            shown = []
-            for st in sorted(c.condition_stacks, key=lambda x: x.ctype):
-                icon = str(CONDITIONS_META.get(st.ctype, {}).get("icon", "•"))
-                if st.remaining_turns is None:
-                    shown.append(icon)
-                else:
-                    shown.append(f"{icon}({st.remaining_turns})")
+        shown: List[str] = []
+        for st in sorted(c.condition_stacks, key=lambda x: x.ctype):
+            if st.ctype in {"dot", "star_advantage"}:
+                continue
+            icon = str(CONDITIONS_META.get(st.ctype, {}).get("icon", "•"))
+            if st.remaining_turns is None:
+                shown.append(icon)
+            else:
+                shown.append(f"{icon}({st.remaining_turns})")
+        if shown:
             msgs.append("cond " + " ".join(shown))
         if c.exhaustion_level > 0:
             msgs.append(f"exh {c.exhaustion_level}")
@@ -2416,24 +2424,28 @@ class InitiativeTracker(tk.Tk):
     # -------------------------- Effects formatting --------------------------
     def _format_effects(self, c: Combatant) -> str:
         parts: List[str] = []
-        if c.star_advantage:
-            parts.append("⭐")
+        if any(st.ctype == "star_advantage" for st in c.condition_stacks):
+            parts.append(str(CONDITIONS_META.get("star_advantage", {}).get("icon", "⭐")))
 
         # DoT: count per type
-        if c.dot_stacks:
-            counts: Dict[str, int] = {}
-            for st in c.dot_stacks:
-                counts[st.dtype] = counts.get(st.dtype, 0) + 1
-            for dtype in ["burn", "poison", "necrotic"]:
-                n = counts.get(dtype, 0)
-                if n <= 0:
-                    continue
-                icon = DOT_META.get(dtype, {}).get("icon", "•")
-                parts.append(f"{icon}x{n}" if n > 1 else str(icon))
+        counts: Dict[str, int] = {}
+        for st in c.condition_stacks:
+            if st.ctype != "dot":
+                continue
+            dtype = st.dot_type or "dot"
+            counts[dtype] = counts.get(dtype, 0) + 1
+        for dtype in ["burn", "poison", "necrotic"]:
+            n = counts.get(dtype, 0)
+            if n <= 0:
+                continue
+            icon = DOT_META.get(dtype, {}).get("icon", "•")
+            parts.append(f"{icon}x{n}" if n > 1 else str(icon))
 
         # Conditions (non-stacking; Exhaustion handled separately)
         if c.condition_stacks:
             for st in sorted(c.condition_stacks, key=lambda x: x.ctype):
+                if st.ctype in {"dot", "star_advantage"}:
+                    continue
                 icon = str(CONDITIONS_META.get(st.ctype, {}).get("icon", "•"))
                 if st.remaining_turns is None:
                     parts.append(icon)
@@ -2752,20 +2764,6 @@ class InitiativeTracker(tk.Tk):
                 continue
             if cid in self.combatants:
                 self._toggle_water_mode(cid)
-
-    # -------------------------- Star advantage toggle --------------------------
-    def _toggle_star_advantage_selected(self) -> None:
-        items = self.tree.selection()
-        if not items:
-            return
-        for it in items:
-            try:
-                cid = int(it)
-            except ValueError:
-                continue
-            if cid in self.combatants:
-                self.combatants[cid].star_advantage = not self.combatants[cid].star_advantage
-        self._rebuild_table(scroll_to_current=True)
 
     # --------------------- Index cache helpers ---------------------
     def _logs_dir_path(self) -> Path:
@@ -3955,83 +3953,6 @@ class InitiativeTracker(tk.Tk):
         except Exception:
             pass
 
-    def _open_dot_tool(self) -> None:
-        dlg = tk.Toplevel(self)
-        dlg.title("Damage over Time (DoT)")
-        dlg.geometry("720x520")
-        dlg.minsize(640, 460)
-        dlg.transient(self)
-        dlg.after(0, dlg.grab_set)
-
-        frm = ttk.Frame(dlg, padding=10)
-        frm.pack(fill=tk.BOTH, expand=True)
-
-        sel_cids = self._selected_cids()
-        if not sel_cids:
-            ttk.Label(frm, text="Select 1+ creatures in the table first.").pack(anchor="w")
-        else:
-            names = ", ".join(self.combatants[cid].name for cid in sel_cids if cid in self.combatants)
-            ttk.Label(frm, text=f"Applying to: {names}").pack(anchor="w")
-
-        row = ttk.Frame(frm)
-        row.pack(fill=tk.X, pady=(10, 0))
-
-        ttk.Label(row, text="Type").grid(row=0, column=0, sticky="w")
-        dtype_var = tk.StringVar(value="burn")
-        ttk.Combobox(row, textvariable=dtype_var, values=list(DOT_META.keys()), state="readonly", width=12).grid(
-            row=1, column=0, sticky="w", padx=(0, 10)
-        )
-
-        ttk.Label(row, text="Turns").grid(row=0, column=1, sticky="w")
-        turns_var = tk.StringVar(value="1")
-        ttk.Entry(row, textvariable=turns_var, width=6).grid(row=1, column=1, sticky="w", padx=(0, 10))
-
-        dice_frame = ttk.LabelFrame(frm, text="Dice", padding=8)
-        dice_frame.pack(fill=tk.X, pady=(10, 0))
-
-        dice_vars: Dict[int, tk.IntVar] = {}
-        col = 0
-        for die in [4, 6, 8, 10, 12]:
-            v = tk.IntVar(value=0)
-            dice_vars[die] = v
-            ttk.Label(dice_frame, text=f"d{die}").grid(row=0, column=col, sticky="w")
-            ttk.Spinbox(dice_frame, from_=0, to=9, width=5, textvariable=v).grid(row=1, column=col, padx=(0, 10))
-            col += 1
-
-        def apply():
-            if not sel_cids:
-                messagebox.showerror("DoT", "Select 1+ creatures first.")
-                return
-            try:
-                turns = int(turns_var.get().strip())
-                if turns <= 0:
-                    raise ValueError()
-            except ValueError:
-                messagebox.showerror("DoT", "Turns must be a positive integer.")
-                return
-
-            dice: Dict[int, int] = {die: int(v.get()) for die, v in dice_vars.items() if int(v.get()) > 0}
-            if not dice:
-                messagebox.showerror("DoT", "Pick at least one die.")
-                return
-
-            dtype = dtype_var.get().strip()
-            for cid in sel_cids:
-                if cid not in self.combatants:
-                    continue
-                st = DotStack(sid=self._next_stack_id, dtype=dtype, dice=dice.copy(), remaining_turns=turns)
-                self._next_stack_id += 1
-                self.combatants[cid].dot_stacks.append(st)
-
-            self._rebuild_table(scroll_to_current=True)
-
-        btns = ttk.Frame(frm)
-        btns.pack(anchor="e", pady=(10, 0))
-        ttk.Button(btns, text="Add Stack(s)", command=apply).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(btns, text="Close", command=dlg.destroy).pack(side=tk.LEFT)
-
-        _apply_dialog_geometry(dlg, 720, 520, 640, 460)
-
     # -------------------------- Conditions tool --------------------------
     def _open_condition_tool(self) -> None:
         dlg = tk.Toplevel(self)
@@ -4055,7 +3976,7 @@ class InitiativeTracker(tk.Tk):
         set_box = ttk.LabelFrame(frm, text="Set condition (doesn't stack)", padding=8)
         set_box.pack(fill=tk.X, pady=(10, 0))
 
-        cond_keys = [k for k in CONDITIONS_META.keys() if k != "exhaustion"]
+        cond_keys = [k for k in CONDITIONS_META.keys() if k not in {"exhaustion", "star_advantage", "dot"}]
         cond_labels = [str(CONDITIONS_META[k]["label"]) for k in cond_keys]
 
         cond_var = tk.StringVar(value=(cond_labels[0] if cond_labels else ""))
@@ -4109,6 +4030,100 @@ class InitiativeTracker(tk.Tk):
 
         ttk.Button(set_box, text="Apply", command=apply_condition).grid(row=1, column=2, sticky="w")
 
+        # --- Star Advantage ---
+        star_box = ttk.LabelFrame(frm, text="Star Advantage", padding=8)
+        star_box.pack(fill=tk.X, pady=(10, 0))
+
+        star_turns_var = tk.StringVar(value="1")
+        ttk.Label(star_box, text="Turns (0=indef)").grid(row=0, column=0, sticky="w")
+        ttk.Entry(star_box, textvariable=star_turns_var, width=10).grid(row=1, column=0, sticky="w", padx=(0, 10))
+
+        def apply_star_advantage():
+            if not sel_cids:
+                messagebox.showerror("Star Advantage", "Select 1+ creatures first.", parent=dlg)
+                return
+            try:
+                t = int(star_turns_var.get().strip())
+            except ValueError:
+                messagebox.showerror("Star Advantage", "Turns must be an integer (0=indef).", parent=dlg)
+                return
+            remaining = None if t == 0 else max(1, t)
+            for cid in sel_cids:
+                if cid not in self.combatants:
+                    continue
+                c = self.combatants[cid]
+                c.condition_stacks = [st for st in c.condition_stacks if st.ctype != "star_advantage"]
+                st = ConditionStack(sid=self._next_stack_id, ctype="star_advantage", remaining_turns=remaining)
+                self._next_stack_id += 1
+                c.condition_stacks.append(st)
+                if remaining is None:
+                    self._log("set Star Advantage (indef)", cid=cid)
+                else:
+                    self._log(f"set Star Advantage ({remaining} turn(s))", cid=cid)
+            self._rebuild_table(scroll_to_current=True)
+
+        ttk.Button(star_box, text="Apply", command=apply_star_advantage).grid(row=1, column=1, sticky="w")
+
+        # --- Damage over Time ---
+        dot_box = ttk.LabelFrame(frm, text="Damage over Time (DoT)", padding=8)
+        dot_box.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Label(dot_box, text="Type").grid(row=0, column=0, sticky="w")
+        dot_type_var = tk.StringVar(value="burn")
+        ttk.Combobox(dot_box, textvariable=dot_type_var, values=list(DOT_META.keys()), state="readonly", width=12).grid(
+            row=1, column=0, sticky="w", padx=(0, 10)
+        )
+
+        ttk.Label(dot_box, text="Turns").grid(row=0, column=1, sticky="w")
+        dot_turns_var = tk.StringVar(value="1")
+        ttk.Entry(dot_box, textvariable=dot_turns_var, width=6).grid(row=1, column=1, sticky="w", padx=(0, 10))
+
+        dice_frame = ttk.Frame(dot_box)
+        dice_frame.grid(row=1, column=2, sticky="w")
+        dice_vars: Dict[int, tk.IntVar] = {}
+        col = 0
+        for die in [4, 6, 8, 10, 12]:
+            v = tk.IntVar(value=0)
+            dice_vars[die] = v
+            ttk.Label(dice_frame, text=f"d{die}").grid(row=0, column=col, sticky="w")
+            ttk.Spinbox(dice_frame, from_=0, to=9, width=5, textvariable=v).grid(row=1, column=col, padx=(0, 8))
+            col += 1
+
+        def apply_dot():
+            if not sel_cids:
+                messagebox.showerror("DoT", "Select 1+ creatures first.", parent=dlg)
+                return
+            try:
+                turns = int(dot_turns_var.get().strip())
+                if turns <= 0:
+                    raise ValueError()
+            except ValueError:
+                messagebox.showerror("DoT", "Turns must be a positive integer.", parent=dlg)
+                return
+            dice: Dict[int, int] = {die: int(v.get()) for die, v in dice_vars.items() if int(v.get()) > 0}
+            if not dice:
+                messagebox.showerror("DoT", "Pick at least one die.", parent=dlg)
+                return
+            dtype = dot_type_var.get().strip()
+            for cid in sel_cids:
+                if cid not in self.combatants:
+                    continue
+                c = self.combatants[cid]
+                st = ConditionStack(
+                    sid=self._next_stack_id,
+                    ctype="dot",
+                    remaining_turns=turns,
+                    dot_type=dtype,
+                    dice=dice.copy(),
+                )
+                self._next_stack_id += 1
+                c.condition_stacks.append(st)
+                lab = DOT_META.get(dtype, {}).get("label", dtype)
+                self._log(f"set DoT {lab} ({turns} turn(s))", cid=cid)
+            self._rebuild_table(scroll_to_current=True)
+
+        ttk.Button(dot_box, text="Apply", command=apply_dot).grid(row=1, column=3, sticky="w", padx=(10, 0))
+
         # --- Exhaustion level (stacks by level) ---
         exh_box = ttk.LabelFrame(frm, text="Exhaustion (level)", padding=8)
         exh_box.pack(fill=tk.X, pady=(10, 0))
@@ -4150,24 +4165,38 @@ class InitiativeTracker(tk.Tk):
 
             rows: List[Tuple[str, int]] = []  # (kind, sid)
 
+            def format_dice(dice: Optional[Dict[int, int]]) -> str:
+                if not dice:
+                    return ""
+                parts = []
+                for die in sorted(dice.keys()):
+                    cnt = int(dice[die])
+                    if cnt <= 0:
+                        continue
+                    parts.append(f"{cnt}d{die}")
+                return "+".join(parts)
+
             def refresh_list():
                 nonlocal rows
                 rows = []
                 lb.delete(0, tk.END)
                 for st in sorted(c.condition_stacks, key=lambda x: x.ctype):
-                    lab = str(CONDITIONS_META.get(st.ctype, {}).get("label", st.ctype))
-                    if st.remaining_turns is None:
-                        txt = f"[C:{st.sid}] {lab} (indef)"
+                    if st.ctype == "dot":
+                        dtype = st.dot_type or "dot"
+                        lab = DOT_META.get(dtype, {}).get("label", dtype)
+                        dice_str = format_dice(st.dice)
+                        turns = "indef" if st.remaining_turns is None else f"{st.remaining_turns}t"
+                        txt = f"[C:{st.sid}] DoT {lab} ({dice_str or 'dice?'}; {turns})"
                     else:
-                        txt = f"[C:{st.sid}] {lab} ({st.remaining_turns})"
+                        lab = str(CONDITIONS_META.get(st.ctype, {}).get("label", st.ctype))
+                        if st.remaining_turns is None:
+                            txt = f"[C:{st.sid}] {lab} (indef)"
+                        else:
+                            txt = f"[C:{st.sid}] {lab} ({st.remaining_turns})"
                     lb.insert(tk.END, txt)
                     rows.append(("cond", st.sid))
                 if c.exhaustion_level > 0:
                     lb.insert(tk.END, f"[E] Exhaustion level {c.exhaustion_level}")
-                for st in c.dot_stacks:
-                    lab = DOT_META.get(st.dtype, {}).get("label", st.dtype)
-                    lb.insert(tk.END, f"[D:{st.sid}] DoT {lab} ({st.remaining_turns}t)")
-                    rows.append(("dot", st.sid))
 
             def remove_selected(_evt=None):
                 sel = lb.curselection()
@@ -4192,9 +4221,6 @@ class InitiativeTracker(tk.Tk):
                             c.condition_stacks.remove(st)
                             self._log(f"removed condition: {lab}", cid=cid)
                             break
-                elif txt.startswith("[D:"):
-                    c.dot_stacks = [st for st in c.dot_stacks if st.sid != sid]
-                    self._log("removed DoT stack", cid=cid)
                 refresh_list()
                 self._rebuild_table(scroll_to_current=True)
 
