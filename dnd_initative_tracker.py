@@ -3274,7 +3274,9 @@ __DAMAGE_TYPE_OPTIONS__
       assignRow.className = "admin-session-assign";
       const assignedText = document.createElement("div");
       assignedText.className = "admin-session-meta";
-      assignedText.textContent = `Assigned: ${session.assigned_name || "Unassigned"}`;
+      const assignedLabel = session.assigned_name || "Unassigned";
+      const yamlLabel = session.yaml_assigned_name ? `YAML: ${session.yaml_assigned_name}` : "";
+      assignedText.textContent = `Assigned: ${assignedLabel}${yamlLabel ? ` · ${yamlLabel}` : ""}`;
       const select = document.createElement("select");
       buildAdminPcOptions(session.assigned_cid).forEach((opt) => select.appendChild(opt));
       const assignBtn = document.createElement("button");
@@ -7151,6 +7153,7 @@ class LanController:
         self._cid_to_ws: Dict[int, int] = {}  # cid -> id(websocket) (1 owner at a time)
         self._cid_to_host: Dict[int, str] = {}  # cid -> host (active claim)
         self._host_assignments: Dict[str, int] = self._load_host_assignments()  # host -> cid (persistent)
+        self._yaml_host_assignments: Dict[str, Dict[str, Any]] = {}
         self._host_presets: Dict[str, Dict[str, Any]] = {}
         self._cid_push_subscriptions: Dict[int, List[Dict[str, Any]]] = {}
 
@@ -7360,6 +7363,72 @@ class LanController:
         with self._clients_lock:
             cid = self._host_assignments.get(host)
         return int(cid) if isinstance(cid, int) else None
+
+    def _sync_yaml_host_assignments(self, profiles: Dict[str, Dict[str, Any]]) -> None:
+        if not isinstance(profiles, dict):
+            profiles = {}
+        name_to_cid: Dict[str, int] = {}
+        pcs = list(self._cached_pcs)
+        if not pcs:
+            try:
+                pcs = list(
+                    self.app._lan_pcs() if hasattr(self.app, "_lan_pcs") else self.app._lan_claimable()
+                )
+            except Exception:
+                pcs = []
+        for pc in pcs:
+            if not isinstance(pc, dict):
+                continue
+            name = str(pc.get("name") or "").strip()
+            cid = pc.get("cid")
+            if name and isinstance(cid, int):
+                name_to_cid[name.lower()] = int(cid)
+
+        host_map: Dict[str, Dict[str, Any]] = {}
+        conflicts: List[Tuple[str, str, str]] = []
+        for name, profile in profiles.items():
+            if not isinstance(profile, dict):
+                continue
+            identity = profile.get("identity")
+            if not isinstance(identity, dict):
+                continue
+            host = str(identity.get("ip") or "").strip()
+            if not host:
+                continue
+            if host in host_map:
+                conflicts.append((host, host_map[host]["name"], str(name)))
+                continue
+            cid = name_to_cid.get(str(name).lower())
+            host_map[host] = {"name": str(name), "cid": cid}
+
+        with self._clients_lock:
+            self._yaml_host_assignments = host_map
+
+        for host, left, right in conflicts:
+            self.app._oplog(
+                f"LAN YAML assignment conflict: {host} is listed for {left} and {right}.",
+                level="warning",
+            )
+
+        for host, info in host_map.items():
+            cid = info.get("cid")
+            if cid is None:
+                self.app._oplog(
+                    f"LAN YAML assignment skipped: {info.get('name')} has host {host} but no matching cid.",
+                    level="warning",
+                )
+                continue
+            existing = self._assigned_cid_for_host(host)
+            if existing is not None and existing != cid:
+                self.app._oplog(
+                    f"LAN YAML assignment for {host} -> {info.get('name')} (cid {cid})"
+                    f" conflicts with existing assignment cid {existing}.",
+                    level="warning",
+                )
+                continue
+            if existing == cid:
+                continue
+            self._set_host_assignment(host, int(cid))
 
     def start(self, quiet: bool = False) -> None:
         if self._server_thread and self._server_thread.is_alive():
@@ -7617,6 +7686,11 @@ class LanController:
             )
         except Exception:
             pass
+        try:
+            profiles = self.app._player_profiles_payload() if hasattr(self.app, "_player_profiles_payload") else {}
+            self._sync_yaml_host_assignments(profiles)
+        except Exception:
+            pass
 
         def run_server():
             # Create fresh loop for this thread
@@ -7779,10 +7853,12 @@ class LanController:
         offline_entries: List[Dict[str, Any]] = []
         with self._clients_lock:
             assignments = dict(self._host_assignments)
+            yaml_assignments = dict(self._yaml_host_assignments)
         for host, cid in assignments.items():
             if host in connected_hosts:
                 continue
             reverse_dns = self._resolve_reverse_dns(host)
+            yaml_entry = yaml_assignments.get(host, {})
             offline_entries.append(
                 {
                     "ws_id": None,
@@ -7792,6 +7868,8 @@ class LanController:
                     "reverse_dns": reverse_dns,
                     "assigned_cid": int(cid),
                     "assigned_name": self._pc_name_for(int(cid)),
+                    "yaml_assigned_cid": yaml_entry.get("cid"),
+                    "yaml_assigned_name": yaml_entry.get("name"),
                     "status": "offline",
                     "last_seen": "",
                 }
@@ -7800,6 +7878,11 @@ class LanController:
         for entry in all_sessions:
             if "ip" not in entry:
                 entry["ip"] = entry.get("host")
+            host = str(entry.get("host") or entry.get("ip") or "").strip()
+            yaml_entry = yaml_assignments.get(host, {})
+            if yaml_entry:
+                entry["yaml_assigned_cid"] = yaml_entry.get("cid")
+                entry["yaml_assigned_name"] = yaml_entry.get("name")
         all_sessions.sort(key=lambda s: str(s.get("ip", "")))
         pcs_payload = [
             {"cid": int(p.get("cid")), "name": str(p.get("name", ""))}
@@ -7807,7 +7890,11 @@ class LanController:
             if isinstance(p.get("cid"), int)
         ]
         pcs_payload.sort(key=lambda p: str(p.get("name", "")).lower())
-        return {"sessions": all_sessions, "pcs": pcs_payload}
+        yaml_payload = [
+            {"host": host, "cid": entry.get("cid"), "name": entry.get("name")}
+            for host, entry in sorted(yaml_assignments.items())
+        ]
+        return {"sessions": all_sessions, "pcs": pcs_payload, "yaml_assignments": yaml_payload}
 
     def admin_sessions_payload(self) -> Dict[str, Any]:
         """Return admin sessions payload for both web and DM-side tooling."""
@@ -8666,11 +8753,18 @@ class InitiativeTracker(base.InitiativeTracker):
                 status = str(entry.get("status") or "").strip() or "unknown"
                 assigned_name = entry.get("assigned_name")
                 assigned_cid = entry.get("assigned_cid")
+                yaml_assigned_name = entry.get("yaml_assigned_name")
                 assigned = ""
                 if assigned_name:
                     assigned = str(assigned_name)
                 elif isinstance(assigned_cid, int):
                     assigned = f"cid {assigned_cid}"
+                if yaml_assigned_name:
+                    yaml_label = str(yaml_assigned_name)
+                    if assigned:
+                        assigned = f"{assigned} (YAML: {yaml_label})"
+                    else:
+                        assigned = f"YAML: {yaml_label}"
                 last_seen = str(entry.get("last_seen") or "").strip()
                 user_agent = str(entry.get("user_agent") or entry.get("ua") or "").strip()
                 iid = f"{idx}"
@@ -9516,6 +9610,27 @@ class InitiativeTracker(base.InitiativeTracker):
     def _normalize_player_section(value: Any) -> Dict[str, Any]:
         return dict(value) if isinstance(value, dict) else {}
 
+    def _normalize_identity_host(self, value: Any) -> Optional[str]:
+        host = str(value or "").strip()
+        if not host:
+            return None
+        try:
+            ipaddress.ip_address(host)
+            return host
+        except ValueError:
+            pass
+        if len(host) > 253:
+            return None
+        labels = host.split(".")
+        for label in labels:
+            if not label or len(label) > 63:
+                return None
+            if label.startswith("-") or label.endswith("-"):
+                return None
+            if not re.match(r"^[A-Za-z0-9-]+$", label):
+                return None
+        return host
+
     def _normalize_player_profile(self, data: Dict[str, Any], fallback_name: str) -> Dict[str, Any]:
         def normalize_name(value: Any) -> Optional[str]:
             text = str(value or "").strip()
@@ -9549,6 +9664,15 @@ class InitiativeTracker(base.InitiativeTracker):
 
         if "name" not in identity and name:
             identity["name"] = name
+
+        raw_ip = identity.get("ip")
+        normalized_ip = self._normalize_identity_host(raw_ip)
+        if normalized_ip:
+            identity["ip"] = normalized_ip
+        else:
+            if raw_ip:
+                self._oplog(f"Player YAML {name}: invalid identity.ip '{raw_ip}'.", level="warning")
+            identity.pop("ip", None)
 
         if fmt == 0:
             if "base_movement" in data and "base_movement" not in resources:
@@ -9669,6 +9793,10 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_meta_by_path = meta_by_path
         self._player_yaml_data_by_name = data_by_name
         self._player_yaml_name_map = name_map
+        try:
+            self._lan._sync_yaml_host_assignments(self._player_yaml_data_by_name)
+        except Exception:
+            pass
 
     def _player_spell_config_payload(self) -> Dict[str, Dict[str, Any]]:
         self._load_player_yaml_cache()
