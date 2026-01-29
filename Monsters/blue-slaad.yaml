@@ -1,0 +1,29 @@
+name: Blue Slaad
+size: Large
+type: Aberration
+alignment: Chaotic Neutral
+initiative: +2 (12)
+ac: '15'
+hp: 133 (14d10 + 56)
+speed: 30 ft.
+abilities:
+  Str: 20
+  Dex: 15
+  Con: 18
+  Int: 7
+  Wis: 7
+  Cha: 9
+skills:
+- Perception +1
+immunities: []
+languages:
+- Slaad; telepathy 60 ft.
+senses: Darkvision 60 ft., Passive Perception 11
+challenge_rating: 7 (XP 2 900; PB +3)
+description: Almost as numerous as red slaadi, blue slaadi are muscular brutes with
+  vicious blades extending from the backs of their claws. These claws carry a magical
+  curse called chaos phage, which can transform victims into red or green slaadi.
+  Blue slaadi accompany red slaadi and behave similarly. They innately know the signs
+  of chaos phage and avoid slaying creatures that carry it or other slaad curses.
+habitat: Planar (Limbo)
+treasure: Any

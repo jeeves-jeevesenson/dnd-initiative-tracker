@@ -1,0 +1,33 @@
+name: Commoner
+size: Medium
+type: or Small Humanoid
+alignment: Neutral
+initiative: +0 (10)
+ac: '10'
+hp: 4 (1d8)
+speed: 30 ft.
+abilities:
+  Str: 10
+  Dex: 10
+  Con: 10
+  Int: 10
+  Wis: 10
+  Cha: 10
+skills: []
+immunities: []
+languages:
+- Common
+senses: Passive Perception 10
+challenge_rating: 0 (XP 10; PB +2)
+description: Commoners constitute the majority of people who don't pursue magical
+  talents, extraordinary training, or a life of adventure. Some are generous, helpful
+  sorts, while others are more cautious in sharing what they have.
+habitat: Any
+treasure: Individual
+traits:
+- name: Training
+  desc: The commoner has proficiency in one skill of the DM's choice and has Advantage
+    whenever it makes an ability check using that skill.
+actions:
+- name: Club
+  desc: 'Melee Attack Roll: +2, reach 5 ft. Hit: 2 (1d4) Bludgeoning damage.'

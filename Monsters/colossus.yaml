@@ -1,0 +1,34 @@
+name: Colossus
+size: Gargantuan
+type: Construct (Titan)
+alignment: Unaligned
+initiative: +16 (26)
+ac: '23'
+hp: 553 (27d20 + 270)
+speed: 60 ft.
+abilities:
+  Str: 30
+  Dex: 11
+  Con: 30
+  Int: 3
+  Wis: 11
+  Cha: 8
+skills: []
+immunities:
+- Poison
+- Psychic; Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified
+- Poisoned
+- Stunned
+- Unconscious
+languages:
+- Understands Celestial and Common but can't speak
+senses: Truesight 300 ft., Passive Perception 10
+challenge_rating: 25 (XP 75 000; PB +8)
+description: ''
+habitat: Any
+treasure: Relics
+legendary_uses: 'Legendary Action Uses: 3.'

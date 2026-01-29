@@ -1,0 +1,42 @@
+name: Bullywug Warrior
+size: Medium
+type: Fey
+alignment: Neutral
+initiative: +2 (12)
+ac: '15'
+hp: 11 (2d8 + 2)
+speed: 30 ft., Swim 30 ft.
+abilities:
+  Str: 12
+  Dex: 14
+  Con: 13
+  Int: 7
+  Wis: 10
+  Cha: 7
+skills:
+- Stealth +4
+immunities: []
+languages:
+- Bullywug
+- Common
+senses: Passive Perception 10
+challenge_rating: 1/4 (XP 50; PB +2)
+description: Fey embodiments of swamplands, bullywugs protect the murky wilds and
+  consider themselves cosmically favored for that role. These human-size, toad- or
+  frog-like creatures have close relationships with the creatures of the swamp.  Bullywug
+  warriors are adept at moving through swamps and ambushing trespassers. They often
+  work alongside packs of trained giant frogs
+habitat: Swamp
+treasure: Implements, Individual
+traits:
+- name: Amphibious
+  desc: The bullywug can breathe air and water.
+- name: Speak with Frogs and Toads
+  desc: The bullywug can communicate simple concepts to frogs and toads when it speaks
+    in Bullywug.
+actions:
+- name: Insectile Rapier
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 6 (1d8 + 2) Piercing damage plus
+    2 (1d4) Poison damage.'
+- name: Leap
+  desc: The bullywug jumps up to 30 feet by spending 10 feet of movement.

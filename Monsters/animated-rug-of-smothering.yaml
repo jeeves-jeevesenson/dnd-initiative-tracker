@@ -1,0 +1,44 @@
+name: Animated Rug of Smothering
+size: Large
+type: Construct
+alignment: Unaligned
+initiative: +4 (14)
+ac: '12'
+hp: 27 (5d10)
+speed: 10 ft.
+abilities:
+  Str: 17
+  Dex: 14
+  Con: 10
+  Int: 1
+  Wis: 3
+  Cha: 1
+skills: []
+immunities:
+- Poison
+- Psychic; Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified
+- Poisoned
+languages:
+- —
+senses: Blindsight 60 ft., Passive Perception 6
+challenge_rating: 2 (XP 450; PB +2)
+description: Animated rugs of smothering might attack any creature that steps on them,
+  or they might be passed off as superficially similar magic items, such as Carpets
+  of Flying, and attack those who speak a supposed command word. Deadly tapestries,
+  furs, and similar items also use this stat block.
+habitat: Urban
+actions:
+- name: Smother
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 10 (2d6 + 3) Bludgeoning damage.
+    If the target is a Medium or smaller creature, the rug can give it the Grappled
+    condition (escape DC 13) instead of dealing damage. Until the grapple ends, the
+    target has the Blinded and Restrained conditions, is suffocating, and takes 10
+    (2d6 + 3) Bludgeoning damage at the start of each of its turns. The rug can smother
+    only one creature at a time. While grappling the target, the rug can''t take this
+    action, the rug halves the damage it takes (round down), and the target takes
+    the same amount of damage.'

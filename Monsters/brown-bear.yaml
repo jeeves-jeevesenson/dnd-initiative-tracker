@@ -1,0 +1,32 @@
+name: Brown Bear
+size: Large
+type: Beast
+alignment: Unaligned
+initiative: +1 (11)
+ac: '11'
+hp: 22 (3d10 + 6)
+speed: 40 ft., Climb 30 ft.
+abilities:
+  Str: 17
+  Dex: 12
+  Con: 15
+  Int: 2
+  Wis: 13
+  Cha: 7
+skills:
+- Perception +3
+immunities: []
+languages:
+- None
+senses: Darkvision 60 ft., Passive Perception 13
+challenge_rating: 1 (XP 200; PB +2)
+description: ''
+habitat: Arctic, Forest, Hill
+actions:
+- name: Multiattack
+  desc: The bear makes one Bite attack and one Claw attack.
+- name: Bite
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 7 (1d8 + 3) Piercing damage.'
+- name: Claw
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 5 (1d4 + 3) Slashing damage. If the
+    target is a Large or smaller creature, it has the Prone condition.'

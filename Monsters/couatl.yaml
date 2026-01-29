@@ -1,0 +1,45 @@
+name: Couatl
+size: Medium
+type: Celestial
+alignment: Lawful Good
+initiative: +5 (15)
+ac: '19'
+hp: 60 (8d8 + 24)
+speed: 30 ft., Fly 90 ft.
+abilities:
+  Str: 16
+  Dex: 20
+  Con: 17
+  Int: 18
+  Wis: 20
+  Cha: 18
+skills: []
+immunities:
+- Psychic
+- Radiant
+languages:
+- All; telepathy 120 ft.
+senses: Truesight 120 ft., Passive Perception 15
+challenge_rating: 4 (XP 1 100; PB +2)
+description: ''
+habitat: Desert, Forest, Grassland, Urban
+treasure: Relics
+traits:
+- name: Shielded Mind
+  desc: The couatl's thoughts can't be read by any means, and other creatures can
+    communicate with it telepathically only if it allows them.
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 11 (1d12 + 5) Piercing damage, and
+    the target has the Poisoned condition until the end of the couatl''s next turn.'
+- name: Constrict
+  desc: 'Strength Saving Throw: DC 15, one Medium or smaller creature the couatl can
+    see within 5 feet. Failure: 8 (1d6 + 5) Bludgeoning damage. The target has the
+    Grappled condition (escape DC 13), and it has the Restrained condition until the
+    grapple ends.'
+- name: Spellcasting
+  desc: 'The couatl casts one of the following spells, requiring no spell components
+    and using Wisdom as the spellcasting ability (spell save DC 15):'
+- name: Divine Aid (2/Day)
+  desc: The couatl casts Bless, Lesser Restoration, or Sanctuary, requiring no spell
+    components and using the same spellcasting ability as Spellcasting.

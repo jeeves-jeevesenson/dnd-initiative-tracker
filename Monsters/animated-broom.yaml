@@ -1,0 +1,34 @@
+name: Animated Broom
+size: Small
+type: Construct
+alignment: Unaligned
+initiative: +5 (15)
+ac: '15'
+hp: 14 (4d6)
+speed: 5 ft., Fly 50 ft. (hover)
+abilities:
+  Str: 10
+  Dex: 17
+  Con: 10
+  Int: 1
+  Wis: 5
+  Cha: 1
+skills: []
+immunities:
+- Poison
+- Psychic; Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified
+- Poisoned
+languages:
+- —
+senses: Blindsight 60 ft., Passive Perception 7
+challenge_rating: 1/4 (XP 50; PB +2)
+description: Animated brooms keep their surroundings tidy and defend them when necessary.
+  Launching into the air, these brooms dart about, attacking foes from unexpected
+  angles. Other flying objects, like animated tools or staffs, might also use this
+  stat block.
+habitat: Urban

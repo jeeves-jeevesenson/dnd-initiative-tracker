@@ -1,0 +1,71 @@
+name: Adult Gold Dragon
+size: Huge
+type: Dragon (Metallic)
+alignment: Lawful Good
+initiative: +14 (24)
+ac: '19'
+hp: 243 (18d12 + 126)
+speed: 40 ft., Fly 80 ft., Swim 40 ft.
+abilities:
+  Str: 27
+  Dex: 14
+  Con: 25
+  Int: 16
+  Wis: 15
+  Cha: 24
+skills:
+- Insight +8
+- Perception +14
+- Persuasion +13
+- Stealth +8
+immunities:
+- Fire
+languages:
+- Common
+- Draconic
+senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 24
+challenge_rating: 17 (XP 18 000, or 20 000 in lair; PB +6)
+description: Gold dragons work to make the world a better place. The most powerful
+  of the metallic dragons, these awe-inspiring dragons strive to protect that which
+  is good and bend fate toward a brighter future. Their kind dispositions don't prevent
+  gold dragons from engaging in combat when necessary, though, and they exhale brilliant
+  flames and weakening magic to rout their foes. Gold dragons favor grasslands and
+  pristine forests, frequently dwelling near awe-inspiring natural wonders or guarding
+  monuments from ancient civilizations. In their lairs, gold dragons hoard coins and
+  gems, but they frequently put their treasure to use in pursuit of greater goals.
+  They often use their riches to buy rare lore books, pay informants, or patronize
+  idealistic adventurers.
+habitat: Forest, Grassland
+treasure: Arcana
+traits:
+- name: Amphibious
+  desc: The dragon can breathe air and water.
+- name: Legendary Resistance (3/Day, or 4/Day in Lair)
+  desc: If the dragon fails a saving throw, it can choose to succeed instead.
+actions:
+- name: Multiattack
+  desc: The dragon makes three Rend attacks. It can replace one attack with a use
+    of Spellcasting to cast Mind Spike (level 3 version).
+- name: Rend
+  desc: 'Melee Attack Roll: +11, reach 10 ft. Hit: 15 (2d8 + 6) Slashing damage plus
+    7 (2d6) Poison damage.'
+- name: Poison Breath (Recharge 5–6)
+  desc: 'Constitution Saving Throw: DC 18, each creature in a 60-foot Cone. Failure:
+    56 (16d6) Poison damage. Success: Half damage.'
+- name: Spellcasting
+  desc: 'The dragon casts one of the following spells, requiring no Material components
+    and using Charisma as the spellcasting ability (spell save DC 17):'
+legendary_actions:
+- name: Mind Invasion
+  desc: The dragon uses Spellcasting to cast Mind Spike (level 3 version).
+- name: Noxious Miasma
+  desc: 'Constitution Saving Throw: DC 17, each creature in a 20-foot-radius Sphere
+    centered on a point the dragon can see within 90 feet. Failure: 7 (2d6) Poison
+    damage, and the target takes a −2 penalty to AC until the end of its next turn.
+    Failure or Success: The dragon can''t take this action again until the start of
+    its next turn.'
+- name: Pounce
+  desc: The dragon moves up to half its Speed, and it makes one Rend attack.
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s
+  turn, the dragon can expend a use to take one of the following actions. The dragon
+  regains all expended uses at the start of each of its turns.'

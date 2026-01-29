@@ -1,0 +1,46 @@
+name: Air Elemental
+size: Large
+type: Elemental
+alignment: Neutral
+initiative: +5 (15)
+ac: '15'
+hp: 90 (12d10 + 24)
+speed: 10 ft., Fly 90 ft. (hover)
+abilities:
+  Str: 14
+  Dex: 20
+  Con: 14
+  Int: 6
+  Wis: 10
+  Cha: 6
+skills: []
+immunities:
+- Poison
+- Thunder; Exhaustion
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained
+- Unconscious
+languages:
+- Primordial (Auran)
+senses: Darkvision 60 ft., Passive Perception 10
+challenge_rating: 5 (XP 1 800; PB +3)
+description: ''
+habitat: Desert, Mountain, Planar (Elemental Plane of Air)
+traits:
+- name: Air Form
+  desc: The elemental can enter a creature's space and stop there. It can move through
+    a space as narrow as 1 inch without expending extra movement to do so.
+actions:
+- name: Multiattack
+  desc: The elemental makes two Thunderous Slam attacks.
+- name: Thunderous Slam
+  desc: 'Melee Attack Roll: +8, reach 10 ft. Hit: 14 (2d8 + 5) Thunder damage.'
+- name: Whirlwind (Recharge 4–6)
+  desc: 'Strength Saving Throw: DC 13, one Medium or smaller creature in the elemental''s
+    space. Failure: 24 (4d10 + 2) Thunder damage, and the target is pushed up to 20
+    feet straight away from the elemental and has the Prone condition. Success: Half
+    damage only.'

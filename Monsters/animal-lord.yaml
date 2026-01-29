@@ -1,0 +1,32 @@
+name: Animal Lord
+size: Medium
+type: Celestial
+alignment: Neutral
+initiative: +19 (29)
+ac: '19'
+hp: 323 (34d8 + 170)
+speed: 60 ft., Fly 60 ft. (hover), Swim 60 ft.
+abilities:
+  Str: 24
+  Dex: 25
+  Con: 20
+  Int: 19
+  Wis: 23
+  Cha: 22
+skills:
+- Acrobatics +13
+- Athletics +13
+- Perception +18
+- Stealth +13
+immunities:
+- Charmed
+- Frightened
+- Stunned
+languages:
+- All
+senses: Truesight 120 ft., Passive Perception 28
+challenge_rating: 20 (XP 25 000; PB +6)
+description: ''
+habitat: Planar (Beastlands)
+treasure: Relics
+legendary_uses: 'Legendary Action Uses: 3.'

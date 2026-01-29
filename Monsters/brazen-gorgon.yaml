@@ -1,0 +1,32 @@
+name: Brazen Gorgon
+size: Large
+type: Construct
+alignment: Unaligned
+initiative: +2 (12)
+ac: '19'
+hp: 161 (17d10 + 68)
+speed: 40 ft.
+abilities:
+  Str: 18
+  Dex: 14
+  Con: 19
+  Int: 2
+  Wis: 14
+  Cha: 7
+skills:
+- Perception +10
+immunities:
+- Fire; Exhaustion
+- Petrified
+languages:
+- —
+senses: Darkvision 60 ft., Passive Perception 20
+challenge_rating: 9 (XP 5 000; PB +4)
+description: Followers of the exiled archdevil Moloch altered the process of creating
+  gorgons to craft their own diabolical guardians called brazen gorgons. These gorgons
+  are hollow, bull-like automatons whose metal bodies glow with intense heat. When
+  they charge their foes, the ribs of their frames open like cages to ensnare enemies
+  and roast them within. Brazen gorgons are often found in blasphemous sites dedicated
+  to Moloch, other archdevils, or bloodthirsty gods.
+habitat: Forest, Grassland, Hill
+treasure: Any

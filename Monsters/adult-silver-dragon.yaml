@@ -1,0 +1,73 @@
+name: Adult Silver Dragon
+size: Huge
+type: Dragon (Metallic)
+alignment: Lawful Good
+initiative: +10 (20)
+ac: '19'
+hp: 216 (16d12 + 112)
+speed: 40 ft., Fly 80 ft.
+abilities:
+  Str: 27
+  Dex: 10
+  Con: 25
+  Int: 16
+  Wis: 13
+  Cha: 22
+skills:
+- History +8
+- Perception +11
+- Stealth +5
+immunities:
+- Cold
+languages:
+- Common
+- Draconic
+senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 21
+challenge_rating: 16 (XP 15 000, or 18 000 in lair; PB +5)
+description: Silver dragons work to preserve peace and encourage greatness. They try
+  to live as examples of decency while remaining watchful against evil. Silver dragons
+  typically dwell amid snow-capped mountains, though aspirations and congeniality
+  drive some to instead live among cosmopolitan societies. Disguised as humanoids,
+  they ally with artists, historians, knights, and humble leaders who learn from the
+  past to create better futures. Silver dragons take inspiration from legendary heroes
+  and have grand ambitions. Many collect treasures that reflect these interests, such
+  as histories, ancient art, and the gear of famous champions.
+habitat: Mountain, Urban
+treasure: Arcana
+traits:
+- name: Legendary Resistance (3/Day, or 4/Day in Lair)
+  desc: If the dragon fails a saving throw, it can choose to succeed instead.
+actions:
+- name: Multiattack
+  desc: The dragon makes three Rend attacks. It can replace one attack with a use
+    of (A) Paralyzing Breath or (B) Spellcasting to cast Ice Knife.
+- name: Rend
+  desc: 'Melee Attack Roll: +13, reach 10 ft. Hit: 17 (2d8 + 8) Slashing damage plus
+    4 (1d8) Cold damage.'
+- name: Cold Breath (Recharge 5–6)
+  desc: 'Constitution Saving Throw: DC 20, each creature in a 60-foot Cone. Failure:
+    54 (12d8) Cold damage. Success: Half damage.'
+- name: Paralyzing Breath
+  desc: 'Constitution Saving Throw: DC 20, each creature in a 60-foot Cone. First
+    Failure: The target has the Incapacitated condition until the end of its next
+    turn, when it repeats the save. Second Failure: The target has the Paralyzed condition,
+    and it repeats the save at the end of each of its turns, ending the effect on
+    itself on a success. After 1 minute, it succeeds automatically.'
+- name: Spellcasting
+  desc: 'The dragon casts one of the following spells, requiring no Material components
+    and using Charisma as the spellcasting ability (spell save DC 19, +11 to hit with
+    spell attacks):'
+legendary_actions:
+- name: Chill
+  desc: The dragon uses Spellcasting to cast Hold Monster. The dragon can't take this
+    action again until the start of its next turn.
+- name: Cold Gale
+  desc: 'Dexterity Saving Throw: DC 19, each creature in a 60-foot-long, 10-foot-wide
+    Line. Failure: 14 (4d6) Cold damage, and the target is pushed up to 30 feet straight
+    away from the dragon. Success: Half damage only. Failure or Success: The dragon
+    can''t take this action again until the start of its next turn.'
+- name: Pounce
+  desc: The dragon moves up to half its Speed, and it makes one Rend attack.
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s
+  turn, the dragon can expend a use to take one of the following actions. The dragon
+  regains all expended uses at the start of each of its turns.'

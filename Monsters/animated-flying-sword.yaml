@@ -1,0 +1,37 @@
+name: Animated Flying Sword
+size: Small
+type: Construct
+alignment: Unaligned
+initiative: +4 (14)
+ac: '17'
+hp: 14 (4d6)
+speed: 5 ft., Fly 50 ft. (hover)
+abilities:
+  Str: 12
+  Dex: 15
+  Con: 11
+  Int: 1
+  Wis: 5
+  Cha: 1
+skills: []
+immunities:
+- Poison
+- Psychic; Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified
+- Poisoned
+languages:
+- —
+senses: Blindsight 60 ft., Passive Perception 7
+challenge_rating: 1/4 (XP 50; PB +2)
+description: Animated flying swords move as if wielded by unseen warriors. Whether
+  an animated blade is newly forged or a constellation of broken fragments, the object
+  behaves the same. Other weapons from the Player's Handbook can also be animated
+  and use game statistics similar to those here.
+habitat: Urban
+actions:
+- name: Slash
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 6 (1d8 + 2) Slashing damage.'

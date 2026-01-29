@@ -1,0 +1,52 @@
+name: Assassin
+size: Medium
+type: or Small Humanoid
+alignment: Neutral
+initiative: +10 (20)
+ac: '16'
+hp: 97 (15d8 + 30)
+speed: 30 ft.
+abilities:
+  Str: 11
+  Dex: 18
+  Con: 14
+  Int: 16
+  Wis: 11
+  Cha: 10
+skills:
+- Acrobatics +7
+- Perception +6
+- Stealth +10
+immunities: []
+languages:
+- Common
+- Thieves' Cant
+senses: Passive Perception 16
+challenge_rating: 8 (XP 3 900; PB +3)
+description: Assassins are professional killers skilled at stealthily approaching
+  their victims and striking unseen. Most assassins kill for a reason, perhaps hiring
+  themselves out to wealthy patrons or slaying for an unscrupulous cause. They use
+  poisons and other deadly tools, and they might carry equipment to help them break
+  into secure areas or avoid capture. Many assassins adhere to a professional code
+  or exhibit some signature quirk.
+habitat: Any
+treasure: Individual, Implements
+traits:
+- name: Evasion
+  desc: If the assassin is subjected to an effect that allows it to make a Dexterity
+    saving throw to take only half damage, the assassin instead takes no damage if
+    it succeeds on the save and only half damage if it fails. It can't use this trait
+    if it has the Incapacitated condition.
+actions:
+- name: Multiattack
+  desc: The assassin makes three attacks, using Shortsword or Light Crossbow in any
+    combination.
+- name: Shortsword
+  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 7 (1d6 + 4) Piercing damage plus
+    17 (5d6) Poison damage, and the target has the Poisoned condition until the start
+    of the assassin''s next turn.'
+- name: Light Crossbow
+  desc: 'Ranged Attack Roll: +7, range 80/320 ft. Hit: 8 (1d8 + 4) Piercing damage
+    plus 21 (6d6) Poison damage.'
+- name: Cunning Action
+  desc: The assassin takes the Dash, Disengage, or Hide action.

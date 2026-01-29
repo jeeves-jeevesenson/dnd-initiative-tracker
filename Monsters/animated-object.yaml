@@ -1,0 +1,32 @@
+name: Animated Object
+size: Huge
+type: or Smaller Construct
+alignment: Unaligned
+ac: '15'
+hp: 10 (Medium or smaller), 20 (Large), 40 (Huge)
+speed: 30 ft.
+abilities:
+  Str: 16
+  Dex: 10
+  Con: 10
+  Int: 3
+  Wis: 3
+  Cha: 1
+skills: []
+immunities:
+- Poison
+- Psychic; Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Poisoned
+languages:
+- Understands the languages you know
+senses: Blindsight 30 ft., Passive Perception 6
+challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
+description: See  Animate Objects
+actions:
+- name: Slam
+  desc: 'Melee Attack Roll: Bonus equals your spell attack modifier, reach 5 ft. Hit:
+    Force damage equal to 1d4 + 3 (Medium or smaller), 2d6 + 3 + your spellcasting
+    ability modifier (Large), or 2d12 + 3 + your spellcasting ability modifier (Huge).'

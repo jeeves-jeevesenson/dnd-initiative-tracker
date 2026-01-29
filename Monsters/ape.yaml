@@ -1,0 +1,32 @@
+name: Ape
+size: Medium
+type: Beast
+alignment: Unaligned
+initiative: +2 (12)
+ac: '12'
+hp: 19 (3d8 + 6)
+speed: 30 ft., Climb 30 ft.
+abilities:
+  Str: 16
+  Dex: 14
+  Con: 14
+  Int: 6
+  Wis: 12
+  Cha: 7
+skills:
+- Athletics +5
+- Perception +3
+immunities: []
+languages:
+- None
+senses: Passive Perception 13
+challenge_rating: 1/2 (XP 100; PB +2)
+description: ''
+habitat: Forest
+actions:
+- name: Multiattack
+  desc: The ape makes two Fist attacks.
+- name: Fist
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 5 (1d4 + 3) Bludgeoning damage.'
+- name: Rock (Recharge 6)
+  desc: 'Ranged Attack Roll: +5, range 25/50 ft. Hit: 10 (2d6 + 3) Bludgeoning damage.'

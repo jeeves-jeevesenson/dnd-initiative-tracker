@@ -1,0 +1,71 @@
+name: Ancient White Dragon
+size: Gargantuan
+type: Dragon (Chromatic)
+alignment: Chaotic Evil
+initiative: +12 (22)
+ac: '20'
+hp: 333 (18d20 + 144)
+speed: 40 ft., Burrow 40 ft., Fly 80 ft., Swim 40 ft.
+abilities:
+  Str: 26
+  Dex: 10
+  Con: 26
+  Int: 10
+  Wis: 13
+  Cha: 18
+skills:
+- Perception +13
+- Stealth +6
+immunities:
+- Cold
+languages:
+- Common
+- Draconic
+senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 23
+challenge_rating: 20 (XP 25 000, or 33 000 in lair; PB +6)
+description: Among the most primal chromatic dragons, white dragons prioritize survival
+  over all. Life is harsh and uncertain in the arctic expanses, glacial heights, and
+  frozen seas where these dragons dwell. White dragons fiercely protect their territories,
+  scouring the frigid regions for food and evidence of trespassers. Most white dragons
+  ignore the plots of smaller creatures and other dragons, concerning themselves only
+  with their own survival. White dragons create lairs to defend themselves from other
+  deadly arctic creatures and from dangerous natural conditions. Within these shelters,
+  white dragons hoard testaments to their superiority, such as monstrous skulls, the
+  gear of defeated rivals, and curiosities that capture their interest. To protect
+  such treasure, white dragons coax ice to form over their hoards or sink their wealth
+  in frigid pools. For white dragons, each piece of treasure embodies a victory—the
+  details of which inflate as these dragons age.
+habitat: Arctic
+treasure: Arcana
+traits:
+- name: Ice Walk
+  desc: The dragon can move across and climb icy surfaces without needing to make
+    an ability check. Additionally, Difficult Terrain composed of ice or snow doesn't
+    cost it extra movement.
+- name: Legendary Resistance (4/Day, or 5/Day in Lair)
+  desc: If the dragon fails a saving throw, it can choose to succeed instead.
+actions:
+- name: Multiattack
+  desc: The dragon makes three Rend attacks.
+- name: Rend
+  desc: 'Melee Attack Roll: +14, reach 15 ft. Hit: 17 (2d8 + 8) Slashing damage plus
+    7 (2d6) Cold damage.'
+- name: Cold Breath (Recharge 5–6)
+  desc: 'Constitution Saving Throw: DC 22, each creature in a 90-foot Cone. Failure:
+    63 (14d8) Cold damage. Success: Half damage.'
+legendary_actions:
+- name: Freezing Burst
+  desc: 'Constitution Saving Throw: DC 20, each creature in a 30-foot-radius Sphere
+    centered on a point the dragon can see within 120 feet. Failure: 14 (4d6) Cold
+    damage, and the target''s Speed is 0 until the end of the target''s next turn.
+    Failure or Success: The dragon can''t take this action again until the start of
+    its next turn.'
+- name: Frightful Presence
+  desc: The dragon casts Fear, requiring no Material components and using Charisma
+    as the spellcasting ability (spell save DC 18). The dragon can't take this action
+    again until the start of its next turn.
+- name: Pounce
+  desc: The dragon moves up to half its Speed, and it makes one Rend attack.
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s
+  turn, the dragon can expend a use to take one of the following actions. The dragon
+  regains all expended uses at the start of each of its turns.'

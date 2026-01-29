@@ -1,0 +1,49 @@
+name: Arch-hag
+size: Large
+type: Fey
+alignment: Neutral Evil
+initiative: +16 (26)
+ac: '20'
+hp: 333 (29d10 + 174)
+speed: 40 ft.
+abilities:
+  Str: 24
+  Dex: 15
+  Con: 23
+  Int: 19
+  Wis: 19
+  Cha: 25
+skills:
+- Deception +14
+- Perception +11
+- Persuasion +21
+immunities:
+- Charmed
+- Exhaustion
+- Frightened
+languages:
+- All
+senses: Truesight 60 ft., Passive Perception 21
+challenge_rating: 21 (XP 33 000, or 41 000 in lair; PB +7)
+description: Immortal and unpredictable, arch-hags hoard secrets and strike magical
+  bargains, altering fate to indulge their fickle whims. These timeless schemers pursue
+  the secrets of the multiverse and work strange magic in pursuit of their inscrutable
+  goals. Arch-hags are unpredictable, self-interested, and greedy, with bizarre fascinations
+  and affectations. Nevertheless, they often make deals to further their plots. These
+  hags are fonts of secret knowledge, particularly lore regarding forbidden magic
+  and multiversal secrets. They might share their knowledge, but their secrets always
+  have a price. In trade for their secrets, arch-hags might request peculiar errands,
+  valuable magic items, or preternatural currency, like one's memories, a year of
+  one's life, or the ability to cry. Most arch-hags avoid battle, but if forced to
+  fight, they unleash dangerous magic, such as spectral claws, arcing lightning, and
+  mind-bending spells. An arch-hag can curse other magic-users, confounding the spellcasters'
+  incantations and forcing the spellcasters to say the opposite of what they mean.
+  Even if an arch-hag is brought low, its preparations allow it to magically slip
+  away and begin plotting its revenge. Every arch-hag has a unique weakness tied to
+  a fateful encounter the hag had in the past or something that embodies the antithesis
+  of the hag's magic. A hag goes out of its way to keep this vulnerability secret.
+  Although an arch-hag isn't physically harmed by its weakness, it can be destroyed
+  only while its weakness is nearby.
+habitat: Any
+treasure: Arcana
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair).'

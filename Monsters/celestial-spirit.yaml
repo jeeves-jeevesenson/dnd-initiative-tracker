@@ -1,0 +1,39 @@
+name: Celestial Spirit
+size: Large
+type: Celestial
+alignment: Neutral
+ac: 11 + the spell's level + 2 (Defender only)
+hp: 40 + 10 for each spell level above 5
+speed: 30 ft., Fly 40 ft.
+abilities:
+  Str: 16
+  Dex: 14
+  Con: 16
+  Int: 10
+  Wis: 14
+  Cha: 16
+skills: []
+immunities:
+- Charmed
+- Frightened
+languages:
+- Celestial
+- understands the languages you know
+senses: Darkvision 60 ft., Passive Perception 12
+challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
+description: See  Summon Celestial
+actions:
+- name: Multiattack
+  desc: The spirit makes a number of attacks equal to half this spell's level (round
+    down).
+- name: Radiant Bow (Avenger Only)
+  desc: 'Ranged Attack Roll: Bonus equals your spell attack modifier, range 600 ft.
+    Hit: 2d6 + 2 + the spell''s level Radiant damage.'
+- name: Radiant Mace (Defender Only)
+  desc: 'Melee Attack Roll: Bonus equals your spell attack modifier, reach 5 ft. Hit:
+    1d10 + 3 + the spell''s level Radiant damage, and the spirit can choose itself
+    or another creature it can see within 10 feet of the target. The chosen creature
+    gains 1d10 Temporary Hit Points.'
+- name: Healing Touch (1/Day)
+  desc: The spirit touches another creature. The target regains Hit Points equal to
+    2d8 + the spell's level.

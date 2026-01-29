@@ -1,0 +1,26 @@
+name: Chasme
+size: Large
+type: Fiend (Demon)
+alignment: Chaotic Evil
+initiative: +5 (15)
+ac: '15'
+hp: 78 (12d10 + 12)
+speed: 20 ft., Fly 60 ft.
+abilities:
+  Str: 15
+  Dex: 15
+  Con: 12
+  Int: 11
+  Wis: 14
+  Cha: 10
+skills:
+- Perception +5
+immunities:
+- Poison; Poisoned
+languages:
+- Abyssal; telepathy 120 ft.
+senses: Blindsight 10 ft., Darkvision 120 ft., Passive Perception 15
+challenge_rating: 6 (XP 2 300; PB +3)
+description: ''
+habitat: Planar (Abyss)
+treasure: Relics

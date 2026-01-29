@@ -1,0 +1,25 @@
+name: Cockatrice Regent
+size: Large
+type: Monstrosity
+alignment: Unaligned
+initiative: +2 (12)
+ac: '15'
+hp: 136 (16d10 + 48)
+speed: 30 ft., Fly 60 ft.
+abilities:
+  Str: 19
+  Dex: 14
+  Con: 16
+  Int: 3
+  Wis: 16
+  Cha: 5
+skills: []
+immunities:
+- Petrified
+languages:
+- —
+senses: Darkvision 120 ft., Passive Perception 13
+challenge_rating: 8 (XP 3 900; PB +3)
+description: Bolder than their smaller cousins, cockatrice regents brim with unstable
+  magical energy they use to restrain distant foes.
+habitat: Grassland

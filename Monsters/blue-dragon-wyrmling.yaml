@@ -1,0 +1,46 @@
+name: Blue Dragon Wyrmling
+size: Medium
+type: Dragon (Chromatic)
+alignment: Lawful Evil
+initiative: +2 (12)
+ac: '17'
+hp: 65 (10d8 + 20)
+speed: 30 ft., Burrow 15 ft., Fly 60 ft.
+abilities:
+  Str: 17
+  Dex: 10
+  Con: 15
+  Int: 12
+  Wis: 11
+  Cha: 15
+skills:
+- Perception +4
+- Stealth +2
+immunities:
+- Lightning
+languages:
+- Draconic
+senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 14
+challenge_rating: 3 (XP 700; PB +2)
+description: Arrogant and imperious, blue dragons are chromatic dragons that crave
+  control and collect followers like other dragons hoard treasure. They seek to transform
+  their territories into empires, domains to be feared by nations. Blue dragons have
+  sharp features with piercing horns and scales that range from sapphire to the shades
+  of stormy skies. They dwell in deserts and badlands, particularly regions with dramatic
+  spires from whose tops they might see for miles. They seek lairs near sites of symbolic
+  power, such as the abandoned fortresses of giants, the colossi of fallen empires,
+  or monuments raised by their followers. Regalia of rulership and artistic masterpieces
+  fill blue dragons' hoards. These dragons have no interest in treasures that are
+  common or flawed, preferring one-of-a-kind gemstones, the crowns of fallen royals,
+  and magic items capable of spreading the dragons' influence.
+habitat: Coastal, Desert
+treasure: Relics
+actions:
+- name: Multiattack
+  desc: The dragon makes two Rend attacks.
+- name: Rend
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 8 (1d10 + 3) Slashing damage plus
+    3 (1d6) Lightning damage.'
+- name: Lightning Breath (Recharge 5–6)
+  desc: 'Dexterity Saving Throw: DC 12, each creature in a 30-foot-long, 5-foot-wide
+    Line. Failure: 21 (6d6) Lightning damage. Success: Half damage.'

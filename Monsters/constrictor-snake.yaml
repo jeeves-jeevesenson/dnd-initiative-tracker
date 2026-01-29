@@ -1,0 +1,32 @@
+name: Constrictor Snake
+size: Large
+type: Beast
+alignment: Unaligned
+initiative: +2 (12)
+ac: '13'
+hp: 13 (2d10 + 2)
+speed: 30 ft., Swim 30 ft.
+abilities:
+  Str: 15
+  Dex: 14
+  Con: 12
+  Int: 1
+  Wis: 10
+  Cha: 3
+skills:
+- Perception +2
+- Stealth +4
+immunities: []
+languages:
+- None
+senses: Blindsight 10 ft., Passive Perception 12
+challenge_rating: 1/4 (XP 50; PB +2)
+description: ''
+habitat: Desert, Forest, Swamp, Underwater
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 6 (1d8 + 2) Piercing damage.'
+- name: Constrict
+  desc: 'Strength Saving Throw: DC 12, one Medium or smaller creature the snake can
+    see within 5 feet. Failure: 7 (3d4) Bludgeoning damage, and the target has the
+    Grappled condition (escape DC 12).'

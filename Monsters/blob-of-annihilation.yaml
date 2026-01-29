@@ -1,0 +1,38 @@
+name: Blob of Annihilation
+size: Gargantuan
+type: Ooze (Titan)
+alignment: Neutral Evil
+initiative: +16 (26)
+ac: '18'
+hp: 448 (23d20 + 207)
+speed: 30 ft.
+abilities:
+  Str: 27
+  Dex: 14
+  Con: 28
+  Int: 10
+  Wis: 16
+  Cha: 10
+skills: []
+immunities:
+- Acid
+- Necrotic
+- Poison; Charmed
+- Exhaustion
+- Frightened
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained
+- Stunned
+- Unconscious
+languages:
+- —
+senses: Blindsight 120 ft., Passive Perception 13
+challenge_rating: 23 (XP 50 000; PB +7)
+description: ''
+habitat: Any
+treasure: Any
+legendary_uses: 'Legendary Action Uses: 3.'

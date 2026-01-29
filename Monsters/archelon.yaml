@@ -1,0 +1,32 @@
+name: Archelon
+size: Huge
+type: Beast (Dinosaur)
+alignment: Unaligned
+initiative: +3 (13)
+ac: '17'
+hp: 90 (12d12 + 12)
+speed: 20 ft., Swim 80 ft.
+abilities:
+  Str: 18
+  Dex: 16
+  Con: 13
+  Int: 4
+  Wis: 14
+  Cha: 6
+skills:
+- Stealth +5
+immunities: []
+languages:
+- None
+senses: Passive Perception 12
+challenge_rating: 4 (XP 1 100; PB +2)
+description: ''
+habitat: Underwater
+traits:
+- name: Amphibious
+  desc: The archelon can breathe air and water.
+actions:
+- name: Multiattack
+  desc: The archelon makes two Bite attacks.
+- name: Bite
+  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 14 (3d6 + 4) Piercing damage.'

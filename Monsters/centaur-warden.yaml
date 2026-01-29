@@ -1,0 +1,30 @@
+name: Centaur Warden
+size: Large
+type: Fey
+alignment: Neutral Good
+initiative: +2 (12)
+ac: '16'
+hp: 105 (14d10 + 28)
+speed: 50 ft.
+abilities:
+  Str: 18
+  Dex: 14
+  Con: 14
+  Int: 9
+  Wis: 18
+  Cha: 11
+skills:
+- Athletics +7
+- Nature +5
+- Perception +7
+immunities: []
+languages:
+- Druidic
+- Elvish
+- Sylvan
+senses: Passive Perception 17
+challenge_rating: 7 (XP 2 900; PB +3)
+description: Centaur wardens often lead groups of centaur troopers and act as intermediaries
+  between Fey creatures and trespassers into their territories.
+habitat: Forest, Grassland, Planar (Feywild)
+treasure: Individual, Armaments

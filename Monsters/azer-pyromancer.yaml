@@ -1,0 +1,29 @@
+name: Azer Pyromancer
+size: Medium
+type: Elemental
+alignment: Lawful Neutral
+initiative: +2 (12)
+ac: '18'
+hp: 97 (13d8 + 39)
+speed: 30 ft.
+abilities:
+  Str: 15
+  Dex: 14
+  Con: 16
+  Int: 12
+  Wis: 18
+  Cha: 13
+skills:
+- Arcana +4
+- Perception +7
+immunities:
+- Fire
+- Poison; Poisoned
+languages:
+- Primordial (Ignan)
+senses: Passive Perception 17
+challenge_rating: 6 (XP 2 300; PB +3)
+description: Azer pyromancers conjure flames from the Elemental Plane of Fire to defend
+  themselves and stoke magical forges.
+habitat: Mountain, Planar (Elemental Plane of Fire)
+treasure: Individual, Armaments
