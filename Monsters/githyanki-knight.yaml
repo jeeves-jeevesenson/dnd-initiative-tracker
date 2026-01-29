@@ -1,0 +1,28 @@
+name: Githyanki Knight
+size: Medium
+type: Aberration (Gith)
+alignment: Lawful Evil
+initiative: +5 (15)
+ac: '18'
+hp: 117 (18d8 + 36)
+speed: 30 ft.
+abilities:
+  Str: 16
+  Dex: 14
+  Con: 15
+  Int: 14
+  Wis: 14
+  Cha: 15
+skills: []
+immunities: []
+languages:
+- Common
+- Gith
+senses: Passive Perception 12
+challenge_rating: 8 (XP 3 900; PB +3)
+description: Githyanki knights wield silver blades to slay magic-users who use the
+  Astral Projection spell to intrude on githyanki territories on the Astral Plane.
+  These silver blades are sacred to the githyanki. Non-githyanki who claim these weapons
+  often find themselves hunted by wrathful githyanki knights.
+habitat: Planar (Astral Plane)
+treasure: Armaments

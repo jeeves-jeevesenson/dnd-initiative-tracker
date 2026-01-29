@@ -1,0 +1,29 @@
+name: Lizardfolk Geomancer
+size: Medium
+type: Elemental
+alignment: Neutral
+initiative: +0 (10)
+ac: '13'
+hp: 33 (6d8 + 6)
+speed: 30 ft., Burrow 20 ft., Swim 30 ft.
+abilities:
+  Str: 15
+  Dex: 10
+  Con: 13
+  Int: 10
+  Wis: 15
+  Cha: 8
+skills:
+- Nature +2
+- Perception +4
+- Stealth +4
+immunities: []
+languages:
+- Draconic
+- Primordial (Terran)
+senses: Passive Perception 14
+challenge_rating: 2 (XP 450; PB +2)
+description: Lizardfolk geomancers draw magic from the natural world, using it to
+  protect their people and territories.
+habitat: Forest, Swamp
+treasure: Individual

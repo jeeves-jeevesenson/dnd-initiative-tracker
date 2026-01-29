@@ -1,0 +1,29 @@
+name: Githzerai Monk
+size: Medium
+type: Aberration (Gith)
+alignment: Lawful Neutral
+initiative: +4 (14)
+ac: '14'
+hp: 38 (7d8 + 7)
+speed: 40 ft.
+abilities:
+  Str: 12
+  Dex: 15
+  Con: 12
+  Int: 13
+  Wis: 14
+  Cha: 10
+skills:
+- Insight +4
+- Perception +4
+immunities: []
+languages:
+- Common
+- Gith
+senses: Passive Perception 14
+challenge_rating: 2 (XP 450; PB +2)
+description: Githzerai monks pursue control of their minds by honing their physical
+  and psionic talents. They might be found beyond githzerai sanctuaries, testing themselves
+  amid the dangerous extremes of the multiverse.
+habitat: Planar (Limbo)
+treasure: Individual, Arcana

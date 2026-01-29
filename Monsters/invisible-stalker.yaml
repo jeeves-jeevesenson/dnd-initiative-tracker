@@ -1,0 +1,52 @@
+name: Invisible Stalker
+size: Large
+type: Elemental
+alignment: Neutral
+initiative: +7 (17)
+ac: '14'
+hp: 97 (13d10 + 26)
+speed: 50 ft., Fly 50 ft. (hover)
+abilities:
+  Str: 16
+  Dex: 19
+  Con: 14
+  Int: 10
+  Wis: 15
+  Cha: 11
+skills:
+- Perception +8
+- Stealth +10
+immunities:
+- Poison; Exhaustion
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained
+- Unconscious
+languages:
+- Common
+- Primordial (Auran)
+senses: Darkvision 60 ft., Passive Perception 18
+challenge_rating: 6 (XP 2 300; PB +3)
+description: ''
+habitat: Urban
+traits:
+- name: Air Form
+  desc: The stalker can enter an enemy's space and stop there. It can move through
+    a space as narrow as 1 inch without expending extra movement to do so.
+- name: Invisibility
+  desc: The stalker has the Invisible condition.
+actions:
+- name: Multiattack
+  desc: The stalker makes three Wind Swipe attacks. It can replace one attack with
+    a use of Vortex.
+- name: Wind Swipe
+  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 11 (2d6 + 4) Force damage.'
+- name: Vortex
+  desc: 'Constitution Saving Throw: DC 14, one Large or smaller creature in the stalker''s
+    space. Failure: 7 (1d8 + 3) Thunder damage, and the target has the Grappled condition
+    (escape DC 13). Until the grapple ends, the target can''t cast spells with a Verbal
+    component and takes 7 (2d6) Thunder damage at the start of each of the stalker''s
+    turns.'

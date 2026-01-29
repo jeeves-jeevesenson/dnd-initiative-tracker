@@ -1,0 +1,30 @@
+name: Githzerai Psion
+size: Medium
+type: Aberration (Gith)
+alignment: Lawful Neutral
+initiative: +8 (18)
+ac: '18'
+hp: 169 (26d8 + 52)
+speed: 40 ft., Fly 40 ft. (hover)
+abilities:
+  Str: 12
+  Dex: 18
+  Con: 15
+  Int: 19
+  Wis: 18
+  Cha: 14
+skills:
+- Arcana +8
+- Insight +8
+- Perception +8
+immunities: []
+languages:
+- Common
+- Gith
+senses: Passive Perception 18
+challenge_rating: 12 (XP 8 400; PB +4)
+description: These powerful psions oversee githzerai sanctuaries, study enigmatic
+  planar events, and lead rrakkma—hostile forays into mind flayer colonies to slay
+  illithids and uncover secrets of how the ancient gith were transformed.
+habitat: Planar (Limbo)
+treasure: Individual, Arcana

@@ -1,0 +1,34 @@
+name: Gnoll Demoniac
+size: Medium
+type: Fiend
+alignment: Chaotic Evil
+initiative: +4 (14)
+ac: '16'
+hp: 135 (18d8 + 54)
+speed: 30 ft.
+abilities:
+  Str: 16
+  Dex: 12
+  Con: 17
+  Int: 14
+  Wis: 15
+  Cha: 17
+skills:
+- Perception +5
+immunities: []
+languages:
+- Abyssal
+- Common
+- Gnoll
+senses: Darkvision 60 ft., Passive Perception 15
+challenge_rating: 8 (XP 3 900; PB +3)
+description: The first gnolls arose from hyenas that fed on flesh tainted by the Abyss.
+  Their corruption and violence delighted the demon lord Yeenoghu, who encouraged
+  their numbers and spread them across the multiverse. Ever since, gnolls have been
+  the cackling servants of Yeenoghu, existing to cause ruin and to feast on what remains.  Gnoll
+  demoniacs are berserkers that arise from gnolls who've ritualistically fed on flesh
+  corrupted by the Abyss. Now embodying the ruinous hunger of Yeenoghu, these gnolls
+  throw themselves into battle, heedless of odds or their own survival. Rampaging
+  demoniacs even devour other gnolls in their wild frenzies.
+habitat: Desert, Forest, Grassland, Hill
+treasure: Individual, Armaments

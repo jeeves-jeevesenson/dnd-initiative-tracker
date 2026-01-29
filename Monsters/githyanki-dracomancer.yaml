@@ -1,0 +1,31 @@
+name: Githyanki Dracomancer
+size: Medium
+type: Aberration (Gith)
+alignment: Lawful Evil
+initiative: +8 (18)
+ac: '18'
+hp: 255 (30d8 + 120)
+speed: 30 ft., Fly 30 ft. (hover)
+abilities:
+  Str: 10
+  Dex: 16
+  Con: 18
+  Int: 20
+  Wis: 16
+  Cha: 18
+skills:
+- Arcana +10
+- Perception +8
+immunities: []
+languages:
+- Common
+- Draconic
+- Gith
+senses: Blindsight 30 ft., Passive Perception 18
+challenge_rating: 16 (XP 15 000; PB +5)
+description: One of Gith's last deeds was to forge an alliance between the githyanki
+  and the dragon god Tiamat. Ever since, the Dragon Queen's red dragon consort, Ephelomon,
+  and his kind have been allies of the githyanki. Githyanki dracomancers uphold this
+  pact and cultivate magic talents that complement the might of red dragons.
+habitat: Planar (Astral Plane)
+treasure: Armaments

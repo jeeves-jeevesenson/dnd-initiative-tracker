@@ -1,0 +1,28 @@
+name: Kenku
+size: Medium
+type: Monstrosity
+alignment: Neutral
+initiative: +3 (13)
+ac: '13'
+hp: 13 (3d8)
+speed: 30 ft.
+abilities:
+  Str: 10
+  Dex: 16
+  Con: 10
+  Int: 11
+  Wis: 10
+  Cha: 10
+skills:
+- Deception +4
+- Perception +2
+- Stealth +5
+immunities: []
+languages:
+- Common
+- Primordial (Auran)
+senses: Darkvision 60 ft., Passive Perception 12
+challenge_rating: 1/4 (XP 50; PB +2)
+description: ''
+habitat: Forest, Planar (Shadowfell), Urban
+treasure: Individual, Implements

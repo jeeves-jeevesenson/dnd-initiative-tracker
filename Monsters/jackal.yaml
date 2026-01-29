@@ -1,0 +1,28 @@
+name: Jackal
+size: Small
+type: Beast
+alignment: Unaligned
+initiative: +2 (12)
+ac: '12'
+hp: 3 (1d6)
+speed: 40 ft.
+abilities:
+  Str: 8
+  Dex: 15
+  Con: 11
+  Int: 3
+  Wis: 12
+  Cha: 6
+skills:
+- Perception +5
+- Stealth +4
+immunities: []
+languages:
+- None
+senses: Darkvision 90 ft., Passive Perception 15
+challenge_rating: 0 (XP 10; PB +2)
+description: ''
+habitat: Desert, Grassland
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +1, reach 5 ft. Hit: 1 (1d4 – 1) Piercing damage.'

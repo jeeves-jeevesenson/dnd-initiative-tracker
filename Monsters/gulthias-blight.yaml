@@ -1,0 +1,30 @@
+name: Gulthias Blight
+size: Gargantuan
+type: Plant
+alignment: Neutral Evil
+initiative: +5 (15)
+ac: '20'
+hp: 264 (16d20 + 96)
+speed: 50 ft.
+abilities:
+  Str: 25
+  Dex: 10
+  Con: 22
+  Int: 10
+  Wis: 18
+  Cha: 12
+skills:
+- Perception +9
+immunities:
+- Deafened
+languages:
+- Common
+- Druidic
+senses: Blindsight 120 ft., Passive Perception 19
+challenge_rating: 16 (XP 15 000; PB +5)
+description: Ancient plants twisted by evil, Gulthias blights feed on blood and despoil
+  the surrounding land, often giving rise to subservient blights. These cursed plants
+  take their name from the story of their creation; the first of their kind was a
+  tree that grew from the stake piercing the heart of the vampire Gulthias. These
+  blights consider all creatures either servants or fertilizer for the blights' corruption.
+habitat: Forest

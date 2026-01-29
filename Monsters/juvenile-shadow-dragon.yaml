@@ -1,0 +1,28 @@
+name: Juvenile Shadow Dragon
+size: Medium
+type: Dragon
+alignment: Chaotic Evil
+initiative: +4 (14)
+ac: '15'
+hp: 45 (6d8 + 18)
+speed: 30 ft., Climb 30 ft., Fly 60 ft.
+abilities:
+  Str: 17
+  Dex: 14
+  Con: 17
+  Int: 12
+  Wis: 11
+  Cha: 15
+skills:
+- Perception +4
+- Stealth +6
+immunities:
+- Necrotic
+languages:
+- Common
+- Draconic
+senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 14
+challenge_rating: 4 (XP 1 100; PB +2)
+description: ''
+habitat: Planar (Shadowfell), Underdark
+treasure: Any

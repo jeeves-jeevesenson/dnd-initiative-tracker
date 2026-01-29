@@ -1,0 +1,31 @@
+name: Killer Whale
+size: Huge
+type: Beast
+alignment: Unaligned
+initiative: +2 (12)
+ac: '12'
+hp: 90 (12d12 + 12)
+speed: 5 ft., Swim 60 ft.
+abilities:
+  Str: 19
+  Dex: 14
+  Con: 13
+  Int: 3
+  Wis: 12
+  Cha: 7
+skills:
+- Perception +3
+- Stealth +4
+immunities: []
+languages:
+- None
+senses: Blindsight 120 ft., Passive Perception 13
+challenge_rating: 3 (XP 700; PB +2)
+description: ''
+habitat: Underwater
+traits:
+- name: Hold Breath
+  desc: The whale can hold its breath for 30 minutes.
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 21 (5d6 + 4) Piercing damage.'

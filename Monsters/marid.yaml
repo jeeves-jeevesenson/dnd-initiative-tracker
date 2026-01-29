@@ -1,0 +1,24 @@
+name: Marid
+size: Large
+type: Elemental (Genie)
+alignment: Chaotic Neutral
+initiative: +5 (15)
+ac: '17'
+hp: 229 (17d10 + 136)
+speed: 30 ft., Fly 60 ft., Swim 90 ft.
+abilities:
+  Str: 22
+  Dex: 12
+  Con: 26
+  Int: 18
+  Wis: 17
+  Cha: 18
+skills: []
+immunities: []
+languages:
+- Primordial (Aquan)
+senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 13
+challenge_rating: 11 (XP 7 200; PB +4)
+description: ''
+habitat: Coastal, Planar (Elemental Plane of Water), Underwater
+treasure: Relics

@@ -1,0 +1,30 @@
+name: Guard
+size: Medium
+type: or Small Humanoid
+alignment: Neutral
+initiative: +1 (11)
+ac: '16'
+hp: 11 (2d8 + 2)
+speed: 30 ft.
+abilities:
+  Str: 13
+  Dex: 12
+  Con: 12
+  Int: 10
+  Wis: 11
+  Cha: 10
+skills:
+- Perception +2
+immunities: []
+languages:
+- Common
+senses: Passive Perception 12
+challenge_rating: 1/8 (XP 25; PB +2)
+description: Guards are perceptive, but most have little martial training. They might
+  be bouncers, lookouts, members of a city watch, or other keen-eyed warriors.
+habitat: Any
+treasure: Armaments, Individual
+actions:
+- name: Spear
+  desc: 'Melee or Ranged Attack Roll: +3, reach 5 ft. or range 20/60 ft. Hit: 4 (1d6
+    + 1) Piercing damage.'

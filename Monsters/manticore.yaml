@@ -1,0 +1,31 @@
+name: Manticore
+size: Large
+type: Monstrosity
+alignment: Lawful Evil
+initiative: +3 (13)
+ac: '14'
+hp: 68 (8d10 + 24)
+speed: 30 ft., Fly 50 ft.
+abilities:
+  Str: 17
+  Dex: 16
+  Con: 17
+  Int: 7
+  Wis: 12
+  Cha: 8
+skills: []
+immunities: []
+languages:
+- Common
+senses: Darkvision 60 ft., Passive Perception 11
+challenge_rating: 3 (XP 700; PB +2)
+description: ''
+habitat: Arctic, Coastal, Grassland, Hill, Mountain
+treasure: Any
+actions:
+- name: Multiattack
+  desc: The manticore makes three attacks, using Rend or Tail Spike in any combination.
+- name: Rend
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 7 (1d8 + 3) Slashing damage.'
+- name: Tail Spike
+  desc: 'Ranged Attack Roll: +5, range 100/200 ft. Hit: 7 (1d8 + 3) Piercing damage.'

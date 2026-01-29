@@ -1,0 +1,40 @@
+name: Knight
+size: Medium
+type: or Small Humanoid
+alignment: Any Alignment
+initiative: +0 (10)
+ac: '18'
+hp: 52 (8d8 +16)
+speed: 30 ft.
+abilities:
+  Str: 16
+  Dex: 11
+  Con: 14
+  Int: 11
+  Wis: 11
+  Cha: 15
+skills: []
+immunities: []
+languages:
+- Common plus one other language
+senses: Passive Perception 10
+challenge_rating: 3 (XP 700; PB +2)
+description: Knights are skilled warriors trained for war and tested in battle. Many
+  serve the rulers of a realm, a religion, or an order devoted to a cause.  Knights
+  frequently lead troops in combat or work in units that dominate the battlefield.
+  They're often attended by squires, who might be less skilled soldiers or commoners.
+habitat: Any
+treasure: Armaments, Individual
+actions:
+- name: Multiattack
+  desc: The knight makes two attacks, using Greatsword or Heavy Crossbow in any combination.
+- name: Greatsword
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 10 (2d6+ 3) Slashing damage plus
+    4 (1d8) Radiant damage.'
+- name: Heavy Crossbow
+  desc: 'Ranged Attack Roll: +2, range 100/400 ft. Hit: 11 (2d10) Piercing damage
+    plus 4 (1d8) Radiant damage.'
+- name: Parry
+  desc: 'Trigger: The knight is hit by a melee attack roll while holding a weapon.
+    Response: The knight adds 2 to its AC against that attack, possibly causing it
+    to miss.'

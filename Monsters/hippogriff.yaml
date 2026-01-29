@@ -1,0 +1,33 @@
+name: Hippogriff
+size: Large
+type: Monstrosity
+alignment: Unaligned
+initiative: +1 (11)
+ac: '11'
+hp: 26 (4d10 + 4)
+speed: 40 ft., Fly 60 ft.
+abilities:
+  Str: 17
+  Dex: 13
+  Con: 13
+  Int: 2
+  Wis: 12
+  Cha: 8
+skills:
+- Perception +5
+immunities: []
+languages:
+- None
+senses: Passive Perception 15
+challenge_rating: 1 (XP 200; PB +2)
+description: ''
+habitat: Grassland, Hill, Mountain
+traits:
+- name: Flyby
+  desc: The hippogriff doesn't provoke an Opportunity Attack when it flies out of
+    an enemy's reach.
+actions:
+- name: Multiattack
+  desc: The hippogriff makes two Rend attacks.
+- name: Rend
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 7 (1d8 + 3) Slashing damage.'

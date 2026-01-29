@@ -1,0 +1,40 @@
+name: Goblin Minion
+size: Small
+type: Fey (Goblinoid)
+alignment: Chaotic Neutral
+initiative: +2 (12)
+ac: '12'
+hp: 7 (2d6)
+speed: 30 ft.
+abilities:
+  Str: 8
+  Dex: 15
+  Con: 10
+  Int: 10
+  Wis: 8
+  Cha: 8
+skills:
+- Stealth +6
+immunities: []
+languages:
+- Common
+- Goblin
+senses: Darkvision 60 ft., Passive Perception 9
+challenge_rating: 1/8 (XP 25; PB +2)
+description: Goblins are Feywild embodiments of recklessness and ruin. They delight
+  in wreckage—the louder, the more energetic, and the more convoluted, the better.
+  Goblin raids are often as much opportunities to enjoy setting fires and tormenting
+  livestock as they are parts of more disruptive plots. Goblins obey those who accomplish
+  the wildest plans. Such leaders might be goblin raid masterminds, bombastic magic-users,
+  or those capable of making the loudest noises. Hobgoblins and forceful humanoids
+  might also command ornery groups of goblins, directing their destructiveness toward
+  banditry, sabotage, or war.  Goblin minions enjoy participating in the disruptive
+  schemes of clever leaders but are quick to flee when confronted by their comeuppance.
+habitat: Forest, Grassland, Hill, Planar (Acheron, Feywild), Underdark
+treasure: Implements, Individual
+actions:
+- name: Dagger
+  desc: 'Melee or Ranged Attack Roll: +4, reach 5 ft. or range 20/60 ft. Hit: 4 (1d4
+    + 2) Piercing damage.'
+- name: Nimble Escape
+  desc: The goblin takes the Disengage or Hide action.

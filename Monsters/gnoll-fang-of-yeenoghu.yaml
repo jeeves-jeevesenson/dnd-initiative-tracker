@@ -1,0 +1,31 @@
+name: Gnoll Fang of Yeenoghu
+size: Medium
+type: Fiend
+alignment: Chaotic Evil
+initiative: +4 (14)
+ac: '14'
+hp: 71 (11d8 + 22)
+speed: 30 ft.
+abilities:
+  Str: 17
+  Dex: 15
+  Con: 15
+  Int: 10
+  Wis: 11
+  Cha: 13
+skills: []
+immunities: []
+languages:
+- Abyssal
+- Gnoll
+senses: Darkvision 60 ft., Passive Perception 10
+challenge_rating: 4 (XP 1 100; PB +2)
+description: The first gnolls arose from hyenas that fed on flesh tainted by the Abyss.
+  Their corruption and violence delighted the demon lord Yeenoghu, who encouraged
+  their numbers and spread them across the multiverse. Ever since, gnolls have been
+  the cackling servants of Yeenoghu, existing to cause ruin and to feast on what remains.  Gnolls
+  possessed by demonic vestiges of the demon lord Yeenoghu, fangs of Yeenoghu direct
+  the chaos of gnoll packs. Along the way, these fanatics seek grisly omens from Yeenoghu
+  and strive to interpret the demon lord's vicious goals.
+habitat: Desert, Forest, Grassland, Hill
+treasure: Individual, Armaments

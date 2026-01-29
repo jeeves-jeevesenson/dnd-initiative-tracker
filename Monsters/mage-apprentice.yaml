@@ -1,0 +1,38 @@
+name: Mage Apprentice
+size: Medium
+type: or Small Humanoid (Wizard)
+alignment: Neutral
+initiative: +2 (12)
+ac: '15'
+hp: 49 (9d8 + 9)
+speed: 30 ft.
+abilities:
+  Str: 8
+  Dex: 14
+  Con: 12
+  Int: 16
+  Wis: 13
+  Cha: 10
+skills:
+- Arcana +5
+- Perception +3
+immunities: []
+languages:
+- Common plus one other language
+senses: Passive Perception 13
+challenge_rating: 2 (XP 450; PB +2)
+description: Mages are magical wonder-workers, ranging from spellcasting overlords
+  to reclusive witches. They study mystical secrets and possess insight into monsters,
+  legends, omens, and other lore. Mages often gather allies or hire assistants to
+  aid them in their research or to attain magical might.  Mage apprentices are spellcasters
+  of humble skill. Some are students of accomplished mages, while others have innate
+  powers.
+habitat: Any
+treasure: Individual, Arcana
+actions:
+- name: Arcane Burst
+  desc: 'Melee or Ranged Attack Roll: +5, reach 5 ft. or range 120 ft. Hit: 14 (2d10
+    + 3) Force damage.'
+- name: Spellcasting
+  desc: 'The mage casts one of the following spells, using Intelligence as the spellcasting
+    ability (spell save DC 13, +5 to hit with spell attacks):'

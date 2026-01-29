@@ -1,0 +1,29 @@
+name: Gray Slaad
+size: Medium
+type: Aberration
+alignment: Chaotic Neutral
+initiative: +7 (17)
+ac: '18'
+hp: 150 (20d8 + 60)
+speed: 40 ft.
+abilities:
+  Str: 19
+  Dex: 17
+  Con: 16
+  Int: 13
+  Wis: 8
+  Cha: 18
+skills:
+- Arcana +5
+- Perception +7
+immunities: []
+languages:
+- Common
+- Slaad; telepathy 60 ft.
+senses: Blindsight 60 ft., Darkvision 60 ft., Passive Perception 17
+challenge_rating: 9 (XP 5 000; PB +4)
+description: Gray slaadi arise from green slaadi transformed by the Spawning Stone
+  or slaad lords. They explore the planes, seeking Humanoid communities to invade
+  near planar pathways
+habitat: Planar (Limbo)
+treasure: Any

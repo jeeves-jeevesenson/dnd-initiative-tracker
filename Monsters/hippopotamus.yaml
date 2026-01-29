@@ -1,0 +1,32 @@
+name: Hippopotamus
+size: Large
+type: Beast
+alignment: Unaligned
+initiative: -2 (8)
+ac: '14'
+hp: 82 (11d10 + 22)
+speed: 30 ft., Swim 30 ft.
+abilities:
+  Str: 21
+  Dex: 7
+  Con: 15
+  Int: 2
+  Wis: 12
+  Cha: 4
+skills:
+- Perception +3
+immunities: []
+languages:
+- None
+senses: Passive Perception 13
+challenge_rating: 4 (XP 1 100; PB +2)
+description: ''
+habitat: Forest, Grassland, Swamp
+traits:
+- name: Hold Breath
+  desc: The hippopotamus can hold its breath for 10 minutes.
+actions:
+- name: Multiattack
+  desc: The hippopotamus makes two Bite attacks.
+- name: Bite
+  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 16 (2d10 + 5) Piercing damage.'

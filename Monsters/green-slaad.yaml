@@ -1,0 +1,31 @@
+name: Green Slaad
+size: Large
+type: Aberration
+alignment: Chaotic Neutral
+initiative: +5 (15)
+ac: '16'
+hp: 144 (17d10 + 51)
+speed: 30 ft.
+abilities:
+  Str: 16
+  Dex: 15
+  Con: 16
+  Int: 11
+  Wis: 8
+  Cha: 18
+skills:
+- Arcana +3
+- Perception +2
+immunities: []
+languages:
+- Common
+- Slaad; telepathy 60 ft.
+senses: Blindsight 30 ft., Darkvision 60 ft., Passive Perception 12
+challenge_rating: 8 (XP 3 900; PB +3)
+description: Green slaadi come into being when the propagation methods of red or blue
+  slaadi affect certain creatures capable of casting spells of level 3 or higher.
+  Green slaadi are more intelligent than their blue and red brethren and often direct
+  their kin to portals where gray slaadi have identified Humanoid communities ripe
+  for invasion.
+habitat: Planar (Limbo)
+treasure: Any

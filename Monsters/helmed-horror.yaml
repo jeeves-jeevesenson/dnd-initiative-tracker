@@ -1,0 +1,35 @@
+name: Helmed Horror
+size: Medium
+type: Construct
+alignment: Neutral
+initiative: +3 (13)
+ac: '20'
+hp: 67 (9d8 + 27)
+speed: 30 ft., Fly 30 ft. (hover)
+abilities:
+  Str: 18
+  Dex: 13
+  Con: 16
+  Int: 10
+  Wis: 10
+  Cha: 10
+skills:
+- Perception +4
+immunities:
+- Necrotic
+- Poison; Blinded
+- Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified
+- Poisoned
+- Stunned
+languages:
+- Understands Common plus one other language but can't speak
+senses: Blindsight 60 ft., Passive Perception 14
+challenge_rating: 4 (XP 1 100; PB +2)
+description: ''
+habitat: Any
+treasure: Armaments

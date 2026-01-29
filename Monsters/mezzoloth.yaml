@@ -1,0 +1,28 @@
+name: Mezzoloth
+size: Medium
+type: Fiend (Yugoloth)
+alignment: Neutral Evil
+initiative: +3 (13)
+ac: '18'
+hp: 75 (10d8 + 30)
+speed: 40 ft.
+abilities:
+  Str: 18
+  Dex: 11
+  Con: 16
+  Int: 7
+  Wis: 14
+  Cha: 10
+skills:
+- Perception +5
+immunities:
+- Acid
+- Poison; Poisoned
+languages:
+- Abyssal
+- Infernal; telepathy 60 ft.
+senses: Blindsight 60 ft., Darkvision 60 ft., Passive Perception 15
+challenge_rating: 5 (XP 1 800; PB +3)
+description: ''
+habitat: Planar (Gehenna)
+treasure: Armaments

@@ -1,0 +1,52 @@
+name: Iron Golem
+size: Large
+type: Construct
+alignment: Unaligned
+initiative: +9 (19)
+ac: '20'
+hp: 252 (24d10 + 120)
+speed: 30 ft.
+abilities:
+  Str: 24
+  Dex: 9
+  Con: 20
+  Int: 3
+  Wis: 11
+  Cha: 1
+skills: []
+immunities:
+- Fire
+- Poison
+- Psychic; Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified
+- Poisoned
+languages:
+- Understands Common plus two other languages but can't speak
+senses: Darkvision 120 ft., Passive Perception 10
+challenge_rating: 16 (XP 15 000; PB +5)
+description: ''
+habitat: Any
+treasure: Any
+traits:
+- name: Fire Absorption
+  desc: Whenever the golem is subjected to Fire damage, it regains a number of Hit
+    Points equal to the Fire damage dealt.
+- name: Immutable Form
+  desc: The golem can't shape-shift.
+- name: Magic Resistance
+  desc: The golem has Advantage on saving throws against spells and other magical
+    effects.
+actions:
+- name: Multiattack
+  desc: The golem makes two attacks, using Bladed Arm or Fiery Bolt in any combination.
+- name: Bladed Arm
+  desc: 'Melee Attack Roll: +12, reach 10 ft. Hit: 20 (3d8 + 7) Slashing damage plus
+    10 (3d6) Fire damage.'
+- name: Fiery Bolt
+  desc: 'Ranged Attack Roll: +10, range 120 ft. Hit: 36 (8d8) Fire damage.'
+- name: Poison Breath (Recharge 6)
+  desc: 'Constitution Saving Throw: DC 18, each creature in a 60-foot Cone. Failure:
+    55 (10d10) Poison damage. Success: Half damage.'

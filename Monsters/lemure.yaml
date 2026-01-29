@@ -1,0 +1,36 @@
+name: Lemure
+size: Medium
+type: Fiend (Devil)
+alignment: Lawful Evil
+initiative: -3 (7)
+ac: '9'
+hp: 9 (2d8)
+speed: 20 ft.
+abilities:
+  Str: 10
+  Dex: 5
+  Con: 11
+  Int: 1
+  Wis: 11
+  Cha: 3
+skills: []
+immunities:
+- Fire
+- Poison; Charmed
+- Frightened
+- Poisoned
+languages:
+- Understands Infernal but can't speak
+senses: Darkvision 120 ft. (unimpeded by magical Darkness), Passive Perception 10
+challenge_rating: 0 (XP 10; PB +2)
+description: Lemures torment weaker creatures, but in the Nine Hells, few such beings
+  exist. To avoid greater suffering, they obey the orders of more powerful devils.
+habitat: Planar (Nine Hells)
+traits:
+- name: Hellish Restoration
+  desc: If the lemure dies in the Nine Hells, it revives with all its Hit Points in
+    1d10 days unless it is killed by a creature under the effects of a Bless spell
+    or its remains are sprinkled with Holy Water.
+actions:
+- name: Vile Slime
+  desc: 'Melee Attack Roll: +2, reach 5 ft. Hit: 2 (1d4) Poison damage.'

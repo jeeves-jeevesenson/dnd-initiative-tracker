@@ -1,0 +1,61 @@
+name: Green Hag
+size: Medium
+type: Fey
+alignment: Neutral Evil
+initiative: +1 (11)
+ac: '17'
+hp: 82 (11d8 + 33)
+speed: 30 ft., Swim 30 ft.
+abilities:
+  Str: 18
+  Dex: 12
+  Con: 16
+  Int: 13
+  Wis: 14
+  Cha: 14
+skills:
+- Arcana +5
+- Deception +4
+- Perception +4
+- Stealth +3
+immunities: []
+languages:
+- Common
+- Elvish
+- Sylvan
+senses: Darkvision 60 ft., Passive Perception 14
+challenge_rating: 3 (XP 700; PB +2)
+description: Green hags work bitter magic to foul all that is beautiful and pure.
+  Whether alone or in covens of other hags, these ancient witches call on eerie forces,
+  spreading corruption and plotting doom for those who earn their ire. Green hags
+  are adept deceivers, and they use illusions to cloak themselves in unassuming forms,
+  hoping to tempt innocents into peril. These hags often spirit their victims back
+  to surreal lairs where they hold captives prisoner or cook them into monstrous meals.
+  Green hags frequently know strange magic or forgotten secrets, such as the weaknesses
+  of villains, the locations of lost treasures, or the ways to break curses. They
+  might trade such knowledge for rare magic or symbolic treasures.
+habitat: Forest, Hill, Swamp
+treasure: Arcana
+traits:
+- name: Amphibious
+  desc: The hag can breathe air and water.
+- name: Coven Magic
+  desc: 'While within 30 feet of at least two hag allies, the hag can cast one of
+    the following spells, requiring no Material components, using the spell''s normal
+    casting time, and using Intelligence as the spellcasting ability (spell save DC
+    11): Augury, Find Familiar, Identify, Locate Object, Scrying, or Unseen Servant.
+    The hag must finish a Long Rest before using this trait to cast that spell again.'
+- name: Mimicry
+  desc: The hag can mimic animal sounds and humanoid voices. A creature that hears
+    the sounds can tell they are imitations only with a successful DC 14 Wisdom (Insight)
+    check.
+actions:
+- name: Multiattack
+  desc: The hag makes two Claw attacks.
+- name: Claw
+  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 8 (1d8 + 4) Slashing damage plus
+    3 (1d6) Poison damage.'
+- name: Spellcasting
+  desc: 'The hag casts one of the following spells, requiring no Material components
+    and using Wisdom as the spellcasting ability (spell save DC 12, +4 to hit with
+    spell attacks):'

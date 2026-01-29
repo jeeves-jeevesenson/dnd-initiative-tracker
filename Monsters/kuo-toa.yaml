@@ -1,0 +1,56 @@
+name: Kuo-toa
+size: Medium
+type: Aberration
+alignment: Neutral Evil
+initiative: +0 (10)
+ac: '13'
+hp: 18 (4d8)
+speed: 30 ft., Swim 30 ft.
+abilities:
+  Str: 13
+  Dex: 10
+  Con: 11
+  Int: 11
+  Wis: 10
+  Cha: 8
+skills:
+- Perception +4
+immunities: []
+languages:
+- Undercommon
+senses: Darkvision 120 ft., Truesight 30 ft., Passive Perception 14
+challenge_rating: 1/4 (XP 50; PB +2)
+description: Kuo-toa loot ruins and raid communities near their dwellings in the Underdark.
+  Their shields are coated in sticky slime, which they use to disarm their foes, and
+  they employ slimy nets to entrap victims. They usually strive to take their enemies
+  alive and drag captives to their hidden lairs.  Most kuo-toa follow the orders of
+  their more powerful leaders out of a combination of faith and fear. In rare cases,
+  a kuo-toa might abandon its community to live as a hermit or wanderer. Such kuo-toa
+  might know much about the Underdark, but they live in fear of the strange gods they
+  forsook.
+habitat: Coastal, Underdark
+treasure: Relics
+traits:
+- name: Amphibious
+  desc: The kuo-toa can breathe air and water.
+- name: Sunlight Sensitivity
+  desc: While in sunlight, the kuo-toa has Disadvantage on ability checks and attack
+    rolls.
+actions:
+- name: Spear
+  desc: 'Melee or Ranged Attack Roll: +3, reach 5 ft. or range 20/60 ft. Hit: 5 (1d8
+    + 1) Piercing damage.'
+- name: Sticky Net (1/Day)
+  desc: 'Dexterity Saving Throw: DC 10, one Large or smaller creature the kuo-toa
+    can see within 15 feet. Failure: The target has the Restrained condition until
+    the net is destroyed (AC 10; HP 5; Immunity to Bludgeoning, Poison, and Psychic
+    damage). A creature can take an action to make a DC 10 Strength (Athletics) check
+    to free itself or another creature in a net within 5 feet, destroying the net
+    on a success.'
+- name: Sticky Shield
+  desc: 'Trigger: A creature misses the kuo-toa with a melee attack roll using a weapon.
+    Response—Strength Saving Throw: DC 11, the triggering creature. Failure: The attack''s
+    weapon sticks to the kuo-toa''s shield. If the target doesn''t let go of the weapon,
+    the target has the Grappled condition while the weapon is stuck (escape DC 11).
+    While stuck, the weapon can''t be used. The target can take an action to make
+    a DC 11 Strength (Athletics) check, freeing the weapon on a success.'

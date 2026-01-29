@@ -1,0 +1,50 @@
+name: Guardian Naga
+size: Large
+type: Celestial
+alignment: Lawful Good
+initiative: +4 (14)
+ac: '18'
+hp: 136 (16d10 + 48)
+speed: 40 ft., Climb 40 ft., Swim 40 ft.
+abilities:
+  Str: 19
+  Dex: 18
+  Con: 16
+  Int: 16
+  Wis: 19
+  Cha: 18
+skills:
+- Arcana +11
+- History +11
+- Religion +11
+immunities:
+- Poison; Charmed
+- Paralyzed
+- Poisoned
+- Restrained
+languages:
+- Celestial
+- Common
+senses: Darkvision 60 ft., Passive Perception 14
+challenge_rating: 10 (XP 5 900; PB +4)
+description: ''
+habitat: Desert, Forest, Planar (Upper Planes)
+treasure: Relics
+traits:
+- name: Celestial Restoration
+  desc: If the naga dies, it returns to life in 1d6 days and regains all its Hit Points
+    unless Dispel Evil and Good is cast on its remains.
+actions:
+- name: Multiattack
+  desc: The naga makes two Bite attacks. It can replace any attack with a use of Poisonous
+    Spittle.
+- name: Bite
+  desc: 'Melee Attack Roll: +8, reach 10 ft. Hit: 17 (2d12 + 4) Piercing damage plus
+    22 (4d10) Poison damage.'
+- name: Poisonous Spittle
+  desc: 'Constitution Saving Throw: DC 16, one creature the naga can see within 60
+    feet. Failure: 31 (7d8) Poison damage, and the target has the Blinded condition
+    until the start of the naga''s next turn. Success: Half damage only.'
+- name: Spellcasting
+  desc: 'The naga casts one of the following spells, requiring no Somatic or Material
+    components and using Wisdom as the spellcasting ability (spell save DC 16):'

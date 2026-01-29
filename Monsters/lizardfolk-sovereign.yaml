@@ -1,0 +1,30 @@
+name: Lizardfolk Sovereign
+size: Medium
+type: Elemental
+alignment: Neutral
+initiative: +1 (11)
+ac: '15'
+hp: 78 (12d8 + 24)
+speed: 30 ft., Burrow 20 ft., Swim 30 ft.
+abilities:
+  Str: 17
+  Dex: 12
+  Con: 15
+  Int: 11
+  Wis: 11
+  Cha: 15
+skills:
+- Perception +4
+- Stealth +5
+immunities:
+- Frightened
+languages:
+- Draconic
+- Primordial (Terran)
+senses: Darkvision 60 ft., Passive Perception 14
+challenge_rating: 4 (XP 1 100; PB +2)
+description: Lizardfolk sovereigns undergo magical rites that imbue them with fantastic
+  strength and magic from the Elemental Plane of Earth. In some, though, it also unlocks
+  a primal viciousness.
+habitat: Forest, Swamp
+treasure: Individual

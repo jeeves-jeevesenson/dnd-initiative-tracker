@@ -1,0 +1,28 @@
+name: Manes
+size: Small
+type: Fiend (Demon)
+alignment: Chaotic Evil
+initiative: -1 (9)
+ac: '9'
+hp: 9 (2d6 + 2)
+speed: 20 ft.
+abilities:
+  Str: 10
+  Dex: 9
+  Con: 13
+  Int: 3
+  Wis: 8
+  Cha: 4
+skills: []
+immunities:
+- Poison; Charmed
+- Frightened
+- Poisoned
+languages:
+- Understands Abyssal but can't speak
+senses: Darkvision 60 ft., Passive Perception 9
+challenge_rating: 1/8 (XP 25; PB +2)
+description: Manes lash out at creatures that appear weaker than themselves—or that
+  react to them with fear—and strive to avoid more powerful demons. When manes escape
+  from the Abyss, they go on reckless rampages and inflict as much harm as possible.
+habitat: Planar (Abyss)
