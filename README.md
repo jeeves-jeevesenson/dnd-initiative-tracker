@@ -56,19 +56,33 @@ Aye, this be a D&D initiative tracker where the DM runs a Tk desktop app, and a 
 - Aye, Python **3.9+** be needed.
 - Tkinter must be present (often bundled; on Linux ye may need `python3-tk`).
 
+### Supported platforms
+- Debian/Ubuntu-based distros with `python3`, `python3-venv`, and `python3-tk` installed.
+- A freedesktop-compliant desktop environment (for `.desktop` launchers and icons).
+
 ### Optional (for extra plunder)
 - LAN server wants: `fastapi` and `uvicorn[standard]`.
 - Monster YAML library wants: `pyyaml`.
 - Images (map backgrounds + QR popup) want: `pillow`.
 - Aye, QR code generation wants: `qrcode`.
 
-### One-liner install (pip)
+### Linux install
+Run the installer script from the repo root:
+
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -U pip
-python -m pip install fastapi uvicorn[standard] pyyaml pillow qrcode
+./scripts/install-linux.sh
 ```
+
+This copies the app to a per-user install directory, installs the launcher icon(s), and registers a `.desktop` file so the app shows up in your desktop menus.
+
+### Linux uninstall
+Run the uninstall script from the repo root:
+
+```bash
+./scripts/uninstall-linux.sh
+```
+
+This removes the per-user install directory, the installed icon(s), and the `.desktop` launcher file.
 
 ---
 
@@ -80,7 +94,7 @@ Run it from the folder that holds both scripts:
 python dnd_initative_tracker.py
 ```
 
-The DM uses the Tk window for initiative and the map, and the crew can join via the LAN menu if ye enable the server.
+The DM uses the Tk window for initiative and the map, and the crew can join via the LAN menu if ye enable the server. If ye used the Linux installer, ye can also launch it from the desktop menu entry it registers.
 
 ---
 
