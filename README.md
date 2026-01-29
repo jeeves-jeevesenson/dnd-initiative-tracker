@@ -55,13 +55,14 @@ Aye, this be a D&D initiative tracker where the DM runs a Tk desktop app, and a 
 ### Required
 - Aye, Python **3.9+** be needed.
 - Tkinter must be present (often bundled; on Linux ye may need `python3-tk`).
+- Install the Python dependencies from `requirements.txt` (includes `fastapi` and `uvicorn[standard]` for the LAN server).
 
 ### OS-level dependencies (Debian/Ubuntu)
 Install the base Python bits with `apt`:
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-tk
+sudo apt install -y python3 python3-venv python3-tk python3-pip
 ```
 
 Optional extras for image popups with Tk:
@@ -74,12 +75,6 @@ sudo apt install -y python3-pil.imagetk
 - Debian/Ubuntu-based distros with `python3`, `python3-venv`, and `python3-tk` installed.
 - A freedesktop-compliant desktop environment (for `.desktop` launchers and icons).
 
-### Optional (for extra plunder)
-- LAN server wants: `fastapi` and `uvicorn[standard]`.
-- Monster YAML library wants: `pyyaml`.
-- Images (map backgrounds + QR popup) want: `pillow`.
-- Aye, QR code generation wants: `qrcode`.
-
 ### Linux install
 Run the installer script from the repo root:
 
@@ -89,7 +84,7 @@ Run the installer script from the repo root:
 
 This copies the app to a per-user install directory, installs the launcher icon(s), and registers a `.desktop` file so the app shows up in your desktop menus.
 
-To install optional Python dependencies from `requirements.txt`, run:
+To install Python dependencies from `requirements.txt`, run:
 
 ```bash
 INSTALL_PIP_DEPS=1 ./scripts/install-linux.sh
@@ -151,6 +146,9 @@ The DM uses the Tk window for initiative and the map, and the crew can join via 
 
 ## YAML files
 
+### Case-sensitive folders (Linux)
+Linux be case-sensitive, so make sure the folders be named exactly `Monsters/` and `Spells/` (capitalized).
+
 ### `players/` (optional roster seed)
 Aye, any `players/*.yaml` files be read to seed PCs when `POC_AUTO_SEED_PCS` be enabled.
 
@@ -197,6 +195,9 @@ monster:
   saving_throws:
     dex: +2
 ```
+
+### `Spells/*.yml` or `Spells/*.yaml` (optional spell presets)
+Drop YAML files in a `Spells/` folder (from the working directory) to populate the spell preset list for the LAN client.
 
 ---
 

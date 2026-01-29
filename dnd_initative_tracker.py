@@ -8151,7 +8151,7 @@ class InitiativeTracker(base.InitiativeTracker):
         # Swap the Name entry for a monster dropdown + library button
         self.after(0, self._install_monster_dropdown_widget)
 
-        # Spell preset cache (YAML files in ./spells)
+        # Spell preset cache (YAML files in ./Spells)
         self._spell_presets_cache: Optional[List[Dict[str, Any]]] = None
         self._spell_index_entries: Dict[str, Any] = {}
         self._spell_index_loaded = False
@@ -9020,7 +9020,7 @@ class InitiativeTracker(base.InitiativeTracker):
     def _spell_presets_payload(self) -> List[Dict[str, Any]]:
         if yaml is None:
             return []
-        spells_dir = Path.cwd() / "spells"
+        spells_dir = Path.cwd() / "Spells"
         if not spells_dir.exists():
             return []
 
