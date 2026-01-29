@@ -1,0 +1,69 @@
+name: Adult Black Dragon
+size: Huge
+type: Dragon (Chromatic)
+alignment: Chaotic Evil
+initiative: +12 (22)
+ac: '19'
+hp: 195 (17d12 + 85)
+speed: 40 ft., Fly 80 ft., Swim 40 ft.
+abilities:
+  Str: 23
+  Dex: 14
+  Con: 21
+  Int: 14
+  Wis: 13
+  Cha: 19
+skills:
+- Perception +11
+- Stealth +7
+immunities:
+- Acid
+languages:
+- Common
+- Draconic
+senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 21
+challenge_rating: 14 (XP 11 500, or 13 000 in lair; PB +5)
+description: Black dragons delight in suffering and ruin. While other chromatic dragons
+  scheme for power and wealth, these dragons seek to tear down all they see and rule
+  over what remains. Black dragons are terrifying creatures with curved horns and
+  withered visages suggestive of fiendish skulls. They typically inhabit stagnant
+  swamps, crumbling ruins, or places of magical or environmental corruption. Their
+  acid breath scars their domains, eroding the features from ancient statues and leaving
+  nature with festering wounds. Black dragons hoard tarnished symbols of hope and
+  relics of fallen empires. The more sought-after the treasure, the more black dragons
+  prize it—particularly if they were responsible for it being lost.
+habitat: Swamp
+treasure: Relics
+traits:
+- name: Amphibious
+  desc: The dragon can breathe air and water.
+- name: Legendary Resistance (3/Day, or 4/Day in Lair)
+  desc: If the dragon fails a saving throw, it can choose to succeed instead.
+actions:
+- name: Multiattack
+  desc: The dragon makes three Rend attacks. It can replace one attack with a use
+    of Spellcasting to cast Melf's Acid Arrow (level 3 version).
+- name: Rend
+  desc: 'Melee Attack Roll: +11, reach 10 ft. Hit: 13 (2d6 + 6) Slashing damage plus
+    4 (1d8) Acid damage.'
+- name: Acid Breath (Recharge 5–6)
+  desc: 'Dexterity Saving Throw: DC 18, each creature in a 60-foot-long, 5-foot-wide
+    Line. Failure: 54 (12d8) Acid damage. Success: Half damage.'
+- name: Spellcasting
+  desc: 'The dragon casts one of the following spells, requiring no Material components
+    and using Charisma as the spellcasting ability (spell save DC 17, +9 to hit with
+    spell attacks):'
+legendary_actions:
+- name: Cloud of Insects
+  desc: 'Dexterity Saving Throw: DC 17, one creature the dragon can see within 120
+    feet. Failure: 22 (4d10) Poison damage, and the target has Disadvantage on saving
+    throws to maintain Concentration until the end of its next turn. Failure or Success:
+    The dragon can''t take this action again until the start of its next turn.'
+- name: Frightful Presence
+  desc: The dragon uses Spellcasting to cast Fear. The dragon can't take this action
+    again until the start of its next turn.
+- name: Pounce
+  desc: The dragon moves up to half its Speed, and it makes one Rend attack.
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s
+  turn, the dragon can expend a use to take one of the following actions. The dragon
+  regains all expended uses at the start of each of its turns.'
