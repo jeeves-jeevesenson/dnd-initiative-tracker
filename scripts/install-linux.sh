@@ -44,6 +44,7 @@ LOG_DIR="${APPDIR}/logs"
 PYTHON_BIN="${PYTHON:-/usr/bin/python3}"
 
 mkdir -p "${LOG_DIR}"
+cd "${APPDIR}"
 nohup "${PYTHON_BIN}" "${APPDIR}/dnd_initative_tracker.py" >> "${LOG_DIR}/launcher.log" 2>&1 &
 
 echo "D&D Initiative Tracker launched."
@@ -72,6 +73,7 @@ cat > "${DESKTOP_FILE}" <<EOF
 Name=D&D Initiative Tracker
 Comment=Run the D&D Initiative Tracker
 Exec=${WRAPPER}
+Path=${APPDIR}
 Icon=${ICON_NAME}
 Terminal=false
 Type=Application
