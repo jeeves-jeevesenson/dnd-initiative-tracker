@@ -1,0 +1,43 @@
+name: Fiend Cultist
+size: Medium
+type: or Small Humanoid
+alignment: Neutral Evil
+initiative: +5 (15)
+ac: '16'
+hp: 127 (17d8 + 51)
+speed: 30 ft.
+abilities:
+  Str: 19
+  Dex: 15
+  Con: 16
+  Int: 12
+  Wis: 18
+  Cha: 10
+skills:
+- Perception +7
+- Religion +4
+immunities: []
+languages:
+- Abyssal
+- Common
+- Infernal
+senses: Darkvision 90 ft. (unimpeded by magical Darkness), Passive Perception 17
+challenge_rating: 8 (XP 3 900; PB +3)
+description: Fiend cultists worship fiends or evil deities. They often work to bring
+  ruin to innocents or to summon their sinister patron into the world. Fiend cultists
+  might serve infamous powers such as archdevils and demon lords, or foul immortals—beings
+  such as Demogorgon, Pazuzu, Iuz, Zariel, or Zuggtmoy.
+habitat: Any
+treasure: Individual, Relics
+actions:
+- name: Multiattack
+  desc: The cultist makes three Pact Axe attacks.
+- name: Pact Axe
+  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 10 (1d12 + 4) Slashing damage plus
+    13 (3d8) Fire damage.'
+- name: Spellcasting
+  desc: 'The cultist casts one of the following spells, using Wisdom as the spellcasting
+    ability (spell save DC 15, +7 to hit with spell attacks):'
+- name: Hellish Rebuke
+  desc: The cultist casts Hellish Rebuke in response to that spell's trigger, using
+    the same spellcasting ability as Spellcasting.

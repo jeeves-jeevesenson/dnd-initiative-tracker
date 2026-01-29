@@ -1,0 +1,43 @@
+name: Ghast
+size: Medium
+type: Undead
+alignment: Chaotic Evil
+initiative: +3 (13)
+ac: '13'
+hp: 36 (8d8)
+speed: 30 ft.
+abilities:
+  Str: 16
+  Dex: 17
+  Con: 10
+  Int: 11
+  Wis: 10
+  Cha: 8
+skills: []
+immunities:
+- Poison; Charmed
+- Exhaustion
+- Poisoned
+languages:
+- Common
+senses: Darkvision 60 ft., Passive Perception 10
+challenge_rating: 2 (XP 450; PB +2)
+description: Ghasts frequently organize ghouls into packs to despoil crypts and steal
+  the wealth within.
+habitat: Swamp, Underdark, Urban
+treasure: Any
+traits:
+- name: Stench
+  desc: 'Constitution Saving Throw: DC 10, any creature that starts its turn in a
+    5-foot Emanation originating from the ghast. Failure: The target has the Poisoned
+    condition until the start of its next turn. Success: The target is immune to this
+    ghast''s Stench for 24 hours.'
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 7 (1d8 + 3) Piercing damage plus
+    9 (2d8) Necrotic damage.'
+- name: Claw
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 10 (2d6 + 3) Slashing damage. If
+    the target is a non-Undead creature, it is subjected to the following effect.
+    Constitution Saving Throw: DC 10. Failure: The target has the Paralyzed condition
+    until the end of its next turn.'

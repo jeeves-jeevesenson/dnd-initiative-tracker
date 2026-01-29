@@ -1,0 +1,33 @@
+name: Giant Wolf Spider
+size: Medium
+type: Beast
+alignment: Unaligned
+initiative: +3 (13)
+ac: '13'
+hp: 11 (2d8 + 2)
+speed: 40 ft., Climb 40 ft.
+abilities:
+  Str: 12
+  Dex: 16
+  Con: 13
+  Int: 3
+  Wis: 12
+  Cha: 4
+skills:
+- Perception +3
+- Stealth +7
+immunities: []
+languages:
+- None
+senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 13
+challenge_rating: 1/4 (XP 50; PB +2)
+description: ''
+habitat: Coastal, Desert, Forest, Grassland, Hill
+traits:
+- name: Spider Climb
+  desc: The spider can climb difficult surfaces, including along ceilings, without
+    needing to make an ability check.
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 5 (1d4 + 3) Piercing damage plus
+    5 (2d4) Poison damage.'

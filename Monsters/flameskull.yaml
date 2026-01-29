@@ -1,0 +1,34 @@
+name: Flameskull
+size: Tiny
+type: Undead
+alignment: Neutral Evil
+initiative: +3 (13)
+ac: '13'
+hp: 40 (9d4 + 18)
+speed: 5 ft., Fly 40 ft. (hover)
+abilities:
+  Str: 1
+  Dex: 17
+  Con: 14
+  Int: 16
+  Wis: 10
+  Cha: 11
+skills:
+- Arcana +5
+- Perception +2
+immunities:
+- Fire
+- Necrotic
+- Poison; Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Poisoned
+- Prone
+languages:
+- Common plus two other languages
+senses: Darkvision 60 ft., Passive Perception 12
+challenge_rating: 4 (XP 1 100; PB +2)
+description: ''
+habitat: Underdark
+treasure: Arcana

@@ -1,0 +1,29 @@
+name: Giant Weasel
+size: Medium
+type: Beast
+alignment: Unaligned
+initiative: +3 (13)
+ac: '13'
+hp: 9 (2d8)
+speed: 40 ft., Climb 30 ft.
+abilities:
+  Str: 11
+  Dex: 17
+  Con: 10
+  Int: 4
+  Wis: 12
+  Cha: 5
+skills:
+- Acrobatics +5
+- Perception +3
+- Stealth +5
+immunities: []
+languages:
+- None
+senses: Darkvision 60 ft., Passive Perception 13
+challenge_rating: 1/8 (XP 25; PB +2)
+description: ''
+habitat: Forest, Grassland, Hill
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 5 (1d4 + 3) Piercing damage.'

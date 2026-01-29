@@ -1,0 +1,29 @@
+name: Faerie Dragon Adult
+size: Tiny
+type: Dragon
+alignment: Chaotic Good
+initiative: +5 (15)
+ac: '15'
+hp: 35 (10d4 + 10)
+speed: 10 ft., Fly 60 ft.
+abilities:
+  Str: 3
+  Dex: 20
+  Con: 13
+  Int: 12
+  Wis: 12
+  Cha: 14
+skills:
+- Arcana +4
+- Perception +3
+- Stealth +7
+immunities: []
+languages:
+- Draconic
+- Sylvan; telepathy 60 ft. (faerie dragons only)
+senses: Darkvision 60 ft., Passive Perception 13
+challenge_rating: 2 (XP 450; PB +2)
+description: The pranks of faerie dragon adults tend to lead others to people in need
+  or wrongs to be righted.
+habitat: Forest
+treasure: Implements

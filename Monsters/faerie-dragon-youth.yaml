@@ -1,0 +1,29 @@
+name: Faerie Dragon Youth
+size: Tiny
+type: Dragon
+alignment: Chaotic Good
+initiative: +3 (13)
+ac: '13'
+hp: 21 (6d4 + 6)
+speed: 10 ft., Fly 60 ft.
+abilities:
+  Str: 3
+  Dex: 16
+  Con: 12
+  Int: 12
+  Wis: 12
+  Cha: 14
+skills:
+- Arcana +3
+- Perception +3
+- Stealth +5
+immunities: []
+languages:
+- Draconic
+- Sylvan; telepathy 60 ft. (faerie dragons only)
+senses: Darkvision 60 ft., Passive Perception 13
+challenge_rating: 1 (XP 200; PB +2)
+description: Faerie dragon youths are quick to use their euphoria-inducing breath
+  on rude or uptight folk.
+habitat: Forest
+treasure: Implements

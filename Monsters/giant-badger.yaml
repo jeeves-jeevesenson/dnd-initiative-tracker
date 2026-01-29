@@ -1,0 +1,27 @@
+name: Giant Badger
+size: Medium
+type: Beast
+alignment: Unaligned
+initiative: +0 (10)
+ac: '13'
+hp: 15 (2d8 + 6)
+speed: 30 ft., Burrow 10 ft.
+abilities:
+  Str: 13
+  Dex: 10
+  Con: 17
+  Int: 2
+  Wis: 12
+  Cha: 5
+skills:
+- Perception +3
+immunities: []
+languages:
+- None
+senses: Darkvision 60 ft., Passive Perception 13
+challenge_rating: 1/4 (XP 50; PB +2)
+description: ''
+habitat: Forest
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 6 (2d4 + 1) Piercing damage.'

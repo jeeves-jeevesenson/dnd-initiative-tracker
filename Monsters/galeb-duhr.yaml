@@ -1,0 +1,30 @@
+name: Galeb Duhr
+size: Medium
+type: Elemental
+alignment: Neutral
+initiative: +2 (12)
+ac: '16'
+hp: 123 (13d8 + 65)
+speed: 15 ft. (30 ft. when rolling, 60 ft. rolling downhill)
+abilities:
+  Str: 20
+  Dex: 14
+  Con: 20
+  Int: 11
+  Wis: 12
+  Cha: 11
+skills: []
+immunities:
+- Poison; Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified
+- Poisoned
+languages:
+- Primordial (Terran)
+senses: Darkvision 60 ft., Tremorsense 60 ft., Passive Perception 11
+challenge_rating: 6 (XP 2 300; PB +3)
+description: ''
+habitat: Hill, Mountain
+treasure: Any

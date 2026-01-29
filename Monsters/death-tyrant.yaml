@@ -1,0 +1,33 @@
+name: Death Tyrant
+size: Large
+type: Undead (Beholder)
+alignment: Lawful Evil
+initiative: +12 (22)
+ac: '19'
+hp: 195 (26d10 + 52)
+speed: 5 ft., Fly 40 ft. (hover)
+abilities:
+  Str: 18
+  Dex: 14
+  Con: 14
+  Int: 19
+  Wis: 15
+  Cha: 19
+skills:
+- Perception +12
+immunities:
+- Poison; Charmed
+- Exhaustion
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+languages:
+- Deep Speech
+- Undercommon
+senses: Darkvision 120 ft., Passive Perception 22
+challenge_rating: 14 (XP 11 500, or 13 000 in lair; PB +5)
+description: ''
+habitat: Underdark
+treasure: Any
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair).'

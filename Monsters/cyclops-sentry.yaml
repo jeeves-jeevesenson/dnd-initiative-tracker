@@ -1,0 +1,25 @@
+name: Cyclops Sentry
+size: Huge
+type: Giant
+alignment: Chaotic Neutral
+initiative: +0 (10)
+ac: '14'
+hp: 138 (12d12 + 60)
+speed: 40 ft.
+abilities:
+  Str: 22
+  Dex: 11
+  Con: 20
+  Int: 8
+  Wis: 6
+  Cha: 10
+skills: []
+immunities: []
+languages:
+- Giant
+senses: Passive Perception 8
+challenge_rating: 6 (XP 2 300; PB +3)
+description: Most cyclops sentries serve their divine progenitors and oppose those
+  who would tamper with fate.
+habitat: Coastal, Desert, Grassland, Hill, Mountain, Underdark
+treasure: Armaments

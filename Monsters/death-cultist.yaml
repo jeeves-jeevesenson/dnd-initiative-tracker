@@ -1,0 +1,47 @@
+name: Death Cultist
+size: Medium
+type: or Small Humanoid
+alignment: Neutral Evil
+initiative: +4 (14)
+ac: '17'
+hp: 127 (15d8 + 60)
+speed: 30 ft.
+abilities:
+  Str: 19
+  Dex: 12
+  Con: 18
+  Int: 12
+  Wis: 16
+  Cha: 14
+skills:
+- Insight +6
+- Perception +6
+- Religion +4
+immunities: []
+languages:
+- Common
+senses: Passive Perception 16
+challenge_rating: 8 (XP 3 900; PB +3)
+description: Death cultists revel in nihilistic forces, embracing them as paths to
+  undeath, multiversal purity, or entropic inevitability. These cultists serve powerful
+  undead beings, apocalyptic prophecies, or immortals with power over death, such
+  as Acererak, Kyuss, Orcus, Vecna, or Wee Jas.
+habitat: Any
+treasure: Individual, Relics
+actions:
+- name: Multiattack
+  desc: The cultist makes three attacks, using Dread Scythe or Deathly Ray in any
+    combination.
+- name: Dread Scythe
+  desc: 'Melee Attack Roll: +7, reach 10 ft. Hit: 9 (1d10 + 4) Slashing damage plus
+    11 (2d10) Necrotic damage, and the target can''t regain Hit Points until the end
+    of its next turn.'
+- name: Deathly Ray
+  desc: 'Ranged Attack Roll: +6, range 120 ft. Hit: 22 (4d10) Necrotic damage.'
+- name: Spellcasting
+  desc: 'The cultist casts one of the following spells, using Wisdom as the spellcasting
+    ability (spell save DC 14):'
+- name: Spirit Wail (Recharge 5–6)
+  desc: 'Wisdom Saving Throw: DC 14, each creature in a 20-foot Emanation originating
+    from the cultist. Failure: 14 (4d6) Psychic damage, and the target has the Frightened
+    condition until the end of its next turn. Success: Half damage only.'

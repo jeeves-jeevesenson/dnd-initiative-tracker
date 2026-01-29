@@ -1,0 +1,30 @@
+name: Ghast Gravecaller
+size: Medium
+type: Undead
+alignment: Chaotic Evil
+initiative: +3 (13)
+ac: '16'
+hp: 97 (15d8 + 30)
+speed: 30 ft.
+abilities:
+  Str: 16
+  Dex: 17
+  Con: 14
+  Int: 18
+  Wis: 14
+  Cha: 8
+skills: []
+immunities:
+- Necrotic
+- Poison; Charmed
+- Exhaustion
+- Poisoned
+languages:
+- Abyssal
+- Common
+senses: Darkvision 120 ft., Passive Perception 12
+challenge_rating: 6 (XP 2 300; PB +3)
+description: Ghast gravecallers wield fell magic and converse with corpses. They might
+  pose as liches or vampires.
+habitat: Swamp, Underdark, Urban
+treasure: Any

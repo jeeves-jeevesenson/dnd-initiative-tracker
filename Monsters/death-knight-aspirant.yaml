@@ -1,0 +1,33 @@
+name: Death Knight Aspirant
+size: Medium
+type: or Small Undead
+alignment: Chaotic Evil
+initiative: +4 (14)
+ac: '20'
+hp: 178 (21d8 + 84)
+speed: 30 ft.
+abilities:
+  Str: 20
+  Dex: 10
+  Con: 18
+  Int: 10
+  Wis: 12
+  Cha: 16
+skills: []
+immunities:
+- Necrotic
+- Poison; Exhaustion
+- Frightened
+- Poisoned
+languages:
+- Abyssal
+- Common
+senses: Darkvision 120 ft., Passive Perception 11
+challenge_rating: 11 (XP 7 200; PB +4)
+description: When the leader of a villainous order rises as a death knight, their
+  wicked devotees might join them in their cursed existence as death knight aspirants.
+  These followers bear a measure of their leader's power and serve as they did in
+  life, obediently following the death knight's decrees and heralding its terrible
+  will.
+habitat: Any
+treasure: Armaments

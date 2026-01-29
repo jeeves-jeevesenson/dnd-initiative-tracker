@@ -1,0 +1,28 @@
+name: Giant Venomous Snake
+size: Medium
+type: Beast
+alignment: Unaligned
+initiative: +4 (14)
+ac: '14'
+hp: 11 (2d8 + 2)
+speed: 40 ft., Swim 40 ft.
+abilities:
+  Str: 10
+  Dex: 18
+  Con: 13
+  Int: 2
+  Wis: 10
+  Cha: 3
+skills:
+- Perception +2
+immunities: []
+languages:
+- None
+senses: Blindsight 10 ft., Passive Perception 12
+challenge_rating: 1/4 (XP 50; PB +2)
+description: ''
+habitat: Coastal, Desert, Forest, Grassland, Hill, Swamp
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +6, reach 10 ft. Hit: 6 (1d4 + 4) Piercing damage plus
+    4 (1d8) Poison damage.'

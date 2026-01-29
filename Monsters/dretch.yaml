@@ -1,0 +1,33 @@
+name: Dretch
+size: Small
+type: Fiend (Demon)
+alignment: Chaotic Evil
+initiative: +0 (10)
+ac: '11'
+hp: 18 (4d6 + 4)
+speed: 20 ft.
+abilities:
+  Str: 12
+  Dex: 11
+  Con: 12
+  Int: 5
+  Wis: 8
+  Cha: 3
+skills: []
+immunities:
+- Poison; Poisoned
+languages:
+- Abyssal; telepathy 60 ft. (works only with creatures that understand Abyssal)
+senses: Darkvision 60 ft., Passive Perception 9
+challenge_rating: 1/4 (XP 50; PB +2)
+description: Lone dretches serve other demons or evil magic-users. They are erratic,
+  filthy, and violent, and they demonstrate little sense of self-preservation.
+habitat: Planar (Abyss)
+actions:
+- name: Rend
+  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 4 (1d6 + 1) Slashing damage.'
+- name: Fetid Cloud (1/Day)
+  desc: 'Constitution Saving Throw: DC 11, each creature in a 10-foot Emanation originating
+    from the dretch. Failure: The target has the Poisoned condition until the end
+    of its next turn. While Poisoned, the creature can take either an action or a
+    Bonus Action on its turn, not both, and it can''t take Reactions.'

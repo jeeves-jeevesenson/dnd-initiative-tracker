@@ -1,0 +1,61 @@
+name: Fire Elemental
+size: Large
+type: Elemental
+alignment: Neutral
+initiative: +3 (13)
+ac: '13'
+hp: 93 (11d10 + 33)
+speed: 50 ft.
+abilities:
+  Str: 10
+  Dex: 17
+  Con: 16
+  Int: 6
+  Wis: 10
+  Cha: 7
+skills: []
+immunities:
+- Fire
+- Poison; Exhaustion
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained
+- Unconscious
+languages:
+- Primordial (Ignan)
+senses: Darkvision 60 ft., Passive Perception 10
+challenge_rating: 5 (XP 1 800; PB +3)
+description: Fire elementals arise when spirits of the Elemental Plane of Fire inhabit
+  flames, burning cinders, and heated smoke. These beings are tangible despite largely
+  being made of flames and particles, and they can uses their vague limbs to ignite
+  foes and flammable materials. Fire elementals typically burn in shades of orange
+  and red, but other colors are possible. Most on the Material Plane are summoned
+  by magical means, or they might appear near rifts amid desert depths, volcanoes,
+  wildfires, or magma flows that connect to their home plane.
+habitat: Desert, Planar (Elemental Plane of Fire)
+treasure: None
+traits:
+- name: Fiery Aura
+  desc: At the end of each of the elemental's turns, each creature in a 10-foot Emanation
+    originating from the elemental takes 5 (1d10) Fire damage. Creatures and flammable
+    objects in the Emanation start burning.
+- name: Fire Form
+  desc: The elemental can move through a space as narrow as 1 inch wide without expending
+    extra movement to do so, and it can enter a creature's space and stop there. The
+    first time it enters a creature's space on a turn, that creature takes 5 (1d10)
+    Fire damage.
+- name: Illumination
+  desc: The elemental sheds Bright Light in a 30-foot radius and Dim Light for an
+    additional 30 feet.
+- name: Water Susceptibility
+  desc: The elemental takes 3 (1d6) Cold damage for every 5 feet the elemental moves
+    in water or for every gallon of water splashed on it.
+actions:
+- name: Multiattack
+  desc: The elemental makes two Burn attacks.
+- name: Burn
+  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 10 (2d6 + 3) Fire damage. If the
+    target is a creature or a flammable object, it starts burning.'

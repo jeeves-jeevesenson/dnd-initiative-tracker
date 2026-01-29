@@ -1,0 +1,30 @@
+name: Crab
+size: Tiny
+type: Beast
+alignment: Unaligned
+initiative: +0 (10)
+ac: '11'
+hp: 3 (1d4 + 1)
+speed: 20 ft., Swim 20 ft.
+abilities:
+  Str: 6
+  Dex: 11
+  Con: 12
+  Int: 1
+  Wis: 8
+  Cha: 2
+skills:
+- Stealth +2
+immunities: []
+languages:
+- None
+senses: Blindsight 30 ft., Passive Perception 9
+challenge_rating: 0 (XP 10; PB +2)
+description: ''
+habitat: Coastal, Underwater
+traits:
+- name: Amphibious
+  desc: The crab can breathe air and water.
+actions:
+- name: Claw
+  desc: 'Melee Attack Roll: +2, reach 5 ft. Hit: 1 Bludgeoning damage.'

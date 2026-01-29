@@ -1,0 +1,39 @@
+name: Ghoul
+size: Medium
+type: Undead
+alignment: Chaotic Evil
+initiative: +2 (12)
+ac: '12'
+hp: 22 (5d8)
+speed: 30 ft.
+abilities:
+  Str: 13
+  Dex: 15
+  Con: 10
+  Int: 7
+  Wis: 10
+  Cha: 6
+skills: []
+immunities:
+- Poison; Charmed
+- Exhaustion
+- Poisoned
+languages:
+- Common
+senses: Darkvision 60 ft., Passive Perception 10
+challenge_rating: 1 (XP 200; PB +2)
+description: Ghouls rise from the bodies of cannibals and villains with depraved hungers.
+  They form packs out of shared voracity.
+habitat: Swamp, Underdark, Urban
+treasure: Any
+actions:
+- name: Multiattack
+  desc: The ghoul makes two Bite attacks.
+- name: Bite
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Piercing damage plus
+    3 (1d6) Necrotic damage.'
+- name: Claw
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 4 (1d4 + 2) Slashing damage. If the
+    target is a creature that isn''t an Undead or elf, it is subjected to the following
+    effect. Constitution Saving Throw: DC 10. Failure: The target has the Paralyzed
+    condition until the end of its next turn.'

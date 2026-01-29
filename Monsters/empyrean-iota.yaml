@@ -1,0 +1,50 @@
+name: Empyrean Iota
+size: Medium
+type: Celestial or Fiend (Titan)
+alignment: Neutral
+initiative: +2 (12)
+ac: '13'
+hp: 22 (5d8)
+speed: 5 ft., Fly 30 ft. (hover)
+abilities:
+  Str: 1
+  Dex: 14
+  Con: 10
+  Int: 15
+  Wis: 16
+  Cha: 16
+skills:
+- History +4
+- Insight +5
+- Perception +5
+immunities:
+- Prone
+languages:
+- All
+senses: Truesight 30 ft., Passive Perception 15
+challenge_rating: 1 (XP 200; PB+2)
+description: Empyrean iotas are the thoughts, memories, or indirect attentions of
+  deities personified and given a measure of autonomy. Resembling floating glyphs,
+  motes of color, icons of divinity, or stranger shapes, these beings are messengers
+  of the gods and aides to those gods' servants. Iotas have their own knowledge and
+  personalities, though they might know little more than the realms and wishes of
+  their creators.
+habitat: Any
+treasure: Relics
+traits:
+- name: Incorporeal Movement
+  desc: The empyrean can move through other creatures and objects as if they were
+    Difficult Terrain. It takes 5 (1d10) Force damage if it ends its turn inside an
+    object.
+- name: Magic Resistance
+  desc: The empyrean has Advantage on saving throws against spells and other magical
+    effects.
+actions:
+- name: Otherworldly Strike
+  desc: 'Melee or Ranged Attack Roll: +5. reach 5 ft. or range 30 ft. Hit: 7 (1d8
+    + 3) Necrotic or Radiant damage (empyrean''s choice).'
+- name: Spellcasting
+  desc: The empyrean casts one of the following spells, requiring no Material components
+    and using Wisdom as the spellcasting ability.
+- name: Healing Word (1/Day)
+  desc: The empyrean casts Healing Word, using the same spellcasting ability as Spellcasting.

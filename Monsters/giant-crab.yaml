@@ -1,0 +1,32 @@
+name: Giant Crab
+size: Medium
+type: Beast
+alignment: Unaligned
+initiative: +1 (11)
+ac: '15'
+hp: 13 (3d8)
+speed: 30 ft., Swim 30 ft.
+abilities:
+  Str: 13
+  Dex: 13
+  Con: 11
+  Int: 1
+  Wis: 9
+  Cha: 3
+skills:
+- Stealth +3
+immunities: []
+languages:
+- None
+senses: Blindsight 30 ft., Passive Perception 9
+challenge_rating: 1/8 (25 XP; PB +2)
+description: ''
+habitat: Coastal, Underwater
+traits:
+- name: Amphibious
+  desc: The crab can breathe air and water.
+actions:
+- name: Claw
+  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 4 (1d6 + 1) Bludgeoning damage. If
+    the target is a Medium or smaller creature, it has the Grappled condition (escape
+    DC 11) from one of two claws.'

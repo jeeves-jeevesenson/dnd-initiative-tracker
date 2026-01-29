@@ -1,0 +1,33 @@
+name: Cultist
+size: Medium
+type: or Small Humanoid
+alignment: Any Alignment
+initiative: +1 (11)
+ac: '12'
+hp: 9 (2d8)
+speed: 30 ft.
+abilities:
+  Str: 11
+  Dex: 12
+  Con: 10
+  Int: 10
+  Wis: 11
+  Cha: 10
+skills:
+- Deception +2
+- Religion +2
+immunities: []
+languages:
+- Common
+senses: Passive Perception 10
+challenge_rating: 1/8 (XP 25; PB +2)
+description: Cultists devote themselves to their faith's leaders and otherworldly
+  masters. While this zeal grants cultists no magical powers, it gives them remarkable
+  resolve in the face of threats. Cultists perform much of a cult's mundane work,
+  which might include evangelism, criminal acts, or serving as sacrifices.
+habitat: Any
+treasure: Individual, Relics
+actions:
+- name: Ritual Sickle
+  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 3 (1d4 + 1) Slashing damage plus
+    1 Necrotic damage.'

@@ -1,0 +1,30 @@
+name: Elk
+size: Large
+type: Beast
+alignment: Unaligned
+initiative: +0 (10)
+ac: '10'
+hp: 11 (2d10)
+speed: 50 ft.
+abilities:
+  Str: 16
+  Dex: 10
+  Con: 11
+  Int: 2
+  Wis: 10
+  Cha: 6
+skills:
+- Perception +2
+immunities: []
+languages:
+- None
+senses: Darkvision 60 ft., Passive Perception 12
+challenge_rating: 1/4 (XP 50; PB +2)
+description: ''
+habitat: Forest, Grassland, Hill
+actions:
+- name: Ram
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 6 (1d6 + 3) Bludgeoning damage. If
+    the elk moved at least 20 feet straight toward the target immediately before the
+    hit, the target takes an extra 3 (1d6) Bludgeoning damage and, if it is Huge or
+    smaller, has the Prone condition.'

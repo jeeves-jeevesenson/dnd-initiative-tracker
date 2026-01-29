@@ -1,0 +1,26 @@
+name: Giant Bat
+size: Large
+type: Beast
+alignment: Unaligned
+initiative: +3 (13)
+ac: '13'
+hp: 22 (4d10)
+speed: 10 ft., Fly 60 ft.
+abilities:
+  Str: 15
+  Dex: 16
+  Con: 11
+  Int: 2
+  Wis: 12
+  Cha: 6
+skills: []
+immunities: []
+languages:
+- None
+senses: Blindsight 120 ft., Passive Perception 11
+challenge_rating: 1/4 (XP 50; PB +2)
+description: ''
+habitat: Forest, Mountain, Underdark
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 6 (1d6 + 3) Piercing damage.'

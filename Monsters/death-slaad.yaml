@@ -1,0 +1,29 @@
+name: Death Slaad
+size: Medium
+type: Aberration
+alignment: Chaotic Evil
+initiative: +10 (20)
+ac: '18'
+hp: 178 (21d8 + 84)
+speed: 40 ft.
+abilities:
+  Str: 20
+  Dex: 15
+  Con: 19
+  Int: 15
+  Wis: 10
+  Cha: 19
+skills:
+- Arcana +6
+- Perception +8
+immunities: []
+languages:
+- Common
+- Slaad; telepathy 60 ft.
+senses: Blindsight 60 ft., Darkvision 60 ft., Passive Perception 18
+challenge_rating: 10 (XP 5 900; PB +4)
+description: Slaad lords create death slaadi by infusing gray slaadi with a portion
+  of their chaotic energy. When groups of slaadi act deliberately, death slaadi are
+  often behind their designs.
+habitat: Planar (Limbo)
+treasure: Any

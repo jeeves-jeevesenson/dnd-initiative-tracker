@@ -1,0 +1,27 @@
+name: Fomorian
+size: Huge
+type: Giant
+alignment: Chaotic Evil
+initiative: +0 (10)
+ac: '14'
+hp: 172 (15d12 + 75)
+speed: 40 ft.
+abilities:
+  Str: 23
+  Dex: 10
+  Con: 20
+  Int: 9
+  Wis: 14
+  Cha: 6
+skills:
+- Perception +8
+- Stealth +3
+immunities: []
+languages:
+- Giant
+- Undercommon
+senses: Darkvision 120 ft., Passive Perception 18
+challenge_rating: 8 (XP 3 900; PB +3)
+description: ''
+habitat: Underdark
+treasure: Any

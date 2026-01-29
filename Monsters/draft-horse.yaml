@@ -1,0 +1,26 @@
+name: Draft Horse
+size: Large
+type: Beast
+alignment: Unaligned
+initiative: +0 (10)
+ac: '10'
+hp: 15 (2d10 + 4)
+speed: 40 ft.
+abilities:
+  Str: 18
+  Dex: 10
+  Con: 15
+  Int: 2
+  Wis: 11
+  Cha: 7
+skills: []
+immunities: []
+languages:
+- None
+senses: Passive Perception 10
+challenge_rating: 1/4 (XP 50; PB +2)
+description: ''
+habitat: Urban
+actions:
+- name: Hooves
+  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 6 (1d4 + 4) Bludgeoning damage.'

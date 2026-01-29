@@ -1,0 +1,47 @@
+name: Deva
+size: Medium
+type: Celestial (Angel)
+alignment: Lawful Good
+initiative: +4 (14)
+ac: '17'
+hp: 229 (27d8 + 108)
+speed: 30 ft., Fly 90 ft. (hover)
+abilities:
+  Str: 18
+  Dex: 18
+  Con: 18
+  Int: 17
+  Wis: 20
+  Cha: 20
+skills:
+- Insight +9
+- Perception +9
+immunities:
+- Charmed
+- Exhaustion
+- Frightened
+languages:
+- All; telepathy 120 ft.
+senses: Darkvision 120 ft., Passive Perception 19
+challenge_rating: 10 (XP 5 900; PB +4)
+description: ''
+habitat: Planar (Upper Planes)
+treasure: Relics
+traits:
+- name: Exalted Restoration
+  desc: If the deva dies outside Mount Celestia, its body disappears, and it gains
+    a new body instantly, reviving with all its Hit Points somewhere in Mount Celestia.
+- name: Magic Resistance
+  desc: The deva has Advantage on saving throws against spells and other magical effects.
+actions:
+- name: Multiattack
+  desc: The deva makes two Holy Mace attacks.
+- name: Holy Mace
+  desc: 'Melee Attack Roll: +8, reach 5 ft. Hit: 7 (1d6 + 4) Bludgeoning damage plus
+    18 (4d8) Radiant damage.'
+- name: Spellcasting
+  desc: 'The deva casts one of the following spells, requiring no Material components
+    and using Charisma as the spellcasting ability (spell save DC 17):'
+- name: Divine Aid (2/Day)
+  desc: The deva casts Cure Wounds, Lesser Restoration, or Remove Curse, using the
+    same spellcasting ability as Spellcasting.

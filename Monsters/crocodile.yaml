@@ -1,0 +1,32 @@
+name: Crocodile
+size: Large
+type: Beast
+alignment: Unaligned
+initiative: +0 (10)
+ac: '12'
+hp: 13 (2d10 + 2)
+speed: 20 ft., Swim 30 ft.
+abilities:
+  Str: 15
+  Dex: 10
+  Con: 13
+  Int: 2
+  Wis: 10
+  Cha: 5
+skills:
+- Stealth +2
+immunities: []
+languages:
+- None
+senses: Passive Perception 10
+challenge_rating: 1/2 (XP 100; PB +2)
+description: ''
+habitat: Coastal, Swamp, Urban
+traits:
+- name: Hold Breath
+  desc: The crocodile can hold its breath for 1 hour.
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 6 (1d8 + 2) Piercing damage. If the
+    target is Medium or smaller, it has the Grappled condition (escape DC 12). While
+    Grappled, the target has the Restrained condition.'

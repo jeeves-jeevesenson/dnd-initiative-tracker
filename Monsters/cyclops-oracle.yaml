@@ -1,0 +1,27 @@
+name: Cyclops Oracle
+size: Huge
+type: Giant
+alignment: Chaotic Neutral
+initiative: +8 (18)
+ac: '16'
+hp: 207 (18d12 + 90)
+speed: 40 ft.
+abilities:
+  Str: 22
+  Dex: 11
+  Con: 20
+  Int: 16
+  Wis: 18
+  Cha: 10
+skills:
+- History +11
+- Perception +12
+immunities: []
+languages:
+- Giant
+senses: Truesight 30 ft., Passive Perception 22
+challenge_rating: 10 (XP 5 900; PB +4)
+description: Cyclops oracles gaze through history to learn hidden truths. Many share
+  these secrets with those who aid them in correcting the mistakes of the past.
+habitat: Coastal, Desert, Grassland, Hill, Mountain, Underdark
+treasure: Armaments

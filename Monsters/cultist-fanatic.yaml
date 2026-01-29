@@ -1,0 +1,39 @@
+name: Cultist Fanatic
+size: Medium
+type: or Small Humanoid
+alignment: Any Alignment
+initiative: +2 (12)
+ac: '13'
+hp: 44 (8d8 +8)
+speed: 30 ft.
+abilities:
+  Str: 11
+  Dex: 14
+  Con: 12
+  Int: 10
+  Wis: 14
+  Cha: 13
+skills:
+- Deception +3
+- Persuasion +3
+- Religion +2
+immunities: []
+languages:
+- Common
+senses: Passive Perception 12
+challenge_rating: 2 (XP 450; PB +2)
+description: Cultist fanatics lead small cults or cells within larger cults. They're
+  privy to more of a cult's mysteries than lower-ranking cultists are, granting them
+  access to magical powers from their patrons.
+habitat: Any
+treasure: Individual, Relics
+actions:
+- name: Pact Blade
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 6 (1d8 + 2) Slashing damage plus
+    7 (2d6) Necrotic damage.'
+- name: Spellcasting
+  desc: 'The cultist casts one of the following spells, using Wisdom as the spellcasting
+    ability (spell save DC 12, +4 to hit with spell attacks):'
+- name: Spiritual Weapon (2/Day)
+  desc: The cultist casts the Spiritual Weapon spell, using the same spellcasting
+    ability as Spellcasting.
