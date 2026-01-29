@@ -8155,6 +8155,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._spell_presets_cache: Optional[List[Dict[str, Any]]] = None
         self._spell_index_entries: Dict[str, Any] = {}
         self._spell_index_loaded = False
+        self._spell_dir_notice: Optional[str] = None
         self._player_yaml_cache_by_path: Dict[Path, Optional[Dict[str, Any]]] = {}
         self._player_yaml_meta_by_path: Dict[Path, Dict[str, object]] = {}
         self._player_yaml_data_by_name: Dict[str, Dict[str, Any]] = {}
@@ -8234,6 +8235,24 @@ class InitiativeTracker(base.InitiativeTracker):
         if limit > 0:
             return lines[-limit:]
         return lines
+
+    def _resolve_spells_dir(self) -> Optional[Path]:
+        base_dir = Path.cwd()
+        canonical = base_dir / "Spells"
+        fallback = base_dir / "spells"
+        if canonical.exists():
+            return canonical
+        if fallback.exists():
+            notice = "Using fallback spell directory './spells/'. Prefer './Spells/'."
+            if self._spell_dir_notice != notice:
+                self._oplog(notice, "warning")
+                self._spell_dir_notice = notice
+            return fallback
+        notice = f"No spell presets found. Expected './Spells/' under {base_dir}."
+        if self._spell_dir_notice != notice:
+            self._oplog(notice, "info")
+            self._spell_dir_notice = notice
+        return None
 
     def _open_starting_players_dialog(self) -> None:
         """Suppress the startup roster popup during LAN POC, but keep it available later."""
@@ -9020,8 +9039,8 @@ class InitiativeTracker(base.InitiativeTracker):
     def _spell_presets_payload(self) -> List[Dict[str, Any]]:
         if yaml is None:
             return []
-        spells_dir = Path.cwd() / "Spells"
-        if not spells_dir.exists():
+        spells_dir = self._resolve_spells_dir()
+        if spells_dir is None:
             return []
 
         try:
