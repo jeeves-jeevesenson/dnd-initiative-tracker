@@ -1,0 +1,43 @@
+name: Swarm of Piranhas
+size: Medium
+type: Swarm of Tiny Beasts
+alignment: Unaligned
+initiative: +3 (13)
+ac: '13'
+hp: 28 (8d8 - 8)
+speed: 5 ft., Swim 40 ft.
+abilities:
+  Str: 13
+  Dex: 16
+  Con: 9
+  Int: 1
+  Wis: 7
+  Cha: 2
+skills: []
+immunities:
+- Charmed
+- Frightened
+- Grappled
+- Paralyzed
+- Petrified
+- Prone
+- Restrained
+- Stunned
+languages:
+- None
+senses: Darkvision 60 ft., Passive Perception 8
+challenge_rating: 1 (XP 200; PB +2)
+description: ''
+habitat: Underwater
+traits:
+- name: Swarm
+  desc: The swarm can occupy another creature's space and vice versa, and the swarm
+    can move through any opening large enough for a Tiny piranha. The swarm can't
+    regain Hit Points or gain Temporary Hit Points.
+- name: Water Breathing
+  desc: The swarm can breathe only underwater.
+actions:
+- name: Bites
+  desc: 'Melee Attack Roll: +5 (with Advantage if the target doesn''t have all its
+    Hit Points), reach 5 ft. Hit: 8 (2d4 + 3) Piercing damage, or 5 (1d4 + 3) Piercing
+    damage if the swarm is Bloodied.'

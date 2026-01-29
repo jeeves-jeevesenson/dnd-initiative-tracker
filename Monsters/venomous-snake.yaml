@@ -1,0 +1,27 @@
+name: Venomous Snake
+size: Tiny
+type: Beast
+alignment: Unaligned
+initiative: +2 (12)
+ac: '12'
+hp: 5 (2d4)
+speed: 30 ft., Swim 30 ft.
+abilities:
+  Str: 2
+  Dex: 15
+  Con: 11
+  Int: 1
+  Wis: 10
+  Cha: 3
+skills: []
+immunities: []
+languages:
+- None
+senses: Blindsight 10 ft., Passive Perception 10
+challenge_rating: 1/8 (XP 25; PB +2)
+description: ''
+habitat: Coastal, Desert, Forest, Grassland, Hill, Swamp
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 4 (1d4 + 2) Piercing damage plus
+    3 (1d6) Poison damage.'

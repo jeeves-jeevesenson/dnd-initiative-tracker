@@ -1,0 +1,32 @@
+name: Vampire Nightbringer
+size: Medium
+type: or Small Undead
+alignment: Neutral Evil
+initiative: +4 (14)
+ac: '16'
+hp: 142 (19d8 + 57)
+speed: 30 ft., Fly 30 ft. (hover)
+abilities:
+  Str: 16
+  Dex: 18
+  Con: 16
+  Int: 13
+  Wis: 14
+  Cha: 15
+skills:
+- Perception +5
+- Stealth +7
+immunities:
+- Cold
+- Necrotic; Charmed
+- Exhaustion
+- Frightened
+languages:
+- Common plus one other language
+senses: Darkvision 120 ft., Passive Perception 15
+challenge_rating: 8 (XP 3 900; PB +3)
+description: Born of necromantic rituals and planes of existence suffused with negative
+  energy, vampire nightbringers manipulate shadows and feed on the raw life force
+  of living creatures.
+habitat: Underdark, Urban
+treasure: Any

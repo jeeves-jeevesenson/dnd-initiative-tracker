@@ -1,0 +1,28 @@
+name: Thri-kreen Marauder
+size: Medium
+type: Monstrosity
+alignment: Neutral
+initiative: +2 (12)
+ac: '15'
+hp: 33 (6d8 + 6)
+speed: 40 ft.
+abilities:
+  Str: 12
+  Dex: 15
+  Con: 13
+  Int: 8
+  Wis: 12
+  Cha: 7
+skills:
+- Perception +3
+- Stealth +4
+- Survival +3
+immunities: []
+languages:
+- Thri-kreen; telepathy 60 ft.
+senses: Darkvision 60 ft., Passive Perception 13
+challenge_rating: 1 (XP 200; PB +2)
+description: Thri-kreen marauders employ weapons made of stone and bone, such as the
+  spear-like gythka and throwing blades called chatkcha.
+habitat: Desert, Grassland
+treasure: Armaments

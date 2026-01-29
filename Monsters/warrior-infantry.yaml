@@ -1,0 +1,34 @@
+name: Warrior Infantry
+size: Medium
+type: or Small Humanoid
+alignment: Neutral
+initiative: +0 (10)
+ac: '13'
+hp: 9 (2d8)
+speed: 30 ft.
+abilities:
+  Str: 13
+  Dex: 11
+  Con: 11
+  Int: 8
+  Wis: 11
+  Cha: 8
+skills: []
+immunities: []
+languages:
+- Common
+senses: Passive Perception 10
+challenge_rating: 1/8 (XP 25; PB +2)
+description: Warrior infantry might be trainees or rank-and-file troops. They are
+  skilled at contending with commonplace, nonmagical threats.
+habitat: Any
+treasure: Armaments
+traits:
+- name: Pack Tactics
+  desc: The warrior has Advantage on an attack roll against a creature if at least
+    one of the warrior's allies is within 5 feet of the creature and the ally doesn't
+    have the Incapacitated condition.
+actions:
+- name: Spear
+  desc: 'Melee or Ranged Attack Roll: +3, reach 5 ft. or range 20/60 ft. Hit: 4 (1d6
+    + 1) Piercing damage.'

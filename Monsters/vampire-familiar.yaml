@@ -1,0 +1,52 @@
+name: Vampire Familiar
+size: Medium
+type: or Small Humanoid
+alignment: Neutral Evil
+initiative: +5 (15)
+ac: '15'
+hp: 65 (10d8 +20)
+speed: 30 ft., Climb 30 ft.
+abilities:
+  Str: 17
+  Dex: 16
+  Con: 15
+  Int: 10
+  Wis: 10
+  Cha: 14
+skills:
+- Perception +4
+- Persuasion +4
+- Stealth +7
+immunities:
+- Charmed (except from its vampire master)
+languages:
+- Common plus one other language
+senses: Darkvision 60 ft., Passive Perception 14
+challenge_rating: 3 (XP 700; PB +2)
+description: Vampire familiars are living people who serve vampires, either willingly
+  or due to coercion by their deathless masters. They channel deathly energy through
+  their weapons, incapacitating unsuspecting targets and leaving their victims as
+  helpless prey for their vampire masters. Many vampire familiars aspire to eventually
+  become vampires, while others are magically charmed or serve as part of some terrible
+  bargain. In each case, these vampire servants show signs of their vampiric corruption,
+  such as corpse-like complexions, uncanny reflexes, and evidence of their masters'
+  repeated feedings. A vampire familiar loses its supernatural abilities and returns
+  to its original Humanoid state if its vampire master is destroyed.
+habitat: Underdark, Urban
+treasure: Any
+traits:
+- name: Vampiric Connection
+  desc: While the familiar and its vampire master are on the same plane of existence,
+    the vampire can communicate with the familiar telepathically, and the vampire
+    can perceive through the familiar's senses.
+actions:
+- name: Multiattack
+  desc: The familiar makes two Umbral Dagger attacks.
+- name: Umbral Dagger
+  desc: 'Melee or Ranged Attack Roll: +5, reach 5 ft. or range 20/60 ft. Hit: 5 (1d4
+    + 3) Piercing damage plus 7 (3d4) Necrotic damage. If the target is reduced to
+    0 Hit Points by this attack, the target becomes Stable but has the Poisoned condition
+    for 1 hour. While it has the Poisoned condition, the target has the Paralyzed
+    condition.'
+- name: Deathless Agility
+  desc: The familiar takes the Dash or Disengage action.

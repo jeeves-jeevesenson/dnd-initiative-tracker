@@ -1,0 +1,29 @@
+name: Warhorse
+size: Large
+type: Beast
+alignment: Unaligned
+initiative: +1 (11)
+ac: '11'
+hp: 19 (3d10 + 3)
+speed: 60 ft.
+abilities:
+  Str: 18
+  Dex: 12
+  Con: 13
+  Int: 2
+  Wis: 12
+  Cha: 7
+skills: []
+immunities: []
+languages:
+- None
+senses: Passive Perception 11
+challenge_rating: 1/2 (XP 100; PB +2)
+description: ''
+habitat: Urban
+actions:
+- name: Hooves
+  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 9 (2d4 + 4) Bludgeoning damage. If
+    the horse moved at least 20 feet straight toward the target immediately before
+    the hit, the target takes an extra 5 (2d4) Bludgeoning damage and, if it is Huge
+    or smaller, has the Prone condition.'

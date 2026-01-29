@@ -1,0 +1,35 @@
+name: Winged Kobold
+size: Small
+type: Dragon
+alignment: Neutral
+initiative: +3 (13)
+ac: '15'
+hp: 10 (4d6 - 4)
+speed: 30 ft., Fly 30 ft.
+abilities:
+  Str: 7
+  Dex: 16
+  Con: 9
+  Int: 8
+  Wis: 7
+  Cha: 8
+skills: []
+immunities: []
+languages:
+- Common
+- Draconic
+senses: Darkvision 60 ft., Passive Perception 8
+challenge_rating: 1/4 (XP 50; PB +2)
+description: Cowardly cousins to chromatic dragons, kobolds serve draconic overlords
+  as warriors and servants. These scrappy menaces mimic the behaviors of their dragon
+  masters. Though their small stature and recklessness make kobolds poor imitators
+  of dragons, what they lack in ferocity they make up for in zeal and ingenuity. They
+  are especially adept at creating traps and setting ambushes. Kobolds' scales resemble
+  those of chromatic dragons that live near their warrens. Rarely, kobolds possess
+  features evocative of metallic dragons or other dragon-like creatures.  Some kobolds
+  are born with wings. Called urds by others of their kind, these kobolds are thought
+  to be blessed by a dragon or Tiamat, the Dragon Queen. Despite their favored status,
+  winged kobolds are as cowardly as their brethren and use their flight mostly to
+  keep out of reach of their foes.
+habitat: Arctic, Coastal, Desert, Forest, Hill, Mountain, Swamp, Underdark, Urban
+treasure: Armaments

@@ -1,0 +1,31 @@
+name: Tiger
+size: Large
+type: Beast
+alignment: Unaligned
+initiative: +3 (13)
+ac: '13'
+hp: 30 (4d10 + 8)
+speed: 40 ft.
+abilities:
+  Str: 17
+  Dex: 16
+  Con: 14
+  Int: 3
+  Wis: 12
+  Cha: 8
+skills:
+- Perception +3
+- Stealth +7
+immunities: []
+languages:
+- None
+senses: Darkvision 60 ft., Passive Perception 13
+challenge_rating: 1 (XP 200; PB +2)
+description: ''
+habitat: Forest, Grassland
+actions:
+- name: Rend
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 10 (2d6 + 3) Slashing damage. If
+    the target is a Large or smaller creature, it has the Prone condition.'
+- name: Nimble Escape
+  desc: The tiger takes the Disengage or Hide action.

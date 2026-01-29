@@ -1,0 +1,43 @@
+name: Troll
+size: Large
+type: Giant
+alignment: Chaotic Evil
+initiative: +1 (11)
+ac: '15'
+hp: 94 (9d10 + 45)
+speed: 30 ft.
+abilities:
+  Str: 18
+  Dex: 13
+  Con: 20
+  Int: 7
+  Wis: 9
+  Cha: 7
+skills:
+- Perception +5
+immunities: []
+languages:
+- Giant
+senses: Darkvision 60 ft., Passive Perception 15
+challenge_rating: 5 (XP 1 800; PB +3)
+description: ''
+habitat: Arctic, Forest, Hill, Mountain, Swamp, Underdark
+traits:
+- name: Loathsome Limbs (4/Day)
+  desc: If the troll ends any turn Bloodied and took 15+ Slashing damage during that
+    turn, one of the troll's limbs is severed, falls into the troll's space, and becomes
+    a Troll Limb. The limb acts immediately after the troll's turn. The troll has
+    1 Exhaustion level for each missing limb, and it grows replacement limbs the next
+    time it regains Hit Points.
+- name: Regeneration
+  desc: The troll regains 15 Hit Points at the start of each of its turns. If the
+    troll takes Acid or Fire damage, this trait doesn't function on the troll's next
+    turn. The troll dies only if it starts its turn with 0 Hit Points and doesn't
+    regenerate.n.
+actions:
+- name: Multiattack
+  desc: The troll makes three Rend attacks.
+- name: Rend
+  desc: 'Melee Attack Roll: +7, reach 10 ft. Hit: 11 (2d6 + 4) Slashing damage.'
+- name: Charge
+  desc: The troll moves up to half its Speed straight toward an enemy it can see.

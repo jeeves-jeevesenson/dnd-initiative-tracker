@@ -1,0 +1,32 @@
+name: Vampire Umbral Lord
+size: Medium
+type: or Small Undead
+alignment: Lawful Evil
+initiative: +14 (24)
+ac: '16'
+hp: 187 (22d8 + 88)
+speed: 40 ft., Climb 40 ft., Fly 40 ft. (hover)
+abilities:
+  Str: 20
+  Dex: 18
+  Con: 18
+  Int: 19
+  Wis: 16
+  Cha: 21
+skills:
+- Arcana +9
+- Perception +13
+- Stealth +9
+immunities:
+- Cold
+- Necrotic; Charmed
+- Exhaustion
+languages:
+- Common plus three other languages
+senses: Blindsight 120 ft., Passive Perception 23
+challenge_rating: 15 (XP 13 000, or 15 000 in lair; PB +5)
+description: Vampire umbral lords embrace their ties to the darkness, devoting themselves
+  to sinister powers in exchange for access to forbidden magic.
+habitat: Underdark, Urban
+treasure: Any
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair).'

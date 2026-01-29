@@ -1,0 +1,27 @@
+name: Thri-kreen Psion
+size: Medium
+type: Monstrosity
+alignment: Neutral
+initiative: +5 (15)
+ac: '16'
+hp: 149 (23d8 + 46)
+speed: 40 ft., Fly 20 ft. (hover)
+abilities:
+  Str: 18
+  Dex: 15
+  Con: 14
+  Int: 19
+  Wis: 12
+  Cha: 11
+skills:
+- Perception +4
+- Stealth +8
+immunities: []
+languages:
+- Thri-kreen; telepathy 120 ft.
+senses: Darkvision 60 ft., Passive Perception 14
+challenge_rating: 8 (XP 3 900; PB +3)
+description: Thri-kreen psions harness their psychic powers to avoid danger and manipulate
+  objects from afar.
+habitat: Desert, Grassland
+treasure: Armaments

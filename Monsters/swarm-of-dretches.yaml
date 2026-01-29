@@ -1,0 +1,34 @@
+name: Swarm of Dretches
+size: Large
+type: swarm of Small Fiends (Demon)
+alignment: Chaotic Evil
+initiative: +0 (10)
+ac: '12'
+hp: 45 (6d10 + 12)
+speed: 40 ft.
+abilities:
+  Str: 14
+  Dex: 11
+  Con: 14
+  Int: 5
+  Wis: 8
+  Cha: 3
+skills: []
+immunities:
+- Poison; Charmed
+- Frightened
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained
+- Stunned
+languages:
+- Abyssal; telepathy 60 ft. (works only with creatures that understand abyssal)
+senses: Darkvision 60 ft., Passive Perception 9
+challenge_rating: 4 (XP 1 100; PB +2)
+description: Swarms of dretches sometimes escape the Abyss onto other planes of existence,
+  or they might be part of a demonic invasion. Without direction, these crude demons
+  rampage and despoil with cruel enthusiasm.
+habitat: Planar (Abyss)

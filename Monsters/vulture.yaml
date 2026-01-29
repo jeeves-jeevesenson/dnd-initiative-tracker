@@ -1,0 +1,32 @@
+name: Vulture
+size: Medium
+type: Beast
+alignment: Unaligned
+initiative: +0 (10)
+ac: '10'
+hp: 5 (1d8 + 1)
+speed: 10 ft., Fly 50 ft.
+abilities:
+  Str: 7
+  Dex: 10
+  Con: 13
+  Int: 2
+  Wis: 12
+  Cha: 4
+skills:
+- Perception +3
+immunities: []
+languages:
+- None
+senses: Passive Perception 13
+challenge_rating: 0 (XP 10; PB +2)
+description: ''
+habitat: Desert, Grassland, Hill
+traits:
+- name: Pack Tactics
+  desc: The vulture has Advantage on an attack roll against a creature if at least
+    one of the vulture's allies is within 5 feet of the creature and the ally doesn't
+    have the Incapacitated condition.
+actions:
+- name: Beak
+  desc: 'Melee Attack Roll: +2, reach 5 ft. Hit: 2 (1d4) Piercing damage.'

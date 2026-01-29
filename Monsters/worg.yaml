@@ -1,0 +1,32 @@
+name: Worg
+size: Large
+type: Fey
+alignment: Neutral Evil
+initiative: +1 (11)
+ac: '13'
+hp: 26 (4d10 + 4)
+speed: 50 ft.
+abilities:
+  Str: 16
+  Dex: 13
+  Con: 13
+  Int: 7
+  Wis: 11
+  Cha: 8
+skills:
+- Perception +4
+immunities: []
+languages:
+- Goblin
+- Worg
+senses: Darkvision 60 ft., Passive Perception 14
+challenge_rating: 1/2 (XP 100; PB +2)
+description: Packs of worgs roam harsh frontiers and cursed lands. They sometimes
+  conspire with goblinoids and gnolls and might serve them as mounts.
+habitat: Forest, Grassland, Hill, Planar (Feywild)
+treasure: None
+actions:
+- name: Bite
+  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 7 (1d8 + 3) Piercing damage, and
+    the next attack roll made against the target before the start of the worg''s next
+    turn has Advantage.'

@@ -1,0 +1,40 @@
+name: Swarm of Rats
+size: Medium
+type: Swarm of Tiny Beasts
+alignment: Unaligned
+initiative: +0 (10)
+ac: '10'
+hp: 14 (4d8 - 4)
+speed: 30 ft., Climb 30 ft.
+abilities:
+  Str: 9
+  Dex: 11
+  Con: 9
+  Int: 2
+  Wis: 10
+  Cha: 3
+skills: []
+immunities:
+- Charmed
+- Frightened
+- Grappled
+- Paralyzed
+- Petrified
+- Prone
+- Restrained
+- Stunned
+languages:
+- None
+senses: Darkvision 30 ft., Passive Perception 10
+challenge_rating: 1/4 (XP 50; PB +2)
+description: ''
+habitat: Forest, Swamp, Underdark, Urban
+traits:
+- name: Swarm
+  desc: The swarm can occupy another creature's space and vice versa, and the swarm
+    can move through any opening large enough for a Tiny rat. The swarm can't regain
+    Hit Points or gain Temporary Hit Points.
+actions:
+- name: Bites
+  desc: 'Melee Attack Roll: +2, reach 5 ft. Hit: 5 (2d4) Piercing damage, or 2 (1d4)
+    Piercing damage if the swarm is Bloodied.'

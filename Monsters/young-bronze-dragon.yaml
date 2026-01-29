@@ -1,0 +1,54 @@
+name: Young Bronze Dragon
+size: Large
+type: Dragon (Metallic)
+alignment: Lawful Good
+initiative: +3 (13)
+ac: '17'
+hp: 142 (15d10 + 60)
+speed: 40 ft., Fly 80 ft., Swim 40 ft.
+abilities:
+  Str: 21
+  Dex: 10
+  Con: 19
+  Int: 14
+  Wis: 13
+  Cha: 17
+skills:
+- Insight +4
+- Perception +7
+- Stealth +3
+immunities:
+- Lightning
+languages:
+- Common
+- Draconic
+senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 17
+challenge_rating: 8 (XP 3 900; PB +3)
+description: Where bronze dragons dwell, wonders flourish. Imaginative yet mindful,
+  these metallic dragons work toward greatness and help others achieve all they can.
+  They strive to preserve innovations, from the works of past civilizations to new
+  discoveries, and they share such works widely. When dealing with shorter-lived beings,
+  bronze dragons prefer to win them over through conversation and cultivation, but
+  they don't shy from battle when villains keep others from achieving their potential.
+  Bronze dragons enjoy the power and endless possibilities of the sea, and they often
+  make their lairs in places of natural beauty or communities they wish to preserve.
+  Within their dwellings, bronze dragons hoard things they believe will be useful
+  one day. They salvage treasure lost to the sea, reclaiming wealth or sunken ships.
+habitat: Coastal
+treasure: Implements
+traits:
+- name: Amphibious
+  desc: The dragon can breathe air and water.
+actions:
+- name: Multiattack
+  desc: The dragon makes three Rend attacks. It can replace one attack with a use
+    of Repulsion Breath.
+- name: Rend
+  desc: 'Melee Attack Roll: +8, reach 10 ft. Hit: 16 (2d10 + 5) Slashing damage.'
+- name: Lightning Breath (Recharge 5–6)
+  desc: 'Dexterity Saving Throw: DC 15, each creature in a 60-foot-long, 5-foot-wide
+    Line. Failure: 49 (9d10) Lightning damage. Success: Half damage.'
+- name: Repulsion Breath
+  desc: 'Strength Saving Throw: DC 15, each creature in a 30-foot Cone. Failure: The
+    target is pushed up to 40 feet straight away from the dragon and has the Prone
+    condition.'

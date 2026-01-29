@@ -1,0 +1,40 @@
+name: Swarm of Bats
+size: Large
+type: Swarm of Tiny Beasts
+alignment: Unaligned
+initiative: +2 (12)
+ac: '12'
+hp: 11 (2d10)
+speed: 5 ft., Fly 30 ft.
+abilities:
+  Str: 5
+  Dex: 15
+  Con: 10
+  Int: 2
+  Wis: 12
+  Cha: 4
+skills: []
+immunities:
+- Charmed
+- Frightened
+- Grappled
+- Paralyzed
+- Petrified
+- Prone
+- Restrained
+- Stunned
+languages:
+- None
+senses: Blindsight 60 ft., Passive Perception 11
+challenge_rating: 1/4 (XP 50; PB +2)
+description: ''
+habitat: Forest, Mountain, Underdark, Urban
+traits:
+- name: Swarm
+  desc: The swarm can occupy another creature's space and vice versa, and the swarm
+    can move through any opening large enough for a Tiny bat. The swarm can't regain
+    Hit Points or gain Temporary Hit Points.
+actions:
+- name: Bites
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (2d4) Piercing damage, or 2 (1d4)
+    Piercing damage if the swarm is Bloodied.'

@@ -1,0 +1,46 @@
+name: Swarm of Ravens
+size: Medium
+type: Swarm of Tiny Beasts
+alignment: Unaligned
+initiative: +2 (12)
+ac: '12'
+hp: 11 (2d8 + 2)
+speed: 10 ft., Fly 50 ft.
+abilities:
+  Str: 6
+  Dex: 14
+  Con: 12
+  Int: 5
+  Wis: 12
+  Cha: 6
+skills:
+- Perception +5
+immunities:
+- Charmed
+- Frightened
+- Grappled
+- Paralyzed
+- Petrified
+- Prone
+- Restrained
+- Stunned
+languages:
+- None
+senses: Passive Perception 15
+challenge_rating: 1/4 (XP 50; PB +2)
+description: ''
+habitat: Hill, Swamp, Urban
+traits:
+- name: Swarm
+  desc: The swarm can occupy another creature's space and vice versa, and the swarm
+    can move through any opening large enough for a Tiny raven. The swarm can't regain
+    Hit Points or gain Temporary Hit Points.
+actions:
+- name: Beaks
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Piercing damage, or 2
+    (1d4) Piercing damage if the swarm is Bloodied.'
+- name: Cacophony (Recharge 6)
+  desc: 'Wisdom Saving Throw: DC 10, one creature in the swarm''s space. Failure:
+    The target has the Deafened condition until the start of the swarm''s next turn.
+    While Deafened, the target also has Disadvantage on ability checks and attack
+    rolls.'

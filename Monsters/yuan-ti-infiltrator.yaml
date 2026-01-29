@@ -1,0 +1,33 @@
+name: Yuan-ti Infiltrator
+size: Medium
+type: Monstrosity
+alignment: Neutral Evil
+initiative: +1 (11)
+ac: '11'
+hp: 40 (9d8)
+speed: 30 ft.
+abilities:
+  Str: 11
+  Dex: 12
+  Con: 11
+  Int: 13
+  Wis: 14
+  Cha: 12
+skills:
+- Deception +5
+- Perception +4
+- Stealth +3
+immunities:
+- Poison; Poisoned
+languages:
+- Abyssal
+- Common
+- Draconic
+senses: Darkvision 60 ft., Passive Perception 14
+challenge_rating: 1 (XP 200; PB +2)
+description: Infiltrators can pass as human, their serpentine features limited to
+  scaly skin, forked tongues, and other minor or internal transformations. These spies
+  insinuate themselves among their rivals, manipulating others and making foes vulnerable
+  to the plots of more powerful yuan-ti.
+habitat: Desert, Forest, Swamp, Urban
+treasure: Relics

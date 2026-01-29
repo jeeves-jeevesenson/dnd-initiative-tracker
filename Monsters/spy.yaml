@@ -1,0 +1,40 @@
+name: Spy
+size: Medium
+type: or Small Humanoid
+alignment: Neutral
+initiative: +4 (14)
+ac: '12'
+hp: 27 (6d8)
+speed: 30 ft., Climb 30 ft.
+abilities:
+  Str: 10
+  Dex: 15
+  Con: 10
+  Int: 12
+  Wis: 14
+  Cha: 16
+skills:
+- Deception +5
+- Insight +4
+- Investigation +5
+- Perception +6
+- Sleight of Hand +4
+- Stealth +6
+immunities: []
+languages:
+- Common plus one other language
+senses: Passive Perception 16
+challenge_rating: 1 (XP 200; PB +2)
+description: Spies use charm and deception to veil their true intentions. If forced
+  into combat, they seek to end such conflicts quietly and decisively.
+habitat: Any
+treasure: Individual, Implements
+actions:
+- name: Shortsword
+  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Piercing damage plus
+    7 (2d6) Poison damage.'
+- name: Hand Crossbow
+  desc: 'Ranged Attack Roll: +4, range 30/120 ft. Hit: 5 (1d6 + 2) Piercing damage
+    plus 7 (2d6) Poison damage.'
+- name: Cunning Action
+  desc: The spy takes the Dash, Disengage, or Hide action.

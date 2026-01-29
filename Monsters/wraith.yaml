@@ -1,0 +1,59 @@
+name: Wraith
+size: Medium
+type: or Small Undead
+alignment: Neutral Evil
+initiative: +3 (13)
+ac: '13'
+hp: 67 (9d8 + 27)
+speed: 5 ft., Fly 60 ft. (hover)
+abilities:
+  Str: 6
+  Dex: 16
+  Con: 16
+  Int: 12
+  Wis: 14
+  Cha: 15
+skills: []
+immunities:
+- Necrotic
+- Poison; Charmed
+- Exhaustion
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained
+- Unconscious
+languages:
+- Common plus two other languages
+senses: Darkvision 60 ft., Passive Perception 12
+challenge_rating: 5 (XP 1 800; PB +3)
+description: Wraiths are spectral evils, life-hungry embodiments of malice and terror.
+  Arising from the souls of tyrants, moments of catastrophic pain, or magical blasphemies,
+  wraiths spread suffering and the torment of undeath. Humanoids that die near a wraith
+  might be entrapped by the foul spirit and rise as  specters  bound to the wraith's
+  sinister will. Wraiths lurk in forgotten dungeons, accursed ruins, or lands influenced
+  by sinister planes of existence. Such haunted domains might bear hints of the tragedies
+  or foul magic that brought the wraiths into being. Wraiths might arise from a single
+  powerfully evil soul or other baleful forces.
+habitat: Planar (Shadowfell), Underdark
+treasure: None
+traits:
+- name: Incorporeal Movement
+  desc: The wraith can move through other creatures and objects as if they were Difficult
+    Terrain. It takes 5 (1d10) Force damage if it ends its turn inside an object.
+- name: Sunlight Sensitivity
+  desc: While in sunlight, the wraith has Disadvantage on ability checks and attack
+    rolls.
+actions:
+- name: Life Drain
+  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 21 (4d8 + 3) Necrotic damage. If
+    the target is a creature, its Hit Point maximum decreases by an amount equal to
+    the damage taken.'
+- name: Create Specter
+  desc: The wraith targets a Humanoid corpse within 10 feet of itself that has been
+    dead for no longer than 1 minute. The target's spirit rises as a Specter in the
+    space of its corpse or in the nearest unoccupied space. The specter is under the
+    wraith's control. The wraith can have no more than seven specters under its control
+    at a time.
