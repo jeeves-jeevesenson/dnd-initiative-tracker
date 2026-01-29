@@ -27,6 +27,14 @@ rsync -a --delete \
 
 mkdir -p "${APPDIR}/logs"
 
+if [[ "${INSTALL_PIP_DEPS:-0}" == "1" ]]; then
+  if [[ -f "${APPDIR}/requirements.txt" ]]; then
+    "${PYTHON_BIN}" -m pip install --user -r "${APPDIR}/requirements.txt"
+  else
+    echo "Warning: requirements.txt not found; skipping pip install."
+  fi
+fi
+
 cat > "${WRAPPER}" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
