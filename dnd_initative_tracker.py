@@ -2382,12 +2382,28 @@ __DAMAGE_TYPE_OPTIONS__
     return String(claimedUnit.name);
   }
 
+  function getPlayerProfile(name){
+    if (!name) return null;
+    const profiles = state?.player_profiles;
+    if (!profiles || typeof profiles !== "object") return null;
+    const profile = profiles[name];
+    if (!profile || typeof profile !== "object") return null;
+    return profile;
+  }
+
   function getPlayerSpellConfig(name){
     const defaults = {...spellConfigDefaults};
     if (!name) return {cantrips: defaults.cantrips, spells: defaults.spells, names: []};
-    const store = state?.player_spells;
-    if (!store || typeof store !== "object") return {cantrips: defaults.cantrips, spells: defaults.spells, names: []};
-    const raw = store[name];
+    let raw = null;
+    const profile = getPlayerProfile(name);
+    if (profile?.spellcasting && typeof profile.spellcasting === "object"){
+      raw = profile.spellcasting;
+    } else {
+      const store = state?.player_spells;
+      if (store && typeof store === "object"){
+        raw = store[name];
+      }
+    }
     if (!raw || typeof raw !== "object"){
       return {cantrips: defaults.cantrips, spells: defaults.spells, names: []};
     }
@@ -2460,6 +2476,27 @@ __DAMAGE_TYPE_OPTIONS__
         ? config.names.map(normalizeTextValue).filter(Boolean)
         : [],
     };
+    if (!state.player_profiles || typeof state.player_profiles !== "object"){
+      state.player_profiles = {};
+    }
+    if (!state.player_profiles[name] || typeof state.player_profiles[name] !== "object"){
+      state.player_profiles[name] = {name};
+    }
+    const profile = state.player_profiles[name];
+    if (!profile.spellcasting || typeof profile.spellcasting !== "object"){
+      profile.spellcasting = {};
+    }
+    profile.spellcasting.known_cantrips = normalizeSpellConfigValue(
+      config.cantrips,
+      spellConfigDefaults.cantrips
+    );
+    profile.spellcasting.known_spells = normalizeSpellConfigValue(
+      config.spells,
+      spellConfigDefaults.spells
+    );
+    profile.spellcasting.known_spell_names = Array.isArray(config.names)
+      ? config.names.map(normalizeTextValue).filter(Boolean)
+      : [];
   }
 
   async function persistPlayerSpellConfig(name, config){
@@ -7065,6 +7102,33 @@ class MonsterSpec:
     ability_mods: Dict[str, int]
     raw_data: Dict[str, Any]
 
+
+@dataclass
+class PlayerProfile:
+    name: str
+    format_version: int = 0
+    identity: Dict[str, Any] = field(default_factory=dict)
+    leveling: Dict[str, Any] = field(default_factory=dict)
+    abilities: Dict[str, Any] = field(default_factory=dict)
+    defenses: Dict[str, Any] = field(default_factory=dict)
+    resources: Dict[str, Any] = field(default_factory=dict)
+    spellcasting: Dict[str, Any] = field(default_factory=dict)
+    inventory: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "format_version": self.format_version,
+            "identity": dict(self.identity),
+            "leveling": dict(self.leveling),
+            "abilities": dict(self.abilities),
+            "defenses": dict(self.defenses),
+            "resources": dict(self.resources),
+            "spellcasting": dict(self.spellcasting),
+            "inventory": dict(self.inventory),
+        }
+
+
 class LanController:
     """Runs a FastAPI+WebSocket server in a background thread and bridges actions into the Tk thread."""
 
@@ -7863,11 +7927,17 @@ class LanController:
         pcs = list(self._cached_pcs)
         with self._clients_lock:
             cid_to_host = dict(self._cid_to_host)
+        profiles = self.app._player_profiles_payload() if hasattr(self.app, "_player_profiles_payload") else {}
         out: List[Dict[str, Any]] = []
         for p in pcs:
             pp = dict(p)
             cid = int(pp.get("cid", -1))
             pp["claimed_by"] = cid_to_host.get(cid)
+            name = str(pp.get("name") or "")
+            if name and isinstance(profiles, dict):
+                profile = profiles.get(name)
+                if isinstance(profile, dict):
+                    pp["player_profile"] = profile
             out.append(pp)
         out.sort(key=lambda d: str(d.get("name", "")))
         return out
@@ -8714,12 +8784,17 @@ class InitiativeTracker(base.InitiativeTracker):
                     if isinstance(value, str) and value.strip():
                         return [value.strip()]
                     return []
+                profile = self._normalize_player_profile(data, nm)
+                resources = profile.get("resources", {}) if isinstance(profile, dict) else {}
+                defenses = profile.get("defenses", {}) if isinstance(profile, dict) else {}
                 # accept a few key names
-                speed = int(data.get("base_movement", data.get("speed", speed)) or speed)
-                swim = int(data.get("swim_speed", swim) or swim)
-                hp = int(data.get("hp", hp) or hp)
-                actions = normalize_action_list(data.get("actions"))
-                bonus_actions = normalize_action_list(data.get("bonus_actions"))
+                speed = int(
+                    resources.get("base_movement", resources.get("speed", speed)) or speed
+                )
+                swim = int(resources.get("swim_speed", swim) or swim)
+                hp = int(defenses.get("hp", hp) or hp)
+                actions = normalize_action_list(resources.get("actions"))
+                bonus_actions = normalize_action_list(resources.get("bonus_actions"))
 
             try:
                 init_total = random.randint(1, 20)
@@ -9025,6 +9100,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "turn_order": turn_order,
             "spell_presets": self._spell_presets_payload(),
             "player_spells": self._player_spell_config_payload(),
+            "player_profiles": self._player_profiles_payload(),
         }
         return snap
 
@@ -9436,6 +9512,75 @@ class InitiativeTracker(base.InitiativeTracker):
         slug = slug.strip("-._")
         return slug or "player"
 
+    @staticmethod
+    def _normalize_player_section(value: Any) -> Dict[str, Any]:
+        return dict(value) if isinstance(value, dict) else {}
+
+    def _normalize_player_profile(self, data: Dict[str, Any], fallback_name: str) -> Dict[str, Any]:
+        def normalize_name(value: Any) -> Optional[str]:
+            text = str(value or "").strip()
+            return text or None
+
+        fmt_raw = data.get("format_version")
+        try:
+            fmt = int(fmt_raw)
+        except Exception:
+            fmt = 0
+        if fmt != 1:
+            fmt = 0
+
+        identity = self._normalize_player_section(data.get("identity"))
+        leveling = self._normalize_player_section(data.get("leveling"))
+        abilities = self._normalize_player_section(data.get("abilities"))
+        defenses = self._normalize_player_section(data.get("defenses"))
+        resources = self._normalize_player_section(data.get("resources"))
+        spellcasting = self._normalize_player_section(data.get("spellcasting"))
+        inventory = self._normalize_player_section(data.get("inventory"))
+
+        name = (
+            normalize_name(data.get("name"))
+            or normalize_name(identity.get("name"))
+            or normalize_name(identity.get("character_name"))
+            or normalize_name(identity.get("player_name"))
+            or normalize_name(fallback_name)
+        )
+        if name is None:
+            name = fallback_name
+
+        if "name" not in identity and name:
+            identity["name"] = name
+
+        if fmt == 0:
+            if "base_movement" in data and "base_movement" not in resources:
+                resources["base_movement"] = data.get("base_movement")
+            if "speed" in data and "base_movement" not in resources:
+                resources["base_movement"] = data.get("speed")
+            if "swim_speed" in data and "swim_speed" not in resources:
+                resources["swim_speed"] = data.get("swim_speed")
+            if "hp" in data and "hp" not in defenses:
+                defenses["hp"] = data.get("hp")
+            if "actions" in data and "actions" not in resources:
+                resources["actions"] = data.get("actions")
+            if "bonus_actions" in data and "bonus_actions" not in resources:
+                resources["bonus_actions"] = data.get("bonus_actions")
+
+        for key in ("known_cantrips", "known_spells", "known_spell_names"):
+            if key not in spellcasting and key in data:
+                spellcasting[key] = data.get(key)
+
+        profile = PlayerProfile(
+            name=name,
+            format_version=fmt,
+            identity=identity,
+            leveling=leveling,
+            abilities=abilities,
+            defenses=defenses,
+            resources=resources,
+            spellcasting=spellcasting,
+            inventory=inventory,
+        )
+        return profile.to_dict()
+
     def _normalize_player_spell_config(self, data: Dict[str, Any]) -> Dict[str, Any]:
         def normalize_limit(value: Any, fallback: int) -> int:
             try:
@@ -9448,9 +9593,12 @@ class InitiativeTracker(base.InitiativeTracker):
             text = str(value or "").strip()
             return text or None
 
-        known_cantrips = normalize_limit(data.get("known_cantrips"), 0)
-        known_spells = normalize_limit(data.get("known_spells"), 15)
-        raw_names = data.get("known_spell_names")
+        source = data
+        if isinstance(data.get("spellcasting"), dict):
+            source = data.get("spellcasting", {})
+        known_cantrips = normalize_limit(source.get("known_cantrips"), 0)
+        known_spells = normalize_limit(source.get("known_spells"), 15)
+        raw_names = source.get("known_spell_names")
         names: List[str] = []
         if isinstance(raw_names, list):
             names = [name for item in raw_names if (name := normalize_name(item))]
@@ -9511,8 +9659,9 @@ class InitiativeTracker(base.InitiativeTracker):
         for path, data in data_by_path.items():
             if not isinstance(data, dict):
                 continue
-            name = str(data.get("name") or path.stem).strip() or path.stem
-            data_by_name[name] = data
+            profile = self._normalize_player_profile(data, path.stem)
+            name = str(profile.get("name") or path.stem).strip() or path.stem
+            data_by_name[name] = profile
             name_map[name.lower()] = path
             name_map[path.stem.lower()] = path
 
@@ -9528,6 +9677,15 @@ class InitiativeTracker(base.InitiativeTracker):
             if not isinstance(data, dict):
                 continue
             payload[name] = self._normalize_player_spell_config(data)
+        return payload
+
+    def _player_profiles_payload(self) -> Dict[str, Dict[str, Any]]:
+        self._load_player_yaml_cache()
+        payload: Dict[str, Dict[str, Any]] = {}
+        for name, data in self._player_yaml_data_by_name.items():
+            if not isinstance(data, dict):
+                continue
+            payload[name] = dict(data)
         return payload
 
     def _save_player_spell_config(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -9550,11 +9708,25 @@ class InitiativeTracker(base.InitiativeTracker):
         existing = self._player_yaml_cache_by_path.get(path) or {}
         if not isinstance(existing, dict):
             existing = {}
-        if "name" not in existing:
-            existing["name"] = player_name
 
         normalized = self._normalize_player_spell_config(payload)
-        existing.update(normalized)
+
+        if int(existing.get("format_version") or 0) == 1:
+            spellcasting = existing.get("spellcasting")
+            if not isinstance(spellcasting, dict):
+                spellcasting = {}
+            spellcasting.update(normalized)
+            existing["spellcasting"] = spellcasting
+            identity = existing.get("identity")
+            if not isinstance(identity, dict):
+                identity = {}
+            if "name" not in identity:
+                identity["name"] = player_name
+            existing["identity"] = identity
+        else:
+            if "name" not in existing:
+                existing["name"] = player_name
+            existing.update(normalized)
 
         yaml_text = yaml.safe_dump(existing, sort_keys=False)
         path.write_text(yaml_text, encoding="utf-8")
@@ -9562,7 +9734,9 @@ class InitiativeTracker(base.InitiativeTracker):
         meta = _file_stat_metadata(path)
         self._player_yaml_cache_by_path[path] = existing
         self._player_yaml_meta_by_path[path] = meta
-        self._player_yaml_data_by_name[existing.get("name", player_name)] = existing
+        profile = self._normalize_player_profile(existing, path.stem)
+        profile_name = profile.get("name", player_name)
+        self._player_yaml_data_by_name[profile_name] = profile
         self._player_yaml_name_map[player_name.lower()] = path
         self._player_yaml_name_map[path.stem.lower()] = path
 
