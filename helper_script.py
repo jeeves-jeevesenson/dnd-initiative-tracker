@@ -9,7 +9,8 @@ Features:
 - Initiative order with configurable "Start Here" rotation
 - Turn tracker (current creature, round count, turn count) + loops
 - HP + Speed (movement) per creature
-- Damage/Heal tool (calculator-style) with auto-remove only when damage drops HP to 0
+- Damage tool (calculator-style) with auto-remove only when damage drops HP to 0
+- Heal tool (simple HP add with optional attacker logging)
 - Damage-over-time conditions (Burn/Poison/Necrotic) that roll at start of creature's turn
 - Conditions (2024 Basic Rules list) with stackable durations, auto-skip for certain conditions
 - Prone: Stand Up button spends half movement to remove Prone
@@ -384,12 +385,13 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(add_frame, text="Add", command=self._add_single).grid(row=1, column=8, padx=(0, 8))
         ttk.Button(add_frame, text="Bulk Add…", command=self._open_bulk_dialog).grid(row=1, column=9, padx=(0, 8))
         ttk.Button(add_frame, text="Remove Selected", command=self._remove_selected).grid(row=1, column=10, padx=(0, 8))
-        ttk.Button(add_frame, text="Damage/Heal…", command=self._open_hp_tool).grid(row=1, column=11, padx=(0, 8))
-        ttk.Button(add_frame, text="Conditions…", command=self._open_condition_tool).grid(row=1, column=12, padx=(0, 8))
-        ttk.Button(add_frame, text="Set Start Here", command=self._set_start_here).grid(row=1, column=13, padx=(0, 8))
-        ttk.Button(add_frame, text="Clear Start", command=self._clear_start).grid(row=1, column=14)
+        ttk.Button(add_frame, text="Damage…", command=self._open_damage_tool).grid(row=1, column=11, padx=(0, 8))
+        ttk.Button(add_frame, text="Heal…", command=self._open_heal_tool).grid(row=1, column=12, padx=(0, 8))
+        ttk.Button(add_frame, text="Conditions…", command=self._open_condition_tool).grid(row=1, column=13, padx=(0, 8))
+        ttk.Button(add_frame, text="Set Start Here", command=self._set_start_here).grid(row=1, column=14, padx=(0, 8))
+        ttk.Button(add_frame, text="Clear Start", command=self._clear_start).grid(row=1, column=15)
         ttk.Button(add_frame, text="Refresh monsters/spells", command=self._refresh_monsters_spells).grid(
-            row=1, column=15, padx=(8, 0)
+            row=1, column=16, padx=(8, 0)
         )
 
         # Turn frame
@@ -431,7 +433,9 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(btn_row, text="LAN Admin…", command=self._open_lan_admin).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Clear", command=self._clear_turns).pack(side=tk.LEFT, padx=(0, 8))
 
-        ttk.Label(btn_row, text="Shortcuts: Space=Next, Shift+Space=Prev, C=Conditions, D=Damage, M=Move, W=Water, P=Map").pack(
+        ttk.Label(
+            btn_row, text="Shortcuts: Space=Next, Shift+Space=Prev, C=Conditions, D=Damage, H=Heal, M=Move, W=Water, P=Map"
+        ).pack(
             side=tk.LEFT, padx=(14, 0)
         )
 
@@ -516,8 +520,8 @@ class InitiativeTracker(tk.Tk):
         self.tree.bind("<Button-3>", self._on_tree_right_click)
         self.bind("<space>", lambda e: self._next_turn())
         self.bind("<Shift-space>", lambda e: self._prev_turn())
-        self.bind("<KeyPress-d>", lambda e: self._open_hp_tool(default_mode="damage"))
-        self.bind("<KeyPress-h>", lambda e: self._open_hp_tool(default_mode="heal"))
+        self.bind("<KeyPress-d>", lambda e: self._open_damage_tool())
+        self.bind("<KeyPress-h>", lambda e: self._open_heal_tool())
         self.bind("<KeyPress-c>", lambda e: self._open_condition_tool())
         self.bind("<KeyPress-t>", lambda e: self._open_dot_tool())
         self.bind("<KeyPress-m>", lambda e: self._open_move_tool())
@@ -3511,11 +3515,10 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(btns, text="Roll & Add", command=on_add).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.LEFT)
 
-    # -------------------------- Damage/Heal tool --------------------------
+    # -------------------------- Damage tool --------------------------
 
-
-    def _open_hp_tool(self, default_mode: str = "damage") -> None:
-        """Open the Damage/Heal tool.
+    def _open_damage_tool(self) -> None:
+        """Open the Damage tool.
 
         This dialog supports:
         - Multiple entries (one per target by default if multiple rows are selected)
@@ -3525,7 +3528,7 @@ class InitiativeTracker(tk.Tk):
         - Optional attacker (blank attacker = anonymous)
         """
         dlg = tk.Toplevel(self)
-        dlg.title("Damage / Heal")
+        dlg.title("Damage")
         dlg.geometry("1120x720")
         dlg.minsize(920, 600)
         dlg.transient(self)
@@ -3569,15 +3572,9 @@ class InitiativeTracker(tk.Tk):
             ordered_sel = [self._cid_from_label(target_default)] if target_default else []
             ordered_sel = [cid for cid in ordered_sel if cid is not None and cid in self.combatants]
 
-        mode_var = tk.StringVar(value=default_mode)
-
         # ---- Top options ----
         top = ttk.Frame(outer)
         top.pack(fill=tk.X)
-
-        ttk.Label(top, text="Mode:").pack(side=tk.LEFT)
-        ttk.Radiobutton(top, text="Damage", variable=mode_var, value="damage").pack(side=tk.LEFT, padx=(6, 8))
-        ttk.Radiobutton(top, text="Heal", variable=mode_var, value="heal").pack(side=tk.LEFT, padx=(0, 12))
 
         ttk.Label(top, text="Tip: Amount supports math (10+10+10). Blank Attacker = anonymous log.").pack(
             side=tk.LEFT
@@ -3799,7 +3796,6 @@ class InitiativeTracker(tk.Tk):
 
         # Make a red-ish button using tk.Button for reliable background color
         def _apply():
-            mode = mode_var.get()
             removed_all: list[int] = []
             pre_order = [x.cid for x in self._display_order()]
 
@@ -3810,7 +3806,7 @@ class InitiativeTracker(tk.Tk):
                 # Resolve target
                 cid = self._cid_from_label(row["target_var"].get())
                 if cid is None or cid not in self.combatants:
-                    messagebox.showerror("Damage/Heal", f"Row {idx}: pick a valid target.", parent=dlg)
+                    messagebox.showerror("Damage", f"Row {idx}: pick a valid target.", parent=dlg)
                     return
 
                 components: list[dict] = []
@@ -3821,7 +3817,7 @@ class InitiativeTracker(tk.Tk):
                         continue
                     if not amt_text:
                         messagebox.showerror(
-                            "Damage/Heal",
+                            "Damage",
                             f"Row {idx}: Amount must be a number or a small math expression (e.g. 10+10+10).",
                             parent=dlg,
                         )
@@ -3830,18 +3826,18 @@ class InitiativeTracker(tk.Tk):
                         amt = self._parse_int_expr(amt_text)
                     except Exception:
                         messagebox.showerror(
-                            "Damage/Heal",
+                            "Damage",
                             f"Row {idx}: Amount must be a number or a small math expression (e.g. 10+10+10).",
                             parent=dlg,
                         )
                         return
                     if amt < 0:
-                        messagebox.showerror("Damage/Heal", f"Row {idx}: Amount must be positive.", parent=dlg)
+                        messagebox.showerror("Damage", f"Row {idx}: Amount must be positive.", parent=dlg)
                         return
                     components.append(dict(amount=amt, dtype=dtype))
 
                 if not components:
-                    messagebox.showerror("Damage/Heal", f"Row {idx}: add at least one damage component.", parent=dlg)
+                    messagebox.showerror("Damage", f"Row {idx}: add at least one damage component.", parent=dlg)
                     return
 
                 c = self.combatants.get(cid)
@@ -3854,18 +3850,6 @@ class InitiativeTracker(tk.Tk):
                 attacker_cid = self._cid_from_label(attacker_label) if attacker_label else None
                 resist_note = ""
                 imm_note = ""
-                crit_suffix = " Critical Hit!" if row["crit_var"].get() else ""
-
-                if mode == "heal":
-                    total_heal = sum(comp["amount"] for comp in components)
-                    c.hp = max(0, int(c.hp) + int(total_heal))
-                    if attacker_name:
-                        self._log(f"{attacker_name} heals {target_name} for {total_heal} HP")
-                    else:
-                        self._log(f"{target_name} heals {total_heal} HP")
-                    continue
-
-                # Damage mode
                 base_components = []
                 applied_components = []
                 total_applied = 0
@@ -3931,18 +3915,9 @@ class InitiativeTracker(tk.Tk):
             if close_after.get():
                 dlg.destroy()
 
-        def _set_button_label(*_):
-            if mode_var.get() == "heal":
-                act_btn.configure(text="Apply heal", bg="#2d7d46")
-            else:
-                act_btn.configure(text="Deal damage", bg="#8b1e1e")
-
         act_btn = tk.Button(bottom, text="Deal damage", command=_apply, bg="#8b1e1e", fg="white", padx=14, pady=6)
         act_btn.pack(side=tk.RIGHT)
         ttk.Button(bottom, text="Close", command=dlg.destroy).pack(side=tk.RIGHT, padx=(0, 8))
-
-        mode_var.trace_add("write", _set_button_label)
-        _set_button_label()
 
         _apply_dialog_geometry(dlg, 1120, 720, 920, 600)
 
@@ -3950,6 +3925,240 @@ class InitiativeTracker(tk.Tk):
         try:
             if rows[0]["components"]:
                 rows[0]["components"][0]["amt_entry"].focus_set()
+        except Exception:
+            pass
+
+    # -------------------------- Heal tool --------------------------
+    def _open_heal_tool(self) -> None:
+        """Open the Heal tool."""
+        dlg = tk.Toplevel(self)
+        dlg.title("Heal")
+        dlg.geometry("920x620")
+        dlg.minsize(840, 520)
+        dlg.transient(self)
+        dlg.after(0, dlg.grab_set)
+
+        outer = ttk.Frame(dlg, padding=10)
+        outer.pack(fill=tk.BOTH, expand=True)
+
+        labels = self._target_labels()
+        attacker_default = ""
+        if getattr(self, "current_cid", None) is not None and self.current_cid in self.combatants:
+            attacker_default = self._label_for(self.combatants[self.current_cid])
+        elif labels:
+            attacker_default = labels[0]
+
+        selected = self._selected_cids()
+        ordered_sel: list[int] = []
+        if selected:
+            want = set(selected)
+            for c in self._display_order():
+                if c.cid in want:
+                    ordered_sel.append(c.cid)
+            for cid in selected:
+                if cid not in ordered_sel:
+                    ordered_sel.append(cid)
+
+        if not ordered_sel:
+            target_default = labels[0] if labels else ""
+            if self.tree.selection():
+                try:
+                    cid = int(self.tree.selection()[0])
+                    if cid in self.combatants:
+                        target_default = self._label_for(self.combatants[cid])
+                except Exception:
+                    pass
+            ordered_sel = [self._cid_from_label(target_default)] if target_default else []
+            ordered_sel = [cid for cid in ordered_sel if cid is not None and cid in self.combatants]
+
+        top = ttk.Frame(outer)
+        top.pack(fill=tk.X)
+        ttk.Label(top, text="Tip: Amount supports math (10+10+10). Blank Attacker = anonymous log.").pack(side=tk.LEFT)
+
+        entries_box = ttk.LabelFrame(outer, text="Entries", padding=8)
+        entries_box.pack(fill=tk.BOTH, expand=True, pady=(10, 8))
+
+        cont = ttk.Frame(entries_box)
+        cont.pack(fill=tk.BOTH, expand=True)
+
+        canvas = tk.Canvas(cont, highlightthickness=0)
+        vbar = ttk.Scrollbar(cont, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vbar.set)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        inner = ttk.Frame(canvas)
+        inner_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def _on_inner_config(_evt=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_config(evt):
+            try:
+                canvas.itemconfigure(inner_id, width=evt.width)
+            except Exception:
+                pass
+
+        inner.bind("<Configure>", _on_inner_config)
+        canvas.bind("<Configure>", _on_canvas_config)
+
+        headers = ["Attacker", "Target", "Heal Amount", ""]
+        for col, h in enumerate(headers):
+            ttk.Label(inner, text=h).grid(row=0, column=col, sticky="w", padx=(0, 8))
+
+        attacker_values = [""] + (labels or [])
+
+        rows: list[dict] = []
+
+        def _parse_name_from_label(lbl: str) -> Optional[str]:
+            lbl = (lbl or "").strip()
+            if not lbl:
+                return None
+            cid = self._cid_from_label(lbl)
+            if cid is not None and cid in self.combatants:
+                return self.combatants[cid].name
+            return lbl.split(" [#")[0].strip()
+
+        def _regrid() -> None:
+            for i, row in enumerate(rows, start=1):
+                r = i
+                row["attacker_combo"].grid(row=r, column=0, sticky="we", padx=(0, 8), pady=2)
+                row["target_combo"].grid(row=r, column=1, sticky="we", padx=(0, 8), pady=2)
+                row["amount_entry"].grid(row=r, column=2, sticky="we", padx=(0, 8), pady=2)
+                row["rm_btn"].grid(row=r, column=3, sticky="e", pady=2)
+
+            inner.columnconfigure(0, weight=2)
+            inner.columnconfigure(1, weight=2)
+            inner.columnconfigure(2, weight=1)
+
+        def add_entry(target_label: str = "", attacker_label: str = "") -> None:
+            atk_var = tk.StringVar(value=attacker_label)
+            tgt_var = tk.StringVar(value=target_label)
+            amt_var = tk.StringVar()
+
+            attacker_combo = ttk.Combobox(
+                inner, textvariable=atk_var, values=attacker_values, state=("readonly" if attacker_values else "disabled")
+            )
+            target_combo = ttk.Combobox(
+                inner, textvariable=tgt_var, values=(labels or []), state=("readonly" if labels else "disabled")
+            )
+            amount_entry = ttk.Entry(inner, textvariable=amt_var, width=12)
+
+            def remove_this():
+                if len(rows) <= 1:
+                    atk_var.set(attacker_default)
+                    tgt_var.set("")
+                    amt_var.set("")
+                    return
+                for w in (attacker_combo, target_combo, amount_entry, rm_btn):
+                    try:
+                        w.destroy()
+                    except Exception:
+                        pass
+                try:
+                    rows.remove(row)
+                except ValueError:
+                    pass
+                _regrid()
+
+            rm_btn = ttk.Button(inner, text="Keelhaul", command=remove_this)
+
+            row = dict(
+                attacker_var=atk_var,
+                target_var=tgt_var,
+                amount_var=amt_var,
+                attacker_combo=attacker_combo,
+                target_combo=target_combo,
+                amount_entry=amount_entry,
+                rm_btn=rm_btn,
+            )
+            rows.append(row)
+            _regrid()
+
+        if ordered_sel:
+            for cid in ordered_sel:
+                if cid in self.combatants:
+                    add_entry(target_label=self._label_for(self.combatants[cid]), attacker_label=attacker_default)
+        else:
+            add_entry(target_label=(labels[0] if labels else ""), attacker_label=attacker_default)
+
+        add_row = ttk.Frame(outer)
+        add_row.pack(fill=tk.X)
+
+        def on_add():
+            add_entry(target_label="", attacker_label=attacker_default)
+            try:
+                rows[-1]["amount_entry"].focus_set()
+            except Exception:
+                pass
+
+        ttk.Button(add_row, text="Add another heal", command=on_add).pack(side=tk.LEFT)
+
+        close_after = tk.BooleanVar(value=False)
+        ttk.Checkbutton(add_row, text="Close after apply", variable=close_after).pack(side=tk.RIGHT)
+
+        bottom = ttk.Frame(outer)
+        bottom.pack(fill=tk.X, pady=(10, 0))
+
+        def _apply():
+            if not rows:
+                return
+
+            for idx, row in enumerate(rows, start=1):
+                cid = self._cid_from_label(row["target_var"].get())
+                if cid is None or cid not in self.combatants:
+                    messagebox.showerror("Heal", f"Row {idx}: pick a valid target.", parent=dlg)
+                    return
+
+                amt_text = row["amount_var"].get().strip()
+                if not amt_text:
+                    messagebox.showerror(
+                        "Heal",
+                        f"Row {idx}: Amount must be a number or a small math expression (e.g. 10+10+10).",
+                        parent=dlg,
+                    )
+                    return
+                try:
+                    amt = self._parse_int_expr(amt_text)
+                except Exception:
+                    messagebox.showerror(
+                        "Heal",
+                        f"Row {idx}: Amount must be a number or a small math expression (e.g. 10+10+10).",
+                        parent=dlg,
+                    )
+                    return
+                if amt < 0:
+                    messagebox.showerror("Heal", f"Row {idx}: Amount must be positive.", parent=dlg)
+                    return
+
+                c = self.combatants.get(cid)
+                if c is None:
+                    continue
+
+                target_name = c.name
+                attacker_label = row["attacker_var"].get()
+                attacker_name = _parse_name_from_label(attacker_label)
+
+                c.hp = max(0, int(c.hp) + int(amt))
+                if attacker_name:
+                    self._log(f"{attacker_name} heals {target_name} for {amt} HP")
+                else:
+                    self._log(f"{target_name} heals {amt} HP")
+
+            self._rebuild_table(scroll_to_current=True)
+
+            if close_after.get():
+                dlg.destroy()
+
+        act_btn = tk.Button(bottom, text="Apply heal", command=_apply, bg="#2d7d46", fg="white", padx=14, pady=6)
+        act_btn.pack(side=tk.RIGHT)
+        ttk.Button(bottom, text="Close", command=dlg.destroy).pack(side=tk.RIGHT, padx=(0, 8))
+
+        _apply_dialog_geometry(dlg, 920, 620, 840, 520)
+
+        try:
+            if rows:
+                rows[0]["amount_entry"].focus_set()
         except Exception:
             pass
 
