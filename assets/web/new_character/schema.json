@@ -44,29 +44,6 @@
           "label": "IP Address",
           "type": "string",
           "default": ""
-        },
-        {
-          "key": "known_cantrips",
-          "label": "Known Cantrips (Legacy)",
-          "type": "integer",
-          "default": 0
-        },
-        {
-          "key": "known_spells",
-          "label": "Known Spells (Legacy)",
-          "type": "integer",
-          "default": 0
-        },
-        {
-          "key": "known_spell_names",
-          "label": "Known Spell Names (Legacy)",
-          "type": "array",
-          "repeatable": true,
-          "items": {
-            "type": "string",
-            "default": ""
-          },
-          "default": []
         }
       ]
     },

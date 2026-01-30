@@ -73,9 +73,6 @@ name: "Character Name"     # Required: Character's name (used for display and fi
 player: "Player Name"      # Optional: Real-world player's name
 campaign: "Campaign Name"  # Optional: Campaign identifier
 ip: "192.168.1.100"       # Optional: Player's IP address for LAN features
-known_cantrips: 0         # Deprecated: Legacy field, use spellcasting.cantrips instead
-known_spells: 0           # Deprecated: Legacy field, use spellcasting.known_spells instead
-known_spell_names: []     # Deprecated: Legacy field, use spellcasting sections instead
 ```
 
 **Field Descriptions:**
@@ -85,7 +82,6 @@ known_spell_names: []     # Deprecated: Legacy field, use spellcasting sections 
 - **player**: The real-world player's name. Used for tracking who plays this character.
 - **campaign**: Optional campaign name or identifier. Useful for organizing characters across multiple campaigns.
 - **ip**: IP address for the player's device when using LAN/mobile client features. Can be manually set or auto-detected.
-- **known_cantrips/known_spells/known_spell_names**: Legacy fields from format version 1. Replaced by the more comprehensive `spellcasting` section.
 
 ---
 
