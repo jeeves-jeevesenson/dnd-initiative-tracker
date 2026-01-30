@@ -1103,6 +1103,8 @@ HTML_INDEX = r"""<!doctype html>
     .spellbook-overlay{
       position: fixed;
       inset: 0;
+      height: calc(var(--spellbook-vh, 1vh) * 100);
+      max-height: 100dvh;
       background: rgba(10, 12, 16, 0.9);
       backdrop-filter: blur(8px);
       display: none;
@@ -1239,8 +1241,10 @@ HTML_INDEX = r"""<!doctype html>
       flex-direction:column;
       gap:12px;
       padding:12px;
+      padding-bottom: calc(12px + var(--safeInsetBottom) + 56px);
       overflow:hidden;
       flex:1;
+      min-height: 0;
     }
     .spellbook-tabs{
       display:flex;
@@ -1314,6 +1318,13 @@ HTML_INDEX = r"""<!doctype html>
     .spellbook-confirm-text{
       font-size:14px;
       margin:0 0 10px 0;
+    }
+    .spellbook-back-fab{
+      position: fixed;
+      left: 16px;
+      bottom: calc(16px + var(--safeInsetBottom));
+      z-index: 1;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.35);
     }
     .manual-entry-badge{
       display: none;
@@ -2321,7 +2332,8 @@ __DAMAGE_TYPE_OPTIONS__
       </div>
     </div>
     <div class="spellbook-status" id="spellbookStatus"></div>
-</div>
+  </div>
+  <button class="btn spellbook-back-fab" id="spellbookBackFloating" type="button" aria-label="Close spellbook">Close</button>
 </div>
 <div class="modal" id="spellbookConfirmModal" aria-hidden="true">
   <div class="card">
@@ -2722,6 +2734,7 @@ __DAMAGE_TYPE_OPTIONS__
   const spellbookOpenBtn = document.getElementById("spellbookOpen");
   const spellbookOverlay = document.getElementById("spellbookOverlay");
   const spellbookBackBtn = document.getElementById("spellbookBack");
+  const spellbookBackFloatingBtn = document.getElementById("spellbookBackFloating");
   const spellbookSaveBtn = document.getElementById("spellbookSave");
   const spellbookTabKnown = document.getElementById("spellbookTabKnown");
   const spellbookTabPrepared = document.getElementById("spellbookTabPrepared");
@@ -2905,6 +2918,12 @@ __DAMAGE_TYPE_OPTIONS__
       applySheetHeight(sheetHeight);
     }
   });
+  updateSpellbookViewportHeight();
+  window.addEventListener("resize", updateSpellbookViewportHeight);
+  if (window.visualViewport){
+    window.visualViewport.addEventListener("resize", updateSpellbookViewportHeight);
+    window.visualViewport.addEventListener("scroll", updateSpellbookViewportHeight);
+  }
 
   function updateConnDisplay(){
     if (connFullTextEl) connFullTextEl.textContent = connStatusText;
@@ -2985,6 +3004,12 @@ __DAMAGE_TYPE_OPTIONS__
     rootStyle.setProperty("--modalBottomOffset", `${sheetHeight}px`);
     rootStyle.setProperty("--topbar-height", `${topbarHeight}px`);
     rootStyle.setProperty("--bottombar-height", `${sheetHeight}px`);
+  }
+
+  function updateSpellbookViewportHeight(){
+    const viewportHeight = window.visualViewport?.height || window.innerHeight || 0;
+    const vh = Math.max(1, viewportHeight) * 0.01;
+    document.documentElement.style.setProperty("--spellbook-vh", `${vh}px`);
   }
 
   function applySheetHeight(value){
@@ -7830,6 +7855,11 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (spellbookBackBtn){
     spellbookBackBtn.addEventListener("click", () => {
+      openSpellbookOverlay(false);
+    });
+  }
+  if (spellbookBackFloatingBtn){
+    spellbookBackFloatingBtn.addEventListener("click", () => {
       openSpellbookOverlay(false);
     });
   }
