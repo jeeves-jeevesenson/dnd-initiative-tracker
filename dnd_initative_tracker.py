@@ -536,6 +536,16 @@ def _hash_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _directory_signature(directory: Path, files: List[Path]) -> Tuple[int, int, Tuple[str, ...]]:
+    try:
+        stat = directory.stat()
+        mtime_ns = int(stat.st_mtime_ns)
+    except Exception:
+        mtime_ns = 0
+    names = tuple(sorted(path.name for path in files))
+    return (mtime_ns, len(names), names)
+
+
 # --- App metadata ---
 APP_VERSION = "41"
 
@@ -10524,10 +10534,14 @@ class InitiativeTracker(base.InitiativeTracker):
         self._spell_index_entries: Dict[str, Any] = {}
         self._spell_index_loaded = False
         self._spell_dir_notice: Optional[str] = None
+        self._spell_dir_signature: Optional[Tuple[int, int, Tuple[str, ...]]] = None
         self._player_yaml_cache_by_path: Dict[Path, Optional[Dict[str, Any]]] = {}
         self._player_yaml_meta_by_path: Dict[Path, Dict[str, object]] = {}
         self._player_yaml_data_by_name: Dict[str, Dict[str, Any]] = {}
         self._player_yaml_name_map: Dict[str, Path] = {}
+        self._player_yaml_dir_signature: Optional[Tuple[int, int, Tuple[str, ...]]] = None
+        self._player_yaml_last_refresh = 0.0
+        self._player_yaml_refresh_interval_s = 1.0
         self._player_yaml_lock = threading.Lock()
         self._spell_yaml_lock = threading.Lock()
         self._player_yaml_refresh_scheduled = False
@@ -10558,6 +10572,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._spell_presets_cache = None
         self._spell_index_entries = {}
         self._spell_index_loaded = False
+        self._spell_dir_signature = None
 
     def _load_spell_index_entries(self) -> Dict[str, Any]:
         if self._spell_index_loaded:
@@ -11447,14 +11462,19 @@ class InitiativeTracker(base.InitiativeTracker):
             files = sorted(list(spells_dir.glob("*.yaml")) + list(spells_dir.glob("*.yml")))
         except Exception:
             files = []
+        dir_signature = _directory_signature(spells_dir, files)
 
         ops = _make_ops_logger()
         if not files:
             self._spell_presets_cache = []
             self._spell_index_entries = {}
             self._spell_index_loaded = True
+            self._spell_dir_signature = dir_signature
             _write_index_file(self._spell_index_path(), {"version": 1, "entries": {}})
             return []
+
+        if self._spell_presets_cache is not None and dir_signature == self._spell_dir_signature:
+            return list(self._spell_presets_cache)
 
         cached_entries = self._load_spell_index_entries()
         cache_keys = set(cached_entries.keys()) if isinstance(cached_entries, dict) else set()
@@ -11839,6 +11859,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._spell_presets_cache = presets
         self._spell_index_entries = new_entries
         self._spell_index_loaded = True
+        self._spell_dir_signature = dir_signature
         if not used_cached_only or not cache_names_match:
             _write_index_file(self._spell_index_path(), {"version": 1, "entries": new_entries})
 
@@ -11878,7 +11899,7 @@ class InitiativeTracker(base.InitiativeTracker):
         def refresh() -> None:
             self._player_yaml_refresh_scheduled = False
             try:
-                self._load_player_yaml_cache()
+                self._load_player_yaml_cache(force_refresh=True)
             except Exception:
                 return
             try:
@@ -12689,12 +12710,20 @@ class InitiativeTracker(base.InitiativeTracker):
         payload["spellcasting"] = spellcasting_payload
         return payload
 
-    def _load_player_yaml_cache(self) -> None:
+    def _load_player_yaml_cache(self, force_refresh: bool = False) -> None:
+        if not force_refresh:
+            now = time.monotonic()
+            if self._player_yaml_last_refresh and (
+                now - self._player_yaml_last_refresh < self._player_yaml_refresh_interval_s
+            ):
+                return
         if yaml is None:
             self._player_yaml_cache_by_path = {}
             self._player_yaml_meta_by_path = {}
             self._player_yaml_data_by_name = {}
             self._player_yaml_name_map = {}
+            self._player_yaml_dir_signature = None
+            self._player_yaml_last_refresh = time.monotonic()
             return
 
         players_dir = self._players_dir()
@@ -12703,12 +12732,22 @@ class InitiativeTracker(base.InitiativeTracker):
             self._player_yaml_meta_by_path = {}
             self._player_yaml_data_by_name = {}
             self._player_yaml_name_map = {}
+            self._player_yaml_dir_signature = None
+            self._player_yaml_last_refresh = time.monotonic()
             return
 
         try:
             files = sorted(list(players_dir.glob("*.yaml")) + list(players_dir.glob("*.yml")))
         except Exception:
             files = []
+        dir_signature = _directory_signature(players_dir, files)
+        if (
+            not force_refresh
+            and self._player_yaml_cache_by_path
+            and dir_signature == self._player_yaml_dir_signature
+        ):
+            self._player_yaml_last_refresh = time.monotonic()
+            return
 
         data_by_path = dict(self._player_yaml_cache_by_path)
         meta_by_path = dict(self._player_yaml_meta_by_path)
@@ -12747,6 +12786,8 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_meta_by_path = meta_by_path
         self._player_yaml_data_by_name = data_by_name
         self._player_yaml_name_map = name_map
+        self._player_yaml_dir_signature = dir_signature
+        self._player_yaml_last_refresh = time.monotonic()
         try:
             self._lan._sync_yaml_host_assignments(self._player_yaml_data_by_name)
         except Exception:
