@@ -190,12 +190,15 @@ try {
 
 Write-Host "Installing dependencies..." -ForegroundColor Yellow
 try {
-    & "$InstallDir\.venv\Scripts\python.exe" -m pip install --upgrade pip
+    & "$InstallDir\.venv\Scripts\python.exe" -m pip install --upgrade pip 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Pip upgrade failed with exit code $LASTEXITCODE"
     }
-    & "$InstallDir\.venv\Scripts\python.exe" -m pip install -r requirements.txt
+    # Use -qq to suppress progress but show errors
+    $pipOutput = & "$InstallDir\.venv\Scripts\python.exe" -m pip install -r requirements.txt -qq 2>&1
     if ($LASTEXITCODE -ne 0) {
+        Write-Host "Pip output:" -ForegroundColor Yellow
+        Write-Host ($pipOutput | Out-String) -ForegroundColor Gray
         throw "Pip install failed with exit code $LASTEXITCODE"
     }
     Write-Host "✓ Dependencies installed" -ForegroundColor Green

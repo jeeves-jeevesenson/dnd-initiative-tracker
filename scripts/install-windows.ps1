@@ -186,12 +186,15 @@ if (Test-Path $venvPython) {
     Write-Host "Installing Python dependencies..." -ForegroundColor Yellow
     try {
         $requirementsFile = Join-Path $InstallDir "requirements.txt"
-        & $venvPython -m pip install --upgrade pip -q
+        & $venvPython -m pip install --upgrade pip 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw "Pip upgrade failed with exit code $LASTEXITCODE"
         }
-        & $venvPython -m pip install -r $requirementsFile -q
+        # Use -qq to suppress progress but show errors
+        $pipOutput = & $venvPython -m pip install -r $requirementsFile -qq 2>&1
         if ($LASTEXITCODE -ne 0) {
+            Write-Host "Pip output:" -ForegroundColor Yellow
+            Write-Host ($pipOutput | Out-String) -ForegroundColor Gray
             throw "Pip install failed with exit code $LASTEXITCODE"
         }
         Write-Host "✓ Dependencies installed successfully" -ForegroundColor Green
@@ -224,7 +227,7 @@ $exePath = Join-Path $InstallDir "DNDInitiativeTracker.exe"
 if (Test-Path $venvPython) {
     Write-Host "Installing PyInstaller..." -ForegroundColor Yellow
     try {
-        & $venvPython -m pip install pyinstaller -q
+        & $venvPython -m pip install pyinstaller -q 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw "PyInstaller installation failed"
         }
@@ -244,7 +247,8 @@ if (Test-Path $venvPython) {
             $launcherScript
         )
         
-        & $venvPython $buildArgs 2>&1 | Out-Null
+        # Capture output for diagnostic purposes
+        $buildOutput = & $venvPython $buildArgs 2>&1
         
         if ($LASTEXITCODE -eq 0 -and (Test-Path $exePath)) {
             Write-Host "✓ Executable built successfully" -ForegroundColor Green
@@ -255,6 +259,9 @@ if (Test-Path $venvPython) {
             if (Test-Path $buildDir) { Remove-Item -Recurse -Force $buildDir -ErrorAction SilentlyContinue }
             if (Test-Path $specFile) { Remove-Item -Force $specFile -ErrorAction SilentlyContinue }
         } else {
+            # Show build output if failed
+            Write-Host "Build output:" -ForegroundColor Yellow
+            Write-Host ($buildOutput | Out-String) -ForegroundColor Gray
             throw "Executable not created"
         }
     } catch {
