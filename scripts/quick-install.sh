@@ -2,7 +2,7 @@
 # Quick install script for D&D Initiative Tracker
 # This script clones the repository, installs dependencies, and sets up the application
 
-set -e
+set -euo pipefail
 
 INSTALL_DIR="$HOME/.local/share/dnd-initiative-tracker"
 REPO_URL="https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git"
@@ -69,11 +69,11 @@ echo "Creating launcher script..."
 LAUNCHER="$HOME/.local/bin/dnd-initiative-tracker"
 mkdir -p "$HOME/.local/bin"
 
-cat > "$LAUNCHER" << 'EOF'
+cat > "$LAUNCHER" << EOF
 #!/bin/bash
-cd "$HOME/.local/share/dnd-initiative-tracker"
+cd "$INSTALL_DIR"
 source .venv/bin/activate
-python dnd_initative_tracker.py "$@"
+python dnd_initative_tracker.py "\$@"
 EOF
 
 chmod +x "$LAUNCHER"
