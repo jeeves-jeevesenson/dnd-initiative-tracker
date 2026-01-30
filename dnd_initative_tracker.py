@@ -711,6 +711,108 @@ HTML_INDEX = r"""<!doctype html>
     .spell-info-link:focus{
       text-decoration: underline;
     }
+    .spellbook-overlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 12, 16, 0.9);
+      backdrop-filter: blur(8px);
+      display: none;
+      flex-direction: column;
+      z-index: 60;
+    }
+    .spellbook-overlay.show{display:flex;}
+    .spellbook-header{
+      padding: calc(12px + var(--safeInsetTop)) 14px 12px 14px;
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .spellbook-title{font-size:14px; font-weight:650;}
+    .spellbook-spacer{flex:1;}
+    .spellbook-body{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      padding:12px;
+      overflow:hidden;
+      flex:1;
+    }
+    .spellbook-tabs{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+    .spellbook-columns{
+      display:grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap:12px;
+      flex:1;
+      min-height:0;
+    }
+    .spellbook-column{
+      background: var(--panel);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+    }
+    .spellbook-column-title{
+      font-size:12px;
+      color: var(--muted);
+      margin-bottom:8px;
+      text-transform: uppercase;
+      letter-spacing:0.8px;
+    }
+    .spellbook-list{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      overflow:auto;
+      flex:1;
+      padding-right:4px;
+    }
+    .spellbook-item{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      background: rgba(255,255,255,0.05);
+      border:1px solid transparent;
+      border-radius:8px;
+      padding:8px 10px;
+      color: var(--text);
+      cursor:pointer;
+      font-size:13px;
+    }
+    .spellbook-item.selected{
+      border-color: var(--accent);
+      background: rgba(106,169,255,0.18);
+    }
+    .spellbook-item small{
+      color: var(--muted);
+      font-size:11px;
+    }
+    .spellbook-actions{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      justify-content:center;
+    }
+    .spellbook-status{
+      font-size:12px;
+      color: var(--muted);
+      min-height:16px;
+    }
+    .spellbook-confirm-text{
+      font-size:14px;
+      margin:0 0 10px 0;
+    }
     .manual-entry-badge{
       display: none;
       align-items: center;
@@ -1465,6 +1567,7 @@ HTML_INDEX = r"""<!doctype html>
         <button class="btn" id="castOverlayBack" type="button">Back</button>
         <div class="cast-overlay-title" id="castOverlayTitle">Cast Spell</div>
         <div class="cast-overlay-spacer"></div>
+        <button class="btn" id="spellbookOpen" type="button">Manage Spells</button>
       </div>
       <div class="cast-overlay-body" role="dialog" aria-modal="true" aria-labelledby="castOverlayTitle">
         <div class="cast-panel" id="castPanel">
@@ -1660,6 +1763,46 @@ __DAMAGE_TYPE_OPTIONS__
       <button class="btn" id="spellInfoClose" type="button">Close</button>
     </div>
     <div class="spell-info-content" id="spellInfoContent">Select a preset to see spell info.</div>
+  </div>
+</div>
+<div class="spellbook-overlay" id="spellbookOverlay" aria-hidden="true">
+  <div class="spellbook-header">
+    <button class="btn" id="spellbookBack" type="button">Back</button>
+    <div class="spellbook-title" id="spellbookTitle">Manage Spells</div>
+    <div class="spellbook-spacer"></div>
+    <button class="btn accent" id="spellbookSave" type="button">Save</button>
+  </div>
+  <div class="spellbook-body">
+    <div class="spellbook-tabs">
+      <button class="btn" id="spellbookTabKnown" type="button">Known Spells</button>
+      <button class="btn" id="spellbookTabPrepared" type="button">Prepared Spells</button>
+      <label class="chip spellbook-toggle"><input type="checkbox" id="spellbookKnownEnabled" />Known spells enabled</label>
+    </div>
+    <div class="spellbook-columns">
+      <div class="spellbook-column">
+        <div class="spellbook-column-title" id="spellbookLeftTitle">All Spells</div>
+        <div class="spellbook-list" id="spellbookLeftList"></div>
+      </div>
+      <div class="spellbook-column spellbook-actions">
+        <button class="btn" id="spellbookAdd" type="button">Add →</button>
+        <button class="btn" id="spellbookRemove" type="button">← Remove</button>
+      </div>
+      <div class="spellbook-column">
+        <div class="spellbook-column-title" id="spellbookRightTitle">Known Spells</div>
+        <div class="spellbook-list" id="spellbookRightList"></div>
+      </div>
+    </div>
+    <div class="spellbook-status" id="spellbookStatus"></div>
+  </div>
+</div>
+<div class="modal" id="spellbookConfirmModal" aria-hidden="true">
+  <div class="card">
+    <h2>Confirm Spellbook</h2>
+    <p class="spellbook-confirm-text" id="spellbookConfirmText">Overwrite player file?</p>
+    <div class="modal-actions">
+      <button class="btn" id="spellbookConfirmCancel" type="button">Cancel</button>
+      <button class="btn accent" id="spellbookConfirmYes" type="button">Overwrite</button>
+    </div>
   </div>
 </div>
 <div class="turn-modal" id="turnModal" aria-hidden="true">
@@ -2018,6 +2161,24 @@ __DAMAGE_TYPE_OPTIONS__
   const castPresetInput = document.getElementById("castPreset");
   const castManualEntryBadge = document.getElementById("castManualEntryBadge");
   const castInfoBtn = document.getElementById("castInfoBtn");
+  const spellbookOpenBtn = document.getElementById("spellbookOpen");
+  const spellbookOverlay = document.getElementById("spellbookOverlay");
+  const spellbookBackBtn = document.getElementById("spellbookBack");
+  const spellbookSaveBtn = document.getElementById("spellbookSave");
+  const spellbookTabKnown = document.getElementById("spellbookTabKnown");
+  const spellbookTabPrepared = document.getElementById("spellbookTabPrepared");
+  const spellbookKnownEnabledToggle = document.getElementById("spellbookKnownEnabled");
+  const spellbookLeftTitle = document.getElementById("spellbookLeftTitle");
+  const spellbookRightTitle = document.getElementById("spellbookRightTitle");
+  const spellbookLeftList = document.getElementById("spellbookLeftList");
+  const spellbookRightList = document.getElementById("spellbookRightList");
+  const spellbookAddBtn = document.getElementById("spellbookAdd");
+  const spellbookRemoveBtn = document.getElementById("spellbookRemove");
+  const spellbookStatus = document.getElementById("spellbookStatus");
+  const spellbookConfirmModal = document.getElementById("spellbookConfirmModal");
+  const spellbookConfirmText = document.getElementById("spellbookConfirmText");
+  const spellbookConfirmCancel = document.getElementById("spellbookConfirmCancel");
+  const spellbookConfirmYes = document.getElementById("spellbookConfirmYes");
   const castNameInput = document.getElementById("castName");
   const castShapeInput = document.getElementById("castShape");
   const castRadiusField = document.getElementById("castRadiusField");
@@ -2063,7 +2224,16 @@ __DAMAGE_TYPE_OPTIONS__
   let lastVibrateSupported = canVibrate;
   let userHasInteracted = navigator.userActivation?.hasBeenActive ?? false;
   let castOverlayPreviousFocus = null;
-  const preparedSpellDefaults = {prepared: [], max: null, maxFormula: ""};
+  const preparedSpellDefaults = {
+    prepared: [],
+    max: null,
+    maxFormula: "",
+    known: [],
+    knownLimit: null,
+    knownEnabled: true,
+    cantrips: [],
+    cantripsMax: null,
+  };
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -2326,7 +2496,12 @@ __DAMAGE_TYPE_OPTIONS__
 
   function getPlayerCantripList(name){
     const profile = getPlayerProfile(name);
-    const cantrips = profile?.spellcasting?.cantrips;
+    const spellcasting = profile?.spellcasting;
+    if (!spellcasting || typeof spellcasting !== "object") return [];
+    if (Array.isArray(spellcasting.cantrips_list)){
+      return normalizePreparedSpellList(spellcasting.cantrips_list);
+    }
+    const cantrips = spellcasting.cantrips;
     if (Array.isArray(cantrips)){
       return normalizePreparedSpellList(cantrips);
     }
@@ -2413,6 +2588,26 @@ __DAMAGE_TYPE_OPTIONS__
     if (Number.isFinite(dcValue)){
       return Math.floor(dcValue);
     }
+    const formula = normalizeTextValue(spellcasting.save_dc_formula);
+    if (formula){
+      const castingAbility = normalizeLowerValue(spellcasting.casting_ability || "");
+      const castingMod = castingAbility ? getAbilityModifier(profile, castingAbility) : 0;
+      const prof = Number(profile?.proficiency?.bonus);
+      const variables = {
+        prof: Number.isFinite(prof) ? Math.floor(prof) : 0,
+        casting_mod: castingMod,
+        str_mod: getAbilityModifier(profile, "str"),
+        dex_mod: getAbilityModifier(profile, "dex"),
+        con_mod: getAbilityModifier(profile, "con"),
+        int_mod: getAbilityModifier(profile, "int"),
+        wis_mod: getAbilityModifier(profile, "wis"),
+        cha_mod: getAbilityModifier(profile, "cha"),
+      };
+      const evaluated = evaluatePreparedFormula(formula, variables);
+      if (Number.isFinite(evaluated)){
+        return evaluated;
+      }
+    }
     return null;
   }
 
@@ -2428,35 +2623,54 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
-  function getPlayerPreparedSpellConfig(name){
+  function getSpellbookConfig(name){
     const defaults = {...preparedSpellDefaults};
     if (!name) return defaults;
-    let raw = null;
     const profile = getPlayerProfile(name);
-    if (profile?.spellcasting && typeof profile.spellcasting === "object"){
-      raw = profile.spellcasting;
-    } else {
-      const store = state?.player_spells;
-      if (store && typeof store === "object"){
-        raw = store[name];
-      }
-    }
-    const preparedSource = raw?.spellcasting && typeof raw.spellcasting === "object"
-      ? raw.spellcasting
-      : raw;
-    const preparedData = preparedSource?.prepared_spells;
-    if (!preparedData || typeof preparedData !== "object"){
+    const spellcasting = profile?.spellcasting && typeof profile.spellcasting === "object"
+      ? profile.spellcasting
+      : null;
+    if (!spellcasting){
       return defaults;
     }
-    const maxFormula = typeof preparedData.max_formula === "string"
-      ? preparedData.max_formula.trim()
-      : "";
-    const maxValue = Number(preparedData.max ?? preparedData.max_spells ?? preparedData.max_prepared);
+    const preparedBlock = spellcasting.prepared_spells && typeof spellcasting.prepared_spells === "object"
+      ? spellcasting.prepared_spells
+      : {};
+    const knownBlock = spellcasting.known_spells && typeof spellcasting.known_spells === "object"
+      ? spellcasting.known_spells
+      : {};
+    const cantripsBlock = spellcasting.cantrips && typeof spellcasting.cantrips === "object"
+      ? spellcasting.cantrips
+      : {};
+    const maxFormula = normalizeTextValue(
+      spellcasting.prepared_limit_formula
+      ?? preparedBlock.max_formula
+    );
+    const maxValue = Number(preparedBlock.max ?? preparedBlock.max_spells ?? preparedBlock.max_prepared);
     const limit = getPreparedSpellLimit(profile, {maxFormula, maxValue});
+    const knownLimitRaw = spellcasting.known_limit ?? knownBlock.max ?? spellcasting.known_spells;
+    const knownLimit = Number.isFinite(Number(knownLimitRaw))
+      ? Math.max(0, Math.floor(Number(knownLimitRaw)))
+      : null;
+    const cantripsMaxRaw = cantripsBlock.max;
+    const cantripsMax = Number.isFinite(Number(cantripsMaxRaw))
+      ? Math.max(0, Math.floor(Number(cantripsMaxRaw)))
+      : null;
     return {
-      prepared: normalizePreparedSpellList(preparedData.prepared),
+      prepared: normalizePreparedSpellList(
+        spellcasting.prepared_list ?? preparedBlock.prepared
+      ),
       max: limit,
       maxFormula,
+      known: normalizePreparedSpellList(
+        spellcasting.known_list ?? knownBlock.known ?? spellcasting.known_spell_names
+      ),
+      knownLimit,
+      knownEnabled: spellcasting.known_enabled !== false,
+      cantrips: normalizePreparedSpellList(
+        spellcasting.cantrips_list ?? cantripsBlock.known ?? spellcasting.cantrips
+      ),
+      cantripsMax,
     };
   }
 
@@ -4965,6 +5179,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   let lastSpellPresetSignature = "";
   let cachedSpellPresets = [];
+  let spellPresetBySlug = new Map();
   const normalizeSpellPresets = (presets) => Array.isArray(presets) ? presets.filter(p => p && typeof p === "object") : [];
   const formatSpellLevelLabel = (level) => {
     const num = Number(level);
@@ -4978,12 +5193,17 @@ __DAMAGE_TYPE_OPTIONS__
     .replace(/\\b\\w/g, (char) => char.toUpperCase());
   const normalizeTextValue = (value) => String(value || "").trim();
   const normalizeLowerValue = (value) => normalizeTextValue(value).toLowerCase();
-  const getSpellKey = (name) => normalizeLowerValue(name);
+  const getSpellKey = (value) => normalizeLowerValue(value);
+  const getPresetSlug = (preset) => {
+    const slug = normalizeTextValue(preset?.slug);
+    if (slug) return slug;
+    return normalizeLowerValue(preset?.name).replace(/\\s+/g, "-");
+  };
   const loadPreparedSpellFilterList = () => {
     const name = getClaimedPlayerName();
     if (!name) return null;
-    const config = getPlayerPreparedSpellConfig(name);
-    const cantrips = getPlayerCantripList(name);
+    const config = getSpellbookConfig(name);
+    const cantrips = config.cantrips || [];
     if (!config.prepared.length && !cantrips.length) return null;
     const merged = new Set([
       ...config.prepared.map(normalizeTextValue),
@@ -5000,9 +5220,9 @@ __DAMAGE_TYPE_OPTIONS__
   const filterPresetsByKnownList = (presets, knownSpellSet) => {
     if (!knownSpellSet) return presets;
     return presets.filter((preset) => {
-      const name = normalizeTextValue(preset.name);
-      if (!name) return false;
-      return knownSpellSet.has(getSpellKey(name));
+      const slug = getPresetSlug(preset);
+      if (!slug) return false;
+      return knownSpellSet.has(getSpellKey(slug));
     });
   };
   const getSpellListEntries = (lists) => {
@@ -5134,6 +5354,324 @@ __DAMAGE_TYPE_OPTIONS__
     if (!spellInfoModal) return;
     spellInfoModal.classList.remove("show");
     spellInfoModal.setAttribute("aria-hidden", "true");
+  }
+
+  let spellbookMode = "known";
+  let spellbookKnownEnabled = true;
+  let spellbookKnownLimit = null;
+  let spellbookPreparedLimit = null;
+  let spellbookCantripsMax = null;
+  let pendingKnownSet = new Set();
+  let pendingPreparedSet = new Set();
+  let pendingCantripsSet = new Set();
+  let spellbookLeftSelection = new Set();
+  let spellbookRightSelection = new Set();
+  let spellbookPreviousFocus = null;
+
+  function getPlayerLevel(profile){
+    const raw = profile?.leveling?.level ?? profile?.leveling?.total_level ?? profile?.leveling?.lvl;
+    const value = Number(raw);
+    return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  }
+
+  function maxSpellLevelForCharacter(level){
+    if (level >= 17) return 9;
+    if (level >= 15) return 8;
+    if (level >= 13) return 7;
+    if (level >= 11) return 6;
+    if (level >= 9) return 5;
+    if (level >= 7) return 4;
+    if (level >= 5) return 3;
+    if (level >= 3) return 2;
+    if (level >= 1) return 1;
+    return 0;
+  }
+
+  function getPresetLevelBySlug(slug){
+    const preset = spellPresetBySlug.get(getSpellKey(slug));
+    return preset ? getPresetLevelNumber(preset) : null;
+  }
+
+  function sortSlugsByName(slugs){
+    return slugs.slice().sort((a, b) => {
+      const presetA = spellPresetBySlug.get(getSpellKey(a));
+      const presetB = spellPresetBySlug.get(getSpellKey(b));
+      const nameA = normalizeTextValue(presetA?.name || a);
+      const nameB = normalizeTextValue(presetB?.name || b);
+      return nameA.localeCompare(nameB);
+    });
+  }
+
+  function getEligibleSpellSlugs(profile){
+    const allowedLevel = maxSpellLevelForCharacter(getPlayerLevel(profile));
+    const slugs = [];
+    cachedSpellPresets.forEach((preset) => {
+      const level = getPresetLevelNumber(preset);
+      if (Number.isFinite(level) && level > allowedLevel){
+        return;
+      }
+      const slug = getPresetSlug(preset);
+      if (slug){
+        slugs.push(slug);
+      }
+    });
+    return sortSlugsByName(Array.from(new Set(slugs.map(normalizeTextValue).filter(Boolean))));
+  }
+
+  function setSpellbookStatus(text){
+    if (!spellbookStatus) return;
+    spellbookStatus.textContent = text || "";
+  }
+
+  function toggleSpellbookSelection(slug, selectionSet){
+    if (selectionSet.has(slug)){
+      selectionSet.delete(slug);
+    } else {
+      selectionSet.add(slug);
+    }
+  }
+
+  function renderSpellbookList(listEl, slugs, selectionSet){
+    if (!listEl) return;
+    listEl.textContent = "";
+    if (!slugs.length){
+      const empty = document.createElement("div");
+      empty.className = "spellbook-item";
+      empty.textContent = "No spells available.";
+      empty.style.opacity = "0.6";
+      listEl.appendChild(empty);
+      return;
+    }
+    slugs.forEach((slug) => {
+      const preset = spellPresetBySlug.get(getSpellKey(slug));
+      const label = normalizeTextValue(preset?.name || slug);
+      const level = getPresetLevelNumber(preset);
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "spellbook-item";
+      if (selectionSet.has(slug)){
+        item.classList.add("selected");
+      }
+      item.addEventListener("click", () => {
+        toggleSpellbookSelection(slug, selectionSet);
+        renderSpellbook();
+      });
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = label;
+      item.appendChild(nameSpan);
+      const meta = document.createElement("small");
+      if (Number.isFinite(level)){
+        meta.textContent = level === 0 ? "Cantrip" : `Lv ${level}`;
+      } else {
+        meta.textContent = "Level ?";
+      }
+      item.appendChild(meta);
+      listEl.appendChild(item);
+    });
+  }
+
+  function resetSpellbookSelections(){
+    spellbookLeftSelection = new Set();
+    spellbookRightSelection = new Set();
+  }
+
+  function renderSpellbook(){
+    const playerName = getClaimedPlayerName();
+    const profile = playerName ? getPlayerProfile(playerName) : null;
+    if (!profile){
+      setSpellbookStatus("Claim a character to manage spells.");
+      return;
+    }
+    if (spellbookKnownEnabledToggle){
+      spellbookKnownEnabledToggle.checked = spellbookKnownEnabled;
+    }
+    if (spellbookTabKnown){
+      spellbookTabKnown.disabled = !spellbookKnownEnabled;
+      spellbookTabKnown.classList.toggle("accent", spellbookMode === "known");
+    }
+    if (spellbookTabPrepared){
+      spellbookTabPrepared.classList.toggle("accent", spellbookMode === "prepared");
+    }
+    const eligibleSlugs = getEligibleSpellSlugs(profile);
+    const rightSlugs = spellbookMode === "prepared"
+      ? Array.from(pendingPreparedSet)
+      : Array.from(new Set([...pendingKnownSet, ...pendingCantripsSet]));
+    const rightSet = new Set(rightSlugs.map(getSpellKey));
+    let leftSlugs = [];
+    if (spellbookMode === "known"){
+      leftSlugs = eligibleSlugs.filter((slug) => !rightSet.has(getSpellKey(slug)));
+      if (spellbookLeftTitle) spellbookLeftTitle.textContent = "Eligible Spells";
+      if (spellbookRightTitle) spellbookRightTitle.textContent = "Known & Cantrips";
+    } else {
+      if (spellbookKnownEnabled){
+        const knownSlugs = sortSlugsByName(Array.from(new Set([...pendingKnownSet, ...pendingCantripsSet])));
+        leftSlugs = knownSlugs.filter((slug) => !rightSet.has(getSpellKey(slug)));
+        if (spellbookLeftTitle) spellbookLeftTitle.textContent = "Known & Cantrips";
+      } else {
+        leftSlugs = eligibleSlugs.filter((slug) => !rightSet.has(getSpellKey(slug)));
+        if (spellbookLeftTitle) spellbookLeftTitle.textContent = "Eligible Spells";
+      }
+      if (spellbookRightTitle) spellbookRightTitle.textContent = "Prepared Spells";
+    }
+    renderSpellbookList(spellbookLeftList, leftSlugs, spellbookLeftSelection);
+    renderSpellbookList(spellbookRightList, sortSlugsByName(rightSlugs), spellbookRightSelection);
+    const preparedCount = pendingPreparedSet.size;
+    const preparedLimitLabel = Number.isFinite(spellbookPreparedLimit)
+      ? `${preparedCount}/${spellbookPreparedLimit} prepared`
+      : `${preparedCount} prepared`;
+    const knownCount = pendingKnownSet.size;
+    const knownLimitLabel = Number.isFinite(spellbookKnownLimit)
+      ? `${knownCount}/${spellbookKnownLimit} known`
+      : `${knownCount} known`;
+    const cantripCount = pendingCantripsSet.size;
+    const cantripLimitLabel = Number.isFinite(spellbookCantripsMax)
+      ? `${cantripCount}/${spellbookCantripsMax} cantrips`
+      : `${cantripCount} cantrips`;
+    setSpellbookStatus(`${knownLimitLabel} · ${cantripLimitLabel} · ${preparedLimitLabel}`);
+  }
+
+  function openSpellbookOverlay(open){
+    if (!spellbookOverlay) return;
+    spellbookOverlay.classList.toggle("show", open);
+    spellbookOverlay.setAttribute("aria-hidden", open ? "false" : "true");
+    if (open){
+      spellbookPreviousFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      const playerName = getClaimedPlayerName();
+      const config = getSpellbookConfig(playerName);
+      spellbookKnownEnabled = config.knownEnabled !== false;
+      spellbookKnownLimit = config.knownLimit;
+      spellbookPreparedLimit = config.max;
+      spellbookCantripsMax = config.cantripsMax;
+      pendingKnownSet = new Set(config.known.map(normalizeTextValue).filter(Boolean));
+      pendingPreparedSet = new Set(config.prepared.map(normalizeTextValue).filter(Boolean));
+      pendingCantripsSet = new Set(config.cantrips.map(normalizeTextValue).filter(Boolean));
+      spellbookMode = spellbookKnownEnabled ? "known" : "prepared";
+      resetSpellbookSelections();
+      renderSpellbook();
+      requestAnimationFrame(() => {
+        spellbookBackBtn?.focus();
+      });
+    } else if (spellbookPreviousFocus){
+      spellbookPreviousFocus.focus();
+      spellbookPreviousFocus = null;
+    }
+    updateModalOffsets();
+    resize();
+  }
+
+  function applySpellbookAdd(){
+    if (!spellbookLeftSelection.size) return;
+    const additions = Array.from(spellbookLeftSelection);
+    if (spellbookMode === "prepared"){
+      additions.forEach((slug) => {
+        if (pendingPreparedSet.has(slug)) return;
+        const nextCount = pendingPreparedSet.size + 1;
+        if (Number.isFinite(spellbookPreparedLimit) && nextCount > spellbookPreparedLimit){
+          localToast(`Prepared spells limited to ${spellbookPreparedLimit}.`);
+          return;
+        }
+        pendingPreparedSet.add(slug);
+      });
+    } else {
+      additions.forEach((slug) => {
+        const level = getPresetLevelBySlug(slug);
+        if (level === 0){
+          const nextCount = pendingCantripsSet.size + 1;
+          if (Number.isFinite(spellbookCantripsMax) && nextCount > spellbookCantripsMax){
+            localToast(`Cantrips limited to ${spellbookCantripsMax}.`);
+            return;
+          }
+          pendingCantripsSet.add(slug);
+        } else {
+          if (!spellbookKnownEnabled){
+            return;
+          }
+          const nextCount = pendingKnownSet.size + 1;
+          if (Number.isFinite(spellbookKnownLimit) && nextCount > spellbookKnownLimit){
+            localToast(`Known spells limited to ${spellbookKnownLimit}.`);
+            return;
+          }
+          pendingKnownSet.add(slug);
+        }
+      });
+    }
+    resetSpellbookSelections();
+    renderSpellbook();
+  }
+
+  function applySpellbookRemove(){
+    if (!spellbookRightSelection.size) return;
+    const removals = Array.from(spellbookRightSelection);
+    if (spellbookMode === "prepared"){
+      removals.forEach((slug) => {
+        pendingPreparedSet.delete(slug);
+      });
+    } else {
+      removals.forEach((slug) => {
+        const level = getPresetLevelBySlug(slug);
+        if (level === 0){
+          pendingCantripsSet.delete(slug);
+        } else {
+          pendingKnownSet.delete(slug);
+        }
+      });
+    }
+    resetSpellbookSelections();
+    renderSpellbook();
+  }
+
+  function showSpellbookConfirm(){
+    if (!spellbookConfirmModal) return;
+    const playerName = getClaimedPlayerName() || "player";
+    const fileName = playerName.replace(/[^a-z0-9._-]+/gi, "-");
+    if (spellbookConfirmText){
+      spellbookConfirmText.textContent = `Overwrite players/${fileName}.yaml?`;
+    }
+    spellbookConfirmModal.classList.add("show");
+    spellbookConfirmModal.setAttribute("aria-hidden", "false");
+  }
+
+  function hideSpellbookConfirm(){
+    if (!spellbookConfirmModal) return;
+    spellbookConfirmModal.classList.remove("show");
+    spellbookConfirmModal.setAttribute("aria-hidden", "true");
+  }
+
+  async function saveSpellbookChanges(){
+    const playerName = getClaimedPlayerName();
+    if (!playerName){
+      localToast("Claim a character first.");
+      return;
+    }
+    const payload = {
+      known_enabled: spellbookKnownEnabled,
+      known_list: Array.from(pendingKnownSet),
+      prepared_list: Array.from(pendingPreparedSet),
+      cantrips_list: Array.from(pendingCantripsSet),
+    };
+    try {
+      const response = await fetch(`/api/players/${encodeURIComponent(playerName)}/spellbook`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok){
+        throw new Error(`Failed (${response.status})`);
+      }
+      const data = await response.json();
+      if (data?.player && state?.player_profiles){
+        state.player_profiles[data.player.name] = data.player;
+      }
+      localToast("Spellbook saved.");
+      hideSpellbookConfirm();
+      openSpellbookOverlay(false);
+      refreshSpellPresetOptions();
+    } catch (err){
+      console.warn("Failed to save spellbook.", err);
+      localToast("Unable to save spellbook.");
+    }
   }
   const updateSpellPresetDetails = (preset) => {
     if (!spellPresetDetails) return;
@@ -5453,6 +5991,7 @@ __DAMAGE_TYPE_OPTIONS__
   const updateSpellPresetOptions = (presets) => {
     const list = normalizeSpellPresets(presets);
     const signature = JSON.stringify(list.map(p => [
+      String(p.slug || ""),
       String(p.name || ""),
       String(p.level || ""),
       String(p.school || ""),
@@ -5468,8 +6007,18 @@ __DAMAGE_TYPE_OPTIONS__
     }
     lastSpellPresetSignature = signature;
     cachedSpellPresets = list;
+    spellPresetBySlug = new Map();
+    list.forEach((preset) => {
+      const slug = getPresetSlug(preset);
+      if (slug){
+        spellPresetBySlug.set(getSpellKey(slug), preset);
+      }
+    });
     updateSpellFilterOptions();
     refreshSpellPresetOptions();
+    if (spellbookOverlay?.classList.contains("show")){
+      renderSpellbook();
+    }
   };
 
   const registerSpellFilterListener = (input, useInputEvent = false) => {
@@ -6331,6 +6880,72 @@ __DAMAGE_TYPE_OPTIONS__
       setCastOverlayOpen(false);
     });
   }
+  if (spellbookOpenBtn){
+    spellbookOpenBtn.addEventListener("click", () => {
+      openSpellbookOverlay(true);
+    });
+  }
+  if (spellbookBackBtn){
+    spellbookBackBtn.addEventListener("click", () => {
+      openSpellbookOverlay(false);
+    });
+  }
+  if (spellbookTabKnown){
+    spellbookTabKnown.addEventListener("click", () => {
+      spellbookMode = "known";
+      resetSpellbookSelections();
+      renderSpellbook();
+    });
+  }
+  if (spellbookTabPrepared){
+    spellbookTabPrepared.addEventListener("click", () => {
+      spellbookMode = "prepared";
+      resetSpellbookSelections();
+      renderSpellbook();
+    });
+  }
+  if (spellbookKnownEnabledToggle){
+    spellbookKnownEnabledToggle.addEventListener("change", (event) => {
+      spellbookKnownEnabled = !!event.target.checked;
+      if (!spellbookKnownEnabled){
+        spellbookMode = "prepared";
+      }
+      resetSpellbookSelections();
+      renderSpellbook();
+    });
+  }
+  if (spellbookAddBtn){
+    spellbookAddBtn.addEventListener("click", () => {
+      applySpellbookAdd();
+    });
+  }
+  if (spellbookRemoveBtn){
+    spellbookRemoveBtn.addEventListener("click", () => {
+      applySpellbookRemove();
+    });
+  }
+  if (spellbookSaveBtn){
+    spellbookSaveBtn.addEventListener("click", () => {
+      showSpellbookConfirm();
+    });
+  }
+  if (spellbookConfirmCancel){
+    spellbookConfirmCancel.addEventListener("click", () => {
+      hideSpellbookConfirm();
+    });
+  }
+  if (spellbookConfirmYes){
+    spellbookConfirmYes.addEventListener("click", () => {
+      saveSpellbookChanges();
+    });
+  }
+  if (spellbookConfirmModal){
+    spellbookConfirmModal.addEventListener("click", (event) => {
+      if (event.target === spellbookConfirmModal){
+        hideSpellbookConfirm();
+      }
+    });
+  }
   if (connEl && connPopoverEl){
     connEl.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -6355,6 +6970,14 @@ __DAMAGE_TYPE_OPTIONS__
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape"){
+      if (spellbookConfirmModal?.classList.contains("show")){
+        hideSpellbookConfirm();
+        return;
+      }
+      if (spellbookOverlay?.classList.contains("show")){
+        openSpellbookOverlay(false);
+        return;
+      }
       if (castOverlay?.classList.contains("show")){
         setCastOverlayOpen(false);
         return;
@@ -7198,6 +7821,23 @@ class LanController:
                 raise HTTPException(status_code=500, detail="Failed to save player spells.")
             return {"ok": True, "player": {"name": player_name, **normalized}}
 
+        @app.post("/api/players/{name}/spellbook")
+        async def update_player_spellbook(name: str, payload: Dict[str, Any] = Body(...)):
+            if not isinstance(payload, dict):
+                raise HTTPException(status_code=400, detail="Invalid payload.")
+            player_name = str(name or "").strip()
+            if not player_name:
+                raise HTTPException(status_code=400, detail="Missing player name.")
+            try:
+                profile = self.app._save_player_spellbook(player_name, payload)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+            except RuntimeError as exc:
+                raise HTTPException(status_code=500, detail=str(exc))
+            except Exception:
+                raise HTTPException(status_code=500, detail="Failed to save player spellbook.")
+            return {"ok": True, "player": profile}
+
         @app.websocket("/ws")
         async def ws_endpoint(ws: WebSocket):
             try:
@@ -7960,6 +8600,8 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_meta_by_path: Dict[Path, Dict[str, object]] = {}
         self._player_yaml_data_by_name: Dict[str, Dict[str, Any]] = {}
         self._player_yaml_name_map: Dict[str, Path] = {}
+        self._player_yaml_lock = threading.Lock()
+        self._player_yaml_refresh_scheduled = False
 
         # LAN state for when map window isn't open
         self._lan_grid_cols = 20
@@ -8986,6 +9628,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 ops.warning("Spell YAML %s has issues: %s", fp.name, ", ".join(errors))
 
             preset: Dict[str, Any] = {
+                "slug": fp.stem,
                 "schema": schema,
                 "id": spell_id,
                 "name": name,
@@ -9214,6 +9857,10 @@ class InitiativeTracker(base.InitiativeTracker):
             if isinstance(entry, dict) and _metadata_matches(entry, meta):
                 preset = entry.get("preset")
                 if isinstance(preset, dict):
+                    if "slug" not in preset:
+                        preset = dict(preset)
+                        preset["slug"] = fp.stem
+                        entry["preset"] = preset
                     presets.append(preset)
                     new_entry = dict(entry)
                     new_entry["mtime_ns"] = meta.get("mtime_ns")
@@ -9246,6 +9893,38 @@ class InitiativeTracker(base.InitiativeTracker):
             return Path(__file__).resolve().parent / "players"
         except Exception:
             return Path.cwd() / "players"
+
+    def _write_player_yaml_atomic(self, path: Path, payload: Dict[str, Any]) -> None:
+        if yaml is None:
+            raise RuntimeError("PyYAML is required for spell persistence.")
+        yaml_text = yaml.safe_dump(payload, sort_keys=False)
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        with self._player_yaml_lock:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path.write_text(yaml_text, encoding="utf-8")
+            tmp_path.replace(path)
+
+    def _schedule_player_yaml_refresh(self) -> None:
+        if self._player_yaml_refresh_scheduled:
+            return
+        self._player_yaml_refresh_scheduled = True
+
+        def refresh() -> None:
+            self._player_yaml_refresh_scheduled = False
+            try:
+                self._load_player_yaml_cache()
+            except Exception:
+                return
+            try:
+                self._lan._cached_snapshot = self._lan_snapshot()
+                self._lan._broadcast_state(self._lan._cached_snapshot)
+            except Exception:
+                pass
+
+        try:
+            self.after(200, refresh)
+        except Exception:
+            refresh()
 
     @staticmethod
     def _sanitize_player_filename(name: str) -> str:
@@ -9340,6 +10019,30 @@ class InitiativeTracker(base.InitiativeTracker):
             mapped.append(resolved)
         return mapped
 
+    @staticmethod
+    def _normalize_spell_slug_list(value: Any) -> List[str]:
+        def normalize_name(raw: Any) -> Optional[str]:
+            text = str(raw or "").strip()
+            return text or None
+
+        if isinstance(value, list):
+            raw_list = [name for item in value if (name := normalize_name(item))]
+        elif isinstance(value, str):
+            name = normalize_name(value)
+            raw_list = [name] if name else []
+        else:
+            raw_list = []
+
+        seen = set()
+        slugs: List[str] = []
+        for item in raw_list:
+            key = item.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            slugs.append(item)
+        return slugs
+
     def _normalize_player_profile(self, data: Dict[str, Any], fallback_name: str) -> Dict[str, Any]:
         def normalize_name(value: Any) -> Optional[str]:
             text = str(value or "").strip()
@@ -9360,6 +10063,20 @@ class InitiativeTracker(base.InitiativeTracker):
         resources = self._normalize_player_section(data.get("resources"))
         spellcasting = self._normalize_player_section(data.get("spellcasting"))
         inventory = self._normalize_player_section(data.get("inventory"))
+
+        if "level" not in leveling:
+            classes = leveling.get("classes")
+            if isinstance(classes, list):
+                total = 0
+                for entry in classes:
+                    if not isinstance(entry, dict):
+                        continue
+                    try:
+                        total += int(entry.get("level") or 0)
+                    except Exception:
+                        continue
+                if total:
+                    leveling["level"] = total
 
         name = (
             normalize_name(data.get("name"))
@@ -9413,8 +10130,9 @@ class InitiativeTracker(base.InitiativeTracker):
         if "prepared_spells" not in spellcasting and "prepared_spells" in data:
             spellcasting["prepared_spells"] = data.get("prepared_spells")
         cantrips_section = spellcasting.get("cantrips")
+        cantrip_list: List[str] = []
         if isinstance(cantrips_section, dict):
-            cantrip_list = self._normalize_spell_reference_list(cantrips_section.get("known"))
+            cantrip_list = self._normalize_spell_slug_list(cantrips_section.get("known"))
             if cantrip_list:
                 cantrips_section = dict(cantrips_section)
                 cantrips_section["known"] = cantrip_list
@@ -9422,12 +10140,30 @@ class InitiativeTracker(base.InitiativeTracker):
                 if "known_cantrips" not in spellcasting:
                     spellcasting["known_cantrips"] = len(cantrip_list)
         prepared_section = spellcasting.get("prepared_spells")
+        prepared_list: List[str] = []
+        prepared_limit_formula = ""
         if isinstance(prepared_section, dict):
-            prepared_list = self._normalize_spell_reference_list(prepared_section.get("prepared"))
+            prepared_list = self._normalize_spell_slug_list(prepared_section.get("prepared"))
             if prepared_list:
                 prepared_section = dict(prepared_section)
                 prepared_section["prepared"] = prepared_list
                 spellcasting["prepared_spells"] = prepared_section
+            prepared_limit_formula = str(prepared_section.get("max_formula") or "").strip()
+
+        known_section = spellcasting.get("known_spells")
+        known_limit = None
+        known_list: List[str] = []
+        if isinstance(known_section, dict):
+            known_limit = known_section.get("max")
+            known_list = self._normalize_spell_slug_list(known_section.get("known"))
+
+        if "known_enabled" not in spellcasting:
+            spellcasting["known_enabled"] = known_section is not None
+        spellcasting["known_limit"] = int(known_limit) if str(known_limit).isdigit() else None
+        spellcasting["prepared_limit_formula"] = prepared_limit_formula
+        spellcasting["known_list"] = known_list
+        spellcasting["prepared_list"] = prepared_list
+        spellcasting["cantrips_list"] = cantrip_list
 
         profile = PlayerProfile(
             name=name,
@@ -9578,29 +10314,41 @@ class InitiativeTracker(base.InitiativeTracker):
         cantrip_list: List[str] = []
         cantrips_section = source.get("cantrips")
         if isinstance(cantrips_section, dict):
-            cantrip_list = self._normalize_spell_reference_list(cantrips_section.get("known"))
+            cantrip_list = self._normalize_spell_slug_list(cantrips_section.get("known"))
         known_cantrips_source = source.get("known_cantrips")
         if known_cantrips_source is None and cantrip_list:
             known_cantrips_source = len(cantrip_list)
         known_cantrips = normalize_limit(known_cantrips_source, 0)
-        known_spells = normalize_limit(
-            source.get("known_spells", source.get("spells")),
-            15,
-        )
+        known_spells = normalize_limit(source.get("known_spells", source.get("spells")), 15)
         raw_names = source.get("known_spell_names")
-        names = self._normalize_spell_reference_list(raw_names)
+        names = self._normalize_spell_slug_list(raw_names)
         if cantrip_list:
             for cantrip in cantrip_list:
                 if cantrip not in names:
                     names.append(cantrip)
+        known_section = source.get("known_spells")
+        known_limit = None
+        known_list: List[str] = []
+        if isinstance(known_section, dict):
+            known_limit = known_section.get("max")
+            known_list = self._normalize_spell_slug_list(known_section.get("known"))
+        known_enabled = source.get("known_enabled")
+        if known_enabled is None and isinstance(known_section, dict):
+            known_enabled = True
+        if isinstance(known_enabled, str):
+            known_enabled = known_enabled.strip().lower() not in ("false", "0", "no", "off")
+        known_enabled = bool(known_enabled)
         prepared_payload: Dict[str, Any] = {}
         prepared_spells = source.get("prepared_spells")
+        prepared_names: List[str] = []
+        prepared_formula = ""
         if isinstance(prepared_spells, dict):
-            prepared_names = self._normalize_spell_reference_list(prepared_spells.get("prepared"))
+            prepared_names = self._normalize_spell_slug_list(prepared_spells.get("prepared"))
             prepared_payload["prepared"] = prepared_names
             max_formula = prepared_spells.get("max_formula")
             if isinstance(max_formula, str) and max_formula.strip():
                 prepared_payload["max_formula"] = max_formula.strip()
+                prepared_formula = max_formula.strip()
             if "max" in prepared_spells:
                 prepared_payload["max"] = normalize_limit(prepared_spells.get("max"), 0)
             if "max_spells" in prepared_spells:
@@ -9617,6 +10365,12 @@ class InitiativeTracker(base.InitiativeTracker):
             "known_cantrips": known_cantrips,
             "known_spells": known_spells,
             "known_spell_names": names,
+            "known_enabled": known_enabled,
+            "known_limit": int(known_limit) if str(known_limit).isdigit() else None,
+            "prepared_limit_formula": prepared_formula,
+            "known_list": known_list,
+            "prepared_list": prepared_names,
+            "cantrips_list": cantrip_list,
         }
         if prepared_payload:
             payload["prepared_spells"] = prepared_payload
@@ -9624,6 +10378,12 @@ class InitiativeTracker(base.InitiativeTracker):
             "cantrips": known_cantrips,
             "known_spells": known_spells,
             "known_spell_names": names,
+            "known_enabled": known_enabled,
+            "known_limit": int(known_limit) if str(known_limit).isdigit() else None,
+            "prepared_limit_formula": prepared_formula,
+            "known_list": known_list,
+            "prepared_list": prepared_names,
+            "cantrips_list": cantrip_list,
         }
         if prepared_payload:
             spellcasting_payload["prepared_spells"] = prepared_payload
@@ -9791,8 +10551,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 spellcasting["prepared_spells"] = existing_prepared
             existing["spellcasting"] = spellcasting
 
-        yaml_text = yaml.safe_dump(existing, sort_keys=False)
-        path.write_text(yaml_text, encoding="utf-8")
+        self._write_player_yaml_atomic(path, existing)
 
         meta = _file_stat_metadata(path)
         self._player_yaml_cache_by_path[path] = existing
@@ -9802,8 +10561,105 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_data_by_name[profile_name] = profile
         self._player_yaml_name_map[player_name.lower()] = path
         self._player_yaml_name_map[path.stem.lower()] = path
+        self._schedule_player_yaml_refresh()
 
         return normalized
+
+    def _save_player_spellbook(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if yaml is None:
+            raise RuntimeError("PyYAML is required for spell persistence.")
+        player_name = str(name or "").strip()
+        if not player_name:
+            raise ValueError("Player name is required.")
+        if not isinstance(payload, dict):
+            raise ValueError("Payload must be a dictionary.")
+
+        def normalize_slug_list(value: Any) -> List[str]:
+            if isinstance(value, list):
+                raw = [str(item).strip() for item in value if str(item or "").strip()]
+            elif isinstance(value, str):
+                raw = [value.strip()] if value.strip() else []
+            else:
+                raw = []
+            seen = set()
+            out: List[str] = []
+            for item in raw:
+                key = item.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(item)
+            return out
+
+        known_enabled = payload.get("known_enabled")
+        if isinstance(known_enabled, str):
+            known_enabled = known_enabled.strip().lower() not in ("false", "0", "no", "off")
+        known_enabled = bool(known_enabled)
+        known_list = normalize_slug_list(payload.get("known_list"))
+        prepared_list = normalize_slug_list(payload.get("prepared_list"))
+        cantrips_list = normalize_slug_list(payload.get("cantrips_list"))
+
+        self._load_player_yaml_cache()
+        key = player_name.lower()
+        path = self._player_yaml_name_map.get(key)
+        if path is None:
+            players_dir = self._players_dir()
+            players_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"{self._sanitize_player_filename(player_name)}.yaml"
+            path = players_dir / filename
+
+        existing = self._player_yaml_cache_by_path.get(path) or {}
+        if not isinstance(existing, dict):
+            existing = {}
+
+        spellcasting = existing.get("spellcasting")
+        if not isinstance(spellcasting, dict):
+            spellcasting = {}
+        spellcasting["known_enabled"] = known_enabled
+
+        cantrips = spellcasting.get("cantrips")
+        if not isinstance(cantrips, dict):
+            cantrips = {}
+        cantrips["known"] = cantrips_list
+        spellcasting["cantrips"] = cantrips
+
+        prepared_spells = spellcasting.get("prepared_spells")
+        if not isinstance(prepared_spells, dict):
+            prepared_spells = {}
+        prepared_spells["prepared"] = prepared_list
+        spellcasting["prepared_spells"] = prepared_spells
+
+        known_spells = spellcasting.get("known_spells")
+        if not isinstance(known_spells, dict):
+            known_spells = {}
+        if known_enabled:
+            known_spells["known"] = known_list
+        else:
+            known_spells.pop("known", None)
+        spellcasting["known_spells"] = known_spells
+
+        existing["spellcasting"] = spellcasting
+        if "name" not in existing:
+            existing["name"] = player_name
+        identity = existing.get("identity")
+        if not isinstance(identity, dict):
+            identity = {}
+        if "name" not in identity:
+            identity["name"] = player_name
+        existing["identity"] = identity
+
+        self._write_player_yaml_atomic(path, existing)
+        meta = _file_stat_metadata(path)
+        self._player_yaml_cache_by_path[path] = existing
+        self._player_yaml_meta_by_path[path] = meta
+        profile = self._normalize_player_profile(existing, path.stem)
+        profile_name = profile.get("name", player_name)
+        self._player_yaml_data_by_name[profile_name] = profile
+        self._player_yaml_name_map[player_name.lower()] = path
+        self._player_yaml_name_map[path.stem.lower()] = path
+        self._schedule_player_yaml_refresh()
+
+        return profile
 
     def _save_player_token_color(self, name: str, color: str) -> str:
         if yaml is None:
