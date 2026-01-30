@@ -1,2 +1,4 @@
 dnd_initative_tracker_history.log
 old logs/
+__pycache__/
+*.pyc
