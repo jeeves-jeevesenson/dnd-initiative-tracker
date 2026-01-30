@@ -6,9 +6,90 @@ $ErrorActionPreference = "Stop"
 $InstallDir = "$env:LOCALAPPDATA\DnDInitiativeTracker"
 $RepoUrl = "https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git"
 
+# Function to show error popup and wait
+function Show-ErrorAndExit {
+    param(
+        [string]$Title,
+        [string]$Message
+    )
+    
+    Write-Host ""
+    Write-Host "ERROR: $Title" -ForegroundColor Red
+    Write-Host $Message -ForegroundColor Yellow
+    Write-Host ""
+    
+    # Show popup dialog
+    Add-Type -AssemblyName PresentationFramework
+    [System.Windows.MessageBox]::Show($Message, "D&D Initiative Tracker - $Title", 'OK', 'Error') | Out-Null
+    
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+
+# Function to show warning popup
+function Show-Warning {
+    param(
+        [string]$Title,
+        [string]$Message
+    )
+    
+    Write-Host ""
+    Write-Host "WARNING: $Title" -ForegroundColor Yellow
+    Write-Host $Message -ForegroundColor Yellow
+    Write-Host ""
+    
+    # Show popup dialog
+    Add-Type -AssemblyName PresentationFramework
+    [System.Windows.MessageBox]::Show($Message, "D&D Initiative Tracker - $Title", 'OK', 'Warning') | Out-Null
+}
+
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "D&D Initiative Tracker - Quick Install" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host ""
+
+# Check execution policy
+try {
+    $executionPolicy = Get-ExecutionPolicy -Scope CurrentUser
+    Write-Host "Current execution policy (CurrentUser): $executionPolicy" -ForegroundColor Cyan
+    
+    if ($executionPolicy -eq "Restricted" -or $executionPolicy -eq "Undefined" -or $executionPolicy -eq "AllSigned") {
+        $message = @"
+Your PowerShell execution policy is set to '$executionPolicy', which prevents this script from running properly.
+
+To fix this, run PowerShell and execute:
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+Or run this script with execution policy bypass (downloaded file):
+    powershell -ExecutionPolicy Bypass -File quick-install.ps1
+
+Or for the web install method:
+    powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex"
+
+Would you like to continue anyway? (Some features may not work correctly)
+"@
+        
+        Write-Host ""
+        Write-Host "WARNING: Restrictive Execution Policy" -ForegroundColor Yellow
+        Write-Host $message -ForegroundColor Yellow
+        Write-Host ""
+        
+        $response = Read-Host "Continue anyway? (y/N)"
+        if ($response -notmatch '^[Yy]') {
+            Write-Host ""
+            Write-Host "Installation cancelled by user." -ForegroundColor Yellow
+            Write-Host "Please adjust your execution policy and try again." -ForegroundColor Yellow
+            Write-Host ""
+            Read-Host "Press Enter to exit"
+            exit 0
+        }
+    } else {
+        Write-Host "✓ Execution policy is compatible" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "⚠ Could not check execution policy, continuing..." -ForegroundColor Yellow
+}
+
 Write-Host ""
 
 # Check if Python is installed
@@ -31,10 +112,17 @@ foreach ($cmd in @("python", "python3", "py")) {
 }
 
 if ($null -eq $pythonCmd) {
-    Write-Host "Error: Python 3.9 or higher is not installed." -ForegroundColor Red
-    Write-Host "Please install Python from https://www.python.org/downloads/" -ForegroundColor Yellow
-    Write-Host "Make sure to check 'Add Python to PATH' during installation." -ForegroundColor Yellow
-    exit 1
+    $message = @"
+Python 3.9 or higher is not installed or not found in PATH.
+
+Please install Python from: https://www.python.org/downloads/
+
+IMPORTANT: During installation, make sure to check the box that says:
+    ☑ Add Python to PATH
+
+After installing Python, restart PowerShell and run this installer again.
+"@
+    Show-ErrorAndExit -Title "Python Not Found" -Message $message
 }
 
 # Check if git is installed
@@ -42,74 +130,128 @@ try {
     $null = Get-Command git -ErrorAction Stop
     Write-Host "✓ Git found" -ForegroundColor Green
 } catch {
-    Write-Host "Error: Git is not installed." -ForegroundColor Red
-    Write-Host "Please install Git from https://git-scm.com/download/win" -ForegroundColor Yellow
-    exit 1
+    $message = @"
+Git is not installed or not found in PATH.
+
+Please install Git from: https://git-scm.com/download/win
+
+After installing Git, restart PowerShell and run this installer again.
+"@
+    Show-ErrorAndExit -Title "Git Not Found" -Message $message
 }
 
 # Create install directory if it doesn't exist
-if (!(Test-Path $InstallDir)) {
-    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+Write-Host ""
+Write-Host "Creating installation directory..." -ForegroundColor Yellow
+try {
+    if (!(Test-Path $InstallDir)) {
+        New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    }
+    Write-Host "✓ Installation directory ready: $InstallDir" -ForegroundColor Green
+} catch {
+    Show-ErrorAndExit -Title "Directory Creation Failed" -Message "Failed to create installation directory at: $InstallDir`n`nError: $($_.Exception.Message)"
 }
 
 # Clone or update the repository
-if (Test-Path "$InstallDir\.git") {
-    Write-Host ""
-    Write-Host "Updating existing installation..." -ForegroundColor Yellow
-    Set-Location $InstallDir
-    git pull
-} else {
-    Write-Host ""
-    Write-Host "Cloning repository to $InstallDir..." -ForegroundColor Yellow
-    git clone $RepoUrl $InstallDir
-    Set-Location $InstallDir
+try {
+    if (Test-Path "$InstallDir\.git") {
+        Write-Host ""
+        Write-Host "Updating existing installation..." -ForegroundColor Yellow
+        Set-Location $InstallDir
+        git pull
+        if ($LASTEXITCODE -ne 0) {
+            throw "Git pull failed with exit code $LASTEXITCODE"
+        }
+    } else {
+        Write-Host ""
+        Write-Host "Cloning repository to $InstallDir..." -ForegroundColor Yellow
+        git clone $RepoUrl $InstallDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "Git clone failed with exit code $LASTEXITCODE"
+        }
+        Set-Location $InstallDir
+    }
+    Write-Host "✓ Repository ready" -ForegroundColor Green
+} catch {
+    Show-ErrorAndExit -Title "Git Operation Failed" -Message "Failed to clone or update repository.`n`nError: $($_.Exception.Message)`n`nPlease check your internet connection and try again."
 }
 
 Write-Host ""
 Write-Host "Creating virtual environment..." -ForegroundColor Yellow
-& $pythonCmd -m venv .venv
-
-Write-Host "Activating virtual environment..." -ForegroundColor Yellow
-& "$InstallDir\.venv\Scripts\Activate.ps1"
+try {
+    & $pythonCmd -m venv .venv
+    if ($LASTEXITCODE -ne 0) {
+        throw "Virtual environment creation failed with exit code $LASTEXITCODE"
+    }
+    Write-Host "✓ Virtual environment created" -ForegroundColor Green
+} catch {
+    Show-ErrorAndExit -Title "Virtual Environment Failed" -Message "Failed to create Python virtual environment.`n`nError: $($_.Exception.Message)"
+}
 
 Write-Host "Installing dependencies..." -ForegroundColor Yellow
-& "$InstallDir\.venv\Scripts\python.exe" -m pip install --upgrade pip
-& "$InstallDir\.venv\Scripts\python.exe" -m pip install -r requirements.txt
+try {
+    & "$InstallDir\.venv\Scripts\python.exe" -m pip install --upgrade pip
+    if ($LASTEXITCODE -ne 0) {
+        throw "Pip upgrade failed with exit code $LASTEXITCODE"
+    }
+    & "$InstallDir\.venv\Scripts\python.exe" -m pip install -r requirements.txt
+    if ($LASTEXITCODE -ne 0) {
+        throw "Pip install failed with exit code $LASTEXITCODE"
+    }
+    Write-Host "✓ Dependencies installed" -ForegroundColor Green
+} catch {
+    Show-ErrorAndExit -Title "Dependency Installation Failed" -Message "Failed to install Python dependencies.`n`nError: $($_.Exception.Message)`n`nPlease check your internet connection and try again."
+}
 
 Write-Host ""
 Write-Host "Creating launcher script..." -ForegroundColor Yellow
 $LauncherBat = "$InstallDir\launch-dnd-tracker.bat"
 
-@"
+try {
+    @"
 @echo off
 cd /d "$InstallDir"
 call .venv\Scripts\activate.bat
 python dnd_initative_tracker.py %*
 "@ | Out-File -FilePath $LauncherBat -Encoding ASCII
+    Write-Host "✓ Launcher script created" -ForegroundColor Green
+} catch {
+    Show-Warning -Title "Launcher Creation Failed" -Message "Failed to create launcher script, but installation may still work.`n`nError: $($_.Exception.Message)"
+}
 
 # Create desktop shortcut
 Write-Host "Creating desktop shortcut..." -ForegroundColor Yellow
-$WshShell = New-Object -ComObject WScript.Shell
-$Shortcut = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\D&D Initiative Tracker.lnk")
-$Shortcut.TargetPath = $LauncherBat
-$Shortcut.WorkingDirectory = $InstallDir
-$Shortcut.Description = "D&D 5e Initiative Tracker"
-if (Test-Path "$InstallDir\assets\graphic-192.png") {
-    $Shortcut.IconLocation = "$InstallDir\assets\graphic-192.png"
+try {
+    $WshShell = New-Object -ComObject WScript.Shell
+    $Shortcut = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\D&D Initiative Tracker.lnk")
+    $Shortcut.TargetPath = $LauncherBat
+    $Shortcut.WorkingDirectory = $InstallDir
+    $Shortcut.Description = "D&D 5e Initiative Tracker"
+    if (Test-Path "$InstallDir\assets\graphic-192.png") {
+        $Shortcut.IconLocation = "$InstallDir\assets\graphic-192.png"
+    }
+    $Shortcut.Save()
+    Write-Host "✓ Desktop shortcut created" -ForegroundColor Green
+} catch {
+    Show-Warning -Title "Shortcut Creation Failed" -Message "Failed to create desktop shortcut, but installation completed successfully.`n`nYou can run the tracker using: $LauncherBat"
 }
-$Shortcut.Save()
 
 # Create Start Menu shortcut
 Write-Host "Creating Start Menu shortcut..." -ForegroundColor Yellow
-$StartMenuDir = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
-$StartShortcut = $WshShell.CreateShortcut("$StartMenuDir\D&D Initiative Tracker.lnk")
-$StartShortcut.TargetPath = $LauncherBat
-$StartShortcut.WorkingDirectory = $InstallDir
-$StartShortcut.Description = "D&D 5e Initiative Tracker"
-if (Test-Path "$InstallDir\assets\graphic-192.png") {
-    $StartShortcut.IconLocation = "$InstallDir\assets\graphic-192.png"
+try {
+    $StartMenuDir = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
+    $StartShortcut = $WshShell.CreateShortcut("$StartMenuDir\D&D Initiative Tracker.lnk")
+    $StartShortcut.TargetPath = $LauncherBat
+    $StartShortcut.WorkingDirectory = $InstallDir
+    $StartShortcut.Description = "D&D 5e Initiative Tracker"
+    if (Test-Path "$InstallDir\assets\graphic-192.png") {
+        $StartShortcut.IconLocation = "$InstallDir\assets\graphic-192.png"
+    }
+    $StartShortcut.Save()
+    Write-Host "✓ Start Menu shortcut created" -ForegroundColor Green
+} catch {
+    Show-Warning -Title "Start Menu Shortcut Failed" -Message "Failed to create Start Menu shortcut, but installation completed successfully."
 }
-$StartShortcut.Save()
 
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor Cyan
@@ -121,3 +263,5 @@ Write-Host "  1. Use the Desktop shortcut 'D&D Initiative Tracker'" -ForegroundC
 Write-Host "  2. Search for 'D&D Initiative Tracker' in the Start Menu" -ForegroundColor White
 Write-Host "  3. Run: $LauncherBat" -ForegroundColor White
 Write-Host ""
+Write-Host "Press Enter to exit..." -ForegroundColor Cyan
+Read-Host

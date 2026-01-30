@@ -14,28 +14,44 @@ A comprehensive D&D 5e initiative tracker and combat management system with a de
 
 ## 🎯 Quick Start
 
-**Streamlined Install (Recommended - All Platforms):**
+### Quick Install (Recommended)
 
 The quickest way to get started is with our one-line installer. No need to manually clone, install, and manage the repository!
 
+#### 🐧 Linux / 🍎 macOS Users
+
+Use either `curl` or `wget`:
+
 ```bash
-# One-line install: clones, installs dependencies, and sets up in one command
+# Using curl (Linux/macOS ONLY)
 curl -sSL https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
 ```
+
 Or using wget:
 ```bash
+# Using wget (Linux/macOS ONLY)
 wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
 ```
 
-**Windows Quick Install:**
+#### 🪟 Windows Users
+
+**Important:** You may need to adjust your PowerShell execution policy first. If you get an error, see the [Windows Installation Notes](#windows-installation-notes) section below.
+
 ```powershell
-# Run in PowerShell
+# For Windows ONLY - Run in PowerShell
 irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex
 ```
 
+> **⚠️ Note:** The commands above are **platform-specific**. Do not use the Linux/macOS commands on Windows, or vice versa!
+
 After installation, the app is installed to a system location (`.local/share` on Linux/macOS, `%LOCALAPPDATA%` on Windows), so you don't need to keep the cloned repository!
 
-**Manual Install (Linux/macOS):**
+---
+
+### Manual Installation
+
+#### Manual Install (Linux/macOS)
+
 ```bash
 # Clone the repository
 git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
@@ -50,7 +66,8 @@ pip install -r requirements.txt
 python dnd_initative_tracker.py
 ```
 
-**Manual Install (Windows 11):**
+#### Manual Install (Windows 11)
+
 ```cmd
 # Clone the repository
 git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
@@ -65,6 +82,26 @@ python -m venv .venv
 pip install -r requirements.txt
 python dnd_initative_tracker.py
 ```
+
+### Windows Installation Notes
+
+If you encounter an error about "execution policy" when running the PowerShell quick install, you have two options:
+
+**Option 1: Temporarily bypass for this script (recommended)**
+```powershell
+# Download and run with bypass
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex"
+```
+
+**Option 2: Change execution policy (no admin required)**
+```powershell
+# Run in a normal PowerShell window:
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+After adjusting the execution policy, run the quick install command again.
+
+---
 
 The DM window opens automatically. To enable player mobile access, use **LAN → Start LAN Server** from the menu.
 
