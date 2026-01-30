@@ -599,7 +599,18 @@ class LevelAbilitiesPage(WizardPage):
             c["leveling"]["classes"][0]["level"] = lvl
 
         for k, var in self.ability_vars.items():
-            c["abilities"][k] = safe_int(var.get(), 10)
+            score = safe_int(var.get(), 10)
+            # Validate ability scores are in reasonable range (1-30, but warn if unusual)
+            if score < 1:
+                messagebox.showerror("Invalid ability score", f"{k.upper()} must be at least 1.")
+                return False
+            if score > 30:
+                if not messagebox.askyesno(
+                    "Unusual ability score",
+                    f"{k.upper()} = {score} is unusually high (>30).\n\nContinue anyway?"
+                ):
+                    return False
+            c["abilities"][k] = score
         return True
 
 
@@ -982,8 +993,42 @@ class ResourcesPage(WizardPage):
         pools = self.app.char["resources"]["pools"]
         if idx < 0 or idx >= len(pools):
             return
-        if not messagebox.askyesno("Remove pool", f"Remove pool '{pools[idx].get('label','')}'?"):
-            return
+        
+        pool_id = pools[idx].get('id', '')
+        pool_label = pools[idx].get('label', '')
+        
+        # Check if this pool is referenced in features
+        referenced = False
+        for feature in self.app.char.get("features", []):
+            grants = feature.get("grants", {})
+            
+            # Check spell casts
+            for cast in grants.get("spells", {}).get("casts", []):
+                consumes = cast.get("consumes", {})
+                if consumes.get("pool") == pool_id:
+                    referenced = True
+                    break
+            
+            # Check actions
+            for action in grants.get("actions", []):
+                uses = action.get("uses", {})
+                if uses.get("pool") == pool_id:
+                    referenced = True
+                    break
+            
+            if referenced:
+                break
+        
+        if referenced:
+            if not messagebox.askyesno(
+                "Pool is referenced",
+                f"Pool '{pool_label}' is referenced by features.\nRemoving it may cause issues.\n\nRemove anyway?"
+            ):
+                return
+        else:
+            if not messagebox.askyesno("Remove pool", f"Remove pool '{pool_label}'?"):
+                return
+        
         pools.pop(idx)
         self.refresh_list()
         self._selected_index = None
@@ -2843,8 +2888,14 @@ class WizardApp(tk.Tk):
                 data = yaml.safe_load(f) or {}
             if not isinstance(data, dict):
                 raise ValueError("Top-level YAML must be a mapping/dict.")
+        except FileNotFoundError:
+            messagebox.showerror("File not found", f"Could not find file:\n{path}")
+            return
+        except yaml.YAMLError as e:
+            messagebox.showerror("YAML parse error", f"Invalid YAML format:\n{str(e)}")
+            return
         except Exception as e:
-            messagebox.showerror("Open failed", str(e))
+            messagebox.showerror("Open failed", f"Error loading character:\n{str(e)}")
             return
 
         merged = merge_defaults(data, base_template())
@@ -2899,8 +2950,13 @@ class WizardApp(tk.Tk):
                 yaml.safe_dump(self.char, f, sort_keys=False, allow_unicode=True)
             self.refresh_player_cache()
             self.side_file.configure(text=f"File: {self.current_path}")
+            messagebox.showinfo("Saved", f"Character saved to:\n{os.path.basename(self.current_path)}")
+        except PermissionError:
+            messagebox.showerror("Save failed", f"Permission denied:\n{self.current_path}")
+        except IOError as e:
+            messagebox.showerror("Save failed", f"IO error:\n{str(e)}")
         except Exception as e:
-            messagebox.showerror("Save failed", str(e))
+            messagebox.showerror("Save failed", f"Error saving character:\n{str(e)}")
 
     def save_as(self) -> None:
         if not self.pages[self.page_index].save_to_state():
