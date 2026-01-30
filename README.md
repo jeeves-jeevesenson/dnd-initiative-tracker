@@ -376,6 +376,10 @@ This will remove:
 
 **Note**: Uninstallation will delete all files including logs and custom configurations.
 
+#### Creating Standalone Executables (Advanced)
+
+For users who want to create a standalone `.exe` or `.msi` installer that doesn't require Python, see the detailed guide at [`docs/WINDOWS_EXECUTABLE.md`](docs/WINDOWS_EXECUTABLE.md). This is an optional advanced feature using PyInstaller or cx_Freeze.
+
 ### Linux Installation (Desktop Integration)
 
 For Linux users who want desktop menu integration:

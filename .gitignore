@@ -2,3 +2,8 @@ dnd_initative_tracker_history.log
 old logs/
 __pycache__/
 *.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+logs/*.log
