@@ -586,20 +586,58 @@ Direct action definitions (alternative to defining in features):
 
 ```yaml
 actions:
-  - name: "Multiattack"
-    description: "Make two attacks with your weapon."
+  - name: "Attack"
+    description: "Make a weapon or unarmed attack against a target within range."
+    type: "action"
+  - name: "Dash"
+    description: "Gain extra movement for the current turn equal to your speed."
+    type: "action"
+  - name: "Disengage"
+    description: "Your movement does not provoke opportunity attacks for the rest of the turn."
+    type: "action"
+  - name: "Dodge"
+    description: "Until the start of your next turn, attack rolls against you have disadvantage if you can see the attacker, and you make Dexterity saves with advantage."
+    type: "action"
+  - name: "Help"
+    description: "Aid a creature in the next ability check or attack roll against a target within 5 feet of you."
+    type: "action"
+  - name: "Hide"
+    description: "Attempt to hide by making a Dexterity (Stealth) check."
+    type: "action"
+  - name: "Influence"
+    description: "Attempt to influence a creature through conversation, bargaining, or intimidation."
+    type: "action"
+  - name: "Magic"
+    description: "Cast a spell or use a magical feature that takes an action."
+    type: "action"
+  - name: "Ready"
+    description: "Prepare an action and a trigger; use your reaction to perform it when the trigger occurs."
+    type: "action"
+  - name: "Search"
+    description: "Devote attention to finding something by making a Wisdom (Perception) or Intelligence (Investigation) check."
+    type: "action"
+  - name: "Study"
+    description: "Focus on detailed observation or research to gain information about a creature, object, or situation."
+    type: "action"
+  - name: "Utilize"
+    description: "Use an object or interact with the environment in a significant way."
     type: "action"
 
 reactions:
-  - name: "Riposte"
-    description: "When a creature misses you with a melee attack, you can use your reaction and expend one superiority die to make a melee weapon attack against the creature."
+  - name: "Opportunity Attack"
+    description: "When a hostile creature you can see moves out of your reach, you can use your reaction to make one melee attack against it."
+    type: "reaction"
+  - name: "Reaction"
+    description: "You can take a reaction when a trigger occurs. A reaction is only available once per round."
     type: "reaction"
 
 bonus_actions:
-  - name: "Cunning Action"
-    description: "Take the Dash, Disengage, or Hide action as a bonus action."
+  - name: "Bonus Action"
+    description: "You can take a bonus action only when a feature, spell, or ability says you can."
     type: "bonus_action"
 ```
+
+New characters start with the full basic list above; you can add or remove entries as needed.
 
 **Field Descriptions:**
 
