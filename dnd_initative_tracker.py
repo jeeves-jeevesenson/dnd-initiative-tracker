@@ -1470,7 +1470,8 @@ HTML_INDEX = r"""<!doctype html>
         <button class="btn" id="castOverlayBack" type="button">Back</button>
         <div class="cast-overlay-title" id="castOverlayTitle">Cast Spell</div>
         <div class="cast-overlay-spacer"></div>
-        <button class="btn" id="spellConfigOpen" type="button">Set Known Spells</button>
+        <button class="btn" id="spellPreparedOpen" type="button">Prepared Spells</button>
+        <button class="btn" id="spellConfigOpen" type="button">Known Spells</button>
       </div>
       <div class="cast-overlay-body" role="dialog" aria-modal="true" aria-labelledby="castOverlayTitle">
         <div class="cast-panel" id="castPanel">
@@ -1547,7 +1548,6 @@ HTML_INDEX = r"""<!doctype html>
                 <select id="castPreset">
                   <option value="" selected>Custom</option>
                 </select>
-                <button class="btn" id="spellSelectOpen" type="button">Select Spells</button>
               </div>
             </div>
             <div class="form-field">
@@ -1675,7 +1675,7 @@ __DAMAGE_TYPE_OPTIONS__
         <table class="spell-select-table">
           <thead>
             <tr>
-              <th scope="col" class="spell-select-check-col">Known</th>
+              <th scope="col" class="spell-select-check-col" id="spellSelectCheckHeader">Known</th>
               <th scope="col">Name</th>
               <th scope="col">Damage</th>
               <th scope="col">AoE</th>
@@ -1698,7 +1698,7 @@ __DAMAGE_TYPE_OPTIONS__
 </div>
 <div class="modal" id="spellConfigModal" aria-hidden="true">
   <div class="card">
-    <h2>Set Known Spells</h2>
+    <h2>Known Spells</h2>
     <div class="hint">Track known spells for your claimed character.</div>
     <form id="spellConfigForm">
       <div class="form-grid">
@@ -2096,13 +2096,15 @@ __DAMAGE_TYPE_OPTIONS__
   const castColorInput = document.getElementById("castColor");
   const spellPresetDetails = document.getElementById("spellPresetDetails");
   const spellSelectOverlay = document.getElementById("spellSelectOverlay");
-  const spellSelectOpenBtn = document.getElementById("spellSelectOpen");
   const spellSelectBackBtn = document.getElementById("spellSelectBack");
   const spellSelectCloseBtn = document.getElementById("spellSelectClose");
+  const spellSelectTitle = document.getElementById("spellSelectTitle");
+  const spellSelectCheckHeader = document.getElementById("spellSelectCheckHeader");
   const spellSelectModeBtn = document.getElementById("spellSelectModeToggle");
   const spellSelectSaveBtn = document.getElementById("spellSelectSaveKnown");
   const spellSelectSummary = document.getElementById("spellSelectSummary");
   const spellSelectTableBody = document.getElementById("spellSelectTableBody");
+  const spellPreparedOpenBtn = document.getElementById("spellPreparedOpen");
   const spellConfigOpenBtn = document.getElementById("spellConfigOpen");
   const spellConfigModal = document.getElementById("spellConfigModal");
   const spellConfigForm = document.getElementById("spellConfigForm");
@@ -2127,9 +2129,12 @@ __DAMAGE_TYPE_OPTIONS__
   let spellSelectPreviousFocus = null;
   let spellConfigPreviousFocus = null;
   const spellConfigDefaults = {cantrips: 0, spells: 15};
+  const preparedSpellDefaults = {prepared: [], max: null, maxFormula: ""};
+  let spellSelectContext = "known";
   let spellSelectMode = false;
   let spellSelectLastCount = 0;
   let selectedKnownSpellKeys = new Set();
+  let selectedPreparedSpellKeys = new Set();
   let spellPresetIndex = new Map();
 
   const canvas = document.getElementById("c");
@@ -2417,6 +2422,108 @@ __DAMAGE_TYPE_OPTIONS__
     };
   }
 
+  function normalizePreparedSpellList(list){
+    if (!Array.isArray(list)) return [];
+    return list.map(normalizeTextValue).filter(Boolean);
+  }
+
+  function evaluatePreparedFormula(formula, variables){
+    if (typeof formula !== "string") return null;
+    const trimmed = formula.trim();
+    if (!trimmed) return null;
+    if (!/^[0-9+\-*/(). _a-zA-Z]+$/.test(trimmed)) return null;
+    let expr = trimmed;
+    Object.entries(variables).forEach(([key, value]) => {
+      const safeValue = Number.isFinite(value) ? String(value) : "0";
+      const pattern = new RegExp(`\\b${key}\\b`, "g");
+      expr = expr.replace(pattern, safeValue);
+    });
+    if (/[a-zA-Z]/.test(expr)) return null;
+    try {
+      const result = Function(`"use strict"; return (${expr});`)();
+      if (!Number.isFinite(result)) return null;
+      return Math.max(0, Math.floor(result));
+    } catch (err){
+      return null;
+    }
+  }
+
+  function getAbilityModifier(profile, key){
+    const abilities = profile?.abilities;
+    if (!abilities || typeof abilities !== "object") return 0;
+    const modValue = Number(abilities[`${key}_mod`] ?? abilities[`${key}_modifier`]);
+    if (Number.isFinite(modValue)){
+      return Math.floor(modValue);
+    }
+    const scoreValue = Number(
+      abilities[key]
+      ?? abilities[key.toUpperCase()]
+      ?? abilities[`${key}_score`]
+    );
+    if (Number.isFinite(scoreValue)){
+      return Math.floor((scoreValue - 10) / 2);
+    }
+    return 0;
+  }
+
+  function getPreparedSpellLimit(profile, preparedData){
+    const maxFormula = preparedData?.maxFormula;
+    const maxValue = preparedData?.maxValue;
+    const levelRaw = profile?.leveling?.level ?? profile?.leveling?.total_level ?? profile?.leveling?.lvl;
+    const level = Number.isFinite(Number(levelRaw)) ? Math.max(0, Math.floor(Number(levelRaw))) : 0;
+    const variables = {
+      level,
+      total_level: level,
+      str_mod: getAbilityModifier(profile, "str"),
+      dex_mod: getAbilityModifier(profile, "dex"),
+      con_mod: getAbilityModifier(profile, "con"),
+      int_mod: getAbilityModifier(profile, "int"),
+      wis_mod: getAbilityModifier(profile, "wis"),
+      cha_mod: getAbilityModifier(profile, "cha"),
+    };
+    const evaluated = evaluatePreparedFormula(maxFormula, variables);
+    if (Number.isFinite(evaluated)){
+      return evaluated;
+    }
+    if (Number.isFinite(maxValue)){
+      return Math.max(0, Math.floor(maxValue));
+    }
+    const fallbackKnown = Number(profile?.spellcasting?.known_spells);
+    if (Number.isFinite(fallbackKnown)){
+      return Math.max(0, Math.floor(fallbackKnown));
+    }
+    return null;
+  }
+
+  function getPlayerPreparedSpellConfig(name){
+    const defaults = {...preparedSpellDefaults};
+    if (!name) return defaults;
+    let raw = null;
+    const profile = getPlayerProfile(name);
+    if (profile?.spellcasting && typeof profile.spellcasting === "object"){
+      raw = profile.spellcasting;
+    } else {
+      const store = state?.player_spells;
+      if (store && typeof store === "object"){
+        raw = store[name];
+      }
+    }
+    const preparedData = raw?.prepared_spells;
+    if (!preparedData || typeof preparedData !== "object"){
+      return defaults;
+    }
+    const maxFormula = typeof preparedData.max_formula === "string"
+      ? preparedData.max_formula.trim()
+      : "";
+    const maxValue = Number(preparedData.max ?? preparedData.max_spells ?? preparedData.max_prepared);
+    const limit = getPreparedSpellLimit(profile, {maxFormula, maxValue});
+    return {
+      prepared: normalizePreparedSpellList(preparedData.prepared),
+      max: limit,
+      maxFormula,
+    };
+  }
+
   function loadSpellConfig(cid){
     const claimedUnit = getClaimedUnit();
     if (!claimedUnit || String(claimedUnit.cid) !== String(cid)){
@@ -2435,6 +2542,43 @@ __DAMAGE_TYPE_OPTIONS__
     return config.names;
   }
 
+  function loadPreparedSpells(cid){
+    const claimedUnit = getClaimedUnit();
+    if (!claimedUnit || String(claimedUnit.cid) !== String(cid)){
+      return [];
+    }
+    const config = getPlayerPreparedSpellConfig(String(claimedUnit.name || ""));
+    return config.prepared;
+  }
+
+  function getActiveSelectionSet(){
+    return spellSelectContext === "prepared" ? selectedPreparedSpellKeys : selectedKnownSpellKeys;
+  }
+
+  function setSpellSelectContext(next){
+    spellSelectContext = next === "prepared" ? "prepared" : "known";
+    updateSpellSelectUiLabels();
+    updateSpellSelectSummary();
+  }
+
+  function updateSpellSelectUiLabels(){
+    const isPrepared = spellSelectContext === "prepared";
+    if (spellSelectTitle){
+      spellSelectTitle.textContent = isPrepared ? "Prepared Spells" : "Select Spells";
+    }
+    if (spellSelectCheckHeader){
+      spellSelectCheckHeader.textContent = isPrepared ? "Prepared" : "Known";
+    }
+    if (spellSelectModeBtn){
+      spellSelectModeBtn.textContent = spellSelectMode
+        ? "Exit Selection"
+        : (isPrepared ? "Select Prepared" : "Select Known");
+    }
+    if (spellSelectSaveBtn){
+      spellSelectSaveBtn.textContent = isPrepared ? "Save Prepared Spells" : "Save Known Spells";
+    }
+  }
+
   function setSpellSelectOverlayOpen(open){
     if (!spellSelectOverlay) return;
     spellSelectOverlay.classList.toggle("show", open);
@@ -2444,12 +2588,17 @@ __DAMAGE_TYPE_OPTIONS__
         ? document.activeElement
         : null;
       if (claimedCid){
-        const stored = loadKnownSpells(claimedCid);
-        selectedKnownSpellKeys = new Set(stored.map(getSpellKey));
+        const stored = spellSelectContext === "prepared"
+          ? loadPreparedSpells(claimedCid)
+          : loadKnownSpells(claimedCid);
+        const nextKeys = new Set(stored.map(getSpellKey));
+        if (spellSelectContext === "prepared"){
+          selectedPreparedSpellKeys = nextKeys;
+        } else {
+          selectedKnownSpellKeys = nextKeys;
+        }
       }
-      if (spellSelectModeBtn){
-        spellSelectModeBtn.textContent = spellSelectMode ? "Exit Selection" : "Select Known";
-      }
+      updateSpellSelectUiLabels();
       if (spellSelectSaveBtn){
         spellSelectSaveBtn.disabled = !spellSelectMode;
       }
@@ -2469,12 +2618,22 @@ __DAMAGE_TYPE_OPTIONS__
     if (!state.player_spells || typeof state.player_spells !== "object"){
       state.player_spells = {};
     }
+    const preparedNames = Array.isArray(config.prepared)
+      ? normalizePreparedSpellList(config.prepared)
+      : [];
+    const preparedMaxFormula = typeof config.preparedMaxFormula === "string"
+      ? config.preparedMaxFormula.trim()
+      : "";
     state.player_spells[name] = {
       known_cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
       known_spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
       known_spell_names: Array.isArray(config.names)
         ? config.names.map(normalizeTextValue).filter(Boolean)
         : [],
+      prepared_spells: {
+        prepared: preparedNames,
+        ...(preparedMaxFormula ? {max_formula: preparedMaxFormula} : {}),
+      },
     };
     if (!state.player_profiles || typeof state.player_profiles !== "object"){
       state.player_profiles = {};
@@ -2497,16 +2656,33 @@ __DAMAGE_TYPE_OPTIONS__
     profile.spellcasting.known_spell_names = Array.isArray(config.names)
       ? config.names.map(normalizeTextValue).filter(Boolean)
       : [];
+    if (!profile.spellcasting.prepared_spells || typeof profile.spellcasting.prepared_spells !== "object"){
+      profile.spellcasting.prepared_spells = {};
+    }
+    profile.spellcasting.prepared_spells.prepared = preparedNames;
+    if (preparedMaxFormula){
+      profile.spellcasting.prepared_spells.max_formula = preparedMaxFormula;
+    }
   }
 
   async function persistPlayerSpellConfig(name, config){
     if (!name) return false;
+    const preparedNames = Array.isArray(config.prepared)
+      ? normalizePreparedSpellList(config.prepared)
+      : [];
+    const preparedMaxFormula = typeof config.preparedMaxFormula === "string"
+      ? config.preparedMaxFormula.trim()
+      : "";
     const payload = {
       known_cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
       known_spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
       known_spell_names: Array.isArray(config.names)
         ? config.names.map(normalizeTextValue).filter(Boolean)
         : [],
+      prepared_spells: {
+        prepared: preparedNames,
+        ...(preparedMaxFormula ? {max_formula: preparedMaxFormula} : {}),
+      },
     };
     try {
       const response = await fetch(`/api/players/${encodeURIComponent(name)}/spells`, {
@@ -2521,16 +2697,21 @@ __DAMAGE_TYPE_OPTIONS__
       const data = await response.json();
       const player = data?.player;
       if (player && typeof player === "object"){
+        const preparedData = player.prepared_spells || {};
         updateLocalPlayerSpellConfig(name, {
           cantrips: player.known_cantrips,
           spells: player.known_spells,
           names: player.known_spell_names,
+          prepared: preparedData.prepared,
+          preparedMaxFormula: preparedData.max_formula || preparedMaxFormula,
         });
       } else {
         updateLocalPlayerSpellConfig(name, {
           cantrips: payload.known_cantrips,
           spells: payload.known_spells,
           names: payload.known_spell_names,
+          prepared: payload.prepared_spells.prepared,
+          preparedMaxFormula: payload.prepared_spells.max_formula || preparedMaxFormula,
         });
       }
       return true;
@@ -4605,24 +4786,23 @@ __DAMAGE_TYPE_OPTIONS__
           showNoOwnedPcToast(msg.pcs || msg.claimable || []);
         } else {
           const exists = (state.units || []).some(u => Number(u.cid) === Number(claimedCid));
-          if (!exists){
-            claimedCid = null;
-            meEl.textContent = "(unclaimed)";
-            shownNoOwnedToast = false;
-            showNoOwnedPcToast(msg.pcs || msg.claimable || []);
-            spellSelectMode = false;
-            spellSelectOverlay?.classList.remove("selecting");
-            if (spellSelectModeBtn){
-              spellSelectModeBtn.textContent = "Select Known";
+            if (!exists){
+              claimedCid = null;
+              meEl.textContent = "(unclaimed)";
+              shownNoOwnedToast = false;
+              showNoOwnedPcToast(msg.pcs || msg.claimable || []);
+              spellSelectMode = false;
+              spellSelectOverlay?.classList.remove("selecting");
+              updateSpellSelectUiLabels();
+              if (spellSelectSaveBtn){
+                spellSelectSaveBtn.disabled = true;
+              }
+              selectedKnownSpellKeys = new Set();
+              selectedPreparedSpellKeys = new Set();
+              updateSpellSelectSummary();
+              renderSpellSelectTable(cachedSpellPresets);
+              refreshSpellPresetOptions();
             }
-            if (spellSelectSaveBtn){
-              spellSelectSaveBtn.disabled = true;
-            }
-            selectedKnownSpellKeys = new Set();
-            updateSpellSelectSummary();
-            renderSpellSelectTable(cachedSpellPresets);
-            refreshSpellPresetOptions();
-          }
         }
         refreshTurnAlertStatus();
       } else if (msg.type === "force_claim"){
@@ -4642,13 +4822,12 @@ __DAMAGE_TYPE_OPTIONS__
         showNoOwnedPcToast(msg.pcs || lastPcList || []);
         spellSelectMode = false;
         spellSelectOverlay?.classList.remove("selecting");
-        if (spellSelectModeBtn){
-          spellSelectModeBtn.textContent = "Select Known";
-        }
+        updateSpellSelectUiLabels();
         if (spellSelectSaveBtn){
           spellSelectSaveBtn.disabled = true;
         }
         selectedKnownSpellKeys = new Set();
+        selectedPreparedSpellKeys = new Set();
         updateSpellSelectSummary();
         renderSpellSelectTable(cachedSpellPresets);
         refreshSpellPresetOptions();
@@ -5120,9 +5299,22 @@ __DAMAGE_TYPE_OPTIONS__
     if (!config.names.length) return null;
     return config.names.map(normalizeTextValue).filter(Boolean);
   };
+  const loadPreparedSpellFilterList = () => {
+    const name = getClaimedPlayerName();
+    if (!name) return null;
+    const config = getPlayerPreparedSpellConfig(name);
+    if (!config.prepared.length) return null;
+    return config.prepared.map(normalizeTextValue).filter(Boolean);
+  };
   const getKnownSpellFilterSet = () => {
     if (!claimedCid) return null;
     const list = loadKnownSpellFilterList();
+    if (!list) return null;
+    return new Set(list.map(getSpellKey));
+  };
+  const getPreparedSpellFilterSet = () => {
+    if (!claimedCid) return null;
+    const list = loadPreparedSpellFilterList();
     if (!list) return null;
     return new Set(list.map(getSpellKey));
   };
@@ -5174,9 +5366,9 @@ __DAMAGE_TYPE_OPTIONS__
     });
     return {cantrips, spells};
   };
-  const getSelectedKnownSpellNames = () => {
+  const getSelectedSpellNames = (selectionSet) => {
     const names = [];
-    selectedKnownSpellKeys.forEach((key) => {
+    selectionSet.forEach((key) => {
       const entry = spellPresetIndex.get(key);
       if (entry?.name){
         names.push(entry.name);
@@ -5351,15 +5543,26 @@ __DAMAGE_TYPE_OPTIONS__
       spellSelectSummary.textContent = `${count} spell${count === 1 ? "" : "s"} available.`;
       return;
     }
-    const limits = claimedCid ? loadSpellConfig(claimedCid) : spellConfigDefaults;
+    const availableLabel = `${count} spell${count === 1 ? "" : "s"} available.`;
+    if (!claimedCid){
+      spellSelectSummary.textContent = spellSelectContext === "prepared"
+        ? "Claim a character to track prepared spells."
+        : "Claim a character to track known spells.";
+      return;
+    }
+    if (spellSelectContext === "prepared"){
+      const playerName = getClaimedPlayerName();
+      const config = playerName ? getPlayerPreparedSpellConfig(playerName) : preparedSpellDefaults;
+      const limit = config.max;
+      const selected = selectedPreparedSpellKeys.size;
+      const limitLabel = Number.isFinite(limit) ? `${selected}/${limit} prepared spells selected` : `${selected} prepared spells selected`;
+      spellSelectSummary.textContent = `${limitLabel}. ${availableLabel}`;
+      return;
+    }
+    const limits = loadSpellConfig(claimedCid);
     const counts = getKnownSpellCounts();
     const cantripLabel = `${counts.cantrips}/${limits.cantrips} cantrips selected`;
     const spellLabel = `${counts.spells}/${limits.spells} spells selected`;
-    const availableLabel = `${count} spell${count === 1 ? "" : "s"} available.`;
-    if (!claimedCid){
-      spellSelectSummary.textContent = "Claim a character to track known spells.";
-      return;
-    }
     spellSelectSummary.textContent = `${cantripLabel}, ${spellLabel}. ${availableLabel}`;
   };
   const setSpellSelectMode = (active) => {
@@ -5370,19 +5573,41 @@ __DAMAGE_TYPE_OPTIONS__
     spellSelectMode = !!active;
     spellSelectOverlay?.classList.toggle("selecting", spellSelectMode);
     if (spellSelectMode && claimedCid){
-      const stored = loadKnownSpells(claimedCid);
-      selectedKnownSpellKeys = new Set(stored.map(getSpellKey));
+      const stored = spellSelectContext === "prepared"
+        ? loadPreparedSpells(claimedCid)
+        : loadKnownSpells(claimedCid);
+      const nextKeys = new Set(stored.map(getSpellKey));
+      if (spellSelectContext === "prepared"){
+        selectedPreparedSpellKeys = nextKeys;
+      } else {
+        selectedKnownSpellKeys = nextKeys;
+      }
     }
-    if (spellSelectModeBtn){
-      spellSelectModeBtn.textContent = spellSelectMode ? "Exit Selection" : "Select Known";
-    }
+    updateSpellSelectUiLabels();
     if (spellSelectSaveBtn){
       spellSelectSaveBtn.disabled = !spellSelectMode;
     }
     renderSpellSelectTable(cachedSpellPresets);
   };
-  const toggleKnownSpellSelection = (key, shouldSelect) => {
+  const toggleSpellSelection = (key, shouldSelect) => {
     if (!claimedCid) return false;
+    if (spellSelectContext === "prepared"){
+      if (shouldSelect){
+        const playerName = getClaimedPlayerName();
+        const config = playerName ? getPlayerPreparedSpellConfig(playerName) : preparedSpellDefaults;
+        const limit = config.max;
+        const nextCount = selectedPreparedSpellKeys.size + 1;
+        if (Number.isFinite(limit) && limit !== null && nextCount > limit){
+          localToast(`Prepared spells limited to ${limit}.`);
+          return false;
+        }
+        selectedPreparedSpellKeys.add(key);
+      } else {
+        selectedPreparedSpellKeys.delete(key);
+      }
+      updateSpellSelectSummary();
+      return true;
+    }
     if (shouldSelect){
       const entry = spellPresetIndex.get(key);
       const isCantrip = entry?.level === 0;
@@ -5407,8 +5632,10 @@ __DAMAGE_TYPE_OPTIONS__
   };
   const renderSpellSelectTable = (presets) => {
     if (!spellSelectTableBody || !spellSelectSummary) return;
-    const knownSpellSet = spellSelectMode ? null : getKnownSpellFilterSet();
-    const list = filterPresetsByKnownList(normalizeSpellPresets(presets), knownSpellSet)
+    const filterSet = spellSelectMode
+      ? null
+      : (spellSelectContext === "prepared" ? getPreparedSpellFilterSet() : getKnownSpellFilterSet());
+    const list = filterPresetsByKnownList(normalizeSpellPresets(presets), filterSet)
       .slice()
       .sort((a, b) => {
       return normalizeTextValue(a.name).localeCompare(normalizeTextValue(b.name));
@@ -5438,10 +5665,10 @@ __DAMAGE_TYPE_OPTIONS__
       checkCell.className = "spell-select-check-cell";
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
-      checkbox.checked = selectedKnownSpellKeys.has(spellKey);
+      checkbox.checked = getActiveSelectionSet().has(spellKey);
       checkbox.disabled = !spellSelectMode || !claimedCid;
       checkbox.addEventListener("change", () => {
-        const applied = toggleKnownSpellSelection(spellKey, checkbox.checked);
+        const applied = toggleSpellSelection(spellKey, checkbox.checked);
         if (!applied){
           checkbox.checked = false;
         }
@@ -5454,7 +5681,7 @@ __DAMAGE_TYPE_OPTIONS__
       nameBtn.textContent = name;
       nameBtn.addEventListener("click", () => {
         if (spellSelectMode){
-          const applied = toggleKnownSpellSelection(spellKey, !checkbox.checked);
+          const applied = toggleSpellSelection(spellKey, !checkbox.checked);
           if (applied){
             checkbox.checked = !checkbox.checked;
           }
@@ -6596,8 +6823,14 @@ __DAMAGE_TYPE_OPTIONS__
       setCastOverlayOpen(false);
     });
   }
-  if (spellSelectOpenBtn){
-    spellSelectOpenBtn.addEventListener("click", () => {
+  if (spellPreparedOpenBtn){
+    spellPreparedOpenBtn.addEventListener("click", () => {
+      if (!claimedCid){
+        localToast("Claim a character first.");
+        return;
+      }
+      setSpellSelectContext("prepared");
+      setSpellSelectMode(true);
       setSpellSelectOverlayOpen(true);
     });
   }
@@ -6623,7 +6856,11 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       if (!spellSelectMode){
-        localToast("Enable selection mode to save known spells.");
+        localToast(
+          spellSelectContext === "prepared"
+            ? "Enable selection mode to save prepared spells."
+            : "Enable selection mode to save known spells."
+        );
         return;
       }
       const playerName = getClaimedPlayerName();
@@ -6632,11 +6869,29 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       const currentConfig = getPlayerSpellConfig(playerName);
-      const names = getSelectedKnownSpellNames();
+      const preparedConfig = getPlayerPreparedSpellConfig(playerName);
+      if (spellSelectContext === "prepared"){
+        const names = getSelectedSpellNames(selectedPreparedSpellKeys);
+        const saved = await persistPlayerSpellConfig(playerName, {
+          cantrips: currentConfig.cantrips,
+          spells: currentConfig.spells,
+          names: currentConfig.names,
+          prepared: names,
+          preparedMaxFormula: preparedConfig.maxFormula,
+        });
+        if (!saved) return;
+        localToast("Prepared spells saved.");
+        selectedPreparedSpellKeys = new Set(names.map(getSpellKey));
+        renderSpellSelectTable(cachedSpellPresets);
+        return;
+      }
+      const names = getSelectedSpellNames(selectedKnownSpellKeys);
       const saved = await persistPlayerSpellConfig(playerName, {
         cantrips: currentConfig.cantrips,
         spells: currentConfig.spells,
         names,
+        prepared: preparedConfig.prepared,
+        preparedMaxFormula: preparedConfig.maxFormula,
       });
       if (!saved) return;
       localToast("Known spells saved.");
@@ -6667,10 +6922,13 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       const currentConfig = getPlayerSpellConfig(playerName);
+      const preparedConfig = getPlayerPreparedSpellConfig(playerName);
       const saved = await persistPlayerSpellConfig(playerName, {
         cantrips: spellConfigCantripsInput?.value,
         spells: spellConfigSpellsInput?.value,
         names: currentConfig.names,
+        prepared: preparedConfig.prepared,
+        preparedMaxFormula: preparedConfig.maxFormula,
       });
       if (!saved) return;
       setSpellConfigOpen(false);
@@ -9691,6 +9949,8 @@ class InitiativeTracker(base.InitiativeTracker):
         for key in ("known_cantrips", "known_spells", "known_spell_names"):
             if key not in spellcasting and key in data:
                 spellcasting[key] = data.get(key)
+        if "prepared_spells" not in spellcasting and "prepared_spells" in data:
+            spellcasting["prepared_spells"] = data.get("prepared_spells")
 
         profile = PlayerProfile(
             name=name,
@@ -9705,7 +9965,11 @@ class InitiativeTracker(base.InitiativeTracker):
         )
         return profile.to_dict()
 
-    def _normalize_player_spell_config(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalize_player_spell_config(
+        self,
+        data: Dict[str, Any],
+        include_missing_prepared: bool = True,
+    ) -> Dict[str, Any]:
         def normalize_limit(value: Any, fallback: int) -> int:
             try:
                 num = int(value)
@@ -9729,11 +9993,42 @@ class InitiativeTracker(base.InitiativeTracker):
         elif isinstance(raw_names, str):
             name = normalize_name(raw_names)
             names = [name] if name else []
-        return {
+        prepared_payload: Dict[str, Any] = {}
+        prepared_spells = source.get("prepared_spells")
+        if isinstance(prepared_spells, dict):
+            raw_prepared = prepared_spells.get("prepared")
+            prepared_names: List[str] = []
+            if isinstance(raw_prepared, list):
+                prepared_names = [
+                    name for item in raw_prepared if (name := normalize_name(item))
+                ]
+            elif isinstance(raw_prepared, str):
+                name = normalize_name(raw_prepared)
+                prepared_names = [name] if name else []
+            prepared_payload["prepared"] = prepared_names
+            max_formula = prepared_spells.get("max_formula")
+            if isinstance(max_formula, str) and max_formula.strip():
+                prepared_payload["max_formula"] = max_formula.strip()
+            if "max" in prepared_spells:
+                prepared_payload["max"] = normalize_limit(prepared_spells.get("max"), 0)
+            if "max_spells" in prepared_spells:
+                prepared_payload["max_spells"] = normalize_limit(
+                    prepared_spells.get("max_spells"), 0
+                )
+            if "max_prepared" in prepared_spells:
+                prepared_payload["max_prepared"] = normalize_limit(
+                    prepared_spells.get("max_prepared"), 0
+                )
+        elif include_missing_prepared:
+            prepared_payload["prepared"] = []
+        payload = {
             "known_cantrips": known_cantrips,
             "known_spells": known_spells,
             "known_spell_names": names,
         }
+        if prepared_payload:
+            payload["prepared_spells"] = prepared_payload
+        return payload
 
     def _load_player_yaml_cache(self) -> None:
         if yaml is None:
@@ -9837,13 +10132,21 @@ class InitiativeTracker(base.InitiativeTracker):
         if not isinstance(existing, dict):
             existing = {}
 
-        normalized = self._normalize_player_spell_config(payload)
+        normalized = self._normalize_player_spell_config(payload, include_missing_prepared=False)
+        prepared_payload = normalized.get("prepared_spells")
+        normalized_known = {k: v for k, v in normalized.items() if k != "prepared_spells"}
 
         if int(existing.get("format_version") or 0) == 1:
             spellcasting = existing.get("spellcasting")
             if not isinstance(spellcasting, dict):
                 spellcasting = {}
-            spellcasting.update(normalized)
+            spellcasting.update(normalized_known)
+            if prepared_payload is not None:
+                existing_prepared = spellcasting.get("prepared_spells")
+                if not isinstance(existing_prepared, dict):
+                    existing_prepared = {}
+                existing_prepared.update(prepared_payload)
+                spellcasting["prepared_spells"] = existing_prepared
             existing["spellcasting"] = spellcasting
             identity = existing.get("identity")
             if not isinstance(identity, dict):
@@ -9854,7 +10157,13 @@ class InitiativeTracker(base.InitiativeTracker):
         else:
             if "name" not in existing:
                 existing["name"] = player_name
-            existing.update(normalized)
+            existing.update(normalized_known)
+            if prepared_payload is not None:
+                existing_prepared = existing.get("prepared_spells")
+                if not isinstance(existing_prepared, dict):
+                    existing_prepared = {}
+                existing_prepared.update(prepared_payload)
+                existing["prepared_spells"] = existing_prepared
 
         yaml_text = yaml.safe_dump(existing, sort_keys=False)
         path.write_text(yaml_text, encoding="utf-8")
