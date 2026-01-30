@@ -948,6 +948,7 @@ HTML_INDEX = r"""<!doctype html>
       position:fixed; inset:0; background: rgba(0,0,0,0.55);
       display:none; align-items:center; justify-content:center;
       padding: calc(var(--modalTopOffset) + 12px) 14px calc(var(--modalBottomOffset) + 12px);
+      z-index: 80;
     }
     .modal.show{display:flex;}
     .card{
@@ -5666,7 +5667,6 @@ __DAMAGE_TYPE_OPTIONS__
       }
       localToast("Spellbook saved.");
       hideSpellbookConfirm();
-      openSpellbookOverlay(false);
       refreshSpellPresetOptions();
     } catch (err){
       console.warn("Failed to save spellbook.", err);
