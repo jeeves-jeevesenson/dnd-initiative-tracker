@@ -14,6 +14,7 @@ A comprehensive D&D 5e initiative tracker and combat management system with a de
 
 ## 🎯 Quick Start
 
+**Linux/macOS:**
 ```bash
 # Clone the repository
 git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git  # Replace with your fork URL
@@ -21,10 +22,26 @@ cd dnd-initiative-tracker
 
 # Install dependencies
 python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 
 # Run the tracker
+python dnd_initative_tracker.py
+```
+
+**Windows 11:**
+```cmd
+# Clone the repository
+git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git
+cd dnd-initiative-tracker
+
+# Run the automated installer (recommended)
+scripts\install-windows.bat
+
+# Or manually install dependencies
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
 python dnd_initative_tracker.py
 ```
 
@@ -255,6 +272,114 @@ The `requirements.txt` includes:
 - **pillow**: Image processing for map backgrounds and QR codes
 - **qrcode**: QR code generation for easy mobile connection
 
+### Windows 11 Installation (Desktop Integration)
+
+For Windows 11 users who want a simple installation with desktop shortcuts:
+
+#### Prerequisites
+
+1. **Install Python 3.9 or higher**:
+   - Download from [python.org](https://www.python.org/downloads/)
+   - **Important**: Check "Add Python to PATH" during installation
+   - Tkinter is included by default with the official Python installer
+
+2. **Install Git** (optional, for cloning):
+   - Download from [git-scm.com](https://git-scm.com/download/win)
+   - Or download the repository as a ZIP file from GitHub
+
+#### Automated Installation
+
+**Option 1: Command Prompt (Recommended for most users)**
+```cmd
+# Clone the repository (or download and extract ZIP)
+git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git
+cd dnd-initiative-tracker
+
+# Run the Windows installer
+scripts\install-windows.bat
+```
+
+**Option 2: PowerShell (For PowerShell users)**
+```powershell
+# Clone the repository (or download and extract ZIP)
+git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git
+cd dnd-initiative-tracker
+
+# Run the PowerShell installer
+.\scripts\install-windows.ps1
+```
+
+**Note**: PowerShell users may need to adjust execution policy first:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+The installer will:
+- Create installation directory at `%LOCALAPPDATA%\DnDInitiativeTracker`
+- Copy all application files (excluding git and cache files)
+- Create and configure a Python virtual environment
+- Install all required dependencies automatically
+- Create a desktop shortcut
+- Add a Start Menu entry
+- Create a launcher batch file
+
+After installation, you can launch the tracker using:
+- **Desktop Shortcut**: Double-click "D&D Initiative Tracker" on your desktop
+- **Start Menu**: Search for "D&D Initiative Tracker"
+- **Command Line**: Run the launcher at `%LOCALAPPDATA%\DnDInitiativeTracker\launch-dnd-tracker.bat`
+
+#### Manual Installation (Alternative)
+
+If you prefer to run directly from the repository without installation:
+
+```cmd
+# Navigate to repository directory
+cd dnd-initiative-tracker
+
+# Create virtual environment
+python -m venv .venv
+
+# Activate virtual environment
+.venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the tracker
+python dnd_initative_tracker.py
+```
+
+Or use the quick launcher script:
+
+```cmd
+scripts\launch-windows.bat
+```
+
+#### Windows Uninstall
+
+To remove the installed application:
+
+**Command Prompt:**
+```cmd
+scripts\uninstall-windows.bat
+```
+
+**PowerShell:**
+```powershell
+.\scripts\uninstall-windows.ps1
+```
+
+This will remove:
+- All application files from `%LOCALAPPDATA%\DnDInitiativeTracker`
+- Desktop shortcut
+- Start Menu entry
+
+**Note**: Uninstallation will delete all files including logs and custom configurations.
+
+#### Creating Standalone Executables (Advanced)
+
+For users who want to create a standalone `.exe` or `.msi` installer that doesn't require Python, see the detailed guide at [`docs/WINDOWS_EXECUTABLE.md`](docs/WINDOWS_EXECUTABLE.md). This is an optional advanced feature using PyInstaller or cx_Freeze.
+
 ### Linux Installation (Desktop Integration)
 
 For Linux users who want desktop menu integration:
@@ -288,9 +413,9 @@ This will:
 
 ### Supported Platforms
 
+- **Windows 11**: Fully supported with automated installer script (Windows 10 should also work)
 - **Linux**: Debian/Ubuntu-based distros with freedesktop-compliant desktop environments
 - **macOS**: Should work with system Python or Homebrew Python (untested in v41)
-- **Windows**: Requires Python 3.9+ with tkinter (typically included)
 
 ### Platform-Specific Notes
 
@@ -303,9 +428,20 @@ This will:
 - Python from python.org includes tkinter
 - Homebrew Python may require: `brew install python-tk`
 
-#### Windows
-- Python from python.org includes tkinter by default
-- Use `py` launcher if multiple Python versions installed: `py -3.9 -m venv .venv`
+#### Windows 11
+- **Python Installation**: Download from [python.org](https://www.python.org/downloads/)
+  - Tkinter is included by default in the official Python installer
+  - **Critical**: Check "Add Python to PATH" during installation
+- **Running from Command Line**: 
+  - Use `python` command if Python is in PATH
+  - Use `py` launcher if multiple Python versions installed: `py -3.9 -m venv .venv`
+  - Windows Command Prompt or PowerShell both work
+- **Virtual Environment Activation**:
+  - Command Prompt: `.venv\Scripts\activate.bat`
+  - PowerShell: `.venv\Scripts\Activate.ps1` (may require execution policy change)
+- **File Paths**: Windows uses backslashes (`\`) but Python accepts forward slashes (`/`)
+- **Permissions**: No administrator rights required for installation to `%LOCALAPPDATA%`
+- **Firewall**: Windows may prompt to allow Python network access when starting LAN server
 
 ---
 
@@ -318,9 +454,16 @@ This will:
 python dnd_initative_tracker.py
 ```
 
-Or if you installed on Linux with the installer script:
+Or if you installed with the platform-specific installer:
+
+**Linux**:
 - Launch from your desktop application menu (Games → D&D Initiative Tracker)
 - Or run: `~/.local/share/dnd-initiative-tracker/launch-inittracker.sh`
+
+**Windows 11**:
+- Use the desktop shortcut "D&D Initiative Tracker"
+- Search for "D&D Initiative Tracker" in the Start Menu
+- Or run: `%LOCALAPPDATA%\DnDInitiativeTracker\launch-dnd-tracker.bat`
 
 ### Basic DM Workflow
 
