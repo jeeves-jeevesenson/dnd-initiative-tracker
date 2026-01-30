@@ -187,12 +187,14 @@ if (Test-Path $venvPython) {
     try {
         $requirementsFile = Join-Path $InstallDir "requirements.txt"
         & $venvPython -m pip install --upgrade pip -q
+        if ($LASTEXITCODE -ne 0) {
+            throw "Pip upgrade failed with exit code $LASTEXITCODE"
+        }
         & $venvPython -m pip install -r $requirementsFile -q
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "✓ Dependencies installed successfully" -ForegroundColor Green
-        } else {
+        if ($LASTEXITCODE -ne 0) {
             throw "Pip install failed with exit code $LASTEXITCODE"
         }
+        Write-Host "✓ Dependencies installed successfully" -ForegroundColor Green
     } catch {
         Show-Warning -Title "Dependency Installation Failed" -Message "Failed to install some dependencies.`n`nError: $($_.Exception.Message)`n`nYou may need to install them manually."
     }

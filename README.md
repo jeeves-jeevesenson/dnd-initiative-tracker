@@ -93,9 +93,9 @@ If you encounter an error about "execution policy" when running the PowerShell q
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex"
 ```
 
-**Option 2: Change execution policy permanently**
+**Option 2: Change execution policy (no admin required)**
 ```powershell
-# Run PowerShell as Administrator, then execute:
+# Run in a normal PowerShell window:
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 

@@ -20,7 +20,7 @@ function Show-ErrorAndExit {
     
     # Show popup dialog
     Add-Type -AssemblyName PresentationFramework
-    [System.Windows.MessageBox]::Show($Message, "D&D Initiative Tracker - $Title", 'OK', 'Error')
+    [System.Windows.MessageBox]::Show($Message, "D&D Initiative Tracker - $Title", 'OK', 'Error') | Out-Null
     
     Read-Host "Press Enter to exit"
     exit 1
@@ -40,7 +40,7 @@ function Show-Warning {
     
     # Show popup dialog
     Add-Type -AssemblyName PresentationFramework
-    [System.Windows.MessageBox]::Show($Message, "D&D Initiative Tracker - $Title", 'OK', 'Warning')
+    [System.Windows.MessageBox]::Show($Message, "D&D Initiative Tracker - $Title", 'OK', 'Warning') | Out-Null
 }
 
 Write-Host "==========================================" -ForegroundColor Cyan
@@ -53,15 +53,18 @@ try {
     $executionPolicy = Get-ExecutionPolicy -Scope CurrentUser
     Write-Host "Current execution policy (CurrentUser): $executionPolicy" -ForegroundColor Cyan
     
-    if ($executionPolicy -eq "Restricted" -or $executionPolicy -eq "Undefined") {
+    if ($executionPolicy -eq "Restricted" -or $executionPolicy -eq "Undefined" -or $executionPolicy -eq "AllSigned") {
         $message = @"
 Your PowerShell execution policy is set to '$executionPolicy', which prevents this script from running properly.
 
-To fix this, run PowerShell as Administrator and execute:
+To fix this, run PowerShell and execute:
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
-Or run this script with:
+Or run this script with execution policy bypass (downloaded file):
     powershell -ExecutionPolicy Bypass -File quick-install.ps1
+
+Or for the web install method:
+    powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex"
 
 Would you like to continue anyway? (Some features may not work correctly)
 "@
@@ -73,7 +76,12 @@ Would you like to continue anyway? (Some features may not work correctly)
         
         $response = Read-Host "Continue anyway? (y/N)"
         if ($response -notmatch '^[Yy]') {
-            Show-ErrorAndExit -Title "Execution Policy" -Message $message
+            Write-Host ""
+            Write-Host "Installation cancelled by user." -ForegroundColor Yellow
+            Write-Host "Please adjust your execution policy and try again." -ForegroundColor Yellow
+            Write-Host ""
+            Read-Host "Press Enter to exit"
+            exit 0
         }
     } else {
         Write-Host "✓ Execution policy is compatible" -ForegroundColor Green
@@ -182,7 +190,10 @@ try {
 
 Write-Host "Installing dependencies..." -ForegroundColor Yellow
 try {
-    & "$InstallDir\.venv\Scripts\python.exe" -m pip install --upgrade pip --quiet
+    & "$InstallDir\.venv\Scripts\python.exe" -m pip install --upgrade pip
+    if ($LASTEXITCODE -ne 0) {
+        throw "Pip upgrade failed with exit code $LASTEXITCODE"
+    }
     & "$InstallDir\.venv\Scripts\python.exe" -m pip install -r requirements.txt
     if ($LASTEXITCODE -ne 0) {
         throw "Pip install failed with exit code $LASTEXITCODE"
