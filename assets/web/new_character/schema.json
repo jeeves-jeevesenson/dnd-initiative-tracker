@@ -21,13 +21,17 @@
           "label": "Name",
           "type": "string",
           "required": true,
-          "default": ""
+          "default": "",
+          "placeholder": "e.g., Thalia Brightblade",
+          "help": "Enter the character name as it should appear in the tracker."
         },
         {
           "key": "player",
           "label": "Player",
           "type": "string",
-          "default": ""
+          "default": "",
+          "placeholder": "e.g., Sam",
+          "help": "Use the player's display name or nickname."
         },
         {
           "key": "campaign",
@@ -73,11 +77,11 @@
       "type": "object",
       "path": ["identity"],
       "fields": [
-        {"key": "pronouns", "label": "Pronouns", "type": "string", "default": ""},
-        {"key": "ancestry", "label": "Ancestry", "type": "string", "default": ""},
-        {"key": "background", "label": "Background", "type": "string", "default": ""},
-        {"key": "alignment", "label": "Alignment", "type": "string", "default": ""},
-        {"key": "description", "label": "Description", "type": "string", "default": ""}
+        {"key": "pronouns", "label": "Pronouns", "type": "string", "default": "", "placeholder": "e.g., she/her"},
+        {"key": "ancestry", "label": "Ancestry", "type": "string", "default": "", "placeholder": "e.g., Half-elf"},
+        {"key": "background", "label": "Background", "type": "string", "default": "", "placeholder": "e.g., Acolyte"},
+        {"key": "alignment", "label": "Alignment", "type": "string", "default": "", "placeholder": "e.g., Neutral Good"},
+        {"key": "description", "label": "Description", "type": "string", "default": "", "placeholder": "e.g., Calm scholar with a silver staff"}
       ]
     },
     {
@@ -135,8 +139,10 @@
           "label": "Save Proficiencies",
           "type": "array",
           "repeatable": true,
-          "items": {"type": "string", "default": ""},
-          "default": []
+          "items": {"type": "string", "default": "", "placeholder": "e.g., STR"},
+          "default": [],
+          "placeholder": "e.g., STR, CON",
+          "help": "List the saving throws the character is proficient in."
         },
         {
           "key": "skills",
@@ -148,16 +154,18 @@
               "label": "Proficient Skills",
               "type": "array",
               "repeatable": true,
-              "items": {"type": "string", "default": ""},
-              "default": []
+              "items": {"type": "string", "default": "", "placeholder": "e.g., Stealth"},
+              "default": [],
+              "help": "Add each skill proficiency as a separate entry."
             },
             {
               "key": "expertise",
               "label": "Expertise",
               "type": "array",
               "repeatable": true,
-              "items": {"type": "string", "default": ""},
-              "default": []
+              "items": {"type": "string", "default": "", "placeholder": "e.g., Perception"},
+              "default": [],
+              "help": "List skills with expertise as separate entries."
             }
           ]
         },
@@ -166,16 +174,18 @@
           "label": "Tools",
           "type": "array",
           "repeatable": true,
-          "items": {"type": "string", "default": ""},
-          "default": []
+          "items": {"type": "string", "default": "", "placeholder": "e.g., Thieves' tools"},
+          "default": [],
+          "help": "Add each tool proficiency as a separate entry."
         },
         {
           "key": "languages",
           "label": "Languages",
           "type": "array",
           "repeatable": true,
-          "items": {"type": "string", "default": ""},
-          "default": []
+          "items": {"type": "string", "default": "", "placeholder": "e.g., Common"},
+          "default": [],
+          "help": "List each language the character can speak."
         }
       ]
     },
