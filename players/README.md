@@ -417,15 +417,15 @@ Spells granted by the feature:
 grants:
   spells:
     cantrips:                     # Cantrips added to known cantrips
-      - "mage_hand"
+      - "mage-hand"
       - "prestidigitation"
     casts:                        # Spell casts (free or resource-consuming)
-      - spell: "misty_step"       # Spell identifier
+      - spell: "misty-step"       # Spell identifier
         action_type: "bonus_action"
         consumes:                 # Optional: Resource cost
           pool: "ki_points"
           cost: 2
-      - spell: "detect_magic"
+      - spell: "detect-magic"
         action_type: "action"
         consumes:
           pool: "spell_slots_1"
@@ -635,25 +635,25 @@ spellcasting:
   cantrips:
     max: 4                        # Maximum cantrips known
     known:                        # List of known cantrips
-      - "fire_bolt"
-      - "mage_hand"
+      - "fire-bolt"
+      - "mage-hand"
       - "prestidigitation"
-      - "ray_of_frost"
+      - "ray-of-frost"
   known_spells:
     max: 12                       # Maximum spells known (for spontaneous casters)
     known:                        # List of known spells
-      - "detect_magic"
-      - "magic_missile"
+      - "detect-magic"
+      - "magic-missile"
       - "shield"
-      - "misty_step"
-      - "scorching_ray"
+      - "misty-step"
+      - "scorching-ray"
   prepared_spells:
     max_formula: "int_mod + level"  # Formula for max prepared spells
     prepared:                     # List of prepared spells
-      - "detect_magic"
-      - "magic_missile"
+      - "detect-magic"
+      - "magic-missile"
       - "shield"
-      - "misty_step"
+      - "misty-step"
 ```
 
 **Field Descriptions:**
@@ -674,7 +674,7 @@ spellcasting:
   - Standard: `"prof + casting_mod"`
 - **cantrips.max**: Maximum cantrips the character can know
 - **cantrips.known**: List of cantrip IDs currently known
-  - IDs match spell filenames in spell directories (e.g., `"fire_bolt"` → `Spells/fire-bolt.yaml`)
+  - IDs match spell filenames in spell directories (e.g., `"fire-bolt"` → `Spells/fire-bolt.yaml`)
 - **known_spells**: For spontaneous casters (Bards, Sorcerers, Warlocks)
   - **max**: Maximum spells known (increases with level)
   - **known**: List of spell IDs the character knows
