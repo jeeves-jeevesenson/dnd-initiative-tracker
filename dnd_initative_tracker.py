@@ -125,6 +125,233 @@ def _load_character_schema_helpers() -> Tuple[Callable[[], Dict[str, Any]], Call
 _CHARACTER_BASE_TEMPLATE, _CHARACTER_MERGE_DEFAULTS, _CHARACTER_SLUGIFY = _load_character_schema_helpers()
 
 
+def _character_schema_path() -> Path:
+    try:
+        return Path(__file__).resolve().parent / "assets" / "web" / "new_character" / "schema.json"
+    except Exception:
+        return Path("assets") / "web" / "new_character" / "schema.json"
+
+
+def _schema_type_name(value: Any) -> str:
+    if isinstance(value, dict):
+        return "object"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if value is None:
+        return "null"
+    return type(value).__name__
+
+
+def _schema_node_from_field(field: Dict[str, Any]) -> Dict[str, Any]:
+    node: Dict[str, Any] = {
+        "type": field.get("type", "string"),
+        "required": bool(field.get("required", False)),
+    }
+    if "default" in field:
+        node["default"] = field["default"]
+    if node["type"] == "object":
+        node["fields"] = {child["key"]: _schema_node_from_field(child) for child in field.get("fields", [])}
+    if node["type"] == "array":
+        items = field.get("items")
+        node["items"] = _schema_node_from_field(items) if isinstance(items, dict) else {"type": "string"}
+    if node["type"] == "map":
+        node["value_type"] = field.get("value_type", "string")
+    return node
+
+
+def _insert_schema_node(root: Dict[str, Any], path: List[str], node: Dict[str, Any]) -> None:
+    cursor = root
+    for key in path[:-1]:
+        fields = cursor.setdefault("fields", {})
+        if key not in fields:
+            fields[key] = {"type": "object", "fields": {}}
+        cursor = fields[key]
+    if not path:
+        root.setdefault("fields", {}).update(node.get("fields", {}))
+    else:
+        cursor.setdefault("fields", {})[path[-1]] = node
+
+
+def _build_character_schema_tree(config: Dict[str, Any]) -> Dict[str, Any]:
+    root: Dict[str, Any] = {"type": "object", "fields": {}}
+    for section in config.get("sections", []):
+        if not isinstance(section, dict):
+            continue
+        section_type = section.get("type", "object")
+        node: Dict[str, Any] = {"type": section_type}
+        if "default" in section:
+            node["default"] = section["default"]
+        if section_type == "object":
+            node["fields"] = {child["key"]: _schema_node_from_field(child) for child in section.get("fields", [])}
+        elif section_type == "array":
+            items = section.get("items")
+            node["items"] = _schema_node_from_field(items) if isinstance(items, dict) else {"type": "string"}
+        elif section_type == "map":
+            node["value_type"] = section.get("value_type", "string")
+        path = section.get("path") or []
+        _insert_schema_node(root, list(path), node)
+    return root
+
+
+def _schema_default_for_node(node: Dict[str, Any]) -> Any:
+    if "default" in node:
+        return copy.deepcopy(node["default"])
+    node_type = node.get("type")
+    if isinstance(node_type, list):
+        return ""
+    if node_type == "object":
+        return {key: _schema_default_for_node(child) for key, child in node.get("fields", {}).items()}
+    if node_type == "array":
+        return []
+    if node_type == "map":
+        return {}
+    if node_type == "boolean":
+        return False
+    if node_type in ("integer", "number"):
+        return 0
+    return ""
+
+
+def _schema_defaults_from_tree(tree: Dict[str, Any]) -> Dict[str, Any]:
+    if tree.get("type") != "object":
+        return {}
+    return _schema_default_for_node(tree)
+
+
+def _schema_type_matches(value: Any, expected: Any) -> bool:
+    if isinstance(expected, list):
+        return any(_schema_type_matches(value, item) for item in expected)
+    if expected == "object":
+        return isinstance(value, dict)
+    if expected == "array":
+        return isinstance(value, list)
+    if expected == "map":
+        return isinstance(value, dict)
+    if expected == "boolean":
+        return isinstance(value, bool)
+    if expected == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected == "string":
+        return isinstance(value, str)
+    return True
+
+
+def _character_schema_errors_from_tree(payload: Any, schema: Dict[str, Any], path: str = "") -> List[Dict[str, str]]:
+    errors: List[Dict[str, str]] = []
+
+    def add_error(message: str) -> None:
+        errors.append({"path": path or ".", "message": message})
+
+    expected_type = schema.get("type")
+    if expected_type == "object":
+        if not isinstance(payload, dict):
+            add_error(f"Expected object, got {_schema_type_name(payload)}.")
+            return errors
+        fields = schema.get("fields", {})
+        for key, child_schema in fields.items():
+            if child_schema.get("required") and key not in payload:
+                errors.append({"path": f"{path}.{key}" if path else key, "message": "Missing required field."})
+                continue
+            if key in payload:
+                next_path = f"{path}.{key}" if path else key
+                errors.extend(_character_schema_errors_from_tree(payload[key], child_schema, next_path))
+        return errors
+    if expected_type == "array":
+        if not isinstance(payload, list):
+            add_error(f"Expected array, got {_schema_type_name(payload)}.")
+            return errors
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for index, item in enumerate(payload):
+                next_path = f"{path}[{index}]" if path else f"[{index}]"
+                errors.extend(_character_schema_errors_from_tree(item, item_schema, next_path))
+        return errors
+    if expected_type == "map":
+        if not isinstance(payload, dict):
+            add_error(f"Expected object map, got {_schema_type_name(payload)}.")
+            return errors
+        value_type = schema.get("value_type")
+        if value_type:
+            for key, value in payload.items():
+                if not _schema_type_matches(value, value_type):
+                    errors.append(
+                        {
+                            "path": f"{path}.{key}" if path else key,
+                            "message": f"Expected {value_type}, got {_schema_type_name(value)}.",
+                        }
+                    )
+        return errors
+    if expected_type is not None:
+        if not _schema_type_matches(payload, expected_type):
+            add_error(f"Expected {expected_type}, got {_schema_type_name(payload)}.")
+    return errors
+
+
+def _readme_section_headings(readme_path: Path) -> List[str]:
+    try:
+        text = readme_path.read_text(encoding="utf-8")
+    except Exception:
+        return []
+    headings: List[str] = []
+    in_section = False
+    for line in text.splitlines():
+        if line.startswith("## "):
+            heading = line[3:].strip()
+            in_section = heading == "Complete YAML Structure Reference"
+            continue
+        if in_section and line.startswith("### "):
+            headings.append(line[4:].strip())
+    return headings
+
+
+def _character_schema_readme_map(config: Dict[str, Any]) -> Dict[str, Any]:
+    readme_path = Path(__file__).resolve().parent / config.get("readme_path", "players/README.md")
+    headings = _readme_section_headings(readme_path)
+    schema_headings = [
+        section.get("readme_heading")
+        for section in config.get("sections", [])
+        if isinstance(section, dict) and section.get("readme_heading")
+    ]
+    missing_in_readme = [heading for heading in schema_headings if heading not in headings]
+    missing_in_schema = [heading for heading in headings if heading not in schema_headings]
+    return {
+        "readme_headings": headings,
+        "schema_headings": schema_headings,
+        "missing_in_readme": missing_in_readme,
+        "missing_in_schema": missing_in_schema,
+        "readme_path": str(readme_path),
+    }
+
+
+def _load_character_schema_config() -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    path = _character_schema_path()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}, {}, {}, {}
+    if not isinstance(raw, dict):
+        return {}, {}, {}, {}
+    tree = _build_character_schema_tree(raw)
+    defaults = _schema_defaults_from_tree(tree)
+    readme_map = _character_schema_readme_map(raw)
+    return raw, tree, defaults, readme_map
+
+
+_CHARACTER_SCHEMA_CONFIG, _CHARACTER_SCHEMA_TREE, _CHARACTER_SCHEMA_DEFAULTS, _CHARACTER_SCHEMA_README_MAP = (
+    _load_character_schema_config()
+)
+
+
 @dataclass
 class CharacterApiError(Exception):
     status_code: int
@@ -7892,6 +8119,13 @@ class LanController:
         async def list_characters():
             return {"files": self.app._list_character_filenames()}
 
+        @app.get("/api/characters/schema")
+        async def get_character_schema():
+            return {
+                "schema": self.app._character_schema_config(),
+                "readme_map": self.app._character_schema_readme_map(),
+            }
+
         @app.get("/api/characters/{name}")
         async def get_character(name: str):
             try:
@@ -10042,7 +10276,15 @@ class InitiativeTracker(base.InitiativeTracker):
         return slug or "player"
 
     def _character_schema_template(self) -> Dict[str, Any]:
+        if _CHARACTER_SCHEMA_DEFAULTS:
+            return copy.deepcopy(_CHARACTER_SCHEMA_DEFAULTS)
         return _CHARACTER_BASE_TEMPLATE()
+
+    def _character_schema_config(self) -> Dict[str, Any]:
+        return _CHARACTER_SCHEMA_CONFIG or {}
+
+    def _character_schema_readme_map(self) -> Dict[str, Any]:
+        return _CHARACTER_SCHEMA_README_MAP or {}
 
     def _character_slugify(self, name: str) -> str:
         return _CHARACTER_SLUGIFY(str(name or "").strip(), "_")
@@ -10115,6 +10357,8 @@ class InitiativeTracker(base.InitiativeTracker):
     def _validate_character_payload(self, payload: Any) -> List[Dict[str, str]]:
         if not isinstance(payload, dict):
             return [{"path": ".", "message": "Expected object payload."}]
+        if _CHARACTER_SCHEMA_TREE:
+            return _character_schema_errors_from_tree(payload, _CHARACTER_SCHEMA_TREE)
         schema = self._character_schema_template()
         return self._character_schema_errors(payload, schema)
 
