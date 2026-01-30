@@ -87,9 +87,6 @@ Supported keys (typical):
 - `base_movement` or `speed` (int, feet)
 - `swim_speed` (int, feet)
 - `hp` (int)
-- `known_cantrips` (int, optional; how many cantrips the PC can know)
-- `known_spells` (int, optional; how many leveled spells the PC can know)
-- `known_spell_names` (list[string], optional; list of known spell names)
 
 Example:
 
@@ -97,12 +94,6 @@ Example:
 base_movement: 30
 swim_speed: 15
 hp: 27
-known_cantrips: 3
-known_spells: 15
-known_spell_names:
-  - Fire Bolt
-  - Mage Armor
-  - Magic Missile
 ```
 
 ---

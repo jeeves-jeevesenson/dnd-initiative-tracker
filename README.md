@@ -794,12 +794,6 @@ name: Alice
 base_movement: 30
 swim_speed: 15
 hp: 27
-known_cantrips: 3
-known_spells: 15
-known_spell_names:
-  - Fire Bolt
-  - Mage Armor
-  - Magic Missile
 ```
 
 #### Extended Schema
@@ -862,7 +856,7 @@ spellcasting:
 - **base_movement** or **vitals.speed.walk**: Walking speed in feet
 - **swim_speed** or **vitals.speed.swim**: Swimming speed
 - **hp** or **vitals.max_hp**: Maximum HP
-- **known_spell_names** or **spellcasting.known_spells.known**: List of spell IDs
+- **spellcasting.known_spells.known**: List of spell IDs
 - **ip**: For host-based assignment in LAN mode
 
 ### Auto-Seeding Players
