@@ -6,6 +6,49 @@ const formEl = document.getElementById("character-form");
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
+const SPELL_PICKER_PATHS = new Set([
+  "spellcasting.cantrips.known",
+  "spellcasting.known_spells.known",
+  "spellcasting.prepared_spells.prepared",
+]);
+
+const spellPathKey = (path) => path.join(".");
+const isSpellPickerPath = (path) => SPELL_PICKER_PATHS.has(spellPathKey(path));
+
+const loadSpellIds = (() => {
+  let cache = null;
+  let inflight = null;
+  return async () => {
+    if (cache) {
+      return cache;
+    }
+    if (inflight) {
+      return inflight;
+    }
+    inflight = fetch("/api/spells")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Unable to load spell IDs.");
+        }
+        return response.json();
+      })
+      .then((payload) => {
+        const ids = Array.isArray(payload?.ids) ? payload.ids : [];
+        cache = ids;
+        return ids;
+      })
+      .catch((error) => {
+        console.warn("Unable to load spells", error);
+        cache = [];
+        return cache;
+      })
+      .finally(() => {
+        inflight = null;
+      });
+    return inflight;
+  };
+})();
+
 const setValueAtPath = (target, path, value) => {
   let cursor = target;
   path.forEach((segment, index) => {
@@ -330,6 +373,130 @@ const renderMapField = (field, path, data) => {
   return container;
 };
 
+const renderSpellPicker = (field, path, data) => {
+  const container = document.createElement("div");
+  container.className = "array-field spell-picker";
+
+  const header = document.createElement("div");
+  header.className = "array-header";
+  const title = document.createElement("h3");
+  title.textContent = field.label || field.key;
+  header.appendChild(title);
+  container.appendChild(header);
+
+  const controls = document.createElement("div");
+  controls.className = "spell-picker-controls";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = "Search spells...";
+  const listId = `spell-list-${Math.random().toString(36).slice(2)}`;
+  input.setAttribute("list", listId);
+  controls.appendChild(input);
+
+  const addButton = document.createElement("button");
+  addButton.type = "button";
+  addButton.className = "ghost";
+  addButton.textContent = "Add";
+  controls.appendChild(addButton);
+
+  container.appendChild(controls);
+
+  const status = document.createElement("p");
+  status.className = "spell-picker-status";
+  status.textContent = "Loading spells…";
+  container.appendChild(status);
+
+  const datalist = document.createElement("datalist");
+  datalist.id = listId;
+  container.appendChild(datalist);
+
+  const selectedContainer = document.createElement("div");
+  selectedContainer.className = "spell-picker-selected";
+  container.appendChild(selectedContainer);
+
+  const setStatus = (text) => {
+    status.textContent = text;
+  };
+
+  const renderSelected = () => {
+    const value = getValueAtPath(data, path) || [];
+    selectedContainer.innerHTML = "";
+    if (!value.length) {
+      const empty = document.createElement("div");
+      empty.className = "spell-picker-empty";
+      empty.textContent = "No spells selected yet.";
+      selectedContainer.appendChild(empty);
+      return;
+    }
+    value.forEach((spellId) => {
+      const pill = document.createElement("div");
+      pill.className = "spell-chip";
+      const label = document.createElement("span");
+      label.textContent = spellId;
+      pill.appendChild(label);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost danger";
+      remove.textContent = "Remove";
+      remove.addEventListener("click", () => {
+        const next = (getValueAtPath(data, path) || []).filter((item) => item !== spellId);
+        setValueAtPath(data, path, next);
+        renderSelected();
+      });
+      pill.appendChild(remove);
+      selectedContainer.appendChild(pill);
+    });
+  };
+
+  const addSpell = (spellId, available) => {
+    const normalized = (spellId || "").trim();
+    if (!normalized) {
+      return;
+    }
+    if (available && !available.includes(normalized)) {
+      setStatus(`Spell "${normalized}" not found.`);
+      return;
+    }
+    const value = getValueAtPath(data, path) || [];
+    if (value.includes(normalized)) {
+      setStatus(`"${normalized}" is already selected.`);
+      return;
+    }
+    value.push(normalized);
+    setValueAtPath(data, path, value);
+    input.value = "";
+    setStatus(`${normalized} added.`);
+    renderSelected();
+  };
+
+  addButton.addEventListener("click", async () => {
+    const available = await loadSpellIds();
+    addSpell(input.value, available);
+  });
+
+  input.addEventListener("keydown", async (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    const available = await loadSpellIds();
+    addSpell(input.value, available);
+  });
+
+  loadSpellIds().then((ids) => {
+    datalist.innerHTML = "";
+    ids.forEach((spellId) => {
+      const option = document.createElement("option");
+      option.value = spellId;
+      datalist.appendChild(option);
+    });
+    setStatus(ids.length ? "Select spells from the list." : "No spells found.");
+  });
+
+  renderSelected();
+  return container;
+};
+
 const renderField = (field, path, data, value) => {
   if (field.type === "object") {
     const container = document.createElement("div");
@@ -345,6 +512,9 @@ const renderField = (field, path, data, value) => {
     return container;
   }
   if (field.type === "array") {
+    if (isSpellPickerPath(path)) {
+      return renderSpellPicker(field, path, data);
+    }
     return renderArrayField(field, path, data);
   }
   if (field.type === "map") {

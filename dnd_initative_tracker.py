@@ -150,6 +150,27 @@ def _schema_type_name(value: Any) -> str:
     return type(value).__name__
 
 
+def _scan_spell_ids(spells_dir: Optional[Path]) -> List[str]:
+    if not spells_dir or not spells_dir.is_dir():
+        return []
+    ids = [path.stem for path in spells_dir.iterdir() if path.is_file() and path.suffix.lower() == ".yaml"]
+    ids.sort()
+    return ids
+
+
+def _read_spell_yaml_text(spells_dir: Optional[Path], spell_id: str, max_chars: int = 200_000) -> str:
+    if not spells_dir:
+        return ""
+    path = spells_dir / f"{spell_id}.yaml"
+    if not path.is_file():
+        return ""
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            return handle.read(max_chars)
+    except Exception as exc:
+        return f"# Error reading {path}: {exc}"
+
+
 def _schema_node_from_field(field: Dict[str, Any]) -> Dict[str, Any]:
     node: Dict[str, Any] = {
         "type": field.get("type", "string"),
@@ -8114,6 +8135,31 @@ class LanController:
             self._set_host_assignment(host, cid)
             await self._apply_host_assignment_async(host, cid, note="Assigned by the DM.")
             return {"ok": True, "ip": host, "cid": cid}
+
+        @app.get("/api/spells")
+        async def list_spells():
+            spells_dir = self.app._resolve_spells_dir()
+            return {"ids": _scan_spell_ids(spells_dir)}
+
+        @app.get("/api/spells/{spell_id}")
+        async def get_spell(spell_id: str, raw: bool = False):
+            spell_id = str(spell_id or "").strip()
+            if not spell_id:
+                raise HTTPException(status_code=400, detail="Missing spell id.")
+            spells_dir = self.app._resolve_spells_dir()
+            if not spells_dir:
+                raise HTTPException(status_code=404, detail="Spells directory not found.")
+            text = _read_spell_yaml_text(spells_dir, spell_id)
+            if not text:
+                raise HTTPException(status_code=404, detail="Spell not found.")
+            payload: Dict[str, Any] = {"id": spell_id, "raw": text}
+            if not raw and yaml is not None:
+                try:
+                    payload["parsed"] = yaml.safe_load(text)
+                except Exception as exc:
+                    payload["parsed"] = None
+                    payload["error"] = f"Failed to parse YAML: {exc}"
+            return payload
 
         @app.get("/api/characters")
         async def list_characters():
