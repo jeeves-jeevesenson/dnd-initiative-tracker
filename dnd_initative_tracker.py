@@ -1333,26 +1333,6 @@ HTML_INDEX = r"""<!doctype html>
           </div>
         </details>
         <details class="config-section">
-          <summary>Presets</summary>
-          <div class="config-list">
-            <div class="config-item">
-              <div class="config-item-title">Lock menus</div>
-              <div class="config-controls">
-                <label class="config-toggle"><input type="checkbox" id="toggleLockMenus" />Lock</label>
-              </div>
-              <div class="hotkey-hint">Settings are stored per device.</div>
-            </div>
-            <div class="config-item">
-              <div class="config-item-title">GUI preset</div>
-              <div class="preset-actions">
-                <button class="btn" id="savePreset" type="button">Save Preset</button>
-                <button class="btn" id="loadPreset" type="button">Load Preset</button>
-                <div class="preset-status" id="presetStatus" aria-live="polite"></div>
-              </div>
-            </div>
-          </div>
-        </details>
-        <details class="config-section">
           <summary>Notifications</summary>
           <div class="config-list">
             <div class="config-item">
@@ -1470,8 +1450,6 @@ HTML_INDEX = r"""<!doctype html>
         <button class="btn" id="castOverlayBack" type="button">Back</button>
         <div class="cast-overlay-title" id="castOverlayTitle">Cast Spell</div>
         <div class="cast-overlay-spacer"></div>
-        <button class="btn" id="spellPreparedOpen" type="button">Prepared Spells</button>
-        <button class="btn" id="spellConfigOpen" type="button">Known Spells</button>
       </div>
       <div class="cast-overlay-body" role="dialog" aria-modal="true" aria-labelledby="castOverlayTitle">
         <div class="cast-panel" id="castPanel">
@@ -1658,64 +1636,11 @@ __DAMAGE_TYPE_OPTIONS__
     </div>
   </div>
   </div>
-  <div class="spell-select-overlay" id="spellSelectOverlay" aria-hidden="true">
-    <div class="spell-select-header">
-      <button class="btn" id="spellSelectBack" type="button">Back</button>
-      <div class="spell-select-title" id="spellSelectTitle">Select Spells</div>
-      <div class="spell-select-spacer"></div>
-      <div class="spell-select-actions">
-        <button class="btn" id="spellSelectModeToggle" type="button">Select Known</button>
-        <button class="btn accent spell-select-save-btn" id="spellSelectSaveKnown" type="button">Save Known Spells</button>
-      </div>
-      <button class="btn" id="spellSelectClose" type="button">Close</button>
-    </div>
-    <div class="spell-select-body" role="dialog" aria-modal="true" aria-labelledby="spellSelectTitle">
-      <div class="spell-select-summary" id="spellSelectSummary">Loading spell presets…</div>
-      <div class="spell-select-table-wrap" id="spellSelectTableWrap">
-        <table class="spell-select-table">
-          <thead>
-            <tr>
-              <th scope="col" class="spell-select-check-col" id="spellSelectCheckHeader">Known</th>
-              <th scope="col">Name</th>
-              <th scope="col">Damage</th>
-              <th scope="col">AoE</th>
-              <th scope="col">Level</th>
-              <th scope="col">School</th>
-              <th scope="col">Link</th>
-            </tr>
-          </thead>
-          <tbody id="spellSelectTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 </div>
 <div class="turn-modal" id="turnModal" aria-hidden="true">
   <div class="turn-card" role="dialog" aria-live="assertive">
     <h2>It’s your turn!</h2>
     <button class="btn accent" id="turnModalOk">OK</button>
-  </div>
-</div>
-<div class="modal" id="spellConfigModal" aria-hidden="true">
-  <div class="card">
-    <h2>Known Spells</h2>
-    <div class="hint">Track known spells for your claimed character.</div>
-    <form id="spellConfigForm">
-      <div class="form-grid">
-        <div class="form-field">
-          <label for="spellConfigCantrips">Cantrips</label>
-          <input id="spellConfigCantrips" type="number" min="0" step="1" placeholder="0" />
-        </div>
-        <div class="form-field">
-          <label for="spellConfigSpells">Spells</label>
-          <input id="spellConfigSpells" type="number" min="0" step="1" value="15" />
-        </div>
-      </div>
-    </form>
-    <div class="modal-actions">
-      <button class="btn" id="spellConfigCancel" type="button">Cancel</button>
-      <button class="btn accent" id="spellConfigSave" type="button">Continue</button>
-    </div>
   </div>
 </div>
 
@@ -2095,23 +2020,6 @@ __DAMAGE_TYPE_OPTIONS__
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
   const spellPresetDetails = document.getElementById("spellPresetDetails");
-  const spellSelectOverlay = document.getElementById("spellSelectOverlay");
-  const spellSelectBackBtn = document.getElementById("spellSelectBack");
-  const spellSelectCloseBtn = document.getElementById("spellSelectClose");
-  const spellSelectTitle = document.getElementById("spellSelectTitle");
-  const spellSelectCheckHeader = document.getElementById("spellSelectCheckHeader");
-  const spellSelectModeBtn = document.getElementById("spellSelectModeToggle");
-  const spellSelectSaveBtn = document.getElementById("spellSelectSaveKnown");
-  const spellSelectSummary = document.getElementById("spellSelectSummary");
-  const spellSelectTableBody = document.getElementById("spellSelectTableBody");
-  const spellPreparedOpenBtn = document.getElementById("spellPreparedOpen");
-  const spellConfigOpenBtn = document.getElementById("spellConfigOpen");
-  const spellConfigModal = document.getElementById("spellConfigModal");
-  const spellConfigForm = document.getElementById("spellConfigForm");
-  const spellConfigCantripsInput = document.getElementById("spellConfigCantrips");
-  const spellConfigSpellsInput = document.getElementById("spellConfigSpells");
-  const spellConfigCancelBtn = document.getElementById("spellConfigCancel");
-  const spellConfigSaveBtn = document.getElementById("spellConfigSave");
   const sheetWrap = document.getElementById("sheetWrap");
   const sheet = document.getElementById("sheet");
   const sheetHandle = document.getElementById("sheetHandle");
@@ -2126,17 +2034,7 @@ __DAMAGE_TYPE_OPTIONS__
   let lastVibrateSupported = canVibrate;
   let userHasInteracted = navigator.userActivation?.hasBeenActive ?? false;
   let castOverlayPreviousFocus = null;
-  let spellSelectPreviousFocus = null;
-  let spellConfigPreviousFocus = null;
-  const spellConfigDefaults = {cantrips: 0, spells: 15};
   const preparedSpellDefaults = {prepared: [], max: null, maxFormula: ""};
-  let spellSelectContext = "known";
-  const spellSelectModeByContext = {known: false, prepared: false};
-  let spellSelectMode = false;
-  let spellSelectLastCount = 0;
-  let selectedKnownSpellKeys = new Set();
-  let selectedPreparedSpellKeys = new Set();
-  let spellPresetIndex = new Map();
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
@@ -2358,9 +2256,6 @@ __DAMAGE_TYPE_OPTIONS__
     if (sheet){
       sheet.classList.toggle("hidden", open);
     }
-    if (!open){
-      setSpellSelectOverlayOpen(false);
-    }
     if (open){
       castOverlayPreviousFocus = document.activeElement instanceof HTMLElement
         ? document.activeElement
@@ -2376,12 +2271,6 @@ __DAMAGE_TYPE_OPTIONS__
     resize();
   }
 
-  function normalizeSpellConfigValue(value, fallback){
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) return fallback;
-    return Math.max(0, Math.floor(parsed));
-  }
-
   function getClaimedPlayerName(){
     const claimedUnit = getClaimedUnit();
     if (!claimedUnit?.name) return null;
@@ -2395,39 +2284,6 @@ __DAMAGE_TYPE_OPTIONS__
     const profile = profiles[name];
     if (!profile || typeof profile !== "object") return null;
     return profile;
-  }
-
-  function getPlayerSpellConfig(name){
-    const defaults = {...spellConfigDefaults};
-    if (!name) return {cantrips: defaults.cantrips, spells: defaults.spells, names: []};
-    let raw = null;
-    const profile = getPlayerProfile(name);
-    if (profile?.spellcasting && typeof profile.spellcasting === "object"){
-      raw = profile.spellcasting;
-    } else {
-      const store = state?.player_spells;
-      if (store && typeof store === "object"){
-        raw = store[name];
-      }
-    }
-    if (!raw || typeof raw !== "object"){
-      return {cantrips: defaults.cantrips, spells: defaults.spells, names: []};
-    }
-    const source = raw.spellcasting && typeof raw.spellcasting === "object" ? raw.spellcasting : raw;
-    const names = Array.isArray(source.known_spell_names)
-      ? source.known_spell_names.map(normalizeTextValue).filter(Boolean)
-      : [];
-    return {
-      cantrips: normalizeSpellConfigValue(
-        source.known_cantrips ?? source.cantrips,
-        defaults.cantrips
-      ),
-      spells: normalizeSpellConfigValue(
-        source.known_spells ?? source.spells,
-        defaults.spells
-      ),
-      names,
-    };
   }
 
   function normalizePreparedSpellList(list){
@@ -2533,281 +2389,6 @@ __DAMAGE_TYPE_OPTIONS__
       max: limit,
       maxFormula,
     };
-  }
-
-  function loadSpellConfig(cid){
-    const claimedUnit = getClaimedUnit();
-    if (!claimedUnit || String(claimedUnit.cid) !== String(cid)){
-      return {...spellConfigDefaults};
-    }
-    const config = getPlayerSpellConfig(String(claimedUnit.name || ""));
-    return {cantrips: config.cantrips, spells: config.spells};
-  }
-
-  function loadKnownSpells(cid){
-    const claimedUnit = getClaimedUnit();
-    if (!claimedUnit || String(claimedUnit.cid) !== String(cid)){
-      return [];
-    }
-    const config = getPlayerSpellConfig(String(claimedUnit.name || ""));
-    return config.names;
-  }
-
-  function loadPreparedSpells(cid){
-    const claimedUnit = getClaimedUnit();
-    if (!claimedUnit || String(claimedUnit.cid) !== String(cid)){
-      return [];
-    }
-    const config = getPlayerPreparedSpellConfig(String(claimedUnit.name || ""));
-    return config.prepared;
-  }
-
-  function getActiveSelectionSet(){
-    return spellSelectContext === "prepared" ? selectedPreparedSpellKeys : selectedKnownSpellKeys;
-  }
-
-  function isSpellSelectModeActive(context){
-    return !!spellSelectModeByContext[context];
-  }
-
-  function applySpellSelectMode(){
-    spellSelectMode = isSpellSelectModeActive(spellSelectContext);
-    spellSelectOverlay?.classList.toggle("selecting", spellSelectMode);
-    if (spellSelectSaveBtn){
-      spellSelectSaveBtn.disabled = !spellSelectMode;
-    }
-  }
-
-  function resetSpellSelectModes(){
-    spellSelectModeByContext.known = false;
-    spellSelectModeByContext.prepared = false;
-    applySpellSelectMode();
-    updateSpellSelectUiLabels();
-    if (spellSelectSaveBtn){
-      spellSelectSaveBtn.disabled = true;
-    }
-  }
-
-  function setSpellSelectContext(next){
-    spellSelectContext = next === "prepared" ? "prepared" : "known";
-    applySpellSelectMode();
-    updateSpellSelectUiLabels();
-    updateSpellSelectSummary();
-  }
-
-  function updateSpellSelectUiLabels(){
-    const isPrepared = spellSelectContext === "prepared";
-    if (spellSelectTitle){
-      spellSelectTitle.textContent = isPrepared ? "Prepared Spells" : "Select Spells";
-    }
-    if (spellSelectCheckHeader){
-      spellSelectCheckHeader.textContent = isPrepared ? "Prepared" : "Known";
-    }
-    if (spellSelectModeBtn){
-      spellSelectModeBtn.textContent = spellSelectMode
-        ? "Exit Selection"
-        : (isPrepared ? "Select Prepared" : "Select Known");
-    }
-    if (spellSelectSaveBtn){
-      spellSelectSaveBtn.textContent = isPrepared ? "Save Prepared Spells" : "Save Known Spells";
-    }
-  }
-
-  function setSpellSelectOverlayOpen(open){
-    if (!spellSelectOverlay) return;
-    spellSelectOverlay.classList.toggle("show", open);
-    spellSelectOverlay.setAttribute("aria-hidden", open ? "false" : "true");
-    if (open){
-      spellSelectPreviousFocus = document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-      if (claimedCid){
-        const stored = spellSelectContext === "prepared"
-          ? loadPreparedSpells(claimedCid)
-          : loadKnownSpells(claimedCid);
-        const nextKeys = new Set(stored.map(getSpellKey));
-        if (spellSelectContext === "prepared"){
-          selectedPreparedSpellKeys = nextKeys;
-        } else {
-          selectedKnownSpellKeys = nextKeys;
-        }
-      }
-      updateSpellSelectUiLabels();
-      applySpellSelectMode();
-      renderSpellSelectTable(cachedSpellPresets);
-      requestAnimationFrame(() => {
-        spellSelectCloseBtn?.focus();
-      });
-    } else if (spellSelectPreviousFocus){
-      spellSelectPreviousFocus.focus();
-      spellSelectPreviousFocus = null;
-    }
-  }
-
-  function updateLocalPlayerSpellConfig(name, config){
-    if (!name) return;
-    if (!state || typeof state !== "object") state = {};
-    if (!state.player_spells || typeof state.player_spells !== "object"){
-      state.player_spells = {};
-    }
-    const preparedNames = Array.isArray(config.prepared)
-      ? normalizePreparedSpellList(config.prepared)
-      : [];
-    const preparedMaxFormula = typeof config.preparedMaxFormula === "string"
-      ? config.preparedMaxFormula.trim()
-      : "";
-    state.player_spells[name] = {
-      known_cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
-      known_spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
-      known_spell_names: Array.isArray(config.names)
-        ? config.names.map(normalizeTextValue).filter(Boolean)
-        : [],
-      prepared_spells: {
-        prepared: preparedNames,
-        ...(preparedMaxFormula ? {max_formula: preparedMaxFormula} : {}),
-      },
-      spellcasting: {
-        cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
-        known_spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
-        known_spell_names: Array.isArray(config.names)
-          ? config.names.map(normalizeTextValue).filter(Boolean)
-          : [],
-        prepared_spells: {
-          prepared: preparedNames,
-          ...(preparedMaxFormula ? {max_formula: preparedMaxFormula} : {}),
-        },
-      },
-    };
-    if (!state.player_profiles || typeof state.player_profiles !== "object"){
-      state.player_profiles = {};
-    }
-    if (!state.player_profiles[name] || typeof state.player_profiles[name] !== "object"){
-      state.player_profiles[name] = {name};
-    }
-    const profile = state.player_profiles[name];
-    if (!profile.spellcasting || typeof profile.spellcasting !== "object"){
-      profile.spellcasting = {};
-    }
-    profile.spellcasting.known_cantrips = normalizeSpellConfigValue(
-      config.cantrips,
-      spellConfigDefaults.cantrips
-    );
-    profile.spellcasting.cantrips = normalizeSpellConfigValue(
-      config.cantrips,
-      spellConfigDefaults.cantrips
-    );
-    profile.spellcasting.known_spells = normalizeSpellConfigValue(
-      config.spells,
-      spellConfigDefaults.spells
-    );
-    profile.spellcasting.known_spell_names = Array.isArray(config.names)
-      ? config.names.map(normalizeTextValue).filter(Boolean)
-      : [];
-    if (!profile.spellcasting.prepared_spells || typeof profile.spellcasting.prepared_spells !== "object"){
-      profile.spellcasting.prepared_spells = {};
-    }
-    profile.spellcasting.prepared_spells.prepared = preparedNames;
-    if (preparedMaxFormula){
-      profile.spellcasting.prepared_spells.max_formula = preparedMaxFormula;
-    }
-  }
-
-  async function persistPlayerSpellConfig(name, config){
-    if (!name) return false;
-    const preparedNames = Array.isArray(config.prepared)
-      ? normalizePreparedSpellList(config.prepared)
-      : [];
-    const preparedMaxFormula = typeof config.preparedMaxFormula === "string"
-      ? config.preparedMaxFormula.trim()
-      : "";
-    const payload = {
-      known_cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
-      known_spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
-      known_spell_names: Array.isArray(config.names)
-        ? config.names.map(normalizeTextValue).filter(Boolean)
-        : [],
-      prepared_spells: {
-        prepared: preparedNames,
-        ...(preparedMaxFormula ? {max_formula: preparedMaxFormula} : {}),
-      },
-      spellcasting: {
-        cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
-        known_spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
-        known_spell_names: Array.isArray(config.names)
-          ? config.names.map(normalizeTextValue).filter(Boolean)
-          : [],
-        prepared_spells: {
-          prepared: preparedNames,
-          ...(preparedMaxFormula ? {max_formula: preparedMaxFormula} : {}),
-        },
-      },
-    };
-    try {
-      const response = await fetch(`/api/players/${encodeURIComponent(name)}/spells`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok){
-        const detail = await response.text();
-        throw new Error(detail || "Save failed.");
-      }
-      const data = await response.json();
-      const player = data?.player;
-      if (player && typeof player === "object"){
-        const preparedData = player.prepared_spells || {};
-        updateLocalPlayerSpellConfig(name, {
-          cantrips: player.known_cantrips,
-          spells: player.known_spells,
-          names: player.known_spell_names,
-          prepared: preparedData.prepared,
-          preparedMaxFormula: preparedData.max_formula || preparedMaxFormula,
-        });
-      } else {
-        updateLocalPlayerSpellConfig(name, {
-          cantrips: payload.known_cantrips,
-          spells: payload.known_spells,
-          names: payload.known_spell_names,
-          prepared: payload.prepared_spells.prepared,
-          preparedMaxFormula: payload.prepared_spells.max_formula || preparedMaxFormula,
-        });
-      }
-      return true;
-    } catch (err){
-      console.warn("Unable to persist known spells.", err);
-      localToast("Unable to save known spells.");
-      return false;
-    }
-  }
-
-  function setSpellConfigOpen(open){
-    if (!spellConfigModal) return;
-    if (open){
-      if (!claimedCid){
-        localToast("Claim a character first.");
-        return;
-      }
-      spellConfigPreviousFocus = document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-      const config = loadSpellConfig(claimedCid);
-      if (spellConfigCantripsInput){
-        spellConfigCantripsInput.value = String(config.cantrips);
-      }
-      if (spellConfigSpellsInput){
-        spellConfigSpellsInput.value = String(config.spells);
-      }
-    }
-    spellConfigModal.classList.toggle("show", open);
-    spellConfigModal.setAttribute("aria-hidden", open ? "false" : "true");
-    if (open){
-      requestAnimationFrame(() => {
-        spellConfigCantripsInput?.focus();
-      });
-    } else if (spellConfigPreviousFocus){
-      spellConfigPreviousFocus.focus();
-      spellConfigPreviousFocus = null;
-    }
   }
 
   function persistSheetHeight(){
@@ -4839,8 +4420,6 @@ __DAMAGE_TYPE_OPTIONS__
         updateHud();
         maybeShowTurnAlert();
         autoCenterOnJoin();
-        syncKnownSpellsFromState();
-        syncPreparedSpellsFromState();
         if (!claimedCid){
           showNoOwnedPcToast(msg.pcs || msg.claimable || []);
         } else {
@@ -4850,11 +4429,6 @@ __DAMAGE_TYPE_OPTIONS__
               meEl.textContent = "(unclaimed)";
               shownNoOwnedToast = false;
               showNoOwnedPcToast(msg.pcs || msg.claimable || []);
-              resetSpellSelectModes();
-              selectedKnownSpellKeys = new Set();
-              selectedPreparedSpellKeys = new Set();
-              updateSpellSelectSummary();
-              renderSpellSelectTable(cachedSpellPresets);
               refreshSpellPresetOptions();
             }
         }
@@ -4864,8 +4438,7 @@ __DAMAGE_TYPE_OPTIONS__
           claimedCid = String(msg.cid);
           shownNoOwnedToast = false;
           autoCenterOnJoin();
-          syncKnownSpellsFromState({force: true});
-          syncPreparedSpellsFromState({force: true});
+          refreshSpellPresetOptions();
         }
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
@@ -4875,11 +4448,6 @@ __DAMAGE_TYPE_OPTIONS__
         meEl.textContent = "(unclaimed)";
         shownNoOwnedToast = false;
         showNoOwnedPcToast(msg.pcs || lastPcList || []);
-        resetSpellSelectModes();
-        selectedKnownSpellKeys = new Set();
-        selectedPreparedSpellKeys = new Set();
-        updateSpellSelectSummary();
-        renderSpellSelectTable(cachedSpellPresets);
         refreshSpellPresetOptions();
         refreshTurnAlertStatus();
       } else if (msg.type === "toast"){
@@ -5342,13 +4910,6 @@ __DAMAGE_TYPE_OPTIONS__
   const normalizeTextValue = (value) => String(value || "").trim();
   const normalizeLowerValue = (value) => normalizeTextValue(value).toLowerCase();
   const getSpellKey = (name) => normalizeLowerValue(name);
-  const loadKnownSpellFilterList = () => {
-    const name = getClaimedPlayerName();
-    if (!name) return null;
-    const config = getPlayerSpellConfig(name);
-    if (!config.names.length) return null;
-    return config.names.map(normalizeTextValue).filter(Boolean);
-  };
   const loadPreparedSpellFilterList = () => {
     const name = getClaimedPlayerName();
     if (!name) return null;
@@ -5356,16 +4917,10 @@ __DAMAGE_TYPE_OPTIONS__
     if (!config.prepared.length) return null;
     return config.prepared.map(normalizeTextValue).filter(Boolean);
   };
-  const getKnownSpellFilterSet = () => {
-    if (!claimedCid) return null;
-    const list = loadKnownSpellFilterList();
-    if (!list) return null;
-    return new Set(list.map(getSpellKey));
-  };
   const getPreparedSpellFilterSet = () => {
-    if (!claimedCid) return null;
+    if (!claimedCid) return new Set();
     const list = loadPreparedSpellFilterList();
-    if (!list) return null;
+    if (!list) return new Set();
     return new Set(list.map(getSpellKey));
   };
   const filterPresetsByKnownList = (presets, knownSpellSet) => {
@@ -5392,79 +4947,6 @@ __DAMAGE_TYPE_OPTIONS__
   const getPresetLevelNumber = (preset) => {
     const num = Number(preset?.level);
     return Number.isFinite(num) ? num : null;
-  };
-  const buildSpellPresetIndex = (presets) => {
-    const index = new Map();
-    normalizeSpellPresets(presets).forEach((preset) => {
-      const name = normalizeTextValue(preset.name);
-      if (!name) return;
-      index.set(getSpellKey(name), {name, level: getPresetLevelNumber(preset)});
-    });
-    return index;
-  };
-  const getKnownSpellCounts = () => {
-    let cantrips = 0;
-    let spells = 0;
-    selectedKnownSpellKeys.forEach((key) => {
-      const entry = spellPresetIndex.get(key);
-      if (!entry) return;
-      if (entry.level === 0){
-        cantrips += 1;
-      } else {
-        spells += 1;
-      }
-    });
-    return {cantrips, spells};
-  };
-  const getSelectedSpellNames = (selectionSet) => {
-    const names = [];
-    selectionSet.forEach((key) => {
-      const entry = spellPresetIndex.get(key);
-      if (entry?.name){
-        names.push(entry.name);
-      }
-    });
-    return names.sort((a, b) => a.localeCompare(b));
-  };
-  const syncKnownSpellsFromState = ({force = false} = {}) => {
-    if (!claimedCid || isSpellSelectModeActive("known")) return;
-    const stored = loadKnownSpells(claimedCid);
-    const nextKeys = new Set(stored.map(getSpellKey));
-    if (!force && nextKeys.size === selectedKnownSpellKeys.size){
-      let same = true;
-      nextKeys.forEach((key) => {
-        if (!selectedKnownSpellKeys.has(key)){
-          same = false;
-        }
-      });
-      if (same){
-        return;
-      }
-    }
-    selectedKnownSpellKeys = nextKeys;
-    updateSpellSelectSummary();
-    renderSpellSelectTable(cachedSpellPresets);
-    refreshSpellPresetOptions();
-  };
-  const syncPreparedSpellsFromState = ({force = false} = {}) => {
-    if (!claimedCid || isSpellSelectModeActive("prepared")) return;
-    const stored = loadPreparedSpells(claimedCid);
-    const nextKeys = new Set(stored.map(getSpellKey));
-    if (!force && nextKeys.size === selectedPreparedSpellKeys.size){
-      let same = true;
-      nextKeys.forEach((key) => {
-        if (!selectedPreparedSpellKeys.has(key)){
-          same = false;
-        }
-      });
-      if (same){
-        return;
-      }
-    }
-    selectedPreparedSpellKeys = nextKeys;
-    updateSpellSelectSummary();
-    renderSpellSelectTable(cachedSpellPresets);
-    refreshSpellPresetOptions();
   };
   const updateManualEntryBadge = (preset) => {
     if (!castManualEntryBadge) return;
@@ -5605,226 +5087,6 @@ __DAMAGE_TYPE_OPTIONS__
       {label: "Save DC", value: Number.isFinite(Number(preset.save_dc)) ? String(preset.save_dc) : ""},
     ];
     return fields.filter((field) => field.value);
-  };
-  const updateSpellSelectSummary = (totalCount = spellSelectLastCount) => {
-    if (!spellSelectSummary) return;
-    const count = Number.isFinite(totalCount) ? totalCount : 0;
-    if (!spellSelectMode){
-      spellSelectSummary.textContent = `${count} spell${count === 1 ? "" : "s"} available.`;
-      return;
-    }
-    const availableLabel = `${count} spell${count === 1 ? "" : "s"} available.`;
-    if (!claimedCid){
-      spellSelectSummary.textContent = spellSelectContext === "prepared"
-        ? "Claim a character to track prepared spells."
-        : "Claim a character to track known spells.";
-      return;
-    }
-    if (spellSelectContext === "prepared"){
-      const playerName = getClaimedPlayerName();
-      const config = playerName ? getPlayerPreparedSpellConfig(playerName) : preparedSpellDefaults;
-      const limit = config.max;
-      const selected = selectedPreparedSpellKeys.size;
-      const limitLabel = Number.isFinite(limit) ? `${selected}/${limit} prepared spells selected` : `${selected} prepared spells selected`;
-      spellSelectSummary.textContent = `${limitLabel}. ${availableLabel}`;
-      return;
-    }
-    const limits = loadSpellConfig(claimedCid);
-    const counts = getKnownSpellCounts();
-    const cantripLabel = `${counts.cantrips}/${limits.cantrips} cantrips selected`;
-    const spellLabel = `${counts.spells}/${limits.spells} spells selected`;
-    spellSelectSummary.textContent = `${cantripLabel}, ${spellLabel}. ${availableLabel}`;
-  };
-  const setSpellSelectMode = (active) => {
-    if (active && !claimedCid){
-      localToast("Claim a character first.");
-      return;
-    }
-    spellSelectModeByContext[spellSelectContext] = !!active;
-    applySpellSelectMode();
-    if (spellSelectMode && claimedCid){
-      const stored = spellSelectContext === "prepared"
-        ? loadPreparedSpells(claimedCid)
-        : loadKnownSpells(claimedCid);
-      const nextKeys = new Set(stored.map(getSpellKey));
-      if (spellSelectContext === "prepared"){
-        selectedPreparedSpellKeys = nextKeys;
-      } else {
-        selectedKnownSpellKeys = nextKeys;
-      }
-    }
-    updateSpellSelectUiLabels();
-    applySpellSelectMode();
-    renderSpellSelectTable(cachedSpellPresets);
-  };
-  const toggleSpellSelection = (key, shouldSelect) => {
-    if (!claimedCid) return false;
-    if (spellSelectContext === "prepared"){
-      if (shouldSelect){
-        const playerName = getClaimedPlayerName();
-        const config = playerName ? getPlayerPreparedSpellConfig(playerName) : preparedSpellDefaults;
-        const limit = config.max;
-        const nextCount = selectedPreparedSpellKeys.size + 1;
-        if (Number.isFinite(limit) && limit !== null && nextCount > limit){
-          localToast(`Prepared spells limited to ${limit}.`);
-          return false;
-        }
-        selectedPreparedSpellKeys.add(key);
-      } else {
-        selectedPreparedSpellKeys.delete(key);
-      }
-      updateSpellSelectSummary();
-      return true;
-    }
-    if (shouldSelect){
-      const entry = spellPresetIndex.get(key);
-      const isCantrip = entry?.level === 0;
-      const limits = loadSpellConfig(claimedCid);
-      const counts = getKnownSpellCounts();
-      const nextCantrips = counts.cantrips + (isCantrip ? 1 : 0);
-      const nextSpells = counts.spells + (isCantrip ? 0 : 1);
-      if (isCantrip && nextCantrips > limits.cantrips){
-        localToast(`Cantrips limited to ${limits.cantrips}.`);
-        return false;
-      }
-      if (!isCantrip && nextSpells > limits.spells){
-        localToast(`Spells limited to ${limits.spells}.`);
-        return false;
-      }
-      selectedKnownSpellKeys.add(key);
-    } else {
-      selectedKnownSpellKeys.delete(key);
-    }
-    updateSpellSelectSummary();
-    return true;
-  };
-  const renderSpellSelectTable = (presets) => {
-    if (!spellSelectTableBody || !spellSelectSummary) return;
-    const filterSet = spellSelectMode
-      ? null
-      : (spellSelectContext === "prepared" ? getPreparedSpellFilterSet() : getKnownSpellFilterSet());
-    const list = filterPresetsByKnownList(normalizeSpellPresets(presets), filterSet)
-      .slice()
-      .sort((a, b) => {
-      return normalizeTextValue(a.name).localeCompare(normalizeTextValue(b.name));
-    });
-    spellPresetIndex = buildSpellPresetIndex(list);
-    spellSelectTableBody.textContent = "";
-    if (!list.length){
-      const row = document.createElement("tr");
-      const cell = document.createElement("td");
-      cell.colSpan = 7;
-      cell.textContent = "No spell presets available.";
-      row.appendChild(cell);
-      spellSelectTableBody.appendChild(row);
-      spellSelectLastCount = 0;
-      updateSpellSelectSummary(0);
-      return;
-    }
-    spellSelectLastCount = list.length;
-    updateSpellSelectSummary(list.length);
-    const fragment = document.createDocumentFragment();
-    list.forEach((preset) => {
-      const name = normalizeTextValue(preset.name) || "Unnamed";
-      const spellKey = getSpellKey(name);
-      const row = document.createElement("tr");
-      row.className = "spell-select-row";
-      const checkCell = document.createElement("td");
-      checkCell.className = "spell-select-check-cell";
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = getActiveSelectionSet().has(spellKey);
-      checkbox.disabled = !spellSelectMode || !claimedCid;
-      checkbox.addEventListener("change", () => {
-        const applied = toggleSpellSelection(spellKey, checkbox.checked);
-        if (!applied){
-          checkbox.checked = false;
-        }
-      });
-      checkCell.appendChild(checkbox);
-      const nameCell = document.createElement("td");
-      const nameBtn = document.createElement("button");
-      nameBtn.type = "button";
-      nameBtn.className = "spell-select-name-btn";
-      nameBtn.textContent = name;
-      nameBtn.addEventListener("click", () => {
-        if (spellSelectMode){
-          const applied = toggleSpellSelection(spellKey, !checkbox.checked);
-          if (applied){
-            checkbox.checked = !checkbox.checked;
-          }
-          return;
-        }
-        const optionExists = castPresetInput
-          ? Array.from(castPresetInput.options).some((option) => option.value === name)
-          : false;
-        if (castPresetInput && optionExists){
-          castPresetInput.value = name;
-        }
-        updateSpellPresetDetails(preset);
-        applySpellPreset(preset);
-        setSpellSelectOverlayOpen(false);
-      });
-      nameCell.appendChild(nameBtn);
-      const damageCell = document.createElement("td");
-      damageCell.textContent = formatSpellDamageLabel(preset);
-      const aoeCell = document.createElement("td");
-      aoeCell.textContent = hasAoeShape(preset) ? "Yes" : "No";
-      const levelCell = document.createElement("td");
-      levelCell.textContent = formatSpellLevelLabel(preset.level);
-      const schoolCell = document.createElement("td");
-      schoolCell.textContent = normalizeTextValue(preset.school) || "—";
-      const linkCell = document.createElement("td");
-      if (preset.url){
-        const link = document.createElement("a");
-        link.href = String(preset.url);
-        link.target = "_blank";
-        link.rel = "noopener";
-        link.className = "spell-select-link";
-        link.textContent = "Open";
-        linkCell.appendChild(link);
-      } else {
-        linkCell.textContent = "—";
-      }
-      row.appendChild(checkCell);
-      row.appendChild(nameCell);
-      row.appendChild(damageCell);
-      row.appendChild(aoeCell);
-      row.appendChild(levelCell);
-      row.appendChild(schoolCell);
-      row.appendChild(linkCell);
-      fragment.appendChild(row);
-
-      const detailFields = buildOptionalSpellDetails(preset);
-      if (detailFields.length){
-        const detailRow = document.createElement("tr");
-        detailRow.className = "spell-select-details-row";
-        const detailCell = document.createElement("td");
-        detailCell.colSpan = 7;
-        const details = document.createElement("details");
-        const summary = document.createElement("summary");
-        summary.textContent = "More details";
-        const detailsGrid = document.createElement("div");
-        detailsGrid.className = "spell-select-details-grid";
-        detailFields.forEach((field) => {
-          const item = document.createElement("div");
-          item.className = "spell-select-details-item";
-          const label = document.createElement("strong");
-          label.textContent = field.label;
-          const value = document.createElement("span");
-          value.textContent = field.value;
-          item.appendChild(label);
-          item.appendChild(value);
-          detailsGrid.appendChild(item);
-        });
-        details.appendChild(summary);
-        details.appendChild(detailsGrid);
-        detailCell.appendChild(details);
-        detailRow.appendChild(detailCell);
-        fragment.appendChild(detailRow);
-      }
-    });
-    spellSelectTableBody.appendChild(fragment);
   };
   const updateSelectOptions = (selectEl, values) => {
     if (!selectEl) return;
@@ -6051,10 +5313,8 @@ __DAMAGE_TYPE_OPTIONS__
     }
     lastSpellPresetSignature = signature;
     cachedSpellPresets = list;
-    spellPresetIndex = buildSpellPresetIndex(list);
     updateSpellFilterOptions();
     refreshSpellPresetOptions();
-    renderSpellSelectTable(cachedSpellPresets);
   };
 
   const registerSpellFilterListener = (input, useInputEvent = false) => {
@@ -6891,125 +6151,6 @@ __DAMAGE_TYPE_OPTIONS__
       setCastOverlayOpen(false);
     });
   }
-  if (spellPreparedOpenBtn){
-    spellPreparedOpenBtn.addEventListener("click", () => {
-      if (!claimedCid){
-        localToast("Claim a character first.");
-        return;
-      }
-      setSpellSelectContext("prepared");
-      setSpellSelectMode(true);
-      setSpellSelectOverlayOpen(true);
-    });
-  }
-  if (spellSelectBackBtn){
-    spellSelectBackBtn.addEventListener("click", () => {
-      setSpellSelectOverlayOpen(false);
-    });
-  }
-  if (spellSelectCloseBtn){
-    spellSelectCloseBtn.addEventListener("click", () => {
-      setSpellSelectOverlayOpen(false);
-    });
-  }
-  if (spellSelectModeBtn){
-    spellSelectModeBtn.addEventListener("click", () => {
-      setSpellSelectMode(!spellSelectMode);
-    });
-  }
-  if (spellSelectSaveBtn){
-    spellSelectSaveBtn.addEventListener("click", async () => {
-      if (!claimedCid){
-        localToast("Claim a character first.");
-        return;
-      }
-      if (!spellSelectMode){
-        localToast(
-          spellSelectContext === "prepared"
-            ? "Enable selection mode to save prepared spells."
-            : "Enable selection mode to save known spells."
-        );
-        return;
-      }
-      const playerName = getClaimedPlayerName();
-      if (!playerName){
-        localToast("Unable to resolve player name.");
-        return;
-      }
-      const currentConfig = getPlayerSpellConfig(playerName);
-      const preparedConfig = getPlayerPreparedSpellConfig(playerName);
-      if (spellSelectContext === "prepared"){
-        const names = getSelectedSpellNames(selectedPreparedSpellKeys);
-        const saved = await persistPlayerSpellConfig(playerName, {
-          cantrips: currentConfig.cantrips,
-          spells: currentConfig.spells,
-          names: currentConfig.names,
-          prepared: names,
-          preparedMaxFormula: preparedConfig.maxFormula,
-        });
-        if (!saved) return;
-        localToast("Prepared spells saved.");
-        selectedPreparedSpellKeys = new Set(names.map(getSpellKey));
-        renderSpellSelectTable(cachedSpellPresets);
-        return;
-      }
-      const names = getSelectedSpellNames(selectedKnownSpellKeys);
-      const saved = await persistPlayerSpellConfig(playerName, {
-        cantrips: currentConfig.cantrips,
-        spells: currentConfig.spells,
-        names,
-        prepared: preparedConfig.prepared,
-        preparedMaxFormula: preparedConfig.maxFormula,
-      });
-      if (!saved) return;
-      localToast("Known spells saved.");
-      selectedKnownSpellKeys = new Set(names.map(getSpellKey));
-      refreshSpellPresetOptions();
-      renderSpellSelectTable(cachedSpellPresets);
-    });
-  }
-  if (spellConfigOpenBtn){
-    spellConfigOpenBtn.addEventListener("click", () => {
-      setSpellConfigOpen(true);
-    });
-  }
-  if (spellConfigCancelBtn){
-    spellConfigCancelBtn.addEventListener("click", () => {
-      setSpellConfigOpen(false);
-    });
-  }
-  if (spellConfigSaveBtn){
-    spellConfigSaveBtn.addEventListener("click", async () => {
-      if (!claimedCid){
-        localToast("Claim a character first.");
-        return;
-      }
-      const playerName = getClaimedPlayerName();
-      if (!playerName){
-        localToast("Unable to resolve player name.");
-        return;
-      }
-      const currentConfig = getPlayerSpellConfig(playerName);
-      const preparedConfig = getPlayerPreparedSpellConfig(playerName);
-      const saved = await persistPlayerSpellConfig(playerName, {
-        cantrips: spellConfigCantripsInput?.value,
-        spells: spellConfigSpellsInput?.value,
-        names: currentConfig.names,
-        prepared: preparedConfig.prepared,
-        preparedMaxFormula: preparedConfig.maxFormula,
-      });
-      if (!saved) return;
-      setSpellConfigOpen(false);
-      updateSpellSelectSummary();
-      localToast("Known spells saved.");
-    });
-  }
-  if (spellConfigForm){
-    spellConfigForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      spellConfigSaveBtn?.click();
-    });
-  }
   if (connEl && connPopoverEl){
     connEl.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -7034,10 +6175,6 @@ __DAMAGE_TYPE_OPTIONS__
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape"){
-      if (spellConfigModal?.classList.contains("show")){
-        setSpellConfigOpen(false);
-        return;
-      }
       if (castOverlay?.classList.contains("show")){
         setCastOverlayOpen(false);
         return;
