@@ -1,6 +1,7 @@
 schema: dnd55.spell.v1
 id: reincarnate
 name: Reincarnate
+color: "#6aa9ff"
 edition: '2024'
 source:
   book: "Player\xB4s Handbook 2024 (BR)"
