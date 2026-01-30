@@ -596,6 +596,92 @@ HTML_INDEX = r"""<!doctype html>
       display:flex; align-items:center; gap:10px; flex-wrap:wrap;
       position:sticky; top:0; z-index:20;
     }
+    .map-view{
+      --map-view-bar-height: 84px;
+      --map-view-order-font-size: 14px;
+      --map-view-order-gap: 8px;
+      --map-view-order-chip-pad-y: 6px;
+      --map-view-order-chip-pad-x: 10px;
+      --map-view-order-radius: 999px;
+      --map-view-bar-bg: rgba(14,18,26,0.92);
+      --map-view-bar-border: rgba(255,255,255,0.1);
+    }
+    .map-view .topbar,
+    .map-view .sheet-wrap,
+    .map-view .cast-overlay,
+    .map-view .menu-popover,
+    .map-view .conn-popover{
+      display:none !important;
+    }
+    .map-view .mapWrap{
+      flex:1 1 auto;
+    }
+    .map-view-bar{
+      position:sticky;
+      top:0;
+      z-index:25;
+      display:none;
+      flex-direction:column;
+      gap:8px;
+      padding: calc(10px + var(--safeInsetTop)) 16px 10px 16px;
+      background: var(--map-view-bar-bg);
+      border-bottom: 1px solid var(--map-view-bar-border);
+      min-height: var(--map-view-bar-height);
+      backdrop-filter: blur(12px);
+    }
+    .map-view .map-view-bar{
+      display:flex;
+    }
+    .map-view-bar-row{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .map-view-title{
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.2px;
+    }
+    .map-view-status{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .map-view-actions{
+      margin-left:auto;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .map-view-turn-order{
+      display:flex;
+      gap: var(--map-view-order-gap);
+      overflow:auto;
+      align-items:center;
+      padding-bottom: 2px;
+    }
+    .map-view .turn-chip{
+      font-size: var(--map-view-order-font-size);
+      padding: var(--map-view-order-chip-pad-y) var(--map-view-order-chip-pad-x);
+      border-radius: var(--map-view-order-radius);
+    }
+    .map-view .turn-chip-index{
+      font-size: calc(var(--map-view-order-font-size) * 0.7);
+    }
+    .map-view .turn-order-status{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .map-view-hide-index .turn-chip-index{
+      display:none;
+    }
+    .map-view-hide-status #mapViewTurnOrderStatus{
+      display:none;
+    }
+    .map-view-hide-title .map-view-title{
+      display:none;
+    }
     .topbar h1{font-size:14px; margin:0; font-weight:650;}
     .pill{font-size:12px; color:var(--muted); padding:6px 10px; border:1px solid rgba(255,255,255,0.10); border-radius:999px;}
     .conn-wrap{
@@ -1863,6 +1949,22 @@ HTML_INDEX = r"""<!doctype html>
 </head>
 <body>
 <div class="app">
+  <div class="map-view-bar" id="mapViewBar" aria-label="Map view initiative bar">
+    <div class="map-view-bar-row">
+      <div class="map-view-title">InitTracker Map View</div>
+      <div class="map-view-status" id="mapViewConnStatus">Connecting…</div>
+      <div class="map-view-actions">
+        <button class="btn" id="mapViewSettingsBtn" type="button">View Settings</button>
+      </div>
+    </div>
+    <div class="map-view-bar-row">
+      <div class="turn-order map-view-turn-order" id="mapViewTurnOrder" aria-label="Initiative order"></div>
+      <div class="turn-order-bubble" id="mapViewTurnOrderBubble" role="status" aria-live="polite"></div>
+    </div>
+    <div class="map-view-bar-row">
+      <div class="turn-order-status" id="mapViewTurnOrderStatus"></div>
+    </div>
+  </div>
   <div class="topbar">
     <h1 id="topbarTitle">InitTracker LAN</h1>
     <div class="conn-wrap">
@@ -2113,6 +2215,46 @@ HTML_INDEX = r"""<!doctype html>
         </div>
         <div class="modal-actions">
           <button class="btn" id="configClose">Close</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal" id="mapViewSettingsModal" aria-hidden="true">
+      <div class="card">
+        <h2>Map View Settings</h2>
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="mapViewTextSize">Text size</label>
+              <input id="mapViewTextSize" type="range" min="10" max="28" step="1" />
+            </div>
+            <div class="form-field">
+              <label for="mapViewBarHeight">Bar height</label>
+              <input id="mapViewBarHeight" type="range" min="56" max="140" step="2" />
+            </div>
+            <div class="form-field">
+              <label for="mapViewChipPadding">Chip padding</label>
+              <input id="mapViewChipPadding" type="range" min="4" max="18" step="1" />
+            </div>
+            <div class="form-field">
+              <label for="mapViewChipGap">Chip gap</label>
+              <input id="mapViewChipGap" type="range" min="2" max="20" step="1" />
+            </div>
+            <div class="form-field">
+              <label for="mapViewCornerRadius">Chip radius</label>
+              <input id="mapViewCornerRadius" type="range" min="6" max="40" step="2" />
+            </div>
+            <div class="form-field">
+              <label>Visibility</label>
+              <div class="config-list">
+                <label class="config-toggle"><input type="checkbox" id="mapViewShowTitle" />Show title</label>
+                <label class="config-toggle"><input type="checkbox" id="mapViewShowStatus" />Show status</label>
+                <label class="config-toggle"><input type="checkbox" id="mapViewShowIndex" />Show index</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="mapViewSettingsClose">Close</button>
         </div>
       </div>
     </div>
@@ -2507,7 +2649,10 @@ __DAMAGE_TYPE_OPTIONS__
 
   const qs = new URLSearchParams(location.search);
   const wsProto = (location.protocol === "https:") ? "wss" : "ws";
-  const wsUrl = `${wsProto}://${location.host}/ws`;
+  const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
+  const isMapView = normalizedPath === "/map_view";
+  const wsPath = isMapView ? "/ws_view" : "/ws";
+  const wsUrl = `${wsProto}://${location.host}${wsPath}`;
   const pushPublicKey = (window.PUSH_PUBLIC_KEY || "").trim();
   const turnAlertStorageKey = "inittracker_turnAlertSubscription";
   const turnAlertHideKey = "inittracker_hideTurnAlerts";
@@ -2725,6 +2870,22 @@ __DAMAGE_TYPE_OPTIONS__
   const connCompactLabelEl = document.getElementById("connCompactLabel");
   const connDotEl = document.getElementById("connDot");
   const topbarTitleEl = document.getElementById("topbarTitle");
+  const mapViewBar = document.getElementById("mapViewBar");
+  const mapViewConnStatus = document.getElementById("mapViewConnStatus");
+  const mapViewTurnOrderEl = document.getElementById("mapViewTurnOrder");
+  const mapViewTurnOrderStatusEl = document.getElementById("mapViewTurnOrderStatus");
+  const mapViewTurnOrderBubbleEl = document.getElementById("mapViewTurnOrderBubble");
+  const mapViewSettingsBtn = document.getElementById("mapViewSettingsBtn");
+  const mapViewSettingsModal = document.getElementById("mapViewSettingsModal");
+  const mapViewSettingsClose = document.getElementById("mapViewSettingsClose");
+  const mapViewTextSizeInput = document.getElementById("mapViewTextSize");
+  const mapViewBarHeightInput = document.getElementById("mapViewBarHeight");
+  const mapViewChipPaddingInput = document.getElementById("mapViewChipPadding");
+  const mapViewChipGapInput = document.getElementById("mapViewChipGap");
+  const mapViewCornerRadiusInput = document.getElementById("mapViewCornerRadius");
+  const mapViewShowTitleInput = document.getElementById("mapViewShowTitle");
+  const mapViewShowStatusInput = document.getElementById("mapViewShowStatus");
+  const mapViewShowIndexInput = document.getElementById("mapViewShowIndex");
   const connPopoverEl = document.getElementById("connPopover");
   const connPopoverStatusEl = document.getElementById("connPopoverStatus");
   const connReconnectBtn = document.getElementById("connReconnectBtn");
@@ -2738,6 +2899,14 @@ __DAMAGE_TYPE_OPTIONS__
   const turnOrderEl = document.getElementById("turnOrder");
   const turnOrderStatusEl = document.getElementById("turnOrderStatus");
   const turnOrderBubbleEl = document.getElementById("turnOrderBubble");
+  let activeTurnOrderEl = turnOrderEl;
+  let activeTurnOrderStatusEl = turnOrderStatusEl;
+  let activeTurnOrderBubbleEl = turnOrderBubbleEl;
+  if (isMapView && mapViewTurnOrderEl){
+    activeTurnOrderEl = mapViewTurnOrderEl;
+    activeTurnOrderStatusEl = mapViewTurnOrderStatusEl;
+    activeTurnOrderBubbleEl = mapViewTurnOrderBubbleEl;
+  }
   const noteEl = document.getElementById("note");
   const colorModal = document.getElementById("colorModal");
   const tokenColorInput = document.getElementById("tokenColorInput");
@@ -3004,6 +3173,7 @@ __DAMAGE_TYPE_OPTIONS__
     connStyle: "inittracker_ui_connStyle",
     initiativeStyle: "inittracker_ui_initiativeStyle",
   };
+  const mapViewSettingsKey = "inittracker_map_view_settings";
   let showTopbarTitle = readToggle(uiToggleKeys.topbarTitle, true);
   let showConnIndicator = readToggle(uiToggleKeys.connIndicator, true);
   let showLockMap = readToggle(uiToggleKeys.lockMap, true);
@@ -3020,6 +3190,7 @@ __DAMAGE_TYPE_OPTIONS__
   let showResetTurn = readToggle(uiToggleKeys.resetTurn, true);
   let hideSpellMenu = readToggle(uiToggleKeys.hideSpellMenu, false);
   let menusLocked = readToggle(uiToggleKeys.lockMenus, false);
+  let mapViewSettings = null;
   let connStyle = "full";
   let initiativeStyle = "full";
   let sheetHeight = null;
@@ -3030,6 +3201,9 @@ __DAMAGE_TYPE_OPTIONS__
   const isSafariEngine = /AppleWebKit/.test(navigator.userAgent);
   const isAltBrowser = /CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone === true;
+  if (document.body){
+    document.body.classList.toggle("map-view", isMapView);
+  }
   if (iosInstallHint){
     const showHint = isIOS && isSafariEngine && !isAltBrowser && !isStandalone;
     iosInstallHint.classList.toggle("hidden", !showHint);
@@ -3038,6 +3212,9 @@ __DAMAGE_TYPE_OPTIONS__
     const hideTurnAlerts = localStorage.getItem(turnAlertHideKey) === "1";
     const shouldHideAlerts = !isIOS || hideTurnAlerts;
     turnAlertsPanel.classList.toggle("hidden", shouldHideAlerts);
+  }
+  if (isMapView){
+    applyMapViewSettings(readMapViewSettings());
   }
   if (showAllNamesEl){
     showAllNamesEl.checked = showAllNames;
@@ -3078,6 +3255,10 @@ __DAMAGE_TYPE_OPTIONS__
     if (connEl){
       connEl.style.borderColor = connStatusOk ? "rgba(106,169,255,0.35)" : "rgba(255,91,91,0.35)";
       connEl.style.background = connStatusOk ? "rgba(106,169,255,0.14)" : "rgba(255,91,91,0.14)";
+    }
+    if (mapViewConnStatus){
+      mapViewConnStatus.textContent = connStatusText;
+      mapViewConnStatus.style.color = connStatusOk ? "var(--muted)" : "var(--danger)";
     }
     updateConnDisplay();
   }
@@ -3145,6 +3326,89 @@ __DAMAGE_TYPE_OPTIONS__
     const viewportHeight = window.visualViewport?.height || window.innerHeight || 0;
     const vh = Math.max(1, viewportHeight) * 0.01;
     document.documentElement.style.setProperty("--spellbook-vh", `${vh}px`);
+  }
+
+  function readMapViewSettings(){
+    const defaults = {
+      textSize: 14,
+      barHeight: 84,
+      chipPadding: 6,
+      chipGap: 8,
+      cornerRadius: 40,
+      showTitle: true,
+      showStatus: true,
+      showIndex: true,
+    };
+    try {
+      const raw = localStorage.getItem(mapViewSettingsKey);
+      if (!raw){
+        return defaults;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object"){
+        return defaults;
+      }
+      return {
+        ...defaults,
+        ...parsed,
+      };
+    } catch (err){
+      return defaults;
+    }
+  }
+
+  function applyMapViewSettings(settings){
+    if (!settings){
+      return;
+    }
+    mapViewSettings = settings;
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty("--map-view-order-font-size", `${settings.textSize}px`);
+    rootStyle.setProperty("--map-view-bar-height", `${settings.barHeight}px`);
+    rootStyle.setProperty("--map-view-order-chip-pad-y", `${settings.chipPadding}px`);
+    rootStyle.setProperty("--map-view-order-chip-pad-x", `${Math.max(6, settings.chipPadding + 4)}px`);
+    rootStyle.setProperty("--map-view-order-gap", `${settings.chipGap}px`);
+    rootStyle.setProperty("--map-view-order-radius", `${settings.cornerRadius}px`);
+    if (document.body){
+      document.body.classList.toggle("map-view-hide-title", !settings.showTitle);
+      document.body.classList.toggle("map-view-hide-status", !settings.showStatus);
+      document.body.classList.toggle("map-view-hide-index", !settings.showIndex);
+    }
+    if (mapViewTextSizeInput){
+      mapViewTextSizeInput.value = String(settings.textSize);
+    }
+    if (mapViewBarHeightInput){
+      mapViewBarHeightInput.value = String(settings.barHeight);
+    }
+    if (mapViewChipPaddingInput){
+      mapViewChipPaddingInput.value = String(settings.chipPadding);
+    }
+    if (mapViewChipGapInput){
+      mapViewChipGapInput.value = String(settings.chipGap);
+    }
+    if (mapViewCornerRadiusInput){
+      mapViewCornerRadiusInput.value = String(settings.cornerRadius);
+    }
+    if (mapViewShowTitleInput){
+      mapViewShowTitleInput.checked = !!settings.showTitle;
+    }
+    if (mapViewShowStatusInput){
+      mapViewShowStatusInput.checked = !!settings.showStatus;
+    }
+    if (mapViewShowIndexInput){
+      mapViewShowIndexInput.checked = !!settings.showIndex;
+    }
+  }
+
+  function persistMapViewSettings(){
+    if (!mapViewSettings){
+      return;
+    }
+    try {
+      localStorage.setItem(mapViewSettingsKey, JSON.stringify(mapViewSettings));
+    } catch (err){
+      console.warn("Failed to persist map view settings.", err);
+    }
   }
 
   function applySheetHeight(value){
@@ -3914,6 +4178,18 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  function showMapViewSettingsModal(){
+    if (!mapViewSettingsModal) return;
+    mapViewSettingsModal.classList.add("show");
+    mapViewSettingsModal.setAttribute("aria-hidden", "false");
+  }
+
+  function hideMapViewSettingsModal(){
+    if (!mapViewSettingsModal) return;
+    mapViewSettingsModal.classList.remove("show");
+    mapViewSettingsModal.setAttribute("aria-hidden", "true");
+  }
+
   function setAdminMenu(open){
     if (!adminMenuPopover || !adminMenuBtn) return;
     adminMenuPopover.classList.toggle("show", open);
@@ -4199,7 +4475,25 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  const mapViewBlockedTypes = new Set([
+    "move",
+    "dash",
+    "perform_action",
+    "end_turn",
+    "use_action",
+    "use_bonus_action",
+    "set_color",
+    "reset_turn",
+    "cast_aoe",
+    "aoe_move",
+    "aoe_remove",
+    "save_preset",
+  ]);
+
   function send(msg){
+    if (isMapView && msg && mapViewBlockedTypes.has(msg.type)){
+      return;
+    }
     if (!ws || ws.readyState !== 1) return;
     ws.send(JSON.stringify(msg));
   }
@@ -4332,6 +4626,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function showNoOwnedPcToast(pcs){
+    if (isMapView) return;
     if (shownNoOwnedToast) return;
     if (claimedCid) return;
     const list = Array.isArray(pcs) ? pcs : [];
@@ -5073,33 +5368,33 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function showTurnOrderBubble(chip, unit){
-    if (!turnOrderBubbleEl){
+    if (!activeTurnOrderBubbleEl){
       return;
     }
     if (!chip || !unit){
-      turnOrderBubbleEl.classList.remove("show");
+      activeTurnOrderBubbleEl.classList.remove("show");
       return;
     }
-    turnOrderBubbleEl.textContent = formatTurnOrderLabel(unit);
-    turnOrderBubbleEl.classList.add("show");
-    const container = turnOrderBubbleEl.offsetParent || turnOrderEl;
+    activeTurnOrderBubbleEl.textContent = formatTurnOrderLabel(unit);
+    activeTurnOrderBubbleEl.classList.add("show");
+    const container = activeTurnOrderBubbleEl.offsetParent || activeTurnOrderEl;
     if (!container){
       return;
     }
     const containerRect = container.getBoundingClientRect();
     const chipRect = chip.getBoundingClientRect();
-    const bubbleRect = turnOrderBubbleEl.getBoundingClientRect();
+    const bubbleRect = activeTurnOrderBubbleEl.getBoundingClientRect();
     const left = chipRect.left - containerRect.left + (chipRect.width / 2);
     let top = chipRect.top - containerRect.top - bubbleRect.height - 8;
     if (top < 0){
       top = chipRect.bottom - containerRect.top + 8;
     }
-    turnOrderBubbleEl.style.left = `${left}px`;
-    turnOrderBubbleEl.style.top = `${top}px`;
+    activeTurnOrderBubbleEl.style.left = `${left}px`;
+    activeTurnOrderBubbleEl.style.top = `${top}px`;
   }
 
   function updateTurnOrder(){
-    if (!turnOrderEl){
+    if (!activeTurnOrderEl){
       return;
     }
     const TURN_CHIP_NAME_MAX = 20;
@@ -5111,13 +5406,13 @@ __DAMAGE_TYPE_OPTIONS__
       return `${fullName.slice(0, TURN_CHIP_NAME_MAX - 1).trimEnd()}…`;
     };
     const order = Array.isArray(state?.turn_order) ? state.turn_order : [];
-    turnOrderEl.innerHTML = "";
+    activeTurnOrderEl.innerHTML = "";
     if (!order.length){
-      if (turnOrderStatusEl){
-        turnOrderStatusEl.textContent = "";
+      if (activeTurnOrderStatusEl){
+        activeTurnOrderStatusEl.textContent = "";
       }
-      if (turnOrderBubbleEl){
-        turnOrderBubbleEl.classList.remove("show");
+      if (activeTurnOrderBubbleEl){
+        activeTurnOrderBubbleEl.classList.remove("show");
       }
       return;
     }
@@ -5201,7 +5496,7 @@ __DAMAGE_TYPE_OPTIONS__
           showTurnOrderBubble(null, null);
         }
       });
-      turnOrderEl.appendChild(chip);
+      activeTurnOrderEl.appendChild(chip);
       chipByCid.set(Number(cid), chip);
     });
     const setSelectedTurnCid = (cid) => {
@@ -5214,11 +5509,16 @@ __DAMAGE_TYPE_OPTIONS__
       }
     };
     const claimedUnit = claimedIndex >= 0 ? unitsByCid.get(Number(claimedCid)) : null;
-    if (turnOrderStatusEl){
-      if (claimedIndex >= 0 && claimedUnit){
-        turnOrderStatusEl.textContent = `You are #${claimedIndex + 1}: ${claimedUnit.name}`;
+    if (activeTurnOrderStatusEl){
+      if (isMapView){
+        const activeUnit = activeIndex >= 0 ? unitsByCid.get(Number(order[activeIndex])) : null;
+        const roundLabel = Number.isFinite(Number(state?.round_num)) ? `Round ${state.round_num}` : "";
+        const activeLabel = activeUnit?.name ? `Active: ${activeUnit.name}` : "Active: —";
+        activeTurnOrderStatusEl.textContent = roundLabel ? `${roundLabel} · ${activeLabel}` : activeLabel;
+      } else if (claimedIndex >= 0 && claimedUnit){
+        activeTurnOrderStatusEl.textContent = `You are #${claimedIndex + 1}: ${claimedUnit.name}`;
       } else {
-        turnOrderStatusEl.textContent = "You are not in initiative.";
+        activeTurnOrderStatusEl.textContent = "You are not in initiative.";
       }
     }
     let fallbackCid = selectedTurnCid;
@@ -5577,6 +5877,9 @@ __DAMAGE_TYPE_OPTIONS__
         setPresetStatus(msg.error || "Preset error.", 2500);
       } else if (msg.type === "state"){
         state = (msg.state && typeof msg.state === "object") ? msg.state : {};
+        if (isMapView){
+          claimedCid = null;
+        }
         if (!Array.isArray(state.spell_presets)){
           state.spell_presets = [];
         }
@@ -5603,6 +5906,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
         refreshTurnAlertStatus();
       } else if (msg.type === "force_claim"){
+        if (isMapView) return;
         if (msg.cid !== null && msg.cid !== undefined){
           claimedCid = String(msg.cid);
           shownNoOwnedToast = false;
@@ -5613,6 +5917,7 @@ __DAMAGE_TYPE_OPTIONS__
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
         refreshTurnAlertStatus();
       } else if (msg.type === "force_unclaim"){
+        if (isMapView) return;
         claimedCid = null;
         meEl.textContent = "(unclaimed)";
         shownNoOwnedToast = false;
@@ -5787,6 +6092,12 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (measurementMode){
       setMeasurementPoint(p);
+      return;
+    }
+    if (isMapView){
+      if (!lockMap){
+        panning = {x: p.x, y: p.y, panX, panY};
+      }
       return;
     }
 
@@ -7972,6 +8283,58 @@ __DAMAGE_TYPE_OPTIONS__
       }
     });
   }
+  if (mapViewSettingsBtn){
+    mapViewSettingsBtn.addEventListener("click", () => {
+      if (!mapViewSettingsModal) return;
+      if (mapViewSettingsModal.classList.contains("show")){
+        hideMapViewSettingsModal();
+        return;
+      }
+      showMapViewSettingsModal();
+    });
+  }
+  if (mapViewSettingsClose){
+    mapViewSettingsClose.addEventListener("click", () => {
+      hideMapViewSettingsModal();
+    });
+  }
+  if (mapViewSettingsModal){
+    mapViewSettingsModal.addEventListener("click", (event) => {
+      if (event.target === mapViewSettingsModal){
+        hideMapViewSettingsModal();
+      }
+    });
+  }
+  const mapViewSettingInputs = [
+    mapViewTextSizeInput,
+    mapViewBarHeightInput,
+    mapViewChipPaddingInput,
+    mapViewChipGapInput,
+    mapViewCornerRadiusInput,
+    mapViewShowTitleInput,
+    mapViewShowStatusInput,
+    mapViewShowIndexInput,
+  ].filter(Boolean);
+  mapViewSettingInputs.forEach((inputEl) => {
+    inputEl.addEventListener("input", () => {
+      if (!mapViewSettings){
+        mapViewSettings = readMapViewSettings();
+      }
+      mapViewSettings = {
+        ...mapViewSettings,
+        textSize: Number(mapViewTextSizeInput?.value || mapViewSettings.textSize),
+        barHeight: Number(mapViewBarHeightInput?.value || mapViewSettings.barHeight),
+        chipPadding: Number(mapViewChipPaddingInput?.value || mapViewSettings.chipPadding),
+        chipGap: Number(mapViewChipGapInput?.value || mapViewSettings.chipGap),
+        cornerRadius: Number(mapViewCornerRadiusInput?.value || mapViewSettings.cornerRadius),
+        showTitle: !!mapViewShowTitleInput?.checked,
+        showStatus: !!mapViewShowStatusInput?.checked,
+        showIndex: !!mapViewShowIndexInput?.checked,
+      };
+      applyMapViewSettings(mapViewSettings);
+      persistMapViewSettings();
+    });
+  });
   if (adminMenuBtn && adminMenuPopover){
     adminMenuBtn.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -8727,6 +9090,7 @@ class LanController:
         self._clients: Dict[int, Any] = {}  # id(websocket) -> websocket
         self._clients_meta: Dict[int, Dict[str, Any]] = {}  # id(websocket) -> {host,port,ua,connected_at}
         self._client_hosts: Dict[int, str] = {}  # id(websocket) -> host
+        self._view_only_clients: set[int] = set()
         self._claims: Dict[int, int] = {}   # id(websocket) -> cid
         self._cid_to_ws: Dict[int, int] = {}  # cid -> id(websocket) (1 owner at a time)
         self._cid_to_host: Dict[int, str] = {}  # cid -> host (active claim)
@@ -9069,6 +9433,12 @@ class LanController:
             push_key_value = json.dumps(push_key) if push_key else "undefined"
             return HTMLResponse(HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value))
 
+        @app.get("/map_view")
+        async def map_view():
+            push_key = self.cfg.vapid_public_key
+            push_key_value = json.dumps(push_key) if push_key else "undefined"
+            return HTMLResponse(HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value))
+
         @app.get("/new_character")
         async def new_character():
             if not web_entrypoint.exists():
@@ -9291,6 +9661,80 @@ class LanController:
                 raise HTTPException(status_code=500, detail="Failed to save player spellbook.")
             return {"ok": True, "player": profile}
 
+        @app.websocket("/ws_view")
+        async def ws_view_endpoint(ws: WebSocket):
+            try:
+                host = getattr(getattr(ws, "client", None), "host", "?")
+                port = getattr(getattr(ws, "client", None), "port", "")
+                ua = ""
+                try:
+                    ua = ws.headers.get("user-agent", "")
+                except Exception:
+                    ua = ""
+                connected_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                host, port, ua, connected_at = "?", "", "", ""
+
+            await ws.accept()
+            ws_id = id(ws)
+            reverse_dns = self._resolve_reverse_dns(host)
+
+            with self._clients_lock:
+                self._clients[ws_id] = ws
+                self._clients_meta[ws_id] = {
+                    "host": host,
+                    "port": port,
+                    "ua": ua,
+                    "connected_at": connected_at,
+                    "last_seen": connected_at,
+                    "reverse_dns": reverse_dns,
+                    "view_only": True,
+                }
+                self._view_only_clients.add(ws_id)
+            self.app._oplog(f"LAN map view connected ws_id={ws_id} host={host}:{port} ua={ua}")
+            try:
+                await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
+                await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
+                while True:
+                    raw = await ws.receive_text()
+                    try:
+                        with self._clients_lock:
+                            if ws_id in self._clients_meta:
+                                self._clients_meta[ws_id]["last_seen"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        pass
+                    try:
+                        msg = json.loads(raw)
+                    except Exception:
+                        continue
+                    typ = str(msg.get("type") or "")
+                    if typ == "grid_request":
+                        await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
+                    elif typ == "grid_ack":
+                        ver = msg.get("version")
+                        with self._clients_lock:
+                            pending = self._grid_pending.get(ws_id)
+                            if pending and pending[0] == ver:
+                                self._grid_pending.pop(ws_id, None)
+                    elif typ == "log_request":
+                        try:
+                            lines = self.app._lan_battle_log_lines()
+                        except Exception:
+                            lines = []
+                        await ws.send_text(json.dumps({"type": "battle_log", "lines": lines}))
+            except WebSocketDisconnect:
+                pass
+            except Exception:
+                pass
+            finally:
+                with self._clients_lock:
+                    self._clients.pop(ws_id, None)
+                    self._clients_meta.pop(ws_id, None)
+                    self._client_hosts.pop(ws_id, None)
+                    self._view_only_clients.discard(ws_id)
+                    self._grid_pending.pop(ws_id, None)
+                self.app._oplog(f"LAN map view disconnected ws_id={ws_id}")
+
         @app.websocket("/ws")
         async def ws_endpoint(ws: WebSocket):
             try:
@@ -9404,6 +9848,7 @@ class LanController:
                     self._clients.pop(ws_id, None)
                     self._clients_meta.pop(ws_id, None)
                     self._client_hosts.pop(ws_id, None)
+                    self._view_only_clients.discard(ws_id)
                     old = self._claims.pop(ws_id, None)
                     if old is not None:
                         self._cid_to_ws.pop(int(old), None)
