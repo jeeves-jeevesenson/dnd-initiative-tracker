@@ -2324,6 +2324,18 @@ __DAMAGE_TYPE_OPTIONS__
     return list.map(normalizeTextValue).filter(Boolean);
   }
 
+  function getPlayerCantripList(name){
+    const profile = getPlayerProfile(name);
+    const cantrips = profile?.spellcasting?.cantrips;
+    if (Array.isArray(cantrips)){
+      return normalizePreparedSpellList(cantrips);
+    }
+    if (cantrips && typeof cantrips === "object"){
+      return normalizePreparedSpellList(cantrips.known);
+    }
+    return [];
+  }
+
   function evaluatePreparedFormula(formula, variables){
     if (typeof formula !== "string") return null;
     const trimmed = formula.trim();
@@ -4971,8 +4983,13 @@ __DAMAGE_TYPE_OPTIONS__
     const name = getClaimedPlayerName();
     if (!name) return null;
     const config = getPlayerPreparedSpellConfig(name);
-    if (!config.prepared.length) return null;
-    return config.prepared.map(normalizeTextValue).filter(Boolean);
+    const cantrips = getPlayerCantripList(name);
+    if (!config.prepared.length && !cantrips.length) return null;
+    const merged = new Set([
+      ...config.prepared.map(normalizeTextValue),
+      ...cantrips.map(normalizeTextValue),
+    ]);
+    return Array.from(merged).filter(Boolean);
   };
   const getPreparedSpellFilterSet = () => {
     if (!claimedCid) return new Set();
