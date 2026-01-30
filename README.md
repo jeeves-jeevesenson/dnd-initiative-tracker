@@ -6,13 +6,17 @@
 ![Version](https://img.shields.io/badge/version-v41-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+<!-- Note: Update version badge when releasing new versions -->
+
 A comprehensive D&D 5e initiative tracker and combat management system with a desktop UI for the Dungeon Master and an optional LAN/mobile web client for players. Built with Python, Tkinter, FastAPI, and WebSockets, this tool streamlines combat encounters with initiative tracking, HP management, conditions, map mode with grid-based movement, and collaborative player interaction over local networks.
+
+> **Note on Filename**: The main script is named `dnd_initative_tracker.py` (with a historical typo: "initative" instead of "initiative"). This filename is maintained for backward compatibility with existing installations and configurations.
 
 ## 🎯 Quick Start
 
 ```bash
 # Clone the repository
-git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
+git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git  # Replace with your fork URL
 cd dnd-initiative-tracker
 
 # Install dependencies
@@ -225,7 +229,7 @@ The D&D Initiative Tracker is a feature-rich combat management tool designed for
 
 ```bash
 # Clone the repository
-git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
+git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git  # Replace with actual repo URL
 cd dnd-initiative-tracker
 
 # Create virtual environment (recommended)
@@ -1357,7 +1361,9 @@ Future enhancements under consideration:
 
 ## 📊 Statistics
 
-- **Total Lines of Code**: 19,624 (Python)
+*Statistics as of January 2026 (v41):*
+
+- **Total Lines of Code**: ~19,600+ (Python)
 - **Monster Library**: 510+ creatures
 - **Spell Library**: 390+ spells
 - **Supported Conditions**: 15 (2024 Basic Rules)
@@ -1365,6 +1371,8 @@ Future enhancements under consideration:
 - **Terrain Presets**: 7 default types
 - **AoE Shapes**: 3 (Circle, Square, Line)
 - **Default Players**: 9 example characters
+
+> **Note**: These statistics are approximate and will grow as the project evolves.
 
 ---
 
