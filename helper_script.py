@@ -4550,6 +4550,8 @@ class BattleMapWindow(tk.Toplevel):
         self._drawing_obstacles: bool = False
         self.rough_terrain: Dict[Tuple[int, int], Dict[str, object]] = {}
         self._drawing_rough: bool = False
+        self._suspend_lan_sync: bool = False
+        self._map_dirty: bool = False
 
         # Grouping: multiple units can occupy the same square. We show a single group label and fan the tokens slightly.
         self._cell_to_cids: Dict[Tuple[int, int], List[int]] = {}
@@ -7069,12 +7071,16 @@ class BattleMapWindow(tk.Toplevel):
         # Obstacle paint mode (disables other interactions while enabled)
         try:
             if bool(self.rough_mode_var.get()):
+                self._suspend_lan_sync = True
+                self._map_dirty = False
                 self._drawing_rough = True
                 self._paint_rough_terrain_from_event(event)
                 return
             if bool(self.obstacle_mode_var.get()):
                 if not self._drawing_obstacles:
                     self._obstacle_history.append(set(self.obstacles))
+                self._suspend_lan_sync = True
+                self._map_dirty = False
                 self._drawing_obstacles = True
                 self._paint_obstacle_from_event(event)
                 return
@@ -7375,9 +7381,13 @@ class BattleMapWindow(tk.Toplevel):
         # Finish obstacle painting
         if getattr(self, "_drawing_obstacles", False):
             self._drawing_obstacles = False
+            self._suspend_lan_sync = False
+            self._map_dirty = True
             return
         if getattr(self, "_drawing_rough", False):
             self._drawing_rough = False
+            self._suspend_lan_sync = False
+            self._map_dirty = True
             return
 
         # Finalize drags, enforce movement for the active creature, then refresh grouping/highlights.
