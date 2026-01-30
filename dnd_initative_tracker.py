@@ -47,6 +47,7 @@ except Exception:
 # Keep this file in the same folder as helper_script.py
 try:
     import helper_script as base
+    import update_checker
 except Exception as e:  # pragma: no cover
     raise SystemExit(
         "Arrr! I can’t find/load helper_script.py in this folder.\n"
@@ -10745,6 +10746,13 @@ class InitiativeTracker(base.InitiativeTracker):
             lan.add_command(label="Sessions…", command=self._open_lan_sessions)
             lan.add_command(label="Admin Assignments…", command=self._open_lan_admin_assignments)
             menubar.add_cascade(label="LAN", menu=lan)
+            
+            # Add Help menu
+            help_menu = tk.Menu(menubar, tearoff=0)
+            help_menu.add_command(label="Check for Updates", command=self._check_for_updates)
+            help_menu.add_command(label="About", command=self._show_about)
+            menubar.add_cascade(label="Help", menu=help_menu)
+            
             self.config(menu=menubar)
         except Exception:
             pass
@@ -11033,6 +11041,155 @@ class InitiativeTracker(base.InitiativeTracker):
         ttk.Button(controls, text="Close", command=win.destroy).pack(side=tk.RIGHT)
 
         refresh_sessions()
+    
+    def _check_for_updates(self) -> None:
+        """Check for available updates from GitHub."""
+        try:
+            import subprocess
+            import sys
+            
+            # Run update check in a separate thread to avoid blocking UI
+            def check_updates_thread():
+                try:
+                    has_update, message, update_info = update_checker.check_for_updates()
+                    
+                    # Schedule UI update on main thread
+                    def show_result():
+                        if has_update and update_info:
+                            # Show update available dialog
+                            update_type = update_info.get("type", "")
+                            
+                            # Ask user if they want to update
+                            result = messagebox.askyesno(
+                                "Update Available",
+                                f"{message}\n\nWould you like to update now?\n\n"
+                                "Note: The application will need to be restarted after updating.",
+                                icon="info"
+                            )
+                            
+                            if result:
+                                # Get the update command
+                                update_cmd = update_checker.get_update_command()
+                                
+                                if update_cmd:
+                                    # Show info about running update
+                                    messagebox.showinfo(
+                                        "Running Update",
+                                        "The update script will now run in a separate window.\n\n"
+                                        "Please follow the instructions in the update window.\n"
+                                        "After the update completes, restart the application."
+                                    )
+                                    
+                                    # Launch update script in a new terminal/console
+                                    if sys.platform.startswith("win"):
+                                        # Windows: use start command to open in new window
+                                        subprocess.Popen(
+                                            update_cmd,
+                                            shell=True,
+                                            creationflags=subprocess.CREATE_NEW_CONSOLE
+                                        )
+                                    else:
+                                        # Linux/macOS: try to open in a terminal
+                                        script_path = update_cmd.split('"')[1] if '"' in update_cmd else None
+                                        if script_path:
+                                            # Try various terminal emulators
+                                            terminals = [
+                                                ["gnome-terminal", "--", "bash", script_path],
+                                                ["konsole", "-e", "bash", script_path],
+                                                ["xterm", "-e", "bash", script_path],
+                                                ["x-terminal-emulator", "-e", "bash", script_path],
+                                            ]
+                                            
+                                            launched = False
+                                            for term_cmd in terminals:
+                                                try:
+                                                    subprocess.Popen(term_cmd)
+                                                    launched = True
+                                                    break
+                                                except FileNotFoundError:
+                                                    continue
+                                            
+                                            if not launched:
+                                                # Fallback: run in background and show message
+                                                subprocess.Popen(["bash", script_path])
+                                                messagebox.showinfo(
+                                                    "Update Running",
+                                                    "The update is running in the background.\n"
+                                                    "Check your terminal for progress."
+                                                )
+                                else:
+                                    # No update command available, show manual instructions
+                                    messagebox.showinfo(
+                                        "Update Available",
+                                        f"{message}\n\nTo update manually:\n\n"
+                                        "1. Close the application\n"
+                                        "2. Navigate to the installation directory\n"
+                                        "3. Run: git pull origin main\n"
+                                        "4. Run: pip install -r requirements.txt\n"
+                                        "5. Restart the application"
+                                    )
+                        else:
+                            # No updates available
+                            messagebox.showinfo("No Updates", message)
+                    
+                    # Schedule on main thread
+                    self.after(0, show_result)
+                    
+                except Exception as e:
+                    # Schedule error message on main thread
+                    def show_error():
+                        messagebox.showerror(
+                            "Update Check Failed",
+                            f"Could not check for updates.\n\n"
+                            f"Error: {str(e)}\n\n"
+                            "Please check your internet connection and try again."
+                        )
+                    self.after(0, show_error)
+            
+            # Start the check in a background thread
+            thread = threading.Thread(target=check_updates_thread, daemon=True)
+            thread.start()
+            
+            # Show a message that we're checking
+            messagebox.showinfo(
+                "Checking for Updates",
+                "Checking for updates from GitHub...\n\n"
+                "This may take a few moments.",
+                icon="info"
+            )
+            
+        except Exception as e:
+            messagebox.showerror(
+                "Update Check Error",
+                f"Could not check for updates.\n\nError: {str(e)}"
+            )
+    
+    def _show_about(self) -> None:
+        """Show about dialog with version information."""
+        try:
+            current_version = update_checker.get_current_version()
+            local_commit = update_checker.get_local_git_commit()
+            
+            version_info = f"Version: v{current_version}"
+            if local_commit:
+                version_info += f"\nCommit: {local_commit}"
+            
+            messagebox.showinfo(
+                "About D&D Initiative Tracker",
+                f"D&D Initiative Tracker\n\n"
+                f"{version_info}\n\n"
+                f"A combat management system for D&D 5e\n"
+                f"with LAN/mobile web client support.\n\n"
+                f"Repository: github.com/jeeves-jeevesenson/dnd-initiative-tracker"
+            )
+        except Exception as e:
+            messagebox.showinfo(
+                "About D&D Initiative Tracker",
+                f"D&D Initiative Tracker\n\n"
+                f"Version: v{APP_VERSION}\n\n"
+                f"A combat management system for D&D 5e\n"
+                f"with LAN/mobile web client support."
+            )
     
     def _poc_seed_all_player_characters(self) -> None:
         """Temporary POC behavior: add all starting roster PCs to initiative and roll initiative.
