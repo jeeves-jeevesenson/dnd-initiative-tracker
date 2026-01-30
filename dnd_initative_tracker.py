@@ -1110,6 +1110,119 @@ HTML_INDEX = r"""<!doctype html>
       z-index: 60;
     }
     .spellbook-overlay.show{display:flex;}
+    .spell-library-overlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 12, 16, 0.95);
+      backdrop-filter: blur(6px);
+      display: none;
+      flex-direction: column;
+      z-index: 80;
+    }
+    .spell-library-overlay.show{display:flex;}
+    .spell-library-header{
+      padding: calc(12px + var(--safeInsetTop)) 14px 12px 14px;
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .spell-library-title{
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .spell-library-spacer{flex:1;}
+    .spell-library-controls{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .spell-library-controls input,
+    .spell-library-controls select{
+      background: rgba(15,19,32,0.75);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .spell-library-body{
+      padding: 12px 14px calc(14px + var(--safeInsetBottom)) 14px;
+      overflow:auto;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .spell-library-status{
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .spell-library-list{
+      display:flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .spell-library-card{
+      background: rgba(20,25,35,0.92);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display:flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .spell-library-card-header{
+      display:flex;
+      align-items:flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .spell-library-card-title{
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .spell-library-card-meta{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .spell-library-fields{
+      display:grid;
+      grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+      gap: 6px 12px;
+    }
+    .spell-library-key{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .spell-library-value{
+      font-size: 12px;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .spell-library-value pre{
+      margin: 0;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+      color: var(--text);
+    }
+    .spell-library-links{
+      display:flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .spell-library-link{
+      font-size: 12px;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .spell-library-link:hover{text-decoration: underline;}
     .spellbook-header{
       padding: calc(12px + var(--safeInsetTop)) 14px 12px 14px;
       background: linear-gradient(180deg, var(--panel), var(--panel2));
@@ -1665,6 +1778,7 @@ HTML_INDEX = r"""<!doctype html>
       </div>
     </div>
     <div class="spacer"></div>
+    <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
     <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
     <div class="topbar-controls">
       <button class="btn" id="lockMap">Lock Map</button>
@@ -2207,7 +2321,7 @@ __DAMAGE_TYPE_OPTIONS__
       </div>
     </div>
     <div class="spellbook-status" id="spellbookStatus"></div>
-  </div>
+</div>
 </div>
 <div class="modal" id="spellbookConfirmModal" aria-hidden="true">
   <div class="card">
@@ -2217,6 +2331,25 @@ __DAMAGE_TYPE_OPTIONS__
       <button class="btn" id="spellbookConfirmCancel" type="button">Cancel</button>
       <button class="btn accent" id="spellbookConfirmYes" type="button">Overwrite</button>
     </div>
+  </div>
+</div>
+<div class="spell-library-overlay" id="spellLibraryOverlay" aria-hidden="true">
+  <div class="spell-library-header">
+    <button class="btn" id="spellLibraryClose" type="button">Back</button>
+    <div class="spell-library-title">Spellbook</div>
+    <div class="spell-library-spacer"></div>
+    <div class="spell-library-controls">
+      <input id="spellLibrarySearch" type="search" placeholder="Search spells..." />
+      <select id="spellLibrarySort">
+        <option value="alpha" selected>Alphabetical</option>
+        <option value="level">Level</option>
+        <option value="class">Class</option>
+      </select>
+    </div>
+  </div>
+  <div class="spell-library-body">
+    <div class="spell-library-status" id="spellLibraryStatus">Loading spells…</div>
+    <div class="spell-library-list" id="spellLibraryList"></div>
   </div>
 </div>
 <div class="turn-modal" id="turnModal" aria-hidden="true">
@@ -2579,6 +2712,13 @@ __DAMAGE_TYPE_OPTIONS__
   const castFilterListInput = document.getElementById("castFilterList");
   const castPresetInput = document.getElementById("castPreset");
   const castManualEntryBadge = document.getElementById("castManualEntryBadge");
+  const spellLibraryBtn = document.getElementById("spellLibraryBtn");
+  const spellLibraryOverlay = document.getElementById("spellLibraryOverlay");
+  const spellLibraryCloseBtn = document.getElementById("spellLibraryClose");
+  const spellLibrarySearchInput = document.getElementById("spellLibrarySearch");
+  const spellLibrarySortSelect = document.getElementById("spellLibrarySort");
+  const spellLibraryStatus = document.getElementById("spellLibraryStatus");
+  const spellLibraryList = document.getElementById("spellLibraryList");
   const spellbookOpenBtn = document.getElementById("spellbookOpen");
   const spellbookOverlay = document.getElementById("spellbookOverlay");
   const spellbookBackBtn = document.getElementById("spellbookBack");
@@ -5917,6 +6057,12 @@ __DAMAGE_TYPE_OPTIONS__
     return {ok: true};
   }
 
+  let spellLibraryRecords = [];
+  let spellLibraryLoadPromise = null;
+  let spellLibraryLoadError = "";
+  let spellLibrarySearchTerm = "";
+  let spellLibrarySortMode = "alpha";
+  let spellLibraryPreviousFocus = null;
   let spellbookMode = "known";
   let spellbookKnownEnabled = true;
   let spellbookKnownLimit = null;
@@ -5977,6 +6123,221 @@ __DAMAGE_TYPE_OPTIONS__
       }
     });
     return sortSlugsByName(Array.from(new Set(slugs.map(normalizeTextValue).filter(Boolean))));
+  }
+
+  function collectSpellLibraryLinks(value, links){
+    if (!value) return;
+    if (typeof value === "string"){
+      const matches = value.match(/https?:\/\/[^\s)]+/g);
+      if (matches){
+        matches.forEach((link) => links.add(link));
+      }
+      return;
+    }
+    if (Array.isArray(value)){
+      value.forEach((entry) => collectSpellLibraryLinks(entry, links));
+      return;
+    }
+    if (typeof value === "object"){
+      Object.values(value).forEach((entry) => collectSpellLibraryLinks(entry, links));
+    }
+  }
+
+  function renderSpellLibraryValue(value){
+    const container = document.createElement("div");
+    container.className = "spell-library-value";
+    if (value === null || typeof value === "undefined"){
+      container.textContent = "—";
+      return container;
+    }
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean"){
+      container.textContent = String(value);
+      return container;
+    }
+    const pre = document.createElement("pre");
+    try {
+      pre.textContent = JSON.stringify(value, null, 2);
+    } catch (err){
+      pre.textContent = String(value);
+    }
+    container.appendChild(pre);
+    return container;
+  }
+
+  function renderSpellLibraryLinks(links){
+    const container = document.createElement("div");
+    container.className = "spell-library-value";
+    const wrap = document.createElement("div");
+    wrap.className = "spell-library-links";
+    links.forEach((link) => {
+      const anchor = document.createElement("a");
+      anchor.className = "spell-library-link";
+      anchor.href = link;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.textContent = link;
+      wrap.appendChild(anchor);
+    });
+    container.appendChild(wrap);
+    return container;
+  }
+
+  function buildSpellLibraryRecord(entry){
+    const parsed = entry && typeof entry === "object" ? entry.parsed : null;
+    const data = parsed && typeof parsed === "object" ? parsed : null;
+    const id = String(entry?.id || data?.id || "").trim();
+    const name = typeof data?.name === "string" ? data.name : (id || "Unknown Spell");
+    const level = Number.isFinite(data?.level) ? Number(data.level) : null;
+    const classes = Array.isArray(data?.lists?.classes) ? data.lists.classes.filter(Boolean) : [];
+    const searchText = JSON.stringify(data || entry || "").toLowerCase();
+    return {
+      id,
+      name,
+      level,
+      classes,
+      data,
+      raw: entry?.raw,
+      error: entry?.error,
+      searchText,
+    };
+  }
+
+  async function loadSpellLibrary(){
+    if (spellLibraryLoadPromise) return spellLibraryLoadPromise;
+    spellLibraryLoadPromise = (async () => {
+      if (spellLibraryStatus) spellLibraryStatus.textContent = "Loading spells…";
+      let ids = [];
+      try {
+        const response = await fetch("/api/spells");
+        const payload = await response.json();
+        if (Array.isArray(payload?.ids)){
+          ids = payload.ids;
+        }
+        spellLibraryLoadError = "";
+      } catch (err){
+        spellLibraryLoadError = "Unable to load spells.";
+        if (spellLibraryStatus) spellLibraryStatus.textContent = spellLibraryLoadError;
+        return [];
+      }
+      const results = await Promise.all(
+        ids.map(async (spellId) => {
+          try {
+            const response = await fetch(`/api/spells/${encodeURIComponent(spellId)}`);
+            if (!response.ok){
+              throw new Error(`HTTP ${response.status}`);
+            }
+            return await response.json();
+          } catch (err){
+            return {id: spellId, raw: null, parsed: null, error: String(err)};
+          }
+        })
+      );
+      spellLibraryRecords = results.map(buildSpellLibraryRecord);
+      return spellLibraryRecords;
+    })();
+    return spellLibraryLoadPromise;
+  }
+
+  function renderSpellLibrary(){
+    if (!spellLibraryList) return;
+    const query = spellLibrarySearchTerm.trim().toLowerCase();
+    let records = spellLibraryRecords;
+    if (query){
+      records = records.filter((record) => record.searchText.includes(query));
+    }
+    if (!records.length && spellLibraryLoadError){
+      if (spellLibraryStatus) spellLibraryStatus.textContent = spellLibraryLoadError;
+      spellLibraryList.innerHTML = "";
+      return;
+    }
+    const sorted = records.slice().sort((a, b) => {
+      if (spellLibrarySortMode === "level"){
+        const levelA = Number.isFinite(a.level) ? a.level : 999;
+        const levelB = Number.isFinite(b.level) ? b.level : 999;
+        if (levelA !== levelB) return levelA - levelB;
+      } else if (spellLibrarySortMode === "class"){
+        const classA = (a.classes.join(", ") || "zzzz").toLowerCase();
+        const classB = (b.classes.join(", ") || "zzzz").toLowerCase();
+        if (classA !== classB) return classA.localeCompare(classB);
+      }
+      return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+    });
+    spellLibraryList.innerHTML = "";
+    if (spellLibraryStatus){
+      spellLibraryStatus.textContent = sorted.length
+        ? `${sorted.length} spell${sorted.length === 1 ? "" : "s"}`
+        : "No spells match that search.";
+    }
+    if (!sorted.length) return;
+    const fragment = document.createDocumentFragment();
+    sorted.forEach((record) => {
+      const card = document.createElement("div");
+      card.className = "spell-library-card";
+      const header = document.createElement("div");
+      header.className = "spell-library-card-header";
+      const title = document.createElement("div");
+      title.className = "spell-library-card-title";
+      title.textContent = record.name || record.id || "Unnamed Spell";
+      const meta = document.createElement("div");
+      meta.className = "spell-library-card-meta";
+      const metaParts = [];
+      if (Number.isFinite(record.level)) metaParts.push(`Level ${record.level}`);
+      if (record.data?.school) metaParts.push(String(record.data.school));
+      if (record.classes.length) metaParts.push(record.classes.join(", "));
+      meta.textContent = metaParts.join(" · ");
+      header.appendChild(title);
+      header.appendChild(meta);
+      card.appendChild(header);
+      const fields = document.createElement("div");
+      fields.className = "spell-library-fields";
+      const data = record.data && typeof record.data === "object" ? record.data : null;
+      const entries = data ? Object.entries(data) : [];
+      if (!entries.length){
+        entries.push(["id", record.id]);
+        if (record.raw) entries.push(["raw", record.raw]);
+        if (record.error) entries.push(["error", record.error]);
+      }
+      const links = new Set();
+      collectSpellLibraryLinks(data, links);
+      if (record.raw){
+        collectSpellLibraryLinks(record.raw, links);
+      }
+      entries.forEach(([key, value]) => {
+        const keyEl = document.createElement("div");
+        keyEl.className = "spell-library-key";
+        keyEl.textContent = String(key);
+        fields.appendChild(keyEl);
+        fields.appendChild(renderSpellLibraryValue(value));
+      });
+      if (links.size){
+        const keyEl = document.createElement("div");
+        keyEl.className = "spell-library-key";
+        keyEl.textContent = "external_links";
+        fields.appendChild(keyEl);
+        fields.appendChild(renderSpellLibraryLinks(Array.from(links)));
+      }
+      card.appendChild(fields);
+      fragment.appendChild(card);
+    });
+    spellLibraryList.appendChild(fragment);
+  }
+
+  function openSpellLibraryOverlay(open){
+    if (!spellLibraryOverlay) return;
+    spellLibraryOverlay.classList.toggle("show", open);
+    spellLibraryOverlay.setAttribute("aria-hidden", open ? "false" : "true");
+    if (open){
+      spellLibraryPreviousFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      if (spellLibrarySearchInput) spellLibrarySearchInput.value = spellLibrarySearchTerm;
+      if (spellLibrarySortSelect) spellLibrarySortSelect.value = spellLibrarySortMode;
+      loadSpellLibrary().then(() => renderSpellLibrary());
+      if (spellLibrarySearchInput) spellLibrarySearchInput.focus();
+    } else if (spellLibraryPreviousFocus){
+      spellLibraryPreviousFocus.focus();
+      spellLibraryPreviousFocus = null;
+    }
   }
 
   function setSpellbookStatus(text){
@@ -7440,6 +7801,28 @@ __DAMAGE_TYPE_OPTIONS__
       setCastOverlayOpen(false);
     });
   }
+  if (spellLibraryBtn){
+    spellLibraryBtn.addEventListener("click", () => {
+      openSpellLibraryOverlay(true);
+    });
+  }
+  if (spellLibraryCloseBtn){
+    spellLibraryCloseBtn.addEventListener("click", () => {
+      openSpellLibraryOverlay(false);
+    });
+  }
+  if (spellLibrarySearchInput){
+    spellLibrarySearchInput.addEventListener("input", (event) => {
+      spellLibrarySearchTerm = String(event.target.value || "");
+      renderSpellLibrary();
+    });
+  }
+  if (spellLibrarySortSelect){
+    spellLibrarySortSelect.addEventListener("change", (event) => {
+      spellLibrarySortMode = String(event.target.value || "alpha");
+      renderSpellLibrary();
+    });
+  }
   if (spellbookOpenBtn){
     spellbookOpenBtn.addEventListener("click", () => {
       openSpellbookOverlay(true);
@@ -7532,6 +7915,10 @@ __DAMAGE_TYPE_OPTIONS__
     if (event.key === "Escape"){
       if (spellbookConfirmModal?.classList.contains("show")){
         hideSpellbookConfirm();
+        return;
+      }
+      if (spellLibraryOverlay?.classList.contains("show")){
+        openSpellLibraryOverlay(false);
         return;
       }
       if (spellbookOverlay?.classList.contains("show")){
