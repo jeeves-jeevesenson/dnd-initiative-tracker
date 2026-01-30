@@ -8915,6 +8915,8 @@ class InitiativeTracker(base.InitiativeTracker):
             spell_range = parsed.get("range")
             ritual = parsed.get("ritual")
             concentration = parsed.get("concentration")
+            import_data = parsed.get("import") if isinstance(parsed.get("import"), dict) else {}
+            url = import_data.get("url")
             lists = parsed.get("lists") if isinstance(parsed.get("lists"), dict) else {}
             mechanics = parsed.get("mechanics") if isinstance(parsed.get("mechanics"), dict) else {}
             automation_raw = str(mechanics.get("automation") or "").strip().lower()
@@ -8947,6 +8949,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 "mechanics": mechanics,
                 "automation": automation,
             }
+            if isinstance(url, str) and url.strip():
+                preset["url"] = url.strip()
 
             targeting = mechanics.get("targeting") if isinstance(mechanics.get("targeting"), dict) else {}
             range_data = targeting.get("range") if isinstance(targeting.get("range"), dict) else {}
@@ -9223,6 +9227,68 @@ class InitiativeTracker(base.InitiativeTracker):
                 return None
         return host
 
+    def _spell_preset_name_lookup(self) -> Dict[str, str]:
+        lookup: Dict[str, str] = {}
+        try:
+            presets = self._spell_presets_payload()
+        except Exception:
+            presets = []
+        for preset in presets if isinstance(presets, list) else []:
+            if not isinstance(preset, dict):
+                continue
+            name = str(preset.get("name") or "").strip()
+            if not name:
+                continue
+            lookup[name.lower()] = name
+            preset_id = str(preset.get("id") or "").strip()
+            if preset_id:
+                lookup[preset_id.lower()] = name
+
+        entries = self._load_spell_index_entries()
+        for filename, entry in entries.items():
+            if not isinstance(entry, dict):
+                continue
+            preset = entry.get("preset")
+            if not isinstance(preset, dict):
+                continue
+            name = str(preset.get("name") or "").strip()
+            if not name:
+                continue
+            file_key = str(filename or "").strip()
+            if file_key:
+                lookup[file_key.lower()] = name
+                stem = Path(file_key).stem
+                if stem:
+                    lookup[stem.lower()] = name
+            preset_id = str(preset.get("id") or "").strip()
+            if preset_id:
+                lookup[preset_id.lower()] = name
+        return lookup
+
+    def _normalize_spell_reference_list(self, value: Any) -> List[str]:
+        def normalize_name(raw: Any) -> Optional[str]:
+            text = str(raw or "").strip()
+            return text or None
+
+        lookup = self._spell_preset_name_lookup()
+        raw_list: List[str] = []
+        if isinstance(value, list):
+            raw_list = [name for item in value if (name := normalize_name(item))]
+        elif isinstance(value, str):
+            name = normalize_name(value)
+            raw_list = [name] if name else []
+
+        seen = set()
+        mapped: List[str] = []
+        for item in raw_list:
+            key = item.lower()
+            resolved = lookup.get(key, item)
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            mapped.append(resolved)
+        return mapped
+
     def _normalize_player_profile(self, data: Dict[str, Any], fallback_name: str) -> Dict[str, Any]:
         def normalize_name(value: Any) -> Optional[str]:
             text = str(value or "").strip()
@@ -9295,6 +9361,22 @@ class InitiativeTracker(base.InitiativeTracker):
                 spellcasting["cantrips"] = spellcasting.get("known_cantrips")
         if "prepared_spells" not in spellcasting and "prepared_spells" in data:
             spellcasting["prepared_spells"] = data.get("prepared_spells")
+        cantrips_section = spellcasting.get("cantrips")
+        if isinstance(cantrips_section, dict):
+            cantrip_list = self._normalize_spell_reference_list(cantrips_section.get("known"))
+            if cantrip_list:
+                cantrips_section = dict(cantrips_section)
+                cantrips_section["known"] = cantrip_list
+                spellcasting["cantrips"] = cantrips_section
+                if "known_cantrips" not in spellcasting:
+                    spellcasting["known_cantrips"] = len(cantrip_list)
+        prepared_section = spellcasting.get("prepared_spells")
+        if isinstance(prepared_section, dict):
+            prepared_list = self._normalize_spell_reference_list(prepared_section.get("prepared"))
+            if prepared_list:
+                prepared_section = dict(prepared_section)
+                prepared_section["prepared"] = prepared_list
+                spellcasting["prepared_spells"] = prepared_section
 
         profile = PlayerProfile(
             name=name,
@@ -9328,33 +9410,28 @@ class InitiativeTracker(base.InitiativeTracker):
         source = data
         if isinstance(data.get("spellcasting"), dict):
             source = data.get("spellcasting", {})
-        known_cantrips = normalize_limit(
-            source.get("known_cantrips", source.get("cantrips")),
-            0,
-        )
+        cantrip_list: List[str] = []
+        cantrips_section = source.get("cantrips")
+        if isinstance(cantrips_section, dict):
+            cantrip_list = self._normalize_spell_reference_list(cantrips_section.get("known"))
+        known_cantrips_source = source.get("known_cantrips")
+        if known_cantrips_source is None and cantrip_list:
+            known_cantrips_source = len(cantrip_list)
+        known_cantrips = normalize_limit(known_cantrips_source, 0)
         known_spells = normalize_limit(
             source.get("known_spells", source.get("spells")),
             15,
         )
         raw_names = source.get("known_spell_names")
-        names: List[str] = []
-        if isinstance(raw_names, list):
-            names = [name for item in raw_names if (name := normalize_name(item))]
-        elif isinstance(raw_names, str):
-            name = normalize_name(raw_names)
-            names = [name] if name else []
+        names = self._normalize_spell_reference_list(raw_names)
+        if cantrip_list:
+            for cantrip in cantrip_list:
+                if cantrip not in names:
+                    names.append(cantrip)
         prepared_payload: Dict[str, Any] = {}
         prepared_spells = source.get("prepared_spells")
         if isinstance(prepared_spells, dict):
-            raw_prepared = prepared_spells.get("prepared")
-            prepared_names: List[str] = []
-            if isinstance(raw_prepared, list):
-                prepared_names = [
-                    name for item in raw_prepared if (name := normalize_name(item))
-                ]
-            elif isinstance(raw_prepared, str):
-                name = normalize_name(raw_prepared)
-                prepared_names = [name] if name else []
+            prepared_names = self._normalize_spell_reference_list(prepared_spells.get("prepared"))
             prepared_payload["prepared"] = prepared_names
             max_formula = prepared_spells.get("max_formula")
             if isinstance(max_formula, str) and max_formula.strip():
