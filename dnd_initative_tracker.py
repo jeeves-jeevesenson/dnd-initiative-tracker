@@ -1314,6 +1314,30 @@ HTML_INDEX = r"""<!doctype html>
     .hint.hidden{display:none;}
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
     .modal-actions .btn{flex:1; min-width:120px;}
+    .action-picker-list{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:4px;
+    }
+    .action-picker-item{
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:12px;
+      padding:10px;
+      background: rgba(15,20,30,0.6);
+      text-align:left;
+      color: var(--text);
+      cursor:pointer;
+    }
+    .action-picker-item .action-picker-name{
+      font-weight:650;
+      margin-bottom:4px;
+    }
+    .action-picker-item .action-picker-meta{
+      font-size:12px;
+      color: var(--muted);
+      line-height:1.4;
+    }
     .admin-header{
       display:flex;
       align-items:center;
@@ -1609,6 +1633,15 @@ HTML_INDEX = r"""<!doctype html>
         </div>
       </div>
     </div>
+    <div class="modal" id="actionPickerModal" aria-hidden="true">
+      <div class="card card-scroll">
+        <h2 id="actionPickerTitle">Choose an Action</h2>
+        <div class="action-picker-list" id="actionPickerList"></div>
+        <div class="modal-actions">
+          <button class="btn" id="actionPickerCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
     <div class="modal" id="dashModal" aria-hidden="true">
       <div class="card">
         <h2>Use Action or Bonus Action?</h2>
@@ -1870,6 +1903,7 @@ HTML_INDEX = r"""<!doctype html>
         <div class="chip" id="move">Move: —</div>
         <div class="chip" id="action">Action: —</div>
         <div class="chip" id="bonusAction">Bonus Action: —</div>
+        <div class="chip" id="reaction">Reaction: —</div>
         <div class="chip" id="turn">Turn: —</div>
         <div class="chip" id="note">Tip: drag yer token</div>
         <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
@@ -2375,6 +2409,7 @@ __DAMAGE_TYPE_OPTIONS__
   const moveEl = document.getElementById("move");
   const actionEl = document.getElementById("action");
   const bonusActionEl = document.getElementById("bonusAction");
+  const reactionEl = document.getElementById("reaction");
   const turnEl = document.getElementById("turn");
   const turnOrderEl = document.getElementById("turnOrder");
   const turnOrderStatusEl = document.getElementById("turnOrderStatus");
@@ -2390,6 +2425,10 @@ __DAMAGE_TYPE_OPTIONS__
   const dashActionBtn = document.getElementById("dashAction");
   const dashBonusActionBtn = document.getElementById("dashBonusAction");
   const dashCancelBtn = document.getElementById("dashCancel");
+  const actionPickerModal = document.getElementById("actionPickerModal");
+  const actionPickerTitle = document.getElementById("actionPickerTitle");
+  const actionPickerList = document.getElementById("actionPickerList");
+  const actionPickerCancelBtn = document.getElementById("actionPickerCancel");
   const battleLogBtn = document.getElementById("battleLog");
   const lockMapBtn = document.getElementById("lockMap");
   const centerMapBtn = document.getElementById("centerMap");
@@ -2550,6 +2589,7 @@ __DAMAGE_TYPE_OPTIONS__
   let lastVibrateSupported = canVibrate;
   let userHasInteracted = navigator.userActivation?.hasBeenActive ?? false;
   let castOverlayPreviousFocus = null;
+  let pendingSpellActionType = null;
   const preparedSpellDefaults = {
     prepared: [],
     max: null,
@@ -2783,6 +2823,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (!open){
       hideSpellInfoModal();
+      pendingSpellActionType = null;
     }
     if (open){
       castOverlayPreviousFocus = document.activeElement instanceof HTMLElement
@@ -4838,6 +4879,33 @@ __DAMAGE_TYPE_OPTIONS__
     setSelectedTurnCid(fallbackCid);
   }
 
+  function normalizeActionEntry(entry, defaultType){
+    if (!entry) return null;
+    if (typeof entry === "string"){
+      const name = String(entry || "").trim();
+      if (!name) return null;
+      return {name, description: "", type: defaultType};
+    }
+    if (typeof entry !== "object") return null;
+    const name = normalizeTextValue(entry.name);
+    if (!name) return null;
+    const description = normalizeTextValue(entry.description) || "";
+    const type = normalizeLowerValue(entry.type) || defaultType;
+    return {name, description, type};
+  }
+
+  function normalizeActionList(entries, defaultType){
+    const list = Array.isArray(entries) ? entries : [];
+    return list
+      .map((entry) => normalizeActionEntry(entry, defaultType))
+      .filter(Boolean);
+  }
+
+  function isSpellActionEntry(entry){
+    const name = normalizeLowerValue(entry?.name);
+    return name === "magic" || name === "cast a spell" || name === "cast spell" || name === "spellcasting";
+  }
+
   function populateActionSelect(selectEl, options, placeholder){
     if (!selectEl) return;
     const previousValue = selectEl.value;
@@ -4846,17 +4914,14 @@ __DAMAGE_TYPE_OPTIONS__
     placeholderOption.value = "";
     placeholderOption.textContent = placeholder;
     selectEl.appendChild(placeholderOption);
-    const items = Array.isArray(options) ? options : [];
-    const normalized = items
-      .map((item) => String(item || "").trim())
-      .filter((item) => item.length > 0);
+    const normalized = normalizeActionList(options, "action");
     normalized.forEach((item) => {
       const option = document.createElement("option");
-      option.value = item;
-      option.textContent = item;
+      option.value = item.name;
+      option.textContent = item.name;
       selectEl.appendChild(option);
     });
-    if (previousValue && normalized.includes(previousValue)){
+    if (previousValue && normalized.some((item) => item.name === previousValue)){
       selectEl.value = previousValue;
     } else {
       selectEl.value = "";
@@ -4879,6 +4944,9 @@ __DAMAGE_TYPE_OPTIONS__
         moveEl.textContent = `Move: ${me.move_remaining}/${me.move_total}`;
         actionEl.textContent = `Action: ${me.action_remaining ?? 0}`;
         bonusActionEl.textContent = `Bonus Action: ${me.bonus_action_remaining ?? 0}`;
+        if (reactionEl){
+          reactionEl.textContent = `Reaction: ${me.reaction_remaining ?? 0}`;
+        }
         useActionBtn.disabled = Number(me.action_remaining || 0) <= 0;
         useBonusActionBtn.disabled = Number(me.bonus_action_remaining || 0) <= 0;
         populateActionSelect(actionSelectEl, me.actions, "None/Custom");
@@ -4895,6 +4963,9 @@ __DAMAGE_TYPE_OPTIONS__
       } else {
         actionEl.textContent = "Action: —";
         bonusActionEl.textContent = "Bonus Action: —";
+        if (reactionEl){
+          reactionEl.textContent = "Reaction: —";
+        }
         useActionBtn.disabled = true;
         useBonusActionBtn.disabled = true;
         populateActionSelect(actionSelectEl, [], "None/Custom");
@@ -4912,6 +4983,9 @@ __DAMAGE_TYPE_OPTIONS__
     } else {
       actionEl.textContent = "Action: —";
       bonusActionEl.textContent = "Bonus Action: —";
+      if (reactionEl){
+        reactionEl.textContent = "Reaction: —";
+      }
       useActionBtn.disabled = true;
       useBonusActionBtn.disabled = true;
       populateActionSelect(actionSelectEl, [], "None/Custom");
@@ -4928,6 +5002,98 @@ __DAMAGE_TYPE_OPTIONS__
     }
     updateTurnOrder();
     updateSpellPanelVisibility();
+  }
+
+  function showActionPicker(){
+    if (!actionPickerModal) return;
+    actionPickerModal.classList.add("show");
+    actionPickerModal.setAttribute("aria-hidden", "false");
+  }
+
+  function hideActionPicker(){
+    if (!actionPickerModal) return;
+    actionPickerModal.classList.remove("show");
+    actionPickerModal.setAttribute("aria-hidden", "true");
+    if (actionPickerList){
+      actionPickerList.textContent = "";
+    }
+  }
+
+  function buildActionPickerItem(entry){
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "action-picker-item";
+    const nameEl = document.createElement("div");
+    nameEl.className = "action-picker-name";
+    const spendLabel = entry.spend === "bonus" ? "Bonus Action" : "Action";
+    nameEl.textContent = `${entry.name} (${spendLabel})`;
+    btn.appendChild(nameEl);
+    if (entry.description){
+      const descEl = document.createElement("div");
+      descEl.className = "action-picker-meta";
+      descEl.textContent = entry.description;
+      btn.appendChild(descEl);
+    }
+    btn.addEventListener("click", () => {
+      hideActionPicker();
+      if (isSpellActionEntry(entry)){
+        pendingSpellActionType = entry.spend === "bonus" ? "bonus_action" : "action";
+        setCastOverlayOpen(true);
+        return;
+      }
+      if (!claimedCid) return;
+      send({
+        type: "perform_action",
+        cid: Number(claimedCid),
+        spend: entry.spend,
+        action: entry.name,
+      });
+    });
+    return btn;
+  }
+
+  function openActionPicker(mode){
+    const unit = getClaimedUnit();
+    if (!unit){
+      localToast("Claim a character first, matey.");
+      return;
+    }
+    if (!actionPickerList || !actionPickerTitle){
+      return;
+    }
+    const actions = normalizeActionList(unit.actions, "action");
+    const bonusActions = normalizeActionList(unit.bonus_actions, "bonus_action");
+    const items = [];
+    if (mode === "action"){
+      actionPickerTitle.textContent = "Choose an Action";
+      actions.forEach((entry) => items.push({...entry, spend: "action"}));
+    } else if (mode === "bonus"){
+      actionPickerTitle.textContent = "Choose a Bonus Action";
+      bonusActions.forEach((entry) => items.push({...entry, spend: "bonus"}));
+    } else {
+      actionPickerTitle.textContent = "Choose Dash";
+      const dashEntries = (list, spend) => {
+        list.forEach((entry) => {
+          if (normalizeLowerValue(entry.name) === "dash"){
+            items.push({...entry, spend});
+          }
+        });
+      };
+      dashEntries(actions, "action");
+      dashEntries(bonusActions, "bonus");
+    }
+    actionPickerList.textContent = "";
+    if (!items.length){
+      const empty = document.createElement("div");
+      empty.className = "action-picker-meta";
+      empty.textContent = "No available actions.";
+      actionPickerList.appendChild(empty);
+    } else {
+      items.forEach((entry) => {
+        actionPickerList.appendChild(buildActionPickerItem(entry));
+      });
+    }
+    showActionPicker();
   }
 
   function hideTurnModal(){
@@ -5651,6 +5817,55 @@ __DAMAGE_TYPE_OPTIONS__
     const name = normalizeTextValue(castPresetInput?.value);
     if (!name) return null;
     return cachedSpellPresets.find(preset => normalizeTextValue(preset.name) === name) || null;
+  }
+  function normalizeSpellActionType(value){
+    const raw = normalizeLowerValue(value);
+    if (raw.includes("bonus")) return "bonus_action";
+    if (raw.includes("reaction")) return "reaction";
+    if (raw.includes("action")) return "action";
+    return "action";
+  }
+  function getSpellActionType(preset){
+    if (!preset) return "action";
+    const castingTime = normalizeTextValue(preset.casting_time || preset.castingTime);
+    return normalizeSpellActionType(castingTime);
+  }
+  function unitHasMagicAction(unit, actionType){
+    const actions = normalizeActionList(unit?.actions, "action");
+    const bonusActions = normalizeActionList(unit?.bonus_actions, "bonus_action");
+    if (actionType === "bonus_action"){
+      return [...bonusActions, ...actions].some((entry) => isSpellActionEntry(entry));
+    }
+    return actions.some((entry) => isSpellActionEntry(entry));
+  }
+  function canSpendSpellAction(unit, actionType){
+    if (!unit) return {ok: false, reason: "Claim a character first, matey."};
+    const remaining = Number(unit.spell_cast_remaining || 0);
+    if (remaining <= 0){
+      return {ok: false, reason: "You already cast a spell this turn."};
+    }
+    if (actionType === "bonus_action"){
+      if (!unitHasMagicAction(unit, actionType)){
+        return {ok: false, reason: "No bonus-action spellcasting available."};
+      }
+      if (Number(unit.bonus_action_remaining || 0) <= 0){
+        return {ok: false, reason: "No bonus actions left, matey."};
+      }
+      return {ok: true};
+    }
+    if (actionType === "reaction"){
+      if (Number(unit.reaction_remaining || 0) <= 0){
+        return {ok: false, reason: "No reactions left, matey."};
+      }
+      return {ok: true};
+    }
+    if (!unitHasMagicAction(unit, actionType)){
+      return {ok: false, reason: "No spellcasting action available."};
+    }
+    if (Number(unit.action_remaining || 0) <= 0){
+      return {ok: false, reason: "No actions left, matey."};
+    }
+    return {ok: true};
   }
   function updateSpellInfoButton(preset){
     if (!castInfoBtn) return;
@@ -6798,6 +7013,26 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Map not ready yet, matey.");
         return;
       }
+      const preset = getSelectedSpellPreset();
+      const spellActionType = getSpellActionType(preset);
+      const actionType = pendingSpellActionType || spellActionType;
+      if (pendingSpellActionType && pendingSpellActionType !== spellActionType){
+        const expectedLabel = spellActionType === "bonus_action" ? "bonus action" : spellActionType;
+        localToast(`That spell uses a ${expectedLabel}.`);
+        return;
+      }
+      pendingSpellActionType = null;
+      const unit = getClaimedUnit();
+      const actionCheck = canSpendSpellAction(unit, actionType);
+      if (!actionCheck.ok){
+        localToast(actionCheck.reason || "You can't cast right now.");
+        return;
+      }
+      const actionLabel = actionType === "bonus_action" ? "bonus action" : actionType;
+      const spellName = normalizeTextValue(castNameInput?.value) || "this spell";
+      if (!confirm(`Cast ${spellName} using your ${actionLabel}?`)){
+        return;
+      }
       const shape = String(castShapeInput?.value || "").toLowerCase();
       if (!shape){
         localToast("Pick a spell shape first, matey.");
@@ -6996,14 +7231,14 @@ __DAMAGE_TYPE_OPTIONS__
           payload.angle_deg = angleDeg;
         }
       }
-      send({type: "cast_aoe", payload});
+      send({type: "cast_aoe", payload, action_type: actionType});
     });
   }
 
   if (dashBtn){
     dashBtn.addEventListener("click", () => {
       if (!claimedCid) return;
-      showDashModal();
+      openActionPicker("dash");
     });
   }
   if (dashActionBtn){
@@ -7023,6 +7258,11 @@ __DAMAGE_TYPE_OPTIONS__
   if (dashCancelBtn){
     dashCancelBtn.addEventListener("click", () => {
       hideDashModal();
+    });
+  }
+  if (actionPickerCancelBtn){
+    actionPickerCancelBtn.addEventListener("click", () => {
+      hideActionPicker();
     });
   }
   if (battleLogBtn){
@@ -7504,11 +7744,11 @@ __DAMAGE_TYPE_OPTIONS__
   });
   useActionBtn.addEventListener("click", () => {
     if (!claimedCid) return;
-    send({type:"use_action", cid: Number(claimedCid)});
+    openActionPicker("action");
   });
   useBonusActionBtn.addEventListener("click", () => {
     if (!claimedCid) return;
-    send({type:"use_bonus_action", cid: Number(claimedCid)});
+    openActionPicker("bonus");
   });
   if (standUpBtn){
     standUpBtn.addEventListener("click", () => {
@@ -8411,6 +8651,7 @@ class LanController:
                     elif typ in (
                         "move",
                         "dash",
+                        "perform_action",
                         "end_turn",
                         "use_action",
                         "use_bonus_action",
@@ -9232,6 +9473,8 @@ class InitiativeTracker(base.InitiativeTracker):
             "move_total": int(getattr(c, "move_total", 0) or 0),
             "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
             "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
+            "reaction_remaining": int(getattr(c, "reaction_remaining", 0) or 0),
+            "spell_cast_remaining": int(getattr(c, "spell_cast_remaining", 0) or 0),
         }
 
     def _lan_restore_turn_snapshot(self, cid: int) -> bool:
@@ -9243,6 +9486,8 @@ class InitiativeTracker(base.InitiativeTracker):
         c.move_total = int(snap.get("move_total", c.move_total))
         c.action_remaining = int(snap.get("action_remaining", c.action_remaining))
         c.bonus_action_remaining = int(snap.get("bonus_action_remaining", c.bonus_action_remaining))
+        c.reaction_remaining = int(snap.get("reaction_remaining", c.reaction_remaining))
+        c.spell_cast_remaining = int(snap.get("spell_cast_remaining", c.spell_cast_remaining))
 
         col = int(snap.get("col", 0))
         row = int(snap.get("row", 0))
@@ -9626,8 +9871,8 @@ class InitiativeTracker(base.InitiativeTracker):
             speed = 30
             swim = 0
             water = False
-            actions: List[str] = []
-            bonus_actions: List[str] = []
+            actions: List[Dict[str, Any]] = []
+            bonus_actions: List[Dict[str, Any]] = []
 
             # Future-facing: per-PC config file players/<Name>.yaml (optional)
             data = cfg_cache.get(nm, None)
@@ -9645,12 +9890,6 @@ class InitiativeTracker(base.InitiativeTracker):
                     cfg_cache[nm] = None
                     data = None
             if isinstance(data, dict):
-                def normalize_action_list(value: Any) -> List[str]:
-                    if isinstance(value, list):
-                        return [str(item).strip() for item in value if str(item).strip()]
-                    if isinstance(value, str) and value.strip():
-                        return [value.strip()]
-                    return []
                 profile = self._normalize_player_profile(data, nm)
                 resources = profile.get("resources", {}) if isinstance(profile, dict) else {}
                 defenses = profile.get("defenses", {}) if isinstance(profile, dict) else {}
@@ -9660,8 +9899,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 )
                 swim = int(resources.get("swim_speed", swim) or swim)
                 hp = int(defenses.get("hp", hp) or hp)
-                actions = normalize_action_list(resources.get("actions"))
-                bonus_actions = normalize_action_list(resources.get("bonus_actions"))
+                actions = self._normalize_action_entries(resources.get("actions"), "action")
+                bonus_actions = self._normalize_action_entries(resources.get("bonus_actions"), "bonus_action")
 
             try:
                 init_total = random.randint(1, 20)
@@ -9895,12 +10134,8 @@ class InitiativeTracker(base.InitiativeTracker):
             role = self._name_role_memory.get(str(c.name), "enemy")
             pos = positions.get(c.cid, (max(0, cols // 2), max(0, rows // 2)))
             marks = self._lan_marks_for(c)
-            actions = [str(item).strip() for item in (getattr(c, "actions", []) or []) if str(item).strip()]
-            bonus_actions = [
-                str(item).strip()
-                for item in (getattr(c, "bonus_actions", []) or [])
-                if str(item).strip()
-            ]
+            actions = self._normalize_action_entries(getattr(c, "actions", []), "action")
+            bonus_actions = self._normalize_action_entries(getattr(c, "bonus_actions", []), "bonus_action")
             units.append(
                 {
                     "cid": c.cid,
@@ -9912,6 +10147,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     "move_total": int(getattr(c, "move_total", 0) or 0),
                     "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
                     "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
+                    "reaction_remaining": int(getattr(c, "reaction_remaining", 0) or 0),
+                    "spell_cast_remaining": int(getattr(c, "spell_cast_remaining", 0) or 0),
                     "actions": actions,
                     "bonus_actions": bonus_actions,
                     "is_prone": self._has_condition(c, "prone"),
@@ -10924,6 +11161,15 @@ class InitiativeTracker(base.InitiativeTracker):
                 resources["actions"] = data.get("actions")
             if "bonus_actions" in data and "bonus_actions" not in resources:
                 resources["bonus_actions"] = data.get("bonus_actions")
+            if "reactions" in data and "reactions" not in resources:
+                resources["reactions"] = data.get("reactions")
+        else:
+            if "actions" in data and "actions" not in resources:
+                resources["actions"] = data.get("actions")
+            if "bonus_actions" in data and "bonus_actions" not in resources:
+                resources["bonus_actions"] = data.get("bonus_actions")
+            if "reactions" in data and "reactions" not in resources:
+                resources["reactions"] = data.get("reactions")
 
         for key in ("known_cantrips", "known_spells", "known_spell_names"):
             if key not in spellcasting and key in data:
@@ -11556,6 +11802,38 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_positions = dict(positions)
         return positions
 
+    @staticmethod
+    def _action_name_key(value: Any) -> str:
+        return str(value or "").strip().lower()
+
+    def _iter_combatant_actions(self, c: Any, spend: str) -> List[Dict[str, Any]]:
+        if spend == "bonus":
+            return self._normalize_action_entries(getattr(c, "bonus_actions", []), "bonus_action")
+        return self._normalize_action_entries(getattr(c, "actions", []), "action")
+
+    def _find_action_entry(self, c: Any, spend: str, name: str) -> Optional[Dict[str, Any]]:
+        key = self._action_name_key(name)
+        if not key:
+            return None
+        for entry in self._iter_combatant_actions(c, spend):
+            entry_name = self._action_name_key(entry.get("name"))
+            if entry_name == key:
+                return entry
+        return None
+
+    def _combatant_can_cast_spell(self, c: Any, spend: str) -> bool:
+        spend_list = self._iter_combatant_actions(c, spend)
+        if spend == "bonus":
+            spend_list = spend_list + self._iter_combatant_actions(c, "action")
+        if not spend_list:
+            return False
+        allowed = {"magic", "cast a spell", "cast spell", "spellcasting"}
+        for entry in spend_list:
+            name = self._action_name_key(entry.get("name"))
+            if name in allowed:
+                return True
+        return False
+
     def _lan_apply_action(self, msg: Dict[str, Any]) -> None:
         """Apply client actions on the Tk thread."""
         typ = str(msg.get("type") or "")
@@ -11621,6 +11899,35 @@ class InitiativeTracker(base.InitiativeTracker):
             if shape not in ("circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall"):
                 self._lan.toast(ws_id, "Pick a valid spell shape, matey.")
                 return
+            spend_raw = str(msg.get("action_type") or "").strip().lower()
+            if spend_raw in ("bonus", "bonus_action"):
+                spend = "bonus"
+            elif spend_raw == "reaction":
+                spend = "reaction"
+            else:
+                spend = "action"
+            c = self.combatants.get(cid) if cid is not None else None
+            if c is not None and not is_admin:
+                if int(getattr(c, "spell_cast_remaining", 0) or 0) <= 0:
+                    self._lan.toast(ws_id, "Already cast a spell this turn, matey.")
+                    return
+                if not self._combatant_can_cast_spell(c, spend):
+                    self._lan.toast(ws_id, "No spellcasting action available, matey.")
+                    return
+                if spend == "bonus":
+                    if not self._use_bonus_action(c):
+                        self._lan.toast(ws_id, "No bonus actions left, matey.")
+                        return
+                elif spend == "reaction":
+                    if not self._use_reaction(c):
+                        self._lan.toast(ws_id, "No reactions left, matey.")
+                        return
+                else:
+                    if not self._use_action(c):
+                        self._lan.toast(ws_id, "No actions left, matey.")
+                        return
+                c.spell_cast_remaining = max(0, int(getattr(c, "spell_cast_remaining", 0) or 0) - 1)
+                self._rebuild_table(scroll_to_current=True)
             def parse_positive_float(value: Any) -> Optional[float]:
                 try:
                     num = float(value)
@@ -12114,6 +12421,50 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._rebuild_table(scroll_to_current=True)
             except Exception:
                 pass
+        elif typ == "perform_action":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            spend_raw = str(msg.get("spend") or "action").lower()
+            spend = "bonus" if spend_raw in ("bonus", "bonus_action") else "action"
+            action_name = str(msg.get("action") or msg.get("name") or "").strip()
+            action_entry = self._find_action_entry(c, spend, action_name)
+            if not action_entry:
+                self._lan.toast(ws_id, "That action ain't in yer sheet, matey.")
+                return
+            if spend == "bonus":
+                if not self._use_bonus_action(c):
+                    self._lan.toast(ws_id, "No bonus actions left, matey.")
+                    return
+                spend_label = "bonus action"
+            else:
+                if not self._use_action(c):
+                    self._lan.toast(ws_id, "No actions left, matey.")
+                    return
+                spend_label = "action"
+            action_key = self._action_name_key(action_name)
+            if action_key == "dash":
+                try:
+                    base_speed = int(self._mode_speed(c))
+                except Exception:
+                    base_speed = int(getattr(c, "speed", 30) or 30)
+                try:
+                    total = int(getattr(c, "move_total", 0) or 0)
+                    rem = int(getattr(c, "move_remaining", 0) or 0)
+                    setattr(c, "move_total", total + base_speed)
+                    setattr(c, "move_remaining", rem + base_speed)
+                    self._log(
+                        f"{c.name} dashed (move {rem}/{total} -> {c.move_remaining}/{c.move_total})",
+                        cid=cid,
+                    )
+                    self._lan.toast(ws_id, f"Dashed ({spend_label}).")
+                    self._rebuild_table(scroll_to_current=True)
+                except Exception:
+                    pass
+            else:
+                self._log(f"{c.name} used {action_name} ({spend_label})", cid=cid)
+                self._lan.toast(ws_id, f"Used {action_name}.")
+                self._rebuild_table(scroll_to_current=True)
         elif typ == "use_action":
             c = self.combatants.get(cid)
             if not c:

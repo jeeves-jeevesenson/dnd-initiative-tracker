@@ -183,8 +183,10 @@ class Combatant:
     move_total: int = 0
     action_remaining: int = 1
     bonus_action_remaining: int = 1
-    actions: List[str] = field(default_factory=list)
-    bonus_actions: List[str] = field(default_factory=list)
+    reaction_remaining: int = 1
+    spell_cast_remaining: int = 1
+    actions: List[Dict[str, Any]] = field(default_factory=list)
+    bonus_actions: List[Dict[str, Any]] = field(default_factory=list)
     extra_action_pool: int = 0
     extra_bonus_pool: int = 0
     saving_throws: Dict[str, int] = field(default_factory=dict)
@@ -1532,6 +1534,38 @@ class InitiativeTracker(tk.Tk):
     def _remove_condition_type(self, c: Combatant, ctype: str) -> None:
         c.condition_stacks = [st for st in c.condition_stacks if st.ctype != ctype]
 
+    @staticmethod
+    def _normalize_action_entries(value: Any, default_type: str) -> List[Dict[str, Any]]:
+        entries: List[Dict[str, Any]] = []
+        if isinstance(value, dict):
+            value = [value]
+        if isinstance(value, str):
+            value = [value]
+        if not isinstance(value, list):
+            return entries
+        for item in value:
+            if isinstance(item, str):
+                name = item.strip()
+                if not name:
+                    continue
+                entries.append({"name": name, "description": "", "type": default_type})
+                continue
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            if not name:
+                continue
+            description = str(item.get("description") or "").strip()
+            action_type = str(item.get("type") or default_type).strip().lower() or default_type
+            entries.append(
+                {
+                    "name": name,
+                    "description": description,
+                    "type": action_type,
+                }
+            )
+        return entries
+
     # -------------------------- Add / remove --------------------------
     def _create_combatant(
         self,
@@ -1547,8 +1581,8 @@ class InitiativeTracker(tk.Tk):
         is_spellcaster: Optional[bool] = None,
         saving_throws: Optional[Dict[str, int]] = None,
         ability_mods: Optional[Dict[str, int]] = None,
-        actions: Optional[List[str]] = None,
-        bonus_actions: Optional[List[str]] = None,
+        actions: Optional[List[Dict[str, Any]]] = None,
+        bonus_actions: Optional[List[Dict[str, Any]]] = None,
         monster_spec: Optional[MonsterSpec] = None,
     ) -> int:
         cid = self._next_id
@@ -1569,6 +1603,8 @@ class InitiativeTracker(tk.Tk):
             inferred_spellcaster = bool(is_pc)
         if is_spellcaster is None:
             is_spellcaster = inferred_spellcaster
+        normalized_actions = self._normalize_action_entries(actions, "action")
+        normalized_bonus_actions = self._normalize_action_entries(bonus_actions, "bonus_action")
 
         c = Combatant(
             cid=cid,
@@ -1588,8 +1624,8 @@ class InitiativeTracker(tk.Tk):
             is_spellcaster=bool(is_spellcaster),
             saving_throws=dict(saving_throws or {}),
             ability_mods=dict(ability_mods or {}),
-            actions=list(actions or []),
-            bonus_actions=list(bonus_actions or []),
+            actions=normalized_actions,
+            bonus_actions=normalized_bonus_actions,
             monster_spec=monster_spec,
         )
         self.combatants[cid] = c
@@ -2068,6 +2104,8 @@ class InitiativeTracker(tk.Tk):
         c.move_remaining = eff
         c.action_remaining = 1 + max(0, int(getattr(c, "extra_action_pool", 0) or 0))
         c.bonus_action_remaining = 1 + max(0, int(getattr(c, "extra_bonus_pool", 0) or 0))
+        c.reaction_remaining = 1
+        c.spell_cast_remaining = 1
         c.extra_action_pool = 0
         c.extra_bonus_pool = 0
 
@@ -2221,6 +2259,13 @@ class InitiativeTracker(tk.Tk):
             return False
         c.bonus_action_remaining -= 1
         self._log(f"{c.name} used a bonus action", cid=c.cid)
+        return True
+
+    def _use_reaction(self, c: Combatant) -> bool:
+        if c.reaction_remaining <= 0:
+            return False
+        c.reaction_remaining -= 1
+        self._log(f"{c.name} used a reaction", cid=c.cid)
         return True
 
     def _grant_action_targets(self) -> List[Combatant]:
