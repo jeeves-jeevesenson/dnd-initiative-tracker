@@ -1,0 +1,631 @@
+{
+  "schema_id": "inittracker.character.v2",
+  "schema_version": 1,
+  "readme_path": "players/README.md",
+  "sections": [
+    {
+      "id": "root",
+      "label": "Root Level Fields",
+      "readme_heading": "Root Level Fields",
+      "type": "object",
+      "fields": [
+        {
+          "key": "format_version",
+          "label": "Format Version",
+          "type": "integer",
+          "required": true,
+          "default": 2
+        },
+        {
+          "key": "name",
+          "label": "Name",
+          "type": "string",
+          "required": true,
+          "default": ""
+        },
+        {
+          "key": "player",
+          "label": "Player",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "key": "campaign",
+          "label": "Campaign",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "key": "ip",
+          "label": "IP Address",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "key": "known_cantrips",
+          "label": "Known Cantrips (Legacy)",
+          "type": "integer",
+          "default": 0
+        },
+        {
+          "key": "known_spells",
+          "label": "Known Spells (Legacy)",
+          "type": "integer",
+          "default": 0
+        },
+        {
+          "key": "known_spell_names",
+          "label": "Known Spell Names (Legacy)",
+          "type": "array",
+          "repeatable": true,
+          "items": {
+            "type": "string",
+            "default": ""
+          },
+          "default": []
+        }
+      ]
+    },
+    {
+      "id": "identity",
+      "label": "Identity",
+      "readme_heading": "Identity Section",
+      "type": "object",
+      "path": ["identity"],
+      "fields": [
+        {"key": "pronouns", "label": "Pronouns", "type": "string", "default": ""},
+        {"key": "ancestry", "label": "Ancestry", "type": "string", "default": ""},
+        {"key": "background", "label": "Background", "type": "string", "default": ""},
+        {"key": "alignment", "label": "Alignment", "type": "string", "default": ""},
+        {"key": "description", "label": "Description", "type": "string", "default": ""}
+      ]
+    },
+    {
+      "id": "leveling",
+      "label": "Leveling",
+      "readme_heading": "Leveling Section",
+      "type": "object",
+      "path": ["leveling"],
+      "fields": [
+        {"key": "level", "label": "Total Level", "type": "integer", "default": 1},
+        {
+          "key": "classes",
+          "label": "Classes",
+          "type": "array",
+          "repeatable": true,
+          "items": {
+            "type": "object",
+            "fields": [
+              {"key": "name", "label": "Class Name", "type": "string", "default": ""},
+              {"key": "subclass", "label": "Subclass", "type": "string", "default": ""},
+              {"key": "level", "label": "Class Level", "type": "integer", "default": 1}
+            ]
+          },
+          "default": [
+            {"name": "", "subclass": "", "level": 1}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "abilities",
+      "label": "Abilities",
+      "readme_heading": "Abilities Section",
+      "type": "object",
+      "path": ["abilities"],
+      "fields": [
+        {"key": "str", "label": "STR", "type": "integer", "default": 10},
+        {"key": "dex", "label": "DEX", "type": "integer", "default": 10},
+        {"key": "con", "label": "CON", "type": "integer", "default": 10},
+        {"key": "int", "label": "INT", "type": "integer", "default": 10},
+        {"key": "wis", "label": "WIS", "type": "integer", "default": 10},
+        {"key": "cha", "label": "CHA", "type": "integer", "default": 10}
+      ]
+    },
+    {
+      "id": "proficiency",
+      "label": "Proficiency",
+      "readme_heading": "Proficiency Section",
+      "type": "object",
+      "path": ["proficiency"],
+      "fields": [
+        {"key": "bonus", "label": "Proficiency Bonus", "type": "integer", "default": 2},
+        {
+          "key": "saves",
+          "label": "Save Proficiencies",
+          "type": "array",
+          "repeatable": true,
+          "items": {"type": "string", "default": ""},
+          "default": []
+        },
+        {
+          "key": "skills",
+          "label": "Skills",
+          "type": "object",
+          "fields": [
+            {
+              "key": "proficient",
+              "label": "Proficient Skills",
+              "type": "array",
+              "repeatable": true,
+              "items": {"type": "string", "default": ""},
+              "default": []
+            },
+            {
+              "key": "expertise",
+              "label": "Expertise",
+              "type": "array",
+              "repeatable": true,
+              "items": {"type": "string", "default": ""},
+              "default": []
+            }
+          ]
+        },
+        {
+          "key": "tools",
+          "label": "Tools",
+          "type": "array",
+          "repeatable": true,
+          "items": {"type": "string", "default": ""},
+          "default": []
+        },
+        {
+          "key": "languages",
+          "label": "Languages",
+          "type": "array",
+          "repeatable": true,
+          "items": {"type": "string", "default": ""},
+          "default": []
+        }
+      ]
+    },
+    {
+      "id": "vitals",
+      "label": "Vitals",
+      "readme_heading": "Vitals Section",
+      "type": "object",
+      "path": ["vitals"],
+      "fields": [
+        {"key": "max_hp", "label": "Max HP", "type": "integer", "default": 1},
+        {"key": "current_hp", "label": "Current HP", "type": "integer", "default": 1},
+        {"key": "temp_hp", "label": "Temp HP", "type": "integer", "default": 0},
+        {
+          "key": "hit_dice",
+          "label": "Hit Dice",
+          "type": "object",
+          "fields": [
+            {"key": "die", "label": "Hit Die", "type": "string", "default": "d8"},
+            {"key": "total", "label": "Total", "type": "integer", "default": 1},
+            {"key": "spent", "label": "Spent", "type": "integer", "default": 0}
+          ]
+        },
+        {
+          "key": "speed",
+          "label": "Speed",
+          "type": "object",
+          "fields": [
+            {"key": "walk", "label": "Walk", "type": "integer", "default": 30},
+            {"key": "climb", "label": "Climb", "type": "integer", "default": 0},
+            {"key": "fly", "label": "Fly", "type": "integer", "default": 0},
+            {"key": "swim", "label": "Swim", "type": "integer", "default": 0}
+          ]
+        },
+        {
+          "key": "initiative",
+          "label": "Initiative",
+          "type": "object",
+          "fields": [
+            {"key": "formula", "label": "Formula", "type": "string", "default": "dex_mod"}
+          ]
+        },
+        {
+          "key": "passive_perception",
+          "label": "Passive Perception",
+          "type": "object",
+          "fields": [
+            {"key": "formula", "label": "Formula", "type": "string", "default": "10 + wis_mod"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "defenses",
+      "label": "Defenses",
+      "readme_heading": "Defenses Section",
+      "type": "object",
+      "path": ["defenses"],
+      "fields": [
+        {
+          "key": "ac",
+          "label": "Armor Class",
+          "type": "object",
+          "fields": [
+            {
+              "key": "sources",
+              "label": "AC Sources",
+              "type": "array",
+              "repeatable": true,
+              "items": {
+                "type": "object",
+                "fields": [
+                  {"key": "id", "label": "ID", "type": "string", "default": ""},
+                  {"key": "label", "label": "Label", "type": "string", "default": ""},
+                  {"key": "when", "label": "When", "type": "string", "default": "always"},
+                  {"key": "base_formula", "label": "Base Formula", "type": "string", "default": "10 + dex_mod"}
+                ]
+              },
+              "default": [
+                {"id": "unarmored", "label": "Unarmored", "when": "always", "base_formula": "10 + dex_mod"}
+              ]
+            },
+            {
+              "key": "bonuses",
+              "label": "AC Bonuses",
+              "type": "array",
+              "repeatable": true,
+              "items": {
+                "type": "object",
+                "fields": [
+                  {"key": "id", "label": "ID", "type": "string", "default": ""},
+                  {"key": "label", "label": "Label", "type": "string", "default": ""},
+                  {"key": "value", "label": "Value", "type": "integer", "default": 0},
+                  {"key": "when", "label": "When", "type": "string", "default": ""}
+                ]
+              },
+              "default": []
+            }
+          ]
+        },
+        {
+          "key": "resistances",
+          "label": "Resistances",
+          "type": "array",
+          "repeatable": true,
+          "items": {"type": "string", "default": ""},
+          "default": []
+        },
+        {
+          "key": "immunities",
+          "label": "Immunities",
+          "type": "array",
+          "repeatable": true,
+          "items": {"type": "string", "default": ""},
+          "default": []
+        },
+        {
+          "key": "vulnerabilities",
+          "label": "Vulnerabilities",
+          "type": "array",
+          "repeatable": true,
+          "items": {"type": "string", "default": ""},
+          "default": []
+        }
+      ]
+    },
+    {
+      "id": "resources",
+      "label": "Resources",
+      "readme_heading": "Resources Section",
+      "type": "object",
+      "path": ["resources"],
+      "fields": [
+        {
+          "key": "pools",
+          "label": "Resource Pools",
+          "type": "array",
+          "repeatable": true,
+          "items": {
+            "type": "object",
+            "fields": [
+              {"key": "id", "label": "ID", "type": "string", "default": ""},
+              {"key": "label", "label": "Label", "type": "string", "default": ""},
+              {"key": "current", "label": "Current", "type": "integer", "default": 0},
+              {"key": "max_formula", "label": "Max Formula", "type": "string", "default": "1"},
+              {"key": "reset", "label": "Reset", "type": "string", "default": "long_rest"}
+            ]
+          },
+          "default": []
+        }
+      ]
+    },
+    {
+      "id": "features",
+      "label": "Features",
+      "readme_heading": "Features Section",
+      "type": "array",
+      "path": ["features"],
+      "repeatable": true,
+      "items": {
+        "type": "object",
+        "fields": [
+          {"key": "id", "label": "ID", "type": "string", "default": ""},
+          {"key": "name", "label": "Name", "type": "string", "default": ""},
+          {"key": "category", "label": "Category", "type": "string", "default": ""},
+          {"key": "source", "label": "Source", "type": "string", "default": ""},
+          {"key": "description", "label": "Description", "type": "string", "default": ""},
+          {
+            "key": "grants",
+            "label": "Grants",
+            "type": "object",
+            "fields": [
+              {
+                "key": "pools",
+                "label": "Granted Pools",
+                "type": "array",
+                "repeatable": true,
+                "items": {
+                  "type": "object",
+                  "fields": [
+                    {"key": "id", "label": "ID", "type": "string", "default": ""},
+                    {"key": "label", "label": "Label", "type": "string", "default": ""},
+                    {"key": "max_formula", "label": "Max Formula", "type": "string", "default": "1"},
+                    {"key": "reset", "label": "Reset", "type": "string", "default": "long_rest"}
+                  ]
+                },
+                "default": []
+              },
+              {
+                "key": "spells",
+                "label": "Granted Spells",
+                "type": "object",
+                "fields": [
+                  {
+                    "key": "cantrips",
+                    "label": "Cantrips",
+                    "type": "array",
+                    "repeatable": true,
+                    "items": {"type": "string", "default": ""},
+                    "default": []
+                  },
+                  {
+                    "key": "casts",
+                    "label": "Spell Casts",
+                    "type": "array",
+                    "repeatable": true,
+                    "items": {
+                      "type": "object",
+                      "fields": [
+                        {"key": "spell", "label": "Spell", "type": "string", "default": ""},
+                        {"key": "action_type", "label": "Action Type", "type": "string", "default": "action"},
+                        {
+                          "key": "consumes",
+                          "label": "Consumes",
+                          "type": "object",
+                          "fields": [
+                            {"key": "pool", "label": "Pool", "type": "string", "default": ""},
+                            {"key": "cost", "label": "Cost", "type": "integer", "default": 1}
+                          ]
+                        }
+                      ]
+                    },
+                    "default": []
+                  }
+                ]
+              },
+              {
+                "key": "actions",
+                "label": "Actions",
+                "type": "array",
+                "repeatable": true,
+                "items": {
+                  "type": "object",
+                  "fields": [
+                    {"key": "name", "label": "Name", "type": "string", "default": ""},
+                    {"key": "type", "label": "Type", "type": "string", "default": "action"},
+                    {"key": "description", "label": "Description", "type": "string", "default": ""},
+                    {
+                      "key": "uses",
+                      "label": "Uses",
+                      "type": "object",
+                      "fields": [
+                        {"key": "pool", "label": "Pool", "type": "string", "default": ""},
+                        {"key": "cost", "label": "Cost", "type": "integer", "default": 1}
+                      ]
+                    }
+                  ]
+                },
+                "default": []
+              },
+              {
+                "key": "modifiers",
+                "label": "Modifiers",
+                "type": "array",
+                "repeatable": true,
+                "items": {
+                  "type": "object",
+                  "fields": [
+                    {"key": "target", "label": "Target", "type": "string", "default": ""},
+                    {"key": "mode", "label": "Mode", "type": "string", "default": "add"},
+                    {"key": "value", "label": "Value", "type": ["string", "number", "integer"], "default": 0},
+                    {"key": "when", "label": "When", "type": "string", "default": ""}
+                  ]
+                },
+                "default": []
+              },
+              {
+                "key": "damage_riders",
+                "label": "Damage Riders",
+                "type": "array",
+                "repeatable": true,
+                "items": {
+                  "type": "object",
+                  "fields": [
+                    {"key": "name", "label": "Name", "type": "string", "default": ""},
+                    {"key": "when", "label": "When", "type": "string", "default": ""},
+                    {"key": "dice", "label": "Dice", "type": "string", "default": ""},
+                    {"key": "dtype", "label": "Damage Type", "type": "string", "default": "none"}
+                  ]
+                },
+                "default": []
+              }
+            ]
+          }
+        ]
+      },
+      "default": []
+    },
+    {
+      "id": "actions",
+      "label": "Actions",
+      "readme_heading": "Actions/Reactions/Bonus Actions",
+      "type": "array",
+      "path": ["actions"],
+      "repeatable": true,
+      "items": {
+        "type": "object",
+        "fields": [
+          {"key": "name", "label": "Name", "type": "string", "default": ""},
+          {"key": "description", "label": "Description", "type": "string", "default": ""},
+          {"key": "type", "label": "Type", "type": "string", "default": "action"}
+        ]
+      },
+      "default": []
+    },
+    {
+      "id": "reactions",
+      "label": "Reactions",
+      "readme_heading": "Actions/Reactions/Bonus Actions",
+      "type": "array",
+      "path": ["reactions"],
+      "repeatable": true,
+      "items": {
+        "type": "object",
+        "fields": [
+          {"key": "name", "label": "Name", "type": "string", "default": ""},
+          {"key": "description", "label": "Description", "type": "string", "default": ""},
+          {"key": "type", "label": "Type", "type": "string", "default": "reaction"}
+        ]
+      },
+      "default": []
+    },
+    {
+      "id": "bonus_actions",
+      "label": "Bonus Actions",
+      "readme_heading": "Actions/Reactions/Bonus Actions",
+      "type": "array",
+      "path": ["bonus_actions"],
+      "repeatable": true,
+      "items": {
+        "type": "object",
+        "fields": [
+          {"key": "name", "label": "Name", "type": "string", "default": ""},
+          {"key": "description", "label": "Description", "type": "string", "default": ""},
+          {"key": "type", "label": "Type", "type": "string", "default": "bonus_action"}
+        ]
+      },
+      "default": []
+    },
+    {
+      "id": "spellcasting",
+      "label": "Spellcasting",
+      "readme_heading": "Spellcasting Section",
+      "type": "object",
+      "path": ["spellcasting"],
+      "fields": [
+        {"key": "enabled", "label": "Enabled", "type": "boolean", "default": false},
+        {
+          "key": "spell_yaml_paths",
+          "label": "Spell YAML Paths",
+          "type": "array",
+          "repeatable": true,
+          "items": {"type": "string", "default": ""},
+          "default": ["./Spells"]
+        },
+        {"key": "casting_ability", "label": "Casting Ability", "type": "string", "default": ""},
+        {"key": "save_dc_formula", "label": "Save DC Formula", "type": "string", "default": "8 + prof + casting_mod"},
+        {"key": "spell_attack_formula", "label": "Spell Attack Formula", "type": "string", "default": "prof + casting_mod"},
+        {
+          "key": "cantrips",
+          "label": "Cantrips",
+          "type": "object",
+          "fields": [
+            {"key": "max", "label": "Max", "type": "integer", "default": 0},
+            {
+              "key": "known",
+              "label": "Known",
+              "type": "array",
+              "repeatable": true,
+              "items": {"type": "string", "default": ""},
+              "default": []
+            }
+          ]
+        },
+        {
+          "key": "known_spells",
+          "label": "Known Spells",
+          "type": "object",
+          "fields": [
+            {"key": "max", "label": "Max", "type": "integer", "default": 0},
+            {
+              "key": "known",
+              "label": "Known",
+              "type": "array",
+              "repeatable": true,
+              "items": {"type": "string", "default": ""},
+              "default": []
+            }
+          ]
+        },
+        {
+          "key": "prepared_spells",
+          "label": "Prepared Spells",
+          "type": "object",
+          "fields": [
+            {"key": "max_formula", "label": "Max Formula", "type": "string", "default": "0"},
+            {
+              "key": "prepared",
+              "label": "Prepared",
+              "type": "array",
+              "repeatable": true,
+              "items": {"type": "string", "default": ""},
+              "default": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "inventory",
+      "label": "Inventory",
+      "readme_heading": "Inventory Section",
+      "type": "object",
+      "path": ["inventory"],
+      "fields": [
+        {
+          "key": "currency",
+          "label": "Currency",
+          "type": "object",
+          "fields": [
+            {"key": "gp", "label": "GP", "type": "integer", "default": 0},
+            {"key": "sp", "label": "SP", "type": "integer", "default": 0},
+            {"key": "cp", "label": "CP", "type": "integer", "default": 0}
+          ]
+        },
+        {
+          "key": "items",
+          "label": "Items",
+          "type": "array",
+          "repeatable": true,
+          "items": {
+            "type": "object",
+            "fields": [
+              {"key": "name", "label": "Name", "type": "string", "default": ""},
+              {"key": "quantity", "label": "Quantity", "type": "integer", "default": 1},
+              {"key": "description", "label": "Description", "type": "string", "default": ""}
+            ]
+          },
+          "default": []
+        }
+      ]
+    },
+    {
+      "id": "notes",
+      "label": "Notes",
+      "readme_heading": "Notes Section",
+      "type": "map",
+      "path": ["notes"],
+      "value_type": "string",
+      "default": {}
+    }
+  ]
+}
