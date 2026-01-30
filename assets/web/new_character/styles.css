@@ -1,0 +1,104 @@
+:root {
+  color-scheme: dark;
+  --bg: #0e1117;
+  --panel: #161b22;
+  --border: #2a3240;
+  --text: #f0f6fc;
+  --muted: #9aa4b2;
+  --accent: #4c9aff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 20px 60px;
+  display: grid;
+  gap: 24px;
+}
+
+header h1 {
+  margin: 8px 0;
+  font-size: 32px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+  margin: 0;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--panel);
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field-row {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+label {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+input,
+textarea {
+  width: 100%;
+  background: #0b0f15;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+input:focus,
+textarea:focus {
+  outline: 2px solid rgba(76, 154, 255, 0.35);
+  border-color: var(--accent);
+}
+
+.primary {
+  border: none;
+  background: var(--accent);
+  color: #07101c;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.status {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
