@@ -2,6 +2,7 @@
 set -euo pipefail
 
 APPDIR="${APPDIR:-$HOME/.local/share/dnd-initiative-tracker}"
+LAUNCHER="$HOME/.local/bin/dnd-initiative-tracker"
 ICON_NAME="inittracker"
 ICON_BASE="$HOME/.local/share/icons/hicolor"
 DESKTOP_FILE="$HOME/.local/share/applications/inittracker.desktop"
@@ -13,6 +14,13 @@ if [[ -d "${APPDIR}" ]]; then
   echo "Removed install directory: ${APPDIR}"
 else
   echo "Install directory already removed: ${APPDIR}"
+fi
+
+if [[ -f "${LAUNCHER}" ]]; then
+  rm -f "${LAUNCHER}"
+  echo "Removed launcher: ${LAUNCHER}"
+else
+  echo "Launcher already removed: ${LAUNCHER}"
 fi
 
 if [[ -f "${ICON_512}" ]]; then

@@ -14,10 +14,31 @@ A comprehensive D&D 5e initiative tracker and combat management system with a de
 
 ## 🎯 Quick Start
 
-**Linux/macOS:**
+**Streamlined Install (Recommended - All Platforms):**
+
+The quickest way to get started is with our one-line installer. No need to manually clone, install, and manage the repository!
+
+```bash
+# One-line install: clones, installs dependencies, and sets up in one command
+curl -sSL https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
+```
+Or using wget:
+```bash
+wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
+```
+
+**Windows Quick Install:**
+```powershell
+# Run in PowerShell
+irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex
+```
+
+After installation, the app is installed to a system location (`.local/share` on Linux/macOS, `%LOCALAPPDATA%` on Windows), so you don't need to keep the cloned repository!
+
+**Manual Install (Linux/macOS):**
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git  # Replace with your fork URL
+git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
 cd dnd-initiative-tracker
 
 # Install dependencies
@@ -29,10 +50,10 @@ pip install -r requirements.txt
 python dnd_initative_tracker.py
 ```
 
-**Windows 11:**
+**Manual Install (Windows 11):**
 ```cmd
 # Clone the repository
-git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git
+git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
 cd dnd-initiative-tracker
 
 # Run the automated installer (recommended)
@@ -241,12 +262,50 @@ The D&D Initiative Tracker is a feature-rich combat management tool designed for
 - **Python 3.9 or higher**
 - **Tkinter** (often bundled with Python; on Linux may require `python3-tk`)
 - **pip** for installing Python dependencies
+- **Git** (for cloning the repository)
 
-### Quick Install (All Platforms)
+### Streamlined Install (Recommended)
+
+The easiest way to install is using our one-line quick install scripts:
+
+**Linux/macOS:**
+```bash
+# Using curl (recommended)
+curl -sSL https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
+
+# Or using wget
+wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
+```
+
+This will:
+- Clone the repository to `~/.local/share/dnd-initiative-tracker`
+- Create a Python virtual environment
+- Install all dependencies automatically
+- Create a launcher command at `~/.local/bin/dnd-initiative-tracker`
+
+After installation, run: `dnd-initiative-tracker`
+
+**Windows:**
+```powershell
+# Run in PowerShell
+irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex
+```
+
+This will:
+- Clone the repository to `%LOCALAPPDATA%\DnDInitiativeTracker`
+- Create a Python virtual environment
+- Install all dependencies automatically
+- Create desktop and Start Menu shortcuts
+
+After installation, use the desktop shortcut or search for "D&D Initiative Tracker" in Start Menu.
+
+### Manual Install (Alternative)
+
+If you prefer to install manually or want more control:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git  # Replace with actual repo URL
+git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
 cd dnd-initiative-tracker
 
 # Create virtual environment (recommended)
@@ -261,6 +320,39 @@ source .venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 ```
+
+### Uninstalling
+
+**If you used the quick install:**
+
+Linux/macOS:
+```bash
+# Download and run the uninstaller
+curl -sSL https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/uninstall-linux.sh | bash
+
+# Or if you still have the repository
+./scripts/uninstall-linux.sh
+```
+
+Windows:
+```powershell
+# Download and run the uninstaller
+irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/uninstall-windows.ps1 | iex
+
+# Or if you still have the repository
+.\scripts\uninstall-windows.ps1
+```
+
+This will remove:
+- All application files from the installation directory
+- Desktop shortcuts (Windows)
+- Start Menu entries (Windows)
+- Launcher command (Linux/macOS)
+- Desktop menu entry (Linux)
+
+**If you installed manually:**
+
+Simply delete the cloned repository directory and any virtual environment you created.
 
 ### Dependencies
 
@@ -292,7 +384,7 @@ For Windows 11 users who want a simple installation with desktop shortcuts:
 **Option 1: Command Prompt (Recommended for most users)**
 ```cmd
 # Clone the repository (or download and extract ZIP)
-git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git
+git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
 cd dnd-initiative-tracker
 
 # Run the Windows installer
@@ -302,7 +394,7 @@ scripts\install-windows.bat
 **Option 2: PowerShell (For PowerShell users)**
 ```powershell
 # Clone the repository (or download and extract ZIP)
-git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git
+git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
 cd dnd-initiative-tracker
 
 # Run the PowerShell installer

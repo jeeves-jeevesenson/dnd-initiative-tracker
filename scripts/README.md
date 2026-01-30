@@ -2,6 +2,43 @@
 
 This directory contains automated installation and launcher scripts for different platforms.
 
+## Quick Install Scripts (Recommended)
+
+### quick-install.sh (Linux/macOS)
+One-line installation script that handles everything automatically:
+- Clones the repository to `~/.local/share/dnd-initiative-tracker`
+- Creates a Python virtual environment
+- Installs all dependencies
+- Creates a launcher command at `~/.local/bin/dnd-initiative-tracker`
+
+**Usage:**
+```bash
+# Using curl
+curl -sSL https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
+
+# Using wget
+wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
+
+# Or if repository is already cloned
+./scripts/quick-install.sh
+```
+
+### quick-install.ps1 (Windows)
+One-line installation script for Windows using PowerShell:
+- Clones the repository to `%LOCALAPPDATA%\DnDInitiativeTracker`
+- Creates a Python virtual environment
+- Installs all dependencies
+- Creates desktop and Start Menu shortcuts
+
+**Usage:**
+```powershell
+# One-line install
+irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex
+
+# Or if repository is already cloned
+.\scripts\quick-install.ps1
+```
+
 ## Windows 11
 
 ### install-windows.bat
