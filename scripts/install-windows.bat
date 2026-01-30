@@ -113,7 +113,10 @@ echo Creating launcher script...
     echo.
     echo cd /d "%%APP_DIR%%"
     echo.
-    echo if exist "%%APP_DIR%%.venv\Scripts\python.exe" ^(
+    echo REM Try to use pythonw.exe to hide console window
+    echo if exist "%%APP_DIR%%.venv\Scripts\pythonw.exe" ^(
+    echo     start "" "%%APP_DIR%%.venv\Scripts\pythonw.exe" "%%APP_DIR%%dnd_initative_tracker.py"
+    echo ^) else if exist "%%APP_DIR%%.venv\Scripts\python.exe" ^(
     echo     "%%APP_DIR%%.venv\Scripts\python.exe" "%%APP_DIR%%dnd_initative_tracker.py"
     echo ^) else ^(
     echo     python "%%APP_DIR%%dnd_initative_tracker.py"
@@ -123,13 +126,24 @@ echo Creating launcher script...
 ) > "%INSTALL_DIR%\launch-dnd-tracker.bat"
 
 echo.
+echo Creating icon file...
+if exist "%INSTALL_DIR%\.venv\Scripts\python.exe" (
+    "%INSTALL_DIR%\.venv\Scripts\python.exe" "%INSTALL_DIR%\scripts\create_icon.py" >nul 2>&1
+)
+
+echo.
 echo Creating desktop shortcut...
 set "SHORTCUT_NAME=D&D Initiative Tracker.lnk"
 set "DESKTOP=%USERPROFILE%\Desktop"
 set "START_MENU=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
+set "ICON_PATH=%INSTALL_DIR%\assets\icon.ico"
 
-REM Use PowerShell to create shortcut (Note: PNG icons not supported, using default icon)
-powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
+REM Use PowerShell to create shortcut with icon
+if exist "%ICON_PATH%" (
+    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.IconLocation = '%ICON_PATH%'; $SC.Save()" >nul 2>&1
+) else (
+    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
+)
 
 if %ERRORLEVEL% EQU 0 (
     echo Desktop shortcut created successfully.
@@ -138,12 +152,36 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 REM Create Start Menu shortcut
-powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%START_MENU%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
+if exist "%ICON_PATH%" (
+    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%START_MENU%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.IconLocation = '%ICON_PATH%'; $SC.Save()" >nul 2>&1
+) else (
+    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%START_MENU%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
+)
 
 if %ERRORLEVEL% EQU 0 (
     echo Start Menu shortcut created successfully.
 ) else (
     echo WARNING: Failed to create Start Menu shortcut.
+)
+
+echo.
+echo Registering with Windows Add/Remove Programs...
+set "UNINSTALL_SCRIPT=%INSTALL_DIR%\scripts\uninstall-windows.bat"
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v DisplayName /t REG_SZ /d "D&D Initiative Tracker" /f >nul 2>&1
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v DisplayVersion /t REG_SZ /d "1.0.0" /f >nul 2>&1
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v Publisher /t REG_SZ /d "D&D Initiative Tracker" /f >nul 2>&1
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v InstallLocation /t REG_SZ /d "%INSTALL_DIR%" /f >nul 2>&1
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v UninstallString /t REG_SZ /d "\"%UNINSTALL_SCRIPT%\"" /f >nul 2>&1
+if exist "%ICON_PATH%" (
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v DisplayIcon /t REG_SZ /d "%ICON_PATH%" /f >nul 2>&1
+)
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v NoModify /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v NoRepair /t REG_DWORD /d 1 /f >nul 2>&1
+
+if %ERRORLEVEL% EQU 0 (
+    echo Registered with Add/Remove Programs successfully.
+) else (
+    echo WARNING: Failed to register with Add/Remove Programs.
 )
 
 echo.

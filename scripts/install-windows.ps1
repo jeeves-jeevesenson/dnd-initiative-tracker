@@ -201,9 +201,73 @@ if (Test-Path $venvPython) {
 }
 
 Write-Host ""
-Write-Host "Creating launcher script..." -ForegroundColor Yellow
+Write-Host "Building Windows executable..." -ForegroundColor Yellow
 
-$launcherContent = @"
+# Create the icon file if it doesn't exist
+$iconPath = Join-Path $InstallDir "assets\icon.ico"
+if (-not (Test-Path $iconPath)) {
+    Write-Host "Creating icon file..." -ForegroundColor Yellow
+    try {
+        & $venvPython (Join-Path $InstallDir "scripts\create_icon.py")
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ Icon created successfully" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Icon creation failed, continuing without custom icon" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "⚠ Icon creation failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+# Build the executable using PyInstaller
+$exePath = Join-Path $InstallDir "DNDInitiativeTracker.exe"
+if (Test-Path $venvPython) {
+    Write-Host "Installing PyInstaller..." -ForegroundColor Yellow
+    try {
+        & $venvPython -m pip install pyinstaller -q
+        if ($LASTEXITCODE -ne 0) {
+            throw "PyInstaller installation failed"
+        }
+        
+        Write-Host "Building executable with icon and no console..." -ForegroundColor Yellow
+        $launcherScript = Join-Path $InstallDir "launcher.py"
+        $buildArgs = @(
+            "-m", "PyInstaller",
+            "--noconsole",
+            "--onefile",
+            "--icon=$iconPath",
+            "--name=DNDInitiativeTracker",
+            "--distpath=$InstallDir",
+            "--workpath=$InstallDir\build",
+            "--specpath=$InstallDir",
+            "--clean",
+            $launcherScript
+        )
+        
+        & $venvPython $buildArgs 2>&1 | Out-Null
+        
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $exePath)) {
+            Write-Host "✓ Executable built successfully" -ForegroundColor Green
+            
+            # Clean up build artifacts
+            $buildDir = Join-Path $InstallDir "build"
+            $specFile = Join-Path $InstallDir "DNDInitiativeTracker.spec"
+            if (Test-Path $buildDir) { Remove-Item -Recurse -Force $buildDir -ErrorAction SilentlyContinue }
+            if (Test-Path $specFile) { Remove-Item -Force $specFile -ErrorAction SilentlyContinue }
+        } else {
+            throw "Executable not created"
+        }
+    } catch {
+        Write-Host "⚠ Failed to build executable: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "Creating fallback launcher script..." -ForegroundColor Yellow
+        $exePath = $null
+    }
+}
+
+# Create fallback batch launcher if exe build failed
+$launcherPath = Join-Path $InstallDir "launch-dnd-tracker.bat"
+if (-not $exePath) {
+    $launcherContent = @"
 @echo off
 REM D&D Initiative Tracker Launcher
 setlocal
@@ -215,7 +279,9 @@ if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
 cd /d "%APP_DIR%"
 
-if exist "%APP_DIR%.venv\Scripts\python.exe" (
+if exist "%APP_DIR%.venv\Scripts\pythonw.exe" (
+    start "" "%APP_DIR%.venv\Scripts\pythonw.exe" "%APP_DIR%dnd_initative_tracker.py"
+) else if exist "%APP_DIR%.venv\Scripts\python.exe" (
     "%APP_DIR%.venv\Scripts\python.exe" "%APP_DIR%dnd_initative_tracker.py"
 ) else (
     python "%APP_DIR%dnd_initative_tracker.py"
@@ -223,13 +289,20 @@ if exist "%APP_DIR%.venv\Scripts\python.exe" (
 
 endlocal
 "@
+    
+    try {
+        Set-Content -Path $launcherPath -Value $launcherContent
+        Write-Host "✓ Fallback launcher script created" -ForegroundColor Green
+    } catch {
+        Show-Warning -Title "Launcher Creation Failed" -Message "Failed to create launcher script.`n`nError: $($_.Exception.Message)"
+    }
+}
 
-$launcherPath = Join-Path $InstallDir "launch-dnd-tracker.bat"
-try {
-    Set-Content -Path $launcherPath -Value $launcherContent
-    Write-Host "✓ Launcher script created" -ForegroundColor Green
-} catch {
-    Show-Warning -Title "Launcher Creation Failed" -Message "Failed to create launcher script.`n`nError: $($_.Exception.Message)"
+# Determine which launcher to use for shortcuts
+if ($exePath -and (Test-Path $exePath)) {
+    $shortcutTarget = $exePath
+} else {
+    $shortcutTarget = $launcherPath
 }
 
 Write-Host ""
@@ -244,14 +317,20 @@ try {
         $desktopPath = [Environment]::GetFolderPath("Desktop")
         $shortcutPath = Join-Path $desktopPath "D&D Initiative Tracker.lnk"
         $shortcut = $WshShell.CreateShortcut($shortcutPath)
-        $shortcut.TargetPath = $launcherPath
+        $shortcut.TargetPath = $shortcutTarget
         $shortcut.WorkingDirectory = $InstallDir
         $shortcut.Description = "D&D Initiative Tracker"
-        # Note: PNG icons not supported for shortcuts - using default icon
+        # Set icon if exe exists (exe has icon embedded)
+        if ($exePath -and (Test-Path $exePath)) {
+            $shortcut.IconLocation = "$exePath,0"
+        } elseif (Test-Path $iconPath) {
+            # For batch files, try to use the .ico file
+            $shortcut.IconLocation = $iconPath
+        }
         $shortcut.Save()
         Write-Host "✓ Desktop shortcut created successfully" -ForegroundColor Green
     } catch {
-        Write-Host "⚠ Could not create desktop shortcut" -ForegroundColor Yellow
+        Write-Host "⚠ Could not create desktop shortcut: $($_.Exception.Message)" -ForegroundColor Yellow
     }
     
     # Start Menu shortcut
@@ -259,17 +338,59 @@ try {
         $startMenuPath = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
         $shortcutPath = Join-Path $startMenuPath "D&D Initiative Tracker.lnk"
         $shortcut = $WshShell.CreateShortcut($shortcutPath)
-        $shortcut.TargetPath = $launcherPath
+        $shortcut.TargetPath = $shortcutTarget
         $shortcut.WorkingDirectory = $InstallDir
         $shortcut.Description = "D&D Initiative Tracker"
-        # Note: PNG icons not supported for shortcuts - using default icon
+        # Set icon if exe exists (exe has icon embedded)
+        if ($exePath -and (Test-Path $exePath)) {
+            $shortcut.IconLocation = "$exePath,0"
+        } elseif (Test-Path $iconPath) {
+            # For batch files, try to use the .ico file
+            $shortcut.IconLocation = $iconPath
+        }
         $shortcut.Save()
         Write-Host "✓ Start Menu shortcut created successfully" -ForegroundColor Green
     } catch {
-        Write-Host "⚠ Could not create Start Menu shortcut" -ForegroundColor Yellow
+        Write-Host "⚠ Could not create Start Menu shortcut: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 } catch {
-    Write-Host "⚠ Could not create shortcuts" -ForegroundColor Yellow
+    Write-Host "⚠ Could not create shortcuts: $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "Registering with Windows Add/Remove Programs..." -ForegroundColor Yellow
+
+try {
+    # Create registry entries for Add/Remove Programs
+    $uninstallRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker"
+    $uninstallScript = Join-Path $InstallDir "scripts\uninstall-windows.ps1"
+    
+    # Create the registry key
+    if (-not (Test-Path $uninstallRegPath)) {
+        New-Item -Path $uninstallRegPath -Force | Out-Null
+    }
+    
+    # Set registry values
+    New-ItemProperty -Path $uninstallRegPath -Name "DisplayName" -Value "D&D Initiative Tracker" -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $uninstallRegPath -Name "DisplayVersion" -Value "1.0.0" -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $uninstallRegPath -Name "Publisher" -Value "D&D Initiative Tracker" -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $uninstallRegPath -Name "InstallLocation" -Value $InstallDir -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $uninstallRegPath -Name "UninstallString" -Value "powershell.exe -ExecutionPolicy Bypass -File `"$uninstallScript`"" -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $uninstallRegPath -Name "QuietUninstallString" -Value "powershell.exe -ExecutionPolicy Bypass -File `"$uninstallScript`" -Silent" -PropertyType String -Force | Out-Null
+    
+    # Set icon if available
+    if ($exePath -and (Test-Path $exePath)) {
+        New-ItemProperty -Path $uninstallRegPath -Name "DisplayIcon" -Value $exePath -PropertyType String -Force | Out-Null
+    } elseif (Test-Path $iconPath) {
+        New-ItemProperty -Path $uninstallRegPath -Name "DisplayIcon" -Value $iconPath -PropertyType String -Force | Out-Null
+    }
+    
+    New-ItemProperty -Path $uninstallRegPath -Name "NoModify" -Value 1 -PropertyType DWord -Force | Out-Null
+    New-ItemProperty -Path $uninstallRegPath -Name "NoRepair" -Value 1 -PropertyType DWord -Force | Out-Null
+    
+    Write-Host "✓ Registered with Add/Remove Programs" -ForegroundColor Green
+} catch {
+    Write-Host "⚠ Could not register with Add/Remove Programs: $($_.Exception.Message)" -ForegroundColor Yellow
 }
 
 Write-Host ""
