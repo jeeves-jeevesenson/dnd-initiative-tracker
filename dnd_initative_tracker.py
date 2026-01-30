@@ -2859,21 +2859,60 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function getAbilityModifier(profile, key){
+    const normalizedKey = normalizeAbilityKey(key);
     const abilities = profile?.abilities;
     if (!abilities || typeof abilities !== "object") return 0;
-    const modValue = Number(abilities[`${key}_mod`] ?? abilities[`${key}_modifier`]);
+    const modValue = Number(
+      abilities[`${normalizedKey}_mod`]
+      ?? abilities[`${normalizedKey}_modifier`]
+    );
     if (Number.isFinite(modValue)){
       return Math.floor(modValue);
     }
     const scoreValue = Number(
-      abilities[key]
-      ?? abilities[key.toUpperCase()]
-      ?? abilities[`${key}_score`]
+      abilities[normalizedKey]
+      ?? abilities[normalizedKey.toUpperCase()]
+      ?? abilities[`${normalizedKey}_score`]
     );
     if (Number.isFinite(scoreValue)){
       return Math.floor((scoreValue - 10) / 2);
     }
     return 0;
+  }
+
+  function normalizeAbilityKey(key){
+    const raw = normalizeLowerValue(key || "");
+    if (!raw) return "";
+    const abilityMap = {
+      strength: "str",
+      str: "str",
+      dexterity: "dex",
+      dex: "dex",
+      constitution: "con",
+      con: "con",
+      intelligence: "int",
+      int: "int",
+      wisdom: "wis",
+      wis: "wis",
+      charisma: "cha",
+      cha: "cha",
+      chr: "cha",
+      char: "cha",
+    };
+    return abilityMap[raw] || raw;
+  }
+
+  function getProficiencyBonus(profile){
+    const level = getPlayerLevel(profile);
+    if (level >= 1){
+      if (level >= 17) return 6;
+      if (level >= 13) return 5;
+      if (level >= 9) return 4;
+      if (level >= 5) return 3;
+      return 2;
+    }
+    const prof = Number(profile?.proficiency?.bonus);
+    return Number.isFinite(prof) ? Math.floor(prof) : 0;
   }
 
   function getPreparedSpellLimit(profile, preparedData){
@@ -2916,11 +2955,11 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const formula = normalizeTextValue(spellcasting.save_dc_formula);
     if (formula){
-      const castingAbility = normalizeLowerValue(spellcasting.casting_ability || "");
+      const castingAbility = normalizeAbilityKey(spellcasting.casting_ability || "");
       const castingMod = castingAbility ? getAbilityModifier(profile, castingAbility) : 0;
-      const prof = Number(profile?.proficiency?.bonus);
+      const prof = getProficiencyBonus(profile);
       const variables = {
-        prof: Number.isFinite(prof) ? Math.floor(prof) : 0,
+        prof,
         casting_mod: castingMod,
         str_mod: getAbilityModifier(profile, "str"),
         dex_mod: getAbilityModifier(profile, "dex"),
@@ -7703,6 +7742,7 @@ class PlayerProfile:
     identity: Dict[str, Any] = field(default_factory=dict)
     leveling: Dict[str, Any] = field(default_factory=dict)
     abilities: Dict[str, Any] = field(default_factory=dict)
+    proficiency: Dict[str, Any] = field(default_factory=dict)
     defenses: Dict[str, Any] = field(default_factory=dict)
     resources: Dict[str, Any] = field(default_factory=dict)
     spellcasting: Dict[str, Any] = field(default_factory=dict)
@@ -7715,6 +7755,7 @@ class PlayerProfile:
             "identity": dict(self.identity),
             "leveling": dict(self.leveling),
             "abilities": dict(self.abilities),
+            "proficiency": dict(self.proficiency),
             "defenses": dict(self.defenses),
             "resources": dict(self.resources),
             "spellcasting": dict(self.spellcasting),
@@ -10781,6 +10822,29 @@ class InitiativeTracker(base.InitiativeTracker):
             slugs.append(item)
         return slugs
 
+    @staticmethod
+    def _coerce_level_value(leveling: Dict[str, Any]) -> int:
+        raw = leveling.get("level") or leveling.get("total_level") or leveling.get("lvl")
+        try:
+            value = int(raw)
+        except Exception:
+            return 0
+        return max(0, value)
+
+    @staticmethod
+    def _proficiency_bonus_for_level(level: int) -> int:
+        if level >= 17:
+            return 6
+        if level >= 13:
+            return 5
+        if level >= 9:
+            return 4
+        if level >= 5:
+            return 3
+        if level >= 1:
+            return 2
+        return 0
+
     def _normalize_player_profile(self, data: Dict[str, Any], fallback_name: str) -> Dict[str, Any]:
         def normalize_name(value: Any) -> Optional[str]:
             text = str(value or "").strip()
@@ -10797,6 +10861,7 @@ class InitiativeTracker(base.InitiativeTracker):
         identity = self._normalize_player_section(data.get("identity"))
         leveling = self._normalize_player_section(data.get("leveling"))
         abilities = self._normalize_player_section(data.get("abilities"))
+        proficiency = self._normalize_player_section(data.get("proficiency"))
         defenses = self._normalize_player_section(data.get("defenses"))
         resources = self._normalize_player_section(data.get("resources"))
         spellcasting = self._normalize_player_section(data.get("spellcasting"))
@@ -10815,6 +10880,9 @@ class InitiativeTracker(base.InitiativeTracker):
                         continue
                 if total:
                     leveling["level"] = total
+        level_value = self._coerce_level_value(leveling)
+        if level_value > 0:
+            proficiency["bonus"] = self._proficiency_bonus_for_level(level_value)
 
         name = (
             normalize_name(data.get("name"))
@@ -10909,6 +10977,7 @@ class InitiativeTracker(base.InitiativeTracker):
             identity=identity,
             leveling=leveling,
             abilities=abilities,
+            proficiency=proficiency,
             defenses=defenses,
             resources=resources,
             spellcasting=spellcasting,
@@ -11006,12 +11075,17 @@ class InitiativeTracker(base.InitiativeTracker):
         if not isinstance(formula, str) or not formula.strip():
             return None
         abilities = profile.get("abilities") if isinstance(profile.get("abilities"), dict) else {}
+        leveling = profile.get("leveling") if isinstance(profile.get("leveling"), dict) else {}
         proficiency = profile.get("proficiency") if isinstance(profile.get("proficiency"), dict) else {}
-        prof_bonus_raw = proficiency.get("bonus")
-        try:
-            prof_bonus = int(prof_bonus_raw)
-        except Exception:
-            prof_bonus = 0
+        level_value = self._coerce_level_value(leveling)
+        if level_value > 0:
+            prof_bonus = self._proficiency_bonus_for_level(level_value)
+        else:
+            prof_bonus_raw = proficiency.get("bonus")
+            try:
+                prof_bonus = int(prof_bonus_raw)
+            except Exception:
+                prof_bonus = 0
         casting_ability = self._normalize_spellcasting_ability(spellcasting.get("casting_ability"))
         casting_mod = self._ability_score_modifier(abilities, casting_ability)
         variables = {
