@@ -47,7 +47,10 @@ Automated installer for Windows 11 (Command Prompt) that:
 - Copies all application files
 - Sets up a Python virtual environment
 - Installs all dependencies
-- Creates desktop and Start Menu shortcuts
+- Creates custom Windows icon from PNG assets
+- Creates desktop and Start Menu shortcuts with icon
+- Uses pythonw.exe to launch without console window
+- Registers with Windows Add/Remove Programs
 - Creates a launcher batch file
 
 **Usage:**
@@ -55,8 +58,20 @@ Automated installer for Windows 11 (Command Prompt) that:
 scripts\install-windows.bat
 ```
 
+**Features:**
+- ✓ No console window when launching
+- ✓ Custom icon on shortcuts
+- ✓ Appears in Add/Remove Programs
+- ✓ Professional uninstall workflow
+
 ### install-windows.ps1
-Alternative automated installer for Windows 11 (PowerShell) with the same features as the batch version. Provides better error handling and colored output.
+Alternative automated installer for Windows 11 (PowerShell) with enhanced features:
+- Same installation as batch version
+- Creates a Windows icon (.ico) from PNG assets
+- Optionally builds a standalone .exe with embedded icon (requires PyInstaller)
+- Registers the application with Windows Add/Remove Programs
+- Provides better error handling and colored output
+- Supports silent uninstallation
 
 **Usage:**
 ```powershell
@@ -66,8 +81,16 @@ Alternative automated installer for Windows 11 (PowerShell) with the same featur
 .\scripts\install-windows.ps1
 ```
 
+**Features:**
+- ✓ Creates custom Windows icon from PNG assets
+- ✓ Builds standalone .exe launcher (no console window)
+- ✓ Registers with Windows Add/Remove Programs
+- ✓ Shortcuts use custom icon
+- ✓ Professional installation experience
+
 ### launch-windows.bat
 Quick launcher script for running the tracker directly from the repository without installation.
+Uses pythonw.exe when available to hide the console window.
 
 **Usage:**
 ```cmd
@@ -75,7 +98,8 @@ scripts\launch-windows.bat
 ```
 
 ### uninstall-windows.bat
-Removes the installed application, including all files, shortcuts, and configurations (Command Prompt version).
+Removes the installed application, including all files, shortcuts, registry entries, and configurations (Command Prompt version).
+Removes the application from Windows Add/Remove Programs.
 
 **Usage:**
 ```cmd
@@ -83,12 +107,42 @@ scripts\uninstall-windows.bat
 ```
 
 ### uninstall-windows.ps1
-Removes the installed application, including all files, shortcuts, and configurations (PowerShell version).
+Removes the installed application, including all files, shortcuts, registry entries, and configurations (PowerShell version).
+Removes the application from Windows Add/Remove Programs.
+Supports silent mode for automated uninstallation.
 
 **Usage:**
 ```powershell
+# Interactive mode
 .\scripts\uninstall-windows.ps1
+
+# Silent mode (no confirmation)
+.\scripts\uninstall-windows.ps1 -Silent
 ```
+
+## Utility Scripts
+
+### create_icon.py
+Creates a Windows .ico file from PNG images in the assets directory.
+This is automatically run during installation but can be run manually if needed.
+
+**Usage:**
+```bash
+python scripts/create_icon.py
+```
+
+### build_exe.py
+Builds a standalone Windows .exe launcher using PyInstaller.
+The .exe includes the custom icon and launches without showing a console window.
+Requires PyInstaller to be installed.
+
+**Usage:**
+```bash
+python scripts/build_exe.py
+```
+
+**Note:** This is automatically run during PowerShell installation but can be run manually
+to create a distributable .exe file.
 
 ## Linux
 

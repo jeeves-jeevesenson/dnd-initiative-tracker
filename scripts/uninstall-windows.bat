@@ -67,6 +67,22 @@ if exist "%START_MENU%\%SHORTCUT_NAME%" (
 )
 
 echo.
+echo Removing registry entries...
+
+REM Remove from Add/Remove Programs registry
+reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /f >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        echo Registry entries removed.
+    ) else (
+        echo WARNING: Failed to remove registry entries.
+    )
+) else (
+    echo Registry entries not found.
+)
+
+echo.
 echo ====================================================
 echo Uninstallation Complete!
 echo ====================================================
