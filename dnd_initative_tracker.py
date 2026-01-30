@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import math
 from pathlib import Path
 import json
 import queue
@@ -2294,6 +2295,7 @@ __DAMAGE_TYPE_OPTIONS__
       requestAnimationFrame(() => {
         castOverlayBackBtn?.focus();
       });
+      applyDefaultSpellSaveDc();
     } else if (castOverlayPreviousFocus){
       castOverlayPreviousFocus.focus();
       castOverlayPreviousFocus = null;
@@ -2388,6 +2390,30 @@ __DAMAGE_TYPE_OPTIONS__
       return Math.max(0, Math.floor(fallbackKnown));
     }
     return null;
+  }
+
+  function getPlayerSpellSaveDc(name){
+    const profile = getPlayerProfile(name);
+    const spellcasting = profile?.spellcasting;
+    if (!spellcasting || typeof spellcasting !== "object") return null;
+    const rawValue = spellcasting.save_dc ?? spellcasting.saveDC;
+    const dcValue = Number(rawValue);
+    if (Number.isFinite(dcValue)){
+      return Math.floor(dcValue);
+    }
+    return null;
+  }
+
+  function applyDefaultSpellSaveDc(){
+    if (!castDcValueInput) return;
+    if (String(castDcValueInput.value || "").trim()){
+      return;
+    }
+    const playerName = getClaimedPlayerName();
+    const dcValue = getPlayerSpellSaveDc(playerName);
+    if (Number.isFinite(dcValue)){
+      castDcValueInput.value = String(dcValue);
+    }
   }
 
   function getPlayerPreparedSpellConfig(name){
@@ -5695,7 +5721,11 @@ __DAMAGE_TYPE_OPTIONS__
       castDcTypeInput.value = preset.save_type ? String(preset.save_type || "").toLowerCase() : "";
     }
     if (castDcValueInput){
-      castDcValueInput.value = Number.isFinite(Number(preset.save_dc)) ? Number(preset.save_dc) : "";
+      const presetDc = Number(preset.save_dc);
+      castDcValueInput.value = Number.isFinite(presetDc) ? Number(presetDc) : "";
+      if (!Number.isFinite(presetDc)){
+        applyDefaultSpellSaveDc();
+      }
     }
     if (castDefaultDamageInput){
       const defaultDamage = preset.default_damage;
@@ -5796,6 +5826,10 @@ __DAMAGE_TYPE_OPTIONS__
         }
         if (castDiceInput){
           castDiceInput.value = "";
+        }
+        if (castDcValueInput){
+          castDcValueInput.value = "";
+          applyDefaultSpellSaveDc();
         }
         if (castSlotLevelInput){
           castSlotLevelInput.value = "";
@@ -9391,6 +9425,120 @@ class InitiativeTracker(base.InitiativeTracker):
         )
         return profile.to_dict()
 
+    def _normalize_spellcasting_ability(self, value: Any) -> Optional[str]:
+        raw = str(value or "").strip().lower()
+        if not raw:
+            return None
+        ability_map = {
+            "strength": "str",
+            "str": "str",
+            "dexterity": "dex",
+            "dex": "dex",
+            "constitution": "con",
+            "con": "con",
+            "intelligence": "int",
+            "int": "int",
+            "wisdom": "wis",
+            "wis": "wis",
+            "charisma": "cha",
+            "cha": "cha",
+            "chr": "cha",
+            "char": "cha",
+        }
+        return ability_map.get(raw)
+
+    def _ability_score_modifier(self, abilities: Dict[str, Any], key: Optional[str]) -> int:
+        if not key or not isinstance(abilities, dict):
+            return 0
+        candidates = [key, key.lower(), key.upper(), f"{key}_score"]
+        if key == "cha":
+            candidates.extend(["chr", "charisma", "CHARISMA"])
+        score = None
+        for candidate in candidates:
+            if candidate in abilities:
+                score = abilities.get(candidate)
+                break
+        try:
+            score_value = float(score)
+        except Exception:
+            score_value = None
+        if score_value is not None and math.isfinite(score_value):
+            return int(math.floor((score_value - 10) / 2))
+        for candidate in (f"{key}_mod", f"{key}_modifier"):
+            if candidate in abilities:
+                try:
+                    mod_value = float(abilities.get(candidate))
+                except Exception:
+                    continue
+                if math.isfinite(mod_value):
+                    return int(math.floor(mod_value))
+        return 0
+
+    def _evaluate_spell_formula(self, formula: Any, variables: Dict[str, Any]) -> Optional[float]:
+        if not isinstance(formula, str):
+            return None
+        trimmed = formula.strip()
+        if not trimmed:
+            return None
+        if not re.fullmatch(r"[0-9+\-*/(). _a-zA-Z]+", trimmed):
+            return None
+        expr = trimmed
+        for key, value in variables.items():
+            try:
+                safe_value = float(value)
+            except Exception:
+                safe_value = 0.0
+            if not math.isfinite(safe_value):
+                safe_value = 0.0
+            expr = re.sub(rf"\\b{re.escape(str(key))}\\b", str(int(safe_value)), expr)
+        if re.search(r"[a-zA-Z]", expr):
+            return None
+        try:
+            result = eval(expr, {"__builtins__": {}})
+        except Exception:
+            return None
+        try:
+            result_value = float(result)
+        except Exception:
+            return None
+        if not math.isfinite(result_value):
+            return None
+        return result_value
+
+    def _compute_spell_save_dc(self, profile: Dict[str, Any]) -> Optional[int]:
+        if not isinstance(profile, dict):
+            return None
+        spellcasting = profile.get("spellcasting")
+        if not isinstance(spellcasting, dict):
+            return None
+        formula = spellcasting.get("save_dc_formula")
+        if not isinstance(formula, str) or not formula.strip():
+            return None
+        abilities = profile.get("abilities") if isinstance(profile.get("abilities"), dict) else {}
+        proficiency = profile.get("proficiency") if isinstance(profile.get("proficiency"), dict) else {}
+        prof_bonus_raw = proficiency.get("bonus")
+        try:
+            prof_bonus = int(prof_bonus_raw)
+        except Exception:
+            prof_bonus = 0
+        casting_ability = self._normalize_spellcasting_ability(spellcasting.get("casting_ability"))
+        casting_mod = self._ability_score_modifier(abilities, casting_ability)
+        variables = {
+            "prof": prof_bonus,
+            "proficiency": prof_bonus,
+            "casting_mod": casting_mod,
+            "str_mod": self._ability_score_modifier(abilities, "str"),
+            "dex_mod": self._ability_score_modifier(abilities, "dex"),
+            "con_mod": self._ability_score_modifier(abilities, "con"),
+            "int_mod": self._ability_score_modifier(abilities, "int"),
+            "wis_mod": self._ability_score_modifier(abilities, "wis"),
+            "cha_mod": self._ability_score_modifier(abilities, "cha"),
+        }
+        result = self._evaluate_spell_formula(formula, variables)
+        if result is None:
+            return None
+        return int(math.floor(result))
+
     def _normalize_player_spell_config(
         self,
         data: Dict[str, Any],
@@ -9543,7 +9691,15 @@ class InitiativeTracker(base.InitiativeTracker):
         for name, data in self._player_yaml_data_by_name.items():
             if not isinstance(data, dict):
                 continue
-            payload[name] = dict(data)
+            profile_payload = dict(data)
+            spellcasting = profile_payload.get("spellcasting")
+            if isinstance(spellcasting, dict):
+                save_dc = self._compute_spell_save_dc(profile_payload)
+                if save_dc is not None:
+                    spellcasting = dict(spellcasting)
+                    spellcasting["save_dc"] = save_dc
+                    profile_payload["spellcasting"] = spellcasting
+            payload[name] = profile_payload
         return payload
 
     def _save_player_spell_config(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
