@@ -31,7 +31,8 @@ import hmac
 import secrets
 from datetime import datetime
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
+import copy
 
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -52,6 +53,82 @@ except Exception as e:  # pragma: no cover
         "Make sure helper_script and dnd_initative_tracker be in the same directory.\n\n"
         f"Import error: {e}"
     )
+
+
+def _load_character_schema_helpers() -> Tuple[Callable[[], Dict[str, Any]], Callable[[Any, Any], Any], Callable[[str, str], str]]:
+    base_template = None
+    merge_defaults = None
+    slugify = None
+    try:
+        scripts_dir = Path(__file__).resolve().parent / "scripts"
+        module_path = scripts_dir / "skeleton_gui.py"
+        if module_path.exists():
+            spec = importlib.util.spec_from_file_location("inittracker_skeleton_gui", module_path)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                base_template = getattr(module, "base_template", None)
+                merge_defaults = getattr(module, "merge_defaults", None)
+                slugify = getattr(module, "slugify", None)
+    except Exception:
+        base_template = None
+        merge_defaults = None
+        slugify = None
+
+    def fallback_base_template() -> Dict[str, Any]:
+        return {
+            "format_version": 2,
+            "name": "",
+            "player": "",
+            "campaign": "",
+            "ip": "",
+            "identity": {},
+            "leveling": {},
+            "abilities": {},
+            "proficiency": {},
+            "vitals": {},
+            "defenses": {},
+            "resources": {},
+            "features": [],
+            "actions": [],
+            "reactions": [],
+            "bonus_actions": [],
+            "spellcasting": {},
+            "inventory": {},
+            "notes": {},
+        }
+
+    def fallback_merge_defaults(user_obj: Any, defaults: Any) -> Any:
+        if isinstance(defaults, dict):
+            if not isinstance(user_obj, dict):
+                user_obj = {}
+            for key, value in defaults.items():
+                if key not in user_obj:
+                    user_obj[key] = copy.deepcopy(value)
+                else:
+                    user_obj[key] = fallback_merge_defaults(user_obj[key], value)
+            return user_obj
+        return user_obj
+
+    def fallback_slugify(value: str, sep: str = "_") -> str:
+        text = str(value or "").strip().lower()
+        text = re.sub(r"[^\w\s-]", "", text)
+        text = re.sub(r"[\s-]+", sep, text).strip(sep)
+        return text or "id"
+
+    base_template = base_template or fallback_base_template
+    merge_defaults = merge_defaults or fallback_merge_defaults
+    slugify = slugify or fallback_slugify
+    return base_template, merge_defaults, slugify
+
+
+_CHARACTER_BASE_TEMPLATE, _CHARACTER_MERGE_DEFAULTS, _CHARACTER_SLUGIFY = _load_character_schema_helpers()
+
+
+@dataclass
+class CharacterApiError(Exception):
+    status_code: int
+    detail: Any
 
 
 def _ensure_logs_dir() -> Path:
@@ -7811,6 +7888,31 @@ class LanController:
             await self._apply_host_assignment_async(host, cid, note="Assigned by the DM.")
             return {"ok": True, "ip": host, "cid": cid}
 
+        @app.get("/api/characters")
+        async def list_characters():
+            return {"files": self.app._list_character_filenames()}
+
+        @app.get("/api/characters/{name}")
+        async def get_character(name: str):
+            try:
+                return self.app._get_character_payload(name)
+            except CharacterApiError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+        @app.post("/api/characters")
+        async def create_character(payload: Dict[str, Any] = Body(...)):
+            try:
+                return self.app._create_character_payload(payload)
+            except CharacterApiError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+        @app.put("/api/characters/{name}")
+        async def update_character(name: str, payload: Dict[str, Any] = Body(...)):
+            try:
+                return self.app._update_character_payload(name, payload)
+            except CharacterApiError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
         @app.post("/api/players/{name}/spells")
         async def update_player_spells(name: str, payload: Dict[str, Any] = Body(...)):
             if not isinstance(payload, dict):
@@ -9904,7 +10006,7 @@ class InitiativeTracker(base.InitiativeTracker):
     def _write_player_yaml_atomic(self, path: Path, payload: Dict[str, Any]) -> None:
         if yaml is None:
             raise RuntimeError("PyYAML is required for spell persistence.")
-        yaml_text = yaml.safe_dump(payload, sort_keys=False)
+        yaml_text = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
         tmp_path = path.with_suffix(path.suffix + ".tmp")
         with self._player_yaml_lock:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -9938,6 +10040,224 @@ class InitiativeTracker(base.InitiativeTracker):
         slug = re.sub(r"[^A-Za-z0-9._-]+", "-", str(name or "").strip())
         slug = slug.strip("-._")
         return slug or "player"
+
+    def _character_schema_template(self) -> Dict[str, Any]:
+        return _CHARACTER_BASE_TEMPLATE()
+
+    def _character_slugify(self, name: str) -> str:
+        return _CHARACTER_SLUGIFY(str(name or "").strip(), "_")
+
+    def _character_merge_defaults(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        merged = copy.deepcopy(payload)
+        return _CHARACTER_MERGE_DEFAULTS(merged, self._character_schema_template())
+
+    def _character_type_name(self, value: Any) -> str:
+        if isinstance(value, dict):
+            return "object"
+        if isinstance(value, list):
+            return "array"
+        if isinstance(value, bool):
+            return "boolean"
+        if isinstance(value, int):
+            return "integer"
+        if isinstance(value, float):
+            return "number"
+        if isinstance(value, str):
+            return "string"
+        if value is None:
+            return "null"
+        return type(value).__name__
+
+    def _character_schema_errors(self, payload: Any, schema: Any, path: str = "") -> List[Dict[str, str]]:
+        errors: List[Dict[str, str]] = []
+
+        def add_error(message: str) -> None:
+            errors.append({"path": path or ".", "message": message})
+
+        if isinstance(schema, dict):
+            if not isinstance(payload, dict):
+                add_error(f"Expected object, got {self._character_type_name(payload)}.")
+                return errors
+            for key, schema_value in schema.items():
+                if key not in payload:
+                    continue
+                next_path = f"{path}.{key}" if path else key
+                errors.extend(self._character_schema_errors(payload[key], schema_value, next_path))
+            return errors
+        if isinstance(schema, list):
+            if not isinstance(payload, list):
+                add_error(f"Expected array, got {self._character_type_name(payload)}.")
+                return errors
+            if schema:
+                item_schema = schema[0]
+                for index, item in enumerate(payload):
+                    next_path = f"{path}[{index}]" if path else f"[{index}]"
+                    errors.extend(self._character_schema_errors(item, item_schema, next_path))
+            return errors
+        if isinstance(schema, bool):
+            if not isinstance(payload, bool):
+                add_error(f"Expected boolean, got {self._character_type_name(payload)}.")
+            return errors
+        if isinstance(schema, int) and not isinstance(schema, bool):
+            if not isinstance(payload, int) or isinstance(payload, bool):
+                add_error(f"Expected integer, got {self._character_type_name(payload)}.")
+            return errors
+        if isinstance(schema, float):
+            if not isinstance(payload, (int, float)) or isinstance(payload, bool):
+                add_error(f"Expected number, got {self._character_type_name(payload)}.")
+            return errors
+        if isinstance(schema, str):
+            if not isinstance(payload, str):
+                add_error(f"Expected string, got {self._character_type_name(payload)}.")
+            return errors
+        return errors
+
+    def _validate_character_payload(self, payload: Any) -> List[Dict[str, str]]:
+        if not isinstance(payload, dict):
+            return [{"path": ".", "message": "Expected object payload."}]
+        schema = self._character_schema_template()
+        return self._character_schema_errors(payload, schema)
+
+    def _extract_character_name(self, payload: Dict[str, Any]) -> Optional[str]:
+        name = payload.get("name")
+        if not name and isinstance(payload.get("identity"), dict):
+            name = payload["identity"].get("name")
+        text = str(name or "").strip()
+        return text or None
+
+    def _apply_character_name(self, payload: Dict[str, Any], name: str) -> Dict[str, Any]:
+        payload = dict(payload)
+        payload["name"] = name
+        identity = payload.get("identity")
+        if not isinstance(identity, dict):
+            identity = {}
+        if not identity.get("name"):
+            identity["name"] = name
+        payload["identity"] = identity
+        return payload
+
+    def _deep_merge_dict(self, base_obj: Any, updates: Any) -> Any:
+        if isinstance(base_obj, dict) and isinstance(updates, dict):
+            merged: Dict[str, Any] = {}
+            for key in base_obj:
+                merged[key] = copy.deepcopy(base_obj[key])
+            for key, value in updates.items():
+                merged[key] = self._deep_merge_dict(base_obj.get(key), value)
+            return merged
+        return copy.deepcopy(updates)
+
+    def _resolve_character_path(self, name: str) -> Optional[Path]:
+        if not name:
+            return None
+        self._load_player_yaml_cache()
+        key = name.lower()
+        path = self._player_yaml_name_map.get(key)
+        if path and path.exists():
+            return path
+        players_dir = self._players_dir()
+        slug = self._character_slugify(name)
+        if slug:
+            candidate = players_dir / f"{slug}.yaml"
+            if candidate.exists():
+                return candidate
+        candidate = players_dir / name
+        if candidate.suffix.lower() not in (".yaml", ".yml"):
+            candidate = candidate.with_suffix(".yaml")
+        if candidate.exists():
+            return candidate
+        return None
+
+    def _load_character_raw(self, path: Path) -> Dict[str, Any]:
+        if yaml is None:
+            raise CharacterApiError(status_code=500, detail={"error": "yaml_unavailable"})
+        try:
+            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise CharacterApiError(status_code=500, detail={"error": "read_failed", "message": str(exc)})
+        return raw if isinstance(raw, dict) else {}
+
+    def _store_character_yaml(self, path: Path, payload: Dict[str, Any]) -> Dict[str, Any]:
+        self._write_player_yaml_atomic(path, payload)
+        meta = _file_stat_metadata(path)
+        self._player_yaml_cache_by_path[path] = payload
+        self._player_yaml_meta_by_path[path] = meta
+        profile = self._normalize_player_profile(payload, path.stem)
+        profile_name = profile.get("name", path.stem)
+        self._player_yaml_data_by_name[profile_name] = profile
+        self._player_yaml_name_map[profile_name.lower()] = path
+        self._player_yaml_name_map[path.stem.lower()] = path
+        self._schedule_player_yaml_refresh()
+        return profile
+
+    def _list_character_filenames(self) -> List[str]:
+        players_dir = self._players_dir()
+        if not players_dir.exists():
+            return []
+        files = list(players_dir.glob("*.yaml")) + list(players_dir.glob("*.yml"))
+        files.sort(key=lambda path: path.name.lower())
+        return [path.name for path in files]
+
+    def _get_character_payload(self, name: str) -> Dict[str, Any]:
+        path = self._resolve_character_path(name)
+        if path is None:
+            raise CharacterApiError(status_code=404, detail={"error": "not_found", "message": "Character not found."})
+        raw = self._load_character_raw(path)
+        merged = self._character_merge_defaults(raw)
+        return {"filename": path.name, "character": merged}
+
+    def _create_character_payload(self, payload: Any) -> Dict[str, Any]:
+        errors = self._validate_character_payload(payload)
+        if errors:
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "validation_error", "errors": errors},
+            )
+        name = self._extract_character_name(payload)
+        if not name:
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "validation_error", "errors": [{"path": "name", "message": "Name is required."}]},
+            )
+        slug = self._character_slugify(name)
+        players_dir = self._players_dir()
+        players_dir.mkdir(parents=True, exist_ok=True)
+        path = players_dir / f"{slug}.yaml"
+        if path.exists():
+            raise CharacterApiError(
+                status_code=409,
+                detail={"error": "already_exists", "message": "Character file already exists."},
+            )
+        normalized = self._apply_character_name(payload, name)
+        normalized = self._character_merge_defaults(normalized)
+        profile = self._store_character_yaml(path, normalized)
+        return {"filename": path.name, "character": profile}
+
+    def _update_character_payload(self, name: str, payload: Any) -> Dict[str, Any]:
+        errors = self._validate_character_payload(payload)
+        if errors:
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "validation_error", "errors": errors},
+            )
+        path = self._resolve_character_path(name)
+        if path is None:
+            raise CharacterApiError(status_code=404, detail={"error": "not_found", "message": "Character not found."})
+        updated_name = self._extract_character_name(payload) or name
+        slug = self._character_slugify(updated_name)
+        if slug and path.stem.lower() != slug.lower():
+            raise CharacterApiError(
+                status_code=400,
+                detail={
+                    "error": "validation_error",
+                    "errors": [{"path": "name", "message": "Name does not match the URL resource."}],
+                },
+            )
+        raw = self._load_character_raw(path)
+        merged = self._deep_merge_dict(raw, payload if isinstance(payload, dict) else {})
+        merged = self._apply_character_name(merged, updated_name)
+        merged = self._character_merge_defaults(merged)
+        profile = self._store_character_yaml(path, merged)
+        return {"filename": path.name, "character": profile}
 
     @staticmethod
     def _normalize_player_section(value: Any) -> Dict[str, Any]:
@@ -10699,7 +11019,7 @@ class InitiativeTracker(base.InitiativeTracker):
         identity["token_color"] = normalized
         existing["identity"] = identity
 
-        yaml_text = yaml.safe_dump(existing, sort_keys=False)
+        yaml_text = yaml.safe_dump(existing, sort_keys=False, allow_unicode=True)
         path.write_text(yaml_text, encoding="utf-8")
 
         meta = _file_stat_metadata(path)
