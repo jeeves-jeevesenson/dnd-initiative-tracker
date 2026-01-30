@@ -9991,6 +9991,11 @@ class InitiativeTracker(base.InitiativeTracker):
         if "name" not in identity and name:
             identity["name"] = name
 
+        if "token_color" not in identity:
+            normalized_color = self._normalize_token_color(data.get("token_color"))
+            if normalized_color:
+                identity["token_color"] = normalized_color
+
         raw_ip = identity.get("ip") if "ip" in identity else data.get("ip")
         normalized_ip = self._normalize_identity_host(raw_ip)
         if normalized_ip:
@@ -10284,6 +10289,51 @@ class InitiativeTracker(base.InitiativeTracker):
 
         return normalized
 
+    def _save_player_token_color(self, name: str, color: str) -> str:
+        if yaml is None:
+            raise RuntimeError("PyYAML is required for token color persistence.")
+        player_name = str(name or "").strip()
+        if not player_name:
+            raise ValueError("Player name is required.")
+        normalized = self._normalize_token_color(color)
+        if not normalized:
+            raise ValueError("Token color must be a hex value.")
+
+        self._load_player_yaml_cache()
+        key = player_name.lower()
+        path = self._player_yaml_name_map.get(key)
+        if path is None:
+            players_dir = self._players_dir()
+            players_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"{self._sanitize_player_filename(player_name)}.yaml"
+            path = players_dir / filename
+
+        existing = self._player_yaml_cache_by_path.get(path) or {}
+        if not isinstance(existing, dict):
+            existing = {}
+
+        identity = existing.get("identity")
+        if not isinstance(identity, dict):
+            identity = {}
+        if "name" not in identity:
+            identity["name"] = player_name
+        identity["token_color"] = normalized
+        existing["identity"] = identity
+
+        yaml_text = yaml.safe_dump(existing, sort_keys=False)
+        path.write_text(yaml_text, encoding="utf-8")
+
+        meta = _file_stat_metadata(path)
+        self._player_yaml_cache_by_path[path] = existing
+        self._player_yaml_meta_by_path[path] = meta
+        profile = self._normalize_player_profile(existing, path.stem)
+        profile_name = profile.get("name", player_name)
+        self._player_yaml_data_by_name[profile_name] = profile
+        self._player_yaml_name_map[player_name.lower()] = path
+        self._player_yaml_name_map[path.stem.lower()] = path
+
+        return normalized
+
     def _lan_seed_missing_positions(self, positions: Dict[int, Tuple[int, int]], cols: int, rows: int) -> Dict[int, Tuple[int, int]]:
         # place missing near center in a simple spiral, one square apart
         cx, cy = max(0, cols // 2), max(0, rows // 2)
@@ -10360,6 +10410,12 @@ class InitiativeTracker(base.InitiativeTracker):
             if not c:
                 return
             setattr(c, "token_color", color)
+            player_name = self._pc_name_for(int(cid)) if cid is not None else ""
+            if player_name and not player_name.startswith("cid:"):
+                try:
+                    self._save_player_token_color(player_name, color)
+                except Exception:
+                    pass
             mw = getattr(self, "_map_window", None)
             if mw is not None and hasattr(mw, "update_unit_token_colors"):
                 try:
