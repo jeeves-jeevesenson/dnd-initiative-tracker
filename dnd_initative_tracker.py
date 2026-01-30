@@ -6686,11 +6686,15 @@ __DAMAGE_TYPE_OPTIONS__
     spellLibraryLoadPromise = (async () => {
       if (spellLibraryStatus) spellLibraryStatus.textContent = "Loading spells…";
       let ids = [];
+      let bulkRecords = null;
       try {
-        const response = await fetch("/api/spells");
+        const response = await fetch("/api/spells?details=true");
         const payload = await response.json();
         if (Array.isArray(payload?.ids)){
           ids = payload.ids;
+        }
+        if (Array.isArray(payload?.spells)){
+          bulkRecords = payload.spells;
         }
         spellLibraryLoadError = "";
       } catch (err){
@@ -6698,19 +6702,22 @@ __DAMAGE_TYPE_OPTIONS__
         if (spellLibraryStatus) spellLibraryStatus.textContent = spellLibraryLoadError;
         return [];
       }
-      const results = await Promise.all(
-        ids.map(async (spellId) => {
-          try {
-            const response = await fetch(`/api/spells/${encodeURIComponent(spellId)}`);
-            if (!response.ok){
-              throw new Error(`HTTP ${response.status}`);
+      let results = bulkRecords;
+      if (!Array.isArray(results) || !results.length){
+        results = await Promise.all(
+          ids.map(async (spellId) => {
+            try {
+              const response = await fetch(`/api/spells/${encodeURIComponent(spellId)}`);
+              if (!response.ok){
+                throw new Error(`HTTP ${response.status}`);
+              }
+              return await response.json();
+            } catch (err){
+              return {id: spellId, raw: null, parsed: null, error: String(err)};
             }
-            return await response.json();
-          } catch (err){
-            return {id: spellId, raw: null, parsed: null, error: String(err)};
-          }
-        })
-      );
+          })
+        );
+      }
       spellLibraryRecords = results.map(buildSpellLibraryRecord);
       return spellLibraryRecords;
     })();
@@ -9519,9 +9526,31 @@ class LanController:
             return {"ok": True, "ip": host, "cid": cid}
 
         @app.get("/api/spells")
-        async def list_spells():
+        async def list_spells(details: bool = False, raw: bool = False):
             spells_dir = self.app._resolve_spells_dir()
-            return {"ids": _scan_spell_ids(spells_dir)}
+            ids = _scan_spell_ids(spells_dir)
+            payload: Dict[str, Any] = {"ids": ids}
+            if not details:
+                return payload
+            spells: List[Dict[str, Any]] = []
+            if not spells_dir:
+                payload["spells"] = spells
+                return payload
+            for spell_id in ids:
+                text = _read_spell_yaml_text(spells_dir, spell_id)
+                if not text:
+                    spells.append({"id": spell_id, "raw": None, "parsed": None, "error": "Spell not found."})
+                    continue
+                entry: Dict[str, Any] = {"id": spell_id, "raw": text}
+                if not raw and yaml is not None:
+                    try:
+                        entry["parsed"] = yaml.safe_load(text)
+                    except Exception as exc:
+                        entry["parsed"] = None
+                        entry["error"] = f"Failed to parse YAML: {exc}"
+                spells.append(entry)
+            payload["spells"] = spells
+            return payload
 
         @app.get("/api/spells/{spell_id}")
         async def get_spell(spell_id: str, raw: bool = False):
