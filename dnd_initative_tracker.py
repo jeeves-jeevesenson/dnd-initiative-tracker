@@ -2131,6 +2131,7 @@ __DAMAGE_TYPE_OPTIONS__
   const spellConfigDefaults = {cantrips: 0, spells: 15};
   const preparedSpellDefaults = {prepared: [], max: null, maxFormula: ""};
   let spellSelectContext = "known";
+  const spellSelectModeByContext = {known: false, prepared: false};
   let spellSelectMode = false;
   let spellSelectLastCount = 0;
   let selectedKnownSpellKeys = new Set();
@@ -2412,12 +2413,19 @@ __DAMAGE_TYPE_OPTIONS__
     if (!raw || typeof raw !== "object"){
       return {cantrips: defaults.cantrips, spells: defaults.spells, names: []};
     }
-    const names = Array.isArray(raw.known_spell_names)
-      ? raw.known_spell_names.map(normalizeTextValue).filter(Boolean)
+    const source = raw.spellcasting && typeof raw.spellcasting === "object" ? raw.spellcasting : raw;
+    const names = Array.isArray(source.known_spell_names)
+      ? source.known_spell_names.map(normalizeTextValue).filter(Boolean)
       : [];
     return {
-      cantrips: normalizeSpellConfigValue(raw.known_cantrips, defaults.cantrips),
-      spells: normalizeSpellConfigValue(raw.known_spells, defaults.spells),
+      cantrips: normalizeSpellConfigValue(
+        source.known_cantrips ?? source.cantrips,
+        defaults.cantrips
+      ),
+      spells: normalizeSpellConfigValue(
+        source.known_spells ?? source.spells,
+        defaults.spells
+      ),
       names,
     };
   }
@@ -2508,7 +2516,10 @@ __DAMAGE_TYPE_OPTIONS__
         raw = store[name];
       }
     }
-    const preparedData = raw?.prepared_spells;
+    const preparedSource = raw?.spellcasting && typeof raw.spellcasting === "object"
+      ? raw.spellcasting
+      : raw;
+    const preparedData = preparedSource?.prepared_spells;
     if (!preparedData || typeof preparedData !== "object"){
       return defaults;
     }
@@ -2555,8 +2566,31 @@ __DAMAGE_TYPE_OPTIONS__
     return spellSelectContext === "prepared" ? selectedPreparedSpellKeys : selectedKnownSpellKeys;
   }
 
+  function isSpellSelectModeActive(context){
+    return !!spellSelectModeByContext[context];
+  }
+
+  function applySpellSelectMode(){
+    spellSelectMode = isSpellSelectModeActive(spellSelectContext);
+    spellSelectOverlay?.classList.toggle("selecting", spellSelectMode);
+    if (spellSelectSaveBtn){
+      spellSelectSaveBtn.disabled = !spellSelectMode;
+    }
+  }
+
+  function resetSpellSelectModes(){
+    spellSelectModeByContext.known = false;
+    spellSelectModeByContext.prepared = false;
+    applySpellSelectMode();
+    updateSpellSelectUiLabels();
+    if (spellSelectSaveBtn){
+      spellSelectSaveBtn.disabled = true;
+    }
+  }
+
   function setSpellSelectContext(next){
     spellSelectContext = next === "prepared" ? "prepared" : "known";
+    applySpellSelectMode();
     updateSpellSelectUiLabels();
     updateSpellSelectSummary();
   }
@@ -2599,9 +2633,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
       updateSpellSelectUiLabels();
-      if (spellSelectSaveBtn){
-        spellSelectSaveBtn.disabled = !spellSelectMode;
-      }
+      applySpellSelectMode();
       renderSpellSelectTable(cachedSpellPresets);
       requestAnimationFrame(() => {
         spellSelectCloseBtn?.focus();
@@ -2634,6 +2666,17 @@ __DAMAGE_TYPE_OPTIONS__
         prepared: preparedNames,
         ...(preparedMaxFormula ? {max_formula: preparedMaxFormula} : {}),
       },
+      spellcasting: {
+        cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
+        known_spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
+        known_spell_names: Array.isArray(config.names)
+          ? config.names.map(normalizeTextValue).filter(Boolean)
+          : [],
+        prepared_spells: {
+          prepared: preparedNames,
+          ...(preparedMaxFormula ? {max_formula: preparedMaxFormula} : {}),
+        },
+      },
     };
     if (!state.player_profiles || typeof state.player_profiles !== "object"){
       state.player_profiles = {};
@@ -2646,6 +2689,10 @@ __DAMAGE_TYPE_OPTIONS__
       profile.spellcasting = {};
     }
     profile.spellcasting.known_cantrips = normalizeSpellConfigValue(
+      config.cantrips,
+      spellConfigDefaults.cantrips
+    );
+    profile.spellcasting.cantrips = normalizeSpellConfigValue(
       config.cantrips,
       spellConfigDefaults.cantrips
     );
@@ -2682,6 +2729,17 @@ __DAMAGE_TYPE_OPTIONS__
       prepared_spells: {
         prepared: preparedNames,
         ...(preparedMaxFormula ? {max_formula: preparedMaxFormula} : {}),
+      },
+      spellcasting: {
+        cantrips: normalizeSpellConfigValue(config.cantrips, spellConfigDefaults.cantrips),
+        known_spells: normalizeSpellConfigValue(config.spells, spellConfigDefaults.spells),
+        known_spell_names: Array.isArray(config.names)
+          ? config.names.map(normalizeTextValue).filter(Boolean)
+          : [],
+        prepared_spells: {
+          prepared: preparedNames,
+          ...(preparedMaxFormula ? {max_formula: preparedMaxFormula} : {}),
+        },
       },
     };
     try {
@@ -4782,6 +4840,7 @@ __DAMAGE_TYPE_OPTIONS__
         maybeShowTurnAlert();
         autoCenterOnJoin();
         syncKnownSpellsFromState();
+        syncPreparedSpellsFromState();
         if (!claimedCid){
           showNoOwnedPcToast(msg.pcs || msg.claimable || []);
         } else {
@@ -4791,12 +4850,7 @@ __DAMAGE_TYPE_OPTIONS__
               meEl.textContent = "(unclaimed)";
               shownNoOwnedToast = false;
               showNoOwnedPcToast(msg.pcs || msg.claimable || []);
-              spellSelectMode = false;
-              spellSelectOverlay?.classList.remove("selecting");
-              updateSpellSelectUiLabels();
-              if (spellSelectSaveBtn){
-                spellSelectSaveBtn.disabled = true;
-              }
+              resetSpellSelectModes();
               selectedKnownSpellKeys = new Set();
               selectedPreparedSpellKeys = new Set();
               updateSpellSelectSummary();
@@ -4811,6 +4865,7 @@ __DAMAGE_TYPE_OPTIONS__
           shownNoOwnedToast = false;
           autoCenterOnJoin();
           syncKnownSpellsFromState({force: true});
+          syncPreparedSpellsFromState({force: true});
         }
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
@@ -4820,12 +4875,7 @@ __DAMAGE_TYPE_OPTIONS__
         meEl.textContent = "(unclaimed)";
         shownNoOwnedToast = false;
         showNoOwnedPcToast(msg.pcs || lastPcList || []);
-        spellSelectMode = false;
-        spellSelectOverlay?.classList.remove("selecting");
-        updateSpellSelectUiLabels();
-        if (spellSelectSaveBtn){
-          spellSelectSaveBtn.disabled = true;
-        }
+        resetSpellSelectModes();
         selectedKnownSpellKeys = new Set();
         selectedPreparedSpellKeys = new Set();
         updateSpellSelectSummary();
@@ -5377,7 +5427,7 @@ __DAMAGE_TYPE_OPTIONS__
     return names.sort((a, b) => a.localeCompare(b));
   };
   const syncKnownSpellsFromState = ({force = false} = {}) => {
-    if (!claimedCid || spellSelectMode) return;
+    if (!claimedCid || isSpellSelectModeActive("known")) return;
     const stored = loadKnownSpells(claimedCid);
     const nextKeys = new Set(stored.map(getSpellKey));
     if (!force && nextKeys.size === selectedKnownSpellKeys.size){
@@ -5392,6 +5442,26 @@ __DAMAGE_TYPE_OPTIONS__
       }
     }
     selectedKnownSpellKeys = nextKeys;
+    updateSpellSelectSummary();
+    renderSpellSelectTable(cachedSpellPresets);
+    refreshSpellPresetOptions();
+  };
+  const syncPreparedSpellsFromState = ({force = false} = {}) => {
+    if (!claimedCid || isSpellSelectModeActive("prepared")) return;
+    const stored = loadPreparedSpells(claimedCid);
+    const nextKeys = new Set(stored.map(getSpellKey));
+    if (!force && nextKeys.size === selectedPreparedSpellKeys.size){
+      let same = true;
+      nextKeys.forEach((key) => {
+        if (!selectedPreparedSpellKeys.has(key)){
+          same = false;
+        }
+      });
+      if (same){
+        return;
+      }
+    }
+    selectedPreparedSpellKeys = nextKeys;
     updateSpellSelectSummary();
     renderSpellSelectTable(cachedSpellPresets);
     refreshSpellPresetOptions();
@@ -5570,8 +5640,8 @@ __DAMAGE_TYPE_OPTIONS__
       localToast("Claim a character first.");
       return;
     }
-    spellSelectMode = !!active;
-    spellSelectOverlay?.classList.toggle("selecting", spellSelectMode);
+    spellSelectModeByContext[spellSelectContext] = !!active;
+    applySpellSelectMode();
     if (spellSelectMode && claimedCid){
       const stored = spellSelectContext === "prepared"
         ? loadPreparedSpells(claimedCid)
@@ -5584,9 +5654,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
     }
     updateSpellSelectUiLabels();
-    if (spellSelectSaveBtn){
-      spellSelectSaveBtn.disabled = !spellSelectMode;
-    }
+    applySpellSelectMode();
     renderSpellSelectTable(cachedSpellPresets);
   };
   const toggleSpellSelection = (key, shouldSelect) => {
@@ -5909,8 +5977,8 @@ __DAMAGE_TYPE_OPTIONS__
     blank.value = "";
     blank.textContent = "Custom";
     castPresetInput.appendChild(blank);
-    const knownSpellSet = getKnownSpellFilterSet();
-    const filtered = filterPresetsByKnownList(cachedSpellPresets, knownSpellSet)
+    const preparedSpellSet = getPreparedSpellFilterSet();
+    const filtered = filterPresetsByKnownList(cachedSpellPresets, preparedSpellSet)
       .filter(matchesSpellFilters);
     if (!filtered.length){
       const empty = document.createElement("option");
@@ -9949,6 +10017,11 @@ class InitiativeTracker(base.InitiativeTracker):
         for key in ("known_cantrips", "known_spells", "known_spell_names"):
             if key not in spellcasting and key in data:
                 spellcasting[key] = data.get(key)
+        if "cantrips" not in spellcasting:
+            if "cantrips" in data:
+                spellcasting["cantrips"] = data.get("cantrips")
+            elif "known_cantrips" in spellcasting:
+                spellcasting["cantrips"] = spellcasting.get("known_cantrips")
         if "prepared_spells" not in spellcasting and "prepared_spells" in data:
             spellcasting["prepared_spells"] = data.get("prepared_spells")
 
@@ -9984,8 +10057,14 @@ class InitiativeTracker(base.InitiativeTracker):
         source = data
         if isinstance(data.get("spellcasting"), dict):
             source = data.get("spellcasting", {})
-        known_cantrips = normalize_limit(source.get("known_cantrips"), 0)
-        known_spells = normalize_limit(source.get("known_spells"), 15)
+        known_cantrips = normalize_limit(
+            source.get("known_cantrips", source.get("cantrips")),
+            0,
+        )
+        known_spells = normalize_limit(
+            source.get("known_spells", source.get("spells")),
+            15,
+        )
         raw_names = source.get("known_spell_names")
         names: List[str] = []
         if isinstance(raw_names, list):
@@ -10028,6 +10107,14 @@ class InitiativeTracker(base.InitiativeTracker):
         }
         if prepared_payload:
             payload["prepared_spells"] = prepared_payload
+        spellcasting_payload: Dict[str, Any] = {
+            "cantrips": known_cantrips,
+            "known_spells": known_spells,
+            "known_spell_names": names,
+        }
+        if prepared_payload:
+            spellcasting_payload["prepared_spells"] = prepared_payload
+        payload["spellcasting"] = spellcasting_payload
         return payload
 
     def _load_player_yaml_cache(self) -> None:
@@ -10134,13 +10221,18 @@ class InitiativeTracker(base.InitiativeTracker):
 
         normalized = self._normalize_player_spell_config(payload, include_missing_prepared=False)
         prepared_payload = normalized.get("prepared_spells")
-        normalized_known = {k: v for k, v in normalized.items() if k != "prepared_spells"}
+        spellcasting_payload = normalized.get("spellcasting")
+        normalized_known = {
+            k: v for k, v in normalized.items() if k not in ("prepared_spells", "spellcasting")
+        }
 
         if int(existing.get("format_version") or 0) == 1:
             spellcasting = existing.get("spellcasting")
             if not isinstance(spellcasting, dict):
                 spellcasting = {}
             spellcasting.update(normalized_known)
+            if isinstance(spellcasting_payload, dict):
+                spellcasting.update(spellcasting_payload)
             if prepared_payload is not None:
                 existing_prepared = spellcasting.get("prepared_spells")
                 if not isinstance(existing_prepared, dict):
@@ -10164,6 +10256,19 @@ class InitiativeTracker(base.InitiativeTracker):
                     existing_prepared = {}
                 existing_prepared.update(prepared_payload)
                 existing["prepared_spells"] = existing_prepared
+            spellcasting = existing.get("spellcasting")
+            if not isinstance(spellcasting, dict):
+                spellcasting = {}
+            spellcasting.update(normalized_known)
+            if isinstance(spellcasting_payload, dict):
+                spellcasting.update(spellcasting_payload)
+            if prepared_payload is not None:
+                existing_prepared = spellcasting.get("prepared_spells")
+                if not isinstance(existing_prepared, dict):
+                    existing_prepared = {}
+                existing_prepared.update(prepared_payload)
+                spellcasting["prepared_spells"] = existing_prepared
+            existing["spellcasting"] = spellcasting
 
         yaml_text = yaml.safe_dump(existing, sort_keys=False)
         path.write_text(yaml_text, encoding="utf-8")
