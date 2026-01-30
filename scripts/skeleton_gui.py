@@ -148,6 +148,7 @@ def base_template() -> Dict[str, Any]:
         "name": "",
         "player": "",
         "campaign": "",
+        "ip": "",
         "identity": {
             "pronouns": "",
             "ancestry": "",
@@ -437,7 +438,7 @@ class BasicsPage(WizardPage):
         super().__init__(master, app)
 
         self.columnconfigure(1, weight=1)
-        self.rowconfigure(8, weight=1)
+        self.rowconfigure(9, weight=1)
 
         ttk.Label(self, text="Character name:").grid(row=0, column=0, sticky="w", padx=8, pady=(10, 4))
         self.name_var = tk.StringVar()
@@ -452,33 +453,38 @@ class BasicsPage(WizardPage):
         self.campaign_var = tk.StringVar()
         ttk.Entry(self, textvariable=self.campaign_var).grid(row=2, column=1, sticky="ew", padx=8, pady=4)
 
-        ttk.Separator(self).grid(row=3, column=0, columnspan=3, sticky="ew", padx=8, pady=(10, 10))
+        ttk.Label(self, text="IP:").grid(row=3, column=0, sticky="w", padx=8, pady=4)
+        self.ip_var = tk.StringVar()
+        ttk.Entry(self, textvariable=self.ip_var).grid(row=3, column=1, sticky="ew", padx=8, pady=4)
 
-        ttk.Label(self, text="Pronouns:").grid(row=4, column=0, sticky="w", padx=8, pady=4)
+        ttk.Separator(self).grid(row=4, column=0, columnspan=3, sticky="ew", padx=8, pady=(10, 10))
+
+        ttk.Label(self, text="Pronouns:").grid(row=5, column=0, sticky="w", padx=8, pady=4)
         self.pronouns_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self.pronouns_var).grid(row=4, column=1, sticky="ew", padx=8, pady=4)
+        ttk.Entry(self, textvariable=self.pronouns_var).grid(row=5, column=1, sticky="ew", padx=8, pady=4)
 
-        ttk.Label(self, text="Ancestry/species:").grid(row=5, column=0, sticky="w", padx=8, pady=4)
+        ttk.Label(self, text="Ancestry/species:").grid(row=6, column=0, sticky="w", padx=8, pady=4)
         self.ancestry_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self.ancestry_var).grid(row=5, column=1, sticky="ew", padx=8, pady=4)
+        ttk.Entry(self, textvariable=self.ancestry_var).grid(row=6, column=1, sticky="ew", padx=8, pady=4)
 
-        ttk.Label(self, text="Background:").grid(row=6, column=0, sticky="w", padx=8, pady=4)
+        ttk.Label(self, text="Background:").grid(row=7, column=0, sticky="w", padx=8, pady=4)
         self.background_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self.background_var).grid(row=6, column=1, sticky="ew", padx=8, pady=4)
+        ttk.Entry(self, textvariable=self.background_var).grid(row=7, column=1, sticky="ew", padx=8, pady=4)
 
-        ttk.Label(self, text="Alignment:").grid(row=7, column=0, sticky="w", padx=8, pady=4)
+        ttk.Label(self, text="Alignment:").grid(row=8, column=0, sticky="w", padx=8, pady=4)
         self.alignment_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self.alignment_var).grid(row=7, column=1, sticky="ew", padx=8, pady=4)
+        ttk.Entry(self, textvariable=self.alignment_var).grid(row=8, column=1, sticky="ew", padx=8, pady=4)
 
-        ttk.Label(self, text="Description:").grid(row=8, column=0, sticky="nw", padx=8, pady=4)
+        ttk.Label(self, text="Description:").grid(row=9, column=0, sticky="nw", padx=8, pady=4)
         self.desc_text = tk.Text(self, height=8, wrap="word")
-        self.desc_text.grid(row=8, column=1, sticky="nsew", padx=8, pady=4)
+        self.desc_text.grid(row=9, column=1, sticky="nsew", padx=8, pady=4)
 
     def on_show(self) -> None:
         c = self.app.char
         self.name_var.set(c.get("name", ""))
         self.player_var.set(c.get("player", ""))
         self.campaign_var.set(c.get("campaign", ""))
+        self.ip_var.set(c.get("ip", ""))
 
         ident = c.get("identity", {})
         self.pronouns_var.set(ident.get("pronouns", ""))
@@ -499,6 +505,7 @@ class BasicsPage(WizardPage):
         c["name"] = name
         c["player"] = self.player_var.get().strip()
         c["campaign"] = self.campaign_var.get().strip()
+        c["ip"] = self.ip_var.get().strip()
 
         c["identity"]["pronouns"] = self.pronouns_var.get().strip()
         c["identity"]["ancestry"] = self.ancestry_var.get().strip()
@@ -1502,14 +1509,25 @@ class FeaturesPage(WizardPage):
         self._update_feature_dependent_choices()
 
     def on_select_feature(self, _evt: Any) -> None:
-        # auto-save previous
-        self.save_to_state()
-
         sel = self.feature_list.curselection()
         if not sel:
             self._selected_idx = None
             return
         idx = sel[0]
+        
+        # If already on this feature, no need to do anything
+        if idx == self._selected_idx:
+            return
+        
+        # Try to save the current feature before switching
+        if not self.save_to_state():
+            # Save failed, revert the listbox selection
+            if self._selected_idx is not None:
+                self.feature_list.selection_clear(0, "end")
+                self.feature_list.selection_set(self._selected_idx)
+            return
+        
+        # Update to the new selection
         self._selected_idx = idx
         ft = self._current_feature()
         if not ft:
@@ -1563,8 +1581,20 @@ class FeaturesPage(WizardPage):
         feats = self.app.char.get("features", [])
         other_ids = {f.get("id") for f in feats if f is not ft}
         if fid in other_ids:
-            messagebox.showerror("Duplicate feature id", f"Feature id '{fid}' already exists.")
-            return False
+            # Auto-rename with a number suffix
+            base_id = fid
+            n = 2
+            while fid in other_ids:
+                fid = f"{base_id}_{n}"
+                n += 1
+            response = messagebox.askyesno(
+                "Duplicate Feature ID", 
+                f"Feature id '{base_id}' already exists.\n\nAuto-rename to '{fid}'?"
+            )
+            if response:
+                self.f_id.set(fid)
+            else:
+                return False
 
         ft["id"] = fid
         ft["name"] = self.f_name.get().strip()
@@ -2045,10 +2075,15 @@ class WizardApp(tk.Tk):
         self.title("Character YAML Builder")
         self.geometry("1200x900")
 
-        # autodetect dirs
+        # autodetect dirs - check if we're in scripts/ subdirectory
         cwd = os.getcwd()
-        self.spells_dir = os.path.join(cwd, "Spells")
-        self.players_dir = os.path.join(cwd, "players")
+        # If script is in scripts/ directory, use parent directory
+        if os.path.basename(cwd) == "scripts":
+            root_dir = os.path.dirname(cwd)
+        else:
+            root_dir = cwd
+        self.spells_dir = os.path.join(root_dir, "Spells")
+        self.players_dir = os.path.join(root_dir, "players")
         os.makedirs(self.players_dir, exist_ok=True)
 
         self.spell_ids: List[str] = []
@@ -2127,8 +2162,13 @@ class WizardApp(tk.Tk):
         self.back_btn = ttk.Button(nav, text="← Back", command=self.go_back)
         self.back_btn.grid(row=0, column=0, sticky="w")
 
+        # Save Current Feature button (only visible on Features page)
+        self.save_feature_btn = ttk.Button(nav, text="Save Current Feature", command=self.save_current_feature)
+        self.save_feature_btn.grid(row=0, column=2, sticky="e", padx=(0, 10))
+        self.save_feature_btn.grid_remove()  # Hide by default
+
         self.next_btn = ttk.Button(nav, text="Next →", command=self.go_next)
-        self.next_btn.grid(row=0, column=2, sticky="e")
+        self.next_btn.grid(row=0, column=3, sticky="e")
 
         self.progress = ttk.Label(nav, text="")
         self.progress.grid(row=0, column=1, sticky="ew")
@@ -2172,6 +2212,12 @@ class WizardApp(tk.Tk):
         self.next_btn.configure(text=("Finish" if idx == len(self.pages) - 1 else "Next →"))
         self.progress.configure(text=f"{idx + 1} / {len(self.pages)} — {page.title}")
 
+        # Show "Save Current Feature" button only on Features page
+        if page.title == "Features":
+            self.save_feature_btn.grid()
+        else:
+            self.save_feature_btn.grid_remove()
+
         self.side_file.configure(text=f"File: {self.current_path or '(unsaved)'}")
 
     def go_back(self) -> None:
@@ -2194,6 +2240,13 @@ class WizardApp(tk.Tk):
                 if self.pages[self.page_index].save_to_state():
                     self.show_page(i)
                 return
+
+    def save_current_feature(self) -> None:
+        """Save the currently edited feature on the Features page."""
+        page = self.pages[self.page_index]
+        if page.title == "Features":
+            if page.save_to_state():
+                messagebox.showinfo("Feature Saved", "Current feature saved successfully.")
 
     # ----- file ops -----
     def new_character(self) -> None:
