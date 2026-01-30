@@ -9991,7 +9991,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if "name" not in identity and name:
             identity["name"] = name
 
-        raw_ip = identity.get("ip")
+        raw_ip = identity.get("ip") if "ip" in identity else data.get("ip")
         normalized_ip = self._normalize_identity_host(raw_ip)
         if normalized_ip:
             identity["ip"] = normalized_ip
