@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Edit Character</title>
+  <link rel="stylesheet" href="/assets/web/edit_character/styles.css" />
+</head>
+<body>
+  <main class="page">
+    <header>
+      <p class="eyebrow">InitTracker LAN</p>
+      <h1>Edit Character</h1>
+      <p class="subtitle">Review your assigned character and overwrite the YAML when you are ready.</p>
+    </header>
+
+    <section class="panel">
+      <div id="character-form" class="form-grid" aria-live="polite"></div>
+      <div class="actions">
+        <div class="action-buttons">
+          <button class="primary" type="button" id="overwrite-button">Overwrite</button>
+          <button class="ghost" type="button" id="export-button">Export YAML</button>
+        </div>
+        <div class="field">
+          <label for="filename-input">YAML filename</label>
+          <input type="text" id="filename-input" name="filename-input" placeholder="e.g., merisiel.yaml" autocomplete="off" />
+        </div>
+        <p class="status" id="draft-status" role="status">Loading your assigned character…</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/assets/web/edit_character/app.js"></script>
+</body>
+</html>
