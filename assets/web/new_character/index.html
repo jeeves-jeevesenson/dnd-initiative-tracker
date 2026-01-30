@@ -17,7 +17,14 @@
     <section class="panel">
       <div id="character-form" class="form-grid" aria-live="polite"></div>
       <div class="actions">
-        <button class="primary" type="button" id="draft-button">Save draft</button>
+        <div class="action-buttons">
+          <button class="primary" type="button" id="draft-button">Save draft</button>
+          <button class="ghost" type="button" id="export-button">Export YAML</button>
+        </div>
+        <div class="field">
+          <label for="filename-input">YAML filename</label>
+          <input type="text" id="filename-input" name="filename-input" placeholder="e.g., merisiel.yaml" autocomplete="off" />
+        </div>
         <p class="status" id="draft-status" role="status">Drafts are stored locally on this device.</p>
       </div>
     </section>

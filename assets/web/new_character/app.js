@@ -2,7 +2,9 @@ const STORAGE_KEY = "inittracker:new-character-draft-v2";
 
 const statusEl = document.getElementById("draft-status");
 const button = document.getElementById("draft-button");
+const exportButton = document.getElementById("export-button");
 const formEl = document.getElementById("character-form");
+const filenameInput = document.getElementById("filename-input");
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -102,6 +104,13 @@ const mergeDefaults = (payload, defaults) => {
     return merged;
   }
   return payload === undefined ? defaults : payload;
+};
+
+const slugify = (value, separator = "_") => {
+  const text = String(value || "").trim().toLowerCase();
+  const normalized = text.replace(/[^\w\s-]/g, "").replace(/[\s-]+/g, separator);
+  const trimmed = normalized.replace(new RegExp(`^${separator}+|${separator}+$`, "g"), "");
+  return trimmed || "character";
 };
 
 const buildDefaultFromSchema = (schema) => {
@@ -572,7 +581,7 @@ const renderForm = (schema, data) => {
 const loadDraft = (defaults) => {
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    return defaults;
+    return { data: defaults, filename: "" };
   }
   try {
     const payload = JSON.parse(raw);
@@ -581,29 +590,88 @@ const loadDraft = (defaults) => {
       if (payload.savedAt) {
         statusEl.textContent = `Last saved ${payload.savedAt}.`;
       }
-      return merged;
+      return {
+        data: merged,
+        filename: typeof payload.filename === "string" ? payload.filename : "",
+      };
     }
   } catch (error) {
     console.warn("Unable to parse draft", error);
   }
-  return defaults;
+  return { data: defaults, filename: "" };
 };
 
-const saveDraft = (data) => {
+const saveDraft = (data, filename, { showStatus = true } = {}) => {
   const payload = {
     data,
+    filename,
     savedAt: new Date().toLocaleString(),
   };
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  statusEl.textContent = `Draft saved at ${payload.savedAt}.`;
+  if (showStatus) {
+    statusEl.textContent = `Draft saved at ${payload.savedAt}.`;
+  }
+};
+
+const buildExportFilename = (data) => {
+  const rawInput = filenameInput?.value?.trim() || "";
+  const base = rawInput || slugify(data?.name || "");
+  const withExtension = /\.ya?ml$/i.test(base) ? base : `${base}.yaml`;
+  return withExtension || "character.yaml";
+};
+
+const downloadYaml = (yamlText, filename) => {
+  const blob = new Blob([yamlText], { type: "application/x-yaml" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
+const exportYaml = async (data) => {
+  statusEl.textContent = "Preparing YAML export...";
+  try {
+    const response = await fetch("/api/characters/export", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ data }),
+    });
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || "Unable to export YAML.");
+    }
+    const yamlText = await response.text();
+    const filename = buildExportFilename(data);
+    downloadYaml(yamlText, filename);
+    statusEl.textContent = `Exported ${filename}.`;
+  } catch (error) {
+    console.warn("Unable to export YAML", error);
+    statusEl.textContent = "Unable to export YAML. Please try again.";
+  }
 };
 
 const boot = async () => {
   const schema = await loadSchema();
   const defaults = buildDefaultsFromSchema(schema);
-  const data = loadDraft(defaults);
+  const draft = loadDraft(defaults);
+  const data = draft.data;
   renderForm(schema, data);
-  button.addEventListener("click", () => saveDraft(data));
+  if (filenameInput) {
+    filenameInput.value = draft.filename || "";
+    filenameInput.addEventListener("input", () => {
+      saveDraft(data, filenameInput.value, { showStatus: false });
+    });
+  }
+  button.addEventListener("click", () => saveDraft(data, filenameInput?.value || ""));
+  if (exportButton) {
+    exportButton.addEventListener("click", () => exportYaml(data));
+  }
 };
 
 boot();

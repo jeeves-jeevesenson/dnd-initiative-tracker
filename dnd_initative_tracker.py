@@ -8172,6 +8172,21 @@ class LanController:
                 "readme_map": self.app._character_schema_readme_map(),
             }
 
+        @app.post("/api/characters/export")
+        async def export_character(payload: Dict[str, Any] = Body(...)):
+            if not isinstance(payload, dict):
+                raise HTTPException(status_code=400, detail="Invalid payload.")
+            if yaml is None:
+                raise HTTPException(status_code=500, detail="YAML support is not available.")
+            data = payload.get("data")
+            if data is None:
+                raise HTTPException(status_code=400, detail="Missing character data.")
+            try:
+                text = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"Unable to export YAML: {exc}")
+            return Response(text, media_type="application/x-yaml")
+
         @app.get("/api/characters/{name}")
         async def get_character(name: str):
             try:
