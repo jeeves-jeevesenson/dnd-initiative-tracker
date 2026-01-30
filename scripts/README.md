@@ -39,6 +39,58 @@ irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/
 .\scripts\quick-install.ps1
 ```
 
+## Update Scripts
+
+### update-linux.sh (Linux/macOS)
+Automated update script that safely updates the application to the latest version:
+- Checks if updates are available from GitHub
+- Shows you the changes before applying them
+- Pulls latest code from the main branch
+- Updates Python dependencies
+- **Automatically cleans up temporary files**
+- Safe to cancel at any time
+
+**Usage:**
+```bash
+# From the installation directory
+~/.local/share/dnd-initiative-tracker/scripts/update-linux.sh
+
+# Or use the built-in Help → Check for Updates menu in the app
+```
+
+**Features:**
+- ✓ Shows preview of changes before updating
+- ✓ Confirms before making any changes
+- ✓ Updates both code and dependencies
+- ✓ Cleans up all temporary files automatically
+- ✓ Safe cancellation at any point
+
+### update-windows.ps1 (Windows)
+Automated update script for Windows:
+- Same features as Linux version
+- Windows-specific error handling and UI
+- Automatically cleans up temporary files in `%TEMP%`
+- Works with the quick-install installation
+
+**Usage:**
+```powershell
+# From the installation directory
+cd $env:LOCALAPPDATA\DnDInitiativeTracker
+.\scripts\update-windows.ps1
+
+# Or use the built-in Help → Check for Updates menu in the app
+```
+
+**Features:**
+- ✓ Color-coded output for better visibility
+- ✓ Shows preview of changes before updating
+- ✓ Confirms before making any changes  
+- ✓ Updates both code and dependencies
+- ✓ Cleans up all temporary files automatically
+- ✓ Detailed error messages with solutions
+
+**Note:** Both update scripts require the application to be installed via git (using quick-install or manual git clone). If you installed from a ZIP download, you'll need to reinstall using the quick-install script to enable updates.
+
 ## Windows 11
 
 ### install-windows.bat

@@ -358,6 +358,84 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### Updating
+
+The D&D Initiative Tracker includes a built-in update checker and easy update workflow for both Linux and Windows users.
+
+#### Built-in Update Checker
+
+The application has a **Help → Check for Updates** menu option that:
+- Checks GitHub for the latest release version
+- Checks for new commits on the main branch
+- Shows you what's new in the update
+- Can automatically launch the update script for you
+
+To check for updates:
+1. Open the D&D Initiative Tracker application
+2. Click **Help** → **Check for Updates**
+3. Follow the prompts if an update is available
+
+#### Manual Update
+
+If you prefer to update manually or if the built-in updater isn't working:
+
+**For Quick Install Users (Recommended):**
+
+Linux/macOS:
+```bash
+# Navigate to the installation directory
+cd ~/.local/share/dnd-initiative-tracker
+
+# Run the update script
+./scripts/update-linux.sh
+```
+
+Windows:
+```powershell
+# Navigate to the installation directory
+cd $env:LOCALAPPDATA\DnDInitiativeTracker
+
+# Run the update script
+.\scripts\update-windows.ps1
+```
+
+**For Manual Installation Users:**
+
+Simply pull the latest changes and update dependencies:
+
+```bash
+# Navigate to your repository
+cd dnd-initiative-tracker
+
+# Pull latest changes
+git pull origin main
+
+# Activate virtual environment
+source .venv/bin/activate  # Linux/macOS
+# Or: .venv\Scripts\activate  # Windows
+
+# Update dependencies
+pip install -r requirements.txt
+```
+
+#### What the Update Does
+
+The update scripts will:
+1. Check if updates are available
+2. Show you the changes that will be applied
+3. Ask for confirmation before updating
+4. Pull the latest code from GitHub
+5. Update Python dependencies
+6. **Clean up all temporary files** (no garbage left behind!)
+7. Show you a completion message
+
+#### Update Notes
+
+- **No data loss**: Your saved battles, presets, and player characters are preserved
+- **Clean process**: All temporary files are automatically cleaned up
+- **Safe to cancel**: You can cancel at any time before confirming
+- **Restart required**: After updating, restart the application to use the new version
+
 ### Uninstalling
 
 **If you used the quick install:**
