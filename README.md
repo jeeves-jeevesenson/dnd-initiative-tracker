@@ -321,6 +321,39 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### Uninstalling
+
+**If you used the quick install:**
+
+Linux/macOS:
+```bash
+# Download and run the uninstaller
+curl -sSL https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/uninstall-linux.sh | bash
+
+# Or if you still have the repository
+./scripts/uninstall-linux.sh
+```
+
+Windows:
+```powershell
+# Download and run the uninstaller
+irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/uninstall-windows.ps1 | iex
+
+# Or if you still have the repository
+.\scripts\uninstall-windows.ps1
+```
+
+This will remove:
+- All application files from the installation directory
+- Desktop shortcuts (Windows)
+- Start Menu entries (Windows)
+- Launcher command (Linux/macOS)
+- Desktop menu entry (Linux)
+
+**If you installed manually:**
+
+Simply delete the cloned repository directory and any virtual environment you created.
+
 ### Dependencies
 
 The `requirements.txt` includes:
