@@ -696,6 +696,20 @@ HTML_INDEX = r"""<!doctype html>
       color: var(--text);
       font-weight: 600;
     }
+    .spell-info-content{
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .spell-info-link{
+      color: var(--accent);
+      text-decoration: none;
+      word-break: break-word;
+    }
+    .spell-info-link:hover,
+    .spell-info-link:focus{
+      text-decoration: underline;
+    }
     .manual-entry-badge{
       display: none;
       align-items: center;
@@ -1526,6 +1540,7 @@ HTML_INDEX = r"""<!doctype html>
                 <select id="castPreset">
                   <option value="" selected>Custom</option>
                 </select>
+                <button class="btn" id="castInfoBtn" type="button">Info</button>
               </div>
             </div>
             <div class="form-field">
@@ -1635,6 +1650,15 @@ __DAMAGE_TYPE_OPTIONS__
       </div>
     </div>
   </div>
+  </div>
+</div>
+<div class="modal" id="spellInfoModal" aria-hidden="true">
+  <div class="card card-scroll">
+    <div class="admin-header">
+      <h2>Spell Info</h2>
+      <button class="btn" id="spellInfoClose" type="button">Close</button>
+    </div>
+    <div class="spell-info-content" id="spellInfoContent">Select a preset to see spell info.</div>
   </div>
 </div>
 <div class="turn-modal" id="turnModal" aria-hidden="true">
@@ -1992,6 +2016,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castFilterListInput = document.getElementById("castFilterList");
   const castPresetInput = document.getElementById("castPreset");
   const castManualEntryBadge = document.getElementById("castManualEntryBadge");
+  const castInfoBtn = document.getElementById("castInfoBtn");
   const castNameInput = document.getElementById("castName");
   const castShapeInput = document.getElementById("castShape");
   const castRadiusField = document.getElementById("castRadiusField");
@@ -2020,6 +2045,9 @@ __DAMAGE_TYPE_OPTIONS__
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
   const spellPresetDetails = document.getElementById("spellPresetDetails");
+  const spellInfoModal = document.getElementById("spellInfoModal");
+  const spellInfoContent = document.getElementById("spellInfoContent");
+  const spellInfoCloseBtn = document.getElementById("spellInfoClose");
   const sheetWrap = document.getElementById("sheetWrap");
   const sheet = document.getElementById("sheet");
   const sheetHandle = document.getElementById("sheetHandle");
@@ -2255,6 +2283,9 @@ __DAMAGE_TYPE_OPTIONS__
     castOverlay.setAttribute("aria-hidden", open ? "false" : "true");
     if (sheet){
       sheet.classList.toggle("hidden", open);
+    }
+    if (!open){
+      hideSpellInfoModal();
     }
     if (open){
       castOverlayPreviousFocus = document.activeElement instanceof HTMLElement
@@ -4988,14 +5019,92 @@ __DAMAGE_TYPE_OPTIONS__
       castManualEntryBadge.removeAttribute("aria-label");
     }
   };
+  function getSelectedSpellPreset(){
+    const name = normalizeTextValue(castPresetInput?.value);
+    if (!name) return null;
+    return cachedSpellPresets.find(preset => normalizeTextValue(preset.name) === name) || null;
+  }
+  function updateSpellInfoButton(preset){
+    if (!castInfoBtn) return;
+    const hasPreset = Boolean(preset);
+    castInfoBtn.disabled = !hasPreset;
+    castInfoBtn.setAttribute("aria-disabled", hasPreset ? "false" : "true");
+  }
+  function renderSpellInfoModal(preset){
+    if (!spellInfoContent) return;
+    spellInfoContent.textContent = "";
+    if (!preset){
+      spellInfoContent.textContent = "Select a preset to see spell info.";
+      return;
+    }
+    const detailsGrid = document.createElement("div");
+    detailsGrid.className = "spell-details-grid";
+    const listEntries = getSpellListEntries(preset.lists);
+    const listLabel = listEntries.length
+      ? listEntries.map((entry) => `${formatListGroupLabel(entry.group)}: ${entry.value}`).join(" · ")
+      : "—";
+    const urlValue = normalizeTextValue(preset.url);
+    const baseFields = [
+      {label: "Name", value: normalizeTextValue(preset.name) || "—"},
+      {label: "Level", value: formatSpellLevelLabel(preset.level)},
+      {label: "School", value: normalizeTextValue(preset.school) || "—"},
+    ];
+    const optionalFields = buildOptionalSpellDetails(preset).filter((field) => field.label !== "Lists");
+    const fields = [
+      ...baseFields,
+      ...optionalFields,
+      {label: "Lists", value: listLabel},
+      {label: "URL", value: urlValue || "—", link: urlValue},
+    ];
+    fields.forEach((field) => {
+      const row = document.createElement("div");
+      row.className = "spell-details-row";
+      const label = document.createElement("span");
+      label.className = "spell-details-label";
+      label.textContent = field.label;
+      const value = document.createElement("span");
+      value.className = "spell-details-value";
+      if (field.link){
+        const link = document.createElement("a");
+        link.className = "spell-info-link";
+        link.href = field.link;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = field.value;
+        value.appendChild(link);
+      } else {
+        value.textContent = field.value;
+      }
+      row.appendChild(label);
+      row.appendChild(value);
+      detailsGrid.appendChild(row);
+    });
+    spellInfoContent.appendChild(detailsGrid);
+  }
+  function showSpellInfoModal(){
+    if (!spellInfoModal) return;
+    renderSpellInfoModal(getSelectedSpellPreset());
+    spellInfoModal.classList.add("show");
+    spellInfoModal.setAttribute("aria-hidden", "false");
+  }
+  function hideSpellInfoModal(){
+    if (!spellInfoModal) return;
+    spellInfoModal.classList.remove("show");
+    spellInfoModal.setAttribute("aria-hidden", "true");
+  }
   const updateSpellPresetDetails = (preset) => {
     if (!spellPresetDetails) return;
     if (!preset){
       spellPresetDetails.textContent = "Select a preset to see spell details.";
       updateManualEntryBadge(null);
+      updateSpellInfoButton(null);
+      if (spellInfoModal?.classList.contains("show")){
+        renderSpellInfoModal(null);
+      }
       return;
     }
     updateManualEntryBadge(preset);
+    updateSpellInfoButton(preset);
     const detailsGrid = document.createElement("div");
     detailsGrid.className = "spell-details-grid";
     const levelLabel = formatSpellLevelLabel(preset.level);
@@ -5034,6 +5143,9 @@ __DAMAGE_TYPE_OPTIONS__
     });
     spellPresetDetails.textContent = "";
     spellPresetDetails.appendChild(detailsGrid);
+    if (spellInfoModal?.classList.contains("show")){
+      renderSpellInfoModal(preset);
+    }
   };
   const formatSpellDamageLabel = (preset) => {
     const base = preset?.default_damage ?? preset?.dice ?? "";
@@ -5963,6 +6075,23 @@ __DAMAGE_TYPE_OPTIONS__
   if (logCloseBtn){
     logCloseBtn.addEventListener("click", () => {
       hideLogModal();
+    });
+  }
+  if (castInfoBtn){
+    castInfoBtn.addEventListener("click", () => {
+      showSpellInfoModal();
+    });
+  }
+  if (spellInfoCloseBtn){
+    spellInfoCloseBtn.addEventListener("click", () => {
+      hideSpellInfoModal();
+    });
+  }
+  if (spellInfoModal){
+    spellInfoModal.addEventListener("click", (event) => {
+      if (event.target === spellInfoModal){
+        hideSpellInfoModal();
+      }
     });
   }
   if (configBtn){
