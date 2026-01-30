@@ -15,6 +15,20 @@ const SPELL_PICKER_PATHS = new Set([
 const spellPathKey = (path) => path.join(".");
 const isSpellPickerPath = (path) => SPELL_PICKER_PATHS.has(spellPathKey(path));
 
+const getFieldPlaceholder = (field) => field.placeholder || field.example || "";
+const getFieldHelpText = (field) => field.help || (field.example ? `Example: ${field.example}` : "");
+
+const appendHelpText = (container, field) => {
+  const helpText = getFieldHelpText(field);
+  if (!helpText) {
+    return;
+  }
+  const help = document.createElement("p");
+  help.className = "field-help";
+  help.textContent = helpText;
+  container.appendChild(help);
+};
+
 const loadSpellIds = (() => {
   let cache = null;
   let inflight = null;
@@ -160,6 +174,7 @@ const createInput = (field, value, path, data) => {
   const label = document.createElement("label");
   label.textContent = field.label || field.key;
   wrapper.appendChild(label);
+  appendHelpText(wrapper, field);
 
   let input;
   const inputType = Array.isArray(field.type) ? "string" : field.type;
@@ -183,6 +198,7 @@ const createInput = (field, value, path, data) => {
     input = document.createElement("textarea");
     input.rows = 3;
     input.value = value ?? "";
+    input.placeholder = getFieldPlaceholder(field);
     input.addEventListener("input", () => {
       setValueAtPath(data, path, input.value);
     });
@@ -190,6 +206,7 @@ const createInput = (field, value, path, data) => {
     input = document.createElement("input");
     input.type = "text";
     input.value = value ?? "";
+    input.placeholder = getFieldPlaceholder(field);
     input.addEventListener("input", () => {
       setValueAtPath(data, path, input.value);
     });
@@ -217,6 +234,7 @@ const renderArrayField = (field, path, data) => {
   header.appendChild(addButton);
 
   container.appendChild(header);
+  appendHelpText(container, field);
 
   const itemsContainer = document.createElement("div");
   itemsContainer.className = "array-items";
@@ -259,6 +277,7 @@ const renderArrayField = (field, path, data) => {
           ...itemSchema,
           label: itemSchema.label || field.label || "Value",
           key: itemSchema.key || field.key,
+          placeholder: itemSchema.placeholder || field.placeholder,
         };
         itemWrapper.appendChild(renderField(primitiveSchema, itemPath, data, item));
       }
@@ -297,6 +316,7 @@ const renderMapField = (field, path, data) => {
   header.appendChild(addButton);
 
   container.appendChild(header);
+  appendHelpText(container, field);
 
   const itemsContainer = document.createElement("div");
   itemsContainer.className = "array-items";
@@ -312,12 +332,12 @@ const renderMapField = (field, path, data) => {
       const keyInput = document.createElement("input");
       keyInput.type = "text";
       keyInput.value = key;
-      keyInput.placeholder = "Key";
+      keyInput.placeholder = field.key_placeholder || "Key";
 
       const valueInput = document.createElement("input");
       valueInput.type = "text";
       valueInput.value = entryValue ?? "";
-      valueInput.placeholder = "Value";
+      valueInput.placeholder = field.value_placeholder || field.placeholder || "Value";
 
       const removeButton = document.createElement("button");
       removeButton.type = "button";
