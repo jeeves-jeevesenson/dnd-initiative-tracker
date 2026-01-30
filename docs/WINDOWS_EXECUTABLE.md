@@ -31,6 +31,9 @@ pyinstaller --onefile --windowed --name "DnD-Initiative-Tracker" ^
     --add-data "assets;assets" ^
     dnd_initative_tracker.py
 
+# Note: PyInstaller will convert PNG to .ico automatically, but for best results
+# consider converting to .ico format first using a tool like ImageMagick or online converters
+
 # OR create a directory bundle (smaller main exe, but includes supporting files)
 pyinstaller --onedir --windowed --name "DnD-Initiative-Tracker" ^
     --icon=assets/graphic-192.png ^
@@ -81,14 +84,14 @@ build_exe_options = {
 
 setup(
     name="DnD Initiative Tracker",
-    version="41",
+    version="1.0.0",  # Update this to match your application version
     description="D&D 5e Initiative Tracker and Combat Manager",
     options={"build_exe": build_exe_options},
     executables=[
         Executable(
             "dnd_initative_tracker.py",
             base="Win32GUI" if sys.platform == "win32" else None,
-            icon="assets/graphic-192.png",
+            icon="assets/graphic-192.png",  # Note: Consider converting to .ico format
             target_name="DnD-Initiative-Tracker.exe",
         )
     ],
@@ -107,7 +110,7 @@ python setup.py bdist_msi
 
 ### Output
 
-- Creates `dist/DnD Initiative Tracker-41-win64.msi`
+- Creates `dist/DnD Initiative Tracker-<version>-win64.msi`
 
 ## Why Not Include Pre-built Executables?
 

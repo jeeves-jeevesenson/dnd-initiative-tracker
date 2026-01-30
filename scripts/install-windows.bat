@@ -88,6 +88,8 @@ REM Install dependencies if virtual environment was created
 if exist "%INSTALL_DIR%\.venv\Scripts\python.exe" (
     echo.
     echo Installing Python dependencies...
+    REM Upgrade pip first
+    "%INSTALL_DIR%\.venv\Scripts\python.exe" -m pip install --upgrade pip >nul 2>&1
     "%INSTALL_DIR%\.venv\Scripts\pip.exe" install -r "%INSTALL_DIR%\requirements.txt" >nul 2>&1
     if %ERRORLEVEL% NEQ 0 (
         echo WARNING: Failed to install some dependencies.
@@ -126,8 +128,8 @@ set "SHORTCUT_NAME=D&D Initiative Tracker.lnk"
 set "DESKTOP=%USERPROFILE%\Desktop"
 set "START_MENU=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
 
-REM Use PowerShell to create shortcut
-powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.IconLocation = '%INSTALL_DIR%\assets\graphic-192.png'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
+REM Use PowerShell to create shortcut (Note: PNG icons not supported, using default icon)
+powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
 
 if %ERRORLEVEL% EQU 0 (
     echo Desktop shortcut created successfully.
@@ -136,7 +138,7 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 REM Create Start Menu shortcut
-powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%START_MENU%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.IconLocation = '%INSTALL_DIR%\assets\graphic-192.png'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
+powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%START_MENU%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
 
 if %ERRORLEVEL% EQU 0 (
     echo Start Menu shortcut created successfully.

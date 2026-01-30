@@ -159,10 +159,7 @@ $shortcut = $WshShell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = $launcherPath
 $shortcut.WorkingDirectory = $InstallDir
 $shortcut.Description = "D&D Initiative Tracker"
-$iconPath = Join-Path $InstallDir "assets\graphic-192.png"
-if (Test-Path $iconPath) {
-    $shortcut.IconLocation = $iconPath
-}
+# Note: PNG icons not supported for shortcuts - using default icon
 $shortcut.Save()
 Write-Host "Desktop shortcut created successfully." -ForegroundColor Green
 
@@ -173,9 +170,7 @@ $shortcut = $WshShell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = $launcherPath
 $shortcut.WorkingDirectory = $InstallDir
 $shortcut.Description = "D&D Initiative Tracker"
-if (Test-Path $iconPath) {
-    $shortcut.IconLocation = $iconPath
-}
+# Note: PNG icons not supported for shortcuts - using default icon
 $shortcut.Save()
 Write-Host "Start Menu shortcut created successfully." -ForegroundColor Green
 
