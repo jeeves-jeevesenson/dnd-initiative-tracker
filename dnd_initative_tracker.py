@@ -4210,11 +4210,17 @@ __DAMAGE_TYPE_OPTIONS__
     setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
   }
 
+  const DEFAULT_SPELL_COLOR = "#6aa9ff";
+
   function normalizeHexColor(raw){
     if (!raw) return null;
     const value = String(raw).trim().toLowerCase();
     if (!/^#[0-9a-f]{6}$/.test(value)) return null;
     return value;
+  }
+
+  function resolveSpellColor(raw){
+    return normalizeHexColor(raw || "") || DEFAULT_SPELL_COLOR;
   }
 
   function setLocalAoeCenter(aid, cx, cy){
@@ -6530,12 +6536,17 @@ __DAMAGE_TYPE_OPTIONS__
       const preset = spellPresetBySlug.get(getSpellKey(slug));
       const label = normalizeTextValue(preset?.name || slug);
       const level = getPresetLevelNumber(preset);
-      const color = normalizeHexColor(preset?.color || "");
+      const displayColor = resolveSpellColor(preset?.color);
       const item = document.createElement("button");
       item.type = "button";
       item.className = "spellbook-item";
       if (selectionSet.has(slug)){
         item.classList.add("selected");
+        item.style.borderColor = displayColor;
+        const highlight = rgbaFromHex(displayColor, 0.18);
+        if (highlight){
+          item.style.background = highlight;
+        }
       }
       item.addEventListener("click", () => {
         toggleSpellbookSelection(slug, selectionSet);
@@ -6548,9 +6559,7 @@ __DAMAGE_TYPE_OPTIONS__
       nameWrap.className = "spellbook-item-name";
       const colorDot = document.createElement("span");
       colorDot.className = "spellbook-color-dot";
-      if (color){
-        colorDot.style.background = color;
-      }
+      colorDot.style.background = displayColor;
       nameWrap.appendChild(colorDot);
       const nameSpan = document.createElement("span");
       nameSpan.textContent = label;
@@ -6777,7 +6786,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function updateSpellDetailColorInputs(color){
-    const fallback = color || "#6aa9ff";
+    const fallback = color || DEFAULT_SPELL_COLOR;
     if (spellDetailColorSwatch){
       spellDetailColorSwatch.style.background = fallback;
     }
@@ -6836,6 +6845,8 @@ __DAMAGE_TYPE_OPTIONS__
     spellDetailName.textContent = name;
     spellDetailMeta.textContent = `${levelLabel} · ${school}`;
     const color = normalizeHexColor(preset.color || "");
+    const displayColor = resolveSpellColor(preset.color);
+    const displayColor = resolveSpellColor(preset.color);
     updateSpellDetailColorInputs(color || "");
     setSpellDetailStatus("");
     const fields = [
@@ -6919,6 +6930,7 @@ __DAMAGE_TYPE_OPTIONS__
     const ritual = preset.ritual === true ? "Yes" : preset.ritual === false ? "No" : "—";
     const concentration = preset.concentration === true ? "Yes" : preset.concentration === false ? "No" : "—";
     const color = normalizeHexColor(preset.color || "");
+    const displayColor = resolveSpellColor(preset.color);
     const lists = getSpellListEntries(preset.lists);
     const listLabel = lists.length
       ? lists.map((entry) => `${formatListGroupLabel(entry.group)}: ${entry.value}`).join(" · ")
@@ -6932,7 +6944,7 @@ __DAMAGE_TYPE_OPTIONS__
       {label: "Ritual", value: ritual},
       {label: "Concentration", value: concentration},
       {label: "Lists", value: listLabel},
-      {label: "Color", value: color || "—", color},
+      {label: "Color", value: color || displayColor, color: displayColor},
     ];
     fields.forEach((field) => {
       const row = document.createElement("div");
@@ -7540,7 +7552,7 @@ __DAMAGE_TYPE_OPTIONS__
       castBaseDice = dice !== undefined && dice !== null ? String(dice) : "";
     }
     if (castColorInput){
-      castColorInput.value = normalizeHexColor(preset.color || "") || "#6aa9ff";
+      castColorInput.value = normalizeHexColor(preset.color || "") || DEFAULT_SPELL_COLOR;
     }
     setCastDamageTypes(preset.damage_types);
     if (Number.isFinite(Number(preset.duration_turns))){
