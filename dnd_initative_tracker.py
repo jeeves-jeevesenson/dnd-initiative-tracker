@@ -10508,6 +10508,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_grid_rows = 20
         self._lan_positions: Dict[int, Tuple[int, int]] = {}  # cid -> (col,row)
         self._lan_obstacles: set[Tuple[int, int]] = set()
+        self._lan_rough_terrain: Dict[Tuple[int, int], object] = {}
         self._lan_aoes: Dict[int, Dict[str, Any]] = {}
         self._lan_next_aoe_id = 1
         self._turn_snapshots: Dict[int, Dict[str, Any]] = {}
@@ -11198,7 +11199,8 @@ class InitiativeTracker(base.InitiativeTracker):
         map_ready = mw is not None
         aoes: List[Dict[str, Any]] = []
         aoe_source: Dict[int, Dict[str, Any]] = dict(getattr(self, "_lan_aoes", {}) or {})
-        rough_terrain: Dict[Tuple[int, int], object] = {}
+        rough_terrain: Dict[Tuple[int, int], object] = dict(getattr(self, "_lan_rough_terrain", {}) or {})
+        map_batching = False
 
         if mw is not None:
             try:
@@ -11207,18 +11209,27 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 pass
             try:
+                map_batching = bool(
+                    getattr(mw, "_suspend_lan_sync", False)
+                    or getattr(mw, "_drawing_obstacles", False)
+                    or getattr(mw, "_drawing_rough", False)
+                )
+            except Exception:
+                map_batching = False
+            try:
                 self._lan_sync_aoes_to_map(mw)
                 aoe_source = dict(getattr(mw, "aoes", {}) or {})
             except Exception:
                 pass
-            try:
-                obstacles = set(getattr(mw, "obstacles", obstacles) or set())
-            except Exception:
-                pass
-            try:
-                rough_terrain = dict(getattr(mw, "rough_terrain", rough_terrain) or {})
-            except Exception:
-                pass
+            if not map_batching:
+                try:
+                    obstacles = set(getattr(mw, "obstacles", obstacles) or set())
+                except Exception:
+                    pass
+                try:
+                    rough_terrain = dict(getattr(mw, "rough_terrain", rough_terrain) or {})
+                except Exception:
+                    pass
             try:
                 for cid, tok in (getattr(mw, "unit_tokens", {}) or {}).items():
                     positions[int(cid)] = (int(tok.get("col")), int(tok.get("row")))
@@ -11231,6 +11242,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan_next_aoe_id = max(self._lan_next_aoe_id, max_aid + 1)
             except Exception:
                 pass
+            if not map_batching:
+                try:
+                    self._lan_obstacles = set(obstacles)
+                    self._lan_rough_terrain = dict(rough_terrain)
+                except Exception:
+                    pass
 
         try:
             for aid, d in sorted((aoe_source or {}).items()):
