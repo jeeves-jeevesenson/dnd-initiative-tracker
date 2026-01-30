@@ -174,7 +174,6 @@ const createInput = (field, value, path, data) => {
   const label = document.createElement("label");
   label.textContent = field.label || field.key;
   wrapper.appendChild(label);
-  appendHelpText(wrapper, field);
 
   let input;
   const inputType = Array.isArray(field.type) ? "string" : field.type;
@@ -213,6 +212,7 @@ const createInput = (field, value, path, data) => {
   }
 
   wrapper.appendChild(input);
+  appendHelpText(wrapper, field);
   return wrapper;
 };
 
