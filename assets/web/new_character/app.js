@@ -106,6 +106,178 @@ const mergeDefaults = (payload, defaults) => {
   return payload === undefined ? defaults : payload;
 };
 
+const HIT_DICE_BY_CLASS = new Map([
+  ["barbarian", "d12"],
+  ["fighter", "d10"],
+  ["paladin", "d10"],
+  ["ranger", "d10"],
+  ["artificer", "d8"],
+  ["bard", "d8"],
+  ["cleric", "d8"],
+  ["druid", "d8"],
+  ["monk", "d8"],
+  ["rogue", "d8"],
+  ["warlock", "d8"],
+  ["sorcerer", "d6"],
+  ["wizard", "d6"],
+]);
+const HIT_DICE_ORDER = ["d12", "d10", "d8", "d6"];
+
+const derivedStats = (() => {
+  const AUTO_FIELDS = new Set([
+    "vitals.hit_dice.die",
+    "vitals.hit_dice.total",
+    "spellcasting.save_dc_formula",
+    "spellcasting.spell_attack_formula",
+    "attacks.melee_attack_mod",
+    "attacks.ranged_attack_mod",
+    "attacks.weapon_to_hit",
+  ]);
+  const WATCH_PATHS = [
+    "leveling.level",
+    "leveling.classes",
+    "abilities",
+    "proficiency.bonus",
+    "spellcasting.casting_ability",
+  ];
+  const overrides = new Set();
+  let boundForm = null;
+  let boundData = null;
+
+  const pathKey = (path) => (Array.isArray(path) ? path.join(".") : path);
+  const splitPath = (path) => (Array.isArray(path) ? path : path.split(".").filter(Boolean));
+
+  const shouldRecalculate = (path) => {
+    const key = pathKey(path);
+    return WATCH_PATHS.some((watch) => key === watch || key.startsWith(`${watch}.`));
+  };
+
+  const markOverride = (path) => {
+    const key = pathKey(path);
+    if (AUTO_FIELDS.has(key)) {
+      overrides.add(key);
+    }
+  };
+
+  const updateInputValue = (path, value) => {
+    if (!boundForm) {
+      return;
+    }
+    const key = pathKey(path);
+    const input = boundForm.querySelector(`[data-path="${key}"]`);
+    if (!input) {
+      return;
+    }
+    if (input.type === "checkbox") {
+      input.checked = Boolean(value);
+    } else {
+      input.value = value ?? "";
+    }
+  };
+
+  const applyAutoValue = (path, value) => {
+    const key = pathKey(path);
+    if (overrides.has(key)) {
+      return;
+    }
+    const current = getValueAtPath(boundData, splitPath(path));
+    if (current === value) {
+      return;
+    }
+    setValueAtPath(boundData, splitPath(path), value);
+    updateInputValue(path, value);
+  };
+
+  const toModifier = (score) => Math.floor((Number(score) - 10) / 2);
+
+  const getHitDice = (classes) => {
+    const dice = (classes || [])
+      .map((entry) => String(entry?.name || "").trim().toLowerCase())
+      .map((name) => HIT_DICE_BY_CLASS.get(name))
+      .filter(Boolean);
+    const uniqueDice = Array.from(new Set(dice));
+    if (!uniqueDice.length) {
+      return "";
+    }
+    if (uniqueDice.length === 1) {
+      return uniqueDice[0];
+    }
+    const sorted = HIT_DICE_ORDER.filter((die) => uniqueDice.includes(die));
+    return sorted.join("/");
+  };
+
+  const recalculate = () => {
+    if (!boundData) {
+      return;
+    }
+    const abilities = boundData?.abilities || {};
+    const proficiency = Number(boundData?.proficiency?.bonus ?? 0);
+    const leveling = boundData?.leveling || {};
+    const totalLevel =
+      Number(leveling?.level ?? 0) ||
+      (Array.isArray(leveling?.classes)
+        ? leveling.classes.reduce((sum, entry) => sum + Number(entry?.level ?? 0), 0)
+        : 0);
+    const hitDie = getHitDice(leveling?.classes);
+
+    if (hitDie) {
+      applyAutoValue("vitals.hit_dice.die", hitDie);
+    }
+    if (totalLevel) {
+      applyAutoValue("vitals.hit_dice.total", totalLevel);
+    }
+
+    const castingAbility = String(boundData?.spellcasting?.casting_ability || "").trim();
+    if (castingAbility && Number.isFinite(proficiency)) {
+      applyAutoValue("spellcasting.save_dc_formula", "8 + prof + casting_mod");
+      applyAutoValue("spellcasting.spell_attack_formula", "prof + casting_mod");
+    }
+
+    const strMod = toModifier(abilities?.str ?? 10);
+    const dexMod = toModifier(abilities?.dex ?? 10);
+    const meleeMod = strMod + proficiency;
+    const rangedMod = dexMod + proficiency;
+    const weaponToHit = Math.max(strMod, dexMod) + proficiency;
+    applyAutoValue("attacks.melee_attack_mod", meleeMod);
+    applyAutoValue("attacks.ranged_attack_mod", rangedMod);
+    applyAutoValue("attacks.weapon_to_hit", weaponToHit);
+  };
+
+  const handleChange = (path, { source } = {}) => {
+    if (source === "user") {
+      markOverride(path);
+    }
+    if (shouldRecalculate(path)) {
+      recalculate();
+    }
+  };
+
+  const bind = (form, data) => {
+    boundForm = form;
+    boundData = data;
+    form.addEventListener("input", (event) => {
+      const target = event.target;
+      if (!target?.dataset?.path) {
+        return;
+      }
+      handleChange(target.dataset.path, { source: "user" });
+    });
+    form.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!target?.dataset?.path) {
+        return;
+      }
+      handleChange(target.dataset.path, { source: "user" });
+    });
+  };
+
+  return {
+    bind,
+    handleChange,
+    recalculate,
+  };
+})();
+
 const slugify = (value, separator = "_") => {
   const text = String(value || "").trim().toLowerCase();
   const normalized = text.replace(/[^\w\s-]/g, "").replace(/[\s-]+/g, separator);
@@ -190,6 +362,7 @@ const createInput = (field, value, path, data) => {
   if (inputType === "boolean") {
     input = document.createElement("input");
     input.type = "checkbox";
+    input.dataset.path = path.join(".");
     input.checked = Boolean(value);
     input.addEventListener("change", () => {
       setValueAtPath(data, path, input.checked);
@@ -197,6 +370,7 @@ const createInput = (field, value, path, data) => {
   } else if (inputType === "integer" || inputType === "number") {
     input = document.createElement("input");
     input.type = "number";
+    input.dataset.path = path.join(".");
     input.value = value ?? 0;
     input.addEventListener("input", () => {
       const nextValue = input.value === "" ? 0 : Number(input.value);
@@ -205,6 +379,7 @@ const createInput = (field, value, path, data) => {
   } else if (useTextarea) {
     input = document.createElement("textarea");
     input.rows = 3;
+    input.dataset.path = path.join(".");
     input.value = value ?? "";
     input.placeholder = getFieldPlaceholder(field);
     input.addEventListener("input", () => {
@@ -213,6 +388,7 @@ const createInput = (field, value, path, data) => {
   } else {
     input = document.createElement("input");
     input.type = "text";
+    input.dataset.path = path.join(".");
     input.value = value ?? "";
     input.placeholder = getFieldPlaceholder(field);
     input.addEventListener("input", () => {
@@ -268,6 +444,7 @@ const renderArrayField = (field, path, data) => {
       removeButton.addEventListener("click", () => {
         value.splice(index, 1);
         setValueAtPath(data, path, value);
+        derivedStats.handleChange(path, { source: "system" });
         renderItems();
       });
       itemHeader.appendChild(removeButton);
@@ -300,6 +477,7 @@ const renderArrayField = (field, path, data) => {
     const nextItem = buildDefaultFromSchema(field.items || { type: "string" });
     value.push(nextItem);
     setValueAtPath(data, path, value);
+    derivedStats.handleChange(path, { source: "system" });
     renderItems();
   });
 
@@ -376,10 +554,12 @@ const renderMapField = (field, path, data) => {
         }
         value[nextKey] = valueInput.value;
         setValueAtPath(data, path, value);
+        derivedStats.handleChange(path, { source: "system" });
       });
       removeButton.addEventListener("click", () => {
         delete value[key];
         setValueAtPath(data, path, value);
+        derivedStats.handleChange(path, { source: "system" });
         renderItems();
       });
 
@@ -395,6 +575,7 @@ const renderMapField = (field, path, data) => {
     const newKey = `note_${Object.keys(value).length + 1}`;
     value[newKey] = "";
     setValueAtPath(data, path, value);
+    derivedStats.handleChange(path, { source: "system" });
     renderItems();
   });
 
@@ -662,6 +843,8 @@ const boot = async () => {
   const draft = loadDraft(defaults);
   const data = draft.data;
   renderForm(schema, data);
+  derivedStats.bind(formEl, data);
+  derivedStats.recalculate();
   if (filenameInput) {
     filenameInput.value = draft.filename || "";
     filenameInput.addEventListener("input", () => {

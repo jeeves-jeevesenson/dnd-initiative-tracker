@@ -181,8 +181,20 @@
           "label": "Hit Dice",
           "type": "object",
           "fields": [
-            {"key": "die", "label": "Hit Die", "type": "string", "default": "d8"},
-            {"key": "total", "label": "Total", "type": "integer", "default": 1},
+            {
+              "key": "die",
+              "label": "Hit Die",
+              "type": "string",
+              "default": "d8",
+              "help": "Auto-filled from class selection (composite if multiclass). Edit to override."
+            },
+            {
+              "key": "total",
+              "label": "Total",
+              "type": "integer",
+              "default": 1,
+              "help": "Auto-filled from total level. Edit to override."
+            },
             {"key": "spent", "label": "Spent", "type": "integer", "default": 0}
           ]
         },
@@ -307,6 +319,36 @@
           "repeatable": true,
           "items": {"type": "string", "default": ""},
           "default": []
+        }
+      ]
+    },
+    {
+      "id": "attacks",
+      "label": "Attacks",
+      "readme_heading": "Attacks Section",
+      "type": "object",
+      "path": ["attacks"],
+      "fields": [
+        {
+          "key": "melee_attack_mod",
+          "label": "Melee Attack Modifier",
+          "type": "integer",
+          "default": 0,
+          "help": "Auto-filled from STR modifier + proficiency. Edit to override."
+        },
+        {
+          "key": "ranged_attack_mod",
+          "label": "Ranged Attack Modifier",
+          "type": "integer",
+          "default": 0,
+          "help": "Auto-filled from DEX modifier + proficiency. Edit to override."
+        },
+        {
+          "key": "weapon_to_hit",
+          "label": "Weapon To-Hit",
+          "type": "integer",
+          "default": 0,
+          "help": "Auto-filled from the higher of STR/DEX modifiers + proficiency. Edit to override."
         }
       ]
     },
@@ -540,8 +582,20 @@
           "default": ["./Spells"]
         },
         {"key": "casting_ability", "label": "Casting Ability", "type": "string", "default": ""},
-        {"key": "save_dc_formula", "label": "Save DC Formula", "type": "string", "default": "8 + prof + casting_mod"},
-        {"key": "spell_attack_formula", "label": "Spell Attack Formula", "type": "string", "default": "prof + casting_mod"},
+        {
+          "key": "save_dc_formula",
+          "label": "Save DC Formula",
+          "type": "string",
+          "default": "8 + prof + casting_mod",
+          "help": "Auto-filled when casting ability and proficiency are set. Edit to override."
+        },
+        {
+          "key": "spell_attack_formula",
+          "label": "Spell Attack Formula",
+          "type": "string",
+          "default": "prof + casting_mod",
+          "help": "Auto-filled when casting ability and proficiency are set. Edit to override."
+        },
         {
           "key": "cantrips",
           "label": "Cantrips",
