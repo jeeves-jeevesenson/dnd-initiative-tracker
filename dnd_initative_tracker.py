@@ -12751,12 +12751,25 @@ class InitiativeTracker(base.InitiativeTracker):
 
         data_by_path = dict(self._player_yaml_cache_by_path)
         meta_by_path = dict(self._player_yaml_meta_by_path)
+        data_by_name = dict(self._player_yaml_data_by_name)
+        name_map = dict(self._player_yaml_name_map)
+
+        def purge_path_entries(target_path: Path) -> None:
+            keys_to_remove = [key for key, value in name_map.items() if value == target_path]
+            for key in keys_to_remove:
+                name_map.pop(key, None)
+            if keys_to_remove:
+                keys_lower = set(keys_to_remove)
+                for name in list(data_by_name.keys()):
+                    if name.lower() in keys_lower:
+                        data_by_name.pop(name, None)
 
         valid_paths = set(files)
         for cached_path in list(data_by_path.keys()):
             if cached_path not in valid_paths:
                 data_by_path.pop(cached_path, None)
                 meta_by_path.pop(cached_path, None)
+                purge_path_entries(cached_path)
 
         for path in files:
             meta = _file_stat_metadata(path)
@@ -12770,17 +12783,13 @@ class InitiativeTracker(base.InitiativeTracker):
                 parsed = None
             data_by_path[path] = parsed if isinstance(parsed, dict) else None
             meta_by_path[path] = meta
-
-        name_map: Dict[str, Path] = {}
-        data_by_name: Dict[str, Dict[str, Any]] = {}
-        for path, data in data_by_path.items():
-            if not isinstance(data, dict):
-                continue
-            profile = self._normalize_player_profile(data, path.stem)
-            name = str(profile.get("name") or path.stem).strip() or path.stem
-            data_by_name[name] = profile
-            name_map[name.lower()] = path
-            name_map[path.stem.lower()] = path
+            purge_path_entries(path)
+            if isinstance(parsed, dict):
+                profile = self._normalize_player_profile(parsed, path.stem)
+                name = str(profile.get("name") or path.stem).strip() or path.stem
+                data_by_name[name] = profile
+                name_map[name.lower()] = path
+                name_map[path.stem.lower()] = path
 
         self._player_yaml_cache_by_path = data_by_path
         self._player_yaml_meta_by_path = meta_by_path
