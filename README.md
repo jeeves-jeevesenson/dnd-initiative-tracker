@@ -722,7 +722,7 @@ Location: `Spells/*.yaml` or `Spells/*.yml`
 Spells use a more complex schema with both display fields and mechanical data:
 
 ```yaml
-schema: dnd55.spell.v1
+schema: dnd55.spell.v1  # Note: "dnd55" refers to D&D 5.5e (2024 revised rules)
 id: fireball
 name: Fireball
 edition: "2024"
