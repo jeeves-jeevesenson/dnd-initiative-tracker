@@ -1,0 +1,162 @@
+@echo off
+REM D&D Initiative Tracker - Windows 11 Installation Script
+REM This script installs the D&D Initiative Tracker for Windows 11
+
+setlocal EnableDelayedExpansion
+
+echo ====================================================
+echo D&D Initiative Tracker - Windows 11 Installation
+echo ====================================================
+echo.
+
+REM Get script directory and repository directory
+set "SCRIPT_DIR=%~dp0"
+set "REPO_DIR=%SCRIPT_DIR%.."
+
+REM Set installation directory (defaults to user's AppData)
+if "%INSTALL_DIR%"=="" (
+    set "INSTALL_DIR=%LOCALAPPDATA%\DnDInitiativeTracker"
+)
+
+echo Installation directory: %INSTALL_DIR%
+echo.
+
+REM Check if Python is installed
+python --version >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Python is not installed or not in PATH.
+    echo Please install Python 3.9 or higher from https://www.python.org/downloads/
+    echo Make sure to check "Add Python to PATH" during installation.
+    pause
+    exit /b 1
+)
+
+REM Check Python version
+for /f "tokens=2" %%v in ('python --version 2^>^&1') do set "PYTHON_VERSION=%%v"
+echo Found Python %PYTHON_VERSION%
+
+REM Verify Python version is 3.9 or higher
+python -c "import sys; exit(0 if sys.version_info >= (3, 9) else 1)" >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Python 3.9 or higher is required.
+    echo Current version: %PYTHON_VERSION%
+    pause
+    exit /b 1
+)
+
+echo.
+echo Creating installation directory...
+if not exist "%INSTALL_DIR%" (
+    mkdir "%INSTALL_DIR%"
+)
+
+echo Copying application files...
+xcopy "%REPO_DIR%\*" "%INSTALL_DIR%\" /E /I /Y /EXCLUDE:%SCRIPT_DIR%exclude-files.txt >nul 2>&1
+if not exist "%SCRIPT_DIR%exclude-files.txt" (
+    REM If exclude file doesn't exist, copy manually excluding specific folders
+    xcopy "%REPO_DIR%\*.py" "%INSTALL_DIR%\" /Y >nul
+    xcopy "%REPO_DIR%\*.txt" "%INSTALL_DIR%\" /Y >nul
+    xcopy "%REPO_DIR%\*.md" "%INSTALL_DIR%\" /Y >nul
+    xcopy "%REPO_DIR%\Monsters" "%INSTALL_DIR%\Monsters\" /E /I /Y >nul
+    xcopy "%REPO_DIR%\Spells" "%INSTALL_DIR%\Spells\" /E /I /Y >nul
+    xcopy "%REPO_DIR%\assets" "%INSTALL_DIR%\assets\" /E /I /Y >nul
+    xcopy "%REPO_DIR%\scripts" "%INSTALL_DIR%\scripts\" /E /I /Y >nul
+    if exist "%REPO_DIR%\players" xcopy "%REPO_DIR%\players" "%INSTALL_DIR%\players\" /E /I /Y >nul
+    if exist "%REPO_DIR%\presets" xcopy "%REPO_DIR%\presets" "%INSTALL_DIR%\presets\" /E /I /Y >nul
+)
+
+echo Creating logs directory...
+if not exist "%INSTALL_DIR%\logs" (
+    mkdir "%INSTALL_DIR%\logs"
+)
+
+echo.
+echo Setting up Python virtual environment...
+if not exist "%INSTALL_DIR%\.venv" (
+    python -m venv "%INSTALL_DIR%\.venv"
+    if %ERRORLEVEL% NEQ 0 (
+        echo WARNING: Failed to create virtual environment.
+        echo Continuing without virtual environment...
+    ) else (
+        echo Virtual environment created successfully.
+    )
+) else (
+    echo Virtual environment already exists.
+)
+
+REM Install dependencies if virtual environment was created
+if exist "%INSTALL_DIR%\.venv\Scripts\python.exe" (
+    echo.
+    echo Installing Python dependencies...
+    "%INSTALL_DIR%\.venv\Scripts\pip.exe" install -r "%INSTALL_DIR%\requirements.txt" >nul 2>&1
+    if %ERRORLEVEL% NEQ 0 (
+        echo WARNING: Failed to install some dependencies.
+        echo You may need to install them manually.
+    ) else (
+        echo Dependencies installed successfully.
+    )
+)
+
+echo.
+echo Creating launcher script...
+(
+    echo @echo off
+    echo REM D&D Initiative Tracker Launcher
+    echo setlocal
+    echo.
+    echo set "APP_DIR=%%~dp0"
+    echo set "LOG_DIR=%%APP_DIR%%logs"
+    echo.
+    echo if not exist "%%LOG_DIR%%" mkdir "%%LOG_DIR%%"
+    echo.
+    echo cd /d "%%APP_DIR%%"
+    echo.
+    echo if exist "%%APP_DIR%%.venv\Scripts\python.exe" ^(
+    echo     "%%APP_DIR%%.venv\Scripts\python.exe" "%%APP_DIR%%dnd_initative_tracker.py"
+    echo ^) else ^(
+    echo     python "%%APP_DIR%%dnd_initative_tracker.py"
+    echo ^)
+    echo.
+    echo endlocal
+) > "%INSTALL_DIR%\launch-dnd-tracker.bat"
+
+echo.
+echo Creating desktop shortcut...
+set "SHORTCUT_NAME=D&D Initiative Tracker.lnk"
+set "DESKTOP=%USERPROFILE%\Desktop"
+set "START_MENU=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
+
+REM Use PowerShell to create shortcut
+powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.IconLocation = '%INSTALL_DIR%\assets\graphic-192.png'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
+
+if %ERRORLEVEL% EQU 0 (
+    echo Desktop shortcut created successfully.
+) else (
+    echo WARNING: Failed to create desktop shortcut.
+)
+
+REM Create Start Menu shortcut
+powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%START_MENU%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.IconLocation = '%INSTALL_DIR%\assets\graphic-192.png'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
+
+if %ERRORLEVEL% EQU 0 (
+    echo Start Menu shortcut created successfully.
+) else (
+    echo WARNING: Failed to create Start Menu shortcut.
+)
+
+echo.
+echo ====================================================
+echo Installation Complete!
+echo ====================================================
+echo.
+echo Application installed to: %INSTALL_DIR%
+echo.
+echo You can now launch the tracker using:
+echo   - Desktop shortcut: "D&D Initiative Tracker"
+echo   - Start Menu: Search for "D&D Initiative Tracker"
+echo   - Command line: %INSTALL_DIR%\launch-dnd-tracker.bat
+echo.
+echo Logs will be stored in: %INSTALL_DIR%\logs\
+echo.
+echo ====================================================
+pause
