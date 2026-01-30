@@ -15,6 +15,9 @@ A comprehensive D&D 5e initiative tracker and combat management system with a de
 ## 🎯 Quick Start
 
 **Streamlined Install (Recommended - All Platforms):**
+
+The quickest way to get started is with our one-line installer. No need to manually clone, install, and manage the repository!
+
 ```bash
 # One-line install: clones, installs dependencies, and sets up in one command
 curl -sSL https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
@@ -29,6 +32,8 @@ wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tr
 # Run in PowerShell
 irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex
 ```
+
+After installation, the app is installed to a system location (`.local/share` on Linux/macOS, `%LOCALAPPDATA%` on Windows), so you don't need to keep the cloned repository!
 
 **Manual Install (Linux/macOS):**
 ```bash
@@ -257,8 +262,46 @@ The D&D Initiative Tracker is a feature-rich combat management tool designed for
 - **Python 3.9 or higher**
 - **Tkinter** (often bundled with Python; on Linux may require `python3-tk`)
 - **pip** for installing Python dependencies
+- **Git** (for cloning the repository)
 
-### Quick Install (All Platforms)
+### Streamlined Install (Recommended)
+
+The easiest way to install is using our one-line quick install scripts:
+
+**Linux/macOS:**
+```bash
+# Using curl (recommended)
+curl -sSL https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
+
+# Or using wget
+wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
+```
+
+This will:
+- Clone the repository to `~/.local/share/dnd-initiative-tracker`
+- Create a Python virtual environment
+- Install all dependencies automatically
+- Create a launcher command at `~/.local/bin/dnd-initiative-tracker`
+
+After installation, run: `dnd-initiative-tracker`
+
+**Windows:**
+```powershell
+# Run in PowerShell
+irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex
+```
+
+This will:
+- Clone the repository to `%LOCALAPPDATA%\DnDInitiativeTracker`
+- Create a Python virtual environment
+- Install all dependencies automatically
+- Create desktop and Start Menu shortcuts
+
+After installation, use the desktop shortcut or search for "D&D Initiative Tracker" in Start Menu.
+
+### Manual Install (Alternative)
+
+If you prefer to install manually or want more control:
 
 ```bash
 # Clone the repository
