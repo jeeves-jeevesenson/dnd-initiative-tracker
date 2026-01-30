@@ -4527,7 +4527,7 @@ class BattleMapWindow(tk.Toplevel):
         self.zoom_var = tk.DoubleVar(value=32.0)  # pixels per square (5 ft)
         self.obstacle_mode_var = tk.BooleanVar(value=False)
         self.obstacle_erase_var = tk.BooleanVar(value=False)
-        self.obstacle_brush_var = tk.DoubleVar(value=1.0)
+        self.obstacle_brush_var = tk.IntVar(value=1)
         self.obstacle_single_var = tk.BooleanVar(value=False)
         self.rough_mode_var = tk.BooleanVar(value=False)
         self.rough_erase_var = tk.BooleanVar(value=False)
@@ -4832,14 +4832,15 @@ class BattleMapWindow(tk.Toplevel):
         self.rough_color_entry.pack(side=tk.LEFT, padx=(4, 0))
         self.rough_color_entry.bind("<FocusOut>", lambda e: self._sync_rough_color_hex())
         ttk.Label(view, text="Brush Size (cells):").grid(row=4, column=0, sticky="w", pady=(6, 0))
-        self._obstacle_brush_combo = ttk.Combobox(
+        self._obstacle_brush_entry = ttk.Entry(
             view,
             textvariable=self.obstacle_brush_var,
-            values=(1.0, 1.5, 2.0),
             width=6,
-            state="readonly",
+            validate="key",
+            validatecommand=(self.register(self._validate_obstacle_brush), "%P"),
         )
-        self._obstacle_brush_combo.grid(row=4, column=1, sticky="w", pady=(6, 0))
+        self._obstacle_brush_entry.grid(row=4, column=1, sticky="w", pady=(6, 0))
+        self._obstacle_brush_entry.bind("<FocusOut>", lambda e: self._normalize_obstacle_brush())
         ttk.Checkbutton(view, text="Single square", variable=self.obstacle_single_var).grid(
             row=4, column=2, sticky="w", pady=(6, 0)
         )
@@ -5397,6 +5398,30 @@ class BattleMapWindow(tk.Toplevel):
         except Exception:
             pass
 
+    def _validate_obstacle_brush(self, value: str) -> bool:
+        if value == "":
+            return True
+        if not value.isdigit():
+            return False
+        return int(value) >= 1
+
+    def _get_obstacle_brush_radius(self) -> int:
+        try:
+            radius = int(self.obstacle_brush_var.get())
+        except (tk.TclError, ValueError, TypeError):
+            return 1
+        return radius if radius >= 1 else 1
+
+    def _normalize_obstacle_brush(self) -> int:
+        radius = self._get_obstacle_brush_radius()
+        try:
+            current = self.obstacle_brush_var.get()
+        except tk.TclError:
+            current = None
+        if current != radius:
+            self.obstacle_brush_var.set(radius)
+        return radius
+
     def _paint_obstacle_from_event(self, event: tk.Event) -> None:
         """Paint or erase an obstacle cell based on the pointer location."""
         cx = float(self.canvas.canvasx(event.x))
@@ -5408,7 +5433,7 @@ class BattleMapWindow(tk.Toplevel):
             return
         # Shift = erase (or toggle on the UI)
         erase = bool(self.obstacle_erase_var.get()) or bool(event.state & 0x0001)
-        radius = float(self.obstacle_brush_var.get())
+        radius = self._normalize_obstacle_brush()
         base_col = int(col)
         base_row = int(row)
         if self.obstacle_single_var.get():
@@ -5446,7 +5471,7 @@ class BattleMapWindow(tk.Toplevel):
         if col < 0 or row < 0 or col >= self.cols or row >= self.rows:
             return
         erase = bool(self.rough_erase_var.get()) or bool(event.state & 0x0001)
-        radius = float(self.obstacle_brush_var.get())
+        radius = self._normalize_obstacle_brush()
         base_col = int(col)
         base_row = int(row)
         terrain = self._rough_preset_from_ui()
