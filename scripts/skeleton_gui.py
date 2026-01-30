@@ -264,7 +264,8 @@ class SpellPicker(ttk.Frame):
 
         self.search_var = tk.StringVar()
         ttk.Entry(self, textvariable=self.search_var).grid(row=1, column=0, sticky="ew", pady=(4, 4))
-        self.search_var.trace_add("write", lambda *_: self.refresh_all_list())
+        self._search_after_id = None
+        self.search_var.trace_add("write", lambda *_: self._debounced_search())
 
         self.all_list = tk.Listbox(self, height=10)
         self.all_list.grid(row=2, column=0, sticky="nsew")
@@ -285,6 +286,12 @@ class SpellPicker(ttk.Frame):
         self._all_ids: List[str] = []
         self._selected: List[str] = []
 
+    def _debounced_search(self) -> None:
+        """Debounce search to improve performance with large spell lists"""
+        if self._search_after_id:
+            self.after_cancel(self._search_after_id)
+        self._search_after_id = self.after(300, self.refresh_all_list)  # 300ms delay
+
     def set_all_ids(self, ids: List[str]) -> None:
         self._all_ids = ids[:]
         self.refresh_all_list()
@@ -299,9 +306,10 @@ class SpellPicker(ttk.Frame):
     def refresh_all_list(self) -> None:
         q = self.search_var.get().strip().lower()
         self.all_list.delete(0, "end")
-        for sid in self._all_ids:
-            if not q or q in sid.lower():
-                self.all_list.insert("end", sid)
+        # Performance: filter list efficiently
+        filtered = [sid for sid in self._all_ids if not q or q in sid.lower()]
+        for sid in filtered:
+            self.all_list.insert("end", sid)
 
     def refresh_selected_list(self) -> None:
         self.sel_list.delete(0, "end")
@@ -575,11 +583,20 @@ class LevelAbilitiesPage(WizardPage):
             return False
 
         c["leveling"]["level"] = lvl
-        c["leveling"]["classes"] = [{
-            "name": cname,
-            "subclass": self.subclass_var.get().strip(),
-            "level": lvl,
-        }]
+        # Fix: Only update first class if it exists, or create it, but preserve multiclass data
+        if not c["leveling"]["classes"]:
+            c["leveling"]["classes"] = []
+        if len(c["leveling"]["classes"]) == 0:
+            c["leveling"]["classes"].append({
+                "name": cname,
+                "subclass": self.subclass_var.get().strip(),
+                "level": lvl,
+            })
+        else:
+            # Update first class but preserve the rest
+            c["leveling"]["classes"][0]["name"] = cname
+            c["leveling"]["classes"][0]["subclass"] = self.subclass_var.get().strip()
+            c["leveling"]["classes"][0]["level"] = lvl
 
         for k, var in self.ability_vars.items():
             c["abilities"][k] = safe_int(var.get(), 10)
@@ -710,6 +727,139 @@ class VitalsPage(WizardPage):
 
         v["initiative"]["formula"] = self.init_formula.get().strip() or "dex_mod"
         v["passive_perception"]["formula"] = self.pp_formula.get().strip() or "10 + wis_mod"
+        return True
+
+
+# -----------------------------
+# Proficiency page (skills, tools, languages)
+# -----------------------------
+class ProficiencyPage(WizardPage):
+    title = "Proficiency"
+
+    def __init__(self, master: tk.Widget, app: "WizardApp"):
+        super().__init__(master, app)
+        self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        # Proficiency bonus
+        ttk.Label(self, text="Proficiency Bonus:").grid(row=0, column=0, sticky="w", padx=8, pady=(10, 4))
+        self.prof_bonus = tk.StringVar(value="2")
+        ttk.Entry(self, textvariable=self.prof_bonus, width=8).grid(row=0, column=0, sticky="w", padx=(150, 0), pady=(10, 4))
+        ttk.Label(self, text="(auto-calculated from level)").grid(row=0, column=1, sticky="w", padx=8, pady=(10, 4))
+
+        # Main container
+        container = ttk.Frame(self)
+        container.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=8, pady=4)
+        container.columnconfigure(0, weight=1)
+        container.columnconfigure(1, weight=1)
+        container.rowconfigure(0, weight=1)
+
+        # Left side - Saving Throws & Skills
+        left = ttk.Frame(container)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+        left.columnconfigure(0, weight=1)
+        left.rowconfigure(2, weight=1)
+        left.rowconfigure(4, weight=1)
+
+        ttk.Label(left, text="Proficient Saving Throws:").grid(row=0, column=0, sticky="w", pady=(4, 2))
+        ttk.Label(left, text="(str, dex, con, int, wis, cha)", foreground="#555").grid(row=1, column=0, sticky="w", pady=(0, 4))
+        self.saves_text = tk.Text(left, height=3, wrap="word")
+        self.saves_text.grid(row=2, column=0, sticky="nsew", pady=4)
+
+        ttk.Label(left, text="Proficient Skills:").grid(row=3, column=0, sticky="w", pady=(8, 2))
+        ttk.Label(left, text="(one per line: athletics, perception, etc.)", foreground="#555").grid(row=4, column=0, sticky="w", pady=(0, 4))
+        self.skills_text = tk.Text(left, height=6, wrap="word")
+        self.skills_text.grid(row=5, column=0, sticky="nsew", pady=4)
+
+        ttk.Label(left, text="Expertise Skills:").grid(row=6, column=0, sticky="w", pady=(8, 2))
+        ttk.Label(left, text="(double proficiency bonus)", foreground="#555").grid(row=7, column=0, sticky="w", pady=(0, 4))
+        self.expertise_text = tk.Text(left, height=3, wrap="word")
+        self.expertise_text.grid(row=8, column=0, sticky="nsew", pady=4)
+
+        # Right side - Tools & Languages
+        right = ttk.Frame(container)
+        right.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+        right.columnconfigure(0, weight=1)
+        right.rowconfigure(1, weight=1)
+        right.rowconfigure(3, weight=1)
+
+        ttk.Label(right, text="Tool Proficiencies:").grid(row=0, column=0, sticky="w", pady=(4, 2))
+        ttk.Label(right, text="(one per line: thieves_tools, lute, etc.)", foreground="#555").grid(row=1, column=0, sticky="w", pady=(0, 4))
+        self.tools_text = tk.Text(right, height=6, wrap="word")
+        self.tools_text.grid(row=2, column=0, sticky="nsew", pady=4)
+
+        ttk.Label(right, text="Languages:").grid(row=3, column=0, sticky="w", pady=(8, 2))
+        ttk.Label(right, text="(one per line: Common, Elvish, etc.)", foreground="#555").grid(row=4, column=0, sticky="w", pady=(0, 4))
+        self.languages_text = tk.Text(right, height=6, wrap="word")
+        self.languages_text.grid(row=5, column=0, sticky="nsew", pady=4)
+
+    def on_show(self) -> None:
+        prof = self.app.char.get("proficiency", {})
+        
+        # Calculate proficiency bonus from level
+        level = self.app.char.get("leveling", {}).get("level", 1)
+        calc_bonus = 2 + (level - 1) // 4
+        self.prof_bonus.set(str(prof.get("bonus", calc_bonus)))
+
+        # Saving throws
+        saves = prof.get("saves", [])
+        self.saves_text.delete("1.0", "end")
+        self.saves_text.insert("1.0", ", ".join(saves))
+
+        # Skills
+        skills_data = prof.get("skills", {})
+        proficient = skills_data.get("proficient", [])
+        expertise = skills_data.get("expertise", [])
+        
+        self.skills_text.delete("1.0", "end")
+        self.skills_text.insert("1.0", "\n".join(proficient))
+        
+        self.expertise_text.delete("1.0", "end")
+        self.expertise_text.insert("1.0", "\n".join(expertise))
+
+        # Tools
+        tools = prof.get("tools", [])
+        self.tools_text.delete("1.0", "end")
+        self.tools_text.insert("1.0", "\n".join(tools))
+
+        # Languages
+        languages = prof.get("languages", [])
+        self.languages_text.delete("1.0", "end")
+        self.languages_text.insert("1.0", "\n".join(languages))
+
+    def save_to_state(self) -> bool:
+        prof = self.app.char["proficiency"]
+        
+        # Save proficiency bonus
+        prof["bonus"] = max(2, safe_int(self.prof_bonus.get(), 2))
+
+        # Save saving throws
+        saves_raw = self.saves_text.get("1.0", "end").strip()
+        saves_list = [s.strip().lower() for s in re.split(r'[,\s]+', saves_raw) if s.strip()]
+        valid_saves = ["str", "dex", "con", "int", "wis", "cha"]
+        prof["saves"] = [s for s in saves_list if s in valid_saves]
+
+        # Save skills
+        skills_raw = self.skills_text.get("1.0", "end").strip()
+        skills_list = [s.strip().lower() for s in skills_raw.split("\n") if s.strip()]
+        
+        expertise_raw = self.expertise_text.get("1.0", "end").strip()
+        expertise_list = [s.strip().lower() for s in expertise_raw.split("\n") if s.strip()]
+        
+        prof["skills"] = {
+            "proficient": skills_list,
+            "expertise": expertise_list
+        }
+
+        # Save tools
+        tools_raw = self.tools_text.get("1.0", "end").strip()
+        prof["tools"] = [t.strip() for t in tools_raw.split("\n") if t.strip()]
+
+        # Save languages
+        languages_raw = self.languages_text.get("1.0", "end").strip()
+        prof["languages"] = [l.strip() for l in languages_raw.split("\n") if l.strip()]
+
         return True
 
 
@@ -1003,6 +1153,360 @@ class SpellcastingPage(WizardPage):
 
         known_set = set(sc["known_spells"]["known"])
         sc["prepared_spells"]["prepared"] = [s for s in self.prep_picker.get_selected() if s in known_set]
+        return True
+
+
+# -----------------------------
+# Defenses page (AC, resistances, etc.)
+# -----------------------------
+class DefensesPage(WizardPage):
+    title = "Defenses"
+
+    def __init__(self, master: tk.Widget, app: "WizardApp"):
+        super().__init__(master, app)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        ttk.Label(self, text="Armor Class & Damage Resistances", font=("TkDefaultFont", 10, "bold")).grid(
+            row=0, column=0, sticky="w", padx=8, pady=(10, 4)
+        )
+
+        container = ttk.Frame(self)
+        container.grid(row=1, column=0, sticky="nsew", padx=8, pady=4)
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(1, weight=1)
+
+        # AC Sources section
+        ttk.Label(container, text="AC Base Formula:").grid(row=0, column=0, sticky="w", pady=(4, 2))
+        ttk.Label(container, text="(e.g., '10 + dex_mod' for unarmored, '16' for chain mail)", foreground="#555").grid(
+            row=1, column=0, sticky="w", pady=(0, 4)
+        )
+        self.ac_formula = tk.StringVar(value="10 + dex_mod")
+        ttk.Entry(container, textvariable=self.ac_formula).grid(row=2, column=0, sticky="ew", pady=4)
+
+        ttk.Label(container, text="AC Bonuses:").grid(row=3, column=0, sticky="w", pady=(8, 2))
+        ttk.Label(container, text="(e.g., '+2 from shield', one per line)", foreground="#555").grid(
+            row=4, column=0, sticky="w", pady=(0, 4)
+        )
+        self.ac_bonuses_text = tk.Text(container, height=3, wrap="word")
+        self.ac_bonuses_text.grid(row=5, column=0, sticky="ew", pady=4)
+
+        ttk.Separator(container, orient="horizontal").grid(row=6, column=0, sticky="ew", pady=10)
+
+        # Damage types section
+        damage_frame = ttk.Frame(container)
+        damage_frame.grid(row=7, column=0, sticky="ew", pady=4)
+        damage_frame.columnconfigure(0, weight=1)
+        damage_frame.columnconfigure(1, weight=1)
+        damage_frame.columnconfigure(2, weight=1)
+
+        # Resistances
+        res_frame = ttk.Frame(damage_frame)
+        res_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+        res_frame.rowconfigure(2, weight=1)
+        ttk.Label(res_frame, text="Resistances:").grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Label(res_frame, text="(fire, cold, etc.)", foreground="#555").grid(row=1, column=0, sticky="w", pady=(0, 4))
+        self.resistances_text = tk.Text(res_frame, height=4, wrap="word")
+        self.resistances_text.grid(row=2, column=0, sticky="nsew", pady=4)
+
+        # Immunities
+        imm_frame = ttk.Frame(damage_frame)
+        imm_frame.grid(row=0, column=1, sticky="nsew", padx=4)
+        imm_frame.rowconfigure(2, weight=1)
+        ttk.Label(imm_frame, text="Immunities:").grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Label(imm_frame, text="(poison, psychic, etc.)", foreground="#555").grid(row=1, column=0, sticky="w", pady=(0, 4))
+        self.immunities_text = tk.Text(imm_frame, height=4, wrap="word")
+        self.immunities_text.grid(row=2, column=0, sticky="nsew", pady=4)
+
+        # Vulnerabilities
+        vul_frame = ttk.Frame(damage_frame)
+        vul_frame.grid(row=0, column=2, sticky="nsew", padx=(4, 0))
+        vul_frame.rowconfigure(2, weight=1)
+        ttk.Label(vul_frame, text="Vulnerabilities:").grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Label(vul_frame, text="(necrotic, etc.)", foreground="#555").grid(row=1, column=0, sticky="w", pady=(0, 4))
+        self.vulnerabilities_text = tk.Text(vul_frame, height=4, wrap="word")
+        self.vulnerabilities_text.grid(row=2, column=0, sticky="nsew", pady=4)
+
+    def on_show(self) -> None:
+        defenses = self.app.char.get("defenses", {})
+        
+        # AC sources - show the first source's base_formula
+        ac_data = defenses.get("ac", {})
+        sources = ac_data.get("sources", [])
+        if sources:
+            self.ac_formula.set(sources[0].get("base_formula", "10 + dex_mod"))
+        else:
+            self.ac_formula.set("10 + dex_mod")
+        
+        # AC bonuses - format as simple text
+        bonuses = ac_data.get("bonuses", [])
+        bonus_lines = [f"+{b.get('value', 0)} ({b.get('label', '')})" for b in bonuses]
+        self.ac_bonuses_text.delete("1.0", "end")
+        self.ac_bonuses_text.insert("1.0", "\n".join(bonus_lines))
+
+        # Damage types
+        resistances = defenses.get("resistances", [])
+        self.resistances_text.delete("1.0", "end")
+        self.resistances_text.insert("1.0", "\n".join(resistances))
+
+        immunities = defenses.get("immunities", [])
+        self.immunities_text.delete("1.0", "end")
+        self.immunities_text.insert("1.0", "\n".join(immunities))
+
+        vulnerabilities = defenses.get("vulnerabilities", [])
+        self.vulnerabilities_text.delete("1.0", "end")
+        self.vulnerabilities_text.insert("1.0", "\n".join(vulnerabilities))
+
+    def save_to_state(self) -> bool:
+        defenses = self.app.char["defenses"]
+        
+        # Save AC source (simplified - just one base formula)
+        formula = self.ac_formula.get().strip() or "10 + dex_mod"
+        defenses["ac"]["sources"] = [{
+            "id": "base",
+            "label": "Base AC",
+            "when": "always",
+            "base_formula": formula
+        }]
+        
+        # Parse AC bonuses
+        bonuses_raw = self.ac_bonuses_text.get("1.0", "end").strip()
+        bonuses = []
+        for line in bonuses_raw.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            # Try to parse "+2 (Shield)" format
+            match = re.match(r'\+?(\d+)\s*\((.+)\)', line)
+            if match:
+                value = int(match.group(1))
+                label = match.group(2)
+                bonuses.append({
+                    "id": slugify(label),
+                    "label": label,
+                    "value": value,
+                    "when": "always"
+                })
+        defenses["ac"]["bonuses"] = bonuses
+
+        # Save damage types
+        resistances_raw = self.resistances_text.get("1.0", "end").strip()
+        defenses["resistances"] = [r.strip().lower() for r in resistances_raw.split("\n") if r.strip()]
+
+        immunities_raw = self.immunities_text.get("1.0", "end").strip()
+        defenses["immunities"] = [i.strip().lower() for i in immunities_raw.split("\n") if i.strip()]
+
+        vulnerabilities_raw = self.vulnerabilities_text.get("1.0", "end").strip()
+        defenses["vulnerabilities"] = [v.strip().lower() for v in vulnerabilities_raw.split("\n") if v.strip()]
+
+        return True
+
+
+# -----------------------------
+# Inventory page
+# -----------------------------
+class InventoryPage(WizardPage):
+    title = "Inventory"
+
+    def __init__(self, master: tk.Widget, app: "WizardApp"):
+        super().__init__(master, app)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(2, weight=1)
+
+        # Currency section
+        ttk.Label(self, text="Currency", font=("TkDefaultFont", 10, "bold")).grid(
+            row=0, column=0, sticky="w", padx=8, pady=(10, 4)
+        )
+        
+        currency_frame = ttk.Frame(self)
+        currency_frame.grid(row=1, column=0, sticky="ew", padx=8, pady=4)
+        
+        self.gp_var = tk.StringVar(value="0")
+        self.sp_var = tk.StringVar(value="0")
+        self.cp_var = tk.StringVar(value="0")
+        
+        ttk.Label(currency_frame, text="GP:").grid(row=0, column=0, sticky="w", padx=(0, 4))
+        ttk.Entry(currency_frame, textvariable=self.gp_var, width=10).grid(row=0, column=1, padx=4)
+        
+        ttk.Label(currency_frame, text="SP:").grid(row=0, column=2, sticky="w", padx=(16, 4))
+        ttk.Entry(currency_frame, textvariable=self.sp_var, width=10).grid(row=0, column=3, padx=4)
+        
+        ttk.Label(currency_frame, text="CP:").grid(row=0, column=4, sticky="w", padx=(16, 4))
+        ttk.Entry(currency_frame, textvariable=self.cp_var, width=10).grid(row=0, column=5, padx=4)
+
+        # Items section
+        ttk.Label(self, text="Items (one per line: name | quantity | description)", font=("TkDefaultFont", 10, "bold")).grid(
+            row=2, column=0, sticky="w", padx=8, pady=(16, 4)
+        )
+        ttk.Label(self, text='Example: Longsword | 1 | A well-crafted sword', foreground="#555").grid(
+            row=3, column=0, sticky="w", padx=8, pady=(0, 4)
+        )
+        
+        self.items_text = tk.Text(self, height=12, wrap="word")
+        self.items_text.grid(row=4, column=0, sticky="nsew", padx=8, pady=4)
+
+    def on_show(self) -> None:
+        inventory = self.app.char.get("inventory", {})
+        
+        # Load currency
+        currency = inventory.get("currency", {})
+        self.gp_var.set(str(currency.get("gp", 0)))
+        self.sp_var.set(str(currency.get("sp", 0)))
+        self.cp_var.set(str(currency.get("cp", 0)))
+        
+        # Load items
+        items = inventory.get("items", [])
+        item_lines = []
+        for item in items:
+            name = item.get("name", "")
+            qty = item.get("quantity", 1)
+            desc = item.get("description", "")
+            item_lines.append(f"{name} | {qty} | {desc}")
+        
+        self.items_text.delete("1.0", "end")
+        self.items_text.insert("1.0", "\n".join(item_lines))
+
+    def save_to_state(self) -> bool:
+        inventory = self.app.char["inventory"]
+        
+        # Save currency
+        inventory["currency"]["gp"] = max(0, safe_int(self.gp_var.get(), 0))
+        inventory["currency"]["sp"] = max(0, safe_int(self.sp_var.get(), 0))
+        inventory["currency"]["cp"] = max(0, safe_int(self.cp_var.get(), 0))
+        
+        # Parse items
+        items_raw = self.items_text.get("1.0", "end").strip()
+        items = []
+        for line in items_raw.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            # Parse "name | quantity | description" format
+            parts = [p.strip() for p in line.split("|")]
+            if len(parts) >= 1:
+                name = parts[0]
+                qty = safe_int(parts[1], 1) if len(parts) >= 2 else 1
+                desc = parts[2] if len(parts) >= 3 else ""
+                items.append({
+                    "name": name,
+                    "quantity": qty,
+                    "description": desc
+                })
+        
+        inventory["items"] = items
+        return True
+
+
+# -----------------------------
+# Actions page (top-level actions, reactions, bonus actions)
+# -----------------------------
+class ActionsPage(WizardPage):
+    title = "Actions"
+
+    def __init__(self, master: tk.Widget, app: "WizardApp"):
+        super().__init__(master, app)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        container = ttk.Frame(self)
+        container.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(1, weight=1)
+        container.rowconfigure(3, weight=1)
+        container.rowconfigure(5, weight=1)
+
+        # Actions
+        ttk.Label(container, text="Actions", font=("TkDefaultFont", 10, "bold")).grid(
+            row=0, column=0, sticky="w", pady=4
+        )
+        ttk.Label(container, text='Format: name | description (one per line)', foreground="#555").grid(
+            row=1, column=0, sticky="w", pady=(0, 4)
+        )
+        self.actions_text = tk.Text(container, height=4, wrap="word")
+        self.actions_text.grid(row=2, column=0, sticky="nsew", pady=4)
+
+        # Bonus Actions
+        ttk.Label(container, text="Bonus Actions", font=("TkDefaultFont", 10, "bold")).grid(
+            row=3, column=0, sticky="w", pady=(12, 4)
+        )
+        self.bonus_actions_text = tk.Text(container, height=4, wrap="word")
+        self.bonus_actions_text.grid(row=4, column=0, sticky="nsew", pady=4)
+
+        # Reactions
+        ttk.Label(container, text="Reactions", font=("TkDefaultFont", 10, "bold")).grid(
+            row=5, column=0, sticky="w", pady=(12, 4)
+        )
+        self.reactions_text = tk.Text(container, height=4, wrap="word")
+        self.reactions_text.grid(row=6, column=0, sticky="nsew", pady=4)
+
+    def on_show(self) -> None:
+        # Load actions
+        actions = self.app.char.get("actions", [])
+        action_lines = [f"{a.get('name', '')} | {a.get('description', '')}" for a in actions]
+        self.actions_text.delete("1.0", "end")
+        self.actions_text.insert("1.0", "\n".join(action_lines))
+
+        # Load bonus actions
+        bonus_actions = self.app.char.get("bonus_actions", [])
+        bonus_lines = [f"{a.get('name', '')} | {a.get('description', '')}" for a in bonus_actions]
+        self.bonus_actions_text.delete("1.0", "end")
+        self.bonus_actions_text.insert("1.0", "\n".join(bonus_lines))
+
+        # Load reactions
+        reactions = self.app.char.get("reactions", [])
+        reaction_lines = [f"{a.get('name', '')} | {a.get('description', '')}" for a in reactions]
+        self.reactions_text.delete("1.0", "end")
+        self.reactions_text.insert("1.0", "\n".join(reaction_lines))
+
+    def save_to_state(self) -> bool:
+        # Parse and save actions
+        actions_raw = self.actions_text.get("1.0", "end").strip()
+        actions = []
+        for line in actions_raw.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            parts = [p.strip() for p in line.split("|", 1)]
+            if len(parts) >= 1:
+                actions.append({
+                    "name": parts[0],
+                    "description": parts[1] if len(parts) >= 2 else "",
+                    "type": "action"
+                })
+        self.app.char["actions"] = actions
+
+        # Parse and save bonus actions
+        bonus_raw = self.bonus_actions_text.get("1.0", "end").strip()
+        bonus_actions = []
+        for line in bonus_raw.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            parts = [p.strip() for p in line.split("|", 1)]
+            if len(parts) >= 1:
+                bonus_actions.append({
+                    "name": parts[0],
+                    "description": parts[1] if len(parts) >= 2 else "",
+                    "type": "bonus_action"
+                })
+        self.app.char["bonus_actions"] = bonus_actions
+
+        # Parse and save reactions
+        reactions_raw = self.reactions_text.get("1.0", "end").strip()
+        reactions = []
+        for line in reactions_raw.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            parts = [p.strip() for p in line.split("|", 1)]
+            if len(parts) >= 1:
+                reactions.append({
+                    "name": parts[0],
+                    "description": parts[1] if len(parts) >= 2 else "",
+                    "type": "reaction"
+                })
+        self.app.char["reactions"] = reactions
+
         return True
 
 
@@ -2045,25 +2549,88 @@ class ReviewSavePage(WizardPage):
     def __init__(self, master: tk.Widget, app: "WizardApp"):
         super().__init__(master, app)
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(1, weight=1)
+        self.rowconfigure(0, weight=1)
 
-        ttk.Label(self, text="Final YAML preview:").grid(row=0, column=0, sticky="w", padx=8, pady=(10, 4))
-        self.preview = tk.Text(self, wrap="none")
-        self.preview.grid(row=1, column=0, sticky="nsew", padx=8, pady=4)
+        # Main container with two columns
+        main_container = ttk.Frame(self)
+        main_container.grid(row=0, column=0, sticky="nsew", padx=8, pady=(10, 4))
+        main_container.columnconfigure(0, weight=1)
+        main_container.columnconfigure(1, weight=1)
+        main_container.rowconfigure(0, weight=1)
+
+        # Left side - Notes
+        notes_frame = ttk.Frame(main_container)
+        notes_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+        notes_frame.columnconfigure(0, weight=1)
+        notes_frame.rowconfigure(1, weight=1)
+
+        ttk.Label(notes_frame, text="Character Notes", font=("TkDefaultFont", 10, "bold")).grid(
+            row=0, column=0, sticky="w", pady=(0, 4)
+        )
+        ttk.Label(notes_frame, text='Format: key | value (e.g., backstory | Grew up in...)', foreground="#555").grid(
+            row=1, column=0, sticky="w", pady=(0, 4)
+        )
+        self.notes_text = tk.Text(notes_frame, wrap="word", height=10)
+        self.notes_text.grid(row=2, column=0, sticky="nsew", pady=4)
+
+        # Right side - YAML preview
+        preview_frame = ttk.Frame(main_container)
+        preview_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+        preview_frame.columnconfigure(0, weight=1)
+        preview_frame.rowconfigure(1, weight=1)
+
+        ttk.Label(preview_frame, text="YAML Preview:").grid(row=0, column=0, sticky="w", pady=(0, 4))
+        self.preview = tk.Text(preview_frame, wrap="none")
+        self.preview.grid(row=1, column=0, sticky="nsew", pady=4)
+        
+        # Cache for YAML preview to avoid regenerating on every show
+        self._yaml_cache = ""
 
         btns = ttk.Frame(self)
-        btns.grid(row=2, column=0, sticky="ew", padx=8, pady=(4, 10))
+        btns.grid(row=1, column=0, sticky="ew", padx=8, pady=(4, 10))
         ttk.Button(btns, text="Save", command=self.app.save_current).grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(btns, text="Save As…", command=self.app.save_as).grid(row=0, column=1)
+        ttk.Button(btns, text="Save As…", command=self.app.save_as).grid(row=0, column=1, padx=(0, 8))
+        ttk.Button(btns, text="Refresh Preview", command=self._refresh_yaml).grid(row=0, column=2)
 
         self.path_label = ttk.Label(self, text="", foreground="#555")
-        self.path_label.grid(row=3, column=0, sticky="w", padx=8, pady=(0, 10))
+        self.path_label.grid(row=2, column=0, sticky="w", padx=8, pady=(0, 10))
 
     def on_show(self) -> None:
+        # Load notes
+        notes = self.app.char.get("notes", {})
+        note_lines = [f"{key} | {value}" for key, value in notes.items()]
+        self.notes_text.delete("1.0", "end")
+        self.notes_text.insert("1.0", "\n".join(note_lines))
+        
+        # Generate YAML preview (cached for performance)
+        self._refresh_yaml()
+        
+        self.path_label.config(text=f"File: {self.app.current_path or '(unsaved)'}")
+
+    def _refresh_yaml(self) -> None:
+        """Refresh the YAML preview - called manually to improve performance"""
+        self.save_to_state()  # Save notes first
         text = yaml.safe_dump(self.app.char, sort_keys=False, allow_unicode=True)
+        self._yaml_cache = text
         self.preview.delete("1.0", "end")
         self.preview.insert("1.0", text)
-        self.path_label.config(text=f"File: {self.app.current_path or '(unsaved)'}")
+
+    def save_to_state(self) -> bool:
+        # Parse notes
+        notes_raw = self.notes_text.get("1.0", "end").strip()
+        notes = {}
+        for line in notes_raw.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            parts = [p.strip() for p in line.split("|", 1)]
+            if len(parts) >= 2:
+                key = parts[0]
+                value = parts[1]
+                notes[key] = value
+        
+        self.app.char["notes"] = notes
+        return True
 
 
 # -----------------------------
@@ -2129,9 +2696,13 @@ class WizardApp(tk.Tk):
             SetupPage(main, self),
             BasicsPage(main, self),
             LevelAbilitiesPage(main, self),
+            ProficiencyPage(main, self),
             VitalsPage(main, self),
+            DefensesPage(main, self),
             ResourcesPage(main, self),
             SpellcastingPage(main, self),
+            InventoryPage(main, self),
+            ActionsPage(main, self),
             FeaturesPage(main, self),
             ReviewSavePage(main, self),
         ]
