@@ -7955,6 +7955,24 @@ class LanController:
             cid = self._host_assignments.get(host)
         return int(cid) if isinstance(cid, int) else None
 
+    def _assigned_character_name_for_host(self, host: str) -> Optional[str]:
+        host = str(host or "").strip()
+        if not host:
+            return None
+        with self._clients_lock:
+            yaml_entry = self._yaml_host_assignments.get(host)
+        if isinstance(yaml_entry, dict):
+            name = str(yaml_entry.get("name") or "").strip()
+            if name:
+                return name
+        cid = self._assigned_cid_for_host(host)
+        if cid is None:
+            return None
+        name = self._pc_name_for(int(cid))
+        if name.startswith("cid:"):
+            return None
+        return name
+
     def _sync_yaml_host_assignments(self, profiles: Dict[str, Dict[str, Any]]) -> None:
         if not isinstance(profiles, dict):
             profiles = {}
@@ -8050,6 +8068,7 @@ class LanController:
         assets_dir = Path(__file__).parent / "assets"
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
         web_entrypoint = assets_dir / "web" / "new_character" / "index.html"
+        edit_entrypoint = assets_dir / "web" / "edit_character" / "index.html"
         for asset_name in ("alert.wav", "ko.wav"):
             if not (assets_dir / asset_name).exists():
                 self.app._oplog(
@@ -8068,6 +8087,12 @@ class LanController:
             if not web_entrypoint.exists():
                 raise HTTPException(status_code=404, detail="New character page missing.")
             return HTMLResponse(web_entrypoint.read_text(encoding="utf-8"))
+
+        @app.get("/config")
+        async def edit_character():
+            if not edit_entrypoint.exists():
+                raise HTTPException(status_code=404, detail="Edit character page missing.")
+            return HTMLResponse(edit_entrypoint.read_text(encoding="utf-8"))
 
         @app.get("/sw.js")
         async def service_worker():
@@ -8187,6 +8212,17 @@ class LanController:
                 raise HTTPException(status_code=500, detail=f"Unable to export YAML: {exc}")
             return Response(text, media_type="application/x-yaml")
 
+        @app.get("/api/characters/by_ip")
+        async def get_character_by_ip(request: Request):
+            host = getattr(getattr(request, "client", None), "host", "")
+            name = self._assigned_character_name_for_host(host)
+            if not name:
+                raise HTTPException(status_code=404, detail="No assigned character.")
+            try:
+                return self.app._get_character_payload(name)
+            except CharacterApiError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
         @app.get("/api/characters/{name}")
         async def get_character(name: str):
             try:
@@ -8205,6 +8241,13 @@ class LanController:
         async def update_character(name: str, payload: Dict[str, Any] = Body(...)):
             try:
                 return self.app._update_character_payload(name, payload)
+            except CharacterApiError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+        @app.post("/api/characters/{name}/overwrite")
+        async def overwrite_character(name: str, payload: Dict[str, Any] = Body(...)):
+            try:
+                return self.app._overwrite_character_payload(name, payload)
             except CharacterApiError as exc:
                 raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
@@ -10494,6 +10537,33 @@ class InitiativeTracker(base.InitiativeTracker):
         self._schedule_player_yaml_refresh()
         return profile
 
+    def _normalize_character_filename(self, raw_filename: Optional[str], fallback_name: str) -> str:
+        filename = str(raw_filename or "").strip()
+        if filename:
+            base = Path(filename).name
+        else:
+            base = self._character_slugify(fallback_name)
+        stem = Path(base).stem or base or "character"
+        stem = self._sanitize_player_filename(stem)
+        return f"{stem}.yaml"
+
+    def _archive_character_file(self, path: Path) -> Path:
+        players_dir = self._players_dir()
+        old_dir = players_dir / "old"
+        old_dir.mkdir(parents=True, exist_ok=True)
+        base_name = f"{path.stem}.yaml.old"
+        candidate = old_dir / base_name
+        if not candidate.exists():
+            path.replace(candidate)
+            return candidate
+        index = 1
+        while True:
+            candidate = old_dir / f"{base_name}.{index}"
+            if not candidate.exists():
+                path.replace(candidate)
+                return candidate
+            index += 1
+
     def _list_character_filenames(self) -> List[str]:
         players_dir = self._players_dir()
         if not players_dir.exists():
@@ -10563,6 +10633,42 @@ class InitiativeTracker(base.InitiativeTracker):
         merged = self._character_merge_defaults(merged)
         profile = self._store_character_yaml(path, merged)
         return {"filename": path.name, "character": profile}
+
+    def _overwrite_character_payload(self, name: str, payload: Any) -> Dict[str, Any]:
+        if not isinstance(payload, dict):
+            raise CharacterApiError(status_code=400, detail={"error": "validation_error", "message": "Invalid payload."})
+        data = payload.get("data") if "data" in payload else payload
+        if not isinstance(data, dict):
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "validation_error", "message": "Character data is required."},
+            )
+        errors = self._validate_character_payload(data)
+        if errors:
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "validation_error", "errors": errors},
+            )
+        path = self._resolve_character_path(name)
+        if path is None:
+            raise CharacterApiError(status_code=404, detail={"error": "not_found", "message": "Character not found."})
+
+        updated_name = self._extract_character_name(data) or name
+        filename = self._normalize_character_filename(payload.get("filename"), updated_name)
+        players_dir = self._players_dir()
+        players_dir.mkdir(parents=True, exist_ok=True)
+        new_path = players_dir / filename
+        if new_path.exists() and new_path.resolve() != path.resolve():
+            raise CharacterApiError(
+                status_code=409,
+                detail={"error": "already_exists", "message": "Target filename already exists."},
+            )
+
+        archived = self._archive_character_file(path)
+        normalized = self._apply_character_name(data, updated_name)
+        normalized = self._character_merge_defaults(normalized)
+        profile = self._store_character_yaml(new_path, normalized)
+        return {"filename": new_path.name, "character": profile, "archived": archived.name}
 
     @staticmethod
     def _normalize_player_section(value: Any) -> Dict[str, Any]:
