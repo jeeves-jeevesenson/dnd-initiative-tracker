@@ -1,0 +1,10 @@
+include README.md
+include LICENSE
+include requirements.txt
+recursive-include Monsters *.yaml
+recursive-include Spells *.yaml
+recursive-include assets *
+recursive-include players *.yaml
+recursive-include presets *.yaml
+recursive-include docs *.md
+recursive-include scripts *.sh *.bat *.ps1

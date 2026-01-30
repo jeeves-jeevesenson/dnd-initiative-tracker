@@ -14,10 +14,26 @@ A comprehensive D&D 5e initiative tracker and combat management system with a de
 
 ## 🎯 Quick Start
 
-**Linux/macOS:**
+**Streamlined Install (Recommended - All Platforms):**
+```bash
+# One-line install: clones, installs dependencies, and sets up in one command
+curl -sSL https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
+```
+Or using wget:
+```bash
+wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
+```
+
+**Windows Quick Install:**
+```powershell
+# Run in PowerShell
+irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex
+```
+
+**Manual Install (Linux/macOS):**
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git  # Replace with your fork URL
+git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
 cd dnd-initiative-tracker
 
 # Install dependencies
@@ -29,10 +45,10 @@ pip install -r requirements.txt
 python dnd_initative_tracker.py
 ```
 
-**Windows 11:**
+**Manual Install (Windows 11):**
 ```cmd
 # Clone the repository
-git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git
+git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
 cd dnd-initiative-tracker
 
 # Run the automated installer (recommended)
@@ -246,7 +262,7 @@ The D&D Initiative Tracker is a feature-rich combat management tool designed for
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git  # Replace with actual repo URL
+git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
 cd dnd-initiative-tracker
 
 # Create virtual environment (recommended)
@@ -292,7 +308,7 @@ For Windows 11 users who want a simple installation with desktop shortcuts:
 **Option 1: Command Prompt (Recommended for most users)**
 ```cmd
 # Clone the repository (or download and extract ZIP)
-git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git
+git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
 cd dnd-initiative-tracker
 
 # Run the Windows installer
@@ -302,7 +318,7 @@ scripts\install-windows.bat
 **Option 2: PowerShell (For PowerShell users)**
 ```powershell
 # Clone the repository (or download and extract ZIP)
-git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git
+git clone https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git
 cd dnd-initiative-tracker
 
 # Run the PowerShell installer
