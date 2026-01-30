@@ -289,6 +289,7 @@ For Windows 11 users who want a simple installation with desktop shortcuts:
 
 #### Automated Installation
 
+**Option 1: Command Prompt (Recommended for most users)**
 ```cmd
 # Clone the repository (or download and extract ZIP)
 git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git
@@ -296,6 +297,21 @@ cd dnd-initiative-tracker
 
 # Run the Windows installer
 scripts\install-windows.bat
+```
+
+**Option 2: PowerShell (For PowerShell users)**
+```powershell
+# Clone the repository (or download and extract ZIP)
+git clone https://github.com/YOUR-USERNAME/dnd-initiative-tracker.git
+cd dnd-initiative-tracker
+
+# Run the PowerShell installer
+.\scripts\install-windows.ps1
+```
+
+**Note**: PowerShell users may need to adjust execution policy first:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
 The installer will:
@@ -343,8 +359,14 @@ scripts\launch-windows.bat
 
 To remove the installed application:
 
+**Command Prompt:**
 ```cmd
 scripts\uninstall-windows.bat
+```
+
+**PowerShell:**
+```powershell
+.\scripts\uninstall-windows.ps1
 ```
 
 This will remove:
