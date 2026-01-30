@@ -177,6 +177,7 @@ Use the spell slug as the filename:
 | `schema` | string | Should be `dnd55.spell.v1` |
 | `id` | string | Stable slug |
 | `name` | string | Display name |
+| `color` | string | Hex color for UI display (e.g., `#6aa9ff`) |
 | `edition` | string | e.g., `2024` |
 | `source` | map | Book/page metadata (optional) |
 | `level` | int | 0 = cantrip |
@@ -199,6 +200,7 @@ Use the spell slug as the filename:
 schema: dnd55.spell.v1
 id: fireball
 name: Fireball
+color: "#6aa9ff"
 edition: "2024"
 source:
   book: "Player's Handbook 2024"

@@ -1112,6 +1112,91 @@ HTML_INDEX = r"""<!doctype html>
       z-index: 60;
     }
     .spellbook-overlay.show{display:flex;}
+    .spell-detail-overlay{
+      position: fixed;
+      inset: 0;
+      height: calc(var(--spellbook-vh, 1vh) * 100);
+      max-height: 100dvh;
+      background: rgba(10, 12, 16, 0.95);
+      backdrop-filter: blur(10px);
+      display: none;
+      flex-direction: column;
+      z-index: 70;
+    }
+    .spell-detail-overlay.show{display:flex;}
+    .spell-detail-header{
+      padding: calc(12px + var(--safeInsetTop)) 14px 12px 14px;
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .spell-detail-title{
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .spell-detail-spacer{flex:1;}
+    .spell-detail-body{
+      padding: 14px;
+      padding-bottom: calc(14px + var(--safeInsetBottom));
+      overflow:auto;
+      flex: 1 1 auto;
+      min-height: 0;
+      display:flex;
+      flex-direction:column;
+      gap: 14px;
+    }
+    .spell-detail-card{
+      background: rgba(20,25,35,0.92);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display:flex;
+      flex-direction:column;
+      gap: 12px;
+    }
+    .spell-detail-heading{
+      font-size: 14px;
+      font-weight: 700;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .spell-detail-meta{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .spell-detail-color-row{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .spell-detail-color-value{
+      width: 96px;
+      text-transform: uppercase;
+    }
+    .spell-color-swatch{
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.2);
+      display:inline-block;
+      flex: 0 0 auto;
+    }
+    .spellbook-color-dot{
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.4);
+      background: rgba(255,255,255,0.2);
+      flex: 0 0 auto;
+      margin-right: 6px;
+    }
     .spell-library-overlay{
       position: fixed;
       inset: 0;
@@ -1295,6 +1380,18 @@ HTML_INDEX = r"""<!doctype html>
       color: var(--text);
       cursor:pointer;
       font-size:13px;
+    }
+    .spellbook-item-name{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex:1;
+      min-width:0;
+    }
+    .spellbook-item-name span{
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .spellbook-item.selected{
       border-color: var(--accent);
@@ -2335,6 +2432,34 @@ __DAMAGE_TYPE_OPTIONS__
   </div>
   <button class="btn spellbook-back-fab" id="spellbookBackFloating" type="button" aria-label="Close spellbook">Close</button>
 </div>
+<div class="spell-detail-overlay" id="spellDetailOverlay" aria-hidden="true">
+  <div class="spell-detail-header">
+    <button class="btn" id="spellDetailBack" type="button">Back</button>
+    <div class="spell-detail-title" id="spellDetailTitle">Spell Details</div>
+    <div class="spell-detail-spacer"></div>
+  </div>
+  <div class="spell-detail-body">
+    <div class="spell-detail-card">
+      <div class="spell-detail-heading">
+        <span id="spellDetailName">Spell</span>
+        <span class="spell-detail-meta" id="spellDetailMeta"></span>
+      </div>
+      <div class="form-field">
+        <label for="spellDetailColorInput">Spell Color</label>
+        <div class="spell-detail-color-row">
+          <span class="spell-color-swatch" id="spellDetailColorSwatch"></span>
+          <input class="color-input" type="color" id="spellDetailColorInput" value="#6aa9ff" />
+          <input class="spell-detail-color-value" id="spellDetailColorValue" type="text" inputmode="text" autocomplete="off" />
+        </div>
+      </div>
+      <div class="spell-detail-meta" id="spellDetailStatus"></div>
+    </div>
+    <div class="spell-detail-card">
+      <div class="spell-detail-heading">Spell Details</div>
+      <div class="spell-details-grid" id="spellDetailGrid"></div>
+    </div>
+  </div>
+</div>
 <div class="modal" id="spellbookConfirmModal" aria-hidden="true">
   <div class="card">
     <h2>Confirm Spellbook</h2>
@@ -2750,6 +2875,16 @@ __DAMAGE_TYPE_OPTIONS__
   const spellbookConfirmText = document.getElementById("spellbookConfirmText");
   const spellbookConfirmCancel = document.getElementById("spellbookConfirmCancel");
   const spellbookConfirmYes = document.getElementById("spellbookConfirmYes");
+  const spellDetailOverlay = document.getElementById("spellDetailOverlay");
+  const spellDetailBackBtn = document.getElementById("spellDetailBack");
+  const spellDetailTitle = document.getElementById("spellDetailTitle");
+  const spellDetailName = document.getElementById("spellDetailName");
+  const spellDetailMeta = document.getElementById("spellDetailMeta");
+  const spellDetailGrid = document.getElementById("spellDetailGrid");
+  const spellDetailColorInput = document.getElementById("spellDetailColorInput");
+  const spellDetailColorSwatch = document.getElementById("spellDetailColorSwatch");
+  const spellDetailColorValue = document.getElementById("spellDetailColorValue");
+  const spellDetailStatus = document.getElementById("spellDetailStatus");
   const castNameInput = document.getElementById("castName");
   const castShapeInput = document.getElementById("castShape");
   const castRadiusField = document.getElementById("castRadiusField");
@@ -6099,6 +6234,8 @@ __DAMAGE_TYPE_OPTIONS__
   let spellbookLeftSelection = new Set();
   let spellbookRightSelection = new Set();
   let spellbookPreviousFocus = null;
+  let spellDetailPreviousFocus = null;
+  let activeSpellDetailSlug = null;
 
   function getPlayerLevel(profile){
     const raw = profile?.leveling?.level ?? profile?.leveling?.total_level ?? profile?.leveling?.lvl;
@@ -6393,6 +6530,7 @@ __DAMAGE_TYPE_OPTIONS__
       const preset = spellPresetBySlug.get(getSpellKey(slug));
       const label = normalizeTextValue(preset?.name || slug);
       const level = getPresetLevelNumber(preset);
+      const color = normalizeHexColor(preset?.color || "");
       const item = document.createElement("button");
       item.type = "button";
       item.className = "spellbook-item";
@@ -6402,10 +6540,22 @@ __DAMAGE_TYPE_OPTIONS__
       item.addEventListener("click", () => {
         toggleSpellbookSelection(slug, selectionSet);
         renderSpellbook();
+        if (preset){
+          openSpellDetailOverlay(preset);
+        }
       });
+      const nameWrap = document.createElement("span");
+      nameWrap.className = "spellbook-item-name";
+      const colorDot = document.createElement("span");
+      colorDot.className = "spellbook-color-dot";
+      if (color){
+        colorDot.style.background = color;
+      }
+      nameWrap.appendChild(colorDot);
       const nameSpan = document.createElement("span");
       nameSpan.textContent = label;
-      item.appendChild(nameSpan);
+      nameWrap.appendChild(nameSpan);
+      item.appendChild(nameWrap);
       const meta = document.createElement("small");
       if (Number.isFinite(level)){
         meta.textContent = level === 0 ? "Cantrip" : `Lv ${level}`;
@@ -6501,6 +6651,7 @@ __DAMAGE_TYPE_OPTIONS__
         spellbookBackBtn?.focus();
       });
     } else if (spellbookPreviousFocus){
+      closeSpellDetailOverlay();
       spellbookPreviousFocus.focus();
       spellbookPreviousFocus = null;
     }
@@ -6619,6 +6770,137 @@ __DAMAGE_TYPE_OPTIONS__
       localToast("Unable to save spellbook.");
     }
   }
+
+  function setSpellDetailStatus(text){
+    if (!spellDetailStatus) return;
+    spellDetailStatus.textContent = text || "";
+  }
+
+  function updateSpellDetailColorInputs(color){
+    const fallback = color || "#6aa9ff";
+    if (spellDetailColorSwatch){
+      spellDetailColorSwatch.style.background = fallback;
+    }
+    if (spellDetailColorInput){
+      spellDetailColorInput.value = fallback;
+    }
+    if (spellDetailColorValue){
+      spellDetailColorValue.value = color ? color.toUpperCase() : fallback.toUpperCase();
+    }
+  }
+
+  async function saveSpellDetailColor(slug, color){
+    if (!slug) return;
+    setSpellDetailStatus("Saving color…");
+    try {
+      const response = await fetch(`/api/spells/${encodeURIComponent(slug)}/color`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({color}),
+      });
+      if (!response.ok){
+        throw new Error(`Failed (${response.status})`);
+      }
+      const data = await response.json();
+      const updatedColor = normalizeHexColor(data?.spell?.color || color) || color;
+      const preset = spellPresetBySlug.get(getSpellKey(slug));
+      if (preset){
+        preset.color = updatedColor;
+      }
+      updateSpellPresetOptions(cachedSpellPresets);
+      updateSpellPresetDetails(preset || null);
+      if (spellDetailOverlay?.classList.contains("show")){
+        renderSpellDetailOverlay(preset || null);
+      }
+      setSpellDetailStatus("Color saved.");
+    } catch (err){
+      console.warn("Failed to save spell color.", err);
+      setSpellDetailStatus("Unable to save color.");
+      localToast("Unable to save spell color.");
+    }
+  }
+
+  function renderSpellDetailOverlay(preset){
+    if (!spellDetailGrid || !spellDetailName || !spellDetailMeta) return;
+    if (!preset){
+      spellDetailName.textContent = "Spell";
+      spellDetailMeta.textContent = "";
+      spellDetailGrid.textContent = "";
+      updateSpellDetailColorInputs("");
+      setSpellDetailStatus("");
+      return;
+    }
+    const name = normalizeTextValue(preset.name) || normalizeTextValue(preset.slug) || "Spell";
+    const levelLabel = formatSpellLevelLabel(preset.level);
+    const school = normalizeTextValue(preset.school) || "Unknown";
+    spellDetailName.textContent = name;
+    spellDetailMeta.textContent = `${levelLabel} · ${school}`;
+    const color = normalizeHexColor(preset.color || "");
+    updateSpellDetailColorInputs(color || "");
+    setSpellDetailStatus("");
+    const fields = [
+      {label: "Level", value: levelLabel},
+      {label: "School", value: school},
+    ];
+    const optionalFields = buildOptionalSpellDetails(preset);
+    spellDetailGrid.textContent = "";
+    [...fields, ...optionalFields].forEach((field) => {
+      if (!field || (!field.value && field.value !== 0)) return;
+      const row = document.createElement("div");
+      row.className = "spell-details-row";
+      const label = document.createElement("span");
+      label.className = "spell-details-label";
+      label.textContent = field.label;
+      const value = document.createElement("span");
+      value.className = "spell-details-value";
+      value.textContent = field.value || "—";
+      row.appendChild(label);
+      row.appendChild(value);
+      spellDetailGrid.appendChild(row);
+    });
+  }
+
+  function openSpellDetailOverlay(preset){
+    if (!spellDetailOverlay) return;
+    if (!preset){
+      return;
+    }
+    activeSpellDetailSlug = getPresetSlug(preset);
+    spellDetailOverlay.classList.add("show");
+    spellDetailOverlay.setAttribute("aria-hidden", "false");
+    spellDetailPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (spellDetailTitle){
+      spellDetailTitle.textContent = normalizeTextValue(preset.name) || "Spell Details";
+    }
+    renderSpellDetailOverlay(preset);
+    if (spellDetailBackBtn){
+      spellDetailBackBtn.focus();
+    }
+  }
+
+  function closeSpellDetailOverlay(){
+    if (!spellDetailOverlay) return;
+    spellDetailOverlay.classList.remove("show");
+    spellDetailOverlay.setAttribute("aria-hidden", "true");
+    activeSpellDetailSlug = null;
+    if (spellDetailPreviousFocus){
+      spellDetailPreviousFocus.focus();
+      spellDetailPreviousFocus = null;
+    }
+  }
+
+  function commitSpellDetailColor(raw){
+    const color = normalizeHexColor(raw || "");
+    if (!color){
+      localToast("Pick a valid hex color, matey.");
+      return;
+    }
+    updateSpellDetailColorInputs(color);
+    if (activeSpellDetailSlug){
+      saveSpellDetailColor(activeSpellDetailSlug, color);
+    }
+  }
+
   const updateSpellPresetDetails = (preset) => {
     if (!spellPresetDetails) return;
     if (!preset){
@@ -6636,6 +6918,7 @@ __DAMAGE_TYPE_OPTIONS__
     const range = normalizeTextValue(preset.range) || "—";
     const ritual = preset.ritual === true ? "Yes" : preset.ritual === false ? "No" : "—";
     const concentration = preset.concentration === true ? "Yes" : preset.concentration === false ? "No" : "—";
+    const color = normalizeHexColor(preset.color || "");
     const lists = getSpellListEntries(preset.lists);
     const listLabel = lists.length
       ? lists.map((entry) => `${formatListGroupLabel(entry.group)}: ${entry.value}`).join(" · ")
@@ -6649,6 +6932,7 @@ __DAMAGE_TYPE_OPTIONS__
       {label: "Ritual", value: ritual},
       {label: "Concentration", value: concentration},
       {label: "Lists", value: listLabel},
+      {label: "Color", value: color || "—", color},
     ];
     fields.forEach((field) => {
       const row = document.createElement("div");
@@ -6658,7 +6942,17 @@ __DAMAGE_TYPE_OPTIONS__
       label.textContent = field.label;
       const value = document.createElement("span");
       value.className = "spell-details-value";
-      value.textContent = field.value;
+      if (field.color){
+        const swatch = document.createElement("span");
+        swatch.className = "spell-color-swatch";
+        swatch.style.background = field.color;
+        value.appendChild(swatch);
+        const text = document.createElement("span");
+        text.textContent = ` ${field.value}`;
+        value.appendChild(text);
+      } else {
+        value.textContent = field.value;
+      }
       row.appendChild(label);
       row.appendChild(value);
       detailsGrid.appendChild(row);
@@ -6666,7 +6960,7 @@ __DAMAGE_TYPE_OPTIONS__
     spellPresetDetails.textContent = "";
     spellPresetDetails.appendChild(detailsGrid);
   };
-  const formatSpellDamageLabel = (preset) => {
+  function formatSpellDamageLabel(preset){
     const base = preset?.default_damage ?? preset?.dice ?? "";
     const baseLabel = base !== null && base !== undefined && String(base).trim() ? String(base).trim() : "";
     const damageTypes = Array.isArray(preset?.damage_types)
@@ -6677,9 +6971,9 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (baseLabel) return baseLabel;
     if (damageTypes.length) return damageTypes.join(", ");
-    return "—";
-  };
-  const hasAoeShape = (preset) => {
+    return "";
+  }
+  function hasAoeShape(preset){
     if (!preset || typeof preset !== "object") return false;
     return Boolean(
       preset.shape ||
@@ -6691,8 +6985,8 @@ __DAMAGE_TYPE_OPTIONS__
       preset.height_ft ||
       preset.thickness_ft
     );
-  };
-  const buildOptionalSpellDetails = (preset) => {
+  }
+  function buildOptionalSpellDetails(preset){
     if (!preset || typeof preset !== "object") return [];
     const tags = Array.isArray(preset.tags) ? preset.tags.filter(Boolean) : [];
     const lists = getSpellListEntries(preset.lists);
@@ -6716,9 +7010,12 @@ __DAMAGE_TYPE_OPTIONS__
       {label: "Duration (turns)", value: Number.isFinite(Number(preset.duration_turns)) ? String(preset.duration_turns) : ""},
       {label: "Save", value: preset.save_type ? String(preset.save_type || "").toUpperCase() : ""},
       {label: "Save DC", value: Number.isFinite(Number(preset.save_dc)) ? String(preset.save_dc) : ""},
+      {label: "Damage", value: formatSpellDamageLabel(preset)},
+      {label: "Half on Save", value: preset.half_on_pass ? "Yes" : ""},
+      {label: "Automation", value: normalizeTextValue(preset.automation)},
     ];
     return fields.filter((field) => field.value);
-  };
+  }
   const updateSelectOptions = (selectEl, values) => {
     if (!selectEl) return;
     const currentValue = selectEl.value;
@@ -6937,6 +7234,7 @@ __DAMAGE_TYPE_OPTIONS__
       String(p.range || ""),
       String(p.ritual || ""),
       String(p.concentration || ""),
+      String(p.color || ""),
       JSON.stringify(p.tags || []),
       JSON.stringify(p.lists || {}),
     ]));
@@ -7241,8 +7539,8 @@ __DAMAGE_TYPE_OPTIONS__
       castDiceInput.value = dice !== undefined && dice !== null ? String(dice) : "";
       castBaseDice = dice !== undefined && dice !== null ? String(dice) : "";
     }
-    if (castColorInput && preset.color){
-      castColorInput.value = String(preset.color || "");
+    if (castColorInput){
+      castColorInput.value = normalizeHexColor(preset.color || "") || "#6aa9ff";
     }
     setCastDamageTypes(preset.damage_types);
     if (Number.isFinite(Number(preset.duration_turns))){
@@ -7863,6 +8161,25 @@ __DAMAGE_TYPE_OPTIONS__
       openSpellbookOverlay(false);
     });
   }
+  if (spellDetailBackBtn){
+    spellDetailBackBtn.addEventListener("click", () => {
+      closeSpellDetailOverlay();
+    });
+  }
+  if (spellDetailColorInput){
+    spellDetailColorInput.addEventListener("input", (event) => {
+      const value = String(event.target.value || "");
+      updateSpellDetailColorInputs(normalizeHexColor(value) || value);
+    });
+    spellDetailColorInput.addEventListener("change", (event) => {
+      commitSpellDetailColor(event.target.value || "");
+    });
+  }
+  if (spellDetailColorValue){
+    spellDetailColorValue.addEventListener("change", (event) => {
+      commitSpellDetailColor(event.target.value || "");
+    });
+  }
   if (spellbookTabKnown){
     spellbookTabKnown.addEventListener("click", () => {
       spellbookMode = "known";
@@ -7949,6 +8266,10 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (spellLibraryOverlay?.classList.contains("show")){
         openSpellLibraryOverlay(false);
+        return;
+      }
+      if (spellDetailOverlay?.classList.contains("show")){
+        closeSpellDetailOverlay();
         return;
       }
       if (spellbookOverlay?.classList.contains("show")){
@@ -8840,6 +9161,25 @@ class LanController:
                     payload["error"] = f"Failed to parse YAML: {exc}"
             return payload
 
+        @app.post("/api/spells/{spell_id}/color")
+        async def update_spell_color(spell_id: str, payload: Dict[str, Any] = Body(...)):
+            if not isinstance(payload, dict):
+                raise HTTPException(status_code=400, detail="Invalid payload.")
+            spell_id = str(spell_id or "").strip()
+            if not spell_id:
+                raise HTTPException(status_code=400, detail="Missing spell id.")
+            try:
+                result = self.app._save_spell_color(spell_id, payload.get("color"))
+            except FileNotFoundError:
+                raise HTTPException(status_code=404, detail="Spell not found.")
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+            except RuntimeError as exc:
+                raise HTTPException(status_code=500, detail=str(exc))
+            except Exception:
+                raise HTTPException(status_code=500, detail="Failed to save spell color.")
+            return {"ok": True, "spell": result}
+
         @app.get("/api/characters")
         async def list_characters():
             return {"files": self.app._list_character_filenames()}
@@ -9703,6 +10043,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_data_by_name: Dict[str, Dict[str, Any]] = {}
         self._player_yaml_name_map: Dict[str, Path] = {}
         self._player_yaml_lock = threading.Lock()
+        self._spell_yaml_lock = threading.Lock()
         self._player_yaml_refresh_scheduled = False
 
         # LAN state for when map window isn't open
@@ -10328,6 +10669,9 @@ class InitiativeTracker(base.InitiativeTracker):
             return None
         return value
 
+    def _normalize_spell_color(self, color: Any) -> Optional[str]:
+        return self._normalize_token_color(color)
+
     def _token_color_forbidden(self, color: str) -> bool:
         try:
             r = int(color[1:3], 16)
@@ -10670,6 +11014,14 @@ class InitiativeTracker(base.InitiativeTracker):
                 return None
             return f"{count}d{match.group(2)}"
 
+        def normalize_color(value: Any) -> Optional[str]:
+            if not isinstance(value, str):
+                return None
+            raw = value.strip().lower()
+            if re.fullmatch(r"#[0-9a-f]{6}", raw):
+                return raw
+            return None
+
         def normalize_save_type(value: Any) -> Optional[str]:
             if value in (None, ""):
                 return None
@@ -10706,6 +11058,7 @@ class InitiativeTracker(base.InitiativeTracker):
             spell_range = parsed.get("range")
             ritual = parsed.get("ritual")
             concentration = parsed.get("concentration")
+            color = normalize_color(parsed.get("color"))
             import_data = parsed.get("import") if isinstance(parsed.get("import"), dict) else {}
             url = import_data.get("url")
             lists = parsed.get("lists") if isinstance(parsed.get("lists"), dict) else {}
@@ -10741,6 +11094,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 "mechanics": mechanics,
                 "automation": automation,
             }
+            if color:
+                preset["color"] = color
             if isinstance(url, str) and url.strip():
                 preset["url"] = url.strip()
 
@@ -10998,6 +11353,16 @@ class InitiativeTracker(base.InitiativeTracker):
         yaml_text = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
         tmp_path = path.with_suffix(path.suffix + ".tmp")
         with self._player_yaml_lock:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path.write_text(yaml_text, encoding="utf-8")
+            tmp_path.replace(path)
+
+    def _write_spell_yaml_atomic(self, path: Path, payload: Dict[str, Any]) -> None:
+        if yaml is None:
+            raise RuntimeError("PyYAML is required for spell persistence.")
+        yaml_text = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        with self._spell_yaml_lock:
             path.parent.mkdir(parents=True, exist_ok=True)
             tmp_path.write_text(yaml_text, encoding="utf-8")
             tmp_path.replace(path)
@@ -12136,6 +12501,32 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_name_map[path.stem.lower()] = path
 
         return normalized
+
+    def _save_spell_color(self, spell_id: str, color: Any) -> Dict[str, Any]:
+        if yaml is None:
+            raise RuntimeError("PyYAML is required for spell persistence.")
+        slug = str(spell_id or "").strip()
+        if not slug:
+            raise ValueError("Spell id is required.")
+        normalized = self._normalize_spell_color(color)
+        if not normalized:
+            raise ValueError("Spell color must be a hex value.")
+        spells_dir = self._resolve_spells_dir()
+        if spells_dir is None:
+            raise FileNotFoundError("Spells directory not found.")
+        path = spells_dir / f"{slug}.yaml"
+        if not path.exists():
+            raise FileNotFoundError("Spell not found.")
+        try:
+            parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise RuntimeError(f"Unable to read spell YAML: {exc}") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("Spell YAML did not parse to a dict.")
+        parsed["color"] = normalized
+        self._write_spell_yaml_atomic(path, parsed)
+        self._invalidate_spell_index_cache()
+        return {"slug": slug, "color": normalized}
 
     def _lan_seed_missing_positions(self, positions: Dict[int, Tuple[int, int]], cols: int, rows: int) -> Dict[int, Tuple[int, int]]:
         # place missing near center in a simple spiral, one square apart
