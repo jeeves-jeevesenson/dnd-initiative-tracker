@@ -5214,10 +5214,24 @@ class BattleMapWindow(tk.Toplevel):
         )
         if not path:
             return
+        rough_terrain = []
+        for (col, row), cell in sorted(self.rough_terrain.items()):
+            cell_data = self._rough_cell_data(cell)
+            rough_terrain.append(
+                {
+                    "col": int(col),
+                    "row": int(row),
+                    "color": cell_data.get("color"),
+                    "label": cell_data.get("label"),
+                    "is_swim": bool(cell_data.get("is_swim")),
+                    "is_rough": bool(cell_data.get("is_rough")),
+                }
+            )
         data = {
             "cols": int(self.cols),
             "rows": int(self.rows),
             "obstacles": sorted([list(pair) for pair in self.obstacles]),
+            "rough_terrain": rough_terrain,
         }
         try:
             with open(path, "w", encoding="utf-8") as handle:
@@ -5255,6 +5269,10 @@ class BattleMapWindow(tk.Toplevel):
         if not isinstance(obstacles, list):
             messagebox.showerror("Load Preset", "Preset obstacle list is invalid.", parent=self)
             return
+        rough_terrain = data.get("rough_terrain", [])
+        if "rough_terrain" in data and not isinstance(rough_terrain, list):
+            messagebox.showerror("Load Preset", "Preset rough terrain list is invalid.", parent=self)
+            return
         target_cols = int(self.cols)
         target_rows = int(self.rows)
         if preset_cols != self.cols or preset_rows != self.rows:
@@ -5287,7 +5305,27 @@ class BattleMapWindow(tk.Toplevel):
             if 0 <= col < target_cols and 0 <= row < target_rows:
                 loaded.add((col, row))
         self.obstacles = loaded
+        loaded_rough: Dict[Tuple[int, int], Dict[str, object]] = {}
+        for entry in rough_terrain:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                col = int(entry.get("col"))
+                row = int(entry.get("row"))
+            except (TypeError, ValueError):
+                continue
+            if col < 0 or row < 0 or col >= target_cols or row >= target_rows:
+                continue
+            cell_data = self._rough_cell_data(entry)
+            loaded_rough[(col, row)] = {
+                "color": cell_data.get("color"),
+                "label": cell_data.get("label"),
+                "is_swim": bool(cell_data.get("is_swim")),
+                "is_rough": bool(cell_data.get("is_rough")),
+            }
+        self.rough_terrain = loaded_rough
         self._redraw_all()
+        self._draw_rough_terrain()
         self._update_move_highlight()
 
     def _draw_obstacles(self) -> None:
