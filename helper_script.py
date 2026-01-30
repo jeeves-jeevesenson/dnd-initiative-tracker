@@ -4797,8 +4797,13 @@ class BattleMapWindow(tk.Toplevel):
         self._zoom_val = ttk.Label(view, text="32")
         self._zoom_val.grid(row=0, column=2, sticky="e", padx=(6, 0))
         ttk.Button(view, text="Fit", command=self._fit_to_window).grid(row=1, column=0, sticky="w", pady=(6, 0))
-        ttk.Button(view, text="Center", command=self._center_view).grid(row=1, column=1, sticky="w", pady=(6, 0))
-        ttk.Button(view, text="Dash (+spd)", command=self._dash_active).grid(row=1, column=2, sticky="e", pady=(6, 0))
+        ttk.Button(view, text="Center", command=self._center_view).grid(
+            row=1,
+            column=1,
+            columnspan=2,
+            sticky="w",
+            pady=(6, 0),
+        )
         ttk.Checkbutton(view, text="Draw Obstacles", variable=self.obstacle_mode_var).grid(row=2, column=0, sticky="w", pady=(6, 0))
         ttk.Checkbutton(view, text="Erase Obstacles (Shift)", variable=self.obstacle_erase_var).grid(
             row=2, column=1, sticky="w", pady=(6, 0)
