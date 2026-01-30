@@ -225,7 +225,14 @@
           "label": "Initiative",
           "type": "object",
           "fields": [
-            {"key": "formula", "label": "Formula", "type": "string", "default": "dex_mod"}
+            {
+              "key": "formula",
+              "label": "Formula",
+              "type": "string",
+              "default": "dex_mod",
+              "placeholder": "dex_mod",
+              "help": "Example: dex_mod. Supported tokens: dex_mod, wis_mod, prof."
+            }
           ]
         },
         {
@@ -233,7 +240,14 @@
           "label": "Passive Perception",
           "type": "object",
           "fields": [
-            {"key": "formula", "label": "Formula", "type": "string", "default": "10 + wis_mod"}
+            {
+              "key": "formula",
+              "label": "Formula",
+              "type": "string",
+              "default": "10 + wis_mod",
+              "placeholder": "10 + wis_mod",
+              "help": "Example: 10 + wis_mod. Supported tokens: dex_mod, wis_mod, prof."
+            }
           ]
         }
       ]
@@ -261,7 +275,14 @@
                   {"key": "id", "label": "ID", "type": "string", "default": ""},
                   {"key": "label", "label": "Label", "type": "string", "default": ""},
                   {"key": "when", "label": "When", "type": "string", "default": "always"},
-                  {"key": "base_formula", "label": "Base Formula", "type": "string", "default": "10 + dex_mod"}
+                  {
+                    "key": "base_formula",
+                    "label": "Base Formula",
+                    "type": "string",
+                    "default": "10 + dex_mod",
+                    "placeholder": "10 + dex_mod",
+                    "help": "Example: 10 + dex_mod. Supported tokens: dex_mod, wis_mod, prof."
+                  }
                 ]
               },
               "default": [
