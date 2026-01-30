@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>New Character</title>
+  <link rel="stylesheet" href="/assets/web/new_character/styles.css" />
+</head>
+<body>
+  <main class="page">
+    <header>
+      <p class="eyebrow">InitTracker LAN</p>
+      <h1>New Character</h1>
+      <p class="subtitle">Draft a quick player character entry before sending it to the DM.</p>
+    </header>
+
+    <section class="panel">
+      <div class="field">
+        <label for="character-name">Name</label>
+        <input id="character-name" type="text" placeholder="Valeria the Brave" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="character-class">Class</label>
+          <input id="character-class" type="text" placeholder="Paladin" />
+        </div>
+        <div class="field">
+          <label for="character-level">Level</label>
+          <input id="character-level" type="number" min="1" value="1" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="character-notes">Notes</label>
+        <textarea id="character-notes" rows="4" placeholder="Weapons, spells, or quick reminders."></textarea>
+      </div>
+      <button class="primary" type="button" id="draft-button">Save draft</button>
+      <p class="status" id="draft-status" role="status">Drafts are stored locally on this device.</p>
+    </section>
+  </main>
+
+  <script src="/assets/web/new_character/app.js"></script>
+</body>
+</html>

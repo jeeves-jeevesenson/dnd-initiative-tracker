@@ -7724,6 +7724,7 @@ class LanController:
         app = FastAPI()
         assets_dir = Path(__file__).parent / "assets"
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        web_entrypoint = assets_dir / "web" / "new_character" / "index.html"
         for asset_name in ("alert.wav", "ko.wav"):
             if not (assets_dir / asset_name).exists():
                 self.app._oplog(
@@ -7736,6 +7737,12 @@ class LanController:
             push_key = self.cfg.vapid_public_key
             push_key_value = json.dumps(push_key) if push_key else "undefined"
             return HTMLResponse(HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value))
+
+        @app.get("/new_character")
+        async def new_character():
+            if not web_entrypoint.exists():
+                raise HTTPException(status_code=404, detail="New character page missing.")
+            return HTMLResponse(web_entrypoint.read_text(encoding="utf-8"))
 
         @app.get("/sw.js")
         async def service_worker():
