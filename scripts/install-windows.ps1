@@ -165,6 +165,7 @@ Write-Host ""
 Write-Host "Setting up Python virtual environment..." -ForegroundColor Yellow
 
 $venvDir = Join-Path $InstallDir ".venv"
+$venvReady = $false
 try {
     if (-not (Test-Path $venvDir)) {
         & python -m venv $venvDir
@@ -175,13 +176,15 @@ try {
     } else {
         Write-Host "✓ Virtual environment already exists" -ForegroundColor Green
     }
+    $venvReady = $true
 } catch {
     Show-Warning -Title "Virtual Environment Failed" -Message "Failed to create virtual environment.`n`nError: $($_.Exception.Message)`n`nContinuing without virtual environment..."
 }
 
 # Install dependencies if virtual environment was created
 $venvPython = Join-Path $venvDir "Scripts\python.exe"
-if (Test-Path $venvPython) {
+$dependenciesReady = $false
+if ($venvReady -and (Test-Path $venvPython)) {
     Write-Host ""
     Write-Host "Installing Python dependencies..." -ForegroundColor Yellow
     try {
@@ -190,16 +193,24 @@ if (Test-Path $venvPython) {
         if ($LASTEXITCODE -ne 0) {
             throw "Pip upgrade failed with exit code $LASTEXITCODE"
         }
-        # Use -qq to suppress progress but show errors
-        $pipOutput = & $venvPython -m pip install -r $requirementsFile -qq 2>&1
+        $pipOutput = & $venvPython -m pip install -r $requirementsFile 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Pip output:" -ForegroundColor Yellow
             Write-Host ($pipOutput | Out-String) -ForegroundColor Gray
             throw "Pip install failed with exit code $LASTEXITCODE"
         }
         Write-Host "✓ Dependencies installed successfully" -ForegroundColor Green
+        Write-Host "Verifying installed dependencies..." -ForegroundColor Yellow
+        $verifyOutput = & $venvPython -c "import fastapi,uvicorn,yaml,PIL,qrcode" 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Verification output:" -ForegroundColor Yellow
+            Write-Host ($verifyOutput | Out-String) -ForegroundColor Gray
+            Show-ErrorAndExit -Title "Dependency Verification Failed" -Message "Dependency verification failed. Please ensure all required packages are installed and rerun the installer.`n`nOutput:`n$($verifyOutput | Out-String)"
+        }
+        Write-Host "✓ Dependencies verified successfully" -ForegroundColor Green
+        $dependenciesReady = $true
     } catch {
-        Show-Warning -Title "Dependency Installation Failed" -Message "Failed to install some dependencies.`n`nError: $($_.Exception.Message)`n`nYou may need to install them manually."
+        Show-Warning -Title "Dependency Installation Failed" -Message "Failed to install or verify dependencies.`n`nError: $($_.Exception.Message)`n`nThe executable will not be built. Please resolve the dependency issues and rerun the installer."
     }
 }
 
@@ -224,10 +235,11 @@ if (-not (Test-Path $iconPath)) {
 
 # Build the executable using PyInstaller
 $exePath = Join-Path $InstallDir "DNDInitiativeTracker.exe"
-if (Test-Path $venvPython) {
+$exeBuilt = $false
+if ($venvReady -and $dependenciesReady -and (Test-Path $venvPython)) {
     Write-Host "Installing PyInstaller..." -ForegroundColor Yellow
     try {
-        & $venvPython -m pip install pyinstaller -q 2>&1 | Out-Null
+        & $venvPython -m pip install pyinstaller 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw "PyInstaller installation failed"
         }
@@ -252,6 +264,7 @@ if (Test-Path $venvPython) {
         
         if ($LASTEXITCODE -eq 0 -and (Test-Path $exePath)) {
             Write-Host "✓ Executable built successfully" -ForegroundColor Green
+            $exeBuilt = $true
             
             # Clean up build artifacts
             $buildDir = Join-Path $InstallDir "build"
@@ -269,6 +282,9 @@ if (Test-Path $venvPython) {
         Write-Host "Creating fallback launcher script..." -ForegroundColor Yellow
         $exePath = $null
     }
+} else {
+    Write-Host "⚠ Skipping executable build because the virtual environment or dependencies are not ready." -ForegroundColor Yellow
+    $exePath = $null
 }
 
 # Create fallback batch launcher if exe build failed
@@ -306,7 +322,7 @@ endlocal
 }
 
 # Determine which launcher to use for shortcuts
-if ($exePath -and (Test-Path $exePath)) {
+if ($exeBuilt -and $exePath -and (Test-Path $exePath)) {
     $shortcutTarget = $exePath
 } else {
     $shortcutTarget = $launcherPath

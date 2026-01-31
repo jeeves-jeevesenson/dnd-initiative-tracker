@@ -72,6 +72,7 @@ if not exist "%INSTALL_DIR%\logs" (
 
 echo.
 echo Setting up Python virtual environment...
+set "VENV_READY=0"
 if not exist "%INSTALL_DIR%\.venv" (
     python -m venv "%INSTALL_DIR%\.venv"
     if %ERRORLEVEL% NEQ 0 (
@@ -79,23 +80,36 @@ if not exist "%INSTALL_DIR%\.venv" (
         echo Continuing without virtual environment...
     ) else (
         echo Virtual environment created successfully.
+        set "VENV_READY=1"
     )
 ) else (
     echo Virtual environment already exists.
+    set "VENV_READY=1"
 )
 
 REM Install dependencies if virtual environment was created
+set "DEPS_READY=0"
 if exist "%INSTALL_DIR%\.venv\Scripts\python.exe" (
     echo.
     echo Installing Python dependencies...
     REM Upgrade pip first
     "%INSTALL_DIR%\.venv\Scripts\python.exe" -m pip install --upgrade pip >nul 2>&1
-    "%INSTALL_DIR%\.venv\Scripts\pip.exe" install -r "%INSTALL_DIR%\requirements.txt" >nul 2>&1
+    "%INSTALL_DIR%\.venv\Scripts\python.exe" -m pip install -r "%INSTALL_DIR%\requirements.txt"
     if %ERRORLEVEL% NEQ 0 (
         echo WARNING: Failed to install some dependencies.
-        echo You may need to install them manually.
+        echo The executable will not be built. You may need to install them manually.
     ) else (
         echo Dependencies installed successfully.
+        echo Verifying installed dependencies...
+        "%INSTALL_DIR%\.venv\Scripts\python.exe" -c "import fastapi,uvicorn,yaml,PIL,qrcode"
+        if %ERRORLEVEL% NEQ 0 (
+            echo ERROR: Dependency verification failed. Please reinstall dependencies and rerun the installer.
+            pause
+            exit /b 1
+        ) else (
+            echo Dependencies verified successfully.
+            set "DEPS_READY=1"
+        )
     )
 )
 
@@ -132,17 +146,50 @@ if exist "%INSTALL_DIR%\.venv\Scripts\python.exe" (
 )
 
 echo.
+echo Building Windows executable...
+set "EXE_PATH=%INSTALL_DIR%\DNDInitiativeTracker.exe"
+set "EXE_READY=0"
+if "%VENV_READY%"=="1" if "%DEPS_READY%"=="1" (
+    echo Installing PyInstaller...
+    "%INSTALL_DIR%\.venv\Scripts\python.exe" -m pip install pyinstaller
+    if %ERRORLEVEL% NEQ 0 (
+        echo WARNING: Failed to install PyInstaller. Skipping EXE build.
+    ) else (
+        echo Building executable with icon and no console...
+        set "ICON_ARG="
+        if exist "%INSTALL_DIR%\assets\icon.ico" (
+            set "ICON_ARG=--icon=%INSTALL_DIR%\assets\icon.ico"
+        )
+        "%INSTALL_DIR%\.venv\Scripts\python.exe" -m PyInstaller --noconsole --onefile %ICON_ARG% --name=DNDInitiativeTracker --distpath="%INSTALL_DIR%" --workpath="%INSTALL_DIR%\build" --specpath="%INSTALL_DIR%" --clean "%INSTALL_DIR%\launcher.py"
+        if %ERRORLEVEL% EQU 0 if exist "%EXE_PATH%" (
+            echo Executable built successfully.
+            set "EXE_READY=1"
+            if exist "%INSTALL_DIR%\build" rmdir /s /q "%INSTALL_DIR%\build"
+            if exist "%INSTALL_DIR%\DNDInitiativeTracker.spec" del /q "%INSTALL_DIR%\DNDInitiativeTracker.spec"
+        ) else (
+            echo WARNING: Executable build failed. Falling back to batch launcher.
+        )
+    )
+) else (
+    echo WARNING: Skipping EXE build because the virtual environment or dependencies are not ready.
+)
+
+echo.
 echo Creating desktop shortcut...
 set "SHORTCUT_NAME=D&D Initiative Tracker.lnk"
 set "DESKTOP=%USERPROFILE%\Desktop"
 set "START_MENU=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
 set "ICON_PATH=%INSTALL_DIR%\assets\icon.ico"
+set "SHORTCUT_TARGET=%INSTALL_DIR%\launch-dnd-tracker.bat"
+if "%EXE_READY%"=="1" (
+    set "SHORTCUT_TARGET=%EXE_PATH%"
+)
 
 REM Use PowerShell to create shortcut with icon
 if exist "%ICON_PATH%" (
-    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.IconLocation = '%ICON_PATH%'; $SC.Save()" >nul 2>&1
+    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%'); $SC.TargetPath = '%SHORTCUT_TARGET%'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.IconLocation = '%ICON_PATH%'; $SC.Save()" >nul 2>&1
 ) else (
-    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
+    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%'); $SC.TargetPath = '%SHORTCUT_TARGET%'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
 )
 
 if %ERRORLEVEL% EQU 0 (
@@ -153,9 +200,9 @@ if %ERRORLEVEL% EQU 0 (
 
 REM Create Start Menu shortcut
 if exist "%ICON_PATH%" (
-    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%START_MENU%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.IconLocation = '%ICON_PATH%'; $SC.Save()" >nul 2>&1
+    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%START_MENU%\%SHORTCUT_NAME%'); $SC.TargetPath = '%SHORTCUT_TARGET%'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.IconLocation = '%ICON_PATH%'; $SC.Save()" >nul 2>&1
 ) else (
-    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%START_MENU%\%SHORTCUT_NAME%'); $SC.TargetPath = '%INSTALL_DIR%\launch-dnd-tracker.bat'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
+    powershell -Command "$WS = New-Object -ComObject WScript.Shell; $SC = $WS.CreateShortcut('%START_MENU%\%SHORTCUT_NAME%'); $SC.TargetPath = '%SHORTCUT_TARGET%'; $SC.WorkingDirectory = '%INSTALL_DIR%'; $SC.Description = 'D&D Initiative Tracker'; $SC.Save()" >nul 2>&1
 )
 
 if %ERRORLEVEL% EQU 0 (
