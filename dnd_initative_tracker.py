@@ -9345,6 +9345,21 @@ class LanController:
     def _sync_yaml_host_assignments(self, profiles: Dict[str, Dict[str, Any]]) -> None:
         if not isinstance(profiles, dict):
             profiles = {}
+        def normalize_name(value: Any) -> Optional[str]:
+            text = str(value or "").strip()
+            return text.lower() if text else None
+
+        def coerce_cid(value: Any) -> Optional[int]:
+            if isinstance(value, bool):
+                return None
+            if isinstance(value, int):
+                return value
+            try:
+                parsed = int(str(value).strip())
+            except Exception:
+                return None
+            return parsed
+
         name_to_cid: Dict[str, int] = {}
         pcs = list(self._cached_pcs)
         if not pcs:
@@ -9354,16 +9369,21 @@ class LanController:
                 )
             except Exception:
                 pcs = []
+        pc_names: List[str] = []
         for pc in pcs:
             if not isinstance(pc, dict):
                 continue
             name = str(pc.get("name") or "").strip()
-            cid = pc.get("cid")
+            cid = coerce_cid(pc.get("cid"))
             if name and isinstance(cid, int):
-                name_to_cid[name.lower()] = int(cid)
+                normalized = normalize_name(name)
+                if normalized:
+                    name_to_cid[normalized] = int(cid)
+                    pc_names.append(name)
 
         host_map: Dict[str, Dict[str, Any]] = {}
         conflicts: List[Tuple[str, str, str]] = []
+        yaml_names: List[str] = []
         for name, profile in profiles.items():
             if not isinstance(profile, dict):
                 continue
@@ -9376,8 +9396,26 @@ class LanController:
             if host in host_map:
                 conflicts.append((host, host_map[host]["name"], str(name)))
                 continue
-            cid = name_to_cid.get(str(name).lower())
-            host_map[host] = {"name": str(name), "cid": cid}
+            profile_name = str(name)
+            identity_name = identity.get("name")
+            if profile_name:
+                yaml_names.append(profile_name)
+            if identity_name:
+                yaml_names.append(str(identity_name))
+            cid = coerce_cid(identity.get("cid"))
+            if cid is None:
+                cid = coerce_cid(profile.get("cid"))
+            if cid is None:
+                candidate_names = {
+                    normalize_name(profile_name),
+                    normalize_name(identity_name),
+                }
+                candidate_names.discard(None)
+                for candidate in candidate_names:
+                    cid = name_to_cid.get(candidate)
+                    if cid is not None:
+                        break
+            host_map[host] = {"name": profile_name, "cid": cid}
 
         with self._clients_lock:
             self._yaml_host_assignments = host_map
@@ -9391,10 +9429,16 @@ class LanController:
         for host, info in host_map.items():
             cid = info.get("cid")
             if cid is None:
-                self.app._oplog(
-                    f"LAN YAML assignment skipped: {info.get('name')} has host {host} but no matching cid.",
-                    level="warning",
-                )
+                if pcs:
+                    self.app._oplog(
+                        f"LAN YAML assignment skipped: {info.get('name')} has host {host} but no matching cid.",
+                        level="warning",
+                    )
+                    self.app._oplog(
+                        "LAN YAML assignment debug: "
+                        f"available_pcs={sorted(set(pc_names))} yaml_names={sorted(set(yaml_names))}",
+                        level="debug",
+                    )
                 continue
             existing = self._assigned_cid_for_host(host)
             if existing is not None and existing != cid:
