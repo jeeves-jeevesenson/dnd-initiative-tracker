@@ -7,6 +7,7 @@ This directory contains automated installation and launcher scripts for differen
 ### quick-install.sh (Linux/macOS)
 One-line installation script that handles everything automatically:
 - Clones the repository to `~/.local/share/dnd-initiative-tracker`
+- On Linux, runs `install-linux.sh` (including the KDE/desktop entry prompt)
 - Creates a Python virtual environment
 - Installs all dependencies
 - Creates a launcher command at `~/.local/bin/dnd-initiative-tracker`
@@ -206,6 +207,7 @@ Automated installer for Linux (Debian/Ubuntu-based) that:
 - Installs launcher icons (192x192 and 512x512)
 - Registers a desktop menu entry (`.desktop` file)
 - Optionally creates and populates a virtual environment
+- Creates a `~/.local/bin/dnd-initiative-tracker` launcher command
 
 **Usage:**
 ```bash

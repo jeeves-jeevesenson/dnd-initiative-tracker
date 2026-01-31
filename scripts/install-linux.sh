@@ -9,6 +9,7 @@ ICON_NAME="inittracker"
 ICON_BASE="$HOME/.local/share/icons/hicolor"
 DESKTOP_FILE="$HOME/.local/share/applications/inittracker.desktop"
 WRAPPER="${APPDIR}/launch-inittracker.sh"
+LAUNCHER="${HOME}/.local/bin/dnd-initiative-tracker"
 PYTHON_BIN="${PYTHON:-/usr/bin/python3}"
 VENV_DIR="${APPDIR}/.venv"
 INSTALL_DESKTOP_ENTRY="${INSTALL_DESKTOP_ENTRY:-}"
@@ -21,11 +22,15 @@ fi
 echo "Installing D&D Initiative Tracker to ${APPDIR}..."
 
 mkdir -p "${APPDIR}"
-rsync -a --delete \
-  --exclude ".git" \
-  --exclude ".venv" \
-  --exclude "__pycache__" \
-  "${REPO_DIR}/" "${APPDIR}/"
+if [[ "$(cd "${APPDIR}" && pwd)" != "$(cd "${REPO_DIR}" && pwd)" ]]; then
+  rsync -a --delete \
+    --exclude ".git" \
+    --exclude ".venv" \
+    --exclude "__pycache__" \
+    "${REPO_DIR}/" "${APPDIR}/"
+else
+  echo "Install directory matches repository; skipping file sync."
+fi
 
 mkdir -p "${APPDIR}/logs"
 
@@ -66,13 +71,35 @@ EOF
 
 chmod +x "${WRAPPER}"
 
+mkdir -p "$(dirname "${LAUNCHER}")"
+cat > "${LAUNCHER}" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+"${WRAPPER}" "\$@"
+EOF
+
+chmod +x "${LAUNCHER}"
+
+if [[ ":${PATH}:" != *":${HOME}/.local/bin:"* ]]; then
+  echo ""
+  echo "⚠️  Note: ${HOME}/.local/bin is not in your PATH"
+  echo "   Add this line to your ~/.bashrc or ~/.zshrc:"
+  echo "   export PATH=\"\$HOME/.local/bin:\$PATH\""
+  echo ""
+fi
+
 install_desktop_entry=false
 if [[ -n "${INSTALL_DESKTOP_ENTRY}" ]]; then
   if [[ "${INSTALL_DESKTOP_ENTRY}" == "1" || "${INSTALL_DESKTOP_ENTRY}" == "true" || "${INSTALL_DESKTOP_ENTRY}" == "yes" ]]; then
     install_desktop_entry=true
   fi
 else
-  read -r -p "Install a KDE/desktop launcher entry? [y/N]: " desktop_choice
+  desktop_choice=""
+  if [[ -t 0 ]]; then
+    read -r -p "Install a KDE/desktop launcher entry? [y/N]: " desktop_choice
+  elif [[ -r /dev/tty ]]; then
+    read -r -p "Install a KDE/desktop launcher entry? [y/N]: " desktop_choice </dev/tty
+  fi
   if [[ "${desktop_choice}" =~ ^[Yy]$ ]]; then
     install_desktop_entry=true
   fi
@@ -125,4 +152,5 @@ fi
 echo "Install complete!"
 echo "Launch from your desktop menu or run:"
 echo "  ${WRAPPER}"
+echo "  ${LAUNCHER}"
 echo "Logs are stored in: ${APPDIR}/logs/launcher.log"

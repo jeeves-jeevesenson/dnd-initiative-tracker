@@ -33,6 +33,8 @@ Or using wget:
 wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.sh | bash
 ```
 
+> **Linux note:** The quick install script runs the same Linux installer as `scripts/install-linux.sh`, so you will be prompted about adding a KDE/desktop launcher entry during install.
+
 #### 🪟 Windows Users
 
 **Important:** You may need to adjust your PowerShell execution policy first. If you get an error, see the [Windows Installation Notes](#windows-installation-notes) section below.
