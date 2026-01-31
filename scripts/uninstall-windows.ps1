@@ -15,7 +15,15 @@ Write-Host ""
 if ($env:INSTALL_DIR) {
     $InstallDir = $env:INSTALL_DIR
 } else {
-    $InstallDir = Join-Path $env:LOCALAPPDATA "DnDInitiativeTracker"
+    $uninstallRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker"
+    if (Test-Path $uninstallRegPath) {
+        $installLocation = (Get-ItemProperty -Path $uninstallRegPath -Name InstallLocation -ErrorAction SilentlyContinue).InstallLocation
+    }
+    if ($installLocation) {
+        $InstallDir = $installLocation
+    } else {
+        $InstallDir = Join-Path $env:LOCALAPPDATA "DnDInitiativeTracker"
+    }
 }
 
 Write-Host "This will remove the D&D Initiative Tracker from your system." -ForegroundColor Yellow

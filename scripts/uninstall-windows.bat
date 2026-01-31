@@ -10,6 +10,9 @@ echo.
 
 REM Set installation directory
 if "%INSTALL_DIR%"=="" (
+    for /f "tokens=2*" %%A in ('reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v InstallLocation 2^>nul ^| findstr /i "InstallLocation"') do set "INSTALL_DIR=%%B"
+)
+if "%INSTALL_DIR%"=="" (
     set "INSTALL_DIR=%LOCALAPPDATA%\DnDInitiativeTracker"
 )
 

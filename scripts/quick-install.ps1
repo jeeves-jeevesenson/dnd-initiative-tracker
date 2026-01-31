@@ -299,8 +299,10 @@ try {
     New-ItemProperty -Path $uninstallRegPath -Name "DisplayVersion" -Value "1.0.0" -PropertyType String -Force | Out-Null
     New-ItemProperty -Path $uninstallRegPath -Name "Publisher" -Value "D&D Initiative Tracker" -PropertyType String -Force | Out-Null
     New-ItemProperty -Path $uninstallRegPath -Name "InstallLocation" -Value $InstallDir -PropertyType String -Force | Out-Null
-    New-ItemProperty -Path $uninstallRegPath -Name "UninstallString" -Value "powershell.exe -ExecutionPolicy Bypass -File `"$uninstallScript`"" -PropertyType String -Force | Out-Null
-    New-ItemProperty -Path $uninstallRegPath -Name "QuietUninstallString" -Value "powershell.exe -ExecutionPolicy Bypass -File `"$uninstallScript`" -Silent" -PropertyType String -Force | Out-Null
+    $uninstallCommand = "powershell.exe -ExecutionPolicy Bypass -Command `"`$env:INSTALL_DIR='$InstallDir'; & `"$uninstallScript`"`""
+    $quietUninstallCommand = "powershell.exe -ExecutionPolicy Bypass -Command `"`$env:INSTALL_DIR='$InstallDir'; & `"$uninstallScript`" -Silent`""
+    New-ItemProperty -Path $uninstallRegPath -Name "UninstallString" -Value $uninstallCommand -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $uninstallRegPath -Name "QuietUninstallString" -Value $quietUninstallCommand -PropertyType String -Force | Out-Null
     
     if (Test-Path $iconPath) {
         New-ItemProperty -Path $uninstallRegPath -Name "DisplayIcon" -Value $iconPath -PropertyType String -Force | Out-Null

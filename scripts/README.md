@@ -152,6 +152,7 @@ scripts\launch-windows.bat
 ### uninstall-windows.bat
 Removes the installed application, including all files, shortcuts, registry entries, and configurations (Command Prompt version).
 Removes the application from Windows Add/Remove Programs.
+If the `INSTALL_DIR` environment variable is not set, the uninstaller will read `InstallLocation` from the registry before falling back to `%LOCALAPPDATA%\DnDInitiativeTracker`.
 
 **Usage:**
 ```cmd
@@ -162,6 +163,7 @@ scripts\uninstall-windows.bat
 Removes the installed application, including all files, shortcuts, registry entries, and configurations (PowerShell version).
 Removes the application from Windows Add/Remove Programs.
 Supports silent mode for automated uninstallation.
+If the `INSTALL_DIR` environment variable is not set, the uninstaller will read `InstallLocation` from the registry before falling back to `$env:LOCALAPPDATA\DnDInitiativeTracker`.
 
 **Usage:**
 ```powershell
