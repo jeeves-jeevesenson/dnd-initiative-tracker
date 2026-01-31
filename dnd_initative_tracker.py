@@ -617,11 +617,16 @@ HTML_INDEX = r"""<!doctype html>
       --map-view-bar-bg: rgba(14,18,26,0.92);
       --map-view-bar-border: rgba(255,255,255,0.1);
     }
-    .map-view .topbar,
-    .map-view .sheet-wrap,
-    .map-view .cast-overlay,
-    .map-view .menu-popover,
-    .map-view .conn-popover{
+    .map-view-only .topbar,
+    .map-view-only .sheet-wrap,
+    .map-view-only .cast-overlay,
+    .map-view-only .menu-popover,
+    .map-view-only .conn-popover,
+    .map-view-only .spell-library-overlay,
+    .map-view-only .spell-detail-overlay,
+    .map-view-only .spellbook-overlay,
+    .map-view-only .turn-modal,
+    .map-view-only .modal:not(#mapViewSettingsModal){
       display:none !important;
     }
     .map-view .mapWrap{
@@ -640,7 +645,7 @@ HTML_INDEX = r"""<!doctype html>
       min-height: var(--map-view-bar-height);
       backdrop-filter: blur(12px);
     }
-    .map-view .map-view-bar{
+    .map-view-only.map-view-show-bar .map-view-bar{
       display:flex;
     }
     .map-view-bar-row{
@@ -2263,6 +2268,7 @@ HTML_INDEX = r"""<!doctype html>
               </div>
             </div>
           </div>
+          <div class="hint">Right-click the map to show or hide the map view bar.</div>
         </div>
         <div class="modal-actions">
           <button class="btn" id="mapViewSettingsClose">Close</button>
@@ -3214,6 +3220,7 @@ __DAMAGE_TYPE_OPTIONS__
   const isStandalone = window.navigator.standalone === true;
   if (document.body){
     document.body.classList.toggle("map-view", isMapView);
+    document.body.classList.toggle("map-view-only", isMapView);
   }
   if (iosInstallHint){
     const showHint = isIOS && isSafariEngine && !isAltBrowser && !isStandalone;
@@ -8877,6 +8884,12 @@ __DAMAGE_TYPE_OPTIONS__
   document.addEventListener("keydown", handleUserGesture);
 
   const mapWrap = document.querySelector(".mapWrap");
+  if (mapWrap && isMapView && document.body){
+    mapWrap.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      document.body.classList.toggle("map-view-show-bar");
+    });
+  }
   if (mapWrap && window.ResizeObserver){
     const ro = new ResizeObserver(() => resize());
     ro.observe(mapWrap);
