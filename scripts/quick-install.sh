@@ -6,6 +6,7 @@ set -euo pipefail
 
 INSTALL_DIR="$HOME/.local/share/dnd-initiative-tracker"
 REPO_URL="https://github.com/jeeves-jeevesenson/dnd-initiative-tracker.git"
+OS_NAME="$(uname -s)"
 
 echo "=========================================="
 echo "D&D Initiative Tracker - Quick Install"
@@ -53,38 +54,44 @@ else
     cd "$INSTALL_DIR"
 fi
 
-echo ""
-echo "Creating virtual environment..."
-python3 -m venv .venv
+if [[ "${OS_NAME}" == "Linux" ]]; then
+    echo ""
+    echo "Running Linux installer..."
+    APPDIR="$INSTALL_DIR" INSTALL_PIP_DEPS=1 "$INSTALL_DIR/scripts/install-linux.sh"
+else
+    echo ""
+    echo "Creating virtual environment..."
+    python3 -m venv .venv
 
-echo "Activating virtual environment..."
-source .venv/bin/activate
+    echo "Activating virtual environment..."
+    source .venv/bin/activate
 
-echo "Installing dependencies..."
-pip install --upgrade pip
-pip install -r requirements.txt
+    echo "Installing dependencies..."
+    pip install --upgrade pip
+    pip install -r requirements.txt
 
-echo ""
-echo "Creating launcher script..."
-LAUNCHER="$HOME/.local/bin/dnd-initiative-tracker"
-mkdir -p "$HOME/.local/bin"
+    echo ""
+    echo "Creating launcher script..."
+    LAUNCHER="$HOME/.local/bin/dnd-initiative-tracker"
+    mkdir -p "$HOME/.local/bin"
 
-cat > "$LAUNCHER" << EOF
+    cat > "$LAUNCHER" << EOF
 #!/bin/bash
 cd "$INSTALL_DIR"
 source .venv/bin/activate
 python dnd_initative_tracker.py "\$@"
 EOF
 
-chmod +x "$LAUNCHER"
+    chmod +x "$LAUNCHER"
 
-# Check if ~/.local/bin is in PATH
-if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-    echo ""
-    echo "⚠️  Note: $HOME/.local/bin is not in your PATH"
-    echo "   Add this line to your ~/.bashrc or ~/.zshrc:"
-    echo "   export PATH=\"\$HOME/.local/bin:\$PATH\""
-    echo ""
+    # Check if ~/.local/bin is in PATH
+    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+        echo ""
+        echo "⚠️  Note: $HOME/.local/bin is not in your PATH"
+        echo "   Add this line to your ~/.bashrc or ~/.zshrc:"
+        echo "   export PATH=\"\$HOME/.local/bin:\$PATH\""
+        echo ""
+    fi
 fi
 
 echo ""
@@ -93,8 +100,14 @@ echo "✓ Installation complete!"
 echo "=========================================="
 echo ""
 echo "To run the D&D Initiative Tracker:"
-echo "  1. Run: dnd-initiative-tracker"
-echo "  2. Or: $LAUNCHER"
-echo "  3. Or navigate to $INSTALL_DIR and run:"
-echo "     source .venv/bin/activate && python dnd_initative_tracker.py"
+if [[ "${OS_NAME}" == "Linux" ]]; then
+    echo "  1. Run: dnd-initiative-tracker"
+    echo "  2. Or: $INSTALL_DIR/launch-inittracker.sh"
+    echo "  3. Or launch from your desktop menu"
+else
+    echo "  1. Run: dnd-initiative-tracker"
+    echo "  2. Or: $LAUNCHER"
+    echo "  3. Or navigate to $INSTALL_DIR and run:"
+    echo "     source .venv/bin/activate && python dnd_initative_tracker.py"
+fi
 echo ""
