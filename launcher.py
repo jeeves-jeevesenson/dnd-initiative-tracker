@@ -6,6 +6,7 @@ This script launches the main application without showing a console window
 import sys
 import os
 import subprocess
+import shutil
 from pathlib import Path
 
 
@@ -41,32 +42,51 @@ def main():
     
     # Determine which Python to use
     venv_python = app_dir / ".venv" / "Scripts" / "python.exe"
+    venv_pythonw = app_dir / ".venv" / "Scripts" / "pythonw.exe"
     if venv_python.exists():
-        python_exe = str(venv_python)
+        python_cmd = [str(venv_pythonw if venv_pythonw.exists() else venv_python)]
     else:
-        python_exe = sys.executable
+        if sys.platform == "win32":
+            if shutil.which("py"):
+                python_cmd = ["py", "-3"]
+            elif shutil.which("python"):
+                python_cmd = ["python"]
+            else:
+                python_cmd = None
+        else:
+            python_cmd = [sys.executable]
+
+    if not python_cmd:
+        try:
+            import tkinter as tk
+            from tkinter import messagebox
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showerror(
+                "D&D Initiative Tracker Error",
+                "Could not find a system Python installation. Please install Python 3.9+ and rerun the installer."
+            )
+        except:
+            print("ERROR: Could not find a system Python installation. Please install Python 3.9+ and rerun the installer.")
+            input("Press Enter to exit...")
+        sys.exit(1)
     
     # Launch the tracker script without console window
     # Use pythonw.exe if available (Windows-specific, no console)
-    if python_exe.endswith("python.exe"):
-        pythonw_exe = python_exe.replace("python.exe", "pythonw.exe")
-        if Path(pythonw_exe).exists():
-            python_exe = pythonw_exe
-    
     # Launch the application
     try:
         # Use CREATE_NO_WINDOW flag on Windows to suppress console
         if sys.platform == "win32":
             CREATE_NO_WINDOW = 0x08000000
             subprocess.Popen(
-                [python_exe, str(tracker_script)],
+                [*python_cmd, str(tracker_script)],
                 cwd=str(app_dir),
                 creationflags=CREATE_NO_WINDOW
             )
         else:
             # On non-Windows, just run normally
             subprocess.Popen(
-                [python_exe, str(tracker_script)],
+                [*python_cmd, str(tracker_script)],
                 cwd=str(app_dir)
             )
     except Exception as e:
