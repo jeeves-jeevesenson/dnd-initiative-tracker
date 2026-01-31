@@ -10475,8 +10475,34 @@ class LanController:
 
     # ---------- helpers ----------
 
+    def _resolve_local_ip(self) -> str:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.connect(("8.8.8.8", 80))
+                ip = sock.getsockname()[0]
+                if ip and not ip.startswith("127."):
+                    return ip
+        except Exception:
+            pass
+        try:
+            ip = socket.gethostbyname(socket.gethostname())
+            if ip and not ip.startswith("127."):
+                return ip
+        except Exception:
+            pass
+        return "127.0.0.1"
+
+    def _display_host(self) -> str:
+        host = str(self.cfg.host or "").strip()
+        if host in ("", "0.0.0.0", "::", "127.0.0.1", "localhost"):
+            return self._resolve_local_ip()
+        return host
+
+    def is_running(self) -> bool:
+        return bool(self._server_thread and self._server_thread.is_alive())
+
     def _best_lan_url(self) -> str:
-        return f"http://{self.cfg.host}:{self.cfg.port}/"
+        return f"http://{self._display_host()}:{self.cfg.port}/"
 
     def _cached_snapshot_payload(self) -> Dict[str, Any]:
         snap = dict(self._cached_snapshot)
@@ -10758,11 +10784,19 @@ class InitiativeTracker(base.InitiativeTracker):
             pass
 
     def _show_lan_url(self) -> None:
+        if not self._lan.is_running():
+            self._lan.start()
+            if not self._lan.is_running():
+                return
         url = self._lan._best_lan_url()
         messagebox.showinfo("LAN URL", f"Open this on yer LAN devices:\n\n{url}")
 
     def _show_lan_qr(self) -> None:
-        url = "https://dnd.3045.network"
+        if not self._lan.is_running():
+            self._lan.start()
+            if not self._lan.is_running():
+                return
+        url = self._lan._best_lan_url()
         try:
             import qrcode  # type: ignore
         except Exception as e:
