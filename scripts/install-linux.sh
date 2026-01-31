@@ -11,6 +11,7 @@ DESKTOP_FILE="$HOME/.local/share/applications/inittracker.desktop"
 WRAPPER="${APPDIR}/launch-inittracker.sh"
 PYTHON_BIN="${PYTHON:-/usr/bin/python3}"
 VENV_DIR="${APPDIR}/.venv"
+INSTALL_DESKTOP_ENTRY="${INSTALL_DESKTOP_ENTRY:-}"
 
 if ! command -v rsync >/dev/null 2>&1; then
   echo "Error: rsync is required to install the app." >&2
@@ -65,22 +66,35 @@ EOF
 
 chmod +x "${WRAPPER}"
 
-if [[ -f "${APPDIR}/assets/graphic-512.png" ]]; then
-  install -Dm644 \
-    "${APPDIR}/assets/graphic-512.png" \
-    "${ICON_BASE}/512x512/apps/${ICON_NAME}.png"
-  echo "Installed 512x512 icon."
+install_desktop_entry=false
+if [[ -n "${INSTALL_DESKTOP_ENTRY}" ]]; then
+  if [[ "${INSTALL_DESKTOP_ENTRY}" == "1" || "${INSTALL_DESKTOP_ENTRY}" == "true" || "${INSTALL_DESKTOP_ENTRY}" == "yes" ]]; then
+    install_desktop_entry=true
+  fi
+else
+  read -r -p "Install a KDE/desktop launcher entry? [y/N]: " desktop_choice
+  if [[ "${desktop_choice}" =~ ^[Yy]$ ]]; then
+    install_desktop_entry=true
+  fi
 fi
 
-if [[ -f "${APPDIR}/assets/graphic-192.png" ]]; then
-  install -Dm644 \
-    "${APPDIR}/assets/graphic-192.png" \
-    "${ICON_BASE}/192x192/apps/${ICON_NAME}.png"
-  echo "Installed 192x192 icon."
-fi
+if [[ "${install_desktop_entry}" == "true" ]]; then
+  if [[ -f "${APPDIR}/assets/graphic-512.png" ]]; then
+    install -Dm644 \
+      "${APPDIR}/assets/graphic-512.png" \
+      "${ICON_BASE}/512x512/apps/${ICON_NAME}.png"
+    echo "Installed 512x512 icon."
+  fi
 
-mkdir -p "$(dirname "${DESKTOP_FILE}")"
-cat > "${DESKTOP_FILE}" <<EOF
+  if [[ -f "${APPDIR}/assets/graphic-192.png" ]]; then
+    install -Dm644 \
+      "${APPDIR}/assets/graphic-192.png" \
+      "${ICON_BASE}/192x192/apps/${ICON_NAME}.png"
+    echo "Installed 192x192 icon."
+  fi
+
+  mkdir -p "$(dirname "${DESKTOP_FILE}")"
+  cat > "${DESKTOP_FILE}" <<EOF
 [Desktop Entry]
 Name=D&D Initiative Tracker
 Comment=Run the D&D Initiative Tracker
@@ -93,16 +107,19 @@ Categories=Game;Utility;
 StartupNotify=true
 EOF
 
-echo "Installed desktop entry: ${DESKTOP_FILE}"
+  echo "Installed desktop entry: ${DESKTOP_FILE}"
 
-if command -v kbuildsycoca5 >/dev/null 2>&1; then
-  kbuildsycoca5 >/dev/null 2>&1 || true
-  echo "Refreshed KDE desktop cache."
-fi
+  if command -v kbuildsycoca5 >/dev/null 2>&1; then
+    kbuildsycoca5 >/dev/null 2>&1 || true
+    echo "Refreshed KDE desktop cache."
+  fi
 
-if command -v update-desktop-database >/dev/null 2>&1; then
-  update-desktop-database "${HOME}/.local/share/applications" >/dev/null 2>&1 || true
-  echo "Updated desktop database."
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "${HOME}/.local/share/applications" >/dev/null 2>&1 || true
+    echo "Updated desktop database."
+  fi
+else
+  echo "Skipping desktop entry setup."
 fi
 
 echo "Install complete!"
