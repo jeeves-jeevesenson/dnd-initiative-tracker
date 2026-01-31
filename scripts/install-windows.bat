@@ -171,7 +171,7 @@ reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeT
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v DisplayVersion /t REG_SZ /d "1.0.0" /f >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v Publisher /t REG_SZ /d "D&D Initiative Tracker" /f >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v InstallLocation /t REG_SZ /d "%INSTALL_DIR%" /f >nul 2>&1
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v UninstallString /t REG_SZ /d "\"%UNINSTALL_SCRIPT%\"" /f >nul 2>&1
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v UninstallString /t REG_SZ /d "cmd.exe /c \"\"%UNINSTALL_SCRIPT%\"\"" /f >nul 2>&1
 if exist "%ICON_PATH%" (
     reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DnDInitiativeTracker" /v DisplayIcon /t REG_SZ /d "%ICON_PATH%" /f >nul 2>&1
 )
