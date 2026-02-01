@@ -504,6 +504,29 @@ def _make_ops_logger() -> logging.Logger:
     return lg
 
 
+def _make_client_error_logger() -> logging.Logger:
+    """Return a logger that writes to ./logs/client_errors.log."""
+    lg = logging.getLogger("inittracker.client_errors")
+    if getattr(lg, "_inittracker_configured", False):
+        return lg
+
+    lg.setLevel(logging.INFO)
+    logs = _ensure_logs_dir()
+    fmt = logging.Formatter("[%(asctime)s] %(levelname)s %(message)s", "%Y-%m-%d %H:%M:%S")
+
+    try:
+        fh = logging.FileHandler(logs / "client_errors.log", encoding="utf-8")
+        fh.setLevel(logging.INFO)
+        fh.setFormatter(fmt)
+        lg.addHandler(fh)
+    except Exception:
+        pass
+
+    lg.propagate = False
+    setattr(lg, "_inittracker_configured", True)
+    return lg
+
+
 def _read_index_file(path: Path) -> Dict[str, Any]:
     try:
         if not path.exists():
@@ -768,6 +791,11 @@ class LanController:
         self._yaml_host_assignments: Dict[str, Dict[str, Any]] = {}
         self._host_presets: Dict[str, Dict[str, Any]] = {}
         self._cid_push_subscriptions: Dict[int, List[Dict[str, Any]]] = {}
+        self._client_error_logger = _make_client_error_logger()
+        self._client_log_lock = threading.Lock()
+        self._client_log_state: Dict[str, Tuple[float, int]] = {}
+        self._client_log_window_s: float = 60.0
+        self._client_log_max: int = 30
 
         self._actions: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._last_state_json: Optional[str] = None
@@ -893,6 +921,27 @@ class LanController:
             token = header.split(" ", 1)[1].strip()
         if not self._is_admin_token_valid(token):
             raise HTTPException(status_code=401, detail="Unauthorized.")
+
+    def _allow_client_log(self, host: str) -> bool:
+        host = str(host or "").strip() or "unknown"
+        now = time.time()
+        with self._client_log_lock:
+            window_start, count = self._client_log_state.get(host, (now, 0))
+            if now - window_start >= self._client_log_window_s:
+                window_start, count = now, 0
+            if count >= self._client_log_max:
+                self._client_log_state[host] = (window_start, count)
+                return False
+            count += 1
+            self._client_log_state[host] = (window_start, count)
+            return True
+
+    def _log_client_error(self, entry: Dict[str, Any]) -> None:
+        try:
+            payload = self._json_dumps(entry)
+            self._client_error_logger.info(payload)
+        except Exception:
+            self.app._oplog("Failed to record client error log entry.", level="warning")
 
     def admin_disconnect_session(self, ws_id: int, reason: str = "Disconnected by the DM.") -> None:
         if not self._loop:
@@ -1242,6 +1291,60 @@ class LanController:
             self._set_host_assignment(host, cid)
             await self._apply_host_assignment_async(host, cid, note="Assigned by the DM.")
             return {"ok": True, "ip": host, "cid": cid}
+
+        @self._fastapi_app.post("/api/client-log")
+        async def client_log(request: Request, payload: Dict[str, Any] = Body(...)):
+            if not isinstance(payload, dict):
+                raise HTTPException(status_code=400, detail="Invalid payload.")
+            host = getattr(getattr(request, "client", None), "host", "")
+            if not self._is_host_allowed(host):
+                raise HTTPException(status_code=403, detail="Unauthorized host.")
+            if not self._allow_client_log(host):
+                return {"ok": True, "logged": False, "rate_limited": True}
+            missing = [
+                field
+                for field in ("message", "stack", "url", "userAgent", "timestamp")
+                if field not in payload
+            ]
+            if missing:
+                raise HTTPException(status_code=400, detail=f"Missing fields: {', '.join(missing)}.")
+
+            def normalize_field(
+                name: str,
+                value: Any,
+                *,
+                required: bool = True,
+                max_len: int = 2048,
+            ) -> str:
+                if value is None:
+                    if required:
+                        raise HTTPException(status_code=400, detail=f"Missing {name}.")
+                    return ""
+                if isinstance(value, (dict, list)):
+                    raise HTTPException(status_code=400, detail=f"Invalid {name}.")
+                text = str(value).strip()
+                if required and not text:
+                    raise HTTPException(status_code=400, detail=f"Missing {name}.")
+                if len(text) > max_len:
+                    text = text[:max_len]
+                return text
+
+            message = normalize_field("message", payload.get("message"), max_len=4000)
+            stack = normalize_field("stack", payload.get("stack"), required=False, max_len=20000)
+            url = normalize_field("url", payload.get("url"), max_len=2000)
+            user_agent = normalize_field("userAgent", payload.get("userAgent"), max_len=512)
+            timestamp = normalize_field("timestamp", payload.get("timestamp"), max_len=128)
+            entry = {
+                "message": message,
+                "stack": stack,
+                "url": url,
+                "userAgent": user_agent,
+                "timestamp": timestamp,
+                "host": host,
+                "received_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            self._log_client_error(entry)
+            return {"ok": True, "logged": True}
 
         @self._fastapi_app.get("/api/spells")
         async def list_spells(details: bool = False, raw: bool = False):
