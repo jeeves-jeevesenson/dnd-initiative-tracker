@@ -199,6 +199,16 @@ python scripts/build_exe.py
 **Note:** This is automatically run during PowerShell installation but can be run manually
 to create a distributable .exe file.
 
+### check-lan-script.mjs
+Extracts inline `<script>` blocks from `assets/web/lan/index.html` and validates their
+syntax using Node's `--check` flag. This is also run in CI to prevent syntax errors from
+landing on main.
+
+**Usage:**
+```bash
+node scripts/check-lan-script.mjs
+```
+
 ## Linux
 
 ### install-linux.sh
