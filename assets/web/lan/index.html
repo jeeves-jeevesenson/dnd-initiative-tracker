@@ -5366,13 +5366,14 @@ __DAMAGE_TYPE_OPTIONS__
         const oldPlayerProfiles = state?.player_profiles;
         state = (msg.state && typeof msg.state === "object") ? msg.state : {};
         // Preserve static data from previous state if not in new message
-        if (!state.spell_presets && oldSpellPresets){
+        // Only preserve if old values exist and new values are undefined (not just missing)
+        if (!state.spell_presets && Array.isArray(oldSpellPresets)){
           state.spell_presets = oldSpellPresets;
         }
-        if (!state.player_spells && oldPlayerSpells){
+        if (!state.player_spells && oldPlayerSpells && typeof oldPlayerSpells === "object"){
           state.player_spells = oldPlayerSpells;
         }
-        if (!state.player_profiles && oldPlayerProfiles){
+        if (!state.player_profiles && oldPlayerProfiles && typeof oldPlayerProfiles === "object"){
           state.player_profiles = oldPlayerProfiles;
         }
         if (isMapView){
