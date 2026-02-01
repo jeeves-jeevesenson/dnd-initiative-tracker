@@ -1441,8 +1441,13 @@ class LanController:
             self.app._oplog(f"LAN map view connected ws_id={ws_id} host={host}:{port} ua={ua}")
             try:
                 await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
+                # Send static data first (spell presets, etc.) - only sent once
                 await ws.send_text(
-                    self._json_dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()})
+                    self._json_dumps({"type": "static_data", "data": self._static_data_payload()})
+                )
+                # Then send initial state without static data
+                await ws.send_text(
+                    self._json_dumps({"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()})
                 )
             except (TypeError, ValueError) as exc:
                 self.app._oplog(
@@ -1531,9 +1536,13 @@ class LanController:
             self.app._oplog(f"LAN session connected ws_id={ws_id} host={host}:{port} ua={ua}")
             try:
                 await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
-                # Immediately send snapshot + claimable list
+                # Send static data first (spell presets, etc.) - only sent once
                 await ws.send_text(
-                    self._json_dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()})
+                    self._json_dumps({"type": "static_data", "data": self._static_data_payload()})
+                )
+                # Then send initial state without static data
+                await ws.send_text(
+                    self._json_dumps({"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()})
                 )
                 await self._auto_assign_host(ws_id, host)
             except (TypeError, ValueError) as exc:
@@ -2006,7 +2015,7 @@ class LanController:
 
     async def _broadcast_state_async(self, snap: Dict[str, Any]) -> None:
         try:
-            payload = self._json_dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()})
+            payload = self._json_dumps({"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()})
         except Exception as exc:
             self.app._oplog(f"LAN state broadcast serialization failed: {exc}", level="warning")
             return
@@ -2262,6 +2271,23 @@ class LanController:
                 copy_unit["claimed_by"] = cid_to_host.get(cid)
                 enriched.append(copy_unit)
             snap["units"] = enriched
+        return snap
+
+    def _static_data_payload(self) -> Dict[str, Any]:
+        """Return static data that only needs to be sent once on connection."""
+        return {
+            "spell_presets": self._cached_snapshot.get("spell_presets", []),
+            "player_spells": self._cached_snapshot.get("player_spells", {}),
+            "player_profiles": self._cached_snapshot.get("player_profiles", {}),
+        }
+
+    def _dynamic_snapshot_payload(self) -> Dict[str, Any]:
+        """Return dynamic state without static data (for regular broadcasts)."""
+        snap = self._cached_snapshot_payload()
+        # Remove static fields to reduce payload size
+        snap.pop("spell_presets", None)
+        snap.pop("player_spells", None)
+        snap.pop("player_profiles", None)
         return snap
 
     def _pc_name_for(self, cid: int) -> str:
