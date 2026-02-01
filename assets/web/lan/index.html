@@ -5316,10 +5316,14 @@ __DAMAGE_TYPE_OPTIONS__
       setConn(true, "Connected");
       send({type:"grid_request"});
     });
-    ws.addEventListener("close", () => {
+    ws.addEventListener("close", (ev) => {
       const wasReconnect = reconnecting;
       reconnecting = false;
-      if (wasReconnect){
+      const serverError = ev && ev.code === 1011;
+      if (serverError){
+        setConn(false, "Server error while preparing state.");
+        scheduleReconnect(1000);
+      } else if (wasReconnect){
         setConn(false, "Reconnecting…");
         scheduleReconnect(200);
       } else {
