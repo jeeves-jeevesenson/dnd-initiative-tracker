@@ -1,46 +1,53 @@
-name: Fred Figglehorn
-known_cantrips: 0
-known_spells: 15
-known_spell_names: []
 format_version: 2
-player: Fred Figglehorn
-campaign: ''
-ip: 192.168.1.51
+name: 'John Twilight '
+player: Giptible Nutsack
+campaign: Eldervale
+ip: 192.168.0.240
 identity:
-  pronouns: Mur / Der
-  ancestry: Drow
-  background: ''
-  alignment: Chaotic Evil
+  pronouns: He/he :)
+  ancestry: Vampire
+  background: Haunted One
+  alignment: chaotic good
   description: ''
-  name: Fred Figglehorn
 leveling:
-  level: 5
+  level: 10
   classes:
-  - name: Warlock
-    subclass: Pact of Blood
-    level: 5
+  - name: Fighter
+    subclass: Echo Knight
+    level: 10
 abilities:
-  str: 6
-  dex: 14
-  con: 15
-  int: 9
+  str: 20
+  dex: 11
+  con: 16
+  int: 7
   wis: 12
-  cha: 10
+  cha: 20
 proficiency:
-  bonus: 2
-  saves: []
+  bonus: 4
+  saves:
+  - STR
+  - CON
   skills:
+    proficient:
+    - Athletics
+    - 'Insight '
+    - 'Investigation '
+    - 'Perception '
+    - 'Survival '
     expertise: []
-    proficient: []
   tools: []
-  languages: []
+  languages:
+  - Common
+  - 'Celestial '
+  - 'Elvish '
+  - Gnomish
 vitals:
-  max_hp: 38
-  current_hp: 10
+  max_hp: 112
+  current_hp: 112
   temp_hp: 0
   hit_dice:
-    die: d8
-    total: 5
+    die: d10
+    total: 10
     spent: 0
   speed:
     walk: 30
@@ -54,14 +61,22 @@ vitals:
 defenses:
   ac:
     sources:
-    - id: unarmored
-      label: Unarmored
+    - id: plate_mail_+1
+      label: ''
       when: always
-      base_formula: 10 + dex_mod
+      base_formula: '20'
     bonuses: []
-  resistances: []
-  immunities: []
+  resistances:
+  - 'necrotic '
+  - fire
+  immunities:
+  - 'poison '
+  - sleep
   vulnerabilities: []
+attacks:
+  melee_attack_mod: 9
+  ranged_attack_mod: 4
+  weapon_to_hit: 9
 resources:
   pools: []
 features: []
@@ -124,30 +139,23 @@ bonus_actions:
     says you can.
   type: bonus_action
 spellcasting:
-  enabled: true
-  spell_yaml_paths:
-  - ./Spells
-  casting_ability: chr
+  enabled: false
+  spell_yaml_paths: []
+  casting_ability: ''
   save_dc_formula: 8 + prof + casting_mod
   spell_attack_formula: prof + casting_mod
   cantrips:
-    max: 4
+    max: 0
     known: []
   known_spells:
-    max: 12
+    max: 0
+    known: []
   prepared_spells:
-    max_formula: '6'
-    prepared:
-    - armor-of-agathys
-    - hellish-rebuke
-    - enthrall
-    - detect-thoughts
-    - tasha-s-hideous-laughter
-    - fireball
-  known_enabled: false
+    max_formula: '0'
+    prepared: []
 inventory:
   currency:
-    gp: 0
+    gp: 12085
     sp: 0
     cp: 0
   items: []

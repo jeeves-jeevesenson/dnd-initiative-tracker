@@ -1,46 +1,42 @@
-name: Fred Figglehorn
-known_cantrips: 0
-known_spells: 15
-known_spell_names: []
 format_version: 2
-player: Fred Figglehorn
-campaign: ''
-ip: 192.168.1.51
+name: Dorian Vandergraff
+player: Louis
+campaign: Eldervale
+ip: 192.168.0.135
 identity:
-  pronouns: Mur / Der
-  ancestry: Drow
-  background: ''
-  alignment: Chaotic Evil
-  description: ''
-  name: Fred Figglehorn
+  pronouns: He/Him
+  ancestry: Human
+  background: Noble
+  alignment: Lawful Neutral
+  description: Flawed but caring samurai/monk-style Paladin.
 leveling:
-  level: 5
+  level: 10
   classes:
-  - name: Warlock
-    subclass: Pact of Blood
-    level: 5
+  - name: Paladin
+    subclass: Oath of Ancients
+    level: 1
 abilities:
-  str: 6
-  dex: 14
-  con: 15
-  int: 9
-  wis: 12
-  cha: 10
+  str: 19
+  dex: 15
+  con: 13
+  int: 14
+  wis: 9
+  cha: 13
 proficiency:
-  bonus: 2
+  bonus: 4
   saves: []
   skills:
-    expertise: []
     proficient: []
+    expertise: []
   tools: []
   languages: []
 vitals:
-  max_hp: 38
-  current_hp: 10
+  max_hp: 102
+  current_hp: 102
   temp_hp: 0
   hit_dice:
-    die: d8
-    total: 5
+    die: d10
+    total: 10
     spent: 0
   speed:
     walk: 30
@@ -57,11 +53,15 @@ defenses:
     - id: unarmored
       label: Unarmored
       when: always
-      base_formula: 10 + dex_mod
+      base_formula: 20 + dex_mod
     bonuses: []
   resistances: []
   immunities: []
   vulnerabilities: []
+attacks:
+  melee_attack_mod: 8
+  ranged_attack_mod: 6
+  weapon_to_hit: 8
 resources:
   pools: []
 features: []
@@ -118,36 +118,33 @@ reactions:
   description: You can take a reaction when a trigger occurs. A reaction is only available
     once per round.
   type: reaction
-bonus_actions:
-- name: Bonus Action
-  description: You can take a bonus action only when a feature, spell, or ability
-    says you can.
-  type: bonus_action
+bonus_actions: []
 spellcasting:
   enabled: true
   spell_yaml_paths:
   - ./Spells
-  casting_ability: chr
+  casting_ability: ''
   save_dc_formula: 8 + prof + casting_mod
   spell_attack_formula: prof + casting_mod
   cantrips:
-    max: 4
+    max: 0
     known: []
   known_spells:
-    max: 12
+    max: 0
+    known: []
   prepared_spells:
-    max_formula: '6'
+    max_formula: '9'
     prepared:
-    - armor-of-agathys
-    - hellish-rebuke
-    - enthrall
-    - detect-thoughts
-    - tasha-s-hideous-laughter
-    - fireball
-  known_enabled: false
+    - revivify
+    - haste
+    - ensnaring-strike
+    - moonbeam
+    - divine-smite
+    - remove-curse
+    - blinding-smite
 inventory:
   currency:
-    gp: 0
+    gp: 5400
     sp: 0
     cp: 0
   items: []

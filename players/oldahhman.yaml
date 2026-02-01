@@ -1,49 +1,52 @@
-name: Fred Figglehorn
-known_cantrips: 0
-known_spells: 15
-known_spell_names: []
 format_version: 2
-player: Fred Figglehorn
-campaign: ''
-ip: 192.168.1.51
+name: Old Man
+player: Old Man
+campaign: Old Man
+ip: 192.168.0.126
 identity:
-  pronouns: Mur / Der
-  ancestry: Drow
+  pronouns: he/him
+  ancestry: Human
   background: ''
-  alignment: Chaotic Evil
+  alignment: ''
   description: ''
-  name: Fred Figglehorn
 leveling:
-  level: 5
+  level: 10
   classes:
-  - name: Warlock
-    subclass: Pact of Blood
-    level: 5
+  - name: Monk
+    subclass: Warrior of the Open Hand
+    level: 0
 abilities:
-  str: 6
+  str: 18
   dex: 14
-  con: 15
-  int: 9
-  wis: 12
-  cha: 10
+  con: 18
+  int: 12
+  wis: 14
+  cha: 13
 proficiency:
-  bonus: 2
+  bonus: 4
   saves: []
   skills:
+    proficient:
+    - Athletics
+    - Stealth
+    - Persusian
     expertise: []
-    proficient: []
-  tools: []
-  languages: []
+  tools:
+  - Simple Weapons
+  - Marshals Weapons
+  - Improvised Weapons
+  languages:
+  - Common
 vitals:
-  max_hp: 38
-  current_hp: 10
+  max_hp: 84
+  current_hp: 3
   temp_hp: 0
   hit_dice:
     die: d8
-    total: 5
+    total: 10
     spent: 0
   speed:
-    walk: 30
+    walk: 50
     climb: 0
     fly: 0
     swim: 0
@@ -62,9 +65,26 @@ defenses:
   resistances: []
   immunities: []
   vulnerabilities: []
+attacks:
+  melee_attack_mod: 8
+  ranged_attack_mod: 6
+  weapon_to_hit: 8
 resources:
   pools: []
-features: []
+features:
+- id: ''
+  name: ''
+  category: ''
+  source: ''
+  description: ''
+  grants:
+    pools: []
+    spells:
+      cantrips: []
+      casts: []
+    actions: []
+    modifiers: []
+    damage_riders: []
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
@@ -124,31 +144,44 @@ bonus_actions:
     says you can.
   type: bonus_action
 spellcasting:
-  enabled: true
+  enabled: false
   spell_yaml_paths:
   - ./Spells
-  casting_ability: chr
+  casting_ability: ''
   save_dc_formula: 8 + prof + casting_mod
   spell_attack_formula: prof + casting_mod
   cantrips:
-    max: 4
+    max: 0
     known: []
   known_spells:
-    max: 12
+    max: 0
+    known: []
   prepared_spells:
-    max_formula: '6'
-    prepared:
-    - armor-of-agathys
-    - hellish-rebuke
-    - enthrall
-    - detect-thoughts
-    - tasha-s-hideous-laughter
-    - fireball
-  known_enabled: false
+    max_formula: '0'
+    prepared: []
 inventory:
   currency:
-    gp: 0
+    gp: 5490
     sp: 0
     cp: 0
-  items: []
-notes: {}
+  items:
+  - name: Harmonica
+    quantity: 1
+    description: bad ass
+  - name: Spears
+    quantity: 5
+    description: 1d6
+  - name: Artisan Tools
+    quantity: 1
+    description: ''
+  - name: Explorer's Pack
+    quantity: 1
+    description: ''
+  - name: Message Scroll
+    quantity: 1
+    description: Encoded, reaches Master Kage. Bad ass monk dude
+  - name: Dagger
+    quantity: 1
+    description: 1d4
+notes:
+  note_1: \\n'AHASHDAFS'asfnj\\n\\n\\njaklasdjlkfa''s'"FUAIKCI

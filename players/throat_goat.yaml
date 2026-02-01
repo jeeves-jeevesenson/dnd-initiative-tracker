@@ -1,0 +1,224 @@
+format_version: 2
+name: Throat Goat
+player: Trevor
+campaign: ''
+ip: '192.168.0.67'
+known_cantrips: 0
+known_spells: 0
+known_spell_names: []
+identity:
+  pronouns: Dragon / Balls
+  ancestry: Brass Dragonborn
+  background: Entertainer
+  alignment: Chaotic Neutral
+  description: ''
+leveling:
+  level: 10
+  classes:
+  - name: Bard
+    subclass: Gollege of Glamour
+    level: 8
+  - name: Warlock
+    subclass: ''
+    level: 2
+abilities:
+  str: 13
+  dex: 14
+  con: 14
+  int: 14
+  wis: 14
+  cha: 20
+proficiency:
+  bonus: 4
+  saves: []
+  skills:
+    proficient:
+    - Acrobatics
+    - Perception
+    - Performance
+    - Persuasion
+    expertise:
+    - Deception
+  tools:
+  - Bagpipes
+  - Shawm
+  - Lyre
+  - Lute
+  - Flute
+  - Horn
+  - Viola
+  languages:
+  - Common
+  - Draconic
+  - Orc
+vitals:
+  max_hp: 95
+  current_hp: 95
+  temp_hp: 0
+  hit_dice:
+    die: d8
+    total: 10
+    spent: 0
+  speed:
+    walk: 30
+    climb: 0
+    fly: 0
+    swim: 0
+  initiative:
+    formula: dex_mod
+  passive_perception:
+    formula: 10 + wis_mod + prof
+defenses:
+  ac:
+    sources:
+    - id: studded_leather_armor
+      label: Studded Leather Armor
+      when: always
+      base_formula: 12 + dex_mod
+    bonuses: []
+  resistances:
+  - Fire
+  immunities: []
+  vulnerabilities: []
+resources:
+  pools:
+  - id: polymorph
+    label: polymorph
+    current: 1
+    max_formula: '1'
+    reset: long_rest
+  - id: shield
+    label: shield
+    current: 3
+    max_formula: '3'
+    reset: long_rest
+features:
+- id: bahamuts-rebuking-claw
+  name: Bahamut's Rebuking Claw
+  category: Magical Item
+  source: ''
+  description: 'Bahamut, disgusted by dirty blood, would rather polymorph a foe than spill its foul blood. '
+  grants:
+    pools: []
+    spells:
+      cantrips: []
+      casts:
+      - spell: polymorph
+        action_type: action
+        consumes:
+          pool: polymorph
+          cost: 1
+      - spell: shield
+        action_type: action
+        consumes:
+          pool: shield
+          cost: 1
+    actions: []
+    modifiers: []
+    damage_riders: []
+actions:
+- name: Attack
+  description: Make a weapon or unarmed attack against a target within range.
+  type: action
+- name: Dash
+  description: Gain extra movement for the current turn equal to your speed.
+  type: action
+- name: Disengage
+  description: Your movement does not provoke opportunity attacks for the rest of the turn.
+  type: action
+- name: Dodge
+  description: Until the start of your next turn, attack rolls against you have disadvantage if you can see the attacker,
+    and you make Dexterity saves with advantage.
+  type: action
+- name: Help
+  description: Aid a creature in the next ability check or attack roll against a target within 5 feet of you.
+  type: action
+- name: Hide
+  description: Attempt to hide by making a Dexterity (Stealth) check.
+  type: action
+- name: Influence
+  description: Attempt to influence a creature through conversation, bargaining, or intimidation.
+  type: action
+- name: Magic
+  description: Cast a spell or use a magical feature that takes an action.
+  type: action
+- name: Ready
+  description: Prepare an action and a trigger; use your reaction to perform it when the trigger occurs.
+  type: action
+- name: Search
+  description: Devote attention to finding something by making a Wisdom (Perception) or Intelligence (Investigation) check.
+  type: action
+- name: Study
+  description: Focus on detailed observation or research to gain information about a creature, object, or situation.
+  type: action
+- name: Utilize
+  description: Use an object or interact with the environment in a significant way.
+  type: action
+reactions:
+- name: Opportunity Attack
+  description: When a hostile creature you can see moves out of your reach, you can use your reaction to make one melee attack
+    against it.
+  type: reaction
+- name: Reaction
+  description: You can take a reaction when a trigger occurs. A reaction is only available once per round.
+  type: reaction
+bonus_actions:
+- name: Bonus Action
+  description: You can take a bonus action only when a feature, spell, or ability says you can.
+  type: bonus_action
+spellcasting:
+  enabled: true
+  spell_yaml_paths:
+  - ./Spells
+  casting_ability: cha
+  save_dc_formula: 8 + prof + casting_mod
+  spell_attack_formula: prof + casting_mod
+  cantrips:
+    max: 5
+    known:
+    - vicious-mockery
+    - mending
+    - message
+    - eldritch-blast
+    - toll-the-dead
+  known_spells:
+    max: 0
+    known: []
+  prepared_spells:
+    max_formula: '15'
+    prepared:
+    - charm-person
+    - command
+    - speak-with-animals
+    - identify
+    - tasha-s-hideous-laughter
+    - cure-wounds
+    - hellish-rebuke
+    - protection-from-evil-and-good
+    - arms-of-hadar
+    - mirror-image
+    - heat-metal
+    - hold-person
+    - shatter
+    - speak-with-dead
+    - dispel-magic
+    - slow
+    - phantasmal-killer
+    - fount-of-moonlight
+inventory:
+  currency:
+    gp: 5014
+    sp: 0
+    cp: 0
+  items:
+  - name: +2 Dagger
+    quantity: 1
+    description: ''
+  - name: Greatsword of Wounding
+    quantity: 1
+    description: ''
+notes: {}
+attacks:
+  melee_attack_mod: 9
+  ranged_attack_mod: 6
+  weapon_to_hit: 9

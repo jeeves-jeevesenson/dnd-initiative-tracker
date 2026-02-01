@@ -1,46 +1,42 @@
-name: Fred Figglehorn
-known_cantrips: 0
-known_spells: 15
-known_spell_names: []
 format_version: 2
-player: Fred Figglehorn
+name: Eldramar Thunderclopper
+player: Eldramar
 campaign: ''
-ip: 192.168.1.51
+ip: 192.168.1.143
 identity:
-  pronouns: Mur / Der
-  ancestry: Drow
+  pronouns: he/him
+  ancestry: Minotaur
   background: ''
-  alignment: Chaotic Evil
-  description: ''
-  name: Fred Figglehorn
+  alignment: ''
+  description: Malogrowls son
 leveling:
-  level: 5
+  level: 10
   classes:
-  - name: Warlock
-    subclass: Pact of Blood
-    level: 5
+  - name: Wizard
+    subclass: Evoker
+    level: 10
 abilities:
-  str: 6
-  dex: 14
-  con: 15
-  int: 9
-  wis: 12
-  cha: 10
+  str: 5
+  dex: 9
+  con: 18
+  int: 20
+  wis: 18
+  cha: 8
 proficiency:
-  bonus: 2
+  bonus: 4
   saves: []
   skills:
-    expertise: []
     proficient: []
+    expertise: []
   tools: []
   languages: []
 vitals:
-  max_hp: 38
-  current_hp: 10
+  max_hp: 76
+  current_hp: 76
   temp_hp: 0
   hit_dice:
-    die: d8
-    total: 5
+    die: d6
+    total: 10
     spent: 0
   speed:
     walk: 30
@@ -62,6 +58,10 @@ defenses:
   resistances: []
   immunities: []
   vulnerabilities: []
+attacks:
+  melee_attack_mod: 1
+  ranged_attack_mod: 3
+  weapon_to_hit: 3
 resources:
   pools: []
 features: []
@@ -127,27 +127,77 @@ spellcasting:
   enabled: true
   spell_yaml_paths:
   - ./Spells
-  casting_ability: chr
+  casting_ability: Intelligence
   save_dc_formula: 8 + prof + casting_mod
   spell_attack_formula: prof + casting_mod
   cantrips:
-    max: 4
-    known: []
+    max: 8
+    known:
+    - fire-bolt
+    - toll-the-dead
+    - chill-touch
+    - shocking-grasp
+    - lightning-bolt
+    - eldritch-blast
+    - mage-hand
+    - message
   known_spells:
-    max: 12
-  prepared_spells:
-    max_formula: '6'
-    prepared:
-    - armor-of-agathys
-    - hellish-rebuke
-    - enthrall
-    - detect-thoughts
-    - tasha-s-hideous-laughter
+    max: 30
+    known:
+    - bigby-s-hand
+    - wall-of-fire
     - fireball
-  known_enabled: false
+    - bestow-curse
+    - shatter
+    - blindness-deafness
+    - knock
+    - alarm
+    - comprehend-languages
+    - identify
+    - find-familiar
+    - teleportation-circle
+    - mislead
+    - geas
+    - fabricate
+    - glyph-of-warding
+    - enhance-ability
+    - rope-trick
+    - gust-of-wind
+    - shield
+    - protection-from-evil-and-good
+    - sleep
+    - wall-of-force
+    - banishment
+    - counterspell
+    - haste
+    - greater-invisibility
+    - summon-construct
+    - shocking-grasp
+    - lightning-bolt
+  prepared_spells:
+    max_formula: '18'
+    prepared:
+    - find-familiar
+    - shocking-grasp
+    - lightning-bolt
+    - wall-of-force
+    - bigby-s-hand
+    - banishment
+    - greater-invisibility
+    - summon-construct
+    - wall-of-fire
+    - counterspell
+    - haste
+    - fireball
+    - glyph-of-warding
+    - knock
+    - blindness-deafness
+    - shatter
+    - mage-armor
+    - shield
 inventory:
   currency:
-    gp: 0
+    gp: 3008
     sp: 0
     cp: 0
   items: []
