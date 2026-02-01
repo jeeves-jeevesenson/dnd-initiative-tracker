@@ -19,7 +19,22 @@ class LanRequestHandler(SimpleHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path.rstrip("/")
         if path == "/lan":
-            self.path = "/assets/web/lan/index.html"
+            # Serve the LAN page with placeholder replaced
+            file_path = REPO_ROOT / "assets/web/lan/index.html"
+            try:
+                with open(file_path, "rb") as f:
+                    content = f.read()
+                # Replace the placeholder with undefined for the smoke test
+                content = content.replace(b"__PUSH_PUBLIC_KEY__", b"undefined")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+            except Exception:
+                pass  # Fall through to default handler
+        self.path = path if path else "/"
         return super().do_GET()
 
 
@@ -47,7 +62,6 @@ def main() -> int:
         stack.callback(server.server_close)
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch()
-            stack.callback(browser.close)
             page = browser.new_page()
 
             def _on_page_error(error: Exception) -> None:
