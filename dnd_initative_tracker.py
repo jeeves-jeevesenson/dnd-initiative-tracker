@@ -788,8 +788,8 @@ class LanController:
         self._client_hosts: Dict[int, str] = {}  # id(websocket) -> host
         self._view_only_clients: set[int] = set()
         self._claims: Dict[int, int] = {}   # id(websocket) -> cid
-        self._cid_to_ws: Dict[int, int] = {}  # cid -> id(websocket) (1 owner at a time)
-        self._cid_to_host: Dict[int, str] = {}  # cid -> host (active claim)
+        self._cid_to_ws: Dict[int, set[int]] = {}  # cid -> {id(websocket), ...}
+        self._cid_to_host: Dict[int, set[str]] = {}  # cid -> {host, ...}
         self._host_assignments: Dict[str, int] = self._load_host_assignments()  # host -> cid (persistent)
         self._yaml_host_assignments: Dict[str, Dict[str, Any]] = {}
         self._host_presets: Dict[str, Dict[str, Any]] = {}
@@ -801,7 +801,8 @@ class LanController:
         self._client_log_max: int = 30
 
         self._actions: "queue.Queue[Dict[str, Any]]" = queue.Queue()
-        self._last_state_json: Optional[str] = None
+        self._last_snapshot: Optional[Dict[str, Any]] = None
+        self._last_static_json: Optional[str] = None
         self._polling: bool = False
         self._grid_version: int = 0
         self._grid_pending: Dict[int, Tuple[int, float]] = {}
@@ -810,7 +811,6 @@ class LanController:
         self._terrain_version: int = 0
         self._terrain_pending: Dict[int, Tuple[int, float]] = {}
         self._terrain_resend_seconds: float = 1.5
-        self._terrain_last_sent: Optional[str] = None
         self._ko_round_num: Optional[int] = None
         self._ko_played: bool = False
         self._cached_snapshot: Dict[str, Any] = {
@@ -1587,6 +1587,8 @@ class LanController:
                         await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
                     elif typ == "terrain_request":
                         await self._send_terrain_update_async(ws_id, self._terrain_payload())
+                    elif typ == "state_request":
+                        await self._send_full_state_async(ws_id)
                     elif typ == "grid_ack":
                         ver = msg.get("version")
                         with self._clients_lock:
@@ -1708,6 +1710,8 @@ class LanController:
                         await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
                     elif typ == "terrain_request":
                         await self._send_terrain_update_async(ws_id, self._terrain_payload())
+                    elif typ == "state_request":
+                        await self._send_full_state_async(ws_id)
                     elif typ == "grid_ack":
                         ver = msg.get("version")
                         with self._clients_lock:
@@ -1758,10 +1762,7 @@ class LanController:
                     self._clients_meta.pop(ws_id, None)
                     self._client_hosts.pop(ws_id, None)
                     self._view_only_clients.discard(ws_id)
-                    old = self._claims.pop(ws_id, None)
-                    if old is not None:
-                        self._cid_to_ws.pop(int(old), None)
-                        self._cid_to_host.pop(int(old), None)
+                    old = self._drop_claim(ws_id)
                     self._grid_pending.pop(ws_id, None)
                     self._terrain_pending.pop(ws_id, None)
                 if old is not None:
@@ -2058,10 +2059,6 @@ class LanController:
             await ws.close(code=1000)
         except Exception:
             pass
-        try:
-            await self._broadcast_state_async(self._cached_snapshot)
-        except Exception:
-            pass
 
     def _tick(self) -> None:
         """Runs on Tk thread: process actions and broadcast state when changed."""
@@ -2092,39 +2089,196 @@ class LanController:
                 self._grid_version += 1
                 self._grid_last_sent = (cols, rows)
                 self._broadcast_grid_update(grid)
+        prev_snap = self._last_snapshot or {}
+        if self._last_snapshot is None:
+            self._last_snapshot = copy.deepcopy(snap)
+        else:
+            turn_update = self._build_turn_update(prev_snap, snap)
+            if turn_update:
+                self._broadcast_payload({"type": "turn_update", **turn_update})
+
+            units_snapshot, unit_updates = self._build_unit_updates(prev_snap, snap)
+            if units_snapshot is not None:
+                self._broadcast_payload({"type": "units_snapshot", "units": units_snapshot})
+            elif unit_updates:
+                self._broadcast_payload({"type": "unit_update", "updates": unit_updates})
+
+            terrain_patch = self._build_terrain_patch(prev_snap, snap)
+            if terrain_patch:
+                self._broadcast_payload({"type": "terrain_patch", **terrain_patch})
+
+            aoe_patch = self._build_aoe_patch(prev_snap, snap)
+            if aoe_patch:
+                self._broadcast_payload({"type": "aoe_patch", **aoe_patch})
+
+            self._last_snapshot = copy.deepcopy(snap)
+
         try:
-            terrain_json = json.dumps(
-                self._terrain_payload(snap),
-                sort_keys=True,
-                separators=(",", ":"),
-            )
+            static_payload = self._static_data_payload()
+            static_json = json.dumps(static_payload, sort_keys=True, separators=(",", ":"))
         except Exception:
-            terrain_json = None
-        if terrain_json is not None and terrain_json != self._terrain_last_sent:
-            self._terrain_version += 1
-            self._terrain_last_sent = terrain_json
-            self._broadcast_terrain_update(self._terrain_payload(snap))
-        self._resend_grid_updates()
-        self._resend_terrain_updates()
-        snap_json = json.dumps(snap, sort_keys=True, separators=(",", ":"))
-        if snap_json != self._last_state_json:
-            self._last_state_json = snap_json
-            self._broadcast_state(snap)
+            static_payload = None
+            static_json = None
+        if static_payload is not None and static_json is not None:
+            if self._last_static_json is None:
+                self._last_static_json = static_json
+            elif static_json != self._last_static_json:
+                self._last_static_json = static_json
+                self._broadcast_payload({"type": "static_data", "data": static_payload})
 
         # 3) continue polling
         if self._polling:
             self.app.after(120, self._tick)
 
+    @staticmethod
+    def _unit_lookup(units: Any) -> Dict[int, Dict[str, Any]]:
+        lookup: Dict[int, Dict[str, Any]] = {}
+        if not isinstance(units, list):
+            return lookup
+        for unit in units:
+            if not isinstance(unit, dict):
+                continue
+            try:
+                cid = int(unit.get("cid"))
+            except Exception:
+                continue
+            lookup[cid] = unit
+        return lookup
+
+    @staticmethod
+    def _rough_lookup(rough: Any) -> Dict[Tuple[int, int], Dict[str, Any]]:
+        lookup: Dict[Tuple[int, int], Dict[str, Any]] = {}
+        if not isinstance(rough, list):
+            return lookup
+        for cell in rough:
+            if not isinstance(cell, dict):
+                continue
+            try:
+                key = (int(cell.get("col")), int(cell.get("row")))
+            except Exception:
+                continue
+            lookup[key] = cell
+        return lookup
+
+    @staticmethod
+    def _obstacle_lookup(obstacles: Any) -> set[Tuple[int, int]]:
+        out: set[Tuple[int, int]] = set()
+        if not isinstance(obstacles, list):
+            return out
+        for entry in obstacles:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                out.add((int(entry.get("col")), int(entry.get("row"))))
+            except Exception:
+                continue
+        return out
+
+    def _build_turn_update(self, prev: Dict[str, Any], curr: Dict[str, Any]) -> Dict[str, Any]:
+        update: Dict[str, Any] = {}
+        if prev.get("active_cid") != curr.get("active_cid"):
+            update["active_cid"] = curr.get("active_cid")
+        if prev.get("round_num") != curr.get("round_num"):
+            update["round_num"] = curr.get("round_num")
+        if prev.get("turn_order") != curr.get("turn_order"):
+            update["turn_order"] = curr.get("turn_order")
+        return update
+
+    def _build_unit_updates(
+        self, prev: Dict[str, Any], curr: Dict[str, Any]
+    ) -> Tuple[Optional[List[Dict[str, Any]]], List[Dict[str, Any]]]:
+        prev_units = self._unit_lookup(prev.get("units"))
+        curr_units = self._unit_lookup(curr.get("units"))
+        if set(prev_units.keys()) != set(curr_units.keys()):
+            return list(curr.get("units", [])) if isinstance(curr.get("units"), list) else [], []
+
+        updates: List[Dict[str, Any]] = []
+        fields = [
+            "name",
+            "role",
+            "token_color",
+            "hp",
+            "move_remaining",
+            "move_total",
+            "action_remaining",
+            "bonus_action_remaining",
+            "reaction_remaining",
+            "spell_cast_remaining",
+            "marks",
+            "is_prone",
+            "is_spellcaster",
+            "actions",
+            "bonus_actions",
+        ]
+        for cid, curr_unit in curr_units.items():
+            prev_unit = prev_units.get(cid, {})
+            patch: Dict[str, Any] = {"cid": cid}
+            prev_pos = prev_unit.get("pos") if isinstance(prev_unit.get("pos"), dict) else {}
+            curr_pos = curr_unit.get("pos") if isinstance(curr_unit.get("pos"), dict) else {}
+            if prev_pos != curr_pos and curr_pos:
+                patch["pos"] = curr_pos
+            for field in fields:
+                if prev_unit.get(field) != curr_unit.get(field):
+                    patch[field] = curr_unit.get(field)
+            if len(patch) > 1:
+                updates.append(patch)
+        return None, updates
+
+    def _build_terrain_patch(self, prev: Dict[str, Any], curr: Dict[str, Any]) -> Dict[str, Any]:
+        prev_rough = self._rough_lookup(prev.get("rough_terrain"))
+        curr_rough = self._rough_lookup(curr.get("rough_terrain"))
+        rough_updates: List[Dict[str, Any]] = []
+        rough_removals: List[Dict[str, int]] = []
+        for key, cell in curr_rough.items():
+            if prev_rough.get(key) != cell:
+                rough_updates.append(cell)
+        for key in prev_rough.keys() - curr_rough.keys():
+            rough_removals.append({"col": key[0], "row": key[1]})
+
+        prev_obs = self._obstacle_lookup(prev.get("obstacles"))
+        curr_obs = self._obstacle_lookup(curr.get("obstacles"))
+        obstacle_updates = [{"col": key[0], "row": key[1]} for key in sorted(curr_obs - prev_obs)]
+        obstacle_removals = [{"col": key[0], "row": key[1]} for key in sorted(prev_obs - curr_obs)]
+
+        patch: Dict[str, Any] = {}
+        if rough_updates:
+            patch["rough_updates"] = rough_updates
+        if rough_removals:
+            patch["rough_removals"] = rough_removals
+        if obstacle_updates:
+            patch["obstacle_updates"] = obstacle_updates
+        if obstacle_removals:
+            patch["obstacle_removals"] = obstacle_removals
+        return patch
+
+    def _build_aoe_patch(self, prev: Dict[str, Any], curr: Dict[str, Any]) -> Dict[str, Any]:
+        prev_aoes = {int(a.get("aid")): a for a in prev.get("aoes", []) if isinstance(a, dict) and "aid" in a}
+        curr_aoes = {int(a.get("aid")): a for a in curr.get("aoes", []) if isinstance(a, dict) and "aid" in a}
+        updates: List[Dict[str, Any]] = []
+        removals: List[int] = []
+        for aid, aoe in curr_aoes.items():
+            if prev_aoes.get(aid) != aoe:
+                updates.append(aoe)
+        for aid in prev_aoes.keys() - curr_aoes.keys():
+            removals.append(int(aid))
+        patch: Dict[str, Any] = {}
+        if updates:
+            patch["updates"] = updates
+        if removals:
+            patch["removals"] = removals
+        return patch
+
     def _pcs_payload(self) -> List[Dict[str, Any]]:
         pcs = list(self._cached_pcs)
         with self._clients_lock:
-            cid_to_host = dict(self._cid_to_host)
+            cid_to_host = {cid: set(hosts) for cid, hosts in self._cid_to_host.items()}
         profiles = self.app._player_profiles_payload() if hasattr(self.app, "_player_profiles_payload") else {}
         out: List[Dict[str, Any]] = []
         for p in pcs:
             pp = dict(p)
             cid = int(pp.get("cid", -1))
-            pp["claimed_by"] = cid_to_host.get(cid)
+            hosts = cid_to_host.get(cid) or set()
+            pp["claimed_by"] = ", ".join(sorted(hosts)) if hosts else None
             name = str(pp.get("name") or "")
             if name and isinstance(profiles, dict):
                 profile = profiles.get(name)
@@ -2142,8 +2296,7 @@ class LanController:
         pcs = {int(p.get("cid")) for p in self._cached_pcs if isinstance(p.get("cid"), int)}
         if cid not in pcs:
             return False
-        with self._clients_lock:
-            return self._cid_to_ws.get(cid) is None
+        return True
 
     # ---------- Server-thread safe broadcast ----------
 
@@ -2151,6 +2304,15 @@ class LanController:
         if not self._loop:
             return
         coro = self._broadcast_state_async(snap)
+        try:
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
+        except Exception:
+            pass
+
+    def _broadcast_payload(self, payload: Dict[str, Any]) -> None:
+        if not self._loop:
+            return
+        coro = self._broadcast_payload_async(payload)
         try:
             asyncio.run_coroutine_threadsafe(coro, self._loop)
         except Exception:
@@ -2174,10 +2336,29 @@ class LanController:
             with self._clients_lock:
                 for ws_id in to_drop:
                     # cleanup drop
-                    old_cid = self._claims.pop(ws_id, None)
-                    if old_cid is not None:
-                        self._cid_to_ws.pop(int(old_cid), None)
-                        self._cid_to_host.pop(int(old_cid), None)
+                    self._drop_claim(ws_id)
+                    self._clients.pop(ws_id, None)
+                    self._clients_meta.pop(ws_id, None)
+                    self._client_hosts.pop(ws_id, None)
+
+    async def _broadcast_payload_async(self, payload: Dict[str, Any]) -> None:
+        try:
+            text = self._json_dumps(payload)
+        except Exception as exc:
+            self.app._oplog(f"LAN payload broadcast serialization failed: {exc}", level="warning")
+            return
+        to_drop: List[int] = []
+        with self._clients_lock:
+            items = list(self._clients.items())
+        for ws_id, ws in items:
+            try:
+                await ws.send_text(text)
+            except Exception:
+                to_drop.append(ws_id)
+        if to_drop:
+            with self._clients_lock:
+                for ws_id in to_drop:
+                    self._drop_claim(ws_id)
                     self._clients.pop(ws_id, None)
                     self._clients_meta.pop(ws_id, None)
                     self._client_hosts.pop(ws_id, None)
@@ -2244,6 +2425,8 @@ class LanController:
             ws = self._clients.get(ws_id)
         if not ws:
             return
+        if isinstance(grid, dict):
+            self._grid_last_sent = (grid.get("cols"), grid.get("rows"))
         try:
             await ws.send_text(payload)
             with self._clients_lock:
@@ -2350,15 +2533,16 @@ class LanController:
         if attacker_cid not in pc_cids:
             return
         with self._clients_lock:
-            ws_id = self._cid_to_ws.get(attacker_cid)
-        if ws_id is None:
+            ws_ids = list(self._cid_to_ws.get(attacker_cid, set()))
+        if not ws_ids:
             return
         self._ko_played = True
-        coro = self._send_async(ws_id, {"type": "play_audio", "audio": "ko", "cid": attacker_cid})
-        try:
-            asyncio.run_coroutine_threadsafe(coro, self._loop)
-        except Exception:
-            pass
+        for ws_id in ws_ids:
+            coro = self._send_async(ws_id, {"type": "play_audio", "audio": "ko", "cid": attacker_cid})
+            try:
+                asyncio.run_coroutine_threadsafe(coro, self._loop)
+            except Exception:
+                pass
 
     async def _toast_async(self, ws_id: int, text: str) -> None:
         with self._clients_lock:
@@ -2380,15 +2564,41 @@ class LanController:
         except Exception:
             pass
 
+    async def _send_full_state_async(self, ws_id: int) -> None:
+        await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
+        await self._send_terrain_update_async(ws_id, self._terrain_payload())
+        await self._send_async(ws_id, {"type": "static_data", "data": self._static_data_payload()})
+        await self._send_async(
+            ws_id,
+            {"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()},
+        )
+
+    def _drop_claim(self, ws_id: int) -> Optional[int]:
+        with self._clients_lock:
+            old = self._claims.pop(ws_id, None)
+            if old is None:
+                return None
+            host = self._client_hosts.get(ws_id, "")
+            ws_set = self._cid_to_ws.get(int(old))
+            if ws_set is not None:
+                ws_set.discard(ws_id)
+                if not ws_set:
+                    self._cid_to_ws.pop(int(old), None)
+            host_set = self._cid_to_host.get(int(old))
+            if host_set is not None and host:
+                remaining_ws = self._cid_to_ws.get(int(old), set())
+                still_has_host = any(self._client_hosts.get(w) == host for w in remaining_ws)
+                if not still_has_host:
+                    host_set.discard(host)
+                    if not host_set:
+                        self._cid_to_host.pop(int(old), None)
+        return old
+
     async def _unclaim_ws_async(
         self, ws_id: int, reason: str = "Unclaimed", clear_ownership: bool = False
     ) -> None:
         # Drop claim mapping
-        with self._clients_lock:
-            old = self._claims.pop(ws_id, None)
-            if old is not None:
-                self._cid_to_ws.pop(int(old), None)
-                self._cid_to_host.pop(int(old), None)
+        old = self._drop_claim(ws_id)
         if old is not None:
             name = self._pc_name_for(int(old))
             self.app._oplog(f"LAN session ws_id={ws_id} unclaimed {name} ({reason})")
@@ -2403,33 +2613,13 @@ class LanController:
             await self._send_async(ws_id, {"type": "toast", "text": "That character ain't claimable, matey."})
             return
 
-        # Steal/assign with single-owner logic
-        steal_from: Optional[int] = None
-        prev_owned: Optional[int] = None
+        self._drop_claim(ws_id)
         with self._clients_lock:
             host = self._client_hosts.get(ws_id, "")
-            # if this ws had old claim, clear reverse map
-            prev_owned = self._claims.get(ws_id)
-            if prev_owned is not None:
-                self._cid_to_ws.pop(int(prev_owned), None)
-                if self._cid_to_host.get(int(prev_owned)) == host:
-                    self._cid_to_host.pop(int(prev_owned), None)
-
-            # if cid is owned, we'll steal
-            steal_from = self._cid_to_ws.get(int(cid))
-            if steal_from is not None and steal_from != ws_id:
-                if not allow_override:
-                    await self._send_async(ws_id, {"type": "toast", "text": "That character be claimed already."})
-                    return
-                self._claims.pop(steal_from, None)
-            # assign
             self._claims[ws_id] = int(cid)
-            self._cid_to_ws[int(cid)] = ws_id
+            self._cid_to_ws.setdefault(int(cid), set()).add(ws_id)
             if host:
-                self._cid_to_host[int(cid)] = host
-
-        if steal_from is not None and steal_from != ws_id:
-            await self._send_async(steal_from, {"type": "force_unclaim", "text": "Yer character got reassigned by the DM.", "pcs": self._pcs_payload()})
+                self._cid_to_host.setdefault(int(cid), set()).add(host)
 
         await self._send_async(ws_id, {"type": "force_claim", "cid": int(cid), "text": note})
         name = self._pc_name_for(int(cid))
@@ -2471,7 +2661,7 @@ class LanController:
         units = snap.get("units")
         if isinstance(units, list):
             with self._clients_lock:
-                cid_to_host = dict(self._cid_to_host)
+                cid_to_host = {cid: set(hosts) for cid, hosts in self._cid_to_host.items()}
             enriched = []
             for unit in units:
                 if not isinstance(unit, dict):
@@ -2482,7 +2672,8 @@ class LanController:
                     cid = int(copy_unit.get("cid", -1))
                 except Exception:
                     cid = -1
-                copy_unit["claimed_by"] = cid_to_host.get(cid)
+                hosts = cid_to_host.get(cid) or set()
+                copy_unit["claimed_by"] = ", ".join(sorted(hosts)) if hosts else None
                 enriched.append(copy_unit)
             snap["units"] = enriched
         return snap
@@ -4109,7 +4300,6 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             try:
                 self._lan._cached_snapshot = self._lan_snapshot()
-                self._lan._broadcast_state(self._lan._cached_snapshot)
             except Exception:
                 pass
 

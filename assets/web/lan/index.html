@@ -651,7 +651,7 @@
       backdrop-filter: blur(10px);
       display: none;
       flex-direction: column;
-      z-index: 70;
+      z-index: 95;
     }
     .spell-detail-overlay.show{display:flex;}
     .spell-detail-header{
@@ -4227,6 +4227,90 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  function applyTerrainPatch(patch){
+    if (!state){ state = {}; }
+    if (!patch || typeof patch !== "object") return;
+    const roughUpdates = Array.isArray(patch.rough_updates) ? patch.rough_updates : [];
+    const roughRemovals = Array.isArray(patch.rough_removals) ? patch.rough_removals : [];
+    if (roughUpdates.length || roughRemovals.length){
+      const roughMap = new Map();
+      (state.rough_terrain || []).forEach((cell) => {
+        if (!cell) return;
+        const key = `${Number(cell.col)},${Number(cell.row)}`;
+        roughMap.set(key, cell);
+      });
+      roughUpdates.forEach((cell) => {
+        if (!cell) return;
+        const key = `${Number(cell.col)},${Number(cell.row)}`;
+        roughMap.set(key, cell);
+      });
+      roughRemovals.forEach((cell) => {
+        if (!cell) return;
+        const key = `${Number(cell.col)},${Number(cell.row)}`;
+        roughMap.delete(key);
+      });
+      state.rough_terrain = Array.from(roughMap.values());
+    }
+
+    const obstacleUpdates = Array.isArray(patch.obstacle_updates) ? patch.obstacle_updates : [];
+    const obstacleRemovals = Array.isArray(patch.obstacle_removals) ? patch.obstacle_removals : [];
+    if (obstacleUpdates.length || obstacleRemovals.length){
+      const obstacleSet = new Set((state.obstacles || []).map(o => `${Number(o.col)},${Number(o.row)}`));
+      obstacleUpdates.forEach((cell) => {
+        if (!cell) return;
+        obstacleSet.add(`${Number(cell.col)},${Number(cell.row)}`);
+      });
+      obstacleRemovals.forEach((cell) => {
+        if (!cell) return;
+        obstacleSet.delete(`${Number(cell.col)},${Number(cell.row)}`);
+      });
+      state.obstacles = Array.from(obstacleSet).map((key) => {
+        const [col, row] = key.split(",").map(Number);
+        return {col, row};
+      });
+    }
+  }
+
+  function applyUnitUpdates(updates){
+    if (!state || !Array.isArray(state.units)) return;
+    updates.forEach((update) => {
+      if (!update || update.cid === undefined || update.cid === null) return;
+      const cid = Number(update.cid);
+      const idx = state.units.findIndex((unit) => Number(unit.cid) === cid);
+      if (idx < 0) return;
+      const current = state.units[idx];
+      const next = {...current};
+      Object.keys(update).forEach((key) => {
+        if (key === "cid") return;
+        next[key] = update[key];
+      });
+      state.units[idx] = next;
+    });
+  }
+
+  function applyAoePatch(patch){
+    if (!state){ state = {}; }
+    if (!patch || typeof patch !== "object") return;
+    const updates = Array.isArray(patch.updates) ? patch.updates : [];
+    const removals = Array.isArray(patch.removals) ? patch.removals : [];
+    if (!Array.isArray(state.aoes)){
+      state.aoes = [];
+    }
+    const aoeMap = new Map();
+    state.aoes.forEach((aoe) => {
+      if (!aoe || aoe.aid === undefined || aoe.aid === null) return;
+      aoeMap.set(Number(aoe.aid), aoe);
+    });
+    updates.forEach((aoe) => {
+      if (!aoe || aoe.aid === undefined || aoe.aid === null) return;
+      aoeMap.set(Number(aoe.aid), aoe);
+    });
+    removals.forEach((aid) => {
+      aoeMap.delete(Number(aid));
+    });
+    state.aoes = Array.from(aoeMap.values()).sort((a, b) => Number(a.aid) - Number(b.aid));
+  }
+
   function gridToScreen(col,row){
     return {x: panX + col*zoom + zoom/2, y: panY + row*zoom + zoom/2};
   }
@@ -5524,6 +5608,42 @@ __DAMAGE_TYPE_OPTIONS__
             }
         }
         refreshTurnAlertStatus();
+      } else if (msg.type === "turn_update"){
+        if (!state){ state = {}; }
+        if ("active_cid" in msg){
+          state.active_cid = msg.active_cid;
+        }
+        if ("round_num" in msg){
+          state.round_num = msg.round_num;
+        }
+        if ("turn_order" in msg){
+          state.turn_order = msg.turn_order;
+        }
+        updateHud();
+        maybeShowTurnAlert();
+        draw();
+      } else if (msg.type === "units_snapshot"){
+        if (!state){ state = {}; }
+        state.units = Array.isArray(msg.units) ? msg.units : [];
+        if (claimedCid){
+          const exists = state.units.some(u => Number(u.cid) === Number(claimedCid));
+          if (!exists){
+            claimedCid = null;
+            meEl.textContent = "(unclaimed)";
+            shownNoOwnedToast = false;
+            showNoOwnedPcToast(lastPcList || []);
+            refreshSpellPresetOptions();
+          }
+        }
+        updateHud();
+        draw();
+      } else if (msg.type === "unit_update"){
+        const updates = Array.isArray(msg.updates) ? msg.updates : [];
+        if (updates.length){
+          applyUnitUpdates(updates);
+          updateHud();
+          draw();
+        }
       } else if (msg.type === "force_claim"){
         if (isMapView) return;
         if (msg.cid !== null && msg.cid !== undefined){
@@ -5575,6 +5695,14 @@ __DAMAGE_TYPE_OPTIONS__
         applyTerrainPayload(msg.terrain);
         updateWaitingOverlay();
         send({type:"terrain_ack", version: msg.version});
+        draw();
+      } else if (msg.type === "terrain_patch"){
+        applyTerrainPatch(msg);
+        updateWaitingOverlay();
+        draw();
+      } else if (msg.type === "aoe_patch"){
+        applyAoePatch(msg);
+        syncSelectedAoe();
         draw();
       } else if (msg.type === "play_audio"){
         if (!msg.audio) return;
@@ -5987,6 +6115,13 @@ __DAMAGE_TYPE_OPTIONS__
       const color = validateTokenColor(tokenColorInput ? tokenColorInput.value : "");
       if (!color) return;
       localStorage.setItem("inittracker_tokenColor", color);
+      if (state?.units){
+        const unit = state.units.find(u => Number(u.cid) === Number(pendingClaim.cid));
+        if (unit){
+          unit.token_color = color;
+          draw();
+        }
+      }
       send({type:"set_color", cid: Number(pendingClaim.cid), color});
       meEl.textContent = pendingClaim.name;
       closeColorModal();
