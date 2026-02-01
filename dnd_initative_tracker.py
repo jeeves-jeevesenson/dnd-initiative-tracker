@@ -3139,8 +3139,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         except (AttributeError, TypeError, ValueError) as exc:
                             profile_name = None
                             self._oplog(
-                                "Player YAML "
-                                f"{path.name}: failed to extract roster name for player matching ({exc}).",
+                                f"Player YAML {path.name}: failed to extract roster name for player matching ({exc}).",
                                 level="warning",
                             )
                         for key in (path.stem, profile_name):
@@ -3243,6 +3242,15 @@ class InitiativeTracker(base.InitiativeTracker):
         if not re.fullmatch(r"#[0-9a-f]{6}", value):
             return None
         return value
+
+    @staticmethod
+    def _player_name_from_filename(path: Path) -> Optional[str]:
+        stem = path.stem.strip()
+        if not stem:
+            return None
+        name = stem.replace("-", " ").replace("_", " ")
+        name = " ".join(name.split())
+        return name or None
 
     def _normalize_spell_color(self, color: Any) -> Optional[str]:
         return self._normalize_token_color(color)
