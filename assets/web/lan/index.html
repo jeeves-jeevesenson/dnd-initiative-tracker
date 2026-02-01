@@ -6663,8 +6663,7 @@ __DAMAGE_TYPE_OPTIONS__
     spellDetailMeta.textContent = `${levelLabel} · ${school}`;
     const color = normalizeHexColor(preset.color || "");
     const displayColor = resolveSpellColor(preset.color);
-    const displayColor = resolveSpellColor(preset.color);
-    updateSpellDetailColorInputs(color || "");
+    updateSpellDetailColorInputs(displayColor || "");
     setSpellDetailStatus("");
     const fields = [
       {label: "Level", value: levelLabel},
