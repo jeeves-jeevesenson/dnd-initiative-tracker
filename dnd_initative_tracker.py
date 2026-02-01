@@ -2607,6 +2607,12 @@ class InitiativeTracker(base.InitiativeTracker):
         super()._refresh_monsters_spells()
 
     def _load_monsters_and_spells(self) -> None:
+        if not hasattr(self, "_spell_presets_cache"):
+            self._spell_presets_cache = None
+            self._spell_index_entries = {}
+            self._spell_index_loaded = False
+            self._spell_dir_notice = None
+            self._spell_dir_signature = None
         self._load_monsters_index()
         self._spell_presets_payload()
 
