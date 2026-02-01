@@ -2584,6 +2584,7 @@ __DAMAGE_TYPE_OPTIONS__
     stack: "",
   };
   console.info("LAN client initialized");
+  document.documentElement.dataset.lanBoot = "true";
   try {
     fetch("/api/client-log", {
       method: "POST",
