@@ -4402,7 +4402,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return "Bonus Action"
         if "reaction" in lower:
             return "Reaction"
-        if "action" in lower:
+        if re.search(r"\baction\b", lower):
             return "Action"
         return raw
 
