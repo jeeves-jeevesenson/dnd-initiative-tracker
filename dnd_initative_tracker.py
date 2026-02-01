@@ -1140,9 +1140,9 @@ class LanController:
             )
             return
 
-        app = FastAPI()
+        self._fastapi_app = FastAPI()
         assets_dir = Path(__file__).parent / "assets"
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        self._fastapi_app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
         web_entrypoint = assets_dir / "web" / "new_character" / "index.html"
         edit_entrypoint = assets_dir / "web" / "edit_character" / "index.html"
         for asset_name in ("alert.wav", "ko.wav"):
@@ -1152,35 +1152,35 @@ class LanController:
                     level="warning",
                 )
 
-        @app.get("/")
+        @self._fastapi_app.get("/")
         async def index():
             push_key = self.cfg.vapid_public_key
             push_key_value = json.dumps(push_key) if push_key else "undefined"
             return HTMLResponse(HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value))
 
-        @app.get("/map_view")
+        @self._fastapi_app.get("/map_view")
         async def map_view():
             push_key = self.cfg.vapid_public_key
             push_key_value = json.dumps(push_key) if push_key else "undefined"
             return HTMLResponse(HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value))
 
-        @app.get("/new_character")
+        @self._fastapi_app.get("/new_character")
         async def new_character():
             if not web_entrypoint.exists():
                 raise HTTPException(status_code=404, detail="New character page missing.")
             return HTMLResponse(web_entrypoint.read_text(encoding="utf-8"))
 
-        @app.get("/config")
+        @self._fastapi_app.get("/config")
         async def edit_character():
             if not edit_entrypoint.exists():
                 raise HTTPException(status_code=404, detail="Edit character page missing.")
             return HTMLResponse(edit_entrypoint.read_text(encoding="utf-8"))
 
-        @app.get("/sw.js")
+        @self._fastapi_app.get("/sw.js")
         async def service_worker():
             return Response(SERVICE_WORKER_JS, media_type="application/javascript")
 
-        @app.post("/api/push/subscribe")
+        @self._fastapi_app.post("/api/push/subscribe")
         async def push_subscribe(payload: Dict[str, Any] = Body(...)):
             if not isinstance(payload, dict):
                 raise HTTPException(status_code=400, detail="Invalid payload.")
@@ -1201,7 +1201,7 @@ class LanController:
                 raise HTTPException(status_code=400, detail="Invalid subscription payload.")
             return {"ok": True, "playerId": player_id}
 
-        @app.post("/api/admin/login")
+        @self._fastapi_app.post("/api/admin/login")
         async def admin_login(payload: Dict[str, Any] = Body(...)):
             if not isinstance(payload, dict):
                 raise HTTPException(status_code=400, detail="Invalid payload.")
@@ -1215,12 +1215,12 @@ class LanController:
             token = self._issue_admin_token()
             return {"token": token, "expires_in": self._admin_token_ttl_seconds}
 
-        @app.get("/api/admin/sessions")
+        @self._fastapi_app.get("/api/admin/sessions")
         async def admin_sessions(request: Request):
             self._require_admin(request)
             return self._admin_sessions_payload()
 
-        @app.post("/api/admin/assign_ip")
+        @self._fastapi_app.post("/api/admin/assign_ip")
         async def admin_assign_ip(request: Request, payload: Dict[str, Any] = Body(...)):
             self._require_admin(request)
             if not isinstance(payload, dict):
@@ -1243,7 +1243,7 @@ class LanController:
             await self._apply_host_assignment_async(host, cid, note="Assigned by the DM.")
             return {"ok": True, "ip": host, "cid": cid}
 
-        @app.get("/api/spells")
+        @self._fastapi_app.get("/api/spells")
         async def list_spells(details: bool = False, raw: bool = False):
             spells_dir = self.app._resolve_spells_dir()
             ids = _scan_spell_ids(spells_dir)
@@ -1270,7 +1270,7 @@ class LanController:
             payload["spells"] = spells
             return payload
 
-        @app.get("/api/spells/{spell_id}")
+        @self._fastapi_app.get("/api/spells/{spell_id}")
         async def get_spell(spell_id: str, raw: bool = False):
             spell_id = str(spell_id or "").strip()
             if not spell_id:
@@ -1290,7 +1290,7 @@ class LanController:
                     payload["error"] = f"Failed to parse YAML: {exc}"
             return payload
 
-        @app.post("/api/spells/{spell_id}/color")
+        @self._fastapi_app.post("/api/spells/{spell_id}/color")
         async def update_spell_color(spell_id: str, payload: Dict[str, Any] = Body(...)):
             if not isinstance(payload, dict):
                 raise HTTPException(status_code=400, detail="Invalid payload.")
@@ -1309,18 +1309,18 @@ class LanController:
                 raise HTTPException(status_code=500, detail="Failed to save spell color.")
             return {"ok": True, "spell": result}
 
-        @app.get("/api/characters")
+        @self._fastapi_app.get("/api/characters")
         async def list_characters():
             return {"files": self.app._list_character_filenames()}
 
-        @app.get("/api/characters/schema")
+        @self._fastapi_app.get("/api/characters/schema")
         async def get_character_schema():
             return {
                 "schema": self.app._character_schema_config(),
                 "readme_map": self.app._character_schema_readme_map(),
             }
 
-        @app.post("/api/characters/export")
+        @self._fastapi_app.post("/api/characters/export")
         async def export_character(payload: Dict[str, Any] = Body(...)):
             if not isinstance(payload, dict):
                 raise HTTPException(status_code=400, detail="Invalid payload.")
@@ -1335,7 +1335,7 @@ class LanController:
                 raise HTTPException(status_code=500, detail=f"Unable to export YAML: {exc}")
             return Response(text, media_type="application/x-yaml")
 
-        @app.get("/api/characters/by_ip")
+        @self._fastapi_app.get("/api/characters/by_ip")
         async def get_character_by_ip(request: Request):
             host = getattr(getattr(request, "client", None), "host", "")
             name = self._assigned_character_name_for_host(host)
@@ -1346,35 +1346,35 @@ class LanController:
             except CharacterApiError as exc:
                 raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
-        @app.get("/api/characters/{name}")
+        @self._fastapi_app.get("/api/characters/{name}")
         async def get_character(name: str):
             try:
                 return self.app._get_character_payload(name)
             except CharacterApiError as exc:
                 raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
-        @app.post("/api/characters")
+        @self._fastapi_app.post("/api/characters")
         async def create_character(payload: Dict[str, Any] = Body(...)):
             try:
                 return self.app._create_character_payload(payload)
             except CharacterApiError as exc:
                 raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
-        @app.put("/api/characters/{name}")
+        @self._fastapi_app.put("/api/characters/{name}")
         async def update_character(name: str, payload: Dict[str, Any] = Body(...)):
             try:
                 return self.app._update_character_payload(name, payload)
             except CharacterApiError as exc:
                 raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
-        @app.post("/api/characters/{name}/overwrite")
+        @self._fastapi_app.post("/api/characters/{name}/overwrite")
         async def overwrite_character(name: str, payload: Dict[str, Any] = Body(...)):
             try:
                 return self.app._overwrite_character_payload(name, payload)
             except CharacterApiError as exc:
                 raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
-        @app.post("/api/players/{name}/spells")
+        @self._fastapi_app.post("/api/players/{name}/spells")
         async def update_player_spells(name: str, payload: Dict[str, Any] = Body(...)):
             if not isinstance(payload, dict):
                 raise HTTPException(status_code=400, detail="Invalid payload.")
@@ -1391,7 +1391,7 @@ class LanController:
                 raise HTTPException(status_code=500, detail="Failed to save player spells.")
             return {"ok": True, "player": {"name": player_name, **normalized}}
 
-        @app.post("/api/players/{name}/spellbook")
+        @self._fastapi_app.post("/api/players/{name}/spellbook")
         async def update_player_spellbook(name: str, payload: Dict[str, Any] = Body(...)):
             if not isinstance(payload, dict):
                 raise HTTPException(status_code=400, detail="Invalid payload.")
@@ -1408,7 +1408,7 @@ class LanController:
                 raise HTTPException(status_code=500, detail="Failed to save player spellbook.")
             return {"ok": True, "player": profile}
 
-        @app.websocket("/ws_view")
+        @self._fastapi_app.websocket("/ws_view")
         async def ws_view_endpoint(ws: WebSocket):
             try:
                 host = getattr(getattr(ws, "client", None), "host", "?")
@@ -1494,7 +1494,7 @@ class LanController:
                     self._grid_pending.pop(ws_id, None)
                 self.app._oplog(f"LAN map view disconnected ws_id={ws_id}")
 
-        @app.websocket("/ws")
+        @self._fastapi_app.websocket("/ws")
         async def ws_endpoint(ws: WebSocket):
             try:
                 host = getattr(getattr(ws, "client", None), "host", "?")
@@ -1651,7 +1651,7 @@ class LanController:
             asyncio.set_event_loop(loop)
             self._loop = loop
 
-            config = uvicorn.Config(app, host=self.cfg.host, port=self.cfg.port, log_level="warning", access_log=False)
+            config = uvicorn.Config(self._fastapi_app, host=self.cfg.host, port=self.cfg.port, log_level="warning", access_log=False)
             server = uvicorn.Server(config)
             self._uvicorn_server = server
             loop.run_until_complete(server.serve())
