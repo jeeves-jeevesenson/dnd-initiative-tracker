@@ -595,6 +595,9 @@ DAMAGE_TYPE_OPTIONS = _build_damage_type_options(DAMAGE_TYPES)
 # ----------------------------- LAN Server -----------------------------
 
 _LAN_ASSET_DIR = Path(__file__).resolve().parent / "assets" / "web" / "lan"
+_CAST_TIME_BONUS_RE = re.compile(r"\bbonus[\s-]*action\b")
+_CAST_TIME_REACTION_RE = re.compile(r"\breaction\b")
+_CAST_TIME_ACTION_RE = re.compile(r"\baction\b")
 
 
 @lru_cache(maxsize=None)
@@ -3127,11 +3130,22 @@ class InitiativeTracker(base.InitiativeTracker):
             cfg_paths = {}
             try:
                 if players_dir.exists():
-                    cfg_paths = {
-                        path.stem: path
-                        for path in players_dir.glob("*.yaml")
-                        if path.is_file()
-                    }
+                    cfg_paths = {}
+                    for path in players_dir.glob("*.yaml"):
+                        if not path.is_file():
+                            continue
+                        profile_name = self._player_name_from_filename(path)
+                        # Prefer normalized player name, fall back to filename stem.
+                        for key in (profile_name, path.stem):
+                            if not key:
+                                continue
+                            if key in cfg_paths and cfg_paths[key] != path:
+                                self._oplog(
+                                    f"Player YAML {path.name}: name '{key}' already mapped; skipping.",
+                                    level="warning",
+                                )
+                                continue
+                            cfg_paths[key] = path
             except Exception:
                 cfg_paths = {}
             self._player_config_paths = cfg_paths
@@ -3229,6 +3243,17 @@ class InitiativeTracker(base.InitiativeTracker):
         if not re.fullmatch(r"#[0-9a-f]{6}", value):
             return None
         return value
+
+    @staticmethod
+    def _player_name_from_filename(path: Path) -> Optional[str]:
+        """Normalize a player filename into a roster-friendly name."""
+        # Example: "player-name_example" -> "player name example".
+        stem = path.stem.strip()
+        if not stem:
+            return None
+        name = stem.replace("-", " ").replace("_", " ")
+        name = " ".join(name.split())  # collapse extra whitespace
+        return name or None
 
     def _normalize_spell_color(self, color: Any) -> Optional[str]:
         return self._normalize_token_color(color)
@@ -3668,7 +3693,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "level": level,
                 "school": school,
                 "tags": tags,
-                "casting_time": str(casting_time).strip() if casting_time not in (None, "") else None,
+                "casting_time": self._normalize_casting_time(casting_time),
                 "range": str(spell_range).strip() if spell_range not in (None, "") else None,
                 "ritual": ritual if isinstance(ritual, bool) else None,
                 "concentration": concentration if isinstance(concentration, bool) else None,
@@ -4379,6 +4404,22 @@ class InitiativeTracker(base.InitiativeTracker):
             seen.add(key)
             slugs.append(item)
         return slugs
+
+    @staticmethod
+    def _normalize_casting_time(value: Any) -> Optional[str]:
+        if value in (None, ""):
+            return None
+        raw = str(value).strip()
+        if not raw:
+            return None
+        lower = raw.lower()
+        if _CAST_TIME_BONUS_RE.search(lower):
+            return "Bonus Action"
+        if _CAST_TIME_REACTION_RE.search(lower):
+            return "Reaction"
+        if _CAST_TIME_ACTION_RE.search(lower):
+            return "Action"
+        return raw
 
     @staticmethod
     def _coerce_level_value(leveling: Dict[str, Any]) -> int:
