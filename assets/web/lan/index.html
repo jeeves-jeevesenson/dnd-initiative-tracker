@@ -5504,6 +5504,7 @@ __DAMAGE_TYPE_OPTIONS__
           autoCenterOnJoin();
           refreshSpellPresetOptions();
         }
+        updateHud();
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
         refreshTurnAlertStatus();
