@@ -215,6 +215,7 @@ fires or the LAN boot marker does not appear.
 
 **Usage:**
 ```bash
+python -m playwright install --with-deps chromium
 python scripts/lan-smoke-playwright.py
 ```
 
