@@ -3139,7 +3139,7 @@ class InitiativeTracker(base.InitiativeTracker):
                                 f"Player YAML {path.name}: failed to read name from filename ({exc}).",
                                 level="warning",
                             )
-                        for key in (path.stem, profile_name):
+                        for key in {path.stem, profile_name}:
                             if key and key not in cfg_paths:
                                 cfg_paths[key] = path
             except Exception:
@@ -4398,9 +4398,9 @@ class InitiativeTracker(base.InitiativeTracker):
         if not raw:
             return None
         lower = raw.lower()
-        if "bonus action" in lower:
+        if re.search(r"\bbonus[\s-]*action\b", lower):
             return "Bonus Action"
-        if "reaction" in lower:
+        if re.search(r"\breaction\b", lower):
             return "Reaction"
         if re.search(r"\baction\b", lower):
             return "Action"
