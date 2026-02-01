@@ -807,6 +807,10 @@ class LanController:
         self._grid_pending: Dict[int, Tuple[int, float]] = {}
         self._grid_resend_seconds: float = 1.5
         self._grid_last_sent: Optional[Tuple[Optional[int], Optional[int]]] = None
+        self._terrain_version: int = 0
+        self._terrain_pending: Dict[int, Tuple[int, float]] = {}
+        self._terrain_resend_seconds: float = 1.5
+        self._terrain_last_sent: Optional[str] = None
         self._ko_round_num: Optional[int] = None
         self._ko_played: bool = False
         self._cached_snapshot: Dict[str, Any] = {
@@ -1547,6 +1551,7 @@ class LanController:
             self.app._oplog(f"LAN map view connected ws_id={ws_id} host={host}:{port} ua={ua}")
             try:
                 await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
+                await self._send_terrain_update_async(ws_id, self._terrain_payload())
                 # Send static data first (spell presets, etc.) - only sent once
                 await ws.send_text(
                     self._json_dumps({"type": "static_data", "data": self._static_data_payload()})
@@ -1580,12 +1585,20 @@ class LanController:
                     typ = str(msg.get("type") or "")
                     if typ == "grid_request":
                         await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
+                    elif typ == "terrain_request":
+                        await self._send_terrain_update_async(ws_id, self._terrain_payload())
                     elif typ == "grid_ack":
                         ver = msg.get("version")
                         with self._clients_lock:
                             pending = self._grid_pending.get(ws_id)
                             if pending and pending[0] == ver:
                                 self._grid_pending.pop(ws_id, None)
+                    elif typ == "terrain_ack":
+                        ver = msg.get("version")
+                        with self._clients_lock:
+                            pending = self._terrain_pending.get(ws_id)
+                            if pending and pending[0] == ver:
+                                self._terrain_pending.pop(ws_id, None)
                     elif typ == "log_request":
                         try:
                             lines = self.app._lan_battle_log_lines()
@@ -1603,6 +1616,7 @@ class LanController:
                     self._client_hosts.pop(ws_id, None)
                     self._view_only_clients.discard(ws_id)
                     self._grid_pending.pop(ws_id, None)
+                    self._terrain_pending.pop(ws_id, None)
                 self.app._oplog(f"LAN map view disconnected ws_id={ws_id}")
 
         @self._fastapi_app.websocket("/ws")
@@ -1642,6 +1656,7 @@ class LanController:
             self.app._oplog(f"LAN session connected ws_id={ws_id} host={host}:{port} ua={ua}")
             try:
                 await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
+                await self._send_terrain_update_async(ws_id, self._terrain_payload())
                 # Send static data first (spell presets, etc.) - only sent once
                 await ws.send_text(
                     self._json_dumps({"type": "static_data", "data": self._static_data_payload()})
@@ -1691,12 +1706,20 @@ class LanController:
                         await ws.send_text(self._json_dumps({"type": "preset", "preset": preset}))
                     elif typ == "grid_request":
                         await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
+                    elif typ == "terrain_request":
+                        await self._send_terrain_update_async(ws_id, self._terrain_payload())
                     elif typ == "grid_ack":
                         ver = msg.get("version")
                         with self._clients_lock:
                             pending = self._grid_pending.get(ws_id)
                             if pending and pending[0] == ver:
                                 self._grid_pending.pop(ws_id, None)
+                    elif typ == "terrain_ack":
+                        ver = msg.get("version")
+                        with self._clients_lock:
+                            pending = self._terrain_pending.get(ws_id)
+                            if pending and pending[0] == ver:
+                                self._terrain_pending.pop(ws_id, None)
                     elif typ == "log_request":
                         try:
                             lines = self.app._lan_battle_log_lines()
@@ -1740,6 +1763,7 @@ class LanController:
                         self._cid_to_ws.pop(int(old), None)
                         self._cid_to_host.pop(int(old), None)
                     self._grid_pending.pop(ws_id, None)
+                    self._terrain_pending.pop(ws_id, None)
                 if old is not None:
                     name = self._pc_name_for(int(old))
                     self.app._oplog(f"LAN session disconnected ws_id={ws_id} (claimed {name})")
@@ -2068,7 +2092,20 @@ class LanController:
                 self._grid_version += 1
                 self._grid_last_sent = (cols, rows)
                 self._broadcast_grid_update(grid)
+        try:
+            terrain_json = json.dumps(
+                self._terrain_payload(snap),
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        except Exception:
+            terrain_json = None
+        if terrain_json is not None and terrain_json != self._terrain_last_sent:
+            self._terrain_version += 1
+            self._terrain_last_sent = terrain_json
+            self._broadcast_terrain_update(self._terrain_payload(snap))
         self._resend_grid_updates()
+        self._resend_terrain_updates()
         snap_json = json.dumps(snap, sort_keys=True, separators=(",", ":"))
         if snap_json != self._last_state_json:
             self._last_state_json = snap_json
@@ -2154,6 +2191,15 @@ class LanController:
         except Exception:
             pass
 
+    def _broadcast_terrain_update(self, terrain: Dict[str, Any]) -> None:
+        if not self._loop:
+            return
+        coro = self._broadcast_terrain_update_async(terrain)
+        try:
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
+        except Exception:
+            pass
+
     async def _broadcast_grid_update_async(self, grid: Dict[str, Any]) -> None:
         try:
             payload = self._json_dumps({"type": "grid_update", "grid": grid, "version": self._grid_version})
@@ -2172,6 +2218,26 @@ class LanController:
                 with self._clients_lock:
                     self._grid_pending.pop(ws_id, None)
 
+    async def _broadcast_terrain_update_async(self, terrain: Dict[str, Any]) -> None:
+        try:
+            payload = self._json_dumps(
+                {"type": "terrain_update", "terrain": terrain, "version": self._terrain_version}
+            )
+        except Exception as exc:
+            self.app._oplog(f"LAN terrain broadcast serialization failed: {exc}", level="warning")
+            return
+        now = time.time()
+        with self._clients_lock:
+            items = list(self._clients.items())
+        for ws_id, ws in items:
+            try:
+                await ws.send_text(payload)
+                with self._clients_lock:
+                    self._terrain_pending[ws_id] = (self._terrain_version, now)
+            except Exception:
+                with self._clients_lock:
+                    self._terrain_pending.pop(ws_id, None)
+
     async def _send_grid_update_async(self, ws_id: int, grid: Dict[str, Any]) -> None:
         payload = self._json_dumps({"type": "grid_update", "grid": grid, "version": self._grid_version})
         with self._clients_lock:
@@ -2185,6 +2251,20 @@ class LanController:
         except Exception:
             with self._clients_lock:
                 self._grid_pending.pop(ws_id, None)
+
+    async def _send_terrain_update_async(self, ws_id: int, terrain: Dict[str, Any]) -> None:
+        payload = self._json_dumps({"type": "terrain_update", "terrain": terrain, "version": self._terrain_version})
+        with self._clients_lock:
+            ws = self._clients.get(ws_id)
+        if not ws:
+            return
+        try:
+            await ws.send_text(payload)
+            with self._clients_lock:
+                self._terrain_pending[ws_id] = (self._terrain_version, time.time())
+        except Exception:
+            with self._clients_lock:
+                self._terrain_pending.pop(ws_id, None)
 
     def _resend_grid_updates(self) -> None:
         if not self._loop or not self._grid_pending:
@@ -2213,6 +2293,34 @@ class LanController:
             except Exception:
                 with self._clients_lock:
                     self._grid_pending.pop(ws_id, None)
+
+    def _resend_terrain_updates(self) -> None:
+        if not self._loop or not self._terrain_pending:
+            return
+        now = time.time()
+        with self._clients_lock:
+            pending = list(self._terrain_pending.items())
+            clients = dict(self._clients)
+        for ws_id, (ver, last_sent) in pending:
+            if ver != self._terrain_version:
+                with self._clients_lock:
+                    self._terrain_pending.pop(ws_id, None)
+                continue
+            if now - last_sent < self._terrain_resend_seconds:
+                continue
+            ws = clients.get(ws_id)
+            if not ws:
+                with self._clients_lock:
+                    self._terrain_pending.pop(ws_id, None)
+                continue
+            payload = {"type": "terrain_update", "terrain": self._terrain_payload(), "version": self._terrain_version}
+            try:
+                asyncio.run_coroutine_threadsafe(ws.send_text(self._json_dumps(payload)), self._loop)
+                with self._clients_lock:
+                    self._terrain_pending[ws_id] = (self._terrain_version, now)
+            except Exception:
+                with self._clients_lock:
+                    self._terrain_pending.pop(ws_id, None)
 
     def toast(self, ws_id: Optional[int], text: str) -> None:
         """Send a small toast to one client (best effort)."""
@@ -2379,6 +2487,16 @@ class LanController:
             snap["units"] = enriched
         return snap
 
+    def _terrain_payload(self, snap: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        src = snap if isinstance(snap, dict) else self._cached_snapshot
+        rough = src.get("rough_terrain")
+        if not isinstance(rough, list):
+            rough = []
+        obstacles = src.get("obstacles")
+        if not isinstance(obstacles, list):
+            obstacles = []
+        return {"rough_terrain": rough, "obstacles": obstacles}
+
     def _static_data_payload(self) -> Dict[str, Any]:
         """Return static data that only needs to be sent once on connection."""
         return {
@@ -2394,6 +2512,9 @@ class LanController:
         snap.pop("spell_presets", None)
         snap.pop("player_spells", None)
         snap.pop("player_profiles", None)
+        snap.pop("rough_terrain", None)
+        snap.pop("obstacles", None)
+        snap.pop("grid", None)
         return snap
 
     def _pc_name_for(self, cid: int) -> str:

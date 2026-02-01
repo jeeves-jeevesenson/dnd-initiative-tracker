@@ -4212,6 +4212,21 @@ __DAMAGE_TYPE_OPTIONS__
     send({type:"log_request"});
   }
 
+  function applyTerrainPayload(terrain){
+    if (!state){ state = {}; }
+    if (!terrain || typeof terrain !== "object") return;
+    if (Array.isArray(terrain.rough_terrain)){
+      state.rough_terrain = terrain.rough_terrain;
+    } else if (!state.rough_terrain){
+      state.rough_terrain = [];
+    }
+    if (Array.isArray(terrain.obstacles)){
+      state.obstacles = terrain.obstacles;
+    } else if (!state.obstacles){
+      state.obstacles = [];
+    }
+  }
+
   function gridToScreen(col,row){
     return {x: panX + col*zoom + zoom/2, y: panY + row*zoom + zoom/2};
   }
@@ -5407,6 +5422,7 @@ __DAMAGE_TYPE_OPTIONS__
       reconnecting = false;
       setConn(true, "Connected");
       send({type:"grid_request"});
+      send({type:"terrain_request"});
     });
     ws.addEventListener("close", (ev) => {
       const wasReconnect = reconnecting;
@@ -5456,6 +5472,9 @@ __DAMAGE_TYPE_OPTIONS__
         const oldSpellPresets = state?.spell_presets;
         const oldPlayerSpells = state?.player_spells;
         const oldPlayerProfiles = state?.player_profiles;
+        const oldGrid = state?.grid;
+        const oldTerrain = state?.rough_terrain;
+        const oldObstacles = state?.obstacles;
         state = (msg.state && typeof msg.state === "object") ? msg.state : {};
         // Preserve static data from previous state if not in new message
         // Only preserve if old values exist and new values are undefined (not just missing)
@@ -5467,6 +5486,15 @@ __DAMAGE_TYPE_OPTIONS__
         }
         if (!state.player_profiles && oldPlayerProfiles && typeof oldPlayerProfiles === "object"){
           state.player_profiles = oldPlayerProfiles;
+        }
+        if (!state.grid && oldGrid){
+          state.grid = oldGrid;
+        }
+        if (!state.rough_terrain && Array.isArray(oldTerrain)){
+          state.rough_terrain = oldTerrain;
+        }
+        if (!state.obstacles && Array.isArray(oldObstacles)){
+          state.obstacles = oldObstacles;
         }
         if (isMapView){
           claimedCid = null;
@@ -5542,6 +5570,11 @@ __DAMAGE_TYPE_OPTIONS__
         updateWaitingOverlay();
         lastGridVersion = msg.version ?? lastGridVersion;
         send({type:"grid_ack", version: msg.version});
+        draw();
+      } else if (msg.type === "terrain_update"){
+        applyTerrainPayload(msg.terrain);
+        updateWaitingOverlay();
+        send({type:"terrain_ack", version: msg.version});
         draw();
       } else if (msg.type === "play_audio"){
         if (!msg.audio) return;
