@@ -5822,34 +5822,35 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             move_per_turn_ft = d.get("move_per_turn_ft")
             move_remaining_ft = d.get("move_remaining_ft")
-            if not is_admin and move_per_turn_ft not in (None, ""):
+            if not is_admin:
                 if self.current_cid is None or int(self.current_cid) != int(cid):
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
                     return
-                try:
-                    move_limit = float(move_per_turn_ft)
-                except Exception:
-                    move_limit = None
-                if move_limit is None or move_limit <= 0:
-                    self._lan.toast(ws_id, "That spell can't move this turn.")
-                    return
-                try:
-                    remaining = float(move_remaining_ft)
-                except Exception:
-                    remaining = move_limit
-                try:
-                    feet_per_square = float(getattr(mw, "feet_per_square", 5.0) or 5.0)
-                except Exception:
-                    feet_per_square = 5.0
-                if feet_per_square <= 0:
-                    feet_per_square = 5.0
-                dx = float(cx) - float(d.get("cx") or 0.0)
-                dy = float(cy) - float(d.get("cy") or 0.0)
-                dist_ft = (dx * dx + dy * dy) ** 0.5 * feet_per_square
-                if dist_ft > remaining + 0.01:
-                    self._lan.toast(ws_id, f"That spell can only move {remaining:.1f} ft this turn.")
-                    return
-                d["move_remaining_ft"] = max(0.0, float(remaining) - dist_ft)
+                if move_per_turn_ft not in (None, ""):
+                    try:
+                        move_limit = float(move_per_turn_ft)
+                    except Exception:
+                        move_limit = None
+                    if move_limit is None or move_limit <= 0:
+                        self._lan.toast(ws_id, "That spell can't move this turn.")
+                        return
+                    try:
+                        remaining = float(move_remaining_ft)
+                    except Exception:
+                        remaining = move_limit
+                    try:
+                        feet_per_square = float(getattr(mw, "feet_per_square", 5.0) or 5.0)
+                    except Exception:
+                        feet_per_square = 5.0
+                    if feet_per_square <= 0:
+                        feet_per_square = 5.0
+                    dx = float(cx) - float(d.get("cx") or 0.0)
+                    dy = float(cy) - float(d.get("cy") or 0.0)
+                    dist_ft = (dx * dx + dy * dy) ** 0.5 * feet_per_square
+                    if dist_ft > remaining + 0.01:
+                        self._lan.toast(ws_id, f"That spell can only move {remaining:.1f} ft this turn.")
+                        return
+                    d["move_remaining_ft"] = max(0.0, float(remaining) - dist_ft)
             try:
                 cols = int(getattr(mw, "cols", 0))
                 rows = int(getattr(mw, "rows", 0))
