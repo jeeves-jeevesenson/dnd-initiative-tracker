@@ -3133,8 +3133,12 @@ class InitiativeTracker(base.InitiativeTracker):
                             continue
                         try:
                             profile_name = self._player_name_from_filename(path)
-                        except Exception:
+                        except Exception as exc:
                             profile_name = None
+                            self._oplog(
+                                f"Player YAML {path.name}: failed to read name from filename ({exc}).",
+                                level="warning",
+                            )
                         for key in (path.stem, profile_name):
                             if key and key not in cfg_paths:
                                 cfg_paths[key] = path
