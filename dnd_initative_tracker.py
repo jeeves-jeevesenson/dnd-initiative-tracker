@@ -3134,14 +3134,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     for path in players_dir.glob("*.yaml"):
                         if not path.is_file():
                             continue
-                        try:
-                            profile_name = self._player_name_from_filename(path)
-                        except TypeError as exc:
-                            profile_name = None
-                            self._oplog(
-                                f"Player YAML {path.name}: failed to parse player name from filename for config matching ({exc}).",
-                                level="warning",
-                            )
+                        profile_name = self._player_name_from_filename(path)
+                        # Use filename stem as a fallback for roster matching.
                         for key in (path.stem, profile_name):
                             if key and key not in cfg_paths:
                                 cfg_paths[key] = path
@@ -3245,6 +3239,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
     @staticmethod
     def _player_name_from_filename(path: Path) -> Optional[str]:
+        """Normalize a player filename into a roster-friendly name."""
         stem = path.stem.strip()
         if not stem:
             return None
