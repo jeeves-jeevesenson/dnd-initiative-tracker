@@ -2085,6 +2085,43 @@ __DAMAGE_TYPE_OPTIONS__
 
 <script>
 (() => {
+  const logClientError = (payload) => {
+    try {
+      console.error("Client error:", payload);
+      fetch("/api/client-log", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    } catch (err) {
+      console.error("Failed to report client error:", err);
+    }
+  };
+
+  window.onerror = (message, source, line, column, error) => {
+    const stack = error?.stack ? String(error.stack) : "";
+    logClientError({
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: location.href,
+      stack: stack || `${message} at ${source}:${line}:${column}`,
+    });
+  };
+
+  window.onunhandledrejection = (event) => {
+    const reason = event?.reason;
+    const stack = reason?.stack ? String(reason.stack) : "";
+    const message = reason?.message ? String(reason.message) : String(reason || "");
+    logClientError({
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: location.href,
+      stack: stack || message || "Unhandled promise rejection",
+    });
+  };
+})();
+
+(() => {
   document.addEventListener("contextmenu", (e) => e.preventDefault());
   const canVibrate = "vibrate" in navigator;
   function vibrate(pattern){
