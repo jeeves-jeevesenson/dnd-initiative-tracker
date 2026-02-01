@@ -786,60 +786,74 @@
       background: rgba(20,25,35,0.92);
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 14px;
-      padding: 12px 14px;
       display:flex;
       flex-direction: column;
-      gap: 10px;
     }
-    .spell-library-card-header{
+    .spell-library-card summary{
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+    }
+    .spell-library-card summary::-webkit-details-marker{display:none;}
+    .spell-library-summary{
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       justify-content: space-between;
       gap: 12px;
       flex-wrap: wrap;
     }
-    .spell-library-card-title{
+    .spell-library-summary-title{
       font-size: 14px;
       font-weight: 700;
     }
-    .spell-library-card-meta{
+    .spell-library-summary-meta{
       font-size: 12px;
       color: var(--muted);
     }
-    .spell-library-fields{
+    .spell-library-detail-body{
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding: 10px 14px 12px 14px;
+      display:flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .spell-library-detail-grid{
       display:grid;
       grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
       gap: 6px 12px;
     }
-    .spell-library-key{
+    .spell-library-detail-label{
       font-size: 12px;
       color: var(--muted);
       font-weight: 600;
     }
-    .spell-library-value{
+    .spell-library-detail-value{
       font-size: 12px;
       color: var(--text);
       white-space: pre-wrap;
       word-break: break-word;
     }
-    .spell-library-value pre{
-      margin: 0;
-      white-space: pre-wrap;
-      font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-      font-size: 11px;
+    .spell-library-detail-description{
+      font-size: 12px;
       color: var(--text);
+      white-space: pre-wrap;
+      line-height: 1.4;
     }
-    .spell-library-links{
+    .spell-library-action-row{
       display:flex;
-      flex-wrap: wrap;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .spell-library-color-row{
+      display:flex;
+      align-items:center;
       gap: 8px;
     }
-    .spell-library-link{
-      font-size: 12px;
-      color: var(--accent);
-      text-decoration: none;
+    .spell-library-color-row .spell-color-swatch{
+      width: 16px;
+      height: 16px;
     }
-    .spell-library-link:hover{text-decoration: underline;}
     .spellbook-header{
       padding: calc(12px + var(--safeInsetTop)) 14px 12px 14px;
       background: linear-gradient(180deg, var(--panel), var(--panel2));
@@ -866,6 +880,21 @@
       flex-wrap:wrap;
       gap:8px;
       align-items:center;
+    }
+    .spellbook-controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+    .spellbook-controls input,
+    .spellbook-controls select{
+      background: rgba(15,19,32,0.75);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 12px;
     }
     .spellbook-columns{
       display:grid;
@@ -2001,6 +2030,13 @@ __DAMAGE_TYPE_OPTIONS__
       <button class="btn" id="spellbookTabPrepared" type="button">Prepared Spells</button>
       <label class="chip spellbook-toggle"><input type="checkbox" id="spellbookKnownEnabled" />Known spells enabled</label>
     </div>
+    <div class="spellbook-controls">
+      <input id="spellbookSearch" type="search" placeholder="Search spells..." />
+      <select id="spellbookSort">
+        <option value="alpha" selected>Name</option>
+        <option value="level">Level</option>
+      </select>
+    </div>
     <div class="spellbook-columns">
       <div class="spellbook-column">
         <div class="spellbook-column-title" id="spellbookLeftTitle">All Spells</div>
@@ -2065,9 +2101,8 @@ __DAMAGE_TYPE_OPTIONS__
     <div class="spell-library-controls">
       <input id="spellLibrarySearch" type="search" placeholder="Search spells..." />
       <select id="spellLibrarySort">
-        <option value="alpha" selected>Alphabetical</option>
+        <option value="alpha" selected>Name</option>
         <option value="level">Level</option>
-        <option value="class">Class</option>
       </select>
     </div>
   </div>
@@ -2523,6 +2558,8 @@ __DAMAGE_TYPE_OPTIONS__
   const spellbookTabKnown = document.getElementById("spellbookTabKnown");
   const spellbookTabPrepared = document.getElementById("spellbookTabPrepared");
   const spellbookKnownEnabledToggle = document.getElementById("spellbookKnownEnabled");
+  const spellbookSearchInput = document.getElementById("spellbookSearch");
+  const spellbookSortSelect = document.getElementById("spellbookSort");
   const spellbookLeftTitle = document.getElementById("spellbookLeftTitle");
   const spellbookRightTitle = document.getElementById("spellbookRightTitle");
   const spellbookLeftList = document.getElementById("spellbookLeftList");
@@ -6095,6 +6132,8 @@ __DAMAGE_TYPE_OPTIONS__
   let spellLibrarySortMode = "alpha";
   let spellLibraryPreviousFocus = null;
   let spellbookMode = "known";
+  let spellbookSearchTerm = "";
+  let spellbookSortMode = "alpha";
   let spellbookKnownEnabled = true;
   let spellbookKnownLimit = null;
   let spellbookPreparedLimit = null;
@@ -6142,6 +6181,40 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
+  function getSpellbookSearchText(slug){
+    const preset = spellPresetBySlug.get(getSpellKey(slug));
+    const tags = Array.isArray(preset?.tags) ? preset.tags.filter(Boolean).join(" ") : "";
+    return [
+      preset?.name,
+      slug,
+      preset?.school,
+      preset?.casting_time,
+      preset?.range,
+      tags,
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function filterSpellbookSlugs(slugs){
+    const query = spellbookSearchTerm.trim().toLowerCase();
+    if (!query) return slugs.slice();
+    return slugs.filter((slug) => getSpellbookSearchText(slug).includes(query));
+  }
+
+  function sortSpellbookSlugs(slugs){
+    return slugs.slice().sort((a, b) => {
+      const presetA = spellPresetBySlug.get(getSpellKey(a));
+      const presetB = spellPresetBySlug.get(getSpellKey(b));
+      const nameA = normalizeTextValue(presetA?.name || a);
+      const nameB = normalizeTextValue(presetB?.name || b);
+      if (spellbookSortMode === "level"){
+        const levelA = Number.isFinite(getPresetLevelNumber(presetA)) ? getPresetLevelNumber(presetA) : 99;
+        const levelB = Number.isFinite(getPresetLevelNumber(presetB)) ? getPresetLevelNumber(presetB) : 99;
+        if (levelA !== levelB) return levelA - levelB;
+      }
+      return nameA.localeCompare(nameB);
+    });
+  }
+
   function getEligibleSpellSlugs(profile){
     const allowedLevel = maxSpellLevelForCharacter(getPlayerLevel(profile));
     const slugs = [];
@@ -6158,61 +6231,45 @@ __DAMAGE_TYPE_OPTIONS__
     return sortSlugsByName(Array.from(new Set(slugs.map(normalizeTextValue).filter(Boolean))));
   }
 
-  function collectSpellLibraryLinks(value, links){
-    if (!value) return;
-    if (typeof value === "string"){
-      const matches = value.match(/https?:\/\/[^\s)]+/g);
-      if (matches){
-        matches.forEach((link) => links.add(link));
-      }
-      return;
-    }
-    if (Array.isArray(value)){
-      value.forEach((entry) => collectSpellLibraryLinks(entry, links));
-      return;
-    }
-    if (typeof value === "object"){
-      Object.values(value).forEach((entry) => collectSpellLibraryLinks(entry, links));
-    }
+  function getSpellLibraryDescription(data){
+    if (!data || typeof data !== "object") return "";
+    const text = data.text && typeof data.text === "object" ? data.text : null;
+    const importRaw = data.import && typeof data.import === "object" ? data.import.raw : null;
+    const summary = normalizeTextValue(text?.summary);
+    if (summary) return summary;
+    const rules = normalizeTextValue(text?.rules);
+    if (rules) return rules;
+    const description = normalizeTextValue(importRaw?.description);
+    if (description) return description;
+    return "";
   }
 
-  function renderSpellLibraryValue(value){
-    const container = document.createElement("div");
-    container.className = "spell-library-value";
-    if (value === null || typeof value === "undefined"){
-      container.textContent = "—";
-      return container;
-    }
-    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean"){
-      container.textContent = String(value);
-      return container;
-    }
-    const pre = document.createElement("pre");
-    try {
-      pre.textContent = JSON.stringify(value, null, 2);
-    } catch (err){
-      pre.textContent = String(value);
-    }
-    container.appendChild(pre);
-    return container;
+  function formatSpellLibraryLevel(level){
+    const num = Number(level);
+    if (!Number.isFinite(num)) return "Level ?";
+    if (num === 0) return "Cantrip";
+    return `Level ${num}`;
   }
 
-  function renderSpellLibraryLinks(links){
-    const container = document.createElement("div");
-    container.className = "spell-library-value";
-    const wrap = document.createElement("div");
-    wrap.className = "spell-library-links";
-    links.forEach((link) => {
-      const anchor = document.createElement("a");
-      anchor.className = "spell-library-link";
-      anchor.href = link;
-      anchor.target = "_blank";
-      anchor.rel = "noopener noreferrer";
-      anchor.textContent = link;
-      wrap.appendChild(anchor);
-    });
-    container.appendChild(wrap);
-    return container;
+  function formatSpellLibraryList(values){
+    if (!Array.isArray(values) || !values.length) return "";
+    return values.map((value) => formatListGroupLabel(value)).join(", ");
+  }
+
+  function buildSpellLibrarySearchText(record){
+    const parts = [
+      record.id,
+      record.name,
+      record.school,
+      record.castingTime,
+      record.range,
+      record.duration,
+      record.components,
+      record.classes.join(" "),
+      record.tags.join(" "),
+      record.description,
+    ];
+    return parts.filter(Boolean).join(" ").toLowerCase();
   }
 
   function buildSpellLibraryRecord(entry){
@@ -6222,17 +6279,27 @@ __DAMAGE_TYPE_OPTIONS__
     const name = typeof data?.name === "string" ? data.name : (id || "Unknown Spell");
     const level = Number.isFinite(data?.level) ? Number(data.level) : null;
     const classes = Array.isArray(data?.lists?.classes) ? data.lists.classes.filter(Boolean) : [];
-    const searchText = JSON.stringify(data || entry || "").toLowerCase();
-    return {
+    const tags = Array.isArray(data?.tags) ? data.tags.filter(Boolean) : [];
+    const record = {
       id,
       name,
       level,
       classes,
+      tags,
+      school: normalizeTextValue(data?.school),
+      castingTime: normalizeTextValue(data?.casting_time),
+      range: normalizeTextValue(data?.range),
+      duration: normalizeTextValue(data?.duration),
+      components: normalizeTextValue(data?.components),
+      ritual: data?.ritual,
+      concentration: data?.concentration,
+      description: getSpellLibraryDescription(data),
+      color: normalizeHexColor(data?.color || ""),
       data,
-      raw: entry?.raw,
       error: entry?.error,
-      searchText,
     };
+    record.searchText = buildSpellLibrarySearchText(record);
+    return record;
   }
 
   async function loadSpellLibrary(){
@@ -6295,10 +6362,6 @@ __DAMAGE_TYPE_OPTIONS__
         const levelA = Number.isFinite(a.level) ? a.level : 999;
         const levelB = Number.isFinite(b.level) ? b.level : 999;
         if (levelA !== levelB) return levelA - levelB;
-      } else if (spellLibrarySortMode === "class"){
-        const classA = (a.classes.join(", ") || "zzzz").toLowerCase();
-        const classB = (b.classes.join(", ") || "zzzz").toLowerCase();
-        if (classA !== classB) return classA.localeCompare(classB);
       }
       return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
     });
@@ -6311,53 +6374,95 @@ __DAMAGE_TYPE_OPTIONS__
     if (!sorted.length) return;
     const fragment = document.createDocumentFragment();
     sorted.forEach((record) => {
-      const card = document.createElement("div");
-      card.className = "spell-library-card";
-      const header = document.createElement("div");
-      header.className = "spell-library-card-header";
-      const title = document.createElement("div");
-      title.className = "spell-library-card-title";
+      const details = document.createElement("details");
+      details.className = "spell-library-card";
+      const summary = document.createElement("summary");
+      summary.className = "spell-library-summary";
+      const title = document.createElement("span");
+      title.className = "spell-library-summary-title";
       title.textContent = record.name || record.id || "Unnamed Spell";
-      const meta = document.createElement("div");
-      meta.className = "spell-library-card-meta";
-      const metaParts = [];
-      if (Number.isFinite(record.level)) metaParts.push(`Level ${record.level}`);
-      if (record.data?.school) metaParts.push(String(record.data.school));
-      if (record.classes.length) metaParts.push(record.classes.join(", "));
-      meta.textContent = metaParts.join(" · ");
-      header.appendChild(title);
-      header.appendChild(meta);
-      card.appendChild(header);
-      const fields = document.createElement("div");
-      fields.className = "spell-library-fields";
-      const data = record.data && typeof record.data === "object" ? record.data : null;
-      const entries = data ? Object.entries(data) : [];
-      if (!entries.length){
-        entries.push(["id", record.id]);
-        if (record.raw) entries.push(["raw", record.raw]);
-        if (record.error) entries.push(["error", record.error]);
+      const meta = document.createElement("span");
+      meta.className = "spell-library-summary-meta";
+      meta.textContent = formatSpellLibraryLevel(record.level);
+      summary.appendChild(title);
+      summary.appendChild(meta);
+      details.appendChild(summary);
+
+      const body = document.createElement("div");
+      body.className = "spell-library-detail-body";
+      if (record.error && !record.data){
+        const errorText = document.createElement("div");
+        errorText.className = "spell-library-detail-description";
+        errorText.textContent = "Spell data unavailable.";
+        body.appendChild(errorText);
+        details.appendChild(body);
+        fragment.appendChild(details);
+        return;
       }
-      const links = new Set();
-      collectSpellLibraryLinks(data, links);
-      if (record.raw){
-        collectSpellLibraryLinks(record.raw, links);
+
+      const grid = document.createElement("div");
+      grid.className = "spell-library-detail-grid";
+      const addRow = (label, value) => {
+        if (!value && value !== 0) return;
+        const labelEl = document.createElement("div");
+        labelEl.className = "spell-library-detail-label";
+        labelEl.textContent = label;
+        const valueEl = document.createElement("div");
+        valueEl.className = "spell-library-detail-value";
+        valueEl.textContent = String(value);
+        grid.appendChild(labelEl);
+        grid.appendChild(valueEl);
+      };
+
+      addRow("Level", formatSpellLevelLabel(record.level));
+      addRow("School", record.school);
+      addRow("Casting Time", record.castingTime);
+      addRow("Range", record.range);
+      addRow("Duration", record.duration);
+      addRow("Components", record.components);
+      addRow("Classes", formatSpellLibraryList(record.classes));
+      addRow("Tags", formatSpellLibraryList(record.tags));
+      addRow("Ritual", record.ritual === true ? "Yes" : record.ritual === false ? "No" : "");
+      addRow("Concentration", record.concentration === true ? "Yes" : record.concentration === false ? "No" : "");
+      body.appendChild(grid);
+
+      if (record.description){
+        const description = document.createElement("div");
+        description.className = "spell-library-detail-description";
+        description.textContent = record.description;
+        body.appendChild(description);
       }
-      entries.forEach(([key, value]) => {
-        const keyEl = document.createElement("div");
-        keyEl.className = "spell-library-key";
-        keyEl.textContent = String(key);
-        fields.appendChild(keyEl);
-        fields.appendChild(renderSpellLibraryValue(value));
-      });
-      if (links.size){
-        const keyEl = document.createElement("div");
-        keyEl.className = "spell-library-key";
-        keyEl.textContent = "external_links";
-        fields.appendChild(keyEl);
-        fields.appendChild(renderSpellLibraryLinks(Array.from(links)));
+
+      const preset = spellPresetBySlug.get(getSpellKey(record.id))
+        || cachedSpellPresets.find((entry) => normalizeLowerValue(entry?.name) === normalizeLowerValue(record.name));
+      if (preset){
+        const colorRow = document.createElement("div");
+        colorRow.className = "spell-library-action-row";
+        const colorWrap = document.createElement("div");
+        colorWrap.className = "spell-library-color-row";
+        const swatch = document.createElement("span");
+        swatch.className = "spell-color-swatch";
+        swatch.style.background = resolveSpellColor(preset.color);
+        const colorLabel = document.createElement("span");
+        colorLabel.className = "spell-library-detail-value";
+        colorLabel.textContent = normalizeHexColor(preset.color || "") || "Default";
+        colorWrap.appendChild(swatch);
+        colorWrap.appendChild(colorLabel);
+        const colorBtn = document.createElement("button");
+        colorBtn.className = "btn";
+        colorBtn.type = "button";
+        colorBtn.textContent = "Edit Color";
+        colorBtn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          openSpellDetailOverlay(preset);
+        });
+        colorRow.appendChild(colorWrap);
+        colorRow.appendChild(colorBtn);
+        body.appendChild(colorRow);
       }
-      card.appendChild(fields);
-      fragment.appendChild(card);
+
+      details.appendChild(body);
+      fragment.appendChild(details);
     });
     spellLibraryList.appendChild(fragment);
   }
@@ -6393,13 +6498,13 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
-  function renderSpellbookList(listEl, slugs, selectionSet){
+  function renderSpellbookList(listEl, slugs, selectionSet, emptyLabel){
     if (!listEl) return;
     listEl.textContent = "";
     if (!slugs.length){
       const empty = document.createElement("div");
       empty.className = "spellbook-item";
-      empty.textContent = "No spells available.";
+      empty.textContent = emptyLabel || "No spells available.";
       empty.style.opacity = "0.6";
       listEl.appendChild(empty);
       return;
@@ -6423,9 +6528,6 @@ __DAMAGE_TYPE_OPTIONS__
       item.addEventListener("click", () => {
         toggleSpellbookSelection(slug, selectionSet);
         renderSpellbook();
-        if (preset){
-          openSpellDetailOverlay(preset);
-        }
       });
       const nameWrap = document.createElement("span");
       nameWrap.className = "spellbook-item-name";
@@ -6491,8 +6593,11 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (spellbookRightTitle) spellbookRightTitle.textContent = "Prepared Spells";
     }
-    renderSpellbookList(spellbookLeftList, leftSlugs, spellbookLeftSelection);
-    renderSpellbookList(spellbookRightList, sortSlugsByName(rightSlugs), spellbookRightSelection);
+    const emptyLabel = spellbookSearchTerm.trim() ? "No spells match that search." : "No spells available.";
+    const filteredLeft = filterSpellbookSlugs(leftSlugs);
+    const filteredRight = filterSpellbookSlugs(rightSlugs);
+    renderSpellbookList(spellbookLeftList, sortSpellbookSlugs(filteredLeft), spellbookLeftSelection, emptyLabel);
+    renderSpellbookList(spellbookRightList, sortSpellbookSlugs(filteredRight), spellbookRightSelection, emptyLabel);
     const preparedCount = pendingPreparedSet.size;
     const preparedLimitLabel = Number.isFinite(spellbookPreparedLimit)
       ? `${preparedCount}/${spellbookPreparedLimit} prepared`
@@ -6527,6 +6632,8 @@ __DAMAGE_TYPE_OPTIONS__
       pendingCantripsSet = new Set(config.cantrips.map(normalizeTextValue).filter(Boolean));
       spellbookMode = spellbookKnownEnabled ? "known" : "prepared";
       resetSpellbookSelections();
+      if (spellbookSearchInput) spellbookSearchInput.value = spellbookSearchTerm;
+      if (spellbookSortSelect) spellbookSortSelect.value = spellbookSortMode;
       renderSpellbook();
       requestAnimationFrame(() => {
         spellbookBackBtn?.focus();
@@ -8136,6 +8243,18 @@ __DAMAGE_TYPE_OPTIONS__
         spellbookMode = "prepared";
       }
       resetSpellbookSelections();
+      renderSpellbook();
+    });
+  }
+  if (spellbookSearchInput){
+    spellbookSearchInput.addEventListener("input", (event) => {
+      spellbookSearchTerm = String(event.target.value || "");
+      renderSpellbook();
+    });
+  }
+  if (spellbookSortSelect){
+    spellbookSortSelect.addEventListener("change", (event) => {
+      spellbookSortMode = String(event.target.value || "alpha");
       renderSpellbook();
     });
   }
