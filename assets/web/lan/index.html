@@ -2093,11 +2093,19 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   const qs = new URLSearchParams(location.search);
-  const wsProto = (location.protocol === "https:") ? "wss" : "ws";
   const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
   const isMapView = normalizedPath === "/map_view";
   const wsPath = isMapView ? "/ws_view" : "/ws";
-  const wsUrl = `${wsProto}://${location.host}${wsPath}`;
+  const wsProto = (location.protocol === "https:") ? "wss" : "ws";
+  const wsOrigin = (() => {
+    const origin = (location.origin && location.origin !== "null") ? location.origin : "";
+    if (origin){
+      return origin.replace(/^http/, "ws");
+    }
+    const host = location.host || location.hostname;
+    return host ? `${wsProto}://${host}` : "";
+  })();
+  const wsUrl = wsOrigin ? `${wsOrigin}${wsPath}` : "";
   const pushPublicKey = (window.PUSH_PUBLIC_KEY || "").trim();
   const turnAlertStorageKey = "inittracker_turnAlertSubscription";
   const turnAlertHideKey = "inittracker_hideTurnAlerts";
@@ -5290,7 +5298,19 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function connect(){
-    ws = new WebSocket(wsUrl);
+    if (!wsUrl){
+      setConn(false, "Disconnected");
+      scheduleReconnect(1000);
+      return;
+    }
+    try {
+      ws = new WebSocket(wsUrl);
+    } catch (err){
+      console.warn("WebSocket connect failed.", err);
+      setConn(false, "Disconnected");
+      scheduleReconnect(1000);
+      return;
+    }
     ws.addEventListener("open", () => {
       reconnecting = false;
       setConn(true, "Connected");
@@ -8331,4 +8351,3 @@ __DAMAGE_TYPE_OPTIONS__
 </body>
 </html>
 """
-
