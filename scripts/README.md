@@ -209,6 +209,15 @@ landing on main.
 node scripts/check-lan-script.mjs
 ```
 
+### lan-smoke-playwright.py
+Launches a local HTTP server, opens `/lan` in Playwright, and fails if a page error
+fires or the LAN boot marker does not appear.
+
+**Usage:**
+```bash
+python scripts/lan-smoke-playwright.py
+```
+
 ## Linux
 
 ### install-linux.sh
