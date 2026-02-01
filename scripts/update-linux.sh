@@ -9,6 +9,7 @@ INSTALL_DIR="$(dirname "$SCRIPT_DIR")"
 TEMP_DIR="/tmp/dnd-tracker-update-$$"
 YAML_DIRS=("Monsters" "Spells" "players" "presets")
 YAML_BACKUP_DIR="$TEMP_DIR/yaml_backup"
+LOG_PREVIEW_LIMIT=5
 
 echo "=========================================="
 echo "D&D Initiative Tracker - Update"
@@ -54,11 +55,30 @@ echo "Checking for updates..."
 cd "$INSTALL_DIR"
 
 # Fetch latest changes
-git fetch origin
+git fetch origin --prune "refs/heads/*:refs/remotes/origin/*"
 
 # Check if there are updates
 LOCAL_COMMIT=$(git rev-parse HEAD)
-REMOTE_COMMIT=$(git rev-parse origin/main)
+UPDATE_BRANCH_OVERRIDE="${UPDATE_BRANCH:-}"
+REMOTE_BRANCH="${UPDATE_BRANCH_OVERRIDE:-origin/main}"
+REMOTE_BRANCH_REF="$REMOTE_BRANCH"
+if [[ "$REMOTE_BRANCH_REF" != */* ]]; then
+    REMOTE_BRANCH_REF="origin/${REMOTE_BRANCH_REF}"
+fi
+SUGGESTED_BRANCH="$REMOTE_BRANCH_REF"
+if [ -z "$UPDATE_BRANCH_OVERRIDE" ] && ! git rev-parse --verify "${REMOTE_BRANCH_REF}" >/dev/null 2>&1; then
+    MAIN_REMOTE_REF=$(git symbolic-ref -q refs/remotes/origin/HEAD 2>/dev/null || true)
+    if [ -n "$MAIN_REMOTE_REF" ]; then
+        REMOTE_BRANCH_REF="${MAIN_REMOTE_REF#refs/remotes/}"
+        SUGGESTED_BRANCH="$REMOTE_BRANCH_REF"
+    fi
+fi
+if ! git rev-parse --verify "${REMOTE_BRANCH_REF}" >/dev/null 2>&1; then
+    echo "Error: Could not resolve update branch ${REMOTE_BRANCH_REF}."
+    echo "Try again after fetching or set UPDATE_BRANCH to a valid remote branch (e.g., ${SUGGESTED_BRANCH})."
+    exit 1
+fi
+REMOTE_COMMIT=$(git rev-parse "$REMOTE_BRANCH_REF")
 
 if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ]; then
     echo ""
@@ -71,7 +91,7 @@ echo ""
 
 # Show what will be updated
 echo "Changes to be applied:"
-git log --oneline --decorate HEAD..origin/main | head -5
+git log --oneline --decorate -n "$LOG_PREVIEW_LIMIT" "HEAD..${REMOTE_BRANCH_REF}"
 echo ""
 
 # Ask for confirmation
@@ -100,7 +120,14 @@ for yaml_dir in "${YAML_DIRS[@]}"; do
 done
 
 # Pull latest changes
-git pull origin main
+REMOTE_NAME="${REMOTE_BRANCH_REF%%/*}"
+REMOTE_REF_NAME="${REMOTE_BRANCH_REF#*/}"
+git pull "${REMOTE_NAME}" "${REMOTE_REF_NAME}" || {
+    echo "Error: Failed to pull updates from ${REMOTE_BRANCH_REF}."
+    echo "Please resolve any local changes and try again."
+    exit 1
+}
+echo "✓ Application code updated"
 
 # Update dependencies
 if [ -f "$INSTALL_DIR/.venv/bin/activate" ]; then
