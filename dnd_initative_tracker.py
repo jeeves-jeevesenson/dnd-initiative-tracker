@@ -3135,8 +3135,8 @@ class InitiativeTracker(base.InitiativeTracker):
                         if not path.is_file():
                             continue
                         profile_name = self._player_name_from_filename(path)
-                        # Use filename stem as a fallback for roster matching.
-                        for key in (path.stem, profile_name):
+                        # Prefer normalized player name, fall back to filename stem.
+                        for key in (profile_name, path.stem):
                             if key and key not in cfg_paths:
                                 cfg_paths[key] = path
             except Exception:
@@ -3240,6 +3240,7 @@ class InitiativeTracker(base.InitiativeTracker):
     @staticmethod
     def _player_name_from_filename(path: Path) -> Optional[str]:
         """Normalize a player filename into a roster-friendly name."""
+        # Example: "player-name_example" -> "player name example".
         stem = path.stem.strip()
         if not stem:
             return None
