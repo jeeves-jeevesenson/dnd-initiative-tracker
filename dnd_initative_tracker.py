@@ -4024,6 +4024,8 @@ class InitiativeTracker(base.InitiativeTracker):
             if upcast:
                 preset["upcast"] = upcast
 
+            if not preset.get("shape") and has_aoe_tag and not has_area:
+                warnings.append("tagged aoe but missing targeting area")
             if automation == "full":
                 if "shape" not in preset:
                     automation = "partial"
@@ -4039,8 +4041,6 @@ class InitiativeTracker(base.InitiativeTracker):
             if warnings:
                 ops.warning("Spell YAML %s has automation warnings: %s", fp.name, ", ".join(warnings))
 
-            if not preset.get("shape") and has_aoe_tag and not has_area:
-                warnings.append("tagged aoe but missing targeting area")
             return preset, raw
 
         new_entries: Dict[str, Any] = {}

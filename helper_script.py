@@ -41,7 +41,7 @@ except Exception:  # pragma: no cover
 import tkinter as tk
 import tkinter.font as tkfont
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple, Set
+from typing import Any, Callable, Dict, List, Optional, Tuple, Set, Union
 from tkinter import messagebox, ttk, simpledialog, filedialog
 
 PIL_IMAGE_IMPORT_ERROR: Optional[str] = None
@@ -824,8 +824,8 @@ class InitiativeTracker(tk.Tk):
             if self._map_window is not None and self._map_window.winfo_exists():
                 try:
                     self._map_window.refresh_spell_overlays()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self._log(f"Map spell overlay refresh failed: {exc}")
                 self._map_window.refresh_units()
                 self._map_window.lift()
                 self._map_window.focus_force()
@@ -840,8 +840,8 @@ class InitiativeTracker(tk.Tk):
                 self._map_window.set_active(self.current_cid)
             try:
                 self._map_window.refresh_spell_overlays()
-            except Exception:
-                pass
+            except Exception as exc:
+                self._log(f"Map spell overlay refresh failed: {exc}")
         except Exception:
             pass
 
@@ -6611,7 +6611,7 @@ class BattleMapWindow(tk.Toplevel):
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
-        out: dict[str, object] = {"length": None, "angle": None, "orient": "vertical"}
+        out: Dict[str, Optional[Union[int, str]]] = {"length": None, "angle": None, "orient": "vertical"}
 
         frm = ttk.Frame(dlg, padding=10)
         frm.pack(fill=tk.BOTH, expand=True)
@@ -6673,7 +6673,7 @@ class BattleMapWindow(tk.Toplevel):
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
-        out: dict[str, object] = {"length": None, "width": None, "orient": "vertical"}
+        out: Dict[str, Optional[Union[int, str]]] = {"length": None, "width": None, "orient": "vertical"}
 
         frm = ttk.Frame(dlg, padding=10)
         frm.pack(fill=tk.BOTH, expand=True)
@@ -6735,7 +6735,7 @@ class BattleMapWindow(tk.Toplevel):
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
-        out: dict[str, object] = {"length": None, "width": None, "height": None, "orient": "vertical"}
+        out: Dict[str, Optional[Union[int, str]]] = {"length": None, "width": None, "height": None, "orient": "vertical"}
 
         frm = ttk.Frame(dlg, padding=10)
         frm.pack(fill=tk.BOTH, expand=True)
