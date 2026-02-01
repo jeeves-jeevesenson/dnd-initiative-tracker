@@ -3836,6 +3836,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 "square": "cube",
             }
             shape = shape_map.get(shape_raw, shape_raw)
+            has_area = bool(shape)
+            has_aoe_tag = any(str(tag).strip().lower() == "aoe" for tag in tags)
             missing_required_fields = False
             if automation in ("full", "partial"):
                 if str(range_data.get("kind") or "").strip().lower() == "distance":
@@ -3848,6 +3850,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     missing_required_fields = True
             if shape in ("sphere", "cube", "cone", "cylinder", "wall", "line"):
                 preset["shape"] = shape
+                preset["is_aoe"] = True
                 missing_dimensions: List[str] = []
                 if shape == "sphere":
                     radius_ft = parse_number(area.get("radius_ft"))
@@ -3920,6 +3923,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     if automation in ("full", "partial"):
                         warnings.append("missing area dimensions: " + ", ".join(missing_dimensions))
                         missing_required_fields = True
+            elif has_aoe_tag:
+                preset["is_aoe"] = True
 
             damage_types: List[str] = []
             dice: Optional[str] = None
@@ -4028,6 +4033,8 @@ class InitiativeTracker(base.InitiativeTracker):
             if warnings:
                 ops.warning("Spell YAML %s has automation warnings: %s", fp.name, ", ".join(warnings))
 
+            if not preset.get("shape") and has_aoe_tag and not has_area:
+                warnings.append("tagged aoe but missing targeting area")
             return preset, raw
 
         new_entries: Dict[str, Any] = {}

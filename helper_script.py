@@ -822,6 +822,10 @@ class InitiativeTracker(tk.Tk):
         """Open the battle map window (Map Mode)."""
         try:
             if self._map_window is not None and self._map_window.winfo_exists():
+                try:
+                    self._map_window.refresh_spell_overlays()
+                except Exception:
+                    pass
                 self._map_window.refresh_units()
                 self._map_window.lift()
                 self._map_window.focus_force()
@@ -834,6 +838,10 @@ class InitiativeTracker(tk.Tk):
             # Highlight active combatant (if any) on open
             if self.current_cid is not None:
                 self._map_window.set_active(self.current_cid)
+            try:
+                self._map_window.refresh_spell_overlays()
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -4574,6 +4582,8 @@ class BattleMapWindow(tk.Toplevel):
         self._next_aoe_id = 1
         self.aoes: Dict[int, Dict[str, object]] = {}  # aid -> overlay data
         self._selected_aoe: Optional[int] = None
+        self._aoe_spell_labels: List[str] = []
+        self._aoe_spell_by_label: Dict[str, Dict[str, Any]] = {}
         self._aoe_default_colors = {
             "circle": "#2d4f8a",
             "sphere": "#2d4f8a",
@@ -4646,6 +4656,10 @@ class BattleMapWindow(tk.Toplevel):
         self._selected_bg: Optional[int] = None
 
         self._build_ui()
+        try:
+            self.refresh_spell_overlays()
+        except Exception:
+            pass
         self.refresh_units()
 
         # Keybindings
@@ -4908,11 +4922,29 @@ class BattleMapWindow(tk.Toplevel):
         ttk.Separator(left).pack(fill=tk.X, pady=(6, 10))
         ttk.Label(left, text="Spell Overlays (AoE)").pack(anchor="w")
 
+        spell_row = ttk.Frame(left)
+        spell_row.pack(fill=tk.X, pady=(4, 6))
+        ttk.Label(spell_row, text="Spell:").pack(side=tk.LEFT)
+        self.aoe_spell_var = tk.StringVar(value="")
+        self.aoe_spell_combo = ttk.Combobox(
+            spell_row,
+            textvariable=self.aoe_spell_var,
+            values=[],
+            state="readonly",
+            width=24,
+        )
+        self.aoe_spell_combo.pack(side=tk.LEFT, padx=(6, 0))
+        self.aoe_spell_combo.bind("<<ComboboxSelected>>", lambda e: self._add_spell_aoe_from_combo())
+
         aoe_btns = ttk.Frame(left)
         aoe_btns.pack(fill=tk.X, pady=(4, 6))
         ttk.Button(aoe_btns, text="Add Circle", command=self._add_circle_aoe).pack(side=tk.LEFT)
+        ttk.Button(aoe_btns, text="Add Sphere", command=self._add_sphere_aoe).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(aoe_btns, text="Add Square", command=self._add_square_aoe).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(aoe_btns, text="Add Cube", command=self._add_cube_aoe).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(aoe_btns, text="Add Line", command=self._add_line_aoe).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(aoe_btns, text="Add Cone", command=self._add_cone_aoe).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(aoe_btns, text="Add Wall", command=self._add_wall_aoe).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(aoe_btns, text="Remove", command=self._remove_selected_aoe).pack(side=tk.LEFT, padx=(8, 0))
 
         self.aoe_list = tk.Listbox(left, height=8, exportselection=False)
@@ -5066,6 +5098,11 @@ class BattleMapWindow(tk.Toplevel):
                 label += "  (on map)"
             self.units_list.insert(tk.END, label)
             self._units_index_to_cid.append(cid)
+
+        try:
+            self.refresh_spell_overlays()
+        except Exception:
+            pass
 
 
     def _start_polling(self) -> None:
@@ -6419,10 +6456,10 @@ class BattleMapWindow(tk.Toplevel):
         self.aoes[aid]["color"] = color
         self._apply_aoe_color(aid)
 
-    def _prompt_circle_aoe_params(self) -> Optional[Tuple[int, str]]:
+    def _prompt_circle_aoe_params(self, title: str = "Circle AoE") -> Optional[Tuple[int, str]]:
         """Prompt for circle size and whether it's radius or diameter (required, mutually exclusive)."""
         dlg = tk.Toplevel(self)
-        dlg.title("Circle AoE")
+        dlg.title(title)
         dlg.geometry("420x220")
         dlg.minsize(380, 200)
         dlg.transient(self)
@@ -6505,6 +6542,46 @@ class BattleMapWindow(tk.Toplevel):
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
 
+    def _add_sphere_aoe(self) -> None:
+        res = self._prompt_circle_aoe_params("Sphere AoE")
+        if res is None:
+            return
+        ft, mode = res
+        radius_ft = float(ft) / 2.0 if mode == "diameter" else float(ft)
+        radius_sq = max(0.5, radius_ft / self.feet_per_square)
+
+        aid = self._next_aoe_id
+        self._next_aoe_id += 1
+
+        cx = (self.cols - 1) / 2.0
+        cy = (self.rows - 1) / 2.0
+
+        self.aoes[aid] = {"kind": "sphere", "radius_sq": radius_sq, "cx": cx, "cy": cy, "pinned": False,
+                          "color": self._aoe_default_color("sphere"),
+                          "name": f"AoE {aid}", "shape": None, "label": None,
+                          "duration_turns": None, "remaining_turns": None}
+        self._create_aoe_items(aid)
+        self._refresh_aoe_list(select=aid)
+
+    def _add_cube_aoe(self) -> None:
+        ft = simpledialog.askinteger("Cube AoE", "Enter side length (ft):", initialvalue=15, minvalue=5, maxvalue=1000, parent=self)
+        if ft is None:
+            return
+        side_sq = max(1.0, float(ft) / self.feet_per_square)
+
+        aid = self._next_aoe_id
+        self._next_aoe_id += 1
+
+        cx = (self.cols - 1) / 2.0
+        cy = (self.rows - 1) / 2.0
+
+        self.aoes[aid] = {"kind": "cube", "side_sq": side_sq, "cx": cx, "cy": cy, "pinned": False,
+                          "color": self._aoe_default_color("cube"),
+                          "name": f"AoE {aid}", "shape": None, "label": None,
+                          "duration_turns": None, "remaining_turns": None}
+        self._create_aoe_items(aid)
+        self._refresh_aoe_list(select=aid)
+
     def _add_square_aoe(self) -> None:
         ft = simpledialog.askinteger("Square AoE", "Enter side length (ft):", initialvalue=15, minvalue=5, maxvalue=1000, parent=self)
         if ft is None:
@@ -6524,6 +6601,68 @@ class BattleMapWindow(tk.Toplevel):
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
 
+
+    def _prompt_cone_aoe_params(self) -> Optional[Tuple[int, int, str]]:
+        """Prompt for cone length and angle (degrees), plus orientation."""
+        dlg = tk.Toplevel(self)
+        dlg.title("Cone AoE")
+        dlg.geometry("460x260")
+        dlg.minsize(420, 230)
+        dlg.transient(self)
+        dlg.after(0, dlg.grab_set)
+
+        out: dict[str, object] = {"length": None, "angle": None, "orient": "vertical"}
+
+        frm = ttk.Frame(dlg, padding=10)
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frm, text="Length (ft):").grid(row=0, column=0, sticky="w")
+        length_var = tk.StringVar(value="30")
+        length_ent = ttk.Entry(frm, textvariable=length_var, width=10)
+        length_ent.grid(row=0, column=1, sticky="w", padx=(6, 0))
+
+        ttk.Label(frm, text="Angle (deg):").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        angle_var = tk.StringVar(value="90")
+        angle_ent = ttk.Entry(frm, textvariable=angle_var, width=10)
+        angle_ent.grid(row=1, column=1, sticky="w", padx=(6, 0), pady=(8, 0))
+
+        orient_var = tk.StringVar(value="vertical")
+        orient_box = ttk.Frame(frm)
+        orient_box.grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        ttk.Label(orient_box, text="Orientation:").pack(side=tk.LEFT)
+        ttk.Radiobutton(orient_box, text="Horizontal", variable=orient_var, value="horizontal").pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Radiobutton(orient_box, text="Vertical", variable=orient_var, value="vertical").pack(side=tk.LEFT, padx=(8, 0))
+
+        btns = ttk.Frame(frm)
+        btns.grid(row=3, column=0, columnspan=2, sticky="e", pady=(14, 0))
+
+        def on_ok() -> None:
+            try:
+                L = int((length_var.get() or "").strip())
+                A = int((angle_var.get() or "").strip())
+            except Exception:
+                messagebox.showerror("Cone AoE", "Length/Angle must be integers.", parent=dlg)
+                return
+            if L <= 0 or A <= 0:
+                messagebox.showerror("Cone AoE", "Length/Angle must be positive.", parent=dlg)
+                return
+            out["length"] = L
+            out["angle"] = A
+            out["orient"] = str(orient_var.get() or "vertical")
+            dlg.destroy()
+
+        ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.RIGHT)
+        ttk.Button(btns, text="OK", command=on_ok).pack(side=tk.RIGHT, padx=(0, 8))
+
+        dlg.bind("<Return>", lambda e: on_ok())
+        dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+        dlg.after(150, lambda: (length_ent.focus_set(), length_ent.select_range(0, tk.END)))
+        self.wait_window(dlg)
+
+        if out["length"] is None or out["angle"] is None:
+            return None
+        return int(out["length"]), int(out["angle"]), str(out["orient"])
 
     def _prompt_line_aoe_params(self) -> Optional[Tuple[int, int, str]]:
         """Prompt for line AoE length and width in feet, and orientation (horizontal/vertical)."""
@@ -6587,6 +6726,85 @@ class BattleMapWindow(tk.Toplevel):
             return None
         return int(out["length"]), int(out["width"]), str(out["orient"])
 
+    def _prompt_wall_aoe_params(self) -> Optional[Tuple[int, int, Optional[int], str]]:
+        """Prompt for wall AoE length, width, optional height, and orientation."""
+        dlg = tk.Toplevel(self)
+        dlg.title("Wall AoE")
+        dlg.geometry("460x280")
+        dlg.minsize(420, 240)
+        dlg.transient(self)
+        dlg.after(0, dlg.grab_set)
+
+        out: dict[str, object] = {"length": None, "width": None, "height": None, "orient": "vertical"}
+
+        frm = ttk.Frame(dlg, padding=10)
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frm, text="Length (ft):").grid(row=0, column=0, sticky="w")
+        length_var = tk.StringVar(value="30")
+        length_ent = ttk.Entry(frm, textvariable=length_var, width=10)
+        length_ent.grid(row=0, column=1, sticky="w", padx=(6, 0))
+
+        ttk.Label(frm, text="Width (ft):").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        width_var = tk.StringVar(value="5")
+        width_ent = ttk.Entry(frm, textvariable=width_var, width=10)
+        width_ent.grid(row=1, column=1, sticky="w", padx=(6, 0), pady=(8, 0))
+
+        ttk.Label(frm, text="Height (ft, optional):").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        height_var = tk.StringVar(value="")
+        height_ent = ttk.Entry(frm, textvariable=height_var, width=10)
+        height_ent.grid(row=2, column=1, sticky="w", padx=(6, 0), pady=(8, 0))
+
+        orient_var = tk.StringVar(value="vertical")
+        orient_box = ttk.Frame(frm)
+        orient_box.grid(row=3, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        ttk.Label(orient_box, text="Orientation:").pack(side=tk.LEFT)
+        ttk.Radiobutton(orient_box, text="Horizontal", variable=orient_var, value="horizontal").pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Radiobutton(orient_box, text="Vertical", variable=orient_var, value="vertical").pack(side=tk.LEFT, padx=(8, 0))
+
+        btns = ttk.Frame(frm)
+        btns.grid(row=4, column=0, columnspan=2, sticky="e", pady=(14, 0))
+
+        def on_ok() -> None:
+            try:
+                L = int((length_var.get() or "").strip())
+                W = int((width_var.get() or "").strip())
+            except Exception:
+                messagebox.showerror("Wall AoE", "Length/Width must be integers (ft).", parent=dlg)
+                return
+            if L <= 0 or W <= 0:
+                messagebox.showerror("Wall AoE", "Length/Width must be positive.", parent=dlg)
+                return
+            H = None
+            height_raw = (height_var.get() or "").strip()
+            if height_raw:
+                try:
+                    H = int(height_raw)
+                except Exception:
+                    messagebox.showerror("Wall AoE", "Height must be an integer (ft).", parent=dlg)
+                    return
+                if H <= 0:
+                    messagebox.showerror("Wall AoE", "Height must be positive.", parent=dlg)
+                    return
+            out["length"] = L
+            out["width"] = W
+            out["height"] = H
+            out["orient"] = str(orient_var.get() or "vertical")
+            dlg.destroy()
+
+        ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.RIGHT)
+        ttk.Button(btns, text="OK", command=on_ok).pack(side=tk.RIGHT, padx=(0, 8))
+
+        dlg.bind("<Return>", lambda e: on_ok())
+        dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+        dlg.after(150, lambda: (length_ent.focus_set(), length_ent.select_range(0, tk.END)))
+        self.wait_window(dlg)
+
+        if out["length"] is None or out["width"] is None:
+            return None
+        return int(out["length"]), int(out["width"]), out.get("height"), str(out["orient"])
+
     def _add_line_aoe(self) -> None:
         res = self._prompt_line_aoe_params()
         if res is None:
@@ -6614,6 +6832,76 @@ class BattleMapWindow(tk.Toplevel):
             "cy": cy,
             "pinned": False,
             "color": self._aoe_default_color("line"),
+            "name": f"AoE {aid}",
+            "shape": None,
+            "label": None,
+            "duration_turns": None,
+            "remaining_turns": None,
+        }
+        self._create_aoe_items(aid)
+        self._refresh_aoe_list(select=aid)
+
+    def _add_wall_aoe(self) -> None:
+        res = self._prompt_wall_aoe_params()
+        if res is None:
+            return
+        length_ft, width_ft, height_ft, orient = res
+        length_sq = max(1.0, float(length_ft) / self.feet_per_square)
+        width_sq = max(1.0, float(width_ft) / self.feet_per_square)
+
+        aid = self._next_aoe_id
+        self._next_aoe_id += 1
+
+        cx = (self.cols - 1) / 2.0
+        cy = (self.rows - 1) / 2.0
+
+        self.aoes[aid] = {
+            "kind": "wall",
+            "length_sq": length_sq,
+            "width_sq": width_sq,
+            "orient": orient,
+            "angle_deg": 0.0 if orient == "horizontal" else 90.0,
+            "ax": cx,
+            "ay": cy,
+            "cx": cx,
+            "cy": cy,
+            "pinned": False,
+            "color": self._aoe_default_color("wall"),
+            "name": f"AoE {aid}",
+            "shape": None,
+            "label": None,
+            "duration_turns": None,
+            "remaining_turns": None,
+        }
+        if height_ft is not None:
+            self.aoes[aid]["height_ft"] = float(height_ft)
+        self._create_aoe_items(aid)
+        self._refresh_aoe_list(select=aid)
+
+    def _add_cone_aoe(self) -> None:
+        res = self._prompt_cone_aoe_params()
+        if res is None:
+            return
+        length_ft, angle_deg, orient = res
+        length_sq = max(1.0, float(length_ft) / self.feet_per_square)
+
+        aid = self._next_aoe_id
+        self._next_aoe_id += 1
+
+        cx = (self.cols - 1) / 2.0
+        cy = (self.rows - 1) / 2.0
+
+        self.aoes[aid] = {
+            "kind": "cone",
+            "length_sq": length_sq,
+            "angle_deg": float(angle_deg),
+            "orient": orient,
+            "ax": cx,
+            "ay": cy,
+            "cx": cx,
+            "cy": cy,
+            "pinned": False,
+            "color": self._aoe_default_color("cone"),
             "name": f"AoE {aid}",
             "shape": None,
             "label": None,
@@ -6721,6 +7009,178 @@ class BattleMapWindow(tk.Toplevel):
 
         self.canvas.coords(int(d["label"]), x, y)
 
+    def _spell_aoe_presets(self) -> List[Dict[str, Any]]:
+        app = getattr(self, "app", None)
+        if app is None or not hasattr(app, "_spell_presets_payload"):
+            return []
+        try:
+            presets = app._spell_presets_payload()
+        except Exception:
+            return []
+        out: List[Dict[str, Any]] = []
+        for entry in presets:
+            if not isinstance(entry, dict):
+                continue
+            shape = str(entry.get("shape") or "").strip().lower()
+            if not shape:
+                continue
+            if shape not in ("circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall"):
+                continue
+            name = str(entry.get("name") or "").strip()
+            if not name:
+                continue
+            out.append(entry)
+        out.sort(key=lambda p: str(p.get("name") or "").lower())
+        return out
+
+    def refresh_spell_overlays(self) -> None:
+        combo = getattr(self, "aoe_spell_combo", None)
+        var = getattr(self, "aoe_spell_var", None)
+        if combo is None or var is None:
+            return
+        presets = self._spell_aoe_presets()
+        labels = [str(entry.get("name") or "") for entry in presets if str(entry.get("name") or "").strip()]
+        self._aoe_spell_labels = labels
+        self._aoe_spell_by_label = {label: preset for label, preset in zip(labels, presets)}
+        combo.configure(values=labels)
+        if not labels:
+            var.set("")
+            try:
+                combo.state(["disabled"])
+            except Exception:
+                combo.config(state=tk.DISABLED)
+            return
+        if var.get() not in labels:
+            var.set("")
+        try:
+            combo.state(["!disabled"])
+        except Exception:
+            combo.config(state=tk.NORMAL)
+
+    def _add_spell_aoe_from_combo(self) -> None:
+        var = getattr(self, "aoe_spell_var", None)
+        if var is None:
+            return
+        label = str(var.get() or "").strip()
+        preset = self._aoe_spell_by_label.get(label)
+        if not preset:
+            return
+        self._add_spell_aoe(preset)
+
+    def _add_spell_aoe(self, preset: Dict[str, Any]) -> None:
+        name = str(preset.get("name") or "").strip()
+        shape = str(preset.get("shape") or "").strip().lower()
+        if not name or not shape:
+            return
+        feet = float(self.feet_per_square) if self.feet_per_square else 5.0
+        if feet <= 0:
+            feet = 5.0
+        radius_ft = preset.get("radius_ft")
+        side_ft = preset.get("side_ft")
+        length_ft = preset.get("length_ft")
+        width_ft = preset.get("width_ft")
+        height_ft = preset.get("height_ft")
+        angle_deg = preset.get("angle_deg")
+        color = str(preset.get("color") or "").strip()
+        if not color:
+            color = self._aoe_default_color(shape)
+
+        def _to_float(value: Any) -> Optional[float]:
+            try:
+                num = float(value)
+            except Exception:
+                return None
+            if not (num == num and abs(num) != float("inf")):
+                return None
+            return num
+
+        radius_val = _to_float(radius_ft)
+        side_val = _to_float(side_ft)
+        length_val = _to_float(length_ft)
+        width_val = _to_float(width_ft)
+        height_val = _to_float(height_ft)
+        angle_val = _to_float(angle_deg)
+
+        cx = (self.cols - 1) / 2.0
+        cy = (self.rows - 1) / 2.0
+
+        aid = self._next_aoe_id
+        self._next_aoe_id += 1
+
+        aoe: Dict[str, Any] = {
+            "kind": shape,
+            "cx": cx,
+            "cy": cy,
+            "pinned": False,
+            "color": color,
+            "name": name,
+            "shape": None,
+            "label": None,
+            "duration_turns": None,
+            "remaining_turns": None,
+            "from_spell": True,
+        }
+
+        if shape in ("circle", "sphere", "cylinder"):
+            if radius_val is None or radius_val <= 0:
+                messagebox.showinfo("Spell AoE", "Selected spell is missing a radius.", parent=self)
+                return
+            aoe["radius_sq"] = max(0.5, radius_val / feet)
+            aoe["radius_ft"] = radius_val
+            if shape == "cylinder" and height_val is not None:
+                aoe["height_ft"] = height_val
+        elif shape in ("square", "cube"):
+            if side_val is None or side_val <= 0:
+                messagebox.showinfo("Spell AoE", "Selected spell is missing a side length.", parent=self)
+                return
+            aoe["side_sq"] = max(1.0, side_val / feet)
+            aoe["side_ft"] = side_val
+        elif shape == "cone":
+            if length_val is None or length_val <= 0:
+                messagebox.showinfo("Spell AoE", "Selected spell is missing a cone length.", parent=self)
+                return
+            aoe["length_sq"] = max(1.0, length_val / feet)
+            aoe["length_ft"] = length_val
+            aoe["angle_deg"] = angle_val if angle_val is not None else 90.0
+            aoe["orient"] = "vertical"
+            aoe["ax"] = cx
+            aoe["ay"] = cy
+        elif shape in ("line", "wall"):
+            if length_val is None or length_val <= 0:
+                messagebox.showinfo("Spell AoE", "Selected spell is missing a length.", parent=self)
+                return
+            if width_val is None or width_val <= 0:
+                messagebox.showinfo("Spell AoE", "Selected spell is missing a width.", parent=self)
+                return
+            aoe["length_sq"] = max(1.0, length_val / feet)
+            aoe["width_sq"] = max(1.0, width_val / feet)
+            aoe["length_ft"] = length_val
+            aoe["width_ft"] = width_val
+            aoe["orient"] = "vertical"
+            aoe["ax"] = cx
+            aoe["ay"] = cy
+            if angle_val is not None:
+                aoe["angle_deg"] = angle_val
+            if shape == "wall" and height_val is not None:
+                aoe["height_ft"] = height_val
+        else:
+            return
+
+        aoe["save_type"] = preset.get("save_type")
+        aoe["damage_type"] = preset.get("damage_type")
+        if preset.get("damage_types"):
+            aoe["damage_types"] = list(preset.get("damage_types"))
+        if preset.get("half_on_pass") is not None:
+            aoe["half_on_pass"] = bool(preset.get("half_on_pass"))
+        if preset.get("dice") not in (None, ""):
+            aoe["dice"] = str(preset.get("dice"))
+            aoe["default_damage"] = aoe.get("default_damage") or aoe["dice"]
+        if preset.get("default_damage") not in (None, ""):
+            aoe["default_damage"] = str(preset.get("default_damage"))
+
+        self.aoes[aid] = aoe
+        self._create_aoe_items(aid)
+        self._refresh_aoe_list(select=aid)
     def _refresh_aoe_list(self, select: Optional[int] = None) -> None:
         self.aoe_list.delete(0, tk.END)
         self._aoe_index_to_id: List[int] = []
@@ -8271,35 +8731,56 @@ class BattleMapWindow(tk.Toplevel):
         cy_px = self.y0 + (float(d["cy"]) + 0.5) * self.cell
 
         included: List[int] = []
-        if kind == "circle":
+        if kind in ("circle", "sphere", "cylinder"):
             r_px = float(d["radius_sq"]) * self.cell
             r2 = r_px * r_px
             for cid, tok in self.unit_tokens.items():
                 x, y = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
                 if (x - cx_px) ** 2 + (y - cy_px) ** 2 <= r2:
                     included.append(cid)
-        elif kind == "line":
+        elif kind in ("line", "wall"):
             length_px = float(d["length_sq"]) * self.cell
             width_px = float(d["width_sq"]) * self.cell
-            orient = str(d.get("orient") or "vertical")
-            if orient == "horizontal":
-                half_w = length_px / 2.0
-                half_h = width_px / 2.0
-            else:
-                half_w = width_px / 2.0
-                half_h = length_px / 2.0
-            x1, y1 = cx_px - half_w, cy_px - half_h
-            x2, y2 = cx_px + half_w, cy_px + half_h
+            angle_deg = d.get("angle_deg")
+            if angle_deg is None:
+                orient = str(d.get("orient") or "vertical")
+                angle_deg = 0.0 if orient == "horizontal" else 90.0
+            angle_rad = math.radians(float(angle_deg))
+            cos_a = math.cos(-angle_rad)
+            sin_a = math.sin(-angle_rad)
             for cid, tok in self.unit_tokens.items():
                 x, y = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
+                dx = x - cx_px
+                dy = y - cy_px
+                rx = dx * cos_a - dy * sin_a
+                ry = dx * sin_a + dy * cos_a
                 token_half = self.cell / 2.0
-                token_left = x - token_half
-                token_right = x + token_half
-                token_top = y - token_half
-                token_bottom = y + token_half
-                overlap_w = max(0.0, min(token_right, x2) - max(token_left, x1))
-                overlap_h = max(0.0, min(token_bottom, y2) - max(token_top, y1))
-                if overlap_w * overlap_h >= 0.25 * self.cell * self.cell:
+                if abs(rx) <= length_px / 2.0 + token_half and abs(ry) <= width_px / 2.0 + token_half:
+                    included.append(cid)
+        elif kind == "cone":
+            length_px = float(d.get("length_sq") or 0.0) * self.cell
+            spread_deg = d.get("angle_deg")
+            if spread_deg is None:
+                spread_deg = 90.0
+            else:
+                spread_deg = float(spread_deg)
+            orient = str(d.get("orient") or "vertical")
+            heading_deg = 0.0 if orient == "horizontal" else -90.0
+            heading_rad = math.radians(heading_deg)
+            half_spread = math.radians(spread_deg / 2.0)
+            for cid, tok in self.unit_tokens.items():
+                x, y = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
+                dx = x - cx_px
+                dy = y - cy_px
+                dist = math.hypot(dx, dy)
+                if dist > length_px + (self.cell / 2.0):
+                    continue
+                angle = math.atan2(dy, dx) - heading_rad
+                while angle <= -math.pi:
+                    angle += math.pi * 2
+                while angle > math.pi:
+                    angle -= math.pi * 2
+                if abs(angle) <= half_spread:
                     included.append(cid)
         else:
             half = float(d["side_sq"]) * self.cell / 2.0

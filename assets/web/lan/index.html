@@ -6021,6 +6021,11 @@ __DAMAGE_TYPE_OPTIONS__
     if (slug) return slug;
     return normalizeLowerValue(preset?.name).replace(/\\s+/g, "-");
   };
+  const AOE_SHAPES = new Set(["circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall"]);
+  const isAoePreset = (preset) => {
+    const shape = normalizeLowerValue(preset?.shape);
+    return shape && AOE_SHAPES.has(shape);
+  };
   const loadPreparedSpellFilterList = () => {
     const name = getClaimedPlayerName();
     if (!name) return null;
@@ -7092,7 +7097,7 @@ __DAMAGE_TYPE_OPTIONS__
     const castingTimes = new Set();
     const ranges = new Set();
     const listGroups = new Map();
-    cachedSpellPresets.forEach((preset) => {
+    cachedSpellPresets.filter(isAoePreset).forEach((preset) => {
       const school = normalizeTextValue(preset.school);
       if (school) schools.add(school);
       const castingTime = normalizeTextValue(preset.casting_time);
@@ -7177,7 +7182,8 @@ __DAMAGE_TYPE_OPTIONS__
     if (!castPresetInput) return;
     const currentValue = String(castPresetInput.value || "");
     castPresetInput.textContent = "";
-    if (!cachedSpellPresets.length){
+    const aoePresets = cachedSpellPresets.filter(isAoePreset);
+    if (!aoePresets.length){
       castPresetInput.disabled = true;
       const placeholder = document.createElement("option");
       placeholder.value = "";
@@ -7193,7 +7199,7 @@ __DAMAGE_TYPE_OPTIONS__
     blank.textContent = "Custom";
     castPresetInput.appendChild(blank);
     const preparedSpellSet = getPreparedSpellFilterSet();
-    const filtered = filterPresetsByKnownList(cachedSpellPresets, preparedSpellSet)
+    const filtered = filterPresetsByKnownList(aoePresets, preparedSpellSet)
       .filter(matchesSpellFilters);
     if (!filtered.length){
       const empty = document.createElement("option");
@@ -7253,6 +7259,7 @@ __DAMAGE_TYPE_OPTIONS__
     const signature = JSON.stringify(list.map(p => [
       String(p.slug || ""),
       String(p.name || ""),
+      String(p.shape || ""),
       String(p.level || ""),
       String(p.school || ""),
       String(p.casting_time || ""),
