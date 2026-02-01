@@ -858,6 +858,17 @@ class LanController:
         self._admin_tokens[token] = time.time() + float(self._admin_token_ttl_seconds)
         return token
 
+    @staticmethod
+    def _json_dumps(payload: Any) -> str:
+        def default(value: Any) -> Any:
+            if isinstance(value, Path):
+                return str(value)
+            if isinstance(value, (set, tuple)):
+                return list(value)
+            return str(value)
+
+        return json.dumps(payload, allow_nan=False, default=default)
+
     def _is_admin_token_valid(self, token: str) -> bool:
         token = str(token or "").strip()
         if not token:
@@ -1430,7 +1441,19 @@ class LanController:
             self.app._oplog(f"LAN map view connected ws_id={ws_id} host={host}:{port} ua={ua}")
             try:
                 await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
-                await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
+                await ws.send_text(
+                    self._json_dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()})
+                )
+            except (TypeError, ValueError) as exc:
+                self.app._oplog(
+                    f"LAN map view serialization failed during initial send ws_id={ws_id}: {exc}", level="warning"
+                )
+                await ws.close(code=1011, reason="Server error while preparing state.")
+                return
+            except Exception as exc:
+                self.app._oplog(f"LAN map view error during initial send ws_id={ws_id}: {exc}", level="warning")
+                return
+            try:
                 while True:
                     raw = await ws.receive_text()
                     try:
@@ -1457,11 +1480,11 @@ class LanController:
                             lines = self.app._lan_battle_log_lines()
                         except Exception:
                             lines = []
-                        await ws.send_text(json.dumps({"type": "battle_log", "lines": lines}))
+                        await ws.send_text(self._json_dumps({"type": "battle_log", "lines": lines}))
             except WebSocketDisconnect:
                 pass
-            except Exception:
-                pass
+            except Exception as exc:
+                self.app._oplog(f"LAN map view error during loop ws_id={ws_id}: {exc}", level="warning")
             finally:
                 with self._clients_lock:
                     self._clients.pop(ws_id, None)
@@ -1509,8 +1532,20 @@ class LanController:
             try:
                 await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
                 # Immediately send snapshot + claimable list
-                await ws.send_text(json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()}))
+                await ws.send_text(
+                    self._json_dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()})
+                )
                 await self._auto_assign_host(ws_id, host)
+            except (TypeError, ValueError) as exc:
+                self.app._oplog(
+                    f"LAN session serialization failed during initial send ws_id={ws_id}: {exc}", level="warning"
+                )
+                await ws.close(code=1011, reason="Server error while preparing state.")
+                return
+            except Exception as exc:
+                self.app._oplog(f"LAN session error during initial send ws_id={ws_id}: {exc}", level="warning")
+                return
+            try:
                 while True:
                     raw = await ws.receive_text()
                     try:
@@ -1527,18 +1562,18 @@ class LanController:
                     if typ == "save_preset":
                         preset = msg.get("preset")
                         if preset is not None and not isinstance(preset, dict):
-                            await ws.send_text(json.dumps({"type": "preset_error", "error": "Invalid preset payload."}))
+                            await ws.send_text(self._json_dumps({"type": "preset_error", "error": "Invalid preset payload."}))
                             continue
                         host_key = self._client_hosts.get(ws_id) or f"ws:{ws_id}"
                         if preset is None:
                             self._host_presets.pop(host_key, None)
                         else:
                             self._host_presets[host_key] = preset
-                        await ws.send_text(json.dumps({"type": "preset_saved"}))
+                        await ws.send_text(self._json_dumps({"type": "preset_saved"}))
                     elif typ == "load_preset":
                         host_key = self._client_hosts.get(ws_id) or f"ws:{ws_id}"
                         preset = self._host_presets.get(host_key)
-                        await ws.send_text(json.dumps({"type": "preset", "preset": preset}))
+                        await ws.send_text(self._json_dumps({"type": "preset", "preset": preset}))
                     elif typ == "grid_request":
                         await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
                     elif typ == "grid_ack":
@@ -1552,7 +1587,7 @@ class LanController:
                             lines = self.app._lan_battle_log_lines()
                         except Exception:
                             lines = []
-                        await ws.send_text(json.dumps({"type": "battle_log", "lines": lines}))
+                        await ws.send_text(self._json_dumps({"type": "battle_log", "lines": lines}))
                     elif typ in (
                         "move",
                         "dash",
@@ -1577,8 +1612,8 @@ class LanController:
                         pass
             except WebSocketDisconnect:
                 pass
-            except Exception:
-                pass
+            except Exception as exc:
+                self.app._oplog(f"LAN session error during loop ws_id={ws_id}: {exc}", level="warning")
             finally:
                 with self._clients_lock:
                     self._clients.pop(ws_id, None)
@@ -1970,7 +2005,11 @@ class LanController:
             pass
 
     async def _broadcast_state_async(self, snap: Dict[str, Any]) -> None:
-        payload = json.dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()})
+        try:
+            payload = self._json_dumps({"type": "state", "state": self._cached_snapshot_payload(), "pcs": self._pcs_payload()})
+        except Exception as exc:
+            self.app._oplog(f"LAN state broadcast serialization failed: {exc}", level="warning")
+            return
         to_drop: List[int] = []
         with self._clients_lock:
             items = list(self._clients.items())
@@ -2001,7 +2040,11 @@ class LanController:
             pass
 
     async def _broadcast_grid_update_async(self, grid: Dict[str, Any]) -> None:
-        payload = json.dumps({"type": "grid_update", "grid": grid, "version": self._grid_version})
+        try:
+            payload = self._json_dumps({"type": "grid_update", "grid": grid, "version": self._grid_version})
+        except Exception as exc:
+            self.app._oplog(f"LAN grid broadcast serialization failed: {exc}", level="warning")
+            return
         now = time.time()
         with self._clients_lock:
             items = list(self._clients.items())
@@ -2015,7 +2058,7 @@ class LanController:
                     self._grid_pending.pop(ws_id, None)
 
     async def _send_grid_update_async(self, ws_id: int, grid: Dict[str, Any]) -> None:
-        payload = json.dumps({"type": "grid_update", "grid": grid, "version": self._grid_version})
+        payload = self._json_dumps({"type": "grid_update", "grid": grid, "version": self._grid_version})
         with self._clients_lock:
             ws = self._clients.get(ws_id)
         if not ws:
@@ -2049,7 +2092,7 @@ class LanController:
                 continue
             payload = {"type": "grid_update", "grid": self._cached_snapshot.get("grid", {}), "version": self._grid_version}
             try:
-                asyncio.run_coroutine_threadsafe(ws.send_text(json.dumps(payload)), self._loop)
+                asyncio.run_coroutine_threadsafe(ws.send_text(self._json_dumps(payload)), self._loop)
                 with self._clients_lock:
                     self._grid_pending[ws_id] = (self._grid_version, now)
             except Exception:
@@ -2100,7 +2143,7 @@ class LanController:
         if not ws:
             return
         try:
-            await ws.send_text(json.dumps({"type": "toast", "text": text}))
+            await ws.send_text(self._json_dumps({"type": "toast", "text": text}))
         except Exception:
             pass
 
@@ -2110,7 +2153,7 @@ class LanController:
         if not ws:
             return
         try:
-            await ws.send_text(json.dumps(payload))
+            await ws.send_text(self._json_dumps(payload))
         except Exception:
             pass
 
