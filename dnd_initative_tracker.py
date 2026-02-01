@@ -3136,10 +3136,10 @@ class InitiativeTracker(base.InitiativeTracker):
                             continue
                         try:
                             profile_name = self._player_name_from_filename(path)
-                        except (AttributeError, TypeError, ValueError) as exc:
+                        except TypeError as exc:
                             profile_name = None
                             self._oplog(
-                                f"Player YAML {path.name}: failed to extract roster name for player matching ({exc}).",
+                                f"Player YAML {path.name}: failed to parse player name from filename for config matching ({exc}).",
                                 level="warning",
                             )
                         for key in (path.stem, profile_name):
