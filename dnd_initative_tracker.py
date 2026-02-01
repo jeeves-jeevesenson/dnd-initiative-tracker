@@ -3127,11 +3127,19 @@ class InitiativeTracker(base.InitiativeTracker):
             cfg_paths = {}
             try:
                 if players_dir.exists():
-                    cfg_paths = {
-                        path.stem: path
-                        for path in players_dir.glob("*.yaml")
-                        if path.is_file()
-                    }
+                    files = list(players_dir.glob("*.yaml")) + list(players_dir.glob("*.yml"))
+                    for path in files:
+                        if not path.is_file():
+                            continue
+                        stem_key = path.stem.strip().lower()
+                        if stem_key:
+                            cfg_paths[stem_key] = path
+                        try:
+                            friendly_name = self._player_name_from_filename(path)
+                        except Exception:
+                            friendly_name = None
+                        if friendly_name:
+                            cfg_paths[str(friendly_name).strip().lower()] = path
             except Exception:
                 cfg_paths = {}
             self._player_config_paths = cfg_paths
@@ -3153,7 +3161,8 @@ class InitiativeTracker(base.InitiativeTracker):
             data = cfg_cache.get(nm, None)
             if nm not in cfg_cache:
                 try:
-                    cfg_path = cfg_paths.get(nm) if cfg_paths is not None else None
+                    nm_key = nm.strip().lower()
+                    cfg_path = cfg_paths.get(nm_key) if cfg_paths is not None else None
                     if cfg_path is not None:
                         raw = cfg_path.read_text(encoding="utf-8")
                         if ymod is not None:
@@ -3604,6 +3613,18 @@ class InitiativeTracker(base.InitiativeTracker):
                 return raw
             return None
 
+        def normalize_casting_time(value: Any) -> Optional[str]:
+            if value in (None, ""):
+                return None
+            raw = str(value).strip()
+            if not raw:
+                return None
+            lowered = raw.lower()
+            for token in ("bonus action", "reaction", "action"):
+                if token in lowered:
+                    return token.title()
+            return raw
+
         def normalize_save_type(value: Any) -> Optional[str]:
             if value in (None, ""):
                 return None
@@ -3636,7 +3657,7 @@ class InitiativeTracker(base.InitiativeTracker):
             school = parsed.get("school")
             tags_raw = parsed.get("tags")
             tags = [str(tag).strip() for tag in tags_raw if str(tag).strip()] if isinstance(tags_raw, list) else []
-            casting_time = parsed.get("casting_time")
+            casting_time = normalize_casting_time(parsed.get("casting_time"))
             spell_range = parsed.get("range")
             ritual = parsed.get("ritual")
             concentration = parsed.get("concentration")
@@ -3668,7 +3689,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "level": level,
                 "school": school,
                 "tags": tags,
-                "casting_time": str(casting_time).strip() if casting_time not in (None, "") else None,
+                "casting_time": casting_time,
                 "range": str(spell_range).strip() if spell_range not in (None, "") else None,
                 "ritual": ritual if isinstance(ritual, bool) else None,
                 "concentration": concentration if isinstance(concentration, bool) else None,

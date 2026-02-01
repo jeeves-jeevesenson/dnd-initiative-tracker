@@ -6083,10 +6083,29 @@ __DAMAGE_TYPE_OPTIONS__
     if (raw.includes("action")) return "action";
     return "action";
   }
+  function formatSpellActionLabel(actionType){
+    if (actionType === "bonus_action") return "bonus action";
+    if (actionType === "reaction") return "reaction";
+    return "action";
+  }
   function getSpellActionType(preset){
     if (!preset) return "action";
     const castingTime = normalizeTextValue(preset.casting_time || preset.castingTime);
     return normalizeSpellActionType(castingTime);
+  }
+  function getSpellCasterActionType(unit, preset, actionType){
+    const intended = actionType || getSpellActionType(preset);
+    if (!unit) return {ok: false, actionType: intended, reason: "Claim a character first, matey."};
+    if (intended === "action"){
+      return {ok: true, actionType: intended};
+    }
+    if (!unitHasMagicAction(unit, intended)){
+      return {ok: false, actionType: intended, reason: "No spellcasting action available."};
+    }
+    if (intended === "bonus_action" && !unitHasMagicAction(unit, "action")){
+      return {ok: false, actionType: intended, reason: "No spellcasting action available."};
+    }
+    return {ok: true, actionType: "action"};
   }
   function unitHasMagicAction(unit, actionType){
     const actions = normalizeActionList(unit?.actions, "action");
@@ -6104,7 +6123,10 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (actionType === "bonus_action"){
       if (!unitHasMagicAction(unit, actionType)){
-        return {ok: false, reason: "No bonus-action spellcasting available."};
+        if (!unitHasMagicAction(unit, "action")){
+          return {ok: false, reason: "No spellcasting action available."};
+        }
+        return {ok: true, actionType: "action"};
       }
       if (Number(unit.bonus_action_remaining || 0) <= 0){
         return {ok: false, reason: "No bonus actions left, matey."};
@@ -7664,19 +7686,26 @@ __DAMAGE_TYPE_OPTIONS__
       const preset = getSelectedSpellPreset();
       const spellActionType = getSpellActionType(preset);
       const actionType = pendingSpellActionType || spellActionType;
+      const unit = getClaimedUnit();
+      const casterAction = getSpellCasterActionType(unit, preset, actionType);
+      if (!casterAction.ok){
+        localToast(casterAction.reason || "You can't cast right now.");
+        return;
+      }
+      const resolvedActionType = casterAction.actionType;
+      const resolvedLabel = formatSpellActionLabel(resolvedActionType);
       if (pendingSpellActionType && pendingSpellActionType !== spellActionType){
-        const expectedLabel = spellActionType === "bonus_action" ? "bonus action" : spellActionType;
+        const expectedLabel = formatSpellActionLabel(spellActionType);
         localToast(`That spell uses a ${expectedLabel}.`);
         return;
       }
       pendingSpellActionType = null;
-      const unit = getClaimedUnit();
-      const actionCheck = canSpendSpellAction(unit, actionType);
+      const actionCheck = canSpendSpellAction(unit, resolvedActionType);
       if (!actionCheck.ok){
         localToast(actionCheck.reason || "You can't cast right now.");
         return;
       }
-      const actionLabel = actionType === "bonus_action" ? "bonus action" : actionType;
+      const actionLabel = formatSpellActionLabel(resolvedActionType);
       const spellName = normalizeTextValue(castNameInput?.value) || "this spell";
       if (!confirm(`Cast ${spellName} using your ${actionLabel}?`)){
         return;
@@ -7879,7 +7908,7 @@ __DAMAGE_TYPE_OPTIONS__
           payload.angle_deg = angleDeg;
         }
       }
-      send({type: "cast_aoe", payload, action_type: actionType});
+      send({type: "cast_aoe", payload, action_type: resolvedActionType});
     });
   }
 
