@@ -2576,6 +2576,23 @@ __DAMAGE_TYPE_OPTIONS__
   const sheet = document.getElementById("sheet");
   const sheetHandle = document.getElementById("sheetHandle");
   const tokenTooltip = document.getElementById("tokenTooltip");
+  const clientInitPayload = {
+    timestamp: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+    url: location.href,
+    message: "LAN client initialized",
+    stack: "",
+  };
+  console.info("LAN client initialized");
+  try {
+    fetch("/api/client-log", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(clientInitPayload),
+    }).catch(() => {});
+  } catch (err) {
+    console.warn("Failed to report LAN client init:", err);
+  }
   const turnAlertAudio = new Audio("/assets/alert.wav");
   turnAlertAudio.preload = "auto";
   const koAlertAudio = new Audio("/assets/ko.wav");
