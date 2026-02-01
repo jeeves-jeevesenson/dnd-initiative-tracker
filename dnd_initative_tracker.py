@@ -3127,11 +3127,17 @@ class InitiativeTracker(base.InitiativeTracker):
             cfg_paths = {}
             try:
                 if players_dir.exists():
-                    cfg_paths = {
-                        path.stem: path
-                        for path in players_dir.glob("*.yaml")
-                        if path.is_file()
-                    }
+                    cfg_paths = {}
+                    for path in players_dir.glob("*.yaml"):
+                        if not path.is_file():
+                            continue
+                        try:
+                            profile_name = self._player_name_from_filename(path)
+                        except Exception:
+                            profile_name = None
+                        for key in (path.stem, profile_name):
+                            if key and key not in cfg_paths:
+                                cfg_paths[key] = path
             except Exception:
                 cfg_paths = {}
             self._player_config_paths = cfg_paths
@@ -3668,7 +3674,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "level": level,
                 "school": school,
                 "tags": tags,
-                "casting_time": str(casting_time).strip() if casting_time not in (None, "") else None,
+                "casting_time": self._normalize_casting_time(casting_time),
                 "range": str(spell_range).strip() if spell_range not in (None, "") else None,
                 "ritual": ritual if isinstance(ritual, bool) else None,
                 "concentration": concentration if isinstance(concentration, bool) else None,
@@ -4379,6 +4385,22 @@ class InitiativeTracker(base.InitiativeTracker):
             seen.add(key)
             slugs.append(item)
         return slugs
+
+    @staticmethod
+    def _normalize_casting_time(value: Any) -> Optional[str]:
+        if value in (None, ""):
+            return None
+        raw = str(value).strip()
+        if not raw:
+            return None
+        lower = raw.lower()
+        if "bonus action" in lower:
+            return "Bonus Action"
+        if "reaction" in lower:
+            return "Reaction"
+        if "action" in lower:
+            return "Action"
+        return raw
 
     @staticmethod
     def _coerce_level_value(leveling: Dict[str, Any]) -> int:

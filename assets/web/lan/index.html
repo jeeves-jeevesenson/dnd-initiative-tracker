@@ -6078,7 +6078,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
   function normalizeSpellActionType(value){
     const raw = normalizeLowerValue(value);
-    if (raw.includes("bonus")) return "bonus_action";
+    if (raw.includes("bonus action")) return "bonus_action";
     if (raw.includes("reaction")) return "reaction";
     if (raw.includes("action")) return "action";
     return "action";
