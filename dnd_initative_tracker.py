@@ -3145,8 +3145,7 @@ class InitiativeTracker(base.InitiativeTracker):
                                     level="warning",
                                 )
                                 continue
-                            if key not in cfg_paths:
-                                cfg_paths[key] = path
+                            cfg_paths[key] = path
             except Exception:
                 cfg_paths = {}
             self._player_config_paths = cfg_paths

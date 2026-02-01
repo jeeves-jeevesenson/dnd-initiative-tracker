@@ -6079,7 +6079,7 @@ __DAMAGE_TYPE_OPTIONS__
   function normalizeSpellActionType(value){
     const raw = normalizeLowerValue(value);
     // Order matters: keep bonus action/reaction checks before generic action.
-    if (/\bbonus[\s-]*action\b/.test(raw)) return "bonus_action";
+    if (/\bbonus[\s\-_]*action\b/.test(raw)) return "bonus_action";
     if (/\breaction\b/.test(raw)) return "reaction";
     if (/\baction\b/.test(raw)) return "action";
     return "action";
