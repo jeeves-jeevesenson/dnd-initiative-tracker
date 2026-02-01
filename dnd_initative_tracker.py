@@ -3137,7 +3137,15 @@ class InitiativeTracker(base.InitiativeTracker):
                         profile_name = self._player_name_from_filename(path)
                         # Prefer normalized player name, fall back to filename stem.
                         for key in (profile_name, path.stem):
-                            if key and key not in cfg_paths:
+                            if not key:
+                                continue
+                            if key in cfg_paths and cfg_paths[key] != path:
+                                self._oplog(
+                                    f"Player YAML {path.name}: name '{key}' already mapped; skipping.",
+                                    level="warning",
+                                )
+                                continue
+                            if key not in cfg_paths:
                                 cfg_paths[key] = path
             except Exception:
                 cfg_paths = {}
@@ -3245,7 +3253,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if not stem:
             return None
         name = stem.replace("-", " ").replace("_", " ")
-        name = " ".join(name.split())
+        name = " ".join(name.split())  # collapse extra whitespace
         return name or None
 
     def _normalize_spell_color(self, color: Any) -> Optional[str]:
