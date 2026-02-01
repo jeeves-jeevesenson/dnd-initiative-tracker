@@ -5334,7 +5334,22 @@ __DAMAGE_TYPE_OPTIONS__
     ws.addEventListener("message", (ev) => {
       let msg = null;
       try { msg = JSON.parse(ev.data); } catch(e){ return; }
-      if (msg.type === "preset"){
+      if (msg.type === "static_data"){
+        // Merge static data into state (sent once on connection)
+        if (!state){ state = {}; }
+        if (msg.data && typeof msg.data === "object"){
+          if (Array.isArray(msg.data.spell_presets)){
+            state.spell_presets = msg.data.spell_presets;
+            updateSpellPresetOptions(state.spell_presets);
+          }
+          if (msg.data.player_spells && typeof msg.data.player_spells === "object"){
+            state.player_spells = msg.data.player_spells;
+          }
+          if (msg.data.player_profiles && typeof msg.data.player_profiles === "object"){
+            state.player_profiles = msg.data.player_profiles;
+          }
+        }
+      } else if (msg.type === "preset"){
         if (msg.preset && typeof msg.preset === "object"){
           applyGuiPreset(msg.preset, {persist: true});
           persistLocalPreset(msg.preset);
@@ -5346,7 +5361,21 @@ __DAMAGE_TYPE_OPTIONS__
       } else if (msg.type === "preset_error"){
         setPresetStatus(msg.error || "Preset error.", 2500);
       } else if (msg.type === "state"){
+        const oldSpellPresets = state?.spell_presets;
+        const oldPlayerSpells = state?.player_spells;
+        const oldPlayerProfiles = state?.player_profiles;
         state = (msg.state && typeof msg.state === "object") ? msg.state : {};
+        // Preserve static data from previous state if not in new message
+        // Only preserve if old values exist and new values are undefined (not just missing)
+        if (!state.spell_presets && Array.isArray(oldSpellPresets)){
+          state.spell_presets = oldSpellPresets;
+        }
+        if (!state.player_spells && oldPlayerSpells && typeof oldPlayerSpells === "object"){
+          state.player_spells = oldPlayerSpells;
+        }
+        if (!state.player_profiles && oldPlayerProfiles && typeof oldPlayerProfiles === "object"){
+          state.player_profiles = oldPlayerProfiles;
+        }
         if (isMapView){
           claimedCid = null;
         }
