@@ -595,6 +595,9 @@ DAMAGE_TYPE_OPTIONS = _build_damage_type_options(DAMAGE_TYPES)
 # ----------------------------- LAN Server -----------------------------
 
 _LAN_ASSET_DIR = Path(__file__).resolve().parent / "assets" / "web" / "lan"
+_CAST_TIME_BONUS_RE = re.compile(r"\bbonus[\s-]*action\b")
+_CAST_TIME_REACTION_RE = re.compile(r"\breaction\b")
+_CAST_TIME_ACTION_RE = re.compile(r"\baction\b")
 
 
 @lru_cache(maxsize=None)
@@ -3136,10 +3139,11 @@ class InitiativeTracker(base.InitiativeTracker):
                         except (AttributeError, TypeError, ValueError) as exc:
                             profile_name = None
                             self._oplog(
-                                f"Player YAML {path.name}: failed to read name from filename ({exc}).",
+                                "Player YAML "
+                                f"{path.name}: failed to extract roster name for player matching ({exc}).",
                                 level="warning",
                             )
-                        for key in {path.stem, profile_name}:
+                        for key in (path.stem, profile_name):
                             if key and key not in cfg_paths:
                                 cfg_paths[key] = path
             except Exception:
@@ -4398,11 +4402,11 @@ class InitiativeTracker(base.InitiativeTracker):
         if not raw:
             return None
         lower = raw.lower()
-        if re.search(r"\bbonus[\s-]*action\b", lower):
+        if _CAST_TIME_BONUS_RE.search(lower):
             return "Bonus Action"
-        if re.search(r"\breaction\b", lower):
+        if _CAST_TIME_REACTION_RE.search(lower):
             return "Reaction"
-        if re.search(r"\baction\b", lower):
+        if _CAST_TIME_ACTION_RE.search(lower):
             return "Action"
         return raw
 
