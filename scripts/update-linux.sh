@@ -7,6 +7,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$(dirname "$SCRIPT_DIR")"
 TEMP_DIR="/tmp/dnd-tracker-update-$$"
+YAML_DIRS=("Monsters" "Spells" "players" "presets")
+YAML_BACKUP_DIR="$TEMP_DIR/yaml_backup"
 
 echo "=========================================="
 echo "D&D Initiative Tracker - Update"
@@ -83,6 +85,20 @@ fi
 echo ""
 echo "Updating application..."
 
+# Backup YAML files to preserve local customizations
+echo "Backing up YAML files..."
+mkdir -p "$YAML_BACKUP_DIR"
+for yaml_dir in "${YAML_DIRS[@]}"; do
+    if [ -d "$INSTALL_DIR/$yaml_dir" ]; then
+        while IFS= read -r -d '' file; do
+            rel_path="${file#$INSTALL_DIR/}"
+            mkdir -p "$YAML_BACKUP_DIR/$(dirname "$rel_path")"
+            cp "$file" "$YAML_BACKUP_DIR/$rel_path"
+            git checkout -- "$rel_path" 2>/dev/null || true
+        done < <(find "$INSTALL_DIR/$yaml_dir" -type f \( -name "*.yaml" -o -name "*.yml" \) -print0)
+    fi
+done
+
 # Pull latest changes
 git pull origin main
 
@@ -94,6 +110,18 @@ if [ -f "$INSTALL_DIR/.venv/bin/activate" ]; then
     pip install --upgrade pip --quiet
     pip install -r requirements.txt --quiet
     echo "✓ Dependencies updated"
+fi
+
+# Restore YAML files to keep local customizations
+if [ -d "$YAML_BACKUP_DIR" ]; then
+    echo ""
+    echo "Restoring local YAML files..."
+    while IFS= read -r -d '' file; do
+        rel_path="${file#$YAML_BACKUP_DIR/}"
+        mkdir -p "$INSTALL_DIR/$(dirname "$rel_path")"
+        cp "$file" "$INSTALL_DIR/$rel_path"
+    done < <(find "$YAML_BACKUP_DIR" -type f -print0)
+    echo "✓ Local YAML files restored"
 fi
 
 echo ""

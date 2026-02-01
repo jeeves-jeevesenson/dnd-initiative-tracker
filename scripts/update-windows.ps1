@@ -6,6 +6,8 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $InstallDir = Split-Path -Parent $ScriptDir
 $TempDir = "$env:TEMP\dnd-tracker-update-$(Get-Random)"
+$YamlDirs = @("Monsters", "Spells", "players", "presets")
+$YamlBackupDir = Join-Path $TempDir "yaml_backup"
 
 # Function to cleanup temp files
 function Cleanup-TempFiles {
@@ -105,6 +107,25 @@ if ($response -notmatch '^[Yy]') {
 Write-Host ""
 Write-Host "Updating application..." -ForegroundColor Yellow
 
+# Backup YAML files to preserve local customizations
+Write-Host "Backing up YAML files..." -ForegroundColor Yellow
+New-Item -ItemType Directory -Path $YamlBackupDir -Force | Out-Null
+foreach ($yamlDir in $YamlDirs) {
+    $fullDir = Join-Path $InstallDir $yamlDir
+    if (Test-Path $fullDir) {
+        Get-ChildItem -Path $fullDir -Recurse -File -Include *.yaml, *.yml | ForEach-Object {
+            $relPath = $_.FullName.Substring($InstallDir.Length + 1)
+            $destPath = Join-Path $YamlBackupDir $relPath
+            $destDir = Split-Path -Parent $destPath
+            if (!(Test-Path $destDir)) {
+                New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+            }
+            Copy-Item -Path $_.FullName -Destination $destPath -Force
+            git checkout -- "$relPath" 2>$null
+        }
+    }
+}
+
 # Pull latest changes
 git pull origin main
 if ($LASTEXITCODE -ne 0) {
@@ -131,6 +152,22 @@ if (Test-Path $venvPython) {
     } catch {
         Write-Host "⚠ Could not update dependencies: $($_.Exception.Message)" -ForegroundColor Yellow
     }
+}
+
+# Restore YAML files to keep local customizations
+if (Test-Path $YamlBackupDir) {
+    Write-Host ""
+    Write-Host "Restoring local YAML files..." -ForegroundColor Yellow
+    Get-ChildItem -Path $YamlBackupDir -Recurse -File | ForEach-Object {
+        $relPath = $_.FullName.Substring($YamlBackupDir.Length + 1)
+        $destPath = Join-Path $InstallDir $relPath
+        $destDir = Split-Path -Parent $destPath
+        if (!(Test-Path $destDir)) {
+            New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+        }
+        Copy-Item -Path $_.FullName -Destination $destPath -Force
+    }
+    Write-Host "✓ Local YAML files restored" -ForegroundColor Green
 }
 
 # Cleanup temp files
