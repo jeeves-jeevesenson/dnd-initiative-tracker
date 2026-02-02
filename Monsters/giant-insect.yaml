@@ -4,7 +4,10 @@ type: Beast
 alignment: Unaligned
 ac: 11 + the spell's level
 hp: 30
-speed: 40 ft., Climb 40 ft., Fly 40 ft. (Wasp only)
+speed:
+  Normal: 40 ft.
+  Climb: 40 ft.
+  Fly: 40 ft. (Wasp only)
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 17

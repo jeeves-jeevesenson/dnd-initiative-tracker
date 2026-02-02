@@ -4,7 +4,9 @@ type: Celestial
 alignment: Neutral
 ac: 11 + the spell's level + 2 (Defender only)
 hp: 40
-speed: 30 ft., Fly 40 ft.
+speed:
+  Normal: 30 ft.
+  Fly: 40 ft.
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 16

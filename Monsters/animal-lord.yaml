@@ -5,7 +5,10 @@ alignment: Neutral
 initiative: '+19'
 ac: '19'
 hp: 323
-speed: 60 ft., Fly 60 ft. (hover), Swim 60 ft.
+speed:
+  Normal: 60 ft.
+  Fly: 60 ft. (hover)
+  Swim: 60 ft.
 challenge_rating: 20
 abilities:
   Str: 24

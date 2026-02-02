@@ -5,7 +5,8 @@ alignment: Neutral
 initiative: '+5'
 ac: '17'
 hp: 126
-speed: 40 ft.
+speed:
+  Normal: 40 ft.
 challenge_rating: 7
 abilities:
   Str: 23

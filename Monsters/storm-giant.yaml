@@ -5,7 +5,10 @@ alignment: Chaotic Good
 initiative: '+7'
 ac: '16'
 hp: 230
-speed: 50 ft., Fly 25 ft. (hover), Swim 50 ft.
+speed:
+  Normal: 50 ft.
+  Fly: 25 ft. (hover)
+  Swim: 50 ft.
 challenge_rating: 13
 abilities:
   Str: 29

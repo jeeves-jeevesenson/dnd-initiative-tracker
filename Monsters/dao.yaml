@@ -5,7 +5,10 @@ alignment: Neutral
 initiative: '+1'
 ac: '18'
 hp: 200
-speed: 30 ft., Burrow 30 ft., Fly 30 ft. (hover)
+speed:
+  Normal: 30 ft.
+  Burrow: 30 ft.
+  Fly: 30 ft. (hover)
 challenge_rating: 11
 abilities:
   Str: 23

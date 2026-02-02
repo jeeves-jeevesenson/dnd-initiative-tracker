@@ -5,7 +5,9 @@ alignment: Chaotic Good
 initiative: '+2'
 ac: '17'
 hp: 218
-speed: 30 ft., Fly 90 ft. (hover)
+speed:
+  Normal: 30 ft.
+  Fly: 90 ft. (hover)
 challenge_rating: 11
 abilities:
   Str: 21

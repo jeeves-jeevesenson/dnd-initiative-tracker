@@ -5,7 +5,8 @@ alignment: Neutral
 initiative: '+2'
 ac: '16'
 hp: 123
-speed: 15 ft. (30 ft. when rolling, 60 ft. rolling downhill)
+speed:
+  Normal: 60 ft. rolling downhill)
 challenge_rating: 6
 abilities:
   Str: 20

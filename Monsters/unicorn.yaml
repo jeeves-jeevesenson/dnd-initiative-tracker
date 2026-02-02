@@ -5,7 +5,8 @@ alignment: Lawful Good
 initiative: '+8'
 ac: '12'
 hp: 97
-speed: 50 ft.
+speed:
+  Normal: 50 ft.
 challenge_rating: 5
 abilities:
   Str: 18

@@ -5,7 +5,11 @@ alignment: Chaotic Evil
 initiative: '+3'
 ac: '17'
 hp: 123
-speed: 40 ft., Burrow 20 ft., Fly 80 ft., Swim 40 ft.
+speed:
+  Normal: 40 ft.
+  Burrow: 20 ft.
+  Fly: 80 ft.
+  Swim: 40 ft.
 challenge_rating: 6
 abilities:
   Str: 18

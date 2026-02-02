@@ -5,7 +5,9 @@ alignment: Chaotic Evil
 initiative: '+4'
 ac: '15'
 hp: 137
-speed: 40 ft., Climb 40 ft.
+speed:
+  Normal: 40 ft.
+  Climb: 40 ft.
 challenge_rating: 9
 abilities:
   Str: 24

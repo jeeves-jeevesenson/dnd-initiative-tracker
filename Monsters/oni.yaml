@@ -5,7 +5,9 @@ alignment: Lawful Evil
 initiative: '+0'
 ac: '17'
 hp: 119
-speed: 30 ft., Fly 30 ft. (hover)
+speed:
+  Normal: 30 ft.
+  Fly: 30 ft. (hover)
 challenge_rating: 7
 abilities:
   Str: 19

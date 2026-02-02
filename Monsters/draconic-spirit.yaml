@@ -4,7 +4,10 @@ type: Dragon
 alignment: Neutral
 ac: 14 + the spell's level
 hp: 50
-speed: 30 ft., Fly 60 ft., Swim 30 ft.
+speed:
+  Normal: 30 ft.
+  Fly: 60 ft.
+  Swim: 30 ft.
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 19

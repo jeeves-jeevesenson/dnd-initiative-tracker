@@ -5,7 +5,9 @@ alignment: Unaligned
 initiative: '+1'
 ac: '11'
 hp: 19
-speed: 40 ft., Climb 30 ft.
+speed:
+  Normal: 40 ft.
+  Climb: 30 ft.
 challenge_rating: 1/2
 abilities:
   Str: 17

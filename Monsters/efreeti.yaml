@@ -5,7 +5,9 @@ alignment: Neutral
 initiative: '+1'
 ac: '17'
 hp: 212
-speed: 40 ft., Fly 60 ft. (hover)
+speed:
+  Normal: 40 ft.
+  Fly: 60 ft. (hover)
 challenge_rating: 11
 abilities:
   Str: 22

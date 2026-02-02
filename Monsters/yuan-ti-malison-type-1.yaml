@@ -5,7 +5,9 @@ alignment: Neutral Evil
 initiative: '+2'
 ac: '12'
 hp: 66
-speed: 30 ft., Climb 30 ft. (snake form only)
+speed:
+  Normal: 30 ft.
+  Climb: 30 ft. (snake form only)
 challenge_rating: 3
 abilities:
   Str: 16

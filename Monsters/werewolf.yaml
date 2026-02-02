@@ -5,7 +5,8 @@ alignment: Chaotic Evil
 initiative: '+4'
 ac: '15'
 hp: 71
-speed: 40 ft. (wolf form only)
+speed:
+  Normal: 40 ft. (wolf form only)
 challenge_rating: 3
 abilities:
   Str: 16

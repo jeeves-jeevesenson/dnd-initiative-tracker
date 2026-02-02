@@ -5,7 +5,10 @@ alignment: Lawful Evil
 initiative: '+11'
 ac: '19'
 hp: 207
-speed: 40 ft., Fly 80 ft., Swim 40 ft.
+speed:
+  Normal: 40 ft.
+  Fly: 80 ft.
+  Swim: 40 ft.
 challenge_rating: 15
 abilities:
   Str: 23

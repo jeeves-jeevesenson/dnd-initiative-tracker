@@ -5,7 +5,9 @@ alignment: Neutral Evil
 initiative: '+0'
 ac: '13'
 hp: 65
-speed: 30 ft., Swim 30 ft.
+speed:
+  Normal: 30 ft.
+  Swim: 30 ft.
 challenge_rating: 3
 abilities:
   Str: 16

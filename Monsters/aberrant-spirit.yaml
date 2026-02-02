@@ -4,7 +4,9 @@ type: Aberration
 alignment: Neutral
 ac: 11 + the spell's level
 hp: 40
-speed: 30 ft., Fly 30 ft. (hover; Beholderkin only)
+speed:
+  Normal: 30 ft.
+  Fly: 30 ft. (hover; Beholderkin only)
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 16

@@ -5,7 +5,9 @@ alignment: Chaotic Evil
 initiative: '+4'
 ac: '18'
 hp: 93
-speed: 30 ft., Burrow 20 ft.
+speed:
+  Normal: 30 ft.
+  Burrow: 20 ft.
 challenge_rating: 5
 abilities:
   Str: 20

@@ -4,7 +4,8 @@ type: Construct
 alignment: Neutral
 ac: 13 + the spell's level
 hp: 40
-speed: 30 ft.
+speed:
+  Normal: 30 ft.
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 18

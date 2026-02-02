@@ -5,7 +5,8 @@ alignment: Chaotic Neutral
 initiative: '+2'
 ac: '12'
 hp: 7
-speed: 30 ft.
+speed:
+  Normal: 30 ft.
 challenge_rating: 1/8
 abilities:
   Str: 8

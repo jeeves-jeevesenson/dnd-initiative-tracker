@@ -5,7 +5,8 @@ alignment: Chaotic Evil
 initiative: '+6'
 ac: '18'
 hp: 157
-speed: 30 ft.
+speed:
+  Normal: 30 ft.
 challenge_rating: 8
 abilities:
   Str: 19

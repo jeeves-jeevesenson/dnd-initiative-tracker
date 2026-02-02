@@ -5,7 +5,9 @@ alignment: Lawful Good
 initiative: '+14'
 ac: '22'
 hp: 468
-speed: 40 ft., Fly 80 ft.
+speed:
+  Normal: 40 ft.
+  Fly: 80 ft.
 challenge_rating: 23
 abilities:
   Str: 30

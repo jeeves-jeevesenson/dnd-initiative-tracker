@@ -5,7 +5,9 @@ alignment: Neutral Evil
 initiative: '+2'
 ac: '12'
 hp: 2
-speed: 20 ft., Climb 20 ft.
+speed:
+  Normal: 20 ft.
+  Climb: 20 ft.
 challenge_rating: 0
 abilities:
   Str: 13

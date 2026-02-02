@@ -5,7 +5,8 @@ alignment: Neutral
 initiative: '+2'
 ac: '12'
 hp: 120
-speed: 30 ft., 40 ft. (tiger form only)
+speed:
+  Normal: 40 ft. (tiger form only)
 challenge_rating: 4
 abilities:
   Str: 17

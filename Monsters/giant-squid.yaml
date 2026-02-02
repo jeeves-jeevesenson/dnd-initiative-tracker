@@ -5,7 +5,9 @@ alignment: Unaligned
 initiative: '+2'
 ac: '12'
 hp: 120
-speed: 5 ft., Swim 80 ft.
+speed:
+  Normal: 5 ft.
+  Swim: 80 ft.
 challenge_rating: 6
 abilities:
   Str: 23

@@ -5,7 +5,10 @@ alignment: Unaligned
 initiative: '+18'
 ac: '25'
 hp: 697
-speed: 60 ft., Burrow 40 ft., Climb 60 ft.
+speed:
+  Normal: 60 ft.
+  Burrow: 40 ft.
+  Climb: 60 ft.
 challenge_rating: 30
 abilities:
   Str: 30

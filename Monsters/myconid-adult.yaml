@@ -5,7 +5,8 @@ alignment: Lawful Neutral
 initiative: '+0'
 ac: '12'
 hp: 16
-speed: 20 ft.
+speed:
+  Normal: 20 ft.
 challenge_rating: 1/2
 abilities:
   Str: 10

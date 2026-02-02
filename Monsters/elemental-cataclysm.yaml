@@ -5,7 +5,11 @@ alignment: Chaotic Neutral
 initiative: '+18'
 ac: '20'
 hp: 370
-speed: 60 ft., Burrow 60 ft., Fly 80 ft. (hover), Swim 80 ft.
+speed:
+  Normal: 60 ft.
+  Burrow: 60 ft.
+  Fly: 80 ft. (hover)
+  Swim: 80 ft.
 challenge_rating: 22
 abilities:
   Str: 26

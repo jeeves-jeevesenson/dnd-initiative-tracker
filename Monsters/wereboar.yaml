@@ -5,7 +5,8 @@ alignment: Neutral Evil
 initiative: '+2'
 ac: '15'
 hp: 97
-speed: 30 ft., 40 ft. (boar form only)
+speed:
+  Normal: 40 ft. (boar form only)
 challenge_rating: 4
 abilities:
   Str: 17

@@ -5,7 +5,10 @@ alignment: Lawful Good
 initiative: '+4'
 ac: '18'
 hp: 136
-speed: 40 ft., Climb 40 ft., Swim 40 ft.
+speed:
+  Normal: 40 ft.
+  Climb: 40 ft.
+  Swim: 40 ft.
 challenge_rating: 10
 abilities:
   Str: 19

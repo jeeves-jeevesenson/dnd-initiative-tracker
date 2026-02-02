@@ -5,7 +5,9 @@ alignment: Unaligned
 initiative: '+0'
 ac: '17'
 hp: 94
-speed: 40 ft., Burrow 40 ft.
+speed:
+  Normal: 40 ft.
+  Burrow: 40 ft.
 challenge_rating: 5
 abilities:
   Str: 19

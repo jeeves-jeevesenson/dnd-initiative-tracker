@@ -4,7 +4,9 @@ type: Beast
 alignment: Neutral
 ac: 11 + the spell's level
 hp: 20
-speed: 30 ft., Climb 30 ft. (Land only); Fly 60 ft. (Air only); Swim 30 ft. (Water only)
+speed:
+  Normal: 30 ft.
+  Climb: 30 ft. (Land only); Fly 60 ft. (Air only); Swim 30 ft. (Water only)
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 18

@@ -5,7 +5,10 @@ alignment: Neutral Evil
 initiative: '+1'
 ac: '11'
 hp: 13
-speed: 20 ft., Fly 20 ft., Swim 20 ft.
+speed:
+  Normal: 20 ft.
+  Fly: 20 ft.
+  Swim: 20 ft.
 challenge_rating: 1/4
 abilities:
   Str: 8

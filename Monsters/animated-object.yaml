@@ -4,7 +4,8 @@ type: or Smaller Construct
 alignment: Unaligned
 ac: '15'
 hp: 10
-speed: 30 ft.
+speed:
+  Normal: 30 ft.
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 16

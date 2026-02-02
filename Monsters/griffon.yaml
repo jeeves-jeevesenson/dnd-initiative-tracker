@@ -5,7 +5,9 @@ alignment: Unaligned
 initiative: '+2'
 ac: '12'
 hp: 59
-speed: 30 ft., Fly 80 ft.
+speed:
+  Normal: 30 ft.
+  Fly: 80 ft.
 challenge_rating: 2
 abilities:
   Str: 18

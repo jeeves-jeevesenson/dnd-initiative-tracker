@@ -5,7 +5,9 @@ alignment: Neutral Good
 initiative: '+3'
 ac: '15'
 hp: 135
-speed: 30 ft., 40 ft. (bear form only), Climb 30 ft. (bear form only)
+speed:
+  Normal: 40 ft. (bear form only)
+  Climb: 30 ft. (bear form only)
 challenge_rating: 5
 abilities:
   Str: 19

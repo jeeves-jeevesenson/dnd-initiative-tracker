@@ -5,7 +5,9 @@ alignment: Chaotic Evil
 initiative: '+2'
 ac: '12'
 hp: 22
-speed: 30 ft., Fly 50 ft. (hover)
+speed:
+  Normal: 30 ft.
+  Fly: 50 ft. (hover)
 challenge_rating: 1
 abilities:
   Str: 1

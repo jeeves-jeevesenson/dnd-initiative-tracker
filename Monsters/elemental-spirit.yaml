@@ -4,7 +4,9 @@ type: Elemental
 alignment: Neutral
 ac: 11 + the spell's level
 hp: 50
-speed: 40 ft., Burrow 40 ft. (Earth only); Fly 40 ft. (hover; Air only); Swim 40 ft. (Water only)
+speed:
+  Normal: 40 ft.
+  Burrow: 40 ft. (Earth only); Fly 40 ft. (hover; Air only); Swim 40 ft. (Water only)
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 18

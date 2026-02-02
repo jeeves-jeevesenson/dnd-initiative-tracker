@@ -4,7 +4,9 @@ type: Fey
 alignment: Neutral
 ac: 12 + the spell's level
 hp: 30
-speed: 30 ft., Fly 30 ft.
+speed:
+  Normal: 30 ft.
+  Fly: 30 ft.
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 13

@@ -5,7 +5,10 @@ alignment: Lawful Evil
 initiative: '+4'
 ac: '18'
 hp: 152
-speed: 40 ft., Burrow 20 ft., Fly 80 ft.
+speed:
+  Normal: 40 ft.
+  Burrow: 20 ft.
+  Fly: 80 ft.
 challenge_rating: 9
 abilities:
   Str: 21

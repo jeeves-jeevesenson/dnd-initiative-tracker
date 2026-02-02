@@ -5,7 +5,8 @@ alignment: Neutral Evil
 initiative: '+17'
 ac: '20'
 hp: 315
-speed: 30 ft.
+speed:
+  Normal: 30 ft.
 challenge_rating: 21
 abilities:
   Str: 11

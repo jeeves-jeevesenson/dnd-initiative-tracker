@@ -4,7 +4,9 @@ type: Undead
 alignment: Neutral
 ac: 11 + the spell's level
 hp: 30
-speed: 30 ft., Fly 40 ft. (hover; Ghostly only)
+speed:
+  Normal: 30 ft.
+  Fly: 40 ft. (hover; Ghostly only)
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 12

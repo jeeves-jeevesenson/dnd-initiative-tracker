@@ -4,7 +4,9 @@ type: Fiend
 alignment: Neutral
 ac: 12 + the spell's level
 hp: 50
-speed: 40 ft., Climb 40 ft. (Demon only); Fly 60 ft. (Devil only)
+speed:
+  Normal: 40 ft.
+  Climb: 40 ft. (Demon only); Fly 60 ft. (Devil only)
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 13

@@ -4,7 +4,9 @@ type: Celestial or Fey or Fiend (Your Choice)
 alignment: Neutral
 ac: 10 + 1 per spell level
 hp: 5
-speed: 60 ft., Fly 60 ft. (requires level 4+ spell)
+speed:
+  Normal: 60 ft.
+  Fly: 60 ft. (requires level 4+ spell)
 challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 18

@@ -5,7 +5,9 @@ alignment: Unaligned
 initiative: '+1'
 ac: '11'
 hp: 19
-speed: 20 ft., Climb or Fly 20 ft. (DM's choice)
+speed:
+  Normal: 20 ft.
+  Climb: or Fly 20 ft. (DM's choice)
 challenge_rating: 1/2
 abilities:
   Str: 3

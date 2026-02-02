@@ -5,7 +5,8 @@ alignment: Unaligned
 initiative: –1 (9)
 ac: '12'
 hp: 76
-speed: 40 ft.
+speed:
+  Normal: 40 ft.
 challenge_rating: 4
 abilities:
   Str: 22

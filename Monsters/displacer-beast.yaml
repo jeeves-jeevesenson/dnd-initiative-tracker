@@ -5,7 +5,8 @@ alignment: Lawful Evil
 initiative: '+4'
 ac: '13'
 hp: 76
-speed: 40 ft.
+speed:
+  Normal: 40 ft.
 challenge_rating: 3
 abilities:
   Str: 18
