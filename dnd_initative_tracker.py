@@ -25,6 +25,7 @@ import importlib
 import threading
 import time
 import logging
+import shutil
 import re
 import os
 import hashlib
@@ -471,6 +472,38 @@ def _ensure_logs_dir() -> Path:
     except Exception:
         pass
     return logs
+
+
+def _archive_startup_logs() -> None:
+    """Move existing .log files in ./logs into ./logs/old logs/<timestamp>."""
+    logs = _ensure_logs_dir()
+    try:
+        entries = [entry for entry in logs.iterdir() if entry.is_file() and entry.name.endswith(".log")]
+    except Exception:
+        return
+    if not entries:
+        return
+    try:
+        archive_root = logs / "old logs"
+        archive_root.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        archive_dir = archive_root / stamp
+        archive_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return
+    for entry in entries:
+        try:
+            dest = archive_dir / entry.name
+            if dest.exists():
+                base = entry.stem
+                suffix = entry.suffix
+                n = 1
+                while dest.exists():
+                    dest = archive_dir / f"{base}_{n}{suffix}"
+                    n += 1
+            shutil.move(str(entry), str(dest))
+        except Exception:
+            pass
 
 
 def _make_ops_logger() -> logging.Logger:
@@ -2725,6 +2758,8 @@ class InitiativeTracker(base.InitiativeTracker):
     def __init__(self) -> None:
         super().__init__()
         self.title(f"DnD Initiative Tracker — v{APP_VERSION}")
+
+        _archive_startup_logs()
 
         # Operations logger (terminal + ./logs/operations.log)
         self._ops_logger = _make_ops_logger()
