@@ -7967,7 +7967,8 @@ class BattleMapWindow(tk.Toplevel):
             if owner_cid is not None and active_cid is not None and int(owner_cid) != int(active_cid):
                 if hasattr(self, "app"):
                     try:
-                        name = self.app.combatants.get(int(owner_cid)).name
+                        owner_combatant = self.app.combatants.get(int(owner_cid))
+                        name = owner_combatant.name if owner_combatant else None
                     except Exception:
                         name = None
                     if name:
