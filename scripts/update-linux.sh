@@ -54,11 +54,39 @@ echo "Checking for updates..."
 cd "$INSTALL_DIR"
 
 # Fetch latest changes
-git fetch origin
+DEFAULT_REMOTE="origin"
+if ! git remote get-url "$DEFAULT_REMOTE" >/dev/null 2>&1; then
+    DEFAULT_REMOTE=$(git remote | head -n 1)
+fi
+if [ -z "$DEFAULT_REMOTE" ] || ! git remote get-url "$DEFAULT_REMOTE" >/dev/null 2>&1; then
+    echo "Error: No valid git remotes found to check for updates."
+    exit 1
+fi
+
+git fetch "$DEFAULT_REMOTE" --prune --tags
 
 # Check if there are updates
 LOCAL_COMMIT=$(git rev-parse HEAD)
-REMOTE_COMMIT=$(git rev-parse origin/main)
+DEFAULT_BRANCH_REF=$(git symbolic-ref -q "refs/remotes/${DEFAULT_REMOTE}/HEAD" 2>/dev/null || true)
+DEFAULT_BRANCH_NAME="${DEFAULT_BRANCH_REF#refs/remotes/${DEFAULT_REMOTE}/}"
+if [ -z "$DEFAULT_BRANCH_NAME" ]; then
+    echo "Warning: Could not detect remote default branch; falling back to 'main'."
+    echo "         Run 'git remote set-head ${DEFAULT_REMOTE} --auto' to configure it."
+fi
+DEFAULT_BRANCH_NAME="${DEFAULT_BRANCH_NAME:-main}"
+# Set UPDATE_BRANCH in your environment to override the default branch.
+# Accepts "remote/branch" or a branch name that will be prefixed with the default remote.
+REMOTE_BRANCH="${UPDATE_BRANCH:-${DEFAULT_REMOTE}/${DEFAULT_BRANCH_NAME}}"
+case "$REMOTE_BRANCH" in
+    */*) ;;
+    *) REMOTE_BRANCH="${DEFAULT_REMOTE}/${REMOTE_BRANCH}" ;;
+esac
+if ! git rev-parse --verify "${REMOTE_BRANCH}" >/dev/null 2>&1; then
+    echo "Error: Could not resolve update branch ${REMOTE_BRANCH}."
+    echo "Try again after fetching or set UPDATE_BRANCH to a valid remote branch (e.g., ${DEFAULT_REMOTE}/${DEFAULT_BRANCH_NAME})."
+    exit 1
+fi
+REMOTE_COMMIT=$(git rev-parse "$REMOTE_BRANCH")
 
 if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ]; then
     echo ""
@@ -71,7 +99,7 @@ echo ""
 
 # Show what will be updated
 echo "Changes to be applied:"
-git log --oneline --decorate HEAD..origin/main | head -5
+git log --oneline --decorate -n 5 "HEAD..${REMOTE_BRANCH}"
 echo ""
 
 # Ask for confirmation
@@ -100,7 +128,14 @@ for yaml_dir in "${YAML_DIRS[@]}"; do
 done
 
 # Pull latest changes
-git pull origin main
+REMOTE_NAME="${REMOTE_BRANCH%%/*}"
+REMOTE_BRANCH_PATH="${REMOTE_BRANCH#${REMOTE_NAME}/}"
+if [ -z "$REMOTE_NAME" ] || [ -z "$REMOTE_BRANCH_PATH" ] || ! git remote get-url "$REMOTE_NAME" >/dev/null 2>&1; then
+    echo "Error: Unable to determine update remote/branch from ${REMOTE_BRANCH}."
+    echo "       Expected format: remote/branch and a configured git remote."
+    exit 1
+fi
+git pull "$REMOTE_NAME" "$REMOTE_BRANCH_PATH"
 
 # Update dependencies
 if [ -f "$INSTALL_DIR/.venv/bin/activate" ]; then
