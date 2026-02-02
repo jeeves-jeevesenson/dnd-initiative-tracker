@@ -170,6 +170,9 @@ class Combatant:
     hp: int
     speed: int
     swim_speed: int
+    fly_speed: int
+    burrow_speed: int
+    climb_speed: int
     water_mode: bool
     move_remaining: int
     initiative: int
@@ -208,6 +211,9 @@ class MonsterSpec:
     hp: Optional[int]
     speed: Optional[int]
     swim_speed: Optional[int]
+    fly_speed: Optional[int]
+    burrow_speed: Optional[int]
+    climb_speed: Optional[int]
     dex: Optional[int]
     init_mod: Optional[int]
     saving_throws: Dict[str, int]
@@ -230,6 +236,102 @@ def _normalize_hex_color_value(color: object) -> Optional[str]:
     if not re.fullmatch(r"#[0-9a-f]{6}", value):
         return None
     return value
+
+
+def _parse_speed_number(value: object) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        match = re.search(r"-?\d+", value)
+        if match:
+            try:
+                return int(match.group(0))
+            except ValueError:
+                return None
+    return None
+
+
+def _normalize_speed_key(key: object) -> str:
+    if not isinstance(key, str):
+        return ""
+    text = key.strip().lower().replace("_", " ").replace("-", " ")
+    text = text.replace("ft", "").strip()
+    return " ".join(text.split())
+
+
+def _parse_speed_string(text: str) -> Dict[str, int]:
+    result: Dict[str, int] = {}
+    for part in re.split(r"[;,]", text):
+        chunk = part.strip()
+        if not chunk:
+            continue
+        value = _parse_speed_number(chunk)
+        if value is None:
+            continue
+        lowered = chunk.lower()
+        label = None
+        for key in ("fly", "swim", "burrow", "climb", "walk", "land", "normal"):
+            if key in lowered:
+                label = key
+                break
+        if label is None:
+            label = "normal"
+        if label not in result:
+            result[label] = value
+    return result
+
+
+def _parse_speed_data(value: object) -> Tuple[Optional[int], Optional[int], Optional[int], Optional[int], Optional[int]]:
+    speeds: Dict[str, Optional[int]] = {
+        "normal": None,
+        "swim": None,
+        "fly": None,
+        "burrow": None,
+        "climb": None,
+    }
+
+    def set_speed(kind: str, speed_val: Optional[int]) -> None:
+        if speed_val is None:
+            return
+        if speeds.get(kind) is None:
+            speeds[kind] = speed_val
+
+    def apply_label(label: str, speed_val: Optional[int]) -> None:
+        if speed_val is None:
+            return
+        normalized = _normalize_speed_key(label)
+        if normalized in {"normal", "walk", "land", "ground", "base", "speed"}:
+            set_speed("normal", speed_val)
+        elif normalized in {"swim", "fly", "burrow", "climb"}:
+            set_speed(normalized, speed_val)
+        else:
+            set_speed("normal", speed_val)
+
+    if isinstance(value, dict):
+        for key, entry in value.items():
+            if isinstance(entry, str):
+                parsed = _parse_speed_string(entry)
+                if parsed:
+                    for label, spd in parsed.items():
+                        apply_label(label, spd)
+                    continue
+            apply_label(str(key), _parse_speed_number(entry))
+    elif isinstance(value, str):
+        parsed = _parse_speed_string(value)
+        for label, spd in parsed.items():
+            apply_label(label, spd)
+    else:
+        apply_label("normal", _parse_speed_number(value))
+
+    return (
+        speeds["normal"],
+        speeds["swim"],
+        speeds["fly"],
+        speeds["burrow"],
+        speeds["climb"],
+    )
 
 
 def _terrain_preset_from_entry(entry: object) -> Optional[TerrainPreset]:
@@ -1577,6 +1679,9 @@ class InitiativeTracker(tk.Tk):
         dex: Optional[int],
         ally: bool,
         swim_speed: int = 0,
+        fly_speed: Optional[int] = None,
+        burrow_speed: Optional[int] = None,
+        climb_speed: Optional[int] = None,
         water_mode: bool = False,
         is_pc: bool = False,
         is_spellcaster: Optional[bool] = None,
@@ -1590,6 +1695,15 @@ class InitiativeTracker(tk.Tk):
         self._next_id += 1
         spd = max(0, int(speed))
         swim = max(0, int(swim_speed))
+        if fly_speed is None and monster_spec is not None:
+            fly_speed = monster_spec.fly_speed
+        if burrow_speed is None and monster_spec is not None:
+            burrow_speed = monster_spec.burrow_speed
+        if climb_speed is None and monster_spec is not None:
+            climb_speed = monster_spec.climb_speed
+        fly = max(0, int(fly_speed or 0))
+        burrow = max(0, int(burrow_speed or 0))
+        climb = max(0, int(climb_speed or 0))
         wm = bool(water_mode)
 
         base = swim if (wm and swim > 0) else (0 if wm else spd)
@@ -1613,6 +1727,9 @@ class InitiativeTracker(tk.Tk):
             hp=int(hp),
             speed=spd,
             swim_speed=swim,
+            fly_speed=fly,
+            burrow_speed=burrow,
+            climb_speed=climb,
             water_mode=wm,
             move_remaining=base,
             move_total=base,
@@ -2907,6 +3024,9 @@ class InitiativeTracker(tk.Tk):
                             hp=summary.get("hp"),
                             speed=summary.get("speed"),
                             swim_speed=summary.get("swim_speed"),
+                            fly_speed=summary.get("fly_speed"),
+                            burrow_speed=summary.get("burrow_speed"),
+                            climb_speed=summary.get("climb_speed"),
                             dex=summary.get("dex"),
                             init_mod=summary.get("init_mod"),
                             saving_throws=summary.get("saving_throws") if isinstance(summary.get("saving_throws"), dict) else {},
@@ -3047,29 +3167,18 @@ class InitiativeTracker(tk.Tk):
 
             speed = None
             swim_speed = None
+            fly_speed = None
+            burrow_speed = None
+            climb_speed = None
             try:
-                if is_legacy:
-                    sp = mon.get("speed") or {}
-                    if isinstance(sp, dict):
-                        wf = sp.get("walk_ft")
-                        sf = sp.get("swim_ft")
-                        if isinstance(wf, int):
-                            speed = int(wf)
-                        elif isinstance(wf, str) and wf.strip().isdigit():
-                            speed = int(wf.strip())
-                        if isinstance(sf, int):
-                            swim_speed = int(sf)
-                        elif isinstance(sf, str) and sf.strip().isdigit():
-                            swim_speed = int(sf.strip())
-                else:
-                    sp = mon.get("speed")
-                    if isinstance(sp, int):
-                        speed = int(sp)
-                    elif isinstance(sp, str) and sp.strip().lstrip("-").isdigit():
-                        speed = int(sp.strip())
+                sp = mon.get("speed")
+                speed, swim_speed, fly_speed, burrow_speed, climb_speed = _parse_speed_data(sp)
             except Exception:
                 speed = None
                 swim_speed = None
+                fly_speed = None
+                burrow_speed = None
+                climb_speed = None
 
             dex = None
             try:
@@ -3145,6 +3254,9 @@ class InitiativeTracker(tk.Tk):
                 hp=hp,
                 speed=speed,
                 swim_speed=swim_speed,
+                fly_speed=fly_speed,
+                burrow_speed=burrow_speed,
+                climb_speed=climb_speed,
                 dex=dex,
                 init_mod=init_mod,
                 saving_throws=saving_throws,
@@ -3167,6 +3279,9 @@ class InitiativeTracker(tk.Tk):
                     "hp": hp,
                     "speed": speed,
                     "swim_speed": swim_speed,
+                    "fly_speed": fly_speed,
+                    "burrow_speed": burrow_speed,
+                    "climb_speed": climb_speed,
                     "dex": dex,
                     "init_mod": init_mod,
                     "saving_throws": saving_throws,
