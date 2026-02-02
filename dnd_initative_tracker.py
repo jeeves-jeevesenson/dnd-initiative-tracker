@@ -5629,7 +5629,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         # Only allow controlling on your turn (POC)
-        if not is_admin and typ not in ("cast_aoe", "aoe_move", "aoe_remove"):
+        if not is_admin and typ not in ("cast_aoe", "aoe_remove"):
             if self.current_cid is None or int(self.current_cid) != int(cid):
                 self._lan.toast(ws_id, "Not yer turn yet, matey.")
                 return
