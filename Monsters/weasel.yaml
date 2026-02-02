@@ -2,10 +2,11 @@ name: Weasel
 size: Tiny
 type: Beast
 alignment: Unaligned
-initiative: +3 (13)
+initiative: '+3'
 ac: '13'
-hp: 1 (1d4 - 1)
+hp: 1
 speed: 30 ft., Climb 30 ft.
+challenge_rating: 0
 abilities:
   Str: 3
   Dex: 16
@@ -17,13 +18,11 @@ skills:
 - Acrobatics +5
 - Perception +3
 - Stealth +5
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 13
 languages:
 - None
-senses: Darkvision 60 ft., Passive Perception 13
-challenge_rating: 0 (XP 10; PB +2)
 description: ''
 habitat: Forest, Grassland, Hill
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 1 Piercing damage.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 1 Piercing damage.'

@@ -2,10 +2,11 @@ name: Giant Goat
 size: Large
 type: Beast
 alignment: Unaligned
-initiative: +1 (11)
+initiative: '+1'
 ac: '11'
-hp: 19 (3d10 + 3)
+hp: 19
 speed: 40 ft., Climb 30 ft.
+challenge_rating: 1/2
 abilities:
   Str: 17
   Dex: 13
@@ -15,16 +16,13 @@ abilities:
   Cha: 6
 skills:
 - Perception +3
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 13
 languages:
 - None
-senses: Darkvision 60 ft., Passive Perception 13
-challenge_rating: 1/2 (XP 100; PB +2)
 description: ''
 habitat: Grassland, Hill, Mountain
 actions:
 - name: Ram
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 6 (1d6 + 3) Bludgeoning damage. If
-    the target is a Large or smaller creature and the goat moved 20+ feet straight
-    toward it immediately before the hit, the target takes an extra 5 (2d4) Bludgeoning
-    damage and has the Prone condition.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Bludgeoning damage. If the target is a Large or smaller
+    creature and the goat moved 20+ feet straight toward it immediately before the hit, the target takes an extra
+    5 (2d4) Bludgeoning damage and has the Prone condition.'

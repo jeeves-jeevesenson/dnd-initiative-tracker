@@ -2,10 +2,11 @@ name: Pirate Captain
 size: Medium
 type: or Small Humanoid
 alignment: Any Alignment
-initiative: +7 (17)
+initiative: '+7'
 ac: '17'
-hp: 84 (13d8 + 26)
+hp: 84
 speed: 30 ft.
+challenge_rating: 6
 abilities:
   Str: 10
   Dex: 18
@@ -16,33 +17,20 @@ abilities:
 skills:
 - Acrobatics +7
 - Perception +5
-immunities: []
+senses: Passive Perception 15
 languages:
 - Common plus one other language
-senses: Passive Perception 15
-challenge_rating: 6 (XP 2 300; PB +3)
-description: Pirate captains command crews of pirates, dictating their destinations
-  and targets. Captains cultivate fearsome and theatrical reputations, painting themselves
-  as larger-than-life characters to terrorize their foes, ensure the obedience of
-  their crews, and attract followers to their banner. Many have colorful nicknames
-  inspired by signature traits and deeds.
+description: Pirate captains command crews of pirates, dictating their destinations and targets. Captains cultivate
+  fearsome and theatrical reputations, painting themselves as larger-than-life characters to terrorize their foes,
+  ensure the obedience of their crews, and attract followers to their banner. Many have colorful nicknames inspired
+  by signature traits and deeds.
 habitat: Any
 treasure: Individual, Implements
 actions:
 - name: Multiattack
   desc: The pirate makes three attacks, using Rapier or Pistol in any combination.
 - name: Rapier
-  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 13 (2d8 + 4) Piercing damage, and
-    the pirate has Advantage on the next attack roll it makes before the end of this
-    turn.'
+  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 13 (2d8 + 4) Piercing damage, and the pirate has Advantage on
+    the next attack roll it makes before the end of this turn.'
 - name: Pistol
-  desc: 'Ranged Attack Roll: +7, range 30/90 ft. Hit: 15 (2d10+ 4) Piercing damage.'
-- name: Captain's Charm
-  desc: 'Wisdom Saving Throw: DC 14, one creature the pirate can see within 30 feet.
-    Failure: The target has the Charmed condition until the start of the pirate''s
-    next turn.'
-- name: Riposte
-  desc: 'Trigger: The pirate is hit by a melee attack roll while holding a weapon.
-    Response: The pirate adds 3 to its AC against that attack, possibly causing the
-    attack to miss. On a miss, the pirate makes one Rapier attack against the triggering
-    creature if within range.'
+  desc: 'Ranged Attack Roll : +7, range 30/90 ft. Hit : 15 (2d10+ 4) Piercing damage.'

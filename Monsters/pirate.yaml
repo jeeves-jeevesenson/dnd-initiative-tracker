@@ -2,10 +2,11 @@ name: Pirate
 size: Medium
 type: or Small Humanoid
 alignment: Any Alignment
-initiative: +5 (15)
+initiative: '+5'
 ac: '14'
-hp: 33 (6d8 + 6)
+hp: 33
 speed: 30 ft.
+challenge_rating: 1
 abilities:
   Str: 10
   Dex: 16
@@ -13,25 +14,19 @@ abilities:
   Int: 8
   Wis: 12
   Cha: 14
-skills: []
-immunities: []
+senses: Passive Perception 11
 languages:
 - Common plus one other language
-senses: Passive Perception 11
-challenge_rating: 1 (XP 200; PB +2)
-description: Along with being competent warriors, pirates are accomplished seafarers
-  who know how to sail and maintain a ship. While some loyally follow their captains'
-  orders, others place greed, superstition, or self-preservation over duty.
+description: Along with being competent warriors, pirates are accomplished seafarers who know how to sail and maintain
+  a ship. While some loyally follow their captains' orders, others place greed, superstition, or self-preservation
+  over duty.
 habitat: Any
 treasure: Individual, Implements
 actions:
 - name: Multiattack
-  desc: The pirate makes two Dagger attacks. It can replace one of these attacks with
-    a use of Enthralling Panache.
+  desc: The pirate makes two Dagger attacks. It can replace one of these attacks with a use of Enthralling Panache.
 - name: Dagger
-  desc: 'Melee or Ranged Attack Roll: +5, reach 5 ft. or range 20/60 ft. Hit: 5 (1d4
-    + 3) Piercing damage.'
+  desc: 'Melee or Ranged Attack Roll : +5, reach 5 ft. or range 20/60 ft. Hit : 5 (1d4 + 3) Piercing damage.'
 - name: Enthralling Panache
-  desc: 'Wisdom Saving Throw: DC 12, one creature the pirate can see within 30 feet.
-    Failure: The target has the Charmed condition until the start of the pirate''s
-    next turn.'
+  desc: 'Wisdom Saving Throw : DC 12, one creature the pirate can see within 30 feet. Failure : The target has the
+    Charmed condition until the start of the pirate''s next turn.'

@@ -2,10 +2,11 @@ name: Umber Hulk
 size: Large
 type: Monstrosity
 alignment: Chaotic Evil
-initiative: +4 (14)
+initiative: '+4'
 ac: '18'
-hp: 93 (11d10 + 33)
+hp: 93
 speed: 30 ft., Burrow 20 ft.
+challenge_rating: 5
 abilities:
   Str: 20
   Dex: 13
@@ -13,32 +14,17 @@ abilities:
   Int: 9
   Wis: 10
   Cha: 10
-skills: []
-immunities: []
+senses: Darkvision 120 ft., Tremorsense 60 ft., Passive Perception 10
 languages:
 - Umber Hulk
-senses: Darkvision 120 ft., Tremorsense 60 ft., Passive Perception 10
-challenge_rating: 5 (XP 1 800; PB +3)
 description: ''
 habitat: Underdark
 traits:
 - name: Tunneler
-  desc: The umber hulk can burrow through solid rock at half its Burrow Speed and
-    leaves a 10-foot-diameter tunnel in its wake.
+  desc: The umber hulk can burrow through solid rock at half its Burrow Speed and leaves a 10-foot-diameter tunnel
+    in its wake.
 actions:
 - name: Multiattack
   desc: The umber hulk makes three Rend attacks.
 - name: Rend
-  desc: 'Melee Attack Roll: +8, reach 10 ft. Hit: 12 (2d6 + 5) Slashing damage.'
-- name: Confusing Gaze (Recharge 5–6)
-  desc: 'Wisdom Saving Throw: DC 14, each creature in a 30-foot Cone. Failure: The
-    target can''t take Reactions until the start of the umber hulk''s next turn, and
-    the target rolls 1d8 to determine what it does on its next turn:'
-- name: 1-4
-  desc: The target does nothing.
-- name: 5-6
-  desc: The target takes no action or Bonus Action and uses all its movement to move
-    in a random direction.
-- name: 7-8
-  desc: The target makes a melee attack against a random creature within its reach
-    or does nothing if it can't make such an attack.
+  desc: 'Melee Attack Roll : +8, reach 10 ft. Hit : 12 (2d6 + 5) Slashing damage.'

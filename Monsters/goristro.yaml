@@ -2,10 +2,11 @@ name: Goristro
 size: Huge
 type: Fiend (Demon)
 alignment: Chaotic Evil
-initiative: +6 (16)
+initiative: '+6'
 ac: '19'
-hp: 310 (23d12 + 161)
+hp: 310
 speed: 50 ft.
+challenge_rating: 17
 abilities:
   Str: 25
   Dex: 11
@@ -18,10 +19,9 @@ skills:
 - Survival +7
 immunities:
 - Poison; Poisoned
+senses: Darkvision 120 ft., Passive Perception 17
 languages:
 - Abyssal
-senses: Darkvision 120 ft., Passive Perception 17
-challenge_rating: 17 (XP 18 000; PB +6)
 description: ''
 habitat: Planar (Abyss)
 treasure: Armaments

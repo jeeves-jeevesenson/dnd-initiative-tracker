@@ -2,10 +2,11 @@ name: Swarm of Lemures
 size: Large
 type: swarm of Medium Fiends (Devil)
 alignment: Lawful Evil
-initiative: -2 (8)
+initiative: '-2'
 ac: '12'
-hp: 45 (6d10 + 12)
+hp: 45
 speed: 40 ft.
+challenge_rating: 3
 abilities:
   Str: 14
   Dex: 7
@@ -13,7 +14,6 @@ abilities:
   Int: 1
   Wis: 12
   Cha: 3
-skills: []
 immunities:
 - Fire
 - Poison; Charmed
@@ -25,10 +25,9 @@ immunities:
 - Prone
 - Restrained
 - Stunned
+senses: Darkvision 120 ft. (unimpeded by magical Darkness), Passive Perception 11
 languages:
 - Understands Infernal but can't speak
-senses: Darkvision 120 ft. (unimpeded by magical Darkness), Passive Perception 11
-challenge_rating: 3 (XP 700; PB +2)
-description: When devils drive hosts of lemures into close proximity or when lemures
-  compress into a single mass, a swarm forms and adopts a unified mind.
+description: When devils drive hosts of lemures into close proximity or when lemures compress into a single mass,
+  a swarm forms and adopts a unified mind.
 habitat: Planar (Nine Hells)

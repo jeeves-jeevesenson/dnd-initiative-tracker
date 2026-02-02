@@ -2,10 +2,11 @@ name: Lacedon Ghoul
 size: Medium
 type: Undead
 alignment: Chaotic Evil
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 22 (5d8)
+hp: 22
 speed: 30 ft., Swim 30 ft.
+challenge_rating: 1
 abilities:
   Str: 13
   Dex: 15
@@ -13,17 +14,14 @@ abilities:
   Int: 7
   Wis: 10
   Cha: 6
-skills: []
 immunities:
 - Poison; Charmed
 - Exhaustion
 - Poisoned
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Common
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 1 (XP 200; PB +2)
-description: Lacedons are loose-skinned, aquatic ghouls. They often arise from the
-  corpses of greedy pirates, those who starved on deserted islands, or scoundrels
-  who met their end by drowning.
+description: Lacedons are loose-skinned, aquatic ghouls. They often arise from the corpses of greedy pirates, those
+  who starved on deserted islands, or scoundrels who met their end by drowning.
 habitat: Swamp, Underdark, Urban
 treasure: Any

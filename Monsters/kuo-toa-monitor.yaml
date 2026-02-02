@@ -2,10 +2,11 @@ name: Kuo-toa Monitor
 size: Medium
 type: Aberration
 alignment: Neutral Evil
-initiative: +0 (10)
+initiative: '+0'
 ac: '13'
-hp: 65 (10d8 + 20)
+hp: 65
 speed: 30 ft., Swim 30 ft.
+challenge_rating: 3
 abilities:
   Str: 16
   Dex: 10
@@ -16,15 +17,12 @@ abilities:
 skills:
 - Perception +6
 - Religion +3
-immunities: []
+senses: Darkvision 120 ft., Truesight 30 ft., Passive Perception 16
 languages:
 - Undercommon
-senses: Darkvision 120 ft., Truesight 30 ft., Passive Perception 16
-challenge_rating: 3 (XP 700; PB +2)
-description: Kuo-toa monitors control the day-to-day life of weaker kuo-toa, directing
-  their work and worship. They also train beasts or monsters in the kuo-toa's service—such
-  as chuuls or giant crabs—and command them in battle. Archpriests bless monitors
-  with the power to control their underlings and to subdue foes with electricity channeled
+description: Kuo-toa monitors control the day-to-day life of weaker kuo-toa, directing their work and worship. They
+  also train beasts or monsters in the kuo-toa's service—such as chuuls or giant crabs—and command them in battle.
+  Archpriests bless monitors with the power to control their underlings and to subdue foes with electricity channeled
   through their bizarre whips.
 habitat: Coastal, Underdark
 treasure: Relics

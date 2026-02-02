@@ -2,10 +2,11 @@ name: Awakened Shrub
 size: Small
 type: Plant
 alignment: Neutral
-initiative: -1 (9)
+initiative: '-1'
 ac: '9'
-hp: 10 (3d6)
+hp: 10
 speed: 20 ft.
+challenge_rating: 0
 abilities:
   Str: 3
   Dex: 8
@@ -13,17 +14,13 @@ abilities:
   Int: 10
   Wis: 10
   Cha: 6
-skills: []
-immunities: []
+senses: Passive Perception 10
 languages:
 - Common plus one other language
-senses: Passive Perception 10
-challenge_rating: 0 (XP 10; PB +2)
-description: Awakened shrubs can be any sort of small plant, from forest bushes to
-  clustered flowers. They often appear near awakened trees or in regions imbued with
-  primal magic. Some have whimsical appearances or foliage resembling rudimentary
-  facial features, while others look like animate topiary creatures.
+description: Awakened shrubs can be any sort of small plant, from forest bushes to clustered flowers. They often
+  appear near awakened trees or in regions imbued with primal magic. Some have whimsical appearances or foliage
+  resembling rudimentary facial features, while others look like animate topiary creatures.
 habitat: Forest
 actions:
 - name: Rake
-  desc: 'Melee Attack Roll: +1, reach 5 ft. Hit: 1 Slashing damage.'
+  desc: 'Melee Attack Roll : +1, reach 5 ft. Hit : 1 Slashing damage.'

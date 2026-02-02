@@ -2,10 +2,11 @@ name: Merfolk Skirmisher
 size: Medium
 type: Elemental
 alignment: Neutral
-initiative: +1 (11)
+initiative: '+1'
 ac: '11'
-hp: 11 (2d8 + 2)
+hp: 11
 speed: 10 ft., Swim 40 ft.
+challenge_rating: 1/8
 abilities:
   Str: 10
   Dex: 13
@@ -13,15 +14,11 @@ abilities:
   Int: 11
   Wis: 14
   Cha: 12
-skills: []
-immunities: []
+senses: Passive Perception 12
 languages:
 - Common
 - Primordial (Aquan)
-senses: Passive Perception 12
-challenge_rating: 1/8 (XP 25; PB +2)
-description: Merfolk skirmishers defend their homes from aquatic monsters and invaders
-  from the surface.
+description: Merfolk skirmishers defend their homes from aquatic monsters and invaders from the surface.
 habitat: Coastal, Underwater
 treasure: Individual
 traits:
@@ -29,7 +26,6 @@ traits:
   desc: The merfolk can breathe air and water.
 actions:
 - name: Ocean Spear
-  desc: 'Melee or Ranged Attack Roll: +2, reach 5 ft. or range 20/60 ft. Hit: 3 (1d6)
-    Piercing damage plus 2 (1d4) Cold damage. If the target is a creature, its Speed
-    decreases by 10 feet until the end of its next turn. Hit or Miss: The spear magically
-    returns to the merfolk''s hand immediately after a ranged attack.'
+  desc: 'Melee or Ranged Attack Roll : +2, reach 5 ft. or range 20/60 ft. Hit : 3 (1d6) Piercing damage plus 2 (1d4)
+    Cold damage. If the target is a creature, its Speed decreases by 10 feet until the end of its next turn. Hit
+    or Miss : The spear magically returns to the merfolk''s hand immediately after a ranged attack.'

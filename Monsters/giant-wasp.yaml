@@ -2,10 +2,11 @@ name: Giant Wasp
 size: Medium
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '13'
-hp: 22 (5d8)
+hp: 22
 speed: 10 ft., Fly 50 ft.
+challenge_rating: 1/2
 abilities:
   Str: 10
   Dex: 14
@@ -13,19 +14,14 @@ abilities:
   Int: 1
   Wis: 10
   Cha: 3
-skills: []
-immunities: []
+senses: Passive Perception 10
 languages:
 - None
-senses: Passive Perception 10
-challenge_rating: 1/2 (XP 100; PB +2)
 description: ''
 habitat: Forest, Grassland, Urban
 traits:
 - name: Flyby
-  desc: The wasp doesn't provoke an Opportunity Attack when it flies out of an enemy's
-    reach.
+  desc: The wasp doesn't provoke an Opportunity Attack when it flies out of an enemy's reach.
 actions:
 - name: Sting
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Piercing damage plus
-    5 (2d4) Poison damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage plus 5 (2d4) Poison damage.'

@@ -2,10 +2,11 @@ name: Arcanaloth
 size: Medium
 type: Fiend (Yugoloth)
 alignment: Neutral Evil
-initiative: +5 (15)
+initiative: '+5'
 ac: '18'
-hp: 175 (27d8 + 54)
+hp: 175
 speed: 30 ft., Fly 30 ft. (hover)
+challenge_rating: 12
 abilities:
   Str: 17
   Dex: 12
@@ -22,10 +23,9 @@ immunities:
 - Acid
 - Poison; Charmed
 - Poisoned
+senses: Truesight 120 ft., Passive Perception 17
 languages:
 - All; telepathy 120 ft.
-senses: Truesight 120 ft., Passive Perception 17
-challenge_rating: 12 (XP 8 400; PB +4)
 description: ''
 habitat: Planar (Lower Planes)
 treasure: Arcana

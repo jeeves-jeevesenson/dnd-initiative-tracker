@@ -2,10 +2,11 @@ name: Skeleton
 size: Medium
 type: Undead
 alignment: Lawful Evil
-initiative: +3 (13)
+initiative: '+3'
 ac: '14'
-hp: 13 (2d8 + 4)
+hp: 13
 speed: 30 ft.
+challenge_rating: 1/4
 abilities:
   Str: 10
   Dex: 16
@@ -13,22 +14,19 @@ abilities:
   Int: 6
   Wis: 8
   Cha: 5
-skills: []
 immunities:
 - Poison; Exhaustion
 - Poisoned
+senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Understands Common plus one other language but can't speak
-senses: Darkvision 60 ft., Passive Perception 9
-challenge_rating: 1/4 (XP 50; PB +2)
-description: Skeleton warriors are reanimated Humanoid bones bearing the equipment
-  they had in life. They have greater agility and rudimentary faculties than zombies
-  and similar shambling corpses. While they aren't capable of creating plans of their
-  own, they avoid obvious barriers and self-destructive situations.
+description: Skeleton warriors are reanimated Humanoid bones bearing the equipment they had in life. They have greater
+  agility and rudimentary faculties than zombies and similar shambling corpses. While they aren't capable of creating
+  plans of their own, they avoid obvious barriers and self-destructive situations.
 habitat: Planar (Shadowfell), Underdark, Urban
 treasure: None
 actions:
 - name: Shortsword
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 6 (1d6 + 3) Piercing damage.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Piercing damage.'
 - name: Shortbow
-  desc: 'Ranged Attack Roll: +5, range 80/320 ft. Hit: 6 (1d6 + 3) Piercing damage.'
+  desc: 'Ranged Attack Roll : +5, range 80/320 ft. Hit : 6 (1d6 + 3) Piercing damage.'

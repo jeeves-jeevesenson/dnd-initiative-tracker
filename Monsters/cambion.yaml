@@ -2,10 +2,11 @@ name: Cambion
 size: Medium
 type: Fiend
 alignment: Neutral Evil
-initiative: +4 (14)
+initiative: '+4'
 ac: '19'
-hp: 105 (14d8 + 42)
+hp: 105
 speed: 30 ft., Fly 60 ft.
+challenge_rating: 5
 abilities:
   Str: 18
   Dex: 18
@@ -19,12 +20,11 @@ skills:
 - Stealth +7
 immunities:
 - Poisoned
+senses: Darkvision 120 ft., Passive Perception 14
 languages:
 - Abyssal
 - Common
 - Infernal
-senses: Darkvision 120 ft., Passive Perception 14
-challenge_rating: 5 (XP 1 800; PB +3)
 description: ''
 habitat: Any
 treasure: Relics

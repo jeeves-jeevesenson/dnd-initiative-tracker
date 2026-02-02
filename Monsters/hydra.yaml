@@ -2,10 +2,11 @@ name: Hydra
 size: Huge
 type: Monstrosity
 alignment: Unaligned
-initiative: +4 (14)
+initiative: '+4'
 ac: '15'
-hp: 184 (16d12 + 80)
+hp: 184
 speed: 40 ft., Swim 40 ft.
+challenge_rating: 8
 abilities:
   Str: 20
   Dex: 12
@@ -22,10 +23,9 @@ immunities:
 - Frightened
 - Stunned
 - Unconscious
+senses: Darkvision 60 ft., Passive Perception 16
 languages:
 - —
-senses: Darkvision 60 ft., Passive Perception 16
-challenge_rating: 8 (XP 3 900; PB +3)
 description: ''
 habitat: Coastal, Swamp
 treasure: Any
@@ -33,17 +33,15 @@ traits:
 - name: Hold Breath
   desc: The hydra can hold its breath for 1 hour.
 - name: Multiple Heads
-  desc: The hydra has five heads. Whenever the hydra takes 25 damage or more on a
-    single turn, one of its heads dies. The hydra dies if all its heads are dead.
-    At the end of each of its turns when it has at least one living head, the hydra
-    grows two heads for each of its heads that died since its last turn, unless it
-    has taken Fire damage since its last turn. The hydra regains 20 Hit Points when
-    it grows new heads.
+  desc: The hydra has five heads. Whenever the hydra takes 25 damage or more on a single turn, one of its heads
+    dies. The hydra dies if all its heads are dead. At the end of each of its turns when it has at least one living
+    head, the hydra grows two heads for each of its heads that died since its last turn, unless it has taken Fire
+    damage since its last turn. The hydra regains 20 Hit Points when it grows new heads.
 - name: Reactive Heads
-  desc: For each head the hydra has beyond one, it gets an extra Reaction that can
-    be used only for Opportunity Attacks.
+  desc: For each head the hydra has beyond one, it gets an extra Reaction that can be used only for Opportunity
+    Attacks.
 actions:
 - name: Multiattack
   desc: The hydra makes as many Bite attacks as it has heads.
 - name: Bite
-  desc: 'Melee Attack Roll: +8, reach 10 ft. Hit: 10 (1d10 + 5) Piercing damage.'
+  desc: 'Melee Attack Roll : +8, reach 10 ft. Hit : 10 (1d10 + 5) Piercing damage.'

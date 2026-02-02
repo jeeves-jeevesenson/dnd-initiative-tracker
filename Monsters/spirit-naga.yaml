@@ -2,10 +2,11 @@ name: Spirit Naga
 size: Large
 type: Fiend
 alignment: Chaotic Evil
-initiative: +3 (13)
+initiative: '+3'
 ac: '17'
-hp: 135 (18d10 + 36)
+hp: 135
 speed: 40 ft.
+challenge_rating: 8
 abilities:
   Str: 18
   Dex: 17
@@ -13,30 +14,27 @@ abilities:
   Int: 16
   Wis: 15
   Cha: 16
-skills: []
 immunities:
 - Poison; Charmed
 - Poisoned
+senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Abyssal
 - Common
-senses: Darkvision 60 ft., Passive Perception 12
-challenge_rating: 8 (XP 3 900; PB +3)
 description: ''
 habitat: Planar (Lower Planes), Underdark
 treasure: Arcana
 traits:
 - name: Fiendish Restoration
-  desc: If it dies, the naga returns to life in 1d6 days and regains all its Hit Points.
-    Only a Wish spell can prevent this trait from functioning.
+  desc: If it dies, the naga returns to life in 1d6 days and regains all its Hit Points. Only a Wish spell can prevent
+    this trait from functioning.
 actions:
 - name: Multiattack
   desc: The naga makes three attacks, using Bite or Necrotic Ray in any combination.
 - name: Bite
-  desc: 'Melee Attack Roll: +7, reach 10 ft. Hit: 7 (1d6 + 4) Piercing damage plus
-    14 (4d6) Poison damage.'
+  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 7 (1d6 + 4) Piercing damage plus 14 (4d6) Poison damage.'
 - name: Necrotic Ray
-  desc: 'Ranged Attack Roll: +6, range 60 ft. Hit: 21 (6d6) Necrotic damage.'
+  desc: 'Ranged Attack Roll : +6, range 60 ft. Hit : 21 (6d6) Necrotic damage.'
 - name: Spellcasting
-  desc: 'The naga casts one of the following spells, requiring no Somatic or Material
-    components and using Intelligence as the spellcasting ability (spell save DC 14):'
+  desc: 'The naga casts one of the following spells, requiring no Somatic or Material components and using Intelligence
+    as the spellcasting ability (spell save DC 14):'

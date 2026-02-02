@@ -2,10 +2,11 @@ name: Grell
 size: Medium
 type: Aberration
 alignment: Neutral Evil
-initiative: +6 (16)
+initiative: '+6'
 ac: '12'
-hp: 55 (10d8 + 10)
+hp: 55
 speed: 10 ft., Fly 30 ft. (hover)
+challenge_rating: 3
 abilities:
   Str: 15
   Dex: 14
@@ -19,9 +20,8 @@ skills:
 immunities:
 - Lightning; Blinded
 - Prone
+senses: Blindsight 60 ft., Passive Perception 14
 languages:
 - Deep Speech
-senses: Blindsight 60 ft., Passive Perception 14
-challenge_rating: 3 (XP 700; PB +2)
 description: ''
 habitat: Underdark

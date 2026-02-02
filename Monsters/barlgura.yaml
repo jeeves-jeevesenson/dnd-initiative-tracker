@@ -2,10 +2,11 @@ name: Barlgura
 size: Large
 type: Fiend (Demon)
 alignment: Chaotic Evil
-initiative: +2 (12)
+initiative: '+2'
 ac: '15'
-hp: 85 (10d10 + 30)
+hp: 85
 speed: 40 ft., Climb 40 ft.
+challenge_rating: 5
 abilities:
   Str: 18
   Dex: 15
@@ -18,10 +19,9 @@ skills:
 - Stealth +5
 immunities:
 - Poison; Poisoned
+senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 15
 languages:
 - Abyssal; telepathy 120 ft.
-senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 15
-challenge_rating: 5 (XP 1 800; PB +3)
 description: ''
 habitat: Planar (Abyss)
 treasure: Any

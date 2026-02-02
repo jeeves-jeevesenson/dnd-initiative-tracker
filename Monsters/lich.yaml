@@ -2,10 +2,11 @@ name: Lich
 size: Medium
 type: Undead (Wizard)
 alignment: Neutral Evil
-initiative: +17 (27)
+initiative: '+17'
 ac: '20'
-hp: 315 (42d8 + 126)
+hp: 315
 speed: 30 ft.
+challenge_rating: 21
 abilities:
   Str: 11
   Dex: 16
@@ -25,61 +26,50 @@ immunities:
 - Frightened
 - Paralyzed
 - Poisoned
+senses: Truesight 120 ft., Passive Perception 19
 languages:
 - All
-senses: Truesight 120 ft., Passive Perception 19
-challenge_rating: 21 (XP 33 000, or 41 000 in lair; PB +7)
-description: Some nefarious magic-users carry out forbidden necromantic rituals that
-  sever their souls from their bodies to turn themselves into liches, masters of magic
-  and undeath. With their souls preserved in hidden relics, liches puppet their own
-  corpses as they pursue ambitions free from mortal bonds. Liches possess exceptional
-  cunning and magical prowess, and they use their unnatural immortality to pursue
-  arcane secrets few could grasp in a single life. Uncanny agendas lead them to plumb
-  the secrets of life, the multiverse, godhood, and less fathomable topics. Careless
-  of mortal lives or desires, liches go to any lengths to achieve their goals. A lich's
-  age and origin influences its form. Older liches appear as little more than brittle
-  skeletons clad in the rotten finery of forgotten empires, while younger liches more
-  closely resemble living creatures and are clad in contemporary garb. Many cloak
-  themselves in illusions of their idealized mortal forms. Although liches don't fear
-  death, they're not free from the ravages of time. Over ages, some liches lose their
-  connection to time and the physical world, degenerating into demiliches.
+description: Some nefarious magic-users carry out forbidden necromantic rituals that sever their souls from their
+  bodies to turn themselves into liches, masters of magic and undeath. With their souls preserved in hidden relics,
+  liches puppet their own corpses as they pursue ambitions free from mortal bonds. Liches possess exceptional cunning
+  and magical prowess, and they use their unnatural immortality to pursue arcane secrets few could grasp in a single
+  life. Uncanny agendas lead them to plumb the secrets of life, the multiverse, godhood, and less fathomable topics.
+  Careless of mortal lives or desires, liches go to any lengths to achieve their goals. A lich's age and origin
+  influences its form. Older liches appear as little more than brittle skeletons clad in the rotten finery of forgotten
+  empires, while younger liches more closely resemble living creatures and are clad in contemporary garb. Many cloak
+  themselves in illusions of their idealized mortal forms. Although liches don't fear death, they're not free from
+  the ravages of time. Over ages, some liches lose their connection to time and the physical world, degenerating
+  into demiliches.
 habitat: Any
 treasure: Arcana
 traits:
 - name: Legendary Resistance (4/Day, or 5/Day in Lair)
   desc: If the lich fails a saving throw, it can choose to succeed instead.
 - name: Spirit Jar
-  desc: If destroyed, the lich reforms in 1d10 days if it has a spirit jar, reviving
-    with all its Hit Points. The new body appears in an unoccupied space within the
-    lich's lair.
+  desc: If destroyed, the lich reforms in 1d10 days if it has a spirit jar, reviving with all its Hit Points. The
+    new body appears in an unoccupied space within the lich's lair.
 actions:
 - name: Multiattack
-  desc: The lich makes three attacks, using Eldritch Burst or Paralyzing Touch in
-    any combination.
+  desc: The lich makes three attacks, using Eldritch Burst or Paralyzing Touch in any combination.
 - name: Eldritch Burst
-  desc: 'Melee or Ranged Attack Roll: +12, reach 5 ft. or range 120 ft. Hit: 31 (4d12
-    + 5) Force damage.'
+  desc: 'Melee or Ranged Attack Roll : +12, reach 5 ft. or range 120 ft. Hit : 31 (4d12 + 5) Force damage.'
 - name: Paralyzing Touch
-  desc: 'Melee Attack Roll: +12, reach 5 ft. Hit: 15 (3d6 + 5) Cold damage, and the
-    target has the Paralyzed condition until the start of the lich''s next turn.'
+  desc: 'Melee Attack Roll : +12, reach 5 ft. Hit : 15 (3d6 + 5) Cold damage, and the target has the Paralyzed condition
+    until the start of the lich''s next turn.'
 - name: Spellcasting
-  desc: 'The lich casts one of the following spells, using Intelligence as the spellcasting
-    ability (spell save DC 20):'
-- name: Protective Magic
-  desc: The lich casts Counterspell or Shield in response to the spell's trigger,
-    using the same spellcasting ability as Spellcasting.
+  desc: 'The lich casts one of the following spells, using Intelligence as the spellcasting ability (spell save
+    DC 20):'
 legendary_actions:
 - name: Deathly Teleport
-  desc: The lich teleports up to 60 feet to an unoccupied space it can see, and each
-    creature within 10 feet of the space it left takes 11 (2d10) Necrotic damage.
+  desc: The lich teleports up to 60 feet to an unoccupied space it can see, and each creature within 10 feet of
+    the space it left takes 11 (2d10) Necrotic damage.
 - name: Disrupt Life
-  desc: 'Constitution Saving Throw: DC 20, each creature that isn''t an Undead in
-    a 20-foot Emanation originating from the lich. Failure: 31 (9d6) Necrotic damage.
-    Success: Half damage. Failure or Success: The lich can''t take this action again
-    until the start of its next turn.'
+  desc: 'Constitution Saving Throw : DC 20, each creature that isn''t an Undead in a 20-foot Emanation originating
+    from the lich. Failure : 31 (9d6) Necrotic damage. Success : Half damage. Failure or Success : The lich can''t
+    take this action again until the start of its next turn.'
 - name: Frightening Gaze
-  desc: The lich casts Fear, using the same spellcasting ability as Spellcasting.
-    The lich can't take this action again until the start of its next turn.
-legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s
-  turn, The lich can expend a use to take one of the following actions. The lich regains
-  all expended uses at the start of each of its turns.'
+  desc: The lich casts Fear , using the same spellcasting ability as Spellcasting. The lich can't take this action
+    again until the start of its next turn.
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s turn, The lich can
+  expend a use to take one of the following actions. The lich regains all expended uses at the start of each of
+  its turns.'

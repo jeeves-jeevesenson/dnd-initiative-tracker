@@ -2,10 +2,11 @@ name: Zombie
 size: Medium
 type: Undead
 alignment: Neutral Evil
-initiative: -2 (8)
+initiative: '-2'
 ac: '8'
-hp: 15 (2d8 + 6)
+hp: 15
 speed: 20 ft.
+challenge_rating: 1/4
 abilities:
   Str: 13
   Dex: 6
@@ -13,24 +14,21 @@ abilities:
   Int: 3
   Wis: 6
   Cha: 5
-skills: []
 immunities:
 - Poison; Exhaustion
 - Poisoned
+senses: darkvision 60 ft., Passive Perception 8
 languages:
 - Understands Common plus one other language but can't speak
-senses: darkvision 60 ft., Passive Perception 8
-challenge_rating: 1/4 (XP 50; PB +2)
-description: Humanoid zombies usually serve as guardians, servants, or soldiers for
-  evil magic-users. In rare cases, foul magic might result in widespread reanimation
-  of the dead, unleashing hordes of zombies to terrorize the living.
+description: Humanoid zombies usually serve as guardians, servants, or soldiers for evil magic-users. In rare cases,
+  foul magic might result in widespread reanimation of the dead, unleashing hordes of zombies to terrorize the living.
 habitat: Planar (Shadowfell), Underdark, Urban
 treasure: None
 traits:
 - name: Undead Fortitude
-  desc: If damage reduces the zombie to 0 Hit Points, it must make a Constitution
-    saving throw (DC 5 plus the damage taken) unless the damage is Radiant or from
-    a Critical Hit. On a successful save, the zombie drops to 1 Hit Point instead.
+  desc: If damage reduces the zombie to 0 Hit Points, it must make a Constitution saving throw (DC 5 plus the damage
+    taken) unless the damage is Radiant or from a Critical Hit. On a successful save, the zombie drops to 1 Hit
+    Point instead.
 actions:
 - name: Slam
-  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 5 (1d8 + 1) Bludgeoning damage.'
+  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 5 (1d8 + 1) Bludgeoning damage.'

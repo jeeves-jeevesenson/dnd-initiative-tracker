@@ -2,10 +2,11 @@ name: Ice Mephit
 size: Small
 type: Elemental
 alignment: Neutral Evil
-initiative: +1 (11)
+initiative: '+1'
 ac: '11'
-hp: 21 (6d6)
+hp: 21
 speed: 30 ft., Fly 30 ft.
+challenge_rating: 1/2
 abilities:
   Str: 7
   Dex: 13
@@ -20,26 +21,22 @@ immunities:
 - Cold
 - Poison; Exhaustion
 - Poisoned
+senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Primordial (Aquan
 - Auran)
-senses: Darkvision 60 ft., Passive Perception 12
-challenge_rating: 1/2 (XP 100; PB +2)
-description: Ice mephits have bodies made of frigid air and frozen water. They delight
-  in freezing things and dropping ice into peoples' clothes.
+description: Ice mephits have bodies made of frigid air and frozen water. They delight in freezing things and dropping
+  ice into peoples' clothes.
 habitat: Planar (Elemental Planes), Arctic
 traits:
 - name: Death Burst
-  desc: 'The mephit explodes when it dies. Constitution Saving Throw: DC 10, each
-    creature in a 5-foot Emanation originating from the mephit. Failure: 5 (2d4) Cold
-    damage. Success: Half damage.'
+  desc: 'The mephit explodes when it dies. Constitution Saving Throw : DC 10, each creature in a 5-foot Emanation
+    originating from the mephit. Failure : 5 (2d4) Cold damage. Success : Half damage.'
 actions:
 - name: Claw
-  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 3 (1d4 + 1) Slashing damage plus
-    2 (1d4) Cold damage.'
+  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 3 (1d4 + 1) Slashing damage plus 2 (1d4) Cold damage.'
 - name: Fog Cloud (1/Day)
-  desc: The mephit casts Fog Cloud, requiring no spell components and using Charisma
-    as the spellcasting ability.
+  desc: The mephit casts Fog Cloud , requiring no spell components and using Charisma as the spellcasting ability.
 - name: Frost Breath (Recharge 6)
-  desc: 'Constitution Saving Throw: DC 10, each creature in a 15-foot Cone. Failure:
-    7 (3d4) Cold damage. Success: Half damage.'
+  desc: 'Constitution Saving Throw : DC 10, each creature in a 15-foot Cone. Failure : 7 (3d4) Cold damage. Success
+    : Half damage.'

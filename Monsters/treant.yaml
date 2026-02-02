@@ -2,10 +2,11 @@ name: Treant
 size: Huge
 type: Plant
 alignment: Chaotic Good
-initiative: +3 (13)
+initiative: '+3'
 ac: '16'
-hp: 138 (12d12 + 60)
+hp: 138
 speed: 30 ft.
+challenge_rating: 9
 abilities:
   Str: 23
   Dex: 8
@@ -13,15 +14,12 @@ abilities:
   Int: 12
   Wis: 16
   Cha: 12
-skills: []
-immunities: []
+senses: Passive Perception 13
 languages:
 - Common
 - Druidic
 - Elvish
 - Sylvan
-senses: Passive Perception 13
-challenge_rating: 9 (XP 5 000; PB +4)
 description: ''
 habitat: Forest
 traits:
@@ -31,13 +29,12 @@ actions:
 - name: Multiattack
   desc: The treant makes two Slam attacks.
 - name: Slam
-  desc: 'Melee Attack Roll: +10, reach 5 ft. Hit: 16 (3d6 + 6) Bludgeoning damage.'
+  desc: 'Melee Attack Roll : +10, reach 5 ft. Hit : 16 (3d6 + 6) Bludgeoning damage.'
 - name: Hail of Bark
-  desc: 'Ranged Attack Roll: +10, range 180 ft. Hit: 28 (4d10 + 6) Piercing damage.'
+  desc: 'Ranged Attack Roll : +10, range 180 ft. Hit : 28 (4d10 + 6) Piercing damage.'
 - name: Animate Trees (1/Day)
-  desc: The treant magically animates up to two trees it can see within 60 feet of
-    itself. Each tree uses the Treant stat block, except it has Intelligence and Charisma
-    scores of 1, it can't speak, and it lacks this action. The tree takes its turn
-    immediately after the treant on the same Initiative count, and it obeys the treant.
-    A tree remains animate for 1 day or until it dies, the treant dies, or it is more
-    than 120 feet from the treant. The tree then takes root if possible.
+  desc: The treant magically animates up to two trees it can see within 60 feet of itself. Each tree uses the Treant
+    stat block, except it has Intelligence and Charisma scores of 1, it can't speak, and it lacks this action. The
+    tree takes its turn immediately after the treant on the same Initiative count, and it obeys the treant. A tree
+    remains animate for 1 day or until it dies, the treant dies, or it is more than 120 feet from the treant. The
+    tree then takes root if possible.

@@ -2,10 +2,11 @@ name: Violet Fungus Necrohulk
 size: Large
 type: Plant
 alignment: Neutral Evil
-initiative: +4 (14)
+initiative: '+4'
 ac: '17'
-hp: 123 (13d10 +52)
+hp: 123
 speed: 40 ft.
+challenge_rating: 7
 abilities:
   Str: 19
   Dex: 12
@@ -13,7 +14,6 @@ abilities:
   Int: 7
   Wis: 14
   Cha: 10
-skills: []
 immunities:
 - Necrotic
 - Poison; Blinded
@@ -21,34 +21,19 @@ immunities:
 - Deafened
 - Frightened
 - Poisoned
+senses: Blindsight 60 ft., Passive Perception 12
 languages:
 - None
-senses: Blindsight 60 ft., Passive Perception 12
-challenge_rating: 7 (XP 2 900; PB +3)
-description: A violet fungus necrohulk forms when a violet fungus colony infests and
-  animates an ample heap of decay. This necrohulk attacks prey and spreads fungal
-  spores for the colony.
+description: A violet fungus necrohulk forms when a violet fungus colony infests and animates an ample heap of decay.
+  This necrohulk attacks prey and spreads fungal spores for the colony.
 habitat: Underdark
 actions:
 - name: Multiattack
   desc: The necrohulk makes two Rotting Slam attacks.
 - name: Rotting Slam
-  desc: 'Melee Attack Roll: +7, reach 10 ft. Hit: 9 (1d10+ 4) Bludgeoning damage plus
-    7 (2d6) Necrotic damage.'
+  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 9 (1d10+ 4) Bludgeoning damage plus 7 (2d6) Necrotic damage.'
 - name: Spore Bomb (Recharge 5-6)
-  desc: 'Constitution Saving Throw: DC 15, each creature in a 20-foot-radius Sphere
-    centered on a point the necrohulk can see within 60 feet. Failure: 28 (8d6) Necrotic
-    damage, and the target has the Poisoned condition until the start of the necrohulk''s
-    next turn. While Poisoned, the target can''t regain Hit Points. Success: Half
+  desc: 'Constitution Saving Throw : DC 15, each creature in a 20-foot-radius Sphere centered on a point the necrohulk
+    can see within 60 feet. Failure : 28 (8d6) Necrotic damage, and the target has the Poisoned condition until
+    the start of the necrohulk''s next turn. While Poisoned, the target can''t regain Hit Points. Success : Half
     damage only.'
-- name: Absorb Body
-  desc: 'Strength Saving Throw: DC 15, one Medium or Small creature the necrohulk
-    can see within 5 feet. Failure: The target is pulled into the necrohulk''s space
-    and becomes grafted to its body. The necrohulk can have only one target grafted
-    at a time. While grafted, the target has the Restrained condition and Disadvantage
-    on Constitution saving throws. When the necrohulk moves, the grafted target moves
-    with it. If the target dies while grafted, its body is destroyed, and the necrohulk
-    regains 10 Hit Points. The grafted target or a creature within 5 feet of the necrohulk
-    can take an action to make a DC 15 Strength (Athletics) check. On a successful
-    check, the target is no longer grafted and moves to an unoccupied space within
-    5 feet of the necrohulk.'

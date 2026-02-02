@@ -2,10 +2,11 @@ name: Guard Captain
 size: Medium
 type: or Small Humanoid
 alignment: Neutral
-initiative: +4 (14)
+initiative: '+4'
 ac: '18'
-hp: 75 (10d8 + 30)
+hp: 75
 speed: 30 ft.
+challenge_rating: 4
 abilities:
   Str: 18
   Dex: 14
@@ -16,21 +17,17 @@ abilities:
 skills:
 - Athletics +6
 - Perception +4
-immunities: []
+senses: Passive Perception 14
 languages:
 - Common
-senses: Passive Perception 14
-challenge_rating: 4 (XP 1 100; PB +2)
-description: Guard captains often have ample professional experience. They might be
-  accomplished bodyguards, protectors of magic treasures, veteran watch members, or
-  similar wardens.
+description: Guard captains often have ample professional experience. They might be accomplished bodyguards, protectors
+  of magic treasures, veteran watch members, or similar wardens.
 habitat: Any
 treasure: Armaments, Individual
 actions:
 - name: Multiattack
   desc: The guard makes two attacks, using Javelin or Longsword in any combination.
 - name: Javelin
-  desc: 'Melee or Ranged Attack Roll: +6, reach 5 ft. or range 30/120 ft. Hit: 14
-    (3d6 + 4) Piercing damage.'
+  desc: 'Melee or Ranged Attack Roll : +6, reach 5 ft. or range 30/120 ft. Hit : 14 (3d6 + 4) Piercing damage.'
 - name: Longsword
-  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 15 (2d10 + 4) Slashing damage.'
+  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 15 (2d10 + 4) Slashing damage.'

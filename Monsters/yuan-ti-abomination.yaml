@@ -2,10 +2,11 @@ name: Yuan-ti Abomination
 size: Large
 type: Monstrosity
 alignment: Neutral Evil
-initiative: +6 (16)
+initiative: '+6'
 ac: '15'
-hp: 127 (15d10 + 45)
+hp: 127
 speed: 40 ft., Climb 30 ft.
+challenge_rating: 7
 abilities:
   Str: 19
   Dex: 16
@@ -18,23 +19,19 @@ skills:
 - Stealth +6
 immunities:
 - Poison; Poisoned
+senses: Darkvision 60 ft., Passive Perception 17
 languages:
 - Abyssal
 - Common
 - Draconic
-senses: Darkvision 60 ft., Passive Perception 17
-challenge_rating: 7 (XP 2 900; PB +3)
-description: Yuan-ti abominations have traded away nearly all evidence of their humanity,
-  coming to resemble giant, upright serpents with scaly arms and hands. In battle,
-  they relish opportunities to crush foes in their powerful coils or strike with their
-  venomous fangs. These abominations can also shape-shift into snakes. In these forms,
-  abominations are indistinguishable from normal serpents. The true threat of yuan-ti
-  abominations stems not from their physical might but from their cunning. These masterminds
-  often lead cultlike cells of other yuan-ti and direct them in enacting elaborate
-  conspiracies. Abominations avoid jeopardizing themselves, typically scheming from
-  hidden bastions where they're protected by yuan-ti and serpent guardians. These
-  coldhearted leaders have a unique understanding of the supernatural forces that
-  grant yuan-ti their powers, and they usually have insidious magical traps and contingencies
-  at their disposal.
+description: Yuan-ti abominations have traded away nearly all evidence of their humanity, coming to resemble giant,
+  upright serpents with scaly arms and hands. In battle, they relish opportunities to crush foes in their powerful
+  coils or strike with their venomous fangs. These abominations can also shape-shift into snakes. In these forms,
+  abominations are indistinguishable from normal serpents. The true threat of yuan-ti abominations stems not from
+  their physical might but from their cunning. These masterminds often lead cultlike cells of other yuan-ti and
+  direct them in enacting elaborate conspiracies. Abominations avoid jeopardizing themselves, typically scheming
+  from hidden bastions where they're protected by yuan-ti and serpent guardians. These coldhearted leaders have
+  a unique understanding of the supernatural forces that grant yuan-ti their powers, and they usually have insidious
+  magical traps and contingencies at their disposal.
 habitat: Desert, Forest, Swamp, Urban
 treasure: Relics

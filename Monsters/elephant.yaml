@@ -4,8 +4,9 @@ type: Beast
 alignment: Unaligned
 initiative: –1 (9)
 ac: '12'
-hp: 76 (8d12 + 24)
+hp: 76
 speed: 40 ft.
+challenge_rating: 4
 abilities:
   Str: 22
   Dex: 9
@@ -13,21 +14,15 @@ abilities:
   Int: 3
   Wis: 11
   Cha: 6
-skills: []
-immunities: []
+senses: Passive Perception 10
 languages:
 - None
-senses: Passive Perception 10
-challenge_rating: 4 (XP 1 100; PB +2)
 description: ''
 habitat: Grassland
 actions:
 - name: Multiattack
   desc: The elephant makes two Gore attacks.
 - name: Gore
-  desc: 'Melee Attack Roll: +8, reach 5 ft. Hit: 15 (2d8 + 6) Piercing damage. If
-    the target is a Huge or smaller creature and the elephant moved 20+ feet straight
-    toward it immediately before the hit, the target has the Prone condition.'
-- name: Trample
-  desc: 'Dexterity Saving Throw: DC 16, one creature within 5 feet that has the Prone
-    condition. Failure: 17 (2d10 + 6) Bludgeoning damage. Success: Half damage.'
+  desc: 'Melee Attack Roll : +8, reach 5 ft. Hit : 15 (2d8 + 6) Piercing damage. If the target is a Huge or smaller
+    creature and the elephant moved 20+ feet straight toward it immediately before the hit, the target has the Prone
+    condition.'

@@ -2,10 +2,11 @@ name: Ogrillon Ogre
 size: Large
 type: Giant
 alignment: Chaotic Evil
-initiative: +0 (10)
+initiative: '+0'
 ac: '12'
-hp: 52 (7d10 + 14)
+hp: 52
 speed: 30 ft.
+challenge_rating: 1
 abilities:
   Str: 17
   Dex: 10
@@ -13,25 +14,19 @@ abilities:
   Int: 7
   Wis: 9
   Cha: 10
-skills: []
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Common
 - Giant
-senses: Darkvision 60 ft., Passive Perception 9
-challenge_rating: 1 (XP 200; PB +2)
-description: Ogres are selfish raiders and hulking gluttons spawned of hateful supernatural
-  forces. From dismal ruins and bleak hinterlands, they raid vulnerable communities
-  and ambush travelers. Ogres covet food and treasure, and they spitefully destroy
-  art, books, clockwork devices, and other delicate or lovingly made things. Occasionally
-  they kidnap victims to eat later or, more rarely, performers who catch their interest.
-  Ogres trace their origins to wrathful deities such as Erythnul, Takhisis, and Vaprak.
-  They magically emerge from the earth of lands corrupted by evil gods, sinister magic,
-  or ancient curses. Some bear evidence of the places that spawned them, sporting
-  rocky calluses, mossy growths, or frozen scars.  Ogrillons arise from Humanoids
-  cursed by foul magic or the will of wrathful deities. They appear similar to whoever
-  they once were, but they grow to over 8 feet tall and gain ogre-like features. Ogrillons
-  constantly seethe with supernatural anger, which they might struggle to control
+description: Ogres are selfish raiders and hulking gluttons spawned of hateful supernatural forces. From dismal
+  ruins and bleak hinterlands, they raid vulnerable communities and ambush travelers. Ogres covet food and treasure,
+  and they spitefully destroy art, books, clockwork devices, and other delicate or lovingly made things. Occasionally
+  they kidnap victims to eat later or, more rarely, performers who catch their interest. Ogres trace their origins
+  to wrathful deities such as Erythnul, Takhisis, and Vaprak. They magically emerge from the earth of lands corrupted
+  by evil gods, sinister magic, or ancient curses. Some bear evidence of the places that spawned them, sporting
+  rocky calluses, mossy growths, or frozen scars. Ogrillons arise from Humanoids cursed by foul magic or the will
+  of wrathful deities. They appear similar to whoever they once were, but they grow to over 8 feet tall and gain
+  ogre-like features. Ogrillons constantly seethe with supernatural anger, which they might struggle to control
   or purposefully vent on other creatures.
 habitat: Arctic, Desert, Forest, Grassland, Hill, Mountain, Swamp, Underdark
 treasure: Armaments

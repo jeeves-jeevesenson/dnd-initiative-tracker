@@ -2,10 +2,11 @@ name: Death Knight
 size: Medium
 type: or Small Undead
 alignment: Chaotic Evil
-initiative: +12 (22)
+initiative: '+12'
 ac: '20'
-hp: 199 (21d8 + 105)
+hp: 199
 speed: 30 ft.
+challenge_rating: 17
 abilities:
   Str: 20
   Dex: 11
@@ -13,22 +14,18 @@ abilities:
   Int: 12
   Wis: 16
   Cha: 18
-skills: []
 immunities:
 - Necrotic
 - Poison; Exhaustion
 - Frightened
 - Poisoned
+senses: Darkvision 120 ft., Passive Perception 13
 languages:
 - Abyssal
 - Common
-senses: Darkvision 120 ft., Passive Perception 13
-challenge_rating: 17 (XP 18 000; PB +6)
-description: Death knights are deadly combatants and domineering commanders with grim
-  histories. Some strive to end the curses that doom them to undeath, though their
-  selfish souls eternally shackle them to their fates. Others, like the infamous death
-  knight Lord Soth, brood in dismal ruins for centuries, rousing themselves to action
-  only when something reignites their deathless evil.
+description: Death knights are deadly combatants and domineering commanders with grim histories. Some strive to
+  end the curses that doom them to undeath, though their selfish souls eternally shackle them to their fates. Others,
+  like the infamous death knight Lord Soth, brood in dismal ruins for centuries, rousing themselves to action only
+  when something reignites their deathless evil.
 habitat: Any
 treasure: Armaments
-legendary_uses: 'Legendary Action Uses: 3.'

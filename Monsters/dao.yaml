@@ -2,10 +2,11 @@ name: Dao
 size: Large
 type: Elemental (Genie)
 alignment: Neutral
-initiative: +1 (11)
+initiative: '+1'
 ac: '18'
-hp: 200 (16d10 + 112)
+hp: 200
 speed: 30 ft., Burrow 30 ft., Fly 30 ft. (hover)
+challenge_rating: 11
 abilities:
   Str: 23
   Dex: 12
@@ -13,13 +14,11 @@ abilities:
   Int: 12
   Wis: 13
   Cha: 18
-skills: []
 immunities:
 - Petrified
+senses: Darkvision 120 ft., Passive Perception 11
 languages:
 - Primordial (Terran)
-senses: Darkvision 120 ft., Passive Perception 11
-challenge_rating: 11 (XP 7 200; PB +4)
 description: ''
 habitat: Planar (Elemental Plane of Earth), Underdark
 treasure: Implements

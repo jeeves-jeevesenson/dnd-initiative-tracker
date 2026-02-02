@@ -2,10 +2,11 @@ name: Giant Seahorse
 size: Large
 type: Beast
 alignment: Unaligned
-initiative: +1 (11)
+initiative: '+1'
 ac: '14'
-hp: 16 (3d10)
+hp: 16
 speed: 5 ft., Swim 40 ft.
+challenge_rating: 1/2
 abilities:
   Str: 15
   Dex: 12
@@ -13,12 +14,9 @@ abilities:
   Int: 2
   Wis: 12
   Cha: 5
-skills: []
-immunities: []
+senses: Passive Perception 11
 languages:
 - None
-senses: Passive Perception 11
-challenge_rating: 1/2 (XP 100; PB +2)
 description: ''
 habitat: Underwater
 traits:
@@ -26,9 +24,5 @@ traits:
   desc: The seahorse can breathe only underwater.
 actions:
 - name: Ram
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 9 (2d6 + 2) Bludgeoning damage, or
-    11 (2d8 + 2) Bludgeoning damage if the seahorse moved 20+ feet straight toward
-    the target immediately before the hit.'
-- name: Bubble Dash
-  desc: While underwater, the seahorse moves up to half its Swim Speed without provoking
-    Opportunity Attacks.
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 9 (2d6 + 2) Bludgeoning damage, or 11 (2d8 + 2) Bludgeoning damage
+    if the seahorse moved 20+ feet straight toward the target immediately before the hit.'

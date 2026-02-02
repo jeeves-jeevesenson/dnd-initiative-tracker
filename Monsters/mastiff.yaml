@@ -2,10 +2,11 @@ name: Mastiff
 size: Medium
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 5 (1d8 + 1)
+hp: 5
 speed: 40 ft.
+challenge_rating: 1/8
 abilities:
   Str: 13
   Dex: 14
@@ -15,14 +16,12 @@ abilities:
   Cha: 7
 skills:
 - Perception +5
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 15
 languages:
 - None
-senses: Darkvision 60 ft., Passive Perception 15
-challenge_rating: 1/8 (XP 25; PB +2)
 description: ''
 habitat: Forest, Hill, Urban
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 4 (1d6 + 1) Piercing damage. If the
-    target is a Medium or smaller creature, it has the Prone condition.'
+  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 4 (1d6 + 1) Piercing damage. If the target is a Medium or smaller
+    creature, it has the Prone condition.'

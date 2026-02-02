@@ -2,10 +2,11 @@ name: Giant Owl
 size: Large
 type: Celestial
 alignment: Neutral
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 19 (3d10 + 3)
+hp: 19
 speed: 5 ft., Fly 60 ft.
+challenge_rating: 1/4
 abilities:
   Str: 13
   Dex: 15
@@ -16,22 +17,19 @@ abilities:
 skills:
 - Perception +6
 - Stealth +6
-immunities: []
+senses: Darkvision 120 ft., Passive Perception 16
 languages:
 - Celestial; understands Common
 - Elvish
 - and Sylvan but can't speak them
-senses: Darkvision 120 ft., Passive Perception 16
-challenge_rating: 1/4 (XP 50; PB +2)
 description: ''
 habitat: Arctic, Forest, Hill
 traits:
 - name: Flyby
-  desc: The owl doesn't provoke an Opportunity Attack when it flies out of an enemy's
-    reach.
+  desc: The owl doesn't provoke an Opportunity Attack when it flies out of an enemy's reach.
 actions:
 - name: Talons
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 7 (1d10 + 2) Slashing damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 7 (1d10 + 2) Slashing damage.'
 - name: Spellcasting
-  desc: 'The owl casts one of the following spells, requiring no spell components
-    and using Wisdom as the spellcasting ability:'
+  desc: 'The owl casts one of the following spells, requiring no spell components and using Wisdom as the spellcasting
+    ability:'

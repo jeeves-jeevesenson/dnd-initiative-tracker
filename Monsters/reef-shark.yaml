@@ -2,10 +2,11 @@ name: Reef Shark
 size: Medium
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 22 (4d8 + 4)
+hp: 22
 speed: 5 ft., Swim 30 ft.
+challenge_rating: 1/2
 abilities:
   Str: 14
   Dex: 15
@@ -15,20 +16,17 @@ abilities:
   Cha: 4
 skills:
 - Perception +2
-immunities: []
+senses: Blindsight 30 ft., Passive Perception 12
 languages:
 - None
-senses: Blindsight 30 ft., Passive Perception 12
-challenge_rating: 1/2 (XP 100; PB +2)
 description: ''
 habitat: Underwater
 traits:
 - name: Pack Tactics
-  desc: The shark has Advantage on an attack roll against a creature if at least one
-    of the shark's allies is within 5 feet of the creature and the ally doesn't have
-    the Incapacitated condition.
+  desc: The shark has Advantage on an attack roll against a creature if at least one of the shark's allies is within
+    5 feet of the creature and the ally doesn't have the Incapacitated condition.
 - name: Water Breathing
   desc: The shark can breathe only underwater.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 7 (2d4 + 2) Piercing damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 7 (2d4 + 2) Piercing damage.'

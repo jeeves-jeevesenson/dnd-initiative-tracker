@@ -2,10 +2,11 @@ name: Ultroloth
 size: Medium
 type: Fiend (Yugoloth)
 alignment: Neutral Evil
-initiative: +8 (18)
+initiative: '+8'
 ac: '19'
-hp: 221 (26d8 + 104)
+hp: 221
 speed: 30 ft., Fly 60 ft. (hover)
+challenge_rating: 13
 abilities:
   Str: 19
   Dex: 16
@@ -22,11 +23,10 @@ immunities:
 - Poison; Charmed
 - Frightened
 - Poisoned
+senses: Truesight 120 ft., Passive Perception 17
 languages:
 - Abyssal
 - Infernal; telepathy 120 ft.
-senses: Truesight 120 ft., Passive Perception 17
-challenge_rating: 13 (XP 10 000; PB +5)
 description: ''
 habitat: Planar (Lower Planes)
 treasure: Armaments

@@ -2,10 +2,11 @@ name: Bugbear Warrior
 size: Medium
 type: Fey (Goblinoid)
 alignment: Chaotic Evil
-initiative: +2 (12)
+initiative: '+2'
 ac: '14'
-hp: 33 (6d8 + 6)
+hp: 33
 speed: 30 ft.
+challenge_rating: 1
 abilities:
   Str: 15
   Dex: 14
@@ -16,16 +17,13 @@ abilities:
 skills:
 - Stealth +6
 - Survival +2
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Common
 - Goblin
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 1 (XP 200; PB +2)
-description: Bugbears embody fear of the wilds and the menace of natural places. They're
-  notoriously stealthy, and foes that venture into their territories often vanish
-  without a trace  Bugbear warriors serve those who offer them treasure, food, or
-  the chance to hunt challenging prey.
+description: Bugbears embody fear of the wilds and the menace of natural places. They're notoriously stealthy, and
+  foes that venture into their territories often vanish without a trace Bugbear warriors serve those who offer them
+  treasure, food, or the chance to hunt challenging prey.
 habitat: Forest, Grassland, Planar (Feywild), Underdark
 treasure: Armaments, Individual
 traits:
@@ -33,10 +31,8 @@ traits:
   desc: The bugbear needn't spend extra movement to move a creature it is grappling.
 actions:
 - name: Grab
-  desc: 'Melee Attack Roll: +4, reach 10 ft. Hit: 9 (2d6 + 2) Bludgeoning damage.
-    If the target is a Medium or smaller creature, it has the Grappled condition (escape
-    DC 12).'
+  desc: 'Melee Attack Roll : +4, reach 10 ft. Hit : 9 (2d6 + 2) Bludgeoning damage. If the target is a Medium or
+    smaller creature, it has the Grappled condition (escape DC 12).'
 - name: Light Hammer
-  desc: 'Melee or Ranged Attack Roll: +4 (with Advantage if the target is Grappled
-    by the bugbear), reach 10 ft. or range 20/60 ft. Hit: 9 (3d4 + 2) Bludgeoning
-    damage.'
+  desc: 'Melee or Ranged Attack Roll : +4 (with Advantage if the target is Grappled by the bugbear), reach 10 ft.
+    or range 20/60 ft. Hit : 9 (3d4 + 2) Bludgeoning damage.'

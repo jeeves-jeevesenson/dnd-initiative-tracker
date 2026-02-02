@@ -2,10 +2,11 @@ name: Berserker
 size: Medium
 type: or Small Humanoid
 alignment: Any Alignment
-initiative: +1 (11)
+initiative: '+1'
 ac: '13'
-hp: 67 (9d8 +27)
+hp: 67
 speed: 30 ft.
+challenge_rating: 2
 abilities:
   Str: 16
   Dex: 12
@@ -13,15 +14,11 @@ abilities:
   Int: 9
   Wis: 11
   Cha: 9
-skills: []
-immunities: []
+senses: Passive Perception 10
 languages:
 - Common
-senses: Passive Perception 10
-challenge_rating: 2 (XP 450; PB +2)
-description: Gripped by the adrenaline of battle, berserkers are reckless invaders,
-  pit fighters, and other ferocious warriors.  Berserkers might fight for personal
-  glory or form motivated forces or howling hordes.
+description: Gripped by the adrenaline of battle, berserkers are reckless invaders, pit fighters, and other ferocious
+  warriors. Berserkers might fight for personal glory or form motivated forces or howling hordes.
 habitat: Any
 treasure: Armaments, Individual
 traits:
@@ -29,4 +26,4 @@ traits:
   desc: While Bloodied, the berserker has Advantage on attack rolls and saving throws.
 actions:
 - name: Greataxe
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 9 (1d12 + 3) Slashing damage.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 9 (1d12 + 3) Slashing damage.'

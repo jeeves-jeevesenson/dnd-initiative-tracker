@@ -2,10 +2,11 @@ name: Riding Horse
 size: Large
 type: Beast
 alignment: Unaligned
-initiative: +1 (11)
+initiative: '+1'
 ac: '11'
-hp: 13 (2d10 + 2)
+hp: 13
 speed: 60 ft.
+challenge_rating: 1/4
 abilities:
   Str: 16
   Dex: 13
@@ -13,14 +14,11 @@ abilities:
   Int: 2
   Wis: 11
   Cha: 7
-skills: []
-immunities: []
+senses: Passive Perception 10
 languages:
 - None
-senses: Passive Perception 10
-challenge_rating: 1/4 (XP 50; PB +2)
 description: ''
 habitat: Grassland, Urban
 actions:
 - name: Hooves
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 7 (1d8 + 3) Bludgeoning damage.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Bludgeoning damage.'

@@ -2,10 +2,11 @@ name: Bulette Pup
 size: Medium
 type: Monstrosity
 alignment: Unaligned
-initiative: -1 (9)
+initiative: '-1'
 ac: '16'
-hp: 45 (6d8 + 18)
+hp: 45
 speed: 30 ft., Burrow 20 ft.
+challenge_rating: 2
 abilities:
   Str: 16
   Dex: 8
@@ -15,12 +16,9 @@ abilities:
   Cha: 4
 skills:
 - Perception +4
-immunities: []
+senses: Darkvision 30 ft., Tremorsense 60 ft., Passive Perception 14
 languages:
 - —
-senses: Darkvision 30 ft., Tremorsense 60 ft., Passive Perception 14
-challenge_rating: 2 (XP 450; PB +2)
-description: Juvenile bulettes are known as pups. They travel in small groups, using
-  their numbers to bring down larger foes. Their arrival frequently presages the appearance
-  of an adult bulette.
+description: Juvenile bulettes are known as pups. They travel in small groups, using their numbers to bring down
+  larger foes. Their arrival frequently presages the appearance of an adult bulette.
 habitat: Grassland, Hill, Mountain

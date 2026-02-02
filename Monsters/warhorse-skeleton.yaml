@@ -2,10 +2,11 @@ name: Warhorse Skeleton
 size: Large
 type: Undead
 alignment: Lawful Evil
-initiative: +1 (11)
+initiative: '+1'
 ac: '13'
-hp: 22 (3d10 + 6)
+hp: 22
 speed: 60 ft.
+challenge_rating: 1/2
 abilities:
   Str: 18
   Dex: 12
@@ -13,21 +14,18 @@ abilities:
   Int: 2
   Wis: 8
   Cha: 5
-skills: []
 immunities:
 - Poison; Exhaustion
 - Poisoned
+senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - None
-senses: Darkvision 60 ft., Passive Perception 9
-challenge_rating: 1/2 (XP 100; PB +2)
-description: Warhorse skeletons are obedient, supernatural steeds bearing the rotted
-  remains of the barding they wore in life. They're often ridden by the corpses of
-  their former riders.
+description: Warhorse skeletons are obedient, supernatural steeds bearing the rotted remains of the barding they
+  wore in life. They're often ridden by the corpses of their former riders.
 habitat: Planar (Shadowfell), Underdark, Urban
 treasure: None
 actions:
 - name: Hooves
-  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 7 (1d6 + 4) Bludgeoning damage. If
-    the target is a Large or smaller creature and the skeleton moved 20+ feet straight
-    toward it immediately before the hit, the target has the Prone condition.'
+  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 7 (1d6 + 4) Bludgeoning damage. If the target is a Large or smaller
+    creature and the skeleton moved 20+ feet straight toward it immediately before the hit, the target has the Prone
+    condition.'

@@ -2,10 +2,11 @@ name: Incubus
 size: Medium
 type: Fiend
 alignment: Neutral Evil
-initiative: +3 (13)
+initiative: '+3'
 ac: '15'
-hp: 66 (12d8 + 12)
+hp: 66
 speed: 30 ft., Fly 60 ft.
+challenge_rating: 4
 abilities:
   Str: 8
   Dex: 17
@@ -19,38 +20,28 @@ skills:
 - Perception +5
 - Persuasion +9
 - Stealth +7
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 15
 languages:
 - Abyssal
 - Common
 - Infernal; telepathy 60 ft.
-senses: Darkvision 60 ft., Passive Perception 15
-challenge_rating: 4 (XP 1 100; PB +2)
-description: Incubi exploit the vulnerability of mortal dreams. Slipping into the
-  homes of sleepers, incubi feed off dreams and replace them with terrifying nightmares.
-  Incubi visit victims nightly until their prey expires. The incubi then hunt for
-  new victims, preferring the loved ones of past targets. Incubi can transform into
-  succubi and vice versa, taking the forms they need to manipulate foes in dreams
-  or in the flesh. Those visited by an incubus have recurring nightmares.
+description: Incubi exploit the vulnerability of mortal dreams. Slipping into the homes of sleepers, incubi feed
+  off dreams and replace them with terrifying nightmares. Incubi visit victims nightly until their prey expires.
+  The incubi then hunt for new victims, preferring the loved ones of past targets. Incubi can transform into succubi
+  and vice versa, taking the forms they need to manipulate foes in dreams or in the flesh. Those visited by an incubus
+  have recurring nightmares.
 habitat: Planar (Lower Planes), Urban
 treasure: Any
 traits:
 - name: Succubus Form
-  desc: When the incubus finishes a Long Rest, it can shape-shift into a Succubus,
-    using that stat block instead of this one. Any equipment it is wearing or carrying
-    isn't transformed.
+  desc: When the incubus finishes a Long Rest, it can shape-shift into a Succubus , using that stat block instead
+    of this one. Any equipment it is wearing or carrying isn't transformed.
 actions:
 - name: Multiattack
   desc: The incubus makes two Restless Touch attacks.
 - name: Restless Touch
-  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 15 (3d6 + 5) Psychic damage, and
-    the target is cursed for 24 hours or until the incubus dies. Until the curse ends,
-    the target gains no benefit from finishing Short Rests.'
+  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 15 (3d6 + 5) Psychic damage, and the target is cursed for 24
+    hours or until the incubus dies. Until the curse ends, the target gains no benefit from finishing Short Rests.'
 - name: Spellcasting
-  desc: 'The incubus casts one of the following spells, requiring no Material components
-    and using Charisma as the spellcasting ability (spell save DC 15):'
-- name: Nightmare (Recharge 6)
-  desc: 'Wisdom Saving Throw: DC 15, one creature the incubus can see within 60 feet.
-    Failure: If the target has 20 Hit Points or fewer, it has the Unconscious condition
-    for 1 hour, until it takes damage, or until a creature within 5 feet of it takes
-    an action to wake it. Otherwise, the target takes 18 (4d8) Psychic damage.'
+  desc: 'The incubus casts one of the following spells, requiring no Material components and using Charisma as the
+    spellcasting ability (spell save DC 15):'

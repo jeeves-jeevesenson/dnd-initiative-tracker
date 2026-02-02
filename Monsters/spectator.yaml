@@ -2,10 +2,11 @@ name: Spectator
 size: Medium
 type: Aberration (Beholder)
 alignment: Lawful Neutral
-initiative: +2 (12)
+initiative: '+2'
 ac: '14'
-hp: 45 (7d8 + 14)
+hp: 45
 speed: 5 ft., Fly 30 ft. (hover)
+challenge_rating: 3
 abilities:
   Str: 8
   Dex: 14
@@ -18,11 +19,10 @@ skills:
 immunities:
 - Exhaustion
 - Prone
+senses: Darkvision 120 ft., Passive Perception 16
 languages:
 - Deep Speech
 - Undercommon; telepathy 120 ft.
-senses: Darkvision 120 ft., Passive Perception 16
-challenge_rating: 3 (XP 700; PB +2)
 description: ''
 habitat: Underdark
 treasure: Any

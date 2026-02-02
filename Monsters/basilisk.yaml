@@ -2,10 +2,11 @@ name: Basilisk
 size: Medium
 type: Monstrosity
 alignment: Unaligned
-initiative: -1 (9)
+initiative: '-1'
 ac: '15'
-hp: 52 (8d8 + 16)
+hp: 52
 speed: 20 ft.
+challenge_rating: 3
 abilities:
   Str: 16
   Dex: 8
@@ -13,23 +14,12 @@ abilities:
   Int: 2
   Wis: 8
   Cha: 7
-skills: []
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - None
-senses: Darkvision 60 ft., Passive Perception 9
-challenge_rating: 3 (XP 700; PB +2)
 description: ''
 habitat: Mountain, Underdark
 treasure: Any
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 10 (2d6 + 3) Piercing damage plus
-    7 (2d6) Poison damage.'
-- name: Petrifying Gaze (Recharge 4–6)
-  desc: 'Constitution Saving Throw: DC 12, each creature in a 30-foot Cone. If the
-    basilisk sees its reflection in the Cone, the basilisk must make this save. First
-    Failure: The target has the Restrained condition and repeats the save at the end
-    of its next turn if it is still Restrained, ending the effect on itself on a success.
-    Second Failure: The target has the Petrified condition instead of the Restrained
-    condition.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 10 (2d6 + 3) Piercing damage plus 7 (2d6) Poison damage.'

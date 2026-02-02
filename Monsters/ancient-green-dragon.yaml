@@ -2,10 +2,11 @@ name: Ancient Green Dragon
 size: Gargantuan
 type: Dragon (Chromatic)
 alignment: Lawful Evil
-initiative: +15 (25)
+initiative: '+15'
 ac: '21'
-hp: 402 (23d20 + 161)
+hp: 402
 speed: 40 ft., Fly 80 ft., Swim 40 ft.
+challenge_rating: 22
 abilities:
   Str: 27
   Dex: 12
@@ -20,22 +21,18 @@ skills:
 - Stealth +8
 immunities:
 - Poison; Poisoned
+senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 27
 languages:
 - Common
 - Draconic
-senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 27
-challenge_rating: 22 (XP 41 000, or 50 000 in lair; PB +7)
-description: From forbidden forest depths, green dragons whisper evils into the world
-  and manipulate the lives of those who listen. Elusive, conniving, and egotistical,
-  these chromatic dragons patiently prey on the fears of shorter-lived beings, corrupting
-  and isolating them. Green dragons might lurk amid labyrinthine wildernesses for
-  centuries without revealing themselves; even their most devoted followers might
-  know them only as the voice of the woodlands or a whisper in their dreams. Despite
-  their might, most green dragons disdain physical violence, viewing combat as servants'
-  work and preferring to trick foes into dangerous or exploitative scenarios. These
-  dragons collect "baubles" that embody their webs of manipulation and serve as tools
-  of extortion, such as compromising documents, family heirlooms, and sentimental
-  treasures.
+description: From forbidden forest depths, green dragons whisper evils into the world and manipulate the lives of
+  those who listen. Elusive, conniving, and egotistical, these chromatic dragons patiently prey on the fears of
+  shorter-lived beings, corrupting and isolating them. Green dragons might lurk amid labyrinthine wildernesses for
+  centuries without revealing themselves; even their most devoted followers might know them only as the voice of
+  the woodlands or a whisper in their dreams. Despite their might, most green dragons disdain physical violence,
+  viewing combat as servants' work and preferring to trick foes into dangerous or exploitative scenarios. These
+  dragons collect "baubles" that embody their webs of manipulation and serve as tools of extortion, such as compromising
+  documents, family heirlooms, and sentimental treasures.
 habitat: Forest
 treasure: Arcana
 traits:
@@ -45,28 +42,26 @@ traits:
   desc: If the dragon fails a saving throw, it can choose to succeed instead.
 actions:
 - name: Multiattack
-  desc: The dragon makes three Rend attacks. It can replace one attack with a use
-    of Spellcasting to cast Mind Spike (level 5 version).
+  desc: The dragon makes three Rend attacks. It can replace one attack with a use of Spellcasting to cast Mind Spike
+    (level 5 version).
 - name: Rend
-  desc: 'Melee Attack Roll: +15, reach 15 ft. Hit: 17 (2d8 + 8) Slashing damage plus
-    10 (3d6) Poison damage.'
+  desc: 'Melee Attack Roll : +15, reach 15 ft. Hit : 17 (2d8 + 8) Slashing damage plus 10 (3d6) Poison damage.'
 - name: Poison Breath (Recharge 5–6)
-  desc: 'Constitution Saving Throw: DC 22, each creature in a 90-foot Cone. Failure:
-    77 (22d6) Poison damage. Success: Half damage.'
+  desc: 'Constitution Saving Throw : DC 22, each creature in a 90-foot Cone. Failure : 77 (22d6) Poison damage.
+    Success : Half damage.'
 - name: Spellcasting
-  desc: 'The dragon casts one of the following spells, requiring no Material components
-    and using Charisma as the spellcasting ability (spell save DC 21):'
+  desc: 'The dragon casts one of the following spells, requiring no Material components and using Charisma as the
+    spellcasting ability (spell save DC 21):'
 legendary_actions:
 - name: Mind Invasion
   desc: The dragon uses Spellcasting to cast Mind Spike (level 5 version).
 - name: Noxious Miasma
-  desc: 'Constitution Saving Throw: DC 21, each creature in a 30-foot-radius Sphere
-    centered on a point the dragon can see within 90 feet. Failure: 17 (5d6) Poison
-    damage, and the target takes a -2 penalty to AC until the end of its next turn.
-    Failure or Success: The dragon can''t take this action again until the start of
-    its next turn.'
+  desc: 'Constitution Saving Throw : DC 21, each creature in a 30-foot-radius Sphere centered on a point the dragon
+    can see within 90 feet. Failure : 17 (5d6) Poison damage, and the target takes a -2 penalty to AC until the
+    end of its next turn. Failure or Success : The dragon can''t take this action again until the start of its next
+    turn.'
 - name: Pounce
   desc: The dragon moves up to half its Speed, and it makes one Rend attack.
-legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s
-  turn, The dragon can expend a use to take one of the following actions. The dragon
-  regains all expended uses at the start of each of its turns.'
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s turn, The dragon can
+  expend a use to take one of the following actions. The dragon regains all expended uses at the start of each of
+  its turns.'

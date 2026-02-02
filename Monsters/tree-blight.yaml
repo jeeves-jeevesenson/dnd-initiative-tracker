@@ -2,10 +2,11 @@ name: Tree Blight
 size: Huge
 type: Plant
 alignment: Neutral Evil
-initiative: +3 (13)
+initiative: '+3'
 ac: '15'
-hp: 115 (10d12 + 50)
+hp: 115
 speed: 30 ft.
+challenge_rating: 7
 abilities:
   Str: 23
   Dex: 10
@@ -13,16 +14,13 @@ abilities:
   Int: 6
   Wis: 10
   Cha: 3
-skills: []
 immunities:
 - Deafened
+senses: Blindsight 60 ft., Passive Perception 10
 languages:
 - Understands Common and Druidic but can't speak
-senses: Blindsight 60 ft., Passive Perception 10
-challenge_rating: 7 (XP 2 900; PB +3)
-description: Tree blights look like ancient, dead trees with gnarled limbs and splintered
-  hollows. Imbued with bloodlust, these blights feed on the living. Evidence of their
-  past meals is often tangled amid their branches and roots. Tree blights cooperate
-  with other blights, but they attack other tree-shaped beings they encounter, such
-  as awakened trees and treants.
+description: Tree blights look like ancient, dead trees with gnarled limbs and splintered hollows. Imbued with bloodlust,
+  these blights feed on the living. Evidence of their past meals is often tangled amid their branches and roots.
+  Tree blights cooperate with other blights, but they attack other tree-shaped beings they encounter, such as awakened
+  trees and treants.
 habitat: Forest

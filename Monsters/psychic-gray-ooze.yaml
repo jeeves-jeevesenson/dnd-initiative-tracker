@@ -2,10 +2,11 @@ name: Psychic Gray Ooze
 size: Medium
 type: Ooze
 alignment: Unaligned
-initiative: -1 (9)
+initiative: '-1'
 ac: '9'
-hp: 37 (5d8 + 15)
+hp: 37
 speed: 10 ft., Climb 10 ft.
+challenge_rating: 1
 abilities:
   Str: 12
   Dex: 8
@@ -24,11 +25,9 @@ immunities:
 - Grappled
 - Prone
 - Restrained
+senses: Blindsight 60 ft., Passive Perception 8
 languages:
 - —
-senses: Blindsight 60 ft., Passive Perception 8
-challenge_rating: 1 (XP 200; PB +2)
-description: Psychic gray oozes exhibit violent psionic abilities. These oozes sometimes
-  result from failed attempts to summon or create creatures linked to the Elemental
-  Plane of Earth, like gargoyles or homunculi.
+description: Psychic gray oozes exhibit violent psionic abilities. These oozes sometimes result from failed attempts
+  to summon or create creatures linked to the Elemental Plane of Earth, like gargoyles or homunculi.
 habitat: Underdark

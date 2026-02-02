@@ -2,10 +2,11 @@ name: Merfolk Wavebender
 size: Medium
 type: Elemental
 alignment: Neutral
-initiative: +4 (14)
+initiative: '+4'
 ac: '14'
-hp: 97 (15d8 + 30)
+hp: 97
 speed: 10 ft., Swim 40 ft.
+challenge_rating: 6
 abilities:
   Str: 10
   Dex: 18
@@ -15,13 +16,10 @@ abilities:
   Cha: 15
 skills:
 - Perception +7
-immunities: []
+senses: Passive Perception 17
 languages:
 - Common
 - Primordial (Aquan)
-senses: Passive Perception 17
-challenge_rating: 6 (XP 2 300; PB +3)
-description: These merfolk mages use magic to manipulate water, storms, and sea creatures
-  to aid them.
+description: These merfolk mages use magic to manipulate water, storms, and sea creatures to aid them.
 habitat: Coastal, Underwater
 treasure: Individual

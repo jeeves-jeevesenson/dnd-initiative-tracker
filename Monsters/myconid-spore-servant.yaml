@@ -2,10 +2,11 @@ name: Myconid Spore Servant
 size: Medium
 type: or Small Plant
 alignment: Unaligned
-initiative: +1 (11)
+initiative: '+1'
 ac: '13'
-hp: 37 (5d8 + 15)
+hp: 37
 speed: 20 ft.
+challenge_rating: 1
 abilities:
   Str: 16
   Dex: 12
@@ -13,19 +14,16 @@ abilities:
   Int: 2
   Wis: 6
   Cha: 1
-skills: []
 immunities:
 - Poison; Blinded
 - Charmed
 - Frightened
 - Paralyzed
 - Poisoned
+senses: Blindsight 30 ft., Passive Perception 8
 languages:
 - Telepathy 30 ft.
-senses: Blindsight 30 ft., Passive Perception 8
-challenge_rating: 1 (XP 200; PB +2)
-description: Spore servants are corpses that have been overgrown and reanimated by
-  a myconid sovereign's spores. These fungus-infested bodies are extensions of a myconid
-  sovereign and obey its will.
+description: Spore servants are corpses that have been overgrown and reanimated by a myconid sovereign's spores.
+  These fungus-infested bodies are extensions of a myconid sovereign and obey its will.
 habitat: Underdark
 treasure: Any

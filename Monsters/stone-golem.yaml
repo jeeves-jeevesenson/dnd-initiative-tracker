@@ -2,10 +2,11 @@ name: Stone Golem
 size: Large
 type: Construct
 alignment: Unaligned
-initiative: +3 (13)
+initiative: '+3'
 ac: '18'
-hp: 220 (21d10 + 105)
+hp: 220
 speed: 30 ft.
+challenge_rating: 10
 abilities:
   Str: 22
   Dex: 9
@@ -13,7 +14,6 @@ abilities:
   Int: 3
   Wis: 11
   Cha: 1
-skills: []
 immunities:
 - Poison
 - Psychic; Charmed
@@ -22,32 +22,24 @@ immunities:
 - Paralyzed
 - Petrified
 - Poisoned
+senses: Darkvision 120 ft., Passive Perception 10
 languages:
 - Understands Common plus two other languages but can't speak
-senses: Darkvision 120 ft., Passive Perception 10
-challenge_rating: 10 (XP 5 900; PB +4)
-description: Stone golems take varied forms, such as weathered carvings of ancient
-  deities, lifelike sculptures of heroes, or any other shape their makers imagine.
-  No matter their design or the rock from which they're crafted, these golems are
-  strengthened by the magic that animates them, allowing them to follow their creators'
-  orders for centuries. Stone golems are typically created to protect places of significance
-  to a group, such as a monument to an important event, a leader's tomb, or a faith's
-  sanctuary.
+description: Stone golems take varied forms, such as weathered carvings of ancient deities, lifelike sculptures
+  of heroes, or any other shape their makers imagine. No matter their design or the rock from which they're crafted,
+  these golems are strengthened by the magic that animates them, allowing them to follow their creators' orders
+  for centuries. Stone golems are typically created to protect places of significance to a group, such as a monument
+  to an important event, a leader's tomb, or a faith's sanctuary.
 habitat: Any
 traits:
 - name: Immutable Form
   desc: The golem can't shape-shift.
 - name: Magic Resistance
-  desc: The golem has Advantage on saving throws against spells and other magical
-    effects.
+  desc: The golem has Advantage on saving throws against spells and other magical effects.
 actions:
 - name: Multiattack
   desc: The golem makes two attacks, using Slam or Force Bolt in any combination.
 - name: Slam
-  desc: 'Melee Attack Roll: +10, reach 5 ft. Hit: 15 (2d8 + 6) Bludgeoning damage
-    plus 9 (2d8) Force damage.'
+  desc: 'Melee Attack Roll : +10, reach 5 ft. Hit : 15 (2d8 + 6) Bludgeoning damage plus 9 (2d8) Force damage.'
 - name: Force Bolt
-  desc: 'Ranged Attack Roll: +9, range 90 ft. Hit: 26 (4d12) Force damage.'
-- name: Slow (Recharge 5–6)
-  desc: The golem casts the Slow spell, requiring no spell components and using Constitution
-    as the spellcasting ability (spell save DC 17).
+  desc: 'Ranged Attack Roll : +9, range 90 ft. Hit : 26 (4d12) Force damage.'

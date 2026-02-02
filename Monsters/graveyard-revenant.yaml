@@ -2,10 +2,11 @@ name: Graveyard Revenant
 size: Huge
 type: Undead
 alignment: Neutral
-initiative: +2 (12)
+initiative: '+2'
 ac: '14'
-hp: 161 (14d12 + 70)
+hp: 161
 speed: 40 ft.
+challenge_rating: 7
 abilities:
   Str: 20
   Dex: 14
@@ -13,7 +14,6 @@ abilities:
   Int: 13
   Wis: 16
   Cha: 18
-skills: []
 immunities:
 - Poison; Charmed
 - Exhaustion
@@ -23,12 +23,10 @@ immunities:
 - Poisoned
 - Stunned
 - Unconscious
+senses: Darkvision 120 ft., Passive Perception 13
 languages:
 - Common plus two other languages
-senses: Darkvision 120 ft., Passive Perception 13
-challenge_rating: 7 (XP 2 900; PB +3)
-description: Graveyard revenants possess dozens of bodies that combine to form grotesque
-  masses. They take revenge on those responsible for mass deaths or institutions that
-  callously ruin lives.
+description: Graveyard revenants possess dozens of bodies that combine to form grotesque masses. They take revenge
+  on those responsible for mass deaths or institutions that callously ruin lives.
 habitat: Forest, Swamp, Urban
 treasure: Any

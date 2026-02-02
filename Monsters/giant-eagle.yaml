@@ -2,10 +2,11 @@ name: Giant Eagle
 size: Large
 type: Celestial
 alignment: Neutral Good
-initiative: +3 (13)
+initiative: '+3'
 ac: '13'
-hp: 26 (4d10 + 4)
+hp: 26
 speed: 10 ft., Fly 80 ft.
+challenge_rating: 1
 abilities:
   Str: 16
   Dex: 17
@@ -15,16 +16,13 @@ abilities:
   Cha: 10
 skills:
 - Perception +6
-immunities: []
+senses: Passive Perception 16
 languages:
 - Celestial; understands Common and Primordial (Auran) but can't speak them
-senses: Passive Perception 16
-challenge_rating: 1 (XP 200; PB +2)
 description: ''
 habitat: Coastal, Grassland, Hill, Mountain
 actions:
 - name: Multiattack
   desc: The eagle makes two Rend attacks.
 - name: Rend
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 5 (1d4 + 3) Slashing damage plus
-    3 (1d6) Radiant damage.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 5 (1d4 + 3) Slashing damage plus 3 (1d6) Radiant damage.'

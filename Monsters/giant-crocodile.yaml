@@ -2,10 +2,11 @@ name: Giant Crocodile
 size: Huge
 type: Beast
 alignment: Unaligned
-initiative: -1 (9)
+initiative: '-1'
 ac: '14'
-hp: 85 (9d12 + 27)
+hp: 85
 speed: 30 ft., Swim 50 ft.
+challenge_rating: 5
 abilities:
   Str: 21
   Dex: 9
@@ -15,11 +16,9 @@ abilities:
   Cha: 7
 skills:
 - Stealth +5
-immunities: []
+senses: Passive Perception 10
 languages:
 - None
-senses: Passive Perception 10
-challenge_rating: 5 (XP 1 800; PB +3)
 description: ''
 habitat: Coastal, Swamp
 traits:
@@ -29,10 +28,9 @@ actions:
 - name: Multiattack
   desc: The crocodile makes one Bite attack and one Tail attack.
 - name: Bite
-  desc: 'Melee Attack Roll: +8, reach 5 ft. Hit: 21 (3d10 + 5) Piercing damage. If
-    the target is a Large or smaller creature, it has the Grappled condition (escape
-    DC 15). While Grappled, the target has the Restrained condition and can''t be
-    targeted by the crocodile''s Tail.'
+  desc: 'Melee Attack Roll : +8, reach 5 ft. Hit : 21 (3d10 + 5) Piercing damage. If the target is a Large or smaller
+    creature, it has the Grappled condition (escape DC 15). While Grappled, the target has the Restrained condition
+    and can''t be targeted by the crocodile''s Tail.'
 - name: Tail
-  desc: 'Melee Attack Roll: +8, reach 10 ft. Hit: 18 (3d8 + 5) Bludgeoning damage.
-    If the target is a Large or smaller creature, it has the Prone condition.'
+  desc: 'Melee Attack Roll : +8, reach 10 ft. Hit : 18 (3d8 + 5) Bludgeoning damage. If the target is a Large or
+    smaller creature, it has the Prone condition.'

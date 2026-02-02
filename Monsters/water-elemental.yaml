@@ -2,10 +2,11 @@ name: Water Elemental
 size: Large
 type: Elemental
 alignment: Neutral
-initiative: +2 (12)
+initiative: '+2'
 ac: '14'
-hp: 114 (12d10 + 48)
+hp: 114
 speed: 30 ft., Swim 90 ft.
+challenge_rating: 5
 abilities:
   Str: 18
   Dex: 14
@@ -13,7 +14,6 @@ abilities:
   Int: 5
   Wis: 10
   Cha: 8
-skills: []
 immunities:
 - Poison; Exhaustion
 - Grappled
@@ -23,9 +23,8 @@ immunities:
 - Prone
 - Restrained
 - Unconscious
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial (Aquan)
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 5 (XP 1 800; PB +3)
 description: ''
 habitat: Coastal, Planar (Elemental Plane of Water), Swamp, Underwater

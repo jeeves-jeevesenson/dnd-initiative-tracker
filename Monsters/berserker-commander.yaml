@@ -2,10 +2,11 @@ name: Berserker Commander
 size: Medium
 type: or Small Humanoid
 alignment: Neutral
-initiative: +5 (15)
+initiative: '+5'
 ac: '16'
-hp: 136 (16d8 + 64)
+hp: 136
 speed: 40 ft.
+challenge_rating: 8
 abilities:
   Str: 19
   Dex: 14
@@ -19,14 +20,12 @@ skills:
 immunities:
 - Charmed
 - Frightened
+senses: Passive Perception 15
 languages:
 - Common
-senses: Passive Perception 15
-challenge_rating: 8 (XP 3 900; PB +3)
-description: Gripped by the adrenaline of battle, berserkers are reckless invaders,
-  pit fighters, and other ferocious warriors.  Berserker commanders bear the scars
-  of battle and drive their followers to match their deadly zeal. These commanders
-  tap into a primal magic to enhance their might.
+description: Gripped by the adrenaline of battle, berserkers are reckless invaders, pit fighters, and other ferocious
+  warriors. Berserker commanders bear the scars of battle and drive their followers to match their deadly zeal.
+  These commanders tap into a primal magic to enhance their might.
 habitat: Any
 treasure: Individual, Armaments
 traits:
@@ -36,14 +35,8 @@ actions:
 - name: Multiattack
   desc: The berserker makes three attacks, using Greataxe or Javelin in any combination.
 - name: Greataxe
-  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 10 (1d12 + 4) Slashing damage, plus
-    10 (3d6) Thunder damage to the target or another creature within 5 feet of the
-    target.'
+  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 10 (1d12 + 4) Slashing damage, plus 10 (3d6) Thunder damage to
+    the target or another creature within 5 feet of the target.'
 - name: Javelin
-  desc: 'Melee or Ranged Attack Roll: +7, reach 5 ft. or range 30/120 ft. Hit: 18
-    (4d6 + 4) Piercing damage, and the target''s Speed decreases by 5 feet until the
-    start of the berserker''s next turn.'
-- name: Frenzied Rush
-  desc: Each ally within 30 feet of the berserker can take a Reaction to move up to
-    half the ally's Speed without provoking Opportunity Attacks. The berserker can
-    also move up to half its Speed without provoking Opportunity Attacks.
+  desc: 'Melee or Ranged Attack Roll : +7, reach 5 ft. or range 30/120 ft. Hit : 18 (4d6 + 4) Piercing damage, and
+    the target''s Speed decreases by 5 feet until the start of the berserker''s next turn.'

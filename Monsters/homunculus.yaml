@@ -2,10 +2,11 @@ name: Homunculus
 size: Tiny
 type: Construct
 alignment: Neutral
-initiative: +2 (12)
+initiative: '+2'
 ac: '13'
-hp: 4 (1d4 + 2)
+hp: 4
 speed: 20 ft., Fly 40 ft.
+challenge_rating: 0
 abilities:
   Str: 4
   Dex: 15
@@ -13,25 +14,21 @@ abilities:
   Int: 10
   Wis: 10
   Cha: 7
-skills: []
 immunities:
 - Poison; Charmed
 - Poisoned
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Understands Common plus one other language but can't speak
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 0 (XP 10; PB +2)
 description: ''
 habitat: Any
 traits:
 - name: Telepathic Bond
-  desc: While the homunculus is on the same plane of existence as its master, the
-    two of them can communicate telepathically with each other.
+  desc: While the homunculus is on the same plane of existence as its master, the two of them can communicate telepathically
+    with each other.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 1 Piercing damage, and the target
-    is subjected to the following effect. Constitution Saving Throw: DC 12. Failure:
-    The target has the Poisoned condition until the end of the homunculus''s next
-    turn. Failure by 5 or More: The target has the Poisoned condition for 1 minute.
-    While Poisoned, the target has the Unconscious condition, which ends early if
-    the target takes any damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 1 Piercing damage, and the target is subjected to the following
+    effect. Constitution Saving Throw : DC 12. Failure : The target has the Poisoned condition until the end of
+    the homunculus''s next turn. Failure by 5 or More: The target has the Poisoned condition for 1 minute. While
+    Poisoned, the target has the Unconscious condition, which ends early if the target takes any damage.'

@@ -2,10 +2,11 @@ name: Beholder Zombie
 size: Large
 type: Undead
 alignment: Neutral Evil
-initiative: -1 (9)
+initiative: '-1'
 ac: '15'
-hp: 93 (11d10 + 33)
+hp: 93
 speed: 5 ft., Fly 20 ft. (hover)
+challenge_rating: 5
 abilities:
   Str: 14
   Dex: 8
@@ -13,18 +14,15 @@ abilities:
   Int: 3
   Wis: 8
   Cha: 5
-skills: []
 immunities:
 - Poison; Exhaustion
 - Poisoned
 - Prone
+senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Understands Deep Speech and Undercommon but can't speak
-senses: Darkvision 60 ft., Passive Perception 9
-challenge_rating: 5 (XP 1 800; PB +3)
-description: Zombies animated from the corpses of beholders retain some use of those
-  monsters' magical eyestalks. These hovering corpses rely on their magic to destroy
-  impediments and paralyze foes, allowing them to savage foes with their rotting maws.
-  Magic-using beholders typically raise these abominations from the corpses of defeated
+description: Zombies animated from the corpses of beholders retain some use of those monsters' magical eyestalks.
+  These hovering corpses rely on their magic to destroy impediments and paralyze foes, allowing them to savage foes
+  with their rotting maws. Magic-using beholders typically raise these abominations from the corpses of defeated
   rivals.
 habitat: Planar (Shadowfell), Underdark, Urban

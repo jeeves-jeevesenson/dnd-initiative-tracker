@@ -2,10 +2,11 @@ name: Bat
 size: Tiny
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 1 (1d4 - 1)
+hp: 1
 speed: 5 ft., Fly 30 ft.
+challenge_rating: 0
 abilities:
   Str: 2
   Dex: 15
@@ -13,14 +14,11 @@ abilities:
   Int: 2
   Wis: 12
   Cha: 4
-skills: []
-immunities: []
+senses: Blindsight 60 ft., Passive Perception 11
 languages:
 - None
-senses: Blindsight 60 ft., Passive Perception 11
-challenge_rating: 0 (XP 10; PB +2)
 description: ''
 habitat: Forest, Mountain, Underdark, Urban
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 1 Piercing damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 1 Piercing damage.'

@@ -2,10 +2,11 @@ name: Salamander Inferno Master
 size: Large
 type: Elemental
 alignment: Neutral Evil
-initiative: +8 (18)
+initiative: '+8'
 ac: '18'
-hp: 256 (27d10 + 108)
+hp: 256
 speed: 40 ft., Climb 40 ft.
+challenge_rating: 15
 abilities:
   Str: 24
   Dex: 16
@@ -13,18 +14,14 @@ abilities:
   Int: 14
   Wis: 10
   Cha: 20
-skills: []
 immunities:
 - Fire
+senses: Darkvision 120 ft., Passive Perception 10
 languages:
 - Primordial (Ignan)
-senses: Darkvision 120 ft., Passive Perception 10
-challenge_rating: 15 (XP 13 000; PB +5)
-description: Salamander inferno masters are ancient connoisseurs of flames and often
-  inhabit places with unique scorching properties. They gather communes of apprentices
-  who learn fiery techniques while helping their mentors accomplish great works. Inferno
-  masters have ambitious goals, such as causing massive volcanic eruptions, opening
-  portals to burning planes, destroying Artifacts, or burning all instances of something
-  from the multiverse.
+description: Salamander inferno masters are ancient connoisseurs of flames and often inhabit places with unique
+  scorching properties. They gather communes of apprentices who learn fiery techniques while helping their mentors
+  accomplish great works. Inferno masters have ambitious goals, such as causing massive volcanic eruptions, opening
+  portals to burning planes, destroying Artifacts, or burning all instances of something from the multiverse.
 habitat: Planar (Elemental Plane of Fire), Underdark
 treasure: Armaments

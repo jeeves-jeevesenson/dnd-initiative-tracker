@@ -2,10 +2,11 @@ name: Bandit Captain
 size: Medium
 type: or Small Humanoid
 alignment: Neutral
-initiative: +3 (13)
+initiative: '+3'
 ac: '15'
-hp: 52 (8d8 + 16)
+hp: 52
 speed: 30 ft.
+challenge_rating: 2
 abilities:
   Str: 15
   Dex: 16
@@ -16,28 +17,20 @@ abilities:
 skills:
 - Athletics +4
 - Deception +4
-immunities: []
+senses: Passive Perception 10
 languages:
 - Common
 - Thieves' Cant
-senses: Passive Perception 10
-challenge_rating: 2 (XP 450; PB +2)
-description: Bandits use the threat of violence to take what they want. Such criminals
-  include gang members, desperadoes, and lawless mercenaries. Yet not all bandits
-  are motivated by greed. Some are driven to lives of crime by unjust laws, desperation,
-  or the threats of merciless leaders.  Bandit captains command gangs of scoundrels
-  and conduct straightforward heists. Others serve as guards and muscle for more influential
-  criminals.
+description: Bandits use the threat of violence to take what they want. Such criminals include gang members, desperadoes,
+  and lawless mercenaries. Yet not all bandits are motivated by greed. Some are driven to lives of crime by unjust
+  laws, desperation, or the threats of merciless leaders. Bandit captains command gangs of scoundrels and conduct
+  straightforward heists. Others serve as guards and muscle for more influential criminals.
 habitat: Any
 treasure: Any
 actions:
 - name: Multiattack
   desc: The bandit makes two attacks, using Scimitar and Pistol in any combination.
 - name: Scimitar
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 6 (1d6 + 3) Slashing damage.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Slashing damage.'
 - name: Pistol
-  desc: 'Ranged Attack Roll: +5, range 30/90 ft. Hit: 8 (1d10 + 3) Piercing damage.'
-- name: Parry
-  desc: 'Trigger: The bandit is hit by a melee attack roll while holding a weapon.
-    Response: The bandit adds 2 to its AC against that attack, possibly causing it
-    to miss.'
+  desc: 'Ranged Attack Roll : +5, range 30/90 ft. Hit : 8 (1d10 + 3) Piercing damage.'

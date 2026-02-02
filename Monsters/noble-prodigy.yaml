@@ -2,10 +2,11 @@ name: Noble Prodigy
 size: Medium
 type: or Small Humanoid
 alignment: Neutral
-initiative: +7 (17)
+initiative: '+7'
 ac: '16'
-hp: 148 (27d8 + 27)
+hp: 148
 speed: 30 ft.
+challenge_rating: 10
 abilities:
   Str: 8
   Dex: 16
@@ -16,15 +17,12 @@ abilities:
 skills:
 - Perception +6
 - Persuasion +8
-immunities: []
+senses: Passive Perception 16
 languages:
 - Common plus two other languages
-senses: Passive Perception 16
-challenge_rating: 10 (XP 5 900; PB +4)
-description: Nobles encompass a variety of people with social influence. They might
-  be rulers, wealthy merchants, callous bureaucrats, or the idle elite.  Noble prodigies
-  trace their lineage to a legendary hero, a demigod, a dragon, or some other ancestor
-  that grants them magical prowess. Among some nobles, the source of a prodigy's magic
-  might be a family secret.
+description: Nobles encompass a variety of people with social influence. They might be rulers, wealthy merchants,
+  callous bureaucrats, or the idle elite. Noble prodigies trace their lineage to a legendary hero, a demigod, a
+  dragon, or some other ancestor that grants them magical prowess. Among some nobles, the source of a prodigy's
+  magic might be a family secret.
 habitat: Any
 treasure: Individual

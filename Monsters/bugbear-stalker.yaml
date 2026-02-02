@@ -2,10 +2,11 @@ name: Bugbear Stalker
 size: Medium
 type: Fey (Goblinoid)
 alignment: Chaotic Evil
-initiative: +2 (12)
+initiative: '+2'
 ac: '15'
-hp: 65 (10d8 + 20)
+hp: 65
 speed: 30 ft.
+challenge_rating: 3
 abilities:
   Str: 17
   Dex: 14
@@ -16,16 +17,13 @@ abilities:
 skills:
 - Stealth +6
 - Survival +3
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 11
 languages:
 - Common
 - Goblin
-senses: Darkvision 60 ft., Passive Perception 11
-challenge_rating: 3 (XP 700; PB +2)
-description: Bugbears embody fear of the wilds and the menace of natural places. They're
-  notoriously stealthy, and foes that venture into their territories often vanish
-  without a trace  Bugbear stalkers frequently take their victims hostage, relishing
-  opportunities to imprison and terrorize other creatures.
+description: Bugbears embody fear of the wilds and the menace of natural places. They're notoriously stealthy, and
+  foes that venture into their territories often vanish without a trace Bugbear stalkers frequently take their victims
+  hostage, relishing opportunities to imprison and terrorize other creatures.
 habitat: Forest, Grassland, Planar (Feywild), Underdark
 treasure: Armaments, Individual
 traits:
@@ -35,12 +33,7 @@ actions:
 - name: Multiattack
   desc: The bugbear makes two Javelin or Morningstar attacks.
 - name: Javelin
-  desc: 'Melee or Ranged Attack Roll: +5, reach 10 ft. or range 30/120 ft. Hit: 13
-    (3d6 + 3) Piercing damage.'
+  desc: 'Melee or Ranged Attack Roll : +5, reach 10 ft. or range 30/120 ft. Hit : 13 (3d6 + 3) Piercing damage.'
 - name: Morningstar
-  desc: 'Melee Attack Roll: +5 (with Advantage if the target is Grappled by the bugbear),
-    reach 10 ft. Hit: 12 (2d8 + 3) Piercing damage.'
-- name: Quick Grapple
-  desc: 'Dexterity Saving Throw: DC 13, one Medium or smaller creature the bugbear
-    can see within 10 feet. Failure: The target has the Grappled condition (escape
-    DC 13).'
+  desc: 'Melee Attack Roll : +5 (with Advantage if the target is Grappled by the bugbear), reach 10 ft. Hit : 12
+    (2d8 + 3) Piercing damage.'

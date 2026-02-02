@@ -2,10 +2,11 @@ name: Chuul
 size: Large
 type: Aberration
 alignment: Chaotic Evil
-initiative: +0 (10)
+initiative: '+0'
 ac: '16'
-hp: 76 (9d10 + 27)
+hp: 76
 speed: 30 ft., Swim 30 ft.
+challenge_rating: 4
 abilities:
   Str: 19
   Dex: 10
@@ -17,10 +18,9 @@ skills:
 - Perception +4
 immunities:
 - Poison; Poisoned
+senses: Darkvision 60 ft., Passive Perception 14
 languages:
 - Understands Deep Speech but can't speak
-senses: Darkvision 60 ft., Passive Perception 14
-challenge_rating: 4 (XP 1 100; PB +2)
 description: ''
 habitat: Coastal, Swamp, Underdark
 treasure: Relics
@@ -28,17 +28,15 @@ traits:
 - name: Amphibious
   desc: The chuul can breathe air and water.
 - name: Sense Magic
-  desc: The chuul senses magic within 120 feet of itself. This trait otherwise works
-    like the Detect Magic spell but isn't itself magical.
+  desc: The chuul senses magic within 120 feet of itself. This trait otherwise works like the Detect Magic spell
+    but isn't itself magical.
 actions:
 - name: Multiattack
   desc: The chuul makes two Pincer attacks and uses Paralyzing Tentacles.
 - name: Pincer
-  desc: 'Melee Attack Roll: +6, reach 10 ft. Hit: 9 (1d10 + 4) Bludgeoning damage.
-    If the target is a Large or smaller creature, it has the Grappled condition (escape
-    DC 14) from one of two pincers.'
+  desc: 'Melee Attack Roll : +6, reach 10 ft. Hit : 9 (1d10 + 4) Bludgeoning damage. If the target is a Large or
+    smaller creature, it has the Grappled condition (escape DC 14) from one of two pincers.'
 - name: Paralyzing Tentacles
-  desc: 'Constitution Saving Throw: DC 13, one creature Grappled by the chuul. Failure:
-    The target has the Poisoned condition and repeats the save at the end of each
-    of its turns, ending the effect on itself on a success. After 1 minute, it succeeds
-    automatically. While Poisoned, the target has the Paralyzed condition.'
+  desc: 'Constitution Saving Throw : DC 13, one creature Grappled by the chuul. Failure : The target has the Poisoned
+    condition and repeats the save at the end of each of its turns, ending the effect on itself on a success. After
+    1 minute, it succeeds automatically. While Poisoned, the target has the Paralyzed condition.'

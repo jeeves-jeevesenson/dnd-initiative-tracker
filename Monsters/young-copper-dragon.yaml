@@ -2,10 +2,11 @@ name: Young Copper Dragon
 size: Large
 type: Dragon (Metallic)
 alignment: Chaotic Good
-initiative: +4 (14)
+initiative: '+4'
 ac: '17'
-hp: 119 (14d10 + 42)
+hp: 119
 speed: 40 ft., Climb 40 ft., Fly 80 ft.
+challenge_rating: 7
 abilities:
   Str: 19
   Dex: 12
@@ -19,35 +20,29 @@ skills:
 - Stealth +4
 immunities:
 - Acid
+senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 17
 languages:
 - Common
 - Draconic
-senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 17
-challenge_rating: 7 (XP 2 900; PB +3)
-description: Relentlessly friendly and curious, most copper dragons view the world
-  as a place of endless wonder and possibility. These gregarious dragons are fonts
-  of patience, hospitality, and humor, and they seek to improve the lives—or, at least,
-  the mood—of those they interact with. If forced to fight to defend themselves or
-  their friends, these dragons favor using their slowing breath and physical attacks
-  to subdue antagonists. Only in cases of extreme peril or emotion do they use their
-  deadly acid breath. Copper dragons typically live in caverns amid picturesque hills
-  and rock formations—particularly those that are prominent landmarks. These dragons
-  collect gifts, though they have little interest in treasure without meaning, no
-  matter how valuable it is. To them, thoughtfully given presents and the feelings
-  or memories they symbolize are more important than masterpieces or magical relics.
+description: Relentlessly friendly and curious, most copper dragons view the world as a place of endless wonder
+  and possibility. These gregarious dragons are fonts of patience, hospitality, and humor, and they seek to improve
+  the lives—or, at least, the mood—of those they interact with. If forced to fight to defend themselves or their
+  friends, these dragons favor using their slowing breath and physical attacks to subdue antagonists. Only in cases
+  of extreme peril or emotion do they use their deadly acid breath. Copper dragons typically live in caverns amid
+  picturesque hills and rock formations—particularly those that are prominent landmarks. These dragons collect gifts,
+  though they have little interest in treasure without meaning, no matter how valuable it is. To them, thoughtfully
+  given presents and the feelings or memories they symbolize are more important than masterpieces or magical relics.
 habitat: Hill
 treasure: Arcana
 actions:
 - name: Multiattack
-  desc: The dragon makes three Rend attacks. It can replace one attack with a use
-    of Slowing Breath.
+  desc: The dragon makes three Rend attacks. It can replace one attack with a use of Slowing Breath.
 - name: Rend
-  desc: 'Melee Attack Roll: +7, reach 10 ft. Hit: 15 (2d10 + 4) Slashing damage.'
+  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 15 (2d10 + 4) Slashing damage.'
 - name: Acid Breath (Recharge 5–6)
-  desc: 'Dexterity Saving Throw: DC 14, each creature in a 40-foot-long, 5-foot-wide
-    Line. Failure: 40 (9d8) Acid damage. Success: Half damage.'
+  desc: 'Dexterity Saving Throw : DC 14, each creature in a 40-foot-long, 5-foot-wide Line. Failure : 40 (9d8) Acid
+    damage. Success : Half damage.'
 - name: Slowing Breath
-  desc: 'Constitution Saving Throw: DC 14, each creature in a 30-foot Cone. Failure:
-    The target can''t take Reactions; its Speed is halved; and it can take either
-    an action or a Bonus Action on its turn, not both. This effect lasts until the
-    end of its next turn.'
+  desc: 'Constitution Saving Throw : DC 14, each creature in a 30-foot Cone. Failure : The target can''t take Reactions;
+    its Speed is halved; and it can take either an action or a Bonus Action on its turn, not both. This effect lasts
+    until the end of its next turn.'

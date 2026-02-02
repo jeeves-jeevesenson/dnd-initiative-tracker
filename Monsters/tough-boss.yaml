@@ -2,10 +2,11 @@ name: Tough Boss
 size: Medium
 type: or Small Humanoid
 alignment: Any Alignment
-initiative: +2 (12)
+initiative: '+2'
 ac: '16'
-hp: 82 (11d8 + 33)
+hp: 82
 speed: 30 ft.
+challenge_rating: 4
 abilities:
   Str: 17
   Dex: 14
@@ -13,27 +14,22 @@ abilities:
   Int: 11
   Wis: 10
   Cha: 11
-skills: []
-immunities: []
+senses: Passive Perception 10
 languages:
 - Common plus one other language
-senses: Passive Perception 10
-challenge_rating: 4 (XP 1 100; PB +2)
-description: Tough bosses leverage their street smarts, brawling prowess, and reputation
-  to compel others to follow their demands.
+description: Tough bosses leverage their street smarts, brawling prowess, and reputation to compel others to follow
+  their demands.
 habitat: Any
 treasure: Armaments
 traits:
 - name: Pack Tactics
-  desc: The tough has Advantage on an attack roll against a creature if at least one
-    of the tough's allies is within 5 feet of the creature and the ally doesn't have
-    the Incapacitated condition.
+  desc: The tough has Advantage on an attack roll against a creature if at least one of the tough's allies is within
+    5 feet of the creature and the ally doesn't have the Incapacitated condition.
 actions:
 - name: Multiattack
   desc: The tough makes two attacks, using Warhammer or Heavy Crossbow in any combination.
 - name: Warhammer
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 12 (2d8 + 3) Bludgeoning damage,
-    and if the target is Large or smaller, the tough can push the target up to 10
-    feet straight away from itself.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 12 (2d8 + 3) Bludgeoning damage, and if the target is Large or
+    smaller, the tough can push the target up to 10 feet straight away from itself.'
 - name: Heavy Crossbow
-  desc: 'Ranged Attack Roll: +4, range 100/400 ft. Hit: 13 (2d10 + 2) Piercing damage.'
+  desc: 'Ranged Attack Roll : +4, range 100/400 ft. Hit : 13 (2d10 + 2) Piercing damage.'

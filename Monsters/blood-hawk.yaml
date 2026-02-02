@@ -2,10 +2,11 @@ name: Blood Hawk
 size: Small
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 7 (2d6)
+hp: 7
 speed: 10 ft., Fly 60 ft.
+challenge_rating: 1/8
 abilities:
   Str: 6
   Dex: 14
@@ -15,19 +16,16 @@ abilities:
   Cha: 5
 skills:
 - Perception +6
-immunities: []
+senses: Passive Perception 16
 languages:
 - None
-senses: Passive Perception 16
-challenge_rating: 1/8 (XP 25; PB +2)
 description: ''
 habitat: Arctic, Coastal, Forest, Grassland, Hill, Mountain
 traits:
 - name: Pack Tactics
-  desc: The hawk has Advantage on an attack roll against a creature if at least one
-    of the hawk's allies is within 5 feet of the creature and the ally doesn't have
-    the Incapacitated condition.
+  desc: The hawk has Advantage on an attack roll against a creature if at least one of the hawk's allies is within
+    5 feet of the creature and the ally doesn't have the Incapacitated condition.
 actions:
 - name: Beak
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 4 (1d4 + 2) Piercing damage, or 6
-    (1d8 + 2) Piercing damage if the target is Bloodied.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 4 (1d4 + 2) Piercing damage, or 6 (1d8 + 2) Piercing damage if
+    the target is Bloodied.'

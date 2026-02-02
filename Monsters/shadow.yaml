@@ -2,10 +2,11 @@ name: Shadow
 size: Medium
 type: Undead
 alignment: Chaotic Evil
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 27 (5d8 + 5)
+hp: 27
 speed: 40 ft.
+challenge_rating: 1/2
 abilities:
   Str: 6
   Dex: 14
@@ -26,29 +27,23 @@ immunities:
 - Prone
 - Restrained
 - Unconscious
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - None
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 1/2 (XP 100; PB +2)
-description: Shadows are incorporeal Undead that feed on life. They resent the living
-  for possessing the potential and vitality lost to them. Shadows lurk in dark, lonely
-  places, typically sites that were meaningful to them in life or cursed places with
-  ties to death, sinister magic, or the Shadowfell. Their victims rise as new shadows
-  and prey on the living. Shadows might resemble the silhouettes of who they were
-  in life or take on more menacing forms.
+description: Shadows are incorporeal Undead that feed on life. They resent the living for possessing the potential
+  and vitality lost to them. Shadows lurk in dark, lonely places, typically sites that were meaningful to them in
+  life or cursed places with ties to death, sinister magic, or the Shadowfell. Their victims rise as new shadows
+  and prey on the living. Shadows might resemble the silhouettes of who they were in life or take on more menacing
+  forms.
 habitat: Planar (Shadowfell), Underdark, Urban
 treasure: None
 traits:
 - name: Amorphous
-  desc: The shadow can move through a space as narrow as 1 inch without expending
-    extra movement to do so.
+  desc: The shadow can move through a space as narrow as 1 inch without expending extra movement to do so.
 - name: Sunlight Weakness
   desc: While in sunlight, the shadow has Disadvantage on D20 Tests.
 actions:
 - name: Draining Swipe
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Necrotic damage, and
-    the target''s Strength score decreases by 1d4. The target dies if this reduces
-    that score to 0. If a Humanoid is slain by this attack, a Shadow rises from the
-    corpse 1d4 hours later.'
-- name: Shadow Stealth
-  desc: While in Dim Light or Darkness, the shadow takes the Hide action.
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Necrotic damage, and the target''s Strength score
+    decreases by 1d4. The target dies if this reduces that score to 0. If a Humanoid is slain by this attack, a
+    Shadow rises from the corpse 1d4 hours later.'

@@ -3,9 +3,9 @@ size: Small
 type: Beast
 alignment: Neutral
 ac: 11 + the spell's level
-hp: 20 (Air only) or 30 (Land and Water only) + 5 for each spell level above 2
-speed: 30 ft., Climb 30 ft. (Land only); Fly 60 ft. (Air only); Swim 30 ft. (Water
-  only)
+hp: 20
+speed: 30 ft., Climb 30 ft. (Land only); Fly 60 ft. (Air only); Swim 30 ft. (Water only)
+challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 18
   Dex: 11
@@ -13,27 +13,21 @@ abilities:
   Int: 4
   Wis: 14
   Cha: 5
-skills: []
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - understands the languages you know
-senses: Darkvision 60 ft., Passive Perception 12
-challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
-description: See  Summon Beast
+description: See Summon Beast
 traits:
 - name: Flyby (Air Only)
-  desc: The spirit doesn't provoke Opportunity Attacks when it flies out of an enemy's
-    reach.
+  desc: The spirit doesn't provoke Opportunity Attacks when it flies out of an enemy's reach.
 - name: Pack Tactics (Land and Water Only)
-  desc: The spirit has Advantage on an attack roll against a creature if at least
-    one of the spirit's allies is within 5 feet of the creature and the ally doesn't
-    have the Incapacitated condition.
+  desc: The spirit has Advantage on an attack roll against a creature if at least one of the spirit's allies is
+    within 5 feet of the creature and the ally doesn't have the Incapacitated condition.
 - name: Water Breathing (Water Only)
   desc: The spirit can breathe only underwater.
 actions:
 - name: Multiattack
-  desc: The spirit makes a number of Rend attacks equal to half this spell's level
-    (round down).
+  desc: The spirit makes a number of Rend attacks equal to half this spell's level (round down).
 - name: Rend
-  desc: 'Melee Attack Roll: Bonus equals your spell attack modifier, reach 5 ft. Hit:
-    1d8 + 4 + the spell''s level Piercing damage.'
+  desc: 'Melee Attack Roll : Bonus equals your spell attack modifier, reach 5 ft. Hit : 1d8 + 4 + the spell''s level
+    Piercing damage.'

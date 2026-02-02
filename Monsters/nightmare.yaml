@@ -2,10 +2,11 @@ name: Nightmare
 size: Large
 type: Fiend
 alignment: Neutral Evil
-initiative: +2 (12)
+initiative: '+2'
 ac: '13'
-hp: 68 (8d10 + 24)
+hp: 68
 speed: 60 ft., Fly 90 ft. (hover)
+challenge_rating: 3
 abilities:
   Str: 18
   Dex: 15
@@ -13,28 +14,23 @@ abilities:
   Int: 10
   Wis: 13
   Cha: 15
-skills: []
 immunities:
 - Fire
+senses: Passive Perception 11
 languages:
 - Understands Abyssal
 - Common
 - and Infernal but can't speak
-senses: Passive Perception 11
-challenge_rating: 3 (XP 700; PB +2)
 description: ''
 habitat: Planar (Lower Planes)
 traits:
 - name: Confer Fire Resistance
-  desc: The nightmare can grant Resistance to Fire damage to a rider while it is on
-    the nightmare.
+  desc: The nightmare can grant Resistance to Fire damage to a rider while it is on the nightmare.
 - name: Illumination
-  desc: The nightmare sheds Bright Light in a 10-foot radius and Dim Light for an
-    additional 10 feet.
+  desc: The nightmare sheds Bright Light in a 10-foot radius and Dim Light for an additional 10 feet.
 actions:
 - name: Hooves
-  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 13 (2d8 + 4) Bludgeoning damage plus
-    10 (3d6) Fire damage.'
+  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 13 (2d8 + 4) Bludgeoning damage plus 10 (3d6) Fire damage.'
 - name: Ethereal Stride
-  desc: The nightmare and up to three willing creatures within 5 feet of it teleport
-    to the Ethereal Plane from the Material Plane or vice versa.
+  desc: The nightmare and up to three willing creatures within 5 feet of it teleport to the Ethereal Plane from
+    the Material Plane or vice versa.

@@ -2,10 +2,11 @@ name: Elemental Cultist
 size: Medium
 type: or Small Humanoid
 alignment: Chaotic Evil
-initiative: +4 (14)
+initiative: '+4'
 ac: '16'
-hp: 135 (18d8 + 54)
+hp: 135
 speed: 30 ft.
+challenge_rating: 8
 abilities:
   Str: 18
   Dex: 12
@@ -17,34 +18,25 @@ skills:
 - Arcana +5
 - Perception +7
 - Religion +5
-immunities: []
+senses: Passive Perception 17
 languages:
 - Common
 - Primordial
-senses: Passive Perception 17
-challenge_rating: 8 (XP 3 900; PB +3)
-description: Elemental cultists harness destructive natural forces to cleanse the
-  world of civilization or prove the dominance of one element over all others. Such
-  cultists are aligned with Elemental monsters or wicked immortals such as the Princes
-  of Elemental Evil or the Elder Elemental Eye.
+description: Elemental cultists harness destructive natural forces to cleanse the world of civilization or prove
+  the dominance of one element over all others. Such cultists are aligned with Elemental monsters or wicked immortals
+  such as the Princes of Elemental Evil or the Elder Elemental Eye.
 habitat: Any
 treasure: Individual, Relics
 actions:
 - name: Multiattack
-  desc: The cultist makes three attacks, using Elemental Flail or Elemental Claw in
-    any combination.
+  desc: The cultist makes three attacks, using Elemental Flail or Elemental Claw in any combination.
 - name: Elemental Flail
-  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 25 (6d6 + 4) damage of a type chosen
-    by the cultist: Acid, Cold, Fire, Lightning, or Thunder.'
+  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 25 (6d6 + 4) damage of a type chosen by the cultist: Acid, Cold,
+    Fire, Lightning, or Thunder.'
 - name: Elemental Claw
-  desc: 'Ranged Attack Roll: +7, range 120 ft. Hit: 22 (4d10) damage of a type chosen
-    by the cultist: Acid, Cold, Fire, Lightning, or Thunder. If the target is a Medium
-    or smaller creature, the cultist moves the target up to 10 feet straight toward
-    or away from itself.'
+  desc: 'Ranged Attack Roll : +7, range 120 ft. Hit : 22 (4d10) damage of a type chosen by the cultist: Acid, Cold,
+    Fire, Lightning, or Thunder. If the target is a Medium or smaller creature, the cultist moves the target up
+    to 10 feet straight toward or away from itself.'
 - name: Spellcasting
-  desc: 'The cultist casts one of the following spells, using Wisdom as the spellcasting
-    ability (spell save DC 15):'
-- name: Elemental Absorption (1/Day)
-  desc: 'Trigger: The cultist takes Acid, Cold, Fire, Lightning, or Thunder damage.
-    Response: The cultist gives itself Resistance to that instance of damage and gains
-    10 Temporary Hit Points.'
+  desc: 'The cultist casts one of the following spells, using Wisdom as the spellcasting ability (spell save DC
+    15):'

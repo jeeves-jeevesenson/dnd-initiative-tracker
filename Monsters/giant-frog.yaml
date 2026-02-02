@@ -2,10 +2,11 @@ name: Giant Frog
 size: Medium
 type: Beast
 alignment: Unaligned
-initiative: +1 (11)
+initiative: '+1'
 ac: '11'
-hp: 18 (4d8)
+hp: 18
 speed: 30 ft., Swim 30 ft.
+challenge_rating: 1/4
 abilities:
   Str: 12
   Dex: 13
@@ -16,30 +17,24 @@ abilities:
 skills:
 - Perception +2
 - Stealth +4
-immunities: []
+senses: Darkvision 30 ft., Passive Perception 12
 languages:
 - None
-senses: Darkvision 30 ft., Passive Perception 12
-challenge_rating: 1/4 (XP 50; PB +2)
 description: ''
 habitat: Forest, Swamp
 traits:
 - name: Amphibious
   desc: The frog can breathe air and water.
 - name: Standing Leap
-  desc: The frog's Long Jump is up to 20 feet and its High Jump is up to 10 feet with
-    or without a running start.
+  desc: The frog's Long Jump is up to 20 feet and its High Jump is up to 10 feet with or without a running start.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 5 (1d6 + 2) Piercing damage. If the
-    target is a Medium or smaller creature, it has the Grappled condition (escape
-    DC 11).'
+  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage. If the target is a Medium or smaller
+    creature, it has the Grappled condition (escape DC 11).'
 - name: Swallow
-  desc: The frog swallows a Small or smaller target it is grappling. While swallowed,
-    the target isn't Grappled but has the Blinded and Restrained conditions, and it
-    has Total Cover against attacks and other effects outside the frog. While swallowing
-    the target, the frog can't use Bite, and if the frog dies, the swallowed target
-    is no longer Restrained and can escape from the corpse using 5 feet of movement,
-    exiting with the Prone condition. At the end of the frog's next turn, the swallowed
-    target takes 5 (2d4) Acid damage. If that damage doesn't kill it, the frog disgorges
-    it, causing it to exit Prone.
+  desc: The frog swallows a Small or smaller target it is grappling. While swallowed, the target isn't Grappled
+    but has the Blinded and Restrained conditions, and it has Total Cover against attacks and other effects outside
+    the frog. While swallowing the target, the frog can't use Bite, and if the frog dies, the swallowed target is
+    no longer Restrained and can escape from the corpse using 5 feet of movement, exiting with the Prone condition.
+    At the end of the frog's next turn, the swallowed target takes 5 (2d4) Acid damage. If that damage doesn't kill
+    it, the frog disgorges it, causing it to exit Prone.

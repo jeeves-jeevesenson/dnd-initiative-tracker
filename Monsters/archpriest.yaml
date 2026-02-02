@@ -2,10 +2,11 @@ name: Archpriest
 size: Medium
 type: or Small Humanoid (Cleric)
 alignment: Neutral
-initiative: +5 (15)
+initiative: '+5'
 ac: '16'
-hp: 240 (32d8 + 96)
+hp: 240
 speed: 30 ft.
+challenge_rating: 12
 abilities:
   Str: 16
   Dex: 12
@@ -18,33 +19,24 @@ skills:
 - Medicine +9
 - Perception +9
 - Religion +10
-immunities: []
+senses: Passive Perception 19
 languages:
 - Common plus two other languages
-senses: Passive Perception 19
-challenge_rating: 12 (XP 8 400; PB +4)
-description: By forging connections with divine beings and mastering mystical truths,
-  archpriests become conduits for godly intentions and other supernatural forces.
-  Their magic allows them to work wonders, whether to share the benevolence of their
-  faiths or to vent divine wrath. Some archpriests attract vast followings as they
-  claim to speak for divine forces, while others undertake personal spiritual journeys
-  and seek to transcend mortal concerns.
+description: By forging connections with divine beings and mastering mystical truths, archpriests become conduits
+  for godly intentions and other supernatural forces. Their magic allows them to work wonders, whether to share
+  the benevolence of their faiths or to vent divine wrath. Some archpriests attract vast followings as they claim
+  to speak for divine forces, while others undertake personal spiritual journeys and seek to transcend mortal concerns.
 habitat: Any
 treasure: Individual, Relics
 actions:
 - name: Multiattack
   desc: The archpriest makes three Radiant Burst attacks.
 - name: Radiant Burst
-  desc: 'Melee or Ranged Attack Roll: +9, reach 5 ft. or range 60 ft. Hit: 27 (4d10
-    + 5) Radiant damage.'
+  desc: 'Melee or Ranged Attack Roll : +9, reach 5 ft. or range 60 ft. Hit : 27 (4d10 + 5) Radiant damage.'
 - name: Holy Word (Recharge 4–6)
-  desc: 'Wisdom Saving Throw: DC 17, each enemy in a 20-foot Emanation originating
-    from the archpriest. Failure: 21 (6d6) Radiant damage, and the target has the
-    Stunned condition until the end of the archpriest''s next turn. Success: Half
-    damage only.'
+  desc: 'Wisdom Saving Throw : DC 17, each enemy in a 20-foot Emanation originating from the archpriest. Failure
+    : 21 (6d6) Radiant damage, and the target has the Stunned condition until the end of the archpriest''s next
+    turn. Success : Half damage only.'
 - name: Spellcasting
-  desc: 'The archpriest casts one of the following spells, requiring no Material components
-    and using Wisdom as the spellcasting ability (spell save DC 17):'
-- name: Divine Aid (3/Day)
-  desc: The priest casts Bless, Dispel Magic, Healing Word, or Lesser Restoration,
-    using the same spellcasting ability as Spellcasting.
+  desc: 'The archpriest casts one of the following spells, requiring no Material components and using Wisdom as
+    the spellcasting ability (spell save DC 17):'

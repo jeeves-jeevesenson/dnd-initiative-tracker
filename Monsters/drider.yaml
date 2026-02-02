@@ -2,10 +2,11 @@ name: Drider
 size: Large
 type: Monstrosity
 alignment: Chaotic Evil
-initiative: +4 (14)
+initiative: '+4'
 ac: '19'
-hp: 123 (13d10 + 52)
+hp: 123
 speed: 30 ft., Climb 30 ft.
+challenge_rating: 6
 abilities:
   Str: 16
   Dex: 19
@@ -16,32 +17,25 @@ abilities:
 skills:
 - Perception +6
 - Stealth +10
-immunities: []
+senses: Darkvision 120 ft., Passive Perception 16
 languages:
 - Elvish
 - Undercommon
-senses: Darkvision 120 ft., Passive Perception 16
-challenge_rating: 6 (XP 2 300; PB +3)
 description: ''
 habitat: Forest, Underdark
 treasure: Armaments
 traits:
 - name: Spider Climb
-  desc: The drider can climb difficult surfaces, including along ceilings, without
-    needing to make an ability check.
+  desc: The drider can climb difficult surfaces, including along ceilings, without needing to make an ability check.
 - name: Sunlight Sensitivity
-  desc: While in sunlight, the drider has Disadvantage on ability checks and attack
-    rolls.
+  desc: While in sunlight, the drider has Disadvantage on ability checks and attack rolls.
 - name: Web Walker
-  desc: The drider ignores movement restrictions caused by webs, and the drider knows
-    the location of any other creature in contact with the same web.
+  desc: The drider ignores movement restrictions caused by webs, and the drider knows the location of any other
+    creature in contact with the same web.
 actions:
 - name: Multiattack
   desc: The drider makes three attacks, using Foreleg or Poison Burst in any combination.
 - name: Foreleg
-  desc: 'Melee Attack Roll: +7, reach 10 ft. Hit: 13 (2d8 + 4) Piercing damage.'
+  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 13 (2d8 + 4) Piercing damage.'
 - name: Poison Burst
-  desc: 'Ranged Attack Roll: +6, range 120 ft. Hit: 13 (3d6 + 3) Poison damage.'
-- name: Magic of the Spider Queen (Recharge 5–6)
-  desc: The drider casts Darkness, Faerie Fire, or Web, requiring no Material components
-    and using Wisdom as the spellcasting ability (spell save DC 14).
+  desc: 'Ranged Attack Roll : +6, range 120 ft. Hit : 13 (3d6 + 3) Poison damage.'

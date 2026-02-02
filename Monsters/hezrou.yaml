@@ -2,10 +2,11 @@ name: Hezrou
 size: Large
 type: Fiend (Demon)
 alignment: Chaotic Evil
-initiative: +6 (16)
+initiative: '+6'
 ac: '18'
-hp: 157 (15d10 + 75)
+hp: 157
 speed: 30 ft.
+challenge_rating: 8
 abilities:
   Str: 19
   Dex: 17
@@ -13,33 +14,25 @@ abilities:
   Int: 5
   Wis: 12
   Cha: 13
-skills: []
 immunities:
 - Poison; Poisoned
+senses: Darkvision 120 ft., Passive Perception 11
 languages:
 - Abyssal; telepathy 120 ft.
-senses: Darkvision 120 ft., Passive Perception 11
-challenge_rating: 8 (XP 3 900; PB +3)
 description: ''
 habitat: Planar (Abyss)
 treasure: Any
 traits:
 - name: Demonic Restoration
-  desc: If the hezrou dies outside the Abyss, its body dissolves into ichor, and it
-    gains a new body instantly, reviving with all its Hit Points somewhere in the
-    Abyss.
+  desc: If the hezrou dies outside the Abyss, its body dissolves into ichor, and it gains a new body instantly,
+    reviving with all its Hit Points somewhere in the Abyss.
 - name: Magic Resistance
-  desc: The hezrou has Advantage on saving throws against spells and other magical
-    effects.
+  desc: The hezrou has Advantage on saving throws against spells and other magical effects.
 - name: Stench
-  desc: 'Constitution Saving Throw: DC 16, any creature that starts its turn in a
-    10-foot Emanation originating from the hezrou. Failure: The target has the Poisoned
-    condition until the start of its next turn.'
+  desc: 'Constitution Saving Throw : DC 16, any creature that starts its turn in a 10-foot Emanation originating
+    from the hezrou. Failure : The target has the Poisoned condition until the start of its next turn.'
 actions:
 - name: Multiattack
   desc: The hezrou makes three Rend attacks.
 - name: Rend
-  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 6 (1d4 + 4) Slashing damage plus
-    9 (2d8) Poison damage.'
-- name: Leap
-  desc: The hezrou jumps up to 30 feet by spending 10 feet of movement.
+  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 6 (1d4 + 4) Slashing damage plus 9 (2d8) Poison damage.'

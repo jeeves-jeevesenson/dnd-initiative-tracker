@@ -2,10 +2,11 @@ name: Larva
 size: Medium
 type: Fiend
 alignment: Neutral Evil
-initiative: -1 (9)
+initiative: '-1'
 ac: '9'
-hp: 9 (2d8)
+hp: 9
 speed: 20 ft.
+challenge_rating: 0
 abilities:
   Str: 9
   Dex: 9
@@ -13,15 +14,11 @@ abilities:
   Int: 6
   Wis: 10
   Cha: 2
-skills: []
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Understands Common plus one other language but can't speak
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 0 (XP 10; PB +2)
-description: Larvae have disjointed, painful memories of their past lives. Most desperately
-  avoid other creatures.
+description: Larvae have disjointed, painful memories of their past lives. Most desperately avoid other creatures.
 habitat: Planar (Lower Planes)
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +1, reach 5 ft. Hit: 1 (1d4 - 1) Necrotic damage.'
+  desc: 'Melee Attack Roll : +1, reach 5 ft. Hit : 1 (1d4 - 1) Necrotic damage.'

@@ -2,10 +2,11 @@ name: Hawk
 size: Tiny
 type: Beast
 alignment: Unaligned
-initiative: +3 (13)
+initiative: '+3'
 ac: '13'
-hp: 1 (1d4 - 1)
+hp: 1
 speed: 10 ft., Fly 60 ft.
+challenge_rating: 0
 abilities:
   Str: 5
   Dex: 16
@@ -15,13 +16,11 @@ abilities:
   Cha: 6
 skills:
 - Perception +6
-immunities: []
+senses: Passive Perception 16
 languages:
 - None
-senses: Passive Perception 16
-challenge_rating: 0 (XP 10; PB +2)
 description: ''
 habitat: Arctic, Coastal, Forest, Grassland, Hill, Mountain
 actions:
 - name: Talons
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 1 Slashing damage.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 1 Slashing damage.'

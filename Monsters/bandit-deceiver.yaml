@@ -2,10 +2,11 @@ name: Bandit Deceiver
 size: Medium
 type: or Small Humanoid
 alignment: Neutral
-initiative: +6 (16)
+initiative: '+6'
 ac: '16'
-hp: 130 (20d8 + 40)
+hp: 130
 speed: 30 ft.
+challenge_rating: 7
 abilities:
   Str: 8
   Dex: 16
@@ -17,16 +18,13 @@ skills:
 - Acrobatics +6
 - Perception +4
 - Stealth +9
-immunities: []
+senses: Passive Perception 14
 languages:
 - Common
 - Thieves' Cant
-senses: Passive Perception 14
-challenge_rating: 7 (XP 2 900; PB +3)
-description: Bandits use the threat of violence to take what they want. Such criminals
-  include gang members, desperadoes, and lawless mercenaries. Yet not all bandits
-  are motivated by greed. Some are driven to lives of crime by unjust laws, desperation,
-  or the threats of merciless leaders.  Bandit deceivers use magic to disguise their
-  activities or create flashy distractions.
+description: Bandits use the threat of violence to take what they want. Such criminals include gang members, desperadoes,
+  and lawless mercenaries. Yet not all bandits are motivated by greed. Some are driven to lives of crime by unjust
+  laws, desperation, or the threats of merciless leaders. Bandit deceivers use magic to disguise their activities
+  or create flashy distractions.
 habitat: Any
 treasure: Any

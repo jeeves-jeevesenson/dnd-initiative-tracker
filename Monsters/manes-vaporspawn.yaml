@@ -2,10 +2,11 @@ name: Manes Vaporspawn
 size: Medium
 type: Fiend (Demon)
 alignment: Chaotic Evil
-initiative: +1 (11)
+initiative: '+1'
 ac: '13'
-hp: 19 (3d8 + 6)
+hp: 19
 speed: 30 ft.
+challenge_rating: 1
 abilities:
   Str: 14
   Dex: 12
@@ -13,7 +14,6 @@ abilities:
   Int: 5
   Wis: 8
   Cha: 3
-skills: []
 immunities:
 - Poison; Charmed
 - Exhaustion
@@ -21,11 +21,10 @@ immunities:
 - Grappled
 - Poisoned
 - Restrained
+senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Understands Abyssal but can't speak
-senses: Darkvision 60 ft., Passive Perception 9
-challenge_rating: 1 (XP 200; PB +2)
-description: Vaporspawn arise from evil souls shattered by unspeakable torments or
-  the depredations of more powerful demons. These distorted manes undergo endless,
-  painful contortions, and they share their torment with whatever creatures they encounter.
+description: Vaporspawn arise from evil souls shattered by unspeakable torments or the depredations of more powerful
+  demons. These distorted manes undergo endless, painful contortions, and they share their torment with whatever
+  creatures they encounter.
 habitat: Planar (Abyss)

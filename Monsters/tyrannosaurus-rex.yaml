@@ -2,10 +2,11 @@ name: Tyrannosaurus Rex
 size: Huge
 type: Beast (Dinosaur)
 alignment: Unaligned
-initiative: +3 (13)
+initiative: '+3'
 ac: '13'
-hp: 136 (13d12 + 52)
+hp: 136
 speed: 50 ft.
+challenge_rating: 8
 abilities:
   Str: 25
   Dex: 10
@@ -15,21 +16,18 @@ abilities:
   Cha: 9
 skills:
 - Perception +4
-immunities: []
+senses: Passive Perception 14
 languages:
 - None
-senses: Passive Perception 14
-challenge_rating: 8 (XP 3 900; PB +3)
 description: ''
 habitat: Grassland
 actions:
 - name: Multiattack
   desc: The tyrannosaurus makes one Bite attack and one Tail attack.
 - name: Bite
-  desc: 'Melee Attack Roll: +10, reach 10 ft. Hit: 33 (4d12 + 7) Piercing damage.
-    If the target is a Large or smaller creature, it has the Grappled condition (escape
-    DC 17). While Grappled, the target has the Restrained condition and can''t be
-    targeted by the tyrannosaurus''s Tail.'
+  desc: 'Melee Attack Roll : +10, reach 10 ft. Hit : 33 (4d12 + 7) Piercing damage. If the target is a Large or
+    smaller creature, it has the Grappled condition (escape DC 17). While Grappled, the target has the Restrained
+    condition and can''t be targeted by the tyrannosaurus''s Tail.'
 - name: Tail
-  desc: 'Melee Attack Roll: +10, reach 15 ft. Hit: 25 (4d8 + 7) Bludgeoning damage.
-    If the target is a Huge or smaller creature, it has the Prone condition.'
+  desc: 'Melee Attack Roll : +10, reach 15 ft. Hit : 25 (4d8 + 7) Bludgeoning damage. If the target is a Huge or
+    smaller creature, it has the Prone condition.'

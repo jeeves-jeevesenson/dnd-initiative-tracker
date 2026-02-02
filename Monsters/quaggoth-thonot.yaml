@@ -2,10 +2,11 @@ name: Quaggoth Thonot
 size: Medium
 type: Monstrosity
 alignment: Chaotic Neutral
-initiative: +1 (11)
+initiative: '+1'
 ac: '15'
-hp: 67 (9d8 + 27)
+hp: 67
 speed: 30 ft., Climb 30 ft.
+challenge_rating: 3
 abilities:
   Str: 17
   Dex: 12
@@ -17,10 +18,9 @@ skills:
 - Athletics +5
 immunities:
 - Poison; Poisoned
+senses: Darkvision 120 ft., Passive Perception 12
 languages:
 - Undercommon
-senses: Darkvision 120 ft., Passive Perception 12
-challenge_rating: 3 (XP 700; PB +2)
-description: Quaggoth thonots possess psionic abilities, which they use to give themselves
-  an edge in combat and to coerce the service of other quaggoths.
+description: Quaggoth thonots possess psionic abilities, which they use to give themselves an edge in combat and
+  to coerce the service of other quaggoths.
 habitat: Underdark

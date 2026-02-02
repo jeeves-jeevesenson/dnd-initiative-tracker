@@ -2,10 +2,11 @@ name: Cat
 size: Tiny
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 2 (1d4)
+hp: 2
 speed: 40 ft., Climb 40 ft.
+challenge_rating: 0
 abilities:
   Str: 3
   Dex: 15
@@ -16,17 +17,14 @@ abilities:
 skills:
 - Perception +3
 - Stealth +4
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 13
 languages:
 - None
-senses: Darkvision 60 ft., Passive Perception 13
-challenge_rating: 0 (XP 10; PB +2)
 description: ''
 habitat: Desert, Forest, Grassland, Urban
 traits:
 - name: Jumper
-  desc: The cat's jump distance is determined using its Dexterity rather than its
-    Strength.
+  desc: The cat's jump distance is determined using its Dexterity rather than its Strength.
 actions:
 - name: Scratch
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 1 Slashing damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 1 Slashing damage.'

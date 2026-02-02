@@ -2,10 +2,11 @@ name: Giant Axe Beak
 size: Huge
 type: Monstrosity
 alignment: Unaligned
-initiative: +5 (15)
+initiative: '+5'
 ac: '15'
-hp: 84 (8d12 + 32)
+hp: 84
 speed: 50 ft.
+challenge_rating: 5
 abilities:
   Str: 21
   Dex: 14
@@ -15,12 +16,9 @@ abilities:
   Cha: 5
 skills:
 - Perception +4
-immunities: []
+senses: Passive Perception 14
 languages:
 - —
-senses: Passive Perception 14
-challenge_rating: 5 (XP 1 800; PB +3)
-description: Giant axe beaks typically dwell in secluded, primeval realms, such as
-  isolated islands or underground wildernesses. They often compete with dinosaurs
-  and other giant beasts for territory.
+description: Giant axe beaks typically dwell in secluded, primeval realms, such as isolated islands or underground
+  wildernesses. They often compete with dinosaurs and other giant beasts for territory.
 habitat: Arctic, Grassland, Hill

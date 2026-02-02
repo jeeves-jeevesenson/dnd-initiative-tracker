@@ -2,10 +2,11 @@ name: Mammoth
 size: Huge
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '13'
-hp: 126 (11d12 + 55)
+hp: 126
 speed: 50 ft.
+challenge_rating: 6
 abilities:
   Str: 24
   Dex: 9
@@ -13,21 +14,15 @@ abilities:
   Int: 3
   Wis: 11
   Cha: 6
-skills: []
-immunities: []
+senses: Passive Perception 10
 languages:
 - None
-senses: Passive Perception 10
-challenge_rating: 6 (XP 2 300; PB +3)
 description: ''
 habitat: Arctic
 actions:
 - name: Multiattack
   desc: The mammoth makes two Gore attacks.
 - name: Gore
-  desc: 'Melee Attack Roll: +10, reach 10 ft. Hit: 18 (2d10 + 7) Piercing damage.
-    If the target is a Huge or smaller creature and the mammoth moved 20+ feet straight
-    toward it immediately before the hit, the target has the Prone condition.'
-- name: Trample
-  desc: 'Dexterity Saving Throw: DC 18, one creature within 5 feet that has the Prone
-    condition. Failure: 29 (4d10 + 7) Bludgeoning damage. Success: Half damage.'
+  desc: 'Melee Attack Roll : +10, reach 10 ft. Hit : 18 (2d10 + 7) Piercing damage. If the target is a Huge or smaller
+    creature and the mammoth moved 20+ feet straight toward it immediately before the hit, the target has the Prone
+    condition.'

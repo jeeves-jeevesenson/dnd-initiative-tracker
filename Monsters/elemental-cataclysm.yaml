@@ -2,10 +2,11 @@ name: Elemental Cataclysm
 size: Gargantuan
 type: Elemental (Titan)
 alignment: Chaotic Neutral
-initiative: +18 (28)
+initiative: '+18'
 ac: '20'
-hp: 370 (20d20 + 160)
+hp: 370
 speed: 60 ft., Burrow 60 ft., Fly 80 ft. (hover), Swim 80 ft.
+challenge_rating: 22
 abilities:
   Str: 26
   Dex: 19
@@ -13,7 +14,6 @@ abilities:
   Int: 9
   Wis: 14
   Cha: 9
-skills: []
 immunities:
 - Acid
 - Cold
@@ -33,10 +33,8 @@ immunities:
 - Restrained
 - Stunned
 - Unconscious
+senses: Truesight 150 ft., Passive Perception 12
 languages:
 - Primordial
-senses: Truesight 150 ft., Passive Perception 12
-challenge_rating: 22 (XP 41 000; PB +7)
 description: ''
 habitat: Planar (Elemental Chaos)
-legendary_uses: 'Legendary Action Uses: 3.'

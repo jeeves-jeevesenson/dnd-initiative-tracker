@@ -2,10 +2,11 @@ name: Gnoll Pack Lord
 size: Medium
 type: Fiend
 alignment: Chaotic Evil
-initiative: +4 (14)
+initiative: '+4'
 ac: '15'
-hp: 49 (9d8 + 9)
+hp: 49
 speed: 30 ft.
+challenge_rating: 2
 abilities:
   Str: 16
   Dex: 14
@@ -13,18 +14,14 @@ abilities:
   Int: 8
   Wis: 11
   Cha: 9
-skills: []
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Gnoll
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 2 (XP 450; PB +2)
-description: The first gnolls arose from hyenas that fed on flesh tainted by the Abyss.
-  Their corruption and violence delighted the demon lord Yeenoghu, who encouraged
-  their numbers and spread them across the multiverse. Ever since, gnolls have been
-  the cackling servants of Yeenoghu, existing to cause ruin and to feast on what remains.  Rising
-  above other gnolls with their viciousness and physical prowess, gnoll pack lords
-  terrorize weaker gnolls into their service. These brutes drive other gnolls to acts
-  of great violence, then claim the best of their servants' spoils.
+description: The first gnolls arose from hyenas that fed on flesh tainted by the Abyss. Their corruption and violence
+  delighted the demon lord Yeenoghu, who encouraged their numbers and spread them across the multiverse. Ever since,
+  gnolls have been the cackling servants of Yeenoghu, existing to cause ruin and to feast on what remains. Rising
+  above other gnolls with their viciousness and physical prowess, gnoll pack lords terrorize weaker gnolls into
+  their service. These brutes drive other gnolls to acts of great violence, then claim the best of their servants'
+  spoils.
 habitat: Desert, Forest, Grassland, Hill
 treasure: Armaments, Individual

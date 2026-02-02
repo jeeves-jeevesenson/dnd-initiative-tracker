@@ -2,10 +2,11 @@ name: Banshee
 size: Medium
 type: Undead
 alignment: Chaotic Evil
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 54 (12d8)
+hp: 54
 speed: 5 ft., Fly 40 ft. (hover)
+challenge_rating: 4
 abilities:
   Str: 1
   Dex: 14
@@ -13,7 +14,6 @@ abilities:
   Int: 12
   Wis: 11
   Cha: 17
-skills: []
 immunities:
 - Cold
 - Necrotic
@@ -26,11 +26,10 @@ immunities:
 - Poisoned
 - Prone
 - Restrained
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Common
 - Elvish
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 4 (XP 1 100; PB +2)
 description: ''
 habitat: Any
 treasure: Relics

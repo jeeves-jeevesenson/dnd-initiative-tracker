@@ -2,10 +2,11 @@ name: Giant Scorpion
 size: Large
 type: Beast
 alignment: Unaligned
-initiative: +1 (11)
+initiative: '+1'
 ac: '15'
-hp: 52 (7d10 + 14)
+hp: 52
 speed: 40 ft.
+challenge_rating: 3
 abilities:
   Str: 16
   Dex: 13
@@ -13,21 +14,16 @@ abilities:
   Int: 1
   Wis: 9
   Cha: 3
-skills: []
-immunities: []
+senses: Blindsight 60 ft., Passive Perception 9
 languages:
 - None
-senses: Blindsight 60 ft., Passive Perception 9
-challenge_rating: 3 (XP 700; PB +2)
 description: ''
 habitat: Desert
 actions:
 - name: Multiattack
   desc: The scorpion makes two Claw attacks and one Sting attack.
 - name: Claw
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 6 (1d6 + 3) Bludgeoning damage. If
-    the target is a Large or smaller creature, it has the Grappled condition (escape
-    DC 13) from one of two claws.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Bludgeoning damage. If the target is a Large or smaller
+    creature, it has the Grappled condition (escape DC 13) from one of two claws.'
 - name: Sting
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 7 (1d8 + 3) Piercing damage plus
-    11 (2d10) Poison damage.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Piercing damage plus 11 (2d10) Poison damage.'

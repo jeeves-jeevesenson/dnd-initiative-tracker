@@ -2,10 +2,11 @@ name: Pegasus
 size: Large
 type: Celestial
 alignment: Chaotic Good
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 59 (7d10 + 21)
+hp: 59
 speed: 60 ft., Fly 90 ft.
+challenge_rating: 2
 abilities:
   Str: 18
   Dex: 15
@@ -15,17 +16,14 @@ abilities:
   Cha: 13
 skills:
 - Perception +6
-immunities: []
+senses: Passive Perception 16
 languages:
 - Understands Celestial
 - Common
 - Elvish
 - and Sylvan but can't speak
-senses: Passive Perception 16
-challenge_rating: 2 (XP 450; PB +2)
 description: ''
 habitat: Forest, Grassland, Hill, Planar (Upper Planes)
 actions:
 - name: Hooves
-  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 7 (1d6 + 4) Bludgeoning damage plus
-    5 (2d4) Radiant damage.'
+  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 7 (1d6 + 4) Bludgeoning damage plus 5 (2d4) Radiant damage.'

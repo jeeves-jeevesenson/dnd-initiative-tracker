@@ -2,10 +2,11 @@ name: Kuo-toa Whip
 size: Medium
 type: Aberration
 alignment: Neutral Evil
-initiative: +0 (10)
+initiative: '+0'
 ac: '11'
-hp: 45 (7d8 + 14)
+hp: 45
 speed: 30 ft., Swim 30 ft.
+challenge_rating: 1
 abilities:
   Str: 14
   Dex: 10
@@ -16,15 +17,12 @@ abilities:
 skills:
 - Perception +6
 - Religion +3
-immunities: []
+senses: Darkvision 120 ft., Truesight 30 ft., Passive Perception 16
 languages:
 - Undercommon
-senses: Darkvision 120 ft., Truesight 30 ft., Passive Perception 16
-challenge_rating: 1 (XP 200; PB +2)
-description: The servants of kuo-toa archpriests, kuo-toa whips—so named for their
-  role in enforcing order among other kuo-toa—lead war bands in carrying out the commands
-  of their superiors. In return for their zeal, these kuo-toa are granted minor magical
-  abilities and pincerlike weapons for subduing foes. In battle, whips drive on other
-  kuo-toa with threats of violence and burbling chants.
+description: The servants of kuo-toa archpriests, kuo-toa whips—so named for their role in enforcing order among
+  other kuo-toa—lead war bands in carrying out the commands of their superiors. In return for their zeal, these
+  kuo-toa are granted minor magical abilities and pincerlike weapons for subduing foes. In battle, whips drive on
+  other kuo-toa with threats of violence and burbling chants.
 habitat: Coastal, Underdark
 treasure: Relics

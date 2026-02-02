@@ -2,10 +2,11 @@ name: Gnoll Warrior
 size: Medium
 type: Fiend
 alignment: Chaotic Evil
-initiative: +1 (11)
+initiative: '+1'
 ac: '15'
-hp: 27 (6d8)
+hp: 27
 speed: 30 ft.
+challenge_rating: 1/2
 abilities:
   Str: 14
   Dex: 12
@@ -13,27 +14,19 @@ abilities:
   Int: 6
   Wis: 10
   Cha: 7
-skills: []
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Gnoll
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 1/2 (XP 100; PB +2)
-description: The first gnolls arose from hyenas that fed on flesh tainted by the Abyss.
-  Their corruption and violence delighted the demon lord Yeenoghu, who encouraged
-  their numbers and spread them across the multiverse. Ever since, gnolls have been
-  the cackling servants of Yeenoghu, existing to cause ruin and to feast on what remains.  Gnoll
-  warriors crave endless slaughter but quickly grow bored with the prey they kill
-  and the treasures they plunder. Nevertheless, they're enraged by the thought of
-  anyone else having what's theirs, compelling them to despoil what they can't take
-  with them.
+description: The first gnolls arose from hyenas that fed on flesh tainted by the Abyss. Their corruption and violence
+  delighted the demon lord Yeenoghu, who encouraged their numbers and spread them across the multiverse. Ever since,
+  gnolls have been the cackling servants of Yeenoghu, existing to cause ruin and to feast on what remains. Gnoll
+  warriors crave endless slaughter but quickly grow bored with the prey they kill and the treasures they plunder.
+  Nevertheless, they're enraged by the thought of anyone else having what's theirs, compelling them to despoil what
+  they can't take with them.
 habitat: Desert, Forest, Grassland, Hill
 treasure: Armaments, Individual
 actions:
 - name: Rend
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Piercing damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage.'
 - name: Bone Bow
-  desc: 'Ranged Attack Roll: +3, range 150/600 ft. Hit: 6 (1d10 + 1) Piercing damage.'
-- name: Rampage (1/Day)
-  desc: Immediately after dealing damage to a creature that is already Bloodied, the
-    gnoll moves up to half its Speed, and it makes one Rend attack.
+  desc: 'Ranged Attack Roll : +3, range 150/600 ft. Hit : 6 (1d10 + 1) Piercing damage.'

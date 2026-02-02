@@ -2,10 +2,11 @@ name: Flying Snake
 size: Tiny
 type: Monstrosity
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '14'
-hp: 5 (2d4)
+hp: 5
 speed: 30 ft., Fly 60 ft., Swim 30 ft.
+challenge_rating: 1/8
 abilities:
   Str: 4
   Dex: 15
@@ -13,19 +14,14 @@ abilities:
   Int: 2
   Wis: 12
   Cha: 5
-skills: []
-immunities: []
+senses: Blindsight 10 ft., Passive Perception 11
 languages:
 - None
-senses: Blindsight 10 ft., Passive Perception 11
-challenge_rating: 1/8 (XP 25; PB +2)
 description: ''
 habitat: Desert, Forest, Grassland
 traits:
 - name: Flyby
-  desc: The snake doesn't provoke an Opportunity Attack when it flies out of an enemy's
-    reach.
+  desc: The snake doesn't provoke an Opportunity Attack when it flies out of an enemy's reach.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 1 Piercing damage plus 5 (2d4) Poison
-    damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 1 Piercing damage plus 5 (2d4) Poison damage.'

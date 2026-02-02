@@ -2,10 +2,11 @@ name: Hobgoblin Warrior
 size: Medium
 type: Fey (Goblinoid)
 alignment: Lawful Evil
-initiative: +3 (13)
+initiative: '+3'
 ac: '18'
-hp: 11 (2d8 + 2)
+hp: 11
 speed: 30 ft.
+challenge_rating: 1/2
 abilities:
   Str: 13
   Dex: 12
@@ -13,36 +14,27 @@ abilities:
   Int: 10
   Wis: 10
   Cha: 9
-skills: []
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Common
 - Goblin
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 1/2 (XP 100; PB +2)
-description: Hobgoblins embody the primal urge to grow and spread, expressing such
-  drives by bending the world to their whims. Lone hobgoblins claim woodland territories
-  and plunder the wilds. In groups, they form hierarchical, martial societies bent
-  on conquering lands and stripping them of resources to serve their expansionist
-  zeal. Hobgoblins often subjugate animals, monsters, and destructive Fey—particularly
-  goblins and bugbears—to serve their plans. Hobgoblins might ally with dragons, warlords,
-  the servants of warlike gods, or other powerful creatures that promise them control
-  of new territories. Should hobgoblins bring an entire land to heel, they seek new
-  conquests, venturing across seas, into the Underdark, or to stars and planes of
-  existence beyond.  Hobgoblin warriors might hunt and raid alone or with trained
-  mastiffs, worgs, goblin gangs, or other allies. They employ simple tactics and exploit
-  every advantage their allies provide. They willingly sacrifice companions in their
-  pursuit of victory.
+description: Hobgoblins embody the primal urge to grow and spread, expressing such drives by bending the world to
+  their whims. Lone hobgoblins claim woodland territories and plunder the wilds. In groups, they form hierarchical,
+  martial societies bent on conquering lands and stripping them of resources to serve their expansionist zeal. Hobgoblins
+  often subjugate animals, monsters, and destructive Fey—particularly goblins and bugbears—to serve their plans.
+  Hobgoblins might ally with dragons, warlords, the servants of warlike gods, or other powerful creatures that promise
+  them control of new territories. Should hobgoblins bring an entire land to heel, they seek new conquests, venturing
+  across seas, into the Underdark, or to stars and planes of existence beyond. Hobgoblin warriors might hunt and
+  raid alone or with trained mastiffs, worgs, goblin gangs, or other allies. They employ simple tactics and exploit
+  every advantage their allies provide. They willingly sacrifice companions in their pursuit of victory.
 habitat: Desert, Forest, Grassland, Hill, Mountain, Planar (Acheron), Underdark
 treasure: Armaments, Individual
 traits:
 - name: Pack Tactics
-  desc: The hobgoblin has Advantage on an attack roll against a creature if at least
-    one of the hobgoblin's allies is within 5 feet of the creature and the ally doesn't
-    have the Incapacitated condition.
+  desc: The hobgoblin has Advantage on an attack roll against a creature if at least one of the hobgoblin's allies
+    is within 5 feet of the creature and the ally doesn't have the Incapacitated condition.
 actions:
 - name: Longsword
-  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 12 (2d10 + 1) Slashing damage.'
+  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 12 (2d10 + 1) Slashing damage.'
 - name: Longbow
-  desc: 'Ranged Attack Roll: +3, range 150/600 ft. Hit: 5 (1d8 + 1) Piercing damage
-    plus 7 (3d4) Poison damage.'
+  desc: 'Ranged Attack Roll : +3, range 150/600 ft. Hit : 5 (1d8 + 1) Piercing damage plus 7 (3d4) Poison damage.'

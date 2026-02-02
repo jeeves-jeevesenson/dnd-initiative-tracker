@@ -2,10 +2,11 @@ name: Piercer
 size: Medium
 type: Aberration
 alignment: Unaligned
-initiative: +3 (13)
+initiative: '+3'
 ac: '15'
-hp: 22 (3d8 + 9)
+hp: 22
 speed: 5 ft., Climb 15 ft.
+challenge_rating: 1/2
 abilities:
   Str: 13
   Dex: 13
@@ -15,11 +16,9 @@ abilities:
   Cha: 3
 skills:
 - Stealth +5
-immunities: []
+senses: Blindsight 30 ft., Darkvision 60 ft., Passive Perception 8
 languages:
 - None
-senses: Blindsight 30 ft., Darkvision 60 ft., Passive Perception 8
-challenge_rating: 1/2 (XP 100; PB +2)
 description: ''
 habitat: Underdark
 treasure: Individual

@@ -2,10 +2,11 @@ name: Fire Giant
 size: Huge
 type: Giant
 alignment: Lawful Evil
-initiative: +3 (13)
+initiative: '+3'
 ac: '18'
-hp: 162 (13d12 + 78)
+hp: 162
 speed: 30 ft.
+challenge_rating: 9
 abilities:
   Str: 25
   Dex: 9
@@ -18,10 +19,9 @@ skills:
 - Perception +6
 immunities:
 - Fire
+senses: Passive Perception 16
 languages:
 - Giant
-senses: Passive Perception 16
-challenge_rating: 9 (XP 5 000; PB +4)
 description: ''
 habitat: Mountain, Underdark
 treasure: Armaments
@@ -29,10 +29,8 @@ actions:
 - name: Multiattack
   desc: The giant makes two attacks, using Flame Sword or Hammer Throw in any combination.
 - name: Flame Sword
-  desc: 'Melee Attack Roll: +11, reach 10 ft. Hit: 21 (4d6 + 7) Slashing damage plus
-    10 (3d6) Fire damage.'
+  desc: 'Melee Attack Roll : +11, reach 10 ft. Hit : 21 (4d6 + 7) Slashing damage plus 10 (3d6) Fire damage.'
 - name: Hammer Throw
-  desc: 'Ranged Attack Roll: +11, range 60/240 ft. Hit: 23 (3d10 + 7) Bludgeoning
-    damage plus 4 (1d8) Fire damage, and the target is pushed up to 15 feet straight
-    away from the giant and has Disadvantage on the next attack roll it makes before
-    the end of its next turn.'
+  desc: 'Ranged Attack Roll : +11, range 60/240 ft. Hit : 23 (3d10 + 7) Bludgeoning damage plus 4 (1d8) Fire damage,
+    and the target is pushed up to 15 feet straight away from the giant and has Disadvantage on the next attack
+    roll it makes before the end of its next turn.'

@@ -2,10 +2,11 @@ name: Bandit Crime Lord
 size: Medium
 type: or Small Humanoid
 alignment: Neutral
-initiative: +9 (19)
+initiative: '+9'
 ac: '17'
-hp: 169 (26d8 + 52)
+hp: 169
 speed: 30 ft.
+challenge_rating: 11
 abilities:
   Str: 10
   Dex: 20
@@ -17,16 +18,13 @@ skills:
 - Acrobatics +9
 - Perception +10
 - Stealth +13
-immunities: []
+senses: Passive Perception 20
 languages:
 - Common
 - Thieves' Cant
-senses: Passive Perception 20
-challenge_rating: 11 (XP 7 200; PB +4)
-description: Bandits use the threat of violence to take what they want. Such criminals
-  include gang members, desperadoes, and lawless mercenaries. Yet not all bandits
-  are motivated by greed. Some are driven to lives of crime by unjust laws, desperation,
-  or the threats of merciless leaders.  Bandit crime lords manipulate shadowy organizations
-  and prioritize their own survival over any single lackey or plot.
+description: Bandits use the threat of violence to take what they want. Such criminals include gang members, desperadoes,
+  and lawless mercenaries. Yet not all bandits are motivated by greed. Some are driven to lives of crime by unjust
+  laws, desperation, or the threats of merciless leaders. Bandit crime lords manipulate shadowy organizations and
+  prioritize their own survival over any single lackey or plot.
 habitat: Any
 treasure: Any

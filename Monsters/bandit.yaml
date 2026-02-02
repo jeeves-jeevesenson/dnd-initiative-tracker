@@ -2,10 +2,11 @@ name: Bandit
 size: Medium
 type: or Small Humanoid
 alignment: Neutral
-initiative: +1 (11)
+initiative: '+1'
 ac: '12'
-hp: 11 (2d8 + 2)
+hp: 11
 speed: 30 ft.
+challenge_rating: 1/8
 abilities:
   Str: 11
   Dex: 12
@@ -13,22 +14,18 @@ abilities:
   Int: 10
   Wis: 10
   Cha: 10
-skills: []
-immunities: []
+senses: Passive Perception 10
 languages:
 - Common
 - Thieves' Cant
-senses: Passive Perception 10
-challenge_rating: 1/8 (XP 25; PB +2)
-description: Bandits use the threat of violence to take what they want. Such criminals
-  include gang members, desperadoes, and lawless mercenaries. Yet not all bandits
-  are motivated by greed. Some are driven to lives of crime by unjust laws, desperation,
-  or the threats of merciless leaders.  Bandits are inexperienced ne'er-do-wells who
-  typically follow the orders of higher-ranking bandits.
+description: Bandits use the threat of violence to take what they want. Such criminals include gang members, desperadoes,
+  and lawless mercenaries. Yet not all bandits are motivated by greed. Some are driven to lives of crime by unjust
+  laws, desperation, or the threats of merciless leaders. Bandits are inexperienced ne'er-do-wells who typically
+  follow the orders of higher-ranking bandits.
 habitat: Any
 treasure: Any
 actions:
 - name: Scimitar
-  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 4 (1d6 + 1) Slashing damage.'
+  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 4 (1d6 + 1) Slashing damage.'
 - name: Light Crossbow
-  desc: 'Ranged Attack Roll: +3, range 80/320 ft. Hit: 5 (1d8 + 1) Piercing damage.'
+  desc: 'Ranged Attack Roll : +3, range 80/320 ft. Hit : 5 (1d8 + 1) Piercing damage.'

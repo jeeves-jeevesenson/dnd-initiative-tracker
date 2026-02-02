@@ -2,10 +2,11 @@ name: Giant Fire Beetle
 size: Small
 type: Beast
 alignment: Unaligned
-initiative: +0 (10)
+initiative: '+0'
 ac: '13'
-hp: 4 (1d6 + 1)
+hp: 4
 speed: 30 ft., Climb 30 ft.
+challenge_rating: 0
 abilities:
   Str: 8
   Dex: 10
@@ -13,18 +14,14 @@ abilities:
   Int: 1
   Wis: 7
   Cha: 3
-skills: []
-immunities: []
+senses: Blindsight 30 ft., Passive Perception 8
 languages:
 - None
-senses: Blindsight 30 ft., Passive Perception 8
-challenge_rating: 0 (XP 10; PB +2)
 description: ''
 habitat: Underdark
 traits:
 - name: Illumination
-  desc: The beetle sheds Bright Light in a 10-foot radius and Dim Light for an additional
-    10 feet.
+  desc: The beetle sheds Bright Light in a 10-foot radius and Dim Light for an additional 10 feet.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +1, reach 5 ft. Hit: 1 Fire damage.'
+  desc: 'Melee Attack Roll : +1, reach 5 ft. Hit : 1 Fire damage.'

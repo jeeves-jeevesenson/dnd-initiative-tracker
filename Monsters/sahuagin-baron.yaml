@@ -2,10 +2,11 @@ name: Sahuagin Baron
 size: Large
 type: Fiend
 alignment: Lawful Evil
-initiative: +5 (15)
+initiative: '+5'
 ac: '16'
-hp: 76 (9d10 + 27)
+hp: 76
 speed: 30 ft., Swim 50 ft.
+challenge_rating: 5
 abilities:
   Str: 19
   Dex: 15
@@ -15,16 +16,12 @@ abilities:
   Cha: 17
 skills:
 - Perception +7
-immunities: []
+senses: Darkvision 120 ft., Passive Perception 17
 languages:
 - Sahuagin
-senses: Darkvision 120 ft., Passive Perception 17
-challenge_rating: 5 (XP 1 800; PB +3)
-description: During times of great conflict, Sekolah blesses particularly ruthless
-  sahuagin warriors with increased size and an additional pair of arms, transforming
-  them into sahuagin barons. These boons elevate the recipients' status among their
-  kind, and they become champions or leaders. Sahuagin barons' blood is infused with
-  profane magic capable of searing their enemies and making these foes irresistible
-  targets for other Fiends.
+description: During times of great conflict, Sekolah blesses particularly ruthless sahuagin warriors with increased
+  size and an additional pair of arms, transforming them into sahuagin barons. These boons elevate the recipients'
+  status among their kind, and they become champions or leaders. Sahuagin barons' blood is infused with profane
+  magic capable of searing their enemies and making these foes irresistible targets for other Fiends.
 habitat: Coastal, Underwater
 treasure: Any

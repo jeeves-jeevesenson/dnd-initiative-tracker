@@ -2,10 +2,11 @@ name: Mage
 size: Medium
 type: or Small Humanoid (Wizard)
 alignment: Neutral
-initiative: +2 (12)
+initiative: '+2'
 ac: '15'
-hp: 81 (18d8)
+hp: 81
 speed: 30 ft.
+challenge_rating: 6
 abilities:
   Str: 9
   Dex: 14
@@ -17,31 +18,21 @@ skills:
 - Arcana +6
 - History +6
 - Perception +4
-immunities: []
+senses: Passive Perception 14
 languages:
 - Common plus three other languages
-senses: Passive Perception 14
-challenge_rating: 6 (XP 2 300; PB +3)
-description: Mages are magical wonder-workers, ranging from spellcasting overlords
-  to reclusive witches. They study mystical secrets and possess insight into monsters,
-  legends, omens, and other lore. Mages often gather allies or hire assistants to
-  aid them in their research or to attain magical might.  Mages are accomplished spellcasters
-  whose lives have been shaped by magic. They can use their powers to defend or dominate
-  other creatures, or they could focus on magical research and unlocking mystical
-  secrets.
+description: Mages are magical wonder-workers, ranging from spellcasting overlords to reclusive witches. They study
+  mystical secrets and possess insight into monsters, legends, omens, and other lore. Mages often gather allies
+  or hire assistants to aid them in their research or to attain magical might. Mages are accomplished spellcasters
+  whose lives have been shaped by magic. They can use their powers to defend or dominate other creatures, or they
+  could focus on magical research and unlocking mystical secrets.
 habitat: Any
 treasure: Individual, Arcana
 actions:
 - name: Multiattack
   desc: The mage makes three Arcane Burst attacks.
 - name: Arcane Burst
-  desc: 'Melee or Ranged Attack Roll: +6, reach 5 ft. or range 120 ft. Hit: 16 (3d8
-    + 3) Force damage.'
+  desc: 'Melee or Ranged Attack Roll : +6, reach 5 ft. or range 120 ft. Hit : 16 (3d8 + 3) Force damage.'
 - name: Spellcasting
-  desc: 'The mage casts one of the following spells, using Intelligence as the spellcasting
-    ability (spell save DC 14):'
-- name: Misty Step (3/Day)
-  desc: The mage casts Misty Step, using the same spellcasting ability as Spellcasting.
-- name: Protective Magic (3/Day)
-  desc: The mage casts Counterspell or Shield in response to the spell's trigger,
-    using the same spellcasting ability as Spellcasting.
+  desc: 'The mage casts one of the following spells, using Intelligence as the spellcasting ability (spell save
+    DC 14):'

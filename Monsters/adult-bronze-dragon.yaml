@@ -2,10 +2,11 @@ name: Adult Bronze Dragon
 size: Huge
 type: Dragon (Metallic)
 alignment: Lawful Good
-initiative: +10 (20)
+initiative: '+10'
 ac: '18'
-hp: 212 (17d12 + 102)
+hp: 212
 speed: 40 ft., Fly 80 ft., Swim 40 ft.
+challenge_rating: 15
 abilities:
   Str: 25
   Dex: 10
@@ -19,21 +20,18 @@ skills:
 - Stealth +5
 immunities:
 - Lightning
+senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 22
 languages:
 - Common
 - Draconic
-senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 22
-challenge_rating: 15 (XP 13 000, or 15 000 in lair; PB +5)
-description: Where bronze dragons dwell, wonders flourish. Imaginative yet mindful,
-  these metallic dragons work toward greatness and help others achieve all they can.
-  They strive to preserve innovations, from the works of past civilizations to new
-  discoveries, and they share such works widely. When dealing with shorter-lived beings,
-  bronze dragons prefer to win them over through conversation and cultivation, but
-  they don't shy from battle when villains keep others from achieving their potential.
-  Bronze dragons enjoy the power and endless possibilities of the sea, and they often
-  make their lairs in places of natural beauty or communities they wish to preserve.
-  Within their dwellings, bronze dragons hoard things they believe will be useful
-  one day. They salvage treasure lost to the sea, reclaiming wealth or sunken ships.
+description: Where bronze dragons dwell, wonders flourish. Imaginative yet mindful, these metallic dragons work
+  toward greatness and help others achieve all they can. They strive to preserve innovations, from the works of
+  past civilizations to new discoveries, and they share such works widely. When dealing with shorter-lived beings,
+  bronze dragons prefer to win them over through conversation and cultivation, but they don't shy from battle when
+  villains keep others from achieving their potential. Bronze dragons enjoy the power and endless possibilities
+  of the sea, and they often make their lairs in places of natural beauty or communities they wish to preserve.
+  Within their dwellings, bronze dragons hoard things they believe will be useful one day. They salvage treasure
+  lost to the sea, reclaiming wealth or sunken ships.
 habitat: Coastal
 treasure: Implements
 traits:
@@ -43,31 +41,28 @@ traits:
   desc: If the dragon fails a saving throw, it can choose to succeed instead.
 actions:
 - name: Multiattack
-  desc: The dragon makes three Rend attacks. It can replace one attack with a use
-    of (A) Repulsion Breath or (B) Spellcasting to cast Guiding Bolt (level 2 version).
+  desc: The dragon makes three Rend attacks. It can replace one attack with a use of (A) Repulsion Breath or (B)
+    Spellcasting to cast Guiding Bolt (level 2 version).
 - name: Rend
-  desc: 'Melee Attack Roll: +12, reach 10 ft. Hit: 16 (2d8 + 7) Slashing damage plus
-    5 (1d10) Lightning damage.'
+  desc: 'Melee Attack Roll : +12, reach 10 ft. Hit : 16 (2d8 + 7) Slashing damage plus 5 (1d10) Lightning damage.'
 - name: Lightning Breath (Recharge 5–6)
-  desc: 'Dexterity Saving Throw: DC 19, each creature in a 90-foot-long, 5-foot-wide
-    Line. Failure: 55 (10d10) Lightning damage. Success: Half damage.'
+  desc: 'Dexterity Saving Throw : DC 19, each creature in a 90-foot-long, 5-foot-wide Line. Failure : 55 (10d10)
+    Lightning damage. Success : Half damage.'
 - name: Repulsion Breath
-  desc: 'Strength Saving Throw: DC 19, each creature in a 30-foot Cone. Failure: The
-    target is pushed up to 60 feet straight away from the dragon and has the Prone
-    condition.'
+  desc: 'Strength Saving Throw : DC 19, each creature in a 30-foot Cone. Failure : The target is pushed up to 60
+    feet straight away from the dragon and has the Prone condition.'
 - name: Spellcasting
-  desc: 'The dragon casts one of the following spells, requiring no Material components
-    and using Charisma as the spellcasting ability (spell save DC 17, +10 to hit with
-    spell attacks):'
+  desc: 'The dragon casts one of the following spells, requiring no Material components and using Charisma as the
+    spellcasting ability (spell save DC 17, +10 to hit with spell attacks):'
 legendary_actions:
 - name: Guiding Light
   desc: The dragon uses Spellcasting to cast Guiding Bolt (level 2 version).
 - name: Pounce
   desc: The dragon moves up to half its Speed, and it makes one Rend attack.
 - name: Thunderclap
-  desc: 'Constitution Saving Throw: DC 17, each creature in a 20-foot-radius Sphere
-    centered on a point the dragon can see within 90 feet. Failure: 10 (3d6) Thunder
-    damage, and the target has the Deafened condition until the end of its next turn.'
-legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s
-  turn, the dragon can expend a use to take one of the following actions. The dragon
-  regains all expended uses at the start of each of its turns.'
+  desc: 'Constitution Saving Throw : DC 17, each creature in a 20-foot-radius Sphere centered on a point the dragon
+    can see within 90 feet. Failure : 10 (3d6) Thunder damage, and the target has the Deafened condition until the
+    end of its next turn.'
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s turn, the dragon can
+  expend a use to take one of the following actions. The dragon regains all expended uses at the start of each of
+  its turns.'

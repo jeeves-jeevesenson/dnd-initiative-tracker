@@ -2,10 +2,11 @@ name: Ankylosaurus
 size: Huge
 type: Beast (Dinosaur)
 alignment: Unaligned
-initiative: +0 (10)
+initiative: '+0'
 ac: '15'
-hp: 68 (8d12 + 16)
+hp: 68
 speed: 30 ft.
+challenge_rating: 3
 abilities:
   Str: 19
   Dex: 11
@@ -13,17 +14,14 @@ abilities:
   Int: 2
   Wis: 12
   Cha: 5
-skills: []
-immunities: []
+senses: Passive Perception 11
 languages:
 - None
-senses: Passive Perception 11
-challenge_rating: 3 (XP 700; PB +2)
 description: ''
 habitat: Grassland
 actions:
 - name: Multiattack
   desc: The ankylosaurus makes two Tail attacks.
 - name: Tail
-  desc: 'Melee Attack Roll: +6, reach 10 ft. Hit: 9 (1d10 + 4) Bludgeoning damage.
-    If the target is a Huge or smaller creature, it has the Prone condition.'
+  desc: 'Melee Attack Roll : +6, reach 10 ft. Hit : 9 (1d10 + 4) Bludgeoning damage. If the target is a Huge or
+    smaller creature, it has the Prone condition.'

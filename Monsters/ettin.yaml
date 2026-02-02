@@ -2,10 +2,11 @@ name: Ettin
 size: Large
 type: Giant
 alignment: Chaotic Evil
-initiative: -1 (9)
+initiative: '-1'
 ac: '12'
-hp: 85 (10d10 + 30)
+hp: 85
 speed: 40 ft.
+challenge_rating: 4
 abilities:
   Str: 21
   Dex: 8
@@ -22,10 +23,9 @@ immunities:
 - Frightened
 - Stunned
 - Unconscious
+senses: Darkvision 60 ft., Passive Perception 14
 languages:
 - Giant
-senses: Darkvision 60 ft., Passive Perception 14
-challenge_rating: 4 (XP 1 100; PB +2)
 description: ''
 habitat: Hill, Mountain, Underdark
 treasure: Individual
@@ -33,9 +33,8 @@ actions:
 - name: Multiattack
   desc: The ettin makes one Battleaxe attack and one Morningstar attack.
 - name: Battleaxe
-  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 14 (2d8 + 5) Slashing damage. If
-    the target is a Large or smaller creature, it has the Prone condition.'
+  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 14 (2d8 + 5) Slashing damage. If the target is a Large or smaller
+    creature, it has the Prone condition.'
 - name: Morningstar
-  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 14 (2d8 + 5) Piercing damage, and
-    the target has Disadvantage on the next attack roll it makes before the end of
-    its next turn.'
+  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 14 (2d8 + 5) Piercing damage, and the target has Disadvantage
+    on the next attack roll it makes before the end of its next turn.'

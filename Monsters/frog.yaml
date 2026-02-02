@@ -2,10 +2,11 @@ name: Frog
 size: Tiny
 type: Beast
 alignment: Unaligned
-initiative: +1 (11)
+initiative: '+1'
 ac: '11'
-hp: 1 (1d4 - 1)
+hp: 1
 speed: 20 ft., Swim 20 ft.
+challenge_rating: 0
 abilities:
   Str: 1
   Dex: 13
@@ -16,19 +17,16 @@ abilities:
 skills:
 - Perception +1
 - Stealth +3
-immunities: []
+senses: Darkvision 30 ft., Passive Perception 11
 languages:
 - None
-senses: Darkvision 30 ft., Passive Perception 11
-challenge_rating: 0 (XP 10; PB +2)
 description: ''
 habitat: Forest, Swamp
 traits:
 - name: Amphibious
   desc: The frog can breathe air and water.
 - name: Standing Leap
-  desc: The frog's Long Jump is up to 10 feet and its High Jump is up to 5 feet with
-    or without a running start.
+  desc: The frog's Long Jump is up to 10 feet and its High Jump is up to 5 feet with or without a running start.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 1 Piercing damage.'
+  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 1 Piercing damage.'

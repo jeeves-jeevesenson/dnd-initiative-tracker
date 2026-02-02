@@ -2,10 +2,11 @@ name: Eagle
 size: Small
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 4 (1d6 + 1)
+hp: 4
 speed: 10 ft., Fly 60 ft.
+challenge_rating: 0
 abilities:
   Str: 6
   Dex: 15
@@ -15,13 +16,11 @@ abilities:
   Cha: 7
 skills:
 - Perception +6
-immunities: []
+senses: Passive Perception 16
 languages:
 - None
-senses: Passive Perception 16
-challenge_rating: 0 (XP 10; PB +2)
 description: ''
 habitat: Coastal, Grassland, Hill, Mountain
 actions:
 - name: Talons
-  desc: 'Melee Attack Roll: +4, reach 5 feet. Hit: 4 (1d4 + 2) Slashing damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 feet. Hit : 4 (1d4 + 2) Slashing damage.'

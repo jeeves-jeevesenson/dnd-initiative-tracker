@@ -2,10 +2,11 @@ name: Githyanki Warrior
 size: Medium
 type: Aberration (Gith)
 alignment: Lawful Evil
-initiative: +4 (14)
+initiative: '+4'
 ac: '17'
-hp: 49 (9d8 + 9)
+hp: 49
 speed: 30 ft.
+challenge_rating: 3
 abilities:
   Str: 15
   Dex: 14
@@ -13,13 +14,10 @@ abilities:
   Int: 13
   Wis: 13
   Cha: 10
-skills: []
-immunities: []
+senses: Passive Perception 11
 languages:
 - Common
 - Gith
-senses: Passive Perception 11
-challenge_rating: 3 (XP 700; PB +2)
 description: Githyanki warriors use psionic abilities to augment their battle prowess.
 habitat: Planar (Astral Plane)
 treasure: Armaments

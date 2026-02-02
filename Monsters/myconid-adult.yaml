@@ -2,10 +2,11 @@ name: Myconid Adult
 size: Medium
 type: Plant
 alignment: Lawful Neutral
-initiative: +0 (10)
+initiative: '+0'
 ac: '12'
-hp: 16 (3d8 + 3)
+hp: 16
 speed: 20 ft.
+challenge_rating: 1/2
 abilities:
   Str: 10
   Dex: 10
@@ -13,12 +14,9 @@ abilities:
   Int: 10
   Wis: 13
   Cha: 7
-skills: []
-immunities: []
+senses: Darkvision 120 ft., Passive Perception 11
 languages:
 - Telepathy 240 ft.
-senses: Darkvision 120 ft., Passive Perception 11
-challenge_rating: 1/2 (XP 100; PB +2)
 description: Myconid adults defend their territories and other myconids from invaders.
 habitat: Underdark
 treasure: Any

@@ -2,10 +2,11 @@ name: Axe Beak
 size: Large
 type: Monstrosity
 alignment: Unaligned
-initiative: +1 (11)
+initiative: '+1'
 ac: '11'
-hp: 19 (3d10 + 3)
+hp: 19
 speed: 50 ft.
+challenge_rating: 1/4
 abilities:
   Str: 14
   Dex: 12
@@ -13,16 +14,13 @@ abilities:
   Int: 2
   Wis: 10
   Cha: 5
-skills: []
-immunities: []
+senses: Passive Perception 10
 languages:
 - —
-senses: Passive Perception 10
-challenge_rating: 1/4 (XP 50; PB +2)
-description: Alone or in small groups, axe beaks stalk prey to feed their flocks.
-  When working together, axe beaks use rudimentary tactics, with some distracting
-  threats while others strike vulnerable targets or rush young axe beaks to safety.
+description: Alone or in small groups, axe beaks stalk prey to feed their flocks. When working together, axe beaks
+  use rudimentary tactics, with some distracting threats while others strike vulnerable targets or rush young axe
+  beaks to safety.
 habitat: Arctic, Grassland, Hill
 actions:
 - name: Beak
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 6 (1d8 + 2) Slashing damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 6 (1d8 + 2) Slashing damage.'

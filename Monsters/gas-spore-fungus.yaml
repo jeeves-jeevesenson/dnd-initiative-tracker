@@ -2,10 +2,11 @@ name: Gas Spore Fungus
 size: Large
 type: Plant
 alignment: Unaligned
-initiative: -5 (5)
+initiative: '-5'
 ac: '8'
-hp: 13 (9d10 - 36)
+hp: 13
 speed: 5 ft., Fly 10 ft. (hover)
+challenge_rating: 1/2
 abilities:
   Str: 5
   Dex: 1
@@ -13,7 +14,6 @@ abilities:
   Int: 1
   Wis: 1
   Cha: 1
-skills: []
 immunities:
 - Poison; Blinded
 - Charmed
@@ -22,12 +22,10 @@ immunities:
 - Paralyzed
 - Poisoned
 - Prone
+senses: Blindsight 30 ft., Passive Perception 5
 languages:
 - —
-senses: Blindsight 30 ft., Passive Perception 5
-challenge_rating: 1/2 (XP 100; PB +2)
-description: Gas spores are floating, orbicular fungi with rhizome growths and protuberances
-  that resemble the stalks and eyes of beholders. If destroyed, a gas spore explodes
-  in a poisonous burst that can infect creatures and slay them in hours. Infected
-  corpses spawn more gas spores that grow to full size in a matter of days.
+description: Gas spores are floating, orbicular fungi with rhizome growths and protuberances that resemble the stalks
+  and eyes of beholders. If destroyed, a gas spore explodes in a poisonous burst that can infect creatures and slay
+  them in hours. Infected corpses spawn more gas spores that grow to full size in a matter of days.
 habitat: Underdark

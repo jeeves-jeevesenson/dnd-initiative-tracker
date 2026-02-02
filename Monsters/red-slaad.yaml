@@ -2,10 +2,11 @@ name: Red Slaad
 size: Large
 type: Aberration
 alignment: Chaotic Neutral
-initiative: +1 (11)
+initiative: '+1'
 ac: '14'
-hp: 93 (11d10 + 33)
+hp: 93
 speed: 30 ft.
+challenge_rating: 5
 abilities:
   Str: 16
   Dex: 12
@@ -15,16 +16,12 @@ abilities:
   Cha: 7
 skills:
 - Perception +1
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 11
 languages:
 - Slaad; telepathy 60 ft.
-senses: Darkvision 60 ft., Passive Perception 11
-challenge_rating: 5 (XP 1 800; PB +3)
-description: Red slaadi amass in vast throngs in Limbo. There they wrestle and croak-sing
-  as they endlessly dismantle and rebuild islands of drifting planar matter. When
-  they encounter non-slaadi, red slaadi seek to play with, telepathically converse
-  with, or devour the other creatures. These whims change from moment to moment. Red
-  slaadi instinctively avoid harming those bearing slaadi eggs, which red slaadi implant
-  using their claws, or other slaad curses.
+description: Red slaadi amass in vast throngs in Limbo. There they wrestle and croak-sing as they endlessly dismantle
+  and rebuild islands of drifting planar matter. When they encounter non-slaadi, red slaadi seek to play with, telepathically
+  converse with, or devour the other creatures. These whims change from moment to moment. Red slaadi instinctively
+  avoid harming those bearing slaadi eggs, which red slaadi implant using their claws, or other slaad curses.
 habitat: Planar (Limbo)
 treasure: Any

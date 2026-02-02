@@ -2,10 +2,11 @@ name: Animated Flying Sword
 size: Small
 type: Construct
 alignment: Unaligned
-initiative: +4 (14)
+initiative: '+4'
 ac: '17'
-hp: 14 (4d6)
+hp: 14
 speed: 5 ft., Fly 50 ft. (hover)
+challenge_rating: 1/4
 abilities:
   Str: 12
   Dex: 15
@@ -13,7 +14,6 @@ abilities:
   Int: 1
   Wis: 5
   Cha: 1
-skills: []
 immunities:
 - Poison
 - Psychic; Charmed
@@ -23,15 +23,13 @@ immunities:
 - Paralyzed
 - Petrified
 - Poisoned
+senses: Blindsight 60 ft., Passive Perception 7
 languages:
 - —
-senses: Blindsight 60 ft., Passive Perception 7
-challenge_rating: 1/4 (XP 50; PB +2)
-description: Animated flying swords move as if wielded by unseen warriors. Whether
-  an animated blade is newly forged or a constellation of broken fragments, the object
-  behaves the same. Other weapons from the Player's Handbook can also be animated
-  and use game statistics similar to those here.
+description: Animated flying swords move as if wielded by unseen warriors. Whether an animated blade is newly forged
+  or a constellation of broken fragments, the object behaves the same. Other weapons from the Player's Handbook
+  can also be animated and use game statistics similar to those here.
 habitat: Urban
 actions:
 - name: Slash
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 6 (1d8 + 2) Slashing damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 6 (1d8 + 2) Slashing damage.'

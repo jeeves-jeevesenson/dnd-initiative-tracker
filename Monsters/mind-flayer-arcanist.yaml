@@ -2,10 +2,11 @@ name: Mind Flayer Arcanist
 size: Medium
 type: Aberration
 alignment: Lawful Evil
-initiative: +6 (16)
+initiative: '+6'
 ac: '16'
-hp: 143 (26d8 + 26)
+hp: 143
 speed: 30 ft., Fly 30 ft. (hover)
+challenge_rating: 11
 abilities:
   Str: 11
   Dex: 14
@@ -21,12 +22,11 @@ skills:
 immunities:
 - Psychic; Charmed
 - Frightened
+senses: Darkvision 120 ft., Passive Perception 17
 languages:
 - Deep Speech
 - Undercommon; telepathy 120 ft.
-senses: Darkvision 120 ft., Passive Perception 17
-challenge_rating: 11 (XP 7 200; PB +4)
-description: Mind flayer arcanists enhance their psionic abilities with magic. Other
-  mind flayers view those that undertake such experiments with disgust and fear.
+description: Mind flayer arcanists enhance their psionic abilities with magic. Other mind flayers view those that
+  undertake such experiments with disgust and fear.
 habitat: Underdark
 treasure: Arcana

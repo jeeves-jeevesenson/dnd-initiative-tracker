@@ -2,10 +2,11 @@ name: Scout
 size: Medium
 type: or Small Humanoid
 alignment: Neutral
-initiative: +2 (12)
+initiative: '+2'
 ac: '13'
-hp: 16 (3d8 + 3)
+hp: 16
 speed: 30 ft.
+challenge_rating: 1/2
 abilities:
   Str: 11
   Dex: 14
@@ -18,22 +19,19 @@ skills:
 - Perception +5
 - Stealth +6
 - Survival +5
-immunities: []
+senses: Passive Perception 15
 languages:
 - Common plus one other language
-senses: Passive Perception 15
-challenge_rating: 1/2 (XP 100; PB +2)
-description: Scouts are warriors of the wilderness, trained in hunting and tracking.
-  They might be explorers or trappers, or they could perform more martial roles as
-  archers, bounty hunters, or outriders.  Scouts are keen archers and acutely aware
-  of their surroundings. They often know several regions particularly well and are
-  familiar with local creatures, landmarks, and perils.
+description: Scouts are warriors of the wilderness, trained in hunting and tracking. They might be explorers or
+  trappers, or they could perform more martial roles as archers, bounty hunters, or outriders. Scouts are keen archers
+  and acutely aware of their surroundings. They often know several regions particularly well and are familiar with
+  local creatures, landmarks, and perils.
 habitat: Any
 treasure: Implements, Individual
 actions:
 - name: Multiattack
   desc: The scout makes two attacks, using Shortsword and Longbow in any combination.
 - name: Shortsword
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Piercing damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage.'
 - name: Longbow
-  desc: 'Ranged Attack Roll: +4, range 150/600 ft. Hit: 6 (1d8 + 2) Piercing damage.'
+  desc: 'Ranged Attack Roll : +4, range 150/600 ft. Hit : 6 (1d8 + 2) Piercing damage.'

@@ -2,10 +2,11 @@ name: Giant Squid
 size: Huge
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 120 (16d12 + 16)
+hp: 120
 speed: 5 ft., Swim 80 ft.
+challenge_rating: 6
 abilities:
   Str: 23
   Dex: 14
@@ -15,11 +16,9 @@ abilities:
   Cha: 4
 skills:
 - Perception +6
-immunities: []
+senses: Darkvision 120 ft., Passive Perception 16
 languages:
 - None
-senses: Darkvision 120 ft., Passive Perception 16
-challenge_rating: 6 (XP 2 300; PB +3)
 description: ''
 habitat: Underwater
 traits:
@@ -29,14 +28,8 @@ actions:
 - name: Multiattack
   desc: The squid makes one Bite attack and one Tentacle attack.
 - name: Bite
-  desc: 'Melee Attack Roll: +9, reach 5 ft. Hit: 28 (4d10 + 6) Piercing damage.'
+  desc: 'Melee Attack Roll : +9, reach 5 ft. Hit : 28 (4d10 + 6) Piercing damage.'
 - name: Tentacle
-  desc: 'Melee Attack Roll: +9, reach 15 ft. Hit: 19 (3d8 + 6) Bludgeoning damage.
-    If the target is a Huge or smaller creature, it has the Grappled condition (escape
-    DC 16) from one of two tentacles, and the squid can pull the target up to 10 feet
-    straight toward itself.'
-- name: Ink Cloud (1/Day)
-  desc: 'Trigger: The squid takes damage while underwater. Response: The squid releases
-    ink that fills a 15-foot Cube centered on itself, and the squid moves up to its
-    Swim Speed. The Cube is Heavily Obscured for 1 minute or until a strong current
-    or similar effect disperses the ink.'
+  desc: 'Melee Attack Roll : +9, reach 15 ft. Hit : 19 (3d8 + 6) Bludgeoning damage. If the target is a Huge or
+    smaller creature, it has the Grappled condition (escape DC 16) from one of two tentacles, and the squid can
+    pull the target up to 10 feet straight toward itself.'

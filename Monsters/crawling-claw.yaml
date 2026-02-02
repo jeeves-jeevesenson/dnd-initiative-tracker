@@ -2,10 +2,11 @@ name: Crawling Claw
 size: Tiny
 type: Undead
 alignment: Neutral Evil
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 2 (1d4)
+hp: 2
 speed: 20 ft., Climb 20 ft.
+challenge_rating: 0
 abilities:
   Str: 13
   Dex: 14
@@ -13,7 +14,6 @@ abilities:
   Int: 5
   Wis: 10
   Cha: 4
-skills: []
 immunities:
 - Necrotic
 - Poison; Charmed
@@ -21,15 +21,13 @@ immunities:
 - Frightened
 - Incapacitated
 - Poisoned
+senses: Blindsight 30 ft., Passive Perception 10
 languages:
 - Understands Common but can't speak
-senses: Blindsight 30 ft., Passive Perception 10
-challenge_rating: 0 (XP 10; PB +2)
-description: Lone crawling claws can continue killing sprees they perpetrated in life.
-  Some recklessly attack the living, while others pursue specific victims. In rare
-  cases, a crawling claw wreaks mayhem while the rest of its body still lives, with
-  the original creature potentially unaware of its severed hand's crimes.
+description: Lone crawling claws can continue killing sprees they perpetrated in life. Some recklessly attack the
+  living, while others pursue specific victims. In rare cases, a crawling claw wreaks mayhem while the rest of its
+  body still lives, with the original creature potentially unaware of its severed hand's crimes.
 habitat: Any
 actions:
 - name: Slam
-  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 2 Necrotic damage.'
+  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 2 Necrotic damage.'

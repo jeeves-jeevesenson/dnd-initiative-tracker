@@ -2,10 +2,11 @@ name: Steam Mephit
 size: Small
 type: Elemental
 alignment: Neutral Evil
-initiative: +0 (10)
+initiative: '+0'
 ac: '10'
-hp: 17 (5d6)
+hp: 17
 speed: 30 ft., Fly 30 ft.
+challenge_rating: 1/4
 abilities:
   Str: 5
   Dex: 11
@@ -19,29 +20,24 @@ immunities:
 - Fire
 - Poison; Exhaustion
 - Poisoned
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial (Aquan
 - Ignan)
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 1/4 (XP 50; PB +2)
-description: These arrogant mephits are made of heat and vaporous water. They often
-  trick creatures into doing them favors, then renege on promised rewards.
+description: These arrogant mephits are made of heat and vaporous water. They often trick creatures into doing them
+  favors, then renege on promised rewards.
 habitat: Planar (Elemental Planes)
 treasure: None
 traits:
 - name: Blurred Form
-  desc: Attack rolls against the mephit are made with Disadvantage unless the mephit
-    has the Incapacitated condition.
+  desc: Attack rolls against the mephit are made with Disadvantage unless the mephit has the Incapacitated condition.
 - name: Death Burst
-  desc: 'The mephit explodes when it dies. Dexterity Saving Throw: DC 10, each creature
-    in a 5-foot Emanation originating from the mephit. Failure: 5 (2d4) Fire damage.
-    Success: Half damage.'
+  desc: 'The mephit explodes when it dies. Dexterity Saving Throw : DC 10, each creature in a 5-foot Emanation originating
+    from the mephit. Failure : 5 (2d4) Fire damage. Success : Half damage.'
 actions:
 - name: Claw
-  desc: 'Melee Attack Roll: +2, reach 5 ft. Hit: 2 (1d4) Slashing damage plus 2 (1d4)
-    Fire damage.'
+  desc: 'Melee Attack Roll : +2, reach 5 ft. Hit : 2 (1d4) Slashing damage plus 2 (1d4) Fire damage.'
 - name: Steam Breath (Recharge 6)
-  desc: 'Constitution Saving Throw: DC 10, each creature in a 15-foot Cone. Failure:
-    5 (2d4) Fire damage, and the target''s Speed decreases by 10 feet until the end
-    of the mephit''s next turn. Success: Half damage only. Failure or Success: Being
-    underwater doesn''t grant Resistance to this Fire damage.'
+  desc: 'Constitution Saving Throw : DC 10, each creature in a 15-foot Cone. Failure : 5 (2d4) Fire damage, and
+    the target''s Speed decreases by 10 feet until the end of the mephit''s next turn. Success : Half damage only.
+    Failure or Success : Being underwater doesn''t grant Resistance to this Fire damage.'

@@ -2,10 +2,11 @@ name: Kobold Warrior
 size: Small
 type: Dragon
 alignment: Neutral
-initiative: +2 (12)
+initiative: '+2'
 ac: '14'
-hp: 7 (3d6 - 3)
+hp: 7
 speed: 30 ft.
+challenge_rating: 1/8
 abilities:
   Str: 7
   Dex: 15
@@ -13,33 +14,25 @@ abilities:
   Int: 8
   Wis: 7
   Cha: 8
-skills: []
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 8
 languages:
 - Common
 - Draconic
-senses: Darkvision 60 ft., Passive Perception 8
-challenge_rating: 1/8 (XP 25; PB +2)
-description: Cowardly cousins to chromatic dragons, kobolds serve draconic overlords
-  as warriors and servants. These scrappy menaces mimic the behaviors of their dragon
-  masters. Though their small stature and recklessness make kobolds poor imitators
-  of dragons, what they lack in ferocity they make up for in zeal and ingenuity. They
-  are especially adept at creating traps and setting ambushes. Kobolds' scales resemble
-  those of chromatic dragons that live near their warrens. Rarely, kobolds possess
-  features evocative of metallic dragons or other dragon-like creatures.  Kobold warriors
-  use hit-and-run tactics to raid their enemies and defend their homes. To avoid danger,
-  they frequently employ haphazard traps.
+description: Cowardly cousins to chromatic dragons, kobolds serve draconic overlords as warriors and servants. These
+  scrappy menaces mimic the behaviors of their dragon masters. Though their small stature and recklessness make
+  kobolds poor imitators of dragons, what they lack in ferocity they make up for in zeal and ingenuity. They are
+  especially adept at creating traps and setting ambushes. Kobolds' scales resemble those of chromatic dragons that
+  live near their warrens. Rarely, kobolds possess features evocative of metallic dragons or other dragon-like creatures.
+  Kobold warriors use hit-and-run tactics to raid their enemies and defend their homes. To avoid danger, they frequently
+  employ haphazard traps.
 habitat: Arctic, Coastal, Desert, Forest, Hill, Mountain, Swamp, Underdark, Urban
 treasure: Armaments
 traits:
 - name: Pack Tactics
-  desc: The kobold has Advantage on an attack roll against a creature if at least
-    one of the kobold's allies is within 5 feet of the creature and the ally doesn't
-    have the Incapacitated condition.
+  desc: The kobold has Advantage on an attack roll against a creature if at least one of the kobold's allies is
+    within 5 feet of the creature and the ally doesn't have the Incapacitated condition.
 - name: Sunlight Sensitivity
-  desc: While in sunlight, the kobold has Disadvantage on ability checks and attack
-    rolls.
+  desc: While in sunlight, the kobold has Disadvantage on ability checks and attack rolls.
 actions:
 - name: Dagger
-  desc: 'Melee or Ranged Attack Roll: +4, reach 5 ft. or range 20/60 ft. Hit: 4 (1d4
-    + 2) Piercing damage.'
+  desc: 'Melee or Ranged Attack Roll : +4, reach 5 ft. or range 20/60 ft. Hit : 4 (1d4 + 2) Piercing damage.'

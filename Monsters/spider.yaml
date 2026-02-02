@@ -2,10 +2,11 @@ name: Spider
 size: Tiny
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 1 (1d4 - 1)
+hp: 1
 speed: 20 ft., Climb 20 ft.
+challenge_rating: 0
 abilities:
   Str: 2
   Dex: 14
@@ -15,21 +16,17 @@ abilities:
   Cha: 2
 skills:
 - Stealth +4
-immunities: []
+senses: Darkvision 30 ft., Passive Perception 10
 languages:
 - None
-senses: Darkvision 30 ft., Passive Perception 10
-challenge_rating: 0 (XP 10; PB +2)
 description: ''
 habitat: Desert, Forest, Swamp, Underdark, Urban
 traits:
 - name: Spider Climb
-  desc: The spider can climb difficult surfaces, including along ceilings, without
-    needing to make an ability check.
+  desc: The spider can climb difficult surfaces, including along ceilings, without needing to make an ability check.
 - name: Web Walker
-  desc: The spider ignores movement restrictions caused by webs, and the spider knows
-    the location of any other creature in contact with the same web.
+  desc: The spider ignores movement restrictions caused by webs, and the spider knows the location of any other
+    creature in contact with the same web.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 1 Piercing damage plus 2 (1d4) Poison
-    damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 1 Piercing damage plus 2 (1d4) Poison damage.'

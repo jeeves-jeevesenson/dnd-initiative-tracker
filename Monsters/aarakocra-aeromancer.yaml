@@ -2,10 +2,11 @@ name: Aarakocra Aeromancer
 size: Medium
 type: Elemental
 alignment: Neutral
-initiative: +3 (13)
+initiative: '+3'
 ac: '16'
-hp: 66 (12d8 + 12)
+hp: 66
 speed: 20 ft., Fly 50 ft.
+challenge_rating: 4
 abilities:
   Str: 10
   Dex: 16
@@ -17,13 +18,10 @@ skills:
 - Arcana +3
 - Nature +5
 - Perception +7
-immunities: []
+senses: Passive Perception 17
 languages:
 - Aarakocra
 - Primordial (Auran)
-senses: Passive Perception 17
-challenge_rating: 4 (XP 1 100; PB +2)
-description: Aarakocra aeromancers control magical winds from the endless storms of
-  the Elemental Plane of Air.
+description: Aarakocra aeromancers control magical winds from the endless storms of the Elemental Plane of Air.
 habitat: Mountain, Planar (Elemental Plane of Air)
 treasure: Individual, Implements

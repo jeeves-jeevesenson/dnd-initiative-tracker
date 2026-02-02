@@ -2,10 +2,11 @@ name: Dire Worg
 size: Huge
 type: Fey
 alignment: Neutral Evil
-initiative: +2 (12)
+initiative: '+2'
 ac: '16'
-hp: 147 (14d12 + 56)
+hp: 147
 speed: 50 ft.
+challenge_rating: 10
 abilities:
   Str: 22
   Dex: 14
@@ -15,12 +16,10 @@ abilities:
   Cha: 8
 skills:
 - Perception +11
-immunities: []
+senses: Darkvision 120 ft., Passive Perception 21
 languages:
 - Goblin
 - Sylvan
 - Worg
-senses: Darkvision 120 ft., Passive Perception 21
-challenge_rating: 10 (XP 5 900; PB +4)
 description: ''
 habitat: Forest, Grassland, Hill, Planar (Feywild)

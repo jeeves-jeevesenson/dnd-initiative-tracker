@@ -2,10 +2,11 @@ name: Shadow Demon
 size: Medium
 type: Fiend (Demon)
 alignment: Chaotic Evil
-initiative: +3 (13)
+initiative: '+3'
 ac: '14'
-hp: 66 (12d8 + 12)
+hp: 66
 speed: 30 ft., Fly 30 ft. (hover)
+challenge_rating: 4
 abilities:
   Str: 1
   Dex: 17
@@ -24,9 +25,8 @@ immunities:
 - Poisoned
 - Prone
 - Restrained
+senses: Darkvision 120 ft., Passive Perception 11
 languages:
 - Abyssal; telepathy 120 ft.
-senses: Darkvision 120 ft., Passive Perception 11
-challenge_rating: 4 (XP 1 100; PB +2)
 description: ''
 habitat: Planar (Abyss)

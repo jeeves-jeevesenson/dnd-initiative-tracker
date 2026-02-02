@@ -2,10 +2,11 @@ name: Magma Mephit
 size: Small
 type: Elemental
 alignment: Neutral Evil
-initiative: +1 (11)
+initiative: '+1'
 ac: '11'
-hp: 18 (4d6 + 4)
+hp: 18
 speed: 30 ft., Fly 30 ft.
+challenge_rating: 1/2
 abilities:
   Str: 8
   Dex: 12
@@ -19,23 +20,20 @@ immunities:
 - Fire
 - Poison; Exhaustion
 - Poisoned
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial (Ignan
 - Terran)
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 1/2 (XP 100; PB +2)
-description: These mephits embody the merging of earth and fire as glowing magma.
-  They love melting things, but they loathe magmins and attack them on sight.
+description: These mephits embody the merging of earth and fire as glowing magma. They love melting things, but
+  they loathe magmins and attack them on sight.
 habitat: Planar (Elemental Planes)
 traits:
 - name: Death Burst
-  desc: 'The mephit explodes when it dies. Dexterity Saving Throw: DC 11, each creature
-    in a 5-foot Emanation originating from the mephit. Failure: 7 (2d6) Fire damage.
-    Success: Half damage.'
+  desc: 'The mephit explodes when it dies. Dexterity Saving Throw : DC 11, each creature in a 5-foot Emanation originating
+    from the mephit. Failure : 7 (2d6) Fire damage. Success : Half damage.'
 actions:
 - name: Claw
-  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 3 (1d4 + 1) Slashing damage plus
-    3 (1d6) Fire damage.'
+  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 3 (1d4 + 1) Slashing damage plus 3 (1d6) Fire damage.'
 - name: Fire Breath (Recharge 6)
-  desc: 'Dexterity Saving Throw: DC 11, each creature in a 15-foot Cone. Failure:
-    7 (2d6) Fire damage. Success: Half damage.'
+  desc: 'Dexterity Saving Throw : DC 11, each creature in a 15-foot Cone. Failure : 7 (2d6) Fire damage. Success
+    : Half damage.'

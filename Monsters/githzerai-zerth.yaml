@@ -2,10 +2,11 @@ name: Githzerai Zerth
 size: Medium
 type: Aberration (Gith)
 alignment: Lawful Neutral
-initiative: +7 (17)
+initiative: '+7'
 ac: '17'
-hp: 84 (13d8 + 26)
+hp: 84
 speed: 40 ft.
+challenge_rating: 6
 abilities:
   Str: 13
   Dex: 18
@@ -17,15 +18,12 @@ skills:
 - Arcana +6
 - Insight +6
 - Perception +6
-immunities: []
+senses: Passive Perception 16
 languages:
 - Common
 - Gith
-senses: Passive Perception 16
-challenge_rating: 6 (XP 2 300; PB +3)
-description: Githzerai zerths embody the discipline espoused by their first leader,
-  Zerthimon. Their psionic control aids them in protecting their people and traveling
-  the planes of existence without fear of being followed by githyanki or mind flayer
-  foes.
+description: Githzerai zerths embody the discipline espoused by their first leader, Zerthimon. Their psionic control
+  aids them in protecting their people and traveling the planes of existence without fear of being followed by githyanki
+  or mind flayer foes.
 habitat: Planar (Limbo)
 treasure: Individual, Arcana

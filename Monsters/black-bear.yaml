@@ -2,10 +2,11 @@ name: Black Bear
 size: Medium
 type: Beast
 alignment: Unaligned
-initiative: +1 (11)
+initiative: '+1'
 ac: '11'
-hp: 19 (3d8 + 6)
+hp: 19
 speed: 30 ft., Climb 30 ft., Swim 30 ft.
+challenge_rating: 1/2
 abilities:
   Str: 15
   Dex: 12
@@ -15,15 +16,13 @@ abilities:
   Cha: 7
 skills:
 - Perception +5
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 15
 languages:
 - None
-senses: Darkvision 60 ft., Passive Perception 15
-challenge_rating: 1/2 (XP 100; PB +2)
 description: ''
 habitat: Forest
 actions:
 - name: Multiattack
   desc: The bear makes two Rend attacks.
 - name: Rend
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Slashing damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Slashing damage.'

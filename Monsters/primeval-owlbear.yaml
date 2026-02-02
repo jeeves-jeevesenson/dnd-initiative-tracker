@@ -2,10 +2,11 @@ name: Primeval Owlbear
 size: Huge
 type: Monstrosity
 alignment: Unaligned
-initiative: +5 (15)
+initiative: '+5'
 ac: '16'
-hp: 126 (12d12 + 48)
+hp: 126
 speed: 40 ft., Climb 40 ft., Fly 5 ft.
+challenge_rating: 7
 abilities:
   Str: 22
   Dex: 14
@@ -15,16 +16,12 @@ abilities:
   Cha: 7
 skills:
 - Perception +8
-immunities: []
+senses: Darkvision 120 ft., Passive Perception 18
 languages:
 - —
-senses: Darkvision 120 ft., Passive Perception 18
-challenge_rating: 7 (XP 2 900; PB +3)
-description: Created long ago by misguided mages, owlbears combine keen avian eyes,
-  thick feathers, and a tearing beak with a mighty bearlike frame. Despite their magical
-  origins, owlbears have propagated and spread to wildernesses across the multiverse.
-  Owlbears dwell in distinctive dens.  Ancient forests and Feywild demesnes steeped
-  in magic can give rise to particularly large and vicious owlbears. These primeval
-  specimens can fly—albeit poorly—and emit thunderous screeches that can rattle foes
-  and even tear them asunder.
+description: Created long ago by misguided mages, owlbears combine keen avian eyes, thick feathers, and a tearing
+  beak with a mighty bearlike frame. Despite their magical origins, owlbears have propagated and spread to wildernesses
+  across the multiverse. Owlbears dwell in distinctive dens. Ancient forests and Feywild demesnes steeped in magic
+  can give rise to particularly large and vicious owlbears. These primeval specimens can fly—albeit poorly—and emit
+  thunderous screeches that can rattle foes and even tear them asunder.
 habitat: Forest

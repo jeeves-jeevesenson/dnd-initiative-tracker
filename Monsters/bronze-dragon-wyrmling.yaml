@@ -2,10 +2,11 @@ name: Bronze Dragon Wyrmling
 size: Medium
 type: Dragon (Metallic)
 alignment: Lawful Good
-initiative: +2 (12)
+initiative: '+2'
 ac: '15'
-hp: 39 (6d8 + 12)
+hp: 39
 speed: 30 ft., Fly 60 ft., Swim 30 ft.
+challenge_rating: 2
 abilities:
   Str: 17
   Dex: 10
@@ -18,20 +19,17 @@ skills:
 - Stealth +2
 immunities:
 - Lightning
+senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 14
 languages:
 - Draconic
-senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 14
-challenge_rating: 2 (XP 450; PB +2)
-description: Where bronze dragons dwell, wonders flourish. Imaginative yet mindful,
-  these metallic dragons work toward greatness and help others achieve all they can.
-  They strive to preserve innovations, from the works of past civilizations to new
-  discoveries, and they share such works widely. When dealing with shorter-lived beings,
-  bronze dragons prefer to win them over through conversation and cultivation, but
-  they don't shy from battle when villains keep others from achieving their potential.
-  Bronze dragons enjoy the power and endless possibilities of the sea, and they often
-  make their lairs in places of natural beauty or communities they wish to preserve.
-  Within their dwellings, bronze dragons hoard things they believe will be useful
-  one day. They salvage treasure lost to the sea, reclaiming wealth or sunken ships.
+description: Where bronze dragons dwell, wonders flourish. Imaginative yet mindful, these metallic dragons work
+  toward greatness and help others achieve all they can. They strive to preserve innovations, from the works of
+  past civilizations to new discoveries, and they share such works widely. When dealing with shorter-lived beings,
+  bronze dragons prefer to win them over through conversation and cultivation, but they don't shy from battle when
+  villains keep others from achieving their potential. Bronze dragons enjoy the power and endless possibilities
+  of the sea, and they often make their lairs in places of natural beauty or communities they wish to preserve.
+  Within their dwellings, bronze dragons hoard things they believe will be useful one day. They salvage treasure
+  lost to the sea, reclaiming wealth or sunken ships.
 habitat: Coastal
 treasure: Implements
 traits:
@@ -41,11 +39,10 @@ actions:
 - name: Multiattack
   desc: The dragon makes two Rend attacks.
 - name: Rend
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 8 (1d10 + 3) Slashing damage.'
-- name: 'Lightning Breath (Recharge 5–6) Dexterity Saving Throw: DC 12, each creature
-    in a 40-foot-long, 5-foot-wide Line'
-  desc: 'Failure: 16 (3d10) Lightning damage. Success: Half damage.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 8 (1d10 + 3) Slashing damage.'
+- name: 'Lightning Breath (Recharge 5–6) Dexterity Saving Throw : DC 12, each creature in a 40-foot-long, 5-foot-wide
+    Line'
+  desc: 'Failure : 16 (3d10) Lightning damage. Success : Half damage.'
 - name: Repulsion Breath
-  desc: 'Strength Saving Throw: DC 12, each creature in a 30-foot Cone. Failure: The
-    target is pushed up to 30 feet straight away from the dragon and has the Prone
-    condition.'
+  desc: 'Strength Saving Throw : DC 12, each creature in a 30-foot Cone. Failure : The target is pushed up to 30
+    feet straight away from the dragon and has the Prone condition.'

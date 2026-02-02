@@ -2,10 +2,11 @@ name: Wolf
 size: Medium
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 11 (2d8 + 2)
+hp: 11
 speed: 40 ft.
+challenge_rating: 1/4
 abilities:
   Str: 14
   Dex: 15
@@ -16,19 +17,16 @@ abilities:
 skills:
 - Perception +5
 - Stealth +4
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 15
 languages:
 - None
-senses: Darkvision 60 ft., Passive Perception 15
-challenge_rating: 1/4 (XP 50; PB +2)
 description: ''
 habitat: Forest, Grassland, Hill
 traits:
 - name: Pack Tactics
-  desc: The wolf has Advantage on attack rolls against a creature if at least one
-    of the wolf's allies is within 5 feet of the creature and the ally doesn't have
-    the Incapacitated condition.
+  desc: The wolf has Advantage on attack rolls against a creature if at least one of the wolf's allies is within
+    5 feet of the creature and the ally doesn't have the Incapacitated condition.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Piercing damage. If the
-    target is a Medium or smaller creature, it has the Prone condition.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage. If the target is a Medium or smaller
+    creature, it has the Prone condition.'

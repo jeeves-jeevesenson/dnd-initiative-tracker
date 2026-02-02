@@ -2,10 +2,11 @@ name: Goblin Warrior
 size: Small
 type: Fey (Goblinoid)
 alignment: Chaotic Neutral
-initiative: +2 (12)
+initiative: '+2'
 ac: '15'
-hp: 10 (3d6)
+hp: 10
 speed: 30 ft.
+challenge_rating: 1/4
 abilities:
   Str: 8
   Dex: 15
@@ -15,30 +16,23 @@ abilities:
   Cha: 8
 skills:
 - Stealth +6
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Common
 - Goblin
-senses: Darkvision 60 ft., Passive Perception 9
-challenge_rating: 1/4 (XP 50; PB +2)
-description: Goblins are Feywild embodiments of recklessness and ruin. They delight
-  in wreckage—the louder, the more energetic, and the more convoluted, the better.
-  Goblin raids are often as much opportunities to enjoy setting fires and tormenting
-  livestock as they are parts of more disruptive plots. Goblins obey those who accomplish
-  the wildest plans. Such leaders might be goblin raid masterminds, bombastic magic-users,
-  or those capable of making the loudest noises. Hobgoblins and forceful humanoids
-  might also command ornery groups of goblins, directing their destructiveness toward
-  banditry, sabotage, or war.  Goblin warriors excel at causing mischief. Those in
-  service to Maglubiyet have greater discipline and are likely to withdraw to set
-  up ambushes.
+description: Goblins are Feywild embodiments of recklessness and ruin. They delight in wreckage—the louder, the
+  more energetic, and the more convoluted, the better. Goblin raids are often as much opportunities to enjoy setting
+  fires and tormenting livestock as they are parts of more disruptive plots. Goblins obey those who accomplish the
+  wildest plans. Such leaders might be goblin raid masterminds, bombastic magic-users, or those capable of making
+  the loudest noises. Hobgoblins and forceful humanoids might also command ornery groups of goblins, directing their
+  destructiveness toward banditry, sabotage, or war. Goblin warriors excel at causing mischief. Those in service
+  to Maglubiyet have greater discipline and are likely to withdraw to set up ambushes.
 habitat: Forest, Grassland, Hill, Planar (Acheron, Feywild), Underdark
 treasure: Implements, Individual
 actions:
 - name: Scimitar
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Slashing damage, plus
-    2 (1d4) Slashing damage if the attack roll had Advantage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Slashing damage, plus 2 (1d4) Slashing damage if
+    the attack roll had Advantage.'
 - name: Shortbow
-  desc: 'Ranged Attack Roll: +4, range 80/320 ft. Hit: 5 (1d6 + 2) Piercing damage,
-    plus 2 (1d4) Piercing damage if the attack roll had Advantage.'
-- name: Nimble Escape
-  desc: The goblin takes the Disengage or Hide action.
+  desc: 'Ranged Attack Roll : +4, range 80/320 ft. Hit : 5 (1d6 + 2) Piercing damage, plus 2 (1d4) Piercing damage
+    if the attack roll had Advantage.'

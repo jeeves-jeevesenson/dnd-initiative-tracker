@@ -2,10 +2,11 @@ name: Hook Horror
 size: Large
 type: Monstrosity
 alignment: Neutral
-initiative: +0 (10)
+initiative: '+0'
 ac: '15'
-hp: 75 (10d10 + 20)
+hp: 75
 speed: 30 ft., Climb 30 ft.
+challenge_rating: 3
 abilities:
   Str: 18
   Dex: 10
@@ -15,10 +16,8 @@ abilities:
   Cha: 7
 skills:
 - Perception +5
-immunities: []
+senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 15
 languages:
 - Hook Horror
-senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 15
-challenge_rating: 3 (XP 700; PB +2)
 description: ''
 habitat: Underdark

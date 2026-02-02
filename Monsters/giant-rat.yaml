@@ -2,10 +2,11 @@ name: Giant Rat
 size: Small
 type: Beast
 alignment: Unaligned
-initiative: +3 (13)
+initiative: '+3'
 ac: '13'
-hp: 7 (2d6)
+hp: 7
 speed: 30 ft., Climb 30 ft.
+challenge_rating: 1/8
 abilities:
   Str: 7
   Dex: 16
@@ -15,18 +16,15 @@ abilities:
   Cha: 4
 skills:
 - Perception +2
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - None
-senses: Darkvision 60 ft., Passive Perception 12
-challenge_rating: 1/8 (XP 25; PB +2)
 description: ''
 habitat: Forest, Swamp, Underdark, Urban
 traits:
 - name: Pack Tactics
-  desc: The rat has Advantage on an attack roll against a creature if at least one
-    of the rat's allies is within 5 feet of the creature and the ally doesn't have
-    the Incapacitated condition.
+  desc: The rat has Advantage on an attack roll against a creature if at least one of the rat's allies is within
+    5 feet of the creature and the ally doesn't have the Incapacitated condition.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +5, reach 5 feet. Hit: 5 (1d4 + 3) Piercing damage.'
+  desc: 'Melee Attack Roll : +5, reach 5 feet. Hit : 5 (1d4 + 3) Piercing damage.'

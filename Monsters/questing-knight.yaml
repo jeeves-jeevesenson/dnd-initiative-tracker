@@ -2,10 +2,11 @@ name: Questing Knight
 size: Medium
 type: or Small Humanoid
 alignment: Neutral
-initiative: +7 (17)
+initiative: '+7'
 ac: '18'
-hp: 202 (27d8 + 81)
+hp: 202
 speed: 30 ft.
+challenge_rating: 12
 abilities:
   Str: 20
   Dex: 16
@@ -20,13 +21,11 @@ skills:
 immunities:
 - Charmed
 - Frightened
+senses: Passive Perception 15
 languages:
 - Common plus one other language
-senses: Passive Perception 15
-challenge_rating: 12 (XP 8 400; PB +4)
-description: Knights are skilled warriors trained for war and tested in battle. Many
-  serve the rulers of a realm, a religion, or an order devoted to a cause.  Questing
-  knights travel in pursuit of a cause, such as slaying a villain, defeating a monster,
-  recovering an Artifact, or restoring their lost honor.
+description: Knights are skilled warriors trained for war and tested in battle. Many serve the rulers of a realm,
+  a religion, or an order devoted to a cause. Questing knights travel in pursuit of a cause, such as slaying a villain,
+  defeating a monster, recovering an Artifact, or restoring their lost honor.
 habitat: Any
 treasure: Individual, Armaments

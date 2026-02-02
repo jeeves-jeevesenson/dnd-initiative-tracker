@@ -2,10 +2,11 @@ name: Tough
 size: Medium
 type: or Small Humanoid
 alignment: Neutral
-initiative: +1 (11)
+initiative: '+1'
 ac: '12'
-hp: 32 (5d8 + 10)
+hp: 32
 speed: 30 ft.
+challenge_rating: 1/2
 abilities:
   Str: 15
   Dex: 12
@@ -13,23 +14,19 @@ abilities:
   Int: 10
   Wis: 10
   Cha: 11
-skills: []
-immunities: []
+senses: Passive Perception 10
 languages:
 - Common
-senses: Passive Perception 10
-challenge_rating: 1/2 (XP 100; PB +2)
-description: Toughs might work in groups at the direction of a leader, or individual
-  toughs might bully weaker folk into doing what they say.
+description: Toughs might work in groups at the direction of a leader, or individual toughs might bully weaker folk
+  into doing what they say.
 habitat: Any
 treasure: Armaments
 traits:
 - name: Pack Tactics
-  desc: The tough has Advantage on an attack roll against a creature if at least one
-    of the tough's allies is within 5 feet of the creature and the ally doesn't have
-    the Incapacitated condition.
+  desc: The tough has Advantage on an attack roll against a creature if at least one of the tough's allies is within
+    5 feet of the creature and the ally doesn't have the Incapacitated condition.
 actions:
 - name: Mace
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Bludgeoning damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Bludgeoning damage.'
 - name: Heavy Crossbow
-  desc: 'Ranged Attack Roll: +3, range 100/400 ft. Hit: 6 (1d10 + 1) Piercing damage.'
+  desc: 'Ranged Attack Roll : +3, range 100/400 ft. Hit : 6 (1d10 + 1) Piercing damage.'

@@ -2,10 +2,11 @@ name: Hippopotamus
 size: Large
 type: Beast
 alignment: Unaligned
-initiative: -2 (8)
+initiative: '-2'
 ac: '14'
-hp: 82 (11d10 + 22)
+hp: 82
 speed: 30 ft., Swim 30 ft.
+challenge_rating: 4
 abilities:
   Str: 21
   Dex: 7
@@ -15,11 +16,9 @@ abilities:
   Cha: 4
 skills:
 - Perception +3
-immunities: []
+senses: Passive Perception 13
 languages:
 - None
-senses: Passive Perception 13
-challenge_rating: 4 (XP 1 100; PB +2)
 description: ''
 habitat: Forest, Grassland, Swamp
 traits:
@@ -29,4 +28,4 @@ actions:
 - name: Multiattack
   desc: The hippopotamus makes two Bite attacks.
 - name: Bite
-  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 16 (2d10 + 5) Piercing damage.'
+  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 16 (2d10 + 5) Piercing damage.'

@@ -2,10 +2,11 @@ name: Grimlock
 size: Medium
 type: Aberration
 alignment: Neutral Evil
-initiative: +1 (11)
+initiative: '+1'
 ac: '11'
-hp: 11 (2d8 + 2)
+hp: 11
 speed: 30 ft., Climb 30 ft.
+challenge_rating: 1/4
 abilities:
   Str: 16
   Dex: 12
@@ -17,14 +18,11 @@ skills:
 - Athletics +5
 - Perception +3
 - Stealth +5
-immunities: []
+senses: Blindsight 30 ft., Passive Perception 13
 languages:
 - —
-senses: Blindsight 30 ft., Passive Perception 13
-challenge_rating: 1/4 (XP 50; PB +2)
 description: ''
 habitat: Underdark
 actions:
 - name: Bone Cudgel
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 6 (1d6 + 3) Bludgeoning damage plus
-    2 (1d4) Psychic damage.'
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Bludgeoning damage plus 2 (1d4) Psychic damage.'

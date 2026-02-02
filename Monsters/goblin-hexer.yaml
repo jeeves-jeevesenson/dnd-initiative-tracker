@@ -2,10 +2,11 @@ name: Goblin Hexer
 size: Small
 type: Fey (Goblinoid)
 alignment: Chaotic Neutral
-initiative: +3 (13)
+initiative: '+3'
 ac: '13'
-hp: 45 (10d6 + 10)
+hp: 45
 speed: 30 ft.
+challenge_rating: 3
 abilities:
   Str: 8
   Dex: 16
@@ -16,20 +17,16 @@ abilities:
 skills:
 - Sleight of Hand +5
 - Stealth +7
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Common
 - Goblin
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 3 (XP 700; PB +2)
-description: Goblins are Feywild embodiments of recklessness and ruin. They delight
-  in wreckage—the louder, the more energetic, and the more convoluted, the better.
-  Goblin raids are often as much opportunities to enjoy setting fires and tormenting
-  livestock as they are parts of more disruptive plots. Goblins obey those who accomplish
-  the wildest plans. Such leaders might be goblin raid masterminds, bombastic magic-users,
-  or those capable of making the loudest noises. Hobgoblins and forceful humanoids
-  might also command ornery groups of goblins, directing their destructiveness toward
-  banditry, sabotage, or war.  Goblin hexers use flashy and disruptive magic. Many
-  goblin hexers are theatrical, dressing and behaving in exaggerated mimicry of archmages.
+description: Goblins are Feywild embodiments of recklessness and ruin. They delight in wreckage—the louder, the
+  more energetic, and the more convoluted, the better. Goblin raids are often as much opportunities to enjoy setting
+  fires and tormenting livestock as they are parts of more disruptive plots. Goblins obey those who accomplish the
+  wildest plans. Such leaders might be goblin raid masterminds, bombastic magic-users, or those capable of making
+  the loudest noises. Hobgoblins and forceful humanoids might also command ornery groups of goblins, directing their
+  destructiveness toward banditry, sabotage, or war. Goblin hexers use flashy and disruptive magic. Many goblin
+  hexers are theatrical, dressing and behaving in exaggerated mimicry of archmages.
 habitat: Forest, Grassland, Hill, Planar (Acheron), Planar (Feywild), Underdark
 treasure: Individual, Implements

@@ -2,10 +2,11 @@ name: Yuan-ti Malison (Type 2)
 size: Medium
 type: Monstrosity
 alignment: Neutral Evil
-initiative: +2 (12)
+initiative: '+2'
 ac: '12'
-hp: 66 (12d8 + 12)
+hp: 66
 speed: 30 ft., Climb 30 ft. (snake form only)
+challenge_rating: 3
 abilities:
   Str: 16
   Dex: 14
@@ -17,16 +18,14 @@ skills:
 - Stealth +4 (+6 while in snake form)
 immunities:
 - Poison; Poisoned
+senses: Darkvision 60 ft., Passive Perception 13
 languages:
 - Abyssal
 - Common
 - Draconic
-senses: Darkvision 60 ft., Passive Perception 13
-challenge_rating: 3 (XP 700; PB +2)
-description: Malisons exhibit snakelike features that make them deadly in combat.
-  These malisons have human bodies, but they've replaced their arms with snakes. Malisons
-  possesses deadly venom, which some manipulate into magical strikes. They can also
-  shape-shift into snakes, helping them to position themselves for surprise attacks
-  or to slither away with nary a trace.
+description: Malisons exhibit snakelike features that make them deadly in combat. These malisons have human bodies,
+  but they've replaced their arms with snakes. Malisons possesses deadly venom, which some manipulate into magical
+  strikes. They can also shape-shift into snakes, helping them to position themselves for surprise attacks or to
+  slither away with nary a trace.
 habitat: Desert, Forest, Swamp, Urban
 treasure: Relics

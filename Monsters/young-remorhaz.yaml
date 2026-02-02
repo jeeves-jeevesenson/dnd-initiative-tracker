@@ -2,10 +2,11 @@ name: Young Remorhaz
 size: Large
 type: Monstrosity
 alignment: Unaligned
-initiative: +1 (11)
+initiative: '+1'
 ac: '14'
-hp: 93 (11d10 + 33)
+hp: 93
 speed: 30 ft., Burrow 20 ft.
+challenge_rating: 5
 abilities:
   Str: 18
   Dex: 13
@@ -13,14 +14,11 @@ abilities:
   Int: 3
   Wis: 10
   Cha: 4
-skills: []
 immunities:
 - Cold
 - Fire
+senses: Darkvision 60 ft., Tremorsense 60 ft., Passive Perception 10
 languages:
 - —
-senses: Darkvision 60 ft., Tremorsense 60 ft., Passive Perception 10
-challenge_rating: 5 (XP 1 800; PB +3)
-description: Young remorhazes scorch and consume any creatures they can chase down
-  and overwhelm.
+description: Young remorhazes scorch and consume any creatures they can chase down and overwhelm.
 habitat: Arctic

@@ -2,10 +2,11 @@ name: Pony
 size: Medium
 type: Beast
 alignment: Unaligned
-initiative: +0 (10)
+initiative: '+0'
 ac: '10'
-hp: 11 (2d8 + 2)
+hp: 11
 speed: 40 ft.
+challenge_rating: 1/8
 abilities:
   Str: 15
   Dex: 10
@@ -13,14 +14,11 @@ abilities:
   Int: 2
   Wis: 11
   Cha: 7
-skills: []
-immunities: []
+senses: Passive Perception 10
 languages:
 - None
-senses: Passive Perception 10
-challenge_rating: 1/8 (XP 25; PB +2)
 description: ''
 habitat: Grassland, Urban
 actions:
 - name: Hooves
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 4 (1d4 + 2) Bludgeoning damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 4 (1d4 + 2) Bludgeoning damage.'

@@ -2,10 +2,11 @@ name: Seahorse
 size: Tiny
 type: Beast
 alignment: Unaligned
-initiative: +1 (11)
+initiative: '+1'
 ac: '12'
-hp: 1 (1d4 - 1)
+hp: 1
 speed: 5 ft., Swim 20 ft.
+challenge_rating: 0
 abilities:
   Str: 1
   Dex: 12
@@ -16,11 +17,9 @@ abilities:
 skills:
 - Perception +2
 - Stealth +5
-immunities: []
+senses: Passive Perception 12
 languages:
 - None
-senses: Passive Perception 12
-challenge_rating: 0 (XP 0; PB +2)
 description: ''
 habitat: Underwater
 traits:
@@ -28,5 +27,4 @@ traits:
   desc: The seahorse can breathe only underwater.
 actions:
 - name: Bubble Dash
-  desc: While underwater, the seahorse moves up to its Swim Speed without provoking
-    Opportunity Attacks.
+  desc: While underwater, the seahorse moves up to its Swim Speed without provoking Opportunity Attacks.

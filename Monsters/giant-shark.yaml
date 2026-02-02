@@ -2,10 +2,11 @@ name: Giant Shark
 size: Huge
 type: Beast
 alignment: Unaligned
-initiative: +3 (13)
+initiative: '+3'
 ac: '13'
-hp: 92 (8d12 + 40)
+hp: 92
 speed: 5 ft., Swim 60 ft.
+challenge_rating: 5
 abilities:
   Str: 23
   Dex: 11
@@ -15,11 +16,9 @@ abilities:
   Cha: 5
 skills:
 - Perception +3
-immunities: []
+senses: Blindsight 60 ft., Passive Perception 13
 languages:
 - —
-senses: Blindsight 60 ft., Passive Perception 13
-challenge_rating: 5 (XP 1 800; PB +3)
 description: ''
 habitat: Underwater
 traits:
@@ -29,5 +28,5 @@ actions:
 - name: Multiattack
   desc: The shark makes two Bite attacks.
 - name: Bite
-  desc: 'Melee Attack Roll: +9 (with Advantage if the target doesn''t have all its
-    Hit Points), reach 5 ft. Hit: 22 (3d10 + 6) Piercing damage.'
+  desc: 'Melee Attack Roll : +9 (with Advantage if the target doesn''t have all its Hit Points), reach 5 ft. Hit
+    : 22 (3d10 + 6) Piercing damage.'

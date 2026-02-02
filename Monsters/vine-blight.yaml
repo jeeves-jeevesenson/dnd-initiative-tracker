@@ -2,10 +2,11 @@ name: Vine Blight
 size: Medium
 type: Plant
 alignment: Neutral Evil
-initiative: -1 (9)
+initiative: '-1'
 ac: '12'
-hp: 19 (3d8 + 6)
+hp: 19
 speed: 20 ft.
+challenge_rating: 1/2
 abilities:
   Str: 15
   Dex: 8
@@ -17,13 +18,11 @@ skills:
 - Stealth +1
 immunities:
 - Deafened
+senses: Blindsight 60 ft., Passive Perception 10
 languages:
 - Common
-senses: Blindsight 60 ft., Passive Perception 10
-challenge_rating: 1/2 (XP 100; PB +2)
-description: Vine blights resemble humans wrapped in vines common to the areas in
-  which they grow, from hairy ivy vines to flowering kudzu. They can cause plants
-  to burst from the ground around themselves and entangle nearby foes. Unlike most
-  other blights, vine blights can speak. They do so rarely, typically only to convey
-  messages from their masters or to repeat the words of their victims in rasping voices.
+description: Vine blights resemble humans wrapped in vines common to the areas in which they grow, from hairy ivy
+  vines to flowering kudzu. They can cause plants to burst from the ground around themselves and entangle nearby
+  foes. Unlike most other blights, vine blights can speak. They do so rarely, typically only to convey messages
+  from their masters or to repeat the words of their victims in rasping voices.
 habitat: Forest

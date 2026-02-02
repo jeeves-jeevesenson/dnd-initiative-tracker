@@ -2,10 +2,11 @@ name: Mind Flayer
 size: Medium
 type: Aberration
 alignment: Lawful Evil
-initiative: +4 (14)
+initiative: '+4'
 ac: '15'
-hp: 99 (18d8 + 18)
+hp: 99
 speed: 30 ft., Fly 15 ft. (hover)
+challenge_rating: 7
 abilities:
   Str: 11
   Dex: 12
@@ -18,35 +19,30 @@ skills:
 - Insight +6
 - Perception +6
 - Stealth +4
-immunities: []
+senses: Darkvision 120 ft., Passive Perception 16
 languages:
 - Deep Speech
 - Undercommon; telepathy 120 ft.
-senses: Darkvision 120 ft., Passive Perception 16
-challenge_rating: 7 (XP 2 900; PB +3)
-description: A mind flayer's hunger for brains is outmeasured only by its thirst for
-  dominance, and it embraces any plot that allows it to indulge both.
+description: A mind flayer's hunger for brains is outmeasured only by its thirst for dominance, and it embraces
+  any plot that allows it to indulge both.
 habitat: Underdark
 treasure: Arcana
 traits:
 - name: Magic Resistance
-  desc: The mind flayer has Advantage on saving throws against spells and other magical
-    effects.
+  desc: The mind flayer has Advantage on saving throws against spells and other magical effects.
 actions:
 - name: Tentacles
-  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 22 (4d8 + 4) Psychic damage. If the
-    target is a Medium or smaller creature, it has the Grappled condition (escape
-    DC 14) from all the mind flayer''s tentacles, and the target has the Stunned condition
-    until the grapple ends.'
+  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 22 (4d8 + 4) Psychic damage. If the target is a Medium or smaller
+    creature, it has the Grappled condition (escape DC 14) from all the mind flayer''s tentacles, and the target
+    has the Stunned condition until the grapple ends.'
 - name: Extract Brain
-  desc: 'Constitution Saving Throw: DC 15, one creature that is Grappled by the mind
-    flayer''s Tentacles. Failure: 55 (10d10) Piercing damage. Success: Half damage.
-    Failure or Success: If this damage reduces the target to 0 Hit Points, the mind
-    flayer kills it and devours its brain.'
+  desc: 'Constitution Saving Throw : DC 15, one creature that is Grappled by the mind flayer''s Tentacles. Failure
+    : 55 (10d10) Piercing damage. Success : Half damage. Failure or Success : If this damage reduces the target
+    to 0 Hit Points, the mind flayer kills it and devours its brain.'
 - name: Mind Blast (Recharge 5–6)
-  desc: 'Intelligence Saving Throw: DC 15, each creature in a 60-foot Cone. Failure:
-    31 (6d8 + 4) Psychic damage, and the target has the Stunned condition until the
-    end of the mind flayer''s next turn. Success: Half damage only.'
+  desc: 'Intelligence Saving Throw : DC 15, each creature in a 60-foot Cone. Failure : 31 (6d8 + 4) Psychic damage,
+    and the target has the Stunned condition until the end of the mind flayer''s next turn. Success : Half damage
+    only.'
 - name: Spellcasting
-  desc: 'The mind flayer casts one of the following spells, requiring no spell components
-    and using Intelligence as the spellcasting ability (spell save DC 15):'
+  desc: 'The mind flayer casts one of the following spells, requiring no spell components and using Intelligence
+    as the spellcasting ability (spell save DC 15):'

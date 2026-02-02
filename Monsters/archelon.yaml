@@ -2,10 +2,11 @@ name: Archelon
 size: Huge
 type: Beast (Dinosaur)
 alignment: Unaligned
-initiative: +3 (13)
+initiative: '+3'
 ac: '17'
-hp: 90 (12d12 + 12)
+hp: 90
 speed: 20 ft., Swim 80 ft.
+challenge_rating: 4
 abilities:
   Str: 18
   Dex: 16
@@ -15,11 +16,9 @@ abilities:
   Cha: 6
 skills:
 - Stealth +5
-immunities: []
+senses: Passive Perception 12
 languages:
 - None
-senses: Passive Perception 12
-challenge_rating: 4 (XP 1 100; PB +2)
 description: ''
 habitat: Underwater
 traits:
@@ -29,4 +28,4 @@ actions:
 - name: Multiattack
   desc: The archelon makes two Bite attacks.
 - name: Bite
-  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 14 (3d6 + 4) Piercing damage.'
+  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 14 (3d6 + 4) Piercing damage.'

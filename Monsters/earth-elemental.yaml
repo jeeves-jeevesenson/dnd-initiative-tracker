@@ -2,10 +2,11 @@ name: Earth Elemental
 size: Large
 type: Elemental
 alignment: Neutral
-initiative: -1 (9)
+initiative: '-1'
 ac: '17'
-hp: 147 (14d10 + 70)
+hp: 147
 speed: 30 ft., Burrow 30 ft.
+challenge_rating: 5
 abilities:
   Str: 20
   Dex: 8
@@ -13,30 +14,28 @@ abilities:
   Int: 5
   Wis: 10
   Cha: 5
-skills: []
 immunities:
 - Poison; Exhaustion
 - Paralyzed
 - Petrified
 - Poisoned
 - Unconscious
+senses: Darkvision 60 ft., Tremorsense 60 ft., Passive Perception 10
 languages:
 - Primordial (Terran)
-senses: Darkvision 60 ft., Tremorsense 60 ft., Passive Perception 10
-challenge_rating: 5 (XP 1 800; PB +3)
 description: ''
 habitat: Mountain, Planar (Elemental Plane of Earth), Underdark
 traits:
 - name: Earth Glide
-  desc: The elemental can burrow through nonmagical, unworked earth and stone. While
-    doing so, the elemental doesn't disturb the material it moves through.
+  desc: The elemental can burrow through nonmagical, unworked earth and stone. While doing so, the elemental doesn't
+    disturb the material it moves through.
 - name: Siege Monster
   desc: The elemental deals double damage to objects and structures.
 actions:
 - name: Multiattack
   desc: The elemental makes two attacks, using Slam or Rock Launch in any combination.
 - name: Slam
-  desc: 'Melee Attack Roll: +8, reach 10 ft. Hit: 14 (2d8 + 5) Bludgeoning damage.'
+  desc: 'Melee Attack Roll : +8, reach 10 ft. Hit : 14 (2d8 + 5) Bludgeoning damage.'
 - name: Rock Launch
-  desc: 'Ranged Attack Roll: +8, range 60 ft. Hit: 8 (1d6 + 5) Bludgeoning damage.
-    If the target is a Large or smaller creature, it has the Prone condition.'
+  desc: 'Ranged Attack Roll : +8, range 60 ft. Hit : 8 (1d6 + 5) Bludgeoning damage. If the target is a Large or
+    smaller creature, it has the Prone condition.'

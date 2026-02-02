@@ -2,10 +2,11 @@ name: Badger
 size: Tiny
 type: Beast
 alignment: Unaligned
-initiative: +0 (10)
+initiative: '+0'
 ac: '11'
-hp: 5 (1d4 + 3)
+hp: 5
 speed: 20 ft., Burrow 5 ft.
+challenge_rating: 0
 abilities:
   Str: 10
   Dex: 11
@@ -15,13 +16,11 @@ abilities:
   Cha: 5
 skills:
 - Perception +3
-immunities: []
+senses: Darkvision 30 ft., Passive Perception 13
 languages:
 - None
-senses: Darkvision 30 ft., Passive Perception 13
-challenge_rating: 0 (XP 10; PB +2)
 description: ''
 habitat: Forest
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +2, reach 5 ft. Hit: 1 Piercing damage.'
+  desc: 'Melee Attack Roll : +2, reach 5 ft. Hit : 1 Piercing damage.'

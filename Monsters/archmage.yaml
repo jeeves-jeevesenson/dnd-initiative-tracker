@@ -2,10 +2,11 @@ name: Archmage
 size: Medium
 type: or Small Humanoid (Wizard)
 alignment: Neutral
-initiative: +6 (16)
+initiative: '+6'
 ac: '17'
-hp: 170 (31d8 + 31)
+hp: 170
 speed: 30 ft.
+challenge_rating: 12
 abilities:
   Str: 10
   Dex: 14
@@ -19,34 +20,24 @@ skills:
 - Perception +6
 immunities:
 - Psychic; Charmed (with
+senses: Passive Perception 16
 languages:
 - Common plus five other languages
-senses: Passive Perception 16
-challenge_rating: 12 (XP 8000; PB +4)
-description: Mages are magical wonder-workers, ranging from spellcasting overlords
-  to reclusive witches. They study mystical secrets and possess insight into monsters,
-  legends, omens, and other lore. Mages often gather allies or hire assistants to
-  aid them in their research or to attain magical might.  Archmages have mastered
-  incredible magical power. While some use their magic to protect the world, others
-  become tyrants or pursue forbidden secrets. Many archmages retain magical servants
-  and collect magic items and occult lore.
+description: Mages are magical wonder-workers, ranging from spellcasting overlords to reclusive witches. They study
+  mystical secrets and possess insight into monsters, legends, omens, and other lore. Mages often gather allies
+  or hire assistants to aid them in their research or to attain magical might. Archmages have mastered incredible
+  magical power. While some use their magic to protect the world, others become tyrants or pursue forbidden secrets.
+  Many archmages retain magical servants and collect magic items and occult lore.
 habitat: Any
 treasure: Individual, Arcana
 traits:
 - name: Magic Resistance
-  desc: The archmage has Advantage on saving throws against spells and other magical
-    effects.
+  desc: The archmage has Advantage on saving throws against spells and other magical effects.
 actions:
 - name: Multiattack
   desc: The archmage makes four Arcane Burst attacks.
 - name: Arcane Burst
-  desc: 'Melee or Ranged Attack Roll: +9, reach 5 ft. or range 150 ft. Hit: 27 (4d10
-    + 5) Force damage.'
+  desc: 'Melee or Ranged Attack Roll : +9, reach 5 ft. or range 150 ft. Hit : 27 (4d10 + 5) Force damage.'
 - name: Spellcasting
-  desc: 'The archmage casts one of the following spells, using Intelligence as the
-    spellcasting ability (spell save DC 17):'
-- name: Misty Step (3/Day)
-  desc: The mage casts Misty Step, using the same spellcasting ability as Spellcasting.
-- name: Protective Magic (3/Day)
-  desc: The archmage casts Counterspell or Shield in response to the spell's trigger,
-    using the same spellcasting ability as Spellcasting.
+  desc: 'The archmage casts one of the following spells, using Intelligence as the spellcasting ability (spell save
+    DC 17):'

@@ -2,10 +2,11 @@ name: Violet Fungus
 size: Medium
 type: Plant
 alignment: Unaligned
-initiative: -5 (5)
+initiative: '-5'
 ac: '5'
-hp: 18 (4d8)
+hp: 18
 speed: 5 ft.
+challenge_rating: 1/4
 abilities:
   Str: 3
   Dex: 1
@@ -13,21 +14,18 @@ abilities:
   Int: 1
   Wis: 3
   Cha: 1
-skills: []
 immunities:
 - Blinded
 - Charmed
 - Deafened
 - Frightened
+senses: Blindsight 30 ft., Passive Perception 6
 languages:
 - None
-senses: Blindsight 30 ft., Passive Perception 6
-challenge_rating: 1/4 (XP 50; PB +2)
-description: Slow but mobile, violet fungi rot any flesh they touch with their lashing
-  tendrils.
+description: Slow but mobile, violet fungi rot any flesh they touch with their lashing tendrils.
 habitat: Underdark
 actions:
 - name: Multiattack
   desc: The fungus makes two Rotting Touch attacks.
 - name: Rotting Touch
-  desc: 'Melee Attack Roll: +2, reach 10 ft. Hit: 4 (1d8) Necrotic damage.'
+  desc: 'Melee Attack Roll : +2, reach 10 ft. Hit : 4 (1d8) Necrotic damage.'

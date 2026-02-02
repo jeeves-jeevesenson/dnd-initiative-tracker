@@ -2,10 +2,11 @@ name: Grick Ancient
 size: Large
 type: Aberration
 alignment: Unaligned
-initiative: +3 (13)
+initiative: '+3'
 ac: '18'
-hp: 135 (18d10 + 36)
+hp: 135
 speed: 30 ft., Climb 30 ft.
+challenge_rating: 7
 abilities:
   Str: 18
   Dex: 16
@@ -15,13 +16,10 @@ abilities:
   Cha: 9
 skills:
 - Stealth +6
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - —
-senses: Darkvision 60 ft., Passive Perception 12
-challenge_rating: 7 (XP 2 900; PB +3)
-description: Gricks can live for centuries, with the eldest growing to monstrous sizes.
-  Grick ancients actively hunt more than they wait in ambush, and they have no qualms
-  about devouring smaller gricks.
+description: Gricks can live for centuries, with the eldest growing to monstrous sizes. Grick ancients actively
+  hunt more than they wait in ambush, and they have no qualms about devouring smaller gricks.
 habitat: Forest, Underdark
 treasure: Any

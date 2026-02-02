@@ -2,10 +2,11 @@ name: Young White Dragon
 size: Large
 type: Dragon (Chromatic)
 alignment: Chaotic Evil
-initiative: +3 (13)
+initiative: '+3'
 ac: '17'
-hp: 123 (13d10 + 52)
+hp: 123
 speed: 40 ft., Burrow 20 ft., Fly 80 ft., Swim 40 ft.
+challenge_rating: 6
 abilities:
   Str: 18
   Dex: 10
@@ -18,36 +19,30 @@ skills:
 - Stealth +3
 immunities:
 - Cold
+senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 16
 languages:
 - Common
 - Draconic
-senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 16
-challenge_rating: 6 (XP 2 300; PB +3)
-description: Among the most primal chromatic dragons, white dragons prioritize survival
-  over all. Life is harsh and uncertain in the arctic expanses, glacial heights, and
-  frozen seas where these dragons dwell. White dragons fiercely protect their territories,
-  scouring the frigid regions for food and evidence of trespassers. Most white dragons
-  ignore the plots of smaller creatures and other dragons, concerning themselves only
-  with their own survival. White dragons create lairs to defend themselves from other
-  deadly arctic creatures and from dangerous natural conditions. Within these shelters,
-  white dragons hoard testaments to their superiority, such as monstrous skulls, the
-  gear of defeated rivals, and curiosities that capture their interest. To protect
-  such treasure, white dragons coax ice to form over their hoards or sink their wealth
-  in frigid pools. For white dragons, each piece of treasure embodies a victory—the
-  details of which inflate as these dragons age.
+description: Among the most primal chromatic dragons, white dragons prioritize survival over all. Life is harsh
+  and uncertain in the arctic expanses, glacial heights, and frozen seas where these dragons dwell. White dragons
+  fiercely protect their territories, scouring the frigid regions for food and evidence of trespassers. Most white
+  dragons ignore the plots of smaller creatures and other dragons, concerning themselves only with their own survival.
+  White dragons create lairs to defend themselves from other deadly arctic creatures and from dangerous natural
+  conditions. Within these shelters, white dragons hoard testaments to their superiority, such as monstrous skulls,
+  the gear of defeated rivals, and curiosities that capture their interest. To protect such treasure, white dragons
+  coax ice to form over their hoards or sink their wealth in frigid pools. For white dragons, each piece of treasure
+  embodies a victory—the details of which inflate as these dragons age.
 habitat: Arctic
 treasure: Arcana
 traits:
 - name: Ice Walk
-  desc: The dragon can move across and climb icy surfaces without needing to make
-    an ability check. Additionally, Difficult Terrain composed of ice or snow doesn't
-    cost it extra movement.
+  desc: The dragon can move across and climb icy surfaces without needing to make an ability check. Additionally,
+    Difficult Terrain composed of ice or snow doesn't cost it extra movement.
 actions:
 - name: Multiattack
   desc: The dragon makes three Rend attacks.
 - name: Rend
-  desc: 'Melee Attack Roll: +7, reach 10 ft. Hit: 9 (2d4 + 4) Slashing damage plus
-    2 (1d4) Cold damage.'
+  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 9 (2d4 + 4) Slashing damage plus 2 (1d4) Cold damage.'
 - name: Cold Breath (Recharge 5–6)
-  desc: 'Constitution Saving Throw: DC 15, each creature in a 30-foot Cone. Failure:
-    40 (9d8) Cold damage. Success: Half damage.'
+  desc: 'Constitution Saving Throw : DC 15, each creature in a 30-foot Cone. Failure : 40 (9d8) Cold damage. Success
+    : Half damage.'

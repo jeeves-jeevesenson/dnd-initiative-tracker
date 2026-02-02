@@ -2,10 +2,11 @@ name: Aberrant Cultist
 size: Medium
 type: or Small Humanoid
 alignment: Neutral Evil
-initiative: +7 (17)
+initiative: '+7'
 ac: '14'
-hp: 137 (25d8 + 25)
+hp: 137
 speed: 30 ft.
+challenge_rating: 8
 abilities:
   Str: 10
   Dex: 19
@@ -17,15 +18,12 @@ skills:
 - Arcana +6
 - Perception +7
 - Religion +6
-immunities: []
+senses: Darkvision 90 ft., Passive Perception 17
 languages:
 - Common
 - Deep Speech; telepathy 30 ft.
-senses: Darkvision 90 ft., Passive Perception 17
-challenge_rating: 8 (XP 3 900; PB +3)
-description: Aberrant cultists pursue mind-bending powers from alien forces. Aberrant
-  cultists align with monsters such as aboleths and mind flayers or forces such as
-  Cthulhu, Hadar, Ityak-Ortheel the Elf Eater, Nyarlathotep, malicious solar bodies,
-  or entities from the Far Realm.
+description: Aberrant cultists pursue mind-bending powers from alien forces. Aberrant cultists align with monsters
+  such as aboleths and mind flayers or forces such as Cthulhu, Hadar, Ityak-Ortheel the Elf Eater, Nyarlathotep,
+  malicious solar bodies, or entities from the Far Realm.
 habitat: Any
 treasure: Individual, Relics

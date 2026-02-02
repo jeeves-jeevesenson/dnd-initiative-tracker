@@ -2,10 +2,11 @@ name: Yochlol
 size: Medium
 type: Fiend (Demon)
 alignment: Chaotic Evil
-initiative: +8 (18)
+initiative: '+8'
 ac: '15'
-hp: 153 (18d8 + 72)
+hp: 153
 speed: 30 ft., Climb 30 ft.
+challenge_rating: 10
 abilities:
   Str: 15
   Dex: 19
@@ -18,11 +19,10 @@ skills:
 - Insight +6
 immunities:
 - Poison; Poisoned
+senses: Darkvision 120 ft., Passive Perception 12
 languages:
 - Abyssal
 - Elvish
 - Undercommon
-senses: Darkvision 120 ft., Passive Perception 12
-challenge_rating: 10 (XP 5 900; PB +4)
 description: ''
 habitat: Planar (Abyss)

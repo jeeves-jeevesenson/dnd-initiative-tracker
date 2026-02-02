@@ -2,10 +2,11 @@ name: Demilich
 size: Tiny
 type: Undead
 alignment: Neutral Evil
-initiative: +17 (27)
+initiative: '+17'
 ac: '20'
-hp: 180 (72d4)
+hp: 180
 speed: 5 ft., Fly 30 ft. (hover)
+challenge_rating: 18
 abilities:
   Str: 1
   Dex: 20
@@ -13,7 +14,6 @@ abilities:
   Int: 20
   Wis: 17
   Cha: 20
-skills: []
 immunities:
 - Necrotic
 - Poison
@@ -26,14 +26,11 @@ immunities:
 - Poisoned
 - Prone
 - Stunned
+senses: Truesight 120 ft., Passive Perception 13
 languages:
 - None
-senses: Truesight 120 ft., Passive Perception 13
-challenge_rating: 18 (XP 20 000, or 22 000 in lair; PB +6)
-description: A demilich is a skull harboring the remnants of a lich's wicked essence.
-  If the burden of immortality overwhelms a lich, its consciousness turns inward as
-  its body rots away. But if its remains are disturbed, a demilich rises. Demiliches
-  usually appear as skulls adorned with gems or arcane sigils.
+description: A demilich is a skull harboring the remnants of a lich's wicked essence. If the burden of immortality
+  overwhelms a lich, its consciousness turns inward as its body rots away. But if its remains are disturbed, a demilich
+  rises. Demiliches usually appear as skulls adorned with gems or arcane sigils.
 habitat: Any
 treasure: Arcana
-legendary_uses: 'Legendary Action Uses: 3 (4 in Lair).'

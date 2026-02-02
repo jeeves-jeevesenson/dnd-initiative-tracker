@@ -2,10 +2,11 @@ name: Succubus
 size: Medium
 type: Fiend
 alignment: Neutral Evil
-initiative: +3 (13)
+initiative: '+3'
 ac: '15'
-hp: 71 (13d8 + 13)
+hp: 71
 speed: 30 ft., Fly 60 ft.
+challenge_rating: 4
 abilities:
   Str: 8
   Dex: 17
@@ -19,41 +20,32 @@ skills:
 - Perception +5
 - Persuasion +9
 - Stealth +7
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 15
 languages:
 - Abyssal
 - Common
 - Infernal; telepathy 60 ft.
-senses: Darkvision 60 ft., Passive Perception 15
-challenge_rating: 4 (XP 1 100; PB +2)
-description: Succubi prey on mortals physically and exploit their waking desires.
-  They relish corrupting virtuous souls and the pain an individual's downfall can
-  cause. Once their targets are at their lowest, succubi slay their victims with their
-  essence-draining kiss. Through fiendish rites, succubi can transform into incubi
-  to manipulate their prey in dreams as well as the waking world. They can also change
-  shape to torment their victims. These tempters can dominate Humanoids, but they
-  usually do so to reinforce their manipulations or defend themselves rather than
+description: Succubi prey on mortals physically and exploit their waking desires. They relish corrupting virtuous
+  souls and the pain an individual's downfall can cause. Once their targets are at their lowest, succubi slay their
+  victims with their essence-draining kiss. Through fiendish rites, succubi can transform into incubi to manipulate
+  their prey in dreams as well as the waking world. They can also change shape to torment their victims. These tempters
+  can dominate Humanoids, but they usually do so to reinforce their manipulations or defend themselves rather than
   controlling others outright.
 habitat: Planar (Lower Planes), Urban
 treasure: Implements
 traits:
 - name: Incubus Form
-  desc: When the succubus finishes a Long Rest, it can shape-shift into an Incubus,
-    using that stat block instead of this one.
+  desc: When the succubus finishes a Long Rest, it can shape-shift into an Incubus , using that stat block instead
+    of this one.
 actions:
 - name: Multiattack
   desc: The succubus makes one Fiendish Touch attack and uses Charm or Draining Kiss.
 - name: Fiendish Touch
-  desc: 'Melee Attack Roll: +7, reach 5 ft. Hit: 16 (2d10 + 5) Psychic damage.'
+  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 16 (2d10 + 5) Psychic damage.'
 - name: Charm
-  desc: The succubus casts Dominate Person (level 8 version), requiring no spell components
-    and using Charisma as the spellcasting ability (spell save DC 15).
+  desc: The succubus casts Dominate Person (level 8 version), requiring no spell components and using Charisma as
+    the spellcasting ability (spell save DC 15).
 - name: Draining Kiss
-  desc: 'Constitution Saving Throw: DC 15, one creature Charmed by the succubus within
-    5 feet. Failure: 13 (3d8) Psychic damage. Success: Half damage. Failure or Success:
-    The target''s Hit Point maximum decreases by an amount equal to the damage taken.'
-- name: Shape-Shift
-  desc: The succubus shape-shifts into a Medium or Small Humanoid, or it returns to
-    its true form. Its game statistics are the same in each form, except its Fly Speed
-    is available only in its true form. Any equipment it is wearing or carrying isn't
-    transformed.
+  desc: 'Constitution Saving Throw : DC 15, one creature Charmed by the succubus within 5 feet. Failure : 13 (3d8)
+    Psychic damage. Success : Half damage. Failure or Success : The target''s Hit Point maximum decreases by an
+    amount equal to the damage taken.'

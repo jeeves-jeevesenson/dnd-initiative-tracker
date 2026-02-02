@@ -2,10 +2,11 @@ name: Revenant
 size: Medium
 type: Undead
 alignment: Neutral
-initiative: +2 (12)
+initiative: '+2'
 ac: '13'
-hp: 127 (15d8 + 60)
+hp: 127
 speed: 30 ft.
+challenge_rating: 5
 abilities:
   Str: 18
   Dex: 14
@@ -13,7 +14,6 @@ abilities:
   Int: 13
   Wis: 16
   Cha: 18
-skills: []
 immunities:
 - Poison; Charmed
 - Exhaustion
@@ -21,12 +21,10 @@ immunities:
 - Paralyzed
 - Poisoned
 - Stunned
+senses: Darkvision 60 ft., Passive Perception 13
 languages:
 - Common plus one other language
-senses: Darkvision 60 ft., Passive Perception 13
-challenge_rating: 5 (XP 1 800; PB +3)
-description: Revenants possess the bodies they had in life, using them to hunt down
-  their killers. If their bodies are destroyed, they take control of new bodies that
-  gradually change to resemble the revenants' original forms.
+description: Revenants possess the bodies they had in life, using them to hunt down their killers. If their bodies
+  are destroyed, they take control of new bodies that gradually change to resemble the revenants' original forms.
 habitat: Forest, Swamp, Urban
 treasure: Any

@@ -3,8 +3,9 @@ size: Large
 type: Beast
 alignment: Unaligned
 ac: 11 + the spell's level
-hp: 30 + 10 for each spell level above 4*
+hp: 30
 speed: 40 ft., Climb 40 ft., Fly 40 ft. (Wasp only)
+challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
 abilities:
   Str: 17
   Dex: 13
@@ -12,29 +13,19 @@ abilities:
   Int: 4
   Wis: 14
   Cha: 3
-skills: []
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Understands the languages you know
-senses: Darkvision 60 ft., Passive Perception 12
-challenge_rating: None (XP 0; PB equals your Proficiency Bonus)
-description: See  Giant Insect
+description: See Giant Insect
 traits:
 - name: Spider Climb
-  desc: The insect can climb difficult surfaces, including along ceilings, without
-    needing to make an ability check.
+  desc: The insect can climb difficult surfaces, including along ceilings, without needing to make an ability check.
 actions:
 - name: Multiattack
-  desc: The insect makes a number of attacks equal to half this spell's level (round
-    down).
+  desc: The insect makes a number of attacks equal to half this spell's level (round down).
 - name: Poison Jab
-  desc: 'Melee Attack Roll: Bonus equals your spell attack modifier, reach 10 ft.
-    Hit: 1d6 + 3 plus the spell''s level Piercing damage plus 1d4 Poison damage.'
+  desc: 'Melee Attack Roll : Bonus equals your spell attack modifier, reach 10 ft. Hit : 1d6 + 3 plus the spell''s
+    level Piercing damage plus 1d4 Poison damage.'
 - name: Web Bolt (Spider Only)
-  desc: 'Ranged Attack Roll: Bonus equals your spell attack modifier, range 60 ft.
-    Hit: 1d10 + 3 plus the spell''s level Bludgeoning damage, and the target''s Speed
-    is reduced to 0 until the start of the insect''s next turn.'
-- name: Venomous Spew (Centipede Only)
-  desc: 'Constitution Saving Throw: DC equals your spell save DC, one creature the
-    insect can see within 10 feet. Failure: The target has the Poisoned condition
-    until the start of the insect''s next turn.'
+  desc: 'Ranged Attack Roll : Bonus equals your spell attack modifier, range 60 ft. Hit : 1d10 + 3 plus the spell''s
+    level Bludgeoning damage, and the target''s Speed is reduced to 0 until the start of the insect''s next turn.'

@@ -2,10 +2,11 @@ name: Animated Armor
 size: Medium
 type: Construct
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '18'
-hp: 33 (6d8 + 6)
+hp: 33
 speed: 25 ft.
+challenge_rating: 1
 abilities:
   Str: 14
   Dex: 11
@@ -13,7 +14,6 @@ abilities:
   Int: 1
   Wis: 3
   Cha: 1
-skills: []
 immunities:
 - Poison
 - Psychic; Charmed
@@ -23,17 +23,15 @@ immunities:
 - Paralyzed
 - Petrified
 - Poisoned
+senses: Blindsight 60 ft., Passive Perception 6
 languages:
 - —
-senses: Blindsight 60 ft., Passive Perception 6
-challenge_rating: 1 (XP 200; PB +2)
-description: Animated suits of armor might move with steady deliberateness or awkward
-  gaits. They're often constructed from plate armor, making them easy to mistake for
-  soldiers or helmed horrors. Other types of armor or even metal statuary might also
-  become animated armor.
+description: Animated suits of armor might move with steady deliberateness or awkward gaits. They're often constructed
+  from plate armor, making them easy to mistake for soldiers or helmed horrors. Other types of armor or even metal
+  statuary might also become animated armor.
 habitat: Urban
 actions:
 - name: Multiattack
   desc: The armor makes two Slam attacks.
 - name: Slam
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 5 (1d6 + 2) Bludgeoning damage.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Bludgeoning damage.'

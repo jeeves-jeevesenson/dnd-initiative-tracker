@@ -2,10 +2,11 @@ name: Noble
 size: Medium
 type: or Small Humanoid
 alignment: Neutral
-initiative: +1 (11)
+initiative: '+1'
 ac: '15'
-hp: 9 (2d8)
+hp: 9
 speed: 30 ft.
+challenge_rating: 1/8
 abilities:
   Str: 11
   Dex: 12
@@ -17,22 +18,15 @@ skills:
 - Deception +5
 - Insight +4
 - Persuasion +5
-immunities: []
+senses: Passive Perception 12
 languages:
 - Common plus two other languages
-senses: Passive Perception 12
-challenge_rating: 1/8 (XP 25; PB +2)
-description: Nobles encompass a variety of people with social influence. They might
-  be rulers, wealthy merchants, callous bureaucrats, or the idle elite.  A noble's
-  social advantages typically grant the noble access to greater education and training
-  than most common folk, while nobles' experience with business or politics makes
-  many adept negotiators.
+description: Nobles encompass a variety of people with social influence. They might be rulers, wealthy merchants,
+  callous bureaucrats, or the idle elite. A noble's social advantages typically grant the noble access to greater
+  education and training than most common folk, while nobles' experience with business or politics makes many adept
+  negotiators.
 habitat: Any
 treasure: Individual
 actions:
 - name: Rapier
-  desc: 'Melee Attack Roll: +3, reach 5 ft. Hit: 5 (1d8 + 1) Piercing damage.'
-- name: Parry
-  desc: 'Trigger: The noble is hit by a melee attack roll while holding a weapon.
-    Response: The noble adds 2 to its AC against that attack, possibly causing it
-    to miss.'
+  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 5 (1d8 + 1) Piercing damage.'

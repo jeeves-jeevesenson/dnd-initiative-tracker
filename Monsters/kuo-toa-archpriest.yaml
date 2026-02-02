@@ -2,10 +2,11 @@ name: Kuo-toa Archpriest
 size: Medium
 type: Aberration
 alignment: Neutral Evil
-initiative: +2 (12)
+initiative: '+2'
 ac: '13'
-hp: 105 (14d8 + 42)
+hp: 105
 speed: 30 ft., Swim 30 ft.
+challenge_rating: 6
 abilities:
   Str: 16
   Dex: 14
@@ -16,13 +17,11 @@ abilities:
 skills:
 - Perception +9
 - Religion +4
-immunities: []
+senses: Darkvision 120 ft., Truesight 30 ft., Passive Perception 19
 languages:
 - Undercommon
-senses: Darkvision 120 ft., Truesight 30 ft., Passive Perception 19
-challenge_rating: 6 (XP 2 300; PB +3)
-description: Kuo-toa archpriests lead kuo-toa communities by interpreting omens and
-  messages from their strange gods. They wear grotesque ceremonial regalia honoring
-  their deities. Archpriests channel their faith into spells to support their followers.
+description: Kuo-toa archpriests lead kuo-toa communities by interpreting omens and messages from their strange
+  gods. They wear grotesque ceremonial regalia honoring their deities. Archpriests channel their faith into spells
+  to support their followers.
 habitat: Coastal, Underdark
 treasure: Relics

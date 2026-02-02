@@ -2,10 +2,11 @@ name: Water Weird
 size: Large
 type: Elemental
 alignment: Neutral
-initiative: +3 (13)
+initiative: '+3'
 ac: '13'
-hp: 65 (10d10 + 10)
+hp: 65
 speed: 5 ft., Swim 60 ft.
+challenge_rating: 3
 abilities:
   Str: 17
   Dex: 16
@@ -13,7 +14,6 @@ abilities:
   Int: 11
   Wis: 10
   Cha: 10
-skills: []
 immunities:
 - Poison; Exhaustion
 - Grappled
@@ -23,10 +23,9 @@ immunities:
 - Prone
 - Restrained
 - Unconscious
+senses: Blindsight 30 ft., Passive Perception 10
 languages:
 - Understands Primordial but can't speak
-senses: Blindsight 30 ft., Passive Perception 10
-challenge_rating: 3 (XP 700; PB +2)
 description: ''
 habitat: Underdark, Urban
 treasure: Any

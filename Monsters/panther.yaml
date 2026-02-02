@@ -2,10 +2,11 @@ name: Panther
 size: Medium
 type: Beast
 alignment: Unaligned
-initiative: +3 (13)
+initiative: '+3'
 ac: '13'
-hp: 13 (3d8)
+hp: 13
 speed: 50 ft., Climb 40 ft.
+challenge_rating: 1/4
 abilities:
   Str: 14
   Dex: 16
@@ -16,15 +17,11 @@ abilities:
 skills:
 - Perception +4
 - Stealth +7
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 14
 languages:
 - None
-senses: Darkvision 60 ft., Passive Perception 14
-challenge_rating: 1/4 (XP 50; PB +2)
 description: ''
 habitat: Forest, Grassland, Hill
 actions:
 - name: Rend
-  desc: 'Melee Attack Roll: +5, reach 5 ft. Hit: 6 (1d6 + 3) Slashing damage.'
-- name: Nimble Escape
-  desc: The panther takes the Disengage or Hide action.
+  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Slashing damage.'

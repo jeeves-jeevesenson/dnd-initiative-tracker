@@ -2,10 +2,11 @@ name: Hobgoblin Warlord
 size: Medium
 type: Fey (Goblinoid)
 alignment: Lawful Evil
-initiative: +5 (15)
+initiative: '+5'
 ac: '20'
-hp: 112 (15d8 + 45)
+hp: 112
 speed: 30 ft.
+challenge_rating: 6
 abilities:
   Str: 17
   Dex: 14
@@ -13,23 +14,17 @@ abilities:
   Int: 14
   Wis: 11
   Cha: 15
-skills: []
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Common
 - Goblin
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 6 (XP 2 300; PB +3)
-description: Hobgoblins embody the primal urge to grow and spread, expressing such
-  drives by bending the world to their whims. Lone hobgoblins claim woodland territories
-  and plunder the wilds. In groups, they form hierarchical, martial societies bent
-  on conquering lands and stripping them of resources to serve their expansionist
-  zeal. Hobgoblins often subjugate animals, monsters, and destructive Fey—particularly
-  goblins and bugbears—to serve their plans. Hobgoblins might ally with dragons, warlords,
-  the servants of warlike gods, or other powerful creatures that promise them control
-  of new territories. Should hobgoblins bring an entire land to heel, they seek new
-  conquests, venturing across seas, into the Underdark, or to stars and planes of
-  existence beyond.  Hobgoblin warlords lead armies of hobgoblins and their allies,
-  using their experience and strategic minds to command amid the ebb and flow of battle.
+description: Hobgoblins embody the primal urge to grow and spread, expressing such drives by bending the world to
+  their whims. Lone hobgoblins claim woodland territories and plunder the wilds. In groups, they form hierarchical,
+  martial societies bent on conquering lands and stripping them of resources to serve their expansionist zeal. Hobgoblins
+  often subjugate animals, monsters, and destructive Fey—particularly goblins and bugbears—to serve their plans.
+  Hobgoblins might ally with dragons, warlords, the servants of warlike gods, or other powerful creatures that promise
+  them control of new territories. Should hobgoblins bring an entire land to heel, they seek new conquests, venturing
+  across seas, into the Underdark, or to stars and planes of existence beyond. Hobgoblin warlords lead armies of
+  hobgoblins and their allies, using their experience and strategic minds to command amid the ebb and flow of battle.
 habitat: Desert, Forest, Grassland, Hill, Mountain, Planar (Acheron), Underdark
 treasure: Individual, Armaments

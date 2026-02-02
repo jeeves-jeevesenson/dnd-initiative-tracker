@@ -2,10 +2,11 @@ name: Troglodyte
 size: Medium
 type: Monstrosity
 alignment: Chaotic Evil
-initiative: +0 (10)
+initiative: '+0'
 ac: '11'
-hp: 13 (2d8 + 4)
+hp: 13
 speed: 30 ft., Climb 30 ft.
+challenge_rating: 1/4
 abilities:
   Str: 14
   Dex: 10
@@ -15,11 +16,9 @@ abilities:
   Cha: 6
 skills:
 - Stealth +4
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Troglodyte
-senses: Darkvision 60 ft., Passive Perception 10
-challenge_rating: 1/4 (XP 50; PB +2)
 description: ''
 habitat: Underdark
 treasure: Armaments

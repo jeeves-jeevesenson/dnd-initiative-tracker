@@ -2,10 +2,11 @@ name: Giant Centipede
 size: Small
 type: Beast
 alignment: Unaligned
-initiative: +2 (12)
+initiative: '+2'
 ac: '14'
-hp: 9 (2d6 + 2)
+hp: 9
 speed: 30 ft., Climb 30 ft.
+challenge_rating: 1/4
 abilities:
   Str: 5
   Dex: 14
@@ -13,16 +14,12 @@ abilities:
   Int: 1
   Wis: 7
   Cha: 3
-skills: []
-immunities: []
+senses: Blindsight 30 ft., Passive Perception 8
 languages:
 - None
-senses: Blindsight 30 ft., Passive Perception 8
-challenge_rating: 1/4 (XP 50; PB +2)
 description: ''
 habitat: Underdark, Urban
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll: +4, reach 5 ft. Hit: 4 (1d4 + 2) Piercing damage, and
-    the target has the Poisoned condition until the start of the centipede''s next
-    turn.'
+  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 4 (1d4 + 2) Piercing damage, and the target has the Poisoned
+    condition until the start of the centipede''s next turn.'

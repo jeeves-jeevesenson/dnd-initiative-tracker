@@ -2,10 +2,11 @@ name: Troll Limb
 size: Small
 type: Giant
 alignment: Chaotic Evil
-initiative: +1 (11)
+initiative: '+1'
 ac: '13'
-hp: 14 (4d6)
+hp: 14
 speed: 20 ft.
+challenge_rating: 1/2
 abilities:
   Str: 18
   Dex: 12
@@ -13,23 +14,19 @@ abilities:
   Int: 1
   Wis: 9
   Cha: 1
-skills: []
-immunities: []
+senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - —
-senses: Darkvision 60 ft., Passive Perception 9
-challenge_rating: 1/2 (XP 100; PB +2)
 description: ''
 habitat: Arctic, Forest, Hill, Mountain, Swamp, Underdark
 traits:
 - name: Regeneration
-  desc: The limb regains 5 Hit Points at the start of each of its turns. If the limb
-    takes Acid or Fire damage, this trait doesn't function on the limb's next turn.
-    The limb dies only if it starts its turn with 0 Hit Points and doesn't regenerate.
+  desc: The limb regains 5 Hit Points at the start of each of its turns. If the limb takes Acid or Fire damage,
+    this trait doesn't function on the limb's next turn. The limb dies only if it starts its turn with 0 Hit Points
+    and doesn't regenerate.
 - name: Troll Spawn
-  desc: The limb uncannily has the same senses as a whole troll. If the limb isn't
-    destroyed within 24 hours, roll 1d12. On a 12, the limb turns into a Troll. Otherwise,
-    the limb withers away.
+  desc: The limb uncannily has the same senses as a whole troll. If the limb isn't destroyed within 24 hours, roll
+    1d12. On a 12, the limb turns into a Troll. Otherwise, the limb withers away.
 actions:
 - name: Rend
-  desc: 'Melee Attack Roll: +6, reach 5 ft. Hit: 9 (2d4 + 4) Slashing damage.'
+  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 9 (2d4 + 4) Slashing damage.'

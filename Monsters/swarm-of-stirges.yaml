@@ -2,10 +2,11 @@ name: Swarm of Stirges
 size: Medium
 type: swarm of Tiny Monstrosities
 alignment: Unaligned
-initiative: +3 (13)
+initiative: '+3'
 ac: '14'
-hp: 36 (8d8)
+hp: 36
 speed: 10 ft., Fly 40 ft.
+challenge_rating: 2
 abilities:
   Str: 4
   Dex: 16
@@ -13,7 +14,6 @@ abilities:
   Int: 2
   Wis: 8
   Cha: 6
-skills: []
 immunities:
 - Charmed
 - Frightened
@@ -23,10 +23,9 @@ immunities:
 - Prone
 - Restrained
 - Stunned
+senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - —
-senses: Darkvision 60 ft., Passive Perception 9
-challenge_rating: 2 (XP 450; PB +2)
-description: Swarms of stirges sometimes form in swamps and Underdark caverns, draining
-  livestock and any other creatures that can't escape them.
+description: Swarms of stirges sometimes form in swamps and Underdark caverns, draining livestock and any other
+  creatures that can't escape them.
 habitat: Desert, Forest, Grassland, Hill, Mountain, Swamp, Underdark, Urban
