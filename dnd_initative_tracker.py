@@ -3624,7 +3624,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     fly_speed=int(fly_speed),
                     burrow_speed=int(burrow_speed),
                     climb_speed=int(climb_speed),
-                    water_mode=bool(water),
+                    movement_mode="Swim" if water else "Normal",
                     initiative=int(init_total),
                     dex=None,
                     ally=True,
@@ -3884,8 +3884,13 @@ class InitiativeTracker(base.InitiativeTracker):
                     "role": role if role in ("pc", "ally", "enemy") else "enemy",
                     "token_color": self._token_color_payload(c),
                     "hp": int(getattr(c, "hp", 0) or 0),
+                    "speed": int(getattr(c, "speed", 0) or 0),
+                    "swim_speed": int(getattr(c, "swim_speed", 0) or 0),
+                    "fly_speed": int(getattr(c, "fly_speed", 0) or 0),
+                    "burrow_speed": int(getattr(c, "burrow_speed", 0) or 0),
                     "move_remaining": int(getattr(c, "move_remaining", 0) or 0),
                     "move_total": int(getattr(c, "move_total", 0) or 0),
+                    "movement_mode": self._movement_mode_label(getattr(c, "movement_mode", "normal")),
                     "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
                     "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
                     "reaction_remaining": int(getattr(c, "reaction_remaining", 0) or 0),
@@ -5911,7 +5916,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 cx = None
                 cy = None
             if cx is None or cy is None:
-                _, _, _, positions = self._lan_live_map_data()
+                _, _, _, _, positions = self._lan_live_map_data()
                 if cid in positions:
                     cx = float(positions[cid][0])
                     cy = float(positions[cid][1])
@@ -6366,7 +6371,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _lan_try_move(self, cid: int, col: int, row: int) -> Tuple[bool, str, int]:
         # Boundaries
-        cols, rows, obstacles, positions = self._lan_live_map_data()
+        cols, rows, obstacles, rough_terrain, positions = self._lan_live_map_data()
         if not (0 <= col < cols and 0 <= row < rows):
             return (False, "Off the map, matey.", 0)
         if (col, row) in obstacles:
@@ -6386,7 +6391,16 @@ class InitiativeTracker(base.InitiativeTracker):
         if max_ft <= 0:
             return (False, "No movement left, matey.", 0)
 
-        cost = self._lan_shortest_cost(origin, (col, row), obstacles, cols, rows, max_ft)
+        cost = self._lan_shortest_cost(
+            origin,
+            (col, row),
+            obstacles,
+            rough_terrain,
+            cols,
+            rows,
+            max_ft,
+            c,
+        )
         if cost is None:
             return (False, "Can’t reach that square (blocked).", 0)
         if cost > max_ft:
@@ -6413,10 +6427,13 @@ class InitiativeTracker(base.InitiativeTracker):
         self._rebuild_table(scroll_to_current=True)
         return (True, "", int(cost))
 
-    def _lan_live_map_data(self) -> Tuple[int, int, set[Tuple[int, int]], Dict[int, Tuple[int, int]]]:
+    def _lan_live_map_data(
+        self,
+    ) -> Tuple[int, int, set[Tuple[int, int]], Dict[Tuple[int, int], Dict[str, object]], Dict[int, Tuple[int, int]]]:
         cols = int(self._lan_grid_cols)
         rows = int(self._lan_grid_rows)
         obstacles = set(self._lan_obstacles)
+        rough_terrain: Dict[Tuple[int, int], Dict[str, object]] = dict(getattr(self, "_lan_rough_terrain", {}) or {})
         positions = dict(self._lan_positions)
 
         mw = getattr(self, "_map_window", None)
@@ -6425,6 +6442,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 cols = int(getattr(mw, "cols", cols))
                 rows = int(getattr(mw, "rows", rows))
                 obstacles = set(getattr(mw, "obstacles", obstacles) or set())
+                rough_terrain = dict(getattr(mw, "rough_terrain", rough_terrain) or {})
                 for cid, tok in (getattr(mw, "unit_tokens", {}) or {}).items():
                     try:
                         positions[int(cid)] = (int(tok.get("col")), int(tok.get("row")))
@@ -6432,16 +6450,18 @@ class InitiativeTracker(base.InitiativeTracker):
                         pass
         except Exception:
             pass
-        return cols, rows, obstacles, positions
+        return cols, rows, obstacles, rough_terrain, positions
 
     def _lan_shortest_cost(
         self,
         origin: Tuple[int, int],
         dest: Tuple[int, int],
         obstacles: set[Tuple[int, int]],
+        rough_terrain: Dict[Tuple[int, int], Dict[str, object]],
         cols: int,
         rows: int,
         max_ft: int,
+        creature: Optional[base.Combatant] = None,
     ) -> Optional[int]:
         """Dijkstra over (col,row,diagParity) to match 5/10 diagonal rule.
 
@@ -6452,6 +6472,9 @@ class InitiativeTracker(base.InitiativeTracker):
             return 0
 
         import heapq
+
+        mode = self._normalize_movement_mode(getattr(creature, "movement_mode", "normal"))
+        water_multiplier = self._water_movement_multiplier(creature, mode)
 
         def in_bounds(c: int, r: int) -> bool:
             return 0 <= c < cols and 0 <= r < rows
@@ -6487,6 +6510,20 @@ class InitiativeTracker(base.InitiativeTracker):
                     else:
                         step = 5
                         npar = parity
+
+                    target_cell = rough_terrain.get((nc, nr))
+                    current_cell = rough_terrain.get((c, r))
+                    target_is_swim = bool(target_cell.get("is_swim", False)) if isinstance(target_cell, dict) else False
+                    target_is_rough = bool(target_cell.get("is_rough", False)) if isinstance(target_cell, dict) else False
+                    current_is_swim = bool(current_cell.get("is_swim", False)) if isinstance(current_cell, dict) else False
+                    if mode == "swim" and not target_is_swim:
+                        continue
+                    if mode == "burrow" and target_is_swim:
+                        continue
+                    if current_is_swim or target_is_swim:
+                        step = int(math.ceil(step * water_multiplier))
+                    if target_is_rough:
+                        step *= 2
 
                     ncost = cost + step
                     key = (nc, nr, npar)
