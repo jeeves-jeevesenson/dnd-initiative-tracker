@@ -1291,7 +1291,8 @@ All combat events are logged to `logs/battle.log`:
 [2026-01-30 08:16:15] Round 2 begins
 ```
 
-Operations logs (LAN server, WebSocket connections) go to `logs/operations.log`.
+Operations logs (LAN server, WebSocket connections) go to `logs/operations.log`. On app start, existing
+log files in `logs/` are archived into `logs/old logs/<timestamp>/`.
 
 ### Host-Based Player Assignment
 
