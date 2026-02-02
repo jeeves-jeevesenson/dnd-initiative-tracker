@@ -6657,13 +6657,11 @@ class InitiativeTracker(base.InitiativeTracker):
 
             init_mod = None
             try:
-                ini = mon.get("initiative") or {}
+                ini = mon.get("initiative")
                 if isinstance(ini, dict):
-                    mv = ini.get("modifier")
-                    if isinstance(mv, int):
-                        init_mod = int(mv)
-                    elif isinstance(mv, str) and mv.strip().lstrip("-").isdigit():
-                        init_mod = int(mv.strip())
+                    init_mod = self._monster_int_from_value(ini.get("modifier"))
+                else:
+                    init_mod = self._monster_int_from_value(ini)
             except Exception:
                 init_mod = None
 
