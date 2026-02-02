@@ -2,42 +2,49 @@
   {
     "label": "Mud",
     "color": "#8d6e63",
+    "movement_type": "ground",
     "is_swim": false,
     "is_rough": true
   },
   {
     "label": "Water",
     "color": "#4aa3df",
+    "movement_type": "water",
     "is_swim": true,
     "is_rough": false
   },
   {
     "label": "Grass",
     "color": "#6ab04c",
+    "movement_type": "ground",
     "is_swim": false,
     "is_rough": true
   },
   {
     "label": "Stone",
     "color": "#9e9e9e",
+    "movement_type": "ground",
     "is_swim": false,
     "is_rough": true
   },
   {
     "label": "Sand",
     "color": "#d4a373",
+    "movement_type": "ground",
     "is_swim": false,
     "is_rough": true
   },
   {
     "label": "Magic",
     "color": "#8e44ad",
+    "movement_type": "ground",
     "is_swim": false,
     "is_rough": true
   },
   {
     "label": "Shadow",
     "color": "#4b4b4b",
+    "movement_type": "ground",
     "is_swim": false,
     "is_rough": true
   }

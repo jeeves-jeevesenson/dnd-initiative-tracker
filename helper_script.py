@@ -103,13 +103,13 @@ AOE_COLOR_PRESETS = [
     ("Black", "#111111"),
 ]
 DEFAULT_ROUGH_TERRAIN_PRESETS = [
-    {"label": "Mud", "color": "#8d6e63", "is_swim": False, "is_rough": True},
-    {"label": "Water", "color": "#4aa3df", "is_swim": True, "is_rough": False},
-    {"label": "Grass", "color": "#6ab04c", "is_swim": False, "is_rough": True},
-    {"label": "Stone", "color": "#9e9e9e", "is_swim": False, "is_rough": True},
-    {"label": "Sand", "color": "#d4a373", "is_swim": False, "is_rough": True},
-    {"label": "Magic", "color": "#8e44ad", "is_swim": False, "is_rough": True},
-    {"label": "Shadow", "color": "#4b4b4b", "is_swim": False, "is_rough": True},
+    {"label": "Mud", "color": "#8d6e63", "movement_type": "ground", "is_swim": False, "is_rough": True},
+    {"label": "Water", "color": "#4aa3df", "movement_type": "water", "is_swim": True, "is_rough": False},
+    {"label": "Grass", "color": "#6ab04c", "movement_type": "ground", "is_swim": False, "is_rough": True},
+    {"label": "Stone", "color": "#9e9e9e", "movement_type": "ground", "is_swim": False, "is_rough": True},
+    {"label": "Sand", "color": "#d4a373", "movement_type": "ground", "is_swim": False, "is_rough": True},
+    {"label": "Magic", "color": "#8e44ad", "movement_type": "ground", "is_swim": False, "is_rough": True},
+    {"label": "Shadow", "color": "#4b4b4b", "movement_type": "ground", "is_swim": False, "is_rough": True},
 ]
 DEFAULT_STARTING_PLAYERS = [
     "John Twilight",
@@ -234,6 +234,7 @@ class MonsterSpec:
 class TerrainPreset:
     label: str
     color: str
+    movement_type: str
     is_swim: bool
     is_rough: bool
 
@@ -245,6 +246,18 @@ def _normalize_hex_color_value(color: object) -> Optional[str]:
     if not re.fullmatch(r"#[0-9a-f]{6}", value):
         return None
     return value
+
+
+def _normalize_movement_type(value: object, is_swim: bool = False) -> str:
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"water", "ground"}:
+            return lowered
+        if lowered in {"swim", "waterborne"}:
+            return "water"
+        if lowered in {"land", "normal", "burrow", "earth"}:
+            return "ground"
+    return "water" if is_swim else "ground"
 
 
 def _parse_speed_number(value: object) -> Optional[int]:
@@ -349,12 +362,21 @@ def _terrain_preset_from_entry(entry: object) -> Optional[TerrainPreset]:
     label = str(entry.get("label") or "").strip()
     color = _normalize_hex_color_value(entry.get("color"))
     is_swim = bool(entry.get("is_swim", False))
+    movement_type = _normalize_movement_type(entry.get("movement_type"), is_swim=is_swim)
+    if movement_type == "water":
+        is_swim = True
     is_rough = bool(entry.get("is_rough", False))
     if not label:
         label = color or "Terrain"
     if not color:
         return None
-    return TerrainPreset(label=label, color=color, is_swim=is_swim, is_rough=is_rough)
+    return TerrainPreset(
+        label=label,
+        color=color,
+        movement_type=movement_type,
+        is_swim=is_swim,
+        is_rough=is_rough,
+    )
 
 
 def _load_rough_terrain_presets() -> List[TerrainPreset]:
@@ -1648,6 +1670,9 @@ class InitiativeTracker(tk.Tk):
                 if lowered == label.lower():
                     return key
         return "normal"
+
+    def _normalize_movement_type(self, value: object, is_swim: bool = False) -> str:
+        return _normalize_movement_type(value, is_swim=is_swim)
 
     def _movement_mode_label(self, mode: str) -> str:
         return MOVEMENT_MODE_LABELS.get(self._normalize_movement_mode(mode), "Normal")
@@ -4920,8 +4945,8 @@ class BattleMapWindow(tk.Toplevel):
             self._rough_presets = _load_rough_terrain_presets()
         for preset in self._rough_presets:
             flags: List[str] = []
-            if preset.is_swim:
-                flags.append("swim")
+            if preset.movement_type == "water":
+                flags.append("water")
             if preset.is_rough:
                 flags.append("rough")
             flag_label = f" • {', '.join(flags)}" if flags else ""
@@ -5569,6 +5594,7 @@ class BattleMapWindow(tk.Toplevel):
                     "row": int(row),
                     "color": cell_data.get("color"),
                     "label": cell_data.get("label"),
+                    "movement_type": cell_data.get("movement_type"),
                     "is_swim": bool(cell_data.get("is_swim")),
                     "is_rough": bool(cell_data.get("is_rough")),
                 }
@@ -5666,6 +5692,7 @@ class BattleMapWindow(tk.Toplevel):
             loaded_rough[(col, row)] = {
                 "color": cell_data.get("color"),
                 "label": cell_data.get("label"),
+                "movement_type": cell_data.get("movement_type"),
                 "is_swim": bool(cell_data.get("is_swim")),
                 "is_rough": bool(cell_data.get("is_rough")),
             }
@@ -5717,8 +5744,8 @@ class BattleMapWindow(tk.Toplevel):
             cell_data = self._rough_cell_data(cell)
             fill = self._normalize_hex_color(cell_data.get("color")) or "#8d6e63"
             is_rough = bool(cell_data.get("is_rough"))
-            is_swim = bool(cell_data.get("is_swim"))
-            stipple = "gray50" if is_rough else ("gray25" if is_swim else "")
+            is_water = cell_data.get("movement_type") == "water"
+            stipple = "gray50" if is_rough else ("gray25" if is_water else "")
             try:
                 options = {
                     "fill": fill,
@@ -6001,17 +6028,20 @@ class BattleMapWindow(tk.Toplevel):
             color = self._normalize_hex_color(cell.get("color"))
             label = str(cell.get("label") or "")
             is_swim = bool(cell.get("is_swim", False))
+            movement_type = self._normalize_movement_type(cell.get("movement_type"), is_swim=is_swim)
+            is_swim = movement_type == "water"
             is_rough = bool(cell.get("is_rough", False))
             return {
                 "color": color or "#8d6e63",
                 "label": label,
+                "movement_type": movement_type,
                 "is_swim": is_swim,
                 "is_rough": is_rough,
             }
         if isinstance(cell, str):
             color = self._normalize_hex_color(cell) or "#8d6e63"
-            return {"color": color, "label": "", "is_swim": False, "is_rough": True}
-        return {"color": "#8d6e63", "label": "", "is_swim": False, "is_rough": True}
+            return {"color": color, "label": "", "movement_type": "ground", "is_swim": False, "is_rough": True}
+        return {"color": "#8d6e63", "label": "", "movement_type": "ground", "is_swim": False, "is_rough": True}
 
     def _rough_preset_from_ui(self) -> Dict[str, object]:
         label = str(self.rough_color_var.get() or "")
@@ -6021,12 +6051,13 @@ class BattleMapWindow(tk.Toplevel):
             return {
                 "label": preset.label,
                 "color": color or preset.color,
-                "is_swim": preset.is_swim,
+                "movement_type": preset.movement_type,
+                "is_swim": preset.movement_type == "water",
                 "is_rough": preset.is_rough,
             }
         if not color:
             color = self._rough_presets[0].color if self._rough_presets else "#8d6e63"
-        return {"label": "Custom", "color": color, "is_swim": False, "is_rough": True}
+        return {"label": "Custom", "color": color, "movement_type": "ground", "is_swim": False, "is_rough": True}
 
     def _water_movement_multiplier(self, c: Optional[Combatant], mode: str) -> float:
         if c is None:
@@ -6569,11 +6600,13 @@ class BattleMapWindow(tk.Toplevel):
 
                 current_cell = self._rough_cell_data(rough_terrain.get((col, row)))
                 target_cell = self._rough_cell_data(rough_terrain.get((nc, nr)))
-                if mode == "swim" and not bool(target_cell.get("is_swim")):
+                current_type = current_cell.get("movement_type")
+                target_type = target_cell.get("movement_type")
+                if mode == "swim" and target_type != "water":
                     continue
-                if mode == "burrow" and bool(target_cell.get("is_swim")):
+                if mode == "burrow" and target_type == "water":
                     continue
-                if bool(current_cell.get("is_swim")) or bool(target_cell.get("is_swim")):
+                if current_type == "water" or target_type == "water":
                     step_cost = int(math.ceil(step_cost * water_multiplier))
                 if bool(target_cell.get("is_rough")):
                     step_cost *= 2
