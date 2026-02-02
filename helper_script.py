@@ -4640,7 +4640,7 @@ class BattleMapWindow(tk.Toplevel):
         self._label_bounds: List[Tuple[int, int, int, int]] = []
 
         # Drag state
-        self._drag_kind: Optional[str] = None  # "unit" | "aoe"
+        self._drag_kind: Optional[str] = None  # "unit" | "aoe" | "aoe_rotate"
         self._drag_id: Optional[int] = None
         self._drag_offset: Tuple[float, float] = (0.0, 0.0)
 
@@ -5071,6 +5071,8 @@ class BattleMapWindow(tk.Toplevel):
         self.canvas.bind("<B1-Motion>", self._on_canvas_motion)
         self.canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
         self.canvas.bind("<Button-3>", self._on_canvas_right_click)
+        self.canvas.bind("<B3-Motion>", self._on_canvas_motion)
+        self.canvas.bind("<ButtonRelease-3>", self._on_canvas_release)
         self.canvas.bind("<Motion>", self._on_canvas_hover)
         self.canvas.bind("<Leave>", lambda _e: self._hide_hover_tooltip())
 
@@ -7646,19 +7648,7 @@ class BattleMapWindow(tk.Toplevel):
 
             if t.startswith("aoe:"):
                 aid = int(t.split(":", 1)[1])
-                if bool(self.aoes.get(aid, {}).get("pinned")):
-                    # pinned overlay - just select
-                    self._selected_aoe = aid
-                    self._refresh_aoe_list(select=aid)
-                    return
-                self._drag_kind = "aoe"
-                self._drag_id = aid
-                d = self.aoes[aid]
-                cx = self.x0 + (float(d["cx"]) + 0.5) * self.cell
-                cy = self.y0 + (float(d["cy"]) + 0.5) * self.cell
-                self._drag_offset = (cx - mx, cy - my)
-                self._selected_aoe = aid
-                self._refresh_aoe_list(select=aid)
+                self._begin_aoe_drag(aid, mx, my)
                 return
 
         self._drag_kind = None
@@ -7678,6 +7668,41 @@ class BattleMapWindow(tk.Toplevel):
             self._drag_offset = (cx - mx, cy - my)
         except Exception:
             self._drag_offset = (0.0, 0.0)
+
+    def _begin_aoe_drag(self, aid: int, mx: float, my: float) -> None:
+        if bool(self.aoes.get(aid, {}).get("pinned")):
+            self._selected_aoe = aid
+            self._refresh_aoe_list(select=aid)
+            return
+        self._drag_kind = "aoe"
+        self._drag_id = aid
+        d = self.aoes[aid]
+        cx = self.x0 + (float(d["cx"]) + 0.5) * self.cell
+        cy = self.y0 + (float(d["cy"]) + 0.5) * self.cell
+        self._drag_offset = (cx - mx, cy - my)
+        self._selected_aoe = aid
+        self._refresh_aoe_list(select=aid)
+
+    def _begin_aoe_rotate_drag(self, aid: int, mx: float, my: float) -> None:
+        if bool(self.aoes.get(aid, {}).get("pinned")):
+            self._selected_aoe = aid
+            self._refresh_aoe_list(select=aid)
+            return
+        d = self.aoes.get(aid)
+        if not d:
+            return
+        kind = str(d.get("kind") or "")
+        if kind != "cone":
+            return
+        self._drag_kind = "aoe_rotate"
+        self._drag_id = aid
+        ax = float(d.get("ax", d.get("cx", 0.0)))
+        ay = float(d.get("ay", d.get("cy", 0.0)))
+        ax_px = self.x0 + (ax + 0.5) * self.cell
+        ay_px = self.y0 + (ay + 0.5) * self.cell
+        self._drag_offset = (ax_px - mx, ay_px - my)
+        self._selected_aoe = aid
+        self._refresh_aoe_list(select=aid)
 
     def _group_label_for_cids(self, cids: List[int]) -> str:
         names: List[str] = []
