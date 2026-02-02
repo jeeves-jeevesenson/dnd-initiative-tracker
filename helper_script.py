@@ -5070,6 +5070,7 @@ class BattleMapWindow(tk.Toplevel):
         self.canvas.bind("<ButtonPress-1>", self._on_canvas_press)
         self.canvas.bind("<B1-Motion>", self._on_canvas_motion)
         self.canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
+        self.canvas.bind("<Double-Button-1>", self._on_canvas_double_click)
         self.canvas.bind("<Button-3>", self._on_canvas_right_click)
         self.canvas.bind("<Motion>", self._on_canvas_hover)
         self.canvas.bind("<Leave>", lambda _e: self._hide_hover_tooltip())
@@ -7646,17 +7647,6 @@ class BattleMapWindow(tk.Toplevel):
 
             if t.startswith("aoe:"):
                 aid = int(t.split(":", 1)[1])
-                if bool(self.aoes.get(aid, {}).get("pinned")):
-                    # pinned overlay - just select
-                    self._selected_aoe = aid
-                    self._refresh_aoe_list(select=aid)
-                    return
-                self._drag_kind = "aoe"
-                self._drag_id = aid
-                d = self.aoes[aid]
-                cx = self.x0 + (float(d["cx"]) + 0.5) * self.cell
-                cy = self.y0 + (float(d["cy"]) + 0.5) * self.cell
-                self._drag_offset = (cx - mx, cy - my)
                 self._selected_aoe = aid
                 self._refresh_aoe_list(select=aid)
                 return
@@ -7941,6 +7931,63 @@ class BattleMapWindow(tk.Toplevel):
         self._drag_kind = None
         self._drag_id = None
         self._drag_origin_cell = None
+
+    def _on_canvas_double_click(self, event: tk.Event) -> None:
+        if getattr(self, "_drawing_obstacles", False) or getattr(self, "_drawing_rough", False):
+            return
+        mx = float(self.canvas.canvasx(event.x))
+        my = float(self.canvas.canvasy(event.y))
+        items = self.canvas.find_overlapping(mx, my, mx, my)
+        if not items:
+            return
+        chosen = None
+        for cand in reversed(items):
+            tags = self.canvas.gettags(cand)
+            if "grid" in tags or "measure" in tags or "movehl" in tags:
+                continue
+            if any(t.startswith("aoe:") for t in tags):
+                chosen = cand
+                break
+        if chosen is None:
+            return
+        tags = self.canvas.gettags(chosen)
+        for t in tags:
+            if not t.startswith("aoe:"):
+                continue
+            aid = int(t.split(":", 1)[1])
+            if bool(self.aoes.get(aid, {}).get("pinned")):
+                self._selected_aoe = aid
+                self._refresh_aoe_list(select=aid)
+                return
+            d = self.aoes.get(aid)
+            if not d:
+                return
+            owner_cid = d.get("owner_cid")
+            active_cid = getattr(self, "_active_cid", None)
+            if owner_cid is not None and active_cid is not None and int(owner_cid) != int(active_cid):
+                if hasattr(self, "app"):
+                    try:
+                        name = self.app.combatants.get(int(owner_cid)).name
+                    except Exception:
+                        name = None
+                    if name:
+                        try:
+                            self.app._log(f"{name} owns that spell. Wait for their turn.")
+                        except Exception:
+                            pass
+                return
+            if owner_cid is not None and active_cid is None:
+                return
+            if owner_cid is None and active_cid is not None:
+                return
+            self._drag_kind = "aoe"
+            self._drag_id = aid
+            cx = self.x0 + (float(d["cx"]) + 0.5) * self.cell
+            cy = self.y0 + (float(d["cy"]) + 0.5) * self.cell
+            self._drag_offset = (cx - mx, cy - my)
+            self._selected_aoe = aid
+            self._refresh_aoe_list(select=aid)
+            return
 
     # ---------------- Measurement ----------------
     def _on_canvas_right_click(self, event: tk.Event) -> None:

@@ -2680,6 +2680,10 @@ __DAMAGE_TYPE_OPTIONS__
   let panX = 0, panY = 0;
   let dragging = null; // {cid, startX, startY, origCol, origRow}
   let draggingAoe = null; // {aid, cx, cy}
+  let aoeMoveModeAid = null;
+  let lastAoeTapAid = null;
+  let lastAoeTapAt = 0;
+  const AOE_DOUBLE_TAP_MS = 350;
   const aoeDragOverrides = new Map(); // aid -> {cx, cy}
   let selectedAoeId = null;
   let panning = null;  // {x,y, panX, panY}
@@ -4087,6 +4091,12 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  function clearAoeMoveMode(){
+    aoeMoveModeAid = null;
+    lastAoeTapAid = null;
+    lastAoeTapAt = 0;
+  }
+
   function syncSelectedAoe(){
     if (selectedAoeId === null || selectedAoeId === undefined){
       return;
@@ -4095,6 +4105,7 @@ __DAMAGE_TYPE_OPTIONS__
       && state.aoes.some(a => Number(a.aid) === Number(selectedAoeId));
     if (!exists){
       selectedAoeId = null;
+      clearAoeMoveMode();
     }
   }
 
@@ -5874,16 +5885,35 @@ __DAMAGE_TYPE_OPTIONS__
     if (aoeHit){
       setSelectedAoe(aoeHit.aid);
       if (!claimedCid){
+        clearAoeMoveMode();
         localToast("Claim a character first, matey.");
         return;
       }
       if (aoeHit.owner_cid !== null && aoeHit.owner_cid !== undefined
           && Number(aoeHit.owner_cid) !== Number(claimedCid)){
+        clearAoeMoveMode();
         localToast("That spell be not yers.");
         return;
       }
       if (aoeHit.pinned){
+        clearAoeMoveMode();
         localToast("That spell be pinned.");
+        return;
+      }
+      if (aoeMoveModeAid !== null && Number(aoeMoveModeAid) !== Number(aoeHit.aid)){
+        clearAoeMoveMode();
+      }
+      const now = Date.now();
+      if (lastAoeTapAid !== null && Number(lastAoeTapAid) === Number(aoeHit.aid) && now - lastAoeTapAt <= AOE_DOUBLE_TAP_MS){
+        aoeMoveModeAid = Number(aoeHit.aid);
+        lastAoeTapAid = null;
+        lastAoeTapAt = 0;
+      } else {
+        lastAoeTapAid = Number(aoeHit.aid);
+        lastAoeTapAt = now;
+      }
+      if (Number(aoeMoveModeAid) !== Number(aoeHit.aid)){
+        localToast("Double-tap to move that spell.");
         return;
       }
       const movePerTurn = Number(aoeHit.move_per_turn_ft);
@@ -5892,11 +5922,13 @@ __DAMAGE_TYPE_OPTIONS__
         ? Number(aoeHit.move_remaining_ft)
         : (hasMoveLimit ? movePerTurn : null);
       if (state?.active_cid === null || Number(state.active_cid) !== Number(claimedCid)){
+        clearAoeMoveMode();
         localToast("Not yer turn yet, matey.");
         return;
       }
       if (hasMoveLimit){
         if (!Number.isFinite(moveRemaining) || moveRemaining <= 0){
+          clearAoeMoveMode();
           localToast("That spell can't move any more this turn.");
           return;
         }
@@ -5913,6 +5945,7 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     setSelectedAoe(null);
+    clearAoeMoveMode();
     // else pan (if map not locked)
     if (!lockMap){
       panning = {x: p.x, y: p.y, panX, panY};
@@ -6016,6 +6049,7 @@ __DAMAGE_TYPE_OPTIONS__
       setLocalAoeCenter(aid, g.col, g.row);
       send({type:"aoe_move", aid: Number(draggingAoe.aid), to: {cx: g.col, cy: g.row}});
       draggingAoe = null;
+      clearAoeMoveMode();
       draw();
     })();
     panning = null;
