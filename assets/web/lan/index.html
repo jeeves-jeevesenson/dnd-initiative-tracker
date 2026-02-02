@@ -4127,6 +4127,20 @@ __DAMAGE_TYPE_OPTIONS__
     return "normal";
   }
 
+  function normalizeMovementType(value, isSwim){
+    if (typeof value === "string"){
+      const lowered = value.trim().toLowerCase();
+      if (["water", "ground"].includes(lowered)) return lowered;
+      if (["swim", "waterborne"].includes(lowered)) return "water";
+      if (["land", "normal", "burrow", "earth"].includes(lowered)) return "ground";
+    }
+    return isSwim ? "water" : "ground";
+  }
+
+  function cellMovementType(cell){
+    return normalizeMovementType(cell?.movement_type, !!cell?.is_swim);
+  }
+
   function movementModeLabel(mode){
     const key = normalizeMovementMode(mode);
     if (key === "swim") return "Swim";
@@ -4732,9 +4746,11 @@ __DAMAGE_TYPE_OPTIONS__
 
         const currentCell = roughMap.get(cellKey(col, row)) || {};
         const targetCell = roughMap.get(cellKey(nc, nr)) || {};
-        if (mode === "swim" && !targetCell.is_swim) continue;
-        if (mode === "burrow" && targetCell.is_swim) continue;
-        if (currentCell.is_swim || targetCell.is_swim){
+        const currentType = cellMovementType(currentCell);
+        const targetType = cellMovementType(targetCell);
+        if (mode === "swim" && targetType !== "water") continue;
+        if (mode === "burrow" && targetType === "water") continue;
+        if (currentType === "water" || targetType === "water"){
           stepCost = Math.ceil(stepCost * waterMultiplier);
         }
         if (targetCell.is_rough){
@@ -4806,7 +4822,8 @@ __DAMAGE_TYPE_OPTIONS__
         const x = panX + cell.col*zoom;
         const y = panY + cell.row*zoom;
         const colorHex = normalizeHexColor(cell.color || "");
-        const isSwim = !!cell.is_swim;
+        const movementType = cellMovementType(cell);
+        const isSwim = movementType === "water";
         const isRough = !!cell.is_rough;
         let alpha = isSwim ? 0.35 : 0.25;
         if (isRough && !isSwim){

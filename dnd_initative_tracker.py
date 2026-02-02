@@ -3923,18 +3923,19 @@ class InitiativeTracker(base.InitiativeTracker):
         for (c, r), cell in sorted(rough_terrain.items()):
             if isinstance(cell, dict):
                 color = str(cell.get("color") or "")
-                is_swim = bool(cell.get("is_swim", False))
                 is_rough = bool(cell.get("is_rough", False))
+                movement_type = self._normalize_movement_type(cell.get("movement_type"), is_swim=bool(cell.get("is_swim", False)))
             else:
                 color = str(cell)
-                is_swim = False
                 is_rough = True
+                movement_type = "ground"
             rough_payload.append(
                 {
                     "col": int(c),
                     "row": int(r),
                     "color": color,
-                    "is_swim": is_swim,
+                    "movement_type": movement_type,
+                    "is_swim": movement_type == "water",
                     "is_rough": is_rough,
                 }
             )
@@ -6513,14 +6514,20 @@ class InitiativeTracker(base.InitiativeTracker):
 
                     target_cell = rough_terrain.get((nc, nr))
                     current_cell = rough_terrain.get((c, r))
-                    target_is_swim = bool(target_cell.get("is_swim", False)) if isinstance(target_cell, dict) else False
                     target_is_rough = bool(target_cell.get("is_rough", False)) if isinstance(target_cell, dict) else False
-                    current_is_swim = bool(current_cell.get("is_swim", False)) if isinstance(current_cell, dict) else False
-                    if mode == "swim" and not target_is_swim:
+                    current_type = self._normalize_movement_type(
+                        current_cell.get("movement_type") if isinstance(current_cell, dict) else None,
+                        is_swim=bool(current_cell.get("is_swim", False)) if isinstance(current_cell, dict) else False,
+                    )
+                    target_type = self._normalize_movement_type(
+                        target_cell.get("movement_type") if isinstance(target_cell, dict) else None,
+                        is_swim=bool(target_cell.get("is_swim", False)) if isinstance(target_cell, dict) else False,
+                    )
+                    if mode == "swim" and target_type != "water":
                         continue
-                    if mode == "burrow" and target_is_swim:
+                    if mode == "burrow" and target_type == "water":
                         continue
-                    if current_is_swim or target_is_swim:
+                    if current_type == "water" or target_type == "water":
                         step = int(math.ceil(step * water_multiplier))
                     if target_is_rough:
                         step *= 2
