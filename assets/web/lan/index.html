@@ -2526,6 +2526,7 @@ __DAMAGE_TYPE_OPTIONS__
   const bonusActionSelectEl = document.getElementById("bonusActionSelect");
   const resetTurnBtn = document.getElementById("resetTurn");
   const standUpBtn = document.getElementById("standUp");
+  const endTurnBtn = document.getElementById("endTurn");
   const showAllNamesEl = document.getElementById("showAllNames");
   const castOverlay = document.getElementById("sheetCastView");
   const castOverlayOpenBtn = document.getElementById("castOverlayOpen");
@@ -8687,10 +8688,12 @@ __DAMAGE_TYPE_OPTIONS__
       send({type:"reset_turn", cid: Number(claimedCid)});
     });
   }
-  document.getElementById("endTurn").addEventListener("click", () => {
-    if (!claimedCid) return;
-    send({type:"end_turn", cid: Number(claimedCid)});
-  });
+  if (endTurnBtn){
+    endTurnBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      send({type:"end_turn", cid: Number(claimedCid)});
+    });
+  }
   if (turnModalOk){
     turnModalOk.addEventListener("click", () => {
       handleUserGesture();
