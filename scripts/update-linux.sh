@@ -156,6 +156,7 @@ if [ -z "$REMOTE_NAME" ] || [ -z "$REMOTE_BRANCH_PATH" ] || ! git remote get-url
     exit 1
 fi
 git pull "$REMOTE_NAME" "$REMOTE_BRANCH_PATH"
+git clean -fd -e "logs/"
 
 # Update dependencies
 if [ -f "$INSTALL_DIR/.venv/bin/activate" ]; then
@@ -201,6 +202,7 @@ if [ "$desktop_install_detected" = "true" ]; then
             rsync -a --delete \
                 --exclude ".git" \
                 --exclude ".venv" \
+                --exclude "logs" \
                 "$INSTALL_DIR/" "$APPDIR/"
 
             mkdir -p "$(dirname "$DESKTOP_FILE")"
