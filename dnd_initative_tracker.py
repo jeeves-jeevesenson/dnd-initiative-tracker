@@ -37,7 +37,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import copy
 
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, scrolledtext, ttk
 
 # Monster YAML loader (PyYAML)
 try:
@@ -3014,6 +3014,7 @@ class InitiativeTracker(base.InitiativeTracker):
             # Add Help menu
             help_menu = tk.Menu(menubar, tearoff=0)
             help_menu.add_command(label="Check for Updates", command=self._check_for_updates)
+            help_menu.add_command(label="Update Log", command=self._show_update_log)
             help_menu.add_command(label="About", command=self._show_about)
             menubar.add_cascade(label="Help", menu=help_menu)
             
@@ -3462,6 +3463,36 @@ class InitiativeTracker(base.InitiativeTracker):
                 f"A combat management system for D&D 5e\n"
                 f"with LAN/mobile web client support."
             )
+
+    def _show_update_log(self) -> None:
+        """Show the update log from the most recent update attempts."""
+        log_path = Path(__file__).resolve().parent / "logs" / "update.log"
+        if not log_path.exists():
+            messagebox.showinfo(
+                "Update Log",
+                "No update log found yet.\n\n"
+                "Run Help → Check for Updates to generate one."
+            )
+            return
+
+        try:
+            log_text = log_path.read_text(encoding="utf-8", errors="replace")
+        except Exception as exc:
+            messagebox.showerror(
+                "Update Log",
+                f"Could not read the update log.\n\nError: {exc}"
+            )
+            return
+
+        dialog = tk.Toplevel(self)
+        dialog.title("Update Log")
+        dialog.geometry("760x520")
+        dialog.transient(self)
+
+        text = scrolledtext.ScrolledText(dialog, wrap=tk.WORD)
+        text.pack(fill=tk.BOTH, expand=True)
+        text.insert("1.0", log_text)
+        text.configure(state=tk.DISABLED)
     
     def _poc_seed_all_player_characters(self) -> None:
         """Temporary POC behavior: add all starting roster PCs to initiative and roll initiative.

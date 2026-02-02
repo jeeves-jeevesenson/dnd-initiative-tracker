@@ -7,8 +7,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$(dirname "$SCRIPT_DIR")"
 TEMP_DIR="/tmp/dnd-tracker-update-$$"
-YAML_DIRS=("Monsters" "Spells" "players" "presets")
+YAML_DIRS=("players")
 YAML_BACKUP_DIR="$TEMP_DIR/yaml_backup"
+LOG_DIR="$INSTALL_DIR/logs"
+LOG_FILE="$LOG_DIR/update.log"
+
+mkdir -p "$LOG_DIR"
+{
+    echo "=========================================="
+    echo "Update started: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+    echo "=========================================="
+} >> "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "=========================================="
 echo "D&D Initiative Tracker - Update"
@@ -17,10 +27,16 @@ echo ""
 
 # Function to cleanup temp files
 cleanup() {
+    local exit_code=$?
     if [ -d "$TEMP_DIR" ]; then
         echo "Cleaning up temporary files..."
         rm -rf "$TEMP_DIR"
         echo "✓ Cleanup complete"
+    fi
+    if [ "$exit_code" -eq 0 ]; then
+        echo "✓ Update finished successfully."
+    else
+        echo "✗ Update failed with exit code $exit_code."
     fi
 }
 
