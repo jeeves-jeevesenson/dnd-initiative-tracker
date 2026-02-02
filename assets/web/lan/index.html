@@ -101,14 +101,33 @@
     .map-view-turn-order{
       display:flex;
       gap: var(--map-view-order-gap);
-      overflow:auto;
+      overflow:hidden;
       align-items:center;
       padding-bottom: 2px;
+      flex-wrap: wrap;
+      max-width: 100%;
+      flex: 1 1 100%;
     }
     .map-view .turn-chip{
       font-size: var(--map-view-order-font-size);
       padding: var(--map-view-order-chip-pad-y) var(--map-view-order-chip-pad-x);
       border-radius: var(--map-view-order-radius);
+    }
+    .map-view .turn-chip.friendly{
+      background: rgba(106,255,176,0.18);
+      border-color: rgba(106,255,176,0.45);
+    }
+    .map-view .turn-chip.enemy{
+      background: rgba(255,91,91,0.16);
+      border-color: rgba(255,91,91,0.4);
+    }
+    .map-view .turn-chip.friendly.active{
+      border-color: rgba(106,255,176,0.75);
+      box-shadow: 0 0 0 1px rgba(106,255,176,0.45);
+    }
+    .map-view .turn-chip.enemy.active{
+      border-color: rgba(255,91,91,0.75);
+      box-shadow: 0 0 0 1px rgba(255,91,91,0.45);
     }
     .map-view .turn-chip-index{
       font-size: calc(var(--map-view-order-font-size) * 0.7);
@@ -116,6 +135,35 @@
     .map-view .turn-order-status{
       font-size: 12px;
       color: var(--muted);
+    }
+    .map-view-active-row{
+      gap:8px;
+    }
+    .map-view-active-label{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .map-view-active-select{
+      background: rgba(15,19,32,0.82);
+      border:1px solid rgba(255,255,255,0.18);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 6px 28px 6px 10px;
+      font-size: 13px;
+      flex: 1 1 200px;
+      min-width: 160px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .map-view-active-select.friendly{
+      background: rgba(106,255,176,0.18);
+      border-color: rgba(106,255,176,0.5);
+    }
+    .map-view-active-select.enemy{
+      background: rgba(255,91,91,0.16);
+      border-color: rgba(255,91,91,0.5);
     }
     .map-view-hide-index .turn-chip-index{
       display:none;
@@ -1403,7 +1451,8 @@
       pointer-events: none;
       transition: opacity 0.15s ease;
       z-index: 2;
-      max-width: 240px;
+      max-width: calc(100% - 16px);
+      box-sizing: border-box;
       text-align: center;
     }
     .turn-order-bubble.show{
@@ -1433,6 +1482,10 @@
     <div class="map-view-bar-row">
       <div class="turn-order map-view-turn-order" id="mapViewTurnOrder" aria-label="Initiative order"></div>
       <div class="turn-order-bubble" id="mapViewTurnOrderBubble" role="status" aria-live="polite"></div>
+    </div>
+    <div class="map-view-bar-row map-view-active-row">
+      <div class="map-view-active-label">Current turn</div>
+      <select class="map-view-active-select" id="mapViewActiveSelect" aria-label="Current turn selection"></select>
     </div>
     <div class="map-view-bar-row">
       <div class="turn-order-status" id="mapViewTurnOrderStatus"></div>
@@ -2400,6 +2453,7 @@ __DAMAGE_TYPE_OPTIONS__
   const mapViewTurnOrderEl = document.getElementById("mapViewTurnOrder");
   const mapViewTurnOrderStatusEl = document.getElementById("mapViewTurnOrderStatus");
   const mapViewTurnOrderBubbleEl = document.getElementById("mapViewTurnOrderBubble");
+  const mapViewActiveSelectEl = document.getElementById("mapViewActiveSelect");
   const mapViewSettingsBtn = document.getElementById("mapViewSettingsBtn");
   const mapViewSettingsModal = document.getElementById("mapViewSettingsModal");
   const mapViewSettingsClose = document.getElementById("mapViewSettingsClose");
@@ -5029,11 +5083,21 @@ __DAMAGE_TYPE_OPTIONS__
     const containerRect = container.getBoundingClientRect();
     const chipRect = chip.getBoundingClientRect();
     const bubbleRect = activeTurnOrderBubbleEl.getBoundingClientRect();
-    const left = chipRect.left - containerRect.left + (chipRect.width / 2);
+    let left = chipRect.left - containerRect.left + (chipRect.width / 2);
     let top = chipRect.top - containerRect.top - bubbleRect.height - 8;
     if (top < 0){
       top = chipRect.bottom - containerRect.top + 8;
     }
+    const minLeft = bubbleRect.width / 2;
+    const maxLeft = containerRect.width - bubbleRect.width / 2;
+    if (maxLeft >= minLeft){
+      left = Math.min(Math.max(left, minLeft), maxLeft);
+    } else {
+      left = containerRect.width / 2;
+    }
+    top = Math.max(top, 0);
+    const maxTop = Math.max(0, containerRect.height - bubbleRect.height);
+    top = Math.min(top, maxTop);
     activeTurnOrderBubbleEl.style.left = `${left}px`;
     activeTurnOrderBubbleEl.style.top = `${top}px`;
   }
@@ -5081,6 +5145,9 @@ __DAMAGE_TYPE_OPTIONS__
       const unit = unitsByCid.get(Number(cid));
       const chip = document.createElement("div");
       chip.className = "turn-chip";
+      const role = String(unit?.role || "enemy");
+      const isFriendly = role !== "enemy";
+      chip.classList.add(isFriendly ? "friendly" : "enemy");
       if (idx === claimedIndex){
         chip.classList.add("claimed");
       }
@@ -5165,6 +5232,31 @@ __DAMAGE_TYPE_OPTIONS__
       } else {
         activeTurnOrderStatusEl.textContent = "You are not in initiative.";
       }
+    }
+    if (isMapView && mapViewActiveSelectEl){
+      const orderCids = order.map(cid => Number(cid));
+      mapViewActiveSelectEl.textContent = "";
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select a combatant";
+      mapViewActiveSelectEl.appendChild(placeholder);
+      orderCids.forEach((cid, idx) => {
+        const unit = unitsByCid.get(Number(cid));
+        const label = unit?.name ? unit.name : `#${cid}`;
+        const option = document.createElement("option");
+        option.value = String(cid);
+        option.textContent = `${idx + 1}. ${label}`;
+        mapViewActiveSelectEl.appendChild(option);
+      });
+      if (activeIndex >= 0){
+        mapViewActiveSelectEl.value = String(order[activeIndex]);
+      } else {
+        mapViewActiveSelectEl.value = "";
+      }
+      const activeUnit = activeIndex >= 0 ? unitsByCid.get(Number(order[activeIndex])) : null;
+      const activeRole = String(activeUnit?.role || "enemy");
+      mapViewActiveSelectEl.classList.toggle("friendly", activeRole !== "enemy");
+      mapViewActiveSelectEl.classList.toggle("enemy", activeRole === "enemy");
     }
     let fallbackCid = selectedTurnCid;
     if (fallbackCid === null || !chipByCid.has(Number(fallbackCid))){
@@ -8719,6 +8811,8 @@ __DAMAGE_TYPE_OPTIONS__
     mapWrap.addEventListener("contextmenu", (event) => {
       event.preventDefault();
       document.body.classList.toggle("map-view-show-bar");
+      updateModalOffsets();
+      resize();
     });
   }
   if (mapWrap && window.ResizeObserver){
