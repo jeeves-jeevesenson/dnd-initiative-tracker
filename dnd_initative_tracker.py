@@ -595,6 +595,16 @@ def _metadata_matches(entry: Dict[str, object], meta: Dict[str, object]) -> bool
     return entry.get("mtime_ns") == meta.get("mtime_ns") and entry.get("size") == meta.get("size")
 
 
+def _parse_fractional_cr(value: str) -> Optional[float]:
+    match = re.match(r"^\s*(\d+)\s*/\s*(\d+)\s*$", value)
+    if not match:
+        return None
+    denom = int(match.group(2))
+    if denom == 0:
+        return None
+    return int(match.group(1)) / denom
+
+
 def _hash_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -6568,6 +6578,12 @@ class InitiativeTracker(base.InitiativeTracker):
                         if not isinstance(key, str):
                             continue
                         abilities[key.strip().lower()] = val
+                try:
+                    ch = mon.get("challenge") or {}
+                    if isinstance(ch, dict) and "cr" in ch:
+                        raw_data["challenge_rating"] = ch.get("cr")
+                except Exception:
+                    pass
 
             name = str(mon.get("name") or (fp.stem if is_legacy else "")).strip()
             if not name:
@@ -6590,7 +6606,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 if isinstance(cr_val, (int, float)):
                     cr = float(cr_val)
                 elif isinstance(cr_val, str) and cr_val.strip():
-                    cr = float(cr_val.strip())
+                    cr = _parse_fractional_cr(cr_val)
+                    if cr is None:
+                        cr = float(cr_val.strip())
             except Exception:
                 cr = None
 
@@ -6752,6 +6770,20 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _monster_names_sorted(self) -> List[str]:
         return [s.name for s in self._monster_specs]
+
+    def _monster_cr_display(self, spec: Optional[MonsterSpec]) -> str:
+        if spec is None:
+            return ""
+        raw = None
+        if isinstance(spec.raw_data, dict):
+            raw = spec.raw_data.get("challenge_rating")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+        if isinstance(raw, (int, float)):
+            return str(int(raw)) if float(raw).is_integer() else str(raw)
+        if spec.cr is None:
+            return ""
+        return str(int(spec.cr)) if float(spec.cr).is_integer() else str(spec.cr)
 
     def _install_monster_dropdown_widget(self) -> None:
         """Replace the Name Entry with a Combobox listing ./Monsters YAML files."""
@@ -7118,7 +7150,7 @@ class InitiativeTracker(base.InitiativeTracker):
         def refresh():
             tree.delete(*tree.get_children())
             for s in get_filtered():
-                cr_txt = "" if s.cr is None else (str(int(s.cr)) if float(s.cr).is_integer() else str(s.cr))
+                cr_txt = self._monster_cr_display(s)
                 tree.insert("", "end", iid=f"{s.filename}:{s.name}", values=(s.name, s.mtype, cr_txt, s.filename))
 
         def on_select(event=None):

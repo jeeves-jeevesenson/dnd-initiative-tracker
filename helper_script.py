@@ -803,7 +803,7 @@ class InitiativeTracker(tk.Tk):
 
         listbox.delete(0, tk.END)
         for spec in specs:
-            cr_txt = "?" if spec.cr is None else str(spec.cr)
+            cr_txt = self._monster_cr_display(spec)
             hp_txt = "?" if spec.hp is None else str(spec.hp)
             spd_txt = "?" if spec.speed is None else str(spec.speed)
             item = f"{spec.name} | {spec.mtype} | CR {cr_txt} | HP {hp_txt} | Spd {spd_txt}"
@@ -2768,6 +2768,15 @@ class InitiativeTracker(tk.Tk):
     def _metadata_matches(self, entry: Dict[str, object], meta: Dict[str, object]) -> bool:
         return entry.get("mtime_ns") == meta.get("mtime_ns") and entry.get("size") == meta.get("size")
 
+    def _parse_fractional_cr(self, value: str) -> Optional[float]:
+        match = re.match(r"^\s*(\d+)\s*/\s*(\d+)\s*$", value)
+        if not match:
+            return None
+        denom = int(match.group(2))
+        if denom == 0:
+            return None
+        return int(match.group(1)) / denom
+
     def _hash_text(self, text: str) -> str:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -2902,7 +2911,7 @@ class InitiativeTracker(tk.Tk):
                             init_mod=summary.get("init_mod"),
                             saving_throws=summary.get("saving_throws") if isinstance(summary.get("saving_throws"), dict) else {},
                             ability_mods=summary.get("ability_mods") if isinstance(summary.get("ability_mods"), dict) else {},
-                            raw_data={},
+                            raw_data=summary.get("raw_data") if isinstance(summary.get("raw_data"), dict) else {},
                         )
                         if name not in self._monsters_by_name:
                             self._monsters_by_name[name] = spec
@@ -2948,6 +2957,7 @@ class InitiativeTracker(tk.Tk):
             else:
                 mon = data
 
+            raw_data: Dict[str, Any] = {}
             abilities: Dict[str, Any] = {}
             ab = mon.get("abilities")
             if isinstance(ab, dict):
@@ -2955,6 +2965,35 @@ class InitiativeTracker(tk.Tk):
                     if not isinstance(key, str):
                         continue
                     abilities[key.strip().lower()] = val
+            if is_legacy:
+                try:
+                    ch = mon.get("challenge") or {}
+                    if isinstance(ch, dict) and "cr" in ch:
+                        raw_data["challenge_rating"] = ch.get("cr")
+                except Exception:
+                    pass
+            else:
+                for key in (
+                    "name",
+                    "size",
+                    "type",
+                    "alignment",
+                    "initiative",
+                    "challenge_rating",
+                    "ac",
+                    "hp",
+                    "speed",
+                    "traits",
+                    "actions",
+                    "legendary_actions",
+                    "description",
+                    "habitat",
+                    "treasure",
+                ):
+                    if key in mon:
+                        raw_data[key] = mon.get(key)
+                if abilities:
+                    raw_data["abilities"] = abilities
 
             name = str(mon.get("name") or (fp.stem if is_legacy else "")).strip()
             if not name:
@@ -2977,7 +3016,9 @@ class InitiativeTracker(tk.Tk):
                 if isinstance(cr_val, (int, float)):
                     cr = float(cr_val)
                 elif isinstance(cr_val, str) and cr_val.strip():
-                    cr = float(cr_val.strip())
+                    cr = self._parse_fractional_cr(cr_val)
+                    if cr is None:
+                        cr = float(cr_val.strip())
             except Exception:
                 cr = None
 
@@ -3108,7 +3149,7 @@ class InitiativeTracker(tk.Tk):
                 init_mod=init_mod,
                 saving_throws=saving_throws,
                 ability_mods=ability_mods,
-                raw_data={},
+                raw_data=raw_data,
             )
 
             if name not in self._monsters_by_name:
@@ -3130,6 +3171,7 @@ class InitiativeTracker(tk.Tk):
                     "init_mod": init_mod,
                     "saving_throws": saving_throws,
                     "ability_mods": ability_mods,
+                    "raw_data": raw_data,
                 },
             }
 
@@ -3207,6 +3249,20 @@ class InitiativeTracker(tk.Tk):
 
     def _monster_names_sorted(self) -> List[str]:
         return [s.name for s in self._monster_specs]
+
+    def _monster_cr_display(self, spec: Optional[MonsterSpec]) -> str:
+        if spec is None:
+            return "?"
+        raw = None
+        if isinstance(spec.raw_data, dict):
+            raw = spec.raw_data.get("challenge_rating")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+        if isinstance(raw, (int, float)):
+            return str(int(raw)) if float(raw).is_integer() else str(raw)
+        if spec.cr is None:
+            return "?"
+        return str(int(spec.cr)) if float(spec.cr).is_integer() else str(spec.cr)
 
     # -------------------------- Bulk add --------------------------
     def _open_bulk_dialog(self) -> None:
@@ -3432,7 +3488,7 @@ class InitiativeTracker(tk.Tk):
         def list_items_for_specs(specs: List[MonsterSpec]) -> List[str]:
             items: List[str] = []
             for spec in specs:
-                cr_txt = "?" if spec.cr is None else str(spec.cr)
+                cr_txt = self._monster_cr_display(spec)
                 hp_txt = "?" if spec.hp is None else str(spec.hp)
                 spd_txt = "?" if spec.speed is None else str(spec.speed)
                 items.append(f"{spec.name} | {spec.mtype} | CR {cr_txt} | HP {hp_txt} | Spd {spd_txt}")
