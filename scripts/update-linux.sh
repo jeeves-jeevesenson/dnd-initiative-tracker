@@ -133,6 +133,71 @@ fi
 echo ""
 echo "Updating application..."
 
+# Check for running tracker process and stop before updating
+tracker_was_running=false
+tracker_pids=()
+if command -v pgrep >/dev/null 2>&1; then
+    while IFS= read -r pid; do
+        tracker_pids+=("$pid")
+    done < <(pgrep -f "dnd_initative_tracker.py" || true)
+
+    if [ -x "$WRAPPER" ]; then
+        while IFS= read -r pid; do
+            tracker_pids+=("$pid")
+        done < <(pgrep -f "$WRAPPER" || true)
+    else
+        while IFS= read -r pid; do
+            tracker_pids+=("$pid")
+        done < <(pgrep -f "launch-inittracker.sh" || true)
+    fi
+
+    if [ "${#tracker_pids[@]}" -gt 0 ]; then
+        tracker_pids=($(printf "%s\n" "${tracker_pids[@]}" | sort -u))
+        tracker_was_running=true
+        echo "Running tracker process detected (PIDs: ${tracker_pids[*]})."
+        read -p "Stop the tracker before updating? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Update cancelled. Please close the app and re-run the updater."
+            exit 0
+        fi
+
+        echo "Stopping tracker..."
+        kill -TERM "${tracker_pids[@]}" 2>/dev/null || true
+
+        for _ in {1..10}; do
+            still_running=false
+            for pid in "${tracker_pids[@]}"; do
+                if kill -0 "$pid" 2>/dev/null; then
+                    still_running=true
+                    break
+                fi
+            done
+            if [ "$still_running" = "false" ]; then
+                break
+            fi
+            sleep 1
+        done
+
+        still_running=false
+        for pid in "${tracker_pids[@]}"; do
+            if kill -0 "$pid" 2>/dev/null; then
+                still_running=true
+                break
+            fi
+        done
+
+        if [ "$still_running" = "true" ]; then
+            echo "Tracker did not exit in time; sending SIGKILL..."
+            kill -KILL "${tracker_pids[@]}" 2>/dev/null || true
+        fi
+
+        echo "✓ Tracker stopped"
+    fi
+else
+    echo "Warning: pgrep not available; unable to detect running tracker."
+fi
+
 # Backup YAML files to preserve local customizations
 echo "Backing up YAML files..."
 mkdir -p "$YAML_BACKUP_DIR"
@@ -239,3 +304,13 @@ echo "=========================================="
 echo ""
 echo "You can now restart the D&D Initiative Tracker to use the updated version."
 echo ""
+
+if [ "$tracker_was_running" = "true" ] && [ -x "$WRAPPER" ]; then
+    read -p "Relaunch the tracker now? (y/N) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Relaunching tracker..."
+        "$WRAPPER" >/dev/null 2>&1 &
+        disown || true
+    fi
+fi
