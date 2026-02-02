@@ -308,6 +308,7 @@ class InitiativeTracker(tk.Tk):
         self._monsters_by_name: Dict[str, MonsterSpec] = {}
         self._monster_index_cache: Optional[Dict[str, object]] = None
         self._monster_detail_cache: Dict[str, Dict[str, Any]] = {}
+        self._monster_library_refreshers: List[Callable[[], None]] = []
         self.rough_terrain_presets: List[TerrainPreset] = _load_rough_terrain_presets()
         self._index_loading = False
         self._index_loading_callbacks: List[Callable[[], None]] = []
@@ -328,8 +329,7 @@ class InitiativeTracker(tk.Tk):
         self.turn_num: int = 0
 
         self._build_ui()
-        self.after(0, self._install_monster_dropdown_widget)
-        self._load_indexes_async(self._refresh_monster_combo_values)
+        self._load_indexes_async(self._refresh_monster_library)
         self._load_history_into_log()
         self._log("=== Session started ===")
         self._open_starting_players_dialog()
@@ -353,48 +353,63 @@ class InitiativeTracker(tk.Tk):
         add_frame = ttk.LabelFrame(container, text="Add Combatant", style="DnD.TLabelframe")
         add_frame.pack(fill=tk.X, pady=(0, 8))
 
-        ttk.Label(add_frame, text="Name").grid(row=0, column=0, sticky="w")
-        self.name_var = tk.StringVar()
-        ttk.Entry(add_frame, textvariable=self.name_var, width=20).grid(row=1, column=0, padx=(0, 8))
+        left_controls = ttk.Frame(add_frame)
+        left_controls.grid(row=0, column=0, sticky="w")
 
-        ttk.Label(add_frame, text="Init (total)").grid(row=0, column=1, sticky="w")
-        self.init_var = tk.StringVar()
-        ttk.Entry(add_frame, textvariable=self.init_var, width=10).grid(row=1, column=1, padx=(0, 8))
+        ttk.Button(left_controls, text="Bulk Add…", command=self._open_bulk_dialog).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(left_controls, text="Remove Selected", command=self._remove_selected).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(left_controls, text="Damage…", command=self._open_damage_tool).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(left_controls, text="Heal…", command=self._open_heal_tool).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(left_controls, text="Conditions…", command=self._open_condition_tool).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(left_controls, text="Set Start Here", command=self._set_start_here).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(left_controls, text="Clear Start", command=self._clear_start).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(left_controls, text="Refresh monsters/spells", command=self._refresh_monsters_spells).pack(side=tk.LEFT, padx=(8, 0))
 
-        ttk.Label(add_frame, text="HP").grid(row=0, column=2, sticky="w")
-        self.hp_var = tk.StringVar()
-        ttk.Entry(add_frame, textvariable=self.hp_var, width=8).grid(row=1, column=2, padx=(0, 8))
+        library_frame = ttk.LabelFrame(add_frame, text="Creature Library (view-only)")
+        library_frame.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        library_frame.columnconfigure(0, weight=1)
 
-        ttk.Label(add_frame, text="Speed (ft)").grid(row=0, column=3, sticky="w")
-        self.speed_var = tk.StringVar(value="30")
-        ttk.Entry(add_frame, textvariable=self.speed_var, width=8).grid(row=1, column=3, padx=(0, 8))
+        library_top = ttk.Frame(library_frame)
+        library_top.grid(row=0, column=0, sticky="ew")
+        library_top.columnconfigure(0, weight=1)
 
-        ttk.Label(add_frame, text="Swim (ft)").grid(row=0, column=4, sticky="w")
-        self.swim_var = tk.StringVar()
-        ttk.Entry(add_frame, textvariable=self.swim_var, width=8).grid(row=1, column=4, padx=(0, 8))
+        self.monster_library_filter_var = tk.StringVar()
+        ttk.Label(library_top, text="Search").grid(row=0, column=0, sticky="w")
+        search_entry = ttk.Entry(library_top, textvariable=self.monster_library_filter_var, width=26)
+        search_entry.grid(row=1, column=0, sticky="w", padx=(0, 8))
 
-
-        ttk.Label(add_frame, text="Dex (opt)").grid(row=0, column=5, sticky="w")
-        self.dex_var = tk.StringVar()
-        ttk.Entry(add_frame, textvariable=self.dex_var, width=8).grid(row=1, column=5, padx=(0, 8))
-
-        self.ally_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(add_frame, text="Ally", variable=self.ally_var).grid(row=1, column=6, padx=(0, 8))
-
-        self.water_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(add_frame, text="Water", variable=self.water_var).grid(row=1, column=7, padx=(0, 8))
-
-        ttk.Button(add_frame, text="Add", command=self._add_single).grid(row=1, column=8, padx=(0, 8))
-        ttk.Button(add_frame, text="Bulk Add…", command=self._open_bulk_dialog).grid(row=1, column=9, padx=(0, 8))
-        ttk.Button(add_frame, text="Remove Selected", command=self._remove_selected).grid(row=1, column=10, padx=(0, 8))
-        ttk.Button(add_frame, text="Damage…", command=self._open_damage_tool).grid(row=1, column=11, padx=(0, 8))
-        ttk.Button(add_frame, text="Heal…", command=self._open_heal_tool).grid(row=1, column=12, padx=(0, 8))
-        ttk.Button(add_frame, text="Conditions…", command=self._open_condition_tool).grid(row=1, column=13, padx=(0, 8))
-        ttk.Button(add_frame, text="Set Start Here", command=self._set_start_here).grid(row=1, column=14, padx=(0, 8))
-        ttk.Button(add_frame, text="Clear Start", command=self._clear_start).grid(row=1, column=15)
-        ttk.Button(add_frame, text="Refresh monsters/spells", command=self._refresh_monsters_spells).grid(
-            row=1, column=16, padx=(8, 0)
+        sort_label = ttk.Label(library_top, text="Sort by")
+        sort_label.grid(row=0, column=1, sticky="w")
+        self.monster_library_sort_var = tk.StringVar(value="Name")
+        sort_combo = ttk.Combobox(
+            library_top,
+            textvariable=self.monster_library_sort_var,
+            values=["Name", "Type", "CR", "HP", "Speed"],
+            state="readonly",
+            width=12,
         )
+        sort_combo.grid(row=1, column=1, sticky="w", padx=(0, 8))
+
+        info_btn = ttk.Button(library_top, text="Info", command=self._open_selected_library_monster_info)
+        info_btn.grid(row=1, column=2, sticky="w")
+
+        library_list = tk.Listbox(library_frame, height=6, exportselection=False)
+        library_scroll = ttk.Scrollbar(library_frame, orient="vertical", command=library_list.yview)
+        library_list.configure(yscrollcommand=library_scroll.set)
+        library_list.grid(row=1, column=0, sticky="nsew", pady=(6, 0))
+        library_scroll.grid(row=1, column=1, sticky="ns", pady=(6, 0))
+        self._monster_library_listbox = library_list
+        self._monster_library_sort_combo = sort_combo
+        self._monster_library_filter_entry = search_entry
+        self._monster_library_info_btn = info_btn
+
+        def _refresh_library() -> None:
+            self._refresh_monster_library_list()
+
+        self.monster_library_filter_var.trace_add("write", lambda *_args: _refresh_library())
+        self.monster_library_sort_var.trace_add("write", lambda *_args: _refresh_library())
+        self._monster_library_refreshers.append(_refresh_library)
+        _refresh_library()
 
         # Turn frame
         turn_frame = ttk.LabelFrame(container, text="Turn Tracker", style="DnD.TLabelframe")
@@ -536,85 +551,6 @@ class InitiativeTracker(tk.Tk):
             command=self._open_selected_monster_info,
             state=tk.DISABLED,
         )
-
-    def _install_monster_dropdown_widget(self) -> None:
-        """Replace the Name Entry with a Combobox listing ./Monsters YAML files."""
-        try:
-            add_frame = None
-
-            def walk(w):
-                nonlocal add_frame
-                try:
-                    if isinstance(w, ttk.Labelframe) and str(w.cget("text")) == "Add Combatant":
-                        add_frame = w
-                        return
-                except Exception:
-                    pass
-                for ch in w.winfo_children():
-                    walk(ch)
-
-            walk(self)
-            if add_frame is None:
-                return
-
-            target = None
-            for ch in add_frame.winfo_children():
-                try:
-                    gi = ch.grid_info()
-                    if int(gi.get("row", -1)) == 1 and int(gi.get("column", -1)) == 0:
-                        target = ch
-                        break
-                except Exception:
-                    continue
-
-            if target is not None:
-                try:
-                    target.destroy()
-                except Exception:
-                    pass
-
-            holder = ttk.Frame(add_frame)
-            holder.grid(row=1, column=0, padx=(0, 8), sticky="w")
-
-            values = self._monster_names_sorted()
-            combo = ttk.Combobox(holder, textvariable=self.name_var, values=values, width=22)
-            combo.pack(side="left")
-            combo.bind("<<ComboboxSelected>>", lambda _e: self._apply_monster_defaults())
-
-            info_btn = ttk.Button(holder, text="Info", width=5, command=self._open_monster_stat_block)
-            info_btn.pack(side="left", padx=(4, 0))
-
-            self._monster_combo = combo  # type: ignore[attr-defined]
-
-            if values and not self.name_var.get().strip():
-                self.name_var.set(values[0])
-                self._apply_monster_defaults()
-        except Exception:
-            return
-
-    def _apply_monster_defaults(self) -> None:
-        nm = self.name_var.get().strip()
-        spec = self._load_monster_details(nm) or self._monsters_by_name.get(nm)
-        if not spec:
-            return
-        try:
-            if spec.hp is not None:
-                self.hp_var.set(str(spec.hp))
-            if spec.speed is not None:
-                self.speed_var.set(str(spec.speed))
-            if spec.swim_speed is not None and spec.swim_speed > 0:
-                self.swim_var.set(str(spec.swim_speed))
-            else:
-                self.swim_var.set("")
-            if spec.dex is not None:
-                try:
-                    dex_mod = (int(spec.dex) - 10) // 2
-                except Exception:
-                    dex_mod = None
-                if dex_mod is not None:
-                    self.dex_var.set(str(dex_mod))
-        except Exception:
-            pass
 
     def _monster_int_from_value(self, value: object) -> Optional[int]:
         if isinstance(value, int):
@@ -783,8 +719,8 @@ class InitiativeTracker(tk.Tk):
 
     def _open_monster_stat_block(self, spec: Optional[MonsterSpec] = None) -> None:
         if spec is None:
-            nm = self.name_var.get().strip()
-            spec = self._monsters_by_name.get(nm)
+            nm = self._selected_library_name()
+            spec = self._monsters_by_name.get(nm) if nm else None
         if spec is not None:
             spec = self._load_monster_details(spec.name) or spec
 
@@ -815,6 +751,63 @@ class InitiativeTracker(tk.Tk):
 
         text.insert("1.0", self._monster_stat_block_text(spec))
         text.configure(state="disabled")
+
+    def _selected_library_name(self) -> str:
+        listbox = getattr(self, "_monster_library_listbox", None)
+        if listbox is not None:
+            try:
+                selection = listbox.curselection()
+                if selection:
+                    raw = str(listbox.get(selection[0]))
+                    return raw.split(" | ")[0].strip()
+            except Exception:
+                pass
+        return ""
+
+    def _open_selected_library_monster_info(self) -> None:
+        name = self._selected_library_name()
+        if not name:
+            messagebox.showinfo("Monster Info", "Select a creature from the library first.")
+            return
+        spec = self._monsters_by_name.get(name)
+        if spec is None:
+            messagebox.showinfo("Monster Info", f"No stat block available for {name}.")
+            return
+        spec = self._load_monster_details(spec.name) or spec
+        self._open_monster_stat_block(spec)
+
+    def _refresh_monster_library_list(self) -> None:
+        listbox = getattr(self, "_monster_library_listbox", None)
+        if listbox is None:
+            return
+        filter_txt = str(getattr(self, "monster_library_filter_var", tk.StringVar()).get()).strip().lower()
+        sort_by = str(getattr(self, "monster_library_sort_var", tk.StringVar()).get()).strip().lower()
+        specs = list(self._monster_specs)
+        if filter_txt:
+            def matches(spec: MonsterSpec) -> bool:
+                name = spec.name.lower()
+                mtype = spec.mtype.lower() if spec.mtype else ""
+                return filter_txt in name or filter_txt in mtype
+
+            specs = [s for s in specs if matches(s)]
+        if sort_by == "type":
+            specs.sort(key=lambda s: (s.mtype.lower() if s.mtype else "", s.name.lower()))
+        elif sort_by == "cr":
+            specs.sort(key=lambda s: (s.cr is None, float(s.cr or 0), s.name.lower()))
+        elif sort_by == "hp":
+            specs.sort(key=lambda s: (s.hp is None, int(s.hp or 0), s.name.lower()))
+        elif sort_by == "speed":
+            specs.sort(key=lambda s: (s.speed is None, int(s.speed or 0), s.name.lower()))
+        else:
+            specs.sort(key=lambda s: s.name.lower())
+
+        listbox.delete(0, tk.END)
+        for spec in specs:
+            cr_txt = "?" if spec.cr is None else str(spec.cr)
+            hp_txt = "?" if spec.hp is None else str(spec.hp)
+            spd_txt = "?" if spec.speed is None else str(spec.speed)
+            item = f"{spec.name} | {spec.mtype} | CR {cr_txt} | HP {hp_txt} | Spd {spd_txt}"
+            listbox.insert(tk.END, item)
 
 
     # --------------------- Map Mode ---------------------
@@ -1639,95 +1632,6 @@ class InitiativeTracker(tk.Tk):
         self.combatants[cid] = c
         self._remember_role(c)
         return cid
-
-    def _add_single(self) -> None:
-        name = self.name_var.get().strip()
-        if not name:
-            messagebox.showerror("Input error", "Name is required.")
-            return
-
-        try:
-            init_total = int(self.init_var.get().strip())
-        except ValueError:
-            messagebox.showerror("Input error", "Initiative must be an integer (the total).")
-            return
-
-        hp_txt = self.hp_var.get().strip()
-        if hp_txt == "":
-            hp = 0
-        else:
-            try:
-                hp = int(hp_txt)
-            except ValueError:
-                messagebox.showerror("Input error", "HP must be an integer (or blank).")
-                return
-
-        spd_txt = self.speed_var.get().strip()
-        if spd_txt == "":
-            speed = 30
-        else:
-            try:
-                speed = int(spd_txt)
-            except ValueError:
-                messagebox.showerror("Input error", "Speed must be an integer (feet).")
-                return
-
-
-        swim_txt = self.swim_var.get().strip()
-        if swim_txt == "":
-            swim_speed = 0
-        else:
-            try:
-                swim_speed = int(swim_txt)
-            except ValueError:
-                messagebox.showerror("Input error", "Swim speed must be an integer (feet) (or blank).")
-                return
-
-        water_mode = bool(self.water_var.get())
-
-        dex = None
-        dex_txt = self.dex_var.get().strip()
-        if dex_txt:
-            try:
-                dex = int(dex_txt)
-            except ValueError:
-                messagebox.showerror("Input error", "Dex must be an integer (modifier).")
-                return
-
-        ally = bool(self.ally_var.get())
-        saving_throws: Optional[Dict[str, int]] = None
-        ability_mods: Optional[Dict[str, int]] = None
-        spec = self._load_monster_details(name) or self._monsters_by_name.get(name)
-        if spec and spec.saving_throws:
-            saving_throws = dict(spec.saving_throws)
-        if spec and spec.ability_mods:
-            ability_mods = dict(spec.ability_mods)
-        cid = self._create_combatant(
-            name=name,
-            hp=hp,
-            speed=speed,
-            swim_speed=swim_speed,
-            water_mode=water_mode,
-            initiative=init_total,
-            dex=dex,
-            ally=ally,
-            saving_throws=saving_throws,
-            ability_mods=ability_mods,
-            monster_spec=spec,
-        )
-        self._log("added to initiative", cid=cid)
-        self._clear_add_inputs()
-        self._rebuild_table(scroll_to_current=True)
-
-    def _clear_add_inputs(self) -> None:
-        self.name_var.set("")
-        self.init_var.set("")
-        self.hp_var.set("")
-        self.speed_var.set("30")
-        self.swim_var.set("")
-        self.dex_var.set("")
-        self.ally_var.set(False)
-        self.water_var.set(False)
 
     def _remove_selected(self) -> None:
         items = self.tree.selection()
@@ -2912,19 +2816,14 @@ class InitiativeTracker(tk.Tk):
 
     def _refresh_monsters_spells(self) -> None:
         self._invalidate_monster_index_cache()
-        self._load_indexes_async(self._refresh_monster_combo_values)
+        self._load_indexes_async(self._refresh_monster_library)
 
-    def _refresh_monster_combo_values(self) -> None:
-        combo = getattr(self, "_monster_combo", None)
-        values = self._monster_names_sorted()
-        if combo is not None:
+    def _refresh_monster_library(self) -> None:
+        for refresh in list(self._monster_library_refreshers):
             try:
-                combo.configure(values=values, state="normal")
+                refresh()
             except Exception:
                 pass
-        if values and not self.name_var.get().strip():
-            self.name_var.set(values[0])
-            self._apply_monster_defaults()
 
     def _load_indexes_async(self, on_complete: Optional[Callable[[], None]] = None) -> None:
         if on_complete is not None:
@@ -3315,74 +3214,92 @@ class InitiativeTracker(tk.Tk):
     def _open_bulk_dialog(self) -> None:
         dlg = tk.Toplevel(self)
         dlg.title("Bulk Add")
-        dlg.geometry("760x340")
-        dlg.minsize(680, 300)
+        dlg.geometry("980x620")
+        dlg.minsize(900, 520)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
         frm = ttk.Frame(dlg, padding=10)
         frm.pack(fill=tk.BOTH, expand=True)
-        frm.rowconfigure(2, weight=1)
+        frm.rowconfigure(1, weight=1)
         frm.columnconfigure(0, weight=1)
+        frm.columnconfigure(1, weight=1)
 
-        ttk.Label(frm, text="Base Name (e.g. Goblin)").grid(row=0, column=0, sticky="w")
-        name_var = tk.StringVar()
-        monster_values = self._monster_names_sorted()
-        name_controls = ttk.Frame(frm)
-        name_controls.grid(row=1, column=0, padx=(0, 8), sticky="w")
-        name_combo = ttk.Combobox(name_controls, textvariable=name_var, values=monster_values, width=22)
-        name_combo.pack(side=tk.LEFT)
-        show_all_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            name_controls,
-            text="Show all creatures",
-            variable=show_all_var,
-        ).pack(side=tk.LEFT, padx=(6, 0))
-        name_combo.configure(state="disabled")
+        left = ttk.Frame(frm)
+        left.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=(0, 10))
+        left.rowconfigure(2, weight=1)
+        left.columnconfigure(0, weight=1)
 
-        list_frame = ttk.Frame(frm)
-        listbox = tk.Listbox(list_frame, height=8, exportselection=False)
-        list_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=listbox.yview)
-        listbox.configure(yscrollcommand=list_scroll.set)
-        listbox.grid(row=0, column=0, sticky="nsew")
+        ttk.Label(left, text="Creature Library").grid(row=0, column=0, sticky="w")
+        filter_var = tk.StringVar()
+        filter_entry = ttk.Entry(left, textvariable=filter_var)
+        filter_entry.grid(row=1, column=0, sticky="ew", pady=(4, 6))
+
+        sort_row = ttk.Frame(left)
+        sort_row.grid(row=2, column=0, sticky="ew")
+        ttk.Label(sort_row, text="Sort by").pack(side=tk.LEFT)
+        sort_var = tk.StringVar(value="Name")
+        sort_combo = ttk.Combobox(sort_row, textvariable=sort_var, values=["Name", "Type", "CR", "HP", "Speed"], state="readonly", width=12)
+        sort_combo.pack(side=tk.LEFT, padx=(6, 0))
+
+        list_frame = ttk.Frame(left)
+        list_frame.grid(row=3, column=0, sticky="nsew", pady=(6, 0))
+        list_frame.columnconfigure(0, weight=1)
+        list_frame.rowconfigure(0, weight=1)
+        library_list = tk.Listbox(list_frame, height=12, exportselection=False)
+        list_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=library_list.yview)
+        library_list.configure(yscrollcommand=list_scroll.set)
+        library_list.grid(row=0, column=0, sticky="nsew")
         list_scroll.grid(row=0, column=1, sticky="ns")
-        list_frame.grid_rowconfigure(0, weight=1)
-        list_frame.grid_columnconfigure(0, weight=1)
-        list_frame.grid(row=2, column=0, sticky="nsew", padx=(0, 8), pady=(6, 0))
-        list_frame.grid_remove()
 
-        loading_label = ttk.Label(frm, text="Loading…")
-        loading_label.grid(row=2, column=2, sticky="w", pady=(8, 0))
+        info_btn = ttk.Button(left, text="Info")
+        info_btn.grid(row=4, column=0, sticky="w", pady=(8, 0))
 
-        ttk.Label(frm, text="Count").grid(row=0, column=1, sticky="w")
-        count_var = tk.StringVar(value="1")
-        ttk.Entry(frm, textvariable=count_var, width=8).grid(row=1, column=1, padx=(0, 8))
+        right = ttk.Frame(frm)
+        right.grid(row=0, column=1, rowspan=2, sticky="nsew")
+        right.columnconfigure(0, weight=1)
 
-        ttk.Label(frm, text="Dex mod (blank = 0)").grid(row=0, column=2, sticky="w")
-        dex_var = tk.StringVar()
-        ttk.Entry(frm, textvariable=dex_var, width=10).grid(row=1, column=2, padx=(0, 8))
+        ttk.Label(right, text="Group Builder").grid(row=0, column=0, sticky="w")
 
-        ttk.Label(frm, text="HP (blank = 0)").grid(row=0, column=3, sticky="w")
-        hp_var = tk.StringVar()
-        ttk.Entry(frm, textvariable=hp_var, width=10).grid(row=1, column=3, padx=(0, 8))
+        base_name_var = tk.StringVar()
+        ttk.Label(right, text="Base Name").grid(row=1, column=0, sticky="w", pady=(6, 0))
+        ttk.Entry(right, textvariable=base_name_var, width=26).grid(row=2, column=0, sticky="w")
 
-        ttk.Label(frm, text="Speed (ft, default 30)").grid(row=0, column=4, sticky="w")
-        spd_var = tk.StringVar(value="30")
-        ttk.Entry(frm, textvariable=spd_var, width=12).grid(row=1, column=4, padx=(0, 8))
+        group_frame = ttk.LabelFrame(right, text="Groups")
+        group_frame.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
+        group_frame.columnconfigure(0, weight=1)
 
-        ttk.Label(frm, text="Swim (ft, blank = 0)").grid(row=0, column=5, sticky="w")
-        swim_var = tk.StringVar()
-        ttk.Entry(frm, textvariable=swim_var, width=12).grid(row=1, column=5, padx=(0, 8))
+        groups_canvas = tk.Canvas(group_frame, highlightthickness=0)
+        groups_scroll = ttk.Scrollbar(group_frame, orient="vertical", command=groups_canvas.yview)
+        groups_canvas.configure(yscrollcommand=groups_scroll.set)
+        groups_canvas.grid(row=0, column=0, sticky="nsew")
+        groups_scroll.grid(row=0, column=1, sticky="ns")
+        group_frame.rowconfigure(0, weight=1)
 
+        groups_inner = ttk.Frame(groups_canvas)
+        groups_inner_id = groups_canvas.create_window((0, 0), window=groups_inner, anchor="nw")
 
-        ally_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(frm, text="Mark as ally", variable=ally_var).grid(row=3, column=0, sticky="w", pady=(8, 0))
-        water_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(frm, text="Water mode", variable=water_var).grid(row=3, column=1, sticky="w", pady=(8, 0))
+        def _on_groups_inner(_evt=None):
+            groups_canvas.configure(scrollregion=groups_canvas.bbox("all"))
 
-        def apply_monster_defaults() -> None:
-            nm = name_var.get().strip()
-            spec = self._load_monster_details(nm) or self._monsters_by_name.get(nm)
+        def _on_groups_canvas(evt):
+            try:
+                groups_canvas.itemconfigure(groups_inner_id, width=evt.width)
+            except Exception:
+                pass
+
+        groups_inner.bind("<Configure>", _on_groups_inner)
+        groups_canvas.bind("<Configure>", _on_groups_canvas)
+
+        group_rows: list[dict] = []
+
+        def apply_monster_defaults(
+            spec: Optional[MonsterSpec],
+            hp_var: tk.StringVar,
+            spd_var: tk.StringVar,
+            swim_var: tk.StringVar,
+            dex_var: tk.StringVar,
+        ) -> None:
             if not spec:
                 return
             if spec.hp is not None:
@@ -3400,165 +3317,258 @@ class InitiativeTracker(tk.Tk):
                     dex_mod = (int(spec.dex) - 10) // 2
                 except Exception:
                     dex_mod = None
-
             mod = spec.init_mod
             if mod is None:
                 mod = dex_mod
             if mod is not None:
                 dex_var.set(str(mod))
 
-        name_combo.bind("<<ComboboxSelected>>", lambda _e: apply_monster_defaults())
-        def on_name_keypress(event: tk.Event) -> None:
-            key = event.char
-            if not key or not key.isalpha():
-                return
-            target = key.lower()
-            for name in monster_values:
-                if name and name[0].lower() == target:
-                    name_var.set(name)
-                    apply_monster_defaults()
+        def _regrid_groups() -> None:
+            for idx, row in enumerate(group_rows):
+                r = idx
+                row["frame"].grid(row=r, column=0, sticky="ew", pady=4)
+                row["frame"].columnconfigure(0, weight=1)
+
+        def add_group(spec: Optional[MonsterSpec] = None, name: str = "") -> None:
+            frame = ttk.Frame(groups_inner)
+            name_var = tk.StringVar(value=name or (spec.name if spec else ""))
+            count_var = tk.StringVar(value="1")
+            dex_var = tk.StringVar()
+            hp_var = tk.StringVar()
+            spd_var = tk.StringVar(value="30")
+            swim_var = tk.StringVar()
+            ally_var = tk.BooleanVar(value=False)
+            water_var = tk.BooleanVar(value=False)
+
+            top_row = ttk.Frame(frame)
+            top_row.grid(row=0, column=0, sticky="ew")
+            ttk.Label(top_row, text="Name").pack(side=tk.LEFT)
+            ttk.Entry(top_row, textvariable=name_var, width=22).pack(side=tk.LEFT, padx=(6, 8))
+            ttk.Label(top_row, text="Count").pack(side=tk.LEFT)
+            ttk.Entry(top_row, textvariable=count_var, width=6).pack(side=tk.LEFT, padx=(6, 0))
+
+            stat_row = ttk.Frame(frame)
+            stat_row.grid(row=1, column=0, sticky="ew", pady=(4, 0))
+            ttk.Label(stat_row, text="Dex").pack(side=tk.LEFT)
+            ttk.Entry(stat_row, textvariable=dex_var, width=6).pack(side=tk.LEFT, padx=(4, 8))
+            ttk.Label(stat_row, text="HP").pack(side=tk.LEFT)
+            ttk.Entry(stat_row, textvariable=hp_var, width=6).pack(side=tk.LEFT, padx=(4, 8))
+            ttk.Label(stat_row, text="Speed").pack(side=tk.LEFT)
+            ttk.Entry(stat_row, textvariable=spd_var, width=6).pack(side=tk.LEFT, padx=(4, 8))
+            ttk.Label(stat_row, text="Swim").pack(side=tk.LEFT)
+            ttk.Entry(stat_row, textvariable=swim_var, width=6).pack(side=tk.LEFT, padx=(4, 8))
+            ttk.Checkbutton(stat_row, text="Ally", variable=ally_var).pack(side=tk.LEFT, padx=(6, 4))
+            ttk.Checkbutton(stat_row, text="Water", variable=water_var).pack(side=tk.LEFT)
+
+            def remove_group() -> None:
+                if len(group_rows) <= 1:
+                    name_var.set("")
+                    count_var.set("1")
+                    dex_var.set("")
+                    hp_var.set("")
+                    spd_var.set("30")
+                    swim_var.set("")
+                    ally_var.set(False)
+                    water_var.set(False)
                     return
+                try:
+                    group_rows.remove(row)
+                except ValueError:
+                    pass
+                try:
+                    frame.destroy()
+                except Exception:
+                    pass
+                _regrid_groups()
 
-        name_combo.bind("<KeyPress>", on_name_keypress)
+            remove_btn = ttk.Button(frame, text="Remove", command=remove_group)
+            remove_btn.grid(row=0, column=1, rowspan=2, padx=(8, 0))
 
-        def set_listbox_values(values: list[str]) -> None:
-            listbox.delete(0, tk.END)
-            for value in values:
-                listbox.insert(tk.END, value)
+            row = dict(
+                frame=frame,
+                name_var=name_var,
+                count_var=count_var,
+                dex_var=dex_var,
+                hp_var=hp_var,
+                spd_var=spd_var,
+                swim_var=swim_var,
+                ally_var=ally_var,
+                water_var=water_var,
+                spec=spec,
+            )
+            group_rows.append(row)
+            apply_monster_defaults(spec, hp_var, spd_var, swim_var, dex_var)
+            _regrid_groups()
 
-        def on_listbox_select(_event: tk.Event) -> None:
-            selection = listbox.curselection()
+        def selected_spec() -> Optional[MonsterSpec]:
+            selection = library_list.curselection()
             if not selection:
+                return None
+            raw = library_list.get(selection[0])
+            name = str(raw).split(" | ")[0].strip()
+            return self._monsters_by_name.get(name)
+
+        def open_info_for_selected() -> None:
+            spec = selected_spec()
+            if spec is None:
+                messagebox.showinfo("Monster Info", "Select a creature from the list first.")
                 return
-            name_var.set(listbox.get(selection[0]))
-            apply_monster_defaults()
+            spec = self._load_monster_details(spec.name) or spec
+            self._open_monster_stat_block(spec)
 
-        listbox.bind("<<ListboxSelect>>", on_listbox_select)
+        info_btn.configure(command=open_info_for_selected)
 
-        def on_listbox_keypress(event: tk.Event) -> None:
-            if not show_all_var.get() or not listbox.winfo_ismapped():
+        def populate_groups_from_selection() -> None:
+            spec = selected_spec()
+            if spec is None:
                 return
-            key = event.char
-            if not key or len(key) != 1 or not key.isalpha():
-                return
-            target = key.lower()
-            for index in range(listbox.size()):
-                name = listbox.get(index)
-                if name and name[0].lower() == target:
-                    listbox.selection_clear(0, tk.END)
-                    listbox.selection_set(index)
-                    listbox.activate(index)
-                    listbox.see(index)
-                    return
+            add_group(spec=spec, name=spec.name)
 
-        listbox.bind("<KeyPress>", on_listbox_keypress)
-        dlg.bind("<KeyPress>", on_listbox_keypress)
+        add_group()
 
-        def update_list_mode() -> None:
-            if show_all_var.get():
-                list_frame.grid()
-                set_listbox_values(monster_values)
+        def set_list_values(values: list[str]) -> None:
+            library_list.delete(0, tk.END)
+            for value in values:
+                library_list.insert(tk.END, value)
+
+        def list_items_for_specs(specs: List[MonsterSpec]) -> List[str]:
+            items: List[str] = []
+            for spec in specs:
+                cr_txt = "?" if spec.cr is None else str(spec.cr)
+                hp_txt = "?" if spec.hp is None else str(spec.hp)
+                spd_txt = "?" if spec.speed is None else str(spec.speed)
+                items.append(f"{spec.name} | {spec.mtype} | CR {cr_txt} | HP {hp_txt} | Spd {spd_txt}")
+            return items
+
+        def refresh_library_list() -> None:
+            specs = list(self._monster_specs)
+            search = filter_var.get().strip().lower()
+            if search:
+                specs = [
+                    s
+                    for s in specs
+                    if search in s.name.lower() or search in (s.mtype.lower() if s.mtype else "")
+                ]
+            sort_by = sort_var.get().strip().lower()
+            if sort_by == "type":
+                specs.sort(key=lambda s: (s.mtype.lower() if s.mtype else "", s.name.lower()))
+            elif sort_by == "cr":
+                specs.sort(key=lambda s: (s.cr is None, float(s.cr or 0), s.name.lower()))
+            elif sort_by == "hp":
+                specs.sort(key=lambda s: (s.hp is None, int(s.hp or 0), s.name.lower()))
+            elif sort_by == "speed":
+                specs.sort(key=lambda s: (s.speed is None, int(s.speed or 0), s.name.lower()))
             else:
-                list_frame.grid_remove()
+                specs.sort(key=lambda s: s.name.lower())
+            set_list_values(list_items_for_specs(specs))
 
-        show_all_var.trace_add("write", lambda *_args: update_list_mode())
+        filter_var.trace_add("write", lambda *_args: refresh_library_list())
+        sort_var.trace_add("write", lambda *_args: refresh_library_list())
+        library_list.bind("<Double-1>", lambda _e: populate_groups_from_selection())
+
+        loading_label = ttk.Label(left, text="Loading…")
+        loading_label.grid(row=5, column=0, sticky="w", pady=(6, 0))
 
         def on_indexes_loaded() -> None:
-            nonlocal monster_values
-            if not name_combo.winfo_exists():
+            if not library_list.winfo_exists():
                 return
-            monster_values = self._monster_names_sorted()
-            name_combo.configure(values=monster_values, state="normal")
-            set_listbox_values(monster_values)
+            refresh_library_list()
             if loading_label.winfo_exists():
                 loading_label.destroy()
-            if monster_values and not name_var.get().strip():
-                name_var.set(monster_values[0])
-                apply_monster_defaults()
 
         self._load_indexes_async(on_indexes_loaded)
 
+        add_group_btn = ttk.Button(right, text="Add group", command=add_group)
+        add_group_btn.grid(row=4, column=0, sticky="w", pady=(8, 0))
+
         def on_add():
-            base = name_var.get().strip()
-            if not base:
-                messagebox.showerror("Input error", "Name is required.")
+            base_name = base_name_var.get().strip()
+            if not group_rows:
+                messagebox.showerror("Input error", "Add at least one group.")
                 return
-            spec = self._load_monster_details(base) or self._monsters_by_name.get(base)
-            saving_throws = dict(spec.saving_throws) if spec and spec.saving_throws else None
-            ability_mods = dict(spec.ability_mods) if spec and spec.ability_mods else None
-            try:
-                count = int(count_var.get().strip())
-                if count <= 0:
-                    raise ValueError()
-            except ValueError:
-                messagebox.showerror("Input error", "Count must be a positive integer.")
-                return
-
-            dex_txt = dex_var.get().strip()
-            if dex_txt == "":
-                dex = 0
-                dex_opt: Optional[int] = None
-            else:
+            for row in group_rows:
+                base = row["name_var"].get().strip() or base_name
+                if not base:
+                    messagebox.showerror("Input error", "Each group needs a name (or provide a Base Name).")
+                    return
                 try:
-                    dex = int(dex_txt)
-                    dex_opt = dex
+                    count = int(row["count_var"].get().strip())
+                    if count <= 0:
+                        raise ValueError()
                 except ValueError:
-                    messagebox.showerror("Input error", "Dex must be an integer (or blank).")
+                    messagebox.showerror("Input error", f"Count must be a positive integer for {base}.")
                     return
 
-            hp_txt = hp_var.get().strip()
-            if hp_txt == "":
-                hp = 0
-            else:
-                try:
-                    hp = int(hp_txt)
-                except ValueError:
-                    messagebox.showerror("Input error", "HP must be an integer (or blank).")
-                    return
+                dex_txt = row["dex_var"].get().strip()
+                if dex_txt == "":
+                    dex = 0
+                    dex_opt: Optional[int] = None
+                else:
+                    try:
+                        dex = int(dex_txt)
+                        dex_opt = dex
+                    except ValueError:
+                        messagebox.showerror("Input error", f"Dex must be an integer for {base}.")
+                        return
 
-            spd_txt = spd_var.get().strip()
-            if spd_txt == "":
-                speed = 30
-            else:
-                try:
-                    speed = int(spd_txt)
-                except ValueError:
-                    messagebox.showerror("Input error", "Speed must be an integer (feet).")
-                    return
+                hp_txt = row["hp_var"].get().strip()
+                if hp_txt == "":
+                    hp = 0
+                else:
+                    try:
+                        hp = int(hp_txt)
+                    except ValueError:
+                        messagebox.showerror("Input error", f"HP must be an integer for {base}.")
+                        return
 
+                spd_txt = row["spd_var"].get().strip()
+                if spd_txt == "":
+                    speed = 30
+                else:
+                    try:
+                        speed = int(spd_txt)
+                    except ValueError:
+                        messagebox.showerror("Input error", f"Speed must be an integer for {base}.")
+                        return
 
-            swim_txt = swim_var.get().strip()
-            if swim_txt == "":
-                swim_speed = 0
-            else:
-                try:
-                    swim_speed = int(swim_txt)
-                except ValueError:
-                    messagebox.showerror("Input error", "Swim speed must be an integer (or blank).")
-                    return
+                swim_txt = row["swim_var"].get().strip()
+                if swim_txt == "":
+                    swim_speed = 0
+                else:
+                    try:
+                        swim_speed = int(swim_txt)
+                    except ValueError:
+                        messagebox.showerror("Input error", f"Swim speed must be an integer for {base}.")
+                        return
 
-            water_mode = bool(water_var.get())
+                water_mode = bool(row["water_var"].get())
+                ally_flag = bool(row["ally_var"].get())
+                spec = row.get("spec")
+                if spec is not None:
+                    spec = self._load_monster_details(spec.name) or spec
+                saving_throws = dict(spec.saving_throws) if spec and spec.saving_throws else None
+                ability_mods = dict(spec.ability_mods) if spec and spec.ability_mods else None
 
-            for i in range(1, count + 1):
-                roll = random.randint(1, 20)
-                total = roll + dex
-                name = base if count == 1 else f"{base} {i}"
-                cid = self._create_combatant(
-                    name=name,
-                    hp=hp,
-                    speed=speed,
-                    swim_speed=swim_speed,
-                    water_mode=water_mode,
-                    initiative=total,
-                    dex=dex_opt,
-                    ally=ally_var.get(),
-                    saving_throws=saving_throws,
-                    ability_mods=ability_mods,
-                    monster_spec=spec,
-                )
-                c = self.combatants[cid]
-                c.roll = roll
-                c.nat20 = (roll == 20)
+                for i in range(1, count + 1):
+                    roll = random.randint(1, 20)
+                    total = roll + dex
+                    name = base if count == 1 else f"{base} {i}"
+                    cid = self._create_combatant(
+                        name=name,
+                        hp=hp,
+                        speed=speed,
+                        swim_speed=swim_speed,
+                        water_mode=water_mode,
+                        initiative=total,
+                        dex=dex_opt,
+                        ally=ally_flag,
+                        saving_throws=saving_throws,
+                        ability_mods=ability_mods,
+                        monster_spec=spec,
+                    )
+                    c = self.combatants[cid]
+                    c.roll = roll
+                    c.nat20 = (roll == 20)
 
             self._rebuild_table(scroll_to_current=True)
             dlg.destroy()
