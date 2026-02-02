@@ -140,6 +140,15 @@ DAMAGE_TYPES = [
     "Thunder",
 ]
 
+MOVEMENT_MODES = ("normal", "swim", "burrow", "fly")
+MOVEMENT_MODE_LABELS = {
+    "normal": "Normal",
+    "swim": "Swim",
+    "burrow": "Burrow",
+    "fly": "Fly",
+}
+# Climb mode is deferred until elevation support lands.
+
 
 def _apply_dialog_geometry(dlg: tk.Toplevel, width: int, height: int, min_w: int, min_h: int) -> None:
     dlg.geometry(f"{width}x{height}")
@@ -173,7 +182,7 @@ class Combatant:
     fly_speed: int
     burrow_speed: int
     climb_speed: int
-    water_mode: bool
+    movement_mode: str
     move_remaining: int
     initiative: int
     dex: Optional[int] = None
@@ -547,13 +556,23 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(btn_row, text="Dash", command=self._dash_current).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Give Action", command=self._give_action).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Give Bonus Action", command=self._give_bonus_action).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(btn_row, text="Toggle Water", command=self._toggle_water_selected).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(btn_row, text="Mode").pack(side=tk.LEFT, padx=(0, 4))
+        self.move_mode_var = tk.StringVar(value=MOVEMENT_MODE_LABELS["normal"])
+        self.move_mode_combo = ttk.Combobox(
+            btn_row,
+            textvariable=self.move_mode_var,
+            values=[MOVEMENT_MODE_LABELS[mode] for mode in MOVEMENT_MODES],
+            state="readonly",
+            width=9,
+        )
+        self.move_mode_combo.pack(side=tk.LEFT, padx=(0, 8))
+        self.move_mode_combo.bind("<<ComboboxSelected>>", lambda _e: self._apply_selected_movement_mode())
         ttk.Button(btn_row, text="Map Mode…", command=self._open_map_mode).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="LAN Admin…", command=self._open_lan_admin).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Clear", command=self._clear_turns).pack(side=tk.LEFT, padx=(0, 8))
 
         ttk.Label(
-            btn_row, text="Shortcuts: Space=Next, Shift+Space=Prev, C=Conditions, D=Damage, H=Heal, M=Move, W=Water, P=Map"
+            btn_row, text="Shortcuts: Space=Next, Shift+Space=Prev, C=Conditions, D=Damage, H=Heal, M=Move, W=Mode, P=Map"
         ).pack(
             side=tk.LEFT, padx=(14, 0)
         )
@@ -637,6 +656,7 @@ class InitiativeTracker(tk.Tk):
         # bindings
         self.tree.bind("<Double-1>", self._on_tree_double_click)
         self.tree.bind("<Button-3>", self._on_tree_right_click)
+        self.tree.bind("<<TreeviewSelect>>", lambda _e: self._sync_move_mode_selector())
         self.bind("<space>", lambda e: self._next_turn())
         self.bind("<Shift-space>", lambda e: self._prev_turn())
         self.bind("<KeyPress-d>", lambda e: self._open_damage_tool())
@@ -644,7 +664,7 @@ class InitiativeTracker(tk.Tk):
         self.bind("<KeyPress-c>", lambda e: self._open_condition_tool())
         self.bind("<KeyPress-t>", lambda e: self._open_dot_tool())
         self.bind("<KeyPress-m>", lambda e: self._open_move_tool())
-        self.bind("<KeyPress-w>", lambda e: self._toggle_water_selected())
+        self.bind("<KeyPress-w>", lambda e: self._cycle_movement_mode_selected())
         self.bind("<KeyPress-p>", lambda e: self._open_map_mode())
 
         self._tree_context_menu = tk.Menu(self, tearoff=0)
@@ -1613,13 +1633,45 @@ class InitiativeTracker(tk.Tk):
                 total += random.randint(1, d)
         return int(total)
 
+    def _normalize_movement_mode(self, value: object) -> str:
+        if isinstance(value, bool):
+            return "swim" if value else "normal"
+        if isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered in MOVEMENT_MODES:
+                return lowered
+            if lowered in {"land", "ground"}:
+                return "normal"
+            if lowered == "water":
+                return "swim"
+            for key, label in MOVEMENT_MODE_LABELS.items():
+                if lowered == label.lower():
+                    return key
+        return "normal"
+
+    def _movement_mode_label(self, mode: str) -> str:
+        return MOVEMENT_MODE_LABELS.get(self._normalize_movement_mode(mode), "Normal")
+
+    def _mode_speed_value(self, mode: str, speed: int, swim: int, fly: int, burrow: int) -> int:
+        mode_key = self._normalize_movement_mode(mode)
+        if mode_key == "swim":
+            if swim > 0:
+                return int(swim)
+            return max(0, int(speed // 2))
+        if mode_key == "fly":
+            return max(0, int(fly))
+        if mode_key == "burrow":
+            return max(0, int(burrow))
+        return max(0, int(speed))
 
     def _mode_speed(self, c: Combatant) -> int:
-        """Base movement speed for the creature's current mode (land vs water)."""
-        if bool(getattr(c, "water_mode", False)):
-            swim = max(0, int(getattr(c, "swim_speed", 0)))
-            return swim if swim > 0 else 0
-        return max(0, int(getattr(c, "speed", 0)))
+        """Base movement speed for the creature's current mode."""
+        speed = max(0, int(getattr(c, "speed", 0)))
+        swim = max(0, int(getattr(c, "swim_speed", 0)))
+        fly = max(0, int(getattr(c, "fly_speed", 0)))
+        burrow = max(0, int(getattr(c, "burrow_speed", 0)))
+        mode = self._normalize_movement_mode(getattr(c, "movement_mode", "normal"))
+        return self._mode_speed_value(mode, speed, swim, fly, burrow)
 
     def _effective_speed(self, c: Combatant) -> int:
         """Effective movement for THIS TURN (mode speed, but immobilizing conditions force 0)."""
@@ -1682,7 +1734,7 @@ class InitiativeTracker(tk.Tk):
         fly_speed: Optional[int] = None,
         burrow_speed: Optional[int] = None,
         climb_speed: Optional[int] = None,
-        water_mode: bool = False,
+        movement_mode: Optional[str] = None,
         is_pc: bool = False,
         is_spellcaster: Optional[bool] = None,
         saving_throws: Optional[Dict[str, int]] = None,
@@ -1704,9 +1756,9 @@ class InitiativeTracker(tk.Tk):
         fly = max(0, int(fly_speed or 0))
         burrow = max(0, int(burrow_speed or 0))
         climb = max(0, int(climb_speed or 0))
-        wm = bool(water_mode)
+        mode = self._normalize_movement_mode(movement_mode)
 
-        base = swim if (wm and swim > 0) else (0 if wm else spd)
+        base = self._mode_speed_value(mode, spd, swim, fly, burrow)
         inferred_spellcaster = None
         raw_spec = getattr(monster_spec, "raw_data", None)
         if isinstance(raw_spec, dict):
@@ -1730,7 +1782,7 @@ class InitiativeTracker(tk.Tk):
             fly_speed=fly,
             burrow_speed=burrow,
             climb_speed=climb,
-            water_mode=wm,
+            movement_mode=mode,
             move_remaining=base,
             move_total=base,
             initiative=int(initiative),
@@ -1848,7 +1900,7 @@ class InitiativeTracker(tk.Tk):
             if eff <= 0:
                 self.turn_move_var.set("0")
             else:
-                mode = "Water" if getattr(c, "water_mode", False) else "Land"
+                mode = self._movement_mode_label(getattr(c, "movement_mode", "normal"))
                 self.turn_move_var.set(f"{c.move_remaining}/{eff} {mode}")
 
         self.turn_round_var.set(str(max(1, int(self.round_num))))
@@ -2398,10 +2450,16 @@ class InitiativeTracker(tk.Tk):
             row=4, column=0, sticky="w", pady=(6, 0)
         )
 
-        water_mode_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(frm, text="Water mode (use Swim speed)", variable=water_mode_var).grid(
-            row=4, column=1, sticky="w", padx=(12, 0), pady=(6, 0)
+        mode_var = tk.StringVar(value=MOVEMENT_MODE_LABELS["normal"])
+        ttk.Label(frm, text="Mode").grid(row=4, column=1, sticky="w", padx=(12, 0), pady=(6, 0))
+        mode_combo = ttk.Combobox(
+            frm,
+            textvariable=mode_var,
+            values=[MOVEMENT_MODE_LABELS[mode] for mode in MOVEMENT_MODES],
+            state="readonly",
+            width=12,
         )
+        mode_combo.grid(row=5, column=1, sticky="w", padx=(12, 0))
 
         # Auto-pick selected row if any
         sel = self.tree.selection()
@@ -2410,12 +2468,12 @@ class InitiativeTracker(tk.Tk):
                 scid = int(sel[0])
                 if scid in self.combatants:
                     target_var.set(self._label_for(self.combatants[scid]))
-                    water_mode_var.set(bool(self.combatants[scid].water_mode))
+                    mode_var.set(self._movement_mode_label(self.combatants[scid].movement_mode))
             except ValueError:
                 pass
         elif self.current_cid is not None and self.current_cid in self.combatants:
             target_var.set(self._label_for(self.combatants[self.current_cid]))
-            water_mode_var.set(bool(self.combatants[self.current_cid].water_mode))
+            mode_var.set(self._movement_mode_label(self.combatants[self.current_cid].movement_mode))
 
         def refresh_targets(keep: str = ""):
             vals = self._target_labels()
@@ -2462,8 +2520,8 @@ class InitiativeTracker(tk.Tk):
                 cids = [cid]
 
             for cid in cids:
-                # Apply water-mode toggle first (only logs if it actually changes)
-                self._toggle_water_mode(cid, force=bool(water_mode_var.get()))
+                # Apply movement mode first (only logs if it actually changes)
+                self._set_movement_mode(cid, mode_var.get())
                 c = self.combatants.get(cid)
                 if c is None:
                     continue
@@ -2592,7 +2650,7 @@ class InitiativeTracker(tk.Tk):
         for i, c in enumerate(ordered):
             side = "Player Character" if getattr(c, "is_pc", False) else ("Ally" if c.ally else "Enemy")
             nat = "Yes" if c.nat20 else ""
-            mode = "Water" if getattr(c, "water_mode", False) else "Land"
+            mode = self._movement_mode_label(getattr(c, "movement_mode", "normal"))
             swim_disp = "" if int(getattr(c, "swim_speed", 0) or 0) == 0 else int(getattr(c, "swim_speed", 0))
             values = (c.name, side, c.hp, c.speed, swim_disp, mode, self._move_cell(c), self._format_effects(c), c.initiative, nat)
 
@@ -2625,6 +2683,7 @@ class InitiativeTracker(tk.Tk):
                 pass
 
         self._update_turn_ui()
+        self._sync_move_mode_selector()
 
     # -------------------------- Inline editing / clicks --------------------------
     def _selected_enemy_combatant(self) -> Optional[Combatant]:
@@ -2717,7 +2776,11 @@ class InitiativeTracker(tk.Tk):
             self._rebuild_table(scroll_to_current=True)
             return
         if column == "#6":
-            self._toggle_water_mode(cid)
+            c = self.combatants[cid]
+            current = self._normalize_movement_mode(getattr(c, "movement_mode", "normal"))
+            idx = MOVEMENT_MODES.index(current) if current in MOVEMENT_MODES else 0
+            next_mode = MOVEMENT_MODES[(idx + 1) % len(MOVEMENT_MODES)]
+            self._set_movement_mode(cid, next_mode)
             self._rebuild_table(scroll_to_current=True)
             return
         if column == "#7":
@@ -2813,12 +2876,15 @@ class InitiativeTracker(tk.Tk):
             c.move_total = int(base_spd)
             c.move_remaining = int(base_spd)
 
-    def _toggle_water_mode(self, cid: int, force: Optional[bool] = None) -> None:
+    def _set_movement_mode(self, cid: int, mode: str, log_change: bool = True) -> None:
         if cid not in self.combatants:
             return
         c = self.combatants[cid]
-        old_mode = bool(getattr(c, "water_mode", False))
-        c.water_mode = (not old_mode) if force is None else bool(force)
+        old_mode = self._normalize_movement_mode(getattr(c, "movement_mode", "normal"))
+        new_mode = self._normalize_movement_mode(mode)
+        if old_mode == new_mode:
+            return
+        c.movement_mode = new_mode
         # Adjust movement bookkeeping
         if self.current_cid == cid:
             c.move_remaining = min(c.move_remaining, self._effective_speed(c))
@@ -2826,10 +2892,38 @@ class InitiativeTracker(tk.Tk):
             base_spd = self._mode_speed(c)
             c.move_total = int(base_spd)
             c.move_remaining = int(base_spd)
-        if c.water_mode != old_mode:
-            self._log(f"water mode {'ON' if c.water_mode else 'OFF'}", cid=cid)
+        if log_change:
+            self._log(f"movement mode set to {self._movement_mode_label(new_mode)}", cid=cid)
+        try:
+            if self._map_window is not None and self._map_window.winfo_exists():
+                self._map_window._update_move_highlight()
+        except Exception:
+            pass
 
-    def _toggle_water_selected(self) -> None:
+    def _cycle_movement_mode_selected(self) -> None:
+        items = list(self.tree.selection())
+        if not items and self.current_cid is not None:
+            items = [str(self.current_cid)]
+        if not items:
+            return
+        for it in items:
+            try:
+                cid = int(it)
+            except ValueError:
+                continue
+            if cid not in self.combatants:
+                continue
+            c = self.combatants[cid]
+            current = self._normalize_movement_mode(getattr(c, "movement_mode", "normal"))
+            idx = MOVEMENT_MODES.index(current) if current in MOVEMENT_MODES else 0
+            next_mode = MOVEMENT_MODES[(idx + 1) % len(MOVEMENT_MODES)]
+            self._set_movement_mode(cid, next_mode)
+        self._sync_move_mode_selector()
+        self._rebuild_table(scroll_to_current=True)
+
+    def _apply_selected_movement_mode(self) -> None:
+        label = str(self.move_mode_var.get() or "")
+        mode = self._normalize_movement_mode(label)
         items = list(self.tree.selection())
         if not items and self.current_cid is not None:
             items = [str(self.current_cid)]
@@ -2841,7 +2935,26 @@ class InitiativeTracker(tk.Tk):
             except ValueError:
                 continue
             if cid in self.combatants:
-                self._toggle_water_mode(cid)
+                self._set_movement_mode(cid, mode)
+        self._rebuild_table(scroll_to_current=True)
+
+    def _sync_move_mode_selector(self) -> None:
+        if not hasattr(self, "move_mode_var"):
+            return
+        cid = None
+        sel = self.tree.selection()
+        if sel:
+            try:
+                cid = int(sel[0])
+            except ValueError:
+                cid = None
+        if cid is None:
+            cid = self.current_cid
+        if cid is not None and cid in self.combatants:
+            mode = self._movement_mode_label(getattr(self.combatants[cid], "movement_mode", "normal"))
+            self.move_mode_var.set(mode)
+        else:
+            self.move_mode_var.set(MOVEMENT_MODE_LABELS["normal"])
 
     # --------------------- Index cache helpers ---------------------
     def _logs_dir_path(self) -> Path:
@@ -3507,7 +3620,7 @@ class InitiativeTracker(tk.Tk):
             spd_var = tk.StringVar(value="30")
             swim_var = tk.StringVar()
             ally_var = tk.BooleanVar(value=False)
-            water_var = tk.BooleanVar(value=False)
+            mode_var = tk.StringVar(value=MOVEMENT_MODE_LABELS["normal"])
 
             top_row = ttk.Frame(frame)
             top_row.grid(row=0, column=0, sticky="ew")
@@ -3527,7 +3640,15 @@ class InitiativeTracker(tk.Tk):
             ttk.Label(stat_row, text="Swim").pack(side=tk.LEFT)
             ttk.Entry(stat_row, textvariable=swim_var, width=6).pack(side=tk.LEFT, padx=(4, 8))
             ttk.Checkbutton(stat_row, text="Ally", variable=ally_var).pack(side=tk.LEFT, padx=(6, 4))
-            ttk.Checkbutton(stat_row, text="Water", variable=water_var).pack(side=tk.LEFT)
+            ttk.Label(stat_row, text="Mode").pack(side=tk.LEFT)
+            mode_combo = ttk.Combobox(
+                stat_row,
+                textvariable=mode_var,
+                values=[MOVEMENT_MODE_LABELS[mode] for mode in MOVEMENT_MODES],
+                state="readonly",
+                width=8,
+            )
+            mode_combo.pack(side=tk.LEFT, padx=(4, 0))
 
             def remove_group() -> None:
                 if len(group_rows) <= 1:
@@ -3538,7 +3659,7 @@ class InitiativeTracker(tk.Tk):
                     spd_var.set("30")
                     swim_var.set("")
                     ally_var.set(False)
-                    water_var.set(False)
+                    mode_var.set(MOVEMENT_MODE_LABELS["normal"])
                     return
                 try:
                     group_rows.remove(row)
@@ -3562,7 +3683,7 @@ class InitiativeTracker(tk.Tk):
                 spd_var=spd_var,
                 swim_var=swim_var,
                 ally_var=ally_var,
-                water_var=water_var,
+                mode_var=mode_var,
                 spec=spec,
             )
             group_rows.append(row)
@@ -3710,7 +3831,7 @@ class InitiativeTracker(tk.Tk):
                         messagebox.showerror("Input error", f"Swim speed must be an integer for {base}.")
                         return
 
-                water_mode = bool(row["water_var"].get())
+                movement_mode = str(row["mode_var"].get() or MOVEMENT_MODE_LABELS["normal"])
                 ally_flag = bool(row["ally_var"].get())
                 spec = row.get("spec")
                 if spec is not None:
@@ -3727,7 +3848,7 @@ class InitiativeTracker(tk.Tk):
                         hp=hp,
                         speed=speed,
                         swim_speed=swim_speed,
-                        water_mode=water_mode,
+                        movement_mode=movement_mode,
                         initiative=total,
                         dex=dex_opt,
                         ally=ally_flag,
@@ -5907,8 +6028,10 @@ class BattleMapWindow(tk.Toplevel):
             color = self._rough_presets[0].color if self._rough_presets else "#8d6e63"
         return {"label": "Custom", "color": color, "is_swim": False, "is_rough": True}
 
-    def _water_movement_multiplier(self, c: Optional[Combatant]) -> float:
+    def _water_movement_multiplier(self, c: Optional[Combatant], mode: str) -> float:
         if c is None:
+            return 1.0
+        if self._normalize_movement_mode(mode) != "normal":
             return 1.0
         land_speed = max(0, int(getattr(c, "speed", 0) or 0))
         if land_speed <= 0:
@@ -6410,7 +6533,8 @@ class BattleMapWindow(tk.Toplevel):
 
         obstacles = getattr(self, "obstacles", set()) or set()
         rough_terrain = getattr(self, "rough_terrain", {}) or {}
-        water_multiplier = self._water_movement_multiplier(creature)
+        mode = self._normalize_movement_mode(getattr(creature, "movement_mode", "normal"))
+        water_multiplier = self._water_movement_multiplier(creature, mode)
 
         while pq:
             cost, col, row, parity = heapq.heappop(pq)
@@ -6445,6 +6569,10 @@ class BattleMapWindow(tk.Toplevel):
 
                 current_cell = self._rough_cell_data(rough_terrain.get((col, row)))
                 target_cell = self._rough_cell_data(rough_terrain.get((nc, nr)))
+                if mode == "swim" and not bool(target_cell.get("is_swim")):
+                    continue
+                if mode == "burrow" and bool(target_cell.get("is_swim")):
+                    continue
                 if bool(current_cell.get("is_swim")) or bool(target_cell.get("is_swim")):
                     step_cost = int(math.ceil(step_cost * water_multiplier))
                 if bool(target_cell.get("is_rough")):

@@ -4118,6 +4118,23 @@ __DAMAGE_TYPE_OPTIONS__
     return value;
   }
 
+  function normalizeMovementMode(value){
+    if (typeof value !== "string") return "normal";
+    const lowered = value.trim().toLowerCase();
+    if (["normal", "swim", "burrow", "fly"].includes(lowered)) return lowered;
+    if (lowered === "land") return "normal";
+    if (lowered === "water") return "swim";
+    return "normal";
+  }
+
+  function movementModeLabel(mode){
+    const key = normalizeMovementMode(mode);
+    if (key === "swim") return "Swim";
+    if (key === "burrow") return "Burrow";
+    if (key === "fly") return "Fly";
+    return "Normal";
+  }
+
   function resolveSpellColor(raw){
     return normalizeHexColor(raw || "") || DEFAULT_SPELL_COLOR;
   }
@@ -4593,6 +4610,150 @@ __DAMAGE_TYPE_OPTIONS__
     draw();
   }
 
+  function cellKey(col, row){
+    return `${col},${row}`;
+  }
+
+  function buildRoughTerrainMap(list){
+    const map = new Map();
+    if (Array.isArray(list)){
+      list.forEach(cell => {
+        map.set(cellKey(Number(cell.col), Number(cell.row)), cell || {});
+      });
+    }
+    return map;
+  }
+
+  function buildObstacleSet(list){
+    const set = new Set();
+    if (Array.isArray(list)){
+      list.forEach(cell => {
+        set.add(cellKey(Number(cell.col), Number(cell.row)));
+      });
+    }
+    return set;
+  }
+
+  function movementCostMap(startCol, startRow, maxFt, unit, roughMap, obstacles, cols, rows, feetPerSquare){
+    const step = Number(feetPerSquare) || 5;
+    const diag5 = step;
+    const diag10 = step * 2;
+    const mode = normalizeMovementMode(unit?.movement_mode);
+    const landSpeed = Math.max(0, Number(unit?.speed || 0));
+    let swimSpeed = Math.max(0, Number(unit?.swim_speed || 0));
+    if (swimSpeed <= 0){
+      swimSpeed = Math.max(1, Math.floor(landSpeed / 2));
+    }
+    let waterMultiplier = 1;
+    if (mode === "normal" && landSpeed > 0 && swimSpeed > 0){
+      waterMultiplier = landSpeed / swimSpeed;
+    }
+
+    function inBounds(col, row){
+      return col >= 0 && row >= 0 && col < cols && row < rows;
+    }
+
+    const best = new Map();
+    const bestSq = new Map();
+    const heap = [];
+
+    function heapPush(item){
+      heap.push(item);
+      let i = heap.length - 1;
+      while (i > 0){
+        const p = Math.floor((i - 1) / 2);
+        if (heap[p].cost <= heap[i].cost) break;
+        [heap[p], heap[i]] = [heap[i], heap[p]];
+        i = p;
+      }
+    }
+
+    function heapPop(){
+      if (!heap.length) return null;
+      const top = heap[0];
+      const last = heap.pop();
+      if (heap.length && last){
+        heap[0] = last;
+        let i = 0;
+        while (true){
+          const l = i * 2 + 1;
+          const r = i * 2 + 2;
+          let smallest = i;
+          if (l < heap.length && heap[l].cost < heap[smallest].cost) smallest = l;
+          if (r < heap.length && heap[r].cost < heap[smallest].cost) smallest = r;
+          if (smallest === i) break;
+          [heap[i], heap[smallest]] = [heap[smallest], heap[i]];
+          i = smallest;
+        }
+      }
+      return top;
+    }
+
+    const startKey = `${startCol},${startRow},0`;
+    best.set(startKey, 0);
+    heapPush({cost: 0, col: startCol, row: startRow, parity: 0});
+
+    while (heap.length){
+      const item = heapPop();
+      if (!item) break;
+      const {cost, col, row, parity} = item;
+      const stateKey = `${col},${row},${parity}`;
+      if (cost !== best.get(stateKey)) continue;
+      if (cost > maxFt) continue;
+      const sqKey = cellKey(col, row);
+      const prev = bestSq.get(sqKey);
+      if (prev === undefined || cost < prev){
+        bestSq.set(sqKey, cost);
+      }
+
+      const neighbors = [
+        [-1, 0, false], [1, 0, false], [0, -1, false], [0, 1, false],
+        [-1, -1, true], [1, -1, true], [-1, 1, true], [1, 1, true],
+      ];
+      for (const [dc, dr, isDiag] of neighbors){
+        const nc = col + dc;
+        const nr = row + dr;
+        if (!inBounds(nc, nr)) continue;
+        if (obstacles.has(cellKey(nc, nr))) continue;
+        if (isDiag){
+          if (obstacles.has(cellKey(col + dc, row)) || obstacles.has(cellKey(col, row + dr))){
+            continue;
+          }
+        }
+        let stepCost;
+        let npar;
+        if (isDiag){
+          stepCost = parity === 0 ? diag5 : diag10;
+          npar = 1 - parity;
+        } else {
+          stepCost = step;
+          npar = parity;
+        }
+
+        const currentCell = roughMap.get(cellKey(col, row)) || {};
+        const targetCell = roughMap.get(cellKey(nc, nr)) || {};
+        if (mode === "swim" && !targetCell.is_swim) continue;
+        if (mode === "burrow" && targetCell.is_swim) continue;
+        if (currentCell.is_swim || targetCell.is_swim){
+          stepCost = Math.ceil(stepCost * waterMultiplier);
+        }
+        if (targetCell.is_rough){
+          stepCost *= 2;
+        }
+
+        const newCost = cost + stepCost;
+        if (newCost > maxFt) continue;
+        const nextKey = `${nc},${nr},${npar}`;
+        if (newCost < (best.get(nextKey) ?? 1e9)){
+          best.set(nextKey, newCost);
+          heapPush({cost: newCost, col: nc, row: nr, parity: npar});
+        }
+      }
+    }
+
+    return bestSq;
+  }
+
   function draw(){
     if (!state) return;
     if (!gridReady()){
@@ -4666,19 +4827,28 @@ __DAMAGE_TYPE_OPTIONS__
       if (me){
         const move = Math.max(0, Number(me.move_remaining || 0));
         const feet = Math.max(1, Number(state.grid.feet_per_square || 5));
-        const rangeSquares = move / feet;
-        if (rangeSquares > 0){
-          const {x,y} = gridToScreen(me.pos.col, me.pos.row);
-          const radius = rangeSquares * zoom;
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(x, y, radius, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(106,169,255,0.12)";
-          ctx.fill();
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = "rgba(106,169,255,0.35)";
-          ctx.stroke();
-          ctx.restore();
+        if (move > 0){
+          const roughMap = buildRoughTerrainMap(state.rough_terrain);
+          const obstacleSet = buildObstacleSet(state.obstacles);
+          const costMap = movementCostMap(
+            Number(me.pos.col),
+            Number(me.pos.row),
+            move,
+            me,
+            roughMap,
+            obstacleSet,
+            cols,
+            rows,
+            feet,
+          );
+          costMap.forEach((cost, key) => {
+            if (!cost) return;
+            const [col, row] = key.split(",").map(Number);
+            const x = panX + col * zoom;
+            const y = panY + row * zoom;
+            ctx.fillStyle = "rgba(106,169,255,0.18)";
+            ctx.fillRect(x + 1, y + 1, zoom - 2, zoom - 2);
+          });
         }
       }
     }
@@ -5345,7 +5515,8 @@ __DAMAGE_TYPE_OPTIONS__
       const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
       if (me){
         meEl.textContent = me.name;
-        moveEl.textContent = `Move: ${me.move_remaining}/${me.move_total}`;
+        const modeLabel = movementModeLabel(me.movement_mode);
+        moveEl.textContent = `Move: ${me.move_remaining}/${me.move_total} (${modeLabel})`;
         actionEl.textContent = `Action: ${me.action_remaining ?? 0}`;
         bonusActionEl.textContent = `Bonus Action: ${me.bonus_action_remaining ?? 0}`;
         if (reactionEl){
