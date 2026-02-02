@@ -781,6 +781,9 @@ class MonsterSpec:
     hp: Optional[int]
     speed: Optional[int]
     swim_speed: Optional[int]
+    fly_speed: Optional[int]
+    burrow_speed: Optional[int]
+    climb_speed: Optional[int]
     dex: Optional[int]
     init_mod: Optional[int]
     saving_throws: Dict[str, int]
@@ -3557,6 +3560,9 @@ class InitiativeTracker(base.InitiativeTracker):
             hp = 0
             speed = 30
             swim = 0
+            fly_speed = 0
+            burrow_speed = 0
+            climb_speed = 0
             water = False
             actions: List[Dict[str, Any]] = []
             bonus_actions: List[Dict[str, Any]] = []
@@ -3581,10 +3587,25 @@ class InitiativeTracker(base.InitiativeTracker):
                 resources = profile.get("resources", {}) if isinstance(profile, dict) else {}
                 defenses = profile.get("defenses", {}) if isinstance(profile, dict) else {}
                 # accept a few key names
-                speed = int(
-                    resources.get("base_movement", resources.get("speed", speed)) or speed
-                )
+                speed_source = resources.get("base_movement", resources.get("speed"))
+                if speed_source is not None:
+                    parsed = base._parse_speed_data(speed_source)
+                    if parsed[0] is not None:
+                        speed = int(parsed[0])
+                    if parsed[1] is not None:
+                        swim = int(parsed[1])
+                    if parsed[2] is not None:
+                        fly_speed = int(parsed[2])
+                    if parsed[3] is not None:
+                        burrow_speed = int(parsed[3])
+                    if parsed[4] is not None:
+                        climb_speed = int(parsed[4])
+                if "speed" in resources and speed_source is None:
+                    speed = int(resources.get("speed", speed) or speed)
                 swim = int(resources.get("swim_speed", swim) or swim)
+                fly_speed = int(resources.get("fly_speed", fly_speed) or fly_speed)
+                burrow_speed = int(resources.get("burrow_speed", burrow_speed) or burrow_speed)
+                climb_speed = int(resources.get("climb_speed", climb_speed) or climb_speed)
                 hp = int(defenses.get("hp", hp) or hp)
                 actions = self._normalize_action_entries(resources.get("actions"), "action")
                 bonus_actions = self._normalize_action_entries(resources.get("bonus_actions"), "bonus_action")
@@ -3600,6 +3621,9 @@ class InitiativeTracker(base.InitiativeTracker):
                     hp=int(hp),
                     speed=int(speed),
                     swim_speed=int(swim),
+                    fly_speed=int(fly_speed),
+                    burrow_speed=int(burrow_speed),
+                    climb_speed=int(climb_speed),
                     water_mode=bool(water),
                     initiative=int(init_total),
                     dex=None,
@@ -6521,6 +6545,9 @@ class InitiativeTracker(base.InitiativeTracker):
                             hp=summary.get("hp"),
                             speed=summary.get("speed"),
                             swim_speed=summary.get("swim_speed"),
+                            fly_speed=summary.get("fly_speed"),
+                            burrow_speed=summary.get("burrow_speed"),
+                            climb_speed=summary.get("climb_speed"),
                             dex=summary.get("dex"),
                             init_mod=summary.get("init_mod"),
                             saving_throws=summary.get("saving_throws") if isinstance(summary.get("saving_throws"), dict) else {},
@@ -6668,29 +6695,18 @@ class InitiativeTracker(base.InitiativeTracker):
 
             speed = None
             swim_speed = None
+            fly_speed = None
+            burrow_speed = None
+            climb_speed = None
             try:
-                if is_legacy:
-                    sp = mon.get("speed") or {}
-                    if isinstance(sp, dict):
-                        wf = sp.get("walk_ft")
-                        sf = sp.get("swim_ft")
-                        if isinstance(wf, int):
-                            speed = int(wf)
-                        elif isinstance(wf, str) and wf.strip().isdigit():
-                            speed = int(wf.strip())
-                        if isinstance(sf, int):
-                            swim_speed = int(sf)
-                        elif isinstance(sf, str) and sf.strip().isdigit():
-                            swim_speed = int(sf.strip())
-                else:
-                    sp = mon.get("speed")
-                    if isinstance(sp, int):
-                        speed = int(sp)
-                    elif isinstance(sp, str) and sp.strip().lstrip("-").isdigit():
-                        speed = int(sp.strip())
+                sp = mon.get("speed")
+                speed, swim_speed, fly_speed, burrow_speed, climb_speed = base._parse_speed_data(sp)
             except Exception:
                 speed = None
                 swim_speed = None
+                fly_speed = None
+                burrow_speed = None
+                climb_speed = None
 
             dex = None
             try:
@@ -6766,6 +6782,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 hp=hp,
                 speed=speed,
                 swim_speed=swim_speed,
+                fly_speed=fly_speed,
+                burrow_speed=burrow_speed,
+                climb_speed=climb_speed,
                 dex=dex,
                 init_mod=init_mod,
                 saving_throws=saving_throws,
@@ -6788,6 +6807,9 @@ class InitiativeTracker(base.InitiativeTracker):
                     "hp": hp,
                     "speed": speed,
                     "swim_speed": swim_speed,
+                    "fly_speed": fly_speed,
+                    "burrow_speed": burrow_speed,
+                    "climb_speed": climb_speed,
                     "dex": dex,
                     "init_mod": init_mod,
                     "saving_throws": saving_throws,
