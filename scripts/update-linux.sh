@@ -6,6 +6,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$(dirname "$SCRIPT_DIR")"
+APPDIR="${APPDIR:-$HOME/.local/share/dnd-initiative-tracker}"
+DESKTOP_FILE="$HOME/.local/share/applications/inittracker.desktop"
+WRAPPER="${APPDIR}/launch-inittracker.sh"
+ICON_NAME="inittracker"
 TEMP_DIR="/tmp/dnd-tracker-update-$$"
 YAML_DIRS=("players")
 YAML_BACKUP_DIR="$TEMP_DIR/yaml_backup"
@@ -173,6 +177,57 @@ if [ -d "$YAML_BACKUP_DIR" ]; then
         cp "$file" "$INSTALL_DIR/$rel_path"
     done < <(find "$YAML_BACKUP_DIR" -type f -print0)
     echo "✓ Local YAML files restored"
+fi
+
+desktop_install_detected=false
+if [ -x "$WRAPPER" ] || [ -f "$DESKTOP_FILE" ]; then
+    desktop_install_detected=true
+fi
+
+if [ "$desktop_install_detected" = "true" ]; then
+    INSTALL_DIR_ABS="$(cd "$INSTALL_DIR" && pwd)"
+    if [ -d "$APPDIR" ]; then
+        APPDIR_ABS="$(cd "$APPDIR" && pwd)"
+    else
+        APPDIR_ABS="$APPDIR"
+    fi
+    if [ "$INSTALL_DIR_ABS" != "$APPDIR_ABS" ]; then
+        echo ""
+        echo "Syncing updated files to desktop install at ${APPDIR}..."
+        mkdir -p "$APPDIR"
+        if ! command -v rsync >/dev/null 2>&1; then
+            echo "Warning: rsync is not available; desktop install sync skipped."
+        else
+            rsync -a --delete \
+                --exclude ".git" \
+                --exclude ".venv" \
+                "$INSTALL_DIR/" "$APPDIR/"
+
+            mkdir -p "$(dirname "$DESKTOP_FILE")"
+            cat > "$DESKTOP_FILE" <<EOF
+[Desktop Entry]
+Name=D&D Initiative Tracker
+Comment=Run the D&D Initiative Tracker
+Exec=${WRAPPER}
+Path=${APPDIR}
+Icon=${ICON_NAME}
+Terminal=false
+Type=Application
+Categories=Game;Utility;
+StartupNotify=true
+EOF
+
+            if command -v kbuildsycoca5 >/dev/null 2>&1; then
+                kbuildsycoca5 >/dev/null 2>&1 || true
+                echo "Refreshed KDE desktop cache."
+            fi
+
+            if command -v update-desktop-database >/dev/null 2>&1; then
+                update-desktop-database "${HOME}/.local/share/applications" >/dev/null 2>&1 || true
+                echo "Updated desktop database."
+            fi
+        fi
+    fi
 fi
 
 echo ""
