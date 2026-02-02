@@ -475,21 +475,26 @@ def _ensure_logs_dir() -> Path:
 
 
 def _archive_startup_logs() -> None:
-    """Move existing .log files in ./logs into ./logs/old logs/<timestamp>."""
-    logs = _ensure_logs_dir()
+    """Move existing .log files in logs/ into logs/old logs/<timestamp>/."""
     try:
-        entries = [entry for entry in logs.iterdir() if entry.is_file() and entry.name.endswith(".log")]
-    except Exception:
+        logs = _ensure_logs_dir()
+    except OSError:
         return
-    if not entries:
+    try:
+        candidates = (entry for entry in logs.iterdir() if entry.is_file() and entry.name.endswith(".log"))
+        first_entry = next(candidates, None)
+    except OSError:
         return
+    if first_entry is None:
+        return
+    entries = [first_entry, *candidates]
     try:
         archive_root = logs / "old logs"
         archive_root.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         archive_dir = archive_root / stamp
         archive_dir.mkdir(parents=True, exist_ok=True)
-    except Exception:
+    except OSError:
         return
     for entry in entries:
         try:
@@ -502,7 +507,7 @@ def _archive_startup_logs() -> None:
                     dest = archive_dir / f"{base}_{n}{suffix}"
                     n += 1
             shutil.move(str(entry), str(dest))
-        except Exception:
+        except OSError:
             pass
 
 
@@ -2756,10 +2761,9 @@ class InitiativeTracker(base.InitiativeTracker):
     """Tk tracker + LAN proof-of-concept server."""
 
     def __init__(self) -> None:
+        _archive_startup_logs()
         super().__init__()
         self.title(f"DnD Initiative Tracker — v{APP_VERSION}")
-
-        _archive_startup_logs()
 
         # Operations logger (terminal + ./logs/operations.log)
         self._ops_logger = _make_ops_logger()
