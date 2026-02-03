@@ -36,6 +36,7 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import copy
+from collections import deque
 
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
@@ -566,6 +567,29 @@ def _make_client_error_logger() -> logging.Logger:
     return lg
 
 
+def _make_lan_logger() -> logging.Logger:
+    """Return a logger that writes to ./logs/lan_server.log."""
+    lg = logging.getLogger("inittracker.lan_server")
+    if getattr(lg, "_inittracker_configured", False):
+        return lg
+
+    lg.setLevel(logging.INFO)
+    logs = _ensure_logs_dir()
+    fmt = logging.Formatter("[%(asctime)s] %(levelname)s %(message)s", "%Y-%m-%d %H:%M:%S")
+
+    try:
+        fh = logging.FileHandler(logs / "lan_server.log", encoding="utf-8")
+        fh.setLevel(logging.INFO)
+        fh.setFormatter(fmt)
+        lg.addHandler(fh)
+    except Exception:
+        pass
+
+    lg.propagate = False
+    setattr(lg, "_inittracker_configured", True)
+    return lg
+
+
 def _read_index_file(path: Path) -> Dict[str, Any]:
     try:
         if not path.exists():
@@ -851,6 +875,9 @@ class LanController:
         self._client_log_state: Dict[str, Tuple[float, int]] = {}
         self._client_log_window_s: float = 60.0
         self._client_log_max: int = 30
+        self._lan_logger = _make_lan_logger()
+        self._lan_log_lock = threading.Lock()
+        self._lan_log_buffer = deque(maxlen=400)
 
         self._actions: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._last_snapshot: Optional[Dict[str, Any]] = None
@@ -1014,6 +1041,35 @@ class LanController:
             self._client_error_logger.info(payload)
         except Exception:
             self.app._oplog("Failed to record client error log entry.", level="warning")
+
+    def _append_lan_log(self, message: str, level: str = "error") -> None:
+        text = str(message)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        prefix = f"[{timestamp}] {level.upper()} "
+        lines = text.splitlines() or [""]
+        try:
+            with self._lan_log_lock:
+                for line in lines:
+                    self._lan_log_buffer.append(f"{prefix}{line}")
+        except Exception:
+            pass
+        try:
+            logger = self._lan_logger
+            fn = getattr(logger, level, logger.error)
+            fn(text)
+        except Exception:
+            pass
+
+    def _log_lan_exception(self, context: str, exc: BaseException) -> None:
+        details = traceback.format_exc()
+        self._append_lan_log(f"{context}: {exc}\n{details}", level="error")
+
+    def _lan_log_lines(self, limit: int = 200) -> List[str]:
+        with self._lan_log_lock:
+            lines = list(self._lan_log_buffer)
+        if limit > 0:
+            return lines[-limit:]
+        return lines
 
     def admin_disconnect_session(self, ws_id: int, reason: str = "Disconnected by the DM.") -> None:
         if not self._loop:
@@ -1341,6 +1397,16 @@ class LanController:
             self._require_admin(request)
             return self._admin_sessions_payload()
 
+        @self._fastapi_app.get("/api/lan/logs")
+        async def lan_logs(request: Request, limit: int = 200):
+            self._require_admin(request)
+            try:
+                limit = int(limit)
+            except Exception:
+                limit = 200
+            limit = max(1, min(limit, 1000))
+            return {"lines": self._lan_log_lines(limit)}
+
         @self._fastapi_app.post("/api/admin/assign_ip")
         async def admin_assign_ip(request: Request, payload: Dict[str, Any] = Body(...)):
             self._require_admin(request)
@@ -1629,10 +1695,14 @@ class LanController:
                 self.app._oplog(
                     f"LAN map view serialization failed during initial send ws_id={ws_id}: {exc}", level="warning"
                 )
+                self._log_lan_exception(
+                    f"LAN map view serialization failed during initial send ws_id={ws_id}", exc
+                )
                 await ws.close(code=1011, reason="Server error while preparing state.")
                 return
             except Exception as exc:
                 self.app._oplog(f"LAN map view error during initial send ws_id={ws_id}: {exc}", level="warning")
+                self._log_lan_exception(f"LAN map view error during initial send ws_id={ws_id}", exc)
                 return
             try:
                 while True:
@@ -1676,6 +1746,7 @@ class LanController:
                 pass
             except Exception as exc:
                 self.app._oplog(f"LAN map view error during loop ws_id={ws_id}: {exc}", level="warning")
+                self._log_lan_exception(f"LAN map view error during loop ws_id={ws_id}", exc)
             finally:
                 with self._clients_lock:
                     self._clients.pop(ws_id, None)
@@ -1737,10 +1808,14 @@ class LanController:
                 self.app._oplog(
                     f"LAN session serialization failed during initial send ws_id={ws_id}: {exc}", level="warning"
                 )
+                self._log_lan_exception(
+                    f"LAN session serialization failed during initial send ws_id={ws_id}", exc
+                )
                 await ws.close(code=1011, reason="Server error while preparing state.")
                 return
             except Exception as exc:
                 self.app._oplog(f"LAN session error during initial send ws_id={ws_id}: {exc}", level="warning")
+                self._log_lan_exception(f"LAN session error during initial send ws_id={ws_id}", exc)
                 return
             try:
                 while True:
@@ -1821,6 +1896,7 @@ class LanController:
                 pass
             except Exception as exc:
                 self.app._oplog(f"LAN session error during loop ws_id={ws_id}: {exc}", level="warning")
+                self._log_lan_exception(f"LAN session error during loop ws_id={ws_id}", exc)
             finally:
                 with self._clients_lock:
                     self._clients.pop(ws_id, None)
@@ -2127,82 +2203,88 @@ class LanController:
 
     def _tick(self) -> None:
         """Runs on Tk thread: process actions and broadcast state when changed."""
-        # 1) process queued actions from clients
-        processed_any = False
-        while True:
-            try:
-                msg = self._actions.get_nowait()
-            except queue.Empty:
-                break
-            processed_any = True
-            try:
-                self.app._lan_apply_action(msg)
-            except Exception as exc:
-                ws_id = msg.get("_ws_id")
-                error_details = traceback.format_exc()
-                self.app._oplog(f"LAN action failed: {exc}\n{error_details}", level="warning")
+        try:
+            # 1) process queued actions from clients
+            processed_any = False
+            while True:
                 try:
-                    self.toast(ws_id, "Something went wrong handling that action.")
-                except Exception:
-                    pass
+                    msg = self._actions.get_nowait()
+                except queue.Empty:
+                    break
+                processed_any = True
+                try:
+                    self.app._lan_apply_action(msg)
+                except Exception as exc:
+                    ws_id = msg.get("_ws_id")
+                    error_details = traceback.format_exc()
+                    self.app._oplog(f"LAN action failed: {exc}\n{error_details}", level="warning")
+                    self._append_lan_log(f"LAN action failed: {exc}\n{error_details}", level="error")
+                    try:
+                        self.toast(ws_id, "Something went wrong handling that action.")
+                    except Exception:
+                        pass
 
-        # 2) broadcast snapshot if changed (polling-based, avoids wiring every hook)
-        snap = self.app._lan_snapshot()
-        self._cached_snapshot = snap
-        try:
-            self._cached_pcs = list(
-                self.app._lan_pcs() if hasattr(self.app, "_lan_pcs") else self.app._lan_claimable()
-            )
-        except Exception:
-            self._cached_pcs = []
-        grid = snap.get("grid", {}) if isinstance(snap, dict) else {}
-        if isinstance(grid, dict):
-            cols = grid.get("cols")
-            rows = grid.get("rows")
-            if self._grid_last_sent != (cols, rows):
-                self._grid_version += 1
-                self._grid_last_sent = (cols, rows)
-                self._broadcast_grid_update(grid)
-        prev_snap = self._last_snapshot or {}
-        if self._last_snapshot is None:
-            self._last_snapshot = copy.deepcopy(snap)
-        else:
-            turn_update = self._build_turn_update(prev_snap, snap)
-            if turn_update:
-                self._broadcast_payload({"type": "turn_update", **turn_update})
+            # 2) broadcast snapshot if changed (polling-based, avoids wiring every hook)
+            snap = self.app._lan_snapshot()
+            self._cached_snapshot = snap
+            try:
+                self._cached_pcs = list(
+                    self.app._lan_pcs() if hasattr(self.app, "_lan_pcs") else self.app._lan_claimable()
+                )
+            except Exception as exc:
+                self._cached_pcs = []
+                self._log_lan_exception("LAN cached PC snapshot failed", exc)
+            grid = snap.get("grid", {}) if isinstance(snap, dict) else {}
+            if isinstance(grid, dict):
+                cols = grid.get("cols")
+                rows = grid.get("rows")
+                if self._grid_last_sent != (cols, rows):
+                    self._grid_version += 1
+                    self._grid_last_sent = (cols, rows)
+                    self._broadcast_grid_update(grid)
+            prev_snap = self._last_snapshot or {}
+            if self._last_snapshot is None:
+                self._last_snapshot = copy.deepcopy(snap)
+            else:
+                turn_update = self._build_turn_update(prev_snap, snap)
+                if turn_update:
+                    self._broadcast_payload({"type": "turn_update", **turn_update})
 
-            units_snapshot, unit_updates = self._build_unit_updates(prev_snap, snap)
-            if units_snapshot is not None:
-                self._broadcast_payload({"type": "units_snapshot", "units": units_snapshot})
-            elif unit_updates:
-                self._broadcast_payload({"type": "unit_update", "updates": unit_updates})
+                units_snapshot, unit_updates = self._build_unit_updates(prev_snap, snap)
+                if units_snapshot is not None:
+                    self._broadcast_payload({"type": "units_snapshot", "units": units_snapshot})
+                elif unit_updates:
+                    self._broadcast_payload({"type": "unit_update", "updates": unit_updates})
 
-            terrain_patch = self._build_terrain_patch(prev_snap, snap)
-            if terrain_patch:
-                self._broadcast_payload({"type": "terrain_patch", **terrain_patch})
+                terrain_patch = self._build_terrain_patch(prev_snap, snap)
+                if terrain_patch:
+                    self._broadcast_payload({"type": "terrain_patch", **terrain_patch})
 
-            aoe_patch = self._build_aoe_patch(prev_snap, snap)
-            if aoe_patch:
-                self._broadcast_payload({"type": "aoe_patch", **aoe_patch})
+                aoe_patch = self._build_aoe_patch(prev_snap, snap)
+                if aoe_patch:
+                    self._broadcast_payload({"type": "aoe_patch", **aoe_patch})
 
-            self._last_snapshot = copy.deepcopy(snap)
+                self._last_snapshot = copy.deepcopy(snap)
 
-        try:
-            static_payload = self._static_data_payload()
-            static_json = json.dumps(static_payload, sort_keys=True, separators=(",", ":"))
-        except Exception:
-            static_payload = None
-            static_json = None
-        if static_payload is not None and static_json is not None:
-            if self._last_static_json is None:
-                self._last_static_json = static_json
-            elif static_json != self._last_static_json:
-                self._last_static_json = static_json
-                self._broadcast_payload({"type": "static_data", "data": static_payload})
-
-        # 3) continue polling
-        if self._polling:
-            self.app.after(120, self._tick)
+            try:
+                static_payload = self._static_data_payload()
+                static_json = json.dumps(static_payload, sort_keys=True, separators=(",", ":"))
+            except Exception as exc:
+                static_payload = None
+                static_json = None
+                self._log_lan_exception("LAN static payload build failed", exc)
+            if static_payload is not None and static_json is not None:
+                if self._last_static_json is None:
+                    self._last_static_json = static_json
+                elif static_json != self._last_static_json:
+                    self._last_static_json = static_json
+                    self._broadcast_payload({"type": "static_data", "data": static_payload})
+        except Exception as exc:
+            self._log_lan_exception("LAN tick error", exc)
+        finally:
+            # 3) continue polling
+            if self._polling:
+                self.app.after(120, self._tick)
 
     @staticmethod
     def _unit_lookup(units: Any) -> Dict[int, Dict[str, Any]]:
@@ -2389,14 +2471,15 @@ class LanController:
         coro = self._broadcast_payload_async(payload)
         try:
             asyncio.run_coroutine_threadsafe(coro, self._loop)
-        except Exception:
-            pass
+        except Exception as exc:
+            self._log_lan_exception("LAN payload broadcast scheduling failed", exc)
 
     async def _broadcast_state_async(self, snap: Dict[str, Any]) -> None:
         try:
             payload = self._json_dumps({"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()})
         except Exception as exc:
             self.app._oplog(f"LAN state broadcast serialization failed: {exc}", level="warning")
+            self._log_lan_exception("LAN state broadcast serialization failed", exc)
             return
         to_drop: List[int] = []
         with self._clients_lock:
@@ -2404,8 +2487,9 @@ class LanController:
         for ws_id, ws in items:
             try:
                 await ws.send_text(payload)
-            except Exception:
+            except Exception as exc:
                 to_drop.append(ws_id)
+                self._log_lan_exception(f"LAN state broadcast send failed ws_id={ws_id}", exc)
         if to_drop:
             with self._clients_lock:
                 for ws_id in to_drop:
@@ -2420,6 +2504,7 @@ class LanController:
             text = self._json_dumps(payload)
         except Exception as exc:
             self.app._oplog(f"LAN payload broadcast serialization failed: {exc}", level="warning")
+            self._log_lan_exception("LAN payload broadcast serialization failed", exc)
             return
         to_drop: List[int] = []
         with self._clients_lock:
@@ -2427,8 +2512,9 @@ class LanController:
         for ws_id, ws in items:
             try:
                 await ws.send_text(text)
-            except Exception:
+            except Exception as exc:
                 to_drop.append(ws_id)
+                self._log_lan_exception(f"LAN payload broadcast send failed ws_id={ws_id}", exc)
         if to_drop:
             with self._clients_lock:
                 for ws_id in to_drop:
@@ -2460,6 +2546,7 @@ class LanController:
             payload = self._json_dumps({"type": "grid_update", "grid": grid, "version": self._grid_version})
         except Exception as exc:
             self.app._oplog(f"LAN grid broadcast serialization failed: {exc}", level="warning")
+            self._log_lan_exception("LAN grid broadcast serialization failed", exc)
             return
         now = time.time()
         with self._clients_lock:
@@ -2469,9 +2556,10 @@ class LanController:
                 await ws.send_text(payload)
                 with self._clients_lock:
                     self._grid_pending[ws_id] = (self._grid_version, now)
-            except Exception:
+            except Exception as exc:
                 with self._clients_lock:
                     self._grid_pending.pop(ws_id, None)
+                self._log_lan_exception(f"LAN grid broadcast send failed ws_id={ws_id}", exc)
 
     async def _broadcast_terrain_update_async(self, terrain: Dict[str, Any]) -> None:
         try:
@@ -2480,6 +2568,7 @@ class LanController:
             )
         except Exception as exc:
             self.app._oplog(f"LAN terrain broadcast serialization failed: {exc}", level="warning")
+            self._log_lan_exception("LAN terrain broadcast serialization failed", exc)
             return
         now = time.time()
         with self._clients_lock:
@@ -2489,9 +2578,10 @@ class LanController:
                 await ws.send_text(payload)
                 with self._clients_lock:
                     self._terrain_pending[ws_id] = (self._terrain_version, now)
-            except Exception:
+            except Exception as exc:
                 with self._clients_lock:
                     self._terrain_pending.pop(ws_id, None)
+                self._log_lan_exception(f"LAN terrain broadcast send failed ws_id={ws_id}", exc)
 
     async def _send_grid_update_async(self, ws_id: int, grid: Dict[str, Any]) -> None:
         payload = self._json_dumps({"type": "grid_update", "grid": grid, "version": self._grid_version})
@@ -2505,9 +2595,10 @@ class LanController:
             await ws.send_text(payload)
             with self._clients_lock:
                 self._grid_pending[ws_id] = (self._grid_version, time.time())
-        except Exception:
+        except Exception as exc:
             with self._clients_lock:
                 self._grid_pending.pop(ws_id, None)
+            self._log_lan_exception(f"LAN grid update send failed ws_id={ws_id}", exc)
 
     async def _send_terrain_update_async(self, ws_id: int, terrain: Dict[str, Any]) -> None:
         payload = self._json_dumps({"type": "terrain_update", "terrain": terrain, "version": self._terrain_version})
@@ -2519,9 +2610,10 @@ class LanController:
             await ws.send_text(payload)
             with self._clients_lock:
                 self._terrain_pending[ws_id] = (self._terrain_version, time.time())
-        except Exception:
+        except Exception as exc:
             with self._clients_lock:
                 self._terrain_pending.pop(ws_id, None)
+            self._log_lan_exception(f"LAN terrain update send failed ws_id={ws_id}", exc)
 
     def _resend_grid_updates(self) -> None:
         if not self._loop or not self._grid_pending:
@@ -2635,17 +2727,29 @@ class LanController:
             return
         try:
             await ws.send_text(self._json_dumps(payload))
-        except Exception:
-            pass
+        except Exception as exc:
+            self._log_lan_exception(f"LAN send failed ws_id={ws_id}", exc)
 
     async def _send_full_state_async(self, ws_id: int) -> None:
-        await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
-        await self._send_terrain_update_async(ws_id, self._terrain_payload())
-        await self._send_async(ws_id, {"type": "static_data", "data": self._static_data_payload()})
-        await self._send_async(
-            ws_id,
-            {"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()},
-        )
+        try:
+            await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
+        except Exception as exc:
+            self._log_lan_exception(f"LAN full state grid send failed ws_id={ws_id}", exc)
+        try:
+            await self._send_terrain_update_async(ws_id, self._terrain_payload())
+        except Exception as exc:
+            self._log_lan_exception(f"LAN full state terrain send failed ws_id={ws_id}", exc)
+        try:
+            await self._send_async(ws_id, {"type": "static_data", "data": self._static_data_payload()})
+        except Exception as exc:
+            self._log_lan_exception(f"LAN full state static send failed ws_id={ws_id}", exc)
+        try:
+            await self._send_async(
+                ws_id,
+                {"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()},
+            )
+        except Exception as exc:
+            self._log_lan_exception(f"LAN full state send failed ws_id={ws_id}", exc)
 
     def _drop_claim(self, ws_id: int) -> Optional[int]:
         with self._clients_lock:
