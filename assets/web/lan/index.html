@@ -6223,11 +6223,12 @@ __DAMAGE_TYPE_OPTIONS__
       if (aoeMoveModeAid !== null && Number(aoeMoveModeAid) !== Number(aoeHit.aid)){
         clearAoeMoveMode();
       }
+      const shiftHeld = ev.shiftKey || shiftMoveMode;
       if (ev.pointerType === "touch"){
         aoeMoveModeAid = Number(aoeHit.aid);
         lastAoeTapAid = null;
         lastAoeTapAt = 0;
-      } else if (ev.shiftKey){
+      } else if (shiftHeld){
         aoeMoveModeAid = Number(aoeHit.aid);
         lastAoeTapAid = null;
         lastAoeTapAt = 0;
@@ -6315,7 +6316,8 @@ __DAMAGE_TYPE_OPTIONS__
       const g = screenToGridFloat(p.x, p.y);
       const aoe = state?.aoes?.find(a => Number(a.aid) === Number(draggingAoe.aid)) || null;
       const kind = aoe?.kind ? String(aoe.kind) : "";
-      if (ev.shiftKey && (kind === "line" || kind === "cone")){
+      const shiftHeld = ev.shiftKey || shiftMoveMode;
+      if (shiftHeld && (kind === "line" || kind === "cone")){
         let ax = Number(aoe?.ax);
         let ay = Number(aoe?.ay);
         if (!Number.isFinite(ax) || !Number.isFinite(ay)){
