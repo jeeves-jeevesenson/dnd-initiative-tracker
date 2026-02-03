@@ -1876,7 +1876,7 @@
       </fieldset>
       <div class="cast-menu-trigger" id="castMenuTrigger">
         <button class="btn" id="castOverlayOpen" type="button">Cast Spell</button>
-        <button class="btn" id="aoeMoveBtn" type="button" aria-label="Move selected spell on map">Spell Move</button>
+        <button class="btn" id="aoeMoveBtn" type="button">Spell Move</button>
       </div>
       </div>
     </div>
@@ -4282,7 +4282,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function queueAoeMoveMode(){
-    if (!selectedAoeId && selectedAoeId !== 0){
+    if (selectedAoeId === null || selectedAoeId === undefined){
       localToast("Select a spell first, matey.");
       return;
     }
