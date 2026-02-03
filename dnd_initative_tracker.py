@@ -6371,13 +6371,36 @@ class InitiativeTracker(base.InitiativeTracker):
         elif typ == "aoe_move":
             aid = msg.get("aid")
             to = msg.get("to") or {}
+            def _typed(value: Any) -> Dict[str, Any]:
+                return {"value": value, "type": type(value).__name__}
+
+            def _log_aoe_move(decision: str, extra: Optional[Dict[str, Any]] = None) -> None:
+                payload: Dict[str, Any] = {
+                    "event": "aoe_move_permission",
+                    "decision": decision,
+                    "claimedCid": _typed(claimed),
+                    "active_cid": _typed(getattr(self, "current_cid", None)),
+                    "in_combat": _typed(getattr(self, "in_combat", None)),
+                    "turn_enforced": not is_admin,
+                    "cid": _typed(cid),
+                    "aid": _typed(aid),
+                }
+                if extra:
+                    payload.update(extra)
+                try:
+                    self._append_lan_log(self._json_dumps(payload), level="info")
+                except Exception:
+                    pass
+
             if not isinstance(aid, int):
+                _log_aoe_move("reject_invalid_aid")
                 self._lan.toast(ws_id, "Pick a spell first, matey.")
                 return
             try:
                 cx = float(to.get("cx"))
                 cy = float(to.get("cy"))
             except Exception:
+                _log_aoe_move("reject_invalid_destination")
                 return
             def _to_float(value: Any) -> Optional[float]:
                 try:
@@ -6402,8 +6425,16 @@ class InitiativeTracker(base.InitiativeTracker):
                     mw_aoes[aid] = dict(d)
                     aoe_store = mw_aoes
             if not d:
+                _log_aoe_move("reject_missing_aoe")
                 return
             if bool(d.get("pinned")) and not is_admin:
+                _log_aoe_move(
+                    "reject_pinned",
+                    extra={
+                        "owner_cid": _typed(d.get("owner_cid")),
+                        "anchor_cid": _typed(d.get("anchor_cid")),
+                    },
+                )
                 self._lan.toast(ws_id, "That spell be pinned.")
                 return
             owner_cid = d.get("owner_cid")
@@ -6411,19 +6442,47 @@ class InitiativeTracker(base.InitiativeTracker):
             if not is_admin:
                 if owner_cid is not None:
                     if int(owner_cid) != int(cid):
+                        _log_aoe_move(
+                            "reject_owner_mismatch",
+                            extra={
+                                "owner_cid": _typed(owner_cid),
+                                "anchor_cid": _typed(anchor_cid),
+                            },
+                        )
                         self._lan.toast(ws_id, "That spell be not yers.")
                         return
                 elif anchor_cid is not None:
                     if int(anchor_cid) != int(cid):
+                        _log_aoe_move(
+                            "reject_anchor_mismatch",
+                            extra={
+                                "owner_cid": _typed(owner_cid),
+                                "anchor_cid": _typed(anchor_cid),
+                            },
+                        )
                         self._lan.toast(ws_id, "That spell be not yers.")
                         return
                 elif claimed is not None and int(claimed) != int(cid):
+                    _log_aoe_move(
+                        "reject_claimed_mismatch",
+                        extra={
+                            "owner_cid": _typed(owner_cid),
+                            "anchor_cid": _typed(anchor_cid),
+                        },
+                    )
                     self._lan.toast(ws_id, "That spell be not yers.")
                     return
             move_per_turn_ft = d.get("move_per_turn_ft")
             move_remaining_ft = d.get("move_remaining_ft")
             if not is_admin:
                 if self.current_cid is None or int(self.current_cid) != int(cid):
+                    _log_aoe_move(
+                        "reject_not_turn",
+                        extra={
+                            "owner_cid": _typed(owner_cid),
+                            "anchor_cid": _typed(anchor_cid),
+                        },
+                    )
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
                     return
                 if move_per_turn_ft not in (None, ""):
@@ -6432,6 +6491,14 @@ class InitiativeTracker(base.InitiativeTracker):
                     except Exception:
                         move_limit = None
                     if move_limit is None or move_limit <= 0:
+                        _log_aoe_move(
+                            "reject_move_not_allowed",
+                            extra={
+                                "owner_cid": _typed(owner_cid),
+                                "anchor_cid": _typed(anchor_cid),
+                                "move_per_turn_ft": move_per_turn_ft,
+                            },
+                        )
                         self._lan.toast(ws_id, "That spell can't move this turn.")
                         return
                     try:
@@ -6448,9 +6515,25 @@ class InitiativeTracker(base.InitiativeTracker):
                     dy = float(cy) - float(d.get("cy") or 0.0)
                     dist_ft = (dx * dx + dy * dy) ** 0.5 * feet_per_square
                     if dist_ft > remaining + 0.01:
+                        _log_aoe_move(
+                            "reject_move_distance",
+                            extra={
+                                "owner_cid": _typed(owner_cid),
+                                "anchor_cid": _typed(anchor_cid),
+                                "move_remaining_ft": remaining,
+                                "move_distance_ft": dist_ft,
+                            },
+                        )
                         self._lan.toast(ws_id, f"That spell can only move {remaining:.1f} ft this turn.")
                         return
                     d["move_remaining_ft"] = max(0.0, float(remaining) - dist_ft)
+            _log_aoe_move(
+                "allow",
+                extra={
+                    "owner_cid": _typed(owner_cid),
+                    "anchor_cid": _typed(anchor_cid),
+                },
+            )
             try:
                 if map_ready:
                     cols = int(getattr(mw, "cols", 0))
