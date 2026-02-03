@@ -6379,9 +6379,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 cy = float(to.get("cy"))
             except Exception:
                 return
-            def _to_number(value: Any, convert: Callable[[Any], Any]) -> Optional[Union[int, float]]:
+            def _to_number(value: Any, converter: Callable[[Any], Any]) -> Optional[Union[int, float]]:
                 try:
-                    return convert(value)
+                    return converter(value)
                 except (TypeError, ValueError):
                     return None
             angle_deg = _to_number(to.get("angle_deg"), float)
@@ -6414,6 +6414,8 @@ class InitiativeTracker(base.InitiativeTracker):
             anchor_cid_int = _to_number(anchor_cid, int)
             active_cid = self.current_cid
             active_cid_int = _to_number(active_cid, int)
+            def _cid_matches(expected: Optional[int], actual: Optional[int]) -> bool:
+                return expected is not None and actual is not None and expected == actual
             def _log_aoe_move_reject(reason: str) -> None:
                 def _cid_debug(value: Any) -> str:
                     return f"{value!r}({type(value).__name__})"
@@ -6426,23 +6428,23 @@ class InitiativeTracker(base.InitiativeTracker):
                 )
             if not is_admin:
                 if owner_cid is not None:
-                    if owner_cid_int is None or cid_int is None or owner_cid_int != cid_int:
+                    if not _cid_matches(owner_cid_int, cid_int):
                         _log_aoe_move_reject("owner_mismatch")
                         self._lan.toast(ws_id, "That spell be not yers.")
                         return
                 elif anchor_cid is not None:
-                    if anchor_cid_int is None or cid_int is None or anchor_cid_int != cid_int:
+                    if not _cid_matches(anchor_cid_int, cid_int):
                         _log_aoe_move_reject("anchor_mismatch")
                         self._lan.toast(ws_id, "That spell be not yers.")
                         return
-                elif claimed is not None and (claimed_int is None or cid_int is None or claimed_int != cid_int):
+                elif claimed is not None and not _cid_matches(claimed_int, cid_int):
                     _log_aoe_move_reject("claim_mismatch")
                     self._lan.toast(ws_id, "That spell be not yers.")
                     return
             move_per_turn_ft = d.get("move_per_turn_ft")
             move_remaining_ft = d.get("move_remaining_ft")
             if not is_admin:
-                if active_cid_int is not None and (cid_int is None or active_cid_int != cid_int):
+                if active_cid_int is not None and not _cid_matches(active_cid_int, cid_int):
                     _log_aoe_move_reject("turn_mismatch")
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
                     return
