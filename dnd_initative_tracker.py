@@ -4073,6 +4073,12 @@ class InitiativeTracker(base.InitiativeTracker):
                         )
                         if angle_deg is not None:
                             payload["angle_deg"] = angle_deg
+                    if d.get("spread_deg") is not None:
+                        spread_deg = _finite_float(
+                            d.get("spread_deg"), aid_int, name, kind, "spread_deg", skip_invalid=True
+                        )
+                        if spread_deg is not None:
+                            payload["spread_deg"] = spread_deg
                     if d.get("length_ft") is not None:
                         length_ft = _finite_float(
                             d.get("length_ft"), aid_int, name, kind, "length_ft", skip_invalid=True
@@ -6370,6 +6376,15 @@ class InitiativeTracker(base.InitiativeTracker):
                 cy = float(to.get("cy"))
             except Exception:
                 return
+            def _to_float(value: Any) -> Optional[float]:
+                try:
+                    return float(value)
+                except Exception:
+                    return None
+            angle_deg = _to_float(to.get("angle_deg"))
+            ax = _to_float(to.get("ax"))
+            ay = _to_float(to.get("ay"))
+            spread_deg = _to_float(to.get("spread_deg"))
             mw = getattr(self, "_map_window", None)
             map_ready = mw is not None and mw.winfo_exists()
             aoe_store = getattr(mw, "aoes", {}) if map_ready else (getattr(self, "_lan_aoes", {}) or {})
@@ -6436,8 +6451,22 @@ class InitiativeTracker(base.InitiativeTracker):
             if cols and rows:
                 cx = max(0.0, min(cx, cols - 1))
                 cy = max(0.0, min(cy, rows - 1))
+                if ax is not None:
+                    ax = max(0.0, min(ax, cols - 1))
+                if ay is not None:
+                    ay = max(0.0, min(ay, rows - 1))
             d["cx"] = float(cx)
             d["cy"] = float(cy)
+            kind = str(d.get("kind") or "")
+            if kind in ("line", "cone"):
+                if angle_deg is not None:
+                    d["angle_deg"] = float(angle_deg)
+                if ax is not None:
+                    d["ax"] = float(ax)
+                if ay is not None:
+                    d["ay"] = float(ay)
+                if kind == "cone" and spread_deg is not None:
+                    d["spread_deg"] = float(spread_deg)
             try:
                 if map_ready and hasattr(mw, "_layout_aoe"):
                     mw._layout_aoe(aid)

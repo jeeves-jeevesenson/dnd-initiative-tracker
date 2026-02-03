@@ -7421,13 +7421,20 @@ class BattleMapWindow(tk.Toplevel):
             self.canvas.coords(int(d["shape"]), p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], p4[0], p4[1])
         elif kind == "cone":
             length_px = float(d["length_sq"]) * self.cell
-            spread_deg = d.get("angle_deg")
+            spread_deg = d.get("spread_deg")
+            has_spread = spread_deg is not None
+            if spread_deg is None:
+                spread_deg = d.get("angle_deg")
             if spread_deg is None:
                 spread_deg = 90.0
             else:
                 spread_deg = float(spread_deg)
             orient = str(d.get("orient") or "vertical")
             heading_deg = 0.0 if orient == "horizontal" else -90.0
+            if has_spread:
+                angle = d.get("angle_deg")
+                if angle is not None:
+                    heading_deg = float(angle)
             start = heading_deg - (spread_deg / 2.0)
             self.canvas.coords(int(d["shape"]), x - length_px, y - length_px, x + length_px, y + length_px)
             try:
@@ -8296,7 +8303,7 @@ class BattleMapWindow(tk.Toplevel):
                 return
             kind = str(d.get("kind") or "")
             shift_held = bool(event.state & 0x0001)
-            if kind == "line" and shift_held:
+            if kind in ("line", "cone") and shift_held:
                 anchor = self._resolve_aoe_anchor(d)
                 if anchor is not None:
                     ax, ay = anchor
@@ -8309,15 +8316,24 @@ class BattleMapWindow(tk.Toplevel):
                 dy = y - ay_px
                 if abs(dx) + abs(dy) < 0.01:
                     return
+                if kind == "cone" and d.get("spread_deg") is None:
+                    spread = d.get("angle_deg")
+                    if spread is not None:
+                        d["spread_deg"] = float(spread)
                 angle = math.degrees(math.atan2(dy, dx))
                 d["angle_deg"] = angle
                 length_sq = float(d.get("length_sq") or 0.0)
                 half_len = length_sq / 2.0
                 rad = math.radians(angle)
-                cx = ax + math.cos(rad) * half_len
-                cy = ay + math.sin(rad) * half_len
+                cx = ax
+                cy = ay
+                if kind == "line":
+                    cx = ax + math.cos(rad) * half_len
+                    cy = ay + math.sin(rad) * half_len
                 cx = max(0.0, min(float(self.cols - 1), cx))
                 cy = max(0.0, min(float(self.rows - 1), cy))
+                d["ax"] = ax
+                d["ay"] = ay
                 d["cx"] = cx
                 d["cy"] = cy
             else:
@@ -9265,13 +9281,20 @@ class BattleMapWindow(tk.Toplevel):
                     included.append(cid)
         elif kind == "cone":
             length_px = float(d.get("length_sq") or 0.0) * self.cell
-            spread_deg = d.get("angle_deg")
+            spread_deg = d.get("spread_deg")
+            has_spread = spread_deg is not None
+            if spread_deg is None:
+                spread_deg = d.get("angle_deg")
             if spread_deg is None:
                 spread_deg = 90.0
             else:
                 spread_deg = float(spread_deg)
             orient = str(d.get("orient") or "vertical")
             heading_deg = 0.0 if orient == "horizontal" else -90.0
+            if has_spread:
+                angle = d.get("angle_deg")
+                if angle is not None:
+                    heading_deg = float(angle)
             heading_rad = math.radians(heading_deg)
             half_spread = math.radians(spread_deg / 2.0)
             for cid, tok in self.unit_tokens.items():
