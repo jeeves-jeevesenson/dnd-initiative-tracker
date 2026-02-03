@@ -6415,6 +6415,7 @@ class BattleMapWindow(tk.Toplevel):
             except Exception:
                 pass
 
+        self._raise_aoe_overlays()
         self._refresh_groups_panel()
 
     def _labels_overlap(self, a: Tuple[int, int, int, int], b: Tuple[int, int, int, int]) -> bool:
@@ -7349,6 +7350,14 @@ class BattleMapWindow(tk.Toplevel):
             self.canvas.coords(int(d["shape"]), x - half, y - half, x + half, y + half)
 
         self.canvas.coords(int(d["label"]), x, y)
+        self._raise_aoe_overlays()
+
+    def _raise_aoe_overlays(self) -> None:
+        for aid in list(self.aoes.keys()):
+            try:
+                self.canvas.tag_raise(f"aoe:{aid}")
+            except Exception:
+                pass
 
     def _spell_aoe_presets(self) -> List[Dict[str, Any]]:
         app = getattr(self, "app", None)
