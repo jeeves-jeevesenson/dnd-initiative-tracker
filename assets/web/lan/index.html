@@ -1860,7 +1860,7 @@
         <div class="chip" id="bonusAction">Bonus Action: —</div>
         <div class="chip" id="reaction">Reaction: —</div>
         <div class="chip" id="turn">Turn: —</div>
-        <div class="chip" id="note">Tip: drag yer token</div>
+        <div class="chip" id="note">Tip: drag yer token · drag AoE with left-click or touch-hold</div>
         <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
       </div>
       <fieldset class="turn-alerts-panel" id="turnAlertsPanel">
@@ -2776,6 +2776,7 @@ __DAMAGE_TYPE_OPTIONS__
   let dragging = null; // {cid, startX, startY, origCol, origRow}
   let aoeDragging = null; // {aid, offsetCol, offsetRow}
   let aoeDragPreview = null; // {aid, cx, cy}
+  let aoeDragPending = null; // {pointerId, aid, offsetCol, offsetRow, centerCol, centerRow, startX, startY, timerId}
   let panning = null;  // {x,y, panX, panY}
   let shiftMoveMode = false;
   const isShiftKey = (event) => (
@@ -4147,7 +4148,7 @@ __DAMAGE_TYPE_OPTIONS__
   function localToast(text){
     if (!noteEl) return;
     noteEl.textContent = text || "…";
-    setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
+    setTimeout(() => noteEl.textContent = "Tip: drag yer token · drag AoE with left-click or touch-hold", 2500);
   }
 
   const DEFAULT_SPELL_COLOR = "#6aa9ff";
@@ -5958,7 +5959,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
         updateHud();
         noteEl.textContent = msg.text || "Assigned by the DM.";
-        setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
+        setTimeout(() => noteEl.textContent = "Tip: drag yer token · drag AoE with left-click or touch-hold", 2500);
         refreshTurnAlertStatus();
       } else if (msg.type === "force_unclaim"){
         if (isMapView) return;
@@ -5970,7 +5971,7 @@ __DAMAGE_TYPE_OPTIONS__
         refreshTurnAlertStatus();
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
-        setTimeout(() => noteEl.textContent = "Tip: drag yer token", 2500);
+        setTimeout(() => noteEl.textContent = "Tip: drag yer token · drag AoE with left-click or touch-hold", 2500);
       } else if (msg.type === "battle_log"){
         if (logContent){
           const lines = Array.isArray(msg.lines) ? msg.lines : [];
@@ -6114,6 +6115,8 @@ __DAMAGE_TYPE_OPTIONS__
 
   const activePointers = new Map();
   let pinchState = null;
+  const AOE_TOUCH_HOLD_MS = 320;
+  const AOE_TOUCH_MOVE_THRESHOLD = 8;
 
   function enforceLoginGate(){
     return false;
@@ -6141,6 +6144,25 @@ __DAMAGE_TYPE_OPTIONS__
     zoomAt(pinchState.startZoom * scale, midX, midY);
   }
 
+  function clearAoeDragPending(){
+    if (aoeDragPending?.timerId){
+      clearTimeout(aoeDragPending.timerId);
+    }
+    aoeDragPending = null;
+  }
+
+  function beginAoeDrag({aid, offsetCol, offsetRow, centerCol, centerRow}){
+    aoeDragging = {aid, offsetCol, offsetRow};
+    aoeDragPreview = {aid, cx: centerCol, cy: centerRow};
+  }
+
+  function activateAoeDragPending(){
+    if (!aoeDragPending) return;
+    const pending = aoeDragPending;
+    clearAoeDragPending();
+    beginAoeDrag(pending);
+  }
+
   canvas.addEventListener("pointerdown", (ev) => {
     if (enforceLoginGate()) return;
     setTokenTooltip(null);
@@ -6150,6 +6172,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (activePointers.size >= 2){
       dragging = null;
       panning = null;
+      clearAoeDragPending();
       startPinch();
       return;
     }
@@ -6157,19 +6180,37 @@ __DAMAGE_TYPE_OPTIONS__
       setMeasurementPoint(p);
       return;
     }
-    if (ev.pointerType === "mouse" && ev.button === 1 && !isMapView){
+    const isTouchPointer = ev.pointerType === "touch";
+    const isAoeDragMouse = ev.pointerType === "mouse" && (ev.button === 0 || ev.button === 1);
+    if ((isAoeDragMouse || isTouchPointer) && !isMapView){
       const hitAoe = hitTestAoe(p);
       if (hitAoe){
         ev.preventDefault();
         const gridPos = screenToGridFloat(p.x, p.y);
         const centerCol = Number(hitAoe.cx ?? 0);
         const centerRow = Number(hitAoe.cy ?? 0);
-        aoeDragging = {
+        const pendingPayload = {
+          pointerId: ev.pointerId,
           aid: Number(hitAoe.aid),
           offsetCol: gridPos.col - centerCol,
           offsetRow: gridPos.row - centerRow,
+          centerCol,
+          centerRow,
+          startX: p.x,
+          startY: p.y,
         };
-        aoeDragPreview = {aid: Number(hitAoe.aid), cx: centerCol, cy: centerRow};
+        clearAoeDragPending();
+        if (isTouchPointer){
+          aoeDragPending = {
+            ...pendingPayload,
+            timerId: setTimeout(() => {
+              if (aoeDragPending?.pointerId !== ev.pointerId) return;
+              activateAoeDragPending();
+            }, AOE_TOUCH_HOLD_MS),
+          };
+        } else {
+          beginAoeDrag(pendingPayload);
+        }
         return;
       }
     }
@@ -6209,6 +6250,16 @@ __DAMAGE_TYPE_OPTIONS__
     const p = pointerPos(ev);
     if (activePointers.has(ev.pointerId)){
       activePointers.set(ev.pointerId, p);
+    }
+    if (aoeDragPending && aoeDragPending.pointerId === ev.pointerId){
+      const dx = p.x - aoeDragPending.startX;
+      const dy = p.y - aoeDragPending.startY;
+      if (Math.hypot(dx, dy) >= AOE_TOUCH_MOVE_THRESHOLD){
+        activateAoeDragPending();
+      } else {
+        setTokenTooltip(null);
+        return;
+      }
     }
     if (pinchState && activePointers.size >= 2){
       updatePinch();
@@ -6272,6 +6323,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (activePointers.size < 2){
       pinchState = null;
     }
+    if (aoeDragPending?.pointerId === ev.pointerId){
+      clearAoeDragPending();
+    }
     setTokenTooltip(null);
     if (aoeDragging){
       const gridPos = screenToGridFloat(p.x, p.y);
@@ -6296,6 +6350,9 @@ __DAMAGE_TYPE_OPTIONS__
     activePointers.delete(ev.pointerId);
     if (activePointers.size < 2){
       pinchState = null;
+    }
+    if (aoeDragPending?.pointerId === ev.pointerId){
+      clearAoeDragPending();
     }
     if (aoeDragging){
       aoeDragging = null;
