@@ -2742,6 +2742,7 @@ __DAMAGE_TYPE_OPTIONS__
   const aoeDragOverrides = new Map(); // aid -> {cx, cy}
   let selectedAoeId = null;
   let panning = null;  // {x,y, panX, panY}
+  let shiftMoveMode = false;
   let centeredCid = null;
   let initialCenterDone = false;
   let initialCenterFallback = false;
@@ -6276,6 +6277,9 @@ __DAMAGE_TYPE_OPTIONS__
     setSelectedAoe(null);
     clearAoeMoveMode();
     // else pan (if map not locked)
+    if (shiftMoveMode){
+      return;
+    }
     if (!lockMap){
       panning = {x: p.x, y: p.y, panX, panY};
     }
@@ -8959,6 +8963,16 @@ __DAMAGE_TYPE_OPTIONS__
       closeConnPopover();
       closeAdminMenu();
       hideAdminModal();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Shift"){
+      shiftMoveMode = true;
+    }
+  });
+  document.addEventListener("keyup", (event) => {
+    if (event.key === "Shift"){
+      shiftMoveMode = false;
     }
   });
   if (toggleTopbarTitle){
