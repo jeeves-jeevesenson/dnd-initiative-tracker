@@ -7987,13 +7987,47 @@ class BattleMapWindow(tk.Toplevel):
 
             if t.startswith("aoe:"):
                 aid = int(t.split(":", 1)[1])
-                self._selected_aoe = aid
-                self._refresh_aoe_list(select=aid)
+                self._begin_aoe_drag(aid, mx, my)
                 return
 
         self._drag_kind = None
         self._drag_id = None
         self._drag_origin_cell = None
+
+    def _begin_aoe_drag(self, aid: int, mx: float, my: float) -> None:
+        if bool(self.aoes.get(aid, {}).get("pinned")):
+            self._selected_aoe = aid
+            self._refresh_aoe_list(select=aid)
+            return
+        d = self.aoes.get(aid)
+        if not d:
+            return
+        owner_cid = d.get("owner_cid")
+        active_cid = getattr(self, "_active_cid", None)
+        if owner_cid is not None and active_cid is not None and int(owner_cid) != int(active_cid):
+            if hasattr(self, "app"):
+                try:
+                    owner_combatant = self.app.combatants.get(int(owner_cid))
+                    name = owner_combatant.name if owner_combatant else None
+                except Exception:
+                    name = None
+                if name:
+                    try:
+                        self.app._log(f"{name} owns that spell. Wait for their turn.")
+                    except Exception:
+                        pass
+            return
+        if owner_cid is not None and active_cid is None:
+            return
+        if owner_cid is None and active_cid is not None:
+            return
+        self._drag_kind = "aoe"
+        self._drag_id = aid
+        cx = self.x0 + (float(d["cx"]) + 0.5) * self.cell
+        cy = self.y0 + (float(d["cy"]) + 0.5) * self.cell
+        self._drag_offset = (cx - mx, cy - my)
+        self._selected_aoe = aid
+        self._refresh_aoe_list(select=aid)
 
     def _begin_unit_drag(self, cid: int, mx: float, my: float) -> None:
         self._drag_kind = "unit"
@@ -8295,39 +8329,7 @@ class BattleMapWindow(tk.Toplevel):
             if not t.startswith("aoe:"):
                 continue
             aid = int(t.split(":", 1)[1])
-            if bool(self.aoes.get(aid, {}).get("pinned")):
-                self._selected_aoe = aid
-                self._refresh_aoe_list(select=aid)
-                return
-            d = self.aoes.get(aid)
-            if not d:
-                return
-            owner_cid = d.get("owner_cid")
-            active_cid = getattr(self, "_active_cid", None)
-            if owner_cid is not None and active_cid is not None and int(owner_cid) != int(active_cid):
-                if hasattr(self, "app"):
-                    try:
-                        owner_combatant = self.app.combatants.get(int(owner_cid))
-                        name = owner_combatant.name if owner_combatant else None
-                    except Exception:
-                        name = None
-                    if name:
-                        try:
-                            self.app._log(f"{name} owns that spell. Wait for their turn.")
-                        except Exception:
-                            pass
-                return
-            if owner_cid is not None and active_cid is None:
-                return
-            if owner_cid is None and active_cid is not None:
-                return
-            self._drag_kind = "aoe"
-            self._drag_id = aid
-            cx = self.x0 + (float(d["cx"]) + 0.5) * self.cell
-            cy = self.y0 + (float(d["cy"]) + 0.5) * self.cell
-            self._drag_offset = (cx - mx, cy - my)
-            self._selected_aoe = aid
-            self._refresh_aoe_list(select=aid)
+            self._begin_aoe_drag(aid, mx, my)
             return
 
     # ---------------- Measurement ----------------
