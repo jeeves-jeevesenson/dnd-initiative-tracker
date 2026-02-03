@@ -1514,6 +1514,7 @@
       </div>
     </div>
     <div class="spacer"></div>
+    <button class="btn" id="planningBtn" type="button">Planning Mode</button>
     <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
     <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
     <div class="topbar-controls">
@@ -2638,6 +2639,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castFilterListInput = document.getElementById("castFilterList");
   const castPresetInput = document.getElementById("castPreset");
   const castManualEntryBadge = document.getElementById("castManualEntryBadge");
+  const planningBtn = document.getElementById("planningBtn");
   const spellLibraryBtn = document.getElementById("spellLibraryBtn");
   const spellLibraryOverlay = document.getElementById("spellLibraryOverlay");
   const spellLibraryCloseBtn = document.getElementById("spellLibraryClose");
@@ -2852,6 +2854,7 @@ __DAMAGE_TYPE_OPTIONS__
   if (document.body){
     document.body.classList.toggle("map-view", isMapView);
     document.body.classList.toggle("map-view-only", isMapView);
+    document.body.classList.toggle("planning-view", isPlanning);
   }
   if (iosInstallHint){
     const showHint = isIOS && isSafariEngine && !isAltBrowser && !isStandalone;
@@ -8454,6 +8457,16 @@ __DAMAGE_TYPE_OPTIONS__
       }
       showConfigModal();
     });
+  }
+  if (planningBtn){
+    planningBtn.classList.toggle("hidden", isPlanning);
+    planningBtn.disabled = isPlanning;
+    planningBtn.setAttribute("aria-disabled", isPlanning ? "true" : "false");
+    if (!isPlanning){
+      planningBtn.addEventListener("click", () => {
+        window.open("https://exampledndpage.dev:8787/planning", "_blank", "noopener,noreferrer");
+      });
+    }
   }
   if (configCloseBtn){
     configCloseBtn.addEventListener("click", () => {
