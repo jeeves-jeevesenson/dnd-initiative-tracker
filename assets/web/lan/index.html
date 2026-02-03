@@ -2235,6 +2235,45 @@ __DAMAGE_TYPE_OPTIONS__
   const turnAlertStorageKey = "inittracker_turnAlertSubscription";
   const turnAlertHideKey = "inittracker_hideTurnAlerts";
   let swRegistration = null;
+  const cidWarningCache = new Set();
+  const warnCid = (context, value, reason) => {
+    const key = `${context}:${reason}`;
+    if (cidWarningCache.has(key)) return;
+    cidWarningCache.add(key);
+    console.warn(`[CID normalize] ${context}: ${reason}`, {value});
+  };
+  const normalizeCid = (value, context = "cid") => {
+    if (value === null || value === undefined || value === "") return null;
+    if (typeof value === "number"){
+      if (!Number.isFinite(value)){
+        warnCid(context, value, "non-finite number");
+        return null;
+      }
+      if (!Number.isInteger(value)){
+        warnCid(context, value, "non-integer number");
+        return null;
+      }
+      return value;
+    }
+    if (typeof value === "string"){
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const parsed = Number(trimmed);
+      if (!Number.isFinite(parsed) || !Number.isInteger(parsed)){
+        warnCid(context, value, "unusable string");
+        return null;
+      }
+      warnCid(context, value, "coerced string to number");
+      return parsed;
+    }
+    warnCid(context, value, `unsupported ${typeof value}`);
+    return null;
+  };
+  const cidMatches = (left, right, context = "cidMatch") => {
+    const leftCid = normalizeCid(left, `${context}.left`);
+    const rightCid = normalizeCid(right, `${context}.right`);
+    return leftCid !== null && rightCid !== null && leftCid === rightCid;
+  };
 
   function setNotificationStatus(message){
     if (!notificationStatus) return;
@@ -2251,7 +2290,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function getTurnAlertIdentity(){
-    const playerId = claimedCid !== null && claimedCid !== undefined ? Number(claimedCid) : null;
+    const playerId = normalizeCid(claimedCid, "turnAlert.playerId");
     const claimedUnit = getClaimedUnit();
     const playerName = claimedUnit?.name ? String(claimedUnit.name) : "";
     return {
@@ -2716,6 +2755,7 @@ __DAMAGE_TYPE_OPTIONS__
   let reconnectTimer = null;
   let reconnecting = false;
   let claimedCid = null;
+  claimedCid = normalizeCid(claimedCid, "init.claimedCid");
   let shownNoOwnedToast = false;
   let pendingClaim = null;
   let lastPcList = [];
@@ -4551,12 +4591,14 @@ __DAMAGE_TYPE_OPTIONS__
 
   function getClaimedUnit(){
     if (!state || !state.units || claimedCid === null) return null;
-    return state.units.find(u => Number(u.cid) === Number(claimedCid)) || null;
+    return state.units.find(u => cidMatches(u.cid, claimedCid, "claimedUnit")) || null;
   }
 
   function getUnitByCid(cid){
     if (!state || !state.units) return null;
-    return state.units.find(u => Number(u.cid) === Number(cid)) || null;
+    const cidValue = normalizeCid(cid, "getUnitByCid.cid");
+    if (cidValue === null) return null;
+    return state.units.find(u => cidMatches(u.cid, cidValue, "getUnitByCid.unitCid")) || null;
   }
 
   function isUnitSpellcaster(unit){
@@ -4888,9 +4930,9 @@ __DAMAGE_TYPE_OPTIONS__
     // movement range (claimed token)
     const isMyTurn = claimedCid != null
       && state.active_cid != null
-      && Number(state.active_cid) === Number(claimedCid);
+      && cidMatches(state.active_cid, claimedCid, "movementRange.activeCid");
     if (isMyTurn && state.units){
-      const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
+      const me = state.units.find(u => cidMatches(u.cid, claimedCid, "movementRange.unitCid"));
       if (me){
         const move = Math.max(0, Number(me.move_remaining || 0));
         const feet = Math.max(1, Number(state.grid.feet_per_square || 5));
@@ -5139,8 +5181,8 @@ __DAMAGE_TYPE_OPTIONS__
     tokens.forEach(u => {
       const {x,y} = gridToScreen(u.pos.col,u.pos.row);
       const r = Math.max(10, zoom*0.35);
-      const active = (state.active_cid !== null && Number(state.active_cid) === Number(u.cid));
-      const mine = (claimedCid && Number(claimedCid) === Number(u.cid));
+      const active = (state.active_cid !== null && cidMatches(state.active_cid, u.cid, "token.activeCid"));
+      const mine = (claimedCid != null && cidMatches(claimedCid, u.cid, "token.claimedCid"));
       ctx.beginPath();
       ctx.arc(x,y,r,0,Math.PI*2);
 
@@ -5188,7 +5230,7 @@ __DAMAGE_TYPE_OPTIONS__
       } else {
         label = arr[0].name;
       }
-      const isActive = arr.some(a => state.active_cid !== null && Number(state.active_cid) === Number(a.cid));
+      const isActive = arr.some(a => state.active_cid !== null && cidMatches(state.active_cid, a.cid, "label.activeCid"));
       labelEntries.push({label, x, y: y - labelOffset, isActive});
     });
     labelEntries.sort((a, b) => Number(a.isActive) - Number(b.isActive));
@@ -5264,7 +5306,7 @@ __DAMAGE_TYPE_OPTIONS__
   function centerOnClaimed(){
     if (!state || !state.units || claimedCid === null || claimedCid === undefined) return false;
     if (!gridReady()) return false;
-    const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
+    const me = state.units.find(u => cidMatches(u.cid, claimedCid, "centerOnClaimed"));
     if (!me) return false;
     const ok = centerOnPoint(me.pos.col, me.pos.row);
     if (ok){
@@ -5374,24 +5416,28 @@ __DAMAGE_TYPE_OPTIONS__
       }
       return;
     }
-    const activeCid = state?.active_cid;
-    const activeIndex = (activeCid === null || activeCid === undefined)
+    const activeCid = normalizeCid(state?.active_cid, "turnOrder.activeCid");
+    const activeIndex = activeCid === null
       ? -1
-      : order.findIndex(cid => Number(cid) === Number(activeCid));
+      : order.findIndex(cid => cidMatches(cid, activeCid, "turnOrder.activeIndex"));
     const claimedIndex = (claimedCid === null || claimedCid === undefined)
       ? -1
-      : order.findIndex(cid => Number(cid) === Number(claimedCid));
+      : order.findIndex(cid => cidMatches(cid, claimedCid, "turnOrder.claimedIndex"));
     const unitsByCid = new Map();
     if (Array.isArray(state?.units)){
       state.units.forEach((unit) => {
         if (unit && unit.cid !== undefined && unit.cid !== null){
-          unitsByCid.set(Number(unit.cid), unit);
+          const unitCid = normalizeCid(unit.cid, "turnOrder.unitCid");
+          if (unitCid !== null){
+            unitsByCid.set(unitCid, unit);
+          }
         }
       });
     }
     const chipByCid = new Map();
     order.forEach((cid, idx) => {
-      const unit = unitsByCid.get(Number(cid));
+      const cidValue = normalizeCid(cid, "turnOrder.orderCid");
+      const unit = cidValue !== null ? unitsByCid.get(cidValue) : undefined;
       const chip = document.createElement("div");
       chip.className = "turn-chip";
       const role = String(unit?.role || "enemy");
@@ -5433,46 +5479,52 @@ __DAMAGE_TYPE_OPTIONS__
       nameEl.setAttribute("title", unitName);
       chip.appendChild(nameEl);
       chip.addEventListener("click", () => {
-        setSelectedTurnCid(Number(cid));
+        if (cidValue === null) return;
+        setSelectedTurnCid(cidValue);
       });
       chip.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter" || ev.key === " "){
           ev.preventDefault();
-          setSelectedTurnCid(Number(cid));
+          if (cidValue === null) return;
+          setSelectedTurnCid(cidValue);
         }
       });
       chip.addEventListener("mouseenter", () => {
-        hoveredTurnCid = Number(cid);
+        if (cidValue === null) return;
+        hoveredTurnCid = cidValue;
         showTurnOrderBubble(chip, unit);
       });
       chip.addEventListener("mouseleave", () => {
-        if (hoveredTurnCid === Number(cid)){
+        if (cidValue !== null && hoveredTurnCid === cidValue){
           hoveredTurnCid = null;
         }
-        if (selectedTurnCid !== null && chipByCid.has(Number(selectedTurnCid))){
-          const selectedChip = chipByCid.get(Number(selectedTurnCid));
-          const selectedUnit = unitsByCid.get(Number(selectedTurnCid));
+        if (selectedTurnCid !== null && chipByCid.has(selectedTurnCid)){
+          const selectedChip = chipByCid.get(selectedTurnCid);
+          const selectedUnit = unitsByCid.get(selectedTurnCid);
           showTurnOrderBubble(selectedChip, selectedUnit);
         } else {
           showTurnOrderBubble(null, null);
         }
       });
       activeTurnOrderEl.appendChild(chip);
-      chipByCid.set(Number(cid), chip);
+      if (cidValue !== null){
+        chipByCid.set(cidValue, chip);
+      }
     });
     const setSelectedTurnCid = (cid) => {
       selectedTurnCid = cid;
       chipByCid.forEach((chip, key) => {
-        chip.classList.toggle("selected", Number(key) === Number(cid));
+        chip.classList.toggle("selected", key === cid);
       });
       if (hoveredTurnCid === null){
-        showTurnOrderBubble(chipByCid.get(Number(cid)), unitsByCid.get(Number(cid)));
+        showTurnOrderBubble(chipByCid.get(cid), unitsByCid.get(cid));
       }
     };
-    const claimedUnit = claimedIndex >= 0 ? unitsByCid.get(Number(claimedCid)) : null;
+    const claimedUnit = (claimedIndex >= 0 && claimedCid != null) ? unitsByCid.get(claimedCid) : null;
     if (activeTurnOrderStatusEl){
       if (isMapView){
-        const activeUnit = activeIndex >= 0 ? unitsByCid.get(Number(order[activeIndex])) : null;
+        const activeOrderCid = activeIndex >= 0 ? normalizeCid(order[activeIndex], "turnOrder.mapViewActiveCid") : null;
+        const activeUnit = activeOrderCid !== null ? unitsByCid.get(activeOrderCid) : null;
         const roundLabel = Number.isFinite(Number(state?.round_num)) ? `Round ${state.round_num}` : "";
         const activeLabel = activeUnit?.name ? `Active: ${activeUnit.name}` : "Active: —";
         activeTurnOrderStatusEl.textContent = roundLabel ? `${roundLabel} · ${activeLabel}` : activeLabel;
@@ -5483,14 +5535,16 @@ __DAMAGE_TYPE_OPTIONS__
       }
     }
     if (isMapView && mapViewActiveSelectEl){
-      const orderCids = order.map(cid => Number(cid));
+      const orderCids = order
+        .map(cid => normalizeCid(cid, "turnOrder.mapViewOrderCid"))
+        .filter(cid => cid !== null);
       mapViewActiveSelectEl.textContent = "";
       const placeholder = document.createElement("option");
       placeholder.value = "";
       placeholder.textContent = "Select a combatant";
       mapViewActiveSelectEl.appendChild(placeholder);
       orderCids.forEach((cid, idx) => {
-        const unit = unitsByCid.get(Number(cid));
+        const unit = unitsByCid.get(cid);
         const label = unit?.name ? unit.name : `#${cid}`;
         const option = document.createElement("option");
         option.value = String(cid);
@@ -5498,23 +5552,25 @@ __DAMAGE_TYPE_OPTIONS__
         mapViewActiveSelectEl.appendChild(option);
       });
       if (activeIndex >= 0){
-        mapViewActiveSelectEl.value = String(order[activeIndex]);
+        const activeOrderCid = normalizeCid(order[activeIndex], "turnOrder.mapViewActiveSelectCid");
+        mapViewActiveSelectEl.value = activeOrderCid !== null ? String(activeOrderCid) : "";
       } else {
         mapViewActiveSelectEl.value = "";
       }
-      const activeUnit = activeIndex >= 0 ? unitsByCid.get(Number(order[activeIndex])) : null;
+      const activeOrderCid = activeIndex >= 0 ? normalizeCid(order[activeIndex], "turnOrder.mapViewActiveUnitCid") : null;
+      const activeUnit = activeOrderCid !== null ? unitsByCid.get(activeOrderCid) : null;
       const activeRole = String(activeUnit?.role || "enemy");
       mapViewActiveSelectEl.classList.toggle("friendly", activeRole !== "enemy");
       mapViewActiveSelectEl.classList.toggle("enemy", activeRole === "enemy");
     }
     let fallbackCid = selectedTurnCid;
-    if (fallbackCid === null || !chipByCid.has(Number(fallbackCid))){
+    if (fallbackCid === null || !chipByCid.has(fallbackCid)){
       if (claimedIndex >= 0){
-        fallbackCid = Number(claimedCid);
+        fallbackCid = claimedCid;
       } else if (activeIndex >= 0){
-        fallbackCid = Number(order[activeIndex]);
+        fallbackCid = normalizeCid(order[activeIndex], "turnOrder.fallbackActiveCid");
       } else {
-        fallbackCid = Number(order[0]);
+        fallbackCid = normalizeCid(order[0], "turnOrder.fallbackFirstCid");
       }
     }
     setSelectedTurnCid(fallbackCid);
@@ -5574,12 +5630,12 @@ __DAMAGE_TYPE_OPTIONS__
     const active = state.active_cid;
     const round = state.round_num;
     turnEl.textContent = (active === null) ? "Turn: (not started)" : `Round ${round}`;
-    const myTurn = claimedCid && active !== null && String(active) === String(claimedCid);
+    const myTurn = claimedCid != null && active !== null && cidMatches(active, claimedCid, "hud.myTurn");
     if (resetTurnBtn){
       resetTurnBtn.disabled = !myTurn;
     }
     if (claimedCid && state.units){
-      const me = state.units.find(u => Number(u.cid) === Number(claimedCid));
+      const me = state.units.find(u => cidMatches(u.cid, claimedCid, "hud.claimedUnit"));
       if (me){
         meEl.textContent = me.name;
         const modeLabel = movementModeLabel(me.movement_mode);
@@ -5686,7 +5742,7 @@ __DAMAGE_TYPE_OPTIONS__
       if (!claimedCid) return;
       send({
         type: "perform_action",
-        cid: Number(claimedCid),
+        cid: claimedCid,
         spend: entry.spend,
         action: entry.name,
       });
@@ -5819,9 +5875,11 @@ __DAMAGE_TYPE_OPTIONS__
     if (!state || !claimedCid) return;
     const activeCid = state.active_cid;
     const round = state.round_num;
-    const isNowMyTurn = (activeCid !== null && String(activeCid) === String(claimedCid));
-    const wasMyTurn = (lastActiveCid !== null && String(lastActiveCid) === String(claimedCid));
-    const activeChanged = String(activeCid) !== String(lastActiveCid);
+    const activeCidValue = normalizeCid(activeCid, "turnAlert.activeCid");
+    const lastActiveCidValue = normalizeCid(lastActiveCid, "turnAlert.lastActiveCid");
+    const isNowMyTurn = activeCidValue !== null && activeCidValue === claimedCid;
+    const wasMyTurn = lastActiveCidValue !== null && lastActiveCidValue === claimedCid;
+    const activeChanged = activeCidValue !== lastActiveCidValue;
     const roundChanged = round !== lastTurnRound;
     if (isNowMyTurn && (!wasMyTurn || activeChanged || roundChanged)){
       showTurnModal();
@@ -5940,7 +5998,7 @@ __DAMAGE_TYPE_OPTIONS__
         if (!claimedCid){
           showNoOwnedPcToast(msg.pcs || msg.claimable || []);
         } else {
-          const exists = (state.units || []).some(u => Number(u.cid) === Number(claimedCid));
+          const exists = (state.units || []).some(u => cidMatches(u.cid, claimedCid, "state.claimedExists"));
             if (!exists){
               claimedCid = null;
               meEl.textContent = "(unclaimed)";
@@ -5968,7 +6026,7 @@ __DAMAGE_TYPE_OPTIONS__
         if (!state){ state = {}; }
         state.units = Array.isArray(msg.units) ? msg.units : [];
         if (claimedCid){
-          const exists = state.units.some(u => Number(u.cid) === Number(claimedCid));
+          const exists = state.units.some(u => cidMatches(u.cid, claimedCid, "unitsSnapshot.claimedExists"));
           if (!exists){
             claimedCid = null;
             meEl.textContent = "(unclaimed)";
@@ -5989,7 +6047,7 @@ __DAMAGE_TYPE_OPTIONS__
       } else if (msg.type === "force_claim"){
         if (isMapView) return;
         if (msg.cid !== null && msg.cid !== undefined){
-          claimedCid = String(msg.cid);
+          claimedCid = normalizeCid(msg.cid, "forceClaim.cid");
           shownNoOwnedToast = false;
           autoCenterOnJoin();
           refreshSpellPresetOptions();
@@ -6051,7 +6109,7 @@ __DAMAGE_TYPE_OPTIONS__
         if (msg.audio !== "ko") return;
         if (!audioUnlocked) return;
         if (msg.cid !== undefined && msg.cid !== null){
-          if (!claimedCid || String(msg.cid) !== String(claimedCid)) return;
+          if (!claimedCid || !cidMatches(msg.cid, claimedCid, "playAudio.cid")) return;
         }
         playKoAlert();
       }
@@ -6200,12 +6258,12 @@ __DAMAGE_TYPE_OPTIONS__
     const hit = hitTestToken(p);
     if (hit){
       // only drag own token
-      if (!claimedCid || Number(hit.cid) !== Number(claimedCid)){
+      if (!claimedCid || !cidMatches(hit.cid, claimedCid, "dragToken.hitCid")){
         send({type:"toast", text:"Arrr, that token ain’t yers."});
         return;
       }
       // only on your turn
-      if (state.active_cid === null || Number(state.active_cid) !== Number(claimedCid)){
+      if (state.active_cid === null || !cidMatches(state.active_cid, claimedCid, "dragToken.activeCid")){
         send({type:"toast", text:"Not yer turn yet, matey."});
         return;
       }
@@ -6222,7 +6280,7 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       if (aoeHit.owner_cid !== null && aoeHit.owner_cid !== undefined
-          && Number(aoeHit.owner_cid) !== Number(claimedCid)){
+          && !cidMatches(aoeHit.owner_cid, claimedCid, "aoeHit.ownerCid")){
         clearAoeMoveMode();
         localToast("That spell be not yers.");
         return;
@@ -6264,7 +6322,7 @@ __DAMAGE_TYPE_OPTIONS__
       const moveRemaining = Number.isFinite(Number(aoeHit.move_remaining_ft))
         ? Number(aoeHit.move_remaining_ft)
         : (hasMoveLimit ? movePerTurn : null);
-      if (state?.active_cid === null || Number(state.active_cid) !== Number(claimedCid)){
+      if (state?.active_cid === null || !cidMatches(state.active_cid, claimedCid, "aoeMove.activeCid")){
         clearAoeMoveMode();
         localToast("Not yer turn yet, matey.");
         return;
@@ -6582,14 +6640,16 @@ __DAMAGE_TYPE_OPTIONS__
       const color = validateTokenColor(tokenColorInput ? tokenColorInput.value : "");
       if (!color) return;
       localStorage.setItem("inittracker_tokenColor", color);
+      const pendingCid = normalizeCid(pendingClaim.cid, "tokenColor.pendingCid");
+      if (pendingCid === null) return;
       if (state?.units){
-        const unit = state.units.find(u => Number(u.cid) === Number(pendingClaim.cid));
+        const unit = state.units.find(u => cidMatches(u.cid, pendingCid, "tokenColor.unitCid"));
         if (unit){
           unit.token_color = color;
           draw();
         }
       }
-      send({type:"set_color", cid: Number(pendingClaim.cid), color});
+      send({type:"set_color", cid: pendingCid, color});
       meEl.textContent = pendingClaim.name;
       closeColorModal();
     });
@@ -8535,14 +8595,14 @@ __DAMAGE_TYPE_OPTIONS__
   if (dashActionBtn){
     dashActionBtn.addEventListener("click", () => {
       if (!claimedCid) return;
-      send({type:"dash", cid: Number(claimedCid), spend:"action"});
+      send({type:"dash", cid: claimedCid, spend:"action"});
       hideDashModal();
     });
   }
   if (dashBonusActionBtn){
     dashBonusActionBtn.addEventListener("click", () => {
       if (!claimedCid) return;
-      send({type:"dash", cid: Number(claimedCid), spend:"bonus"});
+      send({type:"dash", cid: claimedCid, spend:"bonus"});
       hideDashModal();
     });
   }
@@ -9155,19 +9215,19 @@ __DAMAGE_TYPE_OPTIONS__
   if (standUpBtn){
     standUpBtn.addEventListener("click", () => {
       if (!claimedCid) return;
-      send({type:"stand_up", cid: Number(claimedCid)});
+      send({type:"stand_up", cid: claimedCid});
     });
   }
   if (resetTurnBtn){
     resetTurnBtn.addEventListener("click", () => {
       if (!claimedCid) return;
-      send({type:"reset_turn", cid: Number(claimedCid)});
+      send({type:"reset_turn", cid: claimedCid});
     });
   }
   if (endTurnBtn){
     endTurnBtn.addEventListener("click", () => {
       if (!claimedCid) return;
-      send({type:"end_turn", cid: Number(claimedCid)});
+      send({type:"end_turn", cid: claimedCid});
     });
   }
   if (turnModalOk){
