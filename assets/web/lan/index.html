@@ -1876,7 +1876,7 @@
       </fieldset>
       <div class="cast-menu-trigger" id="castMenuTrigger">
         <button class="btn" id="castOverlayOpen" type="button">Cast Spell</button>
-        <button class="btn" id="aoeMoveBtn" type="button">Spell Move</button>
+        <button class="btn" id="aoeMoveBtn" type="button" aria-label="Move selected spell on map">Spell Move</button>
       </div>
       </div>
     </div>
@@ -4294,26 +4294,22 @@ __DAMAGE_TYPE_OPTIONS__
     if (!claimedCid){
       clearAoeMoveMode();
       localToast("Claim a character first, matey.");
-      updateAoeMoveButton();
       return;
     }
     if (aoe.owner_cid !== null && aoe.owner_cid !== undefined
         && !cidMatches(aoe.owner_cid, claimedCid, "aoeMove.btnOwnerCid")){
       clearAoeMoveMode();
       localToast("That spell be not yers.");
-      updateAoeMoveButton();
       return;
     }
     if (aoe.pinned){
       clearAoeMoveMode();
       localToast("That spell be pinned.");
-      updateAoeMoveButton();
       return;
     }
     if (state?.active_cid === null || !cidMatches(state.active_cid, claimedCid, "aoeMove.btnActiveCid")){
       clearAoeMoveMode();
       localToast("Not yer turn yet, matey.");
-      updateAoeMoveButton();
       return;
     }
     const movePerTurn = Number(aoe.move_per_turn_ft);
@@ -4324,7 +4320,6 @@ __DAMAGE_TYPE_OPTIONS__
     if (hasMoveLimit && (!Number.isFinite(moveRemaining) || moveRemaining <= 0)){
       clearAoeMoveMode();
       localToast("That spell can't move any more this turn.");
-      updateAoeMoveButton();
       return;
     }
     aoeMoveModeAid = Number(aoe.aid);
@@ -9005,7 +9000,6 @@ __DAMAGE_TYPE_OPTIONS__
     aoeMoveBtn.addEventListener("click", () => {
       if (aoeMoveModeAid !== null){
         clearAoeMoveMode();
-        updateAoeMoveButton();
         return;
       }
       queueAoeMoveMode();
