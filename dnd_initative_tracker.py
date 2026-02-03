@@ -824,6 +824,7 @@ class PlayerProfile:
     leveling: Dict[str, Any] = field(default_factory=dict)
     abilities: Dict[str, Any] = field(default_factory=dict)
     proficiency: Dict[str, Any] = field(default_factory=dict)
+    vitals: Dict[str, Any] = field(default_factory=dict)
     defenses: Dict[str, Any] = field(default_factory=dict)
     resources: Dict[str, Any] = field(default_factory=dict)
     spellcasting: Dict[str, Any] = field(default_factory=dict)
@@ -837,6 +838,7 @@ class PlayerProfile:
             "leveling": dict(self.leveling),
             "abilities": dict(self.abilities),
             "proficiency": dict(self.proficiency),
+            "vitals": dict(self.vitals),
             "defenses": dict(self.defenses),
             "resources": dict(self.resources),
             "spellcasting": dict(self.spellcasting),
@@ -3712,9 +3714,12 @@ class InitiativeTracker(base.InitiativeTracker):
             if isinstance(data, dict):
                 profile = self._normalize_player_profile(data, nm)
                 resources = profile.get("resources", {}) if isinstance(profile, dict) else {}
+                vitals = profile.get("vitals", {}) if isinstance(profile, dict) else {}
                 defenses = profile.get("defenses", {}) if isinstance(profile, dict) else {}
                 # accept a few key names
                 speed_source = resources.get("base_movement", resources.get("speed"))
+                if speed_source is None and isinstance(vitals, dict):
+                    speed_source = vitals.get("speed")
                 if speed_source is not None:
                     parsed = base._parse_speed_data(speed_source)
                     if parsed[0] is not None:
@@ -5093,13 +5098,14 @@ class InitiativeTracker(base.InitiativeTracker):
             fmt = int(fmt_raw)
         except Exception:
             fmt = 0
-        if fmt != 1:
+        if fmt < 1:
             fmt = 0
 
         identity = self._normalize_player_section(data.get("identity"))
         leveling = self._normalize_player_section(data.get("leveling"))
         abilities = self._normalize_player_section(data.get("abilities"))
         proficiency = self._normalize_player_section(data.get("proficiency"))
+        vitals = self._normalize_player_section(data.get("vitals"))
         defenses = self._normalize_player_section(data.get("defenses"))
         resources = self._normalize_player_section(data.get("resources"))
         spellcasting = self._normalize_player_section(data.get("spellcasting"))
@@ -5171,6 +5177,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 resources["bonus_actions"] = data.get("bonus_actions")
             if "reactions" in data and "reactions" not in resources:
                 resources["reactions"] = data.get("reactions")
+        if fmt >= 2:
+            vitals_speed = vitals.get("speed") if isinstance(vitals, dict) else None
+            if vitals_speed is not None and "base_movement" not in resources and "speed" not in resources:
+                resources["base_movement"] = vitals_speed
 
         for key in ("known_cantrips", "known_spells", "known_spell_names"):
             if key not in spellcasting and key in data:
@@ -5225,6 +5235,7 @@ class InitiativeTracker(base.InitiativeTracker):
             leveling=leveling,
             abilities=abilities,
             proficiency=proficiency,
+            vitals=vitals,
             defenses=defenses,
             resources=resources,
             spellcasting=spellcasting,

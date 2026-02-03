@@ -263,6 +263,7 @@ vitals:
 **Notes:**
 - Hit dice: Multiclass characters have separate hit dice types. The `die` field can be a single type or the primary class's type.
 - Formulas are evaluated by the application using character stats (see [Formula System](#formula-system))
+- For `format_version: 2` files, `vitals.speed` is used to populate the roster movement speeds. `walk`/`land` map to the normal speed, while `swim`, `fly`, `burrow`, and `climb` map to their matching movement types.
 
 ---
 
