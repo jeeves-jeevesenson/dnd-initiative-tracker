@@ -6379,17 +6379,17 @@ class InitiativeTracker(base.InitiativeTracker):
                 cy = float(to.get("cy"))
             except Exception:
                 return
-            def _safe_numeric_convert(
+            def _optional_convert(
                 value: Any, conversion_func: Callable[[Any], Any]
             ) -> Optional[Union[int, float]]:
                 try:
                     return conversion_func(value)
                 except Exception:
                     return None
-            angle_deg = _safe_numeric_convert(to.get("angle_deg"), float)
-            ax = _safe_numeric_convert(to.get("ax"), float)
-            ay = _safe_numeric_convert(to.get("ay"), float)
-            spread_deg = _safe_numeric_convert(to.get("spread_deg"), float)
+            angle_deg = _optional_convert(to.get("angle_deg"), float)
+            ax = _optional_convert(to.get("ax"), float)
+            ay = _optional_convert(to.get("ay"), float)
+            spread_deg = _optional_convert(to.get("spread_deg"), float)
             mw = getattr(self, "_map_window", None)
             map_ready = mw is not None and mw.winfo_exists()
             aoe_store = getattr(mw, "aoes", {}) if map_ready else (getattr(self, "_lan_aoes", {}) or {})
@@ -6410,12 +6410,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             owner_cid = d.get("owner_cid")
             anchor_cid = d.get("anchor_cid")
-            cid_int = _safe_numeric_convert(cid, int)
-            claimed_int = _safe_numeric_convert(claimed, int)
-            owner_cid_int = _safe_numeric_convert(owner_cid, int)
-            anchor_cid_int = _safe_numeric_convert(anchor_cid, int)
+            cid_int = _optional_convert(cid, int)
+            claimed_int = _optional_convert(claimed, int)
+            owner_cid_int = _optional_convert(owner_cid, int)
+            anchor_cid_int = _optional_convert(anchor_cid, int)
             active_cid = self.current_cid
-            active_cid_int = _safe_numeric_convert(active_cid, int)
+            active_cid_int = _optional_convert(active_cid, int)
             def _cid_matches(required_cid: Optional[int], player_cid: Optional[int]) -> bool:
                 return required_cid is not None and player_cid is not None and required_cid == player_cid
             def _log_aoe_move_reject(reason: str) -> None:
