@@ -31,7 +31,7 @@ const appendHelpText = (container, field) => {
   container.appendChild(help);
 };
 
-const loadSpellIds = (() => {
+const loadSpellData = (() => {
   let cache = null;
   let inflight = null;
   return async () => {
@@ -41,7 +41,7 @@ const loadSpellIds = (() => {
     if (inflight) {
       return inflight;
     }
-    inflight = fetch("/api/spells")
+    inflight = fetch("/api/spells?details=true")
       .then((response) => {
         if (!response.ok) {
           throw new Error("Unable to load spell IDs.");
@@ -50,12 +50,13 @@ const loadSpellIds = (() => {
       })
       .then((payload) => {
         const ids = Array.isArray(payload?.ids) ? payload.ids : [];
-        cache = ids;
-        return ids;
+        const spells = Array.isArray(payload?.spells) ? payload.spells : [];
+        cache = { ids, spells };
+        return cache;
       })
       .catch((error) => {
         console.warn("Unable to load spells", error);
-        cache = [];
+        cache = { ids: [], spells: [] };
         return cache;
       })
       .finally(() => {
@@ -64,6 +65,43 @@ const loadSpellIds = (() => {
     return inflight;
   };
 })();
+
+const getSpellLevel = (parsed) => {
+  if (!parsed || parsed.level === undefined || parsed.level === null) {
+    return null;
+  }
+  if (typeof parsed.level === "number") {
+    return parsed.level;
+  }
+  if (typeof parsed.level === "string") {
+    const normalized = parsed.level.trim().toLowerCase();
+    if (normalized === "cantrip") {
+      return 0;
+    }
+    const numeric = Number(normalized);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+  }
+  return null;
+};
+
+const filterSpellIds = (payload, { requireLevel } = {}) => {
+  const ids = Array.isArray(payload?.ids) ? payload.ids : [];
+  const spells = Array.isArray(payload?.spells) ? payload.spells : [];
+  if (!spells.length || requireLevel === undefined) {
+    return ids;
+  }
+  return spells
+    .map((spell) => {
+      if (!spell || !spell.id) {
+        return null;
+      }
+      const level = getSpellLevel(spell.parsed);
+      return level === requireLevel ? spell.id : null;
+    })
+    .filter(Boolean);
+};
 
 const setValueAtPath = (target, path, value) => {
   let cursor = target;
@@ -584,6 +622,7 @@ const renderMapField = (field, path, data) => {
 };
 
 const renderSpellPicker = (field, path, data) => {
+  const isCantripPicker = spellPathKey(path) === "spellcasting.cantrips.known";
   const container = document.createElement("div");
   container.className = "array-field spell-picker";
 
@@ -679,8 +718,16 @@ const renderSpellPicker = (field, path, data) => {
     renderSelected();
   };
 
+  const loadAvailableSpells = async () => {
+    const payload = await loadSpellData();
+    if (isCantripPicker) {
+      return filterSpellIds(payload, { requireLevel: 0 });
+    }
+    return Array.isArray(payload?.ids) ? payload.ids : [];
+  };
+
   addButton.addEventListener("click", async () => {
-    const available = await loadSpellIds();
+    const available = await loadAvailableSpells();
     addSpell(input.value, available);
   });
 
@@ -689,11 +736,11 @@ const renderSpellPicker = (field, path, data) => {
       return;
     }
     event.preventDefault();
-    const available = await loadSpellIds();
+    const available = await loadAvailableSpells();
     addSpell(input.value, available);
   });
 
-  loadSpellIds().then((ids) => {
+  loadAvailableSpells().then((ids) => {
     datalist.innerHTML = "";
     ids.forEach((spellId) => {
       const option = document.createElement("option");
