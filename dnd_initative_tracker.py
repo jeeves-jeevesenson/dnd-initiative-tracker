@@ -5978,7 +5978,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         # Only allow controlling on your turn (POC)
-        if not is_admin and typ not in ("cast_aoe", "aoe_remove"):
+        if not is_admin and typ not in ("cast_aoe", "aoe_remove", "aoe_move"):
             if self.current_cid is None or int(self.current_cid) != int(cid):
                 self._lan.toast(ws_id, "Not yer turn yet, matey.")
                 return
@@ -6384,6 +6384,11 @@ class InitiativeTracker(base.InitiativeTracker):
                     return float(value)
                 except Exception:
                     return None
+            def _to_int(value: Any) -> Optional[int]:
+                try:
+                    return int(value)
+                except Exception:
+                    return None
             angle_deg = _to_float(to.get("angle_deg"))
             ax = _to_float(to.get("ax"))
             ay = _to_float(to.get("ay"))
@@ -6408,25 +6413,45 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             owner_cid = d.get("owner_cid")
             anchor_cid = d.get("anchor_cid")
+            cid_int = _to_int(cid)
+            claimed_int = _to_int(claimed)
+            owner_cid_int = _to_int(owner_cid)
+            anchor_cid_int = _to_int(anchor_cid)
+            active_cid = self.current_cid
+            active_cid_int = _to_int(active_cid)
+            def _cid_debug(value: Any) -> str:
+                return f"{value!r}({type(value).__name__})"
+            def _log_aoe_move_reject(reason: str) -> None:
+                self._oplog(
+                    "LAN aoe_move rejected reason="
+                    f"{reason} aid={aid} cid={_cid_debug(cid)} claimed={_cid_debug(claimed)} "
+                    f"active_cid={_cid_debug(active_cid)} owner_cid={_cid_debug(owner_cid)} "
+                    f"anchor_cid={_cid_debug(anchor_cid)}",
+                    level="warning",
+                )
             if not is_admin:
                 if owner_cid is not None:
-                    if int(owner_cid) != int(cid):
+                    if owner_cid_int is None or cid_int is None or owner_cid_int != cid_int:
+                        _log_aoe_move_reject("owner_mismatch")
                         self._lan.toast(ws_id, "That spell be not yers.")
                         return
                 elif anchor_cid is not None:
-                    if int(anchor_cid) != int(cid):
+                    if anchor_cid_int is None or cid_int is None or anchor_cid_int != cid_int:
+                        _log_aoe_move_reject("anchor_mismatch")
                         self._lan.toast(ws_id, "That spell be not yers.")
                         return
-                elif claimed is not None and int(claimed) != int(cid):
+                elif claimed is not None and claimed_int is not None and cid_int is not None and claimed_int != cid_int:
+                    _log_aoe_move_reject("claim_mismatch")
                     self._lan.toast(ws_id, "That spell be not yers.")
                     return
             move_per_turn_ft = d.get("move_per_turn_ft")
             move_remaining_ft = d.get("move_remaining_ft")
             if not is_admin:
-                if self.current_cid is None or int(self.current_cid) != int(cid):
+                if active_cid_int is not None and (cid_int is None or active_cid_int != cid_int):
+                    _log_aoe_move_reject("turn_mismatch")
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
                     return
-                if move_per_turn_ft not in (None, ""):
+                if active_cid_int is not None and move_per_turn_ft not in (None, ""):
                     try:
                         move_limit = float(move_per_turn_ft)
                     except Exception:

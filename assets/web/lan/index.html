@@ -6252,7 +6252,7 @@ __DAMAGE_TYPE_OPTIONS__
       const moveRemaining = Number.isFinite(Number(aoeHit.move_remaining_ft))
         ? Number(aoeHit.move_remaining_ft)
         : (hasMoveLimit ? movePerTurn : null);
-      if (state?.active_cid === null || Number(state.active_cid) !== Number(claimedCid)){
+      if (state?.active_cid !== null && Number(state.active_cid) !== Number(claimedCid)){
         clearAoeMoveMode();
         localToast("Not yer turn yet, matey.");
         return;
