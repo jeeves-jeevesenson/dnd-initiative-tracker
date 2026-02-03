@@ -6379,15 +6379,17 @@ class InitiativeTracker(base.InitiativeTracker):
                 cy = float(to.get("cy"))
             except Exception:
                 return
-            def _to_number(value: Any, converter: Callable[[Any], Any]) -> Optional[Union[int, float]]:
+            def _convert_to_numeric(
+                value: Any, conversion_func: Callable[[Any], Any]
+            ) -> Optional[Union[int, float]]:
                 try:
-                    return converter(value)
+                    return conversion_func(value)
                 except (TypeError, ValueError):
                     return None
-            angle_deg = _to_number(to.get("angle_deg"), float)
-            ax = _to_number(to.get("ax"), float)
-            ay = _to_number(to.get("ay"), float)
-            spread_deg = _to_number(to.get("spread_deg"), float)
+            angle_deg = _convert_to_numeric(to.get("angle_deg"), float)
+            ax = _convert_to_numeric(to.get("ax"), float)
+            ay = _convert_to_numeric(to.get("ay"), float)
+            spread_deg = _convert_to_numeric(to.get("spread_deg"), float)
             mw = getattr(self, "_map_window", None)
             map_ready = mw is not None and mw.winfo_exists()
             aoe_store = getattr(mw, "aoes", {}) if map_ready else (getattr(self, "_lan_aoes", {}) or {})
@@ -6408,22 +6410,22 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             owner_cid = d.get("owner_cid")
             anchor_cid = d.get("anchor_cid")
-            cid_int = _to_number(cid, int)
-            claimed_int = _to_number(claimed, int)
-            owner_cid_int = _to_number(owner_cid, int)
-            anchor_cid_int = _to_number(anchor_cid, int)
+            cid_int = _convert_to_numeric(cid, int)
+            claimed_int = _convert_to_numeric(claimed, int)
+            owner_cid_int = _convert_to_numeric(owner_cid, int)
+            anchor_cid_int = _convert_to_numeric(anchor_cid, int)
             active_cid = self.current_cid
-            active_cid_int = _to_number(active_cid, int)
-            def _cid_matches(expected: Optional[int], actual: Optional[int]) -> bool:
-                return expected is not None and actual is not None and expected == actual
+            active_cid_int = _convert_to_numeric(active_cid, int)
+            def _cid_matches(target_cid: Optional[int], requester_cid: Optional[int]) -> bool:
+                return target_cid is not None and requester_cid is not None and target_cid == requester_cid
             def _log_aoe_move_reject(reason: str) -> None:
-                def _cid_debug(value: Any) -> str:
+                def _type_repr(value: Any) -> str:
                     return f"{value!r}({type(value).__name__})"
                 self._oplog(
                     "LAN aoe_move rejected reason="
-                    f"{reason} aid={aid} cid={_cid_debug(cid)} claimed={_cid_debug(claimed)} "
-                    f"active_cid={_cid_debug(active_cid)} owner_cid={_cid_debug(owner_cid)} "
-                    f"anchor_cid={_cid_debug(anchor_cid)}",
+                    f"{reason} aid={aid} cid={_type_repr(cid)} claimed={_type_repr(claimed)} "
+                    f"active_cid={_type_repr(active_cid)} owner_cid={_type_repr(owner_cid)} "
+                    f"anchor_cid={_type_repr(anchor_cid)}",
                     level="warning",
                 )
             if not is_admin:
