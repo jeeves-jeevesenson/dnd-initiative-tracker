@@ -6324,6 +6324,7 @@ class BattleMapWindow(tk.Toplevel):
                 self.canvas.itemconfigure(int(tok["marker"]), text=mt, state=("normal" if mt else "hidden"))
             except Exception:
                 pass
+        self._sync_aoe_anchor_for_cid(cid)
 
     
     def _marker_text_for(self, cid: int) -> str:
@@ -7298,16 +7299,104 @@ class BattleMapWindow(tk.Toplevel):
         d["label"] = label_id
         self._layout_aoe(aid)
 
+    def _resolve_aoe_anchor(self, d: Dict[str, Any]) -> Optional[Tuple[float, float]]:
+        anchor_cid = d.get("anchor_cid")
+        if anchor_cid is None:
+            return None
+        try:
+            cid = int(anchor_cid)
+        except Exception:
+            return None
+        tok = self.unit_tokens.get(cid)
+        if not tok:
+            return None
+        try:
+            ax = float(tok.get("col"))
+            ay = float(tok.get("row"))
+        except Exception:
+            return None
+        d["ax"] = ax
+        d["ay"] = ay
+        return ax, ay
+
+    def _sync_aoe_anchor_for_cid(self, cid: int) -> None:
+        tok = self.unit_tokens.get(cid)
+        if not tok:
+            return
+        try:
+            ax = float(tok.get("col"))
+            ay = float(tok.get("row"))
+        except Exception:
+            return
+        updated = False
+        for aid, d in list(self.aoes.items()):
+            if d.get("anchor_cid") is None:
+                continue
+            try:
+                if int(d.get("anchor_cid")) != int(cid):
+                    continue
+            except Exception:
+                continue
+            kind = str(d.get("kind") or "")
+            d["ax"] = ax
+            d["ay"] = ay
+            if kind == "line":
+                length_sq = float(d.get("length_sq") or 0.0)
+                angle = d.get("angle_deg")
+                orient = str(d.get("orient") or "vertical")
+                if angle is None:
+                    angle = 0.0 if orient == "horizontal" else 90.0
+                angle_rad = math.radians(float(angle))
+                half_len = length_sq / 2.0
+                cx = ax + math.cos(angle_rad) * half_len
+                cy = ay + math.sin(angle_rad) * half_len
+                cx = max(0.0, min(float(self.cols - 1), cx))
+                cy = max(0.0, min(float(self.rows - 1), cy))
+                d["cx"] = cx
+                d["cy"] = cy
+            elif kind == "cone":
+                d["cx"] = ax
+                d["cy"] = ay
+            updated = True
+            self._layout_aoe(aid)
+        if updated:
+            self._update_included_for_selected()
+
     def _layout_aoe(self, aid: int) -> None:
         d = self.aoes.get(aid)
         if not d:
             return
+        kind = str(d["kind"])
+        anchor = None
+        if kind in ("line", "cone"):
+            anchor = self._resolve_aoe_anchor(d)
+            if anchor is not None:
+                ax, ay = anchor
+                if kind == "line":
+                    length_sq = float(d.get("length_sq") or 0.0)
+                    angle = d.get("angle_deg")
+                    orient = str(d.get("orient") or "vertical")
+                    if angle is None:
+                        angle = 0.0 if orient == "horizontal" else 90.0
+                    angle_rad = math.radians(float(angle))
+                    half_len = length_sq / 2.0
+                    cx = ax + math.cos(angle_rad) * half_len
+                    cy = ay + math.sin(angle_rad) * half_len
+                    cx = max(0.0, min(float(self.cols - 1), cx))
+                    cy = max(0.0, min(float(self.rows - 1), cy))
+                    d["cx"] = cx
+                    d["cy"] = cy
+                else:
+                    d["cx"] = ax
+                    d["cy"] = ay
+        if kind == "cone" and anchor is None:
+            d["ax"] = float(d.get("ax", d.get("cx", 0.0)))
+            d["ay"] = float(d.get("ay", d.get("cy", 0.0)))
         cx = float(d["cx"])
         cy = float(d["cy"])
         x = self.x0 + (cx + 0.5) * self.cell
         y = self.y0 + (cy + 0.5) * self.cell
 
-        kind = str(d["kind"])
         if kind in ("circle", "sphere", "cylinder"):
             r = float(d["radius_sq"]) * self.cell
             self.canvas.coords(int(d["shape"]), x - r, y - r, x + r, y + r)
@@ -8208,8 +8297,12 @@ class BattleMapWindow(tk.Toplevel):
             kind = str(d.get("kind") or "")
             shift_held = bool(event.state & 0x0001)
             if kind == "line" and shift_held:
-                ax = float(d.get("ax", d.get("cx", 0.0)))
-                ay = float(d.get("ay", d.get("cy", 0.0)))
+                anchor = self._resolve_aoe_anchor(d)
+                if anchor is not None:
+                    ax, ay = anchor
+                else:
+                    ax = float(d.get("ax", d.get("cx", 0.0)))
+                    ay = float(d.get("ay", d.get("cy", 0.0)))
                 ax_px = self.x0 + (ax + 0.5) * self.cell
                 ay_px = self.y0 + (ay + 0.5) * self.cell
                 dx = x - ax_px
@@ -8237,10 +8330,17 @@ class BattleMapWindow(tk.Toplevel):
                 d["cx"] = cx
                 d["cy"] = cy
                 if kind == "line":
-                    ax = float(d.get("ax", old_cx))
-                    ay = float(d.get("ay", old_cy))
-                    d["ax"] = ax + (cx - old_cx)
-                    d["ay"] = ay + (cy - old_cy)
+                    anchor = self._resolve_aoe_anchor(d)
+                    if anchor is None:
+                        ax = float(d.get("ax", old_cx))
+                        ay = float(d.get("ay", old_cy))
+                        d["ax"] = ax + (cx - old_cx)
+                        d["ay"] = ay + (cy - old_cy)
+                elif kind == "cone":
+                    anchor = self._resolve_aoe_anchor(d)
+                    if anchor is None:
+                        d["ax"] = float(d.get("ax", cx))
+                        d["ay"] = float(d.get("ay", cy))
             self._layout_aoe(self._drag_id)
 
         self._update_included_for_selected()
