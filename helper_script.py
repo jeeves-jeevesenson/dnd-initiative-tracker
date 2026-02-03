@@ -6673,6 +6673,7 @@ class BattleMapWindow(tk.Toplevel):
         try:
             self.canvas.tag_raise("movehl", "grid")
             self.canvas.tag_lower("movehl", "unit")
+            self.canvas.tag_lower("movehl", "rough")
         except Exception:
             try:
                 self.canvas.tag_raise("movehl")
