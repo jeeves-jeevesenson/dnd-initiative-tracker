@@ -7435,10 +7435,12 @@ class BattleMapWindow(tk.Toplevel):
                 angle = d.get("angle_deg")
                 if angle is not None:
                     heading_deg = float(angle)
-            start = heading_deg - (spread_deg / 2.0)
+            # Match LAN client convention: 0° = east/right, +90° = south/down.
+            # Tk uses CCW-positive degrees, so invert heading and sweep clockwise.
+            start = -heading_deg + (spread_deg / 2.0)
             self.canvas.coords(int(d["shape"]), x - length_px, y - length_px, x + length_px, y + length_px)
             try:
-                self.canvas.itemconfigure(int(d["shape"]), start=start, extent=spread_deg)
+                self.canvas.itemconfigure(int(d["shape"]), start=start, extent=-spread_deg)
             except Exception:
                 pass
         else:
