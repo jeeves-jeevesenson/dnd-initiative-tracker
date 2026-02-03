@@ -31,6 +31,7 @@ import os
 import hashlib
 import hmac
 import secrets
+import traceback
 from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -2121,7 +2122,16 @@ class LanController:
             except queue.Empty:
                 break
             processed_any = True
-            self.app._lan_apply_action(msg)
+            try:
+                self.app._lan_apply_action(msg)
+            except Exception as exc:
+                ws_id = msg.get("_ws_id")
+                error_details = traceback.format_exc()
+                self.app._oplog(f"LAN action failed: {exc}\n{error_details}", level="warning")
+                try:
+                    self.toast(ws_id, "Something went wrong handling that action.")
+                except Exception:
+                    pass
 
         # 2) broadcast snapshot if changed (polling-based, avoids wiring every hook)
         snap = self.app._lan_snapshot()
@@ -6120,10 +6130,18 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 return
             mw = getattr(self, "_map_window", None)
-            if mw is None or not mw.winfo_exists():
-                self._lan.toast(ws_id, "Map window not open, matey.")
-                return
-            d = (getattr(mw, "aoes", {}) or {}).get(aid)
+            map_ready = mw is not None and mw.winfo_exists()
+            aoe_store = getattr(mw, "aoes", {}) if map_ready else (getattr(self, "_lan_aoes", {}) or {})
+            d = (aoe_store or {}).get(aid)
+            if not d and map_ready:
+                d = (getattr(self, "_lan_aoes", {}) or {}).get(aid)
+                if d:
+                    mw_aoes = getattr(mw, "aoes", None)
+                    if mw_aoes is None:
+                        mw_aoes = {}
+                        setattr(mw, "aoes", mw_aoes)
+                    mw_aoes[aid] = dict(d)
+                    aoe_store = mw_aoes
             if not d:
                 return
             if bool(d.get("pinned")) and not is_admin:
@@ -6165,8 +6183,12 @@ class InitiativeTracker(base.InitiativeTracker):
                         return
                     d["move_remaining_ft"] = max(0.0, float(remaining) - dist_ft)
             try:
-                cols = int(getattr(mw, "cols", 0))
-                rows = int(getattr(mw, "rows", 0))
+                if map_ready:
+                    cols = int(getattr(mw, "cols", 0))
+                    rows = int(getattr(mw, "rows", 0))
+                else:
+                    cols = int(getattr(self, "_lan_grid_cols", 0))
+                    rows = int(getattr(self, "_lan_grid_rows", 0))
             except Exception:
                 cols = 0
                 rows = 0
@@ -6176,8 +6198,17 @@ class InitiativeTracker(base.InitiativeTracker):
             d["cx"] = float(cx)
             d["cy"] = float(cy)
             try:
-                if hasattr(mw, "_layout_aoe"):
+                if map_ready and hasattr(mw, "_layout_aoe"):
                     mw._layout_aoe(aid)
+            except Exception:
+                pass
+            try:
+                if map_ready:
+                    self._lan_aoes = dict(getattr(mw, "aoes", {}) or {})
+                else:
+                    store = getattr(self, "_lan_aoes", {}) or {}
+                    store[aid] = dict(d)
+                    self._lan_aoes = store
             except Exception:
                 pass
             return
@@ -6367,8 +6398,9 @@ class InitiativeTracker(base.InitiativeTracker):
             # Let player end their own turn.
             try:
                 self._next_turn()
-            except Exception:
-                pass
+                self._lan.toast(ws_id, "Turn ended.")
+            except Exception as exc:
+                self._oplog(f"LAN end turn failed: {exc}", level="warning")
 
     def _lan_try_move(self, cid: int, col: int, row: int) -> Tuple[bool, str, int]:
         # Boundaries

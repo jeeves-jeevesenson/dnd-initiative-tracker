@@ -2738,7 +2738,7 @@ __DAMAGE_TYPE_OPTIONS__
   let aoeMoveModeAid = null;
   let lastAoeTapAid = null;
   let lastAoeTapAt = 0;
-  const AOE_DOUBLE_ACTION_MS = 350;
+  const AOE_DOUBLE_ACTION_MS = 500;
   const aoeDragOverrides = new Map(); // aid -> {cx, cy}
   let selectedAoeId = null;
   let panning = null;  // {x,y, panX, panY}
@@ -6184,18 +6184,24 @@ __DAMAGE_TYPE_OPTIONS__
       if (aoeMoveModeAid !== null && Number(aoeMoveModeAid) !== Number(aoeHit.aid)){
         clearAoeMoveMode();
       }
-      const now = Date.now();
-      if (lastAoeTapAid !== null && Number(lastAoeTapAid) === Number(aoeHit.aid) && now - lastAoeTapAt <= AOE_DOUBLE_ACTION_MS){
+      if (ev.pointerType === "touch"){
         aoeMoveModeAid = Number(aoeHit.aid);
         lastAoeTapAid = null;
         lastAoeTapAt = 0;
       } else {
-        lastAoeTapAid = Number(aoeHit.aid);
-        lastAoeTapAt = now;
-      }
-      if (Number(aoeMoveModeAid) !== Number(aoeHit.aid)){
-        localToast("Double-tap to move that spell.");
-        return;
+        const now = Date.now();
+        if (lastAoeTapAid !== null && Number(lastAoeTapAid) === Number(aoeHit.aid) && now - lastAoeTapAt <= AOE_DOUBLE_ACTION_MS){
+          aoeMoveModeAid = Number(aoeHit.aid);
+          lastAoeTapAid = null;
+          lastAoeTapAt = 0;
+        } else {
+          lastAoeTapAid = Number(aoeHit.aid);
+          lastAoeTapAt = now;
+        }
+        if (Number(aoeMoveModeAid) !== Number(aoeHit.aid)){
+          localToast("Double-tap to move that spell.");
+          return;
+        }
       }
       const movePerTurn = Number(aoeHit.move_per_turn_ft);
       const hasMoveLimit = Number.isFinite(movePerTurn) && movePerTurn > 0;
