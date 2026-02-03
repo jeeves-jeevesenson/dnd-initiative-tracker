@@ -66,15 +66,15 @@ const loadSpellData = (() => {
   };
 })();
 
-const getSpellLevel = (parsed) => {
-  if (!parsed || parsed.level === undefined || parsed.level === null) {
+const getSpellLevel = (level) => {
+  if (level === undefined || level === null) {
     return null;
   }
-  if (typeof parsed.level === "number") {
-    return parsed.level;
+  if (typeof level === "number") {
+    return level;
   }
-  if (typeof parsed.level === "string") {
-    const normalized = parsed.level.trim().toLowerCase();
+  if (typeof level === "string") {
+    const normalized = level.trim().toLowerCase();
     if (normalized === "cantrip") {
       return 0;
     }
@@ -85,6 +85,8 @@ const getSpellLevel = (parsed) => {
   }
   return null;
 };
+
+const getSpellLevelFromRecord = (spell) => getSpellLevel(spell?.level ?? spell?.parsed?.level);
 
 const filterSpellIds = (payload, { requireLevel } = {}) => {
   const ids = Array.isArray(payload?.ids) ? payload.ids : [];
@@ -97,7 +99,7 @@ const filterSpellIds = (payload, { requireLevel } = {}) => {
       if (!spell || !spell.id) {
         return null;
       }
-      const level = getSpellLevel(spell.parsed);
+      const level = getSpellLevelFromRecord(spell);
       return level === requireLevel ? spell.id : null;
     })
     .filter(Boolean);
@@ -623,6 +625,10 @@ const renderMapField = (field, path, data) => {
 
 const renderSpellPicker = (field, path, data) => {
   const isCantripPicker = spellPathKey(path) === "spellcasting.cantrips.known";
+  const SORT_MODES = {
+    alphabetical: "Alphabetical",
+    level: "Level",
+  };
   const container = document.createElement("div");
   container.className = "array-field spell-picker";
 
@@ -641,6 +647,16 @@ const renderSpellPicker = (field, path, data) => {
   const listId = `spell-list-${Math.random().toString(36).slice(2)}`;
   input.setAttribute("list", listId);
   controls.appendChild(input);
+
+  const sortSelect = document.createElement("select");
+  sortSelect.className = "spell-sort";
+  Object.entries(SORT_MODES).forEach(([value, label]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    sortSelect.appendChild(option);
+  });
+  controls.appendChild(sortSelect);
 
   const addButton = document.createElement("button");
   addButton.type = "button";
@@ -663,6 +679,102 @@ const renderSpellPicker = (field, path, data) => {
   selectedContainer.className = "spell-picker-selected";
   container.appendChild(selectedContainer);
 
+  const spellDisplayById = new Map();
+  let spellIndex = new Map();
+  let availableSpells = [];
+
+  const getSpellName = (spell) => {
+    const rawName = typeof spell?.name === "string" ? spell.name.trim() : "";
+    if (rawName) {
+      return rawName;
+    }
+    return spell?.id || "";
+  };
+
+  const getSpellLevelLabel = (spell) => {
+    const level = getSpellLevelFromRecord(spell);
+    if (level === 0) {
+      return "Cantrip";
+    }
+    if (level === null) {
+      return "Level ?";
+    }
+    return `Level ${level}`;
+  };
+
+  const getSpellDisplayLabel = (spell) => {
+    const name = getSpellName(spell);
+    const levelLabel = getSpellLevelLabel(spell);
+    if (!name) {
+      return "";
+    }
+    return `${name} (${levelLabel})`;
+  };
+
+  const normalizeSpellName = (name) => (name || "").trim().toLowerCase();
+
+  const buildSpellIndex = (spells) => {
+    spellDisplayById.clear();
+    const nextIndex = new Map();
+    spells.forEach((spell) => {
+      if (!spell?.id) {
+        return;
+      }
+      const name = getSpellName(spell);
+      const label = getSpellDisplayLabel(spell);
+      spellDisplayById.set(spell.id, label || spell.id);
+      [spell.id, name, label].forEach((candidate) => {
+        if (!candidate) {
+          return;
+        }
+        const key = normalizeSpellName(candidate);
+        if (!nextIndex.has(key)) {
+          nextIndex.set(key, spell);
+        }
+      });
+    });
+    spellIndex = nextIndex;
+  };
+
+  const sortSpells = (spells, mode) => {
+    const sorted = [...spells];
+    if (mode === "level") {
+      sorted.sort((a, b) => {
+        const levelA = getSpellLevelFromRecord(a);
+        const levelB = getSpellLevelFromRecord(b);
+        const levelDiff = (levelA ?? Number.POSITIVE_INFINITY) - (levelB ?? Number.POSITIVE_INFINITY);
+        if (levelDiff !== 0) {
+          return levelDiff;
+        }
+        const nameA = normalizeSpellName(getSpellName(a));
+        const nameB = normalizeSpellName(getSpellName(b));
+        return nameA.localeCompare(nameB);
+      });
+      return sorted;
+    }
+    sorted.sort((a, b) => {
+      const nameA = normalizeSpellName(getSpellName(a));
+      const nameB = normalizeSpellName(getSpellName(b));
+      return nameA.localeCompare(nameB);
+    });
+    return sorted;
+  };
+
+  const renderDatalist = () => {
+    datalist.innerHTML = "";
+    const sorted = sortSpells(availableSpells, sortSelect.value);
+    sorted.forEach((spell) => {
+      const label = getSpellDisplayLabel(spell);
+      if (!label) {
+        return;
+      }
+      const option = document.createElement("option");
+      option.value = label;
+      datalist.appendChild(option);
+    });
+    setStatus(sorted.length ? "Select spells from the list." : "No spells found.");
+  };
+
   const setStatus = (text) => {
     status.textContent = text;
   };
@@ -681,7 +793,7 @@ const renderSpellPicker = (field, path, data) => {
       const pill = document.createElement("div");
       pill.className = "spell-chip";
       const label = document.createElement("span");
-      label.textContent = spellId;
+      label.textContent = spellDisplayById.get(spellId) || spellId;
       pill.appendChild(label);
       const remove = document.createElement("button");
       remove.type = "button";
@@ -697,38 +809,51 @@ const renderSpellPicker = (field, path, data) => {
     });
   };
 
-  const addSpell = (spellId, available) => {
-    const normalized = (spellId || "").trim();
+  const addSpell = (spellEntry) => {
+    const normalized = normalizeSpellName(spellEntry);
     if (!normalized) {
       return;
     }
-    if (available && !available.includes(normalized)) {
-      setStatus(`Spell "${normalized}" not found.`);
+    const match = spellIndex.get(normalized);
+    if (!match) {
+      setStatus(`Spell "${spellEntry}" not found.`);
       return;
     }
+    const spellId = match.id;
     const value = getValueAtPath(data, path) || [];
-    if (value.includes(normalized)) {
-      setStatus(`"${normalized}" is already selected.`);
+    if (value.includes(spellId)) {
+      setStatus(`"${spellDisplayById.get(spellId) || spellId}" is already selected.`);
       return;
     }
-    value.push(normalized);
+    value.push(spellId);
     setValueAtPath(data, path, value);
     input.value = "";
-    setStatus(`${normalized} added.`);
+    setStatus(`${spellDisplayById.get(spellId) || spellId} added.`);
     renderSelected();
   };
 
   const loadAvailableSpells = async () => {
     const payload = await loadSpellData();
-    if (isCantripPicker) {
-      return filterSpellIds(payload, { requireLevel: 0 });
+    const spells = Array.isArray(payload?.spells) ? payload.spells : [];
+    if (spells.length) {
+      return spells;
     }
-    return Array.isArray(payload?.ids) ? payload.ids : [];
+    return (Array.isArray(payload?.ids) ? payload.ids : []).map((id) => ({ id }));
+  };
+
+  const loadAndRenderSpells = async () => {
+    let spells = await loadAvailableSpells();
+    if (isCantripPicker) {
+      spells = spells.filter((spell) => getSpellLevelFromRecord(spell) === 0);
+    }
+    availableSpells = spells;
+    buildSpellIndex(spells);
+    renderDatalist();
   };
 
   addButton.addEventListener("click", async () => {
-    const available = await loadAvailableSpells();
-    addSpell(input.value, available);
+    await loadAndRenderSpells();
+    addSpell(input.value);
   });
 
   input.addEventListener("keydown", async (event) => {
@@ -736,19 +861,15 @@ const renderSpellPicker = (field, path, data) => {
       return;
     }
     event.preventDefault();
-    const available = await loadAvailableSpells();
-    addSpell(input.value, available);
+    await loadAndRenderSpells();
+    addSpell(input.value);
   });
 
-  loadAvailableSpells().then((ids) => {
-    datalist.innerHTML = "";
-    ids.forEach((spellId) => {
-      const option = document.createElement("option");
-      option.value = spellId;
-      datalist.appendChild(option);
-    });
-    setStatus(ids.length ? "Select spells from the list." : "No spells found.");
+  sortSelect.addEventListener("change", () => {
+    renderDatalist();
   });
+
+  loadAndRenderSpells();
 
   renderSelected();
   return container;
