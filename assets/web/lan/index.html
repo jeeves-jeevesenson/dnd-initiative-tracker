@@ -440,6 +440,8 @@
     .cast-menu-trigger{
       margin-top: 10px;
       display:flex;
+      gap:10px;
+      flex-wrap:wrap;
     }
     .cast-menu-trigger .btn{
       flex:1;
@@ -1874,6 +1876,7 @@
       </fieldset>
       <div class="cast-menu-trigger" id="castMenuTrigger">
         <button class="btn" id="castOverlayOpen" type="button">Cast Spell</button>
+        <button class="btn" id="aoeMoveBtn" type="button">Spell Move</button>
       </div>
       </div>
     </div>
@@ -2623,6 +2626,7 @@ __DAMAGE_TYPE_OPTIONS__
   const showAllNamesEl = document.getElementById("showAllNames");
   const castOverlay = document.getElementById("sheetCastView");
   const castOverlayOpenBtn = document.getElementById("castOverlayOpen");
+  const aoeMoveBtn = document.getElementById("aoeMoveBtn");
   const castOverlayBackBtn = document.getElementById("castOverlayBack");
   const castMenuTrigger = document.getElementById("castMenuTrigger");
   const castPanel = document.getElementById("castPanel");
@@ -4257,12 +4261,77 @@ __DAMAGE_TYPE_OPTIONS__
       const parsed = Number(aid);
       selectedAoeId = Number.isFinite(parsed) ? parsed : null;
     }
+    updateAoeMoveButton();
   }
 
   function clearAoeMoveMode(){
     aoeMoveModeAid = null;
     lastAoeTapAid = null;
     lastAoeTapAt = 0;
+    updateAoeMoveButton();
+  }
+
+  function updateAoeMoveButton(){
+    if (!aoeMoveBtn) return;
+    const hasSelection = selectedAoeId !== null && selectedAoeId !== undefined;
+    const isActive = hasSelection && aoeMoveModeAid !== null && Number(aoeMoveModeAid) === Number(selectedAoeId);
+    aoeMoveBtn.classList.toggle("accent", isActive);
+    aoeMoveBtn.textContent = isActive ? "Spell Move…" : "Spell Move";
+    aoeMoveBtn.disabled = !hasSelection;
+    aoeMoveBtn.setAttribute("aria-pressed", isActive ? "true" : "false");
+  }
+
+  function queueAoeMoveMode(){
+    if (!selectedAoeId && selectedAoeId !== 0){
+      localToast("Select a spell first, matey.");
+      return;
+    }
+    const aoe = state?.aoes?.find(a => Number(a.aid) === Number(selectedAoeId)) || null;
+    if (!aoe){
+      localToast("Select a spell first, matey.");
+      return;
+    }
+    if (!claimedCid){
+      clearAoeMoveMode();
+      localToast("Claim a character first, matey.");
+      updateAoeMoveButton();
+      return;
+    }
+    if (aoe.owner_cid !== null && aoe.owner_cid !== undefined
+        && !cidMatches(aoe.owner_cid, claimedCid, "aoeMove.btnOwnerCid")){
+      clearAoeMoveMode();
+      localToast("That spell be not yers.");
+      updateAoeMoveButton();
+      return;
+    }
+    if (aoe.pinned){
+      clearAoeMoveMode();
+      localToast("That spell be pinned.");
+      updateAoeMoveButton();
+      return;
+    }
+    if (state?.active_cid === null || !cidMatches(state.active_cid, claimedCid, "aoeMove.btnActiveCid")){
+      clearAoeMoveMode();
+      localToast("Not yer turn yet, matey.");
+      updateAoeMoveButton();
+      return;
+    }
+    const movePerTurn = Number(aoe.move_per_turn_ft);
+    const hasMoveLimit = Number.isFinite(movePerTurn) && movePerTurn > 0;
+    const moveRemaining = Number.isFinite(Number(aoe.move_remaining_ft))
+      ? Number(aoe.move_remaining_ft)
+      : (hasMoveLimit ? movePerTurn : null);
+    if (hasMoveLimit && (!Number.isFinite(moveRemaining) || moveRemaining <= 0)){
+      clearAoeMoveMode();
+      localToast("That spell can't move any more this turn.");
+      updateAoeMoveButton();
+      return;
+    }
+    aoeMoveModeAid = Number(aoe.aid);
+    lastAoeTapAid = null;
+    lastAoeTapAt = 0;
+    localToast("Click the map to move yer spell.");
+    updateAoeMoveButton();
   }
 
   function syncSelectedAoe(){
@@ -5667,6 +5736,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   function updateHud(){
     if (!state){ return; }
+    updateAoeMoveButton();
     const active = state.active_cid;
     const round = state.round_num;
     turnEl.textContent = (active === null) ? "Turn: (not started)" : `Round ${round}`;
@@ -6302,6 +6372,21 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
 
+    if (aoeMoveModeAid !== null){
+      const targetAoe = state?.aoes?.find(a => Number(a.aid) === Number(aoeMoveModeAid)) || null;
+      if (targetAoe){
+        const g = screenToGridFloat(p.x, p.y);
+        const payload = {type:"aoe_move", aid: Number(targetAoe.aid), to: {cx: g.col, cy: g.row}};
+        console.log("[AOE move send]", {payload, claimedCid});
+        send(payload);
+      } else {
+        localToast("Select a spell first, matey.");
+      }
+      clearAoeMoveMode();
+      draw();
+      return;
+    }
+
     const shiftHeld = isShiftPressed(ev);
     const aoeHit = hitTestAoe(p);
     // Try token hit (unless we're explicitly Shift-dragging an AoE).
@@ -6393,6 +6478,7 @@ __DAMAGE_TYPE_OPTIONS__
         moveRemainingFt: moveRemaining,
         movePerTurnFt: hasMoveLimit ? movePerTurn : null,
       };
+      updateAoeMoveButton();
       return;
     }
     setSelectedAoe(null);
@@ -8913,6 +8999,16 @@ __DAMAGE_TYPE_OPTIONS__
   if (castOverlayOpenBtn){
     castOverlayOpenBtn.addEventListener("click", () => {
       setCastOverlayOpen(true);
+    });
+  }
+  if (aoeMoveBtn){
+    aoeMoveBtn.addEventListener("click", () => {
+      if (aoeMoveModeAid !== null){
+        clearAoeMoveMode();
+        updateAoeMoveButton();
+        return;
+      }
+      queueAoeMoveMode();
     });
   }
   if (castOverlayBackBtn){
