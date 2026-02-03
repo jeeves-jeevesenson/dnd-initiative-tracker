@@ -6195,7 +6195,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan_next_aoe_id = aid + 1
             if cid is not None and cid in self.combatants:
                 owner = str(self.combatants[cid].name)
-                owner_cid = int(cid)
+                if not is_admin and claimed is not None:
+                    owner_cid = int(claimed)
+                else:
+                    owner_cid = int(cid)
             else:
                 owner = "DM"
                 owner_cid = None
@@ -6404,9 +6407,19 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "That spell be pinned.")
                 return
             owner_cid = d.get("owner_cid")
-            if owner_cid is not None and int(owner_cid) != int(cid) and not is_admin:
-                self._lan.toast(ws_id, "That spell be not yers.")
-                return
+            anchor_cid = d.get("anchor_cid")
+            if not is_admin:
+                if owner_cid is not None:
+                    if int(owner_cid) != int(cid):
+                        self._lan.toast(ws_id, "That spell be not yers.")
+                        return
+                elif anchor_cid is not None:
+                    if int(anchor_cid) != int(cid):
+                        self._lan.toast(ws_id, "That spell be not yers.")
+                        return
+                elif claimed is not None and int(claimed) != int(cid):
+                    self._lan.toast(ws_id, "That spell be not yers.")
+                    return
             move_per_turn_ft = d.get("move_per_turn_ft")
             move_remaining_ft = d.get("move_remaining_ft")
             if not is_admin:
