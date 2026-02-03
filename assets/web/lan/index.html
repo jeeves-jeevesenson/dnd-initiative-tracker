@@ -8762,7 +8762,9 @@ __DAMAGE_TYPE_OPTIONS__
     planningBtn.setAttribute("aria-disabled", isPlanning ? "true" : "false");
     if (!isPlanning){
       planningBtn.addEventListener("click", () => {
-        window.open("https://exampledndpage.dev:8787/planning", "_blank", "noopener,noreferrer");
+        const baseUrl = window.LAN_BASE_URL || window.location.origin;
+        const planningUrl = `${baseUrl.replace(/\/$/, "")}/planning`;
+        window.open(planningUrl, "_blank", "noopener,noreferrer");
       });
     }
   }
