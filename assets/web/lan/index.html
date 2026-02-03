@@ -2220,6 +2220,7 @@ __DAMAGE_TYPE_OPTIONS__
   const qs = new URLSearchParams(location.search);
   const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
   const isMapView = normalizedPath === "/map_view";
+  const isPlanning = normalizedPath === "/planning";
   const wsPath = isMapView ? "/ws_view" : "/ws";
   const wsProto = (location.protocol === "https:") ? "wss" : "ws";
   const wsOrigin = (() => {
@@ -2752,6 +2753,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   let ws = null;
   let state = null;
+  let planningSnapshotLocked = false;
   let reconnectTimer = null;
   let reconnecting = false;
   let claimedCid = null;
@@ -5788,6 +5790,16 @@ __DAMAGE_TYPE_OPTIONS__
     lastTurnRound = round;
   }
 
+  const planningFreezeTypes = new Set([
+    "state",
+    "unit_update",
+    "units_snapshot",
+    "terrain_update",
+    "terrain_patch",
+    "grid_update",
+    "aoe_patch",
+  ]);
+
   function connect(){
     if (!wsUrl){
       setConn(false, "Disconnected");
@@ -5826,6 +5838,9 @@ __DAMAGE_TYPE_OPTIONS__
     ws.addEventListener("message", (ev) => {
       let msg = null;
       try { msg = JSON.parse(ev.data); } catch(e){ return; }
+      if (isPlanning && planningSnapshotLocked && planningFreezeTypes.has(msg.type)){
+        return;
+      }
       if (msg.type === "static_data"){
         // Merge static data into state (sent once on connection)
         if (!state){ state = {}; }
@@ -5906,6 +5921,9 @@ __DAMAGE_TYPE_OPTIONS__
             }
         }
         refreshTurnAlertStatus();
+        if (isPlanning){
+          planningSnapshotLocked = true;
+        }
       } else if (msg.type === "turn_update"){
         if (!state){ state = {}; }
         if ("active_cid" in msg){
