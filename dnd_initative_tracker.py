@@ -6152,6 +6152,8 @@ class InitiativeTracker(base.InitiativeTracker):
             duration_turns = payload.get("duration_turns")
             over_time = parse_bool(payload.get("over_time"))
             move_per_turn_ft = parse_nonnegative_float(payload.get("move_per_turn_ft"))
+            if move_per_turn_ft is not None and move_per_turn_ft <= 0:
+                move_per_turn_ft = None
             trigger_on_start_or_enter = parse_trigger(payload.get("trigger_on_start_or_enter"))
             persistent = parse_bool(payload.get("persistent"))
             pinned_default = parse_bool(payload.get("pinned_default"))
@@ -6559,7 +6561,15 @@ class InitiativeTracker(base.InitiativeTracker):
                     )
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
                     return
+                move_limit = None
                 if move_per_turn_ft not in (None, ""):
+                    try:
+                        move_limit = float(move_per_turn_ft)
+                    except Exception:
+                        move_limit = None
+                    if move_limit is not None and move_limit <= 0:
+                        move_limit = None
+                if move_limit is not None:
                     if not on_turn:
                         _log_aoe_move(
                             "reject_move_not_turn",
@@ -6570,21 +6580,6 @@ class InitiativeTracker(base.InitiativeTracker):
                             },
                         )
                         self._lan.toast(ws_id, "That spell moves only on yer turn.")
-                        return
-                    try:
-                        move_limit = float(move_per_turn_ft)
-                    except Exception:
-                        move_limit = None
-                    if move_limit is None or move_limit <= 0:
-                        _log_aoe_move(
-                            "reject_move_not_allowed",
-                            extra={
-                                "owner_cid": _typed(owner_cid),
-                                "anchor_cid": _typed(anchor_cid),
-                                "move_per_turn_ft": move_per_turn_ft,
-                            },
-                        )
-                        self._lan.toast(ws_id, "That spell can't move this turn.")
                         return
                     try:
                         remaining = float(move_remaining_ft)
