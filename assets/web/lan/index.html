@@ -2784,6 +2784,17 @@ __DAMAGE_TYPE_OPTIONS__
   let selectedAoeId = null;
   let panning = null;  // {x,y, panX, panY}
   let shiftMoveMode = false;
+  const isShiftKey = (event) => (
+    event?.key === "Shift"
+    || event?.code === "ShiftLeft"
+    || event?.code === "ShiftRight"
+  );
+  const isShiftPressed = (event) => {
+    if (!event) return shiftMoveMode;
+    if (event.shiftKey) return true;
+    if (typeof event.getModifierState === "function" && event.getModifierState("Shift")) return true;
+    return shiftMoveMode;
+  };
   const logAoeDragState = (stage, aid, ev) => {
     console.log("[AOE drag]", {
       stage,
@@ -6330,7 +6341,7 @@ __DAMAGE_TYPE_OPTIONS__
       if (aoeMoveModeAid !== null && Number(aoeMoveModeAid) !== Number(aoeHit.aid)){
         clearAoeMoveMode();
       }
-      const shiftHeld = ev.shiftKey || shiftMoveMode;
+      const shiftHeld = isShiftPressed(ev);
       if (ev.pointerType === "touch"){
         aoeMoveModeAid = Number(aoeHit.aid);
         lastAoeTapAid = null;
@@ -6424,7 +6435,7 @@ __DAMAGE_TYPE_OPTIONS__
       const g = screenToGridFloat(p.x, p.y);
       const aoe = state?.aoes?.find(a => Number(a.aid) === Number(draggingAoe.aid)) || null;
       const kind = aoe?.kind ? String(aoe.kind) : "";
-      const shiftHeld = ev.shiftKey || shiftMoveMode;
+      const shiftHeld = isShiftPressed(ev);
       if (shiftHeld && (kind === "line" || kind === "cone")){
         let ax = Number(aoe?.ax);
         let ay = Number(aoe?.ay);
@@ -9081,7 +9092,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Shift"){
+    if (isShiftKey(event)){
       shiftMoveMode = true;
     }
   });
@@ -9094,7 +9105,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
   });
   document.addEventListener("keyup", (event) => {
-    if (event.key === "Shift"){
+    if (isShiftKey(event)){
       shiftMoveMode = false;
     }
   });
