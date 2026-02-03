@@ -6226,6 +6226,10 @@ __DAMAGE_TYPE_OPTIONS__
         aoeMoveModeAid = Number(aoeHit.aid);
         lastAoeTapAid = null;
         lastAoeTapAt = 0;
+      } else if (ev.shiftKey){
+        aoeMoveModeAid = Number(aoeHit.aid);
+        lastAoeTapAid = null;
+        lastAoeTapAt = 0;
       } else {
         const now = Date.now();
         if (lastAoeTapAid !== null && Number(lastAoeTapAid) === Number(aoeHit.aid) && now - lastAoeTapAt <= AOE_DOUBLE_ACTION_MS){
@@ -6237,7 +6241,7 @@ __DAMAGE_TYPE_OPTIONS__
           lastAoeTapAt = now;
         }
         if (Number(aoeMoveModeAid) !== Number(aoeHit.aid)){
-          localToast("Double-tap to move that spell.");
+          localToast("Hold Shift or double-tap to move that spell.");
           return;
         }
       }
