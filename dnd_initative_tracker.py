@@ -6379,15 +6379,17 @@ class InitiativeTracker(base.InitiativeTracker):
                 cy = float(to.get("cy"))
             except Exception:
                 return
-            def _safe_convert(value: Any, conversion_func: Callable[[Any], Any]) -> Optional[Union[int, float]]:
+            def _try_convert_numeric(
+                value: Any, conversion_func: Callable[[Any], Any]
+            ) -> Optional[Union[int, float]]:
                 try:
                     return conversion_func(value)
                 except Exception:
                     return None
-            angle_deg = _safe_convert(to.get("angle_deg"), float)
-            ax = _safe_convert(to.get("ax"), float)
-            ay = _safe_convert(to.get("ay"), float)
-            spread_deg = _safe_convert(to.get("spread_deg"), float)
+            angle_deg = _try_convert_numeric(to.get("angle_deg"), float)
+            ax = _try_convert_numeric(to.get("ax"), float)
+            ay = _try_convert_numeric(to.get("ay"), float)
+            spread_deg = _try_convert_numeric(to.get("spread_deg"), float)
             mw = getattr(self, "_map_window", None)
             map_ready = mw is not None and mw.winfo_exists()
             aoe_store = getattr(mw, "aoes", {}) if map_ready else (getattr(self, "_lan_aoes", {}) or {})
@@ -6408,12 +6410,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             owner_cid = d.get("owner_cid")
             anchor_cid = d.get("anchor_cid")
-            cid_int = _safe_convert(cid, int)
-            claimed_int = _safe_convert(claimed, int)
-            owner_cid_int = _safe_convert(owner_cid, int)
-            anchor_cid_int = _safe_convert(anchor_cid, int)
+            cid_int = _try_convert_numeric(cid, int)
+            claimed_int = _try_convert_numeric(claimed, int)
+            owner_cid_int = _try_convert_numeric(owner_cid, int)
+            anchor_cid_int = _try_convert_numeric(anchor_cid, int)
             active_cid = self.current_cid
-            active_cid_int = _safe_convert(active_cid, int)
+            active_cid_int = _try_convert_numeric(active_cid, int)
             def _cid_matches(target_cid: Optional[int], requester_cid: Optional[int]) -> bool:
                 return target_cid is not None and requester_cid is not None and target_cid == requester_cid
             def _log_aoe_move_reject(reason: str) -> None:
@@ -6444,11 +6446,12 @@ class InitiativeTracker(base.InitiativeTracker):
             move_per_turn_ft = d.get("move_per_turn_ft")
             move_remaining_ft = d.get("move_remaining_ft")
             if not is_admin:
-                if active_cid_int is not None and not _cid_matches(active_cid_int, cid_int):
+                in_combat = active_cid_int is not None
+                if in_combat and not _cid_matches(active_cid_int, cid_int):
                     _log_aoe_move_reject("turn_mismatch")
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
                     return
-                if active_cid_int is not None and move_per_turn_ft not in (None, ""):
+                if in_combat and move_per_turn_ft not in (None, ""):
                     try:
                         move_limit = float(move_per_turn_ft)
                     except Exception:
