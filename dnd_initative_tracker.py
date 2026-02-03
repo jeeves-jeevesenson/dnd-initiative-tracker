@@ -5978,7 +5978,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         # Only allow controlling on your turn (POC)
-        if not is_admin and typ not in ("cast_aoe", "aoe_remove"):
+        if not is_admin and typ not in ("cast_aoe", "aoe_move", "aoe_remove"):
             if self.current_cid is None or int(self.current_cid) != int(cid):
                 self._lan.toast(ws_id, "Not yer turn yet, matey.")
                 return
@@ -6475,7 +6475,9 @@ class InitiativeTracker(base.InitiativeTracker):
             move_per_turn_ft = d.get("move_per_turn_ft")
             move_remaining_ft = d.get("move_remaining_ft")
             if not is_admin:
-                if self.current_cid is None or int(self.current_cid) != int(cid):
+                on_turn = self.current_cid is not None and int(self.current_cid) == int(cid)
+                owner_override = owner_cid is not None and claimed is not None and int(owner_cid) == int(claimed)
+                if not on_turn and not owner_override:
                     _log_aoe_move(
                         "reject_not_turn",
                         extra={
@@ -6486,6 +6488,17 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
                     return
                 if move_per_turn_ft not in (None, ""):
+                    if not on_turn:
+                        _log_aoe_move(
+                            "reject_move_not_turn",
+                            extra={
+                                "owner_cid": _typed(owner_cid),
+                                "anchor_cid": _typed(anchor_cid),
+                                "move_per_turn_ft": move_per_turn_ft,
+                            },
+                        )
+                        self._lan.toast(ws_id, "That spell moves only on yer turn.")
+                        return
                     try:
                         move_limit = float(move_per_turn_ft)
                     except Exception:
