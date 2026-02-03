@@ -6564,8 +6564,8 @@ class BattleMapWindow(tk.Toplevel):
 
         obstacles = getattr(self, "obstacles", set()) or set()
         rough_terrain = getattr(self, "rough_terrain", {}) or {}
-        mode = self._normalize_movement_mode(getattr(creature, "movement_mode", "normal"))
-        water_multiplier = self._water_movement_multiplier(creature, mode)
+        mode = self.app._normalize_movement_mode(getattr(creature, "movement_mode", "normal"))
+        water_multiplier = self.app._water_movement_multiplier(creature, mode)
 
         while pq:
             cost, col, row, parity = heapq.heappop(pq)
