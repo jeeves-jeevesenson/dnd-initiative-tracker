@@ -6755,6 +6755,21 @@ class InitiativeTracker(base.InitiativeTracker):
             pass
         return cols, rows, obstacles, rough_terrain, positions
 
+    def _water_movement_multiplier(self, c: Optional[base.Combatant], mode: str) -> float:
+        if c is None:
+            return 1.0
+        if self._normalize_movement_mode(mode) != "normal":
+            return 1.0
+        land_speed = max(0, int(getattr(c, "speed", 0) or 0))
+        if land_speed <= 0:
+            return 1.0
+        swim_speed = max(0, int(getattr(c, "swim_speed", 0) or 0))
+        if swim_speed <= 0:
+            swim_speed = max(1, int(land_speed / 2))
+        if swim_speed <= 0:
+            return 1.0
+        return float(land_speed) / float(swim_speed)
+
     def _lan_shortest_cost(
         self,
         origin: Tuple[int, int],
