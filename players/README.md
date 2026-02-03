@@ -231,10 +231,10 @@ vitals:
     total: 5                      # Total number of hit dice (usually equals level)
     spent: 2                      # Number of hit dice spent (refreshes on long rest)
   speed:
-    walk: 30                      # Walking speed in feet
-    climb: 15                     # Climbing speed (0 if none)
-    fly: 0                        # Flying speed (0 if none)
-    swim: 30                      # Swimming speed (0 if none)
+    Normal: 30 ft.                # Walking speed in feet
+    Climb: 15 ft.                 # Climbing speed (0 if none)
+    Fly: 0 ft.                    # Flying speed (0 if none)
+    Swim: 30 ft.                  # Swimming speed (0 if none)
   initiative:
     formula: "dex_mod"            # Formula for initiative calculation
   passive_perception:
@@ -252,18 +252,19 @@ vitals:
   - **die**: Type of hit die based on class (Wizard: d6, Rogue: d8, Fighter: d10, Barbarian: d12)
   - **total**: Total hit dice available (typically equals character level for single-class)
   - **spent**: How many hit dice have been spent (reset on long rest)
-- **speed**: Movement speeds in feet per round
-  - **walk**: Standard walking speed (typically 30 for most races, 25 for dwarves/small races)
-  - **climb**: Special climbing speed (from racial traits or class features)
-  - **fly**: Flying speed (from racial traits, magic items, or spells)
-  - **swim**: Swimming speed (from racial traits or class features)
+- **speed**: Movement speeds in feet per round (matching monster-style keys)
+  - **Normal**: Standard walking speed (typically 30 for most races, 25 for dwarves/small races)
+  - **Climb**: Special climbing speed (from racial traits or class features)
+  - **Fly**: Flying speed (from racial traits, magic items, or spells)
+  - **Swim**: Swimming speed (from racial traits or class features)
+  - **Burrow**: Burrowing speed (from racial traits, magic items, or spells)
 - **initiative.formula**: Formula for calculating initiative. Typically `"dex_mod"` but can be modified by features (e.g., Champion Fighter adds `"dex_mod + wis_mod"`)
 - **passive_perception.formula**: Formula for passive Perception. Standard is `"10 + wis_mod"` plus proficiency if proficient in Perception, plus expertise bonus if applicable.
 
 **Notes:**
 - Hit dice: Multiclass characters have separate hit dice types. The `die` field can be a single type or the primary class's type.
 - Formulas are evaluated by the application using character stats (see [Formula System](#formula-system))
-- For `format_version: 2` files, `vitals.speed` is used to populate the roster movement speeds. `walk`/`land` map to the normal speed, while `swim`, `fly`, `burrow`, and `climb` map to their matching movement types.
+- For `format_version: 2` files, `vitals.speed` is used to populate the roster movement speeds with the monster-style keys (`Normal`, `Climb`, `Fly`, `Swim`, `Burrow`). Values should include units like `30 ft.`.
 
 ---
 
@@ -486,7 +487,7 @@ grants:
       mode: "add"
       value: "wis_mod"
       when: "always"
-    - target: "speed.walk"
+    - target: "speed.Normal"
       mode: "add"
       value: 10
       when: "unarmored"
@@ -494,7 +495,7 @@ grants:
 
 **Field Descriptions:**
 - **target**: What stat to modify
-  - Common targets: `"ac"`, `"initiative"`, `"speed.walk"`, `"speed.fly"`, `"spell_save_dc"`, `"spell_attack"`, specific skills
+  - Common targets: `"ac"`, `"initiative"`, `"speed.Normal"`, `"speed.Fly"`, `"spell_save_dc"`, `"spell_attack"`, specific skills
 - **mode**: How to apply the modification
   - `"add"`: Add value to target
   - `"multiply"`: Multiply target by value
@@ -878,7 +879,7 @@ The main application uses character YAML files during gameplay for combat tracki
 **Vitals & Resources:**
 - **HP Tracking**: Monitors `current_hp`, `max_hp`, and `temp_hp`
 - **Resource Pools**: Tracks usage of limited resources (Action Surge, Ki Points, Spell Slots, etc.)
-- **Movement**: Uses `speed.walk`, `speed.fly`, etc. for battle map movement tracking
+- **Movement**: Uses `speed.Normal`, `speed.Fly`, etc. for battle map movement tracking
 - **Actions**: Tracks actions, bonus actions, and reactions per turn
 
 **Combat Capabilities:**
