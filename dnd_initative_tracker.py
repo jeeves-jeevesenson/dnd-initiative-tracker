@@ -1390,6 +1390,12 @@ class LanController:
             push_key_value = json.dumps(push_key) if push_key else "undefined"
             return HTMLResponse(HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value))
 
+        @self._fastapi_app.get("/planning")
+        async def planning():
+            push_key = self.cfg.vapid_public_key
+            push_key_value = json.dumps(push_key) if push_key else "undefined"
+            return HTMLResponse(HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value))
+
         @self._fastapi_app.get("/new_character")
         async def new_character():
             if not web_entrypoint.exists():
