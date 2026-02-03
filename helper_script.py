@@ -7195,14 +7195,18 @@ class BattleMapWindow(tk.Toplevel):
         cy = (self.rows - 1) / 2.0
 
         angle_deg = 0.0 if orient == "horizontal" else 90.0
+        angle_rad = math.radians(angle_deg)
+        half_len = length_sq / 2.0
+        ax = cx - math.cos(angle_rad) * half_len
+        ay = cy - math.sin(angle_rad) * half_len
         self.aoes[aid] = {
             "kind": "line",
             "length_sq": length_sq,
             "width_sq": width_sq,
             "orient": orient,
             "angle_deg": angle_deg,
-            "ax": cx,
-            "ay": cy,
+            "ax": ax,
+            "ay": ay,
             "cx": cx,
             "cy": cy,
             "pinned": False,
@@ -7422,8 +7426,8 @@ class BattleMapWindow(tk.Toplevel):
                     d["cx"] = ax
                     d["cy"] = ay
         if kind == "cone" and anchor is None:
-            d["ax"] = float(d.get("ax", d.get("cx", 0.0)))
-            d["ay"] = float(d.get("ay", d.get("cy", 0.0)))
+            d["ax"] = float(d.get("cx", 0.0))
+            d["ay"] = float(d.get("cy", 0.0))
         cx = float(d["cx"])
         cy = float(d["cy"])
         x = self.x0 + (cx + 0.5) * self.cell
@@ -8379,18 +8383,22 @@ class BattleMapWindow(tk.Toplevel):
                 old_cy = float(d.get("cy", cy))
                 d["cx"] = cx
                 d["cy"] = cy
-                if kind == "line":
+                if kind in ("line", "wall"):
                     anchor = self._resolve_aoe_anchor(d)
                     if anchor is None:
-                        ax = float(d.get("ax", old_cx))
-                        ay = float(d.get("ay", old_cy))
-                        d["ax"] = ax + (cx - old_cx)
-                        d["ay"] = ay + (cy - old_cy)
+                        angle = d.get("angle_deg")
+                        orient = str(d.get("orient") or "vertical")
+                        if angle is None:
+                            angle = 0.0 if orient == "horizontal" else 90.0
+                        angle_rad = math.radians(float(angle))
+                        half_len = float(d.get("length_sq") or 0.0) / 2.0
+                        d["ax"] = cx - math.cos(angle_rad) * half_len
+                        d["ay"] = cy - math.sin(angle_rad) * half_len
                 elif kind == "cone":
                     anchor = self._resolve_aoe_anchor(d)
                     if anchor is None:
-                        d["ax"] = float(d.get("ax", cx))
-                        d["ay"] = float(d.get("ay", cy))
+                        d["ax"] = cx
+                        d["ay"] = cy
             self._layout_aoe(self._drag_id)
 
         self._update_included_for_selected()
