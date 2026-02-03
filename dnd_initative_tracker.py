@@ -6701,8 +6701,10 @@ class InitiativeTracker(base.InitiativeTracker):
 
         import heapq
 
-        mode = self._normalize_movement_mode(getattr(creature, "movement_mode", "normal"))
-        water_multiplier = self._water_movement_multiplier(creature, mode)
+        mode = base.InitiativeTracker._normalize_movement_mode(
+            self, getattr(creature, "movement_mode", "normal")
+        )
+        water_multiplier = base.InitiativeTracker._water_movement_multiplier(self, creature, mode)
 
         def in_bounds(c: int, r: int) -> bool:
             return 0 <= c < cols and 0 <= r < rows
@@ -6742,11 +6744,15 @@ class InitiativeTracker(base.InitiativeTracker):
                     target_cell = rough_terrain.get((nc, nr))
                     current_cell = rough_terrain.get((c, r))
                     target_is_rough = bool(target_cell.get("is_rough", False)) if isinstance(target_cell, dict) else False
-                    current_type = self._normalize_movement_type(
+                    current_type = base.InitiativeTracker._normalize_movement_type(
+                        self,
                         current_cell.get("movement_type") if isinstance(current_cell, dict) else None,
-                        is_swim=bool(current_cell.get("is_swim", False)) if isinstance(current_cell, dict) else False,
+                        is_swim=bool(current_cell.get("is_swim", False))
+                        if isinstance(current_cell, dict)
+                        else False,
                     )
-                    target_type = self._normalize_movement_type(
+                    target_type = base.InitiativeTracker._normalize_movement_type(
+                        self,
                         target_cell.get("movement_type") if isinstance(target_cell, dict) else None,
                         is_swim=bool(target_cell.get("is_swim", False)) if isinstance(target_cell, dict) else False,
                     )
