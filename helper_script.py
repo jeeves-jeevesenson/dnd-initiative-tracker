@@ -4981,6 +4981,7 @@ class BattleMapWindow(tk.Toplevel):
         self._selected_bg: Optional[int] = None
 
         self._build_ui()
+        self._apply_lan_map_state()
         try:
             self.refresh_spell_overlays()
         except Exception:
@@ -4994,6 +4995,36 @@ class BattleMapWindow(tk.Toplevel):
 
         # Auto-refresh units/markers so slain creatures disappear without manual refresh.
         self._start_polling()
+
+    def _apply_lan_map_state(self) -> None:
+        redraw_move_highlight = False
+        lan_rough = getattr(self.app, "_lan_rough_terrain", None)
+        if isinstance(lan_rough, dict):
+            self.rough_terrain = {
+                key: dict(value) if isinstance(value, dict) else value
+                for key, value in lan_rough.items()
+            }
+            self._draw_rough_terrain()
+            redraw_move_highlight = True
+
+        lan_obstacles = getattr(self.app, "_lan_obstacles", None)
+        if isinstance(lan_obstacles, (set, list, tuple)):
+            loaded: Set[Tuple[int, int]] = set()
+            for item in lan_obstacles:
+                try:
+                    col, row = item
+                except Exception:
+                    continue
+                try:
+                    loaded.add((int(col), int(row)))
+                except Exception:
+                    continue
+            self.obstacles = loaded
+            self._draw_obstacles()
+            redraw_move_highlight = True
+
+        if redraw_move_highlight:
+            self._update_move_highlight()
 
     def _on_close(self) -> None:
         try:
