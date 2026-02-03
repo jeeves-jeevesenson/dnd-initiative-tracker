@@ -590,6 +590,53 @@ def _make_lan_logger() -> logging.Logger:
     return lg
 
 
+def _normalize_cid_value(
+    value: Any,
+    context: str = "",
+    log_fn: Optional[Callable[[str], None]] = None,
+) -> Optional[int]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        if log_fn:
+            log_fn(f"CID normalization skipped bool value for {context}: {value!r}")
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if value.is_integer():
+            if log_fn:
+                log_fn(f"CID normalization coerced float for {context}: {value!r}")
+            return int(value)
+        if log_fn:
+            log_fn(f"CID normalization rejected non-integer float for {context}: {value!r}")
+        return None
+    if isinstance(value, str):
+        trimmed = value.strip()
+        if not trimmed:
+            return None
+        try:
+            parsed = int(trimmed)
+            if log_fn:
+                log_fn(f"CID normalization coerced string for {context}: {value!r}")
+            return parsed
+        except ValueError:
+            try:
+                parsed_float = float(trimmed)
+            except ValueError:
+                parsed_float = None
+            if parsed_float is not None and parsed_float.is_integer():
+                if log_fn:
+                    log_fn(f"CID normalization coerced float string for {context}: {value!r}")
+                return int(parsed_float)
+        if log_fn:
+            log_fn(f"CID normalization rejected string for {context}: {value!r}")
+        return None
+    if log_fn:
+        log_fn(f"CID normalization rejected {type(value).__name__} for {context}: {value!r}")
+    return None
+
+
 def _read_index_file(path: Path) -> Dict[str, Any]:
     try:
         if not path.exists():
@@ -1719,6 +1766,13 @@ class LanController:
                         msg = json.loads(raw)
                     except Exception:
                         continue
+                    cid_raw = msg.get("cid")
+                    if cid_raw is not None:
+                        msg["cid"] = _normalize_cid_value(
+                            cid_raw,
+                            "lan_message.cid",
+                            log_fn=lambda message: self._append_lan_log(message, level="warning"),
+                        )
                     typ = str(msg.get("type") or "")
                     if typ == "grid_request":
                         await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
@@ -5928,13 +5982,18 @@ class InitiativeTracker(base.InitiativeTracker):
         """Apply client actions on the Tk thread."""
         typ = str(msg.get("type") or "")
         ws_id = msg.get("_ws_id")
-        claimed = msg.get("_claimed_cid")
+        log_warning = None
+        try:
+            log_warning = lambda message: self._lan._append_lan_log(message, level="warning")
+        except Exception:
+            log_warning = None
+        claimed = _normalize_cid_value(msg.get("_claimed_cid"), "lan_action.claimed_cid", log_fn=log_warning)
         admin_token = str(msg.get("admin_token") or "").strip()
         is_admin = bool(admin_token and self._is_admin_token_valid(admin_token))
 
         # Basic sanity: claimed cid must match the action cid (if provided)
-        cid = msg.get("cid")
-        if isinstance(cid, int):
+        cid = _normalize_cid_value(msg.get("cid"), "lan_action.cid", log_fn=log_warning)
+        if cid is not None:
             if not is_admin and claimed is not None and cid != claimed:
                 self._lan.toast(ws_id, "Arrr, that token ain’t yers.")
                 return
@@ -5979,7 +6038,10 @@ class InitiativeTracker(base.InitiativeTracker):
 
         # Only allow controlling on your turn (POC)
         if not is_admin and typ not in ("cast_aoe", "aoe_move", "aoe_remove"):
-            if self.current_cid is None or int(self.current_cid) != int(cid):
+            current_cid = _normalize_cid_value(
+                getattr(self, "current_cid", None), "lan_action.current_cid", log_fn=log_warning
+            )
+            if current_cid is None or cid is None or current_cid != cid:
                 self._lan.toast(ws_id, "Not yer turn yet, matey.")
                 return
 
@@ -6157,10 +6219,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 cy = None
             anchor_cid = None
             if cid is not None and claimed is not None:
-                try:
-                    anchor_cid = int(cid)
-                except Exception:
-                    anchor_cid = None
+                anchor_cid = cid
             anchor_ax = None
             anchor_ay = None
             _, _, _, _, positions = self._lan_live_map_data()
@@ -6196,9 +6255,9 @@ class InitiativeTracker(base.InitiativeTracker):
             if cid is not None and cid in self.combatants:
                 owner = str(self.combatants[cid].name)
                 if not is_admin and claimed is not None:
-                    owner_cid = int(claimed)
+                    owner_cid = claimed
                 else:
-                    owner_cid = int(cid)
+                    owner_cid = cid
             else:
                 owner = "DM"
                 owner_cid = None
@@ -6437,11 +6496,21 @@ class InitiativeTracker(base.InitiativeTracker):
                 )
                 self._lan.toast(ws_id, "That spell be pinned.")
                 return
-            owner_cid = d.get("owner_cid")
-            anchor_cid = d.get("anchor_cid")
+            owner_cid_raw = d.get("owner_cid")
+            anchor_cid_raw = d.get("anchor_cid")
+            owner_cid = _normalize_cid_value(
+                owner_cid_raw, "aoe_move.owner_cid", log_fn=log_warning
+            )
+            anchor_cid = _normalize_cid_value(
+                anchor_cid_raw, "aoe_move.anchor_cid", log_fn=log_warning
+            )
+            if owner_cid_raw is not None and owner_cid_raw != owner_cid:
+                d["owner_cid"] = owner_cid
+            if anchor_cid_raw is not None and anchor_cid_raw != anchor_cid:
+                d["anchor_cid"] = anchor_cid
             if not is_admin:
                 if owner_cid is not None:
-                    if int(owner_cid) != int(cid):
+                    if cid is None or owner_cid != cid:
                         _log_aoe_move(
                             "reject_owner_mismatch",
                             extra={
@@ -6452,7 +6521,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         self._lan.toast(ws_id, "That spell be not yers.")
                         return
                 elif anchor_cid is not None:
-                    if int(anchor_cid) != int(cid):
+                    if cid is None or anchor_cid != cid:
                         _log_aoe_move(
                             "reject_anchor_mismatch",
                             extra={
@@ -6462,7 +6531,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         )
                         self._lan.toast(ws_id, "That spell be not yers.")
                         return
-                elif claimed is not None and int(claimed) != int(cid):
+                elif claimed is not None and cid is not None and claimed != cid:
                     _log_aoe_move(
                         "reject_claimed_mismatch",
                         extra={
@@ -6475,8 +6544,11 @@ class InitiativeTracker(base.InitiativeTracker):
             move_per_turn_ft = d.get("move_per_turn_ft")
             move_remaining_ft = d.get("move_remaining_ft")
             if not is_admin:
-                on_turn = self.current_cid is not None and int(self.current_cid) == int(cid)
-                owner_override = owner_cid is not None and claimed is not None and int(owner_cid) == int(claimed)
+                current_cid = _normalize_cid_value(
+                    getattr(self, "current_cid", None), "aoe_move.current_cid", log_fn=log_warning
+                )
+                on_turn = current_cid is not None and cid is not None and current_cid == cid
+                owner_override = owner_cid is not None and claimed is not None and owner_cid == claimed
                 if not on_turn and not owner_override:
                     _log_aoe_move(
                         "reject_not_turn",
@@ -6607,11 +6679,16 @@ class InitiativeTracker(base.InitiativeTracker):
             if bool(d.get("pinned")) and not is_admin:
                 self._lan.toast(ws_id, "That spell be pinned.")
                 return
-            owner_cid = d.get("owner_cid")
+            owner_cid_raw = d.get("owner_cid")
+            owner_cid = _normalize_cid_value(
+                owner_cid_raw, "aoe_remove.owner_cid", log_fn=log_warning
+            )
+            if owner_cid_raw is not None and owner_cid_raw != owner_cid:
+                d["owner_cid"] = owner_cid
             if (
                 owner_cid is not None
                 and cid is not None
-                and int(owner_cid) != int(cid)
+                and owner_cid != cid
                 and not is_admin
             ):
                 self._lan.toast(ws_id, "That spell be not yers.")
