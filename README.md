@@ -1022,8 +1022,8 @@ monster:
       average: 7
       formula: 2d6
   speed:
-    walk_ft: 30
-    swim_ft: 0
+    Normal: 30 ft.
+    Swim: 0 ft.
   abilities:
     str: 8
     dex: 14
@@ -1054,8 +1054,8 @@ monster:
 - **name**: Display name for the creature
 - **challenge.cr**: Challenge rating (used for XP)
 - **defenses.hit_points.average**: Starting HP
-- **speed.walk_ft**: Base walking speed
-- **speed.swim_ft**: Swimming speed (0 if none)
+- **speed.Normal**: Base walking speed (with `ft.` units)
+- **speed.Swim**: Swimming speed (use `0 ft.` if none)
 - **abilities**: STR, DEX, CON, INT, WIS, CHA scores
 - **initiative.modifier**: Initiative bonus
 
@@ -1205,8 +1205,8 @@ spellcasting:
 #### Key Fields
 
 - **name** or **player**: Character name
-- **base_movement** or **vitals.speed.walk**: Walking speed in feet
-- **swim_speed** or **vitals.speed.swim**: Swimming speed
+- **base_movement** or **vitals.speed.Normal**: Walking speed (use `ft.` units)
+- **swim_speed** or **vitals.speed.Swim**: Swimming speed (use `ft.` units)
 - **hp** or **vitals.max_hp**: Maximum HP
 - **spellcasting.known_spells.known**: List of spell IDs
 - **ip**: For host-based assignment in LAN mode
