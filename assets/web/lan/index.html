@@ -4143,6 +4143,7 @@ __DAMAGE_TYPE_OPTIONS__
   ]);
 
   function send(msg){
+    if (isPlanning) return;
     if (isMapView && msg && mapViewBlockedTypes.has(msg.type)){
       return;
     }
@@ -4411,6 +4412,267 @@ __DAMAGE_TYPE_OPTIONS__
       aoeMap.delete(Number(aid));
     });
     state.aoes = Array.from(aoeMap.values()).sort((a, b) => Number(a.aid) - Number(b.aid));
+  }
+
+  function planningModeSpeed(unit){
+    if (!unit) return 30;
+    const mode = normalizeMovementMode(unit?.movement_mode);
+    if (mode === "swim"){
+      const swimSpeed = Number(unit?.swim_speed || 0);
+      if (Number.isFinite(swimSpeed) && swimSpeed > 0) return swimSpeed;
+    }
+    if (mode === "fly"){
+      const flySpeed = Number(unit?.fly_speed || 0);
+      if (Number.isFinite(flySpeed) && flySpeed > 0) return flySpeed;
+    }
+    if (mode === "burrow"){
+      const burrowSpeed = Number(unit?.burrow_speed || 0);
+      if (Number.isFinite(burrowSpeed) && burrowSpeed > 0) return burrowSpeed;
+    }
+    const speed = Number(unit?.speed || 30);
+    if (!Number.isFinite(speed) || speed <= 0) return 30;
+    return speed;
+  }
+
+  function nextPlanningAoeId(){
+    const list = Array.isArray(state?.aoes) ? state.aoes : [];
+    let maxAid = 0;
+    list.forEach((aoe) => {
+      const aid = Number(aoe?.aid);
+      if (Number.isFinite(aid) && aid > maxAid){
+        maxAid = aid;
+      }
+    });
+    return maxAid + 1;
+  }
+
+  function buildPlanningAoe(payload){
+    if (!payload || typeof payload !== "object") return null;
+    const shape = String(payload.shape || payload.kind || "").toLowerCase();
+    if (!shape) return null;
+    const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
+    const aoe = {
+      aid: nextPlanningAoeId(),
+      kind: shape,
+      cx: Number(payload.cx ?? 0),
+      cy: Number(payload.cy ?? 0),
+    };
+    if (payload.name){
+      aoe.name = payload.name;
+    }
+    if (payload.color){
+      aoe.color = payload.color;
+    }
+    if (payload.damage_type){
+      aoe.damage_type = payload.damage_type;
+    }
+    if (Array.isArray(payload.damage_types) && payload.damage_types.length){
+      aoe.damage_types = payload.damage_types.slice();
+    }
+    if (payload.save_type){
+      aoe.save_type = payload.save_type;
+    }
+    if (payload.dc !== undefined && payload.dc !== null){
+      aoe.dc = Number(payload.dc);
+    }
+    if (payload.default_damage){
+      aoe.default_damage = payload.default_damage;
+    }
+    if (payload.dice){
+      aoe.dice = payload.dice;
+    }
+    if (payload.duration_turns !== undefined && payload.duration_turns !== null){
+      const duration = Number(payload.duration_turns);
+      if (Number.isFinite(duration)){
+        aoe.duration_turns = duration;
+        aoe.remaining_turns = duration > 0 ? duration : null;
+      }
+    }
+    if (payload.over_time){
+      aoe.over_time = true;
+    }
+    if (payload.persistent){
+      aoe.persistent = true;
+    }
+    if (payload.trigger_on_start_or_enter){
+      aoe.trigger_on_start_or_enter = payload.trigger_on_start_or_enter;
+    }
+    if (payload.move_per_turn_ft !== undefined && payload.move_per_turn_ft !== null){
+      aoe.move_per_turn_ft = Number(payload.move_per_turn_ft);
+      aoe.move_remaining_ft = Number(payload.move_per_turn_ft);
+    }
+    if (payload.pinned_default){
+      aoe.pinned = true;
+    }
+    const radiusFt = Number(payload.radius_ft);
+    const sideFt = Number(payload.side_ft);
+    const lengthFt = Number(payload.length_ft);
+    const widthFt = Number(payload.width_ft);
+    const thicknessFt = Number(payload.thickness_ft);
+    const heightFt = Number(payload.height_ft);
+    const angleDeg = payload.angle_deg !== undefined && payload.angle_deg !== null
+      ? Number(payload.angle_deg)
+      : null;
+    if (shape === "circle" || shape === "sphere" || shape === "cylinder"){
+      if (Number.isFinite(radiusFt)){
+        aoe.radius_sq = Math.max(0.5, radiusFt / feetPerSquare);
+        aoe.radius_ft = radiusFt;
+      }
+      if ((shape === "sphere" || shape === "cylinder") && Number.isFinite(heightFt)){
+        aoe.height_ft = heightFt;
+      }
+    } else if (shape === "square" || shape === "cube"){
+      if (Number.isFinite(sideFt)){
+        aoe.side_sq = Math.max(1.0, sideFt / feetPerSquare);
+        aoe.side_ft = sideFt;
+      }
+    } else if (shape === "cone"){
+      if (Number.isFinite(lengthFt)){
+        aoe.length_sq = Math.max(1.0, lengthFt / feetPerSquare);
+        aoe.length_ft = lengthFt;
+      }
+      if (Number.isFinite(angleDeg)){
+        aoe.angle_deg = angleDeg;
+      }
+      aoe.orient = String(payload.orient || "vertical");
+    } else if (shape === "wall"){
+      if (Number.isFinite(lengthFt)){
+        aoe.length_sq = Math.max(1.0, lengthFt / feetPerSquare);
+        aoe.length_ft = lengthFt;
+      }
+      if (Number.isFinite(widthFt)){
+        aoe.width_sq = Math.max(1.0, widthFt / feetPerSquare);
+        aoe.width_ft = widthFt;
+        if (Number.isFinite(heightFt)){
+          aoe.height_ft = heightFt;
+        }
+      } else if (Number.isFinite(thicknessFt)){
+        aoe.width_sq = Math.max(1.0, thicknessFt / feetPerSquare);
+        aoe.thickness_ft = thicknessFt;
+        if (Number.isFinite(heightFt)){
+          aoe.height_ft = heightFt;
+        }
+      }
+      if (Number.isFinite(angleDeg)){
+        aoe.angle_deg = angleDeg;
+      }
+      aoe.orient = String(payload.orient || "vertical");
+    } else if (shape === "line"){
+      if (Number.isFinite(lengthFt)){
+        aoe.length_sq = Math.max(1.0, lengthFt / feetPerSquare);
+        aoe.length_ft = lengthFt;
+      }
+      if (Number.isFinite(widthFt)){
+        aoe.width_sq = Math.max(1.0, widthFt / feetPerSquare);
+        aoe.width_ft = widthFt;
+      } else {
+        aoe.width_sq = 1.0;
+      }
+      if (Number.isFinite(angleDeg)){
+        aoe.angle_deg = angleDeg;
+      }
+      aoe.orient = String(payload.orient || "vertical");
+    }
+    return aoe;
+  }
+
+  function planningMutate(msg){
+    if (!msg || typeof msg !== "object") return;
+    const type = String(msg.type || "");
+    if (type === "move"){
+      const unit = getUnitByCid(msg.cid);
+      const to = msg.to || {};
+      if (!unit) return;
+      const update = {
+        cid: unit.cid,
+        pos: {col: Number(to.col ?? unit.pos.col), row: Number(to.row ?? unit.pos.row)},
+      };
+      if (gridReady()){
+        const moveRemaining = Number(unit.move_remaining || 0);
+        if (Number.isFinite(moveRemaining) && moveRemaining > 0){
+          const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
+          const roughMap = buildRoughTerrainMap(state.rough_terrain);
+          const obstacleSet = buildObstacleSet(state.obstacles);
+          const costMap = movementCostMap(
+            Number(unit.pos.col),
+            Number(unit.pos.row),
+            moveRemaining,
+            unit,
+            roughMap,
+            obstacleSet,
+            state.grid.cols,
+            state.grid.rows,
+            feetPerSquare,
+          );
+          const cost = costMap.get(cellKey(update.pos.col, update.pos.row));
+          if (Number.isFinite(cost)){
+            update.move_remaining = Math.max(0, moveRemaining - cost);
+          }
+        }
+      }
+      applyUnitUpdates([update]);
+      return;
+    }
+    if (["dash", "perform_action", "use_action", "use_bonus_action"].includes(type)){
+      const unit = getUnitByCid(msg.cid);
+      if (!unit) return;
+      const update = {cid: unit.cid};
+      const spendRaw = String(msg.spend || "").toLowerCase();
+      const spend = spendRaw.includes("bonus") ? "bonus" : "action";
+      const useAction = () => {
+        const current = Number(unit.action_remaining || 0);
+        update.action_remaining = Math.max(0, current - 1);
+      };
+      const useBonus = () => {
+        const current = Number(unit.bonus_action_remaining || 0);
+        update.bonus_action_remaining = Math.max(0, current - 1);
+      };
+      if (type === "use_action"){
+        useAction();
+      } else if (type === "use_bonus_action"){
+        useBonus();
+      } else if (spend === "bonus"){
+        useBonus();
+      } else {
+        useAction();
+      }
+      const actionName = String(msg.action || msg.name || "");
+      const actionKey = normalizeLowerValue(actionName);
+      if (type === "dash" || actionKey === "dash"){
+        const baseSpeed = planningModeSpeed(unit);
+        const total = Number(unit.move_total || 0);
+        const remaining = Number(unit.move_remaining || 0);
+        update.move_total = total + baseSpeed;
+        update.move_remaining = remaining + baseSpeed;
+      }
+      applyUnitUpdates([update]);
+      return;
+    }
+    if (type === "cast_aoe"){
+      const aoe = buildPlanningAoe(msg.payload || {});
+      if (!aoe) return;
+      applyAoePatch({updates: [aoe], removals: []});
+      return;
+    }
+    if (type === "aoe_move"){
+      const aid = Number(msg.aid);
+      if (!Number.isFinite(aid)) return;
+      const target = msg.to || {};
+      const current = Array.isArray(state?.aoes)
+        ? state.aoes.find(a => Number(a?.aid) === aid)
+        : null;
+      if (!current) return;
+      applyAoePatch({
+        updates: [{...current, cx: Number(target.cx ?? current.cx), cy: Number(target.cy ?? current.cy)}],
+        removals: [],
+      });
+      return;
+    }
+    if (type === "aoe_remove"){
+      const aid = Number(msg.aid);
+      if (!Number.isFinite(aid)) return;
+      applyAoePatch({updates: [], removals: [aid]});
+    }
   }
 
   function gridToScreen(col,row){
@@ -5645,12 +5907,18 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       if (!claimedCid) return;
-      send({
+      const msg = {
         type: "perform_action",
         cid: claimedCid,
         spend: entry.spend,
         action: entry.name,
-      });
+      };
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
     });
     return btn;
   }
@@ -6345,7 +6613,13 @@ __DAMAGE_TYPE_OPTIONS__
       const gridPos = screenToGridFloat(p.x, p.y);
       const targetCol = Math.round(gridPos.col - aoeDragging.offsetCol);
       const targetRow = Math.round(gridPos.row - aoeDragging.offsetRow);
-      send({type:"aoe_move", aid: Number(aoeDragging.aid), to: {cx: targetCol, cy: targetRow}});
+      const msg = {type:"aoe_move", aid: Number(aoeDragging.aid), to: {cx: targetCol, cy: targetRow}};
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
       aoeDragging = null;
       aoeDragPreview = null;
       draw();
@@ -6353,7 +6627,13 @@ __DAMAGE_TYPE_OPTIONS__
     }
     dragging && (function(){
       const g = screenToGrid(p.x, p.y);
-      send({type:"move", cid: Number(dragging.cid), to: {col: g.col, row: g.row}});
+      const msg = {type:"move", cid: Number(dragging.cid), to: {col: g.col, row: g.row}};
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
       dragging = null;
     })();
     panning = null;
@@ -8398,7 +8678,13 @@ __DAMAGE_TYPE_OPTIONS__
           payload.angle_deg = angleDeg;
         }
       }
-      send({type: "cast_aoe", payload, action_type: actionType});
+      const msg = {type: "cast_aoe", payload, action_type: actionType};
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
     });
   }
 
@@ -8411,14 +8697,26 @@ __DAMAGE_TYPE_OPTIONS__
   if (dashActionBtn){
     dashActionBtn.addEventListener("click", () => {
       if (!claimedCid) return;
-      send({type:"dash", cid: claimedCid, spend:"action"});
+      const msg = {type:"dash", cid: claimedCid, spend:"action"};
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
       hideDashModal();
     });
   }
   if (dashBonusActionBtn){
     dashBonusActionBtn.addEventListener("click", () => {
       if (!claimedCid) return;
-      send({type:"dash", cid: claimedCid, spend:"bonus"});
+      const msg = {type:"dash", cid: claimedCid, spend:"bonus"};
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
       hideDashModal();
     });
   }
