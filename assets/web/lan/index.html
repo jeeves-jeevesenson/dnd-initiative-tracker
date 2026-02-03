@@ -2779,6 +2779,7 @@ __DAMAGE_TYPE_OPTIONS__
   let lastAoeTapAid = null;
   let lastAoeTapAt = 0;
   const AOE_DOUBLE_ACTION_MS = 500;
+  const DEBUG_AOE_MOVE_PIXELS = 20;
   const aoeDragOverrides = new Map(); // aid -> {cx, cy}
   let selectedAoeId = null;
   let panning = null;  // {x,y, panX, panY}
@@ -4263,6 +4264,34 @@ __DAMAGE_TYPE_OPTIONS__
       selectedAoeId = null;
       clearAoeMoveMode();
     }
+  }
+
+  function debugForceAoeMove(){
+    const aoes = Array.isArray(state?.aoes) ? state.aoes : [];
+    if (!aoes.length) return;
+    let aoe = null;
+    if (selectedAoeId !== null){
+      aoe = aoes.find(item => Number(item.aid) === Number(selectedAoeId)) || null;
+    }
+    aoe = aoe || aoes[0];
+    if (!aoe) return;
+    const currentCx = Number(aoe.cx ?? 0);
+    const currentCy = Number(aoe.cy ?? 0);
+    const deltaColsUnrounded = DEBUG_AOE_MOVE_PIXELS / Math.max(1, Number(zoom) || 1);
+    const deltaCols = Math.round(deltaColsUnrounded * 2) / 2; // Snap to half-grid increments for debug moves.
+    let nextCx = currentCx + deltaCols;
+    let nextCy = currentCy;
+    const cols = Number(state?.grid?.cols);
+    const rows = Number(state?.grid?.rows);
+    if (Number.isFinite(cols) && cols > 0){
+      nextCx = Math.max(0, Math.min(nextCx, cols - 1));
+    }
+    if (Number.isFinite(rows) && rows > 0){
+      nextCy = Math.max(0, Math.min(nextCy, rows - 1));
+    }
+    const payload = {type: "aoe_move", aid: Number(aoe.aid), to: {cx: nextCx, cy: nextCy}};
+    console.log("[AOE debug move]", payload);
+    send(payload);
   }
 
   function hexToRgb(hex){
@@ -6104,6 +6133,14 @@ __DAMAGE_TYPE_OPTIONS__
         applyAoePatch(msg);
         syncSelectedAoe();
         draw();
+      } else if (msg.type === "aoe_move_ack"){
+        console.log("[AOE move ack]", msg);
+        if (msg.ok === false){
+          const reasonCode = typeof msg.reason_code === "string" ? msg.reason_code : "";
+          const reason = reasonCode ? reasonCode.replace(/_/g, " ").toLowerCase() : "";
+          const reasonText = reason ? reason[0].toUpperCase() + reason.slice(1) : "";
+          localToast(reasonText ? `AOE move rejected (${reasonText}).` : "AOE move rejected.");
+        }
       } else if (msg.type === "play_audio"){
         if (!msg.audio) return;
         if (msg.audio !== "ko") return;
@@ -9046,6 +9083,14 @@ __DAMAGE_TYPE_OPTIONS__
   document.addEventListener("keydown", (event) => {
     if (event.key === "Shift"){
       shiftMoveMode = true;
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented) return;
+    if (isTypingTarget(event.target)) return;
+    if (event.ctrlKey && event.altKey && (event.key === "m" || event.key === "M")){
+      event.preventDefault();
+      debugForceAoeMove();
     }
   });
   document.addEventListener("keyup", (event) => {
