@@ -3988,6 +3988,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "move_remaining_ft",
                     "trigger_on_start_or_enter",
                     "persistent",
+                    "anchor_cid",
                 ):
                     if d.get(extra_key) not in (None, ""):
                         payload[extra_key] = d.get(extra_key)
@@ -4014,6 +4015,14 @@ class InitiativeTracker(base.InitiativeTracker):
                     payload["width_sq"] = _finite_float(
                         d.get("width_sq") or 0.0, aid_int, name, kind, "width_sq"
                     ) or 0.0
+                    if d.get("ax") is not None:
+                        ax = _finite_float(d.get("ax"), aid_int, name, kind, "ax", skip_invalid=True)
+                        if ax is not None:
+                            payload["ax"] = ax
+                    if d.get("ay") is not None:
+                        ay = _finite_float(d.get("ay"), aid_int, name, kind, "ay", skip_invalid=True)
+                        if ay is not None:
+                            payload["ay"] = ay
                     payload["orient"] = str(d.get("orient") or "vertical")
                     if d.get("angle_deg") is not None:
                         angle_deg = _finite_float(
@@ -4049,6 +4058,14 @@ class InitiativeTracker(base.InitiativeTracker):
                     payload["length_sq"] = _finite_float(
                         d.get("length_sq") or 0.0, aid_int, name, kind, "length_sq"
                     ) or 0.0
+                    if d.get("ax") is not None:
+                        ax = _finite_float(d.get("ax"), aid_int, name, kind, "ax", skip_invalid=True)
+                        if ax is not None:
+                            payload["ax"] = ax
+                    if d.get("ay") is not None:
+                        ay = _finite_float(d.get("ay"), aid_int, name, kind, "ay", skip_invalid=True)
+                        if ay is not None:
+                            payload["ay"] = ay
                     payload["orient"] = str(d.get("orient") or "vertical")
                     if d.get("angle_deg") is not None:
                         angle_deg = _finite_float(
@@ -6132,17 +6149,33 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 cx = None
                 cy = None
+            anchor_cid = None
+            if cid is not None and claimed is not None:
+                try:
+                    anchor_cid = int(cid)
+                except Exception:
+                    anchor_cid = None
+            anchor_ax = None
+            anchor_ay = None
+            _, _, _, _, positions = self._lan_live_map_data()
+            if cid in positions:
+                anchor_ax = float(positions[cid][0])
+                anchor_ay = float(positions[cid][1])
             if cx is None or cy is None:
-                _, _, _, _, positions = self._lan_live_map_data()
                 if cid in positions:
                     cx = float(positions[cid][0])
                     cy = float(positions[cid][1])
                 else:
                     cx = max(0.0, (cols - 1) / 2.0) if cols else 0.0
                     cy = max(0.0, (rows - 1) / 2.0) if rows else 0.0
+            if anchor_ax is None or anchor_ay is None:
+                anchor_ax = float(cx)
+                anchor_ay = float(cy)
             if cols and rows:
                 cx = max(0.0, min(cx, cols - 1))
                 cy = max(0.0, min(cy, rows - 1))
+                anchor_ax = max(0.0, min(anchor_ax, cols - 1))
+                anchor_ay = max(0.0, min(anchor_ay, rows - 1))
             if map_ready:
                 aid = int(getattr(mw, "_next_aoe_id", 1))
                 setattr(mw, "_next_aoe_id", aid + 1)
@@ -6179,6 +6212,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 "duration_turns": duration_turns_val,
                 "remaining_turns": duration_turns_val if (duration_turns_val or 0) > 0 else None,
             }
+            if anchor_cid is not None:
+                aoe["anchor_cid"] = anchor_cid
             if over_time_flag:
                 aoe["over_time"] = True
             if persistent_flag:
@@ -6256,8 +6291,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     aoe["length_sq"] = float(size)
                 aoe["angle_deg"] = float(angle_deg)
                 aoe["orient"] = str(payload.get("orient") or "vertical")
-                aoe["ax"] = float(cx)
-                aoe["ay"] = float(cy)
+                aoe["ax"] = float(anchor_ax)
+                aoe["ay"] = float(anchor_ay)
             elif shape == "wall":
                 if length_ft is None and size is None:
                     self._lan.toast(ws_id, "Pick a valid spell length, matey.")
@@ -6282,8 +6317,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 aoe["orient"] = str(payload.get("orient") or "vertical")
                 if angle_deg is not None:
                     aoe["angle_deg"] = float(angle_deg)
-                aoe["ax"] = float(cx)
-                aoe["ay"] = float(cy)
+                aoe["ax"] = float(anchor_ax)
+                aoe["ay"] = float(anchor_ay)
             else:
                 if length_ft is None and size is None:
                     self._lan.toast(ws_id, "Pick a valid spell length, matey.")
@@ -6302,8 +6337,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 aoe["orient"] = str(payload.get("orient") or "vertical")
                 if angle_deg is not None:
                     aoe["angle_deg"] = float(angle_deg)
-                aoe["ax"] = float(cx)
-                aoe["ay"] = float(cy)
+                aoe["ax"] = float(anchor_ax)
+                aoe["ay"] = float(anchor_ay)
             if map_ready:
                 mw.aoes[aid] = aoe
                 try:
