@@ -1382,19 +1382,25 @@ class LanController:
         async def index():
             push_key = self.cfg.vapid_public_key
             push_key_value = json.dumps(push_key) if push_key else "undefined"
-            return HTMLResponse(HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value))
+            html = HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value)
+            html = html.replace("__LAN_BASE_URL__", json.dumps(self._best_lan_url()))
+            return HTMLResponse(html)
 
         @self._fastapi_app.get("/map_view")
         async def map_view():
             push_key = self.cfg.vapid_public_key
             push_key_value = json.dumps(push_key) if push_key else "undefined"
-            return HTMLResponse(HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value))
+            html = HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value)
+            html = html.replace("__LAN_BASE_URL__", json.dumps(self._best_lan_url()))
+            return HTMLResponse(html)
 
         @self._fastapi_app.get("/planning")
         async def planning():
             push_key = self.cfg.vapid_public_key
             push_key_value = json.dumps(push_key) if push_key else "undefined"
-            return HTMLResponse(HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value))
+            html = HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value)
+            html = html.replace("__LAN_BASE_URL__", json.dumps(self._best_lan_url()))
+            return HTMLResponse(html)
 
         @self._fastapi_app.get("/new_character")
         async def new_character():
