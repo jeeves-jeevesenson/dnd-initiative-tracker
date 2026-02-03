@@ -2774,14 +2774,6 @@ __DAMAGE_TYPE_OPTIONS__
   let zoom = 32; // px per square
   let panX = 0, panY = 0;
   let dragging = null; // {cid, startX, startY, origCol, origRow}
-  let draggingAoe = null; // {aid, cx, cy}
-  let aoeMoveModeAid = null;
-  let lastAoeTapAid = null;
-  let lastAoeTapAt = 0;
-  const AOE_DOUBLE_ACTION_MS = 500;
-  const DEBUG_AOE_MOVE_PIXELS = 20;
-  const aoeDragOverrides = new Map(); // aid -> {cx, cy}
-  let selectedAoeId = null;
   let panning = null;  // {x,y, panX, panY}
   let shiftMoveMode = false;
   const isShiftKey = (event) => (
@@ -2789,23 +2781,6 @@ __DAMAGE_TYPE_OPTIONS__
     || event?.code === "ShiftLeft"
     || event?.code === "ShiftRight"
   );
-  const isShiftPressed = (event) => {
-    if (!event) return shiftMoveMode;
-    if (event.shiftKey) return true;
-    if (typeof event.getModifierState === "function" && event.getModifierState("Shift")) return true;
-    return shiftMoveMode;
-  };
-  const logAoeDragState = (stage, aid, ev) => {
-    console.log("[AOE drag]", {
-      stage,
-      aid,
-      shiftMoveMode,
-      shiftKey: Boolean(ev && ev.shiftKey),
-      draggingAoe,
-      aoeMoveModeAid,
-      claimedCid,
-    });
-  };
   let centeredCid = null;
   let initialCenterDone = false;
   let initialCenterFallback = false;
@@ -4217,94 +4192,6 @@ __DAMAGE_TYPE_OPTIONS__
     return normalizeHexColor(raw || "") || DEFAULT_SPELL_COLOR;
   }
 
-  function setLocalAoeCenter(aid, cx, cy){
-    if (!state || !Array.isArray(state.aoes)) return;
-    const target = state.aoes.find(a => Number(a.aid) === Number(aid));
-    if (!target) return;
-    target.cx = cx;
-    target.cy = cy;
-  }
-
-  function setLocalAoeMoveRemaining(aid, remaining){
-    if (!state || !Array.isArray(state.aoes)) return;
-    const target = state.aoes.find(a => Number(a.aid) === Number(aid));
-    if (!target) return;
-    target.move_remaining_ft = remaining;
-  }
-
-  function setLocalAoeRotation(aid, values){
-    if (!state || !Array.isArray(state.aoes)) return;
-    const target = state.aoes.find(a => Number(a.aid) === Number(aid));
-    if (!target) return;
-    if (Number.isFinite(Number(values.angle_deg))){
-      target.angle_deg = Number(values.angle_deg);
-    }
-    if (Number.isFinite(Number(values.ax))){
-      target.ax = Number(values.ax);
-    }
-    if (Number.isFinite(Number(values.ay))){
-      target.ay = Number(values.ay);
-    }
-    if (Number.isFinite(Number(values.spread_deg))){
-      target.spread_deg = Number(values.spread_deg);
-    }
-  }
-
-  function setSelectedAoe(aid){
-    if (aid === null || aid === undefined){
-      selectedAoeId = null;
-    } else {
-      const parsed = Number(aid);
-      selectedAoeId = Number.isFinite(parsed) ? parsed : null;
-    }
-  }
-
-  function clearAoeMoveMode(){
-    aoeMoveModeAid = null;
-    lastAoeTapAid = null;
-    lastAoeTapAt = 0;
-  }
-
-  function syncSelectedAoe(){
-    if (selectedAoeId === null || selectedAoeId === undefined){
-      return;
-    }
-    const exists = Array.isArray(state?.aoes)
-      && state.aoes.some(a => Number(a.aid) === Number(selectedAoeId));
-    if (!exists){
-      selectedAoeId = null;
-      clearAoeMoveMode();
-    }
-  }
-
-  function debugForceAoeMove(){
-    const aoes = Array.isArray(state?.aoes) ? state.aoes : [];
-    if (!aoes.length) return;
-    let aoe = null;
-    if (selectedAoeId !== null){
-      aoe = aoes.find(item => Number(item.aid) === Number(selectedAoeId)) || null;
-    }
-    aoe = aoe || aoes[0];
-    if (!aoe) return;
-    const currentCx = Number(aoe.cx ?? 0);
-    const currentCy = Number(aoe.cy ?? 0);
-    const deltaColsUnrounded = DEBUG_AOE_MOVE_PIXELS / Math.max(1, Number(zoom) || 1);
-    const deltaCols = Math.round(deltaColsUnrounded * 2) / 2; // Snap to half-grid increments for debug moves.
-    let nextCx = currentCx + deltaCols;
-    let nextCy = currentCy;
-    const cols = Number(state?.grid?.cols);
-    const rows = Number(state?.grid?.rows);
-    if (Number.isFinite(cols) && cols > 0){
-      nextCx = Math.max(0, Math.min(nextCx, cols - 1));
-    }
-    if (Number.isFinite(rows) && rows > 0){
-      nextCy = Math.max(0, Math.min(nextCy, rows - 1));
-    }
-    const payload = {type: "aoe_move", aid: Number(aoe.aid), to: {cx: nextCx, cy: nextCy}};
-    console.log("[AOE debug move]", payload);
-    send(payload);
-  }
-
   function hexToRgb(hex){
     const value = normalizeHexColor(hex);
     if (!value) return null;
@@ -4524,11 +4411,6 @@ __DAMAGE_TYPE_OPTIONS__
   function screenToGrid(x,y){
     return {col: Math.floor((x - panX)/zoom), row: Math.floor((y - panY)/zoom)};
   }
-  function screenToGridFloat(x,y){
-    const col = (x - panX) / zoom;
-    const row = (y - panY) / zoom;
-    return {col: Math.round(col * 2) / 2, row: Math.round(row * 2) / 2};
-  }
 
   function coneSpreadDeg(aoe){
     const spread = Number(aoe?.spread_deg);
@@ -4545,61 +4427,6 @@ __DAMAGE_TYPE_OPTIONS__
     return aoe?.orient === "horizontal" ? 0 : -90;
   }
 
-  function hitTestAoe(p){
-    if (!state || !state.aoes || !state.aoes.length) return null;
-    for (let i = state.aoes.length - 1; i >= 0; i--){
-      const a = state.aoes[i];
-      if (!a || !a.kind) continue;
-      const remainingTurns = Number(a.remaining_turns);
-      if (Number.isFinite(remainingTurns) && remainingTurns <= 0){
-        continue;
-      }
-      const cx = Number(a.cx ?? 0);
-      const cy = Number(a.cy ?? 0);
-      const center = gridToScreen(cx, cy);
-      const dx = p.x - center.x;
-      const dy = p.y - center.y;
-      if (a.kind === "circle" || a.kind === "sphere" || a.kind === "cylinder"){
-        const r = Math.max(0, Number(a.radius_sq || 0)) * zoom;
-        if (dx * dx + dy * dy <= r * r){
-          return a;
-        }
-      } else if (a.kind === "square" || a.kind === "cube"){
-        const half = Math.max(0, Number(a.side_sq || 0)) * zoom / 2;
-        if (Math.abs(dx) <= half && Math.abs(dy) <= half){
-          return a;
-        }
-      } else if (a.kind === "line" || a.kind === "wall"){
-        const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
-        const widthPx = Math.max(0, Number(a.width_sq || 0)) * zoom;
-        const orient = a.orient === "horizontal" ? "horizontal" : "vertical";
-        const angleDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : (orient === "horizontal" ? 0 : 90);
-        const angle = (-angleDeg * Math.PI) / 180;
-        const rx = dx * Math.cos(angle) - dy * Math.sin(angle);
-        const ry = dx * Math.sin(angle) + dy * Math.cos(angle);
-        if (Math.abs(rx) <= lengthPx / 2 && Math.abs(ry) <= widthPx / 2){
-          return a;
-        }
-      } else if (a.kind === "cone"){
-        const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
-        const spreadDeg = coneSpreadDeg(a);
-        const headingDeg = coneHeadingDeg(a);
-        const dist = Math.hypot(dx, dy);
-        if (dist <= lengthPx){
-          let angle = Math.atan2(dy, dx);
-          const heading = (headingDeg * Math.PI) / 180;
-          angle -= heading;
-          while (angle <= -Math.PI) angle += Math.PI * 2;
-          while (angle > Math.PI) angle -= Math.PI * 2;
-          const halfSpread = (spreadDeg * Math.PI) / 360;
-          if (Math.abs(angle) <= halfSpread){
-            return a;
-          }
-        }
-      }
-    }
-    return null;
-  }
 
   function gridReady(){
     if (!state || !state.grid) return false;
@@ -5023,10 +4850,8 @@ __DAMAGE_TYPE_OPTIONS__
         if (Number.isFinite(remainingTurnsValue) && remainingTurnsValue <= 0){
           return;
         }
-        const preview = (draggingAoe && draggingAoe.aid === a.aid) ? draggingAoe : null;
-        const override = aoeDragOverrides.get(Number(a.aid));
-        const cx = Number((preview || override) ? (preview || override).cx : a.cx ?? 0);
-        const cy = Number((preview || override) ? (preview || override).cy : a.cy ?? 0);
+        const cx = Number(a.cx ?? 0);
+        const cy = Number(a.cy ?? 0);
         const {x,y} = gridToScreen(cx, cy);
         const colorHex = normalizeHexColor(a.color || "");
         ctx.save();
@@ -5103,54 +4928,6 @@ __DAMAGE_TYPE_OPTIONS__
           ctx.fillText(labelText, x + 1, y + 1);
           ctx.fillStyle = "rgba(232,238,247,0.95)";
           ctx.fillText(labelText, x, y);
-        }
-        if (selectedAoeId !== null && Number(a.aid) === Number(selectedAoeId)){
-          ctx.save();
-          ctx.lineWidth = 3;
-          ctx.setLineDash([]);
-          ctx.strokeStyle = "rgba(255,214,102,0.95)";
-          if (a.kind === "circle" || a.kind === "sphere" || a.kind === "cylinder"){
-            const r = Math.max(0, Number(a.radius_sq || 0)) * zoom;
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, Math.PI * 2);
-            ctx.stroke();
-          } else if (a.kind === "line" || a.kind === "wall"){
-            const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
-            const widthPx = Math.max(0, Number(a.width_sq || 0)) * zoom;
-            const angleDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : null;
-            if (angleDeg !== null){
-              ctx.translate(x, y);
-              ctx.rotate((angleDeg * Math.PI) / 180);
-              ctx.beginPath();
-              ctx.rect(-lengthPx / 2, -widthPx / 2, lengthPx, widthPx);
-              ctx.stroke();
-            } else {
-              const orient = a.orient === "horizontal" ? "horizontal" : "vertical";
-              const halfW = orient === "horizontal" ? lengthPx / 2 : widthPx / 2;
-              const halfH = orient === "horizontal" ? widthPx / 2 : lengthPx / 2;
-              ctx.beginPath();
-              ctx.rect(x - halfW, y - halfH, halfW * 2, halfH * 2);
-              ctx.stroke();
-            }
-          } else if (a.kind === "square" || a.kind === "cube"){
-            const sidePx = Math.max(0, Number(a.side_sq || 0)) * zoom;
-            const half = sidePx / 2;
-            ctx.beginPath();
-            ctx.rect(x - half, y - half, sidePx, sidePx);
-            ctx.stroke();
-          } else if (a.kind === "cone"){
-            const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
-            const spreadDeg = coneSpreadDeg(a);
-            const headingDeg = coneHeadingDeg(a);
-            const halfSpread = (spreadDeg * Math.PI) / 360;
-            const headingRad = (headingDeg * Math.PI) / 180;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.arc(x, y, lengthPx, headingRad - halfSpread, headingRad + halfSpread);
-            ctx.closePath();
-            ctx.stroke();
-          }
-          ctx.restore();
         }
         ctx.restore();
       });
@@ -6027,8 +5804,6 @@ __DAMAGE_TYPE_OPTIONS__
           state.spell_presets = [];
         }
         updateSpellPresetOptions(state.spell_presets);
-        aoeDragOverrides.clear();
-        syncSelectedAoe();
         lastPcList = msg.pcs || msg.claimable || [];
         updateWaitingOverlay();
         draw();
@@ -6142,7 +5917,6 @@ __DAMAGE_TYPE_OPTIONS__
         draw();
       } else if (msg.type === "aoe_patch"){
         applyAoePatch(msg);
-        syncSelectedAoe();
         draw();
       } else if (msg.type === "aoe_move_ack"){
         console.log("[AOE move ack]", msg);
@@ -6286,7 +6060,6 @@ __DAMAGE_TYPE_OPTIONS__
     activePointers.set(ev.pointerId, p);
     if (activePointers.size >= 2){
       dragging = null;
-      draggingAoe = null;
       panning = null;
       startPinch();
       return;
@@ -6302,101 +6075,21 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
 
-    const shiftHeld = isShiftPressed(ev);
-    const aoeHit = hitTestAoe(p);
-    // Try token hit (unless we're explicitly Shift-dragging an AoE).
-    if (!(shiftHeld && aoeHit)){
-      const hit = hitTestToken(p);
-      if (hit){
-        // only drag own token
-        if (!claimedCid || !cidMatches(hit.cid, claimedCid, "dragToken.hitCid")){
-          send({type:"toast", text:"Arrr, that token ain’t yers."});
-          return;
-        }
-        // only on your turn
-        if (state.active_cid === null || !cidMatches(state.active_cid, claimedCid, "dragToken.activeCid")){
-          send({type:"toast", text:"Not yer turn yet, matey."});
-          return;
-        }
-        dragging = {cid: hit.cid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
+    const hit = hitTestToken(p);
+    if (hit){
+      // only drag own token
+      if (!claimedCid || !cidMatches(hit.cid, claimedCid, "dragToken.hitCid")){
+        send({type:"toast", text:"Arrr, that token ain’t yers."});
         return;
       }
-    }
-    if (aoeHit){
-      setSelectedAoe(aoeHit.aid);
-      logAoeDragState("pointerdown", aoeHit.aid, ev);
-      if (!claimedCid){
-        clearAoeMoveMode();
-        localToast("Claim a character first, matey.");
+      // only on your turn
+      if (state.active_cid === null || !cidMatches(state.active_cid, claimedCid, "dragToken.activeCid")){
+        send({type:"toast", text:"Not yer turn yet, matey."});
         return;
       }
-      if (aoeHit.owner_cid !== null && aoeHit.owner_cid !== undefined
-          && !cidMatches(aoeHit.owner_cid, claimedCid, "aoeHit.ownerCid")){
-        clearAoeMoveMode();
-        localToast("That spell be not yers.");
-        return;
-      }
-      if (aoeHit.pinned){
-        clearAoeMoveMode();
-        localToast("That spell be pinned.");
-        return;
-      }
-      if (aoeMoveModeAid !== null && Number(aoeMoveModeAid) !== Number(aoeHit.aid)){
-        clearAoeMoveMode();
-      }
-      if (ev.pointerType === "touch"){
-        aoeMoveModeAid = Number(aoeHit.aid);
-        lastAoeTapAid = null;
-        lastAoeTapAt = 0;
-      } else if (shiftHeld){
-        aoeMoveModeAid = Number(aoeHit.aid);
-        lastAoeTapAid = null;
-        lastAoeTapAt = 0;
-      } else {
-        const now = Date.now();
-        if (lastAoeTapAid !== null && Number(lastAoeTapAid) === Number(aoeHit.aid) && now - lastAoeTapAt <= AOE_DOUBLE_ACTION_MS){
-          aoeMoveModeAid = Number(aoeHit.aid);
-          lastAoeTapAid = null;
-          lastAoeTapAt = 0;
-        } else {
-          lastAoeTapAid = Number(aoeHit.aid);
-          lastAoeTapAt = now;
-        }
-        if (Number(aoeMoveModeAid) !== Number(aoeHit.aid)){
-          localToast("Hold Shift or double-tap to move that spell.");
-          return;
-        }
-      }
-      const movePerTurn = Number(aoeHit.move_per_turn_ft);
-      const hasMoveLimit = Number.isFinite(movePerTurn) && movePerTurn > 0;
-      const moveRemaining = Number.isFinite(Number(aoeHit.move_remaining_ft))
-        ? Number(aoeHit.move_remaining_ft)
-        : (hasMoveLimit ? movePerTurn : null);
-      if (state?.active_cid === null || !cidMatches(state.active_cid, claimedCid, "aoeMove.activeCid")){
-        clearAoeMoveMode();
-        localToast("Not yer turn yet, matey.");
-        return;
-      }
-      if (hasMoveLimit){
-        if (!Number.isFinite(moveRemaining) || moveRemaining <= 0){
-          clearAoeMoveMode();
-          localToast("That spell can't move any more this turn.");
-          return;
-        }
-      }
-      draggingAoe = {
-        aid: aoeHit.aid,
-        cx: aoeHit.cx,
-        cy: aoeHit.cy,
-        startCx: aoeHit.cx,
-        startCy: aoeHit.cy,
-        moveRemainingFt: moveRemaining,
-        movePerTurnFt: hasMoveLimit ? movePerTurn : null,
-      };
+      dragging = {cid: hit.cid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
       return;
     }
-    setSelectedAoe(null);
-    clearAoeMoveMode();
     // else pan (if map not locked)
     if (shiftMoveMode){
       return;
@@ -6431,83 +6124,6 @@ __DAMAGE_TYPE_OPTIONS__
       ctx.strokeStyle = "rgba(106,169,255,0.95)";
       ctx.stroke();
       ctx.restore();
-      setTokenTooltip(null);
-    } else if (draggingAoe){
-      logAoeDragState("pointermove", draggingAoe.aid, ev);
-      const g = screenToGridFloat(p.x, p.y);
-      const aoe = state?.aoes?.find(a => Number(a.aid) === Number(draggingAoe.aid)) || null;
-      const kind = aoe?.kind ? String(aoe.kind) : "";
-      const shiftHeld = isShiftPressed(ev);
-      const rotateHeld = shiftHeld && ev.altKey;
-      if (rotateHeld && (kind === "line" || kind === "cone")){
-        let ax = Number(aoe?.ax);
-        let ay = Number(aoe?.ay);
-        if (!Number.isFinite(ax) || !Number.isFinite(ay)){
-          const ownerCid = aoe?.owner_cid;
-          const owner = ownerCid !== null && ownerCid !== undefined ? getUnitByCid(ownerCid) : null;
-          if (owner?.pos){
-            ax = Number(owner.pos.col);
-            ay = Number(owner.pos.row);
-          }
-        }
-        if (!Number.isFinite(ax) || !Number.isFinite(ay)){
-          ax = Number.isFinite(Number(aoe?.cx)) ? Number(aoe?.cx) : g.col;
-          ay = Number.isFinite(Number(aoe?.cy)) ? Number(aoe?.cy) : g.row;
-        }
-        const dx = g.col - ax;
-        const dy = g.row - ay;
-        if (Math.abs(dx) + Math.abs(dy) < 0.01){
-          return;
-        }
-        const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
-        let cx = ax;
-        let cy = ay;
-        if (kind === "line"){
-          const lengthSq = Math.max(0, Number(aoe?.length_sq || 0));
-          const halfLen = lengthSq / 2;
-          const rad = (angleDeg * Math.PI) / 180;
-          cx = ax + Math.cos(rad) * halfLen;
-          cy = ay + Math.sin(rad) * halfLen;
-        } else if (kind === "cone"){
-          const spreadExisting = Number(aoe?.spread_deg);
-          if (Number.isFinite(spreadExisting)){
-            draggingAoe.spread_deg = spreadExisting;
-          } else {
-            const spread = Number(aoe?.angle_deg);
-            if (Number.isFinite(spread)){
-              draggingAoe.spread_deg = spread;
-            }
-          }
-        }
-        const cols = Number(state?.grid?.cols);
-        const rows = Number(state?.grid?.rows);
-        if (Number.isFinite(cols) && cols > 0){
-          cx = Math.max(0, Math.min(cx, cols - 1));
-          ax = Math.max(0, Math.min(ax, cols - 1));
-        }
-        if (Number.isFinite(rows) && rows > 0){
-          cy = Math.max(0, Math.min(cy, rows - 1));
-          ay = Math.max(0, Math.min(ay, rows - 1));
-        }
-        draggingAoe.cx = cx;
-        draggingAoe.cy = cy;
-        draggingAoe.angle_deg = angleDeg;
-        draggingAoe.ax = ax;
-        draggingAoe.ay = ay;
-        if (Number.isFinite(draggingAoe.spread_deg)){
-          setLocalAoeRotation(draggingAoe.aid, {spread_deg: draggingAoe.spread_deg});
-        }
-        setLocalAoeCenter(draggingAoe.aid, cx, cy);
-        setLocalAoeRotation(draggingAoe.aid, {angle_deg: angleDeg, ax, ay});
-        aoeDragOverrides.set(Number(draggingAoe.aid), {cx, cy});
-        draw();
-        setTokenTooltip(null);
-        return;
-      }
-      draggingAoe.cx = g.col;
-      draggingAoe.cy = g.row;
-      aoeDragOverrides.set(Number(draggingAoe.aid), {cx: g.col, cy: g.row});
-      draw();
       setTokenTooltip(null);
     } else if (panning){
       panX = panning.panX + (p.x - panning.x);
@@ -6548,52 +6164,6 @@ __DAMAGE_TYPE_OPTIONS__
       send({type:"move", cid: Number(dragging.cid), to: {col: g.col, row: g.row}});
       dragging = null;
     })();
-    draggingAoe && (function(){
-      logAoeDragState("pointerup", draggingAoe.aid, ev);
-      const g = screenToGridFloat(p.x, p.y);
-      const aid = Number(draggingAoe.aid);
-      const finalCx = Number.isFinite(Number(draggingAoe.cx)) ? Number(draggingAoe.cx) : g.col;
-      const finalCy = Number.isFinite(Number(draggingAoe.cy)) ? Number(draggingAoe.cy) : g.row;
-      const movePerTurn = Number(draggingAoe.movePerTurnFt);
-      if (Number.isFinite(movePerTurn) && movePerTurn > 0){
-        const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
-        const dx = Number(finalCx) - Number(draggingAoe.startCx);
-        const dy = Number(finalCy) - Number(draggingAoe.startCy);
-        const distFt = Math.hypot(dx, dy) * feetPerSquare;
-        const remaining = Number(draggingAoe.moveRemainingFt);
-        if (!Number.isFinite(remaining) || distFt > remaining + 0.01){
-          localToast(`That spell can only move ${Number.isFinite(remaining) ? remaining.toFixed(1) : 0} ft this turn.`);
-          aoeDragOverrides.delete(aid);
-          setLocalAoeCenter(aid, draggingAoe.startCx, draggingAoe.startCy);
-          draggingAoe = null;
-          draw();
-          return;
-        }
-        const nextRemaining = Math.max(0, remaining - distFt);
-        setLocalAoeMoveRemaining(aid, nextRemaining);
-      }
-      aoeDragOverrides.set(aid, {cx: finalCx, cy: finalCy});
-      setLocalAoeCenter(aid, finalCx, finalCy);
-      const to = {cx: finalCx, cy: finalCy};
-      if (Number.isFinite(Number(draggingAoe.angle_deg))){
-        to.angle_deg = Number(draggingAoe.angle_deg);
-      }
-      if (Number.isFinite(Number(draggingAoe.ax))){
-        to.ax = Number(draggingAoe.ax);
-      }
-      if (Number.isFinite(Number(draggingAoe.ay))){
-        to.ay = Number(draggingAoe.ay);
-      }
-      if (Number.isFinite(Number(draggingAoe.spread_deg))){
-        to.spread_deg = Number(draggingAoe.spread_deg);
-      }
-      const payload = {type:"aoe_move", aid: Number(draggingAoe.aid), to};
-      console.log("[AOE move send]", {payload, claimedCid});
-      send(payload);
-      draggingAoe = null;
-      clearAoeMoveMode();
-      draw();
-    })();
     panning = null;
   });
 
@@ -6604,11 +6174,6 @@ __DAMAGE_TYPE_OPTIONS__
       pinchState = null;
     }
     setTokenTooltip(null);
-    if (draggingAoe){
-      aoeDragOverrides.delete(Number(draggingAoe.aid));
-      draggingAoe = null;
-      draw();
-    }
   });
 
   canvas.addEventListener("pointerleave", () => {
@@ -9097,14 +8662,6 @@ __DAMAGE_TYPE_OPTIONS__
   document.addEventListener("keydown", (event) => {
     if (isShiftKey(event)){
       shiftMoveMode = true;
-    }
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.defaultPrevented) return;
-    if (isTypingTarget(event.target)) return;
-    if (event.ctrlKey && event.altKey && (event.key === "m" || event.key === "M")){
-      event.preventDefault();
-      debugForceAoeMove();
     }
   });
   document.addEventListener("keyup", (event) => {
