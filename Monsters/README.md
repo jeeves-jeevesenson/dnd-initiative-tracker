@@ -66,7 +66,7 @@ Fields may be omitted when not applicable. Types below describe the *intended* s
 | `initiative` | string |
 | `ac` | string \| number |
 | `hp` | string |
-| `speed` | string |
+| `speed` | map |
 | `abilities` | map |
 | `skills` | list[string] |
 | `immunities` | list[string] |
@@ -80,6 +80,19 @@ Fields may be omitted when not applicable. Types below describe the *intended* s
 | `description` | string |
 | `habitat` | string |
 | `treasure` | string |
+
+### `speed` map
+
+Keys are movement modes. The untagged speed is stored as `Normal`, and tagged speeds use their own keys:
+`Fly`, `Swim`, `Burrow`, `Climb`. Values preserve the original formatting (e.g. `20 ft.`).
+
+Example:
+
+```yaml
+speed:
+  Normal: 20 ft.
+  Fly: 50 ft.
+```
 
 ### `abilities` map
 
@@ -132,7 +145,10 @@ alignment: Chaotic Evil
 initiative: "+14 (24)"
 ac: "22"
 hp: 507 (26d20 + 234)
-speed: 40 ft., Climb 40 ft., Fly 80 ft.
+speed:
+  Normal: 40 ft.
+  Climb: 40 ft.
+  Fly: 80 ft.
 
 abilities:
   Str: 30
@@ -183,7 +199,7 @@ Some fields are kept as strings to preserve original stat-block formatting:
 
 - `initiative` frequently includes parentheses
 - `hp` includes dice and bonus text
-- `speed` includes multiple movement modes
+- `speed` entries preserve formatting inside the speed map
 - `challenge_rating` includes XP and PB text
 - `ac` is often numeric, but may be stored as a string for consistency
 
@@ -210,8 +226,7 @@ If your tool prefers a stricter schema, you can post-process:
 - Parse `hp` into:
   - `hp_average` (int)
   - `hp_formula` (string; dice)
-- Parse `speed` into a map:
-  - `walk`, `fly`, `climb`, `swim`, `burrow` (each a number)
+- `speed` is already a map keyed by movement mode (`Normal`, `Fly`, `Climb`, `Swim`, `Burrow`)
 - Parse `challenge_rating` into:
   - `cr` (string or number)
   - `xp` (int)
