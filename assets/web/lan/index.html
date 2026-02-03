@@ -4450,9 +4450,6 @@ __DAMAGE_TYPE_OPTIONS__
     const remainingTurnsValue = (remainingTurnsRaw === null || remainingTurnsRaw === undefined)
       ? null
       : Number(remainingTurnsRaw);
-    if (Number.isFinite(remainingTurnsValue) && remainingTurnsValue <= 0){
-      return;
-    }
     const cx = Number(options.cx ?? aoe.cx ?? 0);
     const cy = Number(options.cy ?? aoe.cy ?? 0);
     const {x,y} = gridToScreen(cx, cy);
@@ -4553,10 +4550,6 @@ __DAMAGE_TYPE_OPTIONS__
     for (let i = state.aoes.length - 1; i >= 0; i--){
       const aoe = state.aoes[i];
       if (!aoe || !aoe.kind) continue;
-      const remainingTurnsValue = Number(aoe.remaining_turns);
-      if (Number.isFinite(remainingTurnsValue) && remainingTurnsValue <= 0){
-        continue;
-      }
       const cx = Number(aoe.cx ?? 0);
       const cy = Number(aoe.cy ?? 0);
       const dx = gridPos.col - cx;
