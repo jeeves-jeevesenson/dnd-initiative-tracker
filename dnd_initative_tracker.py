@@ -947,6 +947,19 @@ class LanController:
 
     @staticmethod
     def _json_dumps(payload: Any) -> str:
+        def sanitize(value: Any) -> Any:
+            if isinstance(value, float):
+                return value if math.isfinite(value) else 0.0
+            if isinstance(value, dict):
+                return {key: sanitize(item) for key, item in value.items()}
+            if isinstance(value, list):
+                return [sanitize(item) for item in value]
+            if isinstance(value, tuple):
+                return [sanitize(item) for item in value]
+            if isinstance(value, set):
+                return [sanitize(item) for item in value]
+            return value
+
         def default(value: Any) -> Any:
             if isinstance(value, Path):
                 return str(value)
@@ -954,7 +967,7 @@ class LanController:
                 return list(value)
             return str(value)
 
-        return json.dumps(payload, allow_nan=False, default=default)
+        return json.dumps(sanitize(payload), allow_nan=False, default=default)
 
     def _is_admin_token_valid(self, token: str) -> bool:
         token = str(token or "").strip()
@@ -3809,18 +3822,46 @@ class InitiativeTracker(base.InitiativeTracker):
                 except Exception:
                     pass
 
+        def _log_invalid_aoe_value(aid_value: int, name_value: str, kind_value: str, key: str, raw_value: Any) -> None:
+            self._oplog(
+                f"LAN AoE invalid value aid={aid_value} name={name_value} kind={kind_value} key={key} value={raw_value!r}",
+                level="warning",
+            )
+
+        def _finite_float(
+            raw_value: Any,
+            aid_value: int,
+            name_value: str,
+            kind_value: str,
+            key: str,
+            *,
+            default: float = 0.0,
+            skip_invalid: bool = False,
+        ) -> Optional[float]:
+            try:
+                candidate = float(raw_value)
+            except Exception:
+                _log_invalid_aoe_value(aid_value, name_value, kind_value, key, raw_value)
+                return None if skip_invalid else default
+            if not math.isfinite(candidate):
+                _log_invalid_aoe_value(aid_value, name_value, kind_value, key, raw_value)
+                return None if skip_invalid else default
+            return candidate
+
         try:
             for aid, d in sorted((aoe_source or {}).items()):
                 kind = str(d.get("kind") or d.get("shape") or "").lower()
                 if kind not in ("circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall"):
                     continue
+                aid_int = int(aid)
+                name = str(d.get("name") or f"AoE {aid}")
                 payload: Dict[str, Any] = {
-                    "aid": int(aid),
+                    "aid": aid_int,
                     "kind": kind,
-                    "name": str(d.get("name") or f"AoE {aid}"),
+                    "name": name,
                     "color": str(d.get("color") or ""),
-                    "cx": float(d.get("cx") or 0.0),
-                    "cy": float(d.get("cy") or 0.0),
+                    "cx": _finite_float(d.get("cx") or 0.0, aid_int, name, kind, "cx") or 0.0,
+                    "cy": _finite_float(d.get("cy") or 0.0, aid_int, name, kind, "cy") or 0.0,
                     "pinned": bool(d.get("pinned")),
                     "duration_turns": d.get("duration_turns"),
                     "remaining_turns": d.get("remaining_turns"),
@@ -3842,36 +3883,86 @@ class InitiativeTracker(base.InitiativeTracker):
                     if d.get(extra_key) not in (None, ""):
                         payload[extra_key] = d.get(extra_key)
                 if kind in ("circle", "sphere", "cylinder"):
-                    payload["radius_sq"] = float(d.get("radius_sq") or 0.0)
+                    payload["radius_sq"] = _finite_float(
+                        d.get("radius_sq") or 0.0, aid_int, name, kind, "radius_sq"
+                    ) or 0.0
                     if d.get("radius_ft") is not None:
-                        payload["radius_ft"] = float(d.get("radius_ft") or 0.0)
+                        radius_ft = _finite_float(
+                            d.get("radius_ft"), aid_int, name, kind, "radius_ft", skip_invalid=True
+                        )
+                        if radius_ft is not None:
+                            payload["radius_ft"] = radius_ft
                     if d.get("height_ft") is not None:
-                        payload["height_ft"] = float(d.get("height_ft") or 0.0)
+                        height_ft = _finite_float(
+                            d.get("height_ft"), aid_int, name, kind, "height_ft", skip_invalid=True
+                        )
+                        if height_ft is not None:
+                            payload["height_ft"] = height_ft
                 elif kind in ("line", "wall"):
-                    payload["length_sq"] = float(d.get("length_sq") or 0.0)
-                    payload["width_sq"] = float(d.get("width_sq") or 0.0)
+                    payload["length_sq"] = _finite_float(
+                        d.get("length_sq") or 0.0, aid_int, name, kind, "length_sq"
+                    ) or 0.0
+                    payload["width_sq"] = _finite_float(
+                        d.get("width_sq") or 0.0, aid_int, name, kind, "width_sq"
+                    ) or 0.0
                     payload["orient"] = str(d.get("orient") or "vertical")
                     if d.get("angle_deg") is not None:
-                        payload["angle_deg"] = float(d.get("angle_deg") or 0.0)
+                        angle_deg = _finite_float(
+                            d.get("angle_deg"), aid_int, name, kind, "angle_deg", skip_invalid=True
+                        )
+                        if angle_deg is not None:
+                            payload["angle_deg"] = angle_deg
                     if d.get("length_ft") is not None:
-                        payload["length_ft"] = float(d.get("length_ft") or 0.0)
+                        length_ft = _finite_float(
+                            d.get("length_ft"), aid_int, name, kind, "length_ft", skip_invalid=True
+                        )
+                        if length_ft is not None:
+                            payload["length_ft"] = length_ft
                     if d.get("width_ft") is not None:
-                        payload["width_ft"] = float(d.get("width_ft") or 0.0)
+                        width_ft = _finite_float(
+                            d.get("width_ft"), aid_int, name, kind, "width_ft", skip_invalid=True
+                        )
+                        if width_ft is not None:
+                            payload["width_ft"] = width_ft
                     if d.get("thickness_ft") is not None:
-                        payload["thickness_ft"] = float(d.get("thickness_ft") or 0.0)
+                        thickness_ft = _finite_float(
+                            d.get("thickness_ft"), aid_int, name, kind, "thickness_ft", skip_invalid=True
+                        )
+                        if thickness_ft is not None:
+                            payload["thickness_ft"] = thickness_ft
                     if d.get("height_ft") is not None:
-                        payload["height_ft"] = float(d.get("height_ft") or 0.0)
+                        height_ft = _finite_float(
+                            d.get("height_ft"), aid_int, name, kind, "height_ft", skip_invalid=True
+                        )
+                        if height_ft is not None:
+                            payload["height_ft"] = height_ft
                 elif kind == "cone":
-                    payload["length_sq"] = float(d.get("length_sq") or 0.0)
+                    payload["length_sq"] = _finite_float(
+                        d.get("length_sq") or 0.0, aid_int, name, kind, "length_sq"
+                    ) or 0.0
                     payload["orient"] = str(d.get("orient") or "vertical")
                     if d.get("angle_deg") is not None:
-                        payload["angle_deg"] = float(d.get("angle_deg") or 0.0)
+                        angle_deg = _finite_float(
+                            d.get("angle_deg"), aid_int, name, kind, "angle_deg", skip_invalid=True
+                        )
+                        if angle_deg is not None:
+                            payload["angle_deg"] = angle_deg
                     if d.get("length_ft") is not None:
-                        payload["length_ft"] = float(d.get("length_ft") or 0.0)
+                        length_ft = _finite_float(
+                            d.get("length_ft"), aid_int, name, kind, "length_ft", skip_invalid=True
+                        )
+                        if length_ft is not None:
+                            payload["length_ft"] = length_ft
                 else:
-                    payload["side_sq"] = float(d.get("side_sq") or 0.0)
+                    payload["side_sq"] = _finite_float(
+                        d.get("side_sq") or 0.0, aid_int, name, kind, "side_sq"
+                    ) or 0.0
                     if d.get("side_ft") is not None:
-                        payload["side_ft"] = float(d.get("side_ft") or 0.0)
+                        side_ft = _finite_float(
+                            d.get("side_ft"), aid_int, name, kind, "side_ft", skip_invalid=True
+                        )
+                        if side_ft is not None:
+                            payload["side_ft"] = side_ft
                 aoes.append(payload)
         except Exception:
             pass
