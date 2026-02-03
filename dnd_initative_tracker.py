@@ -6387,7 +6387,7 @@ class InitiativeTracker(base.InitiativeTracker):
             def _to_int(value: Any) -> Optional[int]:
                 try:
                     return int(value)
-                except Exception:
+                except (TypeError, ValueError):
                     return None
             angle_deg = _to_float(to.get("angle_deg"))
             ax = _to_float(to.get("ax"))
@@ -6440,7 +6440,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         _log_aoe_move_reject("anchor_mismatch")
                         self._lan.toast(ws_id, "That spell be not yers.")
                         return
-                elif claimed is not None and claimed_int is not None and cid_int is not None and claimed_int != cid_int:
+                elif claimed is not None and (claimed_int is None or cid_int is None or claimed_int != cid_int):
                     _log_aoe_move_reject("claim_mismatch")
                     self._lan.toast(ws_id, "That spell be not yers.")
                     return
