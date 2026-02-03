@@ -1216,10 +1216,10 @@ vitals:
     total: 5
     spent: 0
   speed:
-    walk: 30
-    climb: 0
-    fly: 0
-    swim: 0
+    Normal: 30 ft.
+    Climb: 0 ft.
+    Fly: 0 ft.
+    Swim: 0 ft.
   initiative:
     formula: "dex_mod"
   passive_perception:
