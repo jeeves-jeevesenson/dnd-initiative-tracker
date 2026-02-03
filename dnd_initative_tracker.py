@@ -860,7 +860,7 @@ class LanController:
         self._admin_tokens: Dict[str, float] = {}
         self._admin_token_ttl_seconds: int = 15 * 60
 
-        self._clients_lock = threading.Lock()
+        self._clients_lock = threading.RLock()
         self._clients: Dict[int, Any] = {}  # id(websocket) -> websocket
         self._clients_meta: Dict[int, Dict[str, Any]] = {}  # id(websocket) -> {host,port,ua,connected_at}
         self._client_hosts: Dict[int, str] = {}  # id(websocket) -> host
