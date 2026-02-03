@@ -6379,7 +6379,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 cy = float(to.get("cy"))
             except Exception:
                 return
-            def _to_number(value: Any, convert: Callable[[Any], Any]) -> Optional[float]:
+            def _to_number(value: Any, convert: Callable[[Any], Any]) -> Optional[Union[int, float]]:
                 try:
                     return convert(value)
                 except (TypeError, ValueError):
@@ -6414,10 +6414,9 @@ class InitiativeTracker(base.InitiativeTracker):
             anchor_cid_int = _to_number(anchor_cid, int)
             active_cid = self.current_cid
             active_cid_int = _to_number(active_cid, int)
-            def _cid_debug(value: Any) -> str:
-                """Return value with type for permission debug logs."""
-                return f"{value!r}({type(value).__name__})"
             def _log_aoe_move_reject(reason: str) -> None:
+                def _cid_debug(value: Any) -> str:
+                    return f"{value!r}({type(value).__name__})"
                 self._oplog(
                     "LAN aoe_move rejected reason="
                     f"{reason} aid={aid} cid={_cid_debug(cid)} claimed={_cid_debug(claimed)} "
