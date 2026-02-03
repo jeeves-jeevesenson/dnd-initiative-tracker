@@ -2743,6 +2743,17 @@ __DAMAGE_TYPE_OPTIONS__
   let selectedAoeId = null;
   let panning = null;  // {x,y, panX, panY}
   let shiftMoveMode = false;
+  const logAoeDragState = (stage, aid, ev) => {
+    console.log("[AOE drag]", {
+      stage,
+      aid,
+      shiftMoveMode,
+      shiftKey: Boolean(ev && ev.shiftKey),
+      draggingAoe,
+      aoeMoveModeAid,
+      claimedCid,
+    });
+  };
   let centeredCid = null;
   let initialCenterDone = false;
   let initialCenterFallback = false;
@@ -6204,6 +6215,7 @@ __DAMAGE_TYPE_OPTIONS__
     const aoeHit = hitTestAoe(p);
     if (aoeHit){
       setSelectedAoe(aoeHit.aid);
+      logAoeDragState("pointerdown", aoeHit.aid, ev);
       if (!claimedCid){
         clearAoeMoveMode();
         localToast("Claim a character first, matey.");
@@ -6313,6 +6325,7 @@ __DAMAGE_TYPE_OPTIONS__
       ctx.restore();
       setTokenTooltip(null);
     } else if (draggingAoe){
+      logAoeDragState("pointermove", draggingAoe.aid, ev);
       const g = screenToGridFloat(p.x, p.y);
       const aoe = state?.aoes?.find(a => Number(a.aid) === Number(draggingAoe.aid)) || null;
       const kind = aoe?.kind ? String(aoe.kind) : "";
@@ -6427,6 +6440,7 @@ __DAMAGE_TYPE_OPTIONS__
       dragging = null;
     })();
     draggingAoe && (function(){
+      logAoeDragState("pointerup", draggingAoe.aid, ev);
       const g = screenToGridFloat(p.x, p.y);
       const aid = Number(draggingAoe.aid);
       const finalCx = Number.isFinite(Number(draggingAoe.cx)) ? Number(draggingAoe.cx) : g.col;
@@ -6464,7 +6478,9 @@ __DAMAGE_TYPE_OPTIONS__
       if (Number.isFinite(Number(draggingAoe.spread_deg))){
         to.spread_deg = Number(draggingAoe.spread_deg);
       }
-      send({type:"aoe_move", aid: Number(draggingAoe.aid), to});
+      const payload = {type:"aoe_move", aid: Number(draggingAoe.aid), to};
+      console.log("[AOE move send]", {payload, claimedCid});
+      send(payload);
       draggingAoe = null;
       clearAoeMoveMode();
       draw();
