@@ -4288,7 +4288,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const aoe = state?.aoes?.find(a => Number(a.aid) === Number(selectedAoeId)) || null;
     if (!aoe){
-      localToast("Select a spell first, matey.");
+      localToast("Selected spell not found, matey.");
       return;
     }
     if (!claimedCid){
