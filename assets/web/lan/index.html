@@ -6302,23 +6302,26 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
 
-    // Try token hit
-    const hit = hitTestToken(p);
-    if (hit){
-      // only drag own token
-      if (!claimedCid || !cidMatches(hit.cid, claimedCid, "dragToken.hitCid")){
-        send({type:"toast", text:"Arrr, that token ain’t yers."});
-        return;
-      }
-      // only on your turn
-      if (state.active_cid === null || !cidMatches(state.active_cid, claimedCid, "dragToken.activeCid")){
-        send({type:"toast", text:"Not yer turn yet, matey."});
-        return;
-      }
-      dragging = {cid: hit.cid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
-      return;
-    }
+    const shiftHeld = isShiftPressed(ev);
     const aoeHit = hitTestAoe(p);
+    // Try token hit (unless we're explicitly Shift-dragging an AoE).
+    if (!(shiftHeld && aoeHit)){
+      const hit = hitTestToken(p);
+      if (hit){
+        // only drag own token
+        if (!claimedCid || !cidMatches(hit.cid, claimedCid, "dragToken.hitCid")){
+          send({type:"toast", text:"Arrr, that token ain’t yers."});
+          return;
+        }
+        // only on your turn
+        if (state.active_cid === null || !cidMatches(state.active_cid, claimedCid, "dragToken.activeCid")){
+          send({type:"toast", text:"Not yer turn yet, matey."});
+          return;
+        }
+        dragging = {cid: hit.cid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
+        return;
+      }
+    }
     if (aoeHit){
       setSelectedAoe(aoeHit.aid);
       logAoeDragState("pointerdown", aoeHit.aid, ev);
@@ -6341,7 +6344,6 @@ __DAMAGE_TYPE_OPTIONS__
       if (aoeMoveModeAid !== null && Number(aoeMoveModeAid) !== Number(aoeHit.aid)){
         clearAoeMoveMode();
       }
-      const shiftHeld = isShiftPressed(ev);
       if (ev.pointerType === "touch"){
         aoeMoveModeAid = Number(aoeHit.aid);
         lastAoeTapAid = null;
