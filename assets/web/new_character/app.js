@@ -88,6 +88,50 @@ const getSpellLevel = (level) => {
 
 const getSpellLevelFromRecord = (spell) => getSpellLevel(spell?.level ?? spell?.parsed?.level);
 
+const getCharacterLevel = (data) => {
+  const leveling = data?.leveling || {};
+  const level = Number(leveling?.level ?? 0);
+  if (level) {
+    return level;
+  }
+  if (Array.isArray(leveling?.classes)) {
+    return leveling.classes.reduce((sum, entry) => sum + Number(entry?.level ?? 0), 0);
+  }
+  return 0;
+};
+
+const maxSpellLevelForCharacter = (level) => {
+  const numericLevel = Number(level ?? 0);
+  if (!Number.isFinite(numericLevel) || numericLevel <= 0) {
+    return 0;
+  }
+  if (numericLevel >= 17) {
+    return 9;
+  }
+  if (numericLevel >= 15) {
+    return 8;
+  }
+  if (numericLevel >= 13) {
+    return 7;
+  }
+  if (numericLevel >= 11) {
+    return 6;
+  }
+  if (numericLevel >= 9) {
+    return 5;
+  }
+  if (numericLevel >= 7) {
+    return 4;
+  }
+  if (numericLevel >= 5) {
+    return 3;
+  }
+  if (numericLevel >= 3) {
+    return 2;
+  }
+  return 1;
+};
+
 const filterSpellIds = (payload, { requireLevel } = {}) => {
   const ids = Array.isArray(payload?.ids) ? payload.ids : [];
   const spells = Array.isArray(payload?.spells) ? payload.spells : [];
@@ -625,6 +669,7 @@ const renderMapField = (field, path, data) => {
 
 const renderSpellPicker = (field, path, data) => {
   const isCantripPicker = spellPathKey(path) === "spellcasting.cantrips.known";
+  const isKnownSpellPicker = spellPathKey(path) === "spellcasting.known_spells.known";
   const SORT_MODES = {
     alphabetical: "Alphabetical",
     level: "Level",
@@ -682,6 +727,7 @@ const renderSpellPicker = (field, path, data) => {
   const spellDisplayById = new Map();
   let spellIndex = new Map();
   let availableSpells = [];
+  let lastKnownSpellLevel = null;
 
   const getSpellName = (spell) => {
     const rawName = typeof spell?.name === "string" ? spell.name.trim() : "";
@@ -845,6 +891,13 @@ const renderSpellPicker = (field, path, data) => {
     let spells = await loadAvailableSpells();
     if (isCantripPicker) {
       spells = spells.filter((spell) => getSpellLevelFromRecord(spell) === 0);
+    } else if (isKnownSpellPicker) {
+      const maxLevel = maxSpellLevelForCharacter(getCharacterLevel(data));
+      spells = spells.filter((spell) => {
+        const level = getSpellLevelFromRecord(spell);
+        return level !== null && level <= maxLevel;
+      });
+      lastKnownSpellLevel = maxLevel;
     }
     availableSpells = spells;
     buildSpellIndex(spells);
@@ -868,6 +921,23 @@ const renderSpellPicker = (field, path, data) => {
   sortSelect.addEventListener("change", () => {
     renderDatalist();
   });
+
+  if (isKnownSpellPicker && formEl) {
+    const handleLevelChange = async (event) => {
+      const targetPath = event?.target?.dataset?.path;
+      if (!targetPath) {
+        return;
+      }
+      if (targetPath === "leveling.level" || targetPath.startsWith("leveling.classes")) {
+        const maxLevel = maxSpellLevelForCharacter(getCharacterLevel(data));
+        if (maxLevel !== lastKnownSpellLevel) {
+          await loadAndRenderSpells();
+        }
+      }
+    };
+    formEl.addEventListener("input", handleLevelChange);
+    formEl.addEventListener("change", handleLevelChange);
+  }
 
   loadAndRenderSpells();
 
