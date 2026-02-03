@@ -6379,20 +6379,15 @@ class InitiativeTracker(base.InitiativeTracker):
                 cy = float(to.get("cy"))
             except Exception:
                 return
-            def _to_float(value: Any) -> Optional[float]:
+            def _to_number(value: Any, convert: Callable[[Any], Any]) -> Optional[float]:
                 try:
-                    return float(value)
-                except Exception:
-                    return None
-            def _to_int(value: Any) -> Optional[int]:
-                try:
-                    return int(value)
+                    return convert(value)
                 except (TypeError, ValueError):
                     return None
-            angle_deg = _to_float(to.get("angle_deg"))
-            ax = _to_float(to.get("ax"))
-            ay = _to_float(to.get("ay"))
-            spread_deg = _to_float(to.get("spread_deg"))
+            angle_deg = _to_number(to.get("angle_deg"), float)
+            ax = _to_number(to.get("ax"), float)
+            ay = _to_number(to.get("ay"), float)
+            spread_deg = _to_number(to.get("spread_deg"), float)
             mw = getattr(self, "_map_window", None)
             map_ready = mw is not None and mw.winfo_exists()
             aoe_store = getattr(mw, "aoes", {}) if map_ready else (getattr(self, "_lan_aoes", {}) or {})
@@ -6413,13 +6408,14 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             owner_cid = d.get("owner_cid")
             anchor_cid = d.get("anchor_cid")
-            cid_int = _to_int(cid)
-            claimed_int = _to_int(claimed)
-            owner_cid_int = _to_int(owner_cid)
-            anchor_cid_int = _to_int(anchor_cid)
+            cid_int = _to_number(cid, int)
+            claimed_int = _to_number(claimed, int)
+            owner_cid_int = _to_number(owner_cid, int)
+            anchor_cid_int = _to_number(anchor_cid, int)
             active_cid = self.current_cid
-            active_cid_int = _to_int(active_cid)
+            active_cid_int = _to_number(active_cid, int)
             def _cid_debug(value: Any) -> str:
+                """Return value with type for permission debug logs."""
                 return f"{value!r}({type(value).__name__})"
             def _log_aoe_move_reject(reason: str) -> None:
                 self._oplog(
