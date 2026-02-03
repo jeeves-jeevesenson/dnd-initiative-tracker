@@ -4168,6 +4168,24 @@ __DAMAGE_TYPE_OPTIONS__
     target.move_remaining_ft = remaining;
   }
 
+  function setLocalAoeRotation(aid, values){
+    if (!state || !Array.isArray(state.aoes)) return;
+    const target = state.aoes.find(a => Number(a.aid) === Number(aid));
+    if (!target) return;
+    if (Number.isFinite(Number(values.angle_deg))){
+      target.angle_deg = Number(values.angle_deg);
+    }
+    if (Number.isFinite(Number(values.ax))){
+      target.ax = Number(values.ax);
+    }
+    if (Number.isFinite(Number(values.ay))){
+      target.ay = Number(values.ay);
+    }
+    if (Number.isFinite(Number(values.spread_deg))){
+      target.spread_deg = Number(values.spread_deg);
+    }
+  }
+
   function setSelectedAoe(aid){
     if (aid === null || aid === undefined){
       selectedAoeId = null;
@@ -4420,6 +4438,21 @@ __DAMAGE_TYPE_OPTIONS__
     return {col: Math.round(col * 2) / 2, row: Math.round(row * 2) / 2};
   }
 
+  function coneSpreadDeg(aoe){
+    const spread = Number(aoe?.spread_deg);
+    if (Number.isFinite(spread)) return spread;
+    const angle = Number(aoe?.angle_deg);
+    if (Number.isFinite(angle)) return angle;
+    return 90;
+  }
+
+  function coneHeadingDeg(aoe){
+    const hasSpread = Number.isFinite(Number(aoe?.spread_deg));
+    const angle = Number(aoe?.angle_deg);
+    if (hasSpread && Number.isFinite(angle)) return angle;
+    return aoe?.orient === "horizontal" ? 0 : -90;
+  }
+
   function hitTestAoe(p){
     if (!state || !state.aoes || !state.aoes.length) return null;
     for (let i = state.aoes.length - 1; i >= 0; i--){
@@ -4457,8 +4490,8 @@ __DAMAGE_TYPE_OPTIONS__
         }
       } else if (a.kind === "cone"){
         const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
-        const spreadDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : 90;
-        const headingDeg = a.orient === "horizontal" ? 0 : -90;
+        const spreadDeg = coneSpreadDeg(a);
+        const headingDeg = coneHeadingDeg(a);
         const dist = Math.hypot(dx, dy);
         if (dist <= lengthPx){
           let angle = Math.atan2(dy, dx);
@@ -4507,6 +4540,11 @@ __DAMAGE_TYPE_OPTIONS__
   function getClaimedUnit(){
     if (!state || !state.units || claimedCid === null) return null;
     return state.units.find(u => Number(u.cid) === Number(claimedCid)) || null;
+  }
+
+  function getUnitByCid(cid){
+    if (!state || !state.units) return null;
+    return state.units.find(u => Number(u.cid) === Number(cid)) || null;
   }
 
   function isUnitSpellcaster(unit){
@@ -4945,8 +4983,8 @@ __DAMAGE_TYPE_OPTIONS__
           ctx.stroke();
         } else if (a.kind === "cone"){
           const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
-          const spreadDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : 90;
-          const headingDeg = a.orient === "horizontal" ? 0 : -90;
+          const spreadDeg = coneSpreadDeg(a);
+          const headingDeg = coneHeadingDeg(a);
           const halfSpread = (spreadDeg * Math.PI) / 360;
           const headingRad = (headingDeg * Math.PI) / 180;
           ctx.beginPath();
@@ -5008,8 +5046,8 @@ __DAMAGE_TYPE_OPTIONS__
             ctx.stroke();
           } else if (a.kind === "cone"){
             const lengthPx = Math.max(0, Number(a.length_sq || 0)) * zoom;
-            const spreadDeg = Number.isFinite(Number(a.angle_deg)) ? Number(a.angle_deg) : 90;
-            const headingDeg = a.orient === "horizontal" ? 0 : -90;
+            const spreadDeg = coneSpreadDeg(a);
+            const headingDeg = coneHeadingDeg(a);
             const halfSpread = (spreadDeg * Math.PI) / 360;
             const headingRad = (headingDeg * Math.PI) / 180;
             ctx.beginPath();
@@ -6271,6 +6309,73 @@ __DAMAGE_TYPE_OPTIONS__
       setTokenTooltip(null);
     } else if (draggingAoe){
       const g = screenToGridFloat(p.x, p.y);
+      const aoe = state?.aoes?.find(a => Number(a.aid) === Number(draggingAoe.aid)) || null;
+      const kind = aoe?.kind ? String(aoe.kind) : "";
+      if (ev.shiftKey && (kind === "line" || kind === "cone")){
+        let ax = Number(aoe?.ax);
+        let ay = Number(aoe?.ay);
+        if (!Number.isFinite(ax) || !Number.isFinite(ay)){
+          const ownerCid = aoe?.owner_cid;
+          const owner = ownerCid !== null && ownerCid !== undefined ? getUnitByCid(ownerCid) : null;
+          if (owner?.pos){
+            ax = Number(owner.pos.col);
+            ay = Number(owner.pos.row);
+          }
+        }
+        if (!Number.isFinite(ax) || !Number.isFinite(ay)){
+          ax = Number.isFinite(Number(aoe?.cx)) ? Number(aoe?.cx) : g.col;
+          ay = Number.isFinite(Number(aoe?.cy)) ? Number(aoe?.cy) : g.row;
+        }
+        const dx = g.col - ax;
+        const dy = g.row - ay;
+        if (Math.abs(dx) + Math.abs(dy) < 0.01){
+          return;
+        }
+        const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+        let cx = ax;
+        let cy = ay;
+        if (kind === "line"){
+          const lengthSq = Math.max(0, Number(aoe?.length_sq || 0));
+          const halfLen = lengthSq / 2;
+          const rad = (angleDeg * Math.PI) / 180;
+          cx = ax + Math.cos(rad) * halfLen;
+          cy = ay + Math.sin(rad) * halfLen;
+        } else if (kind === "cone"){
+          const spreadExisting = Number(aoe?.spread_deg);
+          if (Number.isFinite(spreadExisting)){
+            draggingAoe.spread_deg = spreadExisting;
+          } else {
+            const spread = Number(aoe?.angle_deg);
+            if (Number.isFinite(spread)){
+              draggingAoe.spread_deg = spread;
+            }
+          }
+        }
+        const cols = Number(state?.grid?.cols);
+        const rows = Number(state?.grid?.rows);
+        if (Number.isFinite(cols) && cols > 0){
+          cx = Math.max(0, Math.min(cx, cols - 1));
+          ax = Math.max(0, Math.min(ax, cols - 1));
+        }
+        if (Number.isFinite(rows) && rows > 0){
+          cy = Math.max(0, Math.min(cy, rows - 1));
+          ay = Math.max(0, Math.min(ay, rows - 1));
+        }
+        draggingAoe.cx = cx;
+        draggingAoe.cy = cy;
+        draggingAoe.angle_deg = angleDeg;
+        draggingAoe.ax = ax;
+        draggingAoe.ay = ay;
+        if (Number.isFinite(draggingAoe.spread_deg)){
+          setLocalAoeRotation(draggingAoe.aid, {spread_deg: draggingAoe.spread_deg});
+        }
+        setLocalAoeCenter(draggingAoe.aid, cx, cy);
+        setLocalAoeRotation(draggingAoe.aid, {angle_deg: angleDeg, ax, ay});
+        aoeDragOverrides.set(Number(draggingAoe.aid), {cx, cy});
+        draw();
+        setTokenTooltip(null);
+        return;
+      }
       draggingAoe.cx = g.col;
       draggingAoe.cy = g.row;
       aoeDragOverrides.set(Number(draggingAoe.aid), {cx: g.col, cy: g.row});
@@ -6314,11 +6419,13 @@ __DAMAGE_TYPE_OPTIONS__
     draggingAoe && (function(){
       const g = screenToGridFloat(p.x, p.y);
       const aid = Number(draggingAoe.aid);
+      const finalCx = Number.isFinite(Number(draggingAoe.cx)) ? Number(draggingAoe.cx) : g.col;
+      const finalCy = Number.isFinite(Number(draggingAoe.cy)) ? Number(draggingAoe.cy) : g.row;
       const movePerTurn = Number(draggingAoe.movePerTurnFt);
       if (Number.isFinite(movePerTurn) && movePerTurn > 0){
         const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
-        const dx = Number(g.col) - Number(draggingAoe.startCx);
-        const dy = Number(g.row) - Number(draggingAoe.startCy);
+        const dx = Number(finalCx) - Number(draggingAoe.startCx);
+        const dy = Number(finalCy) - Number(draggingAoe.startCy);
         const distFt = Math.hypot(dx, dy) * feetPerSquare;
         const remaining = Number(draggingAoe.moveRemainingFt);
         if (!Number.isFinite(remaining) || distFt > remaining + 0.01){
@@ -6332,9 +6439,22 @@ __DAMAGE_TYPE_OPTIONS__
         const nextRemaining = Math.max(0, remaining - distFt);
         setLocalAoeMoveRemaining(aid, nextRemaining);
       }
-      aoeDragOverrides.set(aid, {cx: g.col, cy: g.row});
-      setLocalAoeCenter(aid, g.col, g.row);
-      send({type:"aoe_move", aid: Number(draggingAoe.aid), to: {cx: g.col, cy: g.row}});
+      aoeDragOverrides.set(aid, {cx: finalCx, cy: finalCy});
+      setLocalAoeCenter(aid, finalCx, finalCy);
+      const to = {cx: finalCx, cy: finalCy};
+      if (Number.isFinite(Number(draggingAoe.angle_deg))){
+        to.angle_deg = Number(draggingAoe.angle_deg);
+      }
+      if (Number.isFinite(Number(draggingAoe.ax))){
+        to.ax = Number(draggingAoe.ax);
+      }
+      if (Number.isFinite(Number(draggingAoe.ay))){
+        to.ay = Number(draggingAoe.ay);
+      }
+      if (Number.isFinite(Number(draggingAoe.spread_deg))){
+        to.spread_deg = Number(draggingAoe.spread_deg);
+      }
+      send({type:"aoe_move", aid: Number(draggingAoe.aid), to});
       draggingAoe = null;
       clearAoeMoveMode();
       draw();
