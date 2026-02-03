@@ -6435,6 +6435,24 @@ class InitiativeTracker(base.InitiativeTracker):
             def _typed(value: Any) -> Dict[str, Any]:
                 return {"value": value, "type": type(value).__name__}
 
+            def _send_aoe_move_ack(ok: bool, reason_code: Optional[str] = None, extra: Optional[Dict[str, Any]] = None) -> None:
+                if ws_id is None:
+                    return
+                lan = getattr(self, "_lan", None)
+                loop = getattr(lan, "_loop", None) if lan else None
+                if not lan or not loop:
+                    return
+                payload: Dict[str, Any] = {"type": "aoe_move_ack", "ok": ok}
+                if reason_code:
+                    payload["reason_code"] = reason_code
+                if extra:
+                    payload.update(extra)
+                coro = lan._send_async(ws_id, payload)
+                try:
+                    asyncio.run_coroutine_threadsafe(coro, loop)
+                except Exception:
+                    pass
+
             def _log_aoe_move(decision: str, extra: Optional[Dict[str, Any]] = None) -> None:
                 payload: Dict[str, Any] = {
                     "event": "aoe_move_permission",
@@ -6454,14 +6472,18 @@ class InitiativeTracker(base.InitiativeTracker):
                     pass
 
             if not isinstance(aid, int):
-                _log_aoe_move("reject_invalid_aid")
+                decision = "reject_invalid_aid"
+                _log_aoe_move(decision)
+                _send_aoe_move_ack(False, reason_code=decision)
                 self._lan.toast(ws_id, "Pick a spell first, matey.")
                 return
             try:
                 cx = float(to.get("cx"))
                 cy = float(to.get("cy"))
             except Exception:
-                _log_aoe_move("reject_invalid_destination")
+                decision = "reject_invalid_destination"
+                _log_aoe_move(decision)
+                _send_aoe_move_ack(False, reason_code=decision)
                 return
             def _to_float(value: Any) -> Optional[float]:
                 try:
@@ -6486,16 +6508,20 @@ class InitiativeTracker(base.InitiativeTracker):
                     mw_aoes[aid] = dict(d)
                     aoe_store = mw_aoes
             if not d:
-                _log_aoe_move("reject_missing_aoe")
+                decision = "reject_missing_aoe"
+                _log_aoe_move(decision)
+                _send_aoe_move_ack(False, reason_code=decision)
                 return
             if bool(d.get("pinned")) and not is_admin:
+                decision = "reject_pinned"
                 _log_aoe_move(
-                    "reject_pinned",
+                    decision,
                     extra={
                         "owner_cid": _typed(d.get("owner_cid")),
                         "anchor_cid": _typed(d.get("anchor_cid")),
                     },
                 )
+                _send_aoe_move_ack(False, reason_code=decision)
                 self._lan.toast(ws_id, "That spell be pinned.")
                 return
             owner_cid_raw = d.get("owner_cid")
@@ -6513,34 +6539,40 @@ class InitiativeTracker(base.InitiativeTracker):
             if not is_admin:
                 if owner_cid is not None:
                     if cid is None or owner_cid != cid:
+                        decision = "reject_owner_mismatch"
                         _log_aoe_move(
-                            "reject_owner_mismatch",
+                            decision,
                             extra={
                                 "owner_cid": _typed(owner_cid),
                                 "anchor_cid": _typed(anchor_cid),
                             },
                         )
+                        _send_aoe_move_ack(False, reason_code=decision)
                         self._lan.toast(ws_id, "That spell be not yers.")
                         return
                 elif anchor_cid is not None:
                     if cid is None or anchor_cid != cid:
+                        decision = "reject_anchor_mismatch"
                         _log_aoe_move(
-                            "reject_anchor_mismatch",
+                            decision,
                             extra={
                                 "owner_cid": _typed(owner_cid),
                                 "anchor_cid": _typed(anchor_cid),
                             },
                         )
+                        _send_aoe_move_ack(False, reason_code=decision)
                         self._lan.toast(ws_id, "That spell be not yers.")
                         return
                 elif claimed is not None and cid is not None and claimed != cid:
+                    decision = "reject_claimed_mismatch"
                     _log_aoe_move(
-                        "reject_claimed_mismatch",
+                        decision,
                         extra={
                             "owner_cid": _typed(owner_cid),
                             "anchor_cid": _typed(anchor_cid),
                         },
                     )
+                    _send_aoe_move_ack(False, reason_code=decision)
                     self._lan.toast(ws_id, "That spell be not yers.")
                     return
             move_per_turn_ft = d.get("move_per_turn_ft")
@@ -6552,13 +6584,15 @@ class InitiativeTracker(base.InitiativeTracker):
                 on_turn = current_cid is not None and cid is not None and current_cid == cid
                 owner_override = owner_cid is not None and claimed is not None and owner_cid == claimed
                 if not on_turn and not owner_override:
+                    decision = "reject_not_turn"
                     _log_aoe_move(
-                        "reject_not_turn",
+                        decision,
                         extra={
                             "owner_cid": _typed(owner_cid),
                             "anchor_cid": _typed(anchor_cid),
                         },
                     )
+                    _send_aoe_move_ack(False, reason_code=decision)
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
                     return
                 move_limit = None
@@ -6571,14 +6605,16 @@ class InitiativeTracker(base.InitiativeTracker):
                         move_limit = None
                 if move_limit is not None:
                     if not on_turn:
+                        decision = "reject_move_not_turn"
                         _log_aoe_move(
-                            "reject_move_not_turn",
+                            decision,
                             extra={
                                 "owner_cid": _typed(owner_cid),
                                 "anchor_cid": _typed(anchor_cid),
                                 "move_per_turn_ft": move_per_turn_ft,
                             },
                         )
+                        _send_aoe_move_ack(False, reason_code=decision)
                         self._lan.toast(ws_id, "That spell moves only on yer turn.")
                         return
                     try:
@@ -6595,8 +6631,9 @@ class InitiativeTracker(base.InitiativeTracker):
                     dy = float(cy) - float(d.get("cy") or 0.0)
                     dist_ft = (dx * dx + dy * dy) ** 0.5 * feet_per_square
                     if dist_ft > remaining + 0.01:
+                        decision = "reject_move_distance"
                         _log_aoe_move(
-                            "reject_move_distance",
+                            decision,
                             extra={
                                 "owner_cid": _typed(owner_cid),
                                 "anchor_cid": _typed(anchor_cid),
@@ -6604,6 +6641,7 @@ class InitiativeTracker(base.InitiativeTracker):
                                 "move_distance_ft": dist_ft,
                             },
                         )
+                        _send_aoe_move_ack(False, reason_code=decision)
                         self._lan.toast(ws_id, f"That spell can only move {remaining:.1f} ft this turn.")
                         return
                     d["move_remaining_ft"] = max(0.0, float(remaining) - dist_ft)
@@ -6657,6 +6695,18 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan_aoes = store
             except Exception:
                 pass
+            _send_aoe_move_ack(
+                True,
+                extra={
+                    "aid": aid,
+                    "cx": d.get("cx"),
+                    "cy": d.get("cy"),
+                    "ax": d.get("ax"),
+                    "ay": d.get("ay"),
+                    "angle_deg": d.get("angle_deg"),
+                    "spread_deg": d.get("spread_deg"),
+                },
+            )
             return
         elif typ == "aoe_remove":
             aid = msg.get("aid")
