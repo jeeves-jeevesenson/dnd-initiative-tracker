@@ -8013,23 +8013,30 @@ class BattleMapWindow(tk.Toplevel):
             return
         owner_cid = d.get("owner_cid")
         active_cid = getattr(self, "_active_cid", None)
-        if owner_cid is not None and active_cid is not None and int(owner_cid) != int(active_cid):
-            if hasattr(self, "app"):
-                try:
-                    owner_combatant = self.app.combatants.get(int(owner_cid))
-                    name = owner_combatant.name if owner_combatant else None
-                except Exception:
-                    name = None
-                if name:
+        owner_is_dm = isinstance(owner_cid, str) and owner_cid.lower() == "dm"
+        is_dm = bool(
+            getattr(self, "_dm_override", False)
+            or getattr(self, "dm_override", False)
+            or (hasattr(self, "app") and bool(getattr(self.app, "dm_override", False)))
+            or (hasattr(self, "app") and bool(getattr(self.app, "is_dm", False)))
+            or (hasattr(self, "app") and bool(getattr(self.app, "is_admin", False)))
+        )
+        if not (is_dm or owner_is_dm):
+            if owner_cid is not None and active_cid is not None and int(owner_cid) != int(active_cid):
+                if hasattr(self, "app"):
                     try:
-                        self.app._log(f"{name} owns that spell. Wait for their turn.")
+                        owner_combatant = self.app.combatants.get(int(owner_cid))
+                        name = owner_combatant.name if owner_combatant else None
                     except Exception:
-                        pass
-            return
-        if owner_cid is not None and active_cid is None:
-            return
-        if owner_cid is None and active_cid is not None:
-            return
+                        name = None
+                    if name:
+                        try:
+                            self.app._log(f"{name} owns that spell. Wait for their turn.")
+                        except Exception:
+                            pass
+                return
+            if owner_cid is not None and active_cid is None:
+                return
         self._drag_kind = "aoe"
         self._drag_id = aid
         cx = self.x0 + (float(d["cx"]) + 0.5) * self.cell
