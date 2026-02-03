@@ -4273,8 +4273,8 @@ __DAMAGE_TYPE_OPTIONS__
 
   function updateAoeMoveButton(){
     if (!aoeMoveBtn) return;
-    const hasSelection = selectedAoeId !== null && selectedAoeId !== undefined;
-    const isActive = hasSelection && aoeMoveModeAid !== null && Number(aoeMoveModeAid) === Number(selectedAoeId);
+    const hasSelection = selectedAoeId != null;
+    const isActive = hasSelection && aoeMoveModeAid != null && Number(aoeMoveModeAid) === Number(selectedAoeId);
     aoeMoveBtn.classList.toggle("accent", isActive);
     aoeMoveBtn.textContent = isActive ? "Spell Move…" : "Spell Move";
     aoeMoveBtn.disabled = !hasSelection;
@@ -4282,7 +4282,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function queueAoeMoveMode(){
-    if (selectedAoeId === null || selectedAoeId === undefined){
+    if (selectedAoeId == null){
       localToast("Select a spell first, matey.");
       return;
     }
@@ -4296,8 +4296,7 @@ __DAMAGE_TYPE_OPTIONS__
       localToast("Claim a character first, matey.");
       return;
     }
-    if (aoe.owner_cid !== null && aoe.owner_cid !== undefined
-        && !cidMatches(aoe.owner_cid, claimedCid, "aoeMove.btnOwnerCid")){
+    if (aoe.owner_cid != null && !cidMatches(aoe.owner_cid, claimedCid, "aoeMove.btnOwnerCid")){
       clearAoeMoveMode();
       localToast("That spell be not yers.");
       return;
@@ -4307,7 +4306,7 @@ __DAMAGE_TYPE_OPTIONS__
       localToast("That spell be pinned.");
       return;
     }
-    if (state?.active_cid === null || !cidMatches(state.active_cid, claimedCid, "aoeMove.btnActiveCid")){
+    if (state?.active_cid == null || !cidMatches(state.active_cid, claimedCid, "aoeMove.btnActiveCid")){
       clearAoeMoveMode();
       localToast("Not yer turn yet, matey.");
       return;
