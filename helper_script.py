@@ -5261,6 +5261,22 @@ class BattleMapWindow(tk.Toplevel):
         self.units_list.bind("<ButtonRelease-1>", self._on_units_release)
         self.units_list.bind("<Double-Button-1>", self._on_units_double_click)
         self.units_list.bind("<Return>", lambda e: self._place_selected_units_near_center())
+        self.units_list.bind("<<ListboxSelect>>", lambda _e: self._sync_units_movement_mode())
+
+        mode_row = ttk.Frame(left)
+        mode_row.pack(fill=tk.X, pady=(4, 8))
+        ttk.Label(mode_row, text="Movement:").pack(side=tk.LEFT)
+        self.unit_mode_var = tk.StringVar(value=MOVEMENT_MODE_LABELS["normal"])
+        self.unit_mode_combo = ttk.Combobox(
+            mode_row,
+            textvariable=self.unit_mode_var,
+            values=[MOVEMENT_MODE_LABELS[mode] for mode in MOVEMENT_MODES],
+            state="readonly",
+            width=12,
+        )
+        self.unit_mode_combo.pack(side=tk.LEFT, padx=(6, 0))
+        self.unit_mode_combo.bind("<<ComboboxSelected>>", lambda _e: self._apply_units_movement_mode())
+        self._set_unit_mode_controls_enabled(False)
 
         btns = ttk.Frame(left)
         btns.pack(fill=tk.X, pady=(0, 10))
@@ -5482,6 +5498,49 @@ class BattleMapWindow(tk.Toplevel):
             self.refresh_spell_overlays()
         except Exception:
             pass
+        self._sync_units_movement_mode()
+
+    def _set_unit_mode_controls_enabled(self, enabled: bool) -> None:
+        if not hasattr(self, "unit_mode_combo"):
+            return
+        try:
+            if enabled:
+                self.unit_mode_combo.state(["!disabled"])
+            else:
+                self.unit_mode_combo.state(["disabled"])
+        except Exception:
+            self.unit_mode_combo.config(state=(tk.NORMAL if enabled else tk.DISABLED))
+
+    def _selected_unit_cids(self) -> List[int]:
+        cids: List[int] = []
+        for idx in list(self.units_list.curselection()):
+            if 0 <= idx < len(getattr(self, "_units_index_to_cid", [])):
+                cids.append(self._units_index_to_cid[idx])
+        return cids
+
+    def _sync_units_movement_mode(self) -> None:
+        if not hasattr(self, "unit_mode_var"):
+            return
+        cids = self._selected_unit_cids()
+        if not cids:
+            self.unit_mode_var.set(MOVEMENT_MODE_LABELS["normal"])
+            self._set_unit_mode_controls_enabled(False)
+            return
+        self._set_unit_mode_controls_enabled(True)
+        cid = cids[0]
+        creature = self.app.combatants.get(cid)
+        mode = self.app._movement_mode_label(getattr(creature, "movement_mode", "normal")) if creature else "Normal"
+        self.unit_mode_var.set(mode)
+
+    def _apply_units_movement_mode(self) -> None:
+        cids = self._selected_unit_cids()
+        if not cids:
+            return
+        mode_label = str(self.unit_mode_var.get() or MOVEMENT_MODE_LABELS["normal"])
+        mode = self.app._normalize_movement_mode(mode_label)
+        for cid in cids:
+            self.app._set_movement_mode(cid, mode)
+        self._update_move_highlight()
 
 
     def _start_polling(self) -> None:
@@ -5926,6 +5985,7 @@ class BattleMapWindow(tk.Toplevel):
             return
         self.units_list.selection_clear(0, tk.END)
         self.units_list.selection_set(idx)
+        self._sync_units_movement_mode()
         cid = self._units_index_to_cid[idx]
         self._dragging_from_list = cid
         name = self.app.combatants[cid].name if cid in self.app.combatants else str(cid)
@@ -6668,10 +6728,11 @@ class BattleMapWindow(tk.Toplevel):
                     continue
                 if mode == "burrow" and target_type == "water":
                     continue
-                if current_type == "water" or target_type == "water":
-                    step_cost = int(math.ceil(step_cost * water_multiplier))
-                if bool(target_cell.get("is_rough")):
-                    step_cost *= 2
+                if mode != "fly":
+                    if current_type == "water" or target_type == "water":
+                        step_cost = int(math.ceil(step_cost * water_multiplier))
+                    if bool(target_cell.get("is_rough")):
+                        step_cost *= 2
 
                 ncost = cost + step_cost
                 if ncost > max_ft:

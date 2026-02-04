@@ -918,7 +918,7 @@ class LanController:
         self._cid_to_host: Dict[int, set[str]] = {}  # cid -> {host, ...}
         self._host_assignments: Dict[str, int] = self._load_host_assignments()  # host -> cid (persistent)
         self._yaml_host_assignments: Dict[str, Dict[str, Any]] = {}
-        self._host_presets: Dict[str, Dict[str, Any]] = {}
+        self._host_presets: Dict[str, Dict[str, Any]] = self._load_host_presets()
         self._cid_push_subscriptions: Dict[int, List[Dict[str, Any]]] = {}
         self._client_error_logger = _make_client_error_logger()
         self._client_log_lock = threading.Lock()
@@ -1174,6 +1174,25 @@ class LanController:
 
     def _host_assignments_path(self) -> Path:
         return _ensure_logs_dir() / "lan_assignments.json"
+
+    def _host_presets_path(self) -> Path:
+        return _ensure_logs_dir() / "lan_gui_presets.json"
+
+    def _load_host_presets(self) -> Dict[str, Dict[str, Any]]:
+        data = _read_index_file(self._host_presets_path())
+        raw = data.get("presets") if isinstance(data, dict) else None
+        presets: Dict[str, Dict[str, Any]] = {}
+        if isinstance(raw, dict):
+            for host, preset in raw.items():
+                key = str(host or "").strip()
+                if not key or not isinstance(preset, dict):
+                    continue
+                presets[key] = preset
+        return presets
+
+    def _save_host_presets(self) -> None:
+        payload = {"version": 1, "presets": dict(self._host_presets)}
+        _write_index_file(self._host_presets_path(), payload)
 
     def _load_host_assignments(self) -> Dict[str, int]:
         data = _read_index_file(self._host_assignments_path())
@@ -1910,6 +1929,7 @@ class LanController:
                             self._host_presets.pop(host_key, None)
                         else:
                             self._host_presets[host_key] = preset
+                        self._save_host_presets()
                         await ws.send_text(self._json_dumps({"type": "preset_saved"}))
                     elif typ == "load_preset":
                         host_key = self._client_hosts.get(ws_id) or f"ws:{ws_id}"
@@ -7266,10 +7286,11 @@ class InitiativeTracker(base.InitiativeTracker):
                         continue
                     if mode == "burrow" and target_type == "water":
                         continue
-                    if current_type == "water" or target_type == "water":
-                        step = int(math.ceil(step * water_multiplier))
-                    if target_is_rough:
-                        step *= 2
+                    if mode != "fly":
+                        if current_type == "water" or target_type == "water":
+                            step = int(math.ceil(step * water_multiplier))
+                        if target_is_rough:
+                            step *= 2
 
                     ncost = cost + step
                     key = (nc, nr, npar)
