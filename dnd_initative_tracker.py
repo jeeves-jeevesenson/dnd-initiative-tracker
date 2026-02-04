@@ -6380,6 +6380,11 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _lan_apply_action(self, msg: Dict[str, Any]) -> None:
         """Apply client actions on the Tk thread."""
+        if not isinstance(self, InitiativeTracker):
+            app = getattr(self, "app", None)
+            if app is not None and hasattr(app, "_lan_apply_action"):
+                return app._lan_apply_action(msg)
+            return
         typ = str(msg.get("type") or "")
         ws_id = msg.get("_ws_id")
         log_warning = None
