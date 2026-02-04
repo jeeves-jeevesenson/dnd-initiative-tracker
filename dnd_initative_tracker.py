@@ -2307,6 +2307,14 @@ class LanController:
                     break
                 processed_any = True
                 try:
+                    if os.getenv("LAN_BIND_DEBUG") == "1":
+                        self.app._oplog(
+                            "LAN_BIND_DEBUG _tick apply_action: "
+                            f"app_type={type(self.app)} app_id={id(self.app)} "
+                            f"has_apply_action={hasattr(self.app, '_lan_apply_action')} "
+                            f"has_pc_name_for={hasattr(self.app, '_pc_name_for')}",
+                            level="debug",
+                        )
                     self.app._lan_apply_action(msg)
                 except Exception as exc:
                     ws_id = msg.get("_ws_id")
@@ -6380,6 +6388,19 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _lan_apply_action(self, msg: Dict[str, Any]) -> None:
         """Apply client actions on the Tk thread."""
+        if os.getenv("LAN_BIND_DEBUG") == "1":
+            log_fn = getattr(self, "_oplog", None)
+            if log_fn is None and hasattr(self, "app"):
+                log_fn = getattr(self.app, "_oplog", None)
+            if log_fn is not None:
+                debug_message = (
+                    "LAN_BIND_DEBUG _lan_apply_action entry: "
+                    f"self_type={type(self)} self_id={id(self)} "
+                    f"has_pc_name_for={hasattr(self, '_pc_name_for')}"
+                )
+                if hasattr(self, "app"):
+                    debug_message += f" app_type={type(self.app)} app_id={id(self.app)}"
+                log_fn(debug_message, level="debug")
         if not isinstance(self, InitiativeTracker):
             app = getattr(self, "app", None)
             if app is not None and hasattr(app, "_lan_apply_action"):
