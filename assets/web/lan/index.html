@@ -5141,11 +5141,13 @@ __DAMAGE_TYPE_OPTIONS__
         const targetType = cellMovementType(targetCell);
         if (mode === "swim" && targetType !== "water") continue;
         if (mode === "burrow" && targetType === "water") continue;
-        if (currentType === "water" || targetType === "water"){
-          stepCost = Math.ceil(stepCost * waterMultiplier);
-        }
-        if (targetCell.is_rough){
-          stepCost *= 2;
+        if (mode !== "fly"){
+          if (currentType === "water" || targetType === "water"){
+            stepCost = Math.ceil(stepCost * waterMultiplier);
+          }
+          if (targetCell.is_rough){
+            stepCost *= 2;
+          }
         }
 
         const newCost = cost + stepCost;
