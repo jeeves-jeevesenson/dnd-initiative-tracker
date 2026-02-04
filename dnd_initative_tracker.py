@@ -697,6 +697,7 @@ APP_VERSION = "41"
 # --- LAN POC switches ---
 POC_AUTO_START_LAN = True
 POC_AUTO_SEED_PCS = True  # auto-add Player Characters from startingplayers.yaml (useful over SSH testing)
+LAN_TERRAIN_DEBUG = bool(os.getenv("INITTRACKER_LAN_TERRAIN_DEBUG"))
 
 DAMAGE_TYPES = list(base.DAMAGE_TYPES)
 
@@ -2530,9 +2531,36 @@ class LanController:
         if not rough_updates and not rough_removals:
             return
 
-        rough_state = dict(getattr(self.app, "_lan_rough_terrain", {}) or {})
+        handler_name = "_apply_terrain_patch_to_map"
+
+        def _normalize_rough_key(raw_key: object) -> Optional[Tuple[int, int]]:
+            if isinstance(raw_key, str):
+                parts = [part.strip() for part in raw_key.split(",")]
+                if len(parts) == 2:
+                    try:
+                        return (int(parts[0]), int(parts[1]))
+                    except (TypeError, ValueError):
+                        return None
+            if isinstance(raw_key, (list, tuple)) and len(raw_key) == 2:
+                try:
+                    return (int(raw_key[0]), int(raw_key[1]))
+                except (TypeError, ValueError):
+                    return None
+            return None
+
         mw = getattr(self.app, "_map_window", None)
         mw_ready = mw is not None and hasattr(mw, "winfo_exists") and mw.winfo_exists()
+        rough_state: Dict[Tuple[int, int], Dict[str, object]] = {}
+        existing_state = getattr(self.app, "_lan_rough_terrain", {}) or {}
+        if isinstance(existing_state, dict):
+            for raw_key, value in existing_state.items():
+                key = _normalize_rough_key(raw_key)
+                if key is None:
+                    continue
+                cell_data = self._normalize_rough_cell(value, mw if mw_ready else None)
+                rough_state[key] = cell_data
+        mw_updates: List[Tuple[Tuple[int, int], Dict[str, object]]] = []
+        mw_removals: List[Tuple[int, int]] = []
 
         for entry in rough_updates:
             if not isinstance(entry, dict):
@@ -2540,15 +2568,13 @@ class LanController:
             try:
                 col = int(entry.get("col"))
                 row = int(entry.get("row"))
-            except Exception:
+            except (TypeError, ValueError):
                 continue
             cell_data = self._normalize_rough_cell(entry, mw if mw_ready else None)
-            rough_state[(col, row)] = cell_data
+            key = (col, row)
+            rough_state[key] = cell_data
             if mw_ready:
-                try:
-                    mw.rough_terrain[(col, row)] = dict(cell_data)
-                except Exception:
-                    pass
+                mw_updates.append((key, dict(cell_data)))
 
         for entry in rough_removals:
             if not isinstance(entry, dict):
@@ -2556,22 +2582,75 @@ class LanController:
             try:
                 col = int(entry.get("col"))
                 row = int(entry.get("row"))
-            except Exception:
+            except (TypeError, ValueError):
                 continue
-            rough_state.pop((col, row), None)
+            key = (col, row)
+            rough_state.pop(key, None)
             if mw_ready:
-                try:
-                    mw.rough_terrain.pop((col, row), None)
-                except Exception:
-                    pass
+                mw_removals.append(key)
 
         self.app._lan_rough_terrain = rough_state
         if mw_ready:
+            updates = list(mw_updates)
+            removals = list(mw_removals)
+
+            def _apply_to_map_window(
+                updates: List[Tuple[Tuple[int, int], Dict[str, object]]],
+                removals: List[Tuple[int, int]],
+            ) -> None:
+                draw_ran = False
+                rough_map: Optional[Dict[Tuple[int, int], Dict[str, object]]] = None
+                try:
+                    if mw is None or not mw.winfo_exists():
+                        return
+                except Exception:
+                    return
+                try:
+                    rough_map = getattr(mw, "rough_terrain", None)
+                    if rough_map is None:
+                        rough_map = {}
+                        setattr(mw, "rough_terrain", rough_map)
+                except Exception:
+                    rough_map = None
+                if isinstance(rough_map, dict):
+                    for key, cell in updates:
+                        rough_map[key] = dict(cell)
+                    for key in removals:
+                        rough_map.pop(key, None)
+                try:
+                    mw._draw_rough_terrain()
+                    draw_ran = True
+                except Exception:
+                    pass
+                try:
+                    mw._update_move_highlight()
+                except Exception:
+                    pass
+                if LAN_TERRAIN_DEBUG:
+                    try:
+                        sample_key = next(iter((rough_map or {}).keys()), None)
+                    except Exception:
+                        sample_key = None
+                    self._append_lan_log(
+                        f"LAN terrain patch handler={handler_name} thread={threading.get_ident()} "
+                        f"sample_key={sample_key} draw_ran={draw_ran}",
+                        level="info",
+                    )
+
             try:
-                mw._draw_rough_terrain()
-                mw._update_move_highlight()
+                mw.after(0, lambda: _apply_to_map_window(updates, removals))
             except Exception:
                 pass
+        elif LAN_TERRAIN_DEBUG:
+            try:
+                sample_key = next(iter(rough_state.keys()), None)
+            except Exception:
+                sample_key = None
+            self._append_lan_log(
+                f"LAN terrain patch handler={handler_name} thread={threading.get_ident()} "
+                f"sample_key={sample_key} draw_ran=False",
+                level="info",
+            )
 
     def _build_aoe_patch(self, prev: Dict[str, Any], curr: Dict[str, Any]) -> Dict[str, Any]:
         prev_aoes = {int(a.get("aid")): a for a in prev.get("aoes", []) if isinstance(a, dict) and "aid" in a}
