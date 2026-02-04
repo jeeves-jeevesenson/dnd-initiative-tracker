@@ -8681,7 +8681,21 @@ __DAMAGE_TYPE_OPTIONS__
           payload.angle_deg = angleDeg;
         }
       }
+      const preset = getSelectedSpellPreset();
+      const presetLevel = getPresetLevelNumber(preset);
+      let slotLevel = null;
+      if (castUpcastConfig){
+        const upcastLevel = Number(castSlotLevelInput?.value);
+        if (Number.isFinite(upcastLevel)){
+          slotLevel = Math.max(0, Math.floor(upcastLevel));
+        }
+      } else if (Number.isFinite(presetLevel)){
+        slotLevel = Math.max(0, Math.floor(presetLevel));
+      }
       const msg = {type: "cast_aoe", payload, action_type: actionType};
+      if (Number.isFinite(slotLevel)){
+        msg.slot_level = slotLevel;
+      }
       if (isPlanning){
         planningMutate(msg);
         draw();

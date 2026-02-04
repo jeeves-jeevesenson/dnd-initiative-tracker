@@ -5374,6 +5374,32 @@ class InitiativeTracker(base.InitiativeTracker):
             return 2
         return 0
 
+    @staticmethod
+    def _normalize_spell_slots(value: Any) -> Dict[str, Dict[str, int]]:
+        def normalize_number(raw: Any, fallback: int = 0) -> int:
+            try:
+                num = int(raw)
+            except Exception:
+                return fallback
+            return max(0, num)
+
+        raw_slots = value if isinstance(value, dict) else {}
+        normalized: Dict[str, Dict[str, int]] = {}
+        for level in range(1, 10):
+            key = str(level)
+            entry = raw_slots.get(key, raw_slots.get(level))
+            if isinstance(entry, dict):
+                max_value = normalize_number(entry.get("max"), 0)
+                if "current" in entry:
+                    current_value = normalize_number(entry.get("current"), 0)
+                else:
+                    current_value = max_value
+            else:
+                max_value = normalize_number(entry, 0)
+                current_value = max_value
+            normalized[key] = {"max": max_value, "current": current_value}
+        return normalized
+
     def _normalize_player_profile(self, data: Dict[str, Any], fallback_name: str) -> Dict[str, Any]:
         def normalize_name(value: Any) -> Optional[str]:
             text = str(value or "").strip()
@@ -5467,6 +5493,13 @@ class InitiativeTracker(base.InitiativeTracker):
             vitals_speed = vitals.get("speed") if isinstance(vitals, dict) else None
             if vitals_speed is not None and "base_movement" not in resources and "speed" not in resources:
                 resources["base_movement"] = vitals_speed
+
+        raw_spell_slots = None
+        if isinstance(spellcasting, dict) and "spell_slots" in spellcasting:
+            raw_spell_slots = spellcasting.get("spell_slots")
+        elif "spell_slots" in data:
+            raw_spell_slots = data.get("spell_slots")
+        spellcasting["spell_slots"] = self._normalize_spell_slots(raw_spell_slots)
 
         for key in ("known_cantrips", "known_spells", "known_spell_names"):
             if key not in spellcasting and key in data:
@@ -5856,6 +5889,9 @@ class InitiativeTracker(base.InitiativeTracker):
             profile_payload = dict(data)
             spellcasting = profile_payload.get("spellcasting")
             if isinstance(spellcasting, dict):
+                if "spell_slots" not in spellcasting:
+                    spellcasting = dict(spellcasting)
+                    spellcasting["spell_slots"] = self._normalize_spell_slots(None)
                 save_dc = self._compute_spell_save_dc(profile_payload)
                 if save_dc is not None:
                     spellcasting = dict(spellcasting)
@@ -5949,6 +5985,64 @@ class InitiativeTracker(base.InitiativeTracker):
         self._schedule_player_yaml_refresh()
 
         return normalized
+
+    def _save_player_spell_slots(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if yaml is None:
+            raise RuntimeError("PyYAML is required for spell persistence.")
+        player_name = str(name or "").strip()
+        if not player_name:
+            raise ValueError("Player name is required.")
+        if not isinstance(payload, dict):
+            raise ValueError("Payload must be a dictionary.")
+
+        self._load_player_yaml_cache()
+        key = player_name.lower()
+        path = self._player_yaml_name_map.get(key)
+        if path is None:
+            players_dir = self._players_dir()
+            players_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"{self._sanitize_player_filename(player_name)}.yaml"
+            path = players_dir / filename
+
+        existing = self._player_yaml_cache_by_path.get(path) or {}
+        if not isinstance(existing, dict):
+            existing = {}
+
+        normalized_slots = self._normalize_spell_slots(payload)
+        if int(existing.get("format_version") or 0) == 1:
+            spellcasting = existing.get("spellcasting")
+            if not isinstance(spellcasting, dict):
+                spellcasting = {}
+            spellcasting["spell_slots"] = normalized_slots
+            existing["spellcasting"] = spellcasting
+            identity = existing.get("identity")
+            if not isinstance(identity, dict):
+                identity = {}
+            if "name" not in identity:
+                identity["name"] = player_name
+            existing["identity"] = identity
+        else:
+            if "name" not in existing:
+                existing["name"] = player_name
+            spellcasting = existing.get("spellcasting")
+            if not isinstance(spellcasting, dict):
+                spellcasting = {}
+            spellcasting["spell_slots"] = normalized_slots
+            existing["spellcasting"] = spellcasting
+
+        self._write_player_yaml_atomic(path, existing)
+
+        meta = _file_stat_metadata(path)
+        self._player_yaml_cache_by_path[path] = existing
+        self._player_yaml_meta_by_path[path] = meta
+        profile = self._normalize_player_profile(existing, path.stem)
+        profile_name = profile.get("name", player_name)
+        self._player_yaml_data_by_name[profile_name] = profile
+        self._player_yaml_name_map[player_name.lower()] = path
+        self._player_yaml_name_map[path.stem.lower()] = path
+        self._schedule_player_yaml_refresh()
+
+        return normalized_slots
 
     def _save_player_spellbook(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         if yaml is None:
@@ -6267,8 +6361,40 @@ class InitiativeTracker(base.InitiativeTracker):
                 spend = "reaction"
             else:
                 spend = "action"
+            slot_level = None
+            try:
+                slot_level = int(msg.get("slot_level"))
+            except Exception:
+                slot_level = None
+            if slot_level is not None and slot_level < 0:
+                slot_level = None
             c = self.combatants.get(cid) if cid is not None else None
             if c is not None and not is_admin:
+                if slot_level is not None and slot_level >= 1:
+                    if slot_level > 9:
+                        self._lan.toast(ws_id, "Pick a valid spell slot level, matey.")
+                        return
+                    player_name = self._pc_name_for(int(cid)) if cid is not None else ""
+                    if not player_name or player_name.startswith("cid:"):
+                        self._lan.toast(ws_id, "No spell slots set up for that caster, matey.")
+                        return
+                    self._load_player_yaml_cache()
+                    profile = self._player_yaml_data_by_name.get(player_name) or {}
+                    spellcasting = profile.get("spellcasting") if isinstance(profile, dict) else {}
+                    slots = self._normalize_spell_slots(
+                        spellcasting.get("spell_slots") if isinstance(spellcasting, dict) else None
+                    )
+                    slot_key = str(slot_level)
+                    current_slots = int(slots.get(slot_key, {}).get("current", 0) or 0)
+                    if current_slots <= 0:
+                        self._lan.toast(ws_id, "No spell slots left for that level, matey.")
+                        return
+                    slots[slot_key]["current"] = max(0, current_slots - 1)
+                    try:
+                        self._save_player_spell_slots(player_name, slots)
+                    except Exception:
+                        self._lan.toast(ws_id, "Could not update spell slots, matey.")
+                        return
                 if int(getattr(c, "spell_cast_remaining", 0) or 0) <= 0:
                     self._lan.toast(ws_id, "Already cast a spell this turn, matey.")
                     return
