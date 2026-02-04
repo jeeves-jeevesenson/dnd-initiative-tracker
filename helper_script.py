@@ -464,6 +464,7 @@ class InitiativeTracker(tk.Tk):
         self.current_cid: Optional[int] = None
         self.round_num: int = 1
         self.turn_num: int = 0
+        self._concentration_save_state: Dict[Tuple[int, Tuple[int, int]], Dict[str, object]] = {}
 
         self._build_ui()
         self._load_indexes_async(self._refresh_monster_library)
@@ -2218,6 +2219,7 @@ class InitiativeTracker(tk.Tk):
         c.spell_cast_remaining = 1
         c.extra_action_pool = 0
         c.extra_bonus_pool = 0
+        self._reset_concentration_prompt_state(c)
 
         # expire star advantage at start of creature's turn
         star_stacks = [st for st in list(c.condition_stacks) if st.ctype == "star_advantage"]
@@ -2254,6 +2256,8 @@ class InitiativeTracker(tk.Tk):
                 old_hp = c.hp
                 c.hp = max(0, int(c.hp) - int(total_dmg))
                 msgs.append(f"DoT {total_dmg} ({', '.join(details)})")
+                if int(c.hp) < int(old_hp):
+                    self._queue_concentration_save(c, "dot")
 
                 # auto-remove ONLY if they were >0 and this drop made them 0
                 if old_hp > 0 and c.hp == 0:
@@ -2354,6 +2358,143 @@ class InitiativeTracker(tk.Tk):
             msgs.append("turn skipped")
 
         return skip, "; ".join(msgs), decremented_skip
+
+
+    def _reset_concentration_prompt_state(self, c: Combatant) -> None:
+        if not getattr(c, "concentrating", False):
+            return
+        state_map = getattr(self, "_concentration_save_state", {})
+        if not state_map:
+            return
+        to_clear = [key for key in state_map if key[0] == c.cid]
+        for key in to_clear:
+            state = state_map.pop(key, {})
+            win = state.get("window")
+            if isinstance(win, tk.Toplevel) and win.winfo_exists():
+                try:
+                    win.destroy()
+                except Exception:
+                    pass
+
+    def _update_concentration_prompt_text(self, state: Dict[str, object]) -> None:
+        label = state.get("label")
+        if not isinstance(label, ttk.Label):
+            return
+        remaining = int(state.get("remaining_saves", 0) or 0)
+        dc = int(state.get("dc", 10) or 10)
+        if remaining <= 1:
+            text = f"Please make a concentration saving throw. You need to get a {dc} or higher."
+        else:
+            text = (
+                f"Please make {remaining} concentration saving throws. "
+                f"You need to get a {dc} or higher {remaining} times."
+            )
+        label.config(text=text)
+
+    def _end_concentration(self, c: Combatant) -> None:
+        if not getattr(c, "concentrating", False):
+            return
+        c.concentrating = False
+        c.concentration_spell_level = None
+        c.concentration_started_turn = None
+        aoe_ids = list(getattr(c, "concentration_aoe_ids", []) or [])
+        c.concentration_aoe_ids = []
+        state_map = getattr(self, "_concentration_save_state", {})
+        if state_map:
+            to_clear = [key for key in state_map if key[0] == c.cid]
+            for key in to_clear:
+                state = state_map.pop(key, {})
+                win = state.get("window")
+                if isinstance(win, tk.Toplevel) and win.winfo_exists():
+                    try:
+                        win.destroy()
+                    except Exception:
+                        pass
+        mw = getattr(self, "_map_window", None)
+        if mw is not None and getattr(mw, "winfo_exists", None) and mw.winfo_exists():
+            for aid in aoe_ids:
+                try:
+                    mw._remove_aoe_by_id(aid)
+                except Exception:
+                    pass
+        self._log("concentration ended", cid=c.cid)
+
+    def _queue_concentration_save(self, c: Combatant, source: str) -> None:
+        if not getattr(c, "concentrating", False):
+            return
+        if int(getattr(c, "hp", 0) or 0) <= 0:
+            self._end_concentration(c)
+            return
+        try:
+            level = int(getattr(c, "concentration_spell_level", 0) or 0)
+        except Exception:
+            level = 0
+        if level < 0:
+            level = 0
+        dc = 10 + level
+        turn_id = (int(self.round_num), int(self.turn_num))
+        key = (int(c.cid), turn_id)
+        state = self._concentration_save_state.get(key)
+        if state is None:
+            state = {
+                "required_saves_this_turn": 0,
+                "remaining_saves": 0,
+                "dc": dc,
+                "window": None,
+                "label": None,
+            }
+            self._concentration_save_state[key] = state
+        state["required_saves_this_turn"] = int(state.get("required_saves_this_turn", 0) or 0) + 1
+        state["remaining_saves"] = int(state.get("remaining_saves", 0) or 0) + 1
+        state["dc"] = dc
+
+        win = state.get("window")
+        if not isinstance(win, tk.Toplevel) or not win.winfo_exists():
+            win = tk.Toplevel(self)
+            win.title("Concentration Save")
+            win.transient(self)
+
+            frm = ttk.Frame(win, padding=12)
+            frm.pack(fill=tk.BOTH, expand=True)
+            label = ttk.Label(frm, text="", wraplength=340, justify="left")
+            label.pack(fill=tk.X, padx=4, pady=(0, 12))
+
+            btn_row = ttk.Frame(frm)
+            btn_row.pack(fill=tk.X)
+
+            def on_pass() -> None:
+                state["remaining_saves"] = max(0, int(state.get("remaining_saves", 0) or 0) - 1)
+                if int(state.get("remaining_saves", 0) or 0) <= 0:
+                    if win.winfo_exists():
+                        win.destroy()
+                    state["window"] = None
+                    state["label"] = None
+                else:
+                    self._update_concentration_prompt_text(state)
+
+            def on_fail() -> None:
+                self._end_concentration(c)
+                if win.winfo_exists():
+                    win.destroy()
+                state["window"] = None
+                state["label"] = None
+                self._concentration_save_state.pop(key, None)
+
+            ttk.Button(btn_row, text="Passed save", command=on_pass).pack(side=tk.LEFT)
+            tk.Button(btn_row, text="Failed throw", command=on_fail, bg="#8b1e1e", fg="white").pack(side=tk.LEFT, padx=(8, 0))
+
+            def on_close() -> None:
+                if win.winfo_exists():
+                    win.destroy()
+                state["window"] = None
+                state["label"] = None
+
+            win.protocol("WM_DELETE_WINDOW", on_close)
+            _apply_dialog_geometry(win, 420, 200, 360, 180)
+            state["window"] = win
+            state["label"] = label
+
+        self._update_concentration_prompt_text(state)
 
 
     # -------------------------- Action usage --------------------------
@@ -4269,6 +4410,8 @@ class InitiativeTracker(tk.Tk):
 
                 old_hp = int(c.hp)
                 c.hp = max(0, old_hp - int(total_applied))
+                if total_applied > 0 and int(c.hp) < old_hp:
+                    self._queue_concentration_save(c, "damage")
 
                 # If they died from above 0 -> 0, log flavor and remove
                 if old_hp > 0 and int(c.hp) == 0:
@@ -9296,6 +9439,8 @@ class BattleMapWindow(tk.Toplevel):
                     damage_dealt = True
                     c.hp = max(0, before - int(total_damage))
                 after = int(getattr(c, "hp", 0))
+                if not is_immune and total_damage > 0 and after < before:
+                    self.app._queue_concentration_save(c, "aoe")
 
                 died = (before > 0 and after == 0)
                 if died and not is_immune:
