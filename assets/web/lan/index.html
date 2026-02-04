@@ -1512,6 +1512,7 @@
       <div class="menu-popover" id="adminMenuPopover" role="menu" aria-hidden="true">
         <button class="menu-item" id="adminMenuOpen" type="button" role="menuitem">Sessions</button>
         <button class="menu-item" id="adminMenuRefresh" type="button" role="menuitem">Refresh Sessions</button>
+        <button class="menu-item" id="adminMenuResetPcs" type="button" role="menuitem">Reset Player Characters</button>
       </div>
     </div>
     <div class="spacer"></div>
@@ -2554,6 +2555,7 @@ __DAMAGE_TYPE_OPTIONS__
   const adminMenuPopover = document.getElementById("adminMenuPopover");
   const adminMenuOpenBtn = document.getElementById("adminMenuOpen");
   const adminMenuRefreshBtn = document.getElementById("adminMenuRefresh");
+  const adminMenuResetPcsBtn = document.getElementById("adminMenuResetPcs");
   const configModal = document.getElementById("configModal");
   const configCloseBtn = document.getElementById("configClose");
   const adminModal = document.getElementById("adminModal");
@@ -3968,6 +3970,18 @@ __DAMAGE_TYPE_OPTIONS__
       return adminFetch(url, {...options, _retry: true});
     }
     return res;
+  }
+
+  async function sendAdminAction(type){
+    closeAdminMenu();
+    try {
+      const token = await requestAdminLogin();
+      send({type, admin_token: token});
+      localToast("Player characters reset.");
+    } catch (err){
+      console.warn("Admin action canceled.", err);
+      localToast("Admin action canceled.");
+    }
   }
 
   function buildAdminPcOptions(selectedCid){
@@ -8877,6 +8891,11 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       fetchAdminSessions();
+    });
+  }
+  if (adminMenuResetPcsBtn){
+    adminMenuResetPcsBtn.addEventListener("click", async () => {
+      await sendAdminAction("reset_player_characters");
     });
   }
   if (adminRefreshBtn){

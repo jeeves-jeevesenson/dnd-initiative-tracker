@@ -1971,6 +1971,7 @@ class LanController:
                         "cast_aoe",
                         "aoe_move",
                         "aoe_remove",
+                        "reset_player_characters",
                     ):
                         # enqueue for Tk thread
                         with self._clients_lock:
@@ -4451,6 +4452,31 @@ class InitiativeTracker(base.InitiativeTracker):
         }
         return snap
 
+    def _lan_force_state_broadcast(self) -> None:
+        try:
+            snap = self._lan_snapshot()
+            self._lan._cached_snapshot = snap
+            try:
+                self._lan._cached_pcs = list(
+                    self._lan_pcs() if hasattr(self, "_lan_pcs") else self._lan_claimable()
+                )
+            except Exception:
+                self._lan._cached_pcs = []
+            try:
+                self._lan._last_snapshot = copy.deepcopy(snap)
+            except Exception:
+                pass
+            try:
+                static_payload = self._lan._static_data_payload()
+                static_json = json.dumps(static_payload, sort_keys=True, separators=(",", ":"))
+                self._lan._last_static_json = static_json
+                self._lan._broadcast_payload({"type": "static_data", "data": static_payload})
+            except Exception:
+                pass
+            self._lan._broadcast_state(snap)
+        except Exception:
+            pass
+
     def _lan_marks_for(self, c: Any) -> str:
         # Match main-map effect markers (conditions, DoT, star advantage, etc.)
         try:
@@ -5900,6 +5926,48 @@ class InitiativeTracker(base.InitiativeTracker):
             payload[name] = profile_payload
         return payload
 
+    def _reset_player_character_resources(self) -> Dict[str, int]:
+        def to_int(value: Any, fallback: Optional[int] = None) -> Optional[int]:
+            try:
+                return int(value)
+            except Exception:
+                return fallback
+
+        self._load_player_yaml_cache()
+        updated: Dict[str, int] = {}
+        for name in list(self._player_yaml_data_by_name.keys()):
+            if not isinstance(name, str):
+                continue
+            path = self._player_yaml_name_map.get(name.lower())
+            if path is None:
+                continue
+            raw = self._player_yaml_cache_by_path.get(path)
+            if not isinstance(raw, dict):
+                raw = {}
+
+            vitals = raw.get("vitals")
+            if not isinstance(vitals, dict):
+                vitals = {}
+            max_hp_value = to_int(vitals.get("max_hp"), None)
+            if max_hp_value is None:
+                max_hp_value = to_int(vitals.get("current_hp"), 0)
+            vitals["current_hp"] = max_hp_value
+            vitals["temp_hp"] = 0
+            raw["vitals"] = vitals
+
+            spellcasting = raw.get("spellcasting")
+            if isinstance(spellcasting, dict) and "spell_slots" in spellcasting:
+                slots = self._normalize_spell_slots(spellcasting.get("spell_slots"))
+                for entry in slots.values():
+                    entry["current"] = int(entry.get("max", 0) or 0)
+                spellcasting = dict(spellcasting)
+                spellcasting["spell_slots"] = slots
+                raw["spellcasting"] = spellcasting
+
+            self._store_character_yaml(path, raw)
+            updated[name.lower()] = int(max_hp_value or 0)
+        return updated
+
     def _save_player_spell_config(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         if yaml is None:
             raise RuntimeError("PyYAML is required for spell persistence.")
@@ -6337,6 +6405,30 @@ class InitiativeTracker(base.InitiativeTracker):
                         mw.update_unit_token_colors()
                 except Exception:
                     pass
+            return
+
+        if typ == "reset_player_characters":
+            if not is_admin:
+                self._lan.toast(ws_id, "Admin access required, matey.")
+                return
+            updated = self._reset_player_character_resources()
+            if updated:
+                for c in self.combatants.values():
+                    role = self._name_role_memory.get(str(c.name), "enemy")
+                    if role != "pc":
+                        continue
+                    key = str(c.name or "").strip().lower()
+                    if key in updated:
+                        try:
+                            c.hp = int(updated[key])
+                        except Exception:
+                            pass
+            try:
+                self._rebuild_table(scroll_to_current=True)
+            except Exception:
+                pass
+            self._lan_force_state_broadcast()
+            self._lan.toast(ws_id, "Player characters reset.")
             return
 
         # Only allow controlling on your turn (POC)
