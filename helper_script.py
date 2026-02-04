@@ -209,6 +209,10 @@ class Combatant:
     # Effects / statuses
     condition_stacks: List[ConditionStack] = field(default_factory=list)
     exhaustion_level: int = 0  # 0-6
+    concentrating: bool = False
+    concentration_spell_level: Optional[int] = None
+    concentration_started_turn: Optional[Tuple[int, int]] = None
+    concentration_aoe_ids: List[int] = field(default_factory=list)
 
 
 @dataclass
@@ -7755,6 +7759,22 @@ class BattleMapWindow(tk.Toplevel):
         self.aoes[aid] = aoe
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
+        if preset.get("concentration") is True:
+            app = getattr(self, "app", None)
+            current_cid = getattr(app, "current_cid", None)
+            if app and current_cid in getattr(app, "combatants", {}):
+                caster = app.combatants[current_cid]
+                caster.concentrating = True
+                try:
+                    spell_level = int(preset.get("level"))
+                except Exception:
+                    spell_level = None
+                if spell_level is not None and spell_level < 0:
+                    spell_level = None
+                caster.concentration_spell_level = spell_level
+                caster.concentration_started_turn = (int(app.round_num), int(app.turn_num))
+                caster.concentration_aoe_ids = [aid]
+
     def _refresh_aoe_list(self, select: Optional[int] = None) -> None:
         self.aoe_list.delete(0, tk.END)
         self._aoe_index_to_id: List[int] = []
