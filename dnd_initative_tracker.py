@@ -4667,17 +4667,42 @@ class InitiativeTracker(base.InitiativeTracker):
             shape = shape_map.get(shape_raw, shape_raw)
             has_area = bool(shape)
             has_aoe_tag = any(str(tag).strip().lower() == "aoe" for tag in tags)
+            valid_aoe_shapes = ("sphere", "cube", "cone", "cylinder", "wall", "line")
+            aoe_dimensions_present = False
+            if shape in valid_aoe_shapes:
+                if shape == "sphere":
+                    aoe_dimensions_present = parse_number(area.get("radius_ft")) is not None
+                elif shape == "cube":
+                    aoe_dimensions_present = parse_number(area.get("side_ft")) is not None
+                elif shape == "cylinder":
+                    aoe_dimensions_present = (
+                        parse_number(area.get("radius_ft")) is not None
+                        and parse_number(area.get("height_ft")) is not None
+                    )
+                elif shape == "line":
+                    aoe_dimensions_present = (
+                        parse_number(area.get("length_ft")) is not None
+                        and parse_number(area.get("width_ft")) is not None
+                    )
+                elif shape == "cone":
+                    aoe_dimensions_present = parse_number(area.get("length_ft")) is not None
+                elif shape == "wall":
+                    aoe_dimensions_present = (
+                        parse_number(area.get("length_ft")) is not None
+                        and parse_number(area.get("width_ft")) is not None
+                        and parse_number(area.get("height_ft")) is not None
+                    )
             missing_required_fields = False
             if automation in ("full", "partial"):
                 if str(range_data.get("kind") or "").strip().lower() == "distance":
                     distance_ft = parse_number(range_data.get("distance_ft"))
-                    if distance_ft is None:
+                    if distance_ft is None and not aoe_dimensions_present:
                         warnings.append("missing targeting.range.distance_ft")
                         missing_required_fields = True
-                if shape and shape not in ("sphere", "cube", "cone", "cylinder", "wall", "line"):
+                if shape and shape not in valid_aoe_shapes:
                     warnings.append(f"unsupported area shape '{shape_raw or shape}'")
                     missing_required_fields = True
-            if shape in ("sphere", "cube", "cone", "cylinder", "wall", "line"):
+            if shape in valid_aoe_shapes:
                 preset["shape"] = shape
                 preset["is_aoe"] = True
                 missing_dimensions: List[str] = []
