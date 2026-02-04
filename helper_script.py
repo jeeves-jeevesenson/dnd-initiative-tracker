@@ -5000,10 +5000,32 @@ class BattleMapWindow(tk.Toplevel):
         redraw_move_highlight = False
         lan_rough = getattr(self.app, "_lan_rough_terrain", None)
         if isinstance(lan_rough, dict):
-            self.rough_terrain = {
-                key: dict(value) if isinstance(value, dict) else value
-                for key, value in lan_rough.items()
-            }
+            loaded_rough: Dict[Tuple[int, int], Dict[str, object]] = {}
+            for raw_key, raw_cell in lan_rough.items():
+                key: Optional[Tuple[int, int]] = None
+                if isinstance(raw_key, str):
+                    parts = [part.strip() for part in raw_key.split(",")]
+                    if len(parts) == 2:
+                        try:
+                            key = (int(parts[0]), int(parts[1]))
+                        except (TypeError, ValueError):
+                            key = None
+                elif isinstance(raw_key, (list, tuple)) and len(raw_key) == 2:
+                    try:
+                        key = (int(raw_key[0]), int(raw_key[1]))
+                    except (TypeError, ValueError):
+                        key = None
+                if key is None:
+                    continue
+                cell_data = self._rough_cell_data(raw_cell)
+                loaded_rough[key] = {
+                    "color": cell_data.get("color"),
+                    "label": cell_data.get("label"),
+                    "movement_type": cell_data.get("movement_type"),
+                    "is_swim": bool(cell_data.get("is_swim")),
+                    "is_rough": bool(cell_data.get("is_rough")),
+                }
+            self.rough_terrain = loaded_rough
             self._draw_rough_terrain()
             redraw_move_highlight = True
 
@@ -6258,6 +6280,8 @@ class BattleMapWindow(tk.Toplevel):
         self.canvas.delete("measure")
         self.canvas.delete("movehl")
         self.canvas.delete("group")
+        self.canvas.delete("rough")
+        self.canvas.delete("obstacle")
         # Recreate measure items later if needed
         self._measure_items = []
         self._measure_start = None
