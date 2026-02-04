@@ -5522,6 +5522,8 @@ class BattleMapWindow(tk.Toplevel):
         except Exception:
             pass
         self._redraw_all()
+        self._draw_rough_terrain()
+        self._draw_obstacles()
 
     def _fit_to_window(self) -> None:
         try:
