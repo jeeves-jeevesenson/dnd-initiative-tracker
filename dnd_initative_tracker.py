@@ -898,6 +898,8 @@ class LanController:
     """Runs a FastAPI+WebSocket server in a background thread and bridges actions into the Tk thread."""
 
     def __init__(self, app: "InitiativeTracker") -> None:
+        if not isinstance(app, InitiativeTracker):
+            raise TypeError("LanController requires an InitiativeTracker app instance.")
         self._app = app
         self.cfg = LanConfig()
         self._server_thread: Optional[threading.Thread] = None
@@ -955,6 +957,15 @@ class LanController:
     @property
     def app(self) -> "InitiativeTracker":
         return self._app
+
+    @app.setter
+    def app(self, _value: "InitiativeTracker") -> None:
+        raise AttributeError("LanController.app is read-only.")
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "_app" and hasattr(self, "_app"):
+            raise AttributeError("LanController.app is read-only.")
+        super().__setattr__(name, value)
 
     # ---------- Tk thread API ----------
 
@@ -6402,9 +6413,14 @@ class InitiativeTracker(base.InitiativeTracker):
                     debug_message += f" app_type={type(self.app)} app_id={id(self.app)}"
                 log_fn(debug_message, level="debug")
         if not isinstance(self, InitiativeTracker):
-            app = getattr(self, "app", None)
-            if app is not None and hasattr(app, "_lan_apply_action"):
-                return app._lan_apply_action(msg)
+            if os.getenv("LAN_BIND_DEBUG") == "1":
+                log_fn = getattr(self, "_oplog", None)
+                if log_fn is not None:
+                    log_fn(
+                        "LAN_BIND_DEBUG _lan_apply_action skipped: "
+                        f"self_type={type(self)} self_id={id(self)}",
+                        level="warning",
+                    )
             return
         typ = str(msg.get("type") or "")
         ws_id = msg.get("_ws_id")
