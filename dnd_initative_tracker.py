@@ -6717,6 +6717,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 "duration_turns": duration_turns_val,
                 "remaining_turns": duration_turns_val if (duration_turns_val or 0) > 0 else None,
             }
+            if concentration_flag is True:
+                aoe["concentration_bound"] = True
             if anchor_cid is not None:
                 aoe["anchor_cid"] = anchor_cid
             if over_time_flag:
@@ -6866,7 +6868,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 c.concentrating = True
                 c.concentration_spell_level = spell_level
                 c.concentration_started_turn = (int(self.round_num), int(self.turn_num))
-                c.concentration_aoe_ids = [aid]
+                aoe_ids = list(getattr(c, "concentration_aoe_ids", []) or [])
+                if aid not in aoe_ids:
+                    aoe_ids.append(aid)
+                c.concentration_aoe_ids = aoe_ids
             self._lan.toast(ws_id, f"Casted {aoe['name']}.")
             return
         elif typ == "aoe_move":
@@ -7197,6 +7202,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 store = getattr(self, "_lan_aoes", {}) or {}
                 store.pop(aid, None)
                 self._lan_aoes = store
+            if owner_cid is not None and owner_cid in self.combatants:
+                caster = self.combatants[owner_cid]
+                aoe_ids = list(getattr(caster, "concentration_aoe_ids", []) or [])
+                if aid in aoe_ids:
+                    caster.concentration_aoe_ids = [entry for entry in aoe_ids if entry != aid]
             return
 
         if typ == "move":
