@@ -231,10 +231,10 @@ vitals:
     total: 5                      # Total number of hit dice (usually equals level)
     spent: 2                      # Number of hit dice spent (refreshes on long rest)
   speed:
-    Normal: 30 ft.                # Walking speed in feet
-    Climb: 15 ft.                 # Climbing speed (0 if none)
-    Fly: 0 ft.                    # Flying speed (0 if none)
-    Swim: 30 ft.                  # Swimming speed (0 if none)
+    walk: 30                      # Walking speed in feet
+    climb: 15                     # Climbing speed (0 if none)
+    fly: 0                        # Flying speed (0 if none)
+    swim: 30                      # Swimming speed (0 if none)
   initiative:
     formula: "dex_mod"            # Formula for initiative calculation
   passive_perception:
@@ -252,19 +252,19 @@ vitals:
   - **die**: Type of hit die based on class (Wizard: d6, Rogue: d8, Fighter: d10, Barbarian: d12)
   - **total**: Total hit dice available (typically equals character level for single-class)
   - **spent**: How many hit dice have been spent (reset on long rest)
-- **speed**: Movement speeds in feet per round (matching monster-style keys)
-  - **Normal**: Standard walking speed (typically 30 for most races, 25 for dwarves/small races)
-  - **Climb**: Special climbing speed (from racial traits or class features)
-  - **Fly**: Flying speed (from racial traits, magic items, or spells)
-  - **Swim**: Swimming speed (from racial traits or class features)
-  - **Burrow**: Burrowing speed (from racial traits, magic items, or spells)
+- **speed**: Movement speeds in feet per round (numeric values)
+  - **walk**: Standard walking speed (typically 30 for most races, 25 for dwarves/small races)
+  - **climb**: Special climbing speed (from racial traits or class features)
+  - **fly**: Flying speed (from racial traits, magic items, or spells)
+  - **swim**: Swimming speed (from racial traits or class features)
 - **initiative.formula**: Formula for calculating initiative. Typically `"dex_mod"` but can be modified by features (e.g., Champion Fighter adds `"dex_mod + wis_mod"`)
 - **passive_perception.formula**: Formula for passive Perception. Standard is `"10 + wis_mod"` plus proficiency if proficient in Perception, plus expertise bonus if applicable.
 
 **Notes:**
 - Hit dice: Multiclass characters have separate hit dice types. The `die` field can be a single type or the primary class's type.
 - Formulas are evaluated by the application using character stats (see [Formula System](#formula-system))
-- For `format_version: 2` files, `vitals.speed` is used to populate the roster movement speeds with the monster-style keys (`Normal`, `Climb`, `Fly`, `Swim`, `Burrow`). Values should include units like `30 ft.`.
+- For `format_version: 2` files, `vitals.speed` uses the `walk/climb/fly/swim` keys with integer values representing feet.
+- Legacy character files that still use `Normal/Climb/Fly/Swim` keys are normalized by the UI to the new schema on load.
 
 ---
 
