@@ -898,7 +898,7 @@ class LanController:
     """Runs a FastAPI+WebSocket server in a background thread and bridges actions into the Tk thread."""
 
     def __init__(self, app: "InitiativeTracker") -> None:
-        self.app = app
+        self._app = app
         self.cfg = LanConfig()
         self._server_thread: Optional[threading.Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
@@ -951,6 +951,10 @@ class LanController:
         }
         self._cached_pcs: List[Dict[str, Any]] = []
         self._init_admin_auth()
+
+    @property
+    def app(self) -> "InitiativeTracker":
+        return self._app
 
     # ---------- Tk thread API ----------
 
