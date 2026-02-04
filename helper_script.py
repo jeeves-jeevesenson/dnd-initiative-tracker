@@ -6078,6 +6078,9 @@ class BattleMapWindow(tk.Toplevel):
             return None
         return value
 
+    def _normalize_movement_type(self, value: object, is_swim: bool = False) -> str:
+        return _normalize_movement_type(value, is_swim=is_swim)
+
     def _rough_cell_data(self, cell: object) -> Dict[str, object]:
         if isinstance(cell, dict):
             color = self._normalize_hex_color(cell.get("color"))
