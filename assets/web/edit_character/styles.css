@@ -254,3 +254,30 @@ textarea:focus {
   font-size: 13px;
   color: var(--muted);
 }
+
+.spell-slot-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.spell-slot-row {
+  display: grid;
+  grid-template-columns: minmax(32px, 48px) minmax(80px, 1fr) minmax(80px, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.spell-slot-header {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.spell-slot-label {
+  font-weight: 600;
+}
+
+.spell-slot-row input {
+  width: 100%;
+}

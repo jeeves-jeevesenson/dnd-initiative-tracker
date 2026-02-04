@@ -13,9 +13,21 @@ const SPELL_PICKER_PATHS = new Set([
   "spellcasting.known_spells.known",
   "spellcasting.prepared_spells.prepared",
 ]);
+const SPELL_SLOT_LEVELS = [
+  { key: "1", label: "I" },
+  { key: "2", label: "II" },
+  { key: "3", label: "III" },
+  { key: "4", label: "IV" },
+  { key: "5", label: "V" },
+  { key: "6", label: "VI" },
+  { key: "7", label: "VII" },
+  { key: "8", label: "VIII" },
+  { key: "9", label: "IX" },
+];
 
 const spellPathKey = (path) => path.join(".");
 const isSpellPickerPath = (path) => SPELL_PICKER_PATHS.has(spellPathKey(path));
+const isSpellSlotsPath = (path) => spellPathKey(path) === "spellcasting.spell_slots";
 
 const getFieldPlaceholder = (field) => field.placeholder || field.example || "";
 const getFieldHelpText = (field) => field.help || (field.example ? `Example: ${field.example}` : "");
@@ -945,7 +957,71 @@ const renderSpellPicker = (field, path, data) => {
   return container;
 };
 
+const renderSpellSlots = (field, path, data) => {
+  const container = document.createElement("div");
+  container.className = "field-group spell-slots";
+
+  const title = document.createElement("h3");
+  title.textContent = field.label || field.key;
+  container.appendChild(title);
+  appendHelpText(container, field);
+
+  const grid = document.createElement("div");
+  grid.className = "spell-slot-grid";
+
+  const headerRow = document.createElement("div");
+  headerRow.className = "spell-slot-row spell-slot-header";
+
+  const levelHeader = document.createElement("div");
+  levelHeader.textContent = "Level";
+  const maxHeader = document.createElement("div");
+  maxHeader.textContent = "Max";
+  const currentHeader = document.createElement("div");
+  currentHeader.textContent = "Current";
+
+  headerRow.appendChild(levelHeader);
+  headerRow.appendChild(maxHeader);
+  headerRow.appendChild(currentHeader);
+  grid.appendChild(headerRow);
+
+  SPELL_SLOT_LEVELS.forEach(({ key, label }) => {
+    const row = document.createElement("div");
+    row.className = "spell-slot-row";
+
+    const levelLabel = document.createElement("div");
+    levelLabel.className = "spell-slot-label";
+    levelLabel.textContent = label;
+    row.appendChild(levelLabel);
+
+    ["max", "current"].forEach((slotKey) => {
+      const input = document.createElement("input");
+      input.type = "number";
+      const inputPath = [...path, key, slotKey];
+      input.dataset.path = inputPath.join(".");
+      let slotValue = getValueAtPath(data, inputPath);
+      if (slotValue === undefined || slotValue === null || Number.isNaN(Number(slotValue))) {
+        slotValue = 0;
+        setValueAtPath(data, inputPath, slotValue);
+      }
+      input.value = slotValue;
+      input.addEventListener("input", () => {
+        const nextValue = input.value === "" ? 0 : Number(input.value);
+        setValueAtPath(data, inputPath, Math.trunc(nextValue));
+      });
+      row.appendChild(input);
+    });
+
+    grid.appendChild(row);
+  });
+
+  container.appendChild(grid);
+  return container;
+};
+
 const renderField = (field, path, data, value) => {
+  if (isSpellSlotsPath(path)) {
+    return renderSpellSlots(field, path, data);
+  }
   if (field.type === "object") {
     const container = document.createElement("div");
     container.className = "field-group";
