@@ -5259,6 +5259,7 @@ class InitiativeTracker(base.InitiativeTracker):
         merged = self._deep_merge_dict(raw, payload if isinstance(payload, dict) else {})
         merged = self._apply_character_name(merged, updated_name)
         merged = self._character_merge_defaults(merged)
+        merged = self._normalize_vitals_speed_schema(merged)
         profile = self._store_character_yaml(path, merged)
         return {"filename": path.name, "character": profile}
 
@@ -5295,6 +5296,7 @@ class InitiativeTracker(base.InitiativeTracker):
         archived = self._archive_character_file(path)
         normalized = self._apply_character_name(data, updated_name)
         normalized = self._character_merge_defaults(normalized)
+        normalized = self._normalize_vitals_speed_schema(normalized)
         profile = self._store_character_yaml(new_path, normalized)
         return {"filename": new_path.name, "character": profile, "archived": archived.name}
 
@@ -5473,6 +5475,48 @@ class InitiativeTracker(base.InitiativeTracker):
                 current_value = max_value
             normalized[key] = {"max": max_value, "current": current_value}
         return normalized
+
+    @staticmethod
+    def _normalize_vitals_speed_schema(payload: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(payload, dict):
+            return payload
+        vitals = payload.get("vitals")
+        if not isinstance(vitals, dict):
+            return payload
+        speed = vitals.get("speed")
+        if not isinstance(speed, dict):
+            return payload
+
+        def normalize_number(raw: Any) -> Optional[int]:
+            try:
+                return int(raw)
+            except Exception:
+                return None
+
+        legacy_map = {
+            "Normal": "walk",
+            "Climb": "climb",
+            "Fly": "fly",
+            "Swim": "swim",
+            "Burrow": None,
+        }
+        normalized_speed: Dict[str, int] = {}
+        for key in ("walk", "climb", "fly", "swim"):
+            value = speed.get(key)
+            if value is None:
+                legacy_key = next((legacy for legacy, target in legacy_map.items() if target == key), None)
+                if legacy_key is not None:
+                    value = speed.get(legacy_key)
+            normalized_value = normalize_number(value)
+            if normalized_value is None:
+                normalized_value = 0
+            normalized_speed[key] = normalized_value
+
+        vitals = dict(vitals)
+        vitals["speed"] = normalized_speed
+        payload = dict(payload)
+        payload["vitals"] = vitals
+        return payload
 
     def _normalize_player_profile(self, data: Dict[str, Any], fallback_name: str) -> Dict[str, Any]:
         def normalize_name(value: Any) -> Optional[str]:
