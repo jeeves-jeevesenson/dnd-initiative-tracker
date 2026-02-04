@@ -24,7 +24,8 @@ class LanRequestHandler(SimpleHTTPRequestHandler):
             try:
                 with open(file_path, "rb") as f:
                     content = f.read()
-                # Replace the placeholder with undefined for the smoke test
+                # Replace the placeholder values with undefined for the smoke test
+                content = content.replace(b"__LAN_BASE_URL__", b"undefined")
                 content = content.replace(b"__PUSH_PUBLIC_KEY__", b"undefined")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
