@@ -8742,6 +8742,12 @@ __DAMAGE_TYPE_OPTIONS__
         cx: center.cx,
         cy: center.cy,
       };
+      if (typeof preset?.concentration === "boolean"){
+        payload.concentration = preset.concentration;
+      }
+      if (Number.isFinite(preset?.level)){
+        payload.level = Math.max(0, Math.floor(Number(preset.level)));
+      }
       if (defaultDamage){
         payload.default_damage = defaultDamage;
       }

@@ -6578,12 +6578,20 @@ class InitiativeTracker(base.InitiativeTracker):
             angle_deg = parse_nonnegative_float(payload.get("angle_deg"))
             duration_turns = payload.get("duration_turns")
             over_time = parse_bool(payload.get("over_time"))
+            concentration_flag = parse_bool(payload.get("concentration"))
             move_per_turn_ft = parse_nonnegative_float(payload.get("move_per_turn_ft"))
             if move_per_turn_ft is not None and move_per_turn_ft <= 0:
                 move_per_turn_ft = None
             trigger_on_start_or_enter = parse_trigger(payload.get("trigger_on_start_or_enter"))
             persistent = parse_bool(payload.get("persistent"))
             pinned_default = parse_bool(payload.get("pinned_default"))
+            spell_level = None
+            try:
+                spell_level = int(payload.get("level"))
+            except Exception:
+                spell_level = None
+            if spell_level is not None and spell_level < 0:
+                spell_level = None
             color = self._normalize_token_color(payload.get("color")) or ""
             name = str(payload.get("name") or "").strip()
             save_type = str(payload.get("save_type") or "").strip().lower()
@@ -6854,6 +6862,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 store = getattr(self, "_lan_aoes", {}) or {}
                 store[int(aid)] = aoe
                 self._lan_aoes = store
+            if concentration_flag is True and c is not None:
+                c.concentrating = True
+                c.concentration_spell_level = spell_level
+                c.concentration_started_turn = (int(self.round_num), int(self.turn_num))
+                c.concentration_aoe_ids = [aid]
             self._lan.toast(ws_id, f"Casted {aoe['name']}.")
             return
         elif typ == "aoe_move":
