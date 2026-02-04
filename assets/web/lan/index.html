@@ -1431,6 +1431,51 @@
       min-height:0;
       align-items:stretch;
     }
+    .spell-slot-monitor-row{
+      align-items:center;
+    }
+    .spell-slot-monitor{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 14px;
+      align-items:center;
+      min-height: 18px;
+      padding: 4px 2px;
+    }
+    .spell-slot-monitor.is-empty{
+      display:none;
+    }
+    .spell-slot-level{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .spell-slot-squares{
+      display:inline-flex;
+      gap:4px;
+    }
+    .spell-slot-square{
+      width:10px;
+      height:10px;
+      border-radius:3px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35);
+    }
+    .spell-slot-square.is-active{
+      background: linear-gradient(135deg, rgba(106,169,255,0.9), rgba(106,255,176,0.55));
+      border-color: rgba(106,169,255,0.9);
+      box-shadow: 0 0 6px rgba(106,169,255,0.55), inset 0 0 0 1px rgba(255,255,255,0.25);
+    }
+    .spell-slot-square.is-spent{
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.08);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4);
+    }
     .turn-order-status{
       margin-top: 6px;
       font-size: 12px;
@@ -1836,6 +1881,13 @@
           <button class="btn danger" id="endTurn">End Turn</button>
         </div>
       </div>
+      <div class="row sheet-turn-order-row">
+        <div class="initiative-order-content">
+          <div class="turn-order" id="turnOrder" aria-label="Turn order"></div>
+          <div class="turn-order-status" id="turnOrderStatus"></div>
+          <div class="turn-order-bubble" id="turnOrderBubble" role="status" aria-live="polite"></div>
+        </div>
+      </div>
       <div class="row">
         <div class="form-field">
           <label for="actionSelect">Action</label>
@@ -1848,13 +1900,6 @@
           <select id="bonusActionSelect">
             <option value="">None/Custom</option>
           </select>
-        </div>
-      </div>
-      <div class="row sheet-turn-order-row">
-        <div class="initiative-order-content">
-          <div class="turn-order" id="turnOrder" aria-label="Turn order"></div>
-          <div class="turn-order-status" id="turnOrderStatus"></div>
-          <div class="turn-order-bubble" id="turnOrderBubble" role="status" aria-live="polite"></div>
         </div>
       </div>
       <div class="row">
@@ -1875,6 +1920,9 @@
         </div>
         <div class="turn-alerts-note">Only works when installed as an app.</div>
       </fieldset>
+      <div class="row spell-slot-monitor-row">
+        <div class="spell-slot-monitor" id="spellSlotMonitor" aria-label="Spell slot monitor"></div>
+      </div>
       <div class="cast-menu-trigger" id="castMenuTrigger">
         <button class="btn" id="castOverlayOpen" type="button">Cast Spell</button>
       </div>
@@ -2521,6 +2569,7 @@ __DAMAGE_TYPE_OPTIONS__
   const turnOrderEl = document.getElementById("turnOrder");
   const turnOrderStatusEl = document.getElementById("turnOrderStatus");
   const turnOrderBubbleEl = document.getElementById("turnOrderBubble");
+  const spellSlotMonitorEl = document.getElementById("spellSlotMonitor");
   let activeTurnOrderEl = turnOrderEl;
   let activeTurnOrderStatusEl = turnOrderStatusEl;
   let activeTurnOrderBubbleEl = turnOrderBubbleEl;
@@ -3122,6 +3171,63 @@ __DAMAGE_TYPE_OPTIONS__
     const profile = profiles[name];
     if (!profile || typeof profile !== "object") return null;
     return profile;
+  }
+
+  const spellSlotNumerals = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
+
+  function getSpellSlotLevels(profile){
+    const slots = profile?.spellcasting?.spell_slots;
+    if (!slots || typeof slots !== "object") return [];
+    const levels = [];
+    for (let level = 1; level <= 9; level += 1){
+      const entry = Array.isArray(slots)
+        ? slots[level - 1]
+        : (slots[String(level)] ?? slots[level]);
+      let maxValue = 0;
+      let currentValue = 0;
+      if (entry && typeof entry === "object"){
+        maxValue = Number(entry.max ?? entry.total ?? entry.slots ?? 0);
+        currentValue = Number(entry.current ?? entry.remaining ?? entry.max ?? maxValue);
+      } else {
+        maxValue = Number(entry ?? 0);
+        currentValue = maxValue;
+      }
+      if (!Number.isFinite(maxValue)) maxValue = 0;
+      if (!Number.isFinite(currentValue)) currentValue = maxValue;
+      maxValue = Math.max(0, Math.floor(maxValue));
+      currentValue = Math.max(0, Math.min(Math.floor(currentValue), maxValue));
+      levels.push({level, max: maxValue, current: currentValue});
+    }
+    return levels;
+  }
+
+  function renderSpellSlotMonitor(){
+    if (!spellSlotMonitorEl) return;
+    const playerName = getClaimedPlayerName();
+    const profile = getPlayerProfile(playerName);
+    const levels = getSpellSlotLevels(profile).filter((entry) => entry.max > 0);
+    spellSlotMonitorEl.textContent = "";
+    if (!levels.length){
+      spellSlotMonitorEl.classList.add("is-empty");
+      return;
+    }
+    spellSlotMonitorEl.classList.remove("is-empty");
+    levels.forEach((entry) => {
+      const levelWrap = document.createElement("div");
+      levelWrap.className = "spell-slot-level";
+      const label = document.createElement("span");
+      label.textContent = spellSlotNumerals[entry.level - 1] || String(entry.level);
+      levelWrap.appendChild(label);
+      const squaresWrap = document.createElement("div");
+      squaresWrap.className = "spell-slot-squares";
+      for (let i = 0; i < entry.max; i += 1){
+        const square = document.createElement("span");
+        square.className = `spell-slot-square ${i < entry.current ? "is-active" : "is-spent"}`;
+        squaresWrap.appendChild(square);
+      }
+      levelWrap.appendChild(squaresWrap);
+      spellSlotMonitorEl.appendChild(levelWrap);
+    });
   }
 
   function normalizePreparedSpellList(list){
@@ -5882,6 +5988,7 @@ __DAMAGE_TYPE_OPTIONS__
         standUpBtn.disabled = true;
       }
     }
+    renderSpellSlotMonitor();
     updateTurnOrder();
     updateSpellPanelVisibility();
   }
