@@ -7753,6 +7753,7 @@ class BattleMapWindow(tk.Toplevel):
         for entry in presets:
             if not isinstance(entry, dict):
                 continue
+            # AoE placement only needs shape + dimensions; ignore automation/range flags.
             shape = str(entry.get("shape") or "").strip().lower()
             if not shape:
                 continue
