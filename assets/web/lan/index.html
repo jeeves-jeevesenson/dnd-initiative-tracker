@@ -2950,7 +2950,26 @@ __DAMAGE_TYPE_OPTIONS__
       control.setAttribute("aria-disabled", "true");
     });
   }
+  function updateEndTurnState(){
+    if (!endTurnBtn) return;
+    const needsClaim = claimedCid === null || claimedCid === undefined;
+    const shouldDisable = isMapView || needsClaim;
+    endTurnBtn.disabled = shouldDisable;
+    endTurnBtn.setAttribute("aria-disabled", shouldDisable ? "true" : "false");
+    let titleText = "";
+    if (needsClaim){
+      titleText = "Claim a character first, matey.";
+    } else if (isMapView){
+      titleText = "Map view is read-only.";
+    }
+    if (titleText){
+      endTurnBtn.setAttribute("title", titleText);
+    } else {
+      endTurnBtn.removeAttribute("title");
+    }
+  }
   applyMapViewReadOnlyControls();
+  updateEndTurnState();
   if (showAllNamesEl){
     showAllNamesEl.checked = showAllNames;
     showAllNamesEl.addEventListener("change", (ev) => {
@@ -6023,6 +6042,7 @@ __DAMAGE_TYPE_OPTIONS__
     updateTurnOrder();
     updateSpellPanelVisibility();
     applyMapViewReadOnlyControls();
+    updateEndTurnState();
   }
 
   function showActionPicker(){
@@ -9540,7 +9560,10 @@ __DAMAGE_TYPE_OPTIONS__
   if (endTurnBtn){
     endTurnBtn.addEventListener("click", () => {
       if (isMapView) return;
-      if (!claimedCid) return;
+      if (!claimedCid){
+        localToast("Claim a character first, matey.");
+        return;
+      }
       send({type:"end_turn", cid: claimedCid});
     });
   }
