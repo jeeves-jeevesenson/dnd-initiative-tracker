@@ -2417,6 +2417,17 @@ class InitiativeTracker(tk.Tk):
                     mw._remove_aoe_by_id(aid)
                 except Exception:
                     pass
+        else:
+            lan_store = getattr(self, "_lan_aoes", None)
+            if isinstance(lan_store, dict) and aoe_ids:
+                changed = False
+                for aid in aoe_ids:
+                    aoe = lan_store.get(aid)
+                    if aoe and aoe.get("concentration_bound"):
+                        lan_store.pop(aid, None)
+                        changed = True
+                if changed:
+                    self._lan_aoes = lan_store
         self._log("concentration ended", cid=c.cid)
 
     def _queue_concentration_save(self, c: Combatant, source: str) -> None:
@@ -7828,6 +7839,12 @@ class BattleMapWindow(tk.Toplevel):
         aid = self._next_aoe_id
         self._next_aoe_id += 1
 
+        app = getattr(self, "app", None)
+        owner_cid = None
+        if app is not None:
+            current_cid = getattr(app, "current_cid", None)
+            if current_cid in getattr(app, "combatants", {}):
+                owner_cid = current_cid
         aoe: Dict[str, Any] = {
             "kind": shape,
             "cx": cx,
@@ -7840,6 +7857,7 @@ class BattleMapWindow(tk.Toplevel):
             "duration_turns": None,
             "remaining_turns": None,
             "from_spell": True,
+            "owner_cid": owner_cid,
         }
 
         if shape in ("circle", "sphere", "cylinder"):
@@ -7899,14 +7917,14 @@ class BattleMapWindow(tk.Toplevel):
         if preset.get("default_damage") not in (None, ""):
             aoe["default_damage"] = str(preset.get("default_damage"))
 
+        if preset.get("concentration") is True:
+            aoe["concentration_bound"] = True
         self.aoes[aid] = aoe
         self._create_aoe_items(aid)
         self._refresh_aoe_list(select=aid)
         if preset.get("concentration") is True:
-            app = getattr(self, "app", None)
-            current_cid = getattr(app, "current_cid", None)
-            if app and current_cid in getattr(app, "combatants", {}):
-                caster = app.combatants[current_cid]
+            if app and owner_cid in getattr(app, "combatants", {}):
+                caster = app.combatants[owner_cid]
                 caster.concentrating = True
                 try:
                     spell_level = int(preset.get("level"))
@@ -7916,7 +7934,10 @@ class BattleMapWindow(tk.Toplevel):
                     spell_level = None
                 caster.concentration_spell_level = spell_level
                 caster.concentration_started_turn = (int(app.round_num), int(app.turn_num))
-                caster.concentration_aoe_ids = [aid]
+                aoe_ids = list(getattr(caster, "concentration_aoe_ids", []) or [])
+                if aid not in aoe_ids:
+                    aoe_ids.append(aid)
+                caster.concentration_aoe_ids = aoe_ids
 
     def _refresh_aoe_list(self, select: Optional[int] = None) -> None:
         self.aoe_list.delete(0, tk.END)
@@ -8278,6 +8299,12 @@ class BattleMapWindow(tk.Toplevel):
             lan_store = getattr(app, "_lan_aoes", None)
             if isinstance(lan_store, dict):
                 lan_store.pop(aid, None)
+            owner_cid = d.get("owner_cid")
+            if owner_cid in getattr(app, "combatants", {}):
+                caster = app.combatants[owner_cid]
+                aoe_ids = list(getattr(caster, "concentration_aoe_ids", []) or [])
+                if aid in aoe_ids:
+                    caster.concentration_aoe_ids = [entry for entry in aoe_ids if entry != aid]
         try:
             self.canvas.delete(int(d["shape"]))
             self.canvas.delete(int(d["label"]))
