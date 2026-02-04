@@ -6399,6 +6399,40 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _lan_apply_action(self, msg: Dict[str, Any]) -> None:
         """Apply client actions on the Tk thread."""
+        if not isinstance(self, InitiativeTracker) or not hasattr(self, "_pc_name_for"):
+            tracker = None
+            candidate = getattr(self, "app", None)
+            if isinstance(candidate, InitiativeTracker) and hasattr(candidate, "_pc_name_for"):
+                tracker = candidate
+            else:
+                for name in ("app", "tracker", "initiative_tracker"):
+                    candidate = globals().get(name)
+                    if isinstance(candidate, InitiativeTracker) and hasattr(candidate, "_pc_name_for"):
+                        tracker = candidate
+                        break
+            if tracker is not None:
+                if os.getenv("LAN_BIND_DEBUG") == "1":
+                    log_fn = getattr(tracker, "_oplog", None)
+                    if log_fn is not None:
+                        log_fn(
+                            "LAN_BIND_DEBUG _lan_apply_action forwarded: "
+                            f"self_type={type(self)} self_id={id(self)} "
+                            f"tracker_type={type(tracker)} tracker_id={id(tracker)}",
+                            level="debug",
+                        )
+                tracker._lan_apply_action(msg)
+                return
+            if os.getenv("LAN_BIND_DEBUG") == "1":
+                log_fn = getattr(self, "_oplog", None)
+                if log_fn is None and hasattr(self, "app"):
+                    log_fn = getattr(self.app, "_oplog", None)
+                if log_fn is not None:
+                    log_fn(
+                        "LAN_BIND_DEBUG _lan_apply_action failed to resolve tracker: "
+                        f"self_type={type(self)} self_id={id(self)}",
+                        level="warning",
+                    )
+            return
         if os.getenv("LAN_BIND_DEBUG") == "1":
             log_fn = getattr(self, "_oplog", None)
             if log_fn is None and hasattr(self, "app"):
