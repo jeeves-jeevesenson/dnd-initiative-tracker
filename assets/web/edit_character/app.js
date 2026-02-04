@@ -170,6 +170,56 @@ const buildDefaultsFromSchema = (schema) => {
   return defaults;
 };
 
+const normalizeSpeedValue = (value) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+  if (typeof value === "string") {
+    const match = value.match(/-?\d+/);
+    if (match) {
+      return Number.parseInt(match[0], 10);
+    }
+  }
+  return 0;
+};
+
+const normalizeCharacterData = (data) => {
+  if (!data || typeof data !== "object") {
+    return data;
+  }
+  const vitals = data.vitals;
+  if (!vitals || typeof vitals !== "object") {
+    return data;
+  }
+  const speed = vitals.speed;
+  if (!speed || typeof speed !== "object" || Array.isArray(speed)) {
+    return data;
+  }
+  const legacyMap = {
+    Normal: "walk",
+    Climb: "climb",
+    Fly: "fly",
+    Swim: "swim",
+  };
+  const hasLegacy = Object.keys(legacyMap).some((key) => Object.prototype.hasOwnProperty.call(speed, key));
+  if (!hasLegacy && !Object.prototype.hasOwnProperty.call(speed, "Burrow")) {
+    return data;
+  }
+  const normalized = {
+    walk: normalizeSpeedValue(speed.walk),
+    climb: normalizeSpeedValue(speed.climb),
+    fly: normalizeSpeedValue(speed.fly),
+    swim: normalizeSpeedValue(speed.swim),
+  };
+  Object.entries(legacyMap).forEach(([legacyKey, schemaKey]) => {
+    if (Object.prototype.hasOwnProperty.call(speed, legacyKey)) {
+      normalized[schemaKey] = normalizeSpeedValue(speed[legacyKey]);
+    }
+  });
+  vitals.speed = normalized;
+  return data;
+};
+
 const loadSchema = async () => {
   try {
     const response = await fetch("/api/characters/schema");
@@ -673,6 +723,7 @@ const downloadYaml = (yamlText, filename) => {
 const exportYaml = async (data) => {
   statusEl.textContent = "Preparing YAML export...";
   try {
+    normalizeCharacterData(data);
     const response = await fetch("/api/characters/export", {
       method: "POST",
       headers: {
@@ -718,6 +769,7 @@ const overwriteCharacter = async (data, originalFilename) => {
   }
   statusEl.textContent = "Overwriting character...";
   try {
+    normalizeCharacterData(data);
     const response = await fetch(`/api/characters/${encodeURIComponent(originalFilename)}/overwrite`, {
       method: "POST",
       headers: {
@@ -750,11 +802,12 @@ const overwriteCharacter = async (data, originalFilename) => {
 const boot = async () => {
   const schema = await loadSchema();
   const defaults = buildDefaultsFromSchema(schema);
-  let data = defaults;
+  let data = normalizeCharacterData(defaults);
   let originalFilename = "";
 
   const assigned = await fetchAssignedCharacter();
   if (assigned) {
+    normalizeCharacterData(assigned.character);
     data = mergeDefaults(assigned.character, defaults);
     originalFilename = assigned.filename || "";
     if (filenameInput) {
@@ -770,6 +823,7 @@ const boot = async () => {
     }
   }
 
+  normalizeCharacterData(data);
   renderForm(schema, data);
 
   if (overwriteButton && !originalFilename) {
