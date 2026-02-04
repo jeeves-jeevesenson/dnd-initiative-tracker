@@ -721,6 +721,94 @@
               "default": []
             }
           ]
+        },
+        {
+          "key": "spell_slots",
+          "label": "Spell Slots",
+          "type": "object",
+          "fields": [
+            {
+              "key": "1",
+              "label": "Level 1 Slots",
+              "type": "object",
+              "fields": [
+                {"key": "max", "label": "Max", "type": "integer", "default": 0},
+                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+              ]
+            },
+            {
+              "key": "2",
+              "label": "Level 2 Slots",
+              "type": "object",
+              "fields": [
+                {"key": "max", "label": "Max", "type": "integer", "default": 0},
+                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+              ]
+            },
+            {
+              "key": "3",
+              "label": "Level 3 Slots",
+              "type": "object",
+              "fields": [
+                {"key": "max", "label": "Max", "type": "integer", "default": 0},
+                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+              ]
+            },
+            {
+              "key": "4",
+              "label": "Level 4 Slots",
+              "type": "object",
+              "fields": [
+                {"key": "max", "label": "Max", "type": "integer", "default": 0},
+                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+              ]
+            },
+            {
+              "key": "5",
+              "label": "Level 5 Slots",
+              "type": "object",
+              "fields": [
+                {"key": "max", "label": "Max", "type": "integer", "default": 0},
+                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+              ]
+            },
+            {
+              "key": "6",
+              "label": "Level 6 Slots",
+              "type": "object",
+              "fields": [
+                {"key": "max", "label": "Max", "type": "integer", "default": 0},
+                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+              ]
+            },
+            {
+              "key": "7",
+              "label": "Level 7 Slots",
+              "type": "object",
+              "fields": [
+                {"key": "max", "label": "Max", "type": "integer", "default": 0},
+                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+              ]
+            },
+            {
+              "key": "8",
+              "label": "Level 8 Slots",
+              "type": "object",
+              "fields": [
+                {"key": "max", "label": "Max", "type": "integer", "default": 0},
+                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+              ]
+            },
+            {
+              "key": "9",
+              "label": "Level 9 Slots",
+              "type": "object",
+              "fields": [
+                {"key": "max", "label": "Max", "type": "integer", "default": 0},
+                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+              ]
+            }
+          ]
         }
       ]
     },
