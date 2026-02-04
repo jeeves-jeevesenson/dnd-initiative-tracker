@@ -2327,6 +2327,7 @@ class LanController:
                 terrain_patch = self._build_terrain_patch(prev_snap, snap)
                 if terrain_patch:
                     self._broadcast_payload({"type": "terrain_patch", **terrain_patch})
+                    self._apply_terrain_patch_to_map(terrain_patch)
 
                 aoe_patch = self._build_aoe_patch(prev_snap, snap)
                 if aoe_patch:
@@ -2474,6 +2475,103 @@ class LanController:
         if obstacle_removals:
             patch["obstacle_removals"] = obstacle_removals
         return patch
+
+    def _normalize_rough_cell(self, cell: object, mw: Optional[object] = None) -> Dict[str, object]:
+        if mw is not None and hasattr(mw, "_rough_cell_data"):
+            try:
+                cell_data = mw._rough_cell_data(cell)
+            except Exception:
+                cell_data = None
+            if isinstance(cell_data, dict):
+                return {
+                    "color": cell_data.get("color"),
+                    "label": str(cell_data.get("label") or ""),
+                    "movement_type": cell_data.get("movement_type"),
+                    "is_swim": bool(cell_data.get("is_swim")),
+                    "is_rough": bool(cell_data.get("is_rough")),
+                }
+
+        if isinstance(cell, dict):
+            color = self.app._normalize_token_color(cell.get("color")) or "#8d6e63"
+            is_swim = bool(cell.get("is_swim", False))
+            movement_type = self.app._normalize_movement_type(cell.get("movement_type"), is_swim=is_swim)
+            is_swim = movement_type == "water"
+            is_rough = bool(cell.get("is_rough", False))
+            label = str(cell.get("label") or "")
+            return {
+                "color": color,
+                "label": label,
+                "movement_type": movement_type,
+                "is_swim": is_swim,
+                "is_rough": is_rough,
+            }
+        if isinstance(cell, str):
+            color = self.app._normalize_token_color(cell) or "#8d6e63"
+            return {
+                "color": color,
+                "label": "",
+                "movement_type": "ground",
+                "is_swim": False,
+                "is_rough": True,
+            }
+        return {
+            "color": "#8d6e63",
+            "label": "",
+            "movement_type": "ground",
+            "is_swim": False,
+            "is_rough": True,
+        }
+
+    def _apply_terrain_patch_to_map(self, terrain_patch: Dict[str, Any]) -> None:
+        if not isinstance(terrain_patch, dict):
+            return
+        rough_updates = terrain_patch.get("rough_updates") or []
+        rough_removals = terrain_patch.get("rough_removals") or []
+        if not rough_updates and not rough_removals:
+            return
+
+        rough_state = dict(getattr(self.app, "_lan_rough_terrain", {}) or {})
+        mw = getattr(self.app, "_map_window", None)
+        mw_ready = mw is not None and hasattr(mw, "winfo_exists") and mw.winfo_exists()
+
+        for entry in rough_updates:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                col = int(entry.get("col"))
+                row = int(entry.get("row"))
+            except Exception:
+                continue
+            cell_data = self._normalize_rough_cell(entry, mw if mw_ready else None)
+            rough_state[(col, row)] = cell_data
+            if mw_ready:
+                try:
+                    mw.rough_terrain[(col, row)] = dict(cell_data)
+                except Exception:
+                    pass
+
+        for entry in rough_removals:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                col = int(entry.get("col"))
+                row = int(entry.get("row"))
+            except Exception:
+                continue
+            rough_state.pop((col, row), None)
+            if mw_ready:
+                try:
+                    mw.rough_terrain.pop((col, row), None)
+                except Exception:
+                    pass
+
+        self.app._lan_rough_terrain = rough_state
+        if mw_ready:
+            try:
+                mw._draw_rough_terrain()
+                mw._update_move_highlight()
+            except Exception:
+                pass
 
     def _build_aoe_patch(self, prev: Dict[str, Any], curr: Dict[str, Any]) -> Dict[str, Any]:
         prev_aoes = {int(a.get("aid")): a for a in prev.get("aoes", []) if isinstance(a, dict) and "aid" in a}
