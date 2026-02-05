@@ -6773,7 +6773,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     profile = self._player_yaml_cache_by_path.get(player_path) if player_path else None
                     if not isinstance(profile, dict):
                         profile = {}
-                    spellcasting = profile.get("spellcasting") if isinstance(profile, dict) else {}
+                    spellcasting = profile.get("spellcasting", {})
                     slots = self._normalize_spell_slots(
                         spellcasting.get("spell_slots") if isinstance(spellcasting, dict) else None
                     )
