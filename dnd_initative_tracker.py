@@ -930,6 +930,12 @@ class LanController:
         self._lan_logger = _make_lan_logger()
         self._lan_log_lock = threading.Lock()
         self._lan_log_buffer = deque(maxlen=400)
+        if os.getenv("LAN_BIND_DEBUG") == "1":
+            self._lan_logger.info(
+                "LAN_BIND_DEBUG LanController init tracker=%s id=%s",
+                type(self._tracker),
+                id(self._tracker),
+            )
 
         self._actions: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._last_snapshot: Optional[Dict[str, Any]] = None
@@ -972,6 +978,20 @@ class LanController:
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name == "_tracker" and hasattr(self, "_tracker"):
+            if os.getenv("LAN_BIND_DEBUG") == "1":
+                stack = traceback.extract_stack(limit=4)
+                caller = stack[-2] if len(stack) >= 2 else None
+                context = f"{caller.name} ({caller.filename}:{caller.lineno})" if caller else "unknown"
+                old_tracker = getattr(self, "_tracker", None)
+                self._lan_logger.info(
+                    "LAN_BIND_DEBUG LanController tracker rebind blocked "
+                    "old=%s id=%s new=%s id=%s context=%s",
+                    type(old_tracker),
+                    id(old_tracker),
+                    type(value),
+                    id(value),
+                    context,
+                )
             raise AttributeError("LanController.tracker is read-only.")
         super().__setattr__(name, value)
 
