@@ -900,7 +900,7 @@ class LanController:
     def __init__(self, app: "InitiativeTracker") -> None:
         if not isinstance(app, InitiativeTracker):
             raise TypeError("LanController requires an InitiativeTracker app instance.")
-        self._app = app
+        self._tracker = app
         self.cfg = LanConfig()
         self._server_thread: Optional[threading.Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
@@ -955,16 +955,24 @@ class LanController:
         self._init_admin_auth()
 
     @property
+    def tracker(self) -> "InitiativeTracker":
+        return self._tracker
+
+    @tracker.setter
+    def tracker(self, _value: "InitiativeTracker") -> None:
+        raise AttributeError("LanController.tracker is read-only.")
+
+    @property
     def app(self) -> "InitiativeTracker":
-        return self._app
+        return self._tracker
 
     @app.setter
     def app(self, _value: "InitiativeTracker") -> None:
         raise AttributeError("LanController.app is read-only.")
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if name == "_app" and hasattr(self, "_app"):
-            raise AttributeError("LanController.app is read-only.")
+        if name == "_tracker" and hasattr(self, "_tracker"):
+            raise AttributeError("LanController.tracker is read-only.")
         super().__setattr__(name, value)
 
     # ---------- Tk thread API ----------
@@ -2326,7 +2334,7 @@ class LanController:
                             f"has_pc_name_for={hasattr(self.app, '_pc_name_for')}",
                             level="debug",
                         )
-                    self.app._lan_apply_action(msg)
+                    self._tracker._lan_apply_action(msg)
                 except Exception as exc:
                     ws_id = msg.get("_ws_id")
                     error_details = traceback.format_exc()
@@ -6444,39 +6452,17 @@ class InitiativeTracker(base.InitiativeTracker):
     def _lan_apply_action(self, msg: Dict[str, Any]) -> None:
         """Apply client actions on the Tk thread."""
         if not isinstance(self, InitiativeTracker) or not hasattr(self, "_pc_name_for"):
-            tracker = None
-            candidate = getattr(self, "app", None)
-            if isinstance(candidate, InitiativeTracker) and hasattr(candidate, "_pc_name_for"):
-                tracker = candidate
-            else:
-                for name in ("app", "tracker", "initiative_tracker"):
-                    candidate = globals().get(name)
-                    if isinstance(candidate, InitiativeTracker) and hasattr(candidate, "_pc_name_for"):
-                        tracker = candidate
-                        break
-            if tracker is not None:
-                if os.getenv("LAN_BIND_DEBUG") == "1":
-                    log_fn = getattr(tracker, "_oplog", None)
-                    if log_fn is not None:
-                        log_fn(
-                            "LAN_BIND_DEBUG _lan_apply_action forwarded: "
-                            f"self_type={type(self)} self_id={id(self)} "
-                            f"tracker_type={type(tracker)} tracker_id={id(tracker)}",
-                            level="debug",
-                        )
-                tracker._lan_apply_action(msg)
-                return
             if os.getenv("LAN_BIND_DEBUG") == "1":
                 log_fn = getattr(self, "_oplog", None)
                 if log_fn is None and hasattr(self, "app"):
                     log_fn = getattr(self.app, "_oplog", None)
                 if log_fn is not None:
                     log_fn(
-                        "LAN_BIND_DEBUG _lan_apply_action failed to resolve tracker: "
-                        f"self_type={type(self)} self_id={id(self)}",
+                        "LAN_BIND_DEBUG _lan_apply_action bad binding: "
+                        f"self_type={type(self)} self_id={id(self)} "
+                        f"has_pc_name_for={hasattr(self, '_pc_name_for')}",
                         level="warning",
                     )
-            return
         if os.getenv("LAN_BIND_DEBUG") == "1":
             log_fn = getattr(self, "_oplog", None)
             if log_fn is None and hasattr(self, "app"):
@@ -6490,16 +6476,6 @@ class InitiativeTracker(base.InitiativeTracker):
                 if hasattr(self, "app"):
                     debug_message += f" app_type={type(self.app)} app_id={id(self.app)}"
                 log_fn(debug_message, level="debug")
-        if not isinstance(self, InitiativeTracker):
-            if os.getenv("LAN_BIND_DEBUG") == "1":
-                log_fn = getattr(self, "_oplog", None)
-                if log_fn is not None:
-                    log_fn(
-                        "LAN_BIND_DEBUG _lan_apply_action skipped: "
-                        f"self_type={type(self)} self_id={id(self)}",
-                        level="warning",
-                    )
-            return
         typ = str(msg.get("type") or "")
         ws_id = msg.get("_ws_id")
         log_warning = None
