@@ -1153,6 +1153,15 @@ class LanController:
         except Exception:
             pass
 
+    def _move_debug_log(self, payload: Dict[str, Any], level: str = "info") -> None:
+        if os.getenv("LAN_MOVE_DEBUG") != "1":
+            return
+        try:
+            message = self._json_dumps(payload)
+        except Exception:
+            message = str(payload)
+        self._append_lan_log(message, level=level)
+
     def _log_lan_exception(self, context: str, exc: BaseException) -> None:
         details = traceback.format_exc()
         self._append_lan_log(f"{context}: {exc}\n{details}", level="error")
@@ -2019,6 +2028,20 @@ class LanController:
                         # enqueue for Tk thread
                         with self._clients_lock:
                             claimed_cid = self._claims.get(ws_id)
+                        if typ == "move":
+                            to = msg.get("to") or {}
+                            self._move_debug_log(
+                                {
+                                    "event": "lan_move_received",
+                                    "type": typ,
+                                    "ws_id": ws_id,
+                                    "host": host,
+                                    "_claimed_cid": claimed_cid,
+                                    "cid": msg.get("cid"),
+                                    "to": {"col": to.get("col"), "row": to.get("row")},
+                                },
+                                level="info",
+                            )
                         msg["_claimed_cid"] = claimed_cid
                         msg["_ws_id"] = ws_id
                         self._actions.put(msg)
@@ -2336,6 +2359,7 @@ class LanController:
 
     def _tick(self) -> None:
         """Runs on Tk thread: process actions and broadcast state when changed."""
+        move_debug_entries: List[Dict[str, Any]] = []
         try:
             # 1) process queued actions from clients
             processed_any = False
@@ -2346,6 +2370,30 @@ class LanController:
                     break
                 processed_any = True
                 try:
+                    typ = str(msg.get("type") or "")
+                    if typ == "move":
+                        to = msg.get("to") or {}
+                        self._move_debug_log(
+                            {
+                                "event": "lan_move_dequeued",
+                                "type": typ,
+                                "ws_id": msg.get("_ws_id"),
+                                "_claimed_cid": msg.get("_claimed_cid"),
+                                "cid": msg.get("cid"),
+                                "to": {"col": to.get("col"), "row": to.get("row")},
+                            },
+                            level="info",
+                        )
+                        self._move_debug_log(
+                            {
+                                "event": "lan_move_apply_call",
+                                "type": typ,
+                                "ws_id": msg.get("_ws_id"),
+                                "_claimed_cid": msg.get("_claimed_cid"),
+                                "cid": msg.get("cid"),
+                            },
+                            level="info",
+                        )
                     if os.getenv("LAN_BIND_DEBUG") == "1":
                         self.app._oplog(
                             "LAN_BIND_DEBUG _tick apply_action: "
@@ -2355,6 +2403,16 @@ class LanController:
                             level="debug",
                         )
                     self._tracker._lan_apply_action(msg)
+                    if typ == "move":
+                        move_debug_entries.append(
+                            {
+                                "ws_id": msg.get("_ws_id"),
+                                "_claimed_cid": msg.get("_claimed_cid"),
+                                "cid": msg.get("cid"),
+                                "applied": msg.get("_move_applied"),
+                                "reject_reason": msg.get("_move_reject_reason"),
+                            }
+                        )
                 except Exception as exc:
                     ws_id = msg.get("_ws_id")
                     error_details = traceback.format_exc()
@@ -2386,6 +2444,24 @@ class LanController:
             prev_snap = self._last_snapshot or {}
             if self._last_snapshot is None:
                 self._last_snapshot = copy.deepcopy(snap)
+                if move_debug_entries:
+                    for entry in move_debug_entries:
+                        self._move_debug_log(
+                            {
+                                "event": "lan_move_broadcast",
+                                "ws_id": entry.get("ws_id"),
+                                "_claimed_cid": entry.get("_claimed_cid"),
+                                "cid": entry.get("cid"),
+                                "applied": entry.get("applied"),
+                                "reject_reason": entry.get("reject_reason"),
+                                "units_snapshot_sent": False,
+                                "unit_updates_count": 0,
+                                "terrain_patch_sent": False,
+                                "aoe_patch_sent": False,
+                                "initial_snapshot_only": True,
+                            },
+                            level="info",
+                        )
             else:
                 turn_update = self._build_turn_update(prev_snap, snap)
                 if turn_update:
@@ -2405,6 +2481,24 @@ class LanController:
                 aoe_patch = self._build_aoe_patch(prev_snap, snap)
                 if aoe_patch:
                     self._broadcast_payload({"type": "aoe_patch", **aoe_patch})
+
+                if move_debug_entries:
+                    for entry in move_debug_entries:
+                        self._move_debug_log(
+                            {
+                                "event": "lan_move_broadcast",
+                                "ws_id": entry.get("ws_id"),
+                                "_claimed_cid": entry.get("_claimed_cid"),
+                                "cid": entry.get("cid"),
+                                "applied": entry.get("applied"),
+                                "reject_reason": entry.get("reject_reason"),
+                                "units_snapshot_sent": units_snapshot is not None,
+                                "unit_updates_count": len(unit_updates),
+                                "terrain_patch_sent": bool(terrain_patch),
+                                "aoe_patch_sent": bool(aoe_patch),
+                            },
+                            level="info",
+                        )
 
                 self._last_snapshot = copy.deepcopy(snap)
 
@@ -6506,24 +6600,73 @@ class InitiativeTracker(base.InitiativeTracker):
         claimed = _normalize_cid_value(msg.get("_claimed_cid"), "lan_action.claimed_cid", log_fn=log_warning)
         admin_token = str(msg.get("admin_token") or "").strip()
         is_admin = bool(admin_token and self._is_admin_token_valid(admin_token))
+        is_move = typ == "move"
+        move_debugger = getattr(self, "_lan", None)
+        def _move_log(event: str, **fields: Any) -> None:
+            if not is_move or move_debugger is None:
+                return
+            log_fn = getattr(move_debugger, "_move_debug_log", None)
+            if not log_fn:
+                return
+            payload = {"event": event, "type": typ, "ws_id": ws_id, **fields}
+            log_fn(payload, level="info")
 
         # Basic sanity: claimed cid must match the action cid (if provided)
         cid = _normalize_cid_value(msg.get("cid"), "lan_action.cid", log_fn=log_warning)
+        current_cid = None
+        in_combat = bool(getattr(self, "in_combat", False))
+        if is_move:
+            current_cid = _normalize_cid_value(
+                getattr(self, "current_cid", None), "lan_action.current_cid", log_fn=log_warning
+            )
+            _move_log(
+                "lan_move_apply_start",
+                cid=cid,
+                claimed=claimed,
+                is_admin=is_admin,
+                in_combat=in_combat,
+                current_cid=current_cid,
+            )
         if cid is not None:
             if not is_admin and claimed is not None and cid != claimed:
+                if is_move:
+                    msg["_move_applied"] = False
+                    msg["_move_reject_reason"] = "cid_mismatch"
+                    _move_log("lan_move_reject", reason="cid_mismatch", cid=cid, claimed=claimed)
                 self._lan.toast(ws_id, "Arrr, that token ain’t yers.")
                 return
         else:
             cid = claimed
 
         if cid is None and not is_admin:
+            if is_move:
+                msg["_move_applied"] = False
+                msg["_move_reject_reason"] = "no_claim"
+                _move_log("lan_move_reject", reason="no_claim")
             self._lan.toast(ws_id, "Claim a character first, matey.")
             return
 
         # Must exist
         if cid is not None and cid not in self.combatants:
+            if is_move:
+                msg["_move_applied"] = False
+                msg["_move_reject_reason"] = "combatant_missing"
+                _move_log("lan_move_reject", reason="combatant_missing", cid=cid)
             self._lan.toast(ws_id, "That scallywag ain’t in combat no more.")
             return
+        if is_move:
+            _move_log(
+                "lan_move_gate_status",
+                cid=cid,
+                claimed=claimed,
+                is_admin=is_admin,
+                in_combat=in_combat,
+                current_cid=current_cid,
+                gate_claim_match=not (cid is not None and not is_admin and claimed is not None and cid != claimed),
+                gate_has_cid=bool(cid is not None or is_admin),
+                gate_combatant_present=bool(cid is None or cid in self.combatants),
+                gate_turn=(not in_combat or is_admin or (cid is not None and current_cid == cid)),
+            )
 
         if typ == "set_color":
             color = self._normalize_token_color(msg.get("color"))
@@ -6578,12 +6721,20 @@ class InitiativeTracker(base.InitiativeTracker):
 
         # Only allow controlling on your turn (POC)
         if not is_admin and typ not in ("cast_aoe", "aoe_move", "aoe_remove"):
-            current_cid = _normalize_cid_value(
-                getattr(self, "current_cid", None), "lan_action.current_cid", log_fn=log_warning
-            )
-            if current_cid is None or cid is None or current_cid != cid:
-                self._lan.toast(ws_id, "Not yer turn yet, matey.")
-                return
+            if in_combat:
+                if current_cid is None or cid is None or current_cid != cid:
+                    if is_move:
+                        msg["_move_applied"] = False
+                        msg["_move_reject_reason"] = "not_your_turn"
+                        _move_log(
+                            "lan_move_reject",
+                            reason="not_your_turn",
+                            cid=cid,
+                            current_cid=current_cid,
+                            in_combat=in_combat,
+                        )
+                    self._lan.toast(ws_id, "Not yer turn yet, matey.")
+                    return
 
         if typ == "cast_aoe":
             payload = msg.get("payload") or {}
@@ -7360,12 +7511,76 @@ class InitiativeTracker(base.InitiativeTracker):
                 col = int(to.get("col"))
                 row = int(to.get("row"))
             except Exception:
+                if is_move:
+                    msg["_move_applied"] = False
+                    msg["_move_reject_reason"] = "invalid_target"
+                    _move_log("lan_move_reject", reason="invalid_target", to=to)
+                self._lan.toast(ws_id, "Pick a valid square, matey.")
                 return
+
+            cols, rows, obstacles, rough_terrain, positions = self._lan_live_map_data()
+            before_pos = positions.get(cid)
+            mw = getattr(self, "_map_window", None)
+            map_ready = mw is not None and mw.winfo_exists()
+            map_token_pos = None
+            if map_ready:
+                try:
+                    tok = (getattr(mw, "unit_tokens", {}) or {}).get(int(cid))
+                    if isinstance(tok, dict):
+                        map_token_pos = {"col": tok.get("col"), "row": tok.get("row")}
+                except Exception:
+                    map_token_pos = None
+            _move_log(
+                "lan_move_attempt",
+                cid=cid,
+                to={"col": col, "row": row},
+                before_pos=before_pos,
+                map_ready=map_ready,
+                map_token_pos=map_token_pos,
+                move_remaining=getattr(self.combatants.get(cid), "move_remaining", None) if cid else None,
+            )
 
             ok, reason, cost = self._lan_try_move(cid, col, row)
             if not ok:
+                if is_move:
+                    msg["_move_applied"] = False
+                    msg["_move_reject_reason"] = str(reason or "move_rejected")
+                    cols_after, rows_after, _, _, positions_after = self._lan_live_map_data()
+                    after_pos = positions_after.get(cid)
+                    _move_log(
+                        "lan_move_result",
+                        ok=False,
+                        reason=reason,
+                        cost=cost,
+                        before_pos=before_pos,
+                        after_pos=after_pos,
+                        grid={"cols": cols_after, "rows": rows_after},
+                    )
                 self._lan.toast(ws_id, reason or "Can’t move there.")
             else:
+                msg["_move_applied"] = True
+                msg["_move_reject_reason"] = None
+                cols_after, rows_after, _, _, positions_after = self._lan_live_map_data()
+                after_pos = positions_after.get(cid)
+                map_token_pos_after = None
+                if map_ready:
+                    try:
+                        tok = (getattr(mw, "unit_tokens", {}) or {}).get(int(cid))
+                        if isinstance(tok, dict):
+                            map_token_pos_after = {"col": tok.get("col"), "row": tok.get("row")}
+                    except Exception:
+                        map_token_pos_after = None
+                _move_log(
+                    "lan_move_result",
+                    ok=True,
+                    reason=None,
+                    cost=cost,
+                    before_pos=before_pos,
+                    after_pos=after_pos,
+                    map_token_pos_before=map_token_pos,
+                    map_token_pos_after=map_token_pos_after,
+                    grid={"cols": cols_after, "rows": rows_after},
+                )
                 self._lan.toast(ws_id, f"Moved ({cost} ft).")
         elif typ == "dash":
             c = self.combatants.get(cid)
