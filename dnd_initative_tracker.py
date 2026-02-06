@@ -1945,8 +1945,10 @@ class LanController:
                 )
                 await self._auto_assign_host(ws_id, host)
             except (TypeError, ValueError) as exc:
+                error_details = traceback.format_exc()
                 self.app._oplog(
-                    f"LAN session serialization failed during initial send ws_id={ws_id}: {exc}", level="warning"
+                    f"LAN session serialization failed during initial send ws_id={ws_id}: {exc}\n{error_details}",
+                    level="warning",
                 )
                 self._log_lan_exception(
                     f"LAN session serialization failed during initial send ws_id={ws_id}", exc
@@ -1954,7 +1956,11 @@ class LanController:
                 await ws.close(code=1011, reason="Server error while preparing state.")
                 return
             except Exception as exc:
-                self.app._oplog(f"LAN session error during initial send ws_id={ws_id}: {exc}", level="warning")
+                error_details = traceback.format_exc()
+                self.app._oplog(
+                    f"LAN session error during initial send ws_id={ws_id}: {exc}\n{error_details}",
+                    level="warning",
+                )
                 self._log_lan_exception(f"LAN session error during initial send ws_id={ws_id}", exc)
                 return
             try:
@@ -2841,7 +2847,16 @@ class LanController:
         pcs = list(self._cached_pcs)
         with self._clients_lock:
             cid_to_host = {cid: set(hosts) for cid, hosts in self._cid_to_host.items()}
-        profiles = self.app._player_profiles_payload() if hasattr(self.app, "_player_profiles_payload") else {}
+        profiles: Dict[str, Any] = {}
+        try:
+            profiles_fn = object.__getattribute__(self.app, "_player_profiles_payload")
+        except Exception:
+            profiles_fn = None
+        if callable(profiles_fn):
+            try:
+                profiles = profiles_fn()
+            except Exception:
+                profiles = {}
         out: List[Dict[str, Any]] = []
         for p in pcs:
             pp = dict(p)
@@ -4200,6 +4215,16 @@ class InitiativeTracker(base.InitiativeTracker):
     def _lan_pcs(self) -> List[Dict[str, Any]]:
         """Alias for LAN client character selection."""
         return self._lan_claimable()
+
+    def _pc_name_for(self, cid: int) -> str:
+        try:
+            lan = object.__getattribute__(self, "_lan")
+        except Exception:
+            return f"cid:{cid}"
+        try:
+            return lan._pc_name_for(int(cid))
+        except Exception:
+            return f"cid:{cid}"
 
     def _normalize_token_color(self, color: Any) -> Optional[str]:
         if not isinstance(color, str):
