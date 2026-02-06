@@ -111,6 +111,7 @@ if (`$ParentPid) {
     try {
         Wait-Process -Id `$ParentPid -ErrorAction SilentlyContinue
     } catch {
+        # Best effort: continue even if the parent process lookup fails.
     }
 }
 Start-Sleep -Seconds 2

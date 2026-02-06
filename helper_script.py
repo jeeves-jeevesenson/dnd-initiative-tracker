@@ -93,13 +93,13 @@ def _seed_user_players_dir() -> None:
         return
     try:
         if user_dir.exists():
-            if any(user_dir.glob("*.yaml")) or any(user_dir.glob("*.yml")):
+            if any(user_dir.glob("*.y*ml")):
                 return
     except Exception:
         return
     try:
         user_dir.mkdir(parents=True, exist_ok=True)
-        for path in list(base_dir.glob("*.yaml")) + list(base_dir.glob("*.yml")):
+        for path in list(base_dir.glob("*.y*ml")):
             dest = user_dir / path.name
             if not dest.exists():
                 shutil.copy2(path, dest)
