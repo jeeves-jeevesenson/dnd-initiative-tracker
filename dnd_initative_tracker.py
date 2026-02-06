@@ -1298,7 +1298,7 @@ class LanController:
         cid = self._assigned_cid_for_host(host)
         if cid is None:
             return None
-        name = self._pc_name_for(int(cid))
+        name = self._tracker._pc_name_for(int(cid))
         if name.startswith("cid:"):
             return None
         return name
@@ -2063,7 +2063,7 @@ class LanController:
                     self._grid_pending.pop(ws_id, None)
                     self._terrain_pending.pop(ws_id, None)
                 if old is not None:
-                    name = self._pc_name_for(int(old))
+                    name = self._tracker._pc_name_for(int(old))
                     self.app._oplog(f"LAN session disconnected ws_id={ws_id} (claimed {name})")
                 else:
                     self.app._oplog(f"LAN session disconnected ws_id={ws_id}")
@@ -2130,7 +2130,7 @@ class LanController:
         subscriptions = self._subscriptions_for_cid(cid)
         if not subscriptions:
             return
-        name = self._pc_name_for(cid)
+        name = self._tracker._pc_name_for(cid)
         payload = {
             "title": "Your turn!",
             "body": f"{name} is up (round {round_num}, turn {turn_num}).",
@@ -2210,7 +2210,9 @@ class LanController:
                     if ws_id in self._clients_meta:
                         self._clients_meta[ws_id]["reverse_dns"] = reverse_dns
                 assigned_cid = self._host_assignments.get(host)
-                assigned_name = self._pc_name_for(int(assigned_cid)) if isinstance(assigned_cid, int) else None
+                assigned_name = (
+                    self._tracker._pc_name_for(int(assigned_cid)) if isinstance(assigned_cid, int) else None
+                )
                 out.append(
                     {
                         "ws_id": int(ws_id),
@@ -2257,7 +2259,7 @@ class LanController:
                     "ip": host,
                     "reverse_dns": reverse_dns,
                     "assigned_cid": int(cid),
-                    "assigned_name": self._pc_name_for(int(cid)),
+                    "assigned_name": self._tracker._pc_name_for(int(cid)),
                     "yaml_assigned_cid": yaml_entry.get("cid"),
                     "yaml_assigned_name": yaml_entry.get("name"),
                     "status": "offline",
@@ -3189,7 +3191,7 @@ class LanController:
         # Drop claim mapping
         old = self._drop_claim(ws_id)
         if old is not None:
-            name = self._pc_name_for(int(old))
+            name = self._tracker._pc_name_for(int(old))
             self.app._oplog(f"LAN session ws_id={ws_id} unclaimed {name} ({reason})")
         await self._send_async(ws_id, {"type": "force_unclaim", "text": reason, "pcs": self._pcs_payload()})
 
@@ -3211,7 +3213,7 @@ class LanController:
                 self._cid_to_host.setdefault(int(cid), set()).add(host)
 
         await self._send_async(ws_id, {"type": "force_claim", "cid": int(cid), "text": note})
-        name = self._pc_name_for(int(cid))
+        name = self._tracker._pc_name_for(int(cid))
         self.app._oplog(f"LAN session ws_id={ws_id} claimed {name} ({note})")
 
     # ---------- helpers ----------
@@ -6565,6 +6567,25 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _lan_apply_action(self, msg: Dict[str, Any]) -> None:
         """Apply client actions on the Tk thread."""
+        tracker: Optional["InitiativeTracker"]
+        if isinstance(self, InitiativeTracker):
+            tracker = self
+        else:
+            tracker = getattr(self, "_tracker", None) or getattr(self, "app", None)
+        log_warning = None
+        def _resolve_pc_name(cid_value: Optional[int]) -> str:
+            if cid_value is None:
+                return ""
+            if tracker is None or not hasattr(tracker, "_pc_name_for"):
+                if log_warning is not None:
+                    log_warning(f"LAN action missing pc name resolver for cid {cid_value}.")
+                return ""
+            try:
+                return tracker._pc_name_for(int(cid_value))
+            except Exception as exc:
+                if log_warning is not None:
+                    log_warning(f"LAN action failed to resolve pc name for cid {cid_value}: {exc}")
+                return ""
         if not isinstance(self, InitiativeTracker) or not hasattr(self, "_pc_name_for"):
             if os.getenv("LAN_BIND_DEBUG") == "1":
                 log_fn = getattr(self, "_oplog", None)
@@ -6592,7 +6613,6 @@ class InitiativeTracker(base.InitiativeTracker):
                 log_fn(debug_message, level="debug")
         typ = str(msg.get("type") or "")
         ws_id = msg.get("_ws_id")
-        log_warning = None
         try:
             log_warning = lambda message: self._lan._append_lan_log(message, level="warning")
         except Exception:
@@ -6680,7 +6700,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if not c:
                 return
             setattr(c, "token_color", color)
-            player_name = self._pc_name_for(int(cid)) if cid is not None else ""
+            player_name = _resolve_pc_name(cid)
             if player_name and not player_name.startswith("cid:"):
                 try:
                     self._save_player_token_color(player_name, color)
@@ -6762,7 +6782,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     if slot_level > 9:
                         self._lan.toast(ws_id, "Pick a valid spell slot level, matey.")
                         return
-                    player_name = self._pc_name_for(int(cid)) if cid is not None else ""
+                    player_name = _resolve_pc_name(cid)
                     if not player_name or player_name.startswith("cid:"):
                         self._lan.toast(ws_id, "No spell slots set up for that caster, matey.")
                         return
