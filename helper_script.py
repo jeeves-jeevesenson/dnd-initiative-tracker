@@ -25,6 +25,7 @@ from __future__ import annotations
 import random
 import math
 import os
+import sys
 import shutil
 import ast
 import re
@@ -59,6 +60,51 @@ except Exception as e:  # pragma: no cover
     ImageTk = None
     PIL_IMAGETK_IMPORT_ERROR = str(e)
 
+
+def _app_base_dir() -> Path:
+    try:
+        if getattr(sys, "frozen", False):
+            return Path(sys.executable).parent
+    except Exception:
+        pass
+    try:
+        return Path(__file__).resolve().parent
+    except Exception:
+        try:
+            return Path.cwd()
+        except Exception:
+            return Path(".")
+
+
+def _app_data_dir() -> Path:
+    if sys.platform.startswith("win"):
+        local_appdata = os.getenv("LOCALAPPDATA")
+        if local_appdata:
+            return Path(local_appdata) / "DnDInitiativeTracker"
+    return _app_base_dir()
+
+
+def _seed_user_players_dir() -> None:
+    if not sys.platform.startswith("win"):
+        return
+    user_dir = _app_data_dir() / "players"
+    base_dir = _app_base_dir() / "players"
+    if not base_dir.exists():
+        return
+    try:
+        if user_dir.exists():
+            if any(user_dir.glob("*.yaml")) or any(user_dir.glob("*.yml")):
+                return
+    except Exception:
+        return
+    try:
+        user_dir.mkdir(parents=True, exist_ok=True)
+        for path in list(base_dir.glob("*.yaml")) + list(base_dir.glob("*.yml")):
+            dest = user_dir / path.name
+            if not dest.exists():
+                shutil.copy2(path, dest)
+    except Exception:
+        pass
 
 
 # --- 2024 Basic Rules (conditions list) ---
@@ -989,12 +1035,8 @@ class InitiativeTracker(tk.Tk):
 
     # --------------------- Startup players ---------------------
     def _players_file_path(self) -> Path:
-        # Keep the roster directory next to the script for easy editing/backup.
-        try:
-            base = Path(__file__).resolve().parent
-        except Exception:
-            base = Path.cwd()
-        return base / "players"
+        _seed_user_players_dir()
+        return _app_data_dir() / "players"
 
     def _player_name_from_filename(self, path: Path) -> Optional[str]:
         stem = path.stem.strip()
@@ -1015,11 +1057,7 @@ class InitiativeTracker(tk.Tk):
 
     # --------------------- History / Log ---------------------
     def _history_file_path(self) -> Path:
-        try:
-            base = Path(__file__).resolve().parent
-        except Exception:
-            base = Path.cwd()
-        return base / "dnd_initative_tracker_history.log"
+        return self._logs_dir_path() / "dnd_initative_tracker_history.log"
 
     def _init_log_styles(self) -> None:
         """Configure log widget tags (timestamp toggle + name styling)."""
@@ -3139,10 +3177,7 @@ class InitiativeTracker(tk.Tk):
 
     # --------------------- Index cache helpers ---------------------
     def _logs_dir_path(self) -> Path:
-        try:
-            base_dir = Path.cwd()
-        except Exception:
-            base_dir = Path(".")
+        base_dir = _app_data_dir()
         logs = base_dir / "logs"
         try:
             logs.mkdir(parents=True, exist_ok=True)
@@ -3271,7 +3306,7 @@ class InitiativeTracker(tk.Tk):
 
     # --------------------- Monsters (YAML library) ---------------------
     def _monsters_dir_path(self) -> Path:
-        return Path.cwd() / "Monsters"
+        return _app_base_dir() / "Monsters"
 
     def _load_monsters_index(self) -> None:
         """Load ./Monsters/*.yml|*.yaml and build a small index for the add dropdown."""
@@ -5842,7 +5877,7 @@ class BattleMapWindow(tk.Toplevel):
         self._update_move_highlight()
 
     def _ensure_preset_dir(self) -> Path:
-        preset_dir = Path(__file__).resolve().parent / "presets"
+        preset_dir = _app_data_dir() / "presets"
         preset_dir.mkdir(parents=True, exist_ok=True)
         return preset_dir
 

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package
+    Name="DnD Initiative Tracker"
+    Manufacturer="jeeves-jeevesenson"
+    Version="$(var.ProductVersion)"
+    UpgradeCode="116e6f2c-c353-4217-af87-a213c220728f"
+    Scope="perUser">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of DnD Initiative Tracker is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Icon Id="AppIcon" SourceFile="$(var.SourceDir)\assets\icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+  </Package>
+
+  <Fragment>
+    <Directory Id="LocalAppDataFolder">
+      <Directory Id="LocalAppProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="DnDInitiativeTracker" />
+      </Directory>
+    </Directory>
+    <Directory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="DnD Initiative Tracker" />
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <util:CloseApplication
+      Id="CloseDnDInitiativeTracker"
+      Target="DnDInitiativeTracker.exe"
+      CloseMessage="Please close D&amp;D Initiative Tracker to continue." />
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="ProgramMenuDir">
+      <Component Id="StartMenuShortcut" Guid="*">
+        <Shortcut
+          Id="DnDInitiativeTrackerShortcut"
+          Name="D&amp;D Initiative Tracker"
+          Target="[INSTALLFOLDER]DnDInitiativeTracker.exe"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon" />
+        <RemoveFolder Id="ProgramMenuDir" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\DnDInitiativeTracker" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="AppShortcuts">
+      <ComponentRef Id="StartMenuShortcut" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Feature Id="MainFeature" Title="DnD Initiative Tracker" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentGroupRef Id="AppShortcuts" />
+    </Feature>
+  </Fragment>
+</Wix>

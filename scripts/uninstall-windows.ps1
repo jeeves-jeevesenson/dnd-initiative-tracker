@@ -44,18 +44,12 @@ if (-not $Silent) {
 }
 
 Write-Host ""
-Write-Host "Removing application files..." -ForegroundColor Yellow
-
-if (Test-Path $InstallDir) {
-    try {
-        Remove-Item -Path $InstallDir -Recurse -Force
-        Write-Host "✓ Application files removed successfully" -ForegroundColor Green
-    } catch {
-        Write-Host "⚠ Failed to remove some files: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "You may need to delete manually: $InstallDir" -ForegroundColor Yellow
-    }
-} else {
-    Write-Host "⚠ Application directory not found. Already uninstalled?" -ForegroundColor Yellow
+Write-Host "Closing running application..." -ForegroundColor Yellow
+try {
+    Get-Process -Name "DnDInitiativeTracker" -ErrorAction SilentlyContinue | Stop-Process -Force
+    Write-Host "✓ Application closed (if it was running)" -ForegroundColor Green
+} catch {
+    Write-Host "⚠ Could not close running application: $($_.Exception.Message)" -ForegroundColor Yellow
 }
 
 Write-Host ""
@@ -106,11 +100,44 @@ try {
 }
 
 Write-Host ""
+Write-Host "Removing application files..." -ForegroundColor Yellow
+
+if (Test-Path $InstallDir) {
+    try {
+        $tempScript = Join-Path $env:TEMP ("dnd-tracker-remove-" + [guid]::NewGuid().ToString() + ".ps1")
+        @"
+param([string]`$TargetDir, [int]`$ParentPid)
+if (`$ParentPid) {
+    try {
+        Wait-Process -Id `$ParentPid -ErrorAction SilentlyContinue
+    } catch {
+    }
+}
+Start-Sleep -Seconds 2
+if (Test-Path -LiteralPath `$TargetDir) {
+    Remove-Item -LiteralPath `$TargetDir -Recurse -Force
+}
+try {
+    Remove-Item -LiteralPath `$MyInvocation.MyCommand.Path -Force
+} catch {
+}
+"@ | Set-Content -Path $tempScript -Encoding UTF8
+        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`" -TargetDir `"$InstallDir`" -ParentPid $PID" -WindowStyle Hidden
+        Write-Host "✓ Application files removal scheduled" -ForegroundColor Green
+    } catch {
+        Write-Host "⚠ Failed to schedule file removal: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "You may need to delete manually: $InstallDir" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "⚠ Application directory not found. Already uninstalled?" -ForegroundColor Yellow
+}
+
+Write-Host ""
 Write-Host "====================================================" -ForegroundColor Cyan
 Write-Host "Uninstallation Complete!" -ForegroundColor Cyan
 Write-Host "====================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "D&D Initiative Tracker has been removed from your system." -ForegroundColor Green
+Write-Host "D&D Initiative Tracker will be removed from your system shortly." -ForegroundColor Green
 Write-Host ""
 
 if (-not $Silent) {

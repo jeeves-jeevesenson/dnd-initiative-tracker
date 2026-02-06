@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import copy
 from collections import deque
+import sys
 
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
@@ -58,6 +59,52 @@ except Exception as e:  # pragma: no cover
         "Make sure helper_script and dnd_initative_tracker be in the same directory.\n\n"
         f"Import error: {e}"
     )
+
+
+def _app_base_dir() -> Path:
+    try:
+        if getattr(sys, "frozen", False):
+            return Path(sys.executable).parent
+    except Exception:
+        pass
+    try:
+        return Path(__file__).resolve().parent
+    except Exception:
+        try:
+            return Path.cwd()
+        except Exception:
+            return Path(".")
+
+
+def _app_data_dir() -> Path:
+    if sys.platform.startswith("win"):
+        local_appdata = os.getenv("LOCALAPPDATA")
+        if local_appdata:
+            return Path(local_appdata) / "DnDInitiativeTracker"
+    return _app_base_dir()
+
+
+def _seed_user_players_dir() -> None:
+    if not sys.platform.startswith("win"):
+        return
+    user_dir = _app_data_dir() / "players"
+    base_dir = _app_base_dir() / "players"
+    if not base_dir.exists():
+        return
+    try:
+        if user_dir.exists():
+            if any(user_dir.glob("*.yaml")) or any(user_dir.glob("*.yml")):
+                return
+    except Exception:
+        return
+    try:
+        user_dir.mkdir(parents=True, exist_ok=True)
+        for path in list(base_dir.glob("*.yaml")) + list(base_dir.glob("*.yml")):
+            dest = user_dir / path.name
+            if not dest.exists():
+                shutil.copy2(path, dest)
+    except Exception:
+        pass
 
 
 def _load_character_schema_helpers() -> Tuple[Callable[[], Dict[str, Any]], Callable[[Any, Any], Any], Callable[[str, str], str]]:
@@ -463,11 +510,8 @@ class CharacterApiError(Exception):
 
 
 def _ensure_logs_dir() -> Path:
-    """Create ./logs in the current working directory (best effort)."""
-    try:
-        base_dir = Path.cwd()
-    except Exception:
-        base_dir = Path(".")
+    """Create logs/ in the app data directory (best effort)."""
+    base_dir = _app_data_dir()
     logs = base_dir / "logs"
     try:
         logs.mkdir(parents=True, exist_ok=True)
@@ -3447,7 +3491,7 @@ class InitiativeTracker(base.InitiativeTracker):
         return lines
 
     def _resolve_spells_dir(self) -> Optional[Path]:
-        base_dir = Path.cwd()
+        base_dir = _app_base_dir()
         canonical = base_dir / "Spells"
         fallback = base_dir / "spells"
         if canonical.exists():
@@ -4024,7 +4068,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _show_update_log(self) -> None:
         """Show the update log from the most recent update attempts."""
-        log_path = Path(__file__).resolve().parent / "logs" / "update.log"
+        log_path = _ensure_logs_dir() / "update.log"
         if not log_path.exists():
             messagebox.showinfo(
                 "Update Log",
@@ -4068,11 +4112,12 @@ class InitiativeTracker(base.InitiativeTracker):
 
         existing = {str(c.name) for c in self.combatants.values()}
 
-        players_dir = None
+        players_dir = _app_base_dir() / "players"
         try:
-            players_dir = Path(__file__).resolve().parent / "players"
+            _seed_user_players_dir()
+            players_dir = self._players_dir()
         except Exception:
-            players_dir = Path.cwd() / "players"
+            pass
 
         ymod = getattr(base, "yaml", None)
         cfg_cache: Dict[str, Optional[Dict[str, Any]]] = getattr(
@@ -5104,10 +5149,8 @@ class InitiativeTracker(base.InitiativeTracker):
         return presets
 
     def _players_dir(self) -> Path:
-        try:
-            return Path(__file__).resolve().parent / "players"
-        except Exception:
-            return Path.cwd() / "players"
+        _seed_user_players_dir()
+        return _app_data_dir() / "players"
 
     def _write_player_yaml_atomic(self, path: Path, payload: Dict[str, Any]) -> None:
         if yaml is None:
@@ -7955,7 +7998,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
     # --------------------- Monsters (YAML library) ---------------------
     def _monsters_dir_path(self) -> Path:
-        return Path.cwd() / "Monsters"
+        return _app_base_dir() / "Monsters"
 
     def _load_monsters_index(self) -> None:
         """Load ./Monsters/*.yml|*.yaml and build a small index for the add dropdown."""

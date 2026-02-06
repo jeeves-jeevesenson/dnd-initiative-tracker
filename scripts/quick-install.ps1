@@ -117,6 +117,9 @@ Python 3.9 or higher is not installed or not found in PATH.
 
 Please install Python from: https://www.python.org/downloads/
 
+Or install via winget:
+    winget install --id Python.Python.3.12 -e
+
 IMPORTANT: During installation, make sure to check the box that says:
     ☑ Add Python to PATH
 
@@ -134,6 +137,9 @@ try {
 Git is not installed or not found in PATH.
 
 Please install Git from: https://git-scm.com/download/win
+
+Or install via winget:
+    winget install --id Git.Git -e
 
 After installing Git, restart PowerShell and run this installer again.
 "@
