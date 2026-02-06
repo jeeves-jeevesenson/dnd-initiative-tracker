@@ -6767,8 +6767,13 @@ class InitiativeTracker(base.InitiativeTracker):
                         self._lan.toast(ws_id, "No spell slots set up for that caster, matey.")
                         return
                     self._load_player_yaml_cache()
-                    profile = self._player_yaml_data_by_name.get(player_name) or {}
-                    spellcasting = profile.get("spellcasting") if isinstance(profile, dict) else {}
+                    # Case-insensitive lookup via name_map -> path -> cached data
+                    player_key = player_name.lower()
+                    player_path = self._player_yaml_name_map.get(player_key)
+                    profile = self._player_yaml_cache_by_path.get(player_path) if player_path else None
+                    if not isinstance(profile, dict):
+                        profile = {}
+                    spellcasting = profile.get("spellcasting", {})
                     slots = self._normalize_spell_slots(
                         spellcasting.get("spell_slots") if isinstance(spellcasting, dict) else None
                     )
