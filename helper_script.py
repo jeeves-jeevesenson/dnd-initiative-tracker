@@ -4321,7 +4321,7 @@ class InitiativeTracker(tk.Tk):
 
         ttk.Button(add_row, text="Add another hit", command=on_add).pack(side=tk.LEFT)
 
-        close_after = tk.BooleanVar(value=False)
+        close_after = tk.BooleanVar(value=True)
         ttk.Checkbutton(add_row, text="Close after apply", variable=close_after).pack(side=tk.RIGHT)
 
         # ---- Bottom action buttons ----
@@ -4630,7 +4630,7 @@ class InitiativeTracker(tk.Tk):
 
         ttk.Button(add_row, text="Add another heal", command=on_add).pack(side=tk.LEFT)
 
-        close_after = tk.BooleanVar(value=False)
+        close_after = tk.BooleanVar(value=True)
         ttk.Checkbutton(add_row, text="Close after apply", variable=close_after).pack(side=tk.RIGHT)
 
         bottom = ttk.Frame(outer)
@@ -8966,7 +8966,7 @@ class BattleMapWindow(tk.Toplevel):
         save_cb = ttk.Combobox(controls, textvariable=save_var, values=save_types, state="readonly", width=5)
         save_cb.grid(row=1, column=4, sticky="w", padx=(6, 12), pady=(8, 0))
 
-        half_on_pass = tk.BooleanVar(value=False)
+        half_on_pass = tk.BooleanVar(value=from_spell)
         half_cb = ttk.Checkbutton(controls, text="Half on pass (per component)", variable=half_on_pass)
         half_cb.grid(row=1, column=2, sticky="w", pady=(8, 0))
 
