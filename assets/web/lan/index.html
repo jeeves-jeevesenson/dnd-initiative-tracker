@@ -1952,7 +1952,7 @@
         <div class="chip" id="bonusAction">Bonus Action: —</div>
         <div class="chip" id="reaction">Reaction: —</div>
         <div class="chip" id="turn">Turn: —</div>
-        <div class="chip" id="note">Tip: drag yer token · drag AoE with left-click or touch-hold</div>
+        <div class="chip" id="note">Tip: drag yer token · hold Shift to drag AoE (touch-hold ok)</div>
         <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
       </div>
       <fieldset class="turn-alerts-panel" id="turnAlertsPanel">
@@ -4373,7 +4373,7 @@ __DAMAGE_TYPE_OPTIONS__
   function localToast(text){
     if (!noteEl) return;
     noteEl.textContent = text || "…";
-    setTimeout(() => noteEl.textContent = "Tip: drag yer token · drag AoE with left-click or touch-hold", 2500);
+    setTimeout(() => noteEl.textContent = "Tip: drag yer token · hold Shift to drag AoE (touch-hold ok)", 2500);
   }
 
   const DEFAULT_SPELL_COLOR = "#6aa9ff";
@@ -6686,7 +6686,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
         updateHud();
         noteEl.textContent = msg.text || "Assigned by the DM.";
-        setTimeout(() => noteEl.textContent = "Tip: drag yer token · drag AoE with left-click or touch-hold", 2500);
+        setTimeout(() => noteEl.textContent = "Tip: drag yer token · hold Shift to drag AoE (touch-hold ok)", 2500);
         refreshTurnAlertStatus();
         checkAutoClaimResolved();
       } else if (msg.type === "force_unclaim"){
@@ -6701,7 +6701,7 @@ __DAMAGE_TYPE_OPTIONS__
         handleAutoClaimFailure();
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
-        setTimeout(() => noteEl.textContent = "Tip: drag yer token · drag AoE with left-click or touch-hold", 2500);
+        setTimeout(() => noteEl.textContent = "Tip: drag yer token · hold Shift to drag AoE (touch-hold ok)", 2500);
       } else if (msg.type === "battle_log"){
         if (logContent){
           const lines = Array.isArray(msg.lines) ? msg.lines : [];
@@ -6893,6 +6893,13 @@ __DAMAGE_TYPE_OPTIONS__
     beginAoeDrag(pending);
   }
 
+  function allowAoeDrag(ev){
+    if (isMapView) return false;
+    if (ev.pointerType === "touch") return true;
+    if (isPlanning) return true;
+    return !!ev.shiftKey;
+  }
+
   canvas.addEventListener("pointerdown", (ev) => {
     if (enforceLoginGate()) return;
     setTokenTooltip(null);
@@ -6910,9 +6917,31 @@ __DAMAGE_TYPE_OPTIONS__
       setMeasurementPoint(p);
       return;
     }
+    if (isMapView){
+      if (!lockMap){
+        panning = {x: p.x, y: p.y, panX, panY};
+      }
+      return;
+    }
+
+    const hit = hitTestToken(p);
+    if (hit){
+      // only drag own token
+      if (!claimedCid || !cidMatches(hit.cid, claimedCid, "dragToken.hitCid")){
+        send({type:"toast", text:"Arrr, that token ain’t yers."});
+        return;
+      }
+      // only on your turn
+      if (state.active_cid === null || !cidMatches(state.active_cid, claimedCid, "dragToken.activeCid")){
+        send({type:"toast", text:"Not yer turn yet, matey."});
+        return;
+      }
+      dragging = {cid: hit.cid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
+      return;
+    }
     const isTouchPointer = ev.pointerType === "touch";
     const isAoeDragMouse = ev.pointerType === "mouse" && (ev.button === 0 || ev.button === 1);
-    if ((isAoeDragMouse || isTouchPointer) && !isMapView){
+    if ((isAoeDragMouse || isTouchPointer) && allowAoeDrag(ev)){
       const hitAoe = hitTestAoe(p);
       if (hitAoe){
         ev.preventDefault();
@@ -6943,28 +6972,6 @@ __DAMAGE_TYPE_OPTIONS__
         }
         return;
       }
-    }
-    if (isMapView){
-      if (!lockMap){
-        panning = {x: p.x, y: p.y, panX, panY};
-      }
-      return;
-    }
-
-    const hit = hitTestToken(p);
-    if (hit){
-      // only drag own token
-      if (!claimedCid || !cidMatches(hit.cid, claimedCid, "dragToken.hitCid")){
-        send({type:"toast", text:"Arrr, that token ain’t yers."});
-        return;
-      }
-      // only on your turn
-      if (state.active_cid === null || !cidMatches(state.active_cid, claimedCid, "dragToken.activeCid")){
-        send({type:"toast", text:"Not yer turn yet, matey."});
-        return;
-      }
-      dragging = {cid: hit.cid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
-      return;
     }
     // else pan (if map not locked)
     if (shiftMoveMode){

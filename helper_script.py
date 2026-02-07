@@ -5543,6 +5543,10 @@ class BattleMapWindow(tk.Toplevel):
         self.pin_chk = ttk.Checkbutton(left, text="Stationary (pinned)", variable=self.pin_var, command=self._toggle_pin_selected)
         self.pin_chk.pack(anchor="w", pady=(6, 0))
 
+        self.aoe_move_var = tk.BooleanVar(value=False)
+        self.aoe_move_chk = ttk.Checkbutton(left, text="Move AoEs", variable=self.aoe_move_var)
+        self.aoe_move_chk.pack(anchor="w", pady=(4, 0))
+
         duration_row = ttk.Frame(left)
         duration_row.pack(anchor="w", pady=(6, 0))
         ttk.Label(duration_row, text="Duration (turns):").pack(side=tk.LEFT)
@@ -7770,11 +7774,26 @@ class BattleMapWindow(tk.Toplevel):
         self._raise_aoe_overlays()
 
     def _raise_aoe_overlays(self) -> None:
+        ref_tag = None
+        try:
+            if self.canvas.find_withtag("unitmarker"):
+                ref_tag = "unitmarker"
+            elif self.canvas.find_withtag("unitname"):
+                ref_tag = "unitname"
+            elif self.canvas.find_withtag("unit"):
+                ref_tag = "unit"
+        except Exception:
+            ref_tag = None
+        if ref_tag is None:
+            return
         for aid in list(self.aoes.keys()):
             try:
-                self.canvas.tag_raise(f"aoe:{aid}")
+                self.canvas.tag_lower(f"aoe:{aid}", ref_tag)
             except Exception:
                 pass
+
+    def _aoe_move_mode_active(self) -> bool:
+        return bool(getattr(self, "aoe_move_var", None) and self.aoe_move_var.get())
 
     def _spell_aoe_presets(self) -> List[Dict[str, Any]]:
         app = getattr(self, "app", None)
@@ -8036,12 +8055,7 @@ class BattleMapWindow(tk.Toplevel):
         aid = self._aoe_index_to_id[idx]
         self._selected_aoe = aid
         self.pin_var.set(bool(self.aoes[aid].get("pinned")))
-        # bring to front
-        try:
-            self.canvas.tag_raise(f"aoe:{aid}")
-            self.canvas.tag_raise(f"aoe:{aid}")
-        except Exception:
-            pass
+        self._raise_aoe_overlays()
         self._update_included_for_selected()
         self._sync_aoe_color_ui(aid)
         self._sync_aoe_duration_ui(aid)
@@ -8379,22 +8393,25 @@ class BattleMapWindow(tk.Toplevel):
 
         # Determine clicked object (click-through grid/measure)
         item = None
-        items = self.canvas.find_withtag("current")
-        if items:
-            item = items[0]
-
-        if item is not None:
-            tags0 = self.canvas.gettags(item)
-            if "grid" in tags0 or "measure" in tags0 or "movehl" in tags0:
-                overl = self.canvas.find_overlapping(mx, my, mx, my)
+        overl = self.canvas.find_overlapping(mx, my, mx, my)
+        if overl:
+            for cand in reversed(overl):
+                tg = self.canvas.gettags(cand)
+                if "unit" in tg or "unitname" in tg or "unitmarker" in tg or any(t.startswith("unit:") for t in tg):
+                    item = cand
+                    break
+            if item is None:
                 for cand in reversed(overl):
                     tg = self.canvas.gettags(cand)
                     if "grid" in tg or "measure" in tg or "movehl" in tg:
                         continue
+                    if any(t.startswith("aoe:") for t in tg):
+                        if self._aoe_move_mode_active():
+                            item = cand
+                            break
+                        continue
                     item = cand
                     break
-                else:
-                    item = None
 
         preferred_cid = self._group_preferred_cid
         if preferred_cid is not None:
@@ -8798,6 +8815,8 @@ class BattleMapWindow(tk.Toplevel):
 
     def _on_canvas_double_click(self, event: tk.Event) -> None:
         if getattr(self, "_drawing_obstacles", False) or getattr(self, "_drawing_rough", False):
+            return
+        if not self._aoe_move_mode_active():
             return
         mx = float(self.canvas.canvasx(event.x))
         my = float(self.canvas.canvasy(event.y))
