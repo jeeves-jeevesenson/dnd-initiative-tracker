@@ -2,7 +2,6 @@ format_version: 2
 name: Johnny Morris
 player: Steve
 campaign: ''
-ip: 192.168.0.164
 identity:
   pronouns: he/him
   ancestry: Plasmoid
