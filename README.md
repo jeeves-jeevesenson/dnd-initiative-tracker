@@ -37,7 +37,7 @@ wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tr
 
 #### 🪟 Windows Users (Recommended)
 
-**[📥 Download MSI Installer](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/actions/workflows/build-msi.yml)** - Click on the latest successful workflow run, scroll to the "Artifacts" section at the bottom, and download **`DnDInitiativeTracker-x.y.z.msi`**. The MSI bundles Python, so **no Git or Python install is required**, and it adds a Start Menu shortcut.
+**[📥 Download MSI Installer](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/actions/workflows/build-msi.yml)** - Click on the latest successful workflow run, scroll to the "Artifacts" section at the bottom, and download **`DnDInitiativeTracker-x.y.z`**. Extract the zip file to get the **`DnDInitiativeTracker-x.y.z.msi`** installer and run it. The MSI bundles Python, so **no Git or Python install is required**, and it adds a Start Menu shortcut.
 
 **Alternate (PowerShell quick install):** For developer/portable installs, you can still use the quick install script. This path requires Python + Git and may need execution policy tweaks (see [Windows Installation Notes](#windows-installation-notes)).
 
@@ -332,7 +332,7 @@ After installation, run: `dnd-initiative-tracker`
 
 **Windows (Recommended):**
 
-**[📥 Download MSI Installer](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/actions/workflows/build-msi.yml)** - Click on the latest successful workflow run, scroll to the "Artifacts" section at the bottom, and download **`DnDInitiativeTracker-x.y.z.msi`**. The MSI bundles Python and adds a Start Menu shortcut.
+**[📥 Download MSI Installer](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/actions/workflows/build-msi.yml)** - Click on the latest successful workflow run, scroll to the "Artifacts" section at the bottom, and download **`DnDInitiativeTracker-x.y.z`**. Extract the zip file to get the MSI installer. The MSI bundles Python and adds a Start Menu shortcut.
 
 **Windows (Quick Install, advanced):**
 ```powershell
@@ -385,7 +385,7 @@ If you prefer to update manually or if the built-in updater isn't working:
 
 **For MSI installs:**
 
-**[📥 Download the latest MSI](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/actions/workflows/build-msi.yml)** - Click on the latest successful workflow run, scroll to the "Artifacts" section, and download the MSI. Run it again and Windows Installer will handle the upgrade.
+**[📥 Download the latest MSI](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/actions/workflows/build-msi.yml)** - Click on the latest successful workflow run, scroll to the "Artifacts" section, and download the artifact. Extract the zip file to get the MSI installer, then run it. Windows Installer will handle the upgrade.
 
 **For Quick Install Users (Recommended):**
 
