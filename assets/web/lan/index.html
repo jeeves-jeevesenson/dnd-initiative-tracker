@@ -1914,6 +1914,7 @@
       <div class="row">
         <div class="label">Ye be:</div>
         <div class="value" id="me">(unclaimed)</div>
+        <button class="btn" id="switchCharacter" type="button">Switch character</button>
         <div class="spacer"></div>
         <div class="sheet-actions">
           <button class="btn" id="useAction">Use Action</button>
@@ -2717,6 +2718,7 @@ __DAMAGE_TYPE_OPTIONS__
   const claimContinueBtn = document.getElementById("claimContinue");
   const turnModal = document.getElementById("turnModal");
   const turnModalOk = document.getElementById("turnModalOk");
+  const switchCharacterBtn = document.getElementById("switchCharacter");
   const useActionBtn = document.getElementById("useAction");
   const useBonusActionBtn = document.getElementById("useBonusAction");
   const actionSelectEl = document.getElementById("actionSelect");
@@ -4700,6 +4702,22 @@ __DAMAGE_TYPE_OPTIONS__
     if (shouldShow){
       renderClaimList(lastPcList || []);
     }
+  }
+
+  function requestCharacterSwitch(){
+    allowUnclaimed = false;
+    clearAutoClaimPending();
+    clearLanSelection();
+    if (claimedCid !== null && claimedCid !== undefined){
+      send({type:"unclaim"});
+    }
+    claimedCid = null;
+    selectedClaimCid = null;
+    if (meEl){
+      meEl.textContent = "(unclaimed)";
+    }
+    updateEndTurnState();
+    updateClaimOverlay();
   }
 
   function showDashModal(){
@@ -7184,6 +7202,12 @@ __DAMAGE_TYPE_OPTIONS__
     tokenColorCancel.addEventListener("click", () => {
       closeColorModal();
       showNoOwnedPcToast(lastPcList || []);
+    });
+  }
+  if (switchCharacterBtn){
+    switchCharacterBtn.addEventListener("click", () => {
+      if (enforceLoginGate()) return;
+      requestCharacterSwitch();
     });
   }
   if (claimConfirmBtn){

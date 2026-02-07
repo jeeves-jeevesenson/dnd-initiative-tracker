@@ -2071,6 +2071,8 @@ class LanController:
                             await self._send_async(ws_id, {"type": "toast", "text": "Pick a character first, matey."})
                             continue
                         await self._claim_ws_async(ws_id, int(cid), note="Assigned.", allow_override=False)
+                    elif typ == "unclaim":
+                        await self._unclaim_ws_async(ws_id, reason="Unclaimed", clear_ownership=False)
                     elif typ in (
                         "move",
                         "dash",
