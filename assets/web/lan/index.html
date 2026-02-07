@@ -2332,6 +2332,7 @@ __DAMAGE_TYPE_OPTIONS__
   const pushPublicKey = (window.PUSH_PUBLIC_KEY || "").trim();
   const turnAlertStorageKey = "inittracker_turnAlertSubscription";
   const turnAlertHideKey = "inittracker_hideTurnAlerts";
+  const clientIdStorageKey = "inittracker_client_id";
   let swRegistration = null;
   const cidWarningCache = new Set();
   const warnCid = (context, value, reason) => {
@@ -2562,6 +2563,47 @@ __DAMAGE_TYPE_OPTIONS__
     }
     return outputArray;
   }
+
+  function generateClientId(){
+    try {
+      if (window.crypto && typeof window.crypto.randomUUID === "function"){
+        return window.crypto.randomUUID();
+      }
+    } catch (err){
+      console.warn("Unable to use crypto.randomUUID.", err);
+    }
+    try {
+      if (window.crypto && typeof window.crypto.getRandomValues === "function"){
+        const data = new Uint8Array(16);
+        window.crypto.getRandomValues(data);
+        return Array.from(data).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      }
+    } catch (err){
+      console.warn("Unable to use crypto.getRandomValues.", err);
+    }
+    return `client_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
+  }
+
+  function getClientId(){
+    let existing = "";
+    try {
+      existing = String(localStorage.getItem(clientIdStorageKey) || "").trim();
+    } catch (err){
+      console.warn("Unable to read client id storage.", err);
+    }
+    if (existing){
+      return existing;
+    }
+    const fresh = generateClientId();
+    try {
+      localStorage.setItem(clientIdStorageKey, fresh);
+    } catch (err){
+      console.warn("Unable to persist client id storage.", err);
+    }
+    return fresh;
+  }
+
+  const clientId = getClientId();
 
   if ("serviceWorker" in navigator){
     navigator.serviceWorker.register("/sw.js")
@@ -4603,7 +4645,7 @@ __DAMAGE_TYPE_OPTIONS__
       }, autoClaimTimeoutMs),
       startedAt: stateUpdateCounter,
     };
-    send({type:"claim", cid: selection.cid});
+    send({type:"claim", cid: selection.cid, client_id: clientId});
   }
 
   function handleAutoClaimStateUpdate(){
@@ -4714,7 +4756,7 @@ __DAMAGE_TYPE_OPTIONS__
     clearAutoClaimPending();
     clearLanSelection();
     if (claimedCid !== null && claimedCid !== undefined){
-      send({type:"unclaim"});
+      send({type:"unclaim", client_id: clientId});
     }
     claimedCid = null;
     selectedClaimCid = null;
@@ -6561,6 +6603,9 @@ __DAMAGE_TYPE_OPTIONS__
     ws.addEventListener("open", () => {
       reconnecting = false;
       setConn(true, "Connected");
+      if (!isMapView){
+        send({type:"client_hello", client_id: clientId});
+      }
       send({type:"grid_request"});
       send({type:"terrain_request"});
     });
@@ -6714,6 +6759,10 @@ __DAMAGE_TYPE_OPTIONS__
           shownNoOwnedToast = false;
           autoCenterOnJoin();
           refreshSpellPresetOptions();
+          if (spellbookOverlay?.classList.contains("show")){
+            syncSpellbookClaimedPlayer();
+            renderSpellbook();
+          }
         }
         updateHud();
         noteEl.textContent = msg.text || "Assigned by the DM.";
@@ -6727,6 +6776,9 @@ __DAMAGE_TYPE_OPTIONS__
         shownNoOwnedToast = false;
         showNoOwnedPcToast(msg.pcs || lastPcList || []);
         refreshSpellPresetOptions();
+        if (spellbookOverlay?.classList.contains("show")){
+          renderSpellbook();
+        }
         refreshTurnAlertStatus();
         updateHud();
         handleAutoClaimFailure();
@@ -7267,7 +7319,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
       allowUnclaimed = false;
       storeLanSelection(selectedClaimCid, lastPcList || []);
-      send({type:"claim", cid: selectedClaimCid});
+      send({type:"claim", cid: selectedClaimCid, client_id: clientId});
     });
   }
   if (claimSpectatorBtn){
@@ -7937,6 +7989,20 @@ __DAMAGE_TYPE_OPTIONS__
     setSpellbookStatus(`${knownLimitLabel} · ${cantripLimitLabel} · ${preparedLimitLabel}`);
   }
 
+  function syncSpellbookClaimedPlayer(){
+    const playerName = getClaimedPlayerName();
+    const config = getSpellbookConfig(playerName);
+    spellbookKnownEnabled = config.knownEnabled !== false;
+    spellbookKnownLimit = config.knownLimit;
+    spellbookPreparedLimit = config.max;
+    spellbookCantripsMax = config.cantripsMax;
+    pendingKnownSet = new Set(config.known.map(normalizeTextValue).filter(Boolean));
+    pendingPreparedSet = new Set(config.prepared.map(normalizeTextValue).filter(Boolean));
+    pendingCantripsSet = new Set(config.cantrips.map(normalizeTextValue).filter(Boolean));
+    spellbookMode = spellbookKnownEnabled ? "known" : "prepared";
+    resetSpellbookSelections();
+  }
+
   function openSpellbookOverlay(open){
     if (!spellbookOverlay) return;
     spellbookOverlay.classList.toggle("show", open);
@@ -7945,17 +8011,7 @@ __DAMAGE_TYPE_OPTIONS__
       spellbookPreviousFocus = document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-      const playerName = getClaimedPlayerName();
-      const config = getSpellbookConfig(playerName);
-      spellbookKnownEnabled = config.knownEnabled !== false;
-      spellbookKnownLimit = config.knownLimit;
-      spellbookPreparedLimit = config.max;
-      spellbookCantripsMax = config.cantripsMax;
-      pendingKnownSet = new Set(config.known.map(normalizeTextValue).filter(Boolean));
-      pendingPreparedSet = new Set(config.prepared.map(normalizeTextValue).filter(Boolean));
-      pendingCantripsSet = new Set(config.cantrips.map(normalizeTextValue).filter(Boolean));
-      spellbookMode = spellbookKnownEnabled ? "known" : "prepared";
-      resetSpellbookSelections();
+      syncSpellbookClaimedPlayer();
       if (spellbookSearchInput) spellbookSearchInput.value = spellbookSearchTerm;
       if (spellbookSortSelect) spellbookSortSelect.value = spellbookSortMode;
       renderSpellbook();
