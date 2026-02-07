@@ -2,6 +2,8 @@ name: Build MSI
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
 
@@ -46,7 +48,14 @@ jobs:
         run: wix harvest dir dist\\DnDInitiativeTracker -out packaging\\windows\\wix\\HarvestedFiles.wxs -cg AppFiles -dr INSTALLFOLDER
       - name: Build MSI
         run: wix build -ext WixToolset.Util.wixext -dProductVersion=$env:MSI_VERSION -dSourceDir=dist\\DnDInitiativeTracker -o dist\\DnDInitiativeTracker-$env:APP_VERSION.msi packaging\\windows\\wix\\Product.wxs packaging\\windows\\wix\\HarvestedFiles.wxs
+      - name: Upload MSI as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DnDInitiativeTracker-${{ env.APP_VERSION }}
+          path: dist/DnDInitiativeTracker-${{ env.APP_VERSION }}.msi
+          retention-days: 90
       - name: Upload MSI to release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/DnDInitiativeTracker-${{ env.APP_VERSION }}.msi
