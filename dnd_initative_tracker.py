@@ -791,6 +791,7 @@ class LanConfig:
     denylist: List[str] = field(default_factory=list)
     access_file: Optional[str] = None
     admin_password: Optional[str] = None
+    yaml_host_assignments_enabled: bool = False
 
     def __post_init__(self) -> None:
         env_public = os.getenv("INITTRACKER_VAPID_PUBLIC_KEY")
@@ -800,6 +801,7 @@ class LanConfig:
         env_denylist = os.getenv("INITTRACKER_LAN_DENYLIST")
         env_access_file = os.getenv("INITTRACKER_LAN_ACCESS_FILE")
         env_admin_password = os.getenv("INITTRACKER_ADMIN_PASSWORD")
+        env_yaml_host_assignments = os.getenv("INITTRACKER_LAN_YAML_HOST_ASSIGNMENTS")
         if env_public:
             self.vapid_public_key = env_public.strip()
         if env_private:
@@ -821,6 +823,15 @@ class LanConfig:
         self.denylist.extend(self._parse_access_entries(env_denylist))
         self.allowlist = self._normalize_access_entries(self.allowlist)
         self.denylist = self._normalize_access_entries(self.denylist)
+        if self._parse_env_flag(env_yaml_host_assignments):
+            self.yaml_host_assignments_enabled = True
+
+    @staticmethod
+    def _parse_env_flag(value: Optional[str]) -> bool:
+        if not value:
+            return False
+        raw = value.strip().lower()
+        return raw in ("1", "true", "yes", "y", "on")
 
     @staticmethod
     def _normalize_access_entries(entries: List[str]) -> List[str]:
@@ -1348,6 +1359,10 @@ class LanController:
         return name
 
     def _sync_yaml_host_assignments(self, profiles: Dict[str, Dict[str, Any]]) -> None:
+        if not self.cfg.yaml_host_assignments_enabled:
+            with self._clients_lock:
+                self._yaml_host_assignments = {}
+            return
         if not isinstance(profiles, dict):
             profiles = {}
         def normalize_name(value: Any) -> Optional[str]:
@@ -2140,7 +2155,8 @@ class LanController:
             pass
         try:
             profiles = self.app._player_profiles_payload() if hasattr(self.app, "_player_profiles_payload") else {}
-            self._sync_yaml_host_assignments(profiles)
+            if self.cfg.yaml_host_assignments_enabled:
+                self._sync_yaml_host_assignments(profiles)
         except Exception:
             pass
 
@@ -6189,7 +6205,8 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_dir_signature = dir_signature
         self._player_yaml_last_refresh = time.monotonic()
         try:
-            self._lan._sync_yaml_host_assignments(self._player_yaml_data_by_name)
+            if self._lan.cfg.yaml_host_assignments_enabled:
+                self._lan._sync_yaml_host_assignments(self._player_yaml_data_by_name)
         except Exception:
             pass
 
