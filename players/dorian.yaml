@@ -2,7 +2,6 @@ format_version: 2
 name: Dorian Vandergraff
 player: Louis
 campaign: Eldervale
-ip: 192.168.0.135
 identity:
   pronouns: He/Him
   ancestry: Human
