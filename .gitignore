@@ -8,4 +8,5 @@ dist/
 build/
 logs/*.log
 *.spec
+!packaging/windows/dnd_initiative_tracker.spec
 DNDInitiativeTracker.exe

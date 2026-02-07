@@ -35,9 +35,11 @@ wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tr
 
 > **Linux note:** The quick install script runs the same Linux installer as `scripts/install-linux.sh`, so you will be prompted about adding a KDE/desktop launcher entry during install.
 
-#### 🪟 Windows Users
+#### 🪟 Windows Users (Recommended)
 
-**Important:** You may need to adjust your PowerShell execution policy first. If you get an error, see the [Windows Installation Notes](#windows-installation-notes) section below.
+Download the latest **`DnDInitiativeTracker-x.y.z.msi`** from the [Releases page](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/releases) and run it. The MSI bundles Python, so **no Git or Python install is required**, and it adds a Start Menu shortcut.
+
+**Alternate (PowerShell quick install):** For developer/portable installs, you can still use the quick install script. This path requires Python + Git and may need execution policy tweaks (see [Windows Installation Notes](#windows-installation-notes)).
 
 ```powershell
 # For Windows ONLY - Run in PowerShell
@@ -86,6 +88,8 @@ python dnd_initative_tracker.py
 ```
 
 ### Windows Installation Notes
+
+If you installed via the MSI, you can skip this section.
 
 If you encounter an error about "execution policy" when running the PowerShell quick install, you have two options:
 
@@ -303,9 +307,11 @@ The D&D Initiative Tracker is a feature-rich combat management tool designed for
 - **pip** for installing Python dependencies
 - **Git** (for cloning the repository)
 
+> **Note:** The Windows MSI installer bundles Python and does not require Git.
+
 ### Streamlined Install (Recommended)
 
-The easiest way to install is using our one-line quick install scripts:
+The easiest way to install is using the one-line quick install scripts on Linux/macOS or the MSI on Windows:
 
 **Linux/macOS:**
 ```bash
@@ -324,19 +330,15 @@ This will:
 
 After installation, run: `dnd-initiative-tracker`
 
-**Windows:**
+**Windows (Recommended):**
+
+Download the latest **`DnDInitiativeTracker-x.y.z.msi`** from [Releases](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/releases) and run it. The MSI bundles Python and adds a Start Menu shortcut.
+
+**Windows (Quick Install, advanced):**
 ```powershell
 # Run in PowerShell
 irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex
 ```
-
-This will:
-- Clone the repository to `%LOCALAPPDATA%\DnDInitiativeTracker`
-- Create a Python virtual environment
-- Install all dependencies automatically
-- Create desktop and Start Menu shortcuts
-
-After installation, use the desktop shortcut or search for "D&D Initiative Tracker" in Start Menu.
 
 ### Manual Install (Alternative)
 
@@ -380,6 +382,10 @@ To check for updates:
 #### Manual Update
 
 If you prefer to update manually or if the built-in updater isn't working:
+
+**For MSI installs:**
+
+Download the latest MSI from Releases and run it again. Windows Installer will handle the upgrade.
 
 **For Quick Install Users (Recommended):**
 
@@ -440,6 +446,14 @@ The update scripts will:
 
 ### Uninstalling
 
+**If you installed the MSI:**
+
+Uninstall from **Settings → Apps → Installed apps** (or **Apps & features**) just like any other Windows app. This removes the files and Start Menu shortcut. You can also run a silent uninstall with:
+
+```powershell
+msiexec /x DnDInitiativeTracker-x.y.z.msi
+```
+
 **If you used the quick install:**
 
 Linux/macOS:
@@ -483,7 +497,7 @@ The `requirements.txt` includes:
 
 ### Windows 11 Installation (Desktop Integration)
 
-For Windows 11 users who want a simple installation with desktop shortcuts:
+For most users, the MSI installer from Releases is the simplest path. The steps below are for manual/scripted installs that create shortcuts without MSI:
 
 #### Prerequisites
 

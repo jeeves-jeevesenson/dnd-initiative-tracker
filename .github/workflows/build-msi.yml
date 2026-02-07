@@ -1,0 +1,53 @@
+name: Build MSI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-msi:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+      - name: Build PyInstaller bundle
+        run: pyinstaller --noconfirm packaging/windows/dnd_initiative_tracker.spec
+      - name: Install WiX
+        run: |
+          dotnet tool install --global wix
+          echo "$env:USERPROFILE\\.dotnet\\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Resolve version
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION).Trim()
+          if ($version -match '^\d+$') {
+            $msiVersion = "$version.0.0"
+          } elseif ($version -match '^\d+\.\d+$') {
+            $msiVersion = "$version.0"
+          } else {
+            $msiVersion = $version
+          }
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "MSI_VERSION=$msiVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Harvest WiX files
+        run: wix harvest dir dist\\DnDInitiativeTracker -out packaging\\windows\\wix\\HarvestedFiles.wxs -cg AppFiles -dr INSTALLFOLDER
+      - name: Build MSI
+        run: wix build -ext WixToolset.Util.wixext -dProductVersion=$env:MSI_VERSION -dSourceDir=dist\\DnDInitiativeTracker -o dist\\DnDInitiativeTracker-$env:APP_VERSION.msi packaging\\windows\\wix\\Product.wxs packaging\\windows\\wix\\HarvestedFiles.wxs
+      - name: Upload MSI to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/DnDInitiativeTracker-${{ env.APP_VERSION }}.msi
+          generate_release_notes: true
