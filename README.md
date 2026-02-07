@@ -385,7 +385,7 @@ If you prefer to update manually or if the built-in updater isn't working:
 
 **For MSI installs:**
 
-**[Download the latest MSI](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/releases/latest)** from Releases and run it again. Windows Installer will handle the upgrade.
+**[📥 Download the latest MSI](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/releases/latest)** and run it again. Windows Installer will handle the upgrade.
 
 **For Quick Install Users (Recommended):**
 
