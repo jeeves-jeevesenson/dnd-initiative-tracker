@@ -4492,6 +4492,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "default_damage",
                     "owner",
                     "owner_cid",
+                    "owner_ws_id",
                     "over_time",
                     "move_per_turn_ft",
                     "move_remaining_ft",
@@ -7116,6 +7117,7 @@ class InitiativeTracker(base.InitiativeTracker):
             else:
                 owner = "DM"
                 owner_cid = None
+            owner_ws_id = ws_id if isinstance(ws_id, int) else None
             aoe: Dict[str, Any] = {
                 "kind": shape,
                 "cx": float(cx),
@@ -7132,6 +7134,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "label": None,
                 "owner": owner,
                 "owner_cid": owner_cid,
+                "owner_ws_id": owner_ws_id,
                 "duration_turns": duration_turns_val,
                 "remaining_turns": duration_turns_val if (duration_turns_val or 0) > 0 else None,
             }
@@ -7400,34 +7403,20 @@ class InitiativeTracker(base.InitiativeTracker):
             if anchor_cid_raw is not None and anchor_cid_raw != anchor_cid:
                 d["anchor_cid"] = anchor_cid
             if not is_admin:
-                if owner_cid is not None:
-                    if cid is None or owner_cid != cid:
-                        decision = "reject_owner_mismatch"
-                        _log_aoe_move(
-                            decision,
-                            extra={
-                                "owner_cid": _typed(owner_cid),
-                                "anchor_cid": _typed(anchor_cid),
-                            },
-                        )
-                        _send_aoe_move_ack(False, reason_code=decision)
-                        self._lan.toast(ws_id, "That spell be not yers.")
-                        return
-                elif anchor_cid is not None:
-                    if cid is None or anchor_cid != cid:
-                        decision = "reject_anchor_mismatch"
-                        _log_aoe_move(
-                            decision,
-                            extra={
-                                "owner_cid": _typed(owner_cid),
-                                "anchor_cid": _typed(anchor_cid),
-                            },
-                        )
-                        _send_aoe_move_ack(False, reason_code=decision)
-                        self._lan.toast(ws_id, "That spell be not yers.")
-                        return
-                elif claimed is not None and cid is not None and claimed != cid:
-                    decision = "reject_claimed_mismatch"
+                if owner_cid is None:
+                    decision = "reject_missing_owner"
+                    _log_aoe_move(
+                        decision,
+                        extra={
+                            "owner_cid": _typed(owner_cid),
+                            "anchor_cid": _typed(anchor_cid),
+                        },
+                    )
+                    _send_aoe_move_ack(False, reason_code=decision)
+                    self._lan.toast(ws_id, "That spell be not yers.")
+                    return
+                if cid is None or owner_cid != cid:
+                    decision = "reject_owner_mismatch"
                     _log_aoe_move(
                         decision,
                         extra={
@@ -7593,17 +7582,13 @@ class InitiativeTracker(base.InitiativeTracker):
             )
             if owner_cid_raw is not None and owner_cid_raw != owner_cid:
                 d["owner_cid"] = owner_cid
-            if (
-                owner_cid is not None
-                and cid is not None
-                and owner_cid != cid
-                and not is_admin
-            ):
-                self._lan.toast(ws_id, "That spell be not yers.")
-                return
-            if owner_cid is not None and cid is None and not is_admin:
-                self._lan.toast(ws_id, "That spell be not yers.")
-                return
+            if not is_admin:
+                if owner_cid is None:
+                    self._lan.toast(ws_id, "That spell be not yers.")
+                    return
+                if cid is None or owner_cid != cid:
+                    self._lan.toast(ws_id, "That spell be not yers.")
+                    return
             if map_ready:
                 try:
                     if hasattr(mw, "aoes") and isinstance(mw.aoes, dict):

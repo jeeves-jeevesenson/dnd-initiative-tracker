@@ -8371,6 +8371,7 @@ class BattleMapWindow(tk.Toplevel):
         # Use canvas coordinates (scroll-safe)
         mx = float(self.canvas.canvasx(event.x))
         my = float(self.canvas.canvasy(event.y))
+        shift_held = bool(event.state & 0x0001)
 
         # Obstacle paint mode (disables other interactions while enabled)
         try:
@@ -8406,7 +8407,7 @@ class BattleMapWindow(tk.Toplevel):
                     if "grid" in tg or "measure" in tg or "movehl" in tg:
                         continue
                     if any(t.startswith("aoe:") for t in tg):
-                        if self._aoe_move_mode_active():
+                        if self._aoe_move_mode_active() or shift_held:
                             item = cand
                             break
                         continue
@@ -8816,7 +8817,7 @@ class BattleMapWindow(tk.Toplevel):
     def _on_canvas_double_click(self, event: tk.Event) -> None:
         if getattr(self, "_drawing_obstacles", False) or getattr(self, "_drawing_rough", False):
             return
-        if not self._aoe_move_mode_active():
+        if not (self._aoe_move_mode_active() or bool(event.state & 0x0001)):
             return
         mx = float(self.canvas.canvasx(event.x))
         my = float(self.canvas.canvasy(event.y))
