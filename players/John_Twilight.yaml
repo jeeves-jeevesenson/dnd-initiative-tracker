@@ -1,9 +1,9 @@
 format_version: 2
-name: 'John Twilight '
+name: John Twilight
 player: Giptible Nutsack
 campaign: Eldervale
 identity:
-  pronouns: He/he :)
+  pronouns: He/He
   ancestry: Vampire
   background: Haunted One
   alignment: chaotic good
@@ -29,16 +29,16 @@ proficiency:
   skills:
     proficient:
     - Athletics
-    - 'Insight '
-    - 'Investigation '
-    - 'Perception '
-    - 'Survival '
+    - Insight
+    - Investigation
+    - Perception
+    - Survival
     expertise: []
   tools: []
   languages:
   - Common
-  - 'Celestial '
-  - 'Elvish '
+  - Celestial
+  - Elvish
   - Gnomish
 vitals:
   max_hp: 112
@@ -66,16 +66,12 @@ defenses:
       base_formula: '20'
     bonuses: []
   resistances:
-  - 'necrotic '
+  - necrotic
   - fire
   immunities:
-  - 'poison '
+  - poison
   - sleep
   vulnerabilities: []
-attacks:
-  melee_attack_mod: 9
-  ranged_attack_mod: 4
-  weapon_to_hit: 9
 resources:
   pools: []
 features: []

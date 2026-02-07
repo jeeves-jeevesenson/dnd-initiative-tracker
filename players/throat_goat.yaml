@@ -2,10 +2,6 @@ format_version: 2
 name: Throat Goat
 player: Trevor
 campaign: ''
-ip:
-known_cantrips: 0
-known_spells: 0
-known_spell_names: []
 identity:
   pronouns: Dragon / Balls
   ancestry: Brass Dragonborn
@@ -218,7 +214,3 @@ inventory:
     quantity: 1
     description: ''
 notes: {}
-attacks:
-  melee_attack_mod: 9
-  ranged_attack_mod: 6
-  weapon_to_hit: 9
