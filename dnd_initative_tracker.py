@@ -973,6 +973,9 @@ class LanController:
         self._claims: Dict[int, int] = {}   # id(websocket) -> cid
         self._cid_to_ws: Dict[int, set[int]] = {}  # cid -> {id(websocket), ...}
         self._cid_to_host: Dict[int, set[str]] = {}  # cid -> {host, ...}
+        self._client_ids: Dict[int, str] = {}  # id(websocket) -> client_id
+        self._client_id_to_ws: Dict[str, set[int]] = {}  # client_id -> {id(websocket), ...}
+        self._client_id_claims: Dict[str, int] = {}  # client_id -> cid
         self._host_assignments: Dict[str, int] = self._load_host_assignments()  # host -> cid (persistent)
         self._yaml_host_assignments: Dict[str, Dict[str, Any]] = {}
         self._host_presets: Dict[str, Dict[str, Any]] = self._load_host_presets()
@@ -1217,9 +1220,31 @@ class LanController:
             message = str(payload)
         self._append_lan_log(message, level=level)
 
+    def _spell_debug_log(self, payload: Dict[str, Any], level: str = "info") -> None:
+        if os.getenv("LAN_SPELL_DEBUG") != "1":
+            return
+        try:
+            message = self._json_dumps(payload)
+        except Exception:
+            message = str(payload)
+        self._append_lan_log(message, level=level)
+
     def _log_lan_exception(self, context: str, exc: BaseException) -> None:
         details = traceback.format_exc()
         self._append_lan_log(f"{context}: {exc}\n{details}", level="error")
+
+    @staticmethod
+    def _normalize_client_id(value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, (dict, list, tuple, set)):
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        if len(text) > 128:
+            return None
+        return text
 
     def _lan_log_lines(self, limit: int = 200) -> List[str]:
         with self._lan_log_lock:
@@ -1820,7 +1845,12 @@ class LanController:
                 raise HTTPException(status_code=400, detail=str(exc))
             except RuntimeError as exc:
                 raise HTTPException(status_code=500, detail=str(exc))
-            except Exception:
+            except Exception as exc:
+                error_details = traceback.format_exc()
+                self._append_lan_log(
+                    f"LAN player spell save failed for {player_name}: {exc}\n{error_details}",
+                    level="error",
+                )
                 raise HTTPException(status_code=500, detail="Failed to save player spells.")
             return {"ok": True, "player": {"name": player_name, **normalized}}
 
@@ -1837,7 +1867,12 @@ class LanController:
                 raise HTTPException(status_code=400, detail=str(exc))
             except RuntimeError as exc:
                 raise HTTPException(status_code=500, detail=str(exc))
-            except Exception:
+            except Exception as exc:
+                error_details = traceback.format_exc()
+                self._append_lan_log(
+                    f"LAN player spellbook save failed for {player_name}: {exc}\n{error_details}",
+                    level="error",
+                )
                 raise HTTPException(status_code=500, detail="Failed to save player spellbook.")
             return {"ok": True, "player": profile}
 
@@ -2036,7 +2071,57 @@ class LanController:
                     except Exception:
                         continue
                     typ = str(msg.get("type") or "")
-                    if typ == "save_preset":
+                    if typ == "client_hello":
+                        client_id = self._normalize_client_id(msg.get("client_id"))
+                        if not client_id:
+                            self._spell_debug_log(
+                                {
+                                    "event": "client_hello",
+                                    "ws_id": ws_id,
+                                    "host": host,
+                                    "reason": "missing_client_id",
+                                }
+                            )
+                            continue
+                        self._register_client_id(ws_id, client_id)
+                        cached_claim = self._client_claim_for_id(client_id)
+                        with self._clients_lock:
+                            current_claim = self._claims.get(ws_id)
+                        if cached_claim is None:
+                            self._spell_debug_log(
+                                {
+                                    "event": "client_hello",
+                                    "ws_id": ws_id,
+                                    "host": host,
+                                    "client_id": client_id,
+                                    "reason": "no_saved_claim",
+                                }
+                            )
+                            continue
+                        if current_claim is not None:
+                            self._spell_debug_log(
+                                {
+                                    "event": "client_hello",
+                                    "ws_id": ws_id,
+                                    "host": host,
+                                    "client_id": client_id,
+                                    "cid": current_claim,
+                                    "reason": "already_claimed",
+                                }
+                            )
+                            continue
+                        self._spell_debug_log(
+                            {
+                                "event": "client_hello",
+                                "ws_id": ws_id,
+                                "host": host,
+                                "client_id": client_id,
+                                "cid": cached_claim,
+                                "reason": "restoring_claim",
+                            }
+                        )
+                        await self._claim_ws_async(ws_id, int(cached_claim), note="Restored claim.")
+                    elif typ == "save_preset":
                         preset = msg.get("preset")
                         if preset is not None and not isinstance(preset, dict):
                             await ws.send_text(self._json_dumps({"type": "preset_error", "error": "Invalid preset payload."}))
@@ -2077,6 +2162,11 @@ class LanController:
                             lines = []
                         await ws.send_text(self._json_dumps({"type": "battle_log", "lines": lines}))
                     elif typ == "claim":
+                        client_id = self._normalize_client_id(msg.get("client_id"))
+                        if not client_id:
+                            client_id = self._client_id_for_ws(ws_id)
+                        if client_id:
+                            self._register_client_id(ws_id, client_id)
                         cid = _normalize_cid_value(
                             msg.get("cid"),
                             "lan_message.cid",
@@ -2086,8 +2176,50 @@ class LanController:
                             await self._send_async(ws_id, {"type": "toast", "text": "Pick a character first, matey."})
                             continue
                         await self._claim_ws_async(ws_id, int(cid), note="Assigned.", allow_override=False)
+                        if client_id:
+                            self._set_client_claim(client_id, int(cid))
+                            self._spell_debug_log(
+                                {
+                                    "event": "claim",
+                                    "ws_id": ws_id,
+                                    "host": host,
+                                    "client_id": client_id,
+                                    "cid": int(cid),
+                                }
+                            )
+                            other_ws_ids = self._ws_ids_for_client_id(client_id)
+                            for other_ws_id in other_ws_ids:
+                                if other_ws_id == ws_id:
+                                    continue
+                                await self._claim_ws_async(
+                                    other_ws_id,
+                                    int(cid),
+                                    note="Synced claim.",
+                                    allow_override=False,
+                                )
+                        else:
+                            self._spell_debug_log(
+                                {
+                                    "event": "claim",
+                                    "ws_id": ws_id,
+                                    "host": host,
+                                    "cid": int(cid),
+                                    "reason": "missing_client_id",
+                                }
+                            )
                     elif typ == "unclaim":
                         await self._unclaim_ws_async(ws_id, reason="Unclaimed", clear_ownership=False)
+                        client_id = self._normalize_client_id(msg.get("client_id")) or self._client_id_for_ws(ws_id)
+                        if client_id:
+                            self._clear_client_claim(client_id)
+                            self._spell_debug_log(
+                                {
+                                    "event": "unclaim",
+                                    "ws_id": ws_id,
+                                    "host": host,
+                                    "client_id": client_id,
+                                }
+                            )
                     elif typ in (
                         "move",
                         "dash",
@@ -2136,6 +2268,13 @@ class LanController:
                     self._clients_meta.pop(ws_id, None)
                     self._client_hosts.pop(ws_id, None)
                     self._view_only_clients.discard(ws_id)
+                    client_id = self._client_ids.pop(ws_id, None)
+                    if client_id:
+                        ws_set = self._client_id_to_ws.get(client_id)
+                        if ws_set is not None:
+                            ws_set.discard(ws_id)
+                            if not ws_set:
+                                self._client_id_to_ws.pop(client_id, None)
                     old = self._drop_claim(ws_id)
                     self._grid_pending.pop(ws_id, None)
                     self._terrain_pending.pop(ws_id, None)
@@ -3272,6 +3411,31 @@ class LanController:
                         self._cid_to_host.pop(int(old), None)
         return old
 
+    def _register_client_id(self, ws_id: int, client_id: str) -> None:
+        with self._clients_lock:
+            self._client_ids[ws_id] = client_id
+            self._client_id_to_ws.setdefault(client_id, set()).add(ws_id)
+
+    def _client_id_for_ws(self, ws_id: int) -> Optional[str]:
+        with self._clients_lock:
+            return self._client_ids.get(ws_id)
+
+    def _set_client_claim(self, client_id: str, cid: int) -> None:
+        with self._clients_lock:
+            self._client_id_claims[client_id] = int(cid)
+
+    def _client_claim_for_id(self, client_id: str) -> Optional[int]:
+        with self._clients_lock:
+            return self._client_id_claims.get(client_id)
+
+    def _clear_client_claim(self, client_id: str) -> None:
+        with self._clients_lock:
+            self._client_id_claims.pop(client_id, None)
+
+    def _ws_ids_for_client_id(self, client_id: str) -> set[int]:
+        with self._clients_lock:
+            return set(self._client_id_to_ws.get(client_id, set()))
+
     async def _unclaim_ws_async(
         self, ws_id: int, reason: str = "Unclaimed", clear_ownership: bool = False
     ) -> None:
@@ -3288,6 +3452,10 @@ class LanController:
         # Ensure cid is a PC
         pcs = {int(p.get("cid")): p for p in self._cached_pcs}
         if int(cid) not in pcs:
+            self._spell_debug_log(
+                {"event": "claim", "ws_id": ws_id, "cid": int(cid), "reason": "not_claimable"},
+                level="warning",
+            )
             await self._send_async(ws_id, {"type": "toast", "text": "That character ain't claimable, matey."})
             return
 
