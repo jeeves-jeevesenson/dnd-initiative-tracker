@@ -2867,6 +2867,12 @@ __DAMAGE_TYPE_OPTIONS__
   let lastPcList = [];
   let allowUnclaimed = false;
   let selectedClaimCid = null;
+  const lanSelectedCidKey = "lan_selected_cid";
+  const lanSelectedNameKey = "lan_selected_name";
+  const autoClaimTimeoutMs = 1500;
+  let autoClaimPending = null;
+  let autoClaimChecked = false;
+  let stateUpdateCounter = 0;
   let lastActiveCid = null;
   let lastTurnRound = null;
   let selectedTurnCid = null;
@@ -4493,6 +4499,116 @@ __DAMAGE_TYPE_OPTIONS__
     if (!list.length) return;
     localToast("No assigned PCs found. Ask the DM to assign yer character.");
     shownNoOwnedToast = true;
+  }
+
+  function getClaimablePcName(cid, pcs){
+    const list = Array.isArray(pcs) ? pcs : [];
+    const match = list.find((pc) => pc && cidMatches(pc.cid, cid, "claimList.nameMatch"));
+    if (match?.name) return String(match.name);
+    const unit = getUnitByCid(cid);
+    if (unit?.name) return String(unit.name);
+    return null;
+  }
+
+  function storeLanSelection(cid, pcs){
+    const cidValue = normalizeCid(cid, "lan.storeCid");
+    if (cidValue === null) return;
+    localStorage.setItem(lanSelectedCidKey, String(cidValue));
+    const name = getClaimablePcName(cidValue, pcs);
+    if (name){
+      localStorage.setItem(lanSelectedNameKey, name);
+    } else {
+      localStorage.removeItem(lanSelectedNameKey);
+    }
+  }
+
+  function clearLanSelection(){
+    localStorage.removeItem(lanSelectedCidKey);
+    localStorage.removeItem(lanSelectedNameKey);
+  }
+
+  function loadLanSelection(){
+    const cidValue = normalizeCid(localStorage.getItem(lanSelectedCidKey), "lan.loadCid");
+    if (cidValue === null) return null;
+    const nameValue = localStorage.getItem(lanSelectedNameKey);
+    return {
+      cid: cidValue,
+      name: nameValue ? String(nameValue) : null,
+    };
+  }
+
+  function clearAutoClaimPending(){
+    if (autoClaimPending?.timeoutId){
+      clearTimeout(autoClaimPending.timeoutId);
+    }
+    autoClaimPending = null;
+  }
+
+  function handleAutoClaimFailure(){
+    if (!autoClaimPending) return;
+    const cid = autoClaimPending.cid;
+    const displayName = autoClaimPending.name || `#${cid}`;
+    clearAutoClaimPending();
+    clearLanSelection();
+    allowUnclaimed = false;
+    localToast(`Could not claim ${displayName}. Please choose again.`);
+    updateClaimOverlay();
+  }
+
+  function checkAutoClaimResolved(){
+    if (!autoClaimPending) return;
+    if (claimedCid !== null && claimedCid !== undefined){
+      if (cidMatches(claimedCid, autoClaimPending.cid, "lan.autoClaimMatch")){
+        clearAutoClaimPending();
+      } else {
+        handleAutoClaimFailure();
+      }
+    }
+  }
+
+  function maybeAutoClaimFromState(msg, pcs){
+    if (autoClaimChecked) return;
+    const hasPcInfo = Object.prototype.hasOwnProperty.call(msg || {}, "pcs")
+      || Object.prototype.hasOwnProperty.call(msg || {}, "claimable");
+    if (!hasPcInfo) return;
+    autoClaimChecked = true;
+    if (claimedCid !== null && claimedCid !== undefined) return;
+    const selection = loadLanSelection();
+    if (!selection) return;
+    const list = Array.isArray(pcs) ? pcs : [];
+    if (list.length){
+      const inList = list.some((pc) => pc && cidMatches(pc.cid, selection.cid, "lan.autoClaimList"));
+      if (!inList){
+        autoClaimPending = {cid: selection.cid, name: selection.name || `#${selection.cid}`};
+        handleAutoClaimFailure();
+        return;
+      }
+    }
+    const pendingName = selection.name || getClaimablePcName(selection.cid, list) || `#${selection.cid}`;
+    autoClaimPending = {
+      cid: selection.cid,
+      name: pendingName,
+      timeoutId: setTimeout(() => {
+        if (!autoClaimPending) return;
+        if (!claimedCid || !cidMatches(claimedCid, selection.cid, "lan.autoClaimTimeout")){
+          handleAutoClaimFailure();
+        }
+      }, autoClaimTimeoutMs),
+      startedAt: stateUpdateCounter,
+    };
+    send({type:"claim", cid: selection.cid});
+  }
+
+  function handleAutoClaimStateUpdate(){
+    if (!autoClaimPending) return;
+    if (autoClaimPending.startedAt === undefined) return;
+    if (stateUpdateCounter > autoClaimPending.startedAt){
+      if (!claimedCid || !cidMatches(claimedCid, autoClaimPending.cid, "lan.autoClaimStateCheck")){
+        handleAutoClaimFailure();
+      } else {
+        clearAutoClaimPending();
+      }
+    }
   }
 
   function setSelectedClaimCid(cid){
@@ -6447,6 +6563,7 @@ __DAMAGE_TYPE_OPTIONS__
       } else if (msg.type === "preset_error"){
         setPresetStatus(msg.error || "Preset error.", 2500);
       } else if (msg.type === "state"){
+        stateUpdateCounter += 1;
         const oldSpellPresets = state?.spell_presets;
         const oldPlayerSpells = state?.player_spells;
         const oldPlayerProfiles = state?.player_profiles;
@@ -6482,6 +6599,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
         updateSpellPresetOptions(state.spell_presets);
         lastPcList = msg.pcs || msg.claimable || [];
+        maybeAutoClaimFromState(msg, lastPcList);
         updateWaitingOverlay();
         draw();
         updateHud();
@@ -6503,6 +6621,7 @@ __DAMAGE_TYPE_OPTIONS__
         if (isPlanning){
           planningSnapshotLocked = true;
         }
+        handleAutoClaimStateUpdate();
       } else if (msg.type === "turn_update"){
         if (!state){ state = {}; }
         if ("active_cid" in msg){
@@ -6551,6 +6670,7 @@ __DAMAGE_TYPE_OPTIONS__
         noteEl.textContent = msg.text || "Assigned by the DM.";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token · drag AoE with left-click or touch-hold", 2500);
         refreshTurnAlertStatus();
+        checkAutoClaimResolved();
       } else if (msg.type === "force_unclaim"){
         if (isMapView) return;
         claimedCid = null;
@@ -6560,6 +6680,7 @@ __DAMAGE_TYPE_OPTIONS__
         refreshSpellPresetOptions();
         refreshTurnAlertStatus();
         updateHud();
+        handleAutoClaimFailure();
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token · drag AoE with left-click or touch-hold", 2500);
@@ -7072,6 +7193,7 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       allowUnclaimed = false;
+      storeLanSelection(selectedClaimCid, lastPcList || []);
       send({type:"claim", cid: selectedClaimCid});
     });
   }
