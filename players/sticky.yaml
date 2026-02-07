@@ -2,7 +2,6 @@ format_version: 2
 name: стихия
 player: стихия
 campaign: ''
-ip: 192.168.0.28
 identity:
   pronouns: bird/birb
   ancestry: Kenku
