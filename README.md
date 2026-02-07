@@ -1171,7 +1171,6 @@ name: Fred Figglehorn
 format_version: 2
 player: Fred Figglehorn
 campaign: ''
-ip: 192.168.1.51
 identity:
   pronouns: They/Them
   ancestry: Drow
@@ -1216,6 +1215,8 @@ spellcasting:
       - hellish-rebuke
 ```
 
+Note: Player YAML files are keyed by character name and store profile data only. LAN host/IP assignments are managed in-app (and are opt-in), not via YAML identity fields.
+
 #### Key Fields
 
 - **name** or **player**: Character name
@@ -1223,7 +1224,7 @@ spellcasting:
 - **swim_speed** or **vitals.speed.Swim**: Swimming speed (use `ft.` units)
 - **hp** or **vitals.max_hp**: Maximum HP
 - **spellcasting.known_spells.known**: List of spell IDs
-- **ip**: For host-based assignment in LAN mode
+- **identity**: Optional descriptive metadata (pronouns, ancestry, alignment, etc.)
 
 ### Auto-Seeding Players
 
