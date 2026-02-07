@@ -37,7 +37,7 @@ wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tr
 
 #### 🪟 Windows Users (Recommended)
 
-**[📥 Download MSI Installer](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/releases/latest)** - Get the latest **`DnDInitiativeTracker-x.y.z.msi`** from the [Releases page](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/releases) and run it. The MSI bundles Python, so **no Git or Python install is required**, and it adds a Start Menu shortcut.
+**[📥 Download MSI Installer](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/releases/latest)** - Download the latest **`DnDInitiativeTracker-x.y.z.msi`** and run it. The MSI bundles Python, so **no Git or Python install is required**, and it adds a Start Menu shortcut.
 
 **Alternate (PowerShell quick install):** For developer/portable installs, you can still use the quick install script. This path requires Python + Git and may need execution policy tweaks (see [Windows Installation Notes](#windows-installation-notes)).
 
@@ -332,7 +332,7 @@ After installation, run: `dnd-initiative-tracker`
 
 **Windows (Recommended):**
 
-**[📥 Download MSI Installer](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/releases/latest)** - Get the latest **`DnDInitiativeTracker-x.y.z.msi`** from [Releases](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/releases) and run it. The MSI bundles Python and adds a Start Menu shortcut.
+**[📥 Download MSI Installer](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/releases/latest)** - Download the latest **`DnDInitiativeTracker-x.y.z.msi`** and run it. The MSI bundles Python and adds a Start Menu shortcut.
 
 **Windows (Quick Install, advanced):**
 ```powershell
