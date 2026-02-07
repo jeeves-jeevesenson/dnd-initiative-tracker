@@ -28,11 +28,11 @@ proficiency:
     proficient:
     - Athletics
     - Stealth
-    - Persusian
+    - Persuasion
     expertise: []
   tools:
   - Simple Weapons
-  - Marshals Weapons
+  - Martial Weapons
   - Improvised Weapons
   languages:
   - Common
@@ -64,26 +64,9 @@ defenses:
   resistances: []
   immunities: []
   vulnerabilities: []
-attacks:
-  melee_attack_mod: 8
-  ranged_attack_mod: 6
-  weapon_to_hit: 8
 resources:
   pools: []
-features:
-- id: ''
-  name: ''
-  category: ''
-  source: ''
-  description: ''
-  grants:
-    pools: []
-    spells:
-      cantrips: []
-      casts: []
-    actions: []
-    modifiers: []
-    damage_riders: []
+features: []
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.

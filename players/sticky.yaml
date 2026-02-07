@@ -77,10 +77,6 @@ defenses:
   - lightning
   immunities: []
   vulnerabilities: []
-attacks:
-  melee_attack_mod: 7
-  ranged_attack_mod: 4
-  weapon_to_hit: 7
 resources:
   pools: []
 features: []
@@ -150,10 +146,10 @@ bonus_actions:
     says you can.
   type: bonus_action
 spellcasting:
-  enabled: false
+  enabled: true
   spell_yaml_paths:
   - ./Spells
-  casting_ability: '9'
+  casting_ability: wis
   save_dc_formula: 8 + prof + casting_mod
   spell_attack_formula: prof + casting_mod
   cantrips:

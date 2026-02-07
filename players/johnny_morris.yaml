@@ -70,10 +70,6 @@ defenses:
   immunities:
   - Poison
   vulnerabilities: []
-attacks:
-  melee_attack_mod: 6
-  ranged_attack_mod: 7
-  weapon_to_hit: 7
 resources:
   pools: []
 features: []
@@ -158,27 +154,7 @@ spellcasting:
     - starry-wisp
   known_spells:
     max: 0
-    known:
-    - sleep
-    - cure-wounds
-    - entangle
-    - charm-person
-    - thunderwave
-    - locate-object
-    - moonbeam
-    - lightning-bolt
-    - water-walk
-    - conjure-animals
-    - daylight
-    - revivify
-    - plant-growth
-    - freedom-of-movement
-    - wall-of-fire
-    - dominate-beast
-    - blight
-    - tree-stride
-    - insect-plague
-    - speak-with-animals
+    known: []
   prepared_spells:
     max_formula: '19'
     prepared:

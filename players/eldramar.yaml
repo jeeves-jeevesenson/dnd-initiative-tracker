@@ -57,10 +57,6 @@ defenses:
   resistances: []
   immunities: []
   vulnerabilities: []
-attacks:
-  melee_attack_mod: 1
-  ranged_attack_mod: 3
-  weapon_to_hit: 3
 resources:
   pools: []
 features: []
@@ -126,7 +122,7 @@ spellcasting:
   enabled: true
   spell_yaml_paths:
   - ./Spells
-  casting_ability: Intelligence
+  casting_ability: int
   save_dc_formula: 8 + prof + casting_mod
   spell_attack_formula: prof + casting_mod
   cantrips:

@@ -57,10 +57,6 @@ defenses:
   resistances: []
   immunities: []
   vulnerabilities: []
-attacks:
-  melee_attack_mod: 8
-  ranged_attack_mod: 6
-  weapon_to_hit: 8
 resources:
   pools: []
 features: []
@@ -117,7 +113,11 @@ reactions:
   description: You can take a reaction when a trigger occurs. A reaction is only available
     once per round.
   type: reaction
-bonus_actions: []
+bonus_actions:
+- name: Bonus Action
+  description: You can take a bonus action only when a feature, spell, or ability
+    says you can.
+  type: bonus_action
 spellcasting:
   enabled: true
   spell_yaml_paths:

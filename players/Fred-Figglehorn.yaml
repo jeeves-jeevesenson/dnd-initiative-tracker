@@ -1,8 +1,5 @@
-name: Fred Figglehorn
-known_cantrips: 0
-known_spells: 15
-known_spell_names: []
 format_version: 2
+name: Fred Figglehorn
 player: Fred Figglehorn
 campaign: ''
 identity:
@@ -11,7 +8,6 @@ identity:
   background: ''
   alignment: Chaotic Evil
   description: ''
-  name: Fred Figglehorn
 leveling:
   level: 5
   classes:
@@ -126,7 +122,7 @@ spellcasting:
   enabled: true
   spell_yaml_paths:
   - ./Spells
-  casting_ability: chr
+  casting_ability: cha
   save_dc_formula: 8 + prof + casting_mod
   spell_attack_formula: prof + casting_mod
   cantrips:
@@ -143,7 +139,6 @@ spellcasting:
     - detect-thoughts
     - tasha-s-hideous-laughter
     - fireball
-  known_enabled: false
 inventory:
   currency:
     gp: 0
