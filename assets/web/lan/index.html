@@ -1593,6 +1593,7 @@
     <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
     <div class="topbar-controls">
       <button class="btn" id="lockMap">Lock Map</button>
+      <button class="btn" id="lockAoeToggle" type="button" aria-pressed="true">Lock my AOEs</button>
       <button class="btn" id="centerMap">Center on Me</button>
       <button class="btn" id="tokenColorModeBtn">Token Color</button>
       <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
@@ -2640,6 +2641,7 @@ __DAMAGE_TYPE_OPTIONS__
   const actionPickerCancelBtn = document.getElementById("actionPickerCancel");
   const battleLogBtn = document.getElementById("battleLog");
   const lockMapBtn = document.getElementById("lockMap");
+  const lockAoeBtn = document.getElementById("lockAoeToggle");
   const centerMapBtn = document.getElementById("centerMap");
   const zoomInBtn = document.getElementById("zoomIn");
   const zoomOutBtn = document.getElementById("zoomOut");
@@ -2913,6 +2915,7 @@ __DAMAGE_TYPE_OPTIONS__
   let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
   const LOS_PREVIEW_MS = 900;
   const sheetHeightKey = "inittracker_sheetHeight";
+  const lockMyAoesKey = "inittracker_lock_my_aoes";
   const uiToggleKeys = {
     topbarTitle: "inittracker_ui_topbarTitle",
     connIndicator: "inittracker_ui_connIndicator",
@@ -2952,6 +2955,7 @@ __DAMAGE_TYPE_OPTIONS__
   let showResetTurn = readToggle(uiToggleKeys.resetTurn, true);
   let hideSpellMenu = readToggle(uiToggleKeys.hideSpellMenu, false);
   let menusLocked = readToggle(uiToggleKeys.lockMenus, false);
+  let lockMyAoes = readToggle(lockMyAoesKey, true);
   let mapViewSettings = null;
   let connStyle = "full";
   let initiativeStyle = "full";
@@ -3979,6 +3983,7 @@ __DAMAGE_TYPE_OPTIONS__
     applyConnStyle();
     updateHotkeyInputs();
     updateSpellPanelVisibility();
+    updateAoeLockButton();
   }
 
   const localPreset = loadLocalPreset();
@@ -4373,7 +4378,7 @@ __DAMAGE_TYPE_OPTIONS__
   function localToast(text){
     if (!noteEl) return;
     noteEl.textContent = text || "…";
-    setTimeout(() => noteEl.textContent = "Tip: drag yer token · hold Shift to drag AoE (touch-hold ok)", 2500);
+    setTimeout(() => noteEl.textContent = "Tip: drag yer token · unlock “Lock my AOEs” to move AoEs (touch-hold ok)", 2500);
   }
 
   const DEFAULT_SPELL_COLOR = "#6aa9ff";
@@ -5253,6 +5258,7 @@ __DAMAGE_TYPE_OPTIONS__
     for (let i = state.aoes.length - 1; i >= 0; i--){
       const aoe = state.aoes[i];
       if (!aoe || !aoe.kind) continue;
+      if (!canInteractWithAoe(aoe)) continue;
       const cx = Number(aoe.cx ?? 0);
       const cy = Number(aoe.cy ?? 0);
       const dx = gridPos.col - cx;
@@ -5321,6 +5327,31 @@ __DAMAGE_TYPE_OPTIONS__
     if (measureClear){
       measureClear.disabled = !(measurement.start || measurement.end);
     }
+  }
+
+  function updateAoeLockButton(){
+    if (!lockAoeBtn) return;
+    lockAoeBtn.classList.toggle("accent", !lockMyAoes);
+    lockAoeBtn.setAttribute("aria-pressed", lockMyAoes ? "true" : "false");
+    lockAoeBtn.textContent = "Lock my AOEs";
+    lockAoeBtn.setAttribute(
+      "title",
+      lockMyAoes ? "AOEs locked (click to unlock)." : "AOEs unlocked (click to lock)."
+    );
+  }
+
+  function isAdminClient(){
+    return !!getAdminAuth();
+  }
+
+  function canInteractWithAoe(aoe){
+    if (!aoe) return false;
+    if (isMapView) return false;
+    if (isAdminClient()) return true;
+    if (!claimedCid) return false;
+    if (!cidMatches(aoe.owner_cid, claimedCid, "aoe.ownerCid")) return false;
+    if (lockMyAoes) return false;
+    return true;
   }
 
   function getClaimedUnit(){
@@ -6895,9 +6926,12 @@ __DAMAGE_TYPE_OPTIONS__
 
   function allowAoeDrag(ev){
     if (isMapView) return false;
+    if (isAdminClient()) return true;
+    if (!claimedCid) return false;
+    if (lockMyAoes) return false;
     if (ev.pointerType === "touch") return true;
     if (isPlanning) return true;
-    return !!ev.shiftKey;
+    return true;
   }
 
   canvas.addEventListener("pointerdown", (ev) => {
@@ -7144,6 +7178,14 @@ __DAMAGE_TYPE_OPTIONS__
       if (enforceLoginGate()) return;
       lockMap = !lockMap;
       ev.target.textContent = lockMap ? "Unlock Map" : "Lock Map";
+    });
+  }
+  if (lockAoeBtn){
+    lockAoeBtn.addEventListener("click", () => {
+      if (enforceLoginGate()) return;
+      lockMyAoes = !lockMyAoes;
+      persistToggle(lockMyAoesKey, lockMyAoes);
+      updateAoeLockButton();
     });
   }
   if (centerMapBtn){
