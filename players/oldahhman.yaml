@@ -2,7 +2,6 @@ format_version: 2
 name: Old Man
 player: Old Man
 campaign: Old Man
-ip: 192.168.0.126
 identity:
   pronouns: he/him
   ancestry: Human
