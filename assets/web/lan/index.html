@@ -1212,6 +1212,21 @@
     .item .name{font-weight:750;}
     .item .meta{font-size:12px; color:var(--muted);}
     .item:active{background: rgba(255,255,255,0.04);}
+    .claim-item{
+      width:100%;
+      text-align:left;
+      background: transparent;
+      color: var(--text);
+      border: none;
+      cursor:pointer;
+    }
+    .claim-item.selected{
+      background: rgba(106,169,255,0.12);
+      box-shadow: inset 0 0 0 1px rgba(106,169,255,0.35);
+    }
+    .claim-item input{
+      pointer-events:none;
+    }
     .hint{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.4;}
     .hint.hidden{display:none;}
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
@@ -1592,6 +1607,22 @@
     <canvas id="c"></canvas>
     <div class="waiting" id="waitingOverlay">(waiting for combat...)</div>
     <div class="map-tooltip" id="tokenTooltip" role="tooltip" aria-hidden="true"></div>
+
+    <div class="modal" id="claimModal" aria-hidden="true">
+      <div class="card">
+        <h2>Claim yer character</h2>
+        <div class="modal-body">
+          <div class="list" id="claimList"></div>
+          <div class="hint hidden" id="claimEmptyHint">No claimable PCs yet. Ask the DM to add one.</div>
+          <div class="hint" id="claimHint">Pick a character to control. The DM can reassign ye later.</div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn accent" id="claimConfirm" type="button">Confirm</button>
+          <button class="btn" id="claimSpectator" type="button">Spectator / View only</button>
+          <button class="btn" id="claimContinue" type="button">Continue unclaimed</button>
+        </div>
+      </div>
+    </div>
 
     <div class="modal" id="colorModal" aria-hidden="true">
       <div class="card">
@@ -2284,6 +2315,7 @@ __DAMAGE_TYPE_OPTIONS__
   const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
   const isMapView = normalizedPath === "/map_view";
   const isPlanning = normalizedPath === "/planning";
+  const supportsMapView = !isPlanning;
   const wsPath = isMapView ? "/ws_view" : "/ws";
   const wsProto = (location.protocol === "https:") ? "wss" : "ws";
   const wsOrigin = (() => {
@@ -2677,6 +2709,12 @@ __DAMAGE_TYPE_OPTIONS__
   const logRefreshBtn = document.getElementById("logRefresh");
   const logCloseBtn = document.getElementById("logClose");
   const waitingOverlay = document.getElementById("waitingOverlay");
+  const claimModal = document.getElementById("claimModal");
+  const claimListEl = document.getElementById("claimList");
+  const claimEmptyHint = document.getElementById("claimEmptyHint");
+  const claimConfirmBtn = document.getElementById("claimConfirm");
+  const claimSpectatorBtn = document.getElementById("claimSpectator");
+  const claimContinueBtn = document.getElementById("claimContinue");
   const turnModal = document.getElementById("turnModal");
   const turnModalOk = document.getElementById("turnModalOk");
   const useActionBtn = document.getElementById("useAction");
@@ -2827,6 +2865,8 @@ __DAMAGE_TYPE_OPTIONS__
   let shownNoOwnedToast = false;
   let pendingClaim = null;
   let lastPcList = [];
+  let allowUnclaimed = false;
+  let selectedClaimCid = null;
   let lastActiveCid = null;
   let lastTurnRound = null;
   let selectedTurnCid = null;
@@ -4455,6 +4495,97 @@ __DAMAGE_TYPE_OPTIONS__
     shownNoOwnedToast = true;
   }
 
+  function setSelectedClaimCid(cid){
+    selectedClaimCid = normalizeCid(cid, "claimModal.selectedCid");
+    updateClaimSelection();
+  }
+
+  function updateClaimSelection(){
+    if (!claimListEl) return;
+    const items = Array.from(claimListEl.querySelectorAll("[data-claim-cid]"));
+    items.forEach((item) => {
+      const cidValue = normalizeCid(item.dataset.claimCid, "claimModal.itemCid");
+      const isSelected = cidValue !== null && selectedClaimCid !== null
+        && cidMatches(cidValue, selectedClaimCid, "claimModal.selectedMatch");
+      item.classList.toggle("selected", isSelected);
+      const radio = item.querySelector("input[type=\"radio\"]");
+      if (radio){
+        radio.checked = isSelected;
+      }
+    });
+    if (claimConfirmBtn){
+      claimConfirmBtn.disabled = selectedClaimCid === null || selectedClaimCid === undefined;
+    }
+  }
+
+  function renderClaimList(pcs){
+    if (!claimListEl) return;
+    const list = Array.isArray(pcs) ? pcs : [];
+    claimListEl.textContent = "";
+    let fallbackCid = null;
+    list.forEach((pc) => {
+      if (!pc || typeof pc !== "object") return;
+      const cidValue = normalizeCid(pc.cid, "claimModal.renderCid");
+      if (cidValue === null) return;
+      if (fallbackCid === null){
+        fallbackCid = cidValue;
+      }
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "item claim-item";
+      item.dataset.claimCid = String(cidValue);
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "claimChoice";
+      radio.tabIndex = -1;
+      const nameEl = document.createElement("div");
+      nameEl.className = "name";
+      nameEl.textContent = pc.name ? String(pc.name) : `#${cidValue}`;
+      const metaEl = document.createElement("div");
+      metaEl.className = "meta";
+      metaEl.textContent = `CID ${cidValue}`;
+      item.appendChild(radio);
+      item.appendChild(nameEl);
+      item.appendChild(metaEl);
+      item.addEventListener("click", () => {
+        allowUnclaimed = false;
+        setSelectedClaimCid(cidValue);
+      });
+      claimListEl.appendChild(item);
+    });
+    if (!list.length){
+      selectedClaimCid = null;
+    } else if (selectedClaimCid === null || selectedClaimCid === undefined){
+      setSelectedClaimCid(fallbackCid);
+    }
+    if (claimEmptyHint){
+      claimEmptyHint.classList.toggle("hidden", list.length > 0);
+    }
+    updateClaimSelection();
+  }
+
+  function updateClaimOverlay(){
+    if (!claimModal) return;
+    if (isMapView){
+      claimModal.classList.remove("show");
+      claimModal.setAttribute("aria-hidden", "true");
+      return;
+    }
+    const needsClaim = claimedCid === null || claimedCid === undefined;
+    const shouldShow = needsClaim && !allowUnclaimed;
+    claimModal.classList.toggle("show", shouldShow);
+    claimModal.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+    if (claimSpectatorBtn){
+      claimSpectatorBtn.classList.toggle("hidden", !supportsMapView);
+    }
+    if (claimContinueBtn){
+      claimContinueBtn.classList.toggle("hidden", supportsMapView);
+    }
+    if (shouldShow){
+      renderClaimList(lastPcList || []);
+    }
+  }
+
   function showDashModal(){
     if (!dashModal) return;
     dashModal.classList.add("show");
@@ -6043,6 +6174,7 @@ __DAMAGE_TYPE_OPTIONS__
     updateSpellPanelVisibility();
     applyMapViewReadOnlyControls();
     updateEndTurnState();
+    updateClaimOverlay();
   }
 
   function showActionPicker(){
@@ -6427,6 +6559,7 @@ __DAMAGE_TYPE_OPTIONS__
         showNoOwnedPcToast(msg.pcs || lastPcList || []);
         refreshSpellPresetOptions();
         refreshTurnAlertStatus();
+        updateHud();
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token · drag AoE with left-click or touch-hold", 2500);
@@ -6930,6 +7063,28 @@ __DAMAGE_TYPE_OPTIONS__
     tokenColorCancel.addEventListener("click", () => {
       closeColorModal();
       showNoOwnedPcToast(lastPcList || []);
+    });
+  }
+  if (claimConfirmBtn){
+    claimConfirmBtn.addEventListener("click", () => {
+      if (selectedClaimCid === null || selectedClaimCid === undefined){
+        localToast("Pick a character first, matey.");
+        return;
+      }
+      allowUnclaimed = false;
+      send({type:"claim", cid: selectedClaimCid});
+    });
+  }
+  if (claimSpectatorBtn){
+    claimSpectatorBtn.addEventListener("click", () => {
+      if (!supportsMapView) return;
+      location.href = "/map_view";
+    });
+  }
+  if (claimContinueBtn){
+    claimContinueBtn.addEventListener("click", () => {
+      allowUnclaimed = true;
+      updateClaimOverlay();
     });
   }
 

@@ -2061,6 +2061,16 @@ class LanController:
                         except Exception:
                             lines = []
                         await ws.send_text(self._json_dumps({"type": "battle_log", "lines": lines}))
+                    elif typ == "claim":
+                        cid = _normalize_cid_value(
+                            msg.get("cid"),
+                            "lan_message.cid",
+                            log_fn=lambda message: self._append_lan_log(message, level="warning"),
+                        )
+                        if cid is None:
+                            await self._send_async(ws_id, {"type": "toast", "text": "Pick a character first, matey."})
+                            continue
+                        await self._claim_ws_async(ws_id, int(cid), note="Assigned.", allow_override=False)
                     elif typ in (
                         "move",
                         "dash",
