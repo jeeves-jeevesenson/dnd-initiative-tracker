@@ -2,7 +2,6 @@ format_version: 2
 name: Eldramar Thunderclopper
 player: Eldramar
 campaign: ''
-ip: 192.168.1.143
 identity:
   pronouns: he/him
   ancestry: Minotaur
