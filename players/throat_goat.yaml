@@ -2,7 +2,7 @@ format_version: 2
 name: Throat Goat
 player: Trevor
 campaign: ''
-ip: '192.168.0.67'
+ip:
 known_cantrips: 0
 known_spells: 0
 known_spell_names: []
