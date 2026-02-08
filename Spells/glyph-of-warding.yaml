@@ -92,7 +92,7 @@ mechanics:
       - effect: damage
         damage_type: fire
         dice: 5d8
-        scaling: &id001
+        scaling: &explosive_rune_scaling
           kind: slot_level
           base_slot: 3
           add_per_slot_above: 1d8
@@ -100,9 +100,9 @@ mechanics:
       - effect: damage
         damage_type: fire
         dice: 5d8
-        scaling: *id001
+        scaling: *explosive_rune_scaling
         multiplier: 0.5
-  scaling: *id001
+  scaling: *explosive_rune_scaling
   ui:
     template_preview: true
   notes:

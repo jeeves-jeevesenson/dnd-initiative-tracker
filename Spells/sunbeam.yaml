@@ -69,7 +69,7 @@ mechanics:
         dice: 6d8
       - effect: condition
         condition: blinded
-        duration_turns: 0
+        duration_turns: 1
       success:
       - effect: damage
         damage_type: radiant

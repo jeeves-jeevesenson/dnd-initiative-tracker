@@ -68,7 +68,7 @@ mechanics:
       - effect: damage
         damage_type: lightning
         dice: 3d10
-        scaling: &id001
+        scaling: &lightning_scaling
           kind: slot_level
           base_slot: 3
           add_per_slot_above: 1d10
@@ -76,9 +76,9 @@ mechanics:
       - effect: damage
         damage_type: lightning
         dice: 3d10
-        scaling: *id001
+        scaling: *lightning_scaling
         multiplier: 0.5
-  scaling: *id001
+  scaling: *lightning_scaling
   ui:
     template_preview: false
   notes:

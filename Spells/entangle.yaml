@@ -70,4 +70,4 @@ mechanics:
   ui:
     template_preview: false
   notes:
-  - The area is difficult terrain, and restrained creatures can escape with a Strength (Athletics) check.
+  - The area is difficult terrain; restrained creatures can escape with a Strength (Athletics) check or when the spell ends.

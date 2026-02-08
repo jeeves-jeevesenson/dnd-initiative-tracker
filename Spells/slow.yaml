@@ -57,19 +57,10 @@ mechanics:
     target_selection:
       mode: area
       friendly_fire: true
-  sequence:
-  - id: slow
-    name: Slow
-    check:
-      kind: saving_throw
-      ability: wisdom
-      dc: spell_save_dc
-    outcomes:
-      fail: []
-      success: []
+  sequence: []
   scaling: null
   ui:
     template_preview: true
   notes:
-  - On a failed save, targets are slowed (speed halved, -2 AC/DEX saves, no reactions, limited actions).
+  - Targets in the area make a Wisdom saving throw; on a failed save they are slowed (speed halved, -2 AC/DEX saves, no reactions, limited actions).
   - Affected creatures repeat the save at the end of each of their turns.

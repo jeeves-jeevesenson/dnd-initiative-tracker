@@ -77,4 +77,4 @@ mechanics:
   ui:
     template_preview: false
   notes:
-  - The warded area can be a 50-foot square or contiguous smaller squares (up to 2,500 sq ft, 20 ft tall).
+  - The warded area uses a 50-foot-square footprint (up to 2,500 sq ft, 20 ft tall) or contiguous smaller squares.

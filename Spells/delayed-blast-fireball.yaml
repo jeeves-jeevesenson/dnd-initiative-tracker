@@ -72,7 +72,7 @@ mechanics:
       - effect: damage
         damage_type: fire
         dice: 12d6
-        scaling: &id001
+        scaling: &delayed_fireball_scaling
           kind: slot_level
           base_slot: 7
           add_per_slot_above: 1d6
@@ -80,9 +80,9 @@ mechanics:
       - effect: damage
         damage_type: fire
         dice: 12d6
-        scaling: *id001
+        scaling: *delayed_fireball_scaling
         multiplier: 0.5
-  scaling: *id001
+  scaling: *delayed_fireball_scaling
   ui:
     template_preview: true
   notes:

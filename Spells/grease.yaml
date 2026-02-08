@@ -68,3 +68,4 @@ mechanics:
     template_preview: false
   notes:
   - The area is difficult terrain; creatures repeat the save when entering or ending a turn there.
+  - A failed save knocks a creature prone until it stands up.

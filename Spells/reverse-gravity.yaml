@@ -57,19 +57,10 @@ mechanics:
     target_selection:
       mode: area
       friendly_fire: true
-  sequence:
-  - id: upheaval
-    name: Upheaval
-    check:
-      kind: saving_throw
-      ability: dexterity
-      dc: spell_save_dc
-    outcomes:
-      fail: []
-      success: []
+  sequence: []
   scaling: null
   ui:
     template_preview: true
   notes:
-  - A successful save lets a creature grab a fixed object to avoid falling upward.
+  - Creatures in the area can make a Dexterity saving throw to grab a fixed object and avoid falling upward.
   - Affected creatures and objects fall back down when the spell ends.
