@@ -68,11 +68,11 @@ mechanics:
           kind: character_level
           thresholds:
             '5':
-              add: 2d6
+              add: 1d6
             '11':
-              add: 3d6
+              add: 1d6
             '17':
-              add: 4d6
+              add: 1d6
       success: []
   scaling: *id001
   ui:
