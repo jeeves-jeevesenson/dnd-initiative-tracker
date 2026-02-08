@@ -642,6 +642,7 @@ class InitiativeTracker(tk.Tk):
         self.move_mode_combo.bind("<<ComboboxSelected>>", lambda _e: self._apply_selected_movement_mode())
         ttk.Button(btn_row, text="Map Mode…", command=self._open_map_mode).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="LAN Admin…", command=self._open_lan_admin).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Long Rest…", command=self._confirm_long_rest).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Clear", command=self._clear_turns).pack(side=tk.LEFT, padx=(0, 8))
 
         ttk.Label(
@@ -746,6 +747,43 @@ class InitiativeTracker(tk.Tk):
             command=self._open_selected_monster_info,
             state=tk.DISABLED,
         )
+
+    def _confirm_long_rest(self) -> None:
+        if not messagebox.askyesno("Long Rest", "Are you sure?", parent=self):
+            return
+        if not hasattr(self, "_reset_player_character_resources"):
+            messagebox.showerror("Long Rest", "Long rest support is not available in this build.", parent=self)
+            return
+        try:
+            updated = self._reset_player_character_resources()
+        except Exception as exc:
+            messagebox.showerror("Long Rest", f"Failed to reset player resources.\n\n{exc}", parent=self)
+            return
+        if updated:
+            for c in self.combatants.values():
+                role = self._name_role_memory.get(str(c.name), "enemy")
+                if not getattr(c, "is_pc", False) and role != "pc":
+                    continue
+                key = str(c.name or "").strip().lower()
+                if key in updated:
+                    try:
+                        c.hp = int(updated[key])
+                    except Exception:
+                        pass
+        try:
+            self._rebuild_table(scroll_to_current=True)
+        except Exception:
+            pass
+        if hasattr(self, "_lan_force_state_broadcast"):
+            try:
+                self._lan_force_state_broadcast()
+            except Exception:
+                pass
+        try:
+            self._log("Long rest applied to player characters.")
+        except Exception:
+            pass
+        messagebox.showinfo("Long Rest", "Player characters restored.", parent=self)
 
     def _monster_int_from_value(self, value: object) -> Optional[int]:
         if isinstance(value, int):
