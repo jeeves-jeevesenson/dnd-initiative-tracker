@@ -50,4 +50,4 @@ mechanics:
   ui:
     template_preview: false
   notes:
-  - The touched object sheds bright light (20 feet) and dim light (20 feet) until dispelled.
+  - The touched object sheds bright light (20-foot radius) and dim light for an additional 20 feet until dispelled.

@@ -75,5 +75,5 @@ mechanics:
   ui:
     template_preview: true
   notes:
-  - Failed save: target is confused and rolls each turn for behavior; repeat saves at end of turn to end.
+  - Failed save: target rolls 1d10 each turn for behavior; repeat saves at end of turn to end.
   - Manual upcast: sphere radius increases by 5 feet per slot level above 4.
