@@ -37,9 +37,7 @@ wget -qO- https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tr
 
 #### 🪟 Windows Users (Recommended)
 
-**[📥 Download MSI Installer](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/actions/workflows/build-msi.yml)** - Click on the latest successful workflow run, scroll to the "Artifacts" section at the bottom, and download **`DnDInitiativeTracker-x.y.z`**. Extract the zip file to get the **`DnDInitiativeTracker-x.y.z.msi`** installer and run it. The MSI bundles Python, so **no Git or Python install is required**, and it adds a Start Menu shortcut.
-
-**Alternate (PowerShell quick install):** For developer/portable installs, you can still use the quick install script. This path requires Python + Git and may need execution policy tweaks (see [Windows Installation Notes](#windows-installation-notes)).
+Use the PowerShell quick install script (requires Python + Git; MSI installer builds are currently disabled). You may need execution policy tweaks (see [Windows Installation Notes](#windows-installation-notes)).
 
 ```powershell
 # For Windows ONLY - Run in PowerShell
@@ -88,8 +86,6 @@ python dnd_initative_tracker.py
 ```
 
 ### Windows Installation Notes
-
-If you installed via the MSI, you can skip this section.
 
 If you encounter an error about "execution policy" when running the PowerShell quick install, you have two options:
 
@@ -307,11 +303,9 @@ The D&D Initiative Tracker is a feature-rich combat management tool designed for
 - **pip** for installing Python dependencies
 - **Git** (for cloning the repository)
 
-> **Note:** The Windows MSI installer bundles Python and does not require Git.
-
 ### Streamlined Install (Recommended)
 
-The easiest way to install is using the one-line quick install scripts on Linux/macOS or the MSI on Windows:
+The easiest way to install is using the one-line quick install scripts on Linux/macOS or Windows:
 
 **Linux/macOS:**
 ```bash
@@ -331,14 +325,11 @@ This will:
 After installation, run: `dnd-initiative-tracker`
 
 **Windows (Recommended):**
-
-**[📥 Download MSI Installer](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/actions/workflows/build-msi.yml)** - Click on the latest successful workflow run, scroll to the "Artifacts" section at the bottom, and download **`DnDInitiativeTracker-x.y.z`**. Extract the zip file to get the MSI installer. The MSI bundles Python and adds a Start Menu shortcut.
-
-**Windows (Quick Install, advanced):**
 ```powershell
 # Run in PowerShell
 irm https://raw.githubusercontent.com/jeeves-jeevesenson/dnd-initiative-tracker/main/scripts/quick-install.ps1 | iex
 ```
+Requires Python + Git; MSI installer builds are currently disabled.
 
 ### Manual Install (Alternative)
 
@@ -382,10 +373,6 @@ To check for updates:
 #### Manual Update
 
 If you prefer to update manually or if the built-in updater isn't working:
-
-**For MSI installs:**
-
-**[📥 Download the latest MSI](https://github.com/jeeves-jeevesenson/dnd-initiative-tracker/actions/workflows/build-msi.yml)** - Click on the latest successful workflow run, scroll to the "Artifacts" section, and download the artifact. Extract the zip file to get the MSI installer, then run it. Windows Installer will handle the upgrade.
 
 **For Quick Install Users (Recommended):**
 
@@ -446,14 +433,6 @@ The update scripts will:
 
 ### Uninstalling
 
-**If you installed the MSI:**
-
-Uninstall from **Settings → Apps → Installed apps** (or **Apps & features**) just like any other Windows app. This removes the files and Start Menu shortcut. You can also run a silent uninstall with:
-
-```powershell
-msiexec /x DnDInitiativeTracker-x.y.z.msi
-```
-
 **If you used the quick install:**
 
 Linux/macOS:
@@ -497,7 +476,7 @@ The `requirements.txt` includes:
 
 ### Windows 11 Installation (Desktop Integration)
 
-For most users, the MSI installer from Releases is the simplest path. The steps below are for manual/scripted installs that create shortcuts without MSI:
+For most users, the quick install scripts are the simplest path. The steps below are for manual/scripted installs that create shortcuts without them:
 
 #### Prerequisites
 
