@@ -2934,8 +2934,8 @@ __DAMAGE_TYPE_OPTIONS__
   let zoom = 32; // px per square
   let panX = 0, panY = 0;
   let dragging = null; // {cid, startX, startY, origCol, origRow}
-  let aoeDragging = null; // {aid, offsetCol, offsetRow}
-  let aoeDragPreview = null; // {aid, cx, cy}
+  let aoeDragging = null; // {aid, offsetCol, offsetRow, isRotating}
+  let aoeDragPreview = null; // {aid, cx, cy, angle_deg, ax, ay, spread_deg}
   let aoeDragPending = null; // {pointerId, aid, offsetCol, offsetRow, centerCol, centerRow, startX, startY, timerId}
   let panning = null;  // {x,y, panX, panY}
   let shiftMoveMode = false;
@@ -5145,8 +5145,25 @@ __DAMAGE_TYPE_OPTIONS__
         ? state.aoes.find(a => Number(a?.aid) === aid)
         : null;
       if (!current) return;
+      const update = {
+        ...current,
+        cx: Number(target.cx ?? current.cx),
+        cy: Number(target.cy ?? current.cy),
+      };
+      if (target.angle_deg !== undefined){
+        update.angle_deg = Number(target.angle_deg);
+      }
+      if (target.ax !== undefined){
+        update.ax = Number(target.ax);
+      }
+      if (target.ay !== undefined){
+        update.ay = Number(target.ay);
+      }
+      if (target.spread_deg !== undefined){
+        update.spread_deg = Number(target.spread_deg);
+      }
       applyAoePatch({
-        updates: [{...current, cx: Number(target.cx ?? current.cx), cy: Number(target.cy ?? current.cy)}],
+        updates: [update],
         removals: [],
       });
       return;
@@ -5196,21 +5213,22 @@ __DAMAGE_TYPE_OPTIONS__
 
   function renderAoeOverlay(aoe, options = {}){
     if (!aoe || !aoe.kind) return;
-    const remainingTurnsRaw = aoe.remaining_turns;
+    const renderAoe = options.override ? {...aoe, ...options.override} : aoe;
+    const remainingTurnsRaw = renderAoe.remaining_turns;
     const remainingTurnsValue = (remainingTurnsRaw === null || remainingTurnsRaw === undefined)
       ? null
       : Number(remainingTurnsRaw);
-    const cx = Number(options.cx ?? aoe.cx ?? 0);
-    const cy = Number(options.cy ?? aoe.cy ?? 0);
+    const cx = Number(options.cx ?? renderAoe.cx ?? 0);
+    const cy = Number(options.cy ?? renderAoe.cy ?? 0);
     const {x,y} = gridToScreen(cx, cy);
-    const colorHex = normalizeHexColor(aoe.color || "");
+    const colorHex = normalizeHexColor(renderAoe.color || "");
     const isPreview = !!options.preview;
     const alphaScale = isPreview ? 0.65 : 1;
     ctx.save();
     ctx.lineWidth = 2;
     ctx.setLineDash([6,4]);
-    if (aoe.kind === "circle" || aoe.kind === "sphere" || aoe.kind === "cylinder"){
-      const r = Math.max(0, Number(aoe.radius_sq || 0)) * zoom;
+    if (renderAoe.kind === "circle" || renderAoe.kind === "sphere" || renderAoe.kind === "cylinder"){
+      const r = Math.max(0, Number(renderAoe.radius_sq || 0)) * zoom;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fillStyle = colorHex
@@ -5219,19 +5237,19 @@ __DAMAGE_TYPE_OPTIONS__
       ctx.strokeStyle = colorHex || `rgba(45,79,138,${0.85 * alphaScale})`;
       ctx.fill();
       ctx.stroke();
-    } else if (aoe.kind === "line" || aoe.kind === "wall"){
-      const lengthPx = Math.max(0, Number(aoe.length_sq || 0)) * zoom;
-      const widthPx = Math.max(0, Number(aoe.width_sq || 0)) * zoom;
-      const angleDeg = Number.isFinite(Number(aoe.angle_deg)) ? Number(aoe.angle_deg) : null;
-      const orient = aoe.orient === "horizontal" ? "horizontal" : "vertical";
+    } else if (renderAoe.kind === "line" || renderAoe.kind === "wall"){
+      const lengthPx = Math.max(0, Number(renderAoe.length_sq || 0)) * zoom;
+      const widthPx = Math.max(0, Number(renderAoe.width_sq || 0)) * zoom;
+      const angleDeg = Number.isFinite(Number(renderAoe.angle_deg)) ? Number(renderAoe.angle_deg) : null;
+      const orient = renderAoe.orient === "horizontal" ? "horizontal" : "vertical";
       const halfW = orient === "horizontal" ? lengthPx / 2 : widthPx / 2;
       const halfH = orient === "horizontal" ? widthPx / 2 : lengthPx / 2;
       ctx.fillStyle = colorHex
         ? rgbaFromHex(colorHex, 0.28 * alphaScale)
-        : (aoe.kind === "wall"
+        : (renderAoe.kind === "wall"
           ? `rgba(255,230,153,${0.32 * alphaScale})`
           : `rgba(183,255,224,${0.32 * alphaScale})`);
-      ctx.strokeStyle = colorHex || (aoe.kind === "wall"
+      ctx.strokeStyle = colorHex || (renderAoe.kind === "wall"
         ? `rgba(181,125,34,${0.85 * alphaScale})`
         : `rgba(45,138,87,${0.85 * alphaScale})`);
       if (angleDeg !== null){
@@ -5249,8 +5267,8 @@ __DAMAGE_TYPE_OPTIONS__
         ctx.fill();
         ctx.stroke();
       }
-    } else if (aoe.kind === "square" || aoe.kind === "cube"){
-      const sidePx = Math.max(0, Number(aoe.side_sq || 0)) * zoom;
+    } else if (renderAoe.kind === "square" || renderAoe.kind === "cube"){
+      const sidePx = Math.max(0, Number(renderAoe.side_sq || 0)) * zoom;
       const half = sidePx / 2;
       ctx.beginPath();
       ctx.rect(x - half, y - half, sidePx, sidePx);
@@ -5260,10 +5278,10 @@ __DAMAGE_TYPE_OPTIONS__
       ctx.strokeStyle = colorHex || `rgba(107,61,138,${0.85 * alphaScale})`;
       ctx.fill();
       ctx.stroke();
-    } else if (aoe.kind === "cone"){
-      const lengthPx = Math.max(0, Number(aoe.length_sq || 0)) * zoom;
-      const spreadDeg = coneSpreadDeg(aoe);
-      const headingDeg = coneHeadingDeg(aoe);
+    } else if (renderAoe.kind === "cone"){
+      const lengthPx = Math.max(0, Number(renderAoe.length_sq || 0)) * zoom;
+      const spreadDeg = coneSpreadDeg(renderAoe);
+      const headingDeg = coneHeadingDeg(renderAoe);
       const halfSpread = (spreadDeg * Math.PI) / 360;
       const headingRad = (headingDeg * Math.PI) / 180;
       ctx.beginPath();
@@ -5790,7 +5808,25 @@ __DAMAGE_TYPE_OPTIONS__
     if (aoeDragPreview){
       const aoeSource = state?.aoes?.find(a => Number(a.aid) === Number(aoeDragPreview.aid));
       if (aoeSource){
-        renderAoeOverlay(aoeSource, {cx: aoeDragPreview.cx, cy: aoeDragPreview.cy, preview: true});
+        const override = {};
+        if (Number.isFinite(Number(aoeDragPreview.angle_deg))){
+          override.angle_deg = Number(aoeDragPreview.angle_deg);
+        }
+        if (Number.isFinite(Number(aoeDragPreview.spread_deg))){
+          override.spread_deg = Number(aoeDragPreview.spread_deg);
+        }
+        if (Number.isFinite(Number(aoeDragPreview.ax))){
+          override.ax = Number(aoeDragPreview.ax);
+        }
+        if (Number.isFinite(Number(aoeDragPreview.ay))){
+          override.ay = Number(aoeDragPreview.ay);
+        }
+        renderAoeOverlay(aoeSource, {
+          cx: aoeDragPreview.cx,
+          cy: aoeDragPreview.cy,
+          preview: true,
+          override: Object.keys(override).length ? override : null,
+        });
       }
     }
 
@@ -6965,8 +7001,39 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function beginAoeDrag({aid, offsetCol, offsetRow, centerCol, centerRow}){
-    aoeDragging = {aid, offsetCol, offsetRow};
+    aoeDragging = {aid, offsetCol, offsetRow, isRotating: false};
     aoeDragPreview = {aid, cx: centerCol, cy: centerRow};
+  }
+
+  function getAoeById(aid){
+    if (!state || !Array.isArray(state.aoes)) return null;
+    return state.aoes.find(a => Number(a?.aid) === Number(aid)) || null;
+  }
+
+  function clampToGrid(value, limit){
+    if (!Number.isFinite(limit) || limit <= 0) return value;
+    return Math.max(0, Math.min(value, limit - 1));
+  }
+
+  function resolveAoeAnchor(aoe){
+    const ax = Number(aoe?.ax);
+    const ay = Number(aoe?.ay);
+    if (Number.isFinite(ax) && Number.isFinite(ay)){
+      return {ax, ay};
+    }
+    const cx = Number(aoe?.cx ?? 0);
+    const cy = Number(aoe?.cy ?? 0);
+    return {
+      ax: Number.isFinite(cx) ? cx : 0,
+      ay: Number.isFinite(cy) ? cy : 0,
+    };
+  }
+
+  function isAoeRotateMode(ev, aoe){
+    if (!aoe) return false;
+    const kind = String(aoe.kind || "");
+    if (kind !== "line" && kind !== "cone") return false;
+    return !!(ev?.shiftKey || shiftMoveMode);
   }
 
   function activateAoeDragPending(){
@@ -7010,6 +7077,40 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
 
+    const isTouchPointer = ev.pointerType === "touch";
+    const isAoeDragMouse = ev.pointerType === "mouse" && (ev.button === 0 || ev.button === 1);
+    if ((shiftMoveMode || ev.shiftKey) && (isAoeDragMouse || isTouchPointer) && allowAoeDrag(ev)){
+      const hitAoe = hitTestAoe(p);
+      if (hitAoe){
+        ev.preventDefault();
+        const gridPos = screenToGridFloat(p.x, p.y);
+        const centerCol = Number(hitAoe.cx ?? 0);
+        const centerRow = Number(hitAoe.cy ?? 0);
+        const pendingPayload = {
+          pointerId: ev.pointerId,
+          aid: Number(hitAoe.aid),
+          offsetCol: gridPos.col - centerCol,
+          offsetRow: gridPos.row - centerRow,
+          centerCol,
+          centerRow,
+          startX: p.x,
+          startY: p.y,
+        };
+        clearAoeDragPending();
+        if (isTouchPointer){
+          aoeDragPending = {
+            ...pendingPayload,
+            timerId: setTimeout(() => {
+              if (aoeDragPending?.pointerId !== ev.pointerId) return;
+              activateAoeDragPending();
+            }, AOE_TOUCH_HOLD_MS),
+          };
+        } else {
+          beginAoeDrag(pendingPayload);
+        }
+        return;
+      }
+    }
     const hit = hitTestToken(p);
     if (hit){
       // only drag own token
@@ -7025,8 +7126,6 @@ __DAMAGE_TYPE_OPTIONS__
       dragging = {cid: hit.cid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
       return;
     }
-    const isTouchPointer = ev.pointerType === "touch";
-    const isAoeDragMouse = ev.pointerType === "mouse" && (ev.button === 0 || ev.button === 1);
     if ((isAoeDragMouse || isTouchPointer) && allowAoeDrag(ev)){
       const hitAoe = hitTestAoe(p);
       if (hitAoe){
@@ -7091,9 +7190,47 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (aoeDragging){
       const gridPos = screenToGridFloat(p.x, p.y);
-      const cx = gridPos.col - aoeDragging.offsetCol;
-      const cy = gridPos.row - aoeDragging.offsetRow;
-      aoeDragPreview = {aid: aoeDragging.aid, cx, cy};
+      const aoe = getAoeById(aoeDragging.aid);
+      const shouldRotate = isAoeRotateMode(ev, aoe);
+      aoeDragging.isRotating = shouldRotate;
+      if (shouldRotate && aoe){
+        const kind = String(aoe.kind || "");
+        const anchor = resolveAoeAnchor(aoe);
+        const dx = gridPos.col - anchor.ax;
+        const dy = gridPos.row - anchor.ay;
+        if (Math.abs(dx) + Math.abs(dy) < 0.01){
+          return;
+        }
+        const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+        const cols = Number(state?.grid?.cols || 0);
+        const rows = Number(state?.grid?.rows || 0);
+        const preview = {
+          aid: aoeDragging.aid,
+          angle_deg: angleDeg,
+          ax: anchor.ax,
+          ay: anchor.ay,
+        };
+        if (kind === "cone"){
+          if (!Number.isFinite(Number(aoe.spread_deg)) && Number.isFinite(Number(aoe.angle_deg))){
+            preview.spread_deg = Number(aoe.angle_deg);
+          }
+          preview.cx = clampToGrid(anchor.ax, cols);
+          preview.cy = clampToGrid(anchor.ay, rows);
+        } else {
+          const lengthSq = Number(aoe.length_sq || 0);
+          const halfLen = lengthSq / 2;
+          const rad = (angleDeg * Math.PI) / 180;
+          const cx = anchor.ax + Math.cos(rad) * halfLen;
+          const cy = anchor.ay + Math.sin(rad) * halfLen;
+          preview.cx = clampToGrid(cx, cols);
+          preview.cy = clampToGrid(cy, rows);
+        }
+        aoeDragPreview = preview;
+      } else {
+        const cx = gridPos.col - aoeDragging.offsetCol;
+        const cy = gridPos.row - aoeDragging.offsetRow;
+        aoeDragPreview = {aid: aoeDragging.aid, cx, cy};
+      }
       draw();
       setTokenTooltip(null);
       return;
@@ -7152,9 +7289,21 @@ __DAMAGE_TYPE_OPTIONS__
     setTokenTooltip(null);
     if (aoeDragging){
       const gridPos = screenToGridFloat(p.x, p.y);
-      const targetCol = Math.round(gridPos.col - aoeDragging.offsetCol);
-      const targetRow = Math.round(gridPos.row - aoeDragging.offsetRow);
-      const msg = {type:"aoe_move", aid: Number(aoeDragging.aid), to: {cx: targetCol, cy: targetRow}};
+      const preview = aoeDragPreview || {};
+      let targetCol = Math.round(gridPos.col - aoeDragging.offsetCol);
+      let targetRow = Math.round(gridPos.row - aoeDragging.offsetRow);
+      const toPayload = {};
+      if (aoeDragging.isRotating && Number.isFinite(Number(preview?.angle_deg))){
+        if (Number.isFinite(Number(preview?.cx))) targetCol = Number(preview.cx);
+        if (Number.isFinite(Number(preview?.cy))) targetRow = Number(preview.cy);
+        toPayload.angle_deg = Number(preview.angle_deg);
+        if (Number.isFinite(Number(preview?.ax))) toPayload.ax = Number(preview.ax);
+        if (Number.isFinite(Number(preview?.ay))) toPayload.ay = Number(preview.ay);
+        if (Number.isFinite(Number(preview?.spread_deg))) toPayload.spread_deg = Number(preview.spread_deg);
+      }
+      toPayload.cx = targetCol;
+      toPayload.cy = targetRow;
+      const msg = {type:"aoe_move", aid: Number(aoeDragging.aid), to: toPayload};
       if (isPlanning){
         planningMutate(msg);
         draw();
