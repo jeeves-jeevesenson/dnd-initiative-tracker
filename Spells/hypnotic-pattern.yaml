@@ -66,6 +66,7 @@ mechanics:
       fail:
       - effect: condition
         condition: charmed
+        duration_turns: 0
       success: []
   scaling: null
   ui:

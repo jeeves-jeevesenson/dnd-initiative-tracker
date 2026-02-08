@@ -64,6 +64,7 @@ mechanics:
       fail:
       - effect: condition
         condition: frightened
+        duration_turns: 0
       success: []
   scaling: null
   ui:
