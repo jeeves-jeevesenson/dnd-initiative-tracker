@@ -52,4 +52,4 @@ mechanics:
   ui:
     template_preview: false
   notes:
-  - Allies you choose in the aura gain +10 to Dexterity (Stealth) checks and leave no tracks.
+  - Manual targeting: choose allies in the aura to gain +10 to Dexterity (Stealth) checks and leave no tracks.
