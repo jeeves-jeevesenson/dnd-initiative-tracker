@@ -4124,7 +4124,11 @@ class InitiativeTracker(tk.Tk):
 
     # -------------------------- Damage tool --------------------------
 
-    def _open_damage_tool(self) -> None:
+    def _open_damage_tool(
+        self,
+        attacker_cid: Optional[int] = None,
+        target_cid: Optional[int] = None,
+    ) -> None:
         """Open the Damage tool.
 
         This dialog supports:
@@ -4133,6 +4137,7 @@ class InitiativeTracker(tk.Tk):
         - Multiple damage components per entry (amount + type)
         - Per-entry resist + immune
         - Optional attacker (blank attacker = anonymous)
+        - Optional attacker/target prefill for map-mode interactions
         """
         dlg = tk.Toplevel(self)
         dlg.title("Damage")
@@ -4147,7 +4152,9 @@ class InitiativeTracker(tk.Tk):
         # Labels used for Comboboxes (include [#cid] suffix so duplicates are unambiguous).
         labels = self._target_labels()
         attacker_default = ""
-        if getattr(self, "current_cid", None) is not None and self.current_cid in self.combatants:
+        if attacker_cid is not None and attacker_cid in self.combatants:
+            attacker_default = self._label_for(self.combatants[attacker_cid])
+        elif getattr(self, "current_cid", None) is not None and self.current_cid in self.combatants:
             attacker_default = self._label_for(self.combatants[self.current_cid])
         elif labels:
             attacker_default = labels[0]
@@ -4157,7 +4164,9 @@ class InitiativeTracker(tk.Tk):
         # - Else, use current single selection (if any), otherwise first in list
         selected = self._selected_cids()
         ordered_sel: list[int] = []
-        if selected:
+        if target_cid is not None and target_cid in self.combatants:
+            ordered_sel = [target_cid]
+        elif selected:
             want = set(selected)
             for c in self._display_order():
                 if c.cid in want:
@@ -5098,6 +5107,8 @@ class BattleMapWindow(tk.Toplevel):
         self.rough_color_var = tk.StringVar()
         self.rough_color_hex_var = tk.StringVar()
         self.show_all_names_var = tk.BooleanVar(value=False)
+        self.dm_move_var = tk.BooleanVar(value=False)
+        self.damage_mode_var = tk.BooleanVar(value=False)
         self._last_roster_sig: Optional[Tuple[int, ...]] = None
         self._poll_after_id: Optional[str] = None
 
@@ -5470,8 +5481,14 @@ class BattleMapWindow(tk.Toplevel):
         ttk.Checkbutton(view, text="Show All Names", variable=self.show_all_names_var, command=self._redraw_all).grid(
             row=5, column=0, columnspan=3, sticky="w", pady=(6, 0)
         )
+        ttk.Checkbutton(view, text="DM Move", variable=self.dm_move_var).grid(
+            row=6, column=0, sticky="w", pady=(6, 0)
+        )
+        ttk.Checkbutton(view, text="Damage Mode", variable=self.damage_mode_var).grid(
+            row=6, column=1, sticky="w", pady=(6, 0)
+        )
         preset_btns = ttk.Frame(view)
-        preset_btns.grid(row=6, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        preset_btns.grid(row=7, column=0, columnspan=3, sticky="w", pady=(6, 0))
         ttk.Button(preset_btns, text="Save Preset", command=self._save_obstacle_preset).pack(side=tk.LEFT)
         ttk.Button(preset_btns, text="Load Preset", command=self._load_obstacle_preset).pack(side=tk.LEFT, padx=(8, 0))
         view.columnconfigure(1, weight=1)
@@ -8497,6 +8514,9 @@ class BattleMapWindow(tk.Toplevel):
 
             if t.startswith("unit:"):
                 cid = int(t.split(":", 1)[1])
+                if self._damage_mode_active():
+                    self._open_damage_for_target(cid)
+                    return
                 self._begin_unit_drag(cid, mx, my)
                 return
 
@@ -8564,6 +8584,31 @@ class BattleMapWindow(tk.Toplevel):
             self._drag_offset = (cx - mx, cy - my)
         except Exception:
             self._drag_offset = (0.0, 0.0)
+
+    def _dm_move_active(self) -> bool:
+        try:
+            return bool(self.dm_move_var.get())
+        except tk.TclError:
+            return False
+
+    def _damage_mode_active(self) -> bool:
+        try:
+            return bool(self.damage_mode_var.get())
+        except tk.TclError:
+            return False
+
+    def _open_damage_for_target(self, target_cid: int) -> None:
+        active_cid = getattr(self, "_active_cid", None)
+        if active_cid is None:
+            active_cid = getattr(self.app, "current_cid", None)
+        try:
+            self.app._open_damage_tool(attacker_cid=active_cid, target_cid=target_cid)
+        except Exception:
+            return
+        try:
+            self.damage_mode_var.set(False)
+        except tk.TclError:
+            pass
 
     def _group_label_for_cids(self, cids: List[int]) -> str:
         names: List[str] = []
@@ -8798,7 +8843,7 @@ class BattleMapWindow(tk.Toplevel):
                 new_col = int(self.unit_tokens[cid]["col"])
                 new_row = int(self.unit_tokens[cid]["row"])
 
-                if self._active_cid == cid:
+                if self._active_cid == cid and not self._dm_move_active():
                     c = self.app.combatants.get(cid)
                     if c is not None:
                         # Compute movement cost using diagonal 5/10 rule + obstacles.
