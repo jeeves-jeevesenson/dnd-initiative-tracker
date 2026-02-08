@@ -175,7 +175,13 @@
       "fields": [
         {"key": "max_hp", "label": "Max HP", "type": "integer", "default": 1},
         {"key": "current_hp", "label": "Current HP", "type": "integer", "default": 1},
-        {"key": "temp_hp", "label": "Temp HP", "type": "integer", "default": 0},
+        {
+          "key": "temp_hp",
+          "label": "Temp HP",
+          "type": "integer",
+          "default": 0,
+          "help": "Temporary hit points that absorb damage before current HP."
+        },
         {
           "key": "hit_dice",
           "label": "Hit Dice",

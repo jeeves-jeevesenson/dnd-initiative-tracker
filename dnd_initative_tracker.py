@@ -6186,6 +6186,16 @@ class InitiativeTracker(base.InitiativeTracker):
         spellcasting = self._normalize_player_section(data.get("spellcasting"))
         inventory = self._normalize_player_section(data.get("inventory"))
 
+        def normalize_vital_int(value: Any, fallback: int = 0) -> int:
+            try:
+                return int(value)
+            except Exception:
+                return fallback
+
+        temp_hp_raw = vitals.get("temp_hp", data.get("temp_hp", 0))
+        vitals = dict(vitals)
+        vitals["temp_hp"] = normalize_vital_int(temp_hp_raw, 0)
+
         if "level" not in leveling:
             classes = leveling.get("classes")
             if isinstance(classes, list):
