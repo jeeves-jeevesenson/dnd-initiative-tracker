@@ -3602,6 +3602,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_lock = threading.Lock()
         self._spell_yaml_lock = threading.Lock()
         self._player_yaml_refresh_scheduled = False
+        self._yaml_players_index_path_cache: Optional[Path] = None
 
         # LAN state for when map window isn't open
         self._lan_grid_cols = 20
@@ -3624,6 +3625,172 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _spell_index_path(self) -> Path:
         return _ensure_logs_dir() / "spell_index.json"
+
+    def _yaml_players_index_path(self) -> Path:
+        cached = getattr(self, "_yaml_players_index_path_cache", None)
+        if isinstance(cached, Path):
+            return cached
+        path = _ensure_logs_dir() / "yaml_players_index.json"
+        self._yaml_players_index_path_cache = path
+        return path
+
+    def _yaml_player_key(self, path: Path, players_dir: Optional[Path] = None) -> str:
+        root = players_dir or self._players_dir()
+        try:
+            rel_path = path.relative_to(root)
+        except Exception:
+            rel_path = path.name
+        return _hash_text(str(rel_path).lower())
+
+    def _yaml_players_load_index(self) -> Dict[str, Any]:
+        data = _read_index_file(self._yaml_players_index_path())
+        entries = data.get("entries") if isinstance(data, dict) else None
+        if not isinstance(entries, dict):
+            entries = {}
+        version = data.get("version") if isinstance(data, dict) else None
+        return {"version": int(version or 1), "entries": dict(entries)}
+
+    def _yaml_players_save_index(self, entries: Dict[str, Dict[str, Any]]) -> None:
+        payload = {"version": 1, "entries": dict(entries)}
+        _write_index_file(self._yaml_players_index_path(), payload)
+
+    def _yaml_players_sync_index(self, files: List[Path]) -> Dict[str, Dict[str, Any]]:
+        index_data = self._yaml_players_load_index()
+        entries: Dict[str, Dict[str, Any]] = {}
+        raw_entries = index_data.get("entries")
+        if isinstance(raw_entries, dict):
+            for key, value in raw_entries.items():
+                if isinstance(value, dict):
+                    entries[str(key)] = dict(value)
+        players_dir = self._players_dir()
+        seen_keys: set[str] = set()
+        changed = False
+
+        for path in files:
+            key = self._yaml_player_key(path, players_dir)
+            seen_keys.add(key)
+            entry = entries.get(key, {})
+            if not isinstance(entry, dict):
+                entry = {}
+            try:
+                rel_path = str(path.relative_to(players_dir))
+            except Exception:
+                rel_path = str(path)
+            if entry.get("path") != rel_path:
+                entry["path"] = rel_path
+                changed = True
+            if "enabled" not in entry:
+                entry["enabled"] = True
+                changed = True
+            display_name = str(entry.get("display_name") or "").strip()
+            if not display_name:
+                display_name = self._player_name_from_filename(path) or path.stem
+                entry["display_name"] = display_name
+                changed = True
+            entries[key] = entry
+
+        for key in list(entries.keys()):
+            if key not in seen_keys:
+                entries.pop(key, None)
+                changed = True
+
+        if changed:
+            self._yaml_players_save_index(entries)
+        return entries
+
+    def _yaml_players_rescan(self) -> List[Dict[str, Any]]:
+        players_dir = self._players_dir()
+        if not players_dir.exists():
+            self._yaml_players_save_index({})
+            return []
+        try:
+            files = sorted(list(players_dir.glob("*.yaml")) + list(players_dir.glob("*.yml")))
+        except Exception:
+            files = []
+
+        index_entries = self._yaml_players_sync_index(files)
+        results: List[Dict[str, Any]] = []
+        now_text = datetime.now().isoformat(timespec="seconds")
+        changed = False
+
+        for path in files:
+            key = self._yaml_player_key(path, players_dir)
+            entry = index_entries.get(key, {})
+            if not isinstance(entry, dict):
+                entry = {}
+            display_name = str(entry.get("display_name") or "").strip()
+            parsed_name: Optional[str] = None
+            if yaml is not None:
+                try:
+                    raw = path.read_text(encoding="utf-8")
+                    parsed = yaml.safe_load(raw)
+                except Exception:
+                    parsed = None
+                if isinstance(parsed, dict):
+                    parsed_name = self._extract_character_name(parsed)
+            if parsed_name:
+                display_name = parsed_name
+            if not display_name:
+                display_name = self._player_name_from_filename(path) or path.stem
+            if display_name != entry.get("display_name"):
+                entry["display_name"] = display_name
+                changed = True
+            entry["last_seen"] = now_text
+            if "enabled" not in entry:
+                entry["enabled"] = True
+                changed = True
+            index_entries[key] = entry
+            results.append(
+                {
+                    "key": key,
+                    "path": entry.get("path") or str(path),
+                    "display_name": display_name,
+                    "enabled": bool(entry.get("enabled", True)),
+                }
+            )
+
+        if changed:
+            self._yaml_players_save_index(index_entries)
+        enabled_count = sum(1 for entry in results if entry.get("enabled"))
+        self._oplog(
+            f"YAML player rescan: discovered={len(results)} enabled={enabled_count}",
+            level="info",
+        )
+        return results
+
+    def _yaml_players_set_enabled(self, key: str, enabled: bool) -> None:
+        key = str(key or "").strip()
+        if not key:
+            return
+        index_data = self._yaml_players_load_index()
+        entries = index_data.get("entries")
+        if not isinstance(entries, dict):
+            entries = {}
+        entry = entries.get(key)
+        if not isinstance(entry, dict):
+            entry = {"enabled": bool(enabled)}
+        else:
+            entry = dict(entry)
+            entry["enabled"] = bool(enabled)
+        entries[key] = entry
+        self._yaml_players_save_index(entries)
+        self._oplog(f"YAML player roster updated: key={key} enabled={bool(enabled)}", level="info")
+
+    def _yaml_players_refresh_cache(self, rebuild: bool = True) -> None:
+        self._player_yaml_cache_by_path = {}
+        self._player_yaml_meta_by_path = {}
+        self._player_yaml_data_by_name = {}
+        self._player_yaml_name_map = {}
+        self._player_yaml_dir_signature = None
+        self._player_yaml_last_refresh = 0.0
+        if rebuild:
+            self._load_player_yaml_cache(force_refresh=True)
+        try:
+            self._lan_force_state_broadcast()
+        except Exception:
+            pass
+        enabled_count = len(self._player_yaml_data_by_name)
+        self._oplog(f"YAML player cache refreshed: enabled_profiles={enabled_count}", level="info")
 
     def _invalidate_spell_index_cache(self) -> None:
         self._spell_presets_cache = None
@@ -3807,6 +3974,8 @@ class InitiativeTracker(base.InitiativeTracker):
             lan.add_separator()
             lan.add_command(label="Sessions…", command=self._open_lan_sessions)
             lan.add_command(label="Admin Assignments…", command=self._open_lan_admin_assignments)
+            lan.add_separator()
+            lan.add_command(label="Manage YAML Players…", command=self._open_yaml_player_manager)
             menubar.add_cascade(label="LAN", menu=lan)
             
             # Add Help menu
@@ -3991,6 +4160,93 @@ class InitiativeTracker(base.InitiativeTracker):
         ttk.Button(controls, text="Close", command=win.destroy).pack(side=tk.RIGHT)
 
         refresh_sessions()
+
+    def _open_yaml_player_manager(self) -> None:
+        win = tk.Toplevel(self)
+        win.title("YAML Player Roster")
+        win.geometry("760x420")
+        win.transient(self)
+
+        outer = tk.Frame(win)
+        outer.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        players_dir = self._players_dir()
+        tk.Label(
+            outer,
+            text=f"Players folder: {players_dir}",
+            anchor="w",
+            justify="left",
+        ).pack(fill=tk.X, pady=(0, 6))
+
+        tk.Label(
+            outer,
+            text="Toggle which YAML player profiles are active. Refresh cache to apply changes.",
+            anchor="w",
+            justify="left",
+        ).pack(fill=tk.X, pady=(0, 10))
+
+        cols = ("enabled", "name", "path")
+        tree = ttk.Treeview(outer, columns=cols, show="headings", height=12)
+        tree.heading("enabled", text="Enabled")
+        tree.heading("name", text="Display Name")
+        tree.heading("path", text="Path")
+        tree.column("enabled", width=80, anchor="center")
+        tree.column("name", width=220, anchor="w")
+        tree.column("path", width=380, anchor="w")
+        tree.pack(fill=tk.BOTH, expand=True)
+        tree.tag_configure("disabled", foreground="gray")
+
+        def load_entries() -> None:
+            tree.delete(*tree.get_children())
+            entries = self._yaml_players_rescan()
+            for entry in entries:
+                key = str(entry.get("key") or "")
+                if not key:
+                    continue
+                enabled = bool(entry.get("enabled", True))
+                label = "Yes" if enabled else "No"
+                display_name = str(entry.get("display_name") or "")
+                path_text = str(entry.get("path") or "")
+                tree.insert("", "end", iid=key, values=(label, display_name, path_text))
+                if not enabled:
+                    tree.item(key, tags=("disabled",))
+
+        def set_selected(enabled: bool) -> None:
+            selected = tree.selection()
+            if not selected:
+                return
+            for iid in selected:
+                self._yaml_players_set_enabled(iid, enabled)
+            load_entries()
+
+        def toggle_selected(_event: Optional[tk.Event] = None) -> None:
+            selected = tree.selection()
+            if not selected:
+                return
+            for iid in selected:
+                current = str(tree.set(iid, "enabled") or "").strip().lower()
+                new_enabled = current not in ("yes", "true", "1", "on")
+                self._yaml_players_set_enabled(iid, new_enabled)
+            load_entries()
+
+        tree.bind("<Double-1>", toggle_selected)
+
+        controls = tk.Frame(outer)
+        controls.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Button(controls, text="Enable Selected", command=lambda: set_selected(True)).pack(side=tk.LEFT)
+        ttk.Button(controls, text="Disable Selected", command=lambda: set_selected(False)).pack(
+            side=tk.LEFT, padx=(6, 0)
+        )
+        ttk.Button(controls, text="Rescan Directory", command=load_entries).pack(side=tk.LEFT, padx=(12, 0))
+        ttk.Button(
+            controls,
+            text="Refresh YAML index/cache now",
+            command=lambda: self._yaml_players_refresh_cache(rebuild=True),
+        ).pack(side=tk.LEFT, padx=(12, 0))
+        ttk.Button(controls, text="Close", command=win.destroy).pack(side=tk.RIGHT)
+
+        load_entries()
 
     def _open_lan_admin_assignments(self) -> None:
         """DM utility: assign PCs by host/IP (mirrors web admin)."""
@@ -6316,11 +6572,21 @@ class InitiativeTracker(base.InitiativeTracker):
             files = sorted(list(players_dir.glob("*.yaml")) + list(players_dir.glob("*.yml")))
         except Exception:
             files = []
+        index_entries = self._yaml_players_sync_index(files)
+        enabled_files: List[Path] = []
+        for path in files:
+            key = self._yaml_player_key(path, players_dir)
+            entry = index_entries.get(key, {})
+            if isinstance(entry, dict) and not bool(entry.get("enabled", True)):
+                continue
+            enabled_files.append(path)
         dir_signature = _directory_signature(players_dir, files)
+        enabled_signature = tuple(sorted(path.name for path in enabled_files))
+        combined_signature = (dir_signature, enabled_signature)
         if (
             not force_refresh
             and self._player_yaml_cache_by_path
-            and dir_signature == self._player_yaml_dir_signature
+            and combined_signature == self._player_yaml_dir_signature
         ):
             self._player_yaml_last_refresh = time.monotonic()
             return
@@ -6340,14 +6606,14 @@ class InitiativeTracker(base.InitiativeTracker):
                     if name.lower() in keys_lower:
                         data_by_name.pop(name, None)
 
-        valid_paths = set(files)
+        valid_paths = set(enabled_files)
         for cached_path in list(data_by_path.keys()):
             if cached_path not in valid_paths:
                 data_by_path.pop(cached_path, None)
                 meta_by_path.pop(cached_path, None)
                 purge_path_entries(cached_path)
 
-        for path in files:
+        for path in enabled_files:
             meta = _file_stat_metadata(path)
             cached_meta = meta_by_path.get(path)
             if cached_meta and _metadata_matches(cached_meta, meta):
@@ -6371,7 +6637,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_meta_by_path = meta_by_path
         self._player_yaml_data_by_name = data_by_name
         self._player_yaml_name_map = name_map
-        self._player_yaml_dir_signature = dir_signature
+        self._player_yaml_dir_signature = combined_signature
         self._player_yaml_last_refresh = time.monotonic()
         try:
             if self._lan.cfg.yaml_host_assignments_enabled:
