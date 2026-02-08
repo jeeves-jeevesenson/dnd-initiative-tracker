@@ -5418,9 +5418,9 @@ class InitiativeTracker(base.InitiativeTracker):
                                             parsed_turns = None
                                     if parsed_turns is not None:
                                         if parsed_turns < 0:
-                                            warn_condition = condition_key or "condition"
+                                            warning_condition_name = condition_key or "condition"
                                             warnings.append(
-                                                f"negative condition duration for {name} ({warn_condition}); using 0"
+                                                f"negative condition duration for {name} ({warning_condition_name}); using 0"
                                             )
                                             parsed_turns = 0
                                         condition_turns = parsed_turns
