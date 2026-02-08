@@ -76,5 +76,5 @@ mechanics:
     template_preview: true
   notes:
   - Failed save: target rolls 1d10 each turn for behavior; repeat saves at end of turn to end.
-  - Manual upcast: sphere radius increases by 5 feet per slot level above 4.
+  - Manual upcast: sphere radius increases by 5 feet per slot level above 4 (not automated in scaling).
   - Manual: confusion behavior and effects are handled outside automation.

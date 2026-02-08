@@ -58,5 +58,5 @@ mechanics:
   ui:
     template_preview: true
   notes:
-  - Choose up to six creatures in the area; each regains 5d8 plus your spellcasting modifier.
+  - Choose up to six creatures in the area; each regains 5d8 hit points plus your spellcasting modifier.
   - Manual upcast: healing increases by 1d8 per slot level above 5.

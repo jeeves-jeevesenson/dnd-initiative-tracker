@@ -63,4 +63,5 @@ mechanics:
     template_preview: true
   notes:
   - Overgrowth: difficult terrain in a 100-foot radius sphere; you can exclude areas.
+  - Center the area within 150 feet of you.
   - Enrichment: plants in a half-mile radius are enriched for 1 year (manual).
