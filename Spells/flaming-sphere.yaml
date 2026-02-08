@@ -9,7 +9,9 @@ source:
   srd: false
 level: 2
 school: conjuration
-tags: []
+tags:
+- damage
+- aoe
 casting_time: Action
 range: 60 feet
 components: V, S, M (a ball of wax)
@@ -46,9 +48,42 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 60
+    area:
+      shape: sphere
+      radius_ft: 2.5
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: sphere
+    name: Sphere
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: fire
+        dice: 2d6
+        scaling: &id001
+          kind: slot_level
+          base_slot: 2
+          add_per_slot_above: 1d6
+      success:
+      - effect: damage
+        damage_type: fire
+        dice: 2d6
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Creatures save when ending their turn within 5 feet or when the sphere moves into their space.
+  - You can move the sphere 30 feet as a bonus action.
