@@ -3313,6 +3313,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._spell_yaml_lock = threading.Lock()
         self._player_yaml_refresh_scheduled = False
         self._yaml_players_index_path_cache: Optional[Path] = None
+        self._roster_manager_refresh: Optional[Callable[[], None]] = None
 
         # LAN state for when map window isn't open
         self._lan_grid_cols = 20
@@ -3500,6 +3501,20 @@ class InitiativeTracker(base.InitiativeTracker):
         enabled_count = len(self._player_yaml_data_by_name)
         self._oplog(f"YAML player cache refreshed: enabled_profiles={enabled_count}", level="info")
 
+    def _refresh_player_yaml_index(self) -> None:
+        self._yaml_players_rescan()
+        self._yaml_players_refresh_cache(rebuild=True)
+        try:
+            self._lan_force_state_broadcast()
+        except Exception:
+            pass
+        refresh_roster = getattr(self, "_roster_manager_refresh", None)
+        if callable(refresh_roster):
+            try:
+                refresh_roster()
+            except Exception:
+                pass
+
     def _invalidate_spell_index_cache(self) -> None:
         self._spell_presets_cache = None
         self._spell_index_entries = {}
@@ -3685,6 +3700,7 @@ class InitiativeTracker(base.InitiativeTracker):
             lan.add_separator()
             lan.add_command(label="Roster Manager…", command=self._open_roster_manager)
             lan.add_command(label="Manage YAML Players…", command=self._open_yaml_player_manager)
+            lan.add_command(label="Refresh Player YAML Index", command=self._refresh_player_yaml_index)
             menubar.add_cascade(label="LAN", menu=lan)
             
             # Add Help menu
@@ -3803,8 +3819,15 @@ class InitiativeTracker(base.InitiativeTracker):
             side=tk.LEFT, padx=(8, 0)
         )
         ttk.Button(controls, text="Refresh Lists", command=refresh_lists).pack(side=tk.LEFT, padx=(12, 0))
-        ttk.Button(controls, text="Close", command=win.destroy).pack(side=tk.RIGHT)
+        def close_window() -> None:
+            if self._roster_manager_refresh is refresh_lists:
+                self._roster_manager_refresh = None
+            win.destroy()
 
+        ttk.Button(controls, text="Close", command=close_window).pack(side=tk.RIGHT)
+
+        self._roster_manager_refresh = refresh_lists
+        win.protocol("WM_DELETE_WINDOW", close_window)
         refresh_lists()
 
     def _show_lan_url(self) -> None:
