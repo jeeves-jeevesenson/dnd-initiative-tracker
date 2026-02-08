@@ -5420,7 +5420,7 @@ class InitiativeTracker(base.InitiativeTracker):
                                         warnings.append("negative condition duration; using 0")
                                         parsed_turns = 0
                                     if parsed_turns is not None:
-                                        condition_turns = max(0, parsed_turns)
+                                        condition_turns = parsed_turns
                             continue
                         if effect.get("effect") != "damage":
                             continue
