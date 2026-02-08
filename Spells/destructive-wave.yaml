@@ -77,4 +77,4 @@ mechanics:
   ui:
     template_preview: true
   notes:
-  - "Choose radiant or necrotic for the second damage type (update manually); on a failed save the target is also Prone."
+  - "Defaulted the second damage type to radiant; swap to necrotic manually if needed. On a failed save the target is also prone."
