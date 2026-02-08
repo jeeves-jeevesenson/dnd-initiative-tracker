@@ -1593,7 +1593,7 @@
     <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
     <div class="topbar-controls">
       <button class="btn" id="lockMap">Lock Map</button>
-      <button class="btn" id="lockAoeToggle" type="button" aria-pressed="true">Lock my AOEs</button>
+      <button class="btn" id="lockAoeToggle" type="button" aria-pressed="true">Unlock my AOEs</button>
       <button class="btn" id="centerMap">Center on Me</button>
       <button class="btn" id="tokenColorModeBtn">Token Color</button>
       <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
@@ -4420,7 +4420,7 @@ __DAMAGE_TYPE_OPTIONS__
   function localToast(text){
     if (!noteEl) return;
     noteEl.textContent = text || "…";
-    setTimeout(() => noteEl.textContent = "Tip: drag yer token · unlock “Lock my AOEs” to move AoEs (touch-hold ok)", 2500);
+    setTimeout(() => noteEl.textContent = "Tip: drag yer token · unlock “Unlock my AOEs” to move AoEs (touch-hold ok)", 2500);
   }
 
   const DEFAULT_SPELL_COLOR = "#6aa9ff";
@@ -5393,7 +5393,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (!lockAoeBtn) return;
     lockAoeBtn.classList.toggle("accent", !lockMyAoes);
     lockAoeBtn.setAttribute("aria-pressed", lockMyAoes ? "true" : "false");
-    lockAoeBtn.textContent = "Lock my AOEs";
+    lockAoeBtn.textContent = "Unlock my AOEs";
     lockAoeBtn.setAttribute(
       "title",
       lockMyAoes ? "AOEs locked (click to unlock)." : "AOEs unlocked (click to lock)."
