@@ -4610,6 +4610,8 @@ class InitiativeTracker(base.InitiativeTracker):
 
             # Defaults
             hp = 0
+            temp_hp = 0
+            max_hp = None
             speed = 30
             swim = 0
             fly_speed = 0
@@ -4635,10 +4637,22 @@ class InitiativeTracker(base.InitiativeTracker):
                     cfg_cache[nm] = None
                     data = None
             if isinstance(data, dict):
+                def to_int(value: Any, fallback: Optional[int] = None) -> Optional[int]:
+                    try:
+                        return int(value)
+                    except Exception:
+                        return fallback
+
                 profile = self._normalize_player_profile(data, nm)
                 resources = profile.get("resources", {}) if isinstance(profile, dict) else {}
                 vitals = profile.get("vitals", {}) if isinstance(profile, dict) else {}
                 defenses = profile.get("defenses", {}) if isinstance(profile, dict) else {}
+                if isinstance(vitals, dict):
+                    max_hp = to_int(vitals.get("max_hp"), None)
+                    hp = to_int(vitals.get("current_hp"), None) if "current_hp" in vitals else None
+                    temp_hp = to_int(vitals.get("temp_hp"), 0) or 0
+                if hp is None:
+                    hp = max_hp
                 # accept a few key names
                 speed_source = resources.get("base_movement", resources.get("speed"))
                 if speed_source is None and isinstance(vitals, dict):
@@ -4661,7 +4675,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 fly_speed = int(resources.get("fly_speed", fly_speed) or fly_speed)
                 burrow_speed = int(resources.get("burrow_speed", burrow_speed) or burrow_speed)
                 climb_speed = int(resources.get("climb_speed", climb_speed) or climb_speed)
-                hp = int(defenses.get("hp", hp) or hp)
+                if hp is None:
+                    hp = to_int(defenses.get("hp"), None)
+                if hp is None:
+                    hp = 0
+                if max_hp is None:
+                    max_hp = hp
                 actions = self._normalize_action_entries(resources.get("actions"), "action")
                 bonus_actions = self._normalize_action_entries(resources.get("bonus_actions"), "bonus_action")
 
@@ -4671,7 +4690,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 init_total = 10
 
             try:
-                self._create_combatant(
+                cid = self._create_combatant(
                     name=self._unique_name(nm),
                     hp=int(hp),
                     speed=int(speed),
@@ -4687,6 +4706,13 @@ class InitiativeTracker(base.InitiativeTracker):
                     actions=actions,
                     bonus_actions=bonus_actions,
                 )
+                try:
+                    combatant = self.combatants.get(cid)
+                    if combatant is not None:
+                        setattr(combatant, "temp_hp", int(temp_hp or 0))
+                        setattr(combatant, "max_hp", int(max_hp or hp or 0))
+                except Exception:
+                    pass
                 existing.add(nm)
             except Exception:
                 pass
