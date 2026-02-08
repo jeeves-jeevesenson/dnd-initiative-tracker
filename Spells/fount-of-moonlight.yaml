@@ -40,9 +40,17 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: self
+    range:
+      kind: self
+    target_selection:
+      mode: single
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - You gain resistance to radiant damage and bonus radiant damage on melee hits.
+  - Reaction: force a creature within 60 feet to save or be blinded until end of your next turn.

@@ -9,7 +9,8 @@ source:
   srd: false
 level: 4
 school: transmutation
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 300 feet
 components: V, S, M (a mixture of water and dust)
@@ -65,9 +66,21 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 300
+    area:
+      shape: cube
+      side_ft: 100
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Choose one effect (flood, part water, redirect flow, whirlpool); effects can be changed with a Magic action.
+  - Whirlpool uses Strength saves for 2d8 bludgeoning damage; other effects are manual.

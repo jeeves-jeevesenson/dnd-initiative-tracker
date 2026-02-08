@@ -46,9 +46,21 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 150
+    area:
+      shape: sphere
+      radius_ft: 100
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Overgrowth: difficult terrain in a 100-foot radius sphere; you can exclude areas.
+  - Enrichment: plants in a half-mile radius are enriched for 1 year (manual).

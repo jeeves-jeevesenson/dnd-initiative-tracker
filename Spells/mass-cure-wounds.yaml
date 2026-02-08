@@ -41,9 +41,22 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 60
+    area:
+      shape: sphere
+      radius_ft: 30
+    target_selection:
+      mode: area
+      max_targets: 6
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Choose up to six creatures in the area; each regains 5d8 plus your spellcasting modifier.
+  - Manual upcast: healing increases by 1d8 per slot level above 5.

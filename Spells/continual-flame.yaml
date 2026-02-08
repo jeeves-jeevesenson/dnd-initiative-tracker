@@ -38,9 +38,16 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: touch
+    range:
+      kind: touch
+    target_selection:
+      mode: single
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - The touched object sheds bright light (20 feet) and dim light (20 feet) until dispelled.
