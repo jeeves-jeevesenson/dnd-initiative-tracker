@@ -6704,13 +6704,21 @@ class InitiativeTracker(base.InitiativeTracker):
             raw["vitals"] = vitals
 
             spellcasting = raw.get("spellcasting")
-            if isinstance(spellcasting, dict) and "spell_slots" in spellcasting:
-                slots = self._normalize_spell_slots(spellcasting.get("spell_slots"))
-                for entry in slots.values():
-                    entry["current"] = int(entry.get("max", 0) or 0)
-                spellcasting = dict(spellcasting)
-                spellcasting["spell_slots"] = slots
-                raw["spellcasting"] = spellcasting
+            if not isinstance(spellcasting, dict):
+                spellcasting = {}
+            raw_spell_slots = None
+            if "spell_slots" in spellcasting:
+                raw_spell_slots = spellcasting.get("spell_slots")
+            elif "spell_slots" in raw:
+                raw_spell_slots = raw.get("spell_slots")
+            slots = self._normalize_spell_slots(raw_spell_slots)
+            for entry in slots.values():
+                entry["current"] = int(entry.get("max", 0) or 0)
+            spellcasting = dict(spellcasting)
+            spellcasting["spell_slots"] = slots
+            raw["spellcasting"] = spellcasting
+            if "spell_slots" in raw:
+                raw["spell_slots"] = slots
 
             self._store_character_yaml(path, raw)
             updated[name.lower()] = int(max_hp_value or 0)
