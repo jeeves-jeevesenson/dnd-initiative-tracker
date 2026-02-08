@@ -46,6 +46,7 @@ mechanics:
     area:
       shape: cone
       length_ft: 15
+      angle_deg: 90
     target_selection:
       mode: area
       friendly_fire: true

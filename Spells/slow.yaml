@@ -46,9 +46,21 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    area:
+      shape: cube
+      side_ft: 40
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Targets in the area make a Wisdom saving throw; on a failed save they are slowed (speed halved, -2 AC/DEX saves, no reactions, limited actions).
+  - Affected creatures repeat the save at the end of each of their turns.

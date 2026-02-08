@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: conjuration
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 120 feet
 components: V, S
@@ -44,9 +45,43 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    area:
+      shape: sphere
+      radius_ft: 5
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: strike
+    name: Strike
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: lightning
+        dice: 3d10
+        scaling: &lightning_scaling
+          kind: slot_level
+          base_slot: 3
+          add_per_slot_above: 1d10
+      success:
+      - effect: damage
+        damage_type: lightning
+        dice: 3d10
+        scaling: *lightning_scaling
+        multiplier: 0.5
+  scaling: *lightning_scaling
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Storm cloud is a 60-foot-radius, 10-foot-high cylinder; bolts strike a point under the cloud.
+  - You can use a Magic action on later turns to call down another bolt.
+  - Damage increases by 1d10 if cast outdoors in a storm.

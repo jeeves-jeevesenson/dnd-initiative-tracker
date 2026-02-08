@@ -49,9 +49,42 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 150
+    area:
+      shape: sphere
+      radius_ft: 20
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: explosion
+    name: Explosion
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: fire
+        dice: 12d6
+        scaling: &delayed_fireball_scaling
+          kind: slot_level
+          base_slot: 7
+          add_per_slot_above: 1d6
+      success:
+      - effect: damage
+        damage_type: fire
+        dice: 12d6
+        scaling: *delayed_fireball_scaling
+        multiplier: 0.5
+  scaling: *delayed_fireball_scaling
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Base damage increases by 1d6 when each of your turns ends before the bead explodes.
+  - A creature can touch or throw the bead, triggering the explosion early on a failed save.

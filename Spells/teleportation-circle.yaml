@@ -9,7 +9,8 @@ source:
   srd: false
 level: 5
 school: conjuration
-tags: []
+tags:
+- aoe
 casting_time: 1 minute
 range: 10 feet
 components: V, M (rare inks worth 50+ GP, which the spell consumes)
@@ -50,9 +51,20 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 10
+    area:
+      shape: sphere
+      radius_ft: 5
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - The portal remains open until the end of your next turn.

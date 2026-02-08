@@ -46,9 +46,20 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    area:
+      shape: cube
+      side_ft: 10
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Large objects fit within a 10-foot cube; mineral objects are limited to a 5-foot cube.
