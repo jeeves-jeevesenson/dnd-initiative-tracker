@@ -59,4 +59,4 @@ mechanics:
     template_preview: true
   notes:
   - The cloud is heavily obscured and disperses in strong wind.
-  - The radius increases by 20 feet per slot level above 1.
+  - Manual upcast: radius increases by 20 feet per slot level above 1.
