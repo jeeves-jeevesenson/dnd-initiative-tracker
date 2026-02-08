@@ -34,7 +34,7 @@ import secrets
 import traceback
 from datetime import datetime
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 import copy
 from collections import deque
 import sys
@@ -740,7 +740,7 @@ APP_VERSION = "41"
 
 # --- LAN POC switches ---
 POC_AUTO_START_LAN = True
-POC_AUTO_SEED_PCS = True  # auto-add Player Characters from startingplayers.yaml (useful over SSH testing)
+POC_AUTO_SEED_PCS = False  # auto-add Player Characters from startingplayers.yaml (useful over SSH testing)
 LAN_TERRAIN_DEBUG = bool(os.getenv("INITTRACKER_LAN_TERRAIN_DEBUG"))
 
 DAMAGE_TYPES = list(base.DAMAGE_TYPES)
@@ -3324,9 +3324,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_next_aoe_id = 1
         self._turn_snapshots: Dict[int, Dict[str, Any]] = {}
 
-        # POC helpers: seed all Player Characters and start the LAN server automatically.
-        if POC_AUTO_SEED_PCS:
-            self._poc_seed_all_player_characters()
+        # POC helpers: start the LAN server automatically.
         # Start quietly (log on success; avoid popups if deps missing)
         if POC_AUTO_START_LAN:
             self.after(250, lambda: self._lan.start(quiet=True))
@@ -3685,6 +3683,7 @@ class InitiativeTracker(base.InitiativeTracker):
             lan.add_command(label="Sessions…", command=self._open_lan_sessions)
             lan.add_command(label="Admin Assignments…", command=self._open_lan_admin_assignments)
             lan.add_separator()
+            lan.add_command(label="Roster Manager…", command=self._open_roster_manager)
             lan.add_command(label="Manage YAML Players…", command=self._open_yaml_player_manager)
             menubar.add_cascade(label="LAN", menu=lan)
             
@@ -3698,6 +3697,115 @@ class InitiativeTracker(base.InitiativeTracker):
             self.config(menu=menubar)
         except Exception:
             pass
+
+    def _open_roster_manager(self) -> None:
+        win = tk.Toplevel(self)
+        win.title("Combat Roster Manager")
+        win.geometry("820x460")
+        win.transient(self)
+
+        outer = tk.Frame(win)
+        outer.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        tk.Label(
+            outer,
+            text="Add or remove Player Characters mid-fight. Changes sync to LAN clients immediately.",
+            anchor="w",
+            justify="left",
+        ).pack(fill=tk.X, pady=(0, 10))
+
+        lists = tk.Frame(outer)
+        lists.pack(fill=tk.BOTH, expand=True)
+        lists.columnconfigure(0, weight=1)
+        lists.columnconfigure(1, weight=1)
+
+        left_frame = tk.Frame(lists)
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        right_frame = tk.Frame(lists)
+        right_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+
+        tk.Label(left_frame, text="Available PCs", anchor="w").pack(fill=tk.X)
+        avail_scroll = tk.Scrollbar(left_frame)
+        avail_list = tk.Listbox(left_frame, selectmode=tk.EXTENDED, yscrollcommand=avail_scroll.set)
+        avail_scroll.config(command=avail_list.yview)
+        avail_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        avail_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        tk.Label(right_frame, text="In Combat PCs", anchor="w").pack(fill=tk.X)
+        combat_scroll = tk.Scrollbar(right_frame)
+        combat_list = tk.Listbox(right_frame, selectmode=tk.EXTENDED, yscrollcommand=combat_scroll.set)
+        combat_scroll.config(command=combat_list.yview)
+        combat_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        combat_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        combat_cids: List[int] = []
+
+        def refresh_lists() -> None:
+            self._load_player_yaml_cache()
+            avail_list.delete(0, tk.END)
+            for name in sorted(self._player_yaml_data_by_name.keys(), key=lambda x: x.lower()):
+                avail_list.insert(tk.END, name)
+
+            combat_list.delete(0, tk.END)
+            combat_cids.clear()
+            pcs: List[Tuple[int, str]] = []
+            for c in self.combatants.values():
+                role = self._name_role_memory.get(str(c.name), "enemy")
+                if role == "pc" or bool(getattr(c, "is_pc", False)):
+                    pcs.append((int(c.cid), str(c.name)))
+            pcs.sort(key=lambda entry: entry[1].lower())
+            for cid, name in pcs:
+                combat_list.insert(tk.END, f"{name} (cid {cid})")
+                combat_cids.append(cid)
+
+        def add_selected() -> None:
+            selected = [avail_list.get(i) for i in avail_list.curselection()]
+            if not selected:
+                return
+            self._load_player_yaml_cache()
+            added = False
+            for name in selected:
+                profile = self._player_yaml_data_by_name.get(name)
+                if not isinstance(profile, dict):
+                    continue
+                if self._create_pc_from_profile(name, profile) is not None:
+                    added = True
+            if added:
+                self._rebuild_table(scroll_to_current=True)
+                self._lan_force_state_broadcast()
+            refresh_lists()
+
+        def remove_selected() -> None:
+            indices = list(combat_list.curselection())
+            if not indices:
+                return
+            to_remove = [combat_cids[i] for i in indices if i < len(combat_cids)]
+            if not to_remove:
+                return
+            if not messagebox.askyesno(
+                "Remove PCs",
+                f"Remove {len(to_remove)} PC(s) from combat?",
+            ):
+                return
+            pre_order = [c.cid for c in self._display_order()]
+            self._remove_combatants_with_lan_cleanup(to_remove)
+            if self.start_cid in to_remove:
+                self.start_cid = None
+            self._retarget_current_after_removal(to_remove, pre_order=pre_order)
+            self._rebuild_table(scroll_to_current=True)
+            self._lan_force_state_broadcast()
+            refresh_lists()
+
+        controls = tk.Frame(outer)
+        controls.pack(fill=tk.X, pady=(10, 0))
+        ttk.Button(controls, text="Add to Combat →", command=add_selected).pack(side=tk.LEFT)
+        ttk.Button(controls, text="← Remove from Combat", command=remove_selected).pack(
+            side=tk.LEFT, padx=(8, 0)
+        )
+        ttk.Button(controls, text="Refresh Lists", command=refresh_lists).pack(side=tk.LEFT, padx=(12, 0))
+        ttk.Button(controls, text="Close", command=win.destroy).pack(side=tk.RIGHT)
+
+        refresh_lists()
 
     def _show_lan_url(self) -> None:
         if not self._lan.is_running():
@@ -4370,6 +4478,142 @@ class InitiativeTracker(base.InitiativeTracker):
             self._rebuild_table(scroll_to_current=True)
         except Exception:
             pass
+
+    def _create_pc_from_profile(self, name: str, profile: Dict[str, Any]) -> Optional[int]:
+        def to_int(value: Any, fallback: Optional[int] = None) -> Optional[int]:
+            try:
+                return int(value)
+            except Exception:
+                return fallback
+
+        if not isinstance(profile, dict):
+            return None
+
+        normalized = self._normalize_player_profile(profile, name)
+        resources = normalized.get("resources", {}) if isinstance(normalized, dict) else {}
+        vitals = normalized.get("vitals", {}) if isinstance(normalized, dict) else {}
+        defenses = normalized.get("defenses", {}) if isinstance(normalized, dict) else {}
+        identity = normalized.get("identity", {}) if isinstance(normalized, dict) else {}
+        spellcasting = normalized.get("spellcasting", {}) if isinstance(normalized, dict) else {}
+
+        hp = to_int(defenses.get("hp"), 0) or 0
+        max_hp = to_int(vitals.get("max_hp"), None)
+        temp_hp = to_int(vitals.get("temp_hp"), 0) or 0
+        if "current_hp" in vitals:
+            hp = to_int(vitals.get("current_hp"), hp) or hp
+        if hp is None:
+            hp = max_hp if max_hp is not None else 0
+        if max_hp is None:
+            max_hp = hp
+
+        speed = 30
+        swim = 0
+        fly_speed = 0
+        burrow_speed = 0
+        climb_speed = 0
+        movement_mode = resources.get("movement_mode") if isinstance(resources, dict) else None
+
+        speed_source = resources.get("base_movement", resources.get("speed")) if isinstance(resources, dict) else None
+        if speed_source is None and isinstance(vitals, dict):
+            speed_source = vitals.get("speed")
+        if speed_source is not None:
+            parsed = base._parse_speed_data(speed_source)
+            if parsed[0] is not None:
+                speed = int(parsed[0])
+            if parsed[1] is not None:
+                swim = int(parsed[1])
+            if parsed[2] is not None:
+                fly_speed = int(parsed[2])
+            if parsed[3] is not None:
+                burrow_speed = int(parsed[3])
+            if parsed[4] is not None:
+                climb_speed = int(parsed[4])
+        if isinstance(resources, dict):
+            if "speed" in resources and speed_source is None:
+                speed = int(resources.get("speed", speed) or speed)
+            swim = int(resources.get("swim_speed", swim) or swim)
+            fly_speed = int(resources.get("fly_speed", fly_speed) or fly_speed)
+            burrow_speed = int(resources.get("burrow_speed", burrow_speed) or burrow_speed)
+            climb_speed = int(resources.get("climb_speed", climb_speed) or climb_speed)
+
+        actions = self._normalize_action_entries(resources.get("actions"), "action")
+        bonus_actions = self._normalize_action_entries(resources.get("bonus_actions"), "bonus_action")
+
+        try:
+            init_total = random.randint(1, 20)
+        except Exception:
+            init_total = 10
+
+        try:
+            cid = self._create_combatant(
+                name=self._unique_name(str(normalized.get("name") or name)),
+                hp=int(hp),
+                speed=int(speed),
+                swim_speed=int(swim),
+                fly_speed=int(fly_speed),
+                burrow_speed=int(burrow_speed),
+                climb_speed=int(climb_speed),
+                movement_mode=movement_mode or "Normal",
+                initiative=int(init_total),
+                dex=None,
+                ally=True,
+                is_pc=True,
+                is_spellcaster=bool(spellcasting),
+                actions=actions,
+                bonus_actions=bonus_actions,
+            )
+        except Exception:
+            return None
+
+        combatant = self.combatants.get(cid)
+        if combatant is not None:
+            setattr(combatant, "temp_hp", int(temp_hp or 0))
+            setattr(combatant, "max_hp", int(max_hp or hp or 0))
+            token_color = identity.get("token_color") if isinstance(identity, dict) else None
+            if token_color:
+                setattr(combatant, "token_color", token_color)
+        return cid
+
+    def _remove_combatants_with_lan_cleanup(self, cids: Iterable[int]) -> None:
+        removed = {int(cid) for cid in cids}
+        if not removed:
+            return
+        mw = getattr(self, "_map_window", None)
+        try:
+            if mw is not None and not mw.winfo_exists():
+                mw = None
+        except Exception:
+            mw = None
+
+        for cid in removed:
+            self.combatants.pop(cid, None)
+            self._lan_positions.pop(cid, None)
+            self._turn_snapshots.pop(cid, None)
+
+        aoe_ids = [aid for aid, aoe in (self._lan_aoes or {}).items() if aoe.get("owner_cid") in removed]
+        if mw is not None and hasattr(mw, "_remove_aoe_by_id"):
+            for aid in aoe_ids:
+                try:
+                    mw._remove_aoe_by_id(int(aid))
+                except Exception:
+                    self._lan_aoes.pop(aid, None)
+        else:
+            for aid in aoe_ids:
+                self._lan_aoes.pop(aid, None)
+
+        if mw is not None:
+            for cid in removed:
+                try:
+                    if hasattr(mw, "_delete_unit_token"):
+                        mw._delete_unit_token(int(cid))
+                    else:
+                        getattr(mw, "unit_tokens", {}).pop(int(cid), None)
+                except Exception:
+                    pass
+            if hasattr(mw, "aoes") and not hasattr(mw, "_remove_aoe_by_id"):
+                for aid, aoe in list(getattr(mw, "aoes", {}).items()):
+                    if aoe.get("owner_cid") in removed:
+                        getattr(mw, "aoes", {}).pop(aid, None)
 
     # --------------------- LAN snapshot + actions ---------------------
 
