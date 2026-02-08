@@ -66,11 +66,9 @@ mechanics:
       fail:
       - effect: condition
         condition: charmed
-        duration_turns: 0
       success: []
   scaling: null
   ui:
     template_preview: true
   notes:
   - Failed save: target is also incapacitated with Speed 0; effect ends on damage or an action to shake it awake.
-  - Duration is tracked by the spell; condition duration uses 0 to indicate "until cleared."

@@ -5417,7 +5417,10 @@ class InitiativeTracker(base.InitiativeTracker):
                                         except ValueError:
                                             parsed_turns = None
                                     if parsed_turns is not None and parsed_turns < 0:
-                                        warnings.append("negative condition duration; using 0")
+                                        warn_condition = condition_key or "condition"
+                                        warnings.append(
+                                            f"negative condition duration for {name} ({warn_condition}); using 0"
+                                        )
                                         parsed_turns = 0
                                     if parsed_turns is not None:
                                         condition_turns = parsed_turns
