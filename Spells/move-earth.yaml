@@ -9,7 +9,8 @@ source:
   srd: false
 level: 6
 school: transmutation
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 120 feet
 components: V, S, M (a miniature shovel)
@@ -50,9 +51,20 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    area:
+      shape: cube
+      side_ft: 40
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - The affected terrain can be up to a 40-foot square; you can choose a new area every 10 minutes.

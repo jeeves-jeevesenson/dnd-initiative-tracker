@@ -9,7 +9,8 @@ source:
   srd: false
 level: 0
 school: evocation
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: Touch
 components: V, M (a firefly or phosphorescent moss)
@@ -40,9 +41,19 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: touch
+    range:
+      kind: touch
+    area:
+      shape: sphere
+      radius_ft: 20
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - The light sheds dim light for an additional 20 feet; covering the object blocks the light.

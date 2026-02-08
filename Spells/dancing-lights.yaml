@@ -9,7 +9,8 @@ source:
   srd: false
 level: 0
 school: illusion
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 120 feet
 components: V, S, M (a bit of phosphorus)
@@ -41,9 +42,21 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    area:
+      shape: sphere
+      radius_ft: 10
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Up to four lights can exist; each sheds dim light in a 10-foot radius and stays within 20 feet of another light.
+  - You can move the lights up to 60 feet as a Bonus Action.

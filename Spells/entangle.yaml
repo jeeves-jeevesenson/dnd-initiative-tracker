@@ -9,7 +9,8 @@ source:
   srd: false
 level: 1
 school: conjuration
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 90 feet
 components: V, S
@@ -41,9 +42,32 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 90
+    area:
+      shape: cube
+      side_ft: 20
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: grasp
+    name: Grasp
+    check:
+      kind: saving_throw
+      ability: strength
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: condition
+        condition: restrained
+        duration_turns: 0
+      success: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - The area is difficult terrain, and restrained creatures can escape with a Strength (Athletics) check.

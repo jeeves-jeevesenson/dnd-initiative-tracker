@@ -70,9 +70,41 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: touch
+    range:
+      kind: touch
+    area:
+      shape: sphere
+      radius_ft: 20
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: explosion
+    name: Explosion
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: fire
+        dice: 5d8
+        scaling: &id001
+          kind: slot_level
+          base_slot: 3
+          add_per_slot_above: 1d8
+      success:
+      - effect: damage
+        damage_type: fire
+        dice: 5d8
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Explosive rune damage type is chosen when created (acid, cold, fire, lightning, or thunder); adjust as needed.
+  - Spell glyphs store another spell (single-target or area) that triggers from the glyph.

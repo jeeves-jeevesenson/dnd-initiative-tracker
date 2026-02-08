@@ -9,7 +9,8 @@ source:
   srd: false
 level: 6
 school: evocation
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: Self
 components: V, S, M (a magnifying glass)
@@ -43,9 +44,40 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: line
+      length_ft: 60
+      width_ft: 5
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: beam
+    name: Beam
+    check:
+      kind: saving_throw
+      ability: constitution
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: radiant
+        dice: 6d8
+      - effect: condition
+        condition: blinded
+        duration_turns: 0
+      success:
+      - effect: damage
+        damage_type: radiant
+        dice: 6d8
+        multiplier: 0.5
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - You can create a new line of radiance with a Magic action on later turns.
+  - A mote of sunlight sheds bright light in a 30-foot radius.

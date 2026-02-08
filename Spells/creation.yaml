@@ -46,9 +46,20 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 30
+    area:
+      shape: cube
+      side_ft: 5
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - The created object must fit within a 5-foot cube; the cube increases by 5 feet per slot above 5th.

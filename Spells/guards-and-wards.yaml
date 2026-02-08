@@ -9,7 +9,8 @@ source:
   srd: false
 level: 6
 school: abjuration
-tags: []
+tags:
+- aoe
 casting_time: 1 hour
 range: Touch
 components: V, S, M (a silver rod worth 10+ GP)
@@ -61,9 +62,19 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: touch
+    range:
+      kind: touch
+    area:
+      shape: cube
+      side_ft: 50
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - The warded area can be a 50-foot square or contiguous smaller squares (up to 2,500 sq ft, 20 ft tall).
