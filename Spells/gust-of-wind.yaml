@@ -9,7 +9,8 @@ source:
   srd: false
 level: 2
 school: evocation
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: Self
 components: V, S, M (a legume seed)
@@ -45,9 +46,30 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: line
+      length_ft: 60
+      width_ft: 10
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: strength
+      dc: spell_save_dc
+    outcomes:
+      fail: []
+      success: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Failed save: target is pushed 15 feet along the line; saving throws repeat if ending its turn in the line.
+  - Moving toward the caster costs extra movement; wind disperses gas and extinguishes flames.

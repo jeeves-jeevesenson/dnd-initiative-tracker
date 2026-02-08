@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: conjuration
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 150 feet
 components: V, S, M (a miniature umbrella)
@@ -40,9 +41,33 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 150
+    area:
+      shape: cylinder
+      radius_ft: 20
+      height_ft: 40
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: condition
+        condition: prone
+        duration_turns: 0
+      success: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - The area is heavily obscured and difficult terrain; failed save knocks prone and breaks concentration.

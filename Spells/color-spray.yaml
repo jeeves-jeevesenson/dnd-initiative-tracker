@@ -39,9 +39,19 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: cone
+      length_ft: 15
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Affects creatures by remaining hit points (6d10 pool), starting with the lowest; affected targets are blinded until the end of your next turn.

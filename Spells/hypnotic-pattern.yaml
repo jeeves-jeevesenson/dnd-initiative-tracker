@@ -44,9 +44,33 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    area:
+      shape: cube
+      side_ft: 30
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: wisdom
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: condition
+        condition: charmed
+        duration_turns: 0
+      success: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Failed save: target is also incapacitated with Speed 0; effect ends on damage or an action to shake it awake.
+  - Duration is tracked manually (concentration, up to 1 minute).

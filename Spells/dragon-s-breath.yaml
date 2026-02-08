@@ -41,9 +41,41 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: target_creature
+    range:
+      kind: touch
+    area:
+      shape: cone
+      length_ft: 15
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: breath
+    name: Breath
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: fire
+        dice: 3d6
+        scaling: &id001
+          kind: slot_level
+          base_slot: 2
+          add_per_slot_above: 1d6
+      success:
+      - effect: damage
+        damage_type: fire
+        dice: 3d6
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - The cone originates from the affected creature when it exhales.
+  - Choose damage type (acid, cold, fire, lightning, poison) when you cast; update the damage type manually.

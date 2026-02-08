@@ -43,9 +43,21 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 150
+    area:
+      shape: sphere
+      radius_ft: 20
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Area is difficult terrain; movement within it deals 2d4 piercing damage per 5 feet.
+  - The spikes are camouflaged; creatures may need a check to notice the hazard.

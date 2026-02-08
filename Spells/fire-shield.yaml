@@ -41,9 +41,17 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: self
+    range:
+      kind: self
+    target_selection:
+      mode: single
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Choose warm or chill shield for resistance and reactive damage type.
+  - Attackers within 5 feet who hit you take 2d8 fire or cold damage.

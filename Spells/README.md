@@ -344,6 +344,14 @@ Movement effect example:
   forced: true
 ```
 
+Condition effect example:
+
+```yaml
+- effect: condition
+  condition: frightened
+  duration_turns: 0  # 0 = duration handled by spell/conditions, not turn-based
+```
+
 ### Scaling
 
 There are two main scaling patterns:

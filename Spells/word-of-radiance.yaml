@@ -9,7 +9,9 @@ source:
   srd: false
 level: 0
 school: evocation
-tags: []
+tags:
+- damage
+- aoe
 casting_time: Action
 range: Self
 components: V, M (a sunburst token)
@@ -35,10 +37,40 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  automation: full
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: sphere
+      radius_ft: 5
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: constitution
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: radiant
+        dice: 1d6
+        scaling: &id001
+          kind: character_level
+          thresholds:
+            '5':
+              add: 1d6
+            '11':
+              add: 1d6
+            '17':
+              add: 1d6
+      success: []
+  scaling: *id001
   ui:
-    template_preview: false
+    template_preview: true
   notes: []

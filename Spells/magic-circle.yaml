@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: abjuration
-tags: []
+tags:
+- aoe
 casting_time: 1 minute
 range: 10 feet
 components: V, S, M (salt and powdered silver worth 100+ GP, which the spell consumes)
@@ -50,9 +51,22 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 10
+    area:
+      shape: cylinder
+      radius_ft: 10
+      height_ft: 20
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Choose creature types; the circle blocks entry or exit (reverse) and imposes protections.
+  - Manual upcast: duration increases by 1 hour per slot level above 3.

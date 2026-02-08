@@ -9,7 +9,9 @@ source:
   srd: false
 level: 5
 school: evocation
-tags: []
+tags:
+- damage
+- aoe
 casting_time: Action
 range: Self
 components: V
@@ -36,10 +38,43 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
-  targeting: null
-  sequence: []
+  automation: full
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: sphere
+      radius_ft: 30
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: constitution
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: thunder
+        dice: 5d6
+      - effect: damage
+        damage_type: radiant
+        dice: 5d6
+      success:
+      - effect: damage
+        damage_type: thunder
+        dice: 5d6
+        multiplier: 0.5
+      - effect: damage
+        damage_type: radiant
+        dice: 5d6
+        multiplier: 0.5
   scaling: null
   ui:
-    template_preview: false
-  notes: []
+    template_preview: true
+  notes:
+  - "Defaulted the second damage type to radiant; swap to necrotic manually if needed. On a failed save the target is also prone."

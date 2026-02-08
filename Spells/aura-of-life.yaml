@@ -9,7 +9,8 @@ source:
   srd: false
 level: 4
 school: abjuration
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: Self
 components: V
@@ -37,9 +38,19 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: sphere
+      radius_ft: 30
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Allies in the aura resist necrotic damage, can't have HP maximums reduced, and regain 1 HP at the start of their turn if at 0 HP.

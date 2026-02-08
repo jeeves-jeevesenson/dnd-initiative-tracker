@@ -9,7 +9,8 @@ source:
   srd: false
 level: 2
 school: abjuration
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: Self
 components: V, S, M (ashes from a burned mistletoe)
@@ -36,9 +37,19 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: sphere
+      radius_ft: 30
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Manual targeting: choose allies in the aura to gain +10 to Dexterity (Stealth) checks and leave no tracks.

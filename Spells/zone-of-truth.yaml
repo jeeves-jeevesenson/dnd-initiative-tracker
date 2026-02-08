@@ -44,9 +44,30 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 60
+    area:
+      shape: sphere
+      radius_ft: 15
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: charisma
+      dc: spell_save_dc
+    outcomes:
+      fail: []
+      success: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Failed save: creature can't speak deliberate lies while in the zone; the caster knows the result. Creatures can choose to fail.
+  - Saves occur when a creature first enters or starts its turn in the area; the effect persists for the spell's duration while inside.

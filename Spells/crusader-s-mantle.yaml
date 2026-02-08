@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: evocation
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: Self
 components: V
@@ -35,9 +36,19 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: sphere
+      radius_ft: 30
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Allies in the aura deal an extra 1d4 radiant damage on weapon/unarmed hits.

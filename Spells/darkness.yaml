@@ -44,9 +44,21 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 60
+    area:
+      shape: sphere
+      radius_ft: 15
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Can be centered on an unattended object to emanate darkness; covering the object blocks the darkness.
+  - Overlapping magical light from level 2 or lower is dispelled.

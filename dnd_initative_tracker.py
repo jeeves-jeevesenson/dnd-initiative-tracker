@@ -61,6 +61,9 @@ except Exception as e:  # pragma: no cover
     )
 
 
+FAIL_OUTCOME_LABELS = {"fail", "failed", "failure", "failed_save", "fail_save"}
+
+
 def _app_base_dir() -> Path:
     try:
         if getattr(sys, "frozen", False):
@@ -5398,6 +5401,8 @@ class InitiativeTracker(base.InitiativeTracker):
             save_type: Optional[str] = None
             save_dc: Optional[int] = None
             half_on_pass: Optional[bool] = None
+            condition_key: Optional[str] = None
+            condition_turns: Optional[int] = None
 
             sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
             for step in sequence:
@@ -5415,8 +5420,33 @@ class InitiativeTracker(base.InitiativeTracker):
                 for outcome_key, outcome_list in outcomes.items():
                     if not isinstance(outcome_list, list):
                         continue
+                    outcome_label = str(outcome_key or "").strip().lower()
+                    is_fail_outcome = outcome_label in FAIL_OUTCOME_LABELS
                     for effect in outcome_list:
                         if not isinstance(effect, dict):
+                            continue
+                        if effect.get("effect") == "condition":
+                            if is_fail_outcome and condition_key is None:
+                                raw_condition = effect.get("condition")
+                                if raw_condition not in (None, ""):
+                                    condition_key = str(raw_condition).strip().lower()
+                                raw_turns = effect.get("duration_turns")
+                                if raw_turns not in (None, ""):
+                                    if isinstance(raw_turns, int):
+                                        parsed_turns = raw_turns
+                                    else:
+                                        try:
+                                            parsed_turns = int(str(raw_turns).strip())
+                                        except ValueError:
+                                            parsed_turns = None
+                                    if parsed_turns is not None:
+                                        if parsed_turns < 0:
+                                            condition_name = condition_key or "condition"
+                                            warnings.append(
+                                                f"negative condition duration for {name} ({condition_name}); using 0"
+                                            )
+                                            parsed_turns = 0
+                                        condition_turns = parsed_turns
                             continue
                         if effect.get("effect") != "damage":
                             continue
@@ -5448,6 +5478,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 preset["damage_types"] = damage_types
             if half_on_pass:
                 preset["half_on_pass"] = True
+            if condition_key:
+                preset["condition_on_fail"] = True
+                preset["condition_key"] = condition_key
+                if condition_turns is not None:
+                    preset["condition_turns"] = condition_turns
 
             upcast: Optional[Dict[str, Any]] = None
             if isinstance(scaling, dict) and scaling.get("kind") == "slot_level":

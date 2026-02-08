@@ -9,7 +9,9 @@ source:
   srd: false
 level: 3
 school: conjuration
-tags: []
+tags:
+- damage
+- aoe
 casting_time: Action
 range: Self
 components: V, S, M (a prayer scroll)
@@ -43,9 +45,41 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: sphere
+      radius_ft: 15
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: wisdom
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: radiant
+        dice: 3d8
+        scaling: &id001
+          kind: slot_level
+          base_slot: 3
+          add_per_slot_above: 1d8
+      success:
+      - effect: damage
+        damage_type: radiant
+        dice: 3d8
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Damage triggers when the aura enters a creature's space or it enters/ends its turn there (once per turn).
+  - Creatures not chosen have Speed halved; swap radiant to necrotic for evil casters.
