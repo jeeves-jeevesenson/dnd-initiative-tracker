@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: abjuration
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: Self
 components: V
@@ -37,9 +38,19 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: sphere
+      radius_ft: 30
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - When the aura appears and at the start of each of your turns, you can restore 2d6 HP to one creature in it.

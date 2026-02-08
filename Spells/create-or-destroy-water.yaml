@@ -43,9 +43,21 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 30
+    area:
+      shape: cube
+      side_ft: 30
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Creates/destroys water in containers or a 30-foot cube of rain/fog.
+  - Manual upcast: cube size increases by 5 feet per slot level above 1.
