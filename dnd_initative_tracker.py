@@ -5409,10 +5409,13 @@ class InitiativeTracker(base.InitiativeTracker):
                                     condition_key = str(raw_condition).strip().lower()
                                 raw_turns = effect.get("duration_turns")
                                 if raw_turns not in (None, ""):
-                                    try:
-                                        parsed_turns = int(str(raw_turns).strip())
-                                    except ValueError:
-                                        parsed_turns = None
+                                    if isinstance(raw_turns, int):
+                                        parsed_turns = raw_turns
+                                    else:
+                                        try:
+                                            parsed_turns = int(str(raw_turns).strip())
+                                        except ValueError:
+                                            parsed_turns = None
                                     if parsed_turns is not None:
                                         condition_turns = max(0, parsed_turns)
                             continue
