@@ -71,5 +71,5 @@ mechanics:
   ui:
     template_preview: true
   notes:
-  - Saves happen when a creature starts its turn in the cloud; while poisoned, it can't take an action or Bonus Action.
+  - Saves happen when a creature starts its turn in the cloud; a failed save poisons it until the end of that turn (duration_turns=1), preventing actions and bonus actions.
   - The cloud is heavily obscured and disperses in strong wind.

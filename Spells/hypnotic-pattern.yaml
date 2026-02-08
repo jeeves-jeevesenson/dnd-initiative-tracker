@@ -73,3 +73,4 @@ mechanics:
     template_preview: true
   notes:
   - Failed save: target is also incapacitated with Speed 0; effect ends on damage or an action to shake it awake.
+  - Duration is tracked manually (concentration, up to 1 minute).
