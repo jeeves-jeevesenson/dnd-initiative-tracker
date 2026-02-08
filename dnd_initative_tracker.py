@@ -5416,6 +5416,9 @@ class InitiativeTracker(base.InitiativeTracker):
                                             parsed_turns = int(str(raw_turns).strip())
                                         except ValueError:
                                             parsed_turns = None
+                                    if parsed_turns is not None and parsed_turns < 0:
+                                        warnings.append("negative condition duration; using 0")
+                                        parsed_turns = 0
                                     if parsed_turns is not None:
                                         condition_turns = max(0, parsed_turns)
                             continue

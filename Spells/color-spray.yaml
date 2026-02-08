@@ -38,7 +38,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: full
+  automation: partial
   targeting:
     origin: self
     range:
