@@ -55,7 +55,7 @@ mechanics:
       distance_ft: 60
     area:
       shape: sphere
-      radius_ft: 2.5
+      radius_ft: 5
     target_selection:
       mode: area
       friendly_fire: true

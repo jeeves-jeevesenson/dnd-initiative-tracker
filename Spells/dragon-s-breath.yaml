@@ -42,7 +42,7 @@ text:
 mechanics:
   automation: partial
   targeting:
-    origin: touch
+    origin: target_creature
     range:
       kind: touch
     area:
@@ -77,4 +77,5 @@ mechanics:
   ui:
     template_preview: true
   notes:
+  - The cone originates from the affected creature when it exhales.
   - Choose damage type (acid, cold, fire, lightning, poison) when you cast; update the damage type manually.
