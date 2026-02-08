@@ -976,8 +976,6 @@ class LanController:
         self._client_ids: Dict[int, str] = {}  # id(websocket) -> client_id
         self._client_id_to_ws: Dict[str, set[int]] = {}  # client_id -> {id(websocket), ...}
         self._client_id_claims: Dict[str, int] = {}  # client_id -> cid
-        self._host_assignments: Dict[str, int] = self._load_host_assignments()  # host -> cid (persistent)
-        self._yaml_host_assignments: Dict[str, Dict[str, Any]] = {}
         self._host_presets: Dict[str, Dict[str, Any]] = self._load_host_presets()
         self._cid_push_subscriptions: Dict[int, List[Dict[str, Any]]] = {}
         self._client_error_logger = _make_client_error_logger()
@@ -1304,9 +1302,6 @@ class LanController:
                 entry for entry in subs if str(entry.get("endpoint", "")) != endpoint
             ]
 
-    def _host_assignments_path(self) -> Path:
-        return _ensure_logs_dir() / "lan_assignments.json"
-
     def _host_presets_path(self) -> Path:
         return _ensure_logs_dir() / "lan_gui_presets.json"
 
@@ -1325,177 +1320,6 @@ class LanController:
     def _save_host_presets(self) -> None:
         payload = {"version": 1, "presets": dict(self._host_presets)}
         _write_index_file(self._host_presets_path(), payload)
-
-    def _load_host_assignments(self) -> Dict[str, int]:
-        data = _read_index_file(self._host_assignments_path())
-        raw = data.get("assignments") if isinstance(data, dict) else None
-        assignments: Dict[str, int] = {}
-        if isinstance(raw, dict):
-            for host, cid in raw.items():
-                key = str(host or "").strip()
-                if not key:
-                    continue
-                try:
-                    cid_int = int(cid)
-                except Exception:
-                    continue
-                assignments[key] = cid_int
-        return assignments
-
-    def _save_host_assignments(self) -> None:
-        payload = {"version": 1, "assignments": dict(self._host_assignments)}
-        _write_index_file(self._host_assignments_path(), payload)
-
-    def _set_host_assignment(self, host: str, cid: Optional[int]) -> None:
-        host = str(host or "").strip()
-        if not host:
-            return
-        with self._clients_lock:
-            if cid is None:
-                self._host_assignments.pop(host, None)
-            else:
-                self._host_assignments[host] = int(cid)
-        self._save_host_assignments()
-
-    def _assigned_cid_for_host(self, host: str) -> Optional[int]:
-        host = str(host or "").strip()
-        if not host:
-            return None
-        with self._clients_lock:
-            cid = self._host_assignments.get(host)
-        return int(cid) if isinstance(cid, int) else None
-
-    def _assigned_character_name_for_host(self, host: str) -> Optional[str]:
-        host = str(host or "").strip()
-        if not host:
-            return None
-        with self._clients_lock:
-            yaml_entry = self._yaml_host_assignments.get(host)
-        if isinstance(yaml_entry, dict):
-            name = str(yaml_entry.get("name") or "").strip()
-            if name:
-                return name
-        cid = self._assigned_cid_for_host(host)
-        if cid is None:
-            return None
-        name = self._tracker._pc_name_for(int(cid))
-        if name.startswith("cid:"):
-            return None
-        return name
-
-    def _sync_yaml_host_assignments(self, profiles: Dict[str, Dict[str, Any]]) -> None:
-        if not self.cfg.yaml_host_assignments_enabled:
-            with self._clients_lock:
-                self._yaml_host_assignments = {}
-            return
-        if not isinstance(profiles, dict):
-            profiles = {}
-        def normalize_name(value: Any) -> Optional[str]:
-            text = str(value or "").strip()
-            return text.lower() if text else None
-
-        def coerce_cid(value: Any) -> Optional[int]:
-            if isinstance(value, bool):
-                return None
-            if isinstance(value, int):
-                return value
-            try:
-                parsed = int(str(value).strip())
-            except Exception:
-                return None
-            return parsed
-
-        name_to_cid: Dict[str, int] = {}
-        pcs = list(self._cached_pcs)
-        if not pcs:
-            try:
-                pcs = list(
-                    self.app._lan_pcs() if hasattr(self.app, "_lan_pcs") else self.app._lan_claimable()
-                )
-            except Exception:
-                pcs = []
-        pc_names: List[str] = []
-        for pc in pcs:
-            if not isinstance(pc, dict):
-                continue
-            name = str(pc.get("name") or "").strip()
-            cid = coerce_cid(pc.get("cid"))
-            if name and isinstance(cid, int):
-                normalized = normalize_name(name)
-                if normalized:
-                    name_to_cid[normalized] = int(cid)
-                    pc_names.append(name)
-
-        host_map: Dict[str, Dict[str, Any]] = {}
-        conflicts: List[Tuple[str, str, str]] = []
-        yaml_names: List[str] = []
-        for name, profile in profiles.items():
-            if not isinstance(profile, dict):
-                continue
-            identity = profile.get("identity")
-            if not isinstance(identity, dict):
-                continue
-            host = str(identity.get("ip") or "").strip()
-            if not host:
-                continue
-            if host in host_map:
-                conflicts.append((host, host_map[host]["name"], str(name)))
-                continue
-            profile_name = str(name)
-            identity_name = identity.get("name")
-            if profile_name:
-                yaml_names.append(profile_name)
-            if identity_name:
-                yaml_names.append(str(identity_name))
-            cid = coerce_cid(identity.get("cid"))
-            if cid is None:
-                cid = coerce_cid(profile.get("cid"))
-            if cid is None:
-                candidate_names = {
-                    normalize_name(profile_name),
-                    normalize_name(identity_name),
-                }
-                candidate_names.discard(None)
-                for candidate in candidate_names:
-                    cid = name_to_cid.get(candidate)
-                    if cid is not None:
-                        break
-            host_map[host] = {"name": profile_name, "cid": cid}
-
-        with self._clients_lock:
-            self._yaml_host_assignments = host_map
-
-        for host, left, right in conflicts:
-            self.app._oplog(
-                f"LAN YAML assignment conflict: {host} is listed for {left} and {right}.",
-                level="warning",
-            )
-
-        for host, info in host_map.items():
-            cid = info.get("cid")
-            if cid is None:
-                if pcs:
-                    self.app._oplog(
-                        f"LAN YAML assignment skipped: {info.get('name')} has host {host} but no matching cid.",
-                        level="warning",
-                    )
-                    self.app._oplog(
-                        "LAN YAML assignment debug: "
-                        f"available_pcs={sorted(set(pc_names))} yaml_names={sorted(set(yaml_names))}",
-                        level="debug",
-                    )
-                continue
-            existing = self._assigned_cid_for_host(host)
-            if existing is not None and existing != cid:
-                self.app._oplog(
-                    f"LAN YAML assignment for {host} -> {info.get('name')} (cid {cid})"
-                    f" conflicts with existing assignment cid {existing}.",
-                    level="warning",
-                )
-                continue
-            if existing == cid:
-                continue
-            self._set_host_assignment(host, int(cid))
 
     def start(self, quiet: bool = False) -> None:
         if self._server_thread and self._server_thread.is_alive():
@@ -1623,29 +1447,6 @@ class LanController:
                 limit = 200
             limit = max(1, min(limit, 1000))
             return {"lines": self._lan_log_lines(limit)}
-
-        @self._fastapi_app.post("/api/admin/assign_ip")
-        async def admin_assign_ip(request: Request, payload: Dict[str, Any] = Body(...)):
-            self._require_admin(request)
-            if not isinstance(payload, dict):
-                raise HTTPException(status_code=400, detail="Invalid payload.")
-            host = str(payload.get("ip") or "").strip()
-            if not host:
-                raise HTTPException(status_code=400, detail="Missing IP address.")
-            cid_raw = payload.get("cid")
-            cid: Optional[int]
-            if cid_raw is None or cid_raw == "":
-                cid = None
-            else:
-                try:
-                    cid = int(cid_raw)
-                except Exception:
-                    raise HTTPException(status_code=400, detail="Invalid character id.")
-                if not self._pc_exists(cid):
-                    raise HTTPException(status_code=404, detail="Unknown character id.")
-            self._set_host_assignment(host, cid)
-            await self._apply_host_assignment_async(host, cid, note="Assigned by the DM.")
-            return {"ok": True, "ip": host, "cid": cid}
 
         @self._fastapi_app.post("/api/client-log")
         async def client_log(request: Request, payload: Dict[str, Any] = Body(...)):
@@ -2037,7 +1838,6 @@ class LanController:
                 await ws.send_text(
                     self._json_dumps({"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()})
                 )
-                await self._auto_assign_host(ws_id, host)
             except (TypeError, ValueError) as exc:
                 error_details = traceback.format_exc()
                 self.app._oplog(
@@ -2292,13 +2092,6 @@ class LanController:
             )
         except Exception:
             pass
-        try:
-            profiles = self.app._player_profiles_payload() if hasattr(self.app, "_player_profiles_payload") else {}
-            if self.cfg.yaml_host_assignments_enabled:
-                self._sync_yaml_host_assignments(profiles)
-        except Exception:
-            pass
-
         def run_server():
             # Create fresh loop for this thread
             loop = asyncio.new_event_loop()
@@ -2400,17 +2193,6 @@ class LanController:
                 self.app._oplog(f"Push send failed for {endpoint}: {exc}", level="warning")
         return invalid
 
-    async def _auto_assign_host(self, ws_id: int, host: str) -> None:
-        host = str(host or "").strip()
-        if not host:
-            return
-        preferred = self._assigned_cid_for_host(host)
-        if preferred is None:
-            return
-        if not self._pc_exists(preferred):
-            return
-        await self._claim_ws_async(ws_id, int(preferred), note="Assigned.", allow_override=True)
-
     # ---------- Sessions / Claims (Tk thread safe) ----------
 
     def sessions_snapshot(self) -> List[Dict[str, Any]]:
@@ -2426,22 +2208,18 @@ class LanController:
                     reverse_dns = self._resolve_reverse_dns(host)
                     if ws_id in self._clients_meta:
                         self._clients_meta[ws_id]["reverse_dns"] = reverse_dns
-                assigned_cid = self._host_assignments.get(host)
-                assigned_name = (
-                    self._tracker._pc_name_for(int(assigned_cid)) if isinstance(assigned_cid, int) else None
-                )
+                claimed_name = self._tracker._pc_name_for(int(cid)) if isinstance(cid, int) else None
                 out.append(
                     {
                         "ws_id": int(ws_id),
                         "cid": int(cid) if cid is not None else None,
+                        "claimed_name": claimed_name if claimed_name and not claimed_name.startswith("cid:") else None,
                         "host": host,
                         "port": meta.get("port", ""),
                         "user_agent": meta.get("ua", ""),
                         "connected_at": meta.get("connected_at", ""),
                         "last_seen": meta.get("last_seen", meta.get("connected_at", "")),
                         "reverse_dns": reverse_dns,
-                        "assigned_cid": int(assigned_cid) if assigned_cid is not None else None,
-                        "assigned_name": assigned_name,
                         "status": "connected",
                     }
                 )
@@ -2458,85 +2236,20 @@ class LanController:
 
     def _admin_sessions_payload(self) -> Dict[str, Any]:
         sessions = self.sessions_snapshot()
-        connected_hosts = {str(s.get("host")) for s in sessions if str(s.get("host"))}
-        offline_entries: List[Dict[str, Any]] = []
-        with self._clients_lock:
-            assignments = dict(self._host_assignments)
-            yaml_assignments = dict(self._yaml_host_assignments)
-        for host, cid in assignments.items():
-            if host in connected_hosts:
-                continue
-            reverse_dns = self._resolve_reverse_dns(host)
-            yaml_entry = yaml_assignments.get(host, {})
-            offline_entries.append(
-                {
-                    "ws_id": None,
-                    "cid": None,
-                    "host": host,
-                    "ip": host,
-                    "reverse_dns": reverse_dns,
-                    "assigned_cid": int(cid),
-                    "assigned_name": self._tracker._pc_name_for(int(cid)),
-                    "yaml_assigned_cid": yaml_entry.get("cid"),
-                    "yaml_assigned_name": yaml_entry.get("name"),
-                    "status": "offline",
-                    "last_seen": "",
-                }
-            )
-        all_sessions = sessions + offline_entries
-        for entry in all_sessions:
-            if "ip" not in entry:
-                entry["ip"] = entry.get("host")
-            host = str(entry.get("host") or entry.get("ip") or "").strip()
-            yaml_entry = yaml_assignments.get(host, {})
-            if yaml_entry:
-                entry["yaml_assigned_cid"] = yaml_entry.get("cid")
-                entry["yaml_assigned_name"] = yaml_entry.get("name")
-        all_sessions.sort(key=lambda s: str(s.get("ip", "")))
+        for entry in sessions:
+            entry["ip"] = entry.get("host")
+        sessions.sort(key=lambda s: str(s.get("ip", "")))
         pcs_payload = [
             {"cid": int(p.get("cid")), "name": str(p.get("name", ""))}
             for p in self._cached_pcs
             if isinstance(p.get("cid"), int)
         ]
         pcs_payload.sort(key=lambda p: str(p.get("name", "")).lower())
-        yaml_payload = [
-            {"host": host, "cid": entry.get("cid"), "name": entry.get("name")}
-            for host, entry in sorted(yaml_assignments.items())
-        ]
-        return {"sessions": all_sessions, "pcs": pcs_payload, "yaml_assignments": yaml_payload}
+        return {"sessions": sessions, "pcs": pcs_payload}
 
     def admin_sessions_payload(self) -> Dict[str, Any]:
         """Return admin sessions payload for both web and DM-side tooling."""
         return self._admin_sessions_payload()
-
-    def assign_host(self, host: str, cid: Optional[int], note: str = "Assigned by the DM.") -> None:
-        """Assign a PC to all sessions from a host (or clear if cid is None)."""
-        host = str(host or "").strip()
-        if not host:
-            return
-        self._set_host_assignment(host, cid)
-        if not self._loop:
-            return
-        coro = self._apply_host_assignment_async(host, cid, note=note)
-        try:
-            asyncio.run_coroutine_threadsafe(coro, self._loop)
-        except Exception:
-            pass
-
-    async def _apply_host_assignment_async(self, host: str, cid: Optional[int], note: str) -> None:
-        host = str(host or "").strip()
-        if not host:
-            return
-        with self._clients_lock:
-            ws_ids = [ws_id for ws_id, ws_host in self._client_hosts.items() if ws_host == host]
-        if not ws_ids:
-            return
-        if cid is None:
-            for ws_id in ws_ids:
-                await self._unclaim_ws_async(ws_id, reason=note, clear_ownership=False)
-            return
-        for ws_id in ws_ids:
-            await self._claim_ws_async(ws_id, int(cid), note=note, allow_override=True)
 
     def assign_session(self, ws_id: int, cid: Optional[int], note: str = "Assigned by the DM.") -> None:
         """DM assigns a PC to a session (or clears assignment if cid is None)."""
@@ -2551,11 +2264,8 @@ class LanController:
     async def _assign_session_async(self, ws_id: int, cid: Optional[int], note: str) -> None:
         with self._clients_lock:
             ws = self._clients.get(ws_id)
-            host = self._client_hosts.get(ws_id)
         if not ws:
             return
-        if host:
-            self._set_host_assignment(host, cid)
         if cid is None:
             # unclaim
             await self._unclaim_ws_async(ws_id, reason=note, clear_ownership=False)
@@ -4249,7 +3959,7 @@ class InitiativeTracker(base.InitiativeTracker):
         load_entries()
 
     def _open_lan_admin_assignments(self) -> None:
-        """DM utility: assign PCs by host/IP (mirrors web admin)."""
+        """DM utility: review LAN sessions (mirrors web admin)."""
         win = tk.Toplevel(self)
         win.title("LAN Admin Assignments")
         win.geometry("860x460")
@@ -4258,55 +3968,26 @@ class InitiativeTracker(base.InitiativeTracker):
         outer = tk.Frame(win)
         outer.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        cols = ("host", "status", "assigned", "last_seen", "user_agent")
+        cols = ("host", "status", "claimed", "last_seen", "user_agent")
         tree = ttk.Treeview(outer, columns=cols, show="headings", height=12)
         tree.heading("host", text="Host/IP")
         tree.heading("status", text="Status")
-        tree.heading("assigned", text="Assigned PC")
+        tree.heading("claimed", text="Claimed PC")
         tree.heading("last_seen", text="Last Seen")
         tree.heading("user_agent", text="User Agent")
         tree.column("host", width=200, anchor="w")
         tree.column("status", width=90, anchor="center")
-        tree.column("assigned", width=180, anchor="w")
+        tree.column("claimed", width=180, anchor="w")
         tree.column("last_seen", width=140, anchor="w")
         tree.column("user_agent", width=230, anchor="w")
         tree.pack(fill=tk.BOTH, expand=True)
 
         controls = tk.Frame(outer)
         controls.pack(fill=tk.X, pady=(10, 0))
-
-        tk.Label(controls, text="Assign to:").pack(side=tk.LEFT)
-
-        pc_var = tk.StringVar(value="(unassigned)")
-        pc_box = ttk.Combobox(controls, textvariable=pc_var, width=30, state="readonly")
-        pc_box.pack(side=tk.LEFT, padx=(6, 10))
-
-        host_by_iid: Dict[str, str] = {}
-        pc_map: Dict[str, Optional[int]] = {"(unassigned)": None}
-
         def refresh_sessions() -> None:
             tree.delete(*tree.get_children())
-            host_by_iid.clear()
             payload = self._lan.admin_sessions_payload()
             sessions = payload.get("sessions") if isinstance(payload, dict) else []
-            pcs = payload.get("pcs") if isinstance(payload, dict) else []
-
-            pc_map.clear()
-            pc_map["(unassigned)"] = None
-            if isinstance(pcs, list):
-                for pc in pcs:
-                    if not isinstance(pc, dict):
-                        continue
-                    name = str(pc.get("name", "")).strip()
-                    cid = pc.get("cid")
-                    if name and isinstance(cid, int):
-                        pc_map[name] = int(cid)
-
-            pc_names = sorted([k for k in pc_map.keys() if k != "(unassigned)"])
-            pc_names.insert(0, "(unassigned)")
-            pc_box["values"] = pc_names
-            if pc_var.get() not in pc_names:
-                pc_var.set("(unassigned)")
 
             if not isinstance(sessions, list):
                 sessions = []
@@ -4320,51 +4001,19 @@ class InitiativeTracker(base.InitiativeTracker):
                 if reverse_dns:
                     host_disp = f"{host_disp} ({reverse_dns})"
                 status = str(entry.get("status") or "").strip() or "unknown"
-                assigned_name = entry.get("assigned_name")
-                assigned_cid = entry.get("assigned_cid")
-                yaml_assigned_name = entry.get("yaml_assigned_name")
-                assigned = ""
-                if assigned_name:
-                    assigned = str(assigned_name)
-                elif isinstance(assigned_cid, int):
-                    assigned = f"cid {assigned_cid}"
-                if yaml_assigned_name:
-                    yaml_label = str(yaml_assigned_name)
-                    if assigned:
-                        assigned = f"{assigned} (YAML: {yaml_label})"
-                    else:
-                        assigned = f"YAML: {yaml_label}"
+                claimed_name = entry.get("claimed_name")
+                claimed_cid = entry.get("cid")
+                claimed = ""
+                if claimed_name:
+                    claimed = str(claimed_name)
+                elif isinstance(claimed_cid, int):
+                    claimed = f"cid {claimed_cid}"
                 last_seen = str(entry.get("last_seen") or "").strip()
                 user_agent = str(entry.get("user_agent") or entry.get("ua") or "").strip()
                 iid = f"{idx}"
-                tree.insert("", "end", iid=iid, values=(host_disp, status, assigned, last_seen, user_agent))
-                if host:
-                    host_by_iid[iid] = host
-
-        def get_selected_host() -> Optional[str]:
-            sel = tree.selection()
-            if not sel:
-                return None
-            return host_by_iid.get(sel[0])
-
-        def do_assign() -> None:
-            host = get_selected_host()
-            if not host:
-                return
-            cid = pc_map.get(pc_var.get())
-            self._lan.assign_host(host, cid, note="Assigned by the DM.")
-            self.after(300, refresh_sessions)
-
-        def do_unassign() -> None:
-            host = get_selected_host()
-            if not host:
-                return
-            self._lan.assign_host(host, None, note="Unclaimed by the DM.")
-            self.after(300, refresh_sessions)
+                tree.insert("", "end", iid=iid, values=(host_disp, status, claimed, last_seen, user_agent))
 
         ttk.Button(controls, text="Refresh", command=refresh_sessions).pack(side=tk.LEFT)
-        ttk.Button(controls, text="Assign", command=do_assign).pack(side=tk.LEFT, padx=(10, 0))
-        ttk.Button(controls, text="Unassign", command=do_unassign).pack(side=tk.LEFT, padx=(6, 0))
         ttk.Button(controls, text="Close", command=win.destroy).pack(side=tk.RIGHT)
 
         refresh_sessions()
@@ -6675,12 +6324,6 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_name_map = name_map
         self._player_yaml_dir_signature = combined_signature
         self._player_yaml_last_refresh = time.monotonic()
-        try:
-            if self._lan.cfg.yaml_host_assignments_enabled:
-                self._lan._sync_yaml_host_assignments(self._player_yaml_data_by_name)
-        except Exception:
-            pass
-
     def _player_spell_config_payload(self) -> Dict[str, Dict[str, Any]]:
         self._load_player_yaml_cache()
         payload: Dict[str, Dict[str, Any]] = {}

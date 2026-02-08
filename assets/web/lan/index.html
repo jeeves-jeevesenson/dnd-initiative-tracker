@@ -1885,7 +1885,6 @@
         </div>
         <div class="admin-status" id="adminStatus">Loading…</div>
         <div class="admin-session-list" id="adminSessionList"></div>
-        <div class="hint">Assignments persist per IP address and auto-apply on reconnect.</div>
         <div class="modal-actions">
           <button class="btn" id="adminClose">Close</button>
         </div>
@@ -2924,7 +2923,6 @@ __DAMAGE_TYPE_OPTIONS__
   let selectedTurnCid = null;
   let hoveredTurnCid = null;
   let adminSessions = [];
-  let adminPcs = [];
   const adminTokenKey = "inittracker_admin_auth";
   let adminAuthPromise = null;
   let adminAuthResolve = null;
@@ -4235,24 +4233,6 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
-  function buildAdminPcOptions(selectedCid){
-    const options = [];
-    const blank = document.createElement("option");
-    blank.value = "";
-    blank.textContent = "(unassigned)";
-    options.push(blank);
-    adminPcs.forEach((pc) => {
-      const opt = document.createElement("option");
-      opt.value = String(pc.cid);
-      opt.textContent = pc.name || `cid ${pc.cid}`;
-      if (selectedCid !== null && selectedCid !== undefined && String(pc.cid) === String(selectedCid)){
-        opt.selected = true;
-      }
-      options.push(opt);
-    });
-    return options;
-  }
-
   async function submitAdminLogin(){
     const password = adminPasswordInput ? adminPasswordInput.value : "";
     if (!password){
@@ -4322,30 +4302,17 @@ __DAMAGE_TYPE_OPTIONS__
       top.appendChild(ipWrap);
       top.appendChild(status);
 
-      const assignRow = document.createElement("div");
-      assignRow.className = "admin-session-assign";
-      const assignedText = document.createElement("div");
-      assignedText.className = "admin-session-meta";
-      const assignedLabel = session.assigned_name || "Unassigned";
-      const yamlLabel = session.yaml_assigned_name ? `YAML: ${session.yaml_assigned_name}` : "";
-      assignedText.textContent = `Assigned: ${assignedLabel}${yamlLabel ? ` · ${yamlLabel}` : ""}`;
-      const select = document.createElement("select");
-      buildAdminPcOptions(session.assigned_cid).forEach((opt) => select.appendChild(opt));
-      const assignBtn = document.createElement("button");
-      assignBtn.className = "btn";
-      assignBtn.type = "button";
-      assignBtn.textContent = "Save";
-      assignBtn.addEventListener("click", async () => {
-        const value = select.value;
-        const cid = value ? Number(value) : null;
-        await assignAdminIp(session.ip || session.host || "", cid);
-      });
-      assignRow.appendChild(assignedText);
-      assignRow.appendChild(select);
-      assignRow.appendChild(assignBtn);
+      const claimedRow = document.createElement("div");
+      claimedRow.className = "admin-session-assign";
+      const claimedText = document.createElement("div");
+      claimedText.className = "admin-session-meta";
+      const claimedLabel = session.claimed_name
+        || (session.cid !== null && session.cid !== undefined ? `cid ${session.cid}` : "Unclaimed");
+      claimedText.textContent = `Claimed: ${claimedLabel}`;
+      claimedRow.appendChild(claimedText);
 
       row.appendChild(top);
-      row.appendChild(assignRow);
+      row.appendChild(claimedRow);
       adminSessionList.appendChild(row);
     });
   }
@@ -4359,37 +4326,11 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const payload = await res.json();
       adminSessions = Array.isArray(payload.sessions) ? payload.sessions : [];
-      adminPcs = Array.isArray(payload.pcs) ? payload.pcs : [];
       setAdminStatus(`Loaded ${adminSessions.length} session${adminSessions.length === 1 ? "" : "s"}.`);
       renderAdminSessions();
     } catch (err){
       console.warn("Failed to load admin sessions.", err);
       setAdminStatus("Failed to load sessions.");
-    }
-  }
-
-  async function assignAdminIp(ip, cid){
-    const host = String(ip || "").trim();
-    if (!host){
-      setAdminStatus("Missing IP address.");
-      return;
-    }
-    try {
-      setAdminStatus("Saving assignment…");
-      const res = await adminFetch("/api/admin/assign_ip", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ip: host, cid}),
-      });
-      if (!res.ok){
-        throw new Error(`HTTP ${res.status}`);
-      }
-      await res.json();
-      await fetchAdminSessions({silent: true});
-      setAdminStatus("Assignment saved.");
-    } catch (err){
-      console.warn("Failed to assign session.", err);
-      setAdminStatus("Failed to save assignment.");
     }
   }
 
@@ -4737,14 +4678,18 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     const needsClaim = claimedCid === null || claimedCid === undefined;
-    const shouldShow = needsClaim && !allowUnclaimed;
+    const requiresClaim = !isPlanning;
+    if (requiresClaim){
+      allowUnclaimed = false;
+    }
+    const shouldShow = needsClaim && (requiresClaim || !allowUnclaimed);
     claimModal.classList.toggle("show", shouldShow);
     claimModal.setAttribute("aria-hidden", shouldShow ? "false" : "true");
     if (claimSpectatorBtn){
       claimSpectatorBtn.classList.toggle("hidden", !supportsMapView);
     }
     if (claimContinueBtn){
-      claimContinueBtn.classList.toggle("hidden", supportsMapView);
+      claimContinueBtn.classList.toggle("hidden", requiresClaim || supportsMapView);
     }
     if (shouldShow){
       renderClaimList(lastPcList || []);
@@ -7479,6 +7424,10 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (claimContinueBtn){
     claimContinueBtn.addEventListener("click", () => {
+      if (!isPlanning){
+        updateClaimOverlay();
+        return;
+      }
       allowUnclaimed = true;
       updateClaimOverlay();
     });
@@ -8154,6 +8103,12 @@ __DAMAGE_TYPE_OPTIONS__
 
   function openSpellbookOverlay(open){
     if (!spellbookOverlay) return;
+    if (open && (claimedCid === null || claimedCid === undefined)){
+      allowUnclaimed = false;
+      localToast("Select your character to manage spells.");
+      updateClaimOverlay();
+      return;
+    }
     spellbookOverlay.classList.toggle("show", open);
     spellbookOverlay.setAttribute("aria-hidden", open ? "false" : "true");
     if (open){
