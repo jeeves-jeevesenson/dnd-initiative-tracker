@@ -41,9 +41,21 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    area:
+      shape: sphere
+      radius_ft: 20
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Creatures inside are deafened; no sound passes through the area.
+  - Casting spells with verbal components is impossible inside the sphere.

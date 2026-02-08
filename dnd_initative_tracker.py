@@ -61,6 +61,9 @@ except Exception as e:  # pragma: no cover
     )
 
 
+FAIL_OUTCOME_LABELS = {"fail", "failed", "failure", "failed_save", "fail_save"}
+
+
 def _app_base_dir() -> Path:
     try:
         if getattr(sys, "frozen", False):
@@ -5395,13 +5398,13 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not isinstance(outcome_list, list):
                         continue
                     outcome_label = str(outcome_key or "").strip().lower()
-                    is_fail_outcome = outcome_label in ("fail", "failed", "failure", "failed_save", "fail_save")
+                    is_fail_outcome = outcome_label in FAIL_OUTCOME_LABELS
                     for effect in outcome_list:
                         if not isinstance(effect, dict):
                             continue
                         if effect.get("effect") == "condition":
                             if is_fail_outcome and condition_key is None:
-                                raw_condition = effect.get("condition") or effect.get("condition_key")
+                                raw_condition = effect.get("condition")
                                 if raw_condition not in (None, ""):
                                     condition_key = str(raw_condition).strip().lower()
                                 raw_turns = effect.get("duration_turns")

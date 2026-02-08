@@ -49,41 +49,9 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting:
-    origin: point_within_range
-    range:
-      kind: distance
-      distance_ft: 150
-    area:
-      shape: sphere
-      radius_ft: 20
-    target_selection:
-      mode: area
-      friendly_fire: true
-  sequence:
-  - id: explosion
-    name: Explosion
-    check:
-      kind: saving_throw
-      ability: dexterity
-      dc: spell_save_dc
-    outcomes:
-      fail:
-      - effect: damage
-        damage_type: fire
-        dice: 12d6
-        scaling: &id001
-          kind: slot_level
-          base_slot: 7
-          add_per_slot_above: 1d6
-      success:
-      - effect: damage
-        damage_type: fire
-        dice: 12d6
-        scaling: *id001
-        multiplier: 0.5
-  scaling: *id001
+  targeting: null
+  sequence: []
+  scaling: null
   ui:
     template_preview: true
-  notes:
-  - Damage increases by 1d6 each turn the bead remains; touching/throwing the bead can trigger an early explosion.
+  notes: []

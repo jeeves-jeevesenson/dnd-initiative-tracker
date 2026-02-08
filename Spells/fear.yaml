@@ -71,3 +71,4 @@ mechanics:
     template_preview: true
   notes:
   - Failed save: target drops what it is holding and must Dash away; repeat saves if out of line of sight.
+  - Duration is tracked by the spell; condition duration uses 0 to indicate "until cleared."
