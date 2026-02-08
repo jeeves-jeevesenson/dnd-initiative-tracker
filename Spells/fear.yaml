@@ -43,9 +43,31 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: cone
+      length_ft: 30
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: wisdom
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: condition
+        condition: frightened
+        duration_turns: 0
+      success: []
   scaling: null
   ui:
     template_preview: true
-  notes: []
+  notes:
+  - Failed save: target drops what it is holding and must Dash away; repeat saves if out of line of sight.

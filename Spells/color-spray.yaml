@@ -38,9 +38,30 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
-  targeting: null
-  sequence: []
+  automation: full
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: cone
+      length_ft: 15
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: constitution
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: condition
+        condition: blinded
+        duration_turns: 1
+      success: []
   scaling: null
   ui:
     template_preview: true

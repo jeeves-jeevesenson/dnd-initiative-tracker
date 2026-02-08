@@ -8004,6 +8004,12 @@ class BattleMapWindow(tk.Toplevel):
             aoe["damage_types"] = list(preset.get("damage_types"))
         if preset.get("half_on_pass") is not None:
             aoe["half_on_pass"] = bool(preset.get("half_on_pass"))
+        if preset.get("condition_on_fail") is not None:
+            aoe["condition_on_fail"] = bool(preset.get("condition_on_fail"))
+        if preset.get("condition_key"):
+            aoe["condition_key"] = str(preset.get("condition_key"))
+        if preset.get("condition_turns") not in (None, ""):
+            aoe["condition_turns"] = preset.get("condition_turns")
         if preset.get("dice") not in (None, ""):
             aoe["dice"] = str(preset.get("dice"))
             aoe["default_damage"] = aoe.get("default_damage") or aoe["dice"]
