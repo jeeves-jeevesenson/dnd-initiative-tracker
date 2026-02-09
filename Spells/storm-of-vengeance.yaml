@@ -73,7 +73,7 @@ mechanics:
         dice: 2d6
       - effect: condition
         condition: deafened
-        duration_turns: 0
+        duration_turns: 10
       success: []
   scaling: null
   ui:
