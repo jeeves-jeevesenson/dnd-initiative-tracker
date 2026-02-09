@@ -63,4 +63,4 @@ mechanics:
   ui:
     template_preview: false
   notes:
-  - Area can range from 5 feet to 100 feet on a side; higher slots increase the cube by 100 feet.
+  - side_ft uses the 100-foot maximum; smaller cubes are allowed and higher slots add 100 feet.

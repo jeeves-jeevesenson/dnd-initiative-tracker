@@ -64,4 +64,4 @@ mechanics:
   ui:
     template_preview: false
   notes:
-  - Area can be as large as a 1-mile square; size is chosen by the caster.
+  - side_ft uses the 1-mile maximum; the caster can choose any smaller square size.
