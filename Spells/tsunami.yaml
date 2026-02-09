@@ -53,7 +53,7 @@ mechanics:
     origin: point_within_range
     range:
       kind: distance
-      distance_ft: null
+      distance_ft: 5280
     area:
       shape: wall
       length_ft: 300

@@ -52,7 +52,7 @@ mechanics:
     origin: point_within_range
     range:
       kind: distance
-      distance_ft: null
+      distance_ft: 5280
     area:
       shape: sphere
       radius_ft: 300
@@ -79,4 +79,5 @@ mechanics:
   ui:
     template_preview: false
   notes:
+  - Opening failed save deals thunder damage and deafens for the spell duration.
   - Later turns add staged effects (acid rain, lightning, hail, freezing rain) as described in the spell text.
