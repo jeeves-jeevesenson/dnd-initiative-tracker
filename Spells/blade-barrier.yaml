@@ -9,7 +9,8 @@ source:
   srd: false
 level: 6
 school: evocation
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 90 feet
 components: V, S
@@ -41,9 +42,38 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 90
+    area:
+      shape: wall
+      length_ft: 100
+      height_ft: 20
+      width_ft: 5
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: wall
+    name: Wall
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: force
+        dice: 6d10
+      success:
+      - effect: damage
+        damage_type: force
+        dice: 6d10
+        multiplier: 0.5
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Creatures save when entering or ending their turn in the wall; the save repeats once per turn.

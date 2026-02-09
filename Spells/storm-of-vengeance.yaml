@@ -9,7 +9,8 @@ source:
   srd: false
 level: 9
 school: conjuration
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 1 mile
 components: V, S
@@ -47,9 +48,35 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: null
+    area:
+      shape: sphere
+      radius_ft: 300
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: opening
+    name: Opening
+    check:
+      kind: saving_throw
+      ability: constitution
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: thunder
+        dice: 2d6
+      - effect: condition
+        condition: deafened
+        duration_turns: 0
+      success: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Later turns add staged effects (acid rain, lightning, hail, freezing rain) as described in the spell text.

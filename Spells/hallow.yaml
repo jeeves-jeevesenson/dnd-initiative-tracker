@@ -9,7 +9,8 @@ source:
   srd: false
 level: 5
 school: abjuration
-tags: []
+tags:
+- aoe
 casting_time: 24 hours
 range: Touch
 components: V, S, M (incense worth 1,000+ GP, which the spell consumes)
@@ -56,7 +57,16 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: touch
+    range:
+      kind: touch
+    area:
+      shape: sphere
+      radius_ft: 60
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:

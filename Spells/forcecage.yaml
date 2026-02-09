@@ -9,7 +9,8 @@ source:
   srd: false
 level: 7
 school: evocation
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 100 feet
 components: V, S, M (ruby dust worth 1,500+ GP, which the spell consumes)
@@ -50,9 +51,20 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 100
+    area:
+      shape: cube
+      side_ft: 20
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Alternate form: solid box up to 10 feet on a side instead of the 20-foot cage.

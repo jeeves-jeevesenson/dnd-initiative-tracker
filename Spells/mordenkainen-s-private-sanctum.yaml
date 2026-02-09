@@ -9,7 +9,8 @@ source:
   srd: false
 level: 4
 school: abjuration
-tags: []
+tags:
+- aoe
 casting_time: 10 minutes
 range: 120 feet
 components: V, S, M (a thin sheet of lead)
@@ -46,9 +47,20 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    area:
+      shape: cube
+      side_ft: 100
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Area can range from 5 feet to 100 feet on a side; higher slots increase the cube by 100 feet.
