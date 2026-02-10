@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: evocation
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 120 feet
 components: V, S, M (a fan and a feather)
@@ -45,9 +46,38 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    area:
+      shape: wall
+      length_ft: 50
+      height_ft: 15
+      width_ft: 1
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: wall
+    name: Wall
+    check:
+      kind: saving_throw
+      ability: strength
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: bludgeoning
+        dice: 4d8
+      success:
+      - effect: damage
+        damage_type: bludgeoning
+        dice: 4d8
+        multiplier: 0.5
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Strong wind blocks projectiles and disperses gas or vapor as described in the spell text.

@@ -9,7 +9,8 @@ source:
   srd: false
 level: 4
 school: evocation
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 120 feet
 components: V, S, M (a piece of charcoal)
@@ -45,9 +46,44 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    area:
+      shape: wall
+      length_ft: 60
+      height_ft: 20
+      width_ft: 1
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: wall
+    name: Wall
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: fire
+        dice: 5d8
+        scaling: &id001
+          kind: slot_level
+          base_slot: 4
+          add_per_slot_above: 1d8
+      success:
+      - effect: damage
+        damage_type: fire
+        dice: 5d8
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Alternate form: ringed wall up to 20 feet in diameter, 20 feet high, and 1 foot thick.
+  - One side deals ongoing fire damage to creatures that enter or end their turn within 10 feet of it.

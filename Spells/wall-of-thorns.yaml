@@ -9,7 +9,8 @@ source:
   srd: false
 level: 6
 school: conjuration
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 120 feet
 components: V, S, M (a handful of thorns)
@@ -46,9 +47,44 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    area:
+      shape: wall
+      length_ft: 60
+      height_ft: 10
+      width_ft: 5
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: wall
+    name: Wall
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: piercing
+        dice: 7d8
+        scaling: &id001
+          kind: slot_level
+          base_slot: 6
+          add_per_slot_above: 1d8
+      success:
+      - effect: damage
+        damage_type: piercing
+        dice: 7d8
+        scaling: *id001
+        multiplier: 0.5
+  scaling: *id001
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Alternate form: circle with a 20-foot diameter, 20 feet high, and 5 feet thick.
+  - Creatures take additional slashing damage on entry or when ending their turn in the wall.

@@ -9,7 +9,8 @@ source:
   srd: false
 level: 9
 school: abjuration
-tags: []
+tags:
+- aoe
 casting_time: Action
 range: 60 feet
 components: V, S
@@ -77,9 +78,23 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 60
+    area:
+      shape: wall
+      length_ft: 90
+      height_ft: 30
+      width_ft: 0.0833
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Alternate form: globe up to 30 feet in diameter centered on a point within range.
+  - Wall thickness is 1 inch (1/12 ft ≈ 0.0833); width_ft reflects the exact conversion.

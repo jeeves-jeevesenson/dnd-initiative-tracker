@@ -9,7 +9,8 @@ source:
   srd: false
 level: 7
 school: illusion
-tags: []
+tags:
+- aoe
 casting_time: 10 minutes
 range: Sight
 components: V, S
@@ -48,9 +49,19 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
+  targeting:
+    origin: point_within_range
+    range:
+      kind: sight
+    area:
+      shape: cube
+      side_ft: 5280
+    target_selection:
+      mode: area
+      friendly_fire: true
   sequence: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - side_ft uses the 1-mile maximum; the caster can choose any smaller square size.
