@@ -59,6 +59,51 @@ mechanics:
   targeting: null
   sequence: []
   scaling: null
+  summon:
+    choices:
+      - name: Bat
+        monster_slug: bat
+      - name: Cat
+        monster_slug: cat
+      - name: Frog
+        monster_slug: frog
+      - name: Hawk
+        monster_slug: hawk
+      - name: Lizard
+        monster_slug: lizard
+      - name: Octopus
+        monster_slug: octopus
+      - name: Owl
+        monster_slug: owl
+      - name: Rat
+        monster_slug: rat
+      - name: Raven
+        monster_slug: raven
+      - name: Spider
+        monster_slug: spider
+      - name: Weasel
+        monster_slug: weasel
+      - name: Any Beast (CR 0)
+        monster_slug: null
+    count:
+      max: 1
+      notes: "Only one familiar at a time; recasting changes its form."
+    duration:
+      concentration: false
+      kind: instantaneous
+      notes: "Familiar persists until dismissed or reduced to 0 Hit Points."
+    lifecycle:
+      ends_on_zero_hp: true
+      dismissible: true
+      reappear_distance_ft: 30
+    control:
+      initiative: "rolls its own initiative and acts independently"
+      commands: "obeys your commands; can't attack"
+    type_override:
+      options:
+        - Celestial
+        - Fey
+        - Fiend
   ui:
     template_preview: false
   notes: []

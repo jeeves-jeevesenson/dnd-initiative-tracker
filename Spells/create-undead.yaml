@@ -57,6 +57,31 @@ mechanics:
   targeting: null
   sequence: []
   scaling: null
+  summon:
+    choices:
+      - name: Ghoul
+        monster_slug: ghoul
+      - name: Ghast
+        monster_slug: ghast
+      - name: Wight
+        monster_slug: wight
+      - name: Mummy
+        monster_slug: mummy
+    count:
+      max: 3
+      notes: "Choose up to three corpses; higher-level slots increase totals/options."
+    duration:
+      concentration: false
+      control_hours: 24
+      notes: "Recast before 24 hours to maintain control."
+    control:
+      commands: "bonus action mental command within 120 feet; same command for multiple"
+      default_behavior: "Dodge and avoid harm when uncommanded"
+    scaling:
+      slot_level:
+        "7": "up to four Ghouls"
+        "8": "up to five Ghouls or two Ghasts or Wights"
+        "9": "up to six Ghouls, three Ghasts or Wights, or two Mummies"
   ui:
     template_preview: false
   notes: []

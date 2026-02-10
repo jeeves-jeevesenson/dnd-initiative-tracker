@@ -46,6 +46,25 @@ mechanics:
   targeting: null
   sequence: []
   scaling: null
+  summon:
+    choices:
+      - name: Construct Spirit
+        monster_slug: construct-spirit
+        variants:
+          - Clay
+          - Metal
+          - Stone
+    count:
+      max: 1
+    duration:
+      concentration: true
+      up_to: "1 hour"
+    lifecycle:
+      ends_on_zero_hp: true
+      ends_on_spell_end: true
+    control:
+      initiative: "shares your initiative count; acts immediately after you"
+      commands: "verbal (no action); if none, Dodge and avoid danger"
   ui:
     template_preview: false
   notes: []
