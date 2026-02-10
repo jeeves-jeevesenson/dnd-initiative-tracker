@@ -7969,22 +7969,8 @@ class InitiativeTracker(base.InitiativeTracker):
 
     @staticmethod
     def _normalize_summon_controller_mode(summon_cfg: Dict[str, Any]) -> str:
-        control_cfg = summon_cfg.get("control") if isinstance(summon_cfg.get("control"), dict) else {}
-        for key in ("controller_mode", "control_mode", "owner"):
-            raw = str(control_cfg.get(key) or "").strip().lower()
-            if raw in ("shared_turn", "shared", "same_turn"):
-                return "shared_turn"
-            if raw in ("summoner", "caster", "caster_controls", "summoner_controls"):
-                return "summoner"
-            if raw in ("dm", "admin", "independent"):
-                return "dm"
-        caster_controls = control_cfg.get("caster_controls")
-        if isinstance(caster_controls, bool):
-            return "summoner" if caster_controls else "dm"
-        commands_text = str(control_cfg.get("commands") or "").strip().lower()
-        if "obey" in commands_text or "command" in commands_text:
-            return "summoner"
-        return "summoner"
+        mode = str(summon_cfg.get("control") or "summoner").strip().lower()
+        return "dm" if mode == "dm" else "summoner"
 
     @staticmethod
     def _resolve_summon_choice(
@@ -8076,7 +8062,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if owner != int(claimed_cid):
             return False
         mode = str(getattr(combatant, "summon_controller_mode", "") or "").strip().lower()
-        return mode in ("summoner", "caster", "summoner_controls", "caster_controls", "shared_turn")
+        return mode == "summoner"
 
     def _mount_rider_is_incapacitated(self, mount: Any) -> bool:
         rider_cid = _normalize_cid_value(getattr(mount, "mounted_by_cid", None), "mount.rider")
@@ -8246,8 +8232,8 @@ class InitiativeTracker(base.InitiativeTracker):
         source_spell = str(preset.get("slug") or preset.get("id") or "").strip()
         group_id = f"summon:{int(time.time() * 1000)}:{caster_cid}:{len(self._summon_groups) + 1}"
         side_raw = str(summon_cfg.get("side") or "caster").strip().lower()
-        ally_flag = side_raw in ("caster", "ally", "friendly", "allies")
-        color_override = self._normalize_token_color(summon_cfg.get("token_color") or summon_cfg.get("color"))
+        ally_flag = False if side_raw == "enemy" else True
+        color_override = self._normalize_token_color(summon_cfg.get("color") or summon_cfg.get("token_color"))
         hp = int(mod_spec.hp or 1)
         speed = int(mod_spec.speed or 60)
         init_mod = int(mod_spec.init_mod or 0)
@@ -8363,8 +8349,8 @@ class InitiativeTracker(base.InitiativeTracker):
         controller_mode = self._normalize_summon_controller_mode(summon_cfg)
         source_spell = str(preset.get("slug") or preset.get("id") or spell_slug or spell_id or "").strip()
         side_raw = str(summon_cfg.get("side") or "caster").strip().lower()
-        ally_flag = side_raw in ("caster", "ally", "friendly", "allies")
-        color_override = self._normalize_token_color(summon_cfg.get("token_color") or summon_cfg.get("color"))
+        ally_flag = False if side_raw == "enemy" else True
+        color_override = self._normalize_token_color(summon_cfg.get("color") or summon_cfg.get("token_color"))
 
         spawned: List[int] = []
         for _ in range(quantity):

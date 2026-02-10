@@ -98,9 +98,7 @@ mechanics:
       ends_on_zero_hp: true
       dismissible: true
       reappear_distance_ft: 30
-    control:
-      initiative: rolls its own initiative and acts independently
-      commands: obeys your commands; can't attack
+    control: summoner
     type_override:
       options:
       - Celestial

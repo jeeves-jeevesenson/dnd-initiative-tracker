@@ -60,9 +60,7 @@ mechanics:
     lifecycle:
       ends_on_zero_hp: true
       ends_on_spell_end: true
-    control:
-      initiative: shares your initiative count; acts immediately after you
-      commands: verbal (no action); if none, Dodge and avoid danger
+    control: summoner
     initiative:
       mode: shared
       turn_position: immediately_after_caster

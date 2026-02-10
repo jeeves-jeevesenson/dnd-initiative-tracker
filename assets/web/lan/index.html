@@ -390,6 +390,22 @@
       text-transform: lowercase;
     }
     .waiting.show{display:flex;}
+    .summon-placement-banner{
+      position:absolute;
+      top:12px;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:6;
+      padding:8px 12px;
+      border-radius:10px;
+      background:rgba(15,19,32,0.92);
+      border:1px solid rgba(106,169,255,0.55);
+      color:#e8eef7;
+      font-size:12px;
+      font-weight:600;
+      box-shadow:0 6px 18px rgba(0,0,0,0.35);
+      pointer-events:none;
+    }
 
     .sheet-wrap{
       position:sticky; bottom:0; z-index:20;
@@ -1650,6 +1666,7 @@
   <div class="mapWrap">
     <canvas id="c"></canvas>
     <div class="waiting" id="waitingOverlay">(waiting for combat...)</div>
+    <div class="summon-placement-banner hidden" id="summonPlacementBanner" role="status" aria-live="polite"></div>
     <div class="map-tooltip" id="tokenTooltip" role="tooltip" aria-hidden="true"></div>
 
     <div class="modal" id="claimModal" aria-hidden="true">
@@ -2928,6 +2945,7 @@ __DAMAGE_TYPE_OPTIONS__
   const sheet = document.getElementById("sheet");
   const sheetHandle = document.getElementById("sheetHandle");
   const tokenTooltip = document.getElementById("tokenTooltip");
+  const summonPlacementBanner = document.getElementById("summonPlacementBanner");
   const clientInitPayload = {
     timestamp: new Date().toISOString(),
     userAgent: navigator.userAgent,
@@ -2958,6 +2976,7 @@ __DAMAGE_TYPE_OPTIONS__
   let castOverlayPreviousFocus = null;
   let pendingSpellActionType = null;
   let pendingSummonPlacement = null;
+  let summonValidCells = new Set();
   const preparedSpellDefaults = {
     prepared: [],
     max: null,
@@ -5488,6 +5507,60 @@ __DAMAGE_TYPE_OPTIONS__
     return Math.hypot(dx, dy) * feetPerSquare;
   }
 
+  function summonCellKey(col, row){
+    return `${Number(col)},${Number(row)}`;
+  }
+
+  function isSummonPlacementCellValid(cell){
+    if (!pendingSummonPlacement || !cell) return false;
+    return summonValidCells.has(summonCellKey(cell.col, cell.row));
+  }
+
+  function clearSummonPlacementState(){
+    pendingSummonPlacement = null;
+    summonValidCells = new Set();
+    if (summonPlacementBanner){
+      summonPlacementBanner.classList.add("hidden");
+      summonPlacementBanner.textContent = "";
+    }
+  }
+
+  function updateSummonPlacementBanner(){
+    if (!summonPlacementBanner) return;
+    if (!pendingSummonPlacement){
+      summonPlacementBanner.classList.add("hidden");
+      summonPlacementBanner.textContent = "";
+      return;
+    }
+    const total = Math.max(1, Number(pendingSummonPlacement.summonQuantity || 1));
+    const placed = pendingSummonPlacement.positions.length;
+    const remaining = Math.max(0, total - placed);
+    const hasRange = Number.isFinite(Number(pendingSummonPlacement.maxRangeFt));
+    const rangeLabel = hasRange ? `${Math.round(Number(pendingSummonPlacement.maxRangeFt))} ft` : "any range";
+    summonPlacementBanner.textContent = `You're placing a summon. Click up to ${remaining} square(s) within ${rangeLabel} of your caster to choose spawn locations.`;
+    summonPlacementBanner.classList.remove("hidden");
+  }
+
+  function rebuildSummonValidCells(){
+    summonValidCells = new Set();
+    if (!pendingSummonPlacement || !gridReady()) return;
+    const cols = Number(state?.grid?.cols || 0);
+    const rows = Number(state?.grid?.rows || 0);
+    const blocked = new Set((state?.obstacles || []).map((o) => summonCellKey(o.col, o.row)));
+    const maxRangeFt = Number(pendingSummonPlacement.maxRangeFt);
+    for (let col = 0; col < cols; col += 1){
+      for (let row = 0; row < rows; row += 1){
+        const key = summonCellKey(col, row);
+        if (blocked.has(key)) continue;
+        if (Number.isFinite(maxRangeFt)){
+          const distFt = distanceFeetBetweenCells(pendingSummonPlacement.casterPos, {col, row});
+          if (distFt > maxRangeFt + 1e-6) continue;
+        }
+        summonValidCells.add(key);
+      }
+    }
+  }
+
   function updateMeasurementControls(){
     if (measureToggle){
       measureToggle.textContent = measurementMode ? "Measuring…" : "Measure";
@@ -5897,6 +5970,33 @@ __DAMAGE_TYPE_OPTIONS__
           });
         }
       }
+    }
+
+    if (pendingSummonPlacement){
+      rebuildSummonValidCells();
+      updateSummonPlacementBanner();
+      summonValidCells.forEach((key) => {
+        const [col, row] = key.split(",").map(Number);
+        const x = panX + col * zoom;
+        const y = panY + row * zoom;
+        ctx.fillStyle = "rgba(106,169,255,0.22)";
+        ctx.fillRect(x + 1, y + 1, zoom - 2, zoom - 2);
+      });
+      if (pendingSummonPlacement.casterPos && Number.isFinite(Number(pendingSummonPlacement.maxRangeFt))){
+        const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
+        const radiusCells = Number(pendingSummonPlacement.maxRangeFt) / feetPerSquare;
+        const caster = gridToScreen(pendingSummonPlacement.casterPos.col, pendingSummonPlacement.casterPos.row);
+        ctx.save();
+        ctx.strokeStyle = "rgba(106,169,255,0.65)";
+        ctx.setLineDash([6, 4]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(caster.x, caster.y, Math.max(6, radiusCells * zoom), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else {
+      updateSummonPlacementBanner();
     }
 
     // obstacles
@@ -7429,17 +7529,9 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("That square be off the map.");
         return;
       }
-      const blocked = new Set((state?.obstacles || []).map(o => `${Number(o.col)},${Number(o.row)}`));
-      if (blocked.has(`${g.col},${g.row}`)){
-        localToast("That square be blocked.");
+      if (!isSummonPlacementCellValid(g)){
+        localToast("That square is out of range—select a valid square.");
         return;
-      }
-      if (Number.isFinite(Number(pendingSummonPlacement.maxRangeFt))){
-        const distFt = distanceFeetBetweenCells(pendingSummonPlacement.casterPos, g);
-        if (distFt > Number(pendingSummonPlacement.maxRangeFt) + 1e-6){
-          localToast(`That square be out of range (${Math.round(pendingSummonPlacement.maxRangeFt)} ft).`);
-          return;
-        }
       }
       pendingSummonPlacement.positions.push({col: g.col, row: g.row});
       const remaining = pendingSummonPlacement.summonQuantity - pendingSummonPlacement.positions.length;
@@ -7465,7 +7557,7 @@ __DAMAGE_TYPE_OPTIONS__
       msg.summon_quantity = pendingSummonPlacement.summonQuantity;
       msg.variant = pendingSummonPlacement.summonVariant || null;
       send(msg);
-      pendingSummonPlacement = null;
+      clearSummonPlacementState();
       return;
     }
 
@@ -9728,7 +9820,9 @@ __DAMAGE_TYPE_OPTIONS__
           payload,
           spellName,
         };
-        localToast(`Click ${normalizedQuantity} map square(s) to place summon(s).`);
+        rebuildSummonValidCells();
+        updateSummonPlacementBanner();
+        localToast("Summon placement started. Choose valid highlighted squares.");
         return;
       }
       const parsePositive = (value) => {
