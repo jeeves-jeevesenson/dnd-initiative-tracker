@@ -2035,6 +2035,7 @@ class LanController:
                         "cast_aoe",
                         "aoe_move",
                         "aoe_remove",
+                        "dismiss_summons",
                         "reset_player_characters",
                     ):
                         # enqueue for Tk thread
@@ -3327,6 +3328,8 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_aoes: Dict[int, Dict[str, Any]] = {}
         self._lan_next_aoe_id = 1
         self._turn_snapshots: Dict[int, Dict[str, Any]] = {}
+        self._summon_groups: Dict[str, List[int]] = {}
+        self._summon_group_meta: Dict[str, Dict[str, Any]] = {}
 
         # POC helpers: start the LAN server automatically.
         # Start quietly (log on success; avoid popups if deps missing)
@@ -5011,6 +5014,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     "bonus_actions": bonus_actions,
                     "is_prone": self._has_condition(c, "prone"),
                     "is_spellcaster": bool(getattr(c, "is_spellcaster", False)),
+                    "summoned_by_cid": _normalize_cid_value(getattr(c, "summoned_by_cid", None), "snapshot.summoned_by"),
+                    "summon_source_spell": str(getattr(c, "summon_source_spell", "") or "") or None,
+                    "summon_group_id": str(getattr(c, "summon_group_id", "") or "") or None,
+                    "summon_controller_mode": str(getattr(c, "summon_controller_mode", "") or "") or None,
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
                     "marks": marks,
                 }
@@ -7544,6 +7551,312 @@ class InitiativeTracker(base.InitiativeTracker):
                 return True
         return False
 
+    def _sorted_combatants(self) -> List[base.Combatant]:
+        ordered = list(self.combatants.values())
+
+        def key(c: Any) -> Tuple[int, int, int, int, str]:
+            anchor_after = _normalize_cid_value(getattr(c, "summon_anchor_after_cid", None), "summon.anchor")
+            anchor_seq = int(getattr(c, "summon_anchor_seq", 0) or 0)
+            if anchor_after is not None and anchor_after in self.combatants:
+                anchor = self.combatants[anchor_after]
+                init_key = -int(getattr(anchor, "initiative", 0) or 0)
+                nat_key = -(1 if getattr(anchor, "nat20", False) else 0)
+                dex_key = -(int(getattr(anchor, "dex", 0) or 0))
+                return (init_key, nat_key, dex_key, 10_000 + anchor_seq, str(getattr(c, "name", "")).lower())
+            return (
+                -int(getattr(c, "initiative", 0) or 0),
+                -(1 if getattr(c, "nat20", False) else 0),
+                -(int(getattr(c, "dex", 0) or 0)),
+                0,
+                str(getattr(c, "name", "")).lower(),
+            )
+
+        ordered.sort(key=key)
+        return ordered
+
+    def _spell_preset_lookup(self) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+        by_slug: Dict[str, Dict[str, Any]] = {}
+        by_id: Dict[str, Dict[str, Any]] = {}
+        for preset in self._spell_presets_payload():
+            if not isinstance(preset, dict):
+                continue
+            slug = str(preset.get("slug") or "").strip().lower()
+            sid = str(preset.get("id") or "").strip().lower()
+            if slug and slug not in by_slug:
+                by_slug[slug] = preset
+            if sid and sid not in by_id:
+                by_id[sid] = preset
+        return by_slug, by_id
+
+    def _find_spell_preset(self, spell_slug: Any, spell_id: Any) -> Optional[Dict[str, Any]]:
+        by_slug, by_id = self._spell_preset_lookup()
+        slug = str(spell_slug or "").strip().lower()
+        sid = str(spell_id or "").strip().lower()
+        if slug and slug in by_slug:
+            return by_slug[slug]
+        if sid and sid in by_id:
+            return by_id[sid]
+        return None
+
+    def _find_monster_spec_by_slug(self, monster_slug: Any) -> Optional[MonsterSpec]:
+        slug = str(monster_slug or "").strip().lower()
+        if not slug:
+            return None
+        if not self._monster_specs:
+            self._load_monsters_index()
+        for spec in self._monster_specs:
+            filename_slug = Path(str(spec.filename or "")).stem.strip().lower()
+            if filename_slug == slug:
+                detailed = self._load_monster_details(spec.name)
+                return detailed or spec
+        return None
+
+    @staticmethod
+    def _normalize_summon_controller_mode(summon_cfg: Dict[str, Any]) -> str:
+        control_cfg = summon_cfg.get("control") if isinstance(summon_cfg.get("control"), dict) else {}
+        for key in ("controller_mode", "control_mode", "owner"):
+            raw = str(control_cfg.get(key) or "").strip().lower()
+            if raw in ("summoner", "caster", "caster_controls", "summoner_controls"):
+                return "summoner"
+            if raw in ("dm", "admin", "independent"):
+                return "dm"
+        caster_controls = control_cfg.get("caster_controls")
+        if isinstance(caster_controls, bool):
+            return "summoner" if caster_controls else "dm"
+        commands_text = str(control_cfg.get("commands") or "").strip().lower()
+        if "obey" in commands_text or "command" in commands_text:
+            return "summoner"
+        return "summoner"
+
+    @staticmethod
+    def _resolve_summon_choice(
+        summon_cfg: Dict[str, Any], summon_choice: Any, slot_level: Optional[int]
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[int], Optional[str]]:
+        choices = summon_cfg.get("choices") if isinstance(summon_cfg.get("choices"), list) else []
+        normalized_choice = str(summon_choice or "").strip().lower()
+        selected_choice: Optional[Dict[str, Any]] = None
+        if choices:
+            def entry_matches(entry: Dict[str, Any], key: str) -> bool:
+                if not key:
+                    return False
+                values = [entry.get("monster_slug"), entry.get("name"), entry.get("slug"), entry.get("id")]
+                return any(str(value or "").strip().lower() == key for value in values)
+
+            for entry in choices:
+                if isinstance(entry, dict) and entry_matches(entry, normalized_choice):
+                    selected_choice = entry
+                    break
+            if selected_choice is None:
+                for entry in choices:
+                    if isinstance(entry, dict) and entry.get("monster_slug"):
+                        selected_choice = entry
+                        break
+
+        count_cfg = summon_cfg.get("count") if isinstance(summon_cfg.get("count"), dict) else {}
+        kind = str(count_cfg.get("kind") or "fixed").strip().lower()
+        if kind == "variable_by_slot":
+            effective_slot = int(slot_level or 0)
+            base_cfg = count_cfg.get("base") if isinstance(count_cfg.get("base"), dict) else {}
+            active_cfg: Dict[str, Any] = dict(base_cfg)
+            for override in count_cfg.get("slot_overrides") if isinstance(count_cfg.get("slot_overrides"), list) else []:
+                if not isinstance(override, dict):
+                    continue
+                try:
+                    override_level = int(override.get("slot_level"))
+                except Exception:
+                    continue
+                if override_level == effective_slot:
+                    active_cfg = dict(override)
+                    break
+
+            if isinstance(active_cfg.get("options"), list):
+                options = [opt for opt in active_cfg.get("options") if isinstance(opt, dict)]
+                picked = None
+                if normalized_choice:
+                    for opt in options:
+                        creature_options = [str(v).strip().lower() for v in opt.get("creature_options", [])]
+                        if normalized_choice in creature_options:
+                            picked = opt
+                            break
+                if picked is None and options:
+                    picked = options[0]
+                if isinstance(picked, dict):
+                    active_cfg = dict(picked)
+
+            chosen_slug = None
+            if selected_choice is not None:
+                chosen_slug = str(selected_choice.get("monster_slug") or "").strip().lower() or None
+            if chosen_slug is None:
+                creature_options = active_cfg.get("creature_options")
+                if isinstance(creature_options, list) and creature_options:
+                    chosen_slug = str(creature_options[0] or "").strip().lower() or None
+            try:
+                quantity = int(active_cfg.get("quantity"))
+            except Exception:
+                quantity = None
+            return selected_choice, quantity, chosen_slug
+
+        quantity = None
+        if isinstance(count_cfg.get("value"), (int, float)):
+            quantity = int(count_cfg.get("value"))
+        elif isinstance(count_cfg.get("min"), (int, float)):
+            quantity = int(count_cfg.get("min"))
+        elif isinstance(count_cfg.get("max"), (int, float)):
+            quantity = int(count_cfg.get("max"))
+        chosen_slug = None
+        if selected_choice is not None:
+            chosen_slug = str(selected_choice.get("monster_slug") or "").strip().lower() or None
+        return selected_choice, quantity, chosen_slug
+
+    def _summon_can_be_controlled_by(self, claimed_cid: Optional[int], target_cid: Optional[int]) -> bool:
+        if claimed_cid is None or target_cid is None:
+            return False
+        combatant = self.combatants.get(int(target_cid))
+        if combatant is None:
+            return False
+        owner = _normalize_cid_value(getattr(combatant, "summoned_by_cid", None), "summon.owner")
+        if owner != int(claimed_cid):
+            return False
+        mode = str(getattr(combatant, "summon_controller_mode", "") or "").strip().lower()
+        return mode in ("summoner", "caster", "summoner_controls", "caster_controls")
+
+    def _apply_summon_initiative(self, caster_cid: int, spawned_cids: List[int], summon_cfg: Dict[str, Any]) -> None:
+        initiative_cfg = summon_cfg.get("initiative") if isinstance(summon_cfg.get("initiative"), dict) else {}
+        mode = str(initiative_cfg.get("mode") or "rolled_per_creature").strip().lower()
+        caster = self.combatants.get(caster_cid)
+        if caster is None:
+            return
+        if mode in ("shared", "shared_with_caster"):
+            caster_init = int(getattr(caster, "initiative", 0) or 0)
+            base_anchor = int(getattr(caster, "summon_anchor_seq", 0) or 0)
+            for offset, scid in enumerate(spawned_cids, start=1):
+                summoned = self.combatants.get(scid)
+                if summoned is None:
+                    continue
+                summoned.initiative = caster_init
+                setattr(summoned, "summon_shared_turn", True)
+                setattr(summoned, "summon_anchor_after_cid", caster_cid)
+                setattr(summoned, "summon_anchor_seq", base_anchor + offset)
+            setattr(caster, "summon_anchor_seq", base_anchor + len(spawned_cids))
+            return
+
+        for scid in spawned_cids:
+            summoned = self.combatants.get(scid)
+            if summoned is None:
+                continue
+            dex_mod = int(getattr(summoned, "dex", 0) or 0)
+            summoned.initiative = int(random.randint(1, 20) + dex_mod)
+            setattr(summoned, "summon_shared_turn", False)
+
+    def _spawn_summons_from_cast(
+        self,
+        caster_cid: int,
+        spell_slug: Any,
+        spell_id: Any,
+        slot_level: Optional[int],
+        summon_choice: Any,
+    ) -> List[int]:
+        preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_id)
+        if not isinstance(preset, dict):
+            return []
+        summon_cfg = preset.get("summon") if isinstance(preset.get("summon"), dict) else {}
+        if not summon_cfg:
+            return []
+
+        selected_choice, quantity, chosen_slug = self._resolve_summon_choice(summon_cfg, summon_choice, slot_level)
+        if quantity is None:
+            quantity = 1
+        quantity = max(0, int(quantity))
+        if quantity <= 0:
+            return []
+        if not chosen_slug and isinstance(selected_choice, dict):
+            chosen_slug = str(selected_choice.get("monster_slug") or "").strip().lower() or None
+        if not chosen_slug:
+            return []
+
+        spec = self._find_monster_spec_by_slug(chosen_slug)
+        if spec is None:
+            return []
+        caster = self.combatants.get(int(caster_cid))
+        if caster is None:
+            return []
+
+        group_id = f"summon:{int(time.time() * 1000)}:{caster_cid}:{len(self._summon_groups) + 1}"
+        controller_mode = self._normalize_summon_controller_mode(summon_cfg)
+        source_spell = str(preset.get("slug") or preset.get("id") or spell_slug or spell_id or "").strip()
+
+        spawned: List[int] = []
+        for _ in range(quantity):
+            hp = int(spec.hp or 1)
+            speed = int(spec.speed or 30)
+            swim = int(spec.swim_speed or 0)
+            fly_speed = int(spec.fly_speed or 0)
+            burrow_speed = int(spec.burrow_speed or 0)
+            climb_speed = int(spec.climb_speed or 0)
+            init_mod = int(spec.init_mod or 0)
+            init_roll = int(random.randint(1, 20) + init_mod)
+            cid = self._create_combatant(
+                name=self._unique_name(spec.name),
+                hp=hp,
+                speed=speed,
+                swim_speed=swim,
+                fly_speed=fly_speed,
+                burrow_speed=burrow_speed,
+                climb_speed=climb_speed,
+                movement_mode="Normal",
+                initiative=init_roll,
+                dex=spec.dex,
+                ally=True,
+                is_pc=False,
+                is_spellcaster=None,
+                saving_throws=dict(spec.saving_throws or {}),
+                ability_mods=dict(spec.ability_mods or {}),
+                monster_spec=spec,
+            )
+            summoned = self.combatants.get(cid)
+            if summoned is None:
+                continue
+            setattr(summoned, "summoned_by_cid", int(caster_cid))
+            setattr(summoned, "summon_source_spell", source_spell)
+            setattr(summoned, "summon_group_id", group_id)
+            setattr(summoned, "summon_controller_mode", controller_mode)
+            spawned.append(cid)
+
+        self._apply_summon_initiative(int(caster_cid), spawned, summon_cfg)
+        if spawned:
+            self._summon_groups[group_id] = list(spawned)
+            self._summon_group_meta[group_id] = {
+                "caster_cid": int(caster_cid),
+                "spell": source_spell,
+                "created_at": time.time(),
+                "concentration": bool(preset.get("concentration")),
+            }
+        return spawned
+
+    def _dismiss_summon_group(self, summon_group_id: str) -> int:
+        group_key = str(summon_group_id or "").strip()
+        if not group_key:
+            return 0
+        cids = list(self._summon_groups.get(group_key) or [])
+        if not cids:
+            return 0
+        self._remove_combatants_with_lan_cleanup(cids)
+        self._summon_groups.pop(group_key, None)
+        self._summon_group_meta.pop(group_key, None)
+        self._rebuild_table(scroll_to_current=True)
+        self._lan_force_state_broadcast()
+        return len(cids)
+
+    def _dismiss_summons_for_caster(self, caster_cid: int) -> int:
+        to_remove: List[str] = []
+        for group_id, meta in list(self._summon_group_meta.items()):
+            if int(meta.get("caster_cid") or -1) == int(caster_cid):
+                to_remove.append(group_id)
+        removed = 0
+        for group_id in to_remove:
+            removed += self._dismiss_summon_group(group_id)
+        return removed
+
     def _lan_apply_action(self, msg: Dict[str, Any]) -> None:
         """Apply client actions on the Tk thread."""
         tracker: Optional["InitiativeTracker"]
@@ -7627,7 +7940,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 current_cid=current_cid,
             )
         if cid is not None:
-            if not is_admin and claimed is not None and cid != claimed:
+            can_control_summon = self._summon_can_be_controlled_by(claimed, cid)
+            if not is_admin and claimed is not None and cid != claimed and not can_control_summon:
                 if is_move:
                     msg["_move_applied"] = False
                     msg["_move_reject_reason"] = "cid_mismatch"
@@ -7719,9 +8033,14 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         # Only allow controlling on your turn (POC)
-        if not is_admin and typ not in ("cast_aoe", "aoe_move", "aoe_remove"):
+        if not is_admin and typ not in ("cast_aoe", "aoe_move", "aoe_remove", "dismiss_summons"):
             if in_combat:
-                if current_cid is None or cid is None or current_cid != cid:
+                shared_turn = False
+                if cid is not None and claimed is not None and cid in self.combatants:
+                    unit = self.combatants.get(cid)
+                    owner_cid = _normalize_cid_value(getattr(unit, "summoned_by_cid", None), "summon.owner")
+                    shared_turn = bool(getattr(unit, "summon_shared_turn", False)) and owner_cid == claimed and current_cid == claimed
+                if current_cid is None or cid is None or (current_cid != cid and not shared_turn):
                     if is_move:
                         msg["_move_applied"] = False
                         msg["_move_reject_reason"] = "not_your_turn"
@@ -7755,7 +8074,15 @@ class InitiativeTracker(base.InitiativeTracker):
                 slot_level = None
             if slot_level is not None and slot_level < 0:
                 slot_level = None
+            spell_slug = str(msg.get("spell_slug") or payload.get("spell_slug") or "").strip()
+            spell_id = str(msg.get("spell_id") or payload.get("spell_id") or "").strip()
+            summon_choice = msg.get("summon_choice") if msg.get("summon_choice") not in (None, "") else payload.get("summon_choice")
             c = self.combatants.get(cid) if cid is not None else None
+            preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_id)
+            summon_cfg = preset.get("summon") if isinstance(preset, dict) and isinstance(preset.get("summon"), dict) else None
+            if summon_cfg and not is_admin:
+                self._lan.toast(ws_id, "Summon spawning is DM-only for now, matey.")
+                return
             if c is not None and not is_admin:
                 if slot_level is not None and slot_level >= 1:
                     if slot_level > 9:
@@ -8169,7 +8496,33 @@ class InitiativeTracker(base.InitiativeTracker):
                 if aid not in aoe_ids:
                     aoe_ids.append(aid)
                 c.concentration_aoe_ids = aoe_ids
+            spawned_cids: List[int] = []
+            if summon_cfg and cid is not None:
+                spawned_cids = self._spawn_summons_from_cast(
+                    caster_cid=cid,
+                    spell_slug=spell_slug,
+                    spell_id=spell_id,
+                    slot_level=slot_level,
+                    summon_choice=summon_choice,
+                )
+                if spawned_cids:
+                    self._rebuild_table(scroll_to_current=True)
+                    self._lan_force_state_broadcast()
             self._lan.toast(ws_id, f"Casted {aoe['name']}.")
+            return
+
+        elif typ == "dismiss_summons":
+            target_caster = _normalize_cid_value(msg.get("target_caster_cid"), "dismiss_summons.target")
+            if target_caster is None:
+                target_caster = claimed
+            if target_caster is None:
+                self._lan.toast(ws_id, "Pick a summoner first, matey.")
+                return
+            if not is_admin and (claimed is None or int(claimed) != int(target_caster)):
+                self._lan.toast(ws_id, "Ye can only dismiss yer own summons.")
+                return
+            removed = self._dismiss_summons_for_caster(int(target_caster))
+            self._lan.toast(ws_id, f"Dismissed {removed} summoned creature(s).")
             return
         elif typ == "aoe_move":
             aid = msg.get("aid")
