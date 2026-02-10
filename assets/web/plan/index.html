@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Planning Mode</title>
+  <style>
+    body{font-family:system-ui, sans-serif; margin:0; background:#111; color:#eee}
+    .bar{display:flex; gap:8px; align-items:center; padding:10px; background:#1c1f2a; position:sticky; top:0}
+    .bar input,.bar select,.bar button{padding:6px}
+    #map{display:block; margin:10px auto; background:#222; border:1px solid #444; touch-action:none}
+    .note{padding:0 10px 10px; color:#a8b1d1}
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <label>Player CID <input id="playerCid" type="number" min="1" step="1" style="width:90px" /></label>
+    <button id="reloadBtn">Reload Snapshot</button>
+    <select id="spellPreset"><option value="">Select spell…</option></select>
+    <select id="spellCaster"><option value="">Caster…</option></select>
+    <button id="castBtn">Cast (Local)</button>
+  </div>
+  <canvas id="map" width="900" height="600"></canvas>
+  <div class="note">Planning mode is local-only: token moves, AoEs, summons, and spell slot markers are simulated in-browser only.</div>
+<script>
+(() => {
+  const qs = new URLSearchParams(location.search);
+  const clientId = localStorage.getItem("inittracker_client_id") || "";
+  const playerCidInput = document.getElementById("playerCid");
+  const reloadBtn = document.getElementById("reloadBtn");
+  const map = document.getElementById("map");
+  const ctx = map.getContext("2d");
+  const spellPresetEl = document.getElementById("spellPreset");
+  const spellCasterEl = document.getElementById("spellCaster");
+  const castBtn = document.getElementById("castBtn");
+  let state = {combatants:[], spell_presets:[], aoes:[], summons:[], turn_order:[]};
+  let dragCid = null;
+  const cell = 40;
+
+  function authHeaders(){
+    const h = {"x-client-id": clientId};
+    try {
+      const raw = sessionStorage.getItem("inittracker_admin_auth");
+      if (raw){
+        const parsed = JSON.parse(raw);
+        if (parsed?.token) h["Authorization"] = `Bearer ${parsed.token}`;
+      }
+    } catch {}
+    return h;
+  }
+
+  function normalizeCid(v){ const n=Number(v); return Number.isFinite(n)?Math.trunc(n):null; }
+
+  function draw(){
+    ctx.clearRect(0,0,map.width,map.height);
+    const cols = Math.floor(map.width/cell), rows=Math.floor(map.height/cell);
+    ctx.strokeStyle="#333";
+    for(let c=0;c<=cols;c++){ctx.beginPath();ctx.moveTo(c*cell,0);ctx.lineTo(c*cell,map.height);ctx.stroke();}
+    for(let r=0;r<=rows;r++){ctx.beginPath();ctx.moveTo(0,r*cell);ctx.lineTo(map.width,r*cell);ctx.stroke();}
+    for (const aoe of state.aoes||[]){
+      if (!aoe) continue;
+      ctx.save();
+      ctx.fillStyle = (aoe.color || "#58a6ff") + "55";
+      if (aoe.kind === "circle" || aoe.kind === "sphere" || aoe.kind === "cylinder"){
+        const radius = Math.sqrt(Number(aoe.radius_sq||1))*cell;
+        ctx.beginPath(); ctx.arc((aoe.cx||0)*cell,(aoe.cy||0)*cell, radius, 0, Math.PI*2); ctx.fill();
+      } else {
+        const side = Math.max(1, Number(aoe.side_sq||1))*cell;
+        ctx.fillRect((aoe.cx||0)*cell-side/2,(aoe.cy||0)*cell-side/2,side,side);
+      }
+      ctx.restore();
+    }
+    for (const u of state.combatants||[]){
+      const p=u.pos||{col:0,row:0};
+      const x=(p.col+0.5)*cell,y=(p.row+0.5)*cell;
+      ctx.beginPath();ctx.fillStyle=u.token_color||"#6aa9ff";ctx.arc(x,y,cell*0.35,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="#fff";ctx.font="12px sans-serif";ctx.fillText(`${u.name} (${u.hp ?? "?"})`,x-cell*0.4,y-cell*0.45);
+    }
+  }
+
+  function tokenAt(px,py){
+    for (const u of state.combatants||[]){
+      const p=u.pos||{col:0,row:0};
+      const x=(p.col+0.5)*cell,y=(p.row+0.5)*cell;
+      if ((px-x)**2+(py-y)**2 <= (cell*0.4)**2) return u;
+    }
+    return null;
+  }
+
+  map.addEventListener("pointerdown", (e)=>{
+    const rect=map.getBoundingClientRect();
+    const hit=tokenAt(e.clientX-rect.left,e.clientY-rect.top);
+    if (hit){ dragCid=hit.cid; map.setPointerCapture(e.pointerId); }
+  });
+  map.addEventListener("pointermove", (e)=>{
+    if (dragCid==null) return;
+    const rect=map.getBoundingClientRect();
+    const col=Math.max(0,Math.floor((e.clientX-rect.left)/cell));
+    const row=Math.max(0,Math.floor((e.clientY-rect.top)/cell));
+    const u=(state.combatants||[]).find(x=>x.cid===dragCid);
+    if (u){ u.pos={col,row}; draw(); }
+  });
+  map.addEventListener("pointerup", ()=>{ dragCid=null; });
+
+  function populateSelectors(){
+    spellCasterEl.innerHTML='<option value="">Caster…</option>';
+    for (const u of state.combatants||[]){
+      const o=document.createElement("option"); o.value=String(u.cid); o.textContent=u.name; spellCasterEl.appendChild(o);
+    }
+    spellPresetEl.innerHTML='<option value="">Select spell…</option>';
+    for (const p of state.spell_presets||[]){
+      const o=document.createElement("option"); o.value=String(p.slug||p.name||""); o.textContent=String(p.name||p.slug||"spell"); spellPresetEl.appendChild(o);
+    }
+  }
+
+  function castLocal(){
+    const casterCid = normalizeCid(spellCasterEl.value);
+    const preset = (state.spell_presets||[]).find(p => String(p.slug||p.name||"") === spellPresetEl.value);
+    if (!casterCid || !preset) return;
+    const caster = (state.combatants||[]).find(c => c.cid===casterCid);
+    if (!caster) return;
+    const shape = String(preset.shape||"").toLowerCase();
+    if (preset.summon && typeof preset.summon === "object"){
+      const choice = Array.isArray(preset.summon.choices) ? preset.summon.choices[0] : null;
+      const base = String(choice?.name || choice?.monster_slug || `${preset.name} summon`);
+      const nextCid = Math.max(0, ...state.combatants.map(c => Number(c.cid)||0)) + 1;
+      state.combatants.push({cid: nextCid, name: `${base}`, hp: 10, token_color: "#66d17a", role: "ally", pos: {col:(caster.pos?.col||0)+1,row:caster.pos?.row||0}, summoned_by_cid: casterCid, summon_source_spell: preset.name});
+      state.summons.push({cid: nextCid, name: base, summoned_by_cid: casterCid, summon_source_spell: preset.name});
+    } else if (shape){
+      state.aoes.push({aid: Date.now(), kind: shape, name: preset.name || "AoE", color: preset.color || "#58a6ff", cx: (caster.pos?.col||0)+0.5, cy: (caster.pos?.row||0)+0.5, radius_sq: Number(preset.radius_sq||2), side_sq: Number(preset.side_sq||2)});
+    }
+    if (Number.isFinite(Number(caster.spell_cast_remaining))){
+      caster.spell_cast_remaining = Math.max(0, Number(caster.spell_cast_remaining)-1);
+    }
+    draw();
+  }
+
+  async function load(){
+    const cid = normalizeCid(playerCidInput.value || qs.get("player_cid"));
+    const staticRes = await fetch('/api/planning/static', {headers: authHeaders()});
+    const staticData = await staticRes.json();
+    let snapUrl = '/api/planning/snapshot';
+    if (cid) snapUrl += `?player_cid=${encodeURIComponent(String(cid))}`;
+    const snapRes = await fetch(snapUrl, {headers: authHeaders()});
+    const snap = await snapRes.json();
+    state = JSON.parse(JSON.stringify({...snap, spell_presets: staticData.spell_presets || snap.spell_presets || []}));
+    if (!playerCidInput.value && snap.viewer_cid) playerCidInput.value = String(snap.viewer_cid);
+    populateSelectors();
+    draw();
+  }
+
+  reloadBtn.addEventListener('click', load);
+  castBtn.addEventListener('click', castLocal);
+  load().catch((err)=>{console.error(err); alert('Failed to load planning data.');});
+})();
+</script>
+</body>
+</html>
