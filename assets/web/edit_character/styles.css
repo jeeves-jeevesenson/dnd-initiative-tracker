@@ -45,6 +45,26 @@ header h1 {
   color: var(--muted);
 }
 
+.notice {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(22, 27, 34, 0.75);
+  font-size: 13px;
+}
+
+.notice ul {
+  margin: 8px 0 0 18px;
+  padding: 0;
+  color: var(--muted);
+}
+
+.notice code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
 .panel {
   background: var(--panel);
   padding: 24px;

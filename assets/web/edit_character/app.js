@@ -1,5 +1,6 @@
 const statusEl = document.getElementById("draft-status");
 const exportButton = document.getElementById("export-button");
+const refreshCacheButton = document.getElementById("refresh-cache-button");
 const overwriteButton = document.getElementById("overwrite-button");
 const formEl = document.getElementById("character-form");
 const filenameInput = document.getElementById("filename-input");
@@ -701,6 +702,28 @@ const renderForm = (schema, data) => {
   });
 };
 
+
+const sanitizeCharacterPayload = (data) => {
+  if (!data || typeof data !== "object") return data;
+  const payload = clone(data);
+  delete payload.format_version;
+  return payload;
+};
+
+const refreshPlayerCache = async () => {
+  try {
+    const response = await fetch("/api/players/cache/refresh", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ clear_only: false }),
+    });
+    if (!response.ok) throw new Error("refresh failed");
+    statusEl.textContent = "Player cache refreshed.";
+  } catch (_error) {
+    statusEl.textContent = "Unable to refresh cache.";
+  }
+};
+
 const buildExportFilename = (data) => {
   const rawInput = filenameInput?.value?.trim() || "";
   const base = rawInput || slugify(data?.name || "");
@@ -729,7 +752,7 @@ const exportYaml = async (data) => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ data }),
+      body: JSON.stringify({ data: sanitizeCharacterPayload(data) }),
     });
     if (!response.ok) {
       const message = await response.text();
@@ -776,7 +799,7 @@ const overwriteCharacter = async (data, originalFilename) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        data,
+        data: sanitizeCharacterPayload(data),
         filename: filenameInput?.value || "",
       }),
     });
@@ -840,6 +863,10 @@ const boot = async () => {
 
   if (exportButton) {
     exportButton.addEventListener("click", () => exportYaml(data));
+  }
+
+  if (refreshCacheButton) {
+    refreshCacheButton.addEventListener("click", refreshPlayerCache);
   }
 
   if (overwriteButton) {
