@@ -742,7 +742,7 @@ APP_VERSION = "41"
 
 # --- LAN POC switches ---
 POC_AUTO_START_LAN = True
-POC_AUTO_SEED_PCS = False  # auto-add Player Characters from startingplayers.yaml (useful over SSH testing)
+POC_AUTO_SEED_PCS = os.getenv("POC_AUTO_SEED_PCS", "false").lower() == "true"
 LAN_TERRAIN_DEBUG = bool(os.getenv("INITTRACKER_LAN_TERRAIN_DEBUG"))
 
 DAMAGE_TYPES = list(base.DAMAGE_TYPES)
@@ -1598,6 +1598,75 @@ class LanController:
             clear_only = bool((payload or {}).get("clear_only", False)) if isinstance(payload, dict) else False
             self.app._yaml_players_refresh_cache(rebuild=not clear_only)
             return {"ok": True, "rebuild": not clear_only}
+
+        @self._fastapi_app.get("/api/players/list")
+        async def list_players():
+            roster = []
+            try:
+                profiles = self.app._player_profiles_payload()
+                in_combat = {
+                    str(getattr(c, "name", "")).strip().lower()
+                    for c in self.app.combatants.values()
+                    if str(getattr(c, "name", "")).strip()
+                }
+                for name in sorted(profiles.keys(), key=lambda value: str(value).lower()):
+                    profile = profiles.get(name)
+                    roster.append(
+                        {
+                            "name": str(name),
+                            "assigned": str(name).strip().lower() in in_combat,
+                            "profile": profile if isinstance(profile, dict) else {},
+                        }
+                    )
+            except Exception:
+                roster = []
+            return {"players": roster}
+
+        @self._fastapi_app.post("/api/encounter/players/add")
+        async def add_encounter_players(request: Request, payload: Dict[str, Any] = Body(default={})):
+            auth_header = str(request.headers.get("authorization") or "")
+            token = ""
+            if auth_header.lower().startswith("bearer "):
+                token = auth_header.split(" ", 1)[1].strip()
+            if not token or not self._is_admin_token_valid(token):
+                raise HTTPException(status_code=401, detail="Admin authentication required.")
+
+            names = payload.get("names") if isinstance(payload, dict) else None
+            if not isinstance(names, list):
+                raise HTTPException(status_code=400, detail="Payload must include a names list.")
+
+            added: List[str] = []
+            skipped: List[str] = []
+            self.app._yaml_players_refresh_cache(rebuild=True)
+            existing = {
+                str(getattr(c, "name", "")).strip().lower()
+                for c in self.app.combatants.values()
+                if str(getattr(c, "name", "")).strip()
+            }
+            for raw_name in names:
+                name = str(raw_name or "").strip()
+                if not name:
+                    continue
+                profile = self.app._player_yaml_data_by_name.get(name)
+                if not isinstance(profile, dict):
+                    skipped.append(name)
+                    continue
+                if name.lower() in existing:
+                    skipped.append(name)
+                    continue
+                cid = self.app._create_pc_from_profile(name, profile)
+                if isinstance(cid, int):
+                    added.append(name)
+                    existing.add(name.lower())
+                else:
+                    skipped.append(name)
+            if added:
+                try:
+                    self.app._rebuild_table(scroll_to_current=True)
+                except Exception:
+                    pass
+            self.app._lan_force_state_broadcast()
+            return {"ok": True, "added": added, "skipped": skipped}
 
 
         @self._fastapi_app.post("/api/characters/export")
@@ -3491,6 +3560,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_refresh_scheduled = False
         self._yaml_players_index_path_cache: Optional[Path] = None
         self._roster_manager_refresh: Optional[Callable[[], None]] = None
+        self._yaml_players_refresh_cache(rebuild=True)
 
         # LAN state for when map window isn't open
         self._lan_grid_cols = 20
@@ -3676,6 +3746,19 @@ class InitiativeTracker(base.InitiativeTracker):
         if rebuild:
             self._load_player_yaml_cache(force_refresh=True)
         try:
+            self._lan._cached_pcs = []
+            self._lan._cached_snapshot = {
+                "grid": None,
+                "obstacles": [],
+                "units": [],
+                "active_cid": None,
+                "round_num": 0,
+            }
+            self._lan._last_snapshot = None
+            self._lan._last_static_json = None
+        except Exception:
+            pass
+        try:
             self._lan_force_state_broadcast()
         except Exception:
             pass
@@ -3776,13 +3859,8 @@ class InitiativeTracker(base.InitiativeTracker):
         return None
 
     def _open_starting_players_dialog(self) -> None:
-        """Suppress the startup roster popup during LAN POC, but keep it available later."""
-        if POC_AUTO_SEED_PCS:
-            return
-        try:
-            super()._open_starting_players_dialog()
-        except Exception:
-            pass
+        """Disable legacy startup dialog; LAN clients use the roster picker modal."""
+        return
 
     def _process_start_of_turn(self, c: Any) -> Tuple[bool, str, set[str]]:
         skip, msg, dec_skip = super()._process_start_of_turn(c)
