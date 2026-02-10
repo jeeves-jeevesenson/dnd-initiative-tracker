@@ -1674,6 +1674,19 @@ class LanController:
                 raise HTTPException(status_code=500, detail="Failed to save player spells.")
             return {"ok": True, "player": {"name": player_name, **normalized}}
 
+        @self._fastapi_app.get("/api/monsters/{slug}")
+        async def get_monster_stat_block(slug: str, variant: Optional[str] = None, slot_level: Optional[int] = None):
+            monster_slug = str(slug or "").strip().lower()
+            if not monster_slug:
+                raise HTTPException(status_code=400, detail="Missing monster slug.")
+            if slot_level is not None and (slot_level < 0 or slot_level > 9):
+                raise HTTPException(status_code=400, detail="slot_level must be between 0 and 9.")
+            spec = self.app._find_monster_spec_by_slug(monster_slug)
+            if spec is None:
+                raise HTTPException(status_code=404, detail="Monster not found.")
+            mod_spec = self.app._apply_monster_variant(spec, variant, slot_level)
+            return {"monster": self.app._monster_stat_block_payload(mod_spec)}
+
         @self._fastapi_app.post("/api/players/{name}/spellbook")
         async def update_player_spellbook(name: str, payload: Dict[str, Any] = Body(...)):
             if not isinstance(payload, dict):
@@ -5237,6 +5250,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "mount_for_cid": _normalize_cid_value(getattr(c, "mount_for_cid", None), "snapshot.mount_for"),
                     "mounted_by_cid": _normalize_cid_value(getattr(c, "mounted_by_cid", None), "snapshot.mounted_by"),
                     "summon_variant": str(getattr(c, "summon_variant", "") or "") or None,
+                    "slot_level": getattr(c, "summon_slot_level", None),
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
                     "marks": marks,
                 }
@@ -8243,6 +8257,77 @@ class InitiativeTracker(base.InitiativeTracker):
             raw_data=raw_data,
         )
 
+    @staticmethod
+    def _extract_recharge_text(raw_data: Dict[str, Any]) -> List[str]:
+        if not isinstance(raw_data, dict):
+            return []
+        texts: List[str] = []
+        seen: set[str] = set()
+
+        def add_text(value: Any) -> None:
+            text = str(value or "").strip()
+            if not text:
+                return
+            key = text.lower()
+            if key in seen:
+                return
+            seen.add(key)
+            texts.append(text)
+
+        for entry in raw_data.get("actions") if isinstance(raw_data.get("actions"), list) else []:
+            if not isinstance(entry, dict):
+                continue
+            for field in ("name", "desc", "recharge", "recharge_time"):
+                value = entry.get(field)
+                if not value:
+                    continue
+                text = str(value)
+                if "recharge" in text.lower():
+                    add_text(text)
+
+        for field in ("recharge", "recharge_time"):
+            value = raw_data.get(field)
+            if value:
+                add_text(value)
+
+        return texts
+
+    def _monster_stat_block_payload(self, spec: MonsterSpec) -> Dict[str, Any]:
+        raw_data = spec.raw_data if isinstance(spec.raw_data, dict) else {}
+        abilities = raw_data.get("abilities") if isinstance(raw_data.get("abilities"), dict) else {}
+        speed_data = raw_data.get("speed")
+        speed = speed_data if isinstance(speed_data, (dict, list, str, int, float)) else spec.speed
+
+        payload: Dict[str, Any] = {
+            "slug": Path(str(spec.filename or "")).stem.strip().lower(),
+            "name": raw_data.get("name") or spec.name,
+            "size": raw_data.get("size"),
+            "type": raw_data.get("type") or spec.mtype,
+            "alignment": raw_data.get("alignment"),
+            "armor_class": raw_data.get("ac"),
+            "hit_points": raw_data.get("hp") if raw_data.get("hp") is not None else spec.hp,
+            "speed": speed,
+            "ability_scores": {
+                "str": abilities.get("Str"),
+                "dex": abilities.get("Dex"),
+                "con": abilities.get("Con"),
+                "int": abilities.get("Int"),
+                "wis": abilities.get("Wis"),
+                "cha": abilities.get("Cha"),
+            },
+            "senses": raw_data.get("senses"),
+            "languages": raw_data.get("languages"),
+            "traits": raw_data.get("traits") if isinstance(raw_data.get("traits"), list) else [],
+            "actions": raw_data.get("actions") if isinstance(raw_data.get("actions"), list) else [],
+            "bonus_actions": raw_data.get("bonus_actions") if isinstance(raw_data.get("bonus_actions"), list) else [],
+            "legendary_actions": raw_data.get("legendary_actions") if isinstance(raw_data.get("legendary_actions"), list) else [],
+            "spellcasting": raw_data.get("spellcasting"),
+            "recharge": self._extract_recharge_text(raw_data),
+            "selected_variant": raw_data.get("selected_variant"),
+            "selected_damage_type": raw_data.get("selected_damage_type"),
+        }
+        return payload
+
     def _spawn_mount(
         self,
         caster_cid: int,
@@ -8297,6 +8382,7 @@ class InitiativeTracker(base.InitiativeTracker):
         setattr(summoned, "mount_for_cid", int(caster_cid))
         setattr(summoned, "mounted_by_cid", int(caster_cid))
         setattr(summoned, "summon_variant", display_variant or None)
+        setattr(summoned, "summon_slot_level", int(slot_level) if isinstance(slot_level, int) else None)
         if color_override:
             setattr(summoned, "token_color", color_override)
         spawned = [cid]
@@ -8372,6 +8458,7 @@ class InitiativeTracker(base.InitiativeTracker):
         spec = self._find_monster_spec_by_slug(chosen_slug)
         if spec is None:
             return []
+        spec = self._apply_monster_variant(spec, summon_variant, slot_level)
 
         group_id = f"summon:{int(time.time() * 1000)}:{caster_cid}:{len(self._summon_groups) + 1}"
         controller_mode = self._normalize_summon_controller_mode(summon_cfg)
@@ -8415,6 +8502,8 @@ class InitiativeTracker(base.InitiativeTracker):
             setattr(summoned, "summon_source_spell", source_spell)
             setattr(summoned, "summon_group_id", group_id)
             setattr(summoned, "summon_controller_mode", controller_mode)
+            setattr(summoned, "summon_variant", str(summon_variant or "").strip() or None)
+            setattr(summoned, "summon_slot_level", int(slot_level) if isinstance(slot_level, int) else None)
             if color_override:
                 setattr(summoned, "token_color", color_override)
             spawned.append(cid)
