@@ -50,6 +50,8 @@ mechanics:
   sequence: []
   scaling: null
   summon:
+    side: caster
+    color: blue
     choices:
     - name: Fey Spirit
       monster_slug: fey-spirit

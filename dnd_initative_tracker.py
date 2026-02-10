@@ -7921,7 +7921,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 if isinstance(entry, dict) and entry_matches(entry, normalized_choice):
                     selected_choice = entry
                     break
-            if selected_choice is None:
+            if selected_choice is None and not normalized_choice:
                 for entry in choices:
                     if isinstance(entry, dict) and entry.get("monster_slug"):
                         selected_choice = entry
@@ -8030,6 +8030,8 @@ class InitiativeTracker(base.InitiativeTracker):
         spell_id: Any,
         slot_level: Optional[int],
         summon_choice: Any,
+        summon_quantity: Optional[int] = None,
+        summon_positions: Optional[List[Dict[str, Any]]] = None,
     ) -> List[int]:
         preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_id)
         if not isinstance(preset, dict):
@@ -8039,6 +8041,11 @@ class InitiativeTracker(base.InitiativeTracker):
             return []
 
         selected_choice, quantity, chosen_slug = self._resolve_summon_choice(summon_cfg, summon_choice, slot_level)
+        if summon_quantity is not None:
+            try:
+                quantity = int(summon_quantity)
+            except Exception:
+                quantity = quantity
         if quantity is None:
             quantity = 1
         quantity = max(0, int(quantity))
@@ -8059,6 +8066,9 @@ class InitiativeTracker(base.InitiativeTracker):
         group_id = f"summon:{int(time.time() * 1000)}:{caster_cid}:{len(self._summon_groups) + 1}"
         controller_mode = self._normalize_summon_controller_mode(summon_cfg)
         source_spell = str(preset.get("slug") or preset.get("id") or spell_slug or spell_id or "").strip()
+        side_raw = str(summon_cfg.get("side") or "caster").strip().lower()
+        ally_flag = side_raw in ("caster", "ally", "friendly", "allies")
+        color_override = self._normalize_token_color(summon_cfg.get("token_color") or summon_cfg.get("color"))
 
         spawned: List[int] = []
         for _ in range(quantity):
@@ -8081,7 +8091,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 movement_mode="Normal",
                 initiative=init_roll,
                 dex=spec.dex,
-                ally=True,
+                ally=ally_flag,
                 is_pc=False,
                 is_spellcaster=None,
                 saving_throws=dict(spec.saving_throws or {}),
@@ -8095,9 +8105,29 @@ class InitiativeTracker(base.InitiativeTracker):
             setattr(summoned, "summon_source_spell", source_spell)
             setattr(summoned, "summon_group_id", group_id)
             setattr(summoned, "summon_controller_mode", controller_mode)
+            if color_override:
+                setattr(summoned, "token_color", color_override)
             spawned.append(cid)
 
         self._apply_summon_initiative(int(caster_cid), spawned, summon_cfg)
+        if spawned and summon_positions:
+            for idx, scid in enumerate(spawned):
+                if idx >= len(summon_positions):
+                    break
+                pos = summon_positions[idx] if isinstance(summon_positions[idx], dict) else {}
+                try:
+                    col = int(pos.get("col"))
+                    row = int(pos.get("row"))
+                except Exception:
+                    continue
+                self._lan_positions[scid] = (col, row)
+                mw = getattr(self, "_map_window", None)
+                try:
+                    if mw is not None and mw.winfo_exists():
+                        x, y = mw._grid_to_pixel(col, row)
+                        mw._place_unit_at_pixel(scid, x, y)
+                except Exception:
+                    pass
         if spawned:
             self._summon_groups[group_id] = list(spawned)
             self._summon_group_meta[group_id] = {
@@ -8784,10 +8814,25 @@ class InitiativeTracker(base.InitiativeTracker):
                 spend = "action"
             spell_slug = str(msg.get("spell_slug") or payload.get("spell_slug") or "").strip()
             spell_id = str(msg.get("spell_id") or payload.get("spell_id") or "").strip()
+            summon_choice = msg.get("summon_choice") if msg.get("summon_choice") not in (None, "") else payload.get("summon_choice")
+            summon_quantity = msg.get("summon_quantity") if msg.get("summon_quantity") is not None else payload.get("summon_quantity")
+            raw_positions = payload.get("summon_positions")
+            summon_positions: List[Dict[str, Any]] = []
+            if isinstance(raw_positions, list):
+                for entry in raw_positions:
+                    if not isinstance(entry, dict):
+                        continue
+                    try:
+                        col = int(entry.get("col"))
+                        row = int(entry.get("row"))
+                    except Exception:
+                        continue
+                    summon_positions.append({"col": col, "row": row})
             preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_id)
             if not isinstance(preset, dict):
                 self._lan.toast(ws_id, "That spell could not be found, matey.")
                 return
+            summon_cfg = preset.get("summon") if isinstance(preset.get("summon"), dict) else None
             try:
                 slot_level = int(msg.get("slot_level") if msg.get("slot_level") is not None else payload.get("slot_level"))
             except Exception:
@@ -8804,6 +8849,56 @@ class InitiativeTracker(base.InitiativeTracker):
             if slot_level is not None and preset_level is not None and slot_level < preset_level:
                 self._lan.toast(ws_id, "Ye can't downcast that spell, matey.")
                 return
+
+            if summon_cfg:
+                selected_choice, quantity_from_cfg, chosen_slug = self._resolve_summon_choice(
+                    summon_cfg, summon_choice, slot_level
+                )
+                if summon_quantity is not None:
+                    try:
+                        quantity_from_cfg = int(summon_quantity)
+                    except Exception:
+                        quantity_from_cfg = quantity_from_cfg
+                if quantity_from_cfg is None:
+                    quantity_from_cfg = 1
+                quantity_from_cfg = max(0, int(quantity_from_cfg))
+                if not chosen_slug and isinstance(selected_choice, dict):
+                    chosen_slug = str(selected_choice.get("monster_slug") or "").strip().lower() or None
+                if not chosen_slug:
+                    self._lan.toast(ws_id, "Pick a summon creature first, matey.")
+                    return
+                if self._find_monster_spec_by_slug(chosen_slug) is None:
+                    self._lan.toast(ws_id, "That summon creature does not exist, matey.")
+                    return
+                if summon_positions and len(summon_positions) < quantity_from_cfg:
+                    self._lan.toast(ws_id, "Pick a valid square for each summon, matey.")
+                    return
+                if summon_positions:
+                    cols, rows, obstacles, _rough, positions = self._lan_live_map_data()
+                    caster_pos = positions.get(cid) if cid is not None else None
+                    if caster_pos is None and cid is not None:
+                        caster_pos = self._lan_current_position(cid)
+                    range_text = str(preset.get("range") or "")
+                    range_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:ft|feet)", range_text, flags=re.IGNORECASE)
+                    max_range_ft = float(range_match.group(1)) if range_match else None
+                    feet_per_square = 5.0
+                    try:
+                        mw = getattr(self, "_map_window", None)
+                        if mw is not None and mw.winfo_exists():
+                            feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+                    except Exception:
+                        pass
+                    for pos in summon_positions[:quantity_from_cfg]:
+                        col = int(pos.get("col"))
+                        row = int(pos.get("row"))
+                        if col < 0 or row < 0 or col >= cols or row >= rows or (col, row) in obstacles:
+                            self._lan.toast(ws_id, "That summon square be invalid, matey.")
+                            return
+                        if caster_pos is not None and max_range_ft is not None:
+                            dist_ft = math.hypot(col - caster_pos[0], row - caster_pos[1]) * max(1.0, feet_per_square)
+                            if dist_ft - max_range_ft > 1e-6:
+                                self._lan.toast(ws_id, "That square be out of spell range, matey.")
+                                return
             c = self.combatants.get(cid) if cid is not None else None
             if c is not None and not is_admin:
                 player_name = _resolve_pc_name(cid)
@@ -8836,7 +8931,33 @@ class InitiativeTracker(base.InitiativeTracker):
                 c.spell_cast_remaining = False
                 c.action_remaining = False
                 c.bonus_action_remaining = False
+                if summon_cfg and cid is not None:
+                    spawned_cids = self._spawn_summons_from_cast(
+                        caster_cid=cid,
+                        spell_slug=spell_slug,
+                        spell_id=spell_id,
+                        slot_level=slot_level,
+                        summon_choice=summon_choice,
+                        summon_quantity=summon_quantity,
+                        summon_positions=summon_positions,
+                    )
+                    if not spawned_cids:
+                        self._lan.toast(ws_id, "Summoning failed, matey.")
+                        return
                 self._rebuild_table(scroll_to_current=True)
+            elif summon_cfg and cid is not None:
+                spawned_cids = self._spawn_summons_from_cast(
+                    caster_cid=cid,
+                    spell_slug=spell_slug,
+                    spell_id=spell_id,
+                    slot_level=slot_level,
+                    summon_choice=summon_choice,
+                    summon_quantity=summon_quantity,
+                    summon_positions=summon_positions,
+                )
+                if not spawned_cids:
+                    self._lan.toast(ws_id, "Summoning failed, matey.")
+                    return
             self._lan_force_state_broadcast()
             self._lan.toast(ws_id, f"Casted {preset.get('name') or 'spell'}.")
             return

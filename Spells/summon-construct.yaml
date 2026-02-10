@@ -47,6 +47,8 @@ mechanics:
   sequence: []
   scaling: null
   summon:
+    side: caster
+    color: blue
     choices:
     - name: Construct Spirit
       monster_slug: construct-spirit

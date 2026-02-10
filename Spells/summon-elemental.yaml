@@ -50,6 +50,8 @@ mechanics:
   sequence: []
   scaling: null
   summon:
+    side: caster
+    color: blue
     choices:
     - name: Elemental Spirit
       monster_slug: elemental-spirit
