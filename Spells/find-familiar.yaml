@@ -90,7 +90,7 @@ mechanics:
       notes: "Only one familiar at a time; recasting changes its form."
     duration:
       concentration: false
-      kind: instantaneous
+      duration_type: instantaneous
       notes: "Familiar persists until dismissed or reduced to 0 Hit Points."
     lifecycle:
       ends_on_zero_hp: true

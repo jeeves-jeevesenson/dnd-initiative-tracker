@@ -72,7 +72,7 @@ mechanics:
       notes: "Choose up to three corpses; higher-level slots increase totals/options."
     duration:
       concentration: false
-      control_hours: 24
+      control_duration: "24 hours"
       notes: "Recast before 24 hours to maintain control."
     control:
       commands: "bonus action mental command within 120 feet; same command for multiple"
