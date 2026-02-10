@@ -3322,6 +3322,23 @@ class LanController:
             raise HTTPException(status_code=403, detail="Character is not in the encounter.")
         return {"is_admin": is_admin, "player_cid": claim_cid, "client_id": client_id}
 
+    def _assigned_character_name_for_host(self, host: str) -> Optional[str]:
+        """Return the claimed PC name for ``host`` if one is currently assigned."""
+        host_key = str(host or "").strip()
+        if not host_key:
+            return None
+        with self._clients_lock:
+            claimed_cids = sorted(
+                int(cid)
+                for cid, hosts in self._cid_to_host.items()
+                if host_key in (hosts or set())
+            )
+        for cid in claimed_cids:
+            name = self._pc_name_for(int(cid))
+            if name and not str(name).startswith("cid:"):
+                return str(name)
+        return None
+
     def _planning_snapshot_payload(self, viewer_cid: Optional[int], is_admin: bool = False) -> Dict[str, Any]:
         snap = copy.deepcopy(self.app._lan_snapshot())
         units = snap.get("units") if isinstance(snap, dict) else []
