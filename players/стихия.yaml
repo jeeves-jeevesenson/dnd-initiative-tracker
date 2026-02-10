@@ -1,0 +1,217 @@
+format_version: 2
+name: стихия
+player: стихия
+campaign: ''
+ip: ''
+identity:
+  pronouns: bird/birb
+  ancestry: Kenku
+  background: Acolyte
+  alignment: Chaotic Neutral
+  description: Bird :V
+  name: стихия
+leveling:
+  level: 10
+  classes:
+  - name: Cleric
+    subclass: Tempest
+    level: 10
+abilities:
+  str: 17
+  dex: 10
+  con: 16
+  int: 8
+  wis: 20
+  cha: 12
+proficiency:
+  bonus: 4
+  saves:
+  - WIS
+  - CHR
+  skills:
+    proficient:
+    - History
+    - Religion
+    - Insight
+    - Medicine
+    - Survival
+    - Performance
+    expertise: []
+  tools:
+  - Light Armor
+  - Medium Armor
+  - Heavy Armor
+  - Shields
+  - Simple Weapons
+  - Martial Weapons
+  - Calligrapher's Supplies
+  languages:
+  - Common
+  - Giant
+  - Goblin
+  - Auran
+vitals:
+  max_hp: 87
+  current_hp: 87
+  temp_hp: 0
+  hit_dice:
+    die: d8
+    total: 10
+    spent: 0
+  speed:
+    walk: 35
+    climb: 0
+    fly: 0
+    swim: 35
+  initiative:
+    formula: dex_mod
+  passive_perception:
+    formula: 10 + wis_mod + prof
+defenses:
+  ac:
+    sources:
+    - id: plus1_heavy_armor
+      label: +1 Heavy Armor
+      when: always
+      base_formula: '19'
+    bonuses: []
+  resistances:
+  - lightning
+  immunities: []
+  vulnerabilities: []
+attacks:
+  melee_attack_mod: 7
+  ranged_attack_mod: 4
+  weapon_to_hit: 7
+resources:
+  pools: []
+features: []
+actions:
+- name: Attack
+  description: Make a weapon or unarmed attack against a target within range.
+  type: action
+- name: Dash
+  description: Gain extra movement for the current turn equal to your speed.
+  type: action
+- name: Disengage
+  description: Your movement does not provoke opportunity attacks for the rest of
+    the turn.
+  type: action
+- name: Dodge
+  description: Until the start of your next turn, attack rolls against you have disadvantage
+    if you can see the attacker, and you make Dexterity saves with advantage.
+  type: action
+- name: Help
+  description: Aid a creature in the next ability check or attack roll against a target
+    within 5 feet of you.
+  type: action
+- name: Hide
+  description: Attempt to hide by making a Dexterity (Stealth) check.
+  type: action
+- name: Influence
+  description: Attempt to influence a creature through conversation, bargaining, or
+    intimidation.
+  type: action
+- name: Magic
+  description: Cast a spell or use a magical feature that takes an action.
+  type: action
+- name: Ready
+  description: Prepare an action and a trigger; use your reaction to perform it when
+    the trigger occurs.
+  type: action
+- name: Search
+  description: Devote attention to finding something by making a Wisdom (Perception)
+    or Intelligence (Investigation) check.
+  type: action
+- name: Study
+  description: Focus on detailed observation or research to gain information about
+    a creature, object, or situation.
+  type: action
+- name: Utilize
+  description: Use an object or interact with the environment in a significant way.
+  type: action
+reactions:
+- name: Opportunity Attack
+  description: When a hostile creature you can see moves out of your reach, you can
+    use your reaction to make one melee attack against it.
+  type: reaction
+bonus_actions: []
+spellcasting:
+  enabled: true
+  spell_yaml_paths:
+  - ./Spells
+  casting_ability: wis
+  save_dc_formula: 8 + prof + casting_mod + 1
+  spell_attack_formula: prof + casting_mod + 1
+  cantrips:
+    max: 5
+    known:
+    - toll-the-dead
+    - sacred-flame
+    - spare-the-dying
+    - guidance
+    - mending
+  known_spells:
+    max: 0
+  prepared_spells:
+    max_formula: '25'
+    prepared:
+    - thunderwave
+    - healing-word
+    - create-or-destroy-water
+    - guiding-bolt
+    - fog-cloud
+    - cure-wounds
+    - inflict-wounds
+    - gust-of-wind
+    - shatter
+    - prayer-of-healing
+    - lesser-restoration
+    - find-traps
+    - call-lightning
+    - sleet-storm
+    - revivify
+    - dispel-magic
+    - bestow-curse
+    - control-water
+    - ice-storm
+    - destructive-wave
+    - insect-plague
+    - flame-strike
+    - dispel-evil-and-good
+  spell_slots:
+    '1':
+      max: 4
+      current: 3
+    '2':
+      max: 3
+      current: 3
+    '3':
+      max: 3
+      current: 3
+    '4':
+      max: 3
+      current: 3
+    '5':
+      max: 2
+      current: 1
+    '6':
+      max: 0
+      current: 0
+    '7':
+      max: 0
+      current: 0
+    '8':
+      max: 0
+      current: 0
+    '9':
+      max: 0
+      current: 0
+  known_enabled: false
+inventory:
+  currency:
+    gp: 9652
+    sp: 0
+    cp: 0
+  items: []
+notes: {}
