@@ -2038,6 +2038,7 @@ class LanController:
                         "set_color",
                         "reset_turn",
                         "cast_aoe",
+                        "cast_spell",
                         "aoe_move",
                         "aoe_remove",
                         "dismiss_summons",
@@ -5351,6 +5352,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 if shape and shape not in valid_aoe_shapes:
                     warnings.append(f"unsupported area shape '{shape_raw or shape}'")
                     missing_required_fields = True
+            preset["is_aoe"] = False
             if shape in valid_aoe_shapes:
                 preset["shape"] = shape
                 preset["is_aoe"] = True
@@ -5429,6 +5431,14 @@ class InitiativeTracker(base.InitiativeTracker):
             elif has_aoe_tag:
                 preset["is_aoe"] = True
 
+            casting_time = str(preset.get("casting_time") or "").strip().lower()
+            if "bonus" in casting_time and "action" in casting_time:
+                preset["action_type"] = "bonus_action"
+            elif "reaction" in casting_time:
+                preset["action_type"] = "reaction"
+            else:
+                preset["action_type"] = "action"
+
             damage_types: List[str] = []
             dice: Optional[str] = None
             effect_scaling: Optional[Dict[str, Any]] = None
@@ -5501,6 +5511,8 @@ class InitiativeTracker(base.InitiativeTracker):
             scaling = mechanics.get("scaling") if isinstance(mechanics.get("scaling"), dict) else None
             if scaling is None:
                 scaling = effect_scaling
+            if isinstance(scaling, dict):
+                preset["scaling"] = copy.deepcopy(scaling)
 
             if save_type:
                 preset["save_type"] = save_type
@@ -7641,6 +7653,57 @@ class InitiativeTracker(base.InitiativeTracker):
                 return True
         return False
 
+    def _resolve_spell_slot_profile(self, caster_name: str) -> Tuple[str, Dict[str, Dict[str, int]]]:
+        player_name = str(caster_name or "").strip()
+        if not player_name or player_name.startswith("cid:"):
+            raise ValueError("No spell slots set up for that caster, matey.")
+        self._load_player_yaml_cache()
+        player_key = self._normalize_character_lookup_key(player_name)
+        player_path = self._player_yaml_name_map.get(player_key)
+        profile = self._player_yaml_cache_by_path.get(player_path) if player_path else None
+        if not isinstance(profile, dict):
+            profile = {}
+        spellcasting = profile.get("spellcasting", {})
+        slots = self._normalize_spell_slots(spellcasting.get("spell_slots") if isinstance(spellcasting, dict) else None)
+        return player_name, slots
+
+    def _consume_spell_slot_for_cast(
+        self,
+        caster_name: str,
+        slot_level: Optional[int],
+        minimum_level: Optional[int],
+    ) -> Tuple[bool, str, Optional[int]]:
+        if slot_level is None:
+            return True, "", None
+        if slot_level < 1 or slot_level > 9:
+            return False, "Pick a valid spell slot level, matey.", None
+        if minimum_level is not None and slot_level < minimum_level:
+            return False, "Ye can't downcast that spell, matey.", None
+        try:
+            player_name, slots = self._resolve_spell_slot_profile(caster_name)
+        except ValueError as exc:
+            return False, str(exc), None
+        except Exception:
+            return False, "No spell slots set up for that caster, matey.", None
+
+        spend_level = None
+        for lvl in range(slot_level, 10):
+            key = str(lvl)
+            current_slots = int(slots.get(key, {}).get("current", 0) or 0)
+            if current_slots > 0:
+                spend_level = lvl
+                break
+        if spend_level is None:
+            return False, "No spell slots left for that level, matey.", None
+
+        spend_key = str(spend_level)
+        slots[spend_key]["current"] = max(0, int(slots[spend_key].get("current", 0) or 0) - 1)
+        try:
+            self._save_player_spell_slots(player_name, slots)
+        except Exception:
+            return False, "Could not update spell slots, matey.", None
+        return True, "", spend_level
+
     def _sorted_combatants(self) -> List[base.Combatant]:
         ordered = list(self.combatants.values())
 
@@ -8123,7 +8186,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         # Only allow controlling on your turn (POC)
-        if not is_admin and typ not in ("cast_aoe", "aoe_move", "aoe_remove", "dismiss_summons"):
+        if not is_admin and typ not in ("cast_aoe", "cast_spell", "aoe_move", "aoe_remove", "dismiss_summons"):
             if in_combat:
                 shared_turn = False
                 if cid is not None and claimed is not None and cid in self.combatants:
@@ -8174,35 +8237,22 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "Summon spawning is DM-only for now, matey.")
                 return
             if c is not None and not is_admin:
-                if slot_level is not None and slot_level >= 1:
-                    if slot_level > 9:
-                        self._lan.toast(ws_id, "Pick a valid spell slot level, matey.")
-                        return
+                preset_level = None
+                try:
+                    preset_level = int(preset.get("level")) if isinstance(preset, dict) else None
+                except Exception:
+                    preset_level = None
+                if slot_level is None and preset_level is not None and preset_level > 0:
+                    slot_level = preset_level
+                if slot_level is not None:
                     player_name = _resolve_pc_name(cid)
-                    if not player_name or player_name.startswith("cid:"):
-                        self._lan.toast(ws_id, "No spell slots set up for that caster, matey.")
-                        return
-                    self._load_player_yaml_cache()
-                    # Case-insensitive lookup via name_map -> path -> cached data
-                    player_key = self._normalize_character_lookup_key(player_name)
-                    player_path = self._player_yaml_name_map.get(player_key)
-                    profile = self._player_yaml_cache_by_path.get(player_path) if player_path else None
-                    if not isinstance(profile, dict):
-                        profile = {}
-                    spellcasting = profile.get("spellcasting", {})
-                    slots = self._normalize_spell_slots(
-                        spellcasting.get("spell_slots") if isinstance(spellcasting, dict) else None
+                    ok_slot, slot_err, _spent_level = self._consume_spell_slot_for_cast(
+                        caster_name=player_name,
+                        slot_level=slot_level,
+                        minimum_level=preset_level,
                     )
-                    slot_key = str(slot_level)
-                    current_slots = int(slots.get(slot_key, {}).get("current", 0) or 0)
-                    if current_slots <= 0:
-                        self._lan.toast(ws_id, "No spell slots left for that level, matey.")
-                        return
-                    slots[slot_key]["current"] = max(0, current_slots - 1)
-                    try:
-                        self._save_player_spell_slots(player_name, slots)
-                    except Exception:
-                        self._lan.toast(ws_id, "Could not update spell slots, matey.")
+                    if not ok_slot:
+                        self._lan.toast(ws_id, slot_err)
                         return
                 if int(getattr(c, "spell_cast_remaining", 0) or 0) <= 0:
                     self._lan.toast(ws_id, "Already cast a spell this turn, matey.")
@@ -8599,6 +8649,74 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._rebuild_table(scroll_to_current=True)
                     self._lan_force_state_broadcast()
             self._lan.toast(ws_id, f"Casted {aoe['name']}.")
+            return
+
+        if typ == "cast_spell":
+            payload = msg.get("payload") or {}
+            spend_raw = str(msg.get("action_type") or payload.get("action_type") or "").strip().lower()
+            if spend_raw in ("bonus", "bonus_action"):
+                spend = "bonus"
+            elif spend_raw == "reaction":
+                spend = "reaction"
+            else:
+                spend = "action"
+            spell_slug = str(msg.get("spell_slug") or payload.get("spell_slug") or "").strip()
+            spell_id = str(msg.get("spell_id") or payload.get("spell_id") or "").strip()
+            preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_id)
+            if not isinstance(preset, dict):
+                self._lan.toast(ws_id, "That spell could not be found, matey.")
+                return
+            try:
+                slot_level = int(msg.get("slot_level") if msg.get("slot_level") is not None else payload.get("slot_level"))
+            except Exception:
+                slot_level = None
+            if slot_level is not None and slot_level < 0:
+                slot_level = None
+            preset_level = None
+            try:
+                preset_level = int(preset.get("level"))
+            except Exception:
+                preset_level = None
+            if preset_level is not None and preset_level > 0 and slot_level is None:
+                slot_level = preset_level
+            if slot_level is not None and preset_level is not None and slot_level < preset_level:
+                self._lan.toast(ws_id, "Ye can't downcast that spell, matey.")
+                return
+            c = self.combatants.get(cid) if cid is not None else None
+            if c is not None and not is_admin:
+                player_name = _resolve_pc_name(cid)
+                ok_slot, slot_err, _spent_level = self._consume_spell_slot_for_cast(
+                    caster_name=player_name,
+                    slot_level=slot_level,
+                    minimum_level=preset_level,
+                )
+                if not ok_slot:
+                    self._lan.toast(ws_id, slot_err)
+                    return
+                if int(getattr(c, "spell_cast_remaining", 0) or 0) <= 0:
+                    self._lan.toast(ws_id, "Already cast a spell this turn, matey.")
+                    return
+                if not self._combatant_can_cast_spell(c, spend):
+                    self._lan.toast(ws_id, "No spellcasting action available, matey.")
+                    return
+                if spend == "bonus":
+                    if not self._use_bonus_action(c):
+                        self._lan.toast(ws_id, "No bonus actions left, matey.")
+                        return
+                elif spend == "reaction":
+                    if not self._use_reaction(c):
+                        self._lan.toast(ws_id, "No reactions left, matey.")
+                        return
+                else:
+                    if not self._use_action(c):
+                        self._lan.toast(ws_id, "No actions left, matey.")
+                        return
+                c.spell_cast_remaining = False
+                c.action_remaining = False
+                c.bonus_action_remaining = False
+                self._rebuild_table(scroll_to_current=True)
+            self._lan_force_state_broadcast()
+            self._lan.toast(ws_id, f"Casted {preset.get('name') or 'spell'}.")
             return
 
         elif typ == "dismiss_summons":
