@@ -5200,6 +5200,16 @@ class InitiativeTracker(base.InitiativeTracker):
             raw = str(value).strip().lower()
             return ability_map.get(raw, raw)
 
+        def normalize_summon_config(parsed_spell: Dict[str, Any], mechanics_block: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+            summon_data = mechanics_block.get("summon") if isinstance(mechanics_block.get("summon"), dict) else None
+            if summon_data is None:
+                automation_block = parsed_spell.get("automation")
+                if isinstance(automation_block, dict) and isinstance(automation_block.get("summon"), dict):
+                    summon_data = automation_block.get("summon")
+            if not isinstance(summon_data, dict):
+                return None
+            return copy.deepcopy(summon_data)
+
         def parse_spell_file(fp: Path) -> Optional[Tuple[Dict[str, Any], str]]:
             try:
                 raw = fp.read_text(encoding="utf-8")
@@ -5235,6 +5245,10 @@ class InitiativeTracker(base.InitiativeTracker):
             url = import_data.get("url")
             lists = parsed.get("lists") if isinstance(parsed.get("lists"), dict) else {}
             mechanics = parsed.get("mechanics") if isinstance(parsed.get("mechanics"), dict) else {}
+            summon_config = normalize_summon_config(parsed, mechanics)
+            if summon_config is not None and "summon" not in mechanics:
+                mechanics = dict(mechanics)
+                mechanics["summon"] = copy.deepcopy(summon_config)
             automation_raw = str(mechanics.get("automation") or "").strip().lower()
             automation = automation_raw if automation_raw in ("full", "partial", "manual") else "manual"
             errors: List[str] = []
@@ -5266,6 +5280,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 "mechanics": mechanics,
                 "automation": automation,
             }
+            if summon_config is not None:
+                preset["summon"] = summon_config
             if color:
                 preset["color"] = color
             if isinstance(url, str) and url.strip():
