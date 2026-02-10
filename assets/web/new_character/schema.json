@@ -10,20 +10,13 @@
       "type": "object",
       "fields": [
         {
-          "key": "format_version",
-          "label": "Format Version",
-          "type": "integer",
-          "required": true,
-          "default": 2
-        },
-        {
           "key": "name",
           "label": "Name",
           "type": "string",
           "required": true,
           "default": "",
           "placeholder": "e.g., Thalia Brightblade",
-          "help": "Enter the character name as it should appear in the tracker."
+          "help": "Character name shown in combat and used for profile matching."
         },
         {
           "key": "player",
@@ -31,7 +24,7 @@
           "type": "string",
           "default": "",
           "placeholder": "e.g., Sam",
-          "help": "Use the player's display name or nickname."
+          "help": "Optional player-facing name."
         },
         {
           "key": "campaign",
@@ -43,7 +36,8 @@
           "key": "ip",
           "label": "IP Address",
           "type": "string",
-          "default": ""
+          "default": "",
+          "help": "Optional static LAN host/IP assignment. Usually leave blank."
         }
       ]
     },
@@ -52,13 +46,45 @@
       "label": "Identity",
       "readme_heading": "Identity Section",
       "type": "object",
-      "path": ["identity"],
+      "path": [
+        "identity"
+      ],
       "fields": [
-        {"key": "pronouns", "label": "Pronouns", "type": "string", "default": "", "placeholder": "e.g., she/her"},
-        {"key": "ancestry", "label": "Ancestry", "type": "string", "default": "", "placeholder": "e.g., Half-elf"},
-        {"key": "background", "label": "Background", "type": "string", "default": "", "placeholder": "e.g., Acolyte"},
-        {"key": "alignment", "label": "Alignment", "type": "string", "default": "", "placeholder": "e.g., Neutral Good"},
-        {"key": "description", "label": "Description", "type": "string", "default": "", "placeholder": "e.g., Calm scholar with a silver staff"}
+        {
+          "key": "pronouns",
+          "label": "Pronouns",
+          "type": "string",
+          "default": "",
+          "placeholder": "e.g., she/her"
+        },
+        {
+          "key": "ancestry",
+          "label": "Ancestry",
+          "type": "string",
+          "default": "",
+          "placeholder": "e.g., Half-elf"
+        },
+        {
+          "key": "background",
+          "label": "Background",
+          "type": "string",
+          "default": "",
+          "placeholder": "e.g., Acolyte"
+        },
+        {
+          "key": "alignment",
+          "label": "Alignment",
+          "type": "string",
+          "default": "",
+          "placeholder": "e.g., Neutral Good"
+        },
+        {
+          "key": "description",
+          "label": "Description",
+          "type": "string",
+          "default": "",
+          "placeholder": "e.g., Calm scholar with a silver staff"
+        }
       ]
     },
     {
@@ -66,9 +92,16 @@
       "label": "Leveling",
       "readme_heading": "Leveling Section",
       "type": "object",
-      "path": ["leveling"],
+      "path": [
+        "leveling"
+      ],
       "fields": [
-        {"key": "level", "label": "Total Level", "type": "integer", "default": 1},
+        {
+          "key": "level",
+          "label": "Total Level",
+          "type": "integer",
+          "default": 1
+        },
         {
           "key": "classes",
           "label": "Classes",
@@ -77,13 +110,32 @@
           "items": {
             "type": "object",
             "fields": [
-              {"key": "name", "label": "Class Name", "type": "string", "default": ""},
-              {"key": "subclass", "label": "Subclass", "type": "string", "default": ""},
-              {"key": "level", "label": "Class Level", "type": "integer", "default": 1}
+              {
+                "key": "name",
+                "label": "Class Name",
+                "type": "string",
+                "default": ""
+              },
+              {
+                "key": "subclass",
+                "label": "Subclass",
+                "type": "string",
+                "default": ""
+              },
+              {
+                "key": "level",
+                "label": "Class Level",
+                "type": "integer",
+                "default": 1
+              }
             ]
           },
           "default": [
-            {"name": "", "subclass": "", "level": 1}
+            {
+              "name": "",
+              "subclass": "",
+              "level": 1
+            }
           ]
         }
       ]
@@ -93,14 +145,46 @@
       "label": "Abilities",
       "readme_heading": "Abilities Section",
       "type": "object",
-      "path": ["abilities"],
+      "path": [
+        "abilities"
+      ],
       "fields": [
-        {"key": "str", "label": "STR", "type": "integer", "default": 10},
-        {"key": "dex", "label": "DEX", "type": "integer", "default": 10},
-        {"key": "con", "label": "CON", "type": "integer", "default": 10},
-        {"key": "int", "label": "INT", "type": "integer", "default": 10},
-        {"key": "wis", "label": "WIS", "type": "integer", "default": 10},
-        {"key": "cha", "label": "CHA", "type": "integer", "default": 10}
+        {
+          "key": "str",
+          "label": "STR",
+          "type": "integer",
+          "default": 10
+        },
+        {
+          "key": "dex",
+          "label": "DEX",
+          "type": "integer",
+          "default": 10
+        },
+        {
+          "key": "con",
+          "label": "CON",
+          "type": "integer",
+          "default": 10
+        },
+        {
+          "key": "int",
+          "label": "INT",
+          "type": "integer",
+          "default": 10
+        },
+        {
+          "key": "wis",
+          "label": "WIS",
+          "type": "integer",
+          "default": 10
+        },
+        {
+          "key": "cha",
+          "label": "CHA",
+          "type": "integer",
+          "default": 10
+        }
       ]
     },
     {
@@ -108,15 +192,26 @@
       "label": "Proficiency",
       "readme_heading": "Proficiency Section",
       "type": "object",
-      "path": ["proficiency"],
+      "path": [
+        "proficiency"
+      ],
       "fields": [
-        {"key": "bonus", "label": "Proficiency Bonus", "type": "integer", "default": 2},
+        {
+          "key": "bonus",
+          "label": "Proficiency Bonus",
+          "type": "integer",
+          "default": 2
+        },
         {
           "key": "saves",
           "label": "Save Proficiencies",
           "type": "array",
           "repeatable": true,
-          "items": {"type": "string", "default": "", "placeholder": "e.g., STR"},
+          "items": {
+            "type": "string",
+            "default": "",
+            "placeholder": "e.g., STR"
+          },
           "default": [],
           "placeholder": "e.g., STR, CON",
           "help": "List the saving throws the character is proficient in."
@@ -131,7 +226,11 @@
               "label": "Proficient Skills",
               "type": "array",
               "repeatable": true,
-              "items": {"type": "string", "default": "", "placeholder": "e.g., Stealth"},
+              "items": {
+                "type": "string",
+                "default": "",
+                "placeholder": "e.g., Stealth"
+              },
               "default": [],
               "help": "Add each skill proficiency as a separate entry."
             },
@@ -140,7 +239,11 @@
               "label": "Expertise",
               "type": "array",
               "repeatable": true,
-              "items": {"type": "string", "default": "", "placeholder": "e.g., Perception"},
+              "items": {
+                "type": "string",
+                "default": "",
+                "placeholder": "e.g., Perception"
+              },
               "default": [],
               "help": "List skills with expertise as separate entries."
             }
@@ -151,7 +254,11 @@
           "label": "Tools",
           "type": "array",
           "repeatable": true,
-          "items": {"type": "string", "default": "", "placeholder": "e.g., Thieves' tools"},
+          "items": {
+            "type": "string",
+            "default": "",
+            "placeholder": "e.g., Thieves' tools"
+          },
           "default": [],
           "help": "Add each tool proficiency as a separate entry."
         },
@@ -160,7 +267,11 @@
           "label": "Languages",
           "type": "array",
           "repeatable": true,
-          "items": {"type": "string", "default": "", "placeholder": "e.g., Common"},
+          "items": {
+            "type": "string",
+            "default": "",
+            "placeholder": "e.g., Common"
+          },
           "default": [],
           "help": "List each language the character can speak."
         }
@@ -171,10 +282,22 @@
       "label": "Vitals",
       "readme_heading": "Vitals Section",
       "type": "object",
-      "path": ["vitals"],
+      "path": [
+        "vitals"
+      ],
       "fields": [
-        {"key": "max_hp", "label": "Max HP", "type": "integer", "default": 1},
-        {"key": "current_hp", "label": "Current HP", "type": "integer", "default": 1},
+        {
+          "key": "max_hp",
+          "label": "Max HP",
+          "type": "integer",
+          "default": 1
+        },
+        {
+          "key": "current_hp",
+          "label": "Current HP",
+          "type": "integer",
+          "default": 1
+        },
         {
           "key": "temp_hp",
           "label": "Temp HP",
@@ -201,7 +324,12 @@
               "default": 1,
               "help": "Auto-filled from total level. Edit to override."
             },
-            {"key": "spent", "label": "Spent", "type": "integer", "default": 0}
+            {
+              "key": "spent",
+              "label": "Spent",
+              "type": "integer",
+              "default": 0
+            }
           ]
         },
         {
@@ -209,10 +337,30 @@
           "label": "Speed",
           "type": "object",
           "fields": [
-            {"key": "walk", "label": "Walk", "type": "integer", "default": 30},
-            {"key": "climb", "label": "Climb", "type": "integer", "default": 0},
-            {"key": "fly", "label": "Fly", "type": "integer", "default": 0},
-            {"key": "swim", "label": "Swim", "type": "integer", "default": 0}
+            {
+              "key": "walk",
+              "label": "Walk",
+              "type": "integer",
+              "default": 30
+            },
+            {
+              "key": "climb",
+              "label": "Climb",
+              "type": "integer",
+              "default": 0
+            },
+            {
+              "key": "fly",
+              "label": "Fly",
+              "type": "integer",
+              "default": 0
+            },
+            {
+              "key": "swim",
+              "label": "Swim",
+              "type": "integer",
+              "default": 0
+            }
           ]
         },
         {
@@ -252,7 +400,9 @@
       "label": "Defenses",
       "readme_heading": "Defenses Section",
       "type": "object",
-      "path": ["defenses"],
+      "path": [
+        "defenses"
+      ],
       "fields": [
         {
           "key": "ac",
@@ -267,9 +417,24 @@
               "items": {
                 "type": "object",
                 "fields": [
-                  {"key": "id", "label": "ID", "type": "string", "default": ""},
-                  {"key": "label", "label": "Label", "type": "string", "default": ""},
-                  {"key": "when", "label": "When", "type": "string", "default": "always"},
+                  {
+                    "key": "id",
+                    "label": "ID",
+                    "type": "string",
+                    "default": ""
+                  },
+                  {
+                    "key": "label",
+                    "label": "Label",
+                    "type": "string",
+                    "default": ""
+                  },
+                  {
+                    "key": "when",
+                    "label": "When",
+                    "type": "string",
+                    "default": "always"
+                  },
                   {
                     "key": "base_formula",
                     "label": "Base Formula",
@@ -281,7 +446,12 @@
                 ]
               },
               "default": [
-                {"id": "unarmored", "label": "Unarmored", "when": "always", "base_formula": "10 + dex_mod"}
+                {
+                  "id": "unarmored",
+                  "label": "Unarmored",
+                  "when": "always",
+                  "base_formula": "10 + dex_mod"
+                }
               ]
             },
             {
@@ -292,10 +462,30 @@
               "items": {
                 "type": "object",
                 "fields": [
-                  {"key": "id", "label": "ID", "type": "string", "default": ""},
-                  {"key": "label", "label": "Label", "type": "string", "default": ""},
-                  {"key": "value", "label": "Value", "type": "integer", "default": 0},
-                  {"key": "when", "label": "When", "type": "string", "default": ""}
+                  {
+                    "key": "id",
+                    "label": "ID",
+                    "type": "string",
+                    "default": ""
+                  },
+                  {
+                    "key": "label",
+                    "label": "Label",
+                    "type": "string",
+                    "default": ""
+                  },
+                  {
+                    "key": "value",
+                    "label": "Value",
+                    "type": "integer",
+                    "default": 0
+                  },
+                  {
+                    "key": "when",
+                    "label": "When",
+                    "type": "string",
+                    "default": ""
+                  }
                 ]
               },
               "default": []
@@ -307,7 +497,10 @@
           "label": "Resistances",
           "type": "array",
           "repeatable": true,
-          "items": {"type": "string", "default": ""},
+          "items": {
+            "type": "string",
+            "default": ""
+          },
           "default": []
         },
         {
@@ -315,7 +508,10 @@
           "label": "Immunities",
           "type": "array",
           "repeatable": true,
-          "items": {"type": "string", "default": ""},
+          "items": {
+            "type": "string",
+            "default": ""
+          },
           "default": []
         },
         {
@@ -323,7 +519,10 @@
           "label": "Vulnerabilities",
           "type": "array",
           "repeatable": true,
-          "items": {"type": "string", "default": ""},
+          "items": {
+            "type": "string",
+            "default": ""
+          },
           "default": []
         }
       ]
@@ -333,7 +532,9 @@
       "label": "Attacks",
       "readme_heading": "Attacks Section",
       "type": "object",
-      "path": ["attacks"],
+      "path": [
+        "attacks"
+      ],
       "fields": [
         {
           "key": "melee_attack_mod",
@@ -363,7 +564,9 @@
       "label": "Resources",
       "readme_heading": "Resources Section",
       "type": "object",
-      "path": ["resources"],
+      "path": [
+        "resources"
+      ],
       "fields": [
         {
           "key": "pools",
@@ -373,11 +576,36 @@
           "items": {
             "type": "object",
             "fields": [
-              {"key": "id", "label": "ID", "type": "string", "default": ""},
-              {"key": "label", "label": "Label", "type": "string", "default": ""},
-              {"key": "current", "label": "Current", "type": "integer", "default": 0},
-              {"key": "max_formula", "label": "Max Formula", "type": "string", "default": "1"},
-              {"key": "reset", "label": "Reset", "type": "string", "default": "long_rest"}
+              {
+                "key": "id",
+                "label": "ID",
+                "type": "string",
+                "default": ""
+              },
+              {
+                "key": "label",
+                "label": "Label",
+                "type": "string",
+                "default": ""
+              },
+              {
+                "key": "current",
+                "label": "Current",
+                "type": "integer",
+                "default": 0
+              },
+              {
+                "key": "max_formula",
+                "label": "Max Formula",
+                "type": "string",
+                "default": "1"
+              },
+              {
+                "key": "reset",
+                "label": "Reset",
+                "type": "string",
+                "default": "long_rest"
+              }
             ]
           },
           "default": []
@@ -389,16 +617,43 @@
       "label": "Features",
       "readme_heading": "Features Section",
       "type": "array",
-      "path": ["features"],
+      "path": [
+        "features"
+      ],
       "repeatable": true,
       "items": {
         "type": "object",
         "fields": [
-          {"key": "id", "label": "ID", "type": "string", "default": ""},
-          {"key": "name", "label": "Name", "type": "string", "default": ""},
-          {"key": "category", "label": "Category", "type": "string", "default": ""},
-          {"key": "source", "label": "Source", "type": "string", "default": ""},
-          {"key": "description", "label": "Description", "type": "string", "default": ""},
+          {
+            "key": "id",
+            "label": "ID",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "key": "name",
+            "label": "Name",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "key": "category",
+            "label": "Category",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "key": "source",
+            "label": "Source",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "string",
+            "default": ""
+          },
           {
             "key": "grants",
             "label": "Grants",
@@ -412,10 +667,30 @@
                 "items": {
                   "type": "object",
                   "fields": [
-                    {"key": "id", "label": "ID", "type": "string", "default": ""},
-                    {"key": "label", "label": "Label", "type": "string", "default": ""},
-                    {"key": "max_formula", "label": "Max Formula", "type": "string", "default": "1"},
-                    {"key": "reset", "label": "Reset", "type": "string", "default": "long_rest"}
+                    {
+                      "key": "id",
+                      "label": "ID",
+                      "type": "string",
+                      "default": ""
+                    },
+                    {
+                      "key": "label",
+                      "label": "Label",
+                      "type": "string",
+                      "default": ""
+                    },
+                    {
+                      "key": "max_formula",
+                      "label": "Max Formula",
+                      "type": "string",
+                      "default": "1"
+                    },
+                    {
+                      "key": "reset",
+                      "label": "Reset",
+                      "type": "string",
+                      "default": "long_rest"
+                    }
                   ]
                 },
                 "default": []
@@ -430,7 +705,10 @@
                     "label": "Cantrips",
                     "type": "array",
                     "repeatable": true,
-                    "items": {"type": "string", "default": ""},
+                    "items": {
+                      "type": "string",
+                      "default": ""
+                    },
                     "default": []
                   },
                   {
@@ -441,15 +719,35 @@
                     "items": {
                       "type": "object",
                       "fields": [
-                        {"key": "spell", "label": "Spell", "type": "string", "default": ""},
-                        {"key": "action_type", "label": "Action Type", "type": "string", "default": "action"},
+                        {
+                          "key": "spell",
+                          "label": "Spell",
+                          "type": "string",
+                          "default": ""
+                        },
+                        {
+                          "key": "action_type",
+                          "label": "Action Type",
+                          "type": "string",
+                          "default": "action"
+                        },
                         {
                           "key": "consumes",
                           "label": "Consumes",
                           "type": "object",
                           "fields": [
-                            {"key": "pool", "label": "Pool", "type": "string", "default": ""},
-                            {"key": "cost", "label": "Cost", "type": "integer", "default": 1}
+                            {
+                              "key": "pool",
+                              "label": "Pool",
+                              "type": "string",
+                              "default": ""
+                            },
+                            {
+                              "key": "cost",
+                              "label": "Cost",
+                              "type": "integer",
+                              "default": 1
+                            }
                           ]
                         }
                       ]
@@ -466,16 +764,41 @@
                 "items": {
                   "type": "object",
                   "fields": [
-                    {"key": "name", "label": "Name", "type": "string", "default": ""},
-                    {"key": "type", "label": "Type", "type": "string", "default": "action"},
-                    {"key": "description", "label": "Description", "type": "string", "default": ""},
+                    {
+                      "key": "name",
+                      "label": "Name",
+                      "type": "string",
+                      "default": ""
+                    },
+                    {
+                      "key": "type",
+                      "label": "Type",
+                      "type": "string",
+                      "default": "action"
+                    },
+                    {
+                      "key": "description",
+                      "label": "Description",
+                      "type": "string",
+                      "default": ""
+                    },
                     {
                       "key": "uses",
                       "label": "Uses",
                       "type": "object",
                       "fields": [
-                        {"key": "pool", "label": "Pool", "type": "string", "default": ""},
-                        {"key": "cost", "label": "Cost", "type": "integer", "default": 1}
+                        {
+                          "key": "pool",
+                          "label": "Pool",
+                          "type": "string",
+                          "default": ""
+                        },
+                        {
+                          "key": "cost",
+                          "label": "Cost",
+                          "type": "integer",
+                          "default": 1
+                        }
                       ]
                     }
                   ]
@@ -490,10 +813,34 @@
                 "items": {
                   "type": "object",
                   "fields": [
-                    {"key": "target", "label": "Target", "type": "string", "default": ""},
-                    {"key": "mode", "label": "Mode", "type": "string", "default": "add"},
-                    {"key": "value", "label": "Value", "type": ["string", "number", "integer"], "default": 0},
-                    {"key": "when", "label": "When", "type": "string", "default": ""}
+                    {
+                      "key": "target",
+                      "label": "Target",
+                      "type": "string",
+                      "default": ""
+                    },
+                    {
+                      "key": "mode",
+                      "label": "Mode",
+                      "type": "string",
+                      "default": "add"
+                    },
+                    {
+                      "key": "value",
+                      "label": "Value",
+                      "type": [
+                        "string",
+                        "number",
+                        "integer"
+                      ],
+                      "default": 0
+                    },
+                    {
+                      "key": "when",
+                      "label": "When",
+                      "type": "string",
+                      "default": ""
+                    }
                   ]
                 },
                 "default": []
@@ -506,10 +853,30 @@
                 "items": {
                   "type": "object",
                   "fields": [
-                    {"key": "name", "label": "Name", "type": "string", "default": ""},
-                    {"key": "when", "label": "When", "type": "string", "default": ""},
-                    {"key": "dice", "label": "Dice", "type": "string", "default": ""},
-                    {"key": "dtype", "label": "Damage Type", "type": "string", "default": "none"}
+                    {
+                      "key": "name",
+                      "label": "Name",
+                      "type": "string",
+                      "default": ""
+                    },
+                    {
+                      "key": "when",
+                      "label": "When",
+                      "type": "string",
+                      "default": ""
+                    },
+                    {
+                      "key": "dice",
+                      "label": "Dice",
+                      "type": "string",
+                      "default": ""
+                    },
+                    {
+                      "key": "dtype",
+                      "label": "Damage Type",
+                      "type": "string",
+                      "default": "none"
+                    }
                   ]
                 },
                 "default": []
@@ -525,14 +892,31 @@
       "label": "Actions",
       "readme_heading": "Actions/Reactions/Bonus Actions",
       "type": "array",
-      "path": ["actions"],
+      "path": [
+        "actions"
+      ],
       "repeatable": true,
       "items": {
         "type": "object",
         "fields": [
-          {"key": "name", "label": "Name", "type": "string", "default": ""},
-          {"key": "description", "label": "Description", "type": "string", "default": ""},
-          {"key": "type", "label": "Type", "type": "string", "default": "action"}
+          {
+            "key": "name",
+            "label": "Name",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "key": "type",
+            "label": "Type",
+            "type": "string",
+            "default": "action"
+          }
         ]
       },
       "default": [
@@ -603,14 +987,31 @@
       "label": "Reactions",
       "readme_heading": "Actions/Reactions/Bonus Actions",
       "type": "array",
-      "path": ["reactions"],
+      "path": [
+        "reactions"
+      ],
       "repeatable": true,
       "items": {
         "type": "object",
         "fields": [
-          {"key": "name", "label": "Name", "type": "string", "default": ""},
-          {"key": "description", "label": "Description", "type": "string", "default": ""},
-          {"key": "type", "label": "Type", "type": "string", "default": "reaction"}
+          {
+            "key": "name",
+            "label": "Name",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "key": "type",
+            "label": "Type",
+            "type": "string",
+            "default": "reaction"
+          }
         ]
       },
       "default": [
@@ -631,14 +1032,31 @@
       "label": "Bonus Actions",
       "readme_heading": "Actions/Reactions/Bonus Actions",
       "type": "array",
-      "path": ["bonus_actions"],
+      "path": [
+        "bonus_actions"
+      ],
       "repeatable": true,
       "items": {
         "type": "object",
         "fields": [
-          {"key": "name", "label": "Name", "type": "string", "default": ""},
-          {"key": "description", "label": "Description", "type": "string", "default": ""},
-          {"key": "type", "label": "Type", "type": "string", "default": "bonus_action"}
+          {
+            "key": "name",
+            "label": "Name",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "string",
+            "default": ""
+          },
+          {
+            "key": "type",
+            "label": "Type",
+            "type": "string",
+            "default": "bonus_action"
+          }
         ]
       },
       "default": [
@@ -654,18 +1072,35 @@
       "label": "Spellcasting",
       "readme_heading": "Spellcasting Section",
       "type": "object",
-      "path": ["spellcasting"],
+      "path": [
+        "spellcasting"
+      ],
       "fields": [
-        {"key": "enabled", "label": "Enabled", "type": "boolean", "default": false},
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "boolean",
+          "default": false
+        },
         {
           "key": "spell_yaml_paths",
           "label": "Spell YAML Paths",
           "type": "array",
           "repeatable": true,
-          "items": {"type": "string", "default": ""},
-          "default": ["./Spells"]
+          "items": {
+            "type": "string",
+            "default": ""
+          },
+          "default": [
+            "./Spells"
+          ]
         },
-        {"key": "casting_ability", "label": "Casting Ability", "type": "string", "default": ""},
+        {
+          "key": "casting_ability",
+          "label": "Casting Ability",
+          "type": "string",
+          "default": ""
+        },
         {
           "key": "save_dc_formula",
           "label": "Save DC Formula",
@@ -685,13 +1120,21 @@
           "label": "Cantrips",
           "type": "object",
           "fields": [
-            {"key": "max", "label": "Max", "type": "integer", "default": 0},
+            {
+              "key": "max",
+              "label": "Max",
+              "type": "integer",
+              "default": 0
+            },
             {
               "key": "known",
               "label": "Known",
               "type": "array",
               "repeatable": true,
-              "items": {"type": "string", "default": ""},
+              "items": {
+                "type": "string",
+                "default": ""
+              },
               "default": []
             }
           ]
@@ -701,13 +1144,21 @@
           "label": "Known Spells",
           "type": "object",
           "fields": [
-            {"key": "max", "label": "Max", "type": "integer", "default": 0},
+            {
+              "key": "max",
+              "label": "Max",
+              "type": "integer",
+              "default": 0
+            },
             {
               "key": "known",
               "label": "Known",
               "type": "array",
               "repeatable": true,
-              "items": {"type": "string", "default": ""},
+              "items": {
+                "type": "string",
+                "default": ""
+              },
               "default": []
             }
           ]
@@ -717,13 +1168,21 @@
           "label": "Prepared Spells",
           "type": "object",
           "fields": [
-            {"key": "max_formula", "label": "Max Formula", "type": "string", "default": "0"},
+            {
+              "key": "max_formula",
+              "label": "Max Formula",
+              "type": "string",
+              "default": "0"
+            },
             {
               "key": "prepared",
               "label": "Prepared",
               "type": "array",
               "repeatable": true,
-              "items": {"type": "string", "default": ""},
+              "items": {
+                "type": "string",
+                "default": ""
+              },
               "default": []
             }
           ]
@@ -738,8 +1197,18 @@
               "label": "Level 1 Slots",
               "type": "object",
               "fields": [
-                {"key": "max", "label": "Max", "type": "integer", "default": 0},
-                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+                {
+                  "key": "max",
+                  "label": "Max",
+                  "type": "integer",
+                  "default": 0
+                },
+                {
+                  "key": "current",
+                  "label": "Current",
+                  "type": "integer",
+                  "default": 0
+                }
               ]
             },
             {
@@ -747,8 +1216,18 @@
               "label": "Level 2 Slots",
               "type": "object",
               "fields": [
-                {"key": "max", "label": "Max", "type": "integer", "default": 0},
-                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+                {
+                  "key": "max",
+                  "label": "Max",
+                  "type": "integer",
+                  "default": 0
+                },
+                {
+                  "key": "current",
+                  "label": "Current",
+                  "type": "integer",
+                  "default": 0
+                }
               ]
             },
             {
@@ -756,8 +1235,18 @@
               "label": "Level 3 Slots",
               "type": "object",
               "fields": [
-                {"key": "max", "label": "Max", "type": "integer", "default": 0},
-                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+                {
+                  "key": "max",
+                  "label": "Max",
+                  "type": "integer",
+                  "default": 0
+                },
+                {
+                  "key": "current",
+                  "label": "Current",
+                  "type": "integer",
+                  "default": 0
+                }
               ]
             },
             {
@@ -765,8 +1254,18 @@
               "label": "Level 4 Slots",
               "type": "object",
               "fields": [
-                {"key": "max", "label": "Max", "type": "integer", "default": 0},
-                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+                {
+                  "key": "max",
+                  "label": "Max",
+                  "type": "integer",
+                  "default": 0
+                },
+                {
+                  "key": "current",
+                  "label": "Current",
+                  "type": "integer",
+                  "default": 0
+                }
               ]
             },
             {
@@ -774,8 +1273,18 @@
               "label": "Level 5 Slots",
               "type": "object",
               "fields": [
-                {"key": "max", "label": "Max", "type": "integer", "default": 0},
-                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+                {
+                  "key": "max",
+                  "label": "Max",
+                  "type": "integer",
+                  "default": 0
+                },
+                {
+                  "key": "current",
+                  "label": "Current",
+                  "type": "integer",
+                  "default": 0
+                }
               ]
             },
             {
@@ -783,8 +1292,18 @@
               "label": "Level 6 Slots",
               "type": "object",
               "fields": [
-                {"key": "max", "label": "Max", "type": "integer", "default": 0},
-                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+                {
+                  "key": "max",
+                  "label": "Max",
+                  "type": "integer",
+                  "default": 0
+                },
+                {
+                  "key": "current",
+                  "label": "Current",
+                  "type": "integer",
+                  "default": 0
+                }
               ]
             },
             {
@@ -792,8 +1311,18 @@
               "label": "Level 7 Slots",
               "type": "object",
               "fields": [
-                {"key": "max", "label": "Max", "type": "integer", "default": 0},
-                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+                {
+                  "key": "max",
+                  "label": "Max",
+                  "type": "integer",
+                  "default": 0
+                },
+                {
+                  "key": "current",
+                  "label": "Current",
+                  "type": "integer",
+                  "default": 0
+                }
               ]
             },
             {
@@ -801,8 +1330,18 @@
               "label": "Level 8 Slots",
               "type": "object",
               "fields": [
-                {"key": "max", "label": "Max", "type": "integer", "default": 0},
-                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+                {
+                  "key": "max",
+                  "label": "Max",
+                  "type": "integer",
+                  "default": 0
+                },
+                {
+                  "key": "current",
+                  "label": "Current",
+                  "type": "integer",
+                  "default": 0
+                }
               ]
             },
             {
@@ -810,8 +1349,18 @@
               "label": "Level 9 Slots",
               "type": "object",
               "fields": [
-                {"key": "max", "label": "Max", "type": "integer", "default": 0},
-                {"key": "current", "label": "Current", "type": "integer", "default": 0}
+                {
+                  "key": "max",
+                  "label": "Max",
+                  "type": "integer",
+                  "default": 0
+                },
+                {
+                  "key": "current",
+                  "label": "Current",
+                  "type": "integer",
+                  "default": 0
+                }
               ]
             }
           ]
@@ -823,16 +1372,33 @@
       "label": "Inventory",
       "readme_heading": "Inventory Section",
       "type": "object",
-      "path": ["inventory"],
+      "path": [
+        "inventory"
+      ],
       "fields": [
         {
           "key": "currency",
           "label": "Currency",
           "type": "object",
           "fields": [
-            {"key": "gp", "label": "GP", "type": "integer", "default": 0},
-            {"key": "sp", "label": "SP", "type": "integer", "default": 0},
-            {"key": "cp", "label": "CP", "type": "integer", "default": 0}
+            {
+              "key": "gp",
+              "label": "GP",
+              "type": "integer",
+              "default": 0
+            },
+            {
+              "key": "sp",
+              "label": "SP",
+              "type": "integer",
+              "default": 0
+            },
+            {
+              "key": "cp",
+              "label": "CP",
+              "type": "integer",
+              "default": 0
+            }
           ]
         },
         {
@@ -843,9 +1409,24 @@
           "items": {
             "type": "object",
             "fields": [
-              {"key": "name", "label": "Name", "type": "string", "default": ""},
-              {"key": "quantity", "label": "Quantity", "type": "integer", "default": 1},
-              {"key": "description", "label": "Description", "type": "string", "default": ""}
+              {
+                "key": "name",
+                "label": "Name",
+                "type": "string",
+                "default": ""
+              },
+              {
+                "key": "quantity",
+                "label": "Quantity",
+                "type": "integer",
+                "default": 1
+              },
+              {
+                "key": "description",
+                "label": "Description",
+                "type": "string",
+                "default": ""
+              }
             ]
           },
           "default": []
@@ -857,7 +1438,9 @@
       "label": "Notes",
       "readme_heading": "Notes Section",
       "type": "map",
-      "path": ["notes"],
+      "path": [
+        "notes"
+      ],
       "value_type": "string",
       "default": {}
     }

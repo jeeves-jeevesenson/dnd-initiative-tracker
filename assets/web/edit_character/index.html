@@ -9,16 +9,24 @@
 <body>
   <main class="page">
     <header>
-      <p class="eyebrow">InitTracker LAN</p>
-      <h1>Edit Character</h1>
-      <p class="subtitle">Review your assigned character and overwrite the YAML when you are ready.</p>
+      <p class="eyebrow">InitTracker LAN • Character Editor</p>
+      <h1>Edit Assigned Character</h1>
+      <p class="subtitle">Review your assigned character and overwrite YAML safely.</p>
+      <div class="notice">
+        <strong>Need stale YAML fixed?</strong>
+        <ul>
+          <li>Use <em>Refresh Player Cache</em> if this page or spell slots look outdated.</li>
+          <li>Save keeps schema defaults intact to avoid missing sections.</li>
+        </ul>
+      </div>
     </header>
 
     <section class="panel">
       <div id="character-form" class="form-grid" aria-live="polite"></div>
       <div class="actions">
         <div class="action-buttons">
-          <button class="primary" type="button" id="overwrite-button">Overwrite</button>
+          <button class="primary" type="button" id="overwrite-button">Overwrite YAML</button>
+          <button class="ghost" type="button" id="refresh-cache-button">Refresh player cache</button>
           <button class="ghost" type="button" id="export-button">Export YAML</button>
         </div>
         <div class="field">

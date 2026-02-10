@@ -9,16 +9,26 @@
 <body>
   <main class="page">
     <header>
-      <p class="eyebrow">InitTracker LAN</p>
-      <h1>New Character</h1>
-      <p class="subtitle">Draft a quick player character entry before sending it to the DM.</p>
+      <p class="eyebrow">InitTracker LAN • Character Builder</p>
+      <h1>Create Character YAML</h1>
+      <p class="subtitle">Consistent defaults + guided schema fields for reliable player loading and spellcasting.</p>
+      <div class="notice">
+        <strong>Reliability tips:</strong>
+        <ul>
+          <li>Keep <code>name</code> stable; profile matching depends on it.</li>
+          <li>For casters, set <code>spellcasting.spell_slots</code> (or rely on level fallback defaults).</li>
+          <li>Use standard action names (for example: <code>Magic</code>) to allow cast actions.</li>
+        </ul>
+      </div>
     </header>
 
     <section class="panel">
       <div id="character-form" class="form-grid" aria-live="polite"></div>
       <div class="actions">
         <div class="action-buttons">
-          <button class="primary" type="button" id="draft-button">Save draft</button>
+          <button class="primary" type="button" id="draft-button">Save local draft</button>
+          <button class="ghost" type="button" id="reset-button">Reset to defaults</button>
+          <button class="ghost" type="button" id="clear-draft-button">Clear local draft</button>
           <button class="ghost" type="button" id="export-button">Export YAML</button>
         </div>
         <div class="field">

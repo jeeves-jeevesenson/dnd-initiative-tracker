@@ -132,7 +132,6 @@ def _load_character_schema_helpers() -> Tuple[Callable[[], Dict[str, Any]], Call
 
     def fallback_base_template() -> Dict[str, Any]:
         return {
-            "format_version": 2,
             "name": "",
             "player": "",
             "campaign": "",
@@ -1581,6 +1580,12 @@ class LanController:
                 "schema": self.app._character_schema_config(),
                 "readme_map": self.app._character_schema_readme_map(),
             }
+        @self._fastapi_app.post("/api/players/cache/refresh")
+        async def refresh_players_cache(payload: Dict[str, Any] = Body(default={})):
+            clear_only = bool((payload or {}).get("clear_only", False)) if isinstance(payload, dict) else False
+            self.app._yaml_players_refresh_cache(rebuild=not clear_only)
+            return {"ok": True, "rebuild": not clear_only}
+
 
         @self._fastapi_app.post("/api/characters/export")
         async def export_character(payload: Dict[str, Any] = Body(...)):
@@ -5608,12 +5613,91 @@ class InitiativeTracker(base.InitiativeTracker):
     def _write_player_yaml_atomic(self, path: Path, payload: Dict[str, Any]) -> None:
         if yaml is None:
             raise RuntimeError("PyYAML is required for spell persistence.")
-        yaml_text = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
+        normalized_payload = dict(payload or {})
+        # Legacy marker was useful during migration but clutters player YAML.
+        # Keep read compatibility, but stop persisting it for new writes.
+        normalized_payload.pop("format_version", None)
+        yaml_text = yaml.safe_dump(normalized_payload, sort_keys=False, allow_unicode=True)
         tmp_path = path.with_suffix(path.suffix + ".tmp")
         with self._player_yaml_lock:
             path.parent.mkdir(parents=True, exist_ok=True)
             tmp_path.write_text(yaml_text, encoding="utf-8")
             tmp_path.replace(path)
+
+    @staticmethod
+    def _normalize_character_lookup_key(value: Any) -> str:
+        return str(value or "").strip().casefold()
+
+    def _find_player_profile_path(self, player_name: Any) -> Optional[Path]:
+        lookup = self._normalize_character_lookup_key(player_name)
+        if not lookup:
+            return None
+        path = self._player_yaml_name_map.get(lookup)
+        if isinstance(path, Path):
+            return path
+        # Fallback: case-insensitive lookup from canonical profile names.
+        for known_name, known_path in self._player_yaml_name_map.items():
+            if self._normalize_character_lookup_key(known_name) == lookup:
+                return known_path
+        # Duplicate combatants can get suffixes like "Name 2".
+        base_lookup = re.sub(r"\s+\d+$", "", lookup).strip()
+        if base_lookup:
+            for known_name, known_path in self._player_yaml_name_map.items():
+                if self._normalize_character_lookup_key(known_name) == base_lookup:
+                    return known_path
+        return None
+
+    @staticmethod
+    def _default_spell_slots_for_level(level: int, progression: str) -> Dict[str, Dict[str, int]]:
+        full = {
+            1: [2], 2: [3], 3: [4, 2], 4: [4, 3], 5: [4, 3, 2], 6: [4, 3, 3],
+            7: [4, 3, 3, 1], 8: [4, 3, 3, 2], 9: [4, 3, 3, 3, 1], 10: [4, 3, 3, 3, 2],
+            11: [4, 3, 3, 3, 2, 1], 12: [4, 3, 3, 3, 2, 1], 13: [4, 3, 3, 3, 2, 1, 1],
+            14: [4, 3, 3, 3, 2, 1, 1], 15: [4, 3, 3, 3, 2, 1, 1, 1], 16: [4, 3, 3, 3, 2, 1, 1, 1],
+            17: [4, 3, 3, 3, 2, 1, 1, 1, 1], 18: [4, 3, 3, 3, 3, 1, 1, 1, 1],
+            19: [4, 3, 3, 3, 3, 2, 1, 1, 1], 20: [4, 3, 3, 3, 3, 2, 2, 1, 1],
+        }
+        half = {
+            1: [], 2: [2], 3: [3], 4: [3], 5: [4, 2], 6: [4, 2], 7: [4, 3], 8: [4, 3],
+            9: [4, 3, 2], 10: [4, 3, 2], 11: [4, 3, 3], 12: [4, 3, 3], 13: [4, 3, 3, 1],
+            14: [4, 3, 3, 1], 15: [4, 3, 3, 2], 16: [4, 3, 3, 2], 17: [4, 3, 3, 3, 1],
+            18: [4, 3, 3, 3, 1], 19: [4, 3, 3, 3, 2], 20: [4, 3, 3, 3, 2],
+        }
+        third = {
+            1: [], 2: [], 3: [2], 4: [3], 5: [3], 6: [3], 7: [4, 2], 8: [4, 2], 9: [4, 2],
+            10: [4, 3], 11: [4, 3], 12: [4, 3], 13: [4, 3, 2], 14: [4, 3, 2], 15: [4, 3, 2],
+            16: [4, 3, 3], 17: [4, 3, 3], 18: [4, 3, 3], 19: [4, 3, 3, 1], 20: [4, 3, 3, 1],
+        }
+        table = full if progression == "full" else (third if progression == "third" else half)
+        row = table.get(max(1, min(20, int(level or 1))), [])
+        slots = {str(i): {"max": 0, "current": 0} for i in range(1, 10)}
+        for idx, value in enumerate(row, start=1):
+            if idx > 9:
+                break
+            count = max(0, int(value or 0))
+            slots[str(idx)] = {"max": count, "current": count}
+        return slots
+
+    def _spell_slot_progression_from_profile(self, leveling: Dict[str, Any], spellcasting: Dict[str, Any]) -> str:
+        raw_progression = str(spellcasting.get("slot_progression") or "").strip().lower()
+        if raw_progression in {"full", "half", "third"}:
+            return raw_progression
+        classes = leveling.get("classes") if isinstance(leveling, dict) else None
+        class_name = ""
+        if isinstance(classes, list) and classes:
+            first = classes[0]
+            if isinstance(first, dict):
+                class_name = str(first.get("name") or "").strip().lower()
+        full_casters = {"bard", "cleric", "druid", "sorcerer", "wizard"}
+        half_casters = {"paladin", "ranger", "artificer"}
+        third_casters = {"arcane trickster", "eldritch knight"}
+        if class_name in full_casters:
+            return "full"
+        if class_name in half_casters:
+            return "half"
+        if class_name in third_casters:
+            return "third"
+        return "full"
 
     def _write_spell_yaml_atomic(self, path: Path, payload: Dict[str, Any]) -> None:
         if yaml is None:
@@ -5771,8 +5855,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if not name:
             return None
         self._load_player_yaml_cache()
-        key = name.lower()
-        path = self._player_yaml_name_map.get(key)
+        path = self._find_player_profile_path(name)
         if path and path.exists():
             return path
         players_dir = self._players_dir()
@@ -5805,8 +5888,8 @@ class InitiativeTracker(base.InitiativeTracker):
         profile = self._normalize_player_profile(payload, path.stem)
         profile_name = profile.get("name", path.stem)
         self._player_yaml_data_by_name[profile_name] = profile
-        self._player_yaml_name_map[profile_name.lower()] = path
-        self._player_yaml_name_map[path.stem.lower()] = path
+        self._player_yaml_name_map[self._normalize_character_lookup_key(profile_name)] = path
+        self._player_yaml_name_map[self._normalize_character_lookup_key(path.stem)] = path
         self._schedule_player_yaml_refresh()
         return profile
 
@@ -6273,6 +6356,11 @@ class InitiativeTracker(base.InitiativeTracker):
         elif "spell_slots" in data:
             raw_spell_slots = data.get("spell_slots")
         spellcasting["spell_slots"] = self._normalize_spell_slots(raw_spell_slots)
+        slots_total = sum(int((entry or {}).get("max", 0) or 0) for entry in spellcasting["spell_slots"].values())
+        if slots_total <= 0 and bool(spellcasting):
+            level_value = self._coerce_level_value(leveling)
+            progression = self._spell_slot_progression_from_profile(leveling, spellcasting)
+            spellcasting["spell_slots"] = self._default_spell_slots_for_level(level_value, progression)
 
         for key in ("known_cantrips", "known_spells", "known_spell_names"):
             if key not in spellcasting and key in data:
@@ -6640,8 +6728,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 profile = self._normalize_player_profile(parsed, path.stem)
                 name = str(profile.get("name") or path.stem).strip() or path.stem
                 data_by_name[name] = profile
-                name_map[name.lower()] = path
-                name_map[path.stem.lower()] = path
+                name_map[self._normalize_character_lookup_key(name)] = path
+                name_map[self._normalize_character_lookup_key(path.stem)] = path
 
         self._player_yaml_cache_by_path = data_by_path
         self._player_yaml_meta_by_path = meta_by_path
@@ -6753,7 +6841,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 level_value: Any = leveling.get("level")
                 source_path = None
                 source_key = str(name).strip().lower() or None
-                path = self._player_yaml_name_map.get(str(name).strip().lower())
+                path = self._find_player_profile_path(name)
                 if path is not None:
                     source_key = path.stem
                     source_path = str(path)
@@ -7132,7 +7220,7 @@ class InitiativeTracker(base.InitiativeTracker):
         for name in list(self._player_yaml_data_by_name.keys()):
             if not isinstance(name, str):
                 continue
-            path = self._player_yaml_name_map.get(name.lower())
+            path = self._find_player_profile_path(name)
             if path is None:
                 continue
             raw = self._player_yaml_cache_by_path.get(path)
@@ -7179,8 +7267,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if not isinstance(payload, dict):
             raise ValueError("Payload must be a dictionary.")
         self._load_player_yaml_cache()
-        key = player_name.lower()
-        path = self._player_yaml_name_map.get(key)
+        path = self._find_player_profile_path(name)
         if path is None:
             players_dir = self._players_dir()
             players_dir.mkdir(parents=True, exist_ok=True)
@@ -7250,8 +7337,8 @@ class InitiativeTracker(base.InitiativeTracker):
         profile = self._normalize_player_profile(existing, path.stem)
         profile_name = profile.get("name", player_name)
         self._player_yaml_data_by_name[profile_name] = profile
-        self._player_yaml_name_map[player_name.lower()] = path
-        self._player_yaml_name_map[path.stem.lower()] = path
+        self._player_yaml_name_map[self._normalize_character_lookup_key(player_name)] = path
+        self._player_yaml_name_map[self._normalize_character_lookup_key(path.stem)] = path
         self._schedule_player_yaml_refresh()
 
         return normalized
@@ -7266,8 +7353,7 @@ class InitiativeTracker(base.InitiativeTracker):
             raise ValueError("Payload must be a dictionary.")
 
         self._load_player_yaml_cache()
-        key = player_name.lower()
-        path = self._player_yaml_name_map.get(key)
+        path = self._find_player_profile_path(name)
         if path is None:
             players_dir = self._players_dir()
             players_dir.mkdir(parents=True, exist_ok=True)
@@ -7308,8 +7394,8 @@ class InitiativeTracker(base.InitiativeTracker):
         profile = self._normalize_player_profile(existing, path.stem)
         profile_name = profile.get("name", player_name)
         self._player_yaml_data_by_name[profile_name] = profile
-        self._player_yaml_name_map[player_name.lower()] = path
-        self._player_yaml_name_map[path.stem.lower()] = path
+        self._player_yaml_name_map[self._normalize_character_lookup_key(player_name)] = path
+        self._player_yaml_name_map[self._normalize_character_lookup_key(path.stem)] = path
         self._schedule_player_yaml_refresh()
 
         return normalized_slots
@@ -7349,8 +7435,7 @@ class InitiativeTracker(base.InitiativeTracker):
         cantrips_list = normalize_slug_list(payload.get("cantrips_list"))
 
         self._load_player_yaml_cache()
-        key = player_name.lower()
-        path = self._player_yaml_name_map.get(key)
+        path = self._find_player_profile_path(name)
         if path is None:
             players_dir = self._players_dir()
             players_dir.mkdir(parents=True, exist_ok=True)
@@ -7404,8 +7489,8 @@ class InitiativeTracker(base.InitiativeTracker):
         profile = self._normalize_player_profile(existing, path.stem)
         profile_name = profile.get("name", player_name)
         self._player_yaml_data_by_name[profile_name] = profile
-        self._player_yaml_name_map[player_name.lower()] = path
-        self._player_yaml_name_map[path.stem.lower()] = path
+        self._player_yaml_name_map[self._normalize_character_lookup_key(player_name)] = path
+        self._player_yaml_name_map[self._normalize_character_lookup_key(path.stem)] = path
         self._schedule_player_yaml_refresh()
 
         return profile
@@ -7421,8 +7506,7 @@ class InitiativeTracker(base.InitiativeTracker):
             raise ValueError("Token color must be a hex value.")
 
         self._load_player_yaml_cache()
-        key = player_name.lower()
-        path = self._player_yaml_name_map.get(key)
+        path = self._find_player_profile_path(name)
         if path is None:
             players_dir = self._players_dir()
             players_dir.mkdir(parents=True, exist_ok=True)
@@ -7450,8 +7534,8 @@ class InitiativeTracker(base.InitiativeTracker):
         profile = self._normalize_player_profile(existing, path.stem)
         profile_name = profile.get("name", player_name)
         self._player_yaml_data_by_name[profile_name] = profile
-        self._player_yaml_name_map[player_name.lower()] = path
-        self._player_yaml_name_map[path.stem.lower()] = path
+        self._player_yaml_name_map[self._normalize_character_lookup_key(player_name)] = path
+        self._player_yaml_name_map[self._normalize_character_lookup_key(path.stem)] = path
 
         return normalized
 
@@ -8094,7 +8178,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         return
                     self._load_player_yaml_cache()
                     # Case-insensitive lookup via name_map -> path -> cached data
-                    player_key = player_name.lower()
+                    player_key = self._normalize_character_lookup_key(player_name)
                     player_path = self._player_yaml_name_map.get(player_key)
                     profile = self._player_yaml_cache_by_path.get(player_path) if player_path else None
                     if not isinstance(profile, dict):

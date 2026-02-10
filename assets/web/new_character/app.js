@@ -3,6 +3,8 @@ const STORAGE_KEY = "inittracker:new-character-draft-v2";
 const statusEl = document.getElementById("draft-status");
 const button = document.getElementById("draft-button");
 const exportButton = document.getElementById("export-button");
+const resetButton = document.getElementById("reset-button");
+const clearDraftButton = document.getElementById("clear-draft-button");
 const formEl = document.getElementById("character-form");
 const filenameInput = document.getElementById("filename-input");
 
@@ -1108,6 +1110,14 @@ const saveDraft = (data, filename, { showStatus = true } = {}) => {
   }
 };
 
+
+const sanitizeCharacterPayload = (data) => {
+  if (!data || typeof data !== "object") return data;
+  const payload = clone(data);
+  delete payload.format_version;
+  return payload;
+};
+
 const buildExportFilename = (data) => {
   const rawInput = filenameInput?.value?.trim() || "";
   const base = rawInput || slugify(data?.name || "");
@@ -1135,7 +1145,7 @@ const exportYaml = async (data) => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ data }),
+      body: JSON.stringify({ data: sanitizeCharacterPayload(data) }),
     });
     if (!response.ok) {
       const message = await response.text();
@@ -1168,6 +1178,26 @@ const boot = async () => {
   button.addEventListener("click", () => saveDraft(data, filenameInput?.value || ""));
   if (exportButton) {
     exportButton.addEventListener("click", () => exportYaml(data));
+  }
+
+  if (resetButton) {
+    resetButton.addEventListener("click", () => {
+      const fresh = buildDefaultsFromSchema(schema);
+      Object.keys(data).forEach((key) => delete data[key]);
+      Object.assign(data, fresh);
+      renderForm(schema, data);
+      derivedStats.bind(formEl, data);
+      derivedStats.recalculate();
+      saveDraft(data, filenameInput?.value || "", { showStatus: false });
+      statusEl.textContent = "Reset to schema defaults.";
+    });
+  }
+
+  if (clearDraftButton) {
+    clearDraftButton.addEventListener("click", () => {
+      window.localStorage.removeItem(STORAGE_KEY);
+      statusEl.textContent = "Local draft cleared.";
+    });
   }
 };
 
