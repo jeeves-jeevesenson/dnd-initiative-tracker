@@ -2490,6 +2490,22 @@ __DAMAGE_TYPE_OPTIONS__
         </form>
       </div>
     </div>
+    <div class="modal" id="rosterPickerModal" aria-hidden="true">
+      <div class="panel">
+        <h3 style="margin-top:0;">Add Players to Encounter</h3>
+        <div class="hint">Select player characters from the current YAML roster.</div>
+        <div class="modal-body">
+          <div id="rosterPickerStatus" class="hint">Loading roster…</div>
+          <div id="rosterPickerList" class="roster-picker-list"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="rosterPickerRefresh" type="button">Refresh</button>
+          <button class="btn" id="rosterPickerAdd" type="button">Add Selected</button>
+          <button class="btn" id="rosterPickerClose" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal" id="mountPromptModal" aria-hidden="true">
       <div class="card">
         <h2>Mount Request</h2>
@@ -3044,6 +3060,12 @@ __DAMAGE_TYPE_OPTIONS__
   const adminStatus = document.getElementById("adminStatus");
   const adminRefreshBtn = document.getElementById("adminRefresh");
   const adminCloseBtn = document.getElementById("adminClose");
+  const rosterPickerModal = document.getElementById("rosterPickerModal");
+  const rosterPickerList = document.getElementById("rosterPickerList");
+  const rosterPickerStatus = document.getElementById("rosterPickerStatus");
+  const rosterPickerRefreshBtn = document.getElementById("rosterPickerRefresh");
+  const rosterPickerAddBtn = document.getElementById("rosterPickerAdd");
+  const rosterPickerCloseBtn = document.getElementById("rosterPickerClose");
   const preSummonTargetInput = document.getElementById("preSummonTarget");
   const preSummonSpellInput = document.getElementById("preSummonSpell");
   const preSummonMonsterInput = document.getElementById("preSummonMonster");
@@ -4776,6 +4798,74 @@ __DAMAGE_TYPE_OPTIONS__
       opt.textContent = entry?.name || opt.value;
       preSummonMonsterInput.appendChild(opt);
     });
+  }
+
+  function showRosterPickerModal(){
+    if (!rosterPickerModal) return;
+    rosterPickerModal.classList.add("show");
+    rosterPickerModal.setAttribute("aria-hidden", "false");
+  }
+
+  function hideRosterPickerModal(){
+    if (!rosterPickerModal) return;
+    rosterPickerModal.classList.remove("show");
+    rosterPickerModal.setAttribute("aria-hidden", "true");
+  }
+
+  function renderRosterPicker(players){
+    if (!rosterPickerList) return;
+    rosterPickerList.textContent = "";
+    const pool = Array.isArray(players) ? players : [];
+    const unassigned = pool.filter((p) => !p?.assigned);
+    if (!unassigned.length){
+      const empty = document.createElement("div");
+      empty.className = "hint";
+      empty.textContent = "All players are already in this encounter.";
+      rosterPickerList.appendChild(empty);
+      return;
+    }
+    unassigned.forEach((player) => {
+      const row = document.createElement("label");
+      row.className = "roster-picker-item";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.value = String(player.name || "");
+      const name = document.createElement("span");
+      name.textContent = String(player.name || "Unnamed");
+      row.appendChild(cb);
+      row.appendChild(name);
+      rosterPickerList.appendChild(row);
+    });
+  }
+
+  async function fetchRosterPickerPlayers(){
+    if (rosterPickerStatus) rosterPickerStatus.textContent = "Refreshing roster…";
+    await fetch("/api/players/cache/refresh", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({clear_only: false}),
+    });
+    const res = await fetch("/api/players/list");
+    if (!res.ok){
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const payload = await res.json();
+    const players = Array.isArray(payload?.players) ? payload.players : [];
+    renderRosterPicker(players);
+    if (rosterPickerStatus) rosterPickerStatus.textContent = `Roster loaded (${players.length}).`;
+    return players;
+  }
+
+  async function openRosterPickerIfNeeded(){
+    const units = Array.isArray(state?.units) ? state.units : [];
+    if (units.length) return;
+    showRosterPickerModal();
+    try {
+      await fetchRosterPickerPlayers();
+    } catch (err){
+      console.warn("Failed to load roster picker", err);
+      if (rosterPickerStatus) rosterPickerStatus.textContent = "Failed to load roster.";
+    }
   }
 
   const mapViewBlockedTypes = new Set([
@@ -7604,6 +7694,9 @@ __DAMAGE_TYPE_OPTIONS__
           planningSnapshotLocked = true;
         }
         handleAutoClaimStateUpdate();
+        if (!isMapView){
+          openRosterPickerIfNeeded();
+        }
       } else if (msg.type === "turn_update"){
         if (!state){ state = {}; }
         if ("active_cid" in msg){
@@ -10884,6 +10977,52 @@ __DAMAGE_TYPE_OPTIONS__
   if (adminCloseBtn){
     adminCloseBtn.addEventListener("click", () => {
       hideAdminModal();
+    });
+  }
+
+  if (rosterPickerRefreshBtn){
+    rosterPickerRefreshBtn.addEventListener("click", () => {
+      fetchRosterPickerPlayers().catch(() => {});
+    });
+  }
+  if (rosterPickerCloseBtn){
+    rosterPickerCloseBtn.addEventListener("click", () => {
+      hideRosterPickerModal();
+    });
+  }
+  if (rosterPickerAddBtn){
+    rosterPickerAddBtn.addEventListener("click", async () => {
+      const selected = Array.from((rosterPickerList || document.createElement("div")).querySelectorAll('input[type="checkbox"]:checked')).map((el) => el.value).filter(Boolean);
+      if (!selected.length){
+        localToast("Select at least one player.");
+        return;
+      }
+      try {
+        const token = await requestAdminLogin();
+        const res = await fetch("/api/encounter/players/add", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({names: selected})
+        });
+        if (!res.ok){
+          throw new Error(`HTTP ${res.status}`);
+        }
+        hideRosterPickerModal();
+        localToast("Players added.");
+      } catch (err){
+        console.warn("Failed to add roster players", err);
+        localToast("Failed to add players.");
+      }
+    });
+  }
+  if (rosterPickerModal){
+    rosterPickerModal.addEventListener("click", (event) => {
+      if (event.target === rosterPickerModal){
+        hideRosterPickerModal();
+      }
     });
   }
   if (adminModal){
