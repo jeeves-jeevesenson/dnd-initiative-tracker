@@ -1922,6 +1922,7 @@
           <button class="btn" id="dash">Dash</button>
           <button class="btn" id="standUp">Stand Up</button>
           <button class="btn" id="resetTurn">Reset Turn</button>
+          <button class="btn" id="dismissSummons">Dismiss Summons</button>
           <button class="btn danger" id="endTurn">End Turn</button>
         </div>
       </div>
@@ -2768,6 +2769,7 @@ __DAMAGE_TYPE_OPTIONS__
   const bonusActionSelectEl = document.getElementById("bonusActionSelect");
   const resetTurnBtn = document.getElementById("resetTurn");
   const standUpBtn = document.getElementById("standUp");
+  const dismissSummonsBtn = document.getElementById("dismissSummons");
   const endTurnBtn = document.getElementById("endTurn");
   const showAllNamesEl = document.getElementById("showAllNames");
   const castOverlay = document.getElementById("sheetCastView");
@@ -6032,6 +6034,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (!unit) return "";
     const role = String(unit.role || "enemy");
     let label = `${unit.name} (${role})`;
+    if (unit.summoned_by_cid !== undefined && unit.summoned_by_cid !== null){
+      label += ` · controlled by #${unit.summoned_by_cid}`;
+    }
     if ((role === "pc" || role === "ally") && Number.isFinite(Number(unit.hp))){
       label += ` ${Number(unit.hp)} HP`;
     }
@@ -6314,6 +6319,9 @@ __DAMAGE_TYPE_OPTIONS__
     const myTurn = claimedCid != null && active !== null && cidMatches(active, claimedCid, "hud.myTurn");
     if (resetTurnBtn){
       resetTurnBtn.disabled = !myTurn;
+    }
+    if (dismissSummonsBtn){
+      dismissSummonsBtn.disabled = claimedCid == null;
     }
     if (claimedCid && state.units){
       const me = state.units.find(u => cidMatches(u.cid, claimedCid, "hud.claimedUnit"));
@@ -9399,6 +9407,14 @@ __DAMAGE_TYPE_OPTIONS__
         slotLevel = Math.max(0, Math.floor(presetLevel));
       }
       const msg = {type: "cast_aoe", payload, action_type: actionType};
+      const presetSlug = normalizeTextValue(preset?.slug);
+      const presetId = normalizeTextValue(preset?.id);
+      if (presetSlug){
+        msg.spell_slug = presetSlug;
+      }
+      if (presetId){
+        msg.spell_id = presetId;
+      }
       if (Number.isFinite(slotLevel)){
         msg.slot_level = slotLevel;
       }
@@ -10093,6 +10109,16 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       send({type:"end_turn", cid: claimedCid});
+    });
+  }
+  if (dismissSummonsBtn){
+    dismissSummonsBtn.addEventListener("click", () => {
+      if (isMapView) return;
+      if (!claimedCid){
+        localToast("Claim a character first, matey.");
+        return;
+      }
+      send({type:"dismiss_summons", target_caster_cid: claimedCid, cid: claimedCid});
     });
   }
   if (turnModalOk){
