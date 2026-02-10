@@ -3298,6 +3298,11 @@ __DAMAGE_TYPE_OPTIONS__
   let shownNoOwnedToast = false;
   let pendingClaim = null;
   let lastPcList = [];
+  let claimStaticDataSeen = false;
+  let claimStateSeen = false;
+  let claimDataReady = false;
+  let claimRenderRetryTimer = null;
+  const claimRenderRetryDelayMs = 500;
   let allowUnclaimed = false;
   let selectedClaimCid = null;
   const lanSelectedCidKey = "lan_selected_cid";
@@ -3317,6 +3322,8 @@ __DAMAGE_TYPE_OPTIONS__
   let adminAuthPromise = null;
   let adminAuthResolve = null;
   let adminAuthReject = null;
+  const claimDebugLoggingEnabled = window.location.hostname === "localhost"
+    || window.location.hostname === "127.0.0.1";
 
   // view transform
   let zoom = 32; // px per square
@@ -5062,9 +5069,58 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  function logClaimMessage(type, pcs){
+    if (!claimDebugLoggingEnabled) return;
+    console.debug(`[claim] ${type} received`, {
+      ready: claimDataReady,
+      static_data_seen: claimStaticDataSeen,
+      state_seen: claimStateSeen,
+      claimable_count: Array.isArray(pcs) ? pcs.length : 0,
+      claimable_pcs: Array.isArray(pcs) ? pcs : [],
+    });
+  }
+
+  function markClaimMessageSeen(type){
+    if (type === "static_data"){
+      claimStaticDataSeen = true;
+    } else if (type === "state"){
+      claimStateSeen = true;
+    }
+    claimDataReady = claimStaticDataSeen && claimStateSeen;
+  }
+
+  function clearClaimRenderRetry(){
+    if (claimRenderRetryTimer){
+      clearTimeout(claimRenderRetryTimer);
+      claimRenderRetryTimer = null;
+    }
+  }
+
+  function scheduleClaimRenderRetry(){
+    clearClaimRenderRetry();
+    claimRenderRetryTimer = setTimeout(() => {
+      claimRenderRetryTimer = null;
+      if (!claimDataReady) return;
+      if (claimedCid !== null && claimedCid !== undefined) return;
+      renderClaimList(lastPcList || []);
+      updateClaimOverlay();
+    }, claimRenderRetryDelayMs);
+  }
+
   function renderClaimList(pcs){
     if (!claimListEl) return;
     const list = Array.isArray(pcs) ? pcs : [];
+    if (!claimDataReady){
+      clearClaimRenderRetry();
+      claimListEl.textContent = "";
+      selectedClaimCid = null;
+      if (claimEmptyHint){
+        claimEmptyHint.textContent = "Loading characters…";
+        claimEmptyHint.classList.remove("hidden");
+      }
+      updateClaimSelection();
+      return;
+    }
     claimListEl.textContent = "";
     let fallbackCid = null;
     list.forEach((pc) => {
@@ -5103,7 +5159,13 @@ __DAMAGE_TYPE_OPTIONS__
       setSelectedClaimCid(fallbackCid);
     }
     if (claimEmptyHint){
+      claimEmptyHint.textContent = "No claimable PCs yet. Ask the DM to add one.";
       claimEmptyHint.classList.toggle("hidden", list.length > 0);
+    }
+    if (!list.length){
+      scheduleClaimRenderRetry();
+    } else {
+      clearClaimRenderRetry();
     }
     updateClaimSelection();
   }
@@ -5130,7 +5192,13 @@ __DAMAGE_TYPE_OPTIONS__
       claimContinueBtn.classList.toggle("hidden", requiresClaim || supportsMapView);
     }
     if (shouldShow){
+      if (!claimDataReady && claimEmptyHint){
+        claimEmptyHint.textContent = "Loading characters…";
+        claimEmptyHint.classList.remove("hidden");
+      }
       renderClaimList(lastPcList || []);
+    } else {
+      clearClaimRenderRetry();
     }
   }
 
@@ -7428,10 +7496,17 @@ __DAMAGE_TYPE_OPTIONS__
       if (msg.type === "static_data"){
         // Merge static data into state (sent once on connection)
         if (!state){ state = {}; }
+        if (Object.prototype.hasOwnProperty.call(msg || {}, "pcs") || Object.prototype.hasOwnProperty.call(msg || {}, "claimable")){
+          lastPcList = msg.pcs || msg.claimable || [];
+        }
+        markClaimMessageSeen("static_data");
+        logClaimMessage("static_data", lastPcList);
         if (msg.data && typeof msg.data === "object"){
           if (Array.isArray(msg.data.spell_presets)){
             state.spell_presets = msg.data.spell_presets;
-            updateSpellPresetOptions(state.spell_presets);
+            requestAnimationFrame(() => {
+              updateSpellPresetOptions(state?.spell_presets || []);
+            });
           }
           if (msg.data.player_spells && typeof msg.data.player_spells === "object"){
             state.player_spells = msg.data.player_spells;
@@ -7442,8 +7517,11 @@ __DAMAGE_TYPE_OPTIONS__
           if (Array.isArray(msg.data.monster_choices)){
             state.monster_choices = msg.data.monster_choices;
           }
-          refreshPreSummonControls();
+          requestAnimationFrame(() => {
+            refreshPreSummonControls();
+          });
         }
+        updateClaimOverlay();
       } else if (msg.type === "preset"){
         if (msg.preset && typeof msg.preset === "object"){
           applyGuiPreset(msg.preset, {persist: true});
@@ -7494,9 +7572,15 @@ __DAMAGE_TYPE_OPTIONS__
         if (!Array.isArray(state.spell_presets)){
           state.spell_presets = [];
         }
-        updateSpellPresetOptions(state.spell_presets);
-        refreshPreSummonControls();
-        lastPcList = msg.pcs || msg.claimable || [];
+        requestAnimationFrame(() => {
+          updateSpellPresetOptions(state.spell_presets);
+          refreshPreSummonControls();
+        });
+        if (Object.prototype.hasOwnProperty.call(msg || {}, "pcs") || Object.prototype.hasOwnProperty.call(msg || {}, "claimable")){
+          lastPcList = msg.pcs || msg.claimable || [];
+        }
+        markClaimMessageSeen("state");
+        logClaimMessage("state", lastPcList);
         maybeAutoClaimFromState(msg, lastPcList);
         updateWaitingOverlay();
         draw();
