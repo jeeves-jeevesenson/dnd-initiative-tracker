@@ -3254,6 +3254,23 @@ class LanController:
         with self._clients_lock:
             return set(self._client_id_to_ws.get(client_id, set()))
 
+    def _claims_payload(self) -> Dict[str, str]:
+        """Return a server-authoritative CID -> client_id map for active LAN claims."""
+        payload: Dict[str, str] = {}
+        with self._clients_lock:
+            ws_claims = dict(self._claims)
+            ws_client_ids = dict(self._client_ids)
+        for ws_id, cid in ws_claims.items():
+            try:
+                cid_value = int(cid)
+            except Exception:
+                continue
+            client_id = self._normalize_client_id(ws_client_ids.get(ws_id))
+            if not client_id:
+                continue
+            payload[str(cid_value)] = client_id
+        return payload
+
     async def _unclaim_ws_async(
         self, ws_id: int, reason: str = "Unclaimed", clear_ownership: bool = False
     ) -> None:
@@ -3275,6 +3292,14 @@ class LanController:
                 level="warning",
             )
             await self._send_async(ws_id, {"type": "toast", "text": "That character ain't claimable, matey."})
+            return
+
+        with self._clients_lock:
+            current_claim = self._claims.get(ws_id)
+        if current_claim is not None and int(current_claim) == int(cid):
+            self._spell_debug_log(
+                {"event": "claim", "ws_id": ws_id, "cid": int(cid), "reason": "noop_already_claimed"}
+            )
             return
 
         self._drop_claim(ws_id)
@@ -3501,6 +3526,7 @@ class LanController:
     def _dynamic_snapshot_payload(self) -> Dict[str, Any]:
         """Return dynamic state without static data (for regular broadcasts)."""
         snap = self._cached_snapshot_payload()
+        snap["claims"] = self._claims_payload()
         # Remove static fields to reduce payload size
         snap.pop("spell_presets", None)
         snap.pop("player_spells", None)
