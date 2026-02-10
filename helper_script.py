@@ -3746,6 +3746,14 @@ class InitiativeTracker(tk.Tk):
             return "?"
         return str(int(spec.cr)) if float(spec.cr).is_integer() else str(spec.cr)
 
+    def _open_dm_reference_library(self, from_window: Optional[tk.Misc] = None) -> None:
+        """Open the creature reference library while map mode is active."""
+        try:
+            self._open_bulk_dialog()
+        except Exception:
+            parent = from_window if from_window is not None else self
+            messagebox.showerror("Creature Library", "Unable to open the creature library.", parent=parent)
+
     # -------------------------- Bulk add --------------------------
     def _open_bulk_dialog(self) -> None:
         dlg = tk.Toplevel(self)
@@ -5436,6 +5444,9 @@ class BattleMapWindow(tk.Toplevel):
         ttk.Label(mode_row, text="Movement:").pack(side=tk.LEFT)
         ttk.Button(mode_row, text="Walk", command=lambda: self._dm_set_mode_target("normal")).pack(side=tk.LEFT, padx=(6, 0))
         ttk.Button(mode_row, text="Fly", command=lambda: self._dm_set_mode_target("fly")).pack(side=tk.LEFT, padx=(6, 0))
+        ttk.Button(dm_ctrl, text="Library…", command=lambda: self.app._open_dm_reference_library(from_window=self)).pack(
+            anchor="w", pady=(6, 0)
+        )
 
         # --- Map view ---
         view = ttk.LabelFrame(left, text="Map View", padding=6)
