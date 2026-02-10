@@ -63,25 +63,39 @@
     }
     .map-view-bar{
       position:sticky;
-      top:0;
-      z-index:25;
-      display:none;
+      top: var(--topbar-height);
+      z-index:24;
+      display:flex;
       flex-direction:column;
       gap:8px;
-      padding: calc(10px + var(--safeInsetTop)) 16px 10px 16px;
-      background: var(--map-view-bar-bg);
-      border-bottom: 1px solid var(--map-view-bar-border);
+      padding: 10px 16px 10px 16px;
+      background: linear-gradient(180deg, rgba(22,24,30,0.92), rgba(12,14,20,0.82));
+      border-bottom: 1px solid rgba(214,186,126,0.28);
       min-height: var(--map-view-bar-height);
       backdrop-filter: blur(12px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.38);
+      transition: transform 0.22s ease, opacity 0.22s ease;
+      transform: translateY(0);
+      opacity:1;
     }
-    .map-view-only.map-view-show-bar .map-view-bar{
-      display:flex;
+    .initiative-hidden .map-view-bar{
+      transform: translateY(-18px);
+      opacity:0;
+      pointer-events:none;
+      max-height:0;
+      min-height:0;
+      padding-top:0;
+      padding-bottom:0;
+      border-bottom:none;
+      overflow:hidden;
+      box-shadow:none;
     }
     .map-view-bar-row{
       display:flex;
       align-items:center;
       gap:12px;
       flex-wrap:wrap;
+      position:relative;
     }
     .map-view-title{
       font-size: 14px;
@@ -107,16 +121,29 @@
       border: 1px dashed rgba(255,255,255,0.18);
       background: rgba(15,19,32,0.6);
       letter-spacing: 0.2px;
+      display:none;
+    }
+    .map-view .map-view-readonly{
+      display:inline-flex;
     }
     .map-view-turn-order{
       display:flex;
       gap: var(--map-view-order-gap);
-      overflow:hidden;
+      overflow-x:auto;
+      overflow-y:hidden;
       align-items:center;
       padding-bottom: 2px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       max-width: 100%;
       flex: 1 1 100%;
+      scrollbar-width: thin;
+    }
+    .map-view-turn-order::-webkit-scrollbar{
+      height: 6px;
+    }
+    .map-view-turn-order::-webkit-scrollbar-thumb{
+      border-radius: 999px;
+      background: rgba(255,255,255,0.22);
     }
     .map-view .turn-chip{
       font-size: var(--map-view-order-font-size);
@@ -1113,7 +1140,6 @@
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
     .row + .row{margin-top:10px;}
     .sheet-actions{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
-    .initiative-hidden .sheet-turn-order-row{display:none;}
     .initiative-compact .turn-order{max-height: 60px; overflow:auto;}
     .initiative-compact .turn-order-status{display:none;}
     .label{font-size:12px; color:var(--muted);}
@@ -1444,17 +1470,6 @@
       white-space: pre-wrap;
       line-height: 1.4;
     }
-    .initiative-order-content{
-      flex:1 1 auto;
-      min-height:0;
-      overflow:auto;
-      position:relative;
-    }
-    .sheet-turn-order-row{
-      flex:1 1 auto;
-      min-height:0;
-      align-items:stretch;
-    }
     .spell-slot-monitor-row{
       align-items:center;
     }
@@ -1532,6 +1547,30 @@
       border-color: rgba(255,255,255,0.5);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
     }
+    .map-view-bar .turn-chip{
+      min-width: 44px;
+      border-radius: 999px;
+      border-color: rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.07);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.32);
+      padding: 7px 12px;
+      flex: 0 0 auto;
+    }
+    .map-view-bar .turn-chip.active{
+      border-color: rgba(214,186,126,0.95);
+      box-shadow: 0 0 0 1px rgba(214,186,126,0.7), 0 0 12px rgba(214,186,126,0.35);
+    }
+    .map-view-bar .turn-chip.friendly{
+      background: rgba(106,255,176,0.16);
+      border-color: rgba(106,255,176,0.42);
+    }
+    .map-view-bar .turn-chip.enemy{
+      background: rgba(255,91,91,0.15);
+      border-color: rgba(255,91,91,0.35);
+    }
+    .map-view-bar .turn-chip-name{
+      max-width: 120px;
+    }
     @media (max-width: 720px), (max-height: 720px){
       .btn{padding: 6px 8px; font-size: 12px;}
       .topbar{gap:8px; padding: calc(8px + var(--safeInsetTop)) 10px 8px 10px;}
@@ -1541,29 +1580,6 @@
 </head>
 <body>
 <div class="app">
-  <div class="map-view-bar" id="mapViewBar" aria-label="Map view initiative bar">
-    <div class="map-view-bar-row">
-      <div class="map-view-title">InitTracker Map View</div>
-      <div class="map-view-status" id="mapViewConnStatus">Connecting…</div>
-      <div class="map-view-actions">
-        <button class="btn" id="mapViewSettingsBtn" type="button">View Settings</button>
-      </div>
-    </div>
-    <div class="map-view-bar-row">
-      <div class="map-view-readonly" id="mapViewReadOnly" role="note">View-only: actions and movement are disabled.</div>
-    </div>
-    <div class="map-view-bar-row">
-      <div class="turn-order map-view-turn-order" id="mapViewTurnOrder" aria-label="Initiative order"></div>
-      <div class="turn-order-bubble" id="mapViewTurnOrderBubble" role="status" aria-live="polite"></div>
-    </div>
-    <div class="map-view-bar-row map-view-active-row">
-      <div class="map-view-active-label">Current turn</div>
-      <select class="map-view-active-select" id="mapViewActiveSelect" aria-label="Current turn selection"></select>
-    </div>
-    <div class="map-view-bar-row">
-      <div class="turn-order-status" id="mapViewTurnOrderStatus"></div>
-    </div>
-  </div>
   <div class="topbar">
     <h1 id="topbarTitle">InitTracker LAN</h1>
     <div class="conn-wrap">
@@ -1591,6 +1607,7 @@
     <button class="btn" id="planningBtn" type="button">Planning Mode</button>
     <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
     <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
+    <button class="btn" id="initiativeToggleBtn" type="button" aria-pressed="true" title="Show or hide initiative bar">⚔️ Initiative</button>
     <div class="topbar-controls">
       <button class="btn" id="lockMap">Lock Map</button>
       <button class="btn" id="lockAoeToggle" type="button" aria-pressed="true">Unlock my AOEs</button>
@@ -1601,6 +1618,32 @@
       <button class="btn accent" id="zoomIn">Zoom +</button>
       <button class="btn accent" id="zoomOut">Zoom −</button>
       <button class="btn" id="battleLog">Battle Log</button>
+    </div>
+  </div>
+
+  <div class="initiative-bar-wrap" id="initiativeBarWrap">
+    <div class="map-view-bar" id="mapViewBar" aria-label="Initiative bar">
+      <div class="map-view-bar-row">
+        <div class="map-view-title">⚔ Initiative Tracker</div>
+        <div class="map-view-status" id="mapViewConnStatus">Connecting…</div>
+        <div class="map-view-actions">
+          <button class="btn" id="mapViewSettingsBtn" type="button">View Settings</button>
+        </div>
+      </div>
+      <div class="map-view-bar-row">
+        <div class="map-view-readonly" id="mapViewReadOnly" role="note">View-only: actions and movement are disabled.</div>
+      </div>
+      <div class="map-view-bar-row">
+        <div class="turn-order map-view-turn-order" id="mapViewTurnOrder" aria-label="Initiative order"></div>
+        <div class="turn-order-bubble" id="mapViewTurnOrderBubble" role="status" aria-live="polite"></div>
+      </div>
+      <div class="map-view-bar-row map-view-active-row">
+        <div class="map-view-active-label">Current turn</div>
+        <select class="map-view-active-select" id="mapViewActiveSelect" aria-label="Current turn selection"></select>
+      </div>
+      <div class="map-view-bar-row">
+        <div class="turn-order-status" id="mapViewTurnOrderStatus"></div>
+      </div>
     </div>
   </div>
 
@@ -1924,13 +1967,6 @@
           <button class="btn" id="resetTurn">Reset Turn</button>
           <button class="btn" id="dismissSummons">Dismiss Summons</button>
           <button class="btn danger" id="endTurn">End Turn</button>
-        </div>
-      </div>
-      <div class="row sheet-turn-order-row">
-        <div class="initiative-order-content">
-          <div class="turn-order" id="turnOrder" aria-label="Turn order"></div>
-          <div class="turn-order-status" id="turnOrderStatus"></div>
-          <div class="turn-order-bubble" id="turnOrderBubble" role="status" aria-live="polite"></div>
         </div>
       </div>
       <div class="row">
@@ -2669,18 +2705,10 @@ __DAMAGE_TYPE_OPTIONS__
   const bonusActionEl = document.getElementById("bonusAction");
   const reactionEl = document.getElementById("reaction");
   const turnEl = document.getElementById("turn");
-  const turnOrderEl = document.getElementById("turnOrder");
-  const turnOrderStatusEl = document.getElementById("turnOrderStatus");
-  const turnOrderBubbleEl = document.getElementById("turnOrderBubble");
   const spellSlotMonitorEl = document.getElementById("spellSlotMonitor");
-  let activeTurnOrderEl = turnOrderEl;
-  let activeTurnOrderStatusEl = turnOrderStatusEl;
-  let activeTurnOrderBubbleEl = turnOrderBubbleEl;
-  if (isMapView && mapViewTurnOrderEl){
-    activeTurnOrderEl = mapViewTurnOrderEl;
-    activeTurnOrderStatusEl = mapViewTurnOrderStatusEl;
-    activeTurnOrderBubbleEl = mapViewTurnOrderBubbleEl;
-  }
+  const activeTurnOrderEl = mapViewTurnOrderEl;
+  const activeTurnOrderStatusEl = mapViewTurnOrderStatusEl;
+  const activeTurnOrderBubbleEl = mapViewTurnOrderBubbleEl;
   const noteEl = document.getElementById("note");
   const colorModal = document.getElementById("colorModal");
   const tokenColorInput = document.getElementById("tokenColorInput");
@@ -2704,6 +2732,7 @@ __DAMAGE_TYPE_OPTIONS__
   const zoomOutBtn = document.getElementById("zoomOut");
   const dashBtn = document.getElementById("dash");
   const configBtn = document.getElementById("configBtn");
+  const initiativeToggleBtn = document.getElementById("initiativeToggleBtn");
   const adminMenuBtn = document.getElementById("adminMenuBtn");
   const adminMenuPopover = document.getElementById("adminMenuPopover");
   const adminMenuOpenBtn = document.getElementById("adminMenuOpen");
@@ -3045,9 +3074,7 @@ __DAMAGE_TYPE_OPTIONS__
     const shouldHideAlerts = !isIOS || hideTurnAlerts;
     turnAlertsPanel.classList.toggle("hidden", shouldHideAlerts);
   }
-  if (isMapView){
-    applyMapViewSettings(readMapViewSettings());
-  }
+  applyMapViewSettings(readMapViewSettings());
   function applyMapViewReadOnlyControls(){
     if (!isMapView) return;
     const controls = [
@@ -4003,10 +4030,29 @@ __DAMAGE_TYPE_OPTIONS__
     updateConnDisplay();
   }
 
+  function toggleInitiativeBar(forceVisible){
+    const shouldShow = typeof forceVisible === "boolean"
+      ? forceVisible
+      : document.body.classList.contains("initiative-hidden");
+    document.body.classList.toggle("initiative-hidden", !shouldShow);
+    initiativeStyle = shouldShow ? "full" : "hidden";
+    persistChoice(uiSelectKeys.initiativeStyle, initiativeStyle);
+    if (initiativeStyleSelect){
+      initiativeStyleSelect.value = initiativeStyle;
+    }
+    if (initiativeToggleBtn){
+      initiativeToggleBtn.setAttribute("aria-pressed", shouldShow ? "true" : "false");
+    }
+    updateModalOffsets();
+    updateTurnOrder();
+    resize();
+  }
+
   function applyUiConfig(){
     document.body.classList.toggle("menus-locked", menusLocked);
     document.body.classList.toggle("initiative-compact", initiativeStyle === "compact");
     document.body.classList.toggle("initiative-hidden", initiativeStyle === "hidden");
+    if (initiativeToggleBtn) initiativeToggleBtn.setAttribute("aria-pressed", initiativeStyle === "hidden" ? "false" : "true");
     if (topbarTitleEl) topbarTitleEl.classList.toggle("hidden", !showTopbarTitle);
     if (connEl) connEl.classList.toggle("hidden", !showConnIndicator);
     if (!showConnIndicator){
@@ -6253,19 +6299,17 @@ __DAMAGE_TYPE_OPTIONS__
     };
     const claimedUnit = (claimedIndex >= 0 && claimedCid != null) ? unitsByCid.get(claimedCid) : null;
     if (activeTurnOrderStatusEl){
-      if (isMapView){
-        const activeOrderCid = activeIndex >= 0 ? normalizeCid(order[activeIndex], "turnOrder.mapViewActiveCid") : null;
-        const activeUnit = activeOrderCid !== null ? unitsByCid.get(activeOrderCid) : null;
-        const roundLabel = Number.isFinite(Number(state?.round_num)) ? `Round ${state.round_num}` : "";
-        const activeLabel = activeUnit?.name ? `Active: ${activeUnit.name}` : "Active: —";
-        activeTurnOrderStatusEl.textContent = roundLabel ? `${roundLabel} · ${activeLabel}` : activeLabel;
-      } else if (claimedIndex >= 0 && claimedUnit){
-        activeTurnOrderStatusEl.textContent = `You are #${claimedIndex + 1}: ${claimedUnit.name}`;
-      } else {
-        activeTurnOrderStatusEl.textContent = "You are not in initiative.";
+      const activeOrderCid = activeIndex >= 0 ? normalizeCid(order[activeIndex], "turnOrder.activeDisplayCid") : null;
+      const activeUnit = activeOrderCid !== null ? unitsByCid.get(activeOrderCid) : null;
+      const roundLabel = Number.isFinite(Number(state?.round_num)) ? `Round ${state.round_num}` : "";
+      const activeLabel = activeUnit?.name ? `Active: ${activeUnit.name}` : "Active: —";
+      let statusText = roundLabel ? `${roundLabel} · ${activeLabel}` : activeLabel;
+      if (claimedIndex >= 0 && claimedUnit && !isMapView){
+        statusText = `${statusText} · You are #${claimedIndex + 1}: ${claimedUnit.name}`;
       }
+      activeTurnOrderStatusEl.textContent = statusText;
     }
-    if (isMapView && mapViewActiveSelectEl){
+    if (mapViewActiveSelectEl){
       const orderCids = order
         .map(cid => normalizeCid(cid, "turnOrder.mapViewOrderCid"))
         .filter(cid => cid !== null);
@@ -9877,6 +9921,11 @@ __DAMAGE_TYPE_OPTIONS__
       showConfigModal();
     });
   }
+  if (initiativeToggleBtn){
+    initiativeToggleBtn.addEventListener("click", () => {
+      toggleInitiativeBar();
+    });
+  }
   if (planningBtn){
     planningBtn.classList.toggle("hidden", isPlanning);
     planningBtn.disabled = isPlanning;
@@ -10530,14 +10579,6 @@ __DAMAGE_TYPE_OPTIONS__
   document.addEventListener("keydown", handleUserGesture);
 
   const mapWrap = document.querySelector(".mapWrap");
-  if (mapWrap && isMapView && document.body){
-    mapWrap.addEventListener("contextmenu", (event) => {
-      event.preventDefault();
-      document.body.classList.toggle("map-view-show-bar");
-      updateModalOffsets();
-      resize();
-    });
-  }
   if (mapWrap && window.ResizeObserver){
     const ro = new ResizeObserver(() => resize());
     ro.observe(mapWrap);
