@@ -7515,11 +7515,6 @@ class InitiativeTracker(base.InitiativeTracker):
             if anchor_ax is None or anchor_ay is None:
                 anchor_ax = float(cx)
                 anchor_ay = float(cy)
-            if cols and rows:
-                cx = max(0.0, min(cx, cols - 1))
-                cy = max(0.0, min(cy, rows - 1))
-                anchor_ax = max(0.0, min(anchor_ax, cols - 1))
-                anchor_ay = max(0.0, min(anchor_ay, rows - 1))
             if map_ready:
                 aid = int(getattr(mw, "_next_aoe_id", 1))
                 setattr(mw, "_next_aoe_id", aid + 1)
@@ -7937,17 +7932,10 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 cols = 0
                 rows = 0
-            if cols and rows:
-                cx = max(0.0, min(cx, cols - 1))
-                cy = max(0.0, min(cy, rows - 1))
-                if ax is not None:
-                    ax = max(0.0, min(ax, cols - 1))
-                if ay is not None:
-                    ay = max(0.0, min(ay, rows - 1))
             d["cx"] = float(cx)
             d["cy"] = float(cy)
             kind = str(d.get("kind") or "")
-            if kind in ("line", "cone"):
+            if kind in ("line", "cone", "cube"):
                 if angle_deg is not None:
                     d["angle_deg"] = float(angle_deg)
                 if ax is not None:
