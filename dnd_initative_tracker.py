@@ -5229,6 +5229,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     "summon_source_spell": str(getattr(c, "summon_source_spell", "") or "") or None,
                     "summon_group_id": str(getattr(c, "summon_group_id", "") or "") or None,
                     "summon_controller_mode": str(getattr(c, "summon_controller_mode", "") or "") or None,
+                    "summon_shared_turn": bool(getattr(c, "summon_shared_turn", False)),
+                    "monster_slug": str(getattr(c, "monster_slug", "") or "") or None,
+                    "concentrating": bool(getattr(c, "concentrating", False)),
+                    "concentration_spell": str(getattr(c, "concentration_spell", "") or "") or None,
                     "is_mount": bool(getattr(c, "is_mount", False)),
                     "mount_for_cid": _normalize_cid_value(getattr(c, "mount_for_cid", None), "snapshot.mount_for"),
                     "mounted_by_cid": _normalize_cid_value(getattr(c, "mounted_by_cid", None), "snapshot.mounted_by"),
@@ -7970,7 +7974,11 @@ class InitiativeTracker(base.InitiativeTracker):
     @staticmethod
     def _normalize_summon_controller_mode(summon_cfg: Dict[str, Any]) -> str:
         mode = str(summon_cfg.get("control") or "summoner").strip().lower()
-        return "dm" if mode == "dm" else "summoner"
+        if mode == "dm":
+            return "dm"
+        if mode in ("shared_turn", "summoner"):
+            return mode
+        return "summoner"
 
     @staticmethod
     def _resolve_summon_choice(
@@ -8062,7 +8070,27 @@ class InitiativeTracker(base.InitiativeTracker):
         if owner != int(claimed_cid):
             return False
         mode = str(getattr(combatant, "summon_controller_mode", "") or "").strip().lower()
-        return mode == "summoner"
+        if mode == "summoner":
+            return True
+        return bool(getattr(combatant, "summon_shared_turn", False))
+
+    def _is_valid_summon_turn_for_controller(
+        self, controlling_cid: Optional[int], target_cid: Optional[int], current_cid: Optional[int]
+    ) -> bool:
+        if target_cid is None or current_cid is None:
+            return False
+        if int(current_cid) == int(target_cid):
+            return True
+        combatant = self.combatants.get(int(target_cid))
+        if combatant is None:
+            return False
+        owner = _normalize_cid_value(getattr(combatant, "summoned_by_cid", None), "summon.owner")
+        return bool(
+            getattr(combatant, "summon_shared_turn", False)
+            and controlling_cid is not None
+            and owner == int(controlling_cid)
+            and int(current_cid) == int(controlling_cid)
+        )
 
     def _mount_rider_is_incapacitated(self, mount: Any) -> bool:
         rider_cid = _normalize_cid_value(getattr(mount, "mounted_by_cid", None), "mount.rider")
@@ -8622,12 +8650,8 @@ class InitiativeTracker(base.InitiativeTracker):
         # Only allow controlling on your turn (POC)
         if not is_admin and typ not in ("cast_aoe", "cast_spell", "aoe_move", "aoe_remove", "dismiss_summons"):
             if in_combat:
-                shared_turn = False
-                if cid is not None and claimed is not None and cid in self.combatants:
-                    unit = self.combatants.get(cid)
-                    owner_cid = _normalize_cid_value(getattr(unit, "summoned_by_cid", None), "summon.owner")
-                    shared_turn = bool(getattr(unit, "summon_shared_turn", False)) and owner_cid == claimed and current_cid == claimed
-                if current_cid is None or cid is None or (current_cid != cid and not shared_turn):
+                valid_turn = self._is_valid_summon_turn_for_controller(claimed, cid, current_cid)
+                if not valid_turn:
                     if is_move:
                         msg["_move_applied"] = False
                         msg["_move_reject_reason"] = "not_your_turn"
@@ -9230,6 +9254,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not spawned_cids:
                         self._lan.toast(ws_id, "Summoning failed, matey.")
                         return
+                    if bool(preset.get("concentration")):
+                        c.concentrating = True
+                        c.concentration_spell = str(preset.get("slug") or preset.get("id") or "")
+                        c.concentration_target = list(spawned_cids)
                 self._rebuild_table(scroll_to_current=True)
             elif summon_cfg and cid is not None:
                 spawned_cids = self._spawn_summons_from_cast(
@@ -9245,6 +9273,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 if not spawned_cids:
                     self._lan.toast(ws_id, "Summoning failed, matey.")
                     return
+                if bool(preset.get("concentration")) and c is not None:
+                    c.concentrating = True
+                    c.concentration_spell = str(preset.get("slug") or preset.get("id") or "")
+                    c.concentration_target = list(spawned_cids)
             self._lan_force_state_broadcast()
             self._lan.toast(ws_id, f"Casted {preset.get('name') or 'spell'}.")
             return

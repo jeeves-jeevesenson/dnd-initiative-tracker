@@ -5576,6 +5576,38 @@ __DAMAGE_TYPE_OPTIONS__
     return state.units.find(u => cidMatches(u.cid, cidValue, "getUnitByCid.unitCid")) || null;
   }
 
+  function canControlSummonUnit(unit){
+    if (!unit || claimedCid === null || claimedCid === undefined) return false;
+    if (!cidMatches(unit.summoned_by_cid, claimedCid, "summonControl.owner")) return false;
+    const mode = normalizeTextValue(unit.summon_controller_mode);
+    return mode === "summoner" || !!unit.summon_shared_turn;
+  }
+
+  function activeControlledUnitCid(){
+    const activeCid = normalizeCid(state?.active_cid, "activeControlled.activeCid");
+    if (activeCid === null) return null;
+    if (claimedCid !== null && claimedCid !== undefined && activeCid === claimedCid){
+      return claimedCid;
+    }
+    const activeUnit = getUnitByCid(activeCid);
+    if (canControlSummonUnit(activeUnit)){
+      return activeCid;
+    }
+    return null;
+  }
+
+  function isUnitConcentrationLinked(unit){
+    if (!unit) return false;
+    if (unit.concentrating === true) return true;
+    const ownerCid = normalizeCid(unit.summoned_by_cid, "concentration.ownerCid");
+    if (ownerCid === null) return false;
+    const owner = getUnitByCid(ownerCid);
+    if (!owner || owner.concentrating !== true) return false;
+    const ownerSpell = normalizeTextValue(owner.concentration_spell);
+    const sourceSpell = normalizeTextValue(unit.summon_source_spell);
+    return !!ownerSpell && !!sourceSpell && ownerSpell === sourceSpell;
+  }
+
   function isUnitSpellcaster(unit){
     if (!unit) return false;
     if (unit.is_spellcaster !== undefined && unit.is_spellcaster !== null){
@@ -5904,12 +5936,10 @@ __DAMAGE_TYPE_OPTIONS__
       });
     }
 
-    // movement range (claimed token)
-    const isMyTurn = claimedCid != null
-      && state.active_cid != null
-      && cidMatches(state.active_cid, claimedCid, "movementRange.activeCid");
-    if (isMyTurn && state.units){
-      const me = state.units.find(u => cidMatches(u.cid, claimedCid, "movementRange.unitCid"));
+    // movement range (claimed token or controlled summon)
+    const movableCid = activeControlledUnitCid();
+    if (movableCid !== null && state.units){
+      const me = state.units.find(u => cidMatches(u.cid, movableCid, "movementRange.unitCid"));
       if (me){
         const move = Math.max(0, Number(me.move_remaining || 0));
         const feet = Math.max(1, Number(state.grid.feet_per_square || 5));
@@ -6099,6 +6129,15 @@ __DAMAGE_TYPE_OPTIONS__
         ctx.textBaseline = "middle";
         ctx.fillStyle = "rgba(106,169,255,0.95)";
         ctx.fillText("♞", x, y - (r * 0.55));
+        ctx.restore();
+      }
+      if (isUnitConcentrationLinked(u)){
+        ctx.save();
+        ctx.font = `${Math.max(10, Math.floor(zoom*0.3))}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(241,201,95,0.98)";
+        ctx.fillText("✦", x + (r * 0.58), y - (r * 0.58));
         ctx.restore();
       }
 
@@ -6386,7 +6425,7 @@ __DAMAGE_TYPE_OPTIONS__
       chip.appendChild(indexEl);
       const nameEl = document.createElement("span");
       nameEl.className = "turn-chip-name";
-      nameEl.textContent = truncatedUnitName;
+      nameEl.textContent = isUnitConcentrationLinked(unit) ? `${truncatedUnitName} ✦` : truncatedUnitName;
       nameEl.setAttribute("data-full-name", unitName);
       nameEl.setAttribute("title", unitName);
       chip.appendChild(nameEl);
@@ -7308,12 +7347,13 @@ __DAMAGE_TYPE_OPTIONS__
     const hit = hitTestToken(p);
     if (hit){
       // only drag own token
-      if (!claimedCid || !cidMatches(hit.cid, claimedCid, "dragToken.hitCid")){
+      const controlledCid = activeControlledUnitCid();
+      if (!claimedCid || (controlledCid === null || !cidMatches(hit.cid, controlledCid, "dragToken.hitCid"))){
         send({type:"toast", text:"Arrr, that token ain’t yers."});
         return;
       }
-      // only on your turn
-      if (state.active_cid === null || !cidMatches(state.active_cid, claimedCid, "dragToken.activeCid")){
+      // only on your (or controlled summon's shared) turn
+      if (controlledCid === null){
         send({type:"toast", text:"Not yer turn yet, matey."});
         return;
       }
@@ -10021,8 +10061,9 @@ __DAMAGE_TYPE_OPTIONS__
   if (dashActionBtn){
     dashActionBtn.addEventListener("click", () => {
       if (isMapView) return;
-      if (!claimedCid) return;
-      const msg = {type:"dash", cid: claimedCid, spend:"action"};
+      const actionCid = activeControlledUnitCid();
+      if (actionCid === null) return;
+      const msg = {type:"dash", cid: actionCid, spend:"action"};
       if (isPlanning){
         planningMutate(msg);
         draw();
@@ -10035,8 +10076,9 @@ __DAMAGE_TYPE_OPTIONS__
   if (dashBonusActionBtn){
     dashBonusActionBtn.addEventListener("click", () => {
       if (isMapView) return;
-      if (!claimedCid) return;
-      const msg = {type:"dash", cid: claimedCid, spend:"bonus"};
+      const actionCid = activeControlledUnitCid();
+      if (actionCid === null) return;
+      const msg = {type:"dash", cid: actionCid, spend:"bonus"};
       if (isPlanning){
         planningMutate(msg);
         draw();
