@@ -69,7 +69,7 @@ mechanics:
         monster_slug: mummy
     count:
       max: 3
-      notes: "Choose up to three corpses; higher-level slots increase totals/options."
+      notes: "Choose up to three corpses; level 7: four Ghouls, level 8: five Ghouls or two Ghasts or Wights, level 9: six Ghouls, three Ghasts or Wights, or two Mummies."
     duration:
       concentration: false
       control_duration: "24 hours"
@@ -77,11 +77,6 @@ mechanics:
     control:
       commands: "bonus action mental command within 120 feet; same command for multiple"
       default_behavior: "Dodge and avoid harm when uncommanded"
-    scaling:
-      slot_level:
-        "7": "up to four Ghouls"
-        "8": "up to five Ghouls or two Ghasts or Wights"
-        "9": "up to six Ghouls, three Ghasts or Wights, or two Mummies"
   ui:
     template_preview: false
   notes: []
