@@ -2062,6 +2062,12 @@
               <input id="castName" type="text" placeholder="Fireball" />
             </div>
             <div class="form-field">
+              <label for="castSlotLevel">Slot Level</label>
+              <input id="castSlotLevel" type="number" min="0" step="1" placeholder="1" disabled />
+            </div>
+          </div>
+          <div class="form-grid" id="aoeOptions">
+            <div class="form-field">
               <label for="castShape">Shape</label>
               <select id="castShape">
                 <option value="" selected>Choose shape</option>
@@ -2135,10 +2141,6 @@
               <input id="castDice" type="text" placeholder="8d6" />
             </div>
             <div class="form-field">
-              <label for="castSlotLevel">Slot Level</label>
-              <input id="castSlotLevel" type="number" min="0" step="1" placeholder="1" disabled />
-            </div>
-            <div class="form-field">
               <label for="castDamageType">Damage Types</label>
               <div class="damage-type-controls">
                 <select id="castDamageType">
@@ -2154,11 +2156,24 @@ __DAMAGE_TYPE_OPTIONS__
               <input id="castColor" type="color" value="#6aa9ff" />
             </div>
           </div>
+          <div id="summonOptions" class="hidden">
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="castSummonChoice">Summon</label>
+                <select id="castSummonChoice"></select>
+              </div>
+              <div class="form-field">
+                <label for="castSummonQuantity">Quantity</label>
+                <input id="castSummonQuantity" type="number" min="1" step="1" value="1" />
+              </div>
+            </div>
+            <div class="spell-details" id="castSummonMeta" aria-live="polite"></div>
+          </div>
           <div class="spell-details" id="spellPresetDetails" aria-live="polite">
             Select a preset to see spell details.
           </div>
           <div class="form-actions">
-            <button class="btn accent" type="submit">Cast</button>
+            <button class="btn accent" id="castSubmit" type="submit">Cast</button>
           </div>
         </form>
       </div>
@@ -2828,6 +2843,12 @@ __DAMAGE_TYPE_OPTIONS__
   const spellDetailColorValue = document.getElementById("spellDetailColorValue");
   const spellDetailStatus = document.getElementById("spellDetailStatus");
   const castNameInput = document.getElementById("castName");
+  const castSubmitBtn = document.getElementById("castSubmit");
+  const aoeOptions = document.getElementById("aoeOptions");
+  const summonOptions = document.getElementById("summonOptions");
+  const castSummonChoiceInput = document.getElementById("castSummonChoice");
+  const castSummonQuantityInput = document.getElementById("castSummonQuantity");
+  const castSummonMeta = document.getElementById("castSummonMeta");
   const castShapeInput = document.getElementById("castShape");
   const castRadiusField = document.getElementById("castRadiusField");
   const castSideField = document.getElementById("castSideField");
@@ -7470,7 +7491,18 @@ __DAMAGE_TYPE_OPTIONS__
   let lastSpellPresetSignature = "";
   let cachedSpellPresets = [];
   let spellPresetBySlug = new Map();
-  const normalizeSpellPresets = (presets) => Array.isArray(presets) ? presets.filter(p => p && typeof p === "object") : [];
+  const normalizeSpellPresets = (presets) => {
+    if (!Array.isArray(presets)) return [];
+    return presets.filter(p => p && typeof p === "object").map((preset) => {
+      const shape = String(preset?.shape || "").trim().toLowerCase();
+      const summon = preset.summon && typeof preset.summon === "object" ? preset.summon : null;
+      return {
+        ...preset,
+        isAoE: Boolean(shape && AOE_SHAPES.has(shape)),
+        isSummon: Boolean(summon),
+      };
+    });
+  };
   const formatSpellLevelLabel = (level) => {
     const num = Number(level);
     if (!Number.isFinite(num)) return "Unknown";
@@ -7490,10 +7522,8 @@ __DAMAGE_TYPE_OPTIONS__
     return normalizeLowerValue(preset?.name).replace(/\\s+/g, "-");
   };
   const AOE_SHAPES = new Set(["circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall"]);
-  const isAoePreset = (preset) => {
-    const shape = normalizeLowerValue(preset?.shape);
-    return shape && AOE_SHAPES.has(shape);
-  };
+  const isAoePreset = (preset) => Boolean(preset?.isAoE);
+  const isSummonPreset = (preset) => Boolean(preset?.isSummon);
   const loadPreparedSpellFilterList = () => {
     const name = getClaimedPlayerName();
     if (!name) return null;
@@ -7551,7 +7581,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (automation === "partial" || automation === "manual"){
       reasons.push(`automation is ${automation}`);
     }
-    if (!preset.shape){
+    if (!preset.shape && !isSummonPreset(preset)){
       reasons.push("shape is missing");
     }
     if (preset.incomplete){
@@ -8751,6 +8781,9 @@ __DAMAGE_TYPE_OPTIONS__
       JSON.stringify(p.lists || {}),
       JSON.stringify(p.upcast || {}),
       JSON.stringify(p.scaling || {}),
+      JSON.stringify(p.summon || {}),
+      String(p.isAoE || ""),
+      String(p.isSummon || ""),
     ]));
     if (signature === lastSpellPresetSignature){
       return;
@@ -8799,7 +8832,196 @@ __DAMAGE_TYPE_OPTIONS__
     field.style.display = visible ? "" : "none";
   };
 
+  const titleCaseFromSlug = (value) => normalizeTextValue(value)
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+  const getSummonChoices = (preset) => {
+    const choices = Array.isArray(preset?.summon?.choices) ? preset.summon.choices : [];
+    return choices.filter((choice) => choice && typeof choice === "object").map((choice) => {
+      const slug = normalizeTextValue(choice.monster_slug);
+      const fallback = titleCaseFromSlug(slug);
+      return {
+        ...choice,
+        monster_slug: slug,
+        name: normalizeTextValue(choice.name) || fallback || "Unknown creature",
+      };
+    });
+  };
+
+  const getSummonQuantityRule = (preset, slotLevel, selectedChoice) => {
+    const count = preset?.summon?.count;
+    if (!count || typeof count !== "object") return {min: 1, max: 1, fixed: 1};
+    const selectedSlug = normalizeTextValue(selectedChoice);
+    const parseEntries = (entry) => {
+      if (!entry || typeof entry !== "object") return [];
+      const options = Array.isArray(entry.options) ? entry.options : [entry];
+      return options
+        .filter(opt => opt && typeof opt === "object")
+        .map((opt) => {
+          const qty = Number(opt.quantity);
+          const creatureOptions = Array.isArray(opt.creature_options)
+            ? opt.creature_options.map((slug) => normalizeTextValue(slug)).filter(Boolean)
+            : [];
+          return {
+            quantity: Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : null,
+            creature_options: creatureOptions,
+          };
+        })
+        .filter(opt => Number.isFinite(opt.quantity));
+    };
+    const pickBySlot = () => {
+      const base = count.base && typeof count.base === "object" ? count.base : null;
+      const overrides = Array.isArray(count.slot_overrides) ? count.slot_overrides : [];
+      const slot = Number.isFinite(Number(slotLevel)) ? Math.floor(Number(slotLevel)) : Number(base?.slot_level || preset?.level || 0);
+      const match = overrides.find((entry) => Number(entry?.slot_level) === slot);
+      return parseEntries(match || base);
+    };
+    let quantities = [];
+    if (count.kind === "variable_by_slot"){
+      quantities = pickBySlot();
+    } else {
+      const min = Number(count.min);
+      const max = Number(count.max);
+      if (Number.isFinite(min) && Number.isFinite(max)){
+        return {min: Math.floor(min), max: Math.floor(max), fixed: min === max ? Math.floor(min) : null};
+      }
+      quantities = parseEntries(count);
+    }
+    if (!quantities.length){
+      return {min: 1, max: 1, fixed: 1};
+    }
+    const matching = selectedSlug
+      ? quantities.filter((item) => !item.creature_options.length || item.creature_options.includes(selectedSlug))
+      : quantities;
+    const pool = matching.length ? matching : quantities;
+    const values = Array.from(new Set(pool.map(item => item.quantity))).sort((a, b) => a - b);
+    if (!values.length){
+      return {min: 1, max: 1, fixed: 1};
+    }
+    return {
+      min: values[0],
+      max: values[values.length - 1],
+      fixed: values.length === 1 ? values[0] : null,
+    };
+  };
+
+  let castSummonValidation = {ok: true, reason: ""};
+  const validateSummonForm = (preset, showToast = false) => {
+    if (!isSummonPreset(preset)){
+      castSummonValidation = {ok: true, reason: ""};
+      if (castSubmitBtn) castSubmitBtn.disabled = false;
+      return castSummonValidation;
+    }
+    const choices = getSummonChoices(preset);
+    const selectedChoice = normalizeTextValue(castSummonChoiceInput?.value || choices[0]?.monster_slug || "");
+    const quantityRule = getSummonQuantityRule(preset, Number(castSlotLevelInput?.value), selectedChoice);
+    const rawQty = Number(castSummonQuantityInput?.value);
+    const quantity = Number.isFinite(rawQty) ? Math.floor(rawQty) : null;
+    let reason = "";
+    if (!selectedChoice){
+      reason = "Pick a summon option first, matey.";
+    } else if (!Number.isFinite(quantity) || quantity <= 0){
+      reason = "Enter a valid summon quantity, matey.";
+    } else if (quantityRule.fixed !== null && quantity !== quantityRule.fixed){
+      reason = `This spell summons exactly ${quantityRule.fixed}.`;
+    } else if (quantity < quantityRule.min || quantity > quantityRule.max){
+      reason = `Summon quantity must be between ${quantityRule.min} and ${quantityRule.max}.`;
+    }
+    castSummonValidation = {ok: !reason, reason};
+    if (castSubmitBtn) castSubmitBtn.disabled = !castSummonValidation.ok;
+    if (showToast && reason){
+      localToast(reason);
+    }
+    return castSummonValidation;
+  };
+
+  const updateSummonOptions = (preset) => {
+    const summonSpell = isSummonPreset(preset);
+    if (summonOptions){
+      summonOptions.classList.toggle("hidden", !summonSpell);
+    }
+    if (aoeOptions){
+      aoeOptions.classList.toggle("hidden", summonSpell);
+    }
+    const disableForSummon = (input) => {
+      if (!input) return;
+      input.disabled = summonSpell;
+      if (summonSpell){
+        input.readOnly = true;
+      }
+    };
+    [castShapeInput, castDefaultDamageInput, castDiceInput, castDamageTypeInput, castAddDamageTypeBtn, castColorInput].forEach(disableForSummon);
+    if (!summonSpell){
+      if (castShapeInput) castShapeInput.readOnly = false;
+      if (castDefaultDamageInput) castDefaultDamageInput.readOnly = false;
+      if (castDiceInput) castDiceInput.readOnly = false;
+      if (castDamageTypeInput) castDamageTypeInput.readOnly = false;
+      if (castColorInput) castColorInput.readOnly = false;
+      if (castSummonMeta) castSummonMeta.textContent = "";
+      if (castSubmitBtn) castSubmitBtn.disabled = false;
+      return;
+    }
+    const choices = getSummonChoices(preset);
+    if (castSummonChoiceInput){
+      const current = normalizeTextValue(castSummonChoiceInput.value);
+      castSummonChoiceInput.textContent = "";
+      choices.forEach((choice) => {
+        const opt = document.createElement("option");
+        opt.value = choice.monster_slug;
+        const desc = normalizeTextValue(choice.description || choice.notes);
+        opt.textContent = desc ? `${choice.name} — ${desc}` : choice.name;
+        castSummonChoiceInput.appendChild(opt);
+      });
+      castSummonChoiceInput.value = current || choices[0]?.monster_slug || "";
+      if (!castSummonChoiceInput.value && choices[0]?.monster_slug){
+        castSummonChoiceInput.value = choices[0].monster_slug;
+      }
+    }
+    const selectedChoice = normalizeTextValue(castSummonChoiceInput?.value || choices[0]?.monster_slug || "");
+    const rule = getSummonQuantityRule(preset, Number(castSlotLevelInput?.value), selectedChoice);
+    if (castSummonQuantityInput){
+      castSummonQuantityInput.min = String(rule.min);
+      castSummonQuantityInput.max = String(rule.max);
+      if (rule.fixed !== null){
+        castSummonQuantityInput.value = String(rule.fixed);
+        castSummonQuantityInput.readOnly = true;
+      } else {
+        const currentQty = Number(castSummonQuantityInput.value);
+        const nextQty = Number.isFinite(currentQty)
+          ? Math.min(rule.max, Math.max(rule.min, Math.floor(currentQty)))
+          : rule.min;
+        castSummonQuantityInput.value = String(nextQty);
+        castSummonQuantityInput.readOnly = false;
+      }
+    }
+    if (castSummonMeta){
+      const initiativeMode = normalizeTextValue(preset?.summon?.initiative?.mode);
+      const controlCommands = normalizeTextValue(preset?.summon?.control?.commands);
+      const quantityInfo = rule.fixed !== null
+        ? `Quantity: fixed at ${rule.fixed}`
+        : `Quantity: ${rule.min}–${rule.max}`;
+      const metaBits = [quantityInfo];
+      if (initiativeMode){
+        metaBits.push(`Initiative: ${initiativeMode.replace(/_/g, " ")}`);
+      }
+      if (controlCommands){
+        metaBits.push(`Control: ${controlCommands}`);
+      }
+      castSummonMeta.textContent = metaBits.join(" · ");
+    }
+    validateSummonForm(preset, false);
+  };
+
   const updateCastShapeFields = () => {
+    const preset = getSelectedSpellPreset();
+    if (isSummonPreset(preset)){
+      [castRadiusField, castSideField, castLengthField, castWidthField, castAngleField, castOrientField, castThicknessField, castHeightField].forEach((field) => setCastFieldVisible(field, false));
+      [castRadiusInput, castSideInput, castLengthInput, castWidthInput, castAngleInput, castOrientInput, castThicknessInput, castHeightInput].forEach((input) => setCastFieldEnabled(input, false));
+      return;
+    }
     const shape = String(castShapeInput?.value || "").toLowerCase();
     const usesRadius = shape === "circle" || shape === "sphere" || shape === "cylinder";
     const usesSide = shape === "square" || shape === "cube";
@@ -8831,6 +9053,7 @@ __DAMAGE_TYPE_OPTIONS__
     castShapeInput.addEventListener("change", updateCastShapeFields);
     updateCastShapeFields();
   }
+  updateSummonOptions(null);
 
   const parseDiceSpec = (value) => {
     if (typeof value !== "string") return null;
@@ -9008,6 +9231,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (castShapeInput){
       castShapeInput.value = preset.shape ? String(preset.shape || "").toLowerCase() : "";
     }
+    updateSummonOptions(preset);
     updateCastShapeFields();
     if (castRadiusInput){
       castRadiusInput.value = Number.isFinite(Number(preset.radius_ft)) ? Number(preset.radius_ft) : "";
@@ -9168,6 +9392,7 @@ __DAMAGE_TYPE_OPTIONS__
           castSlotLevelInput.disabled = false;
           castSlotLevelInput.readOnly = false;
         }
+        updateSummonOptions(null);
         updateSpellPresetDetails(null);
         return;
       }
@@ -9183,6 +9408,23 @@ __DAMAGE_TYPE_OPTIONS__
       const preset = getSelectedSpellPreset();
       const check = validateCastSlotSelection(preset, false);
       castSlotLevelInput.setCustomValidity(check.ok ? "" : (check.reason || "Invalid slot level"));
+      updateSummonOptions(preset);
+      validateSummonForm(preset, false);
+    });
+  }
+
+  if (castSummonChoiceInput){
+    castSummonChoiceInput.addEventListener("change", () => {
+      const preset = getSelectedSpellPreset();
+      updateSummonOptions(preset);
+      validateSummonForm(preset, false);
+    });
+  }
+
+  if (castSummonQuantityInput){
+    castSummonQuantityInput.addEventListener("input", () => {
+      const preset = getSelectedSpellPreset();
+      validateSummonForm(preset, false);
     });
   }
 
@@ -9225,8 +9467,46 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const shape = String(castShapeInput?.value || "").toLowerCase();
       const aoeSpell = isAoePreset(preset);
+      const summonSpell = isSummonPreset(preset);
       if (aoeSpell && !shape){
         localToast("Pick a spell shape first, matey.");
+        return;
+      }
+      const slotCheck = validateCastSlotSelection(preset, true);
+      if (!slotCheck.ok){
+        return;
+      }
+      const slotLevel = Number.isFinite(slotCheck.slotLevel) ? Math.floor(Number(slotCheck.slotLevel)) : null;
+      if (summonSpell){
+        const summonValidation = validateSummonForm(preset, true);
+        if (!summonValidation.ok){
+          return;
+        }
+        const choices = getSummonChoices(preset);
+        const summonChoice = normalizeTextValue(castSummonChoiceInput?.value || choices[0]?.monster_slug || "");
+        const summonQuantity = Number(castSummonQuantityInput?.value);
+        const payload = {
+          action_type: actionType,
+          name: String(castNameInput?.value || "").trim() || null,
+          slot_level: slotLevel,
+          summon_choice: summonChoice || null,
+        };
+        if (Number.isFinite(summonQuantity) && summonQuantity > 0){
+          payload.summon_quantity = Math.floor(summonQuantity);
+        }
+        const msg = {type: "cast_spell", payload, action_type: actionType};
+        const presetSlug = normalizeTextValue(preset?.slug);
+        const presetId = normalizeTextValue(preset?.id);
+        if (presetSlug){
+          msg.spell_slug = presetSlug;
+        }
+        if (presetId){
+          msg.spell_id = presetId;
+        }
+        if (Number.isFinite(slotLevel)){
+          msg.slot_level = slotLevel;
+        }
+        send(msg);
         return;
       }
       const parsePositive = (value) => {
@@ -9308,11 +9588,6 @@ __DAMAGE_TYPE_OPTIONS__
           return;
         }
       }
-      const slotCheck = validateCastSlotSelection(preset, true);
-      if (!slotCheck.ok){
-        return;
-      }
-      const slotLevel = Number.isFinite(slotCheck.slotLevel) ? Math.floor(Number(slotCheck.slotLevel)) : null;
       const dcType = String(castDcTypeInput?.value || "").trim().toLowerCase();
       const dcValue = parseInt(castDcValueInput?.value || "", 10);
       const damageTypes = Array.from(castDamageTypes);
