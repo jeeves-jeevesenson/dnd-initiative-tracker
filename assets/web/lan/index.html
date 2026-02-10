@@ -5053,7 +5053,8 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function loadLanSelection(){
-    const cidValue = normalizeCid(localStorage.getItem(lanSelectedCidKey), "lan.loadCid");
+    const storedCid = Number(localStorage.getItem(lanSelectedCidKey));
+    const cidValue = normalizeCid(storedCid, "lan.loadCid");
     if (cidValue === null) return null;
     const nameValue = localStorage.getItem(lanSelectedNameKey);
     return {
@@ -8466,13 +8467,16 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Pick a character first, matey.");
         return;
       }
+      const cidValue = normalizeCid(selectedClaimCid, "confirm.selectedCid");
+      if (cidValue === null) return;
       allowUnclaimed = false;
-      storeLanSelection(selectedClaimCid, lastPcList || []);
-      send({type:"claim", cid: selectedClaimCid, client_id: clientId});
-      claimedCid = selectedClaimCid;
+      claimedCid = cidValue;
+      storeLanSelection(cidValue, lastPcList || []);
+      send({type:"claim", cid: cidValue, client_id: clientId});
+      clearSpellFilters();
       clearAutoClaimPending();
       updateClaimOverlay();
-      const name = getClaimablePcName(selectedClaimCid, lastPcList) || `#${selectedClaimCid}`;
+      const name = getClaimablePcName(cidValue, lastPcList) || `#${cidValue}`;
       if (meEl){
         meEl.textContent = name;
       }
@@ -9733,8 +9737,10 @@ __DAMAGE_TYPE_OPTIONS__
     const levelNum = getPresetLevelNumber(preset);
     const min = spellFilterState.levelMin === '' ? null : Number(spellFilterState.levelMin);
     const max = spellFilterState.levelMax === '' ? null : Number(spellFilterState.levelMax);
-    if (min !== null && (!Number.isFinite(levelNum) || levelNum < min)) return false;
-    if (max !== null && (!Number.isFinite(levelNum) || levelNum > max)) return false;
+    if (Number.isFinite(levelNum)){
+      if (min !== null && levelNum < min) return false;
+      if (max !== null && levelNum > max) return false;
+    }
 
     if (spellFilterState.schools.length){
       const selected = spellFilterState.schools.map(normalizeLowerValue);
@@ -9815,13 +9821,16 @@ __DAMAGE_TYPE_OPTIONS__
     spellFilterModal?.classList.remove('show');
     spellFilterModal?.setAttribute('aria-hidden', 'true');
   });
-  clearSpellFiltersBtn?.addEventListener('click', () => {
+  const clearSpellFilters = () => {
     Object.assign(spellFilterState, {
       search: '', levelMin: '', levelMax: '', schools: [], tags: [], castingTime: '', range: '', ritualOnly: false, concentrationOnly: false, lists: [],
     });
     saveSpellFilterState();
     updateSpellFilterOptions();
     refreshSpellPresetOptions();
+  };
+  clearSpellFiltersBtn?.addEventListener('click', () => {
+    clearSpellFilters();
   });
 
   const setCastFieldEnabled = (input, enabled) => {
