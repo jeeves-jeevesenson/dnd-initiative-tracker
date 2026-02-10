@@ -5215,14 +5215,30 @@ __DAMAGE_TYPE_OPTIONS__
     } else if (renderAoe.kind === "square" || renderAoe.kind === "cube"){
       const sidePx = Math.max(0, Number(renderAoe.side_sq || 0)) * zoom;
       const half = sidePx / 2;
-      ctx.beginPath();
-      ctx.rect(x - half, y - half, sidePx, sidePx);
-      ctx.fillStyle = colorHex
-        ? rgbaFromHex(colorHex, 0.28 * alphaScale)
-        : `rgba(226,182,255,${0.32 * alphaScale})`;
-      ctx.strokeStyle = colorHex || `rgba(107,61,138,${0.85 * alphaScale})`;
-      ctx.fill();
-      ctx.stroke();
+      const angleDeg = Number.isFinite(Number(renderAoe.angle_deg)) ? Number(renderAoe.angle_deg) : null;
+      if (angleDeg !== null){
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate((angleDeg * Math.PI) / 180);
+        ctx.beginPath();
+        ctx.rect(-half, -half, sidePx, sidePx);
+        ctx.fillStyle = colorHex
+          ? rgbaFromHex(colorHex, 0.28 * alphaScale)
+          : `rgba(226,182,255,${0.32 * alphaScale})`;
+        ctx.strokeStyle = colorHex || `rgba(107,61,138,${0.85 * alphaScale})`;
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.beginPath();
+        ctx.rect(x - half, y - half, sidePx, sidePx);
+        ctx.fillStyle = colorHex
+          ? rgbaFromHex(colorHex, 0.28 * alphaScale)
+          : `rgba(226,182,255,${0.32 * alphaScale})`;
+        ctx.strokeStyle = colorHex || `rgba(107,61,138,${0.85 * alphaScale})`;
+        ctx.fill();
+        ctx.stroke();
+      }
     } else if (renderAoe.kind === "cone"){
       const lengthPx = Math.max(0, Number(renderAoe.length_sq || 0)) * zoom;
       const spreadDeg = coneSpreadDeg(renderAoe);
@@ -5275,7 +5291,13 @@ __DAMAGE_TYPE_OPTIONS__
       } else if (kind === "square" || kind === "cube"){
         const side = Math.max(0, Number(aoe.side_sq || 0));
         const half = side / 2;
-        if (Math.abs(dx) <= half && Math.abs(dy) <= half) return aoe;
+        const angleDeg = Number.isFinite(Number(aoe.angle_deg)) ? Number(aoe.angle_deg) : null;
+        if (angleDeg !== null){
+          const rad = (-angleDeg * Math.PI) / 180;
+          const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+          const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+          if (Math.abs(rx) <= half && Math.abs(ry) <= half) return aoe;
+        } else if (Math.abs(dx) <= half && Math.abs(dy) <= half) return aoe;
       } else if (kind === "line" || kind === "wall"){
         const length = Math.max(0, Number(aoe.length_sq || 0));
         const width = Math.max(0, Number(aoe.width_sq || 0));
@@ -6955,11 +6977,6 @@ __DAMAGE_TYPE_OPTIONS__
     return state.aoes.find(a => Number(a?.aid) === Number(aid)) || null;
   }
 
-  function clampToGrid(value, limit){
-    if (!Number.isFinite(limit) || limit <= 0) return value;
-    return Math.max(0, Math.min(value, limit - 1));
-  }
-
   function resolveAoeAnchor(aoe){
     const ax = Number(aoe?.ax);
     const ay = Number(aoe?.ay);
@@ -6977,7 +6994,7 @@ __DAMAGE_TYPE_OPTIONS__
   function isAoeRotateMode(ev, aoe){
     if (!aoe) return false;
     const kind = String(aoe.kind || "");
-    if (kind !== "line" && kind !== "cone") return false;
+    if (kind !== "line" && kind !== "cone" && kind !== "cube") return false;
     return !!(ev?.shiftKey || shiftMoveMode);
   }
 
@@ -7147,8 +7164,6 @@ __DAMAGE_TYPE_OPTIONS__
           return;
         }
         const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
-        const cols = Number(state?.grid?.cols || 0);
-        const rows = Number(state?.grid?.rows || 0);
         const preview = {
           aid: aoeDragging.aid,
           angle_deg: angleDeg,
@@ -7159,16 +7174,19 @@ __DAMAGE_TYPE_OPTIONS__
           if (!Number.isFinite(Number(aoe.spread_deg)) && Number.isFinite(Number(aoe.angle_deg))){
             preview.spread_deg = Number(aoe.angle_deg);
           }
-          preview.cx = clampToGrid(anchor.ax, cols);
-          preview.cy = clampToGrid(anchor.ay, rows);
+          preview.cx = anchor.ax;
+          preview.cy = anchor.ay;
+        } else if (kind === "cube"){
+          preview.cx = Number(aoe.cx ?? 0);
+          preview.cy = Number(aoe.cy ?? 0);
         } else {
           const lengthSq = Number(aoe.length_sq || 0);
           const halfLen = lengthSq / 2;
           const rad = (angleDeg * Math.PI) / 180;
           const cx = anchor.ax + Math.cos(rad) * halfLen;
           const cy = anchor.ay + Math.sin(rad) * halfLen;
-          preview.cx = clampToGrid(cx, cols);
-          preview.cy = clampToGrid(cy, rows);
+          preview.cx = cx;
+          preview.cy = cy;
         }
         aoeDragPreview = preview;
       } else {

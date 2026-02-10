@@ -5422,6 +5422,21 @@ class BattleMapWindow(tk.Toplevel):
         right = ttk.Frame(outer, padding=8)
         outer.add(right, weight=1)
 
+        # --- DM controls ---
+        dm_ctrl = ttk.LabelFrame(left, text="DM Control", padding=6)
+        dm_ctrl.pack(fill=tk.X, pady=(0, 10))
+        dm_btn_row = ttk.Frame(dm_ctrl)
+        dm_btn_row.pack(fill=tk.X)
+        ttk.Button(dm_btn_row, text="Dash", command=self._dm_dash_target).pack(side=tk.LEFT)
+        ttk.Button(dm_btn_row, text="Prev Turn", command=self._dm_prev_turn).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(dm_btn_row, text="Next Turn", command=self._dm_next_turn).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(dm_btn_row, text="Stand Up", command=self._dm_stand_up_target).pack(side=tk.LEFT, padx=(8, 0))
+        mode_row = ttk.Frame(dm_ctrl)
+        mode_row.pack(fill=tk.X, pady=(6, 0))
+        ttk.Label(mode_row, text="Movement:").pack(side=tk.LEFT)
+        ttk.Button(mode_row, text="Walk", command=lambda: self._dm_set_mode_target("normal")).pack(side=tk.LEFT, padx=(6, 0))
+        ttk.Button(mode_row, text="Fly", command=lambda: self._dm_set_mode_target("fly")).pack(side=tk.LEFT, padx=(6, 0))
+
         # --- Map view ---
         view = ttk.LabelFrame(left, text="Map View", padding=6)
         view.pack(fill=tk.X, pady=(0, 10))
@@ -5921,6 +5936,81 @@ class BattleMapWindow(tk.Toplevel):
             self.app._rebuild_table(scroll_to_current=True)
         except Exception:
             pass
+        self._update_move_highlight()
+
+    def _dm_action_target_cid(self) -> Optional[int]:
+        cids = self._selected_unit_cids()
+        if cids:
+            return int(cids[0])
+        if self._active_cid is not None and self._active_cid in self.app.combatants:
+            return int(self._active_cid)
+        return None
+
+    def _dm_next_turn(self) -> None:
+        self.app._next_turn()
+
+    def _dm_prev_turn(self) -> None:
+        self.app._prev_turn()
+
+    def _dm_dash_target(self) -> None:
+        cid = self._dm_action_target_cid()
+        if cid is None:
+            return
+        c = self.app.combatants.get(cid)
+        if not c:
+            return
+        try:
+            base = int(self.app._mode_speed(c))
+        except Exception:
+            base = int(getattr(c, "speed", 30) or 30)
+        total = int(getattr(c, "move_total", 0) or 0)
+        if total <= 0:
+            total = base
+        rem = int(getattr(c, "move_remaining", 0) or 0)
+        c.move_total = total + base
+        c.move_remaining = rem + base
+        try:
+            self.app._log(f"{c.name} dashed (move {rem}/{total} -> {c.move_remaining}/{c.move_total})", cid=c.cid)
+            self.app.start_last_var.set(f"{c.name}: dashed (+{base} ft)")
+        except Exception:
+            pass
+        try:
+            self.app._rebuild_table(scroll_to_current=True)
+        except Exception:
+            pass
+        self._update_move_highlight()
+
+    def _dm_stand_up_target(self) -> None:
+        cid = self._dm_action_target_cid()
+        if cid is None:
+            return
+        c = self.app.combatants.get(cid)
+        if not c or not self.app._has_condition(c, "prone"):
+            return
+        eff = self.app._effective_speed(c)
+        if eff <= 0:
+            messagebox.showinfo("Stand Up", "Can't stand up right now (speed is 0).")
+            return
+        cost = max(0, eff // 2)
+        if int(getattr(c, "move_remaining", 0) or 0) < cost:
+            messagebox.showinfo("Stand Up", f"Not enough movement to stand (need {cost} ft).")
+            return
+        c.move_remaining = int(getattr(c, "move_remaining", 0) or 0) - cost
+        self.app._remove_condition_type(c, "prone")
+        try:
+            self.app.start_last_var.set(f"{c.name}: stood up (-{cost} ft)")
+            self.app._log(f"stood up (spent {cost} ft, prone removed)", cid=c.cid)
+            self.app._rebuild_table(scroll_to_current=True)
+        except Exception:
+            pass
+        self._update_move_highlight()
+
+    def _dm_set_mode_target(self, mode: str) -> None:
+        cid = self._dm_action_target_cid()
+        if cid is None:
+            return
+        self.app._set_movement_mode(cid, mode)
+        self._sync_units_movement_mode()
         self._update_move_highlight()
 
     def _clear_obstacles(self) -> None:
@@ -7666,6 +7756,10 @@ class BattleMapWindow(tk.Toplevel):
                 stipple="gray25",
                 tags=(f"aoe:{aid}", "aoe"),
             )
+        elif kind in ("square", "cube"):
+            shape_id = self.canvas.create_polygon(0, 0, 1, 1, 2, 2, 3, 3, outline=color, width=3, dash=(6, 4),
+                                                  fill=self._aoe_fill_color(kind), stipple="gray25",
+                                                  tags=(f"aoe:{aid}", "aoe"))
         else:
             shape_id = self.canvas.create_rectangle(0, 0, 1, 1, outline=color, width=3, dash=(6, 4),
                                                     fill=self._aoe_fill_color(kind), stipple="gray25",
@@ -7728,8 +7822,6 @@ class BattleMapWindow(tk.Toplevel):
                 half_len = length_sq / 2.0
                 cx = ax + math.cos(angle_rad) * half_len
                 cy = ay + math.sin(angle_rad) * half_len
-                cx = max(0.0, min(float(self.cols - 1), cx))
-                cy = max(0.0, min(float(self.rows - 1), cy))
                 d["cx"] = cx
                 d["cy"] = cy
             elif kind == "cone":
@@ -7760,8 +7852,6 @@ class BattleMapWindow(tk.Toplevel):
                     half_len = length_sq / 2.0
                     cx = ax + math.cos(angle_rad) * half_len
                     cy = ay + math.sin(angle_rad) * half_len
-                    cx = max(0.0, min(float(self.cols - 1), cx))
-                    cy = max(0.0, min(float(self.rows - 1), cy))
                     d["cx"] = cx
                     d["cy"] = cy
                 else:
@@ -7823,7 +7913,17 @@ class BattleMapWindow(tk.Toplevel):
                 pass
         else:
             half = float(d["side_sq"]) * self.cell / 2.0
-            self.canvas.coords(int(d["shape"]), x - half, y - half, x + half, y + half)
+            angle = d.get("angle_deg") if kind in ("square", "cube") else None
+            angle_rad = math.radians(float(angle)) if angle is not None else 0.0
+            cos_a = math.cos(angle_rad)
+            sin_a = math.sin(angle_rad)
+            corners = [(-half, -half), (half, -half), (half, half), (-half, half)]
+            points: List[float] = []
+            for px, py in corners:
+                rx = px * cos_a - py * sin_a
+                ry = px * sin_a + py * cos_a
+                points.extend([x + rx, y + ry])
+            self.canvas.coords(int(d["shape"]), *points)
 
         self.canvas.coords(int(d["label"]), x, y)
         self._raise_aoe_overlays()
@@ -8764,7 +8864,7 @@ class BattleMapWindow(tk.Toplevel):
                 return
             kind = str(d.get("kind") or "")
             shift_held = bool(event.state & 0x0001)
-            if kind in ("line", "cone") and shift_held:
+            if kind in ("line", "cone", "cube") and shift_held:
                 anchor = self._resolve_aoe_anchor(d)
                 if anchor is not None:
                     ax, ay = anchor
@@ -8783,25 +8883,19 @@ class BattleMapWindow(tk.Toplevel):
                         d["spread_deg"] = float(spread)
                 angle = math.degrees(math.atan2(dy, dx))
                 d["angle_deg"] = angle
-                length_sq = float(d.get("length_sq") or 0.0)
-                half_len = length_sq / 2.0
-                rad = math.radians(angle)
-                cx = ax
-                cy = ay
                 if kind == "line":
+                    length_sq = float(d.get("length_sq") or 0.0)
+                    half_len = length_sq / 2.0
+                    rad = math.radians(angle)
                     cx = ax + math.cos(rad) * half_len
                     cy = ay + math.sin(rad) * half_len
-                cx = max(0.0, min(float(self.cols - 1), cx))
-                cy = max(0.0, min(float(self.rows - 1), cy))
-                d["ax"] = ax
-                d["ay"] = ay
-                d["cx"] = cx
-                d["cy"] = cy
+                    d["ax"] = ax
+                    d["ay"] = ay
+                    d["cx"] = cx
+                    d["cy"] = cy
             else:
                 cx = (x - self.x0) / self.cell - 0.5
                 cy = (y - self.y0) / self.cell - 0.5
-                cx = max(0.0, min(float(self.cols - 1), cx))
-                cy = max(0.0, min(float(self.rows - 1), cy))
                 old_cx = float(d.get("cx", cx))
                 old_cy = float(d.get("cy", cy))
                 d["cx"] = cx
@@ -9782,12 +9876,26 @@ class BattleMapWindow(tk.Toplevel):
                     included.append(cid)
         else:
             half = float(d["side_sq"]) * self.cell / 2.0
-            x1, y1 = cx_px - half, cy_px - half
-            x2, y2 = cx_px + half, cy_px + half
-            for cid, tok in self.unit_tokens.items():
-                x, y = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
-                if x1 <= x <= x2 and y1 <= y <= y2:
-                    included.append(cid)
+            angle = d.get("angle_deg") if kind in ("square", "cube") else None
+            if angle is None:
+                x1, y1 = cx_px - half, cy_px - half
+                x2, y2 = cx_px + half, cy_px + half
+                for cid, tok in self.unit_tokens.items():
+                    x, y = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
+                    if x1 <= x <= x2 and y1 <= y <= y2:
+                        included.append(cid)
+            else:
+                angle_rad = math.radians(float(angle))
+                cos_a = math.cos(-angle_rad)
+                sin_a = math.sin(-angle_rad)
+                for cid, tok in self.unit_tokens.items():
+                    x, y = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
+                    dx = x - cx_px
+                    dy = y - cy_px
+                    rx = dx * cos_a - dy * sin_a
+                    ry = dx * sin_a + dy * cos_a
+                    if abs(rx) <= half and abs(ry) <= half:
+                        included.append(cid)
 
         # stable order: by initiative order if possible
         order = [c.cid for c in self.app._display_order()] if hasattr(self.app, "_display_order") else []
