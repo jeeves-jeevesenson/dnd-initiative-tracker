@@ -8469,6 +8469,13 @@ __DAMAGE_TYPE_OPTIONS__
       allowUnclaimed = false;
       storeLanSelection(selectedClaimCid, lastPcList || []);
       send({type:"claim", cid: selectedClaimCid, client_id: clientId});
+      claimedCid = selectedClaimCid;
+      clearAutoClaimPending();
+      updateClaimOverlay();
+      const name = getClaimablePcName(selectedClaimCid, lastPcList) || `#${selectedClaimCid}`;
+      if (meEl){
+        meEl.textContent = name;
+      }
     });
   }
   if (claimSpectatorBtn){
