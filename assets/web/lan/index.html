@@ -2909,6 +2909,7 @@ __DAMAGE_TYPE_OPTIONS__
   let userHasInteracted = navigator.userActivation?.hasBeenActive ?? false;
   let castOverlayPreviousFocus = null;
   let pendingSpellActionType = null;
+  let pendingSummonPlacement = null;
   const preparedSpellDefaults = {
     prepared: [],
     max: null,
@@ -5376,6 +5377,21 @@ __DAMAGE_TYPE_OPTIONS__
     return `${label} ft`;
   }
 
+  function parseSpellRangeFeet(rangeValue){
+    const text = String(rangeValue || "").toLowerCase();
+    const match = text.match(/(\d+(?:\.\d+)?)\s*(?:ft|feet)/);
+    if (!match) return null;
+    const value = Number(match[1]);
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  }
+
+  function distanceFeetBetweenCells(a, b){
+    const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
+    const dx = Number(a?.col || 0) - Number(b?.col || 0);
+    const dy = Number(a?.row || 0) - Number(b?.row || 0);
+    return Math.hypot(dx, dy) * feetPerSquare;
+  }
+
   function updateMeasurementControls(){
     if (measureToggle){
       measureToggle.textContent = measurementMode ? "Measuring…" : "Measure";
@@ -7287,6 +7303,57 @@ __DAMAGE_TYPE_OPTIONS__
       clearAoeDragPending();
     }
     setTokenTooltip(null);
+    if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){
+      const g = screenToGrid(p.x, p.y);
+      if (!gridReady()){
+        localToast("Map not ready yet, matey.");
+        return;
+      }
+      const cols = Number(state?.grid?.cols || 0);
+      const rows = Number(state?.grid?.rows || 0);
+      if (g.col < 0 || g.row < 0 || g.col >= cols || g.row >= rows){
+        localToast("That square be off the map.");
+        return;
+      }
+      const blocked = new Set((state?.obstacles || []).map(o => `${Number(o.col)},${Number(o.row)}`));
+      if (blocked.has(`${g.col},${g.row}`)){
+        localToast("That square be blocked.");
+        return;
+      }
+      if (Number.isFinite(Number(pendingSummonPlacement.maxRangeFt))){
+        const distFt = distanceFeetBetweenCells(pendingSummonPlacement.casterPos, g);
+        if (distFt > Number(pendingSummonPlacement.maxRangeFt) + 1e-6){
+          localToast(`That square be out of range (${Math.round(pendingSummonPlacement.maxRangeFt)} ft).`);
+          return;
+        }
+      }
+      pendingSummonPlacement.positions.push({col: g.col, row: g.row});
+      const remaining = pendingSummonPlacement.summonQuantity - pendingSummonPlacement.positions.length;
+      if (remaining > 0){
+        localToast(`${remaining} summon placement(s) remaining.`);
+        return;
+      }
+      const payload = {
+        ...pendingSummonPlacement.payload,
+        summon_positions: pendingSummonPlacement.positions.slice(),
+      };
+      const msg = {type: "cast_spell", payload, action_type: pendingSummonPlacement.actionType};
+      if (pendingSummonPlacement.spellSlug){
+        msg.spell_slug = pendingSummonPlacement.spellSlug;
+      }
+      if (pendingSummonPlacement.spellId){
+        msg.spell_id = pendingSummonPlacement.spellId;
+      }
+      if (Number.isFinite(pendingSummonPlacement.slotLevel)){
+        msg.slot_level = pendingSummonPlacement.slotLevel;
+      }
+      msg.summon_choice = pendingSummonPlacement.summonChoice;
+      msg.summon_quantity = pendingSummonPlacement.summonQuantity;
+      send(msg);
+      pendingSummonPlacement = null;
+      return;
+    }
+
     if (aoeDragging){
       const gridPos = screenToGridFloat(p.x, p.y);
       const preview = aoeDragPreview || {};
@@ -9485,28 +9552,37 @@ __DAMAGE_TYPE_OPTIONS__
         const choices = getSummonChoices(preset);
         const summonChoice = normalizeTextValue(castSummonChoiceInput?.value || choices[0]?.monster_slug || "");
         const summonQuantity = Number(castSummonQuantityInput?.value);
+        const presetSlug = normalizeTextValue(preset?.slug);
+        const presetId = normalizeTextValue(preset?.id);
+        const normalizedQuantity = Number.isFinite(summonQuantity) && summonQuantity > 0 ? Math.floor(summonQuantity) : 1;
         const payload = {
           action_type: actionType,
           name: String(castNameInput?.value || "").trim() || null,
           slot_level: slotLevel,
+          spell_slug: presetSlug || null,
+          spell_id: presetId || null,
           summon_choice: summonChoice || null,
+          summon_quantity: normalizedQuantity,
         };
-        if (Number.isFinite(summonQuantity) && summonQuantity > 0){
-          payload.summon_quantity = Math.floor(summonQuantity);
+        const caster = getClaimedUnit();
+        if (!caster || !caster.pos){
+          localToast("Could not find caster position, matey.");
+          return;
         }
-        const msg = {type: "cast_spell", payload, action_type: actionType};
-        const presetSlug = normalizeTextValue(preset?.slug);
-        const presetId = normalizeTextValue(preset?.id);
-        if (presetSlug){
-          msg.spell_slug = presetSlug;
-        }
-        if (presetId){
-          msg.spell_id = presetId;
-        }
-        if (Number.isFinite(slotLevel)){
-          msg.slot_level = slotLevel;
-        }
-        send(msg);
+        pendingSummonPlacement = {
+          actionType,
+          slotLevel,
+          spellSlug: presetSlug || null,
+          spellId: presetId || null,
+          summonChoice: summonChoice || null,
+          summonQuantity: normalizedQuantity,
+          casterPos: {col: Number(caster.pos.col), row: Number(caster.pos.row)},
+          maxRangeFt: parseSpellRangeFeet(preset?.range),
+          positions: [],
+          payload,
+          spellName,
+        };
+        localToast(`Click ${normalizedQuantity} map square(s) to place summon(s).`);
         return;
       }
       const parsePositive = (value) => {

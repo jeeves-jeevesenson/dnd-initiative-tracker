@@ -60,6 +60,8 @@ mechanics:
   sequence: []
   scaling: null
   summon:
+    side: caster
+    color: blue
     choices:
     - name: Bat
       monster_slug: bat

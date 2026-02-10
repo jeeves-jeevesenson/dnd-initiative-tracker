@@ -48,6 +48,8 @@ mechanics:
   sequence: []
   scaling: null
   summon:
+    side: caster
+    color: blue
     choices:
     - name: Undead Spirit
       monster_slug: undead-spirit

@@ -58,6 +58,8 @@ mechanics:
   sequence: []
   scaling: null
   summon:
+    side: caster
+    color: blue
     choices:
     - name: Ghoul
       monster_slug: ghoul

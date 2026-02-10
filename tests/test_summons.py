@@ -10,6 +10,7 @@ class SummonHarness:
         self._summon_groups = {}
         self._summon_group_meta = {}
         self._next_cid = 1
+        self._lan_positions = {}
 
     def _unique_name(self, name):
         return str(name)
@@ -58,6 +59,9 @@ class SummonHarness:
         self.combatants[cid] = c
         return cid
 
+
+    def _normalize_token_color(self, color):
+        return tracker_mod.InitiativeTracker._normalize_token_color(self, color)
     # Bind target methods from InitiativeTracker
     _resolve_summon_choice = staticmethod(tracker_mod.InitiativeTracker._resolve_summon_choice)
     _normalize_summon_controller_mode = staticmethod(tracker_mod.InitiativeTracker._normalize_summon_controller_mode)
@@ -189,6 +193,70 @@ class SummonSpawnTests(unittest.TestCase):
         order = [c.cid for c in h._sorted_combatants()]
         # caster stays first at 15, then summons by rolled values 18,14,9 are globally sorted among all combatants
         self.assertEqual(order[:4], [s1, 100, s3, s2])
+
+
+    def test_spawn_applies_side_color_and_positions(self):
+        h = self._build_harness()
+        preset = {
+            "slug": "summon-construct",
+            "id": "summon-construct",
+            "concentration": True,
+            "summon": {
+                "side": "enemy",
+                "color": "#3366ff",
+                "choices": [{"name": "Construct Spirit", "monster_slug": "construct-spirit"}],
+                "count": {"kind": "fixed", "min": 1, "max": 1},
+                "initiative": {"mode": "shared"},
+            },
+        }
+        spec = tracker_mod.MonsterSpec(
+            filename="construct-spirit.yaml",
+            name="Construct Spirit",
+            mtype="construct",
+            cr=1,
+            hp=40,
+            speed=30,
+            swim_speed=0,
+            fly_speed=0,
+            burrow_speed=0,
+            climb_speed=0,
+            dex=2,
+            init_mod=2,
+            saving_throws={},
+            ability_mods={},
+            raw_data={},
+        )
+        h._find_spell_preset = lambda spell_slug, spell_id: preset
+        h._find_monster_spec_by_slug = lambda slug: spec
+
+        spawned = h._spawn_summons_from_cast(
+            caster_cid=100,
+            spell_slug="summon-construct",
+            spell_id="",
+            slot_level=4,
+            summon_choice="construct-spirit",
+            summon_positions=[{"col": 4, "row": 5}],
+        )
+
+        self.assertEqual(len(spawned), 1)
+        summoned = h.combatants[spawned[0]]
+        self.assertFalse(getattr(summoned, "ally", True))
+        self.assertEqual(getattr(summoned, "token_color", None), "#3366ff")
+        self.assertEqual(h._lan_positions.get(spawned[0]), (4, 5))
+
+    def test_resolve_choice_does_not_fallback_when_invalid_choice_provided(self):
+        summon_cfg = {
+            "choices": [
+                {"name": "Ghoul", "monster_slug": "ghoul"},
+                {"name": "Ghast", "monster_slug": "ghast"},
+            ],
+            "count": {"kind": "fixed", "min": 1, "max": 1},
+        }
+        _choice, qty, slug = tracker_mod.InitiativeTracker._resolve_summon_choice(
+            summon_cfg, "not-a-real-slug", 6
+        )
+        self.assertIsNone(slug)
+        self.assertEqual(qty, 1)
 
 
 if __name__ == "__main__":

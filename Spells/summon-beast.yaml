@@ -49,6 +49,8 @@ mechanics:
   sequence: []
   scaling: null
   summon:
+    side: caster
+    color: blue
     choices:
     - name: Bestial Spirit
       monster_slug: bestial-spirit

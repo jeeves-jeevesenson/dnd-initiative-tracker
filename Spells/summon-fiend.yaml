@@ -47,6 +47,8 @@ mechanics:
   sequence: []
   scaling: null
   summon:
+    side: caster
+    color: blue
     choices:
     - name: Fiendish Spirit
       monster_slug: fiendish-spirit
