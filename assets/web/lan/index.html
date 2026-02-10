@@ -3345,6 +3345,13 @@ __DAMAGE_TYPE_OPTIONS__
     return levels;
   }
 
+  function getAvailableSlotCountAtOrAbove(profile, minLevel){
+    const levelFloor = Number.isFinite(Number(minLevel)) ? Math.max(1, Math.floor(Number(minLevel))) : 1;
+    return getSpellSlotLevels(profile)
+      .filter((entry) => entry.level >= levelFloor)
+      .reduce((sum, entry) => sum + Math.max(0, Number(entry.current) || 0), 0);
+  }
+
   function renderSpellSlotMonitor(){
     if (!spellSlotMonitorEl) return;
     const playerName = getClaimedPlayerName();
@@ -4346,6 +4353,7 @@ __DAMAGE_TYPE_OPTIONS__
     "set_color",
     "reset_turn",
     "cast_aoe",
+    "cast_spell",
     "aoe_move",
     "aoe_remove",
     "save_preset",
@@ -8567,7 +8575,7 @@ __DAMAGE_TYPE_OPTIONS__
     const castingTimes = new Set();
     const ranges = new Set();
     const listGroups = new Map();
-    cachedSpellPresets.filter(isAoePreset).forEach((preset) => {
+    cachedSpellPresets.forEach((preset) => {
       const school = normalizeTextValue(preset.school);
       if (school) schools.add(school);
       const castingTime = normalizeTextValue(preset.casting_time);
@@ -8652,8 +8660,8 @@ __DAMAGE_TYPE_OPTIONS__
     if (!castPresetInput) return;
     const currentValue = String(castPresetInput.value || "");
     castPresetInput.textContent = "";
-    const aoePresets = cachedSpellPresets.filter(isAoePreset);
-    if (!aoePresets.length){
+    const availablePresets = cachedSpellPresets.slice();
+    if (!availablePresets.length){
       castPresetInput.disabled = true;
       const placeholder = document.createElement("option");
       placeholder.value = "";
@@ -8669,7 +8677,7 @@ __DAMAGE_TYPE_OPTIONS__
     blank.textContent = "Custom";
     castPresetInput.appendChild(blank);
     const preparedSpellSet = getPreparedSpellFilterSet();
-    const filtered = filterPresetsByKnownList(aoePresets, preparedSpellSet)
+    const filtered = filterPresetsByKnownList(availablePresets, preparedSpellSet)
       .filter(matchesSpellFilters);
     if (!filtered.length){
       const empty = document.createElement("option");
@@ -8737,8 +8745,12 @@ __DAMAGE_TYPE_OPTIONS__
       String(p.ritual || ""),
       String(p.concentration || ""),
       String(p.color || ""),
+      String(p.is_aoe || ""),
+      String(p.action_type || ""),
       JSON.stringify(p.tags || []),
       JSON.stringify(p.lists || {}),
+      JSON.stringify(p.upcast || {}),
+      JSON.stringify(p.scaling || {}),
     ]));
     if (signature === lastSpellPresetSignature){
       return;
@@ -9078,17 +9090,14 @@ __DAMAGE_TYPE_OPTIONS__
     }
     castUpcastConfig = normalizeUpcastConfig(preset.upcast);
     if (castSlotLevelInput){
-      if (castUpcastConfig){
-        castSlotLevelInput.disabled = false;
-        castSlotLevelInput.readOnly = false;
-        castSlotLevelInput.value = Number.isFinite(Number(castUpcastConfig.base_level))
-          ? String(castUpcastConfig.base_level)
-          : "";
-      } else {
-        castSlotLevelInput.value = "";
-        castSlotLevelInput.disabled = true;
-        castSlotLevelInput.readOnly = true;
-      }
+      const presetLevel = Number.isFinite(Number(preset.level)) ? Math.max(0, Math.floor(Number(preset.level))) : 0;
+      const baseLevel = castUpcastConfig && Number.isFinite(Number(castUpcastConfig.base_level))
+        ? Math.max(0, Math.floor(Number(castUpcastConfig.base_level)))
+        : presetLevel;
+      castSlotLevelInput.disabled = false;
+      castSlotLevelInput.readOnly = false;
+      castSlotLevelInput.min = String(Math.max(0, baseLevel));
+      castSlotLevelInput.value = String(Math.max(0, baseLevel));
     }
     const slotLevelValue = Number(castSlotLevelInput?.value);
     const upcastValues = computeUpcastValues(castBaseDice, castBaseDefaultDamage, castUpcastConfig, slotLevelValue);
@@ -9111,6 +9120,24 @@ __DAMAGE_TYPE_OPTIONS__
       castDefaultDamageInput.value = String(upcastValues.defaultDamage || "");
     }
   };
+
+  function validateCastSlotSelection(preset, showToast = false){
+    const baseLevel = Number.isFinite(Number(preset?.level)) ? Math.max(0, Math.floor(Number(preset.level))) : 0;
+    const rawLevel = Number(castSlotLevelInput?.value);
+    const slotLevel = Number.isFinite(rawLevel) ? Math.floor(rawLevel) : baseLevel;
+    if (slotLevel < baseLevel){
+      const msg = "Ye can't downcast that spell, matey.";
+      if (showToast) localToast(msg);
+      return {ok: false, reason: msg};
+    }
+    const profile = getPlayerProfile(getClaimedPlayerName());
+    if (slotLevel >= 1 && getAvailableSlotCountAtOrAbove(profile, slotLevel) <= 0){
+      const msg = "No spell slots left for that level, matey.";
+      if (showToast) localToast(msg);
+      return {ok: false, reason: msg};
+    }
+    return {ok: true, slotLevel};
+  }
 
   if (castPresetInput){
     castPresetInput.addEventListener("change", () => {
@@ -9137,8 +9164,9 @@ __DAMAGE_TYPE_OPTIONS__
         }
         if (castSlotLevelInput){
           castSlotLevelInput.value = "";
-          castSlotLevelInput.disabled = true;
-          castSlotLevelInput.readOnly = true;
+          castSlotLevelInput.min = "0";
+          castSlotLevelInput.disabled = false;
+          castSlotLevelInput.readOnly = false;
         }
         updateSpellPresetDetails(null);
         return;
@@ -9152,6 +9180,9 @@ __DAMAGE_TYPE_OPTIONS__
   if (castSlotLevelInput){
     castSlotLevelInput.addEventListener("input", () => {
       updateUpcastFields();
+      const preset = getSelectedSpellPreset();
+      const check = validateCastSlotSelection(preset, false);
+      castSlotLevelInput.setCustomValidity(check.ok ? "" : (check.reason || "Invalid slot level"));
     });
   }
 
@@ -9168,7 +9199,7 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Claim a character first, matey.");
         return;
       }
-      if (!state || !gridReady()){
+      if (!state){
         localToast("Map not ready yet, matey.");
         return;
       }
@@ -9193,7 +9224,8 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       const shape = String(castShapeInput?.value || "").toLowerCase();
-      if (!shape){
+      const aoeSpell = isAoePreset(preset);
+      if (aoeSpell && !shape){
         localToast("Pick a spell shape first, matey.");
         return;
       }
@@ -9276,6 +9308,11 @@ __DAMAGE_TYPE_OPTIONS__
           return;
         }
       }
+      const slotCheck = validateCastSlotSelection(preset, true);
+      if (!slotCheck.ok){
+        return;
+      }
+      const slotLevel = Number.isFinite(slotCheck.slotLevel) ? Math.floor(Number(slotCheck.slotLevel)) : null;
       const dcType = String(castDcTypeInput?.value || "").trim().toLowerCase();
       const dcValue = parseInt(castDcValueInput?.value || "", 10);
       const damageTypes = Array.from(castDamageTypes);
@@ -9306,7 +9343,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
       const center = defaultAoeCenter();
-      if (shape !== "line"){
+      if (aoeSpell && shape !== "line"){
         const caster = getClaimedUnit();
         if (caster && caster.pos){
           const start = {col: Number(caster.pos.col), row: Number(caster.pos.row)};
@@ -9321,6 +9358,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const payload = {
         shape,
+        action_type: actionType,
         dc: Number.isFinite(dcValue) ? dcValue : null,
         save_type: dcType || null,
         damage_type: damageType || null,
@@ -9360,27 +9398,27 @@ __DAMAGE_TYPE_OPTIONS__
       if (typeof castPinnedDefault === "boolean"){
         payload.pinned_default = castPinnedDefault;
       }
-      if (shape === "circle"){
+      if (aoeSpell && shape === "circle"){
         payload.radius_ft = radiusFt;
-      } else if (shape === "sphere" || shape === "cylinder"){
+      } else if (aoeSpell && (shape === "sphere" || shape === "cylinder")){
         payload.radius_ft = radiusFt;
         if (heightFt !== null){
           payload.height_ft = heightFt;
         }
-      } else if (shape === "square" || shape === "cube"){
+      } else if (aoeSpell && (shape === "square" || shape === "cube")){
         payload.side_ft = sideFt;
-      } else if (shape === "line"){
+      } else if (aoeSpell && shape === "line"){
         payload.length_ft = lengthFt;
         payload.width_ft = widthFt;
         payload.orient = orient;
         if (angleDeg !== null){
           payload.angle_deg = angleDeg;
         }
-      } else if (shape === "cone"){
+      } else if (aoeSpell && shape === "cone"){
         payload.length_ft = lengthFt;
         payload.angle_deg = angleDeg !== null ? angleDeg : 90;
         payload.orient = orient;
-      } else if (shape === "wall"){
+      } else if (aoeSpell && shape === "wall"){
         payload.length_ft = lengthFt;
         payload.orient = orient;
         if (widthFt !== null){
@@ -9396,17 +9434,7 @@ __DAMAGE_TYPE_OPTIONS__
           payload.angle_deg = angleDeg;
         }
       }
-      const presetLevel = getPresetLevelNumber(preset);
-      let slotLevel = null;
-      if (castUpcastConfig){
-        const upcastLevel = Number(castSlotLevelInput?.value);
-        if (Number.isFinite(upcastLevel)){
-          slotLevel = Math.max(0, Math.floor(upcastLevel));
-        }
-      } else if (Number.isFinite(presetLevel)){
-        slotLevel = Math.max(0, Math.floor(presetLevel));
-      }
-      const msg = {type: "cast_aoe", payload, action_type: actionType};
+      const msg = {type: aoeSpell ? "cast_aoe" : "cast_spell", payload, action_type: actionType};
       const presetSlug = normalizeTextValue(preset?.slug);
       const presetId = normalizeTextValue(preset?.id);
       if (presetSlug){
@@ -9418,7 +9446,7 @@ __DAMAGE_TYPE_OPTIONS__
       if (Number.isFinite(slotLevel)){
         msg.slot_level = slotLevel;
       }
-      if (isPlanning){
+      if (aoeSpell && isPlanning){
         planningMutate(msg);
         draw();
         updateHud();
