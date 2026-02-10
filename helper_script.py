@@ -2470,7 +2470,9 @@ class InitiativeTracker(tk.Tk):
     def _end_concentration(self, c: Combatant) -> None:
         if not getattr(c, "concentrating", False):
             return
+        spell_name = str(getattr(c, "concentration_spell", "") or "").replace("-", " ").strip().title() or "their spell"
         c.concentrating = False
+        c.concentration_spell = ""
         c.concentration_spell_level = None
         c.concentration_started_turn = None
         aoe_ids = list(getattr(c, "concentration_aoe_ids", []) or [])
@@ -2504,7 +2506,7 @@ class InitiativeTracker(tk.Tk):
                         changed = True
                 if changed:
                     self._lan_aoes = lan_store
-        self._log("concentration ended", cid=c.cid)
+        self._log(f"🛡 {c.name} loses concentration on {spell_name}.")
 
     def _queue_concentration_save(self, c: Combatant, source: str) -> None:
         if not getattr(c, "concentrating", False):
@@ -2551,6 +2553,8 @@ class InitiativeTracker(tk.Tk):
 
             def on_pass() -> None:
                 state["remaining_saves"] = max(0, int(state.get("remaining_saves", 0) or 0) - 1)
+                spell_name = str(getattr(c, "concentration_spell", "") or "").replace("-", " ").strip().title() or "their spell"
+                self._log(f"🛡 {c.name} maintains concentration on {spell_name}.")
                 if int(state.get("remaining_saves", 0) or 0) <= 0:
                     if win.winfo_exists():
                         win.destroy()
@@ -9686,6 +9690,12 @@ class BattleMapWindow(tk.Toplevel):
                 tot = r + m
                 passed = (r > 0 and r != 1 and tot >= dc)
                 is_immune = immune.get(cid, False)
+                lan_logger = getattr(getattr(self.app, "_lan", None), "_append_lan_log", None)
+                if callable(lan_logger):
+                    try:
+                        lan_logger(f"AoE save debug: target={c.name} save={save_name} total={tot} dc={dc} passed={passed}", level="info")
+                    except Exception:
+                        pass
                 nat1_max_applied = bool(max_nat1_total is not None and r == 1)
                 applied_components: List[Tuple[int, str]] = []
                 total_damage = 0
@@ -9710,9 +9720,9 @@ class BattleMapWindow(tk.Toplevel):
                 before = int(getattr(c, "hp", 0))
                 if is_immune:
                     if immune_desc:
-                        self.app._log(f"Damage to {c.name} was blocked — immune to {immune_desc}.")
+                        self.app._log(f"🛡 Damage to {c.name} was blocked — immune to {immune_desc}.")
                     else:
-                        self.app._log(f"Damage to {c.name} was blocked — immune.")
+                        self.app._log(f"🛡 Damage to {c.name} was blocked — immune.")
                 elif total_damage > 0:
                     damage_dealt = True
                     c.hp = max(0, before - int(total_damage))
@@ -9734,20 +9744,20 @@ class BattleMapWindow(tk.Toplevel):
                     if total_damage == 0:
                         if use_att:
                             self.app._log(
-                                f"{attacker} hits {c.name} with AoE (save {save_name} {tot} vs DC {dc}) — no damage{nat1_note}"
+                                f"🔮 {dname}: {attacker} hits {c.name} (save {save_name} {tot}) — no damage{nat1_note}"
                             )
                         else:
-                            self.app._log(f"{c.name} avoids AoE damage (save {save_name} {tot} vs DC {dc}){nat1_note}")
+                            self.app._log(f"🛡 {dname}: {c.name} avoids AoE damage (save {save_name} {tot}){nat1_note}")
                     else:
                         half_note = " (half on pass per component)" if (passed and half_on_pass.get()) else ""
                         dead_note = " (Dead)" if (died and use_att) else ""
                         if use_att:
                             self.app._log(
-                                f"{attacker} does {component_desc} damage to {c.name} (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note}){dead_note}"
+                                f"🎲🔮 {dname}: {attacker} hits {c.name} for {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note}){dead_note}"
                             )
                         else:
                             self.app._log(
-                                f"{c.name} takes {component_desc} damage (AoE; save {save_name} {tot} vs DC {dc}{' pass' if passed else ' fail'}{half_note})"
+                                f"🔮 {dname}: {c.name} takes {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note})"
                             )
 
                 if died and use_att and not is_immune:

@@ -1624,6 +1624,45 @@
       max-height: calc(100vh - var(--safeInsetTop) - var(--safeInsetBottom) - 40px);
     }
     .turn-card h2{margin:0 0 12px 0; font-size:18px;}
+    .dm-side-layout{
+      position:absolute;
+      top:10px;
+      bottom:10px;
+      left:10px;
+      right:10px;
+      pointer-events:none;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      z-index:5;
+    }
+    .dm-log-panel,.dm-map-preview{
+      pointer-events:auto;
+      background: rgba(11,14,21,0.72);
+      border:1px solid rgba(255,255,255,0.16);
+      border-radius:12px;
+      backdrop-filter: blur(6px);
+    }
+    .dm-log-panel{
+      width:min(430px,42vw);
+      display:none;
+      flex-direction:column;
+      overflow:hidden;
+    }
+    .dm-log-panel.show{display:flex;}
+    .dm-log-header{display:flex;justify-content:space-between;gap:8px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);}
+    .dm-log-list{overflow:auto; padding:6px 8px; font-size:12px; display:flex; flex-direction:column; gap:4px;}
+    .dm-log-entry{display:grid; grid-template-columns: 72px 1fr; gap:8px; padding:4px 6px; border-radius:6px; cursor:pointer;}
+    .dm-log-entry:hover{background:rgba(255,255,255,0.08);}
+    .dm-log-time{color:var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;}
+    .dm-log-entry.attack .dm-log-msg{color:#ffdbb0;}
+    .dm-log-entry.damage .dm-log-msg{color:#ffbcbc;}
+    .dm-log-entry.heal .dm-log-msg{color:#bcffd9;}
+    .dm-log-entry.save .dm-log-msg{color:#b8d3ff;}
+    .dm-map-preview{width:min(300px,28vw); display:none; flex-direction:column; padding:8px; opacity:0.55;}
+    .dm-map-preview.show{display:flex;}
+    .dm-map-preview canvas{width:100%; aspect-ratio:1/1; background:rgba(5,8,14,0.78); border-radius:8px;}
+
     .log-content{
       overflow:auto;
       flex:1;
@@ -1800,6 +1839,26 @@
     <div class="waiting" id="waitingOverlay">(waiting for combat...)</div>
     <div class="summon-placement-banner hidden" id="summonPlacementBanner" role="status" aria-live="polite"></div>
     <div class="map-tooltip" id="tokenTooltip" role="tooltip" aria-hidden="true"></div>
+    <div class="dm-side-layout" id="dmSideLayout">
+      <aside class="dm-log-panel" id="dmLogPanel">
+        <div class="dm-log-header">
+          <strong>Battle Log</strong>
+          <label><input type="checkbox" id="dmLogAutoScroll" checked /> Auto-scroll</label>
+        </div>
+        <div class="dm-log-header">
+          <label><input type="checkbox" data-log-filter="attack" checked />🎲</label>
+          <label><input type="checkbox" data-log-filter="damage" checked />💥</label>
+          <label><input type="checkbox" data-log-filter="save" checked />🛡</label>
+          <label><input type="checkbox" data-log-filter="heal" checked />❤️</label>
+          <label><input type="checkbox" data-log-filter="spell" checked />🔮</label>
+        </div>
+        <div class="dm-log-list" id="dmLogList"></div>
+      </aside>
+      <aside class="dm-map-preview" id="dmMapPreview">
+        <strong>Map Preview</strong>
+        <canvas id="dmPreviewCanvas" width="240" height="240"></canvas>
+      </aside>
+    </div>
 
     <div class="modal" id="claimModal" aria-hidden="true">
       <div class="card">
@@ -1942,6 +2001,18 @@
                 <input class="hotkey-input" id="hotkeyBattleLog" data-hotkey-action="battleLog" placeholder="Hotkey" readonly />
               </div>
               <div class="hotkey-conflict" id="hotkeyConflictBattleLog"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">DM side log panel</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleDmLogPanel" />Show</label>
+              </div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">DM map preview</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleDmMapPreview" />Show</label>
+              </div>
             </div>
           </div>
         </details>
@@ -3001,6 +3072,8 @@ __DAMAGE_TYPE_OPTIONS__
   const hotkeyZoomOutInput = document.getElementById("hotkeyZoomOut");
   const hotkeyBattleLogInput = document.getElementById("hotkeyBattleLog");
   const hotkeyUseActionInput = document.getElementById("hotkeyUseAction");
+  const toggleDmLogPanelInput = document.getElementById("toggleDmLogPanel");
+  const toggleDmMapPreviewInput = document.getElementById("toggleDmMapPreview");
   const hotkeyUseBonusActionInput = document.getElementById("hotkeyUseBonusAction");
   const hotkeyDashInput = document.getElementById("hotkeyDash");
   const hotkeyStandUpInput = document.getElementById("hotkeyStandUp");
@@ -3012,6 +3085,13 @@ __DAMAGE_TYPE_OPTIONS__
   const logContent = document.getElementById("logContent");
   const logRefreshBtn = document.getElementById("logRefresh");
   const logCloseBtn = document.getElementById("logClose");
+  const dmSideLayout = document.getElementById("dmSideLayout");
+  const dmLogPanel = document.getElementById("dmLogPanel");
+  const dmLogList = document.getElementById("dmLogList");
+  const dmMapPreview = document.getElementById("dmMapPreview");
+  const dmPreviewCanvas = document.getElementById("dmPreviewCanvas");
+  const dmLogAutoScrollInput = document.getElementById("dmLogAutoScroll");
+  const dmLogFilterInputs = Array.from(document.querySelectorAll("input[data-log-filter]"));
   const waitingOverlay = document.getElementById("waitingOverlay");
   const claimModal = document.getElementById("claimModal");
   const claimListEl = document.getElementById("claimList");
@@ -3265,6 +3345,12 @@ __DAMAGE_TYPE_OPTIONS__
     initiativeStyle: "inittracker_ui_initiativeStyle",
   };
   const mapViewSettingsKey = "inittracker_map_view_settings";
+  const dmUiPrefsKey = "inittracker_dm_ui_prefs";
+  let dmLogLines = [];
+  let dmHighlightUntil = new Map();
+  let dmUiPrefs = {showMapPreview:false, showLogPanel:false, autoScroll:true, filters:{attack:true,damage:true,save:true,heal:true,spell:true}};
+  try { dmUiPrefs = {...dmUiPrefs, ...(JSON.parse(localStorage.getItem(dmUiPrefsKey)||"{}")||{})}; } catch(_) {}
+
   let showTopbarTitle = readToggle(uiToggleKeys.topbarTitle, true);
   let showConnIndicator = readToggle(uiToggleKeys.connIndicator, true);
   let showLockMap = readToggle(uiToggleKeys.lockMap, true);
@@ -3308,6 +3394,7 @@ __DAMAGE_TYPE_OPTIONS__
     turnAlertsPanel.classList.toggle("hidden", shouldHideAlerts);
   }
   applyMapViewSettings(readMapViewSettings());
+  if (isMapView){ dmUiPrefs.showLogPanel = dmUiPrefs.showLogPanel === true; dmUiPrefs.showMapPreview = dmUiPrefs.showMapPreview === true; renderDmLogPanel(); }
   function applyMapViewReadOnlyControls(){
     if (!isMapView) return;
     const controls = [
@@ -6083,6 +6170,48 @@ __DAMAGE_TYPE_OPTIONS__
     return bestSq;
   }
 
+  
+  function saveDmUiPrefs(){ try { localStorage.setItem(dmUiPrefsKey, JSON.stringify(dmUiPrefs)); } catch(_) {} }
+  function classifyLogLine(text){ const t=(text||"").toLowerCase(); if (t.includes("heal")) return "heal"; if (t.includes("save")||t.includes("concentration")) return "save"; if (t.includes("hits")||t.includes("miss")) return "attack"; if (t.includes("damage")||t.includes("takes")) return "damage"; if (t.includes("spell")||t.includes("🔮")) return "spell"; return "spell"; }
+  function parseBattleLine(line){ const m=String(line||"").match(/^\[([^\]]+)\]\s*\t?\s*(.*)$/); return {time:m?m[1]:"", msg:m?m[2]:String(line||"")}; }
+  function renderDmLogPanel(){
+    if (!dmLogPanel || !dmLogList) return;
+    const isAdmin = isAdminClient();
+    dmLogPanel.classList.toggle('show', !!(isAdmin && dmUiPrefs.showLogPanel));
+    dmMapPreview?.classList.toggle('show', !!(isAdmin && dmUiPrefs.showMapPreview));
+    if (!isAdmin) return;
+    dmLogList.textContent = "";
+    const atBottom = dmLogList.scrollTop + dmLogList.clientHeight >= dmLogList.scrollHeight - 12;
+    dmLogLines.forEach((line)=>{
+      const parsed = parseBattleLine(line);
+      const kind = classifyLogLine(parsed.msg);
+      if (dmUiPrefs.filters && dmUiPrefs.filters[kind] === false) return;
+      const row = document.createElement('div');
+      row.className = `dm-log-entry ${kind}`;
+      row.innerHTML = `<div class="dm-log-time">${parsed.time ? parsed.time.slice(11,19) : ''}</div><div class="dm-log-msg">${parsed.msg}</div>`;
+      row.addEventListener('click', ()=>{
+        const unit=(state?.units||[]).find(u => parsed.msg.includes(u.name));
+        if (unit){ centerOn(unit.cid); dmHighlightUntil.set(String(unit.cid), Date.now()+2200); }
+      });
+      dmLogList.appendChild(row);
+    });
+    if (dmUiPrefs.autoScroll && (atBottom || dmLogAutoScrollInput?.checked)) dmLogList.scrollTop = dmLogList.scrollHeight;
+  }
+  function renderDmPreview(){
+    if (!dmPreviewCanvas || !state?.grid || !dmUiPrefs.showMapPreview || !isAdminClient()) return;
+    const pctx = dmPreviewCanvas.getContext('2d');
+    const w = dmPreviewCanvas.width, h = dmPreviewCanvas.height;
+    pctx.clearRect(0,0,w,h); pctx.fillStyle='#0a0c12'; pctx.fillRect(0,0,w,h);
+    const cols=Number(state.grid.cols||1), rows=Number(state.grid.rows||1);
+    const cell=Math.max(2, Math.min((w-8)/cols,(h-8)/rows));
+    const ox=(w-cols*cell)/2, oy=(h-rows*cell)/2;
+    pctx.strokeStyle='rgba(255,255,255,0.08)'; pctx.lineWidth=1;
+    for(let c=0;c<=cols;c++){const x=ox+c*cell; pctx.beginPath(); pctx.moveTo(x,oy); pctx.lineTo(x,oy+rows*cell); pctx.stroke();}
+    for(let r=0;r<=rows;r++){const y=oy+r*cell; pctx.beginPath(); pctx.moveTo(ox,y); pctx.lineTo(ox+cols*cell,y); pctx.stroke();}
+    (state.aoes||[]).forEach(a=>{ pctx.fillStyle='rgba(120,160,255,0.18)'; const cx=ox+(Number(a.cx||0)+0.5)*cell; const cy=oy+(Number(a.cy||0)+0.5)*cell; const rr=Math.max(2, Number(a.radius_sq||1)*cell); pctx.beginPath(); pctx.arc(cx,cy,rr,0,Math.PI*2); pctx.fill(); });
+    (state.units||[]).forEach(u=>{ const x=ox+(Number(u.pos.col)+0.5)*cell; const y=oy+(Number(u.pos.row)+0.5)*cell; pctx.fillStyle=(u.role==='enemy')?'rgba(255,91,91,0.9)':'rgba(106,255,176,0.9)'; pctx.beginPath(); pctx.arc(x,y,Math.max(2,cell*0.25),0,Math.PI*2); pctx.fill(); });
+  }
+
   function draw(){
     if (!state) return;
     if (!gridReady()){
@@ -6090,6 +6219,7 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     updateWaitingOverlay();
+    renderDmPreview();
     const w = canvas.getBoundingClientRect().width;
     const h = canvas.getBoundingClientRect().height;
 
@@ -6330,9 +6460,10 @@ __DAMAGE_TYPE_OPTIONS__
       }
       ctx.fill();
 
-      ctx.lineWidth = active ? 3 : 2;
+      const dmHl = (dmHighlightUntil.get(String(u.cid)) || 0) > Date.now();
+      ctx.lineWidth = (active || dmHl) ? 3 : 2;
       const mountStroke = u.is_mount ? "rgba(106,169,255,0.98)" : null;
-      ctx.strokeStyle = mountStroke || (mine ? "rgba(106,169,255,0.95)" : (active ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.25)"));
+      ctx.strokeStyle = dmHl ? "rgba(255,218,120,0.98)" : (mountStroke || (mine ? "rgba(106,169,255,0.95)" : (active ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.25)")));
       ctx.stroke();
       if (u.is_mount){
         ctx.save();
@@ -7411,6 +7542,11 @@ __DAMAGE_TYPE_OPTIONS__
         if (logContent){
           const lines = Array.isArray(msg.lines) ? msg.lines : [];
           logContent.textContent = lines.length ? lines.join("\n") : "No log entries yet.";
+          dmLogLines = lines;
+          const units = state?.units || [];
+          const now = Date.now();
+          lines.slice(-4).forEach((line)=>{ const text=String(line||""); const unit=units.find(u=>text.includes(u.name)); if (unit){ dmHighlightUntil.set(String(unit.cid), now+2200); }});
+          renderDmLogPanel();
         }
         showLogModal();
       } else if (msg.type === "grid_update"){
@@ -11181,6 +11317,16 @@ __DAMAGE_TYPE_OPTIONS__
   resize();
   updateMeasurementControls();
   updateWaitingOverlay();
+
+  if (toggleDmLogPanelInput){
+    toggleDmLogPanelInput.checked = dmUiPrefs.showLogPanel === true;
+    toggleDmLogPanelInput.addEventListener('change', ()=>{ dmUiPrefs.showLogPanel = toggleDmLogPanelInput.checked; saveDmUiPrefs(); renderDmLogPanel(); });
+  }
+  if (toggleDmMapPreviewInput){
+    toggleDmMapPreviewInput.checked = dmUiPrefs.showMapPreview === true;
+    toggleDmMapPreviewInput.addEventListener('change', ()=>{ dmUiPrefs.showMapPreview = toggleDmMapPreviewInput.checked; saveDmUiPrefs(); renderDmLogPanel(); renderDmPreview(); });
+  }
+
   connect();
 })();
 </script>
