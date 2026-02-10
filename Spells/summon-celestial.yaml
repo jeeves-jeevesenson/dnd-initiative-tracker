@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: summon-celestial
 name: Summon Celestial
-color: "#6aa9ff"
+color: '#6aa9ff'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024"
+  book: Player´s Handbook 2024
   page: null
   srd: false
 level: 5
@@ -48,22 +48,27 @@ mechanics:
   scaling: null
   summon:
     choices:
-      - name: Celestial Spirit
-        monster_slug: celestial-spirit
-        variants:
-          - Avenger
-          - Defender
+    - name: Celestial Spirit
+      monster_slug: celestial-spirit
+      variants:
+      - Avenger
+      - Defender
     count:
+      kind: fixed
+      min: 1
       max: 1
     duration:
       concentration: true
-      up_to: "1 hour"
+      up_to: 1 hour
     lifecycle:
       ends_on_zero_hp: true
       ends_on_spell_end: true
     control:
-      initiative: "shares your initiative count; acts immediately after you"
-      commands: "verbal (no action); if none, Dodge and avoid danger"
+      initiative: shares your initiative count; acts immediately after you
+      commands: verbal (no action); if none, Dodge and avoid danger
+    initiative:
+      mode: shared
+      turn_position: immediately_after_caster
   ui:
     template_preview: false
   notes: []

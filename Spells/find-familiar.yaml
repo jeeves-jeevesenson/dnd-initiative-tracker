@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: find-familiar
 name: Find Familiar
-color: "#6aa9ff"
+color: '#6aa9ff'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 1
@@ -61,49 +61,57 @@ mechanics:
   scaling: null
   summon:
     choices:
-      - name: Bat
-        monster_slug: bat
-      - name: Cat
-        monster_slug: cat
-      - name: Frog
-        monster_slug: frog
-      - name: Hawk
-        monster_slug: hawk
-      - name: Lizard
-        monster_slug: lizard
-      - name: Octopus
-        monster_slug: octopus
-      - name: Owl
-        monster_slug: owl
-      - name: Rat
-        monster_slug: rat
-      - name: Raven
-        monster_slug: raven
-      - name: Spider
-        monster_slug: spider
-      - name: Weasel
-        monster_slug: weasel
-      - name: Any Beast (CR 0)
-        monster_slug: null
+    - name: Bat
+      monster_slug: bat
+    - name: Cat
+      monster_slug: cat
+    - name: Frog
+      monster_slug: frog
+    - name: Hawk
+      monster_slug: hawk
+    - name: Lizard
+      monster_slug: lizard
+    - name: Octopus
+      monster_slug: octopus
+    - name: Owl
+      monster_slug: owl
+    - name: Rat
+      monster_slug: rat
+    - name: Raven
+      monster_slug: raven
+    - name: Spider
+      monster_slug: spider
+    - name: Weasel
+      monster_slug: weasel
     count:
+      kind: fixed
+      min: 1
       max: 1
-      notes: "Only one familiar at a time; recasting changes its form."
+      notes: Only one familiar at a time; recasting changes its form.
     duration:
       concentration: false
       duration_type: instantaneous
-      notes: "Familiar persists until dismissed or reduced to 0 Hit Points."
+      notes: Familiar persists until dismissed or reduced to 0 Hit Points.
     lifecycle:
       ends_on_zero_hp: true
       dismissible: true
       reappear_distance_ft: 30
     control:
-      initiative: "rolls its own initiative and acts independently"
-      commands: "obeys your commands; can't attack"
+      initiative: rolls its own initiative and acts independently
+      commands: obeys your commands; can't attack
     type_override:
       options:
-        - Celestial
-        - Fey
-        - Fiend
+      - Celestial
+      - Fey
+      - Fiend
+    choice_filters:
+    - label: Any Beast (CR 0)
+      type: monster_query
+      criteria:
+        type: beast
+        challenge_rating: 0
+    initiative:
+      mode: rolled_per_creature
   ui:
     template_preview: false
   notes: []

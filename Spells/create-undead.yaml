@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: create-undead
 name: Create Undead
-color: "#6aa9ff"
+color: '#6aa9ff'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 6
@@ -59,24 +59,56 @@ mechanics:
   scaling: null
   summon:
     choices:
-      - name: Ghoul
-        monster_slug: ghoul
-      - name: Ghast
-        monster_slug: ghast
-      - name: Wight
-        monster_slug: wight
-      - name: Mummy
-        monster_slug: mummy
+    - name: Ghoul
+      monster_slug: ghoul
+    - name: Ghast
+      monster_slug: ghast
+    - name: Wight
+      monster_slug: wight
+    - name: Mummy
+      monster_slug: mummy
     count:
-      max: 3
-      notes: "Choose up to three corpses; level 7: four Ghouls, level 8: five Ghouls or two Ghasts or Wights, level 9: six Ghouls, three Ghasts or Wights, or two Mummies."
+      kind: variable_by_slot
+      base:
+        slot_level: 6
+        quantity: 3
+        creature_options:
+        - ghoul
+      slot_overrides:
+      - slot_level: 7
+        quantity: 4
+        creature_options:
+        - ghoul
+      - slot_level: 8
+        options:
+        - quantity: 5
+          creature_options:
+          - ghoul
+        - quantity: 2
+          creature_options:
+          - ghast
+          - wight
+      - slot_level: 9
+        options:
+        - quantity: 6
+          creature_options:
+          - ghoul
+        - quantity: 3
+          creature_options:
+          - ghast
+          - wight
+        - quantity: 2
+          creature_options:
+          - mummy
     duration:
       concentration: false
-      control_duration: "24 hours"
-      notes: "Recast before 24 hours to maintain control."
+      control_duration: 24 hours
+      notes: Recast before 24 hours to maintain control.
     control:
-      commands: "bonus action mental command within 120 feet; same command for multiple"
-      default_behavior: "Dodge and avoid harm when uncommanded"
+      commands: bonus action mental command within 120 feet; same command for multiple
+      default_behavior: Dodge and avoid harm when uncommanded
+    initiative:
+      mode: rolled_per_creature
   ui:
     template_preview: false
   notes: []
