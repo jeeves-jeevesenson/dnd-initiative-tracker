@@ -1772,3 +1772,18 @@ If players cannot connect:
 ---
 
 **Happy gaming! May your rolls be high and your sessions epic! 🎲**
+
+## 🐎 Summon on Start (DM Pre-assigned Mounts)
+
+The DM can now pre-assign a summon (such as **Find Steed**) to a character before combat starts.
+
+- Open the DM/Admin panel in the LAN UI.
+- Choose:
+  - target character (CID),
+  - spell slug,
+  - monster slug,
+  - optional slot level,
+  - optional variant (for example: Celestial/Fey/Fiend).
+- Click **Assign Pre-Summon**.
+
+When initiative starts (before Round 1 turn flow begins), the pending summon is spawned automatically for that character.

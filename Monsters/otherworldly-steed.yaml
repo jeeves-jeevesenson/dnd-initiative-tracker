@@ -2,8 +2,9 @@ name: Otherworldly Steed
 size: Large
 type: Celestial or Fey or Fiend (Your Choice)
 alignment: Neutral
-ac: 10 + 1 per spell level
-hp: 5
+levels_allowed: 2+
+ac: 10 + var.slot_level
+hp: 5 + 10 * var.slot_level
 speed:
   Normal: 60 ft.
   Fly: 60 ft. (requires level 4+ spell)
@@ -18,6 +19,26 @@ abilities:
 senses: Passive Perception 11
 languages:
 - Telepathy 1 mile (works only with you)
+damage_type_by_variant:
+  Celestial: Radiant
+  Fey: Psychic
+  Fiend: Necrotic
+variants:
+- name: Celestial
+  damage_type: Radiant
+  bonus_action:
+    name: Healing Touch
+    desc: The steed touches another creature and restores Hit Points equal to 2d8 plus the spell's level.
+- name: Fey
+  damage_type: Psychic
+  bonus_action:
+    name: Fey Step
+    desc: The steed teleports up to 30 feet to an unoccupied space it can see.
+- name: Fiend
+  damage_type: Necrotic
+  bonus_action:
+    name: Fell Glare
+    desc: One creature the steed can see within 30 feet must succeed on a Wisdom save or be Frightened until the end of its next turn.
 description: See Find Steed
 traits:
 - name: Life Bond

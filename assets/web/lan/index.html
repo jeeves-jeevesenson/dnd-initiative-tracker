@@ -1884,6 +1884,14 @@
           <button class="btn" id="adminRefresh" type="button">Refresh</button>
         </div>
         <div class="admin-status" id="adminStatus">Loading…</div>
+        <div class="form-grid" id="adminPreSummonControls">
+          <div class="form-field"><label for="preSummonTarget">Target</label><select id="preSummonTarget"></select></div>
+          <div class="form-field"><label for="preSummonSpell">Spell</label><select id="preSummonSpell"></select></div>
+          <div class="form-field"><label for="preSummonMonster">Monster</label><select id="preSummonMonster"></select></div>
+          <div class="form-field"><label for="preSummonVariant">Variant</label><input id="preSummonVariant" type="text" placeholder="Celestial" /></div>
+          <div class="form-field"><label for="preSummonSlotLevel">Slot Level</label><input id="preSummonSlotLevel" type="number" min="1" max="9" value="2" /></div>
+          <div class="form-field"><label>&nbsp;</label><button class="btn" id="assignPreSummon" type="button">Assign Pre-Summon</button></div>
+        </div>
         <div class="admin-session-list" id="adminSessionList"></div>
         <div class="modal-actions">
           <button class="btn" id="adminClose">Close</button>
@@ -2161,6 +2169,10 @@ __DAMAGE_TYPE_OPTIONS__
               <div class="form-field">
                 <label for="castSummonChoice">Summon</label>
                 <select id="castSummonChoice"></select>
+              </div>
+              <div class="form-field">
+                <label for="castSummonVariant">Variant</label>
+                <select id="castSummonVariant"></select>
               </div>
               <div class="form-field">
                 <label for="castSummonQuantity">Quantity</label>
@@ -2721,6 +2733,12 @@ __DAMAGE_TYPE_OPTIONS__
   const adminStatus = document.getElementById("adminStatus");
   const adminRefreshBtn = document.getElementById("adminRefresh");
   const adminCloseBtn = document.getElementById("adminClose");
+  const preSummonTargetInput = document.getElementById("preSummonTarget");
+  const preSummonSpellInput = document.getElementById("preSummonSpell");
+  const preSummonMonsterInput = document.getElementById("preSummonMonster");
+  const preSummonVariantInput = document.getElementById("preSummonVariant");
+  const preSummonSlotLevelInput = document.getElementById("preSummonSlotLevel");
+  const assignPreSummonBtn = document.getElementById("assignPreSummon");
   const toggleTopbarTitle = document.getElementById("toggleTopbarTitle");
   const toggleConnIndicator = document.getElementById("toggleConnIndicator");
   const toggleLockMap = document.getElementById("toggleLockMap");
@@ -2847,6 +2865,7 @@ __DAMAGE_TYPE_OPTIONS__
   const aoeOptions = document.getElementById("aoeOptions");
   const summonOptions = document.getElementById("summonOptions");
   const castSummonChoiceInput = document.getElementById("castSummonChoice");
+  const castSummonVariantInput = document.getElementById("castSummonVariant");
   const castSummonQuantityInput = document.getElementById("castSummonQuantity");
   const castSummonMeta = document.getElementById("castSummonMeta");
   const castShapeInput = document.getElementById("castShape");
@@ -4359,10 +4378,41 @@ __DAMAGE_TYPE_OPTIONS__
       adminSessions = Array.isArray(payload.sessions) ? payload.sessions : [];
       setAdminStatus(`Loaded ${adminSessions.length} session${adminSessions.length === 1 ? "" : "s"}.`);
       renderAdminSessions();
+      refreshPreSummonControls();
     } catch (err){
       console.warn("Failed to load admin sessions.", err);
       setAdminStatus("Failed to load sessions.");
     }
+  }
+
+  function refreshPreSummonControls(){
+    if (!preSummonTargetInput || !preSummonSpellInput || !preSummonMonsterInput) return;
+    const units = Array.isArray(state?.units) ? state.units : [];
+    const pcs = units.filter((u) => String(u?.role || "") !== "enemy");
+    preSummonTargetInput.textContent = "";
+    pcs.forEach((u) => {
+      const opt = document.createElement("option");
+      opt.value = String(u.cid);
+      opt.textContent = `${u.name || `#${u.cid}`}`;
+      preSummonTargetInput.appendChild(opt);
+    });
+
+    preSummonSpellInput.textContent = "";
+    (cachedSpellPresets || []).filter((preset) => preset?.summon?.mount).forEach((preset) => {
+      const opt = document.createElement("option");
+      opt.value = normalizeTextValue(preset.slug || preset.id || "");
+      opt.textContent = preset.name || opt.value;
+      preSummonSpellInput.appendChild(opt);
+    });
+
+    preSummonMonsterInput.textContent = "";
+    const monsters = Array.isArray(state?.monster_choices) ? state.monster_choices : [];
+    monsters.forEach((entry) => {
+      const opt = document.createElement("option");
+      opt.value = normalizeTextValue(entry?.slug || "");
+      opt.textContent = entry?.name || opt.value;
+      preSummonMonsterInput.appendChild(opt);
+    });
   }
 
   const mapViewBlockedTypes = new Set([
@@ -5926,8 +5976,18 @@ __DAMAGE_TYPE_OPTIONS__
       ctx.fill();
 
       ctx.lineWidth = active ? 3 : 2;
-      ctx.strokeStyle = mine ? "rgba(106,169,255,0.95)" : (active ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.25)");
+      const mountStroke = u.is_mount ? "rgba(106,169,255,0.98)" : null;
+      ctx.strokeStyle = mountStroke || (mine ? "rgba(106,169,255,0.95)" : (active ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.25)"));
       ctx.stroke();
+      if (u.is_mount){
+        ctx.save();
+        ctx.font = `${Math.max(10, Math.floor(zoom*0.28))}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(106,169,255,0.95)";
+        ctx.fillText("♞", x, y - (r * 0.55));
+        ctx.restore();
+      }
 
       // condition markers inside
       const marks = (u.marks || "").trim();
@@ -6182,7 +6242,8 @@ __DAMAGE_TYPE_OPTIONS__
       }
       chip.setAttribute("role", "button");
       chip.setAttribute("tabindex", "0");
-      const unitName = unit?.name ? String(unit.name) : `#${cid}`;
+      const baseUnitName = unit?.name ? String(unit.name) : `#${cid}`;
+      const unitName = unit?.is_mount ? `${baseUnitName} (steed)` : baseUnitName;
       const truncatedUnitName = formatTurnChipName(unitName);
       chip.setAttribute("aria-label", `Turn ${idx + 1}: ${unitName}`);
       chip.setAttribute("data-full-name", unitName);
@@ -6700,6 +6761,10 @@ __DAMAGE_TYPE_OPTIONS__
           if (msg.data.player_profiles && typeof msg.data.player_profiles === "object"){
             state.player_profiles = msg.data.player_profiles;
           }
+          if (Array.isArray(msg.data.monster_choices)){
+            state.monster_choices = msg.data.monster_choices;
+          }
+          refreshPreSummonControls();
         }
       } else if (msg.type === "preset"){
         if (msg.preset && typeof msg.preset === "object"){
@@ -6717,6 +6782,7 @@ __DAMAGE_TYPE_OPTIONS__
         const oldSpellPresets = state?.spell_presets;
         const oldPlayerSpells = state?.player_spells;
         const oldPlayerProfiles = state?.player_profiles;
+        const oldMonsterChoices = state?.monster_choices;
         const oldGrid = state?.grid;
         const oldTerrain = state?.rough_terrain;
         const oldObstacles = state?.obstacles;
@@ -6731,6 +6797,9 @@ __DAMAGE_TYPE_OPTIONS__
         }
         if (!state.player_profiles && oldPlayerProfiles && typeof oldPlayerProfiles === "object"){
           state.player_profiles = oldPlayerProfiles;
+        }
+        if (!state.monster_choices && Array.isArray(oldMonsterChoices)){
+          state.monster_choices = oldMonsterChoices;
         }
         if (!state.grid && oldGrid){
           state.grid = oldGrid;
@@ -6748,6 +6817,7 @@ __DAMAGE_TYPE_OPTIONS__
           state.spell_presets = [];
         }
         updateSpellPresetOptions(state.spell_presets);
+        refreshPreSummonControls();
         lastPcList = msg.pcs || msg.claimable || [];
         maybeAutoClaimFromState(msg, lastPcList);
         updateWaitingOverlay();
@@ -7349,6 +7419,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
       msg.summon_choice = pendingSummonPlacement.summonChoice;
       msg.summon_quantity = pendingSummonPlacement.summonQuantity;
+      msg.variant = pendingSummonPlacement.summonVariant || null;
       send(msg);
       pendingSummonPlacement = null;
       return;
@@ -8913,6 +8984,7 @@ __DAMAGE_TYPE_OPTIONS__
       return {
         ...choice,
         monster_slug: slug,
+        variants: Array.isArray(choice.variants) ? choice.variants.map(v => normalizeTextValue(v)).filter(Boolean) : [],
         name: normalizeTextValue(choice.name) || fallback || "Unknown creature",
       };
     });
@@ -8986,10 +9058,13 @@ __DAMAGE_TYPE_OPTIONS__
     const selectedChoice = normalizeTextValue(castSummonChoiceInput?.value || choices[0]?.monster_slug || "");
     const quantityRule = getSummonQuantityRule(preset, Number(castSlotLevelInput?.value), selectedChoice);
     const rawQty = Number(castSummonQuantityInput?.value);
+    const selectedVariant = normalizeTextValue(castSummonVariantInput?.value || "");
     const quantity = Number.isFinite(rawQty) ? Math.floor(rawQty) : null;
     let reason = "";
     if (!selectedChoice){
       reason = "Pick a summon option first, matey.";
+    } else if (preset?.summon?.mount && !selectedVariant){
+      reason = "Pick a mount variant first, matey.";
     } else if (!Number.isFinite(quantity) || quantity <= 0){
       reason = "Enter a valid summon quantity, matey.";
     } else if (quantityRule.fixed !== null && quantity !== quantityRule.fixed){
@@ -9048,8 +9123,32 @@ __DAMAGE_TYPE_OPTIONS__
       }
     }
     const selectedChoice = normalizeTextValue(castSummonChoiceInput?.value || choices[0]?.monster_slug || "");
+    const selectedChoiceEntry = choices.find((choice) => normalizeTextValue(choice.monster_slug) === selectedChoice) || choices[0] || null;
+    const variants = Array.isArray(selectedChoiceEntry?.variants) ? selectedChoiceEntry.variants : [];
+    if (castSummonVariantInput){
+      const currentVariant = normalizeTextValue(castSummonVariantInput.value || "");
+      castSummonVariantInput.textContent = "";
+      const mountMode = Boolean(preset?.summon?.mount);
+      castSummonVariantInput.closest('.form-field')?.classList.toggle('hidden', !mountMode);
+      if (mountMode){
+        variants.forEach((variant) => {
+          const opt = document.createElement("option");
+          opt.value = variant;
+          opt.textContent = variant;
+          castSummonVariantInput.appendChild(opt);
+        });
+        castSummonVariantInput.value = currentVariant || variants[0] || "";
+      }
+    }
     const rule = getSummonQuantityRule(preset, Number(castSlotLevelInput?.value), selectedChoice);
-    if (castSummonQuantityInput){
+    if (castSummonVariantInput){
+    castSummonVariantInput.addEventListener("change", () => {
+      const preset = getSelectedSpellPreset();
+      validateSummonForm(preset, false);
+    });
+  }
+
+  if (castSummonQuantityInput){
       castSummonQuantityInput.min = String(rule.min);
       castSummonQuantityInput.max = String(rule.max);
       if (rule.fixed !== null){
@@ -9551,6 +9650,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
         const choices = getSummonChoices(preset);
         const summonChoice = normalizeTextValue(castSummonChoiceInput?.value || choices[0]?.monster_slug || "");
+        const summonVariant = normalizeTextValue(castSummonVariantInput?.value || "");
         const summonQuantity = Number(castSummonQuantityInput?.value);
         const presetSlug = normalizeTextValue(preset?.slug);
         const presetId = normalizeTextValue(preset?.id);
@@ -9563,6 +9663,7 @@ __DAMAGE_TYPE_OPTIONS__
           spell_id: presetId || null,
           summon_choice: summonChoice || null,
           summon_quantity: normalizedQuantity,
+          variant: summonVariant || null,
         };
         const caster = getClaimedUnit();
         if (!caster || !caster.pos){
@@ -9575,6 +9676,7 @@ __DAMAGE_TYPE_OPTIONS__
           spellSlug: presetSlug || null,
           spellId: presetId || null,
           summonChoice: summonChoice || null,
+          summonVariant: summonVariant || null,
           summonQuantity: normalizedQuantity,
           casterPos: {col: Number(caster.pos.col), row: Number(caster.pos.row)},
           maxRangeFt: parseSpellRangeFeet(preset?.range),
@@ -9997,6 +10099,34 @@ __DAMAGE_TYPE_OPTIONS__
   if (adminRefreshBtn){
     adminRefreshBtn.addEventListener("click", () => {
       fetchAdminSessions();
+    });
+  }
+  if (assignPreSummonBtn){
+    assignPreSummonBtn.addEventListener("click", async () => {
+      try {
+        const token = await requestAdminLogin();
+        const targetCid = Number(preSummonTargetInput?.value);
+        const spellSlug = normalizeTextValue(preSummonSpellInput?.value || "");
+        const monsterSlug = normalizeTextValue(preSummonMonsterInput?.value || "");
+        const variant = normalizeTextValue(preSummonVariantInput?.value || "");
+        const slotLevel = Number(preSummonSlotLevelInput?.value);
+        if (!Number.isFinite(targetCid) || !spellSlug || !monsterSlug){
+          localToast("Pick target, spell, and monster first.");
+          return;
+        }
+        send({
+          type: "assign_pre_summon",
+          admin_token: token,
+          target_cid: targetCid,
+          spell_slug: spellSlug,
+          monster_slug: monsterSlug,
+          slot_level: Number.isFinite(slotLevel) ? Math.floor(slotLevel) : null,
+          variant: variant || null,
+        });
+        localToast("Pre-summon assigned.");
+      } catch (err){
+        console.warn("Assign pre-summon canceled.", err);
+      }
     });
   }
   if (adminCloseBtn){
