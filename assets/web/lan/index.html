@@ -3333,6 +3333,8 @@ __DAMAGE_TYPE_OPTIONS__
   const autoClaimTimeoutMs = 1500;
   let autoClaimPending = null;
   let autoClaimChecked = false;
+  let claimInFlight = false;
+  let claimInFlightCid = null;
   let stateUpdateCounter = 0;
   let lastActiveCid = null;
   let lastTurnRound = null;
@@ -4839,13 +4841,16 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
-  async function fetchRosterPickerPlayers(){
-    if (rosterPickerStatus) rosterPickerStatus.textContent = "Refreshing roster…";
-    await fetch("/api/players/cache/refresh", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({clear_only: false}),
-    });
+  async function fetchRosterPickerPlayers(options = {}){
+    const forceRefresh = Boolean(options && options.forceRefresh);
+    if (rosterPickerStatus) rosterPickerStatus.textContent = forceRefresh ? "Refreshing roster…" : "Loading roster…";
+    if (forceRefresh){
+      await fetch("/api/players/cache/refresh", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({clear_only: false}),
+      });
+    }
     const res = await fetch("/api/players/list");
     if (!res.ok){
       throw new Error(`HTTP ${res.status}`);
@@ -4862,7 +4867,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (!force && units.length) return;
     showRosterPickerModal();
     try {
-      await fetchRosterPickerPlayers();
+      await fetchRosterPickerPlayers({forceRefresh: false});
     } catch (err){
       console.warn("Failed to load roster picker", err);
       if (rosterPickerStatus) rosterPickerStatus.textContent = "Failed to load roster.";
@@ -5071,11 +5076,26 @@ __DAMAGE_TYPE_OPTIONS__
     autoClaimPending = null;
   }
 
+  function setClaimInFlight(cid){
+    claimInFlight = true;
+    claimInFlightCid = normalizeCid(cid, "claim.inFlightCid");
+    if (claimConfirmBtn){
+      claimConfirmBtn.disabled = true;
+    }
+  }
+
+  function clearClaimInFlight(){
+    claimInFlight = false;
+    claimInFlightCid = null;
+    updateClaimSelection();
+  }
+
   function handleAutoClaimFailure(){
     if (!autoClaimPending) return;
     const cid = autoClaimPending.cid;
     const displayName = autoClaimPending.name || `#${cid}`;
     clearAutoClaimPending();
+    clearClaimInFlight();
     clearLanSelection();
     allowUnclaimed = false;
     localToast(`Could not claim ${displayName}. Please choose again.`);
@@ -5123,6 +5143,7 @@ __DAMAGE_TYPE_OPTIONS__
       }, autoClaimTimeoutMs),
       startedAt: stateUpdateCounter,
     };
+    setClaimInFlight(selection.cid);
     send({type:"claim", cid: selection.cid, client_id: clientId});
   }
 
@@ -5157,7 +5178,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
     });
     if (claimConfirmBtn){
-      claimConfirmBtn.disabled = selectedClaimCid === null || selectedClaimCid === undefined;
+      claimConfirmBtn.disabled = claimInFlight || selectedClaimCid === null || selectedClaimCid === undefined;
     }
   }
 
@@ -5297,6 +5318,7 @@ __DAMAGE_TYPE_OPTIONS__
   function requestCharacterSwitch(){
     allowUnclaimed = false;
     clearAutoClaimPending();
+    clearClaimInFlight();
     clearLanSelection();
     if (claimedCid !== null && claimedCid !== undefined){
       send({type:"unclaim", client_id: clientId});
@@ -7683,18 +7705,28 @@ __DAMAGE_TYPE_OPTIONS__
         updateHud();
         maybeShowTurnAlert();
         autoCenterOnJoin();
+        const claimsMap = (state && typeof state.claims === "object" && state.claims) ? state.claims : {};
+        const serverClaimedCid = Object.entries(claimsMap).reduce((found, entry) => {
+          if (found !== null && found !== undefined) return found;
+          const [cidKey, ownerClientId] = entry;
+          if (String(ownerClientId || "") !== clientId) return null;
+          return normalizeCid(cidKey, "state.claimsCid");
+        }, null);
+        if (serverClaimedCid !== null && serverClaimedCid !== undefined){
+          claimedCid = serverClaimedCid;
+          clearClaimInFlight();
+          const claimedName = getClaimablePcName(claimedCid, lastPcList || []) || `#${claimedCid}`;
+          if (meEl){
+            meEl.textContent = claimedName;
+          }
+        } else if (!claimInFlight){
+          claimedCid = null;
+          if (meEl){
+            meEl.textContent = "(unclaimed)";
+          }
+        }
         if (!claimedCid){
           showNoOwnedPcToast(msg.pcs || msg.claimable || []);
-        } else {
-          const stillClaimable = (lastPcList || []).some(pc => cidMatches(pc.cid, claimedCid, "state.claimedStillClaimable"));
-          const existsInUnits = (state.units || []).some(u => cidMatches(u.cid, claimedCid, "state.claimedExists"));
-          if (!stillClaimable && !existsInUnits){
-              claimedCid = null;
-              meEl.textContent = "(unclaimed)";
-              shownNoOwnedToast = false;
-              showNoOwnedPcToast(msg.pcs || msg.claimable || []);
-              refreshSpellPresetOptions();
-          }
         }
         refreshTurnAlertStatus();
         if (isPlanning){
@@ -7722,17 +7754,6 @@ __DAMAGE_TYPE_OPTIONS__
       } else if (msg.type === "units_snapshot"){
         if (!state){ state = {}; }
         state.units = Array.isArray(msg.units) ? msg.units : [];
-        if (claimedCid){
-          const stillClaimable = (lastPcList || []).some(pc => cidMatches(pc.cid, claimedCid, "unitsSnapshot.claimedStillClaimable"));
-          const existsInUnits = state.units.some(u => cidMatches(u.cid, claimedCid, "unitsSnapshot.claimedExists"));
-          if (!stillClaimable && !existsInUnits){
-            claimedCid = null;
-            meEl.textContent = "(unclaimed)";
-            shownNoOwnedToast = false;
-            showNoOwnedPcToast(lastPcList || []);
-            refreshSpellPresetOptions();
-          }
-        }
         updateHud();
         draw();
       } else if (msg.type === "unit_update"){
@@ -7744,6 +7765,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       } else if (msg.type === "force_claim"){
         if (isMapView) return;
+        clearClaimInFlight();
         if (msg.cid !== null && msg.cid !== undefined){
           claimedCid = normalizeCid(msg.cid, "forceClaim.cid");
           shownNoOwnedToast = false;
@@ -7761,6 +7783,7 @@ __DAMAGE_TYPE_OPTIONS__
         checkAutoClaimResolved();
       } else if (msg.type === "force_unclaim"){
         if (isMapView) return;
+        clearClaimInFlight();
         claimedCid = null;
         meEl.textContent = "(unclaimed)";
         shownNoOwnedToast = false;
@@ -8477,9 +8500,13 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const cidValue = normalizeCid(selectedClaimCid, "confirm.selectedCid");
       if (cidValue === null) return;
+      if (claimInFlight){
+        return;
+      }
       allowUnclaimed = false;
       claimedCid = cidValue;
       storeLanSelection(cidValue, lastPcList || []);
+      setClaimInFlight(cidValue);
       send({type:"claim", cid: cidValue, client_id: clientId});
       clearSpellFilters();
       clearAutoClaimPending();
@@ -11008,7 +11035,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   if (rosterPickerRefreshBtn){
     rosterPickerRefreshBtn.addEventListener("click", () => {
-      fetchRosterPickerPlayers().catch(() => {});
+      fetchRosterPickerPlayers({forceRefresh: true}).catch(() => {});
     });
   }
   if (rosterPickerCloseBtn){
