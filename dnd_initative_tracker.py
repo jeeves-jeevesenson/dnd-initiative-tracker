@@ -6844,18 +6844,19 @@ class InitiativeTracker(base.InitiativeTracker):
 
         win = tk.Toplevel(self)
         win.title("Library")
-        win.geometry("1060x640")
+        win.geometry("960x640")
+        win.minsize(900, 600)
         win.transient(self)
         win.after(0, win.lift)
 
         root = ttk.Frame(win, padding=10)
         root.pack(fill=tk.BOTH, expand=True)
         root.columnconfigure(0, weight=1)
-        root.rowconfigure(2, weight=1)
+        root.rowconfigure(1, weight=1)
 
         controls = ttk.Frame(root)
         controls.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        for idx in range(9):
+        for idx in range(10):
             controls.columnconfigure(idx, weight=0)
         controls.columnconfigure(7, weight=1)
 
@@ -6895,7 +6896,7 @@ class InitiativeTracker(base.InitiativeTracker):
         )
 
         paned = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
-        paned.grid(row=2, column=0, sticky="nsew")
+        paned.grid(row=1, column=0, sticky="nsew")
 
         left = ttk.Frame(paned)
         left.columnconfigure(0, weight=1)

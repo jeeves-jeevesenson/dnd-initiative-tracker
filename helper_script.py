@@ -3759,19 +3759,19 @@ class InitiativeTracker(tk.Tk):
         dlg = tk.Toplevel(self)
         dlg.title("Bulk Add")
         dlg.geometry("980x620")
-        dlg.minsize(900, 520)
+        dlg.minsize(900, 600)
         dlg.transient(self)
         dlg.after(0, dlg.grab_set)
 
         frm = ttk.Frame(dlg, padding=10)
         frm.pack(fill=tk.BOTH, expand=True)
-        frm.rowconfigure(1, weight=1)
+        frm.rowconfigure(0, weight=1)
         frm.columnconfigure(0, weight=1)
         frm.columnconfigure(1, weight=1)
 
         left = ttk.Frame(frm)
-        left.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=(0, 10))
-        left.rowconfigure(2, weight=1)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        left.rowconfigure(3, weight=1)
         left.columnconfigure(0, weight=1)
 
         ttk.Label(left, text="Creature Library").grid(row=0, column=0, sticky="w")
@@ -3800,8 +3800,9 @@ class InitiativeTracker(tk.Tk):
         info_btn.grid(row=4, column=0, sticky="w", pady=(8, 0))
 
         right = ttk.Frame(frm)
-        right.grid(row=0, column=1, rowspan=2, sticky="nsew")
+        right.grid(row=0, column=1, sticky="nsew")
         right.columnconfigure(0, weight=1)
+        right.rowconfigure(3, weight=1)
 
         ttk.Label(right, text="Group Builder").grid(row=0, column=0, sticky="w")
 
