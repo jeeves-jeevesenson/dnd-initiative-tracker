@@ -78,9 +78,4 @@ mechanics:
     lifecycle:
       ends_on_zero_hp: true
       ends_on_spell_end: false
-    control:
-      initiative: shares your initiative count; acts immediately after you
-      rules: While mounted, the steed acts on the rider's turn and can only Dash,
-        Disengage, or Dodge unless the rider is incapacitated.
-      commands: controlled mount while ridden
-      controller_mode: shared_turn
+    control: summoner

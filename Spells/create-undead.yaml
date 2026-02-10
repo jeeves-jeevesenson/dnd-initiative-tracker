@@ -106,9 +106,7 @@ mechanics:
       concentration: false
       control_duration: 24 hours
       notes: Recast before 24 hours to maintain control.
-    control:
-      commands: bonus action mental command within 120 feet; same command for multiple
-      default_behavior: Dodge and avoid harm when uncommanded
+    control: summoner
     initiative:
       mode: rolled_per_creature
   ui:
