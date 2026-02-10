@@ -3268,10 +3268,20 @@ class LanController:
     def _static_data_payload(self, planning: bool = False) -> Dict[str, Any]:
         """Return static data that only needs to be sent once on connection."""
         spell_presets = self.app._spell_presets_payload() if planning else self._cached_snapshot.get("spell_presets", [])
+        monster_choices = []
+        try:
+            if hasattr(self.app, "_monster_specs"):
+                monster_choices = [
+                    {"name": str(spec.name), "slug": Path(str(spec.filename or "")).stem}
+                    for spec in getattr(self.app, "_monster_specs", [])
+                ]
+        except Exception:
+            monster_choices = []
         return {
             "spell_presets": spell_presets,
             "player_spells": self._cached_snapshot.get("player_spells", {}),
             "player_profiles": self._cached_snapshot.get("player_profiles", {}),
+            "monster_choices": monster_choices,
             "conditions": [
                 "blinded", "charmed", "deafened", "frightened", "grappled", "incapacitated",
                 "invisible", "paralyzed", "petrified", "poisoned", "prone", "restrained", "stunned", "unconscious",
@@ -3458,6 +3468,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._turn_snapshots: Dict[int, Dict[str, Any]] = {}
         self._summon_groups: Dict[str, List[int]] = {}
         self._summon_group_meta: Dict[str, Dict[str, Any]] = {}
+        self._pending_pre_summons: Dict[int, Dict[str, Any]] = {}
 
         # POC helpers: start the LAN server automatically.
         # Start quietly (log on success; avoid popups if deps missing)
@@ -3744,6 +3755,45 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             pass
         return skip, msg, dec_skip
+
+    def _apply_pending_pre_summons(self) -> None:
+        pending = dict(getattr(self, "_pending_pre_summons", {}) or {})
+        if not pending:
+            return
+        for caster_cid, config in pending.items():
+            caster = self.combatants.get(int(caster_cid))
+            if caster is None or not isinstance(config, dict):
+                continue
+            spell_slug = str(config.get("spell_slug") or "").strip().lower()
+            monster_slug = str(config.get("monster_slug") or "").strip().lower()
+            slot_level = config.get("slot_level")
+            variant = str(config.get("variant") or "").strip() or None
+            if not spell_slug or not monster_slug:
+                continue
+            preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_slug)
+            if not isinstance(preset, dict):
+                continue
+            summon_cfg = preset.get("summon") if isinstance(preset.get("summon"), dict) else {}
+            if not isinstance(summon_cfg, dict):
+                continue
+            positions = None
+            caster_pos = self._lan_current_position(int(caster_cid))
+            if caster_pos is not None:
+                positions = [{"col": int(caster_pos[0]), "row": int(caster_pos[1])}]
+            self._spawn_mount(
+                caster_cid=int(caster_cid),
+                preset=preset,
+                summon_cfg=summon_cfg,
+                chosen_slug=monster_slug,
+                slot_level=slot_level if isinstance(slot_level, int) else None,
+                variant_name=variant,
+                summon_positions=positions,
+            )
+        self._pending_pre_summons = {}
+
+    def _start_turns(self) -> None:
+        self._apply_pending_pre_summons()
+        super()._start_turns()
 
     def _lan_current_position(self, cid: int) -> Optional[Tuple[int, int]]:
         mw = None
@@ -4803,6 +4853,16 @@ class InitiativeTracker(base.InitiativeTracker):
         if not isinstance(color, str):
             return None
         value = color.strip().lower()
+        named = {
+            "blue": "#6aa9ff",
+            "red": "#ff6a6a",
+            "green": "#66d17a",
+            "yellow": "#f1c95f",
+            "purple": "#c97dff",
+            "teal": "#61d8d8",
+        }
+        if value in named:
+            return named[value]
         if not re.fullmatch(r"#[0-9a-f]{6}", value):
             return None
         return value
@@ -5152,6 +5212,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     "summon_source_spell": str(getattr(c, "summon_source_spell", "") or "") or None,
                     "summon_group_id": str(getattr(c, "summon_group_id", "") or "") or None,
                     "summon_controller_mode": str(getattr(c, "summon_controller_mode", "") or "") or None,
+                    "is_mount": bool(getattr(c, "is_mount", False)),
+                    "mount_for_cid": _normalize_cid_value(getattr(c, "mount_for_cid", None), "snapshot.mount_for"),
+                    "mounted_by_cid": _normalize_cid_value(getattr(c, "mounted_by_cid", None), "snapshot.mounted_by"),
+                    "summon_variant": str(getattr(c, "summon_variant", "") or "") or None,
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
                     "marks": marks,
                 }
@@ -7891,6 +7955,8 @@ class InitiativeTracker(base.InitiativeTracker):
         control_cfg = summon_cfg.get("control") if isinstance(summon_cfg.get("control"), dict) else {}
         for key in ("controller_mode", "control_mode", "owner"):
             raw = str(control_cfg.get(key) or "").strip().lower()
+            if raw in ("shared_turn", "shared", "same_turn"):
+                return "shared_turn"
             if raw in ("summoner", "caster", "caster_controls", "summoner_controls"):
                 return "summoner"
             if raw in ("dm", "admin", "independent"):
@@ -7993,7 +8059,32 @@ class InitiativeTracker(base.InitiativeTracker):
         if owner != int(claimed_cid):
             return False
         mode = str(getattr(combatant, "summon_controller_mode", "") or "").strip().lower()
-        return mode in ("summoner", "caster", "summoner_controls", "caster_controls")
+        return mode in ("summoner", "caster", "summoner_controls", "caster_controls", "shared_turn")
+
+    def _mount_rider_is_incapacitated(self, mount: Any) -> bool:
+        rider_cid = _normalize_cid_value(getattr(mount, "mounted_by_cid", None), "mount.rider")
+        if rider_cid is None:
+            rider_cid = _normalize_cid_value(getattr(mount, "mount_for_cid", None), "mount.owner")
+        if rider_cid is None:
+            return True
+        rider = self.combatants.get(int(rider_cid))
+        if rider is None:
+            return True
+        return bool(self._has_condition(rider, "incapacitated"))
+
+    def _mount_action_is_restricted(self, mount: Any, action_name: str) -> bool:
+        if not bool(getattr(mount, "is_mount", False)):
+            return False
+        rider_cid = _normalize_cid_value(getattr(mount, "mounted_by_cid", None), "mount.rider")
+        if rider_cid is None:
+            return False
+        rider = self.combatants.get(int(rider_cid))
+        if rider is None:
+            return False
+        if self._mount_rider_is_incapacitated(mount):
+            return False
+        allowed = {"dash", "disengage", "dodge"}
+        return self._action_name_key(action_name) not in allowed
 
     def _apply_summon_initiative(self, caster_cid: int, spawned_cids: List[int], summon_cfg: Dict[str, Any]) -> None:
         initiative_cfg = summon_cfg.get("initiative") if isinstance(summon_cfg.get("initiative"), dict) else {}
@@ -8023,6 +8114,181 @@ class InitiativeTracker(base.InitiativeTracker):
             summoned.initiative = int(random.randint(1, 20) + dex_mod)
             setattr(summoned, "summon_shared_turn", False)
 
+    def _evaluate_dynamic_formula(self, formula: Any, variables: Dict[str, Any]) -> Any:
+        if not isinstance(formula, str):
+            return formula
+        trimmed = formula.strip()
+        if not trimmed:
+            return formula
+        if not re.fullmatch(r"[0-9+\-*/(). _a-zA-Z]+", trimmed):
+            return formula
+        expr = trimmed
+        flattened: Dict[str, float] = {}
+        for key, value in (variables or {}).items():
+            if isinstance(value, dict):
+                for nested_key, nested_val in value.items():
+                    try:
+                        safe_value = float(nested_val)
+                    except Exception:
+                        safe_value = 0.0
+                    if not math.isfinite(safe_value):
+                        safe_value = 0.0
+                    flattened[f"{key}.{nested_key}"] = safe_value
+            else:
+                try:
+                    safe_value = float(value)
+                except Exception:
+                    safe_value = 0.0
+                if not math.isfinite(safe_value):
+                    safe_value = 0.0
+                flattened[str(key)] = safe_value
+        for key in sorted(flattened.keys(), key=len, reverse=True):
+            expr = re.sub(rf"\b{re.escape(str(key))}\b", str(flattened[key]), expr)
+        if re.search(r"[a-zA-Z]", expr):
+            return formula
+        try:
+            result = eval(expr, {"__builtins__": {}})
+        except Exception:
+            return formula
+        try:
+            result_value = float(result)
+        except Exception:
+            return formula
+        if not math.isfinite(result_value):
+            return formula
+        if abs(result_value - round(result_value)) < 1e-9:
+            return int(round(result_value))
+        return result_value
+
+    def _apply_monster_variant(self, spec: MonsterSpec, variant_name: Optional[str], slot_level: Optional[int]) -> MonsterSpec:
+        if not isinstance(getattr(spec, "raw_data", None), dict):
+            return spec
+        raw_data = copy.deepcopy(spec.raw_data)
+        variables = {"var": {"slot_level": int(slot_level or 0)}}
+        for key in ("ac", "hp"):
+            if key in raw_data:
+                raw_data[key] = self._evaluate_dynamic_formula(raw_data.get(key), variables)
+        hp_value = raw_data.get("hp")
+        hp = spec.hp
+        if isinstance(hp_value, (int, float)):
+            hp = int(hp_value)
+        selected_variant = None
+        variants = raw_data.get("variants") if isinstance(raw_data.get("variants"), list) else []
+        normalized_variant = str(variant_name or "").strip().lower()
+        if normalized_variant:
+            for variant in variants:
+                if not isinstance(variant, dict):
+                    continue
+                if str(variant.get("name") or "").strip().lower() == normalized_variant:
+                    selected_variant = variant
+                    break
+        if isinstance(selected_variant, dict):
+            bonus_action = selected_variant.get("bonus_action")
+            if isinstance(bonus_action, dict):
+                bonus_name = str(bonus_action.get("name") or "").strip()
+                bonus_desc = str(bonus_action.get("desc") or "").strip()
+                if bonus_name:
+                    existing_bonus = raw_data.get("bonus_actions") if isinstance(raw_data.get("bonus_actions"), list) else []
+                    raw_data["bonus_actions"] = list(existing_bonus) + [{"name": bonus_name, "desc": bonus_desc}]
+            raw_data["selected_variant"] = str(selected_variant.get("name") or "").strip() or None
+            damage_type = str(selected_variant.get("damage_type") or "").strip()
+            if damage_type:
+                raw_data["selected_damage_type"] = damage_type
+        return MonsterSpec(
+            filename=spec.filename,
+            name=spec.name,
+            mtype=spec.mtype,
+            cr=spec.cr,
+            hp=hp,
+            speed=spec.speed,
+            swim_speed=spec.swim_speed,
+            fly_speed=spec.fly_speed,
+            burrow_speed=spec.burrow_speed,
+            climb_speed=spec.climb_speed,
+            dex=spec.dex,
+            init_mod=spec.init_mod,
+            saving_throws=dict(spec.saving_throws or {}),
+            ability_mods=dict(spec.ability_mods or {}),
+            raw_data=raw_data,
+        )
+
+    def _spawn_mount(
+        self,
+        caster_cid: int,
+        preset: Dict[str, Any],
+        summon_cfg: Dict[str, Any],
+        chosen_slug: str,
+        slot_level: Optional[int],
+        variant_name: Optional[str],
+        summon_positions: Optional[List[Dict[str, Any]]] = None,
+    ) -> List[int]:
+        spec = self._find_monster_spec_by_slug(chosen_slug)
+        if spec is None:
+            return []
+        mod_spec = self._apply_monster_variant(spec, variant_name, slot_level)
+        source_spell = str(preset.get("slug") or preset.get("id") or "").strip()
+        group_id = f"summon:{int(time.time() * 1000)}:{caster_cid}:{len(self._summon_groups) + 1}"
+        side_raw = str(summon_cfg.get("side") or "caster").strip().lower()
+        ally_flag = side_raw in ("caster", "ally", "friendly", "allies")
+        color_override = self._normalize_token_color(summon_cfg.get("token_color") or summon_cfg.get("color"))
+        hp = int(mod_spec.hp or 1)
+        speed = int(mod_spec.speed or 60)
+        init_mod = int(mod_spec.init_mod or 0)
+        init_roll = int(random.randint(1, 20) + init_mod)
+        display_variant = str(variant_name or "").strip()
+        name = mod_spec.name if not display_variant else f"{mod_spec.name} ({display_variant})"
+        cid = self._create_combatant(
+            name=self._unique_name(name),
+            hp=hp,
+            speed=speed,
+            swim_speed=int(mod_spec.swim_speed or 0),
+            fly_speed=int(mod_spec.fly_speed or 0),
+            burrow_speed=int(mod_spec.burrow_speed or 0),
+            climb_speed=int(mod_spec.climb_speed or 0),
+            movement_mode="Normal",
+            initiative=init_roll,
+            dex=mod_spec.dex,
+            ally=ally_flag,
+            is_pc=False,
+            is_spellcaster=None,
+            saving_throws=dict(mod_spec.saving_throws or {}),
+            ability_mods=dict(mod_spec.ability_mods or {}),
+            monster_spec=mod_spec,
+        )
+        summoned = self.combatants.get(cid)
+        if summoned is None:
+            return []
+        setattr(summoned, "summoned_by_cid", int(caster_cid))
+        setattr(summoned, "summon_source_spell", source_spell)
+        setattr(summoned, "summon_group_id", group_id)
+        setattr(summoned, "summon_controller_mode", "shared_turn")
+        setattr(summoned, "is_mount", True)
+        setattr(summoned, "mount_for_cid", int(caster_cid))
+        setattr(summoned, "mounted_by_cid", int(caster_cid))
+        setattr(summoned, "summon_variant", display_variant or None)
+        if color_override:
+            setattr(summoned, "token_color", color_override)
+        spawned = [cid]
+        self._apply_summon_initiative(int(caster_cid), spawned, summon_cfg)
+        if summon_positions:
+            pos = summon_positions[0] if isinstance(summon_positions[0], dict) else {}
+            try:
+                col = int(pos.get("col"))
+                row = int(pos.get("row"))
+                self._lan_positions[cid] = (col, row)
+            except Exception:
+                pass
+        if spawned:
+            self._summon_groups[group_id] = list(spawned)
+            self._summon_group_meta[group_id] = {
+                "caster_cid": int(caster_cid),
+                "spell": source_spell,
+                "created_at": time.time(),
+                "concentration": bool(preset.get("concentration")),
+                "mount": True,
+            }
+        return spawned
+
     def _spawn_summons_from_cast(
         self,
         caster_cid: int,
@@ -8032,6 +8298,7 @@ class InitiativeTracker(base.InitiativeTracker):
         summon_choice: Any,
         summon_quantity: Optional[int] = None,
         summon_positions: Optional[List[Dict[str, Any]]] = None,
+        summon_variant: Optional[str] = None,
     ) -> List[int]:
         preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_id)
         if not isinstance(preset, dict):
@@ -8056,11 +8323,23 @@ class InitiativeTracker(base.InitiativeTracker):
         if not chosen_slug:
             return []
 
-        spec = self._find_monster_spec_by_slug(chosen_slug)
-        if spec is None:
-            return []
         caster = self.combatants.get(int(caster_cid))
         if caster is None:
+            return []
+
+        if bool(summon_cfg.get("mount")):
+            return self._spawn_mount(
+                caster_cid=int(caster_cid),
+                preset=preset,
+                summon_cfg=summon_cfg,
+                chosen_slug=str(chosen_slug),
+                slot_level=slot_level,
+                variant_name=summon_variant,
+                summon_positions=summon_positions,
+            )
+
+        spec = self._find_monster_spec_by_slug(chosen_slug)
+        if spec is None:
             return []
 
         group_id = f"summon:{int(time.time() * 1000)}:{caster_cid}:{len(self._summon_groups) + 1}"
@@ -8816,6 +9095,9 @@ class InitiativeTracker(base.InitiativeTracker):
             spell_id = str(msg.get("spell_id") or payload.get("spell_id") or "").strip()
             summon_choice = msg.get("summon_choice") if msg.get("summon_choice") not in (None, "") else payload.get("summon_choice")
             summon_quantity = msg.get("summon_quantity") if msg.get("summon_quantity") is not None else payload.get("summon_quantity")
+            summon_variant = msg.get("variant") if msg.get("variant") not in (None, "") else payload.get("variant")
+            if summon_variant is not None:
+                summon_variant = str(summon_variant).strip() or None
             raw_positions = payload.get("summon_positions")
             summon_positions: List[Dict[str, Any]] = []
             if isinstance(raw_positions, list):
@@ -8940,6 +9222,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         summon_choice=summon_choice,
                         summon_quantity=summon_quantity,
                         summon_positions=summon_positions,
+                        summon_variant=summon_variant,
                     )
                     if not spawned_cids:
                         self._lan.toast(ws_id, "Summoning failed, matey.")
@@ -8954,6 +9237,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     summon_choice=summon_choice,
                     summon_quantity=summon_quantity,
                     summon_positions=summon_positions,
+                    summon_variant=summon_variant,
                 )
                 if not spawned_cids:
                     self._lan.toast(ws_id, "Summoning failed, matey.")
@@ -8974,6 +9258,32 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             removed = self._dismiss_summons_for_caster(int(target_caster))
             self._lan.toast(ws_id, f"Dismissed {removed} summoned creature(s).")
+            return
+        elif typ == "assign_pre_summon":
+            if not is_admin:
+                self._lan.toast(ws_id, "Only the DM can assign pre-summons, matey.")
+                return
+            target_cid = _normalize_cid_value(msg.get("target_cid"), "assign_pre_summon.target")
+            if target_cid is None or int(target_cid) not in self.combatants:
+                self._lan.toast(ws_id, "Pick a valid character for pre-summon, matey.")
+                return
+            spell_slug = str(msg.get("spell_slug") or "").strip().lower()
+            monster_slug = str(msg.get("monster_slug") or "").strip().lower()
+            variant = str(msg.get("variant") or "").strip() or None
+            try:
+                slot_level = int(msg.get("slot_level")) if msg.get("slot_level") is not None else None
+            except Exception:
+                slot_level = None
+            if not spell_slug or not monster_slug:
+                self._lan.toast(ws_id, "Pre-summon needs spell and monster slugs.")
+                return
+            self._pending_pre_summons[int(target_cid)] = {
+                "spell_slug": spell_slug,
+                "monster_slug": monster_slug,
+                "slot_level": slot_level,
+                "variant": variant,
+            }
+            self._lan.toast(ws_id, "Pre-summon assigned.")
             return
         elif typ == "aoe_move":
             aid = msg.get("aid")
@@ -9406,6 +9716,9 @@ class InitiativeTracker(base.InitiativeTracker):
             if not action_entry:
                 self._lan.toast(ws_id, "That action ain't in yer sheet, matey.")
                 return
+            if self._mount_action_is_restricted(c, action_name):
+                self._lan.toast(ws_id, "Mounted steed can only Dash, Disengage, or Dodge while rider is active.")
+                return
             if spend == "bonus":
                 if not self._use_bonus_action(c):
                     self._lan.toast(ws_id, "No bonus actions left, matey.")
@@ -9803,6 +10116,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     "description",
                     "habitat",
                     "treasure",
+            "levels_allowed",
+            "variants",
+            "damage_type_by_variant",
+            "bonus_actions",
                 ):
                     if key in mon:
                         raw_data[key] = mon.get(key)
@@ -10043,6 +10360,10 @@ class InitiativeTracker(base.InitiativeTracker):
             "description",
             "habitat",
             "treasure",
+            "levels_allowed",
+            "variants",
+            "damage_type_by_variant",
+            "bonus_actions",
         ):
             if key in monster_data:
                 raw_data[key] = monster_data.get(key)

@@ -66,6 +66,9 @@ class SummonHarness:
     _resolve_summon_choice = staticmethod(tracker_mod.InitiativeTracker._resolve_summon_choice)
     _normalize_summon_controller_mode = staticmethod(tracker_mod.InitiativeTracker._normalize_summon_controller_mode)
     _apply_summon_initiative = tracker_mod.InitiativeTracker._apply_summon_initiative
+    _evaluate_dynamic_formula = tracker_mod.InitiativeTracker._evaluate_dynamic_formula
+    _apply_monster_variant = tracker_mod.InitiativeTracker._apply_monster_variant
+    _spawn_mount = tracker_mod.InitiativeTracker._spawn_mount
     _spawn_summons_from_cast = tracker_mod.InitiativeTracker._spawn_summons_from_cast
     _sorted_combatants = tracker_mod.InitiativeTracker._sorted_combatants
 
@@ -257,6 +260,64 @@ class SummonSpawnTests(unittest.TestCase):
         )
         self.assertIsNone(slug)
         self.assertEqual(qty, 1)
+
+    def test_mount_spawn_evaluates_formula_and_variant(self):
+        h = self._build_harness()
+        preset = {
+            "slug": "find-steed",
+            "id": "find-steed",
+            "concentration": False,
+            "summon": {
+                "mount": True,
+                "color": "blue",
+                "choices": [{"name": "Otherworldly Steed", "monster_slug": "otherworldly-steed"}],
+                "count": {"kind": "fixed", "min": 1, "max": 1},
+                "initiative": {"mode": "shared"},
+                "control": {"controller_mode": "shared_turn"},
+            },
+        }
+        spec = tracker_mod.MonsterSpec(
+            filename="otherworldly-steed.yaml",
+            name="Otherworldly Steed",
+            mtype="celestial",
+            cr=None,
+            hp=5,
+            speed=60,
+            swim_speed=0,
+            fly_speed=60,
+            burrow_speed=0,
+            climb_speed=0,
+            dex=1,
+            init_mod=1,
+            saving_throws={},
+            ability_mods={},
+            raw_data={
+                "hp": "5 + 10 * var.slot_level",
+                "ac": "10 + var.slot_level",
+                "variants": [
+                    {"name": "Celestial", "damage_type": "Radiant", "bonus_action": {"name": "Healing Touch", "desc": "heal"}},
+                    {"name": "Fey", "damage_type": "Psychic", "bonus_action": {"name": "Fey Step", "desc": "teleport"}},
+                ],
+            },
+        )
+        h._find_spell_preset = lambda spell_slug, spell_id: preset
+        h._find_monster_spec_by_slug = lambda slug: spec
+
+        spawned = h._spawn_summons_from_cast(
+            caster_cid=100,
+            spell_slug="find-steed",
+            spell_id="",
+            slot_level=4,
+            summon_choice="otherworldly-steed",
+            summon_variant="Fey",
+        )
+        self.assertEqual(len(spawned), 1)
+        c = h.combatants[spawned[0]]
+        self.assertTrue(getattr(c, "is_mount", False))
+        self.assertEqual(c.hp, 45)
+        self.assertEqual(getattr(c, "summon_variant", None), "Fey")
+        self.assertEqual(getattr(c, "token_color", None), "#6aa9ff")
+
 
 
 if __name__ == "__main__":
