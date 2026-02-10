@@ -989,7 +989,7 @@ class LanController:
         self._client_log_max: int = 30
         self._lan_logger = _make_lan_logger()
         self._lan_log_lock = threading.Lock()
-        self._lan_log_buffer = deque(maxlen=400)
+        self._lan_log_buffer = deque(maxlen=2000)
         if os.getenv("LAN_BIND_DEBUG") == "1":
             self._lan_logger.info(
                 "LAN_BIND_DEBUG LanController init tracker=%s id=%s",
@@ -1442,8 +1442,10 @@ class LanController:
             return self._admin_sessions_payload()
 
         @self._fastapi_app.get("/api/lan/logs")
-        async def lan_logs(request: Request, limit: int = 200):
+        async def lan_logs(request: Request, limit: int = 200, full: bool = False):
             self._require_admin(request)
+            if full:
+                return {"lines": self._lan_battle_log_lines(limit=0)}
             try:
                 limit = int(limit)
             except Exception:
