@@ -547,6 +547,10 @@
       font-size: 11px;
       color: var(--muted);
     }
+    .btn.mount.glow{
+      box-shadow: 0 0 0.8rem rgba(106,169,255,0.95);
+      border-color: rgba(106,169,255,0.95);
+    }
     .cast-panel summary{
       cursor:pointer;
       font-weight:700;
@@ -2141,6 +2145,8 @@
           <button class="btn" id="standUp">Stand Up</button>
           <button class="btn" id="resetTurn">Reset Turn</button>
           <button class="btn" id="dismissSummons">Dismiss Summons</button>
+          <button class="btn mount hidden" id="mountBtn">Mount</button>
+          <button class="btn hidden" id="dismountBtn">Dismount</button>
           <button class="btn danger" id="endTurn">End Turn</button>
         </div>
       </div>
@@ -2411,6 +2417,16 @@ __DAMAGE_TYPE_OPTIONS__
             <button class="btn accent" id="castSubmit" type="submit">Cast</button>
           </div>
         </form>
+      </div>
+    </div>
+    <div class="modal" id="mountPromptModal" aria-hidden="true">
+      <div class="card">
+        <h2>Mount Request</h2>
+        <div class="hint" id="mountPromptBody">Someone wants to mount you. OK?</div>
+        <div class="modal-actions">
+          <button class="btn accent" id="mountPromptYes">Yes</button>
+          <button class="btn" id="mountPromptNo">No</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3030,6 +3046,12 @@ __DAMAGE_TYPE_OPTIONS__
   const standUpBtn = document.getElementById("standUp");
   const dismissSummonsBtn = document.getElementById("dismissSummons");
   const endTurnBtn = document.getElementById("endTurn");
+  const mountBtn = document.getElementById("mountBtn");
+  const dismountBtn = document.getElementById("dismountBtn");
+  const mountPromptModal = document.getElementById("mountPromptModal");
+  const mountPromptBody = document.getElementById("mountPromptBody");
+  const mountPromptYes = document.getElementById("mountPromptYes");
+  const mountPromptNo = document.getElementById("mountPromptNo");
   const showAllNamesEl = document.getElementById("showAllNames");
   const castOverlay = document.getElementById("sheetCastView");
   const castOverlayOpenBtn = document.getElementById("castOverlayOpen");
@@ -3207,6 +3229,8 @@ __DAMAGE_TYPE_OPTIONS__
   let lastActiveCid = null;
   let lastTurnRound = null;
   let selectedTurnCid = null;
+  let pendingMountRequestId = null;
+  let pendingMountPair = null;
   let hoveredTurnCid = null;
   let adminSessions = [];
   const adminTokenKey = "inittracker_admin_auth";
@@ -4329,6 +4353,7 @@ __DAMAGE_TYPE_OPTIONS__
     applyConnStyle();
     updateHotkeyInputs();
     updateSpellPanelVisibility();
+    updateMountControls();
     updateAoeLockButton();
   }
 
@@ -6882,6 +6907,32 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+
+  function mountCandidatePair(){
+    const me = getClaimedUnit();
+    if (!me || !state?.units) return null;
+    if (me.rider_cid || me.mounted_by_cid) return null;
+    const sameTile = state.units.filter(u => u?.ally && Number(u?.pos?.col)===Number(me?.pos?.col) && Number(u?.pos?.row)===Number(me?.pos?.row) && Number(u?.cid)!==Number(me?.cid));
+    if (sameTile.length !== 1) return null;
+    const mount = sameTile[0];
+    if (mount.rider_cid || mount.mounted_by_cid) return null;
+    if (!mount.can_be_mounted && !mount.is_mount) return null;
+    return {rider: me, mount};
+  }
+
+  function updateMountControls(){
+    const me = getClaimedUnit();
+    const pair = mountCandidatePair();
+    pendingMountPair = pair;
+    if (mountBtn){
+      mountBtn.classList.toggle("hidden", !pair);
+      mountBtn.classList.toggle("glow", !!pair);
+    }
+    if (dismountBtn){
+      dismountBtn.classList.toggle("hidden", !(me && me.rider_cid));
+    }
+  }
+
   function updateHud(){
     if (!state){ return; }
     const active = state.active_cid;
@@ -7407,6 +7458,15 @@ __DAMAGE_TYPE_OPTIONS__
       } else if (msg.type === "toast"){
         noteEl.textContent = msg.text || "…";
         setTimeout(() => noteEl.textContent = "Tip: drag yer token · hold Shift to drag AoE (touch-hold ok)", 2500);
+      } else if (msg.type === "mount_prompt"){
+        pendingMountRequestId = msg.request_id || null;
+        if (mountPromptBody){
+          mountPromptBody.textContent = `${msg.rider_name || "Someone"} wants to mount you. OK?`;
+        }
+        if (mountPromptModal){
+          mountPromptModal.classList.add("show");
+          mountPromptModal.setAttribute("aria-hidden", "false");
+        }
       } else if (msg.type === "battle_log"){
         if (logContent){
           const lines = Array.isArray(msg.lines) ? msg.lines : [];
@@ -11130,6 +11190,29 @@ __DAMAGE_TYPE_OPTIONS__
       send({type:"reset_turn", cid: claimedCid});
     });
   }
+
+  if (mountBtn){
+    mountBtn.addEventListener("click", () => {
+      if (!pendingMountPair) return;
+      send({type:"mount_request", rider_cid:Number(pendingMountPair.rider.cid), mount_cid:Number(pendingMountPair.mount.cid)});
+    });
+  }
+  if (dismountBtn){
+    dismountBtn.addEventListener("click", () => send({type:"dismount"}));
+  }
+  if (mountPromptYes){
+    mountPromptYes.addEventListener("click", () => {
+      send({type:"mount_response", request_id: pendingMountRequestId, accept:true});
+      if (mountPromptModal){ mountPromptModal.classList.remove("show"); mountPromptModal.setAttribute("aria-hidden", "true"); }
+    });
+  }
+  if (mountPromptNo){
+    mountPromptNo.addEventListener("click", () => {
+      send({type:"mount_response", request_id: pendingMountRequestId, accept:false});
+      if (mountPromptModal){ mountPromptModal.classList.remove("show"); mountPromptModal.setAttribute("aria-hidden", "true"); }
+    });
+  }
+
   if (endTurnBtn){
     endTurnBtn.addEventListener("click", () => {
       if (isMapView) return;

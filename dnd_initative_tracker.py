@@ -2067,6 +2067,9 @@ class LanController:
                         "aoe_remove",
                         "dismiss_summons",
                         "reset_player_characters",
+                        "mount_request",
+                        "mount_response",
+                        "dismount",
                     ):
                         # enqueue for Tk thread
                         with self._clients_lock:
@@ -3499,6 +3502,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._summon_groups: Dict[str, List[int]] = {}
         self._summon_group_meta: Dict[str, Dict[str, Any]] = {}
         self._pending_pre_summons: Dict[int, Dict[str, Any]] = {}
+        self._pending_mount_requests: Dict[str, Dict[str, Any]] = {}
 
         # POC helpers: start the LAN server automatically.
         # Start quietly (log on success; avoid popups if deps missing)
@@ -3781,6 +3785,7 @@ class InitiativeTracker(base.InitiativeTracker):
     def _process_start_of_turn(self, c: Any) -> Tuple[bool, str, set[str]]:
         skip, msg, dec_skip = super()._process_start_of_turn(c)
         try:
+            setattr(c, "has_mounted_this_turn", False)
             self._lan_record_turn_snapshot(int(getattr(c, "cid", -1)))
         except Exception:
             pass
@@ -4823,6 +4828,17 @@ class InitiativeTracker(base.InitiativeTracker):
             mw = None
 
         for cid in removed:
+            gone = self.combatants.get(cid)
+            if gone is not None:
+                rider_cid = _normalize_cid_value(getattr(gone, "mounted_by_cid", None), "remove.mounted_by")
+                mount_cid = _normalize_cid_value(getattr(gone, "rider_cid", None), "remove.rider")
+                if rider_cid is not None and rider_cid in self.combatants:
+                    setattr(self.combatants[rider_cid], "rider_cid", None)
+                if mount_cid is not None and mount_cid in self.combatants:
+                    m = self.combatants[mount_cid]
+                    setattr(m, "mounted_by_cid", None)
+                    setattr(m, "mount_controller_mode", "independent")
+                    setattr(m, "mount_shared_turn", False)
             self.combatants.pop(cid, None)
             self._lan_positions.pop(cid, None)
             self._turn_snapshots.pop(cid, None)
@@ -5247,8 +5263,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     "concentrating": bool(getattr(c, "concentrating", False)),
                     "concentration_spell": str(getattr(c, "concentration_spell", "") or "") or None,
                     "is_mount": bool(getattr(c, "is_mount", False)),
-                    "mount_for_cid": _normalize_cid_value(getattr(c, "mount_for_cid", None), "snapshot.mount_for"),
+                    "rider_cid": _normalize_cid_value(getattr(c, "rider_cid", None), "snapshot.rider_cid"),
                     "mounted_by_cid": _normalize_cid_value(getattr(c, "mounted_by_cid", None), "snapshot.mounted_by"),
+                    "mount_shared_turn": bool(getattr(c, "mount_shared_turn", False)),
+                    "mount_controller_mode": str(getattr(c, "mount_controller_mode", "") or "") or None,
+                    "has_mounted_this_turn": bool(getattr(c, "has_mounted_this_turn", False)),
+                    "can_be_mounted": bool(getattr(c, "can_be_mounted", False)),
                     "summon_variant": str(getattr(c, "summon_variant", "") or "") or None,
                     "slot_level": getattr(c, "summon_slot_level", None),
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
@@ -8109,8 +8129,6 @@ class InitiativeTracker(base.InitiativeTracker):
     def _mount_rider_is_incapacitated(self, mount: Any) -> bool:
         rider_cid = _normalize_cid_value(getattr(mount, "mounted_by_cid", None), "mount.rider")
         if rider_cid is None:
-            rider_cid = _normalize_cid_value(getattr(mount, "mount_for_cid", None), "mount.owner")
-        if rider_cid is None:
             return True
         rider = self.combatants.get(int(rider_cid))
         if rider is None:
@@ -8127,9 +8145,67 @@ class InitiativeTracker(base.InitiativeTracker):
         if rider is None:
             return False
         if self._mount_rider_is_incapacitated(mount):
+            setattr(mount, "mount_controller_mode", "independent")
+            return False
+        if str(getattr(mount, "mount_controller_mode", "") or "").strip().lower() != "rider":
             return False
         allowed = {"dash", "disengage", "dodge"}
         return self._action_name_key(action_name) not in allowed
+
+    def _apply_mount_initiative(self, rider_cid: int, mount_cid: int) -> None:
+        rider = self.combatants.get(int(rider_cid))
+        mount = self.combatants.get(int(mount_cid))
+        if rider is None or mount is None:
+            return
+        mount.initiative = int(getattr(rider, "initiative", 0) or 0)
+        setattr(mount, "mount_shared_turn", True)
+        setattr(mount, "summon_anchor_after_cid", int(rider_cid))
+        setattr(mount, "summon_anchor_seq", 1)
+
+    def _restore_mount_initiative(self, rider_cid: int, mount_cid: int) -> None:
+        mount = self.combatants.get(int(mount_cid))
+        if mount is None:
+            return
+        setattr(mount, "mount_shared_turn", False)
+        setattr(mount, "summon_anchor_after_cid", None)
+        setattr(mount, "summon_anchor_seq", 0)
+
+    def _mount_cost(self, rider: Any) -> int:
+        return max(0, int(getattr(rider, "speed", 0) or 0) // 2)
+
+    def _find_ws_for_cid(self, cid: Optional[int]) -> List[int]:
+        if cid is None:
+            return []
+        try:
+            with self._lan._clients_lock:
+                return list(self._lan._cid_to_ws.get(int(cid), set()))
+        except Exception:
+            return []
+
+    def _accept_mount(self, rider_cid: int, mount_cid: int, ws_id: Optional[int], auto: bool = False) -> None:
+        rider = self.combatants.get(int(rider_cid))
+        mount = self.combatants.get(int(mount_cid))
+        if rider is None or mount is None:
+            return
+        if bool(getattr(rider, "has_mounted_this_turn", False)):
+            if ws_id is not None:
+                self._lan.toast(ws_id, "Ye already mounted this turn.")
+            return
+        cost = self._mount_cost(rider)
+        if int(getattr(rider, "move_remaining", 0) or 0) < cost:
+            if ws_id is not None:
+                self._lan.toast(ws_id, f"Not enough movement to mount (need {cost} ft).")
+            return
+        rider.move_remaining = max(0, int(getattr(rider, "move_remaining", 0) or 0) - cost)
+        setattr(rider, "has_mounted_this_turn", True)
+        setattr(rider, "rider_cid", int(mount_cid))
+        setattr(mount, "mounted_by_cid", int(rider_cid))
+        setattr(mount, "mount_controller_mode", "rider")
+        self._apply_mount_initiative(int(rider_cid), int(mount_cid))
+        self._log(f"{rider.name} mounts {mount.name}.", cid=rider.cid)
+        if auto and ws_id is not None:
+            self._lan.toast(ws_id, f"You mount your {mount.name}.")
+        self._lan_force_state_broadcast()
 
     def _apply_summon_initiative(self, caster_cid: int, spawned_cids: List[int], summon_cfg: Dict[str, Any]) -> None:
         initiative_cfg = summon_cfg.get("initiative") if isinstance(summon_cfg.get("initiative"), dict) else {}
@@ -8379,8 +8455,11 @@ class InitiativeTracker(base.InitiativeTracker):
         setattr(summoned, "summon_group_id", group_id)
         setattr(summoned, "summon_controller_mode", "shared_turn")
         setattr(summoned, "is_mount", True)
-        setattr(summoned, "mount_for_cid", int(caster_cid))
-        setattr(summoned, "mounted_by_cid", int(caster_cid))
+        setattr(summoned, "can_be_mounted", True)
+        setattr(summoned, "mounted_by_cid", None)
+        setattr(summoned, "rider_cid", None)
+        setattr(summoned, "mount_shared_turn", True)
+        setattr(summoned, "mount_controller_mode", "summon_auto")
         setattr(summoned, "summon_variant", display_variant or None)
         setattr(summoned, "summon_slot_level", int(slot_level) if isinstance(slot_level, int) else None)
         if color_override:
@@ -8695,6 +8774,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             c = self.combatants.get(cid)
             if not c:
+                return
+            if _normalize_cid_value(getattr(c, "rider_cid", None), "dash.rider_cid") is not None:
+                self._lan.toast(ws_id, "Rider movement uses the mount, matey.")
                 return
             setattr(c, "token_color", color)
             player_name = _resolve_pc_name(cid)
@@ -9719,6 +9801,80 @@ class InitiativeTracker(base.InitiativeTracker):
                     caster.concentration_aoe_ids = [entry for entry in aoe_ids if entry != aid]
             return
 
+        if typ == "mount_request":
+            rider_cid = _normalize_cid_value(msg.get("rider_cid"), "mount_request.rider")
+            mount_cid = _normalize_cid_value(msg.get("mount_cid"), "mount_request.mount")
+            if rider_cid is None or mount_cid is None:
+                self._lan.toast(ws_id, "Pick rider and mount first, matey.")
+                return
+            rider = self.combatants.get(int(rider_cid))
+            mount = self.combatants.get(int(mount_cid))
+            if rider is None or mount is None:
+                self._lan.toast(ws_id, "Invalid mount target.")
+                return
+            if bool(getattr(rider, "rider_cid", None)):
+                self._lan.toast(ws_id, "Ye be already mounted.")
+                return
+            if not bool(getattr(mount, "can_be_mounted", False) or getattr(mount, "is_mount", False)):
+                self._lan.toast(ws_id, "That creature cannot be mounted.")
+                return
+            auto_accept = _normalize_cid_value(getattr(mount, "summoned_by_cid", None), "mount_request.summoned_by") == int(rider_cid)
+            req_id = f"mount:{int(time.time()*1000)}:{rider_cid}:{mount_cid}"
+            self._pending_mount_requests[req_id] = {"rider_cid": int(rider_cid), "mount_cid": int(mount_cid), "requester_ws": ws_id}
+            if auto_accept:
+                self._accept_mount(int(rider_cid), int(mount_cid), ws_id, auto=True)
+                self._pending_mount_requests.pop(req_id, None)
+                return
+            target_ws_ids = self._find_ws_for_cid(int(mount_cid)) if bool(getattr(mount, "is_pc", False)) else []
+            payload = {"type": "mount_prompt", "request_id": req_id, "rider_cid": int(rider_cid), "mount_cid": int(mount_cid), "rider_name": str(getattr(rider, "name", "Rider"))}
+            if target_ws_ids and self._lan._loop:
+                for tws in target_ws_ids:
+                    asyncio.run_coroutine_threadsafe(self._lan._send_async(tws, payload), self._lan._loop)
+            else:
+                self._lan._broadcast_payload({**payload, "to_admin": True})
+            self._lan.toast(ws_id, "Mount request sent.")
+            return
+
+        if typ == "mount_response":
+            request_id = str(msg.get("request_id") or "").strip()
+            pending = self._pending_mount_requests.pop(request_id, None)
+            if not pending:
+                self._lan.toast(ws_id, "Mount request expired.")
+                return
+            if bool(msg.get("accept")):
+                self._accept_mount(int(pending.get("rider_cid")), int(pending.get("mount_cid")), pending.get("requester_ws"), auto=False)
+            else:
+                requester_ws = pending.get("requester_ws")
+                if requester_ws is not None:
+                    self._lan.toast(int(requester_ws), "Mount request declined.")
+            return
+
+        if typ == "dismount":
+            rider = self.combatants.get(cid)
+            if rider is None:
+                return
+            mount_cid = _normalize_cid_value(getattr(rider, "rider_cid", None), "dismount.rider_cid")
+            if mount_cid is None:
+                self._lan.toast(ws_id, "Ye are not mounted.")
+                return
+            mount = self.combatants.get(int(mount_cid))
+            if mount is None:
+                setattr(rider, "rider_cid", None)
+                return
+            cost = self._mount_cost(rider)
+            if int(getattr(rider, "move_remaining", 0) or 0) < cost:
+                self._lan.toast(ws_id, f"Not enough movement to dismount (need {cost} ft).")
+                return
+            rider.move_remaining = max(0, int(getattr(rider, "move_remaining", 0) or 0) - cost)
+            setattr(rider, "rider_cid", None)
+            setattr(mount, "mounted_by_cid", None)
+            setattr(mount, "mount_shared_turn", False)
+            setattr(mount, "mount_controller_mode", "independent")
+            self._restore_mount_initiative(int(rider.cid), int(mount.cid))
+            self._log(f"{rider.name} dismounts from {mount.name}.", cid=rider.cid)
+            self._lan_force_state_broadcast()
+            return
+
         if typ == "move":
             to = msg.get("to") or {}
             try:
@@ -9732,6 +9888,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "Pick a valid square, matey.")
                 return
 
+            mover = self.combatants.get(cid)
+            if mover is not None and _normalize_cid_value(getattr(mover, "rider_cid", None), "move.rider_cid") is not None:
+                self._lan.toast(ws_id, "Rider movement uses the mount, matey.")
+                return
             cols, rows, obstacles, rough_terrain, positions = self._lan_live_map_data()
             before_pos = positions.get(cid)
             mw = getattr(self, "_map_window", None)
@@ -9948,7 +10108,11 @@ class InitiativeTracker(base.InitiativeTracker):
             origin = (max(0, cols // 2), max(0, rows // 2))
             self._lan_positions[cid] = origin
 
-        max_ft = int(getattr(c, "move_remaining", 0) or 0)
+        rider_cid = _normalize_cid_value(getattr(c, "mounted_by_cid", None), "move.mount.rider")
+        movement_owner = c
+        if rider_cid is not None and rider_cid in self.combatants:
+            movement_owner = self.combatants[int(rider_cid)]
+        max_ft = int(getattr(movement_owner, "move_remaining", 0) or 0)
         if max_ft <= 0:
             return (False, "No movement left, matey.", 0)
 
@@ -9969,10 +10133,12 @@ class InitiativeTracker(base.InitiativeTracker):
 
         # Apply
         try:
-            setattr(c, "move_remaining", max(0, max_ft - cost))
+            setattr(movement_owner, "move_remaining", max(0, max_ft - cost))
         except Exception:
             pass
         self._lan_positions[cid] = (col, row)
+        if rider_cid is not None:
+            self._lan_positions[int(rider_cid)] = (col, row)
 
         # Update live map window token if open
         mw = getattr(self, "_map_window", None)
@@ -9981,10 +10147,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 # place by cell -> pixel
                 x, y = mw._grid_to_pixel(col, row)
                 mw._place_unit_at_pixel(cid, x, y)
+                if rider_cid is not None:
+                    mw._place_unit_at_pixel(int(rider_cid), x, y)
         except Exception:
             pass
 
-        self._log(f"moved to ({col},{row}) (spent {cost} ft; {c.move_remaining}/{c.move_total} left)", cid=cid)
+        self._log(f"moved to ({col},{row}) (spent {cost} ft; {movement_owner.move_remaining}/{movement_owner.move_total} left)", cid=cid)
         self._rebuild_table(scroll_to_current=True)
         return (True, "", int(cost))
 

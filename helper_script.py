@@ -251,6 +251,14 @@ class Combatant:
     ability_mods: Dict[str, int] = field(default_factory=dict)
     monster_spec: Optional[MonsterSpec] = None
 
+    # Mount state
+    mounted_by_cid: Optional[int] = None  # rider riding this mount
+    rider_cid: Optional[int] = None  # mount this rider is using
+    mount_shared_turn: bool = False
+    mount_controller_mode: str = "independent"  # rider|independent|summon_auto
+    has_mounted_this_turn: bool = False
+    can_be_mounted: bool = False
+
 
     # Effects / statuses
     condition_stacks: List[ConditionStack] = field(default_factory=list)

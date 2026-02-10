@@ -2,6 +2,7 @@ name: Otherworldly Steed
 size: Large
 type: Celestial or Fey or Fiend (Your Choice)
 alignment: Neutral
+can_be_mounted: true
 levels_allowed: 2+
 ac: 10 + var.slot_level
 hp: 5 + 10 * var.slot_level
