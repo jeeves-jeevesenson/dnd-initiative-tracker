@@ -3316,8 +3316,7 @@ __DAMAGE_TYPE_OPTIONS__
   let reconnectTimer = null;
   let reconnecting = false;
   let claimedCid = null;
-  let pendingClaimCid = null;
-  let rosterPickerPromptedOnStart = false;
+  let rosterShownOnStart = false;
   claimedCid = normalizeCid(claimedCid, "init.claimedCid");
   let shownNoOwnedToast = false;
   let pendingClaim = null;
@@ -5299,7 +5298,6 @@ __DAMAGE_TYPE_OPTIONS__
     allowUnclaimed = false;
     clearAutoClaimPending();
     clearLanSelection();
-    pendingClaimCid = null;
     if (claimedCid !== null && claimedCid !== undefined){
       send({type:"unclaim", client_id: clientId});
     }
@@ -7615,6 +7613,10 @@ __DAMAGE_TYPE_OPTIONS__
             refreshPreSummonControls();
           });
         }
+        if (!isMapView && !rosterShownOnStart){
+          openRosterPickerIfNeeded(true);
+          rosterShownOnStart = true;
+        }
         updateClaimOverlay();
       } else if (msg.type === "preset"){
         if (msg.preset && typeof msg.preset === "object"){
@@ -7684,15 +7686,9 @@ __DAMAGE_TYPE_OPTIONS__
         if (!claimedCid){
           showNoOwnedPcToast(msg.pcs || msg.claimable || []);
         } else {
-          const exists = (state.units || []).some(u => cidMatches(u.cid, claimedCid, "state.claimedExists"));
-          if (pendingClaimCid !== null && pendingClaimCid !== undefined){
-            const accepted = (state.units || []).some(u => cidMatches(u.cid, pendingClaimCid, "state.pendingClaimAccepted"));
-            if (accepted){
-              claimedCid = pendingClaimCid;
-              pendingClaimCid = null;
-            }
-          }
-          if (!exists && (pendingClaimCid === null || pendingClaimCid === undefined)){
+          const stillClaimable = (lastPcList || []).some(pc => cidMatches(pc.cid, claimedCid, "state.claimedStillClaimable"));
+          const existsInUnits = (state.units || []).some(u => cidMatches(u.cid, claimedCid, "state.claimedExists"));
+          if (!stillClaimable && !existsInUnits){
               claimedCid = null;
               meEl.textContent = "(unclaimed)";
               shownNoOwnedToast = false;
@@ -7705,9 +7701,9 @@ __DAMAGE_TYPE_OPTIONS__
           planningSnapshotLocked = true;
         }
         handleAutoClaimStateUpdate();
-        if (!isMapView){
-          openRosterPickerIfNeeded(!rosterPickerPromptedOnStart);
-          rosterPickerPromptedOnStart = true;
+        if (!isMapView && !rosterShownOnStart){
+          openRosterPickerIfNeeded(true);
+          rosterShownOnStart = true;
         }
       } else if (msg.type === "turn_update"){
         if (!state){ state = {}; }
@@ -7727,15 +7723,9 @@ __DAMAGE_TYPE_OPTIONS__
         if (!state){ state = {}; }
         state.units = Array.isArray(msg.units) ? msg.units : [];
         if (claimedCid){
-          if (pendingClaimCid !== null && pendingClaimCid !== undefined){
-            const accepted = state.units.some(u => cidMatches(u.cid, pendingClaimCid, "unitsSnapshot.pendingClaimAccepted"));
-            if (accepted){
-              claimedCid = pendingClaimCid;
-              pendingClaimCid = null;
-            }
-          }
-          const exists = state.units.some(u => cidMatches(u.cid, claimedCid, "unitsSnapshot.claimedExists"));
-          if (!exists && (pendingClaimCid === null || pendingClaimCid === undefined)){
+          const stillClaimable = (lastPcList || []).some(pc => cidMatches(pc.cid, claimedCid, "unitsSnapshot.claimedStillClaimable"));
+          const existsInUnits = state.units.some(u => cidMatches(u.cid, claimedCid, "unitsSnapshot.claimedExists"));
+          if (!stillClaimable && !existsInUnits){
             claimedCid = null;
             meEl.textContent = "(unclaimed)";
             shownNoOwnedToast = false;
@@ -7756,7 +7746,6 @@ __DAMAGE_TYPE_OPTIONS__
         if (isMapView) return;
         if (msg.cid !== null && msg.cid !== undefined){
           claimedCid = normalizeCid(msg.cid, "forceClaim.cid");
-          pendingClaimCid = null;
           shownNoOwnedToast = false;
           autoCenterOnJoin();
           refreshSpellPresetOptions();
@@ -7773,7 +7762,6 @@ __DAMAGE_TYPE_OPTIONS__
       } else if (msg.type === "force_unclaim"){
         if (isMapView) return;
         claimedCid = null;
-        pendingClaimCid = null;
         meEl.textContent = "(unclaimed)";
         shownNoOwnedToast = false;
         showNoOwnedPcToast(msg.pcs || lastPcList || []);
@@ -8491,7 +8479,6 @@ __DAMAGE_TYPE_OPTIONS__
       if (cidValue === null) return;
       allowUnclaimed = false;
       claimedCid = cidValue;
-      pendingClaimCid = cidValue;
       storeLanSelection(cidValue, lastPcList || []);
       send({type:"claim", cid: cidValue, client_id: clientId});
       clearSpellFilters();
