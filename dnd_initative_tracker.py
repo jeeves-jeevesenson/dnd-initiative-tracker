@@ -762,6 +762,7 @@ DAMAGE_TYPE_OPTIONS = _build_damage_type_options(DAMAGE_TYPES)
 # ----------------------------- LAN Server -----------------------------
 
 _LAN_ASSET_DIR = Path(__file__).resolve().parent / "assets" / "web" / "lan"
+_PLAN_ASSET_DIR = Path(__file__).resolve().parent / "assets" / "web" / "plan"
 _CAST_TIME_BONUS_RE = re.compile(r"\bbonus[\s-]*action\b")
 _CAST_TIME_REACTION_RE = re.compile(r"\breaction\b")
 _CAST_TIME_ACTION_RE = re.compile(r"\baction\b")
@@ -778,6 +779,7 @@ def _load_lan_asset(name: str) -> str:
 
 HTML_INDEX = _load_lan_asset("index.html").replace("__DAMAGE_TYPE_OPTIONS__", DAMAGE_TYPE_OPTIONS)
 SERVICE_WORKER_JS = _load_lan_asset("sw.js")
+PLAN_HTML_INDEX = (_PLAN_ASSET_DIR / "index.html").read_text(encoding="utf-8") if (_PLAN_ASSET_DIR / "index.html").exists() else ""
 
 
 # ----------------------------- LAN plumbing -----------------------------
@@ -1378,10 +1380,9 @@ class LanController:
 
         @self._fastapi_app.get("/planning")
         async def planning():
-            push_key = self.cfg.vapid_public_key
-            push_key_value = json.dumps(push_key) if push_key else "undefined"
-            html = HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value)
-            html = html.replace("__LAN_BASE_URL__", json.dumps(self._best_lan_url()))
+            if not PLAN_HTML_INDEX:
+                raise HTTPException(status_code=404, detail="Planning page missing.")
+            html = PLAN_HTML_INDEX.replace("__LAN_BASE_URL__", json.dumps(self._best_lan_url()))
             return HTMLResponse(html)
 
         @self._fastapi_app.get("/new_character")
@@ -1449,6 +1450,16 @@ class LanController:
                 limit = 200
             limit = max(1, min(limit, 1000))
             return {"lines": self._lan_log_lines(limit)}
+
+        @self._fastapi_app.get("/api/planning/static")
+        async def planning_static(request: Request):
+            self._resolve_planning_auth(request)
+            return copy.deepcopy(self._static_data_payload(planning=True))
+
+        @self._fastapi_app.get("/api/planning/snapshot")
+        async def planning_snapshot(request: Request, player_cid: Optional[int] = None):
+            auth = self._resolve_planning_auth(request, player_cid=player_cid)
+            return self._planning_snapshot_payload(auth.get("player_cid"), bool(auth.get("is_admin")))
 
         @self._fastapi_app.post("/api/client-log")
         async def client_log(request: Request, payload: Dict[str, Any] = Body(...)):
@@ -3254,12 +3265,123 @@ class LanController:
             obstacles = []
         return {"rough_terrain": rough, "obstacles": obstacles}
 
-    def _static_data_payload(self) -> Dict[str, Any]:
+    def _static_data_payload(self, planning: bool = False) -> Dict[str, Any]:
         """Return static data that only needs to be sent once on connection."""
+        spell_presets = self.app._spell_presets_payload() if planning else self._cached_snapshot.get("spell_presets", [])
         return {
-            "spell_presets": self._cached_snapshot.get("spell_presets", []),
+            "spell_presets": spell_presets,
             "player_spells": self._cached_snapshot.get("player_spells", {}),
             "player_profiles": self._cached_snapshot.get("player_profiles", {}),
+            "conditions": [
+                "blinded", "charmed", "deafened", "frightened", "grappled", "incapacitated",
+                "invisible", "paralyzed", "petrified", "poisoned", "prone", "restrained", "stunned", "unconscious",
+            ],
+            "dice_types": ["d4", "d6", "d8", "d10", "d12", "d20", "d100"],
+            "token_colours": ["#6aa9ff", "#ff6a6a", "#66d17a", "#f1c95f", "#c97dff", "#61d8d8"],
+        }
+
+    def _resolve_planning_auth(self, request: "Request", player_cid: Optional[int] = None) -> Dict[str, Any]:
+        from fastapi import HTTPException
+
+        host = getattr(getattr(request, "client", None), "host", "")
+        if not self._is_host_allowed(host):
+            raise HTTPException(status_code=403, detail="Unauthorized host.")
+        header = request.headers.get("authorization", "")
+        admin_token = ""
+        if header.lower().startswith("bearer "):
+            admin_token = header.split(" ", 1)[1].strip()
+        is_admin = bool(admin_token and self._is_admin_token_valid(admin_token))
+        claim_cid: Optional[int] = None
+        client_id = self._normalize_client_id(
+            request.headers.get("x-client-id") or request.query_params.get("client_id")
+        )
+        if client_id:
+            claim_cid = self._client_claim_for_id(client_id)
+        if claim_cid is None:
+            claim_name = self._assigned_character_name_for_host(host)
+            if claim_name:
+                for c in self.app.combatants.values():
+                    if str(getattr(c, "name", "")).strip().lower() == str(claim_name).strip().lower():
+                        claim_cid = int(getattr(c, "cid", -1))
+                        break
+        if player_cid is not None:
+            claim_cid = int(player_cid)
+        if claim_cid is None and not is_admin:
+            raise HTTPException(status_code=401, detail="No claimed character.")
+        if claim_cid is not None and int(claim_cid) not in self.app.combatants and not is_admin:
+            raise HTTPException(status_code=403, detail="Character is not in the encounter.")
+        return {"is_admin": is_admin, "player_cid": claim_cid, "client_id": client_id}
+
+    def _planning_snapshot_payload(self, viewer_cid: Optional[int], is_admin: bool = False) -> Dict[str, Any]:
+        snap = copy.deepcopy(self.app._lan_snapshot())
+        units = snap.get("units") if isinstance(snap, dict) else []
+        if not isinstance(units, list):
+            units = []
+        filtered_units: List[Dict[str, Any]] = []
+        for unit in units:
+            if not isinstance(unit, dict):
+                continue
+            item = copy.deepcopy(unit)
+            role = str(item.get("role") or "").strip().lower()
+            owner_cid = _normalize_cid_value(item.get("summoned_by_cid"), "planning.owner")
+            can_view_hp = is_admin or role in ("pc", "ally") or (viewer_cid is not None and owner_cid == int(viewer_cid))
+            if not can_view_hp:
+                item["hp"] = None
+            filtered_units.append(item)
+
+        conditions: Dict[str, List[str]] = {}
+        summons: List[Dict[str, Any]] = []
+        for unit in filtered_units:
+            cid = _normalize_cid_value(unit.get("cid"), "planning.unit.cid")
+            if cid is None:
+                continue
+            marks = str(unit.get("marks") or "").strip()
+            if marks:
+                conditions[str(cid)] = [part.strip() for part in marks.split(",") if part and part.strip()]
+            if unit.get("summoned_by_cid") is not None:
+                summons.append(
+                    {
+                        "cid": cid,
+                        "name": unit.get("name"),
+                        "summoned_by_cid": unit.get("summoned_by_cid"),
+                        "summon_source_spell": unit.get("summon_source_spell"),
+                        "summon_group_id": unit.get("summon_group_id"),
+                    }
+                )
+
+        map_image = getattr(self.app, "_map_image_reference", None)
+        if map_image is None:
+            map_image = getattr(self.app, "_map_image_path", None)
+
+        return {
+            "map_image": map_image,
+            "grid": snap.get("grid"),
+            "obstacles": snap.get("obstacles", []),
+            "rough_terrain": snap.get("rough_terrain", []),
+            "aoes": snap.get("aoes", []),
+            "combatants": [
+                {
+                    "cid": unit.get("cid"),
+                    "name": unit.get("name"),
+                    "pos": unit.get("pos"),
+                    "initiative_order": (snap.get("turn_order") or []).index(unit.get("cid")) + 1 if unit.get("cid") in (snap.get("turn_order") or []) else None,
+                    "hp": unit.get("hp"),
+                    "token_color": unit.get("token_color"),
+                    "role": unit.get("role"),
+                    "summoned_by_cid": unit.get("summoned_by_cid"),
+                    "summon_source_spell": unit.get("summon_source_spell"),
+                    "summon_group_id": unit.get("summon_group_id"),
+                }
+                for unit in filtered_units
+            ],
+            "conditions": conditions,
+            "summons": summons,
+            "spell_presets": self.app._spell_presets_payload(),
+            "turn_order": snap.get("turn_order", []),
+            "active_cid": snap.get("active_cid"),
+            "round_num": snap.get("round_num"),
+            "viewer_cid": viewer_cid,
+            "is_admin": bool(is_admin),
         }
 
     def _dynamic_snapshot_payload(self) -> Dict[str, Any]:

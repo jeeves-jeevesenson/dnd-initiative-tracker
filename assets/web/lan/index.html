@@ -9808,8 +9808,14 @@ __DAMAGE_TYPE_OPTIONS__
     if (!isPlanning){
       planningBtn.addEventListener("click", () => {
         const baseUrl = window.LAN_BASE_URL || window.location.origin;
-        const planningUrl = `${baseUrl.replace(/\/$/, "")}/planning`;
-        window.open(planningUrl, "_blank", "noopener,noreferrer");
+        const planningUrl = new URL(`${baseUrl.replace(/\/$/, "")}/planning`);
+        if (clientId){
+          planningUrl.searchParams.set("client_id", clientId);
+        }
+        if (claimedCid !== null && claimedCid !== undefined){
+          planningUrl.searchParams.set("player_cid", String(claimedCid));
+        }
+        window.open(planningUrl.toString(), "_blank", "noopener,noreferrer");
       });
     }
   }
