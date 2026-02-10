@@ -6748,6 +6748,354 @@ class InitiativeTracker(base.InitiativeTracker):
         rows.sort(key=lambda row: (str(row.get("category") or ""), str(row.get("name") or "").lower()))
         return rows
 
+    def _spell_library_detail_text(self, preset: Dict[str, Any]) -> str:
+        def fmt_bool(value: Any) -> str:
+            if isinstance(value, bool):
+                return "Yes" if value else "No"
+            if value in (None, ""):
+                return "Unknown"
+            return str(value)
+
+        lines: List[str] = []
+        lines.append(str(preset.get("name") or "Unknown Spell"))
+        lines.append("")
+        lines.append("Spell")
+        lines.append(f"Name: {str(preset.get('name') or '').strip() or 'Unknown'}")
+        lines.append(f"Level: {preset.get('level') if preset.get('level') is not None else 'Unknown'}")
+        lines.append(f"School: {str(preset.get('school') or '').strip() or 'Unknown'}")
+        lines.append(f"Casting Time: {str(preset.get('casting_time') or '').strip() or 'Unknown'}")
+        lines.append(f"Range: {str(preset.get('range') or '').strip() or 'Unknown'}")
+        lines.append(f"Components: {str(preset.get('components') or '').strip() or 'Unknown'}")
+        lines.append(f"Duration: {str(preset.get('duration') or '').strip() or 'Unknown'}")
+        lines.append(f"Concentration: {fmt_bool(preset.get('concentration'))}")
+        lines.append(f"Ritual: {fmt_bool(preset.get('ritual'))}")
+
+        summary_fields = (
+            ("Summary", preset.get("summary")),
+            ("Rules Text", preset.get("description") or preset.get("rules_text") or preset.get("text")),
+        )
+        for title, value in summary_fields:
+            lines.append("")
+            lines.append(title)
+            text = self._format_monster_text_block(value)
+            if text:
+                lines.append(text)
+            else:
+                lines.append(f"No {title.lower()} available.")
+
+        return "\n".join(lines)
+
+    def _player_library_detail_text(self, name: str, profile: Dict[str, Any]) -> str:
+        identity = profile.get("identity") if isinstance(profile.get("identity"), dict) else {}
+        leveling = profile.get("leveling") if isinstance(profile.get("leveling"), dict) else {}
+        vitals = profile.get("vitals") if isinstance(profile.get("vitals"), dict) else {}
+        spellcasting = profile.get("spellcasting") if isinstance(profile.get("spellcasting"), dict) else {}
+        defenses = profile.get("defenses") if isinstance(profile.get("defenses"), dict) else {}
+
+        lines: List[str] = []
+        lines.append(name)
+        lines.append("")
+        lines.append("Player")
+        lines.append(f"Name: {str(identity.get('name') or profile.get('name') or name).strip() or name}")
+        lines.append(f"Race: {str(identity.get('race') or '').strip() or 'Unknown'}")
+        lines.append(f"Background: {str(identity.get('background') or '').strip() or 'Unknown'}")
+        lines.append(f"Level: {str(leveling.get('level') or '').strip() or 'Unknown'}")
+        lines.append(f"Class: {str(leveling.get('class') or '').strip() or 'Unknown'}")
+        lines.append(f"Subclass: {str(leveling.get('subclass') or '').strip() or 'Unknown'}")
+        lines.append("")
+        lines.append("Vitals")
+        lines.append(f"HP: {str(vitals.get('current_hp') or defenses.get('hp') or 'Unknown')}")
+        lines.append(f"Max HP: {str(vitals.get('max_hp') or 'Unknown')}")
+        lines.append(f"Temp HP: {str(vitals.get('temp_hp') or 0)}")
+        lines.append(f"Speed: {str(vitals.get('speed') or 'Unknown')}")
+
+        lines.append("")
+        lines.append("Spellcasting Highlights")
+        ability = str(spellcasting.get("ability") or "").strip()
+        lines.append(f"Ability: {ability.upper() if ability else 'Unknown'}")
+        lines.append(f"Save DC: {str(spellcasting.get('save_dc') or 'Unknown')}")
+        lines.append(f"Attack Bonus: {str(spellcasting.get('attack_bonus') or 'Unknown')}")
+        slots = spellcasting.get("spell_slots") if isinstance(spellcasting.get("spell_slots"), dict) else {}
+        if slots:
+            slot_parts: List[str] = []
+            for lvl in sorted(slots.keys(), key=lambda val: int(val) if str(val).isdigit() else 99):
+                item = slots.get(lvl)
+                if not isinstance(item, dict):
+                    continue
+                cur = item.get("current")
+                maxv = item.get("max")
+                slot_parts.append(f"L{lvl}: {cur}/{maxv}")
+            lines.append("Spell Slots: " + (", ".join(slot_parts) if slot_parts else "Unknown"))
+        else:
+            lines.append("Spell Slots: None configured")
+
+        prepared = spellcasting.get("prepared_spells")
+        if isinstance(prepared, dict):
+            known = prepared.get("known") if isinstance(prepared.get("known"), list) else []
+            prepared_list = prepared.get("prepared") if isinstance(prepared.get("prepared"), list) else []
+            lines.append(f"Known Spells: {len(known)}")
+            lines.append(f"Prepared Spells: {len(prepared_list)}")
+
+        return "\n".join(lines)
+
+    def _open_monster_library(self) -> None:
+        self._load_monsters_index()
+        self._load_player_yaml_cache()
+
+        win = tk.Toplevel(self)
+        win.title("Library")
+        win.geometry("1060x640")
+        win.transient(self)
+        win.after(0, win.lift)
+
+        root = ttk.Frame(win, padding=10)
+        root.pack(fill=tk.BOTH, expand=True)
+        root.columnconfigure(0, weight=1)
+        root.rowconfigure(2, weight=1)
+
+        controls = ttk.Frame(root)
+        controls.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        for idx in range(9):
+            controls.columnconfigure(idx, weight=0)
+        controls.columnconfigure(7, weight=1)
+
+        ttk.Label(controls, text="Category").grid(row=0, column=0, sticky="w")
+        category_var = tk.StringVar(value="All")
+        category_box = ttk.Combobox(
+            controls,
+            textvariable=category_var,
+            values=["All", "Spell", "Monster", "Player"],
+            width=10,
+            state="readonly",
+        )
+        category_box.grid(row=0, column=1, sticky="w", padx=(6, 12))
+
+        ttk.Label(controls, text="Sort").grid(row=0, column=2, sticky="w")
+        sort_var = tk.StringVar(value="Name")
+        sort_box = ttk.Combobox(
+            controls,
+            textvariable=sort_var,
+            values=["Name", "Category", "Level/CR", "School/Type"],
+            width=14,
+            state="readonly",
+        )
+        sort_box.grid(row=0, column=3, sticky="w", padx=(6, 12))
+
+        ttk.Label(controls, text="Search").grid(row=0, column=4, sticky="w")
+        search_var = tk.StringVar()
+        search_entry = ttk.Entry(controls, textvariable=search_var)
+        search_entry.grid(row=0, column=5, columnspan=3, sticky="ew", padx=(6, 12))
+
+        info_btn = ttk.Button(controls, text="Info")
+        info_btn.grid(row=0, column=8, sticky="e", padx=(0, 6))
+        ttk.Button(controls, text="Reload", command=lambda: self._monster_library_reload(win)).grid(
+            row=0,
+            column=9,
+            sticky="e",
+        )
+
+        paned = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
+        paned.grid(row=2, column=0, sticky="nsew")
+
+        left = ttk.Frame(paned)
+        left.columnconfigure(0, weight=1)
+        left.rowconfigure(0, weight=1)
+
+        cols = ("category", "name", "level", "subtype")
+        tree = ttk.Treeview(left, columns=cols, show="headings")
+        tree.heading("category", text="Category")
+        tree.heading("name", text="Name")
+        tree.heading("level", text="Level/CR")
+        tree.heading("subtype", text="School/Type/Class")
+        tree.column("category", width=90, anchor="w")
+        tree.column("name", width=280, anchor="w")
+        tree.column("level", width=90, anchor="center")
+        tree.column("subtype", width=170, anchor="w")
+        y_scroll = ttk.Scrollbar(left, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=y_scroll.set)
+        tree.grid(row=0, column=0, sticky="nsew")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+
+        right = ttk.Frame(paned)
+        right.columnconfigure(0, weight=1)
+        right.rowconfigure(0, weight=1)
+        detail = tk.Text(right, wrap="word")
+        detail_scroll = ttk.Scrollbar(right, orient="vertical", command=detail.yview)
+        detail.configure(yscrollcommand=detail_scroll.set, state="disabled")
+        detail.grid(row=0, column=0, sticky="nsew")
+        detail_scroll.grid(row=0, column=1, sticky="ns")
+
+        paned.add(left, weight=3)
+        paned.add(right, weight=4)
+
+        presets = [p for p in self._spell_presets_payload() if isinstance(p, dict)]
+        spells_by_key: Dict[str, Dict[str, Any]] = {}
+        for spell in presets:
+            for key_name in (spell.get("id"), spell.get("slug"), spell.get("name")):
+                key = str(key_name or "").strip().lower()
+                if key and key not in spells_by_key:
+                    spells_by_key[key] = spell
+
+        profiles = self._player_profiles_payload()
+
+        all_rows = self._library_rows_unified(categories=("spell", "monster", "player"))
+
+        def parse_sort_num(value: Any) -> float:
+            if value is None:
+                return 1e9
+            try:
+                txt = str(value).strip()
+                if "/" in txt:
+                    num, den = txt.split("/", 1)
+                    return float(num) / float(den)
+                return float(txt)
+            except Exception:
+                return 1e9
+
+        def filtered_rows() -> List[Dict[str, Any]]:
+            cat_sel = category_var.get().strip().lower()
+            query = search_var.get().strip().lower()
+            rows = list(all_rows)
+            if cat_sel and cat_sel != "all":
+                rows = [r for r in rows if str(r.get("category") or "").lower() == cat_sel]
+            if query:
+                rows = [
+                    r
+                    for r in rows
+                    if query in str(r.get("name") or "").lower()
+                    or query in str(r.get("subtype") or "").lower()
+                    or query in str(r.get("level_or_cr") or "").lower()
+                    or query in str(r.get("category") or "").lower()
+                ]
+
+            sort_sel = sort_var.get().strip().lower()
+            if sort_sel == "category":
+                rows.sort(key=lambda r: (str(r.get("category") or ""), str(r.get("name") or "").lower()))
+            elif sort_sel == "level/cr":
+                rows.sort(
+                    key=lambda r: (
+                        parse_sort_num(r.get("level_or_cr")),
+                        str(r.get("name") or "").lower(),
+                    )
+                )
+            elif sort_sel == "school/type":
+                rows.sort(
+                    key=lambda r: (
+                        str(r.get("subtype") or "").lower(),
+                        str(r.get("name") or "").lower(),
+                    )
+                )
+            else:
+                rows.sort(key=lambda r: str(r.get("name") or "").lower())
+            return rows
+
+        item_map: Dict[str, Dict[str, Any]] = {}
+
+        def render_detail_for_row(row: Dict[str, Any]) -> str:
+            category = str(row.get("category") or "").lower()
+            name = str(row.get("name") or "").strip()
+            if category == "monster":
+                spec = self._load_monster_details(name)
+                if spec and spec.raw_data:
+                    return self._monster_stat_block_text(spec)
+                return f"No monster details available for {name}."
+
+            if category == "spell":
+                source_key = str(row.get("source_key") or "").strip().lower()
+                spell = spells_by_key.get(source_key) or spells_by_key.get(name.lower())
+                if isinstance(spell, dict):
+                    return self._spell_library_detail_text(spell)
+                return f"No spell details available for {name}."
+
+            if category == "player":
+                profile = profiles.get(name)
+                if isinstance(profile, dict):
+                    return self._player_library_detail_text(name, profile)
+                return f"No player profile details available for {name}."
+
+            return "Select a library entry to view details."
+
+        def set_detail_text(text_value: str) -> None:
+            detail.configure(state="normal")
+            detail.delete("1.0", tk.END)
+            detail.insert("1.0", text_value)
+            detail.configure(state="disabled")
+
+        def refresh_rows() -> None:
+            item_map.clear()
+            tree.delete(*tree.get_children())
+            for idx, row in enumerate(filtered_rows()):
+                iid = f"row-{idx}"
+                item_map[iid] = row
+                tree.insert(
+                    "",
+                    "end",
+                    iid=iid,
+                    values=(
+                        str(row.get("category") or "").title(),
+                        str(row.get("name") or ""),
+                        "" if row.get("level_or_cr") is None else str(row.get("level_or_cr")),
+                        str(row.get("subtype") or ""),
+                    ),
+                )
+            items = tree.get_children()
+            if items:
+                tree.selection_set(items[0])
+                tree.focus(items[0])
+                on_select()
+            else:
+                set_detail_text("No library entries match the current filters.")
+
+        def on_select(_event: Optional[tk.Event] = None) -> None:
+            sel = tree.selection()
+            if not sel:
+                return
+            row = item_map.get(sel[0])
+            if not isinstance(row, dict):
+                return
+            set_detail_text(render_detail_for_row(row))
+
+        def open_info() -> None:
+            sel = tree.selection()
+            if not sel:
+                return
+            row = item_map.get(sel[0])
+            if not isinstance(row, dict):
+                return
+            if str(row.get("category") or "").lower() == "monster":
+                spec = self._load_monster_details(str(row.get("name") or ""))
+                self._open_monster_stat_block(spec)
+            else:
+                messagebox.showinfo("Library Info", render_detail_for_row(row), parent=win)
+
+        def on_double_click(_event: Optional[tk.Event] = None) -> None:
+            sel = tree.selection()
+            if not sel:
+                return
+            row = item_map.get(sel[0])
+            if not isinstance(row, dict):
+                return
+            if str(row.get("category") or "").lower() != "monster":
+                return
+            nm = str(row.get("name") or "").strip()
+            if nm:
+                self.name_var.set(nm)
+                self._on_monster_selected()
+                try:
+                    win.destroy()
+                except Exception:
+                    pass
+
+        info_btn.configure(command=open_info)
+        tree.bind("<<TreeviewSelect>>", on_select)
+        tree.bind("<Double-1>", on_double_click)
+        category_box.bind("<<ComboboxSelected>>", lambda _e: refresh_rows())
+        sort_box.bind("<<ComboboxSelected>>", lambda _e: refresh_rows())
+        search_var.trace_add("write", lambda *_args: refresh_rows())
+
+        refresh_rows()
+        search_entry.focus_set()
+
     def _reset_player_character_resources(self) -> Dict[str, int]:
         def to_int(value: Any, fallback: Optional[int] = None) -> Optional[int]:
             try:
@@ -9191,131 +9539,6 @@ class InitiativeTracker(base.InitiativeTracker):
         if mod is not None:
             r = random.randint(1, 20)
             self.init_var.set(str(r + int(mod)))
-
-    def _open_monster_library(self) -> None:
-        win = tk.Toplevel(self)
-        win.title("Monster Library")
-        win.geometry("720x560")
-        win.transient(self)
-        win.after(0, win.lift)
-
-        top = ttk.Frame(win, padding=10)
-        top.pack(fill="both", expand=True)
-
-        ctrl = ttk.Frame(top)
-        ctrl.pack(fill="x", pady=(0, 8))
-
-        ttk.Label(ctrl, text="Filter type").pack(side="left")
-        type_var = tk.StringVar(value="All")
-        types = sorted({s.mtype for s in self._monster_specs})
-        type_box = ttk.Combobox(ctrl, textvariable=type_var, values=["All"] + types, width=18, state="readonly")
-        type_box.pack(side="left", padx=(6, 12))
-
-        ttk.Label(ctrl, text="Sort").pack(side="left")
-        sort_var = tk.StringVar(value="Name")
-        sort_box = ttk.Combobox(ctrl, textvariable=sort_var, values=["Name", "Type", "CR"], width=10, state="readonly")
-        sort_box.pack(side="left", padx=(6, 12))
-
-        ttk.Button(ctrl, text="Reload", command=lambda: self._monster_library_reload(win)).pack(side="right")
-        ttk.Button(ctrl, text="Info", command=lambda: open_info()).pack(side="right", padx=(0, 8))
-
-        search_row = ttk.Frame(top)
-        search_row.pack(fill="x", pady=(0, 8))
-
-        ttk.Label(search_row, text="Search").pack(side="left")
-        search_var = tk.StringVar()
-        search_entry = ttk.Entry(search_row, textvariable=search_var)
-        search_entry.pack(side="left", fill="x", expand=True, padx=(6, 0))
-
-        cols = ("name", "type", "cr", "file")
-        tree_frame = ttk.Frame(top)
-        tree_frame.pack(fill="both", expand=True)
-
-        tree = ttk.Treeview(tree_frame, columns=cols, show="headings", height=18)
-        tree.heading("name", text="Name")
-        tree.heading("type", text="Type")
-        tree.heading("cr", text="CR")
-        tree.heading("file", text="File")
-
-        tree.column("name", width=240, anchor="w")
-        tree.column("type", width=160, anchor="w")
-        tree.column("cr", width=70, anchor="center")
-        tree.column("file", width=200, anchor="w")
-
-        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=scrollbar.set)
-
-        tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        def get_filtered() -> List[MonsterSpec]:
-            tsel = type_var.get()
-            specs = self._monster_specs
-            if tsel and tsel != "All":
-                specs = [s for s in specs if s.mtype == tsel]
-            query = search_var.get().strip().lower()
-            if query:
-                specs = [s for s in specs if query in s.name.lower()]
-            sm = sort_var.get()
-            if sm == "Type":
-                return sorted(specs, key=lambda s: (s.mtype.lower(), s.name.lower()))
-            if sm == "CR":
-                return sorted(specs, key=lambda s: (s.cr is None, s.cr if s.cr is not None else 9999.0, s.name.lower()))
-            return sorted(specs, key=lambda s: s.name.lower())
-
-        def refresh():
-            tree.delete(*tree.get_children())
-            for s in get_filtered():
-                cr_txt = self._monster_cr_display(s)
-                tree.insert("", "end", iid=f"{s.filename}:{s.name}", values=(s.name, s.mtype, cr_txt, s.filename))
-
-        def on_select(event=None):
-            sel = tree.selection()
-            if not sel:
-                return
-            iid = sel[0]
-            try:
-                _fn, nm = iid.split(":", 1)
-            except Exception:
-                nm = tree.item(iid, "values")[0]
-            self.name_var.set(nm)
-            self._on_monster_selected()
-            try:
-                win.destroy()
-            except Exception:
-                pass
-
-        def open_info():
-            sel = tree.selection()
-            if not sel:
-                return
-            iid = sel[0]
-            try:
-                _fn, nm = iid.split(":", 1)
-            except Exception:
-                nm = tree.item(iid, "values")[0]
-            spec = self._monsters_by_name.get(nm)
-            self._open_monster_stat_block(spec)
-
-        def on_keypress(event):
-            ch = (event.char or "").lower()
-            if len(ch) != 1 or ch < "a" or ch > "z":
-                return
-            for iid in tree.get_children():
-                values = tree.item(iid, "values")
-                if values and values[0].lower().startswith(ch):
-                    tree.selection_set(iid)
-                    tree.focus(iid)
-                    tree.see(iid)
-                    break
-
-        tree.bind("<Double-1>", on_select)
-        tree.bind("<KeyPress>", on_keypress)
-        type_box.bind("<<ComboboxSelected>>", lambda e: refresh())
-        sort_box.bind("<<ComboboxSelected>>", lambda e: refresh())
-        search_var.trace_add("write", lambda *_: refresh())
-
-        refresh()
 
     def _monster_library_reload(self, libwin: tk.Toplevel) -> None:
         self._load_monsters_index()
