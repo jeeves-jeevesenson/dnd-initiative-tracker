@@ -6655,6 +6655,99 @@ class InitiativeTracker(base.InitiativeTracker):
             payload[name] = profile_payload
         return payload
 
+    def _library_rows_unified(
+        self,
+        categories: Optional[Iterable[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return unified reference rows for spells, monsters, and players."""
+        allowed = {"spell", "monster", "player"}
+        requested = {str(cat).strip().lower() for cat in (categories or allowed) if str(cat).strip()}
+        if not requested:
+            requested = set(allowed)
+        requested &= allowed
+        rows: List[Dict[str, Any]] = []
+
+        if "spell" in requested:
+            presets = self._spell_presets_payload()
+            entries = self._load_spell_index_entries()
+            spell_dir = self._resolve_spells_dir()
+            for preset in presets:
+                if not isinstance(preset, dict):
+                    continue
+                name = str(preset.get("name") or "").strip()
+                if not name:
+                    continue
+                source_key = str(preset.get("id") or preset.get("slug") or "").strip()
+                source_path = None
+                slug = str(preset.get("slug") or "").strip()
+                if slug:
+                    for ext in ("yaml", "yml"):
+                        filename = f"{slug}.{ext}"
+                        if isinstance(entries.get(filename), dict):
+                            source_path = str((spell_dir / filename) if spell_dir else filename)
+                            break
+                rows.append(
+                    {
+                        "category": "spell",
+                        "name": name,
+                        "subtype": str(preset.get("school") or "").strip() or None,
+                        "level_or_cr": preset.get("level"),
+                        "source_key": source_key or slug or None,
+                        "source_path": source_path,
+                    }
+                )
+
+        if "monster" in requested:
+            if not self._monster_specs:
+                self._load_monsters_index()
+            for spec in self._monster_specs:
+                if not isinstance(spec, MonsterSpec):
+                    continue
+                detailed = self._load_monster_details(spec.name)
+                if not detailed:
+                    continue
+                rows.append(
+                    {
+                        "category": "monster",
+                        "name": detailed.name,
+                        "subtype": str(detailed.mtype or "").strip() or None,
+                        "level_or_cr": self._monster_cr_display(detailed),
+                        "source_key": Path(detailed.filename).stem if detailed.filename else None,
+                        "source_path": str(self._monsters_dir_path() / detailed.filename)
+                        if detailed.filename
+                        else None,
+                    }
+                )
+
+        if "player" in requested:
+            self._load_player_yaml_cache()
+            profiles = self._player_profiles_payload()
+            for name, profile in profiles.items():
+                if not isinstance(profile, dict):
+                    continue
+                leveling = profile.get("leveling") if isinstance(profile.get("leveling"), dict) else {}
+                klass = str(leveling.get("class") or "").strip()
+                level_value: Any = leveling.get("level")
+                source_path = None
+                source_key = str(name).strip().lower() or None
+                path = self._player_yaml_name_map.get(str(name).strip().lower())
+                if path is not None:
+                    source_key = path.stem
+                    source_path = str(path)
+                rows.append(
+                    {
+                        "category": "player",
+                        "name": str(name).strip(),
+                        "subtype": klass or None,
+                        "level_or_cr": level_value,
+                        "source_key": source_key,
+                        "source_path": source_path,
+                    }
+                )
+
+        rows.sort(key=lambda row: (str(row.get("category") or ""), str(row.get("name") or "").lower()))
+        return rows
+
     def _reset_player_character_resources(self) -> Dict[str, int]:
         def to_int(value: Any, fallback: Optional[int] = None) -> Optional[int]:
             try:
@@ -8743,6 +8836,53 @@ class InitiativeTracker(base.InitiativeTracker):
 
         self._monster_specs.sort(key=lambda s: s.name.lower())
         _write_index_file(index_path, {"version": 1, "entries": new_entries})
+
+    def _load_monster_details(self, name: str) -> Optional[MonsterSpec]:
+        spec = self._monsters_by_name.get(str(name or "").strip())
+        if spec is None:
+            return None
+        if isinstance(spec.raw_data, dict) and spec.raw_data:
+            return spec
+        if yaml is None:
+            return spec
+        fp = self._monsters_dir_path() / spec.filename
+        try:
+            raw = fp.read_text(encoding="utf-8")
+            parsed = yaml.safe_load(raw)
+        except Exception:
+            return spec
+        if not isinstance(parsed, dict):
+            return spec
+
+        monster_data = parsed.get("monster") if isinstance(parsed.get("monster"), dict) else parsed
+        if not isinstance(monster_data, dict):
+            return spec
+        raw_data: Dict[str, Any] = {}
+        for key in (
+            "name",
+            "size",
+            "type",
+            "alignment",
+            "initiative",
+            "challenge_rating",
+            "ac",
+            "hp",
+            "speed",
+            "traits",
+            "actions",
+            "legendary_actions",
+            "description",
+            "habitat",
+            "treasure",
+        ):
+            if key in monster_data:
+                raw_data[key] = monster_data.get(key)
+        abilities = monster_data.get("abilities")
+        if isinstance(abilities, dict):
+            raw_data["abilities"] = abilities
+        if raw_data:
+            spec.raw_data = raw_data
+        return spec
 
     def _monster_names_sorted(self) -> List[str]:
         return [s.name for s in self._monster_specs]
