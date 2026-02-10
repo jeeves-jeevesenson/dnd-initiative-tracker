@@ -5375,7 +5375,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   function canInteractWithAoe(aoe){
     if (!aoe) return false;
-    if (isMapView) return false;
+    if (isMapView) return isAdminClient();
     if (isAdminClient()) return true;
     if (!claimedCid) return false;
     if (!cidMatches(aoe.owner_cid, claimedCid, "aoe.ownerCid")) return false;

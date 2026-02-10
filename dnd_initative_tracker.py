@@ -4976,6 +4976,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     payload["side_sq"] = _finite_float(
                         d.get("side_sq") or 0.0, aid_int, name, kind, "side_sq"
                     ) or 0.0
+                    if d.get("angle_deg") is not None:
+                        angle_deg = _finite_float(
+                            d.get("angle_deg"), aid_int, name, kind, "angle_deg", skip_invalid=True
+                        )
+                        if angle_deg is not None:
+                            payload["angle_deg"] = angle_deg
                     if d.get("side_ft") is not None:
                         side_ft = _finite_float(
                             d.get("side_ft"), aid_int, name, kind, "side_ft", skip_invalid=True
