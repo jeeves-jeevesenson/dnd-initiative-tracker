@@ -2,6 +2,7 @@ name: Warhorse
 size: Large
 type: Beast
 alignment: Unaligned
+can_be_mounted: true
 initiative: '+1'
 ac: '11'
 hp: 19

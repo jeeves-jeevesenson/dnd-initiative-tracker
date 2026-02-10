@@ -2,6 +2,7 @@ name: Pony
 size: Medium
 type: Beast
 alignment: Unaligned
+can_be_mounted: true
 initiative: '+0'
 ac: '10'
 hp: 11
