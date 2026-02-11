@@ -7724,7 +7724,7 @@ __DAMAGE_TYPE_OPTIONS__
           const serverClaimedCid = Object.entries(claimsMap).reduce((found, entry) => {
             if (found !== null && found !== undefined) return found;
             const [cidKey, ownerClientId] = entry;
-            if (String(ownerClientId || "") !== clientId) return found;  // Fixed: continue searching instead of resetting
+            if (String(ownerClientId || "") !== clientId) return null;  // Not mine, continue searching
             return normalizeCid(cidKey, "state.claimsCid");
           }, null);
           if (serverClaimedCid !== null && serverClaimedCid !== undefined){
