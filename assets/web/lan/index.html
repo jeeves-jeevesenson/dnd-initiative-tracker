@@ -5295,7 +5295,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (requiresClaim){
       allowUnclaimed = false;
     }
-    const shouldShow = needsClaim && (requiresClaim || !allowUnclaimed);
+    const shouldShow = needsClaim && (requiresClaim || !allowUnclaimed) && !claimInFlight;
     claimModal.classList.toggle("show", shouldShow);
     claimModal.setAttribute("aria-hidden", shouldShow ? "false" : "true");
     if (claimSpectatorBtn){
@@ -7705,26 +7705,43 @@ __DAMAGE_TYPE_OPTIONS__
         updateHud();
         maybeShowTurnAlert();
         autoCenterOnJoin();
-        const claimsMap = (state && typeof state.claims === "object" && state.claims) ? state.claims : {};
-        const serverClaimedCid = Object.entries(claimsMap).reduce((found, entry) => {
-          if (found !== null && found !== undefined) return found;
-          const [cidKey, ownerClientId] = entry;
-          if (String(ownerClientId || "") !== clientId) return null;
-          return normalizeCid(cidKey, "state.claimsCid");
-        }, null);
-        if (serverClaimedCid !== null && serverClaimedCid !== undefined){
+        
+        // Use server-authoritative claim state from "you" field
+        if (msg.you && "claimed_cid" in msg.you){
+          const serverClaimedCid = normalizeCid(msg.you.claimed_cid, "server.you.claimed_cid");
           claimedCid = serverClaimedCid;
           clearClaimInFlight();
-          const claimedName = getClaimablePcName(claimedCid, lastPcList || []) || `#${claimedCid}`;
-          if (meEl){
-            meEl.textContent = claimedName;
-          }
-        } else if (!claimInFlight){
-          claimedCid = null;
-          if (meEl){
+          
+          if (claimedCid && meEl){
+            const name = msg.you.claimed_name || getClaimablePcName(claimedCid, lastPcList) || `#${claimedCid}`;
+            meEl.textContent = name;
+          } else if (meEl){
             meEl.textContent = "(unclaimed)";
           }
+        } else {
+          // Fallback to old logic if "you" field not present (backwards compatibility)
+          const claimsMap = (state && typeof state.claims === "object" && state.claims) ? state.claims : {};
+          const serverClaimedCid = Object.entries(claimsMap).reduce((found, entry) => {
+            if (found !== null && found !== undefined) return found;
+            const [cidKey, ownerClientId] = entry;
+            if (String(ownerClientId || "") !== clientId) return null;  // Not mine, continue searching
+            return normalizeCid(cidKey, "state.claimsCid");
+          }, null);
+          if (serverClaimedCid !== null && serverClaimedCid !== undefined){
+            claimedCid = serverClaimedCid;
+            clearClaimInFlight();
+            const claimedName = getClaimablePcName(claimedCid, lastPcList || []) || `#${claimedCid}`;
+            if (meEl){
+              meEl.textContent = claimedName;
+            }
+          } else if (!claimInFlight){
+            claimedCid = null;
+            if (meEl){
+              meEl.textContent = "(unclaimed)";
+            }
+          }
         }
+        
         if (!claimedCid){
           showNoOwnedPcToast(msg.pcs || msg.claimable || []);
         }
@@ -8504,17 +8521,13 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       allowUnclaimed = false;
-      claimedCid = cidValue;
       storeLanSelection(cidValue, lastPcList || []);
       setClaimInFlight(cidValue);
       send({type:"claim", cid: cidValue, client_id: clientId});
       clearSpellFilters();
       clearAutoClaimPending();
       updateClaimOverlay();
-      const name = getClaimablePcName(cidValue, lastPcList) || `#${cidValue}`;
-      if (meEl){
-        meEl.textContent = name;
-      }
+      // Don't optimistically set claimedCid here - wait for server confirmation via "you" field
     });
   }
   if (claimSpectatorBtn){
