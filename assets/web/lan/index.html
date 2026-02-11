@@ -7710,7 +7710,7 @@ __DAMAGE_TYPE_OPTIONS__
         if (msg.you && "claimed_cid" in msg.you){
           const serverClaimedCid = normalizeCid(msg.you.claimed_cid, "server.you.claimed_cid");
           claimedCid = serverClaimedCid;
-          claimInFlight = false;
+          clearClaimInFlight();
           
           if (claimedCid && meEl){
             const name = msg.you.claimed_name || getClaimablePcName(claimedCid, lastPcList) || `#${claimedCid}`;
