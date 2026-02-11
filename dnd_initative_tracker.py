@@ -1818,9 +1818,15 @@ class LanController:
                 await ws.send_text(
                     self._json_dumps({"type": "static_data", "data": self._static_data_payload()})
                 )
-                # Then send initial state without static data
+                # Then send initial state without static data, with personalized "you" field
+                you_data = self._build_you_payload(ws_id)
                 await ws.send_text(
-                    self._json_dumps({"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()})
+                    self._json_dumps({
+                        "type": "state", 
+                        "state": self._dynamic_snapshot_payload(), 
+                        "pcs": self._pcs_payload(),
+                        "you": you_data
+                    })
                 )
             except (TypeError, ValueError) as exc:
                 self.app._oplog(
@@ -1937,9 +1943,15 @@ class LanController:
                 await ws.send_text(
                     self._json_dumps({"type": "static_data", "data": self._static_data_payload()})
                 )
-                # Then send initial state without static data
+                # Then send initial state without static data, with personalized "you" field
+                you_data = self._build_you_payload(ws_id)
                 await ws.send_text(
-                    self._json_dumps({"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()})
+                    self._json_dumps({
+                        "type": "state", 
+                        "state": self._dynamic_snapshot_payload(), 
+                        "pcs": self._pcs_payload(),
+                        "you": you_data
+                    })
                 )
             except (TypeError, ValueError) as exc:
                 error_details = traceback.format_exc()
@@ -2932,17 +2944,29 @@ class LanController:
             self._log_lan_exception("LAN payload broadcast scheduling failed", exc)
 
     async def _broadcast_state_async(self, snap: Dict[str, Any]) -> None:
+        # Build the base state payload once
         try:
-            payload = self._json_dumps({"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()})
+            state_data = self._dynamic_snapshot_payload()
+            pcs_data = self._pcs_payload()
         except Exception as exc:
             self.app._oplog(f"LAN state broadcast serialization failed: {exc}", level="warning")
             self._log_lan_exception("LAN state broadcast serialization failed", exc)
             return
+        
         to_drop: List[int] = []
         with self._clients_lock:
             items = list(self._clients.items())
+        
+        # Send personalized payload to each client with their own "you" field
         for ws_id, ws in items:
             try:
+                you_data = self._build_you_payload(ws_id)
+                payload = self._json_dumps({
+                    "type": "state", 
+                    "state": state_data, 
+                    "pcs": pcs_data,
+                    "you": you_data
+                })
                 await ws.send_text(payload)
             except Exception as exc:
                 to_drop.append(ws_id)
@@ -3201,9 +3225,15 @@ class LanController:
         except Exception as exc:
             self._log_lan_exception(f"LAN full state static send failed ws_id={ws_id}", exc)
         try:
+            you_data = self._build_you_payload(ws_id)
             await self._send_async(
                 ws_id,
-                {"type": "state", "state": self._dynamic_snapshot_payload(), "pcs": self._pcs_payload()},
+                {
+                    "type": "state", 
+                    "state": self._dynamic_snapshot_payload(), 
+                    "pcs": self._pcs_payload(),
+                    "you": you_data
+                },
             )
         except Exception as exc:
             self._log_lan_exception(f"LAN full state send failed ws_id={ws_id}", exc)
@@ -3300,6 +3330,8 @@ class LanController:
             self._spell_debug_log(
                 {"event": "claim", "ws_id": ws_id, "cid": int(cid), "reason": "noop_already_claimed"}
             )
+            # Still send confirmation to clear client's in-flight state
+            await self._send_async(ws_id, {"type": "force_claim", "cid": int(cid), "text": note})
             return
 
         self._drop_claim(ws_id)
@@ -3543,6 +3575,23 @@ class LanController:
                 if name:
                     return str(name)
         return f"cid:{cid}"
+
+    def _get_claimed_cid_for_ws(self, ws_id: int) -> Optional[int]:
+        """Return the claimed CID for a websocket, or None if unclaimed."""
+        with self._clients_lock:
+            return self._claims.get(ws_id)
+
+    def _build_you_payload(self, ws_id: int) -> Dict[str, Any]:
+        """Build the 'you' field for a state payload - server-authoritative claim state."""
+        claimed_cid = self._get_claimed_cid_for_ws(ws_id)
+        result: Dict[str, Any] = {}
+        if claimed_cid is not None:
+            result["claimed_cid"] = int(claimed_cid)
+            result["claimed_name"] = self._pc_name_for(int(claimed_cid))
+        else:
+            result["claimed_cid"] = None
+            result["claimed_name"] = None
+        return result
 
 
 # ----------------------------- Tracker -----------------------------
