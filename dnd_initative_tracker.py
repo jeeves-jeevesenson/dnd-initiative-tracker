@@ -980,6 +980,8 @@ class LanController:
         self._client_ids: Dict[int, str] = {}  # id(websocket) -> client_id
         self._client_id_to_ws: Dict[str, set[int]] = {}  # client_id -> {id(websocket), ...}
         self._client_id_claims: Dict[str, int] = {}  # client_id -> cid
+        self._client_claim_revs: Dict[str, int] = {}  # client_id -> monotonically increasing claim revision
+        self._ws_claim_revs: Dict[int, int] = {}  # fallback revision tracking for ws sessions without client_id
         self._host_presets: Dict[str, Dict[str, Any]] = self._load_host_presets()
         self._cid_push_subscriptions: Dict[int, List[Dict[str, Any]]] = {}
         self._client_error_logger = _make_client_error_logger()
@@ -1896,6 +1898,7 @@ class LanController:
                     self._clients.pop(ws_id, None)
                     self._clients_meta.pop(ws_id, None)
                     self._client_hosts.pop(ws_id, None)
+                    self._ws_claim_revs.pop(ws_id, None)
                     self._view_only_clients.discard(ws_id)
                     self._grid_pending.pop(ws_id, None)
                     self._terrain_pending.pop(ws_id, None)
@@ -1999,6 +2002,8 @@ class LanController:
                             )
                             continue
                         self._register_client_id(ws_id, client_id)
+                        with self._clients_lock:
+                            self._ws_claim_revs[ws_id] = int(self._client_claim_revs.get(client_id, 0))
                         cached_claim = self._client_claim_for_id(client_id)
                         with self._clients_lock:
                             current_claim = self._claims.get(ws_id)
@@ -2036,6 +2041,18 @@ class LanController:
                             }
                         )
                         await self._claim_ws_async(ws_id, int(cached_claim), note="Restored claim.")
+                        claim_rev = int(self._client_claim_revs.get(client_id, 0))
+                        await self._send_async(
+                            ws_id,
+                            {
+                                "type": "claim_ack",
+                                "ok": True,
+                                "claimed_cid": int(cached_claim),
+                                "claim_rev": claim_rev,
+                                "you": self._build_you_payload(ws_id),
+                                "reason": "restored_claim",
+                            },
+                        )
                     elif typ == "save_preset":
                         preset = msg.get("preset")
                         if preset is not None and not isinstance(preset, dict):
@@ -2089,10 +2106,28 @@ class LanController:
                         )
                         if cid is None:
                             await self._send_async(ws_id, {"type": "toast", "text": "Pick a character first, matey."})
+                            _, claim_rev, _ = self._claim_identity_for_ws(ws_id)
+                            await self._send_async(
+                                ws_id,
+                                {
+                                    "type": "claim_ack",
+                                    "ok": False,
+                                    "claimed_cid": None,
+                                    "claim_rev": int(claim_rev),
+                                    "reason": "missing_cid",
+                                },
+                            )
                             continue
-                        await self._claim_ws_async(ws_id, int(cid), note="Assigned.", allow_override=False)
+                        claim_ok = await self._claim_ws_async(ws_id, int(cid), note="Assigned.", allow_override=False)
+                        claim_rev: Optional[int] = None
                         if client_id:
-                            self._set_client_claim(client_id, int(cid))
+                            if claim_ok:
+                                claim_rev = self._set_client_claim(client_id, int(cid))
+                                with self._clients_lock:
+                                    self._ws_claim_revs[ws_id] = int(claim_rev)
+                            else:
+                                with self._clients_lock:
+                                    claim_rev = int(self._client_claim_revs.get(client_id, 0))
                             self._spell_debug_log(
                                 {
                                     "event": "claim",
@@ -2112,7 +2147,12 @@ class LanController:
                                     note="Synced claim.",
                                     allow_override=False,
                                 )
+                                if claim_rev is not None:
+                                    with self._clients_lock:
+                                        self._ws_claim_revs[other_ws_id] = int(claim_rev)
                         else:
+                            if claim_ok:
+                                claim_rev = self._next_claim_rev_for_ws(ws_id)
                             self._spell_debug_log(
                                 {
                                     "event": "claim",
@@ -2122,11 +2162,22 @@ class LanController:
                                     "reason": "missing_client_id",
                                 }
                             )
+                        effective_cid, effective_rev, _ = self._claim_identity_for_ws(ws_id)
+                        await self._send_async(
+                            ws_id,
+                            {
+                                "type": "claim_ack",
+                                "ok": bool(claim_ok),
+                                "claimed_cid": int(effective_cid) if effective_cid is not None else None,
+                                "claim_rev": int(effective_rev),
+                                "you": self._build_you_payload(ws_id),
+                                "reason": "ok" if claim_ok else "rejected",
+                            },
+                        )
                     elif typ == "unclaim":
-                        await self._unclaim_ws_async(ws_id, reason="Unclaimed", clear_ownership=False)
+                        claim_rev = await self._unclaim_ws_async(ws_id, reason="Unclaimed", clear_ownership=False)
                         client_id = self._normalize_client_id(msg.get("client_id")) or self._client_id_for_ws(ws_id)
                         if client_id:
-                            self._clear_client_claim(client_id)
                             self._spell_debug_log(
                                 {
                                     "event": "unclaim",
@@ -2135,6 +2186,17 @@ class LanController:
                                     "client_id": client_id,
                                 }
                             )
+                        _, effective_rev, _ = self._claim_identity_for_ws(ws_id)
+                        await self._send_async(
+                            ws_id,
+                            {
+                                "type": "unclaim_ack",
+                                "ok": True,
+                                "claimed_cid": None,
+                                "claim_rev": int(effective_rev if effective_rev is not None else (claim_rev or 0)),
+                                "you": self._build_you_payload(ws_id),
+                            },
+                        )
                     elif typ in (
                         "move",
                         "dash",
@@ -2187,6 +2249,7 @@ class LanController:
                     self._clients.pop(ws_id, None)
                     self._clients_meta.pop(ws_id, None)
                     self._client_hosts.pop(ws_id, None)
+                    self._ws_claim_revs.pop(ws_id, None)
                     self._view_only_clients.discard(ws_id)
                     client_id = self._client_ids.pop(ws_id, None)
                     if client_id:
@@ -3268,21 +3331,45 @@ class LanController:
         with self._clients_lock:
             return self._client_ids.get(ws_id)
 
-    def _set_client_claim(self, client_id: str, cid: int) -> None:
+    def _next_claim_rev_for_ws(self, ws_id: int) -> int:
+        with self._clients_lock:
+            next_rev = int(self._ws_claim_revs.get(ws_id, 0)) + 1
+            self._ws_claim_revs[ws_id] = next_rev
+            return next_rev
+
+    def _set_client_claim(self, client_id: str, cid: int) -> int:
         with self._clients_lock:
             self._client_id_claims[client_id] = int(cid)
+            next_rev = int(self._client_claim_revs.get(client_id, 0)) + 1
+            self._client_claim_revs[client_id] = next_rev
+            return next_rev
 
     def _client_claim_for_id(self, client_id: str) -> Optional[int]:
         with self._clients_lock:
             return self._client_id_claims.get(client_id)
 
-    def _clear_client_claim(self, client_id: str) -> None:
+    def _clear_client_claim(self, client_id: str) -> int:
         with self._clients_lock:
             self._client_id_claims.pop(client_id, None)
+            next_rev = int(self._client_claim_revs.get(client_id, 0)) + 1
+            self._client_claim_revs[client_id] = next_rev
+            return next_rev
 
     def _ws_ids_for_client_id(self, client_id: str) -> set[int]:
         with self._clients_lock:
             return set(self._client_id_to_ws.get(client_id, set()))
+
+    def _claim_identity_for_ws(self, ws_id: int) -> Tuple[Optional[int], int, Optional[str]]:
+        with self._clients_lock:
+            client_id = self._client_ids.get(ws_id)
+            claimed_cid = self._claims.get(ws_id)
+            if client_id is not None and client_id in self._client_id_claims:
+                claimed_cid = self._client_id_claims.get(client_id)
+            if client_id is not None:
+                claim_rev = int(self._client_claim_revs.get(client_id, 0))
+            else:
+                claim_rev = int(self._ws_claim_revs.get(ws_id, 0))
+        return claimed_cid, claim_rev, client_id
 
     def _claims_payload(self) -> Dict[str, str]:
         """Return a server-authoritative CID -> client_id map for active LAN claims."""
@@ -3303,17 +3390,41 @@ class LanController:
 
     async def _unclaim_ws_async(
         self, ws_id: int, reason: str = "Unclaimed", clear_ownership: bool = False
-    ) -> None:
+    ) -> int:
         # Drop claim mapping
         old = self._drop_claim(ws_id)
         if old is not None:
             name = self._tracker._pc_name_for(int(old))
             self.app._oplog(f"LAN session ws_id={ws_id} unclaimed {name} ({reason})")
-        await self._send_async(ws_id, {"type": "force_unclaim", "text": reason, "pcs": self._pcs_payload()})
+
+        claim_rev: int
+        client_id = self._client_id_for_ws(ws_id)
+        if client_id:
+            claim_rev = self._clear_client_claim(client_id)
+            ws_ids = self._ws_ids_for_client_id(client_id)
+            with self._clients_lock:
+                for member_ws_id in ws_ids:
+                    self._ws_claim_revs[member_ws_id] = int(claim_rev)
+        else:
+            claim_rev = self._next_claim_rev_for_ws(ws_id)
+
+        await self._send_async(
+            ws_id,
+            {
+                "type": "force_unclaim",
+                "text": reason,
+                "pcs": self._pcs_payload(),
+                "claimed_cid": None,
+                "claim_rev": int(claim_rev),
+                "reason": "revoked",
+                "you": self._build_you_payload(ws_id),
+            },
+        )
+        return int(claim_rev)
 
     async def _claim_ws_async(
         self, ws_id: int, cid: int, note: str = "Claimed", allow_override: bool = False
-    ) -> None:
+    ) -> bool:
         # Ensure cid is a PC
         pcs = {int(p.get("cid")): p for p in self._cached_pcs}
         if int(cid) not in pcs:
@@ -3322,7 +3433,7 @@ class LanController:
                 level="warning",
             )
             await self._send_async(ws_id, {"type": "toast", "text": "That character ain't claimable, matey."})
-            return
+            return False
 
         with self._clients_lock:
             current_claim = self._claims.get(ws_id)
@@ -3331,8 +3442,8 @@ class LanController:
                 {"event": "claim", "ws_id": ws_id, "cid": int(cid), "reason": "noop_already_claimed"}
             )
             # Still send confirmation to clear client's in-flight state
-            await self._send_async(ws_id, {"type": "force_claim", "cid": int(cid), "text": note})
-            return
+            await self._send_async(ws_id, {"type": "force_claim", "cid": int(cid), "text": note, "you": self._build_you_payload(ws_id)})
+            return True
 
         self._drop_claim(ws_id)
         with self._clients_lock:
@@ -3342,9 +3453,10 @@ class LanController:
             if host:
                 self._cid_to_host.setdefault(int(cid), set()).add(host)
 
-        await self._send_async(ws_id, {"type": "force_claim", "cid": int(cid), "text": note})
+        await self._send_async(ws_id, {"type": "force_claim", "cid": int(cid), "text": note, "you": self._build_you_payload(ws_id)})
         name = self._tracker._pc_name_for(int(cid))
         self.app._oplog(f"LAN session ws_id={ws_id} claimed {name} ({note})")
+        return True
 
     # ---------- helpers ----------
 
@@ -3583,7 +3695,7 @@ class LanController:
 
     def _build_you_payload(self, ws_id: int) -> Dict[str, Any]:
         """Build the 'you' field for a state payload - server-authoritative claim state."""
-        claimed_cid = self._get_claimed_cid_for_ws(ws_id)
+        claimed_cid, claim_rev, _ = self._claim_identity_for_ws(ws_id)
         result: Dict[str, Any] = {}
         if claimed_cid is not None:
             result["claimed_cid"] = int(claimed_cid)
@@ -3591,6 +3703,7 @@ class LanController:
         else:
             result["claimed_cid"] = None
             result["claimed_name"] = None
+        result["claim_rev"] = int(claim_rev)
         return result
 
 
