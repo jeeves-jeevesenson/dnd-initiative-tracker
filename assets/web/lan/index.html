@@ -3335,6 +3335,8 @@ __DAMAGE_TYPE_OPTIONS__
   let autoClaimChecked = false;
   let claimInFlight = false;
   let claimInFlightCid = null;
+  let claimInFlightTimeoutId = null;
+  const claimInFlightTimeoutMs = 8000;
   let claimStatus = "unclaimed";
   let claimRev = 0;
   let stateUpdateCounter = 0;
@@ -5106,15 +5108,39 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function setClaimInFlight(cid){
+    if (claimInFlightTimeoutId){
+      clearTimeout(claimInFlightTimeoutId);
+      claimInFlightTimeoutId = null;
+    }
     claimInFlight = true;
     claimInFlightCid = normalizeCid(cid, "claim.inFlightCid");
     claimStatus = "claiming";
+    claimInFlightTimeoutId = setTimeout(() => {
+      claimInFlightTimeoutId = null;
+      if (!claimInFlight) return;
+      const pendingCid = claimInFlightCid;
+      clearClaimInFlight();
+      if (claimStatus !== "claimed"){
+        claimStatus = "unclaimed";
+      }
+      if (pendingCid !== null && pendingCid !== undefined){
+        const displayName = getClaimablePcName(pendingCid, lastPcList || []) || `#${pendingCid}`;
+        localToast(`Claim for ${displayName} timed out. Please try again.`);
+      } else {
+        localToast("Claim request timed out. Please try again.");
+      }
+      updateClaimOverlay();
+    }, claimInFlightTimeoutMs);
     if (claimConfirmBtn){
       claimConfirmBtn.disabled = true;
     }
   }
 
   function clearClaimInFlight(){
+    if (claimInFlightTimeoutId){
+      clearTimeout(claimInFlightTimeoutId);
+      claimInFlightTimeoutId = null;
+    }
     claimInFlight = false;
     claimInFlightCid = null;
     if (claimStatus === "claiming"){
