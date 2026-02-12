@@ -430,6 +430,13 @@ grants:
           cost: 1
 ```
 
+LAN client behavior for `consumes.pool` grants:
+- Pool-granted spells appear in cast presets even if not prepared.
+- Casting consumes the configured resource pool first (not spell slots).
+- If the pool is exhausted, free-only grants disappear until the pool is restored.
+- If a spell is both prepared and pool-granted, casts use the pool while available, then fall back to normal slots.
+- The LAN sheet shows a **Resource Pools** panel with `current/max` values.
+
 **Field Descriptions:**
 - **cantrips**: List of cantrip IDs added to character's known cantrips
 - **casts**: List of spell cast objects

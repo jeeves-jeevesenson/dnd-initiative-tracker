@@ -3537,6 +3537,7 @@ class LanController:
             "spell_presets": spell_presets,
             "player_spells": self._cached_snapshot.get("player_spells", {}),
             "player_profiles": self._cached_snapshot.get("player_profiles", {}),
+            "resource_pools": self._cached_snapshot.get("resource_pools", {}),
             "monster_choices": monster_choices,
             "conditions": [
                 "blinded", "charmed", "deafened", "frightened", "grappled", "incapacitated",
@@ -5592,6 +5593,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "spell_presets": self._spell_presets_payload(),
             "player_spells": self._player_spell_config_payload(),
             "player_profiles": self._player_profiles_payload(),
+            "resource_pools": self._player_resource_pools_payload(),
         }
         return snap
 
@@ -7164,7 +7166,142 @@ class InitiativeTracker(base.InitiativeTracker):
         }
         if prepared_payload:
             spellcasting_payload["prepared_spells"] = prepared_payload
+        pool_casts = self._player_pool_granted_spells(data)
+        if pool_casts:
+            spellcasting_payload["pool_granted_spells"] = copy.deepcopy(pool_casts)
+            payload["pool_granted_spells"] = copy.deepcopy(pool_casts)
         payload["spellcasting"] = spellcasting_payload
+        return payload
+
+    def _normalize_player_resource_pools(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        resources = data.get("resources") if isinstance(data.get("resources"), dict) else {}
+        pools = resources.get("pools") if isinstance(resources.get("pools"), list) else []
+        normalized: List[Dict[str, Any]] = []
+        for entry in pools:
+            if not isinstance(entry, dict):
+                continue
+            pool_id = str(entry.get("id") or "").strip()
+            if not pool_id:
+                continue
+            label = str(entry.get("label") or pool_id).strip() or pool_id
+            reset = str(entry.get("reset") or "manual").strip().lower() or "manual"
+            max_formula = str(entry.get("max_formula") or "").strip()
+            max_value = self._compute_resource_pool_max(data, max_formula, entry.get("max"))
+            try:
+                current_value = int(entry.get("current", max_value))
+            except Exception:
+                current_value = max_value
+            current_value = max(0, min(current_value, max_value))
+            normalized.append(
+                {
+                    "id": pool_id,
+                    "label": label,
+                    "current": current_value,
+                    "max": max_value,
+                    "max_formula": max_formula,
+                    "reset": reset,
+                }
+            )
+        return normalized
+
+    def _compute_resource_pool_max(self, profile: Dict[str, Any], formula: Any, fallback: Any) -> int:
+        try:
+            fallback_value = int(fallback)
+        except Exception:
+            fallback_value = 0
+        fallback_value = max(0, fallback_value)
+        if not isinstance(formula, str) or not formula.strip():
+            return fallback_value
+        abilities = profile.get("abilities") if isinstance(profile.get("abilities"), dict) else {}
+        leveling = profile.get("leveling") if isinstance(profile.get("leveling"), dict) else {}
+        proficiency = profile.get("proficiency") if isinstance(profile.get("proficiency"), dict) else {}
+        level_value = self._coerce_level_value(leveling)
+        if level_value > 0:
+            prof_bonus = self._proficiency_bonus_for_level(level_value)
+        else:
+            try:
+                prof_bonus = int(proficiency.get("bonus"))
+            except Exception:
+                prof_bonus = 0
+        variables = {
+            "level": level_value,
+            "prof": prof_bonus,
+            "proficiency": prof_bonus,
+            "str_mod": self._ability_score_modifier(abilities, "str"),
+            "dex_mod": self._ability_score_modifier(abilities, "dex"),
+            "con_mod": self._ability_score_modifier(abilities, "con"),
+            "int_mod": self._ability_score_modifier(abilities, "int"),
+            "wis_mod": self._ability_score_modifier(abilities, "wis"),
+            "cha_mod": self._ability_score_modifier(abilities, "cha"),
+        }
+        result = self._evaluate_spell_formula(formula, variables)
+        if result is None:
+            return fallback_value
+        return max(0, int(math.floor(result)))
+
+    def _player_pool_granted_spells(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
+        pools = self._normalize_player_resource_pools(profile)
+        pool_by_id = {str(pool.get("id") or "").strip().lower(): pool for pool in pools if isinstance(pool, dict)}
+        features = profile.get("features") if isinstance(profile.get("features"), list) else []
+        granted: List[Dict[str, Any]] = []
+        seen: set[Tuple[str, str, int]] = set()
+        player_name = str(profile.get("name") or "").strip() or "unknown"
+        for feature in features:
+            if not isinstance(feature, dict):
+                continue
+            feature_name = str(feature.get("name") or feature.get("id") or "feature").strip() or "feature"
+            grants = feature.get("grants") if isinstance(feature.get("grants"), dict) else {}
+            spells = grants.get("spells") if isinstance(grants.get("spells"), dict) else {}
+            casts = spells.get("casts") if isinstance(spells.get("casts"), list) else []
+            for cast in casts:
+                if not isinstance(cast, dict):
+                    continue
+                spell_slug = str(cast.get("spell") or cast.get("slug") or cast.get("id") or "").strip().lower()
+                if not spell_slug:
+                    continue
+                consumes = cast.get("consumes") if isinstance(cast.get("consumes"), dict) else {}
+                pool_id = str(consumes.get("pool") or "").strip()
+                if not pool_id:
+                    continue
+                pool = pool_by_id.get(pool_id.lower())
+                if pool is None:
+                    self._oplog(
+                        f"Player YAML {player_name}: feature '{feature_name}' references unknown consumes.pool '{pool_id}' for spell '{spell_slug}'.",
+                        level="warning",
+                    )
+                    continue
+                try:
+                    cost = int(consumes.get("cost", 1))
+                except Exception:
+                    cost = 1
+                cost = max(1, cost)
+                action_type = str(cast.get("action_type") or "action").strip().lower() or "action"
+                key = (spell_slug, str(pool.get("id") or "").strip().lower(), cost)
+                if key in seen:
+                    continue
+                seen.add(key)
+                granted.append(
+                    {
+                        "spell": spell_slug,
+                        "consumes_pool": {
+                            "id": str(pool.get("id") or "").strip(),
+                            "label": str(pool.get("label") or pool_id).strip() or pool_id,
+                            "cost": cost,
+                        },
+                        "action_type": action_type,
+                        "source": feature_name,
+                        "always_available": True,
+                    }
+                )
+        return granted
+
+    def _player_resource_pools_payload(self) -> Dict[str, List[Dict[str, Any]]]:
+        self._load_player_yaml_cache()
+        payload: Dict[str, List[Dict[str, Any]]] = {}
+        for name, data in self._player_yaml_data_by_name.items():
+            if not isinstance(data, dict):
+                continue
+            payload[name] = self._normalize_player_resource_pools(data)
         return payload
 
     def _load_player_yaml_cache(self, force_refresh: bool = False) -> None:
@@ -7292,6 +7429,56 @@ class InitiativeTracker(base.InitiativeTracker):
                     profile_payload["spellcasting"] = spellcasting
             payload[name] = profile_payload
         return payload
+
+    def _consume_resource_pool_for_cast(
+        self,
+        caster_name: str,
+        pool_id: Any,
+        cost: Any,
+    ) -> Tuple[bool, str]:
+        player_name = str(caster_name or "").strip()
+        target_pool = str(pool_id or "").strip()
+        if not player_name or not target_pool:
+            return False, "That spell pool be invalid, matey."
+        try:
+            spend_cost = int(cost)
+        except Exception:
+            spend_cost = 1
+        spend_cost = max(1, spend_cost)
+
+        self._load_player_yaml_cache()
+        player_key = self._normalize_character_lookup_key(player_name)
+        player_path = self._player_yaml_name_map.get(player_key)
+        raw = self._player_yaml_cache_by_path.get(player_path) if player_path else None
+        if not isinstance(raw, dict):
+            return False, "No resource pools set up for that caster, matey."
+        resources = raw.get("resources") if isinstance(raw.get("resources"), dict) else {}
+        pools = resources.get("pools") if isinstance(resources.get("pools"), list) else []
+        target_entry = None
+        for entry in pools:
+            if not isinstance(entry, dict):
+                continue
+            if str(entry.get("id") or "").strip().lower() == target_pool.lower():
+                target_entry = entry
+                break
+        if target_entry is None:
+            return False, "That spell pool could not be found, matey."
+        try:
+            current_value = int(target_entry.get("current", 0))
+        except Exception:
+            current_value = 0
+        if current_value < spend_cost:
+            return False, "That resource pool be exhausted, matey."
+        target_entry["current"] = current_value - spend_cost
+        resources = dict(resources)
+        resources["pools"] = pools
+        raw = dict(raw)
+        raw["resources"] = resources
+        try:
+            self._store_character_yaml(player_path, raw)
+        except Exception:
+            return False, "Could not update resource pools, matey."
+        return True, ""
 
     def _library_rows_unified(
         self,
@@ -7780,6 +7967,21 @@ class InitiativeTracker(base.InitiativeTracker):
             raw["spellcasting"] = spellcasting
             if "spell_slots" in raw:
                 raw["spell_slots"] = slots
+
+            resources = raw.get("resources")
+            if isinstance(resources, dict):
+                pools = resources.get("pools") if isinstance(resources.get("pools"), list) else []
+                for pool in pools:
+                    if not isinstance(pool, dict):
+                        continue
+                    reset = str(pool.get("reset") or "").strip().lower()
+                    if reset not in ("short_rest", "long_rest", "dawn", "dusk"):
+                        continue
+                    pool_max = self._compute_resource_pool_max(raw, pool.get("max_formula"), pool.get("max"))
+                    pool["current"] = pool_max
+                resources = dict(resources)
+                resources["pools"] = pools
+                raw["resources"] = resources
 
             self._store_character_yaml(path, raw)
             updated[name.lower()] = int(max_hp_value or 0)
@@ -9650,14 +9852,43 @@ class InitiativeTracker(base.InitiativeTracker):
             c = self.combatants.get(cid) if cid is not None else None
             if c is not None and not is_admin:
                 player_name = _resolve_pc_name(cid)
-                ok_slot, slot_err, _spent_level = self._consume_spell_slot_for_cast(
-                    caster_name=player_name,
-                    slot_level=slot_level,
-                    minimum_level=preset_level,
-                )
-                if not ok_slot:
-                    self._lan.toast(ws_id, slot_err)
-                    return
+                consumes_pool = payload.get("consumes_pool") if isinstance(payload.get("consumes_pool"), dict) else {}
+                pool_id = str(
+                    msg.get("consumes_pool_id")
+                    or payload.get("consumes_pool_id")
+                    or consumes_pool.get("id")
+                    or consumes_pool.get("pool")
+                    or ""
+                ).strip()
+                try:
+                    pool_cost = int(
+                        msg.get("consumes_pool_cost")
+                        if msg.get("consumes_pool_cost") is not None
+                        else payload.get("consumes_pool_cost")
+                        if payload.get("consumes_pool_cost") is not None
+                        else consumes_pool.get("cost", 1)
+                    )
+                except Exception:
+                    pool_cost = 1
+                pool_cost = max(1, pool_cost)
+                if pool_id:
+                    ok_pool, pool_err = self._consume_resource_pool_for_cast(
+                        caster_name=player_name,
+                        pool_id=pool_id,
+                        cost=pool_cost,
+                    )
+                    if not ok_pool:
+                        self._lan.toast(ws_id, pool_err)
+                        return
+                else:
+                    ok_slot, slot_err, _spent_level = self._consume_spell_slot_for_cast(
+                        caster_name=player_name,
+                        slot_level=slot_level,
+                        minimum_level=preset_level,
+                    )
+                    if not ok_slot:
+                        self._lan.toast(ws_id, slot_err)
+                        return
                 if int(getattr(c, "spell_cast_remaining", 0) or 0) <= 0:
                     self._lan.toast(ws_id, "Already cast a spell this turn, matey.")
                     return
