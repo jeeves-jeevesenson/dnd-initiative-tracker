@@ -6884,22 +6884,37 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
 
-  function isFriendlyUnit(unit){
+  function isFriendlyToMe(unit, me){
     if (!unit) return false;
-    if (unit.ally !== undefined && unit.ally !== null) return !!unit.ally;
+    if (unit.ally === true) return true;
     const role = normalizeTextValue(unit.role);
-    return role === "pc" || role === "ally";
+    if (role === "pc" || role === "ally") return true;
+    if (me && unit.summoned_by_cid != null && Number(unit.summoned_by_cid) === Number(me.cid)) return true;
+    return false;
+  }
+
+  function isMountableFor(unit, me){
+    if (!unit) return false;
+    if (unit.can_be_mounted || unit.is_mount) return true;
+    if (me && unit.summoned_by_cid != null && Number(unit.summoned_by_cid) === Number(me.cid)) return true;
+    return false;
   }
 
   function mountCandidatePair(){
     const me = getClaimedUnit();
-    if (!me || !state?.units) return null;
+    const units = state?.units || state?.combatants || [];
+    if (!me || !Array.isArray(units)) return null;
     if (me.rider_cid || me.mounted_by_cid) return null;
-    const sameTile = state.units.filter(u => isFriendlyUnit(u) && Number(u?.pos?.col)===Number(me?.pos?.col) && Number(u?.pos?.row)===Number(me?.pos?.row) && Number(u?.cid)!==Number(me?.cid));
-    if (sameTile.length !== 1) return null;
-    const mount = sameTile[0];
-    if (mount.rider_cid || mount.mounted_by_cid) return null;
-    if (!mount.can_be_mounted && !mount.is_mount) return null;
+    const sameTile = units.filter(u =>
+      u &&
+      Number(u?.pos?.col)===Number(me?.pos?.col) &&
+      Number(u?.pos?.row)===Number(me?.pos?.row) &&
+      Number(u?.cid)!==Number(me?.cid) &&
+      isFriendlyToMe(u, me)
+    );
+    if (!sameTile.length) return null;
+    const mount = sameTile.find(u => !u.rider_cid && !u.mounted_by_cid && isMountableFor(u, me));
+    if (!mount) return null;
     return {rider: me, mount};
   }
 
@@ -11322,8 +11337,9 @@ __DAMAGE_TYPE_OPTIONS__
 
   if (mountBtn){
     mountBtn.addEventListener("click", () => {
-      if (!pendingMountPair) return;
-      send({type:"mount_request", rider_cid:Number(pendingMountPair.rider.cid), mount_cid:Number(pendingMountPair.mount.cid)});
+      const pair = pendingMountPair || mountCandidatePair();
+      if (!pair) return;
+      send({type:"mount_request", rider_cid:Number(pair.rider.cid), mount_cid:Number(pair.mount.cid)});
     });
   }
   if (dismountBtn){
