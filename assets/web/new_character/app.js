@@ -220,23 +220,6 @@ const HIT_DICE_BY_CLASS = new Map([
   ["wizard", "d6"],
 ]);
 const HIT_DICE_ORDER = ["d12", "d10", "d8", "d6"];
-const CLASS_OPTIONS = [
-  "Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard",
-];
-const SAVE_PROFICIENCIES = new Map([
-  ["barbarian", ["str", "con"]],
-  ["bard", ["dex", "cha"]],
-  ["cleric", ["wis", "cha"]],
-  ["druid", ["int", "wis"]],
-  ["fighter", ["str", "con"]],
-  ["monk", ["str", "dex"]],
-  ["paladin", ["wis", "cha"]],
-  ["ranger", ["str", "dex"]],
-  ["rogue", ["dex", "int"]],
-  ["sorcerer", ["con", "cha"]],
-  ["warlock", ["wis", "cha"]],
-  ["wizard", ["int", "wis"]],
-]);
 
 const derivedStats = (() => {
   const AUTO_FIELDS = new Set([
@@ -326,12 +309,13 @@ const derivedStats = (() => {
       return;
     }
     const abilities = boundData?.abilities || {};
+    const proficiency = Number(boundData?.proficiency?.bonus ?? 0);
     const leveling = boundData?.leveling || {};
-    const levelFromClasses = Array.isArray(leveling?.classes)
-      ? leveling.classes.reduce((sum, entry) => sum + Number(entry?.level ?? 0), 0)
-      : 0;
-    const totalLevel = Number(leveling?.level ?? 0) || levelFromClasses;
-    const proficiency = Math.min(6, 2 + Math.floor((Math.max(1, totalLevel) - 1) / 4));
+    const totalLevel =
+      Number(leveling?.level ?? 0) ||
+      (Array.isArray(leveling?.classes)
+        ? leveling.classes.reduce((sum, entry) => sum + Number(entry?.level ?? 0), 0)
+        : 0);
     const hitDie = getHitDice(leveling?.classes);
 
     if (hitDie) {
@@ -339,23 +323,6 @@ const derivedStats = (() => {
     }
     if (totalLevel) {
       applyAutoValue("vitals.hit_dice.total", totalLevel);
-    }
-    applyAutoValue("proficiency.bonus", proficiency);
-    if (Array.isArray(leveling?.classes) && leveling.classes.length) {
-      let best = null;
-      leveling.classes.forEach((entry, idx) => {
-        const lvl = Number(entry?.level ?? 0);
-        if (!best || lvl > best.lvl) {
-          best = { idx, lvl, name: String(entry?.name || "").trim().toLowerCase() };
-        }
-      });
-      const autoSaves = SAVE_PROFICIENCIES.get(best?.name) || [];
-      const currentSaves = Array.isArray(boundData?.proficiency?.saves) ? [...boundData.proficiency.saves] : [];
-      autoSaves.forEach((save) => {
-        const upper = save.toUpperCase();
-        if (!currentSaves.includes(upper)) currentSaves.push(upper);
-      });
-      applyAutoValue("proficiency.saves", currentSaves);
     }
 
     const castingAbility = String(boundData?.spellcasting?.casting_ability || "").trim();
@@ -411,10 +378,7 @@ const derivedStats = (() => {
 
 const slugify = (value, separator = "_") => {
   const text = String(value || "").trim().toLowerCase();
-  const normalized = text
-    .replace(/['`]/g, separator)
-    .replace(/[^a-z0-9\s_-]/g, "")
-    .replace(/[\s-]+/g, separator);
+  const normalized = text.replace(/[^\w\s-]/g, "").replace(/[\s-]+/g, separator);
   const trimmed = normalized.replace(new RegExp(`^${separator}+|${separator}+$`, "g"), "");
   return trimmed || "character";
 };
@@ -494,43 +458,12 @@ const createInput = (field, value, path, data) => {
   const inputType = Array.isArray(field.type) ? "string" : field.type;
   const useTextarea = field.key === "description" || field.key === "notes";
   if (inputType === "boolean") {
-    if (path.join(".") === "spellcasting.enabled") {
-      input = document.createElement("button");
-      input.type = "button";
-      input.dataset.path = path.join(".");
-      input.className = `spell-toggle ${Boolean(value) ? "on" : "off"}`;
-      input.textContent = Boolean(value) ? "Spellcasting Enabled" : "Spellcasting Disabled";
-      input.addEventListener("click", () => {
-        const next = !Boolean(getValueAtPath(data, path));
-        setValueAtPath(data, path, next);
-        input.className = `spell-toggle ${next ? "on" : "off"}`;
-        input.textContent = next ? "Spellcasting Enabled" : "Spellcasting Disabled";
-      });
-    } else {
-      input = document.createElement("input");
-      input.type = "checkbox";
-      input.dataset.path = path.join(".");
-      input.checked = Boolean(value);
-      input.addEventListener("change", () => {
-        setValueAtPath(data, path, input.checked);
-      });
-    }
-  } else if (path.join(".") === "leveling.classes.name") {
-    input = document.createElement("select");
+    input = document.createElement("input");
+    input.type = "checkbox";
     input.dataset.path = path.join(".");
-    const emptyOption = document.createElement("option");
-    emptyOption.value = "";
-    emptyOption.textContent = "Select class";
-    input.appendChild(emptyOption);
-    CLASS_OPTIONS.forEach((name) => {
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = name;
-      option.selected = String(value || "") === name;
-      input.appendChild(option);
-    });
+    input.checked = Boolean(value);
     input.addEventListener("change", () => {
-      setValueAtPath(data, path, input.value);
+      setValueAtPath(data, path, input.checked);
     });
   } else if (inputType === "integer" || inputType === "number") {
     input = document.createElement("input");
@@ -1116,47 +1049,8 @@ const renderField = (field, path, data, value) => {
   return createInput(field, value, path, data);
 };
 
-const TAB_LAYOUT = [
-  { id: "basic", label: "Basic Info", sections: ["root", "identity"] },
-  { id: "stats", label: "Stats", sections: ["leveling", "abilities", "proficiency", "defenses", "attacks"] },
-  { id: "vitals", label: "Vitals", sections: ["vitals", "resources"] },
-  { id: "feats", label: "Feats", sections: ["features"] },
-  { id: "actions", label: "Actions", sections: ["actions", "reactions", "bonus_actions"] },
-  { id: "spellcasting", label: "Spellcasting", sections: ["spellcasting"] },
-  { id: "other", label: "Other", sections: ["inventory", "notes"] },
-];
-
 const renderForm = (schema, data) => {
   formEl.innerHTML = "";
-  const tabs = document.createElement("div");
-  tabs.className = "tab-bar";
-  const panes = document.createElement("div");
-  panes.className = "tab-panes";
-  const paneById = new Map();
-  TAB_LAYOUT.forEach((tab, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `tab-button${index === 0 ? " active" : ""}`;
-    button.textContent = tab.label;
-    button.dataset.tabTarget = tab.id;
-    tabs.appendChild(button);
-
-    const pane = document.createElement("div");
-    pane.className = `tab-pane${index === 0 ? " active" : ""}`;
-    pane.dataset.tabPane = tab.id;
-    panes.appendChild(pane);
-    paneById.set(tab.id, pane);
-  });
-  tabs.addEventListener("click", (event) => {
-    const button = event.target.closest(".tab-button");
-    if (!button) return;
-    const target = button.dataset.tabTarget;
-    tabs.querySelectorAll(".tab-button").forEach((el) => el.classList.toggle("active", el === button));
-    panes.querySelectorAll(".tab-pane").forEach((el) => el.classList.toggle("active", el.dataset.tabPane === target));
-  });
-  formEl.appendChild(tabs);
-  formEl.appendChild(panes);
-
   (schema.sections || []).forEach((section) => {
     const sectionEl = document.createElement("section");
     sectionEl.className = "section";
@@ -1177,9 +1071,7 @@ const renderForm = (schema, data) => {
       sectionEl.appendChild(renderMapField(section, sectionPath, data));
     }
 
-    const targetTab = TAB_LAYOUT.find((tab) => tab.sections.includes(section.id))?.id || "other";
-    const targetPane = paneById.get(targetTab) || paneById.get("other");
-    targetPane.appendChild(sectionEl);
+    formEl.appendChild(sectionEl);
   });
 };
 
@@ -1277,15 +1169,8 @@ const boot = async () => {
   renderForm(schema, data);
   derivedStats.bind(formEl, data);
   derivedStats.recalculate();
-  formEl.addEventListener("input", (event) => {
-    if (event.target?.dataset?.path === "name" || event.target?.dataset?.path === "identity.name") {
-      if (filenameInput && !filenameInput.value.trim()) {
-        filenameInput.value = `${slugify(data?.name || "")}.yaml`;
-      }
-    }
-  });
   if (filenameInput) {
-    filenameInput.value = draft.filename || `${slugify(data?.name || "")}.yaml`;
+    filenameInput.value = draft.filename || "";
     filenameInput.addEventListener("input", () => {
       saveDraft(data, filenameInput.value, { showStatus: false });
     });
