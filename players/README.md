@@ -1422,6 +1422,17 @@ The `/new_character` and `/edit_character` web forms now use a tabbed layout to 
 - **Tool/weapon/armor proficiencies** are expected to be selected from dropdown/list controls (instead of free-text typing) in the web UI.
 
 When YAML is exported/saved, all schema sections are still included even if some tabs were never opened.
+
+## Wild Shape Runtime Notes
+
+- Druid characters (level 2+) automatically receive a `wild_shape` resource pool at load time.
+- This pool is normalized to:
+  - `label: Wild Shape`
+  - `max_formula: max(2, min(4, 2 + floor(druid_level / 3)))`
+  - `reset: long_rest`
+  - `gain_on_short: 1`
+- Wild Shape overlays (beast form stats, token rename/size/speed changes, known-form picks in LAN) are **runtime state** and are not written back to the player YAML file.
+- Long rest clears active Wild Shape overlays and refreshes Wild Shape/LAN exchange restrictions.
 - **Feats tab is now a two-pane editor** (searchable feat list on the left, explicit details/save/revert/remove actions on the right) with per-feat dirty indicators and unsaved-change confirmation when switching feats/tabs or leaving the page.
 - **Configure Grants… modal** replaces inline grants editing. It contains dedicated **Resource Pools** and **Granted Spells** sub-tabs, supports add/remove/edit flows, validates pool ID uniqueness across the character, and only applies changes when confirmed.
 - **Pool materialization is automatic on grants Apply/save/export/overwrite**: feat-local `grants.pools[]` definitions are synchronized into `resources.pools[]` so `consumes.pool` references remain backend-valid.
