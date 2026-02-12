@@ -762,7 +762,6 @@ DAMAGE_TYPE_OPTIONS = _build_damage_type_options(DAMAGE_TYPES)
 # ----------------------------- LAN Server -----------------------------
 
 _LAN_ASSET_DIR = Path(__file__).resolve().parent / "assets" / "web" / "lan"
-_PLAN_ASSET_DIR = Path(__file__).resolve().parent / "assets" / "web" / "plan"
 _CAST_TIME_BONUS_RE = re.compile(r"\bbonus[\s-]*action\b")
 _CAST_TIME_REACTION_RE = re.compile(r"\breaction\b")
 _CAST_TIME_ACTION_RE = re.compile(r"\baction\b")
@@ -779,7 +778,6 @@ def _load_lan_asset(name: str) -> str:
 
 HTML_INDEX = _load_lan_asset("index.html").replace("__DAMAGE_TYPE_OPTIONS__", DAMAGE_TYPE_OPTIONS)
 SERVICE_WORKER_JS = _load_lan_asset("sw.js")
-PLAN_HTML_INDEX = (_PLAN_ASSET_DIR / "index.html").read_text(encoding="utf-8") if (_PLAN_ASSET_DIR / "index.html").exists() else ""
 
 
 # ----------------------------- LAN plumbing -----------------------------
@@ -1425,9 +1423,10 @@ class LanController:
 
         @self._fastapi_app.get("/planning")
         async def planning():
-            if not PLAN_HTML_INDEX:
-                raise HTTPException(status_code=404, detail="Planning page missing.")
-            html = PLAN_HTML_INDEX.replace("__LAN_BASE_URL__", json.dumps(self._best_lan_url()))
+            push_key = self.cfg.vapid_public_key
+            push_key_value = json.dumps(push_key) if push_key else "undefined"
+            html = HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value)
+            html = html.replace("__LAN_BASE_URL__", json.dumps(self._best_lan_url()))
             return HTMLResponse(html)
 
         @self._fastapi_app.get("/new_character")
@@ -1500,16 +1499,6 @@ class LanController:
                 limit = 200
             limit = max(1, min(limit, 1000))
             return {"lines": self._lan_log_lines(limit)}
-
-        @self._fastapi_app.get("/api/planning/static")
-        async def planning_static(request: Request):
-            self._resolve_planning_auth(request)
-            return copy.deepcopy(self._static_data_payload(planning=True))
-
-        @self._fastapi_app.get("/api/planning/snapshot")
-        async def planning_snapshot(request: Request, player_cid: Optional[int] = None):
-            auth = self._resolve_planning_auth(request, player_cid=player_cid)
-            return self._planning_snapshot_payload(auth.get("player_cid"), bool(auth.get("is_admin")))
 
         @self._fastapi_app.post("/api/client-log")
         async def client_log(request: Request, payload: Dict[str, Any] = Body(...)):
