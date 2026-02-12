@@ -2640,6 +2640,7 @@ __DAMAGE_TYPE_OPTIONS__
   const qs = new URLSearchParams(location.search);
   const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
   const isMapView = normalizedPath === "/map_view";
+  const isMapViewOnly = isMapView && (qs.get("map_view_only") === "1" || qs.get("view_only") === "1");
   const isPlanning = normalizedPath === "/planning";
   const supportsMapView = !isPlanning;
   const wsPath = isMapView ? "/ws_view" : "/ws";
@@ -3379,7 +3380,7 @@ __DAMAGE_TYPE_OPTIONS__
   const isStandalone = window.navigator.standalone === true;
   if (document.body){
     document.body.classList.toggle("map-view", isMapView);
-    document.body.classList.toggle("map-view-only", isMapView);
+    document.body.classList.toggle("map-view-only", isMapViewOnly);
     document.body.classList.toggle("planning-view", isPlanning);
   }
   if (iosInstallHint){
