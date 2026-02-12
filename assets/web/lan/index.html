@@ -8143,15 +8143,14 @@ __DAMAGE_TYPE_OPTIONS__
     return Array.from(merged).filter(Boolean);
   };
   const getPreparedSpellFilterSet = () => {
-    if (!claimedCid) return new Set();
-    if (!state?.player_spells || typeof state.player_spells !== "object") return null;
-    if (!Object.prototype.hasOwnProperty.call(state.player_spells, claimedCid)) return null;
+    if (!claimedCid) return null;
     const list = loadPreparedSpellFilterList();
     if (!list) return new Set();
     return new Set(list.map(getSpellKey));
   };
   const filterPresetsByKnownList = (presets, knownSpellSet) => {
-    if (!knownSpellSet || knownSpellSet.size === 0) return presets;
+    if (!knownSpellSet) return presets;
+    if (knownSpellSet.size === 0) return [];
     return presets.filter((preset) => {
       const slug = getPresetSlug(preset);
       if (!slug) return false;
@@ -8712,8 +8711,11 @@ __DAMAGE_TYPE_OPTIONS__
       spellbookKnownEnabledToggle.checked = spellbookKnownEnabled;
     }
     if (spellbookTabKnown){
-      spellbookTabKnown.disabled = !spellbookKnownEnabled;
+      spellbookTabKnown.classList.toggle("hidden", !spellbookKnownEnabled);
       spellbookTabKnown.classList.toggle("accent", spellbookMode === "known");
+    }
+    if (!spellbookKnownEnabled && spellbookMode === "known"){
+      spellbookMode = "prepared";
     }
     if (spellbookTabPrepared){
       spellbookTabPrepared.classList.toggle("accent", spellbookMode === "prepared");
