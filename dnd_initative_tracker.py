@@ -1860,7 +1860,7 @@ class LanController:
                 await ws.send_text(
                     self._json_dumps({
                         "type": "state", 
-                        "state": self._dynamic_snapshot_payload(), 
+                        "state": self._view_only_state_payload(), 
                         "pcs": self._pcs_payload(),
                         "you": you_data
                     })
@@ -3070,14 +3070,19 @@ class LanController:
         to_drop: List[int] = []
         with self._clients_lock:
             items = list(self._clients.items())
+            view_only_clients = set(self._view_only_clients)
+        view_only_state = None
+        if view_only_clients:
+            view_only_state = self._view_only_state_payload(state_data)
         
         # Send personalized payload to each client with their own "you" field
         for ws_id, ws in items:
             try:
                 you_data = self._build_you_payload(ws_id)
+                payload_state = view_only_state if ws_id in view_only_clients and view_only_state is not None else state_data
                 payload = self._json_dumps({
                     "type": "state", 
-                    "state": state_data, 
+                    "state": payload_state, 
                     "pcs": pcs_data,
                     "you": you_data
                 })
@@ -3340,11 +3345,16 @@ class LanController:
             self._log_lan_exception(f"LAN full state static send failed ws_id={ws_id}", exc)
         try:
             you_data = self._build_you_payload(ws_id)
+            with self._clients_lock:
+                is_view_only = ws_id in self._view_only_clients
+            state_payload = self._dynamic_snapshot_payload()
+            if is_view_only:
+                state_payload = self._view_only_state_payload(state_payload)
             await self._send_async(
                 ws_id,
                 {
                     "type": "state", 
-                    "state": self._dynamic_snapshot_payload(), 
+                    "state": state_payload, 
                     "pcs": self._pcs_payload(),
                     "you": you_data
                 },
@@ -3732,6 +3742,17 @@ class LanController:
         snap.pop("grid", None)
         return snap
 
+    def _view_only_state_payload(self, base_state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        state = dict(base_state) if isinstance(base_state, dict) else dict(self._dynamic_snapshot_payload())
+        snap = self._cached_snapshot_payload()
+        if "grid" not in state:
+            state["grid"] = snap.get("grid")
+        if "rough_terrain" not in state:
+            state["rough_terrain"] = snap.get("rough_terrain", [])
+        if "obstacles" not in state:
+            state["obstacles"] = snap.get("obstacles", [])
+        return state
+
     def _pc_name_for(self, cid: int) -> str:
         for pc in self._cached_pcs:
             if int(pc.get("cid", -1)) == int(cid):
@@ -3831,53 +3852,34 @@ class InitiativeTracker(base.InitiativeTracker):
             text = str(value or "").strip().lower()
             return text == "beast" or text.startswith("beast (")
 
-        forms: List[Dict[str, Any]] = []
-        monsters_dir = _app_base_dir() / "Monsters"
-        seen_ids: set[str] = set()
-        if yaml is not None and monsters_dir.is_dir():
-            for path in monsters_dir.glob("*.yaml"):
+        def parse_int_field(value: Any, default: int) -> int:
+            if isinstance(value, (int, float)):
                 try:
-                    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+                    return int(value)
                 except Exception:
-                    continue
-                if not isinstance(raw, dict):
-                    continue
-                if not is_beast_type(raw.get("type")):
-                    continue
-                speed_data = raw.get("speed")
-                walk = swim = fly = climb = 0
-                if speed_data is not None:
-                    parsed = base._parse_speed_data(speed_data)
-                    walk = int(parsed[0] or 0)
-                    swim = int(parsed[1] or 0)
-                    fly = int(parsed[2] or 0)
-                    climb = int(parsed[4] or 0)
-                abilities = raw.get("abilities") if isinstance(raw.get("abilities"), dict) else {}
-                form_id = path.stem
-                seen_ids.add(form_id)
-                forms.append(
-                    {
-                        "id": form_id,
-                        "name": str(raw.get("name") or path.stem).strip() or path.stem,
-                        "challenge_rating": self._parse_cr_value(raw.get("challenge_rating") or 0),
-                        "size": str(raw.get("size") or "Medium").strip() or "Medium",
-                        "ac": int(raw.get("ac") or 10),
-                        "hp": int(raw.get("hp") or 1),
-                        "speed": {"walk": walk, "swim": swim, "fly": fly, "climb": climb},
-                        "abilities": {
-                            "str": int(abilities.get("Str") or 10),
-                            "dex": int(abilities.get("Dex") or 10),
-                            "con": int(abilities.get("Con") or 10),
-                            "int": int(abilities.get("Int") or 10),
-                            "wis": int(abilities.get("Wis") or 10),
-                            "cha": int(abilities.get("Cha") or 10),
-                        },
-                        "actions": list(raw.get("actions") if isinstance(raw.get("actions"), list) else []),
-                    }
-                )
+                    return default
+            text = str(value or "").strip()
+            if not text:
+                return default
+            match = re.match(r"^\s*(\d+)", text)
+            if match:
+                return int(match.group(1))
+            return default
 
+        def ability_value(abilities: Dict[str, Any], key: str, default: int = 10) -> int:
+            return parse_int_field(
+                abilities.get(key)
+                or abilities.get(key.lower())
+                or abilities.get(key.upper())
+                or default,
+                default,
+            )
+
+        forms: List[Dict[str, Any]] = []
+        seen_ids: set[str] = set()
         specs = getattr(self, "_monster_specs", None)
-        if isinstance(specs, list) and specs:
+        has_specs = isinstance(specs, list) and bool(specs)
+        if has_specs:
             for spec in specs:
                 if not isinstance(spec, MonsterSpec):
                     continue
@@ -3887,14 +3889,15 @@ class InitiativeTracker(base.InitiativeTracker):
                 form_id = Path(str(spec.filename or "")).stem or str(raw.get("name") or spec.name or "").strip().lower().replace(" ", "-")
                 if form_id in seen_ids:
                     continue
+                seen_ids.add(form_id)
                 forms.append(
                     {
                         "id": form_id,
                         "name": str(raw.get("name") or spec.name).strip() or str(spec.name),
                         "challenge_rating": self._parse_cr_value(raw.get("challenge_rating", spec.cr) or 0),
                         "size": str(raw.get("size") or "Medium").strip() or "Medium",
-                        "ac": int(raw.get("ac") or 10),
-                        "hp": int(raw.get("hp") or spec.hp or 1),
+                        "ac": parse_int_field(raw.get("ac"), 10),
+                        "hp": parse_int_field(raw.get("hp") or spec.hp, 1),
                         "speed": {
                             "walk": int(spec.speed or 0),
                             "swim": int(spec.swim_speed or 0),
@@ -3912,6 +3915,49 @@ class InitiativeTracker(base.InitiativeTracker):
                         "actions": list(raw.get("actions") if isinstance(raw.get("actions"), list) else []),
                     }
                 )
+        else:
+            monsters_dir = _app_base_dir() / "Monsters"
+            if yaml is not None and monsters_dir.is_dir():
+                for path in monsters_dir.glob("*.yaml"):
+                    try:
+                        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+                    except Exception:
+                        continue
+                    if not isinstance(raw, dict):
+                        continue
+                    if not is_beast_type(raw.get("type")):
+                        continue
+                    speed_data = raw.get("speed")
+                    walk = swim = fly = climb = 0
+                    if speed_data is not None:
+                        parsed = base._parse_speed_data(speed_data)
+                        walk = int(parsed[0] or 0)
+                        swim = int(parsed[1] or 0)
+                        fly = int(parsed[2] or 0)
+                        climb = int(parsed[4] or 0)
+                    abilities = raw.get("abilities") if isinstance(raw.get("abilities"), dict) else {}
+                    form_id = path.stem
+                    seen_ids.add(form_id)
+                    forms.append(
+                        {
+                            "id": form_id,
+                            "name": str(raw.get("name") or path.stem).strip() or path.stem,
+                            "challenge_rating": self._parse_cr_value(raw.get("challenge_rating") or 0),
+                            "size": str(raw.get("size") or "Medium").strip() or "Medium",
+                            "ac": parse_int_field(raw.get("ac"), 10),
+                            "hp": parse_int_field(raw.get("hp"), 1),
+                            "speed": {"walk": walk, "swim": swim, "fly": fly, "climb": climb},
+                            "abilities": {
+                                "str": ability_value(abilities, "Str"),
+                                "dex": ability_value(abilities, "Dex"),
+                                "con": ability_value(abilities, "Con"),
+                                "int": ability_value(abilities, "Int"),
+                                "wis": ability_value(abilities, "Wis"),
+                                "cha": ability_value(abilities, "Cha"),
+                            },
+                            "actions": list(raw.get("actions") if isinstance(raw.get("actions"), list) else []),
+                        }
+                    )
         forms.sort(key=lambda entry: (entry.get("challenge_rating", 0.0), entry.get("name", "")))
         self._wild_shape_beast_cache = forms
         return forms
