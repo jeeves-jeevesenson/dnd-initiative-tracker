@@ -1576,6 +1576,69 @@
     .dm-map-preview{width:min(300px,28vw); display:none; flex-direction:column; padding:8px; opacity:0.55;}
     .dm-map-preview.show{display:flex;}
     .dm-map-preview canvas{width:100%; aspect-ratio:1/1; background:rgba(5,8,14,0.78); border-radius:8px;}
+    .map-view-log-panel{
+      position:absolute;
+      right:12px;
+      bottom:12px;
+      width:min(540px,52vw);
+      max-height:min(42vh, 360px);
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,0.2);
+      background: rgba(8,10,16,0.82);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+      backdrop-filter: blur(8px);
+      z-index: 9;
+      overflow: hidden;
+      pointer-events:auto;
+      display:none;
+      flex-direction:column;
+    }
+    .map-view .map-view-log-panel{display:flex;}
+    .map-view-log-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:8px 10px;
+      border-bottom:1px solid rgba(255,255,255,0.12);
+      font-size:12px;
+      letter-spacing:0.3px;
+    }
+    .map-view-log-title{font-weight:700;}
+    .map-view-log-subtitle{color:var(--muted); font-size:11px;}
+    .map-view-log-list{
+      overflow:auto;
+      padding:8px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      font-size:15px;
+      line-height:1.35;
+    }
+    .map-view-log-entry{
+      display:grid;
+      grid-template-columns: 74px 1fr;
+      gap:8px;
+      align-items:start;
+      padding:5px 8px;
+      border-radius:8px;
+      background: rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.06);
+    }
+    .map-view-log-time{
+      color:var(--muted);
+      font-size:11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin-top:2px;
+    }
+    .map-view-log-msg{color:#f2f6ff; text-shadow: 0 1px 0 rgba(0,0,0,0.45);}
+    .map-view-log-msg.is-crit{font-weight:800; letter-spacing:0.2px;}
+    .map-view-log-msg .damage-type{font-weight:700; text-shadow:0 0 8px currentColor;}
+    @media (max-width: 900px){
+      .map-view-log-panel{left:8px; right:8px; bottom:8px; width:auto; max-height:34vh;}
+      .map-view-log-list{font-size:13px;}
+      .map-view-log-entry{grid-template-columns: 64px 1fr;}
+    }
 
     .log-content{
       overflow:auto;
@@ -1802,6 +1865,13 @@
         <canvas id="dmPreviewCanvas" width="240" height="240"></canvas>
       </aside>
     </div>
+    <aside class="map-view-log-panel" id="mapViewLogPanel" aria-live="polite">
+      <div class="map-view-log-header">
+        <div class="map-view-log-title">Battle Feed</div>
+        <div class="map-view-log-subtitle">Spectator view</div>
+      </div>
+      <div class="map-view-log-list" id="mapViewLogList"></div>
+    </aside>
 
     <div class="modal" id="claimModal" aria-hidden="true">
       <div class="card">
@@ -2997,6 +3067,8 @@ __DAMAGE_TYPE_OPTIONS__
   const dmSideLayout = document.getElementById("dmSideLayout");
   const dmLogPanel = document.getElementById("dmLogPanel");
   const dmLogList = document.getElementById("dmLogList");
+  const mapViewLogPanel = document.getElementById("mapViewLogPanel");
+  const mapViewLogList = document.getElementById("mapViewLogList");
   const dmMapPreview = document.getElementById("dmMapPreview");
   const dmPreviewCanvas = document.getElementById("dmPreviewCanvas");
   const dmLogAutoScrollInput = document.getElementById("dmLogAutoScroll");
@@ -3272,6 +3344,7 @@ __DAMAGE_TYPE_OPTIONS__
   const mapViewSettingsKey = "inittracker_map_view_settings";
   const dmUiPrefsKey = "inittracker_dm_ui_prefs";
   let dmLogLines = [];
+  let mapViewLogPollTimer = null;
   let dmHighlightUntil = new Map();
   let dmUiPrefs = {showMapPreview:false, showLogPanel:false, autoScroll:true, filters:{attack:true,damage:true,save:true,heal:true,spell:true}};
   try { dmUiPrefs = {...dmUiPrefs, ...(JSON.parse(localStorage.getItem(dmUiPrefsKey)||"{}")||{})}; } catch(_) {}
@@ -3319,7 +3392,7 @@ __DAMAGE_TYPE_OPTIONS__
     turnAlertsPanel.classList.toggle("hidden", shouldHideAlerts);
   }
   applyMapViewSettings(readMapViewSettings());
-  if (isMapView){ dmUiPrefs.showLogPanel = dmUiPrefs.showLogPanel === true; dmUiPrefs.showMapPreview = dmUiPrefs.showMapPreview === true; renderDmLogPanel(); }
+  if (isMapView){ dmUiPrefs.showLogPanel = dmUiPrefs.showLogPanel === true; dmUiPrefs.showMapPreview = dmUiPrefs.showMapPreview === true; renderDmLogPanel(); refreshMapViewLogPolling(); }
   function applyMapViewReadOnlyControls(){
     if (!isMapView) return;
     const controls = [
@@ -6043,13 +6116,83 @@ __DAMAGE_TYPE_OPTIONS__
   
   function saveDmUiPrefs(){ try { localStorage.setItem(dmUiPrefsKey, JSON.stringify(dmUiPrefs)); } catch(_) {} }
   function classifyLogLine(text){ const t=(text||"").toLowerCase(); if (t.includes("heal")) return "heal"; if (t.includes("save")||t.includes("concentration")) return "save"; if (t.includes("hits")||t.includes("miss")) return "attack"; if (t.includes("damage")||t.includes("takes")) return "damage"; if (t.includes("spell")||t.includes("🔮")) return "spell"; return "spell"; }
-  function parseBattleLine(line){ const m=String(line||"").match(/^\[([^\]]+)\]\s*\t?\s*(.*)$/); return {time:m?m[1]:"", msg:m?m[2]:String(line||"")}; }
+  function parseBattleLine(line){ const m=String(line||"").match(/^\[([^\]]+)\]\s*	?\s*(.*)$/); return {time:m?m[1]:"", msg:m?m[2]:String(line||"")}; }
+  function escapeHtml(text){
+    return String(text ?? "").replace(/[&<>"']/g, (ch) => {
+      if (ch === "&") return "&amp;";
+      if (ch === "<") return "&lt;";
+      if (ch === ">") return "&gt;";
+      if (ch === "\"") return "&quot;";
+      if (ch === "'") return "&#39;";
+      return ch;
+    });
+  }
+  function isCriticalLine(text){
+    const msg = String(text || "").toLowerCase();
+    return /\b(crit|critical|nat\s*20|natural\s*20)\b/.test(msg);
+  }
+  const damageTypeColorByName = {
+    fire: "#FF9900",
+    cold: "#00CCFF",
+    lightning: "#FFFF00",
+    acid: "#00FF00",
+    poison: "#008000",
+    radiant: "#FFD700",
+    necrotic: "#330033",
+    force: "#800080",
+    psychic: "#FF66CC",
+    thunder: "#9933FF",
+    slashing: "#AAAAAA",
+    piercing: "#AAAAAA",
+    bludgeoning: "#8B4513",
+  };
+  function decorateDamageTypes(message){
+    let html = escapeHtml(String(message || ""));
+    Object.entries(damageTypeColorByName).forEach(([type, color]) => {
+      const rx = new RegExp(`\\b(${type})\\b`, "gi");
+      html = html.replace(rx, `<span class="damage-type" style="color:${color}">$1</span>`);
+    });
+    return html;
+  }
+  function renderMapViewLogPanel(){
+    if (!mapViewLogPanel || !mapViewLogList) return;
+    if (!isMapView){
+      mapViewLogPanel.style.display = "none";
+      return;
+    }
+    mapViewLogPanel.style.display = "flex";
+    const atBottom = mapViewLogList.scrollTop + mapViewLogList.clientHeight >= mapViewLogList.scrollHeight - 20;
+    mapViewLogList.textContent = "";
+    const visibleLines = dmLogLines.slice(-18);
+    visibleLines.forEach((line)=>{
+      const parsed = parseBattleLine(line);
+      const row = document.createElement('div');
+      row.className = "map-view-log-entry";
+      const msgClass = isCriticalLine(parsed.msg) ? "map-view-log-msg is-crit" : "map-view-log-msg";
+      row.innerHTML = `<div class="map-view-log-time">${parsed.time ? parsed.time.slice(11,19) : ''}</div><div class="${msgClass}">${decorateDamageTypes(parsed.msg)}</div>`;
+      mapViewLogList.appendChild(row);
+    });
+    if (atBottom) mapViewLogList.scrollTop = mapViewLogList.scrollHeight;
+  }
+  function refreshMapViewLogPolling(){
+    if (mapViewLogPollTimer){
+      clearInterval(mapViewLogPollTimer);
+      mapViewLogPollTimer = null;
+    }
+    if (!isMapView) return;
+    requestBattleLog();
+    mapViewLogPollTimer = setInterval(()=>{
+      if (ws && ws.readyState === WebSocket.OPEN){
+        send({type:"log_request"});
+      }
+    }, 2500);
+  }
   function renderDmLogPanel(){
     if (!dmLogPanel || !dmLogList) return;
     const isAdmin = isAdminClient();
     dmLogPanel.classList.toggle('show', !!(isAdmin && dmUiPrefs.showLogPanel));
     dmMapPreview?.classList.toggle('show', !!(isAdmin && dmUiPrefs.showMapPreview));
-    if (!isAdmin) return;
+    if (!isAdmin){ renderMapViewLogPanel(); return; }
     dmLogList.textContent = "";
     const atBottom = dmLogList.scrollTop + dmLogList.clientHeight >= dmLogList.scrollHeight - 12;
     dmLogLines.forEach((line)=>{
@@ -6066,6 +6209,7 @@ __DAMAGE_TYPE_OPTIONS__
       dmLogList.appendChild(row);
     });
     if (dmUiPrefs.autoScroll && (atBottom || dmLogAutoScrollInput?.checked)) dmLogList.scrollTop = dmLogList.scrollHeight;
+    renderMapViewLogPanel();
   }
   function renderDmPreview(){
     if (!dmPreviewCanvas || !state?.grid || !dmUiPrefs.showMapPreview || !isAdminClient()) return;
@@ -7519,16 +7663,18 @@ __DAMAGE_TYPE_OPTIONS__
           mountPromptModal.setAttribute("aria-hidden", "false");
         }
       } else if (msg.type === "battle_log"){
+        const lines = Array.isArray(msg.lines) ? msg.lines : [];
         if (logContent){
-          const lines = Array.isArray(msg.lines) ? msg.lines : [];
           logContent.textContent = lines.length ? lines.join("\n") : "No log entries yet.";
-          dmLogLines = lines;
-          const units = state?.units || [];
-          const now = Date.now();
-          lines.slice(-4).forEach((line)=>{ const text=String(line||""); const unit=units.find(u=>text.includes(u.name)); if (unit){ dmHighlightUntil.set(String(unit.cid), now+2200); }});
-          renderDmLogPanel();
         }
-        showLogModal();
+        dmLogLines = lines;
+        const units = state?.units || [];
+        const now = Date.now();
+        lines.slice(-4).forEach((line)=>{ const text=String(line||""); const unit=units.find(u=>text.includes(u.name)); if (unit){ dmHighlightUntil.set(String(unit.cid), now+2200); }});
+        renderDmLogPanel();
+        if (!isMapView){
+          showLogModal();
+        }
       } else if (msg.type === "grid_update"){
         if (!state){ state = {}; }
         if ("grid" in msg){
