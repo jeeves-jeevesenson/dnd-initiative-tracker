@@ -1634,6 +1634,35 @@
       border-color: rgba(255,255,255,0.08);
       box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4);
     }
+    .resource-pools-panel{
+      width: 100%;
+      border: 1px solid #2c3f54;
+      border-radius: 10px;
+      background: #121b26;
+      padding: 6px 8px;
+    }
+    .resource-pools-panel summary{
+      cursor: pointer;
+      font-weight: 700;
+      color: #d6e6ff;
+    }
+    .resource-pool-list{
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .resource-pool-chip{
+      background: #19293b;
+      border: 1px solid #335172;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: #d6e6ff;
+    }
+    .resource-pool-chip.is-empty{
+      opacity: .45;
+    }
     .turn-order-status{
       margin-top: 6px;
       font-size: 12px;
@@ -2132,6 +2161,12 @@
       </fieldset>
       <div class="row spell-slot-monitor-row">
         <div class="spell-slot-monitor" id="spellSlotMonitor" aria-label="Spell slot monitor"></div>
+      </div>
+      <div class="row">
+        <details class="resource-pools-panel" id="resourcePoolsPanel">
+          <summary>Resource Pools</summary>
+          <div class="resource-pool-list" id="resourcePoolsList"></div>
+        </details>
       </div>
       <div class="cast-menu-trigger" id="castMenuTrigger">
         <button class="btn" id="castOverlayOpen" type="button">Cast Spell</button>
@@ -2871,6 +2906,8 @@ __DAMAGE_TYPE_OPTIONS__
   const reactionEl = document.getElementById("reaction");
   const turnEl = document.getElementById("turn");
   const spellSlotMonitorEl = document.getElementById("spellSlotMonitor");
+  const resourcePoolsPanelEl = document.getElementById("resourcePoolsPanel");
+  const resourcePoolsListEl = document.getElementById("resourcePoolsList");
   const activeTurnOrderEl = mapViewTurnOrderEl;
   const activeTurnOrderStatusEl = mapViewTurnOrderStatusEl;
   const activeTurnOrderBubbleEl = mapViewTurnOrderBubbleEl;
@@ -3568,6 +3605,55 @@ __DAMAGE_TYPE_OPTIONS__
     const profile = profiles[name];
     if (!profile || typeof profile !== "object") return null;
     return profile;
+  }
+
+  function getPlayerResourcePools(name){
+    if (!name) return [];
+    const poolsByPlayer = state?.resource_pools;
+    if (!poolsByPlayer || typeof poolsByPlayer !== "object") return [];
+    const pools = poolsByPlayer[name];
+    if (!Array.isArray(pools)) return [];
+    return pools.filter((entry) => entry && typeof entry === "object").map((entry) => {
+      const currentRaw = Number(entry.current ?? 0);
+      const maxRaw = Number(entry.max ?? 0);
+      const max = Number.isFinite(maxRaw) ? Math.max(0, Math.floor(maxRaw)) : 0;
+      const current = Number.isFinite(currentRaw) ? Math.max(0, Math.min(Math.floor(currentRaw), max)) : 0;
+      return {
+        id: String(entry.id || "").trim(),
+        label: String(entry.label || entry.id || "").trim(),
+        current,
+        max,
+      };
+    }).filter((entry) => entry.id);
+  }
+
+  function getPoolGrantedSpellEntries(name){
+    const cfg = state?.player_spells?.[name];
+    const block = cfg?.spellcasting?.pool_granted_spells ?? cfg?.pool_granted_spells;
+    if (!Array.isArray(block)) return [];
+    return block.filter((entry) => entry && typeof entry === "object");
+  }
+
+  function renderResourcePools(){
+    if (!resourcePoolsListEl) return;
+    const playerName = getClaimedPlayerName();
+    const pools = getPlayerResourcePools(playerName);
+    resourcePoolsListEl.textContent = "";
+    if (!pools.length){
+      if (resourcePoolsPanelEl){
+        resourcePoolsPanelEl.style.display = "none";
+      }
+      return;
+    }
+    if (resourcePoolsPanelEl){
+      resourcePoolsPanelEl.style.display = "block";
+    }
+    pools.forEach((pool) => {
+      const chip = document.createElement("span");
+      chip.className = `resource-pool-chip ${pool.current <= 0 ? "is-empty" : ""}`;
+      chip.textContent = `${pool.label || pool.id} ${pool.current}/${pool.max}`;
+      resourcePoolsListEl.appendChild(chip);
+    });
   }
 
   const spellSlotNumerals = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
@@ -6869,6 +6955,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
     }
     renderSpellSlotMonitor();
+    renderResourcePools();
     updateTurnOrder();
     updateSpellPanelVisibility();
     applyMapViewReadOnlyControls();
@@ -7174,6 +7261,9 @@ __DAMAGE_TYPE_OPTIONS__
           if (msg.data.player_profiles && typeof msg.data.player_profiles === "object"){
             state.player_profiles = msg.data.player_profiles;
           }
+          if (msg.data.resource_pools && typeof msg.data.resource_pools === "object"){
+            state.resource_pools = msg.data.resource_pools;
+          }
           if (Array.isArray(msg.data.monster_choices)){
             state.monster_choices = msg.data.monster_choices;
           }
@@ -7196,6 +7286,7 @@ __DAMAGE_TYPE_OPTIONS__
         const oldPlayerSpells = state?.player_spells;
         const oldPlayerProfiles = state?.player_profiles;
         const oldMonsterChoices = state?.monster_choices;
+        const oldResourcePools = state?.resource_pools;
         const oldGrid = state?.grid;
         const oldTerrain = state?.rough_terrain;
         const oldObstacles = state?.obstacles;
@@ -7213,6 +7304,9 @@ __DAMAGE_TYPE_OPTIONS__
         }
         if (!state.monster_choices && Array.isArray(oldMonsterChoices)){
           state.monster_choices = oldMonsterChoices;
+        }
+        if (!state.resource_pools && oldResourcePools && typeof oldResourcePools === "object"){
+          state.resource_pools = oldResourcePools;
         }
         if (!state.grid && oldGrid){
           state.grid = oldGrid;
@@ -8145,8 +8239,24 @@ __DAMAGE_TYPE_OPTIONS__
   const getPreparedSpellFilterSet = () => {
     if (!claimedCid) return null;
     const list = loadPreparedSpellFilterList();
-    if (!list) return new Set();
-    return new Set(list.map(getSpellKey));
+    const baseSet = list ? new Set(list.map(getSpellKey)) : new Set();
+    const name = getClaimedPlayerName();
+    const poolEntries = getPoolGrantedSpellEntries(name);
+    const pools = new Map(getPlayerResourcePools(name).map((entry) => [getSpellKey(entry.id), entry]));
+    poolEntries.forEach((entry) => {
+      const slug = normalizeTextValue(entry.spell || entry.slug || entry.id);
+      if (!slug) return;
+      const consumes = entry.consumes_pool && typeof entry.consumes_pool === "object" ? entry.consumes_pool : {};
+      const poolId = normalizeTextValue(consumes.id || consumes.pool);
+      const costRaw = Number(consumes.cost ?? 1);
+      const cost = Number.isFinite(costRaw) ? Math.max(1, Math.floor(costRaw)) : 1;
+      const pool = pools.get(getSpellKey(poolId));
+      const current = Number(pool?.current ?? 0);
+      if (!poolId || current >= cost){
+        baseSet.add(getSpellKey(slug));
+      }
+    });
+    return baseSet;
   };
   const filterPresetsByKnownList = (presets, knownSpellSet) => {
     if (!knownSpellSet) return presets;
@@ -9439,7 +9549,18 @@ __DAMAGE_TYPE_OPTIONS__
         if (!name) return;
         const opt = document.createElement("option");
         opt.value = name;
-        opt.textContent = name;
+        const playerName = getClaimedPlayerName();
+        const poolEntry = getPoolGrantedSpellEntries(playerName).find((entry) => getSpellKey(entry.spell || entry.slug || entry.id) === getSpellKey(getPresetSlug(preset)));
+        if (poolEntry){
+          const consumes = poolEntry.consumes_pool && typeof poolEntry.consumes_pool === "object" ? poolEntry.consumes_pool : {};
+          const label = normalizeTextValue(consumes.label || consumes.id || consumes.pool || "Pool");
+          const cost = Number.isFinite(Number(consumes.cost)) ? Math.max(1, Math.floor(Number(consumes.cost))) : 1;
+          const pool = getPlayerResourcePools(getClaimedPlayerName()).find((entry) => getSpellKey(entry.id) === getSpellKey(consumes.id || consumes.pool));
+          const freeText = pool && Number(pool.current) >= cost ? `free (${label} -${cost})` : `pool empty (${label})`;
+          opt.textContent = `${name} • ${freeText}`;
+        } else {
+          opt.textContent = name;
+        }
         optgroup.appendChild(opt);
       });
       castPresetInput.appendChild(optgroup);
@@ -10104,6 +10225,25 @@ __DAMAGE_TYPE_OPTIONS__
   };
 
   function validateCastSlotSelection(preset, showToast = false){
+    const playerName = getClaimedPlayerName();
+    const presetSlug = normalizeTextValue(getPresetSlug(preset));
+    const poolEntry = getPoolGrantedSpellEntries(playerName).find((entry) => getSpellKey(entry.spell || entry.slug || entry.id) === getSpellKey(presetSlug));
+    if (poolEntry){
+      const consumes = poolEntry.consumes_pool && typeof poolEntry.consumes_pool === "object" ? poolEntry.consumes_pool : {};
+      const poolId = normalizeTextValue(consumes.id || consumes.pool);
+      const cost = Number.isFinite(Number(consumes.cost)) ? Math.max(1, Math.floor(Number(consumes.cost))) : 1;
+      const pool = getPlayerResourcePools(playerName).find((entry) => getSpellKey(entry.id) === getSpellKey(poolId));
+      if (pool && Number(pool.current) >= cost){
+        return {ok: true, slotLevel: null, consumesPool: {id: poolId, cost}};
+      }
+      const preparedSet = getPreparedSpellFilterSet();
+      const inPreparedList = preparedSet instanceof Set && preparedSet.has(getSpellKey(presetSlug));
+      if (!inPreparedList){
+        const msg = "That resource pool be exhausted, matey.";
+        if (showToast) localToast(msg);
+        return {ok: false, reason: msg};
+      }
+    }
     const baseLevel = Number.isFinite(Number(preset?.level)) ? Math.max(0, Math.floor(Number(preset.level))) : 0;
     const rawLevel = Number(castSlotLevelInput?.value);
     const slotLevel = Number.isFinite(rawLevel) ? Math.floor(rawLevel) : baseLevel;
@@ -10112,7 +10252,7 @@ __DAMAGE_TYPE_OPTIONS__
       if (showToast) localToast(msg);
       return {ok: false, reason: msg};
     }
-    const profile = getPlayerProfile(getClaimedPlayerName());
+    const profile = getPlayerProfile(playerName);
     if (slotLevel >= 1 && getAvailableSlotCountAtOrAbove(profile, slotLevel) <= 0){
       const msg = "No spell slots left for that level, matey.";
       if (showToast) localToast(msg);
@@ -10492,6 +10632,12 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (Number.isFinite(slotLevel)){
         msg.slot_level = slotLevel;
+      }
+      if (slotCheck.consumesPool){
+        msg.payload = msg.payload || {};
+        msg.payload.consumes_pool = {id: slotCheck.consumesPool.id, cost: slotCheck.consumesPool.cost};
+        msg.consumes_pool_id = slotCheck.consumesPool.id;
+        msg.consumes_pool_cost = slotCheck.consumesPool.cost;
       }
       if (aoeSpell && isPlanning){
         planningMutate(msg);
