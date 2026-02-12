@@ -2255,7 +2255,12 @@ const renderForm = (schema, data) => {
         sectionEl.appendChild(renderField(field, fieldPath, data, fieldValue));
       });
     } else if (section.type === "array") {
-      sectionEl.appendChild(renderArrayField(section, sectionPath, data));
+      const sectionPathText = sectionPath.join(".");
+      if (section.id === "features" || sectionPathText === "features") {
+        sectionEl.appendChild(renderFeatsEditor(sectionPath, data));
+      } else {
+        sectionEl.appendChild(renderArrayField(section, sectionPath, data));
+      }
     } else if (section.type === "map") {
       sectionEl.appendChild(renderMapField(section, sectionPath, data));
     }
