@@ -2249,6 +2249,7 @@
         <div class="cast-overlay-title" id="castOverlayTitle">Cast Spell</div>
         <div class="cast-overlay-spacer"></div>
         <button class="btn" id="spellbookOpen" type="button">Manage Spells</button>
+        <button class="btn" id="wildShapeManageOpen" type="button">Manage Wild Shapes</button>
       </div>
       <div class="cast-overlay-body" role="dialog" aria-modal="true" aria-labelledby="castOverlayTitle">
         <div class="cast-panel" id="castPanel">
@@ -2577,6 +2578,35 @@ __DAMAGE_TYPE_OPTIONS__
   <div class="spell-library-body">
     <div class="spell-library-status" id="spellLibraryStatus">Loading spells…</div>
     <div class="spell-library-list" id="spellLibraryList"></div>
+  </div>
+</div>
+
+<div class="spellbook-overlay" id="wildShapeOverlay" aria-hidden="true">
+  <div class="spellbook-header">
+    <button class="btn" id="wildShapeBack" type="button">Back</button>
+    <div class="spellbook-title" id="wildShapeTitle">Manage Wild Shapes</div>
+    <div class="spellbook-spacer"></div>
+    <button class="btn accent" id="wildShapeSave" type="button">Save</button>
+  </div>
+  <div class="spellbook-body">
+    <div class="spellbook-controls">
+      <input id="wildShapeSearch" type="search" placeholder="Search beast forms..." />
+    </div>
+    <div class="spellbook-columns">
+      <div class="spellbook-column">
+        <div class="spellbook-column-title">Available Beast Forms</div>
+        <div class="spellbook-list" id="wildShapeLeftList"></div>
+      </div>
+      <div class="spellbook-column spellbook-actions">
+        <button class="btn" id="wildShapeAdd" type="button">Add →</button>
+        <button class="btn" id="wildShapeRemove" type="button">← Remove</button>
+      </div>
+      <div class="spellbook-column">
+        <div class="spellbook-column-title">Known Forms</div>
+        <div class="spellbook-list" id="wildShapeRightList"></div>
+      </div>
+    </div>
+    <div class="spellbook-status" id="wildShapeStatus"></div>
   </div>
 </div>
 <div class="turn-modal" id="turnModal" aria-hidden="true">
@@ -3135,6 +3165,16 @@ __DAMAGE_TYPE_OPTIONS__
   const spellLibraryStatus = document.getElementById("spellLibraryStatus");
   const spellLibraryList = document.getElementById("spellLibraryList");
   const spellbookOpenBtn = document.getElementById("spellbookOpen");
+  const wildShapeManageOpenBtn = document.getElementById("wildShapeManageOpen");
+  const wildShapeOverlay = document.getElementById("wildShapeOverlay");
+  const wildShapeBackBtn = document.getElementById("wildShapeBack");
+  const wildShapeSaveBtn = document.getElementById("wildShapeSave");
+  const wildShapeSearchInput = document.getElementById("wildShapeSearch");
+  const wildShapeLeftList = document.getElementById("wildShapeLeftList");
+  const wildShapeRightList = document.getElementById("wildShapeRightList");
+  const wildShapeAddBtn = document.getElementById("wildShapeAdd");
+  const wildShapeRemoveBtn = document.getElementById("wildShapeRemove");
+  const wildShapeStatusEl = document.getElementById("wildShapeStatus");
   const spellbookOverlay = document.getElementById("spellbookOverlay");
   const spellbookBackBtn = document.getElementById("spellbookBack");
   const spellbookBackFloatingBtn = document.getElementById("spellbookBackFloating");
@@ -3726,11 +3766,128 @@ __DAMAGE_TYPE_OPTIONS__
       const chip = document.createElement("span");
       chip.className = `resource-pool-chip ${pool.current <= 0 ? "is-empty" : ""}`;
       chip.textContent = `${pool.label || pool.id} ${pool.current}/${pool.max}`;
+      if (pool.id === "wild_shape"){
+        chip.style.cursor = "pointer";
+        chip.title = "Wild Shape actions";
+        chip.addEventListener("click", () => {
+          const me = getClaimedUnit();
+          if (!me) return;
+          const profile = getPlayerProfile(getClaimedPlayerName());
+          const known = Array.isArray(profile?.learned_wild_shapes) ? profile.learned_wild_shapes : [];
+          const forms = Array.isArray(profile?.wild_shape_available_forms)
+            ? profile.wild_shape_available_forms.filter((entry) => entry?.allowed !== false && known.includes(entry?.id))
+            : [];
+          const names = forms.map((entry) => `${entry.name} (${entry.id})`).join("\n");
+          if (me.is_wild_shaped){
+            send({type:"wild_shape_revert", cid: me.cid});
+            return;
+          }
+          const pick = prompt(`Enter beast id to Wild Shape into:\n${names}\n\nCommands:\nresurge-use\nresurge-slot\nmanage`, "");
+          const cmd = String(pick || "").trim().toLowerCase();
+          if (!cmd) return;
+          if (cmd === "manage"){
+            setWildShapeOverlayOpen(true);
+            return;
+          }
+          if (cmd === "resurge-use"){
+            send({type:"wild_shape_regain_use", cid: me.cid});
+            return;
+          }
+          if (cmd === "resurge-slot"){
+            send({type:"wild_shape_regain_spell", cid: me.cid});
+            return;
+          }
+          send({type:"wild_shape_apply", cid: me.cid, beast_id: cmd});
+        });
+      }
       resourcePoolsListEl.appendChild(chip);
     });
   }
 
   const spellSlotNumerals = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
+  let wildShapeSelectedAvailable = null;
+  let wildShapeSelectedKnown = null;
+  let wildShapeKnownDraft = [];
+
+  function isClaimedUnitDruid(){
+    const name = getClaimedPlayerName();
+    const profile = getPlayerProfile(name);
+    const classes = profile?.leveling?.classes;
+    if (Array.isArray(classes)){
+      const level = classes
+        .filter((entry) => String(entry?.name || "").trim().toLowerCase() === "druid")
+        .reduce((sum, entry) => sum + Math.max(0, Number(entry?.level || 0)), 0);
+      return level >= 2;
+    }
+    return String(profile?.leveling?.class || "").trim().toLowerCase() === "druid" && Number(profile?.leveling?.level || 0) >= 2;
+  }
+
+  function getWildShapeProfileData(){
+    const playerName = getClaimedPlayerName();
+    const profile = getPlayerProfile(playerName) || {};
+    const forms = Array.isArray(profile.wild_shape_available_forms) ? profile.wild_shape_available_forms : [];
+    const known = Array.isArray(profile.learned_wild_shapes) ? profile.learned_wild_shapes.map((v) => String(v || "").trim().toLowerCase()).filter(Boolean) : [];
+    const limit = Number(profile.wild_shape_known_limit || 0);
+    return {forms, known, limit};
+  }
+
+  function renderWildShapeOverlay(){
+    if (!wildShapeOverlay) return;
+    const {forms, limit} = getWildShapeProfileData();
+    const query = String(wildShapeSearchInput?.value || "").trim().toLowerCase();
+    if (!Array.isArray(wildShapeKnownDraft) || !wildShapeKnownDraft.length){
+      wildShapeKnownDraft = getWildShapeProfileData().known.slice(0, Math.max(0, limit));
+    }
+    const available = forms.filter((entry) => {
+      const name = String(entry?.name || "").toLowerCase();
+      const cr = String(entry?.challenge_rating ?? "");
+      return !query || name.includes(query) || cr.includes(query);
+    });
+    if (wildShapeLeftList) wildShapeLeftList.textContent = "";
+    if (wildShapeRightList) wildShapeRightList.textContent = "";
+    available.forEach((entry) => {
+      const id = String(entry?.id || "").trim().toLowerCase();
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = `spellbook-item ${wildShapeSelectedAvailable === id ? "selected" : ""}`;
+      item.disabled = entry?.allowed === false;
+      item.textContent = `${entry?.name || id} · CR ${entry?.challenge_rating ?? 0} · ${entry?.size || ""}`;
+      item.addEventListener("click", () => {
+        wildShapeSelectedAvailable = id;
+        renderWildShapeOverlay();
+      });
+      wildShapeLeftList?.appendChild(item);
+    });
+    const knownSet = new Set(wildShapeKnownDraft);
+    forms.filter((entry) => knownSet.has(String(entry?.id || "").trim().toLowerCase())).forEach((entry) => {
+      const id = String(entry?.id || "").trim().toLowerCase();
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = `spellbook-item ${wildShapeSelectedKnown === id ? "selected" : ""}`;
+      item.textContent = `${entry?.name || id} · CR ${entry?.challenge_rating ?? 0}`;
+      item.addEventListener("click", () => {
+        wildShapeSelectedKnown = id;
+        renderWildShapeOverlay();
+      });
+      wildShapeRightList?.appendChild(item);
+    });
+    if (wildShapeStatusEl){
+      const remaining = Math.max(0, limit - wildShapeKnownDraft.length);
+      wildShapeStatusEl.textContent = `Known forms: ${wildShapeKnownDraft.length}/${limit}. Remaining choices: ${remaining}.`;
+    }
+  }
+
+  function setWildShapeOverlayOpen(open){
+    if (!wildShapeOverlay) return;
+    wildShapeOverlay.classList.toggle("show", !!open);
+    wildShapeOverlay.setAttribute("aria-hidden", open ? "false" : "true");
+    if (open){
+      wildShapeKnownDraft = getWildShapeProfileData().known.slice();
+      wildShapeSelectedAvailable = null;
+      wildShapeSelectedKnown = null;
+      renderWildShapeOverlay();
+    }
+  }
 
   function getSpellSlotLevels(profile){
     const slots = profile?.spellcasting?.spell_slots;
@@ -5872,6 +6029,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (!castPanel) return;
     const claimedUnit = getClaimedUnit();
     const hideForNonCaster = hideSpellMenu && claimedUnit && !isUnitSpellcaster(claimedUnit);
+    const wildShaped = !!claimedUnit?.is_wild_shaped;
     castPanel.classList.toggle("hidden", hideForNonCaster);
     if (castMenuTrigger){
       castMenuTrigger.classList.toggle("hidden", hideForNonCaster);
@@ -5881,6 +6039,11 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (hideForNonCaster && castOverlay?.classList.contains("show")){
       setCastOverlayOpen(false);
+    }
+    if (castOverlayOpenBtn){
+      castOverlayOpenBtn.disabled = wildShaped;
+      castOverlayOpenBtn.setAttribute("aria-disabled", wildShaped ? "true" : "false");
+      castOverlayOpenBtn.title = wildShaped ? "Spellcasting is disabled while Wild Shaped." : "Cast Spell";
     }
   }
 
@@ -11184,6 +11347,48 @@ __DAMAGE_TYPE_OPTIONS__
   if (spellbookOpenBtn){
     spellbookOpenBtn.addEventListener("click", () => {
       openSpellbookOverlay(true);
+    });
+  }
+  if (wildShapeManageOpenBtn){
+    wildShapeManageOpenBtn.addEventListener("click", () => {
+      if (!isClaimedUnitDruid()){
+        localToast("Only Druids level 2+ can manage Wild Shapes.");
+        return;
+      }
+      setWildShapeOverlayOpen(true);
+    });
+  }
+  if (wildShapeBackBtn){
+    wildShapeBackBtn.addEventListener("click", () => setWildShapeOverlayOpen(false));
+  }
+  if (wildShapeSearchInput){
+    wildShapeSearchInput.addEventListener("input", () => renderWildShapeOverlay());
+  }
+  if (wildShapeAddBtn){
+    wildShapeAddBtn.addEventListener("click", () => {
+      const {limit} = getWildShapeProfileData();
+      if (!wildShapeSelectedAvailable) return;
+      if (wildShapeKnownDraft.includes(wildShapeSelectedAvailable)) return;
+      if (wildShapeKnownDraft.length >= limit){
+        localToast("No known form slots remaining.");
+        return;
+      }
+      wildShapeKnownDraft.push(wildShapeSelectedAvailable);
+      renderWildShapeOverlay();
+    });
+  }
+  if (wildShapeRemoveBtn){
+    wildShapeRemoveBtn.addEventListener("click", () => {
+      if (!wildShapeSelectedKnown) return;
+      wildShapeKnownDraft = wildShapeKnownDraft.filter((id) => id !== wildShapeSelectedKnown);
+      renderWildShapeOverlay();
+    });
+  }
+  if (wildShapeSaveBtn){
+    wildShapeSaveBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      send({type:"wild_shape_set_known", cid: claimedCid, known: wildShapeKnownDraft});
+      setWildShapeOverlayOpen(false);
     });
   }
   if (spellbookBackBtn){
