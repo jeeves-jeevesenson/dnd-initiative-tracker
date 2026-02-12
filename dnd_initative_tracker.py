@@ -1353,6 +1353,8 @@ class LanController:
             return
 
         self._fastapi_app = FastAPI()
+        # Used to bust LAN-client caches for JS/CSS without needing a rebuild.
+        app_version = str(APP_VERSION)
         assets_dir = Path(__file__).parent / "assets"
         self._fastapi_app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
         web_entrypoint = assets_dir / "web" / "new_character" / "index.html"
@@ -1366,10 +1368,26 @@ class LanController:
             "character-form",
         )
 
+        def _inject_asset_version(html: str) -> str:
+            # HTML shells can reference __APP_VERSION__ in their asset URLs.
+            return html.replace("__APP_VERSION__", app_version)
+
+        @self._fastapi_app.middleware("http")
+        async def _disable_stale_asset_caching(request: Request, call_next):
+            response = await call_next(request)
+            path = request.url.path
+            # Never cache HTML shells; they decide which JS/CSS to load.
+            if path in ("/", "/map_view", "/planning", "/new_character", "/edit_character"):
+                response.headers["Cache-Control"] = "no-store"
+            # Force revalidation of the web editors so updates show up immediately.
+            elif path.startswith("/assets/web/new_character/") or path.startswith("/assets/web/edit_character/"):
+                response.headers["Cache-Control"] = "no-cache, must-revalidate"
+            return response
+
         def load_edit_character_html() -> str:
             if not edit_entrypoint.exists():
                 raise HTTPException(status_code=404, detail="Edit character page missing.")
-            html = edit_entrypoint.read_text(encoding="utf-8")
+            html = _inject_asset_version(edit_entrypoint.read_text(encoding="utf-8"))
             missing = [element_id for element_id in required_config_ids if f'id="{element_id}"' not in html]
             if '/assets/web/edit_character/app.js' not in html:
                 missing.append("script:/assets/web/edit_character/app.js")
@@ -1416,7 +1434,8 @@ class LanController:
         async def new_character():
             if not web_entrypoint.exists():
                 raise HTTPException(status_code=404, detail="New character page missing.")
-            return HTMLResponse(web_entrypoint.read_text(encoding="utf-8"))
+            html = _inject_asset_version(web_entrypoint.read_text(encoding="utf-8"))
+            return HTMLResponse(html)
 
         @self._fastapi_app.get("/edit_character")
         async def edit_character():
