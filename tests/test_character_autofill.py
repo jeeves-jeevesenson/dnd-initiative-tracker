@@ -6,6 +6,8 @@ from character_autofill import (
     proficiency_bonus_for_level,
     slugify_filename,
     total_level,
+    skill_toggle,
+    passive_perception_value,
 )
 
 
@@ -45,6 +47,19 @@ class CharacterAutofillTests(unittest.TestCase):
         self.assertEqual(slugify_filename("John Twilight"), "john_twilight")
         self.assertEqual(slugify_filename("Mara O'Neil"), "mara_o_neil")
 
+
+    def test_skill_toggle_expertise_implies_proficiency(self):
+        prof, exp = skill_toggle([], [], "stealth", exp_checked=True)
+        self.assertEqual(prof, ["stealth"])
+        self.assertEqual(exp, ["stealth"])
+        prof2, exp2 = skill_toggle(prof, exp, "stealth", prof_checked=False)
+        self.assertEqual(prof2, [])
+        self.assertEqual(exp2, [])
+
+    def test_passive_perception_recalculation_inputs(self):
+        self.assertEqual(passive_perception_value(14, 3, False, False), 12)
+        self.assertEqual(passive_perception_value(14, 3, True, False), 15)
+        self.assertEqual(passive_perception_value(14, 3, True, True), 18)
 
 if __name__ == "__main__":
     unittest.main()

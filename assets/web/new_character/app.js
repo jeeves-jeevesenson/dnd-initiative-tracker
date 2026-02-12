@@ -240,6 +240,14 @@ const SAVE_PROFICIENCIES = new Map([
 
 const ABILITY_KEYS = ["str", "dex", "con", "int", "wis", "cha"];
 const ABILITY_LABELS = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
+const ABILITY_SKILL_GROUPS = {
+  str: ["athletics"],
+  dex: ["acrobatics", "sleight_of_hand", "stealth"],
+  con: [],
+  int: ["arcana", "history", "investigation", "nature", "religion"],
+  wis: ["animal_handling", "insight", "medicine", "perception", "survival"],
+  cha: ["deception", "intimidation", "performance", "persuasion"],
+};
 const SKILL_TO_ABILITY = {
   acrobatics: "dex", animal_handling: "wis", arcana: "int", athletics: "str", deception: "cha",
   history: "int", insight: "wis", intimidation: "cha", investigation: "int", medicine: "wis",
@@ -247,7 +255,6 @@ const SKILL_TO_ABILITY = {
   sleight_of_hand: "dex", stealth: "dex", survival: "wis",
 };
 const TOOL_OPTIONS = [
-  "ALL simple weapons", "ALL martial weapons", "ALL light armor", "ALL medium armor", "ALL heavy armor", "Shield",
   "Alchemist’s Supplies", "Brewer’s Supplies", "Calligrapher’s Supplies", "Carpenter’s Tools", "Cartographer’s Tools",
   "Cobbler’s Tools", "Cook’s Utensils", "Glassblower’s Tools", "Jeweler’s Tools", "Leatherworker’s Tools", "Mason’s Tools",
   "Painter’s Supplies", "Potter’s Tools", "Smith’s Tools", "Tinker’s Tools", "Weaver’s Tools", "Woodcarver’s Tools",
@@ -255,11 +262,46 @@ const TOOL_OPTIONS = [
   "Dice (Gaming set)", "Dragonchess", "Playing Cards", "Three-dragon Ante", "Bagpipes", "Drum", "Dulcimer", "Flute",
   "Horn", "Lute", "Lyre", "Pan Flute", "Shawm", "Viol"
 ];
+const WEAPON_OPTIONS = ["Club", "Dagger", "Greatclub", "Handaxe", "Javelin", "Light Hammer", "Mace", "Quarterstaff", "Sickle", "Spear", "Light Crossbow", "Dart", "Shortbow", "Sling", "Battleaxe", "Flail", "Glaive", "Greataxe", "Greatsword", "Halberd", "Lance", "Longsword", "Maul", "Morningstar", "Pike", "Rapier", "Scimitar", "Shortsword", "Trident", "War Pick", "Warhammer", "Whip", "Blowgun", "Hand Crossbow", "Heavy Crossbow", "Longbow", "Musket", "Pistol"];
+const ARMOR_OPTIONS = ["ALL light armor", "ALL medium armor", "ALL heavy armor", "Shield"];
+const BROAD_WEAPON_OPTIONS = ["ALL simple weapons", "ALL martial weapons"];
+const SIMPLE_WEAPONS = new Set(["Club", "Dagger", "Greatclub", "Handaxe", "Javelin", "Light Hammer", "Mace", "Quarterstaff", "Sickle", "Spear", "Light Crossbow", "Dart", "Shortbow", "Sling"]);
+const HIDDEN_ROOT_FIELDS = new Set(["campaign", "ip"]);
 const DAMAGE_TYPES = [
   "slashing", "slashing_non_magical", "piercing", "piercing_non_magical", "bludgeoning", "bludgeoning_non_magical",
   "acid", "cold", "fire", "force", "lightning", "necrotic", "poison", "psychic", "radiant", "thunder"
 ];
-const INITIATIVE_TOKENS = ["dex_mod", "str_mod", "con_mod", "int_mod", "wis_mod", "cha_mod", "proficiency"];
+const INITIATIVE_TOKENS = ["str_mod", "dex_mod", "con_mod", "int_mod", "wis_mod", "cha_mod", "proficiency_bonus"];
+
+
+const abilityModifier = (score) => Math.floor((Number(score || 0) - 10) / 2);
+const proficiencyBonusForLevel = (level) => Math.min(6, 2 + Math.floor((Math.max(1, Number(level || 1)) - 1) / 4));
+const totalLevelFromData = (data) => {
+  const classes = Array.isArray(data?.leveling?.classes) ? data.leveling.classes : [];
+  const classTotal = classes.reduce((sum, entry) => sum + Math.max(0, Number(entry?.level || 0)), 0);
+  return classTotal || Math.max(0, Number(data?.leveling?.level || 0));
+};
+const deriveHitDiceRows = (classes) => {
+  const byDie = {};
+  (classes || []).forEach((entry) => {
+    const die = HIT_DICE_BY_CLASS.get(String(entry?.name || '').trim().toLowerCase());
+    const lvl = Math.max(0, Number(entry?.level || 0));
+    if (!die || !lvl) return;
+    byDie[die] = (byDie[die] || 0) + lvl;
+  });
+  return HIT_DICE_ORDER.filter((die) => byDie[die]).map((die) => ({ die, max: byDie[die] }));
+};
+const ensurePerDieTracker = (data) => {
+  if (!data.vitals) data.vitals = {};
+  if (!data.vitals.hit_dice_tracker || typeof data.vitals.hit_dice_tracker !== 'object') data.vitals.hit_dice_tracker = {};
+  const tracker = data.vitals.hit_dice_tracker;
+  deriveHitDiceRows(data?.leveling?.classes).forEach(({die, max}) => {
+    if (!tracker[die] || typeof tracker[die] !== 'object') tracker[die] = { max, remaining: max };
+    tracker[die].max = max;
+    if (tracker[die].remaining === undefined || tracker[die].remaining === null) tracker[die].remaining = max;
+    tracker[die].remaining = Math.max(0, Math.min(max, Number(tracker[die].remaining || 0)));
+  });
+};
 
 
 const derivedStats = (() => {
@@ -280,6 +322,7 @@ const derivedStats = (() => {
     "spellcasting.casting_ability",
   ];
   const overrides = new Set();
+  let saveOverride = false;
   let boundForm = null;
   let boundData = null;
   let lastAutoSaves = new Set();
@@ -355,7 +398,7 @@ const derivedStats = (() => {
     const levelFromClasses = Array.isArray(leveling?.classes)
       ? leveling.classes.reduce((sum, entry) => sum + Number(entry?.level ?? 0), 0)
       : 0;
-    const totalLevel = Number(leveling?.level ?? 0) || levelFromClasses;
+    const totalLevel = levelFromClasses || Number(leveling?.level ?? 0) || 1;
     const proficiency = Math.min(6, 2 + Math.floor((Math.max(1, totalLevel) - 1) / 4));
     const hitDie = getHitDice(leveling?.classes);
 
@@ -366,7 +409,7 @@ const derivedStats = (() => {
       applyAutoValue("vitals.hit_dice.total", totalLevel);
     }
     applyAutoValue("proficiency.bonus", proficiency);
-    if (Array.isArray(leveling?.classes) && leveling.classes.length) {
+    if (!saveOverride && Array.isArray(leveling?.classes) && leveling.classes.length) {
       let best = null;
       leveling.classes.forEach((entry, idx) => {
         const lvl = Number(entry?.level ?? 0);
@@ -384,8 +427,8 @@ const derivedStats = (() => {
 
     const castingAbility = String(boundData?.spellcasting?.casting_ability || "").trim();
     if (castingAbility && Number.isFinite(proficiency)) {
-      applyAutoValue("spellcasting.save_dc_formula", "8 + prof + casting_mod");
-      applyAutoValue("spellcasting.spell_attack_formula", "prof + casting_mod");
+      applyAutoValue("spellcasting.save_dc_formula", "8 + proficiency_bonus + casting_mod");
+      applyAutoValue("spellcasting.spell_attack_formula", "proficiency_bonus + casting_mod");
     }
 
     ABILITY_KEYS.forEach((ability) => {
@@ -395,6 +438,17 @@ const derivedStats = (() => {
         el.textContent = modValue >= 0 ? `+${modValue}` : String(modValue);
       }
     });
+
+    ensurePerDieTracker(boundData);
+
+    const passiveBlocks = ["base_10", "wis_mod"];
+    const profSkills = new Set((boundData?.proficiency?.skills?.proficient || []).map((v)=>String(v).toLowerCase()));
+    const expSkills = new Set((boundData?.proficiency?.skills?.expertise || []).map((v)=>String(v).toLowerCase()));
+    if (profSkills.has("perception")) passiveBlocks.push("proficiency_bonus");
+    if (expSkills.has("perception")) passiveBlocks.push("proficiency_bonus");
+    applyAutoValue("vitals.passive_perception.formula", passiveBlocks);
+    const passiveValue = 10 + toModifier(abilities?.wis ?? 10) + (profSkills.has("perception") ? proficiency : 0) + (expSkills.has("perception") ? proficiency : 0);
+    applyAutoValue("vitals.passive_perception.value", passiveValue);
 
     const strMod = toModifier(abilities?.str ?? 10);
     const dexMod = toModifier(abilities?.dex ?? 10);
@@ -409,6 +463,7 @@ const derivedStats = (() => {
   const handleChange = (path, { source } = {}) => {
     if (source === "user") {
       markOverride(path);
+      if (String(path).startsWith("proficiency.saves")) saveOverride = true;
     }
     if (shouldRecalculate(path)) {
       recalculate();
@@ -434,10 +489,13 @@ const derivedStats = (() => {
     });
   };
 
+  const resetSaveProficiencySync = () => { saveOverride = false; recalculate(); };
+
   return {
     bind,
     handleChange,
     recalculate,
+    resetSaveProficiencySync,
   };
 })();
 
@@ -812,9 +870,17 @@ const renderMapField = (field, path, data) => {
 const renderSavesMatrix = (path, data) => {
   const container = document.createElement("div");
   container.className = "field-group";
+  const head = document.createElement("div");
+  head.className = "array-header";
   const title = document.createElement("h3");
   title.textContent = "Saving Throws";
-  container.appendChild(title);
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "ghost";
+  reset.textContent = "Reset to Class Defaults";
+  reset.addEventListener("click", () => derivedStats.resetSaveProficiencySync());
+  head.append(title, reset);
+  container.appendChild(head);
   const current = new Set((getValueAtPath(data, path) || []).map((v) => String(v).toLowerCase()));
   const expPath = ["proficiency", "save_expertise"];
   const expCurrent = new Set((getValueAtPath(data, expPath) || []).map((v) => String(v).toLowerCase()));
@@ -853,35 +919,67 @@ const renderSkillsMatrix = (data) => {
   const title = document.createElement("h3");
   title.textContent = "Skills";
   container.appendChild(title);
-  const profSet = new Set((getValueAtPath(data, ["proficiency", "skills", "proficient"]) || []).map((v) => String(v).toLowerCase()));
-  const expSet = new Set((getValueAtPath(data, ["proficiency", "skills", "expertise"]) || []).map((v) => String(v).toLowerCase()));
   const profBonus = Number(getValueAtPath(data, ["proficiency", "bonus"]) || 2);
-  const modFor = (ability) => Math.floor((Number(getValueAtPath(data, ["abilities", ability]) || 10) - 10) / 2);
-  Object.keys(SKILL_TO_ABILITY).forEach((skill) => {
-    const ability = SKILL_TO_ABILITY[skill];
-    const row = document.createElement("div");
-    row.className = "save-row";
-    const label = document.createElement("span");
-    label.textContent = `${skill} (${ABILITY_LABELS[ability]})`;
-    const prof = document.createElement("input"); prof.type = "checkbox"; prof.checked = profSet.has(skill);
-    const exp = document.createElement("input"); exp.type = "checkbox"; exp.checked = expSet.has(skill);
-    const bonus = document.createElement("strong");
-    const total = modFor(ability) + (exp.checked ? profBonus * 2 : (prof.checked ? profBonus : 0));
-    bonus.textContent = total >= 0 ? `+${total}` : String(total);
-    prof.addEventListener("change", () => {
-      const next = new Set((getValueAtPath(data, ["proficiency", "skills", "proficient"]) || []).map((v) => String(v).toLowerCase()));
-      if (prof.checked) next.add(skill); else next.delete(skill);
-      setValueAtPath(data, ["proficiency", "skills", "proficient"], Array.from(next));
+
+  Object.entries(ABILITY_SKILL_GROUPS).forEach(([ability, skills]) => {
+    const group = document.createElement("div");
+    group.className = "field-group";
+    const groupTitle = document.createElement("h3");
+    groupTitle.textContent = ABILITY_LABELS[ability];
+    group.appendChild(groupTitle);
+
+    skills.forEach((skill) => {
+      const row = document.createElement("div");
+      row.className = "save-row";
+      const label = document.createElement("span");
+      label.textContent = skill.replaceAll("_", " ");
+      const prof = document.createElement("input");
+      prof.type = "checkbox";
+      const exp = document.createElement("input");
+      exp.type = "checkbox";
+      const bonus = document.createElement("strong");
+      const sync = () => {
+        const profSet = new Set((getValueAtPath(data, ["proficiency", "skills", "proficient"]) || []).map((v) => String(v).toLowerCase()));
+        const expSet = new Set((getValueAtPath(data, ["proficiency", "skills", "expertise"]) || []).map((v) => String(v).toLowerCase()));
+        prof.checked = profSet.has(skill);
+        exp.checked = expSet.has(skill);
+        const scoreMod = abilityModifier(getValueAtPath(data, ["abilities", ability]) || 10);
+        const total = scoreMod + (prof.checked ? profBonus : 0) + (exp.checked ? profBonus : 0);
+        bonus.textContent = total >= 0 ? `+${total}` : String(total);
+      };
+      prof.addEventListener("change", () => {
+        const profSet = new Set((getValueAtPath(data, ["proficiency", "skills", "proficient"]) || []).map((v) => String(v).toLowerCase()));
+        if (prof.checked) profSet.add(skill); else profSet.delete(skill);
+        setValueAtPath(data, ["proficiency", "skills", "proficient"], Array.from(profSet));
+        if (!prof.checked) {
+          const expSet = new Set((getValueAtPath(data, ["proficiency", "skills", "expertise"]) || []).map((v) => String(v).toLowerCase()));
+          expSet.delete(skill);
+          setValueAtPath(data, ["proficiency", "skills", "expertise"], Array.from(expSet));
+        }
+        derivedStats.handleChange("proficiency.skills.proficient", { source: "system" });
+        sync();
+      });
+      exp.addEventListener("change", () => {
+        const expSet = new Set((getValueAtPath(data, ["proficiency", "skills", "expertise"]) || []).map((v) => String(v).toLowerCase()));
+        const profSet = new Set((getValueAtPath(data, ["proficiency", "skills", "proficient"]) || []).map((v) => String(v).toLowerCase()));
+        if (exp.checked) {
+          expSet.add(skill);
+          profSet.add(skill);
+        } else {
+          expSet.delete(skill);
+        }
+        setValueAtPath(data, ["proficiency", "skills", "expertise"], Array.from(expSet));
+        setValueAtPath(data, ["proficiency", "skills", "proficient"], Array.from(profSet));
+        derivedStats.handleChange("proficiency.skills.expertise", { source: "system" });
+        sync();
+      });
+      sync();
+      const l1 = document.createElement("label"); l1.textContent = "Proficient";
+      const l2 = document.createElement("label"); l2.textContent = "Expertise";
+      row.append(label, l1, prof, l2, exp, bonus);
+      group.appendChild(row);
     });
-    exp.addEventListener("change", () => {
-      const next = new Set((getValueAtPath(data, ["proficiency", "skills", "expertise"]) || []).map((v) => String(v).toLowerCase()));
-      if (exp.checked) next.add(skill); else next.delete(skill);
-      setValueAtPath(data, ["proficiency", "skills", "expertise"], Array.from(next));
-    });
-    const l1=document.createElement("label");l1.textContent="Prof";
-    const l2=document.createElement("label");l2.textContent="Exp";
-    row.append(label,l1,prof,l2,exp,bonus);
-    container.appendChild(row);
+    container.appendChild(group);
   });
   return container;
 };
@@ -906,11 +1004,103 @@ const renderChecklistArray = (titleText, options, path, data) => {
   return container;
 };
 
+const renderCanonicalProficiencies = (path, data) => {
+  const container = document.createElement("div");
+  container.className = "field-group";
+  const wep = document.createElement("div"); wep.className = "field-group";
+  const wtitle = document.createElement("h3"); wtitle.textContent = "Weapons"; wep.appendChild(wtitle);
+  const toolsPath = path;
+  const getSet = () => new Set((getValueAtPath(data, toolsPath) || []).map((v) => String(v).toLowerCase()));
+  const saveSet = (set) => setValueAtPath(data, toolsPath, Array.from(set));
+  BROAD_WEAPON_OPTIONS.forEach((opt) => {
+    const row = document.createElement("label"); row.className = "check-row";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = getSet().has(opt.toLowerCase());
+    cb.addEventListener("change", () => {
+      const set = getSet();
+      if (cb.checked) set.add(opt.toLowerCase()); else set.delete(opt.toLowerCase());
+      saveSet(set);
+    });
+    const txt = document.createElement("span"); txt.textContent = opt;
+    row.append(cb, txt); wep.appendChild(row);
+  });
+  WEAPON_OPTIONS.forEach((opt) => {
+    const row = document.createElement("label"); row.className = "check-row";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = getSet().has(opt.toLowerCase());
+    cb.addEventListener("change", () => { const set = getSet(); if (cb.checked) set.add(opt.toLowerCase()); else set.delete(opt.toLowerCase()); saveSet(set); });
+    const txt = document.createElement("span"); txt.textContent = opt;
+    row.append(cb, txt); wep.appendChild(row);
+  });
+
+  const armor = document.createElement("div"); armor.className = "field-group";
+  const at = document.createElement("h3"); at.textContent = "Armor"; armor.appendChild(at);
+  ARMOR_OPTIONS.forEach((opt) => {
+    const row = document.createElement("label"); row.className = "check-row";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = getSet().has(opt.toLowerCase());
+    cb.addEventListener("change", () => { const set = getSet(); if (cb.checked) set.add(opt.toLowerCase()); else set.delete(opt.toLowerCase()); saveSet(set); });
+    const txt = document.createElement("span"); txt.textContent = opt.replace('ALL ', '');
+    row.append(cb, txt); armor.appendChild(row);
+  });
+  const help = document.createElement("p"); help.className = "field-help"; help.textContent = "Untrained armor gives disadvantage on STR/DEX d20 tests and blocks spellcasting. Heavy armor STR requirements can reduce speed.";
+  armor.appendChild(help);
+
+  const tools = document.createElement("div"); tools.className = "field-group";
+  const tt = document.createElement("h3"); tt.textContent = "Tools"; tools.appendChild(tt);
+  const select = document.createElement("select");
+  const blank = document.createElement("option"); blank.value=''; blank.textContent='Add tool proficiency'; select.appendChild(blank);
+  TOOL_OPTIONS.forEach((opt)=>{const o=document.createElement('option');o.value=opt.toLowerCase();o.textContent=opt;select.appendChild(o);});
+  const add = document.createElement("button"); add.type='button'; add.className='ghost'; add.textContent='Add Tool';
+  const list = document.createElement("div");
+  const renderTools = ()=>{
+    list.innerHTML='';
+    const set = getSet();
+    Array.from(set).filter((v)=>TOOL_OPTIONS.map((x)=>x.toLowerCase()).includes(v)).forEach((tool)=>{
+      const row=document.createElement('div'); row.className='save-row';
+      const name=document.createElement('span'); name.textContent=tool;
+      const rm=document.createElement('button'); rm.type='button'; rm.className='ghost danger'; rm.textContent='Remove';
+      rm.addEventListener('click',()=>{const s=getSet(); s.delete(tool); saveSet(s); renderTools();});
+      row.append(name,rm); list.appendChild(row);
+    });
+  };
+  add.addEventListener('click',()=>{if(!select.value)return; const set=getSet(); set.add(select.value); saveSet(set); renderTools();});
+  tools.append(select, add, list);
+  renderTools();
+
+  container.append(wep, armor, tools);
+  return container;
+};
+
+const renderHitDiceTracker = (data) => {
+  ensurePerDieTracker(data);
+  const container = document.createElement('div'); container.className='field-group';
+  const title = document.createElement('h3'); title.textContent='Per-die Hit Dice Tracker'; container.appendChild(title);
+  const tracker = data?.vitals?.hit_dice_tracker || {};
+  deriveHitDiceRows(data?.leveling?.classes).forEach(({die,max})=>{
+    const row=document.createElement('div'); row.className='save-row';
+    const name=document.createElement('span'); name.textContent=die;
+    const maxEl=document.createElement('span'); maxEl.textContent=`max ${max}`;
+    const input=document.createElement('input'); input.type='number'; input.value=tracker?.[die]?.remaining ?? max;
+    input.addEventListener('input',()=>{tracker[die].remaining=Math.max(0,Math.min(max,Number(input.value||0)));});
+    row.append(name,maxEl,input); container.appendChild(row);
+  });
+  return container;
+};
+
+const renderPassivePerceptionBlocks = (path, data) => {
+  const container=document.createElement('div'); container.className='field-group';
+  const title=document.createElement('h3'); title.textContent='Passive Perception'; container.appendChild(title);
+  const blocks = Array.isArray(getValueAtPath(data,path)) ? getValueAtPath(data,path) : ['base_10','wis_mod'];
+  const formula=document.createElement('p'); formula.className='field-help'; formula.textContent=`Formula: ${blocks.join(' + ')}`;
+  const value = Number(getValueAtPath(data,['vitals','passive_perception','value'])||10);
+  const valInput=document.createElement('input'); valInput.type='number'; valInput.value=value; valInput.readOnly=true;
+  container.append(formula,valInput);
+  return container;
+};
+
 const renderInitiativeBlocks = (path, data) => {
   const container = document.createElement("div"); container.className = "field-group";
   const title = document.createElement("h3"); title.textContent = "Initiative Formula Blocks"; container.appendChild(title);
-  const value = String(getValueAtPath(data, path) || "dex_mod");
-  let blocks = value.split("+").map((v)=>v.trim()).filter(Boolean);
+  const rawValue = getValueAtPath(data, path);
+  let blocks = Array.isArray(rawValue) ? rawValue : String(rawValue || "dex_mod").split("+").map((v)=>v.trim()).filter(Boolean);
   if (!blocks.length) blocks=["dex_mod"];
   const list = document.createElement("div");
   const render = () => {
@@ -919,14 +1109,14 @@ const renderInitiativeBlocks = (path, data) => {
       const row = document.createElement("div"); row.className="save-row";
       const select = document.createElement("select");
       INITIATIVE_TOKENS.forEach((t)=>{const o=document.createElement('option');o.value=t;o.textContent=t;o.selected=t===token;select.appendChild(o);});
-      select.addEventListener("change", ()=>{blocks[idx]=select.value;setValueAtPath(data,path,blocks.join(' + '));});
+      select.addEventListener("change", ()=>{blocks[idx]=select.value;setValueAtPath(data,path,[...blocks]);});
       const remove=document.createElement("button"); remove.type='button'; remove.className='ghost danger'; remove.textContent='×';
-      remove.addEventListener('click',()=>{if(blocks.length>1){blocks.splice(idx,1);setValueAtPath(data,path,blocks.join(' + '));render();}});
+      remove.addEventListener('click',()=>{if(blocks.length>1){blocks.splice(idx,1);setValueAtPath(data,path,[...blocks]);render();}});
       row.append(select, remove); list.appendChild(row);
     });
   };
   const add = document.createElement("button"); add.type='button'; add.className='ghost'; add.textContent='+';
-  add.addEventListener('click',()=>{blocks.push('dex_mod');setValueAtPath(data,path,blocks.join(' + '));render();});
+  add.addEventListener('click',()=>{blocks.push('dex_mod');setValueAtPath(data,path,[...blocks]);render();});
   container.append(list, add); render();
   return container;
 };
@@ -1467,11 +1657,13 @@ const renderField = (field, path, data, value) => {
   if (pathText === "proficiency.saves") { return renderSavesMatrix(path, data); }
   if (pathText === "proficiency.skills.proficient") { return renderSkillsMatrix(data); }
   if (pathText === "proficiency.skills.expertise") { const d=document.createElement("div"); d.style.display="none"; return d; }
-  if (pathText === "proficiency.tools") { return renderChecklistArray("Tools, Weapons, Armor Training", TOOL_OPTIONS, path, data); }
+  if (pathText === "proficiency.tools") { return renderCanonicalProficiencies(path, data); }
   if (pathText === "defenses.resistances") { return renderChecklistArray("Resistances", DAMAGE_TYPES, path, data); }
   if (pathText === "defenses.immunities") { return renderChecklistArray("Immunities", DAMAGE_TYPES, path, data); }
   if (pathText === "defenses.vulnerabilities") { return renderChecklistArray("Vulnerabilities", DAMAGE_TYPES, path, data); }
   if (pathText === "vitals.initiative.formula") { return renderInitiativeBlocks(path, data); }
+  if (pathText === "vitals.passive_perception.formula") { return renderPassivePerceptionBlocks(path, data); }
+  if (pathText === "vitals.hit_dice") { return renderHitDiceTracker(data); }
   if (pathText === "features") { return renderFeatsEditor(path, data); }
   if (isSpellSlotsPath(path)) {
     return renderSpellSlots(field, path, data);
@@ -1551,7 +1743,7 @@ const renderForm = (schema, data) => {
 
     const sectionPath = section.path || [];
     if (section.type === "object") {
-      (section.fields || []).forEach((field) => {
+      (section.fields || []).filter((field) => !(section.id === "root" && HIDDEN_ROOT_FIELDS.has(field.key))).forEach((field) => {
         const fieldPath = sectionPath.length ? [...sectionPath, field.key] : [field.key];
         const fieldValue = getValueAtPath(data, fieldPath);
         sectionEl.appendChild(renderField(field, fieldPath, data, fieldValue));

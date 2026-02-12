@@ -89,3 +89,27 @@ def slugify_filename(name: str) -> str:
     while "__" in out:
         out = out.replace("__", "_")
     return out.strip("_") or "character"
+
+
+def skill_toggle(proficient: list[str] | None, expertise: list[str] | None, skill: str, *, prof_checked: bool | None = None, exp_checked: bool | None = None) -> tuple[list[str], list[str]]:
+    prof = {str(v).lower() for v in (proficient or [])}
+    exp = {str(v).lower() for v in (expertise or [])}
+    key = str(skill or "").lower()
+    if prof_checked is not None:
+      if prof_checked:
+        prof.add(key)
+      else:
+        prof.discard(key)
+        exp.discard(key)
+    if exp_checked is not None:
+      if exp_checked:
+        exp.add(key)
+        prof.add(key)
+      else:
+        exp.discard(key)
+    return sorted(prof), sorted(exp)
+
+
+def passive_perception_value(wis_score: int, proficiency_bonus: int, perception_proficient: bool, perception_expertise: bool) -> int:
+    wis_mod = ability_modifier(wis_score)
+    return 10 + wis_mod + (proficiency_bonus if perception_proficient else 0) + (proficiency_bonus if perception_expertise else 0)

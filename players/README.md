@@ -1424,3 +1424,24 @@ The `/new_character` and `/edit_character` web forms now use a tabbed layout to 
 When YAML is exported/saved, all schema sections are still included even if some tabs were never opened.
 - **Feats grants editor** now supports a modal-style configuration path for granted resource pools and granted spells. Pools configured under feats are synchronized into `resources.pools` before export/save/overwrite so consumes.pool references remain valid.
 - **Granted spell action types** in feat grant configuration are auto-inferred from spell `casting_time` metadata (Action/Bonus Action/Reaction) loaded from the spell catalog API.
+
+### Web editor proficiency and derived tracker behavior
+
+The `/new_character` and `/edit_character` web editors now expose canonical proficiency UIs and live-derived tracker values:
+
+- **Weapons / Armor / Tools** are split into dedicated sections instead of one combined checklist.
+  - Weapons include broad training toggles (**ALL simple weapons**, **ALL martial weapons**) and per-weapon entries.
+  - Armor has explicit **Light / Medium / Heavy / Shield** toggles plus rules reminder text.
+  - Tools use a canonical dropdown-backed picker.
+- **Skills are grouped by governing ability** (STR/DEX/CON/INT/WIS/CHA).
+  - Expertise implies proficiency.
+  - Clearing proficiency also clears expertise for that skill.
+  - Skill bonus display is derived from `ability_mod + proficiency_bonus (+ proficiency_bonus again for expertise)`.
+- **Passive Perception is auto-recalculated live** in the editor from
+  - `10 + wis_mod + proficiency_bonus (if Perception proficient) + proficiency_bonus (if Perception expertise)`.
+  - The formula display is read-only and updates whenever WIS, PB, or Perception proficiency/expertise changes.
+- **Hit Dice include a per-die runtime tracker** in Vitals.
+  - Die rows are derived from class levels (e.g., multiclass can produce d12 + d6 rows).
+  - Each row tracks max and remaining values in `vitals.hit_dice_tracker` while preserving existing `vitals.hit_dice` compatibility fields.
+
+`campaign` and `ip` remain valid YAML root fields for compatibility, but are hidden in the web form UI and passed through unchanged when present in existing character files.
