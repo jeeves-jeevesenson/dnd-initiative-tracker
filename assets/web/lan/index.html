@@ -6188,8 +6188,11 @@ __DAMAGE_TYPE_OPTIONS__
     }, 2500);
   }
   function renderDmLogPanel(){
-    if (!dmLogPanel || !dmLogList) return;
     const isAdmin = isAdminClient();
+    if (!dmLogPanel || !dmLogList){
+      renderMapViewLogPanel();
+      return;
+    }
     dmLogPanel.classList.toggle('show', !!(isAdmin && dmUiPrefs.showLogPanel));
     dmMapPreview?.classList.toggle('show', !!(isAdmin && dmUiPrefs.showMapPreview));
     if (!isAdmin){ renderMapViewLogPanel(); return; }
