@@ -5286,7 +5286,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
       if (gridReady()){
-        const moveRemaining = Number(movementSourceUnit.move_remaining || 0);
+        const moveRemaining = Number(movementSourceUnit.move_remaining ?? 0);
         if (Number.isFinite(moveRemaining) && moveRemaining > 0){
           const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
           const roughMap = buildRoughTerrainMap(state.rough_terrain);
@@ -7810,10 +7810,11 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       const hitIsClaimed = claimedCid !== null && cidMatches(hit.cid, claimedCid, "dragToken.claimedCid");
+      const mountUnitForDrag = mountMoveCid !== null ? getUnitByCid(mountMoveCid) : null;
       // When mounted, dragging either the rider or mount should move the mount token.
-      const shouldDragMount = mountMoveCid !== null && (canDragMount || hitIsClaimed);
+      const shouldDragMount = !!mountUnitForDrag && (canDragMount || hitIsClaimed);
       const dragCid = shouldDragMount ? mountMoveCid : hit.cid;
-      const dragUnit = shouldDragMount ? getUnitByCid(mountMoveCid) : hit;
+      const dragUnit = shouldDragMount ? mountUnitForDrag : hit;
       const dragCol = Number(dragUnit?.pos?.col ?? hit.pos.col);
       const dragRow = Number(dragUnit?.pos?.row ?? hit.pos.row);
       dragging = {cid: dragCid, startX: p.x, startY: p.y, origCol: dragCol, origRow: dragRow};

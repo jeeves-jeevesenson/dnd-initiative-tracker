@@ -6498,6 +6498,11 @@ class BattleMapWindow(tk.Toplevel):
             partner_cid = getattr(c, "mounted_by_cid", None)
         if partner_cid is None:
             return
+        if isinstance(partner_cid, str):
+            cleaned = partner_cid.strip()
+            if not cleaned or not cleaned.lstrip("-").isdigit():
+                return
+            partner_cid = cleaned
         try:
             partner_id = int(partner_cid)
         except (TypeError, ValueError):
