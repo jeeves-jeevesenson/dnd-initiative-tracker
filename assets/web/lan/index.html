@@ -53,7 +53,14 @@
       --map-view-bar-bg: rgba(14,18,26,0.92);
       --map-view-bar-border: rgba(255,255,255,0.1);
     }
-    .map-view-only .topbar,
+    .map-view .sheet-wrap,
+    .map-view .cast-overlay,
+    .map-view .menu-popover,
+    .map-view .spell-library-overlay,
+    .map-view .spell-detail-overlay,
+    .map-view .spellbook-overlay,
+    .map-view .turn-modal,
+    .map-view .modal,
     .map-view-only .sheet-wrap,
     .map-view-only .cast-overlay,
     .map-view-only .menu-popover,
@@ -63,6 +70,49 @@
     .map-view-only .spellbook-overlay,
     .map-view-only .turn-modal,
     .map-view-only .modal{
+      display:none !important;
+    }
+    .map-view .topbar{
+      gap:8px;
+      padding-bottom:8px;
+    }
+    .map-view .topbar-main-row{
+      min-height:0;
+      gap:8px;
+    }
+    .map-view .topbar-main-row #planningBtn,
+    .map-view .topbar-main-row #spellLibraryBtn,
+    .map-view .topbar-main-row #configBtn,
+    .map-view .topbar-main-row #initiativeToggleBtn,
+    .map-view .topbar-main-row .topbar-controls,
+    .map-view .topbar-main-row .spacer{
+      display:none !important;
+    }
+    .map-view .topbar-main-row #topbarTitle{
+      margin:0;
+      font-size:14px;
+      letter-spacing:0.35px;
+      opacity:0.9;
+    }
+    .map-view-only .topbar-main-row #topbarTitle{
+      display:none;
+    }
+    .map-view .conn-wrap{
+      margin-left:auto;
+    }
+    .map-view .conn-pill{
+      min-width:0;
+      padding:4px 8px;
+      font-size:12px;
+    }
+    .map-view .conn-pill .conn-full-text{
+      display:none;
+    }
+    .map-view .conn-pill .conn-compact-label,
+    .map-view .conn-pill .conn-compact-dot{
+      display:inline-flex;
+    }
+    .map-view-only .conn-popover{
       display:none !important;
     }
     .map-view .mapWrap{
@@ -1577,7 +1627,7 @@
     .dm-map-preview.show{display:flex;}
     .dm-map-preview canvas{width:100%; aspect-ratio:1/1; background:rgba(5,8,14,0.78); border-radius:8px;}
     .map-view-log-panel{
-      position:absolute;
+      position:fixed;
       right:12px;
       bottom:12px;
       width:min(540px,52vw);
@@ -1587,7 +1637,7 @@
       background: rgba(8,10,16,0.82);
       box-shadow: 0 12px 28px rgba(0,0,0,0.45);
       backdrop-filter: blur(8px);
-      z-index: 9;
+      z-index: 16;
       overflow: hidden;
       pointer-events:auto;
       display:none;
@@ -2670,20 +2720,31 @@ __DAMAGE_TYPE_OPTIONS__
   const qs = new URLSearchParams(location.search);
   const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
   const isMapView = normalizedPath === "/map_view";
-  const isMapViewOnly = isMapView && (qs.get("map_view_only") === "1" || qs.get("view_only") === "1");
+  const mapViewOnlyParam = qs.get("map_view_only") === "1" || qs.get("view_only") === "1";
+  const isMapViewOnly = isMapView && mapViewOnlyParam;
   const isPlanning = normalizedPath === "/planning";
   const supportsMapView = !isPlanning;
   const wsPath = isMapView ? "/ws_view" : "/ws";
-  const wsProto = (location.protocol === "https:") ? "wss" : "ws";
-  const wsOrigin = (() => {
-    const origin = (location.origin && location.origin !== "null") ? location.origin : "";
-    if (origin){
-      return origin.replace(/^http/, "ws");
+  const wsUrl = (() => {
+    const lanBase = (window.LAN_BASE_URL || "").trim();
+    const fallbackOrigin = (location.origin && location.origin !== "null") ? location.origin : "";
+    const baseCandidate = lanBase || fallbackOrigin;
+    if (!baseCandidate){
+      const host = location.host || location.hostname;
+      if (!host) return "";
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      return `${proto}://${host}${wsPath}`;
     }
-    const host = location.host || location.hostname;
-    return host ? `${wsProto}://${host}` : "";
+    try {
+      const baseUrl = new URL(baseCandidate, location.href);
+      const wsUrlObj = new URL(wsPath, baseUrl);
+      wsUrlObj.protocol = wsUrlObj.protocol === "https:" ? "wss:" : "ws:";
+      return wsUrlObj.toString();
+    } catch (err){
+      console.warn("Failed to resolve websocket base URL.", {baseCandidate, err});
+      return "";
+    }
   })();
-  const wsUrl = wsOrigin ? `${wsOrigin}${wsPath}` : "";
   const pushPublicKey = (window.PUSH_PUBLIC_KEY || "").trim();
   const turnAlertStorageKey = "inittracker_turnAlertSubscription";
   const turnAlertHideKey = "inittracker_hideTurnAlerts";

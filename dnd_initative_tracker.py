@@ -1899,7 +1899,11 @@ class LanController:
                             log_fn=lambda message: self._append_lan_log(message, level="warning"),
                         )
                     typ = str(msg.get("type") or "")
-                    if typ == "grid_request":
+                    if typ == "client_hello":
+                        client_id = self._normalize_client_id(msg.get("client_id"))
+                        if client_id:
+                            self._register_client_id(ws_id, client_id)
+                    elif typ == "grid_request":
                         await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
                     elif typ == "terrain_request":
                         await self._send_terrain_update_async(ws_id, self._terrain_payload())
