@@ -5424,7 +5424,7 @@ class InitiativeTracker(base.InitiativeTracker):
         out: List[Dict[str, Any]] = []
         for c in self.combatants.values():
             role = self._name_role_memory.get(str(c.name), "enemy")
-            if role == "pc":
+            if bool(getattr(c, "is_pc", False)) or role == "pc":
                 out.append({"cid": c.cid, "name": str(c.name)})
         # sort stable
         out.sort(key=lambda x: str(x["name"]).lower())
@@ -7722,6 +7722,14 @@ class InitiativeTracker(base.InitiativeTracker):
     def _player_profiles_payload(self) -> Dict[str, Dict[str, Any]]:
         self._load_player_yaml_cache()
         payload: Dict[str, Dict[str, Any]] = {}
+        available_cache = self.__dict__.get("_wild_shape_available_cache")
+        if not isinstance(available_cache, dict):
+            available_cache = {}
+            self._wild_shape_available_cache = available_cache
+        cache_source = self.__dict__.get("_wild_shape_available_cache_source")
+        if cache_source is not self._wild_shape_beast_cache:
+            available_cache.clear()
+            self._wild_shape_available_cache_source = self._wild_shape_beast_cache
         for name, data in self._player_yaml_data_by_name.items():
             if not isinstance(data, dict):
                 continue
@@ -7742,34 +7750,40 @@ class InitiativeTracker(base.InitiativeTracker):
             known_limit = self._wild_shape_known_limit(druid_level)
             available: List[Dict[str, Any]] = []
             if druid_level >= 2:
-                raw_available = self._wild_shape_available_forms(
-                    {
-                        **profile_payload,
-                        "learned_wild_shapes": known_runtime,
-                    },
-                    known_only=False,
-                    include_locked=True,
-                )
-                # Keep LAN payload lightweight to avoid websocket snapshot lag.
-                for entry in raw_available:
-                    if not isinstance(entry, dict):
-                        continue
-                    speed = entry.get("speed") if isinstance(entry.get("speed"), dict) else {}
-                    available.append(
+                cached_available = available_cache.get(druid_level)
+                if not isinstance(cached_available, list):
+                    raw_available = self._wild_shape_available_forms(
                         {
-                            "id": str(entry.get("id") or "").strip(),
-                            "name": str(entry.get("name") or "").strip(),
-                            "challenge_rating": float(entry.get("challenge_rating") or 0.0),
-                            "size": str(entry.get("size") or "").strip(),
-                            "speed": {
-                                "walk": int(speed.get("walk") or 0),
-                                "swim": int(speed.get("swim") or 0),
-                                "fly": int(speed.get("fly") or 0),
-                                "climb": int(speed.get("climb") or 0),
-                            },
-                            "allowed": bool(entry.get("allowed", False)),
-                        }
+                            "leveling": {"class": "druid", "level": druid_level},
+                            "learned_wild_shapes": [],
+                        },
+                        known_only=False,
+                        include_locked=True,
                     )
+                    trimmed: List[Dict[str, Any]] = []
+                    # Keep LAN payload lightweight to avoid websocket snapshot lag.
+                    for entry in raw_available:
+                        if not isinstance(entry, dict):
+                            continue
+                        speed = entry.get("speed") if isinstance(entry.get("speed"), dict) else {}
+                        trimmed.append(
+                            {
+                                "id": str(entry.get("id") or "").strip(),
+                                "name": str(entry.get("name") or "").strip(),
+                                "challenge_rating": float(entry.get("challenge_rating") or 0.0),
+                                "size": str(entry.get("size") or "").strip(),
+                                "speed": {
+                                    "walk": int(speed.get("walk") or 0),
+                                    "swim": int(speed.get("swim") or 0),
+                                    "fly": int(speed.get("fly") or 0),
+                                    "climb": int(speed.get("climb") or 0),
+                                },
+                                "allowed": bool(entry.get("allowed", False)),
+                            }
+                        )
+                    available_cache[druid_level] = trimmed
+                    cached_available = trimmed
+                available = cached_available
             profile_payload["learned_wild_shapes"] = list(known_runtime)
             profile_payload["wild_shape_known_limit"] = int(known_limit)
             profile_payload["wild_shape_available_forms"] = available
