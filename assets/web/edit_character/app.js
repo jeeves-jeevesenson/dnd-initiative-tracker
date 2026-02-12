@@ -12,7 +12,6 @@ const SPELL_PICKER_PATHS = new Set([
   "spellcasting.known_spells.known",
   "spellcasting.prepared_spells.prepared",
 ]);
-const CLASS_OPTIONS = ["Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard"];
 const SPELL_SLOT_LEVELS = [
   { key: "1", label: "I" },
   { key: "2", label: "II" },
@@ -120,10 +119,7 @@ const mergeDefaults = (payload, defaults) => {
 
 const slugify = (value, separator = "_") => {
   const text = String(value || "").trim().toLowerCase();
-  const normalized = text
-    .replace(/['`]/g, separator)
-    .replace(/[^a-z0-9\s_-]/g, "")
-    .replace(/[\s-]+/g, separator);
+  const normalized = text.replace(/[^\w\s-]/g, "").replace(/[\s-]+/g, separator);
   const trimmed = normalized.replace(new RegExp(`^${separator}+|${separator}+$`, "g"), "");
   return trimmed || "character";
 };
@@ -259,20 +255,6 @@ const createInput = (field, value, path, data) => {
     input.addEventListener("change", () => {
       setValueAtPath(data, path, input.checked);
     });
-  } else if (path.join(".").endsWith("leveling.classes.name")) {
-    input = document.createElement("select");
-    const emptyOption = document.createElement("option");
-    emptyOption.value = "";
-    emptyOption.textContent = "Select class";
-    input.appendChild(emptyOption);
-    CLASS_OPTIONS.forEach((name) => {
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = name;
-      option.selected = String(value || "") === name;
-      input.appendChild(option);
-    });
-    input.addEventListener("change", () => setValueAtPath(data, path, input.value));
   } else if (inputType === "integer" || inputType === "number") {
     input = document.createElement("input");
     input.type = "number";
@@ -694,47 +676,8 @@ const renderField = (field, path, data, value) => {
   return createInput(field, value, path, data);
 };
 
-const TAB_LAYOUT = [
-  { id: "basic", label: "Basic Info", sections: ["root", "identity"] },
-  { id: "stats", label: "Stats", sections: ["leveling", "abilities", "proficiency", "defenses", "attacks"] },
-  { id: "vitals", label: "Vitals", sections: ["vitals", "resources"] },
-  { id: "feats", label: "Feats", sections: ["features"] },
-  { id: "actions", label: "Actions", sections: ["actions", "reactions", "bonus_actions"] },
-  { id: "spellcasting", label: "Spellcasting", sections: ["spellcasting"] },
-  { id: "other", label: "Other", sections: ["inventory", "notes"] },
-];
-
 const renderForm = (schema, data) => {
   formEl.innerHTML = "";
-  const tabs = document.createElement("div");
-  tabs.className = "tab-bar";
-  const panes = document.createElement("div");
-  panes.className = "tab-panes";
-  const paneById = new Map();
-  TAB_LAYOUT.forEach((tab, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `tab-button${index === 0 ? " active" : ""}`;
-    button.textContent = tab.label;
-    button.dataset.tabTarget = tab.id;
-    tabs.appendChild(button);
-
-    const pane = document.createElement("div");
-    pane.className = `tab-pane${index === 0 ? " active" : ""}`;
-    pane.dataset.tabPane = tab.id;
-    panes.appendChild(pane);
-    paneById.set(tab.id, pane);
-  });
-  tabs.addEventListener("click", (event) => {
-    const button = event.target.closest(".tab-button");
-    if (!button) return;
-    const target = button.dataset.tabTarget;
-    tabs.querySelectorAll(".tab-button").forEach((el) => el.classList.toggle("active", el === button));
-    panes.querySelectorAll(".tab-pane").forEach((el) => el.classList.toggle("active", el.dataset.tabPane === target));
-  });
-  formEl.appendChild(tabs);
-  formEl.appendChild(panes);
-
   (schema.sections || []).forEach((section) => {
     const sectionEl = document.createElement("section");
     sectionEl.className = "section";
@@ -755,9 +698,7 @@ const renderForm = (schema, data) => {
       sectionEl.appendChild(renderMapField(section, sectionPath, data));
     }
 
-    const targetTab = TAB_LAYOUT.find((tab) => tab.sections.includes(section.id))?.id || "other";
-    const targetPane = paneById.get(targetTab) || paneById.get("other");
-    targetPane.appendChild(sectionEl);
+    formEl.appendChild(sectionEl);
   });
 };
 

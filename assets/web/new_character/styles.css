@@ -301,13 +301,3 @@ textarea:focus {
 .spell-slot-row input {
   width: 100%;
 }
-
-
-.tab-bar { display:flex; flex-wrap:wrap; gap:8px; }
-.tab-button { background:#0b0f15; border:1px solid var(--border); color:var(--muted); padding:8px 12px; border-radius:10px; cursor:pointer; }
-.tab-button.active { color:var(--text); border-color:var(--accent); }
-.tab-pane { display:none; gap:16px; }
-.tab-pane.active { display:grid; }
-.spell-toggle { border:none; border-radius:12px; padding:12px 14px; color:white; font-weight:700; cursor:pointer; }
-.spell-toggle.on { background:#1f8f43; }
-.spell-toggle.off { background:#a33232; }
