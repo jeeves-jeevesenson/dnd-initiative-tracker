@@ -6490,7 +6490,11 @@ class BattleMapWindow(tk.Toplevel):
         self._update_included_for_selected()
 
     def _sync_mount_pair_position(self, cid: int, col: int, row: int) -> None:
-        c = self.app.combatants.get(cid)
+        try:
+            cid_int = int(cid)
+        except (TypeError, ValueError):
+            return
+        c = self.app.combatants.get(cid_int)
         if not c:
             return
         partner_cid = getattr(c, "rider_cid", None)
@@ -6500,9 +6504,9 @@ class BattleMapWindow(tk.Toplevel):
             return
         try:
             partner = int(partner_cid)
-        except Exception:
+        except (TypeError, ValueError):
             return
-        if partner == cid:
+        if partner == cid_int:
             return
         tok = self.unit_tokens.get(partner)
         if not tok:
@@ -9034,12 +9038,15 @@ class BattleMapWindow(tk.Toplevel):
                                     self.app._rebuild_table(scroll_to_current=True)
                                 except Exception:
                                     pass
-            try:
-                tok = self.unit_tokens.get(cid)
-                if tok:
-                    self._sync_mount_pair_position(cid, int(tok["col"]), int(tok["row"]))
-            except Exception:
-                pass
+            tok = self.unit_tokens.get(cid)
+            if tok:
+                try:
+                    col = int(tok.get("col"))
+                    row = int(tok.get("row"))
+                except (TypeError, ValueError):
+                    pass
+                else:
+                    self._sync_mount_pair_position(cid, col, row)
 
         if self._drag_kind in ("unit", "aoe"):
             self._update_groups()
