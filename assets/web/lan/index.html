@@ -5494,6 +5494,54 @@ __DAMAGE_TYPE_OPTIONS__
   function planningMutate(msg){
     if (!msg || typeof msg !== "object") return;
     const type = String(msg.type || "");
+    const mutateSpellSlotCounter = (unit, rawLevel) => {
+      const playerName = String(unit?.name || "").trim();
+      const level = Number(rawLevel);
+      if (!playerName || !Number.isFinite(level) || level <= 0) return;
+      const profile = getPlayerProfile(playerName);
+      const spellcasting = profile?.spellcasting;
+      const slots = spellcasting?.spell_slots;
+      if (!slots || typeof slots !== "object") return;
+      const slotLevel = Math.floor(level);
+      if (Array.isArray(slots)){
+        const idx = slotLevel - 1;
+        if (idx < 0 || idx >= slots.length) return;
+        const entry = slots[idx];
+        if (entry && typeof entry === "object"){
+          const current = Number(entry.current ?? entry.remaining ?? entry.max ?? 0);
+          entry.current = Math.max(0, Number.isFinite(current) ? Math.floor(current) - 1 : 0);
+        } else if (Number.isFinite(Number(entry))){
+          slots[idx] = Math.max(0, Math.floor(Number(entry)) - 1);
+        }
+        return;
+      }
+      const key = String(slotLevel);
+      const entry = slots[key] ?? slots[slotLevel];
+      if (entry && typeof entry === "object"){
+        const current = Number(entry.current ?? entry.remaining ?? entry.max ?? 0);
+        entry.current = Math.max(0, Number.isFinite(current) ? Math.floor(current) - 1 : 0);
+      } else if (Number.isFinite(Number(entry))){
+        slots[key] = Math.max(0, Math.floor(Number(entry)) - 1);
+      }
+    };
+    const mutateResourcePoolCounter = (unit, consumesPoolRaw) => {
+      const playerName = String(unit?.name || "").trim();
+      const consumes = consumesPoolRaw && typeof consumesPoolRaw === "object" ? consumesPoolRaw : null;
+      if (!playerName || !consumes) return;
+      const poolsByPlayer = state?.resource_pools;
+      if (!poolsByPlayer || typeof poolsByPlayer !== "object") return;
+      const pools = poolsByPlayer[playerName];
+      if (!Array.isArray(pools)) return;
+      const id = String(consumes.id ?? consumes.pool ?? "").trim().toLowerCase();
+      if (!id) return;
+      const costRaw = Number(consumes.cost ?? 1);
+      const cost = Number.isFinite(costRaw) ? Math.max(1, Math.floor(costRaw)) : 1;
+      const pool = pools.find((entry) => String(entry?.id || "").trim().toLowerCase() === id);
+      if (!pool || typeof pool !== "object") return;
+      const current = Number(pool.current ?? 0);
+      if (!Number.isFinite(current)) return;
+      pool.current = Math.max(0, Math.floor(current) - cost);
+    };
     if (type === "move"){
       const unit = getUnitByCid(msg.cid);
       const to = msg.to || {};
@@ -5580,6 +5628,57 @@ __DAMAGE_TYPE_OPTIONS__
         update.move_remaining = remaining + baseSpeed;
       }
       applyUnitUpdates([update]);
+      updateMountControls();
+      return;
+    }
+    if (type === "cast_spell"){
+      const unit = getUnitByCid(msg.cid);
+      if (!unit) return;
+      const payload = msg.payload && typeof msg.payload === "object" ? msg.payload : {};
+      const spendRaw = String(msg.action_type || payload.action_type || "").toLowerCase();
+      const spend = spendRaw.includes("bonus") ? "bonus" : (spendRaw === "reaction" ? "reaction" : "action");
+      const update = {cid: unit.cid};
+      const spellCastRemaining = Number(unit.spell_cast_remaining || 0);
+      update.spell_cast_remaining = Math.max(0, spellCastRemaining - 1);
+      update.action_remaining = 0;
+      update.bonus_action_remaining = 0;
+      if (spend === "reaction"){
+        const currentReaction = Number(unit.reaction_remaining || 0);
+        update.reaction_remaining = Math.max(0, currentReaction - 1);
+      }
+      applyUnitUpdates([update]);
+      mutateSpellSlotCounter(unit, msg.slot_level ?? payload.slot_level ?? payload.level);
+      mutateResourcePoolCounter(unit, payload.consumes_pool);
+      updateMountControls();
+      return;
+    }
+    if (type === "stand_up"){
+      const unit = getUnitByCid(msg.cid);
+      if (!unit) return;
+      if (!unit.is_prone) return;
+      const speed = planningModeSpeed(unit);
+      const cost = Math.max(0, Math.floor(speed / 2));
+      const moveRemaining = Number(unit.move_remaining || 0);
+      if (!Number.isFinite(moveRemaining) || moveRemaining < cost) return;
+      applyUnitUpdates([{
+        cid: unit.cid,
+        is_prone: false,
+        move_remaining: Math.max(0, moveRemaining - cost),
+      }]);
+      updateMountControls();
+      return;
+    }
+    if (type === "reset_turn"){
+      const unit = getUnitByCid(msg.cid);
+      if (!unit) return;
+      applyUnitUpdates([{
+        cid: unit.cid,
+        action_remaining: Number(unit.action_total ?? 1),
+        bonus_action_remaining: Number(unit.bonus_action_total ?? 1),
+        reaction_remaining: Number(unit.reaction_total ?? 1),
+        spell_cast_remaining: Number(unit.spell_cast_total ?? 1),
+        move_remaining: Number(unit.move_total ?? planningModeSpeed(unit)),
+      }]);
       updateMountControls();
       return;
     }
@@ -8406,6 +8505,11 @@ __DAMAGE_TYPE_OPTIONS__
       msg.summon_choice = pendingSummonPlacement.summonChoice;
       msg.summon_quantity = pendingSummonPlacement.summonQuantity;
       msg.variant = pendingSummonPlacement.summonVariant || null;
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
       send(msg);
       clearSummonPlacementState();
       return;
@@ -11735,14 +11839,26 @@ __DAMAGE_TYPE_OPTIONS__
     standUpBtn.addEventListener("click", () => {
       if (isMapView) return;
       if (!claimedCid) return;
-      send({type:"stand_up", cid: claimedCid});
+      const msg = {type:"stand_up", cid: claimedCid};
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
     });
   }
   if (resetTurnBtn){
     resetTurnBtn.addEventListener("click", () => {
       if (isMapView) return;
       if (!claimedCid) return;
-      send({type:"reset_turn", cid: claimedCid});
+      const msg = {type:"reset_turn", cid: claimedCid};
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
     });
   }
 
