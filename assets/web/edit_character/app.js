@@ -1186,6 +1186,16 @@ const inferActionTypeFromSpell = (spellId, spellDetails) => {
   return { value: "action", unknown: true };
 };
 
+const ACTION_TYPE_OPTIONS = [
+  { value: "action", label: "Action" },
+  { value: "bonus", label: "Bonus Action" },
+  { value: "reaction", label: "Reaction" },
+  { value: "free", label: "Free (Any Time)" },
+  { value: "minute", label: "1+ Minute" },
+  { value: "hour", label: "1+ Hour" },
+  { value: "special", label: "Special" },
+];
+
 const collectFeatPoolIds = (feature) => {
   const pools = Array.isArray(feature?.grants?.pools) ? feature.grants.pools : [];
   return pools.map((entry) => String(entry?.id || "").trim()).filter(Boolean);
@@ -1425,8 +1435,6 @@ const renderFeatsEditor = (path, data) => {
               }
             });
           }
-          renderPools();
-          renderSpells();
         });
         labelInput.addEventListener("input", () => { grants.pools[idx].label = labelInput.value; });
         formulaInput.addEventListener("input", () => { grants.pools[idx].max_formula = formulaInput.value; });
@@ -1476,7 +1484,25 @@ const renderFeatsEditor = (path, data) => {
         renderPools();
       });
 
-      poolsPane.append(error, rows, addPool);
+      const savePools = document.createElement("button");
+      savePools.type = "button";
+      savePools.className = "primary";
+      savePools.textContent = "Save Resource Pools";
+      savePools.disabled = apply.disabled;
+      savePools.addEventListener("click", () => {
+        featDraft.grants = clone(grants);
+        const committed = saveSelectedFeat();
+        if (!committed) return;
+        const ok = ensurePoolsFromFeatures(data, {
+          confirmOverwrite: (id) => window.confirm(`Pool '${id}' already exists in character resources. Overwrite it with feat configuration?`),
+        });
+        if (!ok) return;
+        statusEl.textContent = "Unsaved changes";
+        renderPools();
+        renderSpells();
+      });
+
+      poolsPane.append(error, rows, addPool, savePools);
     };
 
     const { spells } = await loadSpellData();
@@ -1524,9 +1550,18 @@ const renderFeatsEditor = (path, data) => {
           renderSpells();
         });
 
-        const actionPreview = document.createElement("span");
-        actionPreview.className = "pill";
-        actionPreview.textContent = `Activation: ${cast?.action_type || "action"}`;
+        const actionTypeSelect = document.createElement("select");
+        ACTION_TYPE_OPTIONS.forEach((entry) => {
+          const option = document.createElement("option");
+          option.value = entry.value;
+          option.textContent = `Activation: ${entry.label}`;
+          option.selected = (cast?.action_type || "action") === entry.value;
+          actionTypeSelect.appendChild(option);
+        });
+        actionTypeSelect.addEventListener("change", () => {
+          cast.action_type = actionTypeSelect.value;
+          cast.action_type_unknown = false;
+        });
 
         const actionWarn = document.createElement("span");
         actionWarn.className = "status";
@@ -1600,7 +1635,7 @@ const renderFeatsEditor = (path, data) => {
           renderSpells();
         });
 
-        row.append(select, actionPreview, actionWarn, consumesType, poolSelect, cost, advanced, remove);
+        row.append(select, actionTypeSelect, actionWarn, consumesType, poolSelect, cost, advanced, remove);
         rows.appendChild(row);
       });
 
