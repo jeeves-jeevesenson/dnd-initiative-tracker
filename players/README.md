@@ -1422,8 +1422,10 @@ The `/new_character` and `/edit_character` web forms now use a tabbed layout to 
 - **Tool/weapon/armor proficiencies** are expected to be selected from dropdown/list controls (instead of free-text typing) in the web UI.
 
 When YAML is exported/saved, all schema sections are still included even if some tabs were never opened.
-- **Feats grants editor** now supports a modal-style configuration path for granted resource pools and granted spells. Pools configured under feats are synchronized into `resources.pools` before export/save/overwrite so consumes.pool references remain valid.
-- **Granted spell action types** in feat grant configuration are auto-inferred from spell `casting_time` metadata (Action/Bonus Action/Reaction) loaded from the spell catalog API.
+- **Feats tab is now a two-pane editor** (searchable feat list on the left, explicit details/save/revert/remove actions on the right) with per-feat dirty indicators and unsaved-change confirmation when switching feats/tabs or leaving the page.
+- **Configure Grants… modal** replaces inline grants editing. It contains dedicated **Resource Pools** and **Granted Spells** sub-tabs, supports add/remove/edit flows, validates pool ID uniqueness across the character, and only applies changes when confirmed.
+- **Pool materialization is automatic on grants Apply/save/export/overwrite**: feat-local `grants.pools[]` definitions are synchronized into `resources.pools[]` so `consumes.pool` references remain backend-valid.
+- **Granted spell action types** in feat grant configuration are auto-inferred from spell `casting_time` metadata (with Action fallback warning when metadata is missing), and consumes-pool rows use the same spell catalog source as the main spellcasting tab.
 
 ### Web editor proficiency and derived tracker behavior
 
