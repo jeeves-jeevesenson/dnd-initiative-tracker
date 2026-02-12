@@ -9900,6 +9900,125 @@ __DAMAGE_TYPE_OPTIONS__
 
   loadSpellFilterState();
 
+  const refreshSpellPresetOptions = () => {
+    if (!castPresetInput) return;
+    const currentValue = String(castPresetInput.value || "");
+    castPresetInput.textContent = "";
+    const availablePresets = cachedSpellPresets.slice();
+    if (!availablePresets.length){
+      castPresetInput.disabled = true;
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Presets unavailable";
+      castPresetInput.appendChild(placeholder);
+      castPresetInput.value = "";
+      updateSpellPresetDetails(null);
+      return;
+    }
+    castPresetInput.disabled = false;
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "Custom";
+    castPresetInput.appendChild(blank);
+    const preparedSpellSet = getPreparedSpellFilterSet();
+    const filtered = filterPresetsByKnownList(availablePresets, preparedSpellSet)
+      .filter(matchesSpellFilters);
+    if (!filtered.length){
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "No spells match filters";
+      empty.disabled = true;
+      castPresetInput.appendChild(empty);
+      castPresetInput.value = "";
+      updateSpellPresetDetails(null);
+      return;
+    }
+    const groups = new Map();
+    filtered.forEach((preset) => {
+      const level = getPresetLevelNumber(preset);
+      const key = level === null ? "unknown" : String(level);
+      if (!groups.has(key)){
+        groups.set(key, []);
+      }
+      groups.get(key).push(preset);
+    });
+    const orderedLevels = [];
+    for (let i = 0; i <= 9; i += 1){
+      if (groups.has(String(i))){
+        orderedLevels.push(String(i));
+      }
+    }
+    if (groups.has("unknown")){
+      orderedLevels.push("unknown");
+    }
+    orderedLevels.forEach((levelKey) => {
+      const list = groups.get(levelKey) || [];
+      list.sort((a, b) => normalizeTextValue(a.name).localeCompare(normalizeTextValue(b.name)));
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = levelKey === "unknown"
+        ? "Unknown Level"
+        : formatSpellLevelLabel(Number(levelKey));
+      list.forEach((preset) => {
+        const name = normalizeTextValue(preset.name);
+        if (!name) return;
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        optgroup.appendChild(opt);
+      });
+      castPresetInput.appendChild(optgroup);
+    });
+    if (currentValue && filtered.some(p => normalizeTextValue(p.name) === currentValue)){
+      castPresetInput.value = currentValue;
+    } else {
+      castPresetInput.value = "";
+    }
+    const selected = filtered.find(p => normalizeTextValue(p.name) === castPresetInput.value);
+    updateSpellPresetDetails(selected || null);
+  };
+
+  const updateSpellPresetOptions = (presets) => {
+    const list = normalizeSpellPresets(presets);
+    const signature = JSON.stringify(list.map(p => [
+      String(p.slug || ""),
+      String(p.name || ""),
+      String(p.shape || ""),
+      String(p.level || ""),
+      String(p.school || ""),
+      String(p.casting_time || ""),
+      String(p.range || ""),
+      String(p.ritual || ""),
+      String(p.concentration || ""),
+      String(p.color || ""),
+      String(p.is_aoe || ""),
+      String(p.action_type || ""),
+      JSON.stringify(p.tags || []),
+      JSON.stringify(p.lists || {}),
+      JSON.stringify(p.upcast || {}),
+      JSON.stringify(p.scaling || {}),
+      JSON.stringify(p.summon || {}),
+      String(p.isAoE || ""),
+      String(p.isSummon || ""),
+    ]));
+    if (signature === lastSpellPresetSignature){
+      return;
+    }
+    lastSpellPresetSignature = signature;
+    cachedSpellPresets = list;
+    spellPresetBySlug = new Map();
+    list.forEach((preset) => {
+      const slug = getPresetSlug(preset);
+      if (slug){
+        spellPresetBySlug.set(getSpellKey(slug), preset);
+      }
+    });
+    updateSpellFilterOptions();
+    refreshSpellPresetOptions();
+    if (spellbookOverlay?.classList.contains("show")){
+      renderSpellbook();
+    }
+  };
+
   const registerSpellFilterListener = (input, useInputEvent = false) => {
     if (!input) return;
     const handler = () => {
