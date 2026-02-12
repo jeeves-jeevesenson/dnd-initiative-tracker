@@ -5506,6 +5506,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "cid": c.cid,
                     "name": str(c.name),
                     "role": role if role in ("pc", "ally", "enemy") else "enemy",
+                    "ally": bool(role in ("pc", "ally")),
                     "token_color": self._token_color_payload(c),
                     "hp": int(getattr(c, "hp", 0) or 0),
                     "speed": int(getattr(c, "speed", 0) or 0),

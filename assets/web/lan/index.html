@@ -5267,8 +5267,25 @@ __DAMAGE_TYPE_OPTIONS__
         cid: unit.cid,
         pos: {col: Number(to.col ?? unit.pos.col), row: Number(to.row ?? unit.pos.row)},
       };
+      const updates = [update];
+      const riderCid = normalizeCid(unit.mounted_by_cid, "planning.move.riderCid");
+      const riderUnit = riderCid !== null ? getUnitByCid(riderCid) : null;
+      let movementUnit = unit;
+      let movementUpdate = update;
+      if (riderUnit){
+        const riderUpdate = {cid: riderUnit.cid, pos: {...update.pos}};
+        updates.push(riderUpdate);
+        movementUnit = riderUnit;
+        movementUpdate = riderUpdate;
+      } else {
+        const mountCid = normalizeCid(unit.rider_cid, "planning.move.mountCid");
+        const mountUnit = mountCid !== null ? getUnitByCid(mountCid) : null;
+        if (mountUnit){
+          updates.push({cid: mountUnit.cid, pos: {...update.pos}});
+        }
+      }
       if (gridReady()){
-        const moveRemaining = Number(unit.move_remaining || 0);
+        const moveRemaining = Number(movementUnit.move_remaining || 0);
         if (Number.isFinite(moveRemaining) && moveRemaining > 0){
           const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
           const roughMap = buildRoughTerrainMap(state.rough_terrain);
@@ -5286,11 +5303,11 @@ __DAMAGE_TYPE_OPTIONS__
           );
           const cost = costMap.get(cellKey(update.pos.col, update.pos.row));
           if (Number.isFinite(cost)){
-            update.move_remaining = Math.max(0, moveRemaining - cost);
+            movementUpdate.move_remaining = Math.max(0, moveRemaining - cost);
           }
         }
       }
-      applyUnitUpdates([update]);
+      applyUnitUpdates(updates);
       return;
     }
     if (["dash", "perform_action", "use_action", "use_bonus_action"].includes(type)){
@@ -5719,6 +5736,19 @@ __DAMAGE_TYPE_OPTIONS__
     if (!cidMatches(unit.summoned_by_cid, claimedCid, "summonControl.owner")) return false;
     const mode = normalizeTextValue(unit.summon_controller_mode);
     return mode === "summoner" || !!unit.summon_shared_turn;
+  }
+
+  function getMountMovementCid(){
+    const rider = getClaimedUnit();
+    if (!rider) return null;
+    const mountCid = normalizeCid(rider.rider_cid, "mountMove.riderCid");
+    if (mountCid === null) return null;
+    const mount = getUnitByCid(mountCid);
+    if (!mount) return null;
+    if (!cidMatches(mount.mounted_by_cid, rider.cid, "mountMove.mountOwner")) return null;
+    const mode = normalizeTextValue(mount.mount_controller_mode);
+    if (mode !== "rider") return null;
+    return mountCid;
   }
 
   function activeControlledUnitCid(){
@@ -6853,11 +6883,18 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
 
+  function isFriendlyUnit(unit){
+    if (!unit) return false;
+    if (unit.ally !== undefined && unit.ally !== null) return !!unit.ally;
+    const role = normalizeTextValue(unit.role);
+    return role === "pc" || role === "ally";
+  }
+
   function mountCandidatePair(){
     const me = getClaimedUnit();
     if (!me || !state?.units) return null;
     if (me.rider_cid || me.mounted_by_cid) return null;
-    const sameTile = state.units.filter(u => u?.ally && Number(u?.pos?.col)===Number(me?.pos?.col) && Number(u?.pos?.row)===Number(me?.pos?.row) && Number(u?.cid)!==Number(me?.cid));
+    const sameTile = state.units.filter(u => isFriendlyUnit(u) && Number(u?.pos?.col)===Number(me?.pos?.col) && Number(u?.pos?.row)===Number(me?.pos?.row) && Number(u?.cid)!==Number(me?.cid));
     if (sameTile.length !== 1) return null;
     const mount = sameTile[0];
     if (mount.rider_cid || mount.mounted_by_cid) return null;
@@ -7759,7 +7796,10 @@ __DAMAGE_TYPE_OPTIONS__
     if (hit){
       // only drag own token
       const controlledCid = activeControlledUnitCid();
-      if (!claimedCid || (controlledCid === null || !cidMatches(hit.cid, controlledCid, "dragToken.hitCid"))){
+      const mountMoveCid = getMountMovementCid();
+      const canDragMount = mountMoveCid !== null && cidMatches(hit.cid, mountMoveCid, "dragToken.mountCid");
+      const canDragSelf = controlledCid !== null && cidMatches(hit.cid, controlledCid, "dragToken.hitCid");
+      if (!claimedCid || (!canDragSelf && !canDragMount)){
         send({type:"toast", text:"Arrr, that token ain’t yers."});
         return;
       }
@@ -7768,7 +7808,10 @@ __DAMAGE_TYPE_OPTIONS__
         send({type:"toast", text:"Not yer turn yet, matey."});
         return;
       }
-      dragging = {cid: hit.cid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
+      const hitIsClaimed = claimedCid !== null && cidMatches(hit.cid, claimedCid, "dragToken.claimedCid");
+      const useMountMove = mountMoveCid !== null && (canDragMount || hitIsClaimed);
+      const dragCid = useMountMove ? mountMoveCid : hit.cid;
+      dragging = {cid: dragCid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
       return;
     }
     if ((isAoeDragMouse || isTouchPointer) && allowAoeDrag(ev)){
