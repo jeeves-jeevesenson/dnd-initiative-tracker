@@ -1119,192 +1119,690 @@ const renderInitiativeBlocks = (path, data) => {
 };
 
 
+
+const featEditorGuard = {
+  hasPendingChanges: () => false,
+  resolvePendingChanges: () => true,
+};
+
+const slugifyFeatId = (value) => {
+  const normalized = String(value || "")
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized || "custom_feat";
+};
+
+const createUniqueFeatId = (name, existingIds, fallback = "custom_feat") => {
+  const root = slugifyFeatId(name || fallback);
+  let next = root;
+  let suffix = 2;
+  while (existingIds.has(next)) {
+    next = `${root}_${suffix}`;
+    suffix += 1;
+  }
+  return next;
+};
+
 const inferActionTypeFromSpell = (spellId, spellDetails) => {
   const spell = (spellDetails || []).find((entry) => entry?.id === spellId);
   const casting = String(spell?.casting_time || "").toLowerCase();
-  if (casting.includes("reaction")) return "reaction";
-  if (casting.includes("bonus")) return "bonus";
-  return "action";
+  if (casting.includes("reaction")) return { value: "reaction", unknown: false };
+  if (casting.includes("bonus")) return { value: "bonus", unknown: false };
+  if (casting.includes("minute")) return { value: "minute", unknown: false };
+  if (casting.includes("hour")) return { value: "hour", unknown: false };
+  if (casting.includes("action")) return { value: "action", unknown: false };
+  return { value: "action", unknown: true };
 };
 
-const ensurePoolsFromFeatures = (data) => {
+const collectFeatPoolIds = (feature) => {
+  const pools = Array.isArray(feature?.grants?.pools) ? feature.grants.pools : [];
+  return pools.map((entry) => String(entry?.id || "").trim()).filter(Boolean);
+};
+
+const ensurePoolsFromFeatures = (data, { confirmOverwrite } = {}) => {
   const pools = Array.isArray(data?.resources?.pools) ? data.resources.pools : [];
-  const byId = new Map(pools.map((pool) => [String(pool?.id || ""), pool]));
   const features = Array.isArray(data?.features) ? data.features : [];
+  const featManaged = new Set();
+  features.forEach((feature) => collectFeatPoolIds(feature).forEach((id) => featManaged.add(id)));
+  const byId = new Map(pools.map((pool) => [String(pool?.id || "").trim(), pool]));
+  let blocked = false;
   features.forEach((feature) => {
-    const granted = feature?.grants?.pools || [];
+    const granted = Array.isArray(feature?.grants?.pools) ? feature.grants.pools : [];
     granted.forEach((pool) => {
       const id = String(pool?.id || "").trim();
       if (!id) return;
-      if (!byId.has(id)) {
-        const created = { id, label: pool?.label || id, max_formula: pool?.max_formula || "1", reset: pool?.reset || "long_rest", current: 0 };
-        pools.push(created);
-        byId.set(id, created);
+      const next = {
+        id,
+        label: pool?.label || id,
+        max_formula: pool?.max_formula || "1",
+        reset: pool?.reset === "short_rest" ? "short_rest" : "long_rest",
+      };
+      const existing = byId.get(id);
+      if (!existing) {
+        pools.push({ ...next, current: 0 });
+        byId.set(id, pools[pools.length - 1]);
+        return;
+      }
+      const external = !featManaged.has(id);
+      if (external && confirmOverwrite) {
+        const ok = confirmOverwrite(id, existing, next);
+        if (!ok) {
+          blocked = true;
+          return;
+        }
+      }
+      existing.label = next.label;
+      existing.max_formula = next.max_formula;
+      existing.reset = next.reset;
+      if (existing.current === undefined || existing.current === null) {
+        existing.current = 0;
       }
     });
   });
   if (!data.resources) data.resources = {};
   data.resources.pools = pools;
+  return !blocked;
 };
 
 const renderFeatsEditor = (path, data) => {
   const container = document.createElement("div");
   container.className = "feats-editor";
+
+  const header = document.createElement("div");
+  header.className = "feats-toolbar";
+  const search = document.createElement("input");
+  search.type = "search";
+  search.placeholder = "Filter feats…";
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "ghost";
+  add.textContent = "+ Add Feat";
+  header.append(search, add);
+
   const list = document.createElement("div");
   list.className = "feats-list";
   const detail = document.createElement("div");
   detail.className = "feats-detail";
-  const header = document.createElement("div");
-  header.className = "array-header";
-  const title = document.createElement("h3");
-  title.textContent = "Feats";
-  const add = document.createElement("button");
-  add.type = "button"; add.className = "ghost"; add.textContent = "Add Feat";
-  header.append(title, add);
-  container.append(header);
-  const body = document.createElement("div"); body.className = "feats-body";
+  const body = document.createElement("div");
+  body.className = "feats-body";
   body.append(list, detail);
-  container.append(body);
 
-  let selected = 0;
-  let dirty = false;
-  const feats = () => getValueAtPath(data, path) || [];
+  container.append(header, body);
 
-  const markDirty = () => { dirty = true; statusEl.textContent = "Unsaved changes"; };
-  const markSaved = () => { dirty = false; };
+  const feats = () => {
+    const current = getValueAtPath(data, path);
+    return Array.isArray(current) ? current : [];
+  };
 
-  const renderDetail = async () => {
-    detail.innerHTML = "";
-    const feat = feats()[selected];
-    if (!feat) return;
-    ["id", "name", "category", "source", "description"].forEach((fieldKey) => {
-      const row = document.createElement("div"); row.className = "field";
-      const label = document.createElement("label"); label.textContent = fieldKey;
-      const input = fieldKey === "description" ? document.createElement("textarea") : document.createElement("input");
-      if (fieldKey !== "description") input.type = "text";
-      input.value = feat[fieldKey] || "";
-      input.addEventListener("input", () => { feat[fieldKey] = input.value; markDirty(); renderList(); });
-      row.append(label, input); detail.append(row);
+  let selectedIndex = 0;
+  let featDraft = null;
+  let featSnapshot = null;
+  let grantsModalOpen = false;
+  const dirtyByIndex = new Set();
+
+  const hasUnsaved = () => JSON.stringify(featDraft || {}) !== JSON.stringify(featSnapshot || {});
+  const syncStatus = () => {
+    if (hasUnsaved()) {
+      statusEl.textContent = "Unsaved feat changes";
+      dirtyByIndex.add(selectedIndex);
+    } else {
+      dirtyByIndex.delete(selectedIndex);
+    }
+  };
+
+  const loadSelection = (index) => {
+    const selected = feats()[index];
+    if (!selected) {
+      featDraft = null;
+      featSnapshot = null;
+      return;
+    }
+    selectedIndex = index;
+    featDraft = clone(selected);
+    featSnapshot = clone(selected);
+    syncStatus();
+  };
+
+  const saveSelectedFeat = () => {
+    if (!featDraft) return true;
+    const all = feats();
+    all[selectedIndex] = clone(featDraft);
+    setValueAtPath(data, path, all);
+    featSnapshot = clone(featDraft);
+    syncStatus();
+    renderList();
+    renderDetail();
+    return true;
+  };
+
+  const discardSelectedChanges = () => {
+    if (!featSnapshot) return;
+    featDraft = clone(featSnapshot);
+    syncStatus();
+    renderList();
+    renderDetail();
+  };
+
+  const resolveUnsavedFeat = () => {
+    if (!hasUnsaved()) return true;
+    const shouldSave = window.confirm("You have unsaved changes to this feat. Save or discard?\n\nPress OK to Save, Cancel to Discard.");
+    if (shouldSave) {
+      return saveSelectedFeat();
+    }
+    discardSelectedChanges();
+    return true;
+  };
+
+  const openGrantsModal = async () => {
+    if (!featDraft) return;
+    grantsModalOpen = true;
+    const overlay = document.createElement("div");
+    overlay.className = "overlay grants-overlay";
+    overlay.tabIndex = -1;
+
+    const modal = document.createElement("div");
+    modal.className = "overlay-modal grants-modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+
+    const modalHeader = document.createElement("div");
+    modalHeader.className = "grants-modal-header";
+    const title = document.createElement("h3");
+    title.textContent = `Configure Grants — ${featDraft.name || featDraft.id || "Feat"}`;
+    const closeX = document.createElement("button");
+    closeX.type = "button";
+    closeX.className = "ghost";
+    closeX.textContent = "✕";
+    modalHeader.append(title, closeX);
+
+    const tabs = document.createElement("div");
+    tabs.className = "grants-tabs";
+    const poolsTab = document.createElement("button");
+    poolsTab.type = "button"; poolsTab.className = "tab-button active"; poolsTab.textContent = "Resource Pools";
+    const spellsTab = document.createElement("button");
+    spellsTab.type = "button"; spellsTab.className = "tab-button"; spellsTab.textContent = "Granted Spells";
+    tabs.append(poolsTab, spellsTab);
+
+    const poolsPane = document.createElement("div");
+    poolsPane.className = "grants-pane active";
+    const spellsPane = document.createElement("div");
+    spellsPane.className = "grants-pane";
+
+    const footer = document.createElement("div");
+    footer.className = "action-buttons";
+    const cancel = document.createElement("button");
+    cancel.type = "button"; cancel.className = "ghost"; cancel.textContent = "Cancel";
+    const apply = document.createElement("button");
+    apply.type = "button"; apply.className = "primary"; apply.textContent = "Apply";
+    footer.append(cancel, apply);
+
+    const grants = clone(featDraft.grants || {});
+    if (!Array.isArray(grants.pools)) grants.pools = [];
+    if (!grants.spells || typeof grants.spells !== "object") grants.spells = {};
+    if (!Array.isArray(grants.spells.casts)) grants.spells.casts = [];
+    const snapshot = JSON.stringify(grants);
+
+    const poolIdsFromOtherFeats = () => {
+      const ids = new Set();
+      feats().forEach((feature, idx) => {
+        if (idx === selectedIndex) return;
+        collectFeatPoolIds(feature).forEach((id) => ids.add(id));
+      });
+      return ids;
+    };
+
+    const renderPools = () => {
+      poolsPane.innerHTML = "";
+      const error = document.createElement("p");
+      error.className = "status";
+      const rows = document.createElement("div");
+      rows.className = "grants-list";
+      const duplicateIds = new Set();
+      const seen = new Set();
+      const existingResourceIds = new Set((Array.isArray(data?.resources?.pools) ? data.resources.pools : []).map((pool) => String(pool?.id || "").trim()).filter(Boolean));
+      const otherFeatIds = poolIdsFromOtherFeats();
+
+      grants.pools.forEach((pool, idx) => {
+        const id = String(pool?.id || "").trim();
+        if (id && seen.has(id)) duplicateIds.add(id);
+        if (id) seen.add(id);
+
+        const row = document.createElement("div");
+        row.className = "save-row";
+        const idInput = document.createElement("input"); idInput.type = "text"; idInput.placeholder = "id"; idInput.value = pool?.id || "";
+        const labelInput = document.createElement("input"); labelInput.type = "text"; labelInput.placeholder = "label"; labelInput.value = pool?.label || "";
+        const formulaInput = document.createElement("input"); formulaInput.type = "text"; formulaInput.placeholder = "max_formula"; formulaInput.value = pool?.max_formula || "1";
+        const resetInput = document.createElement("select");
+        ["short_rest", "long_rest"].forEach((entry) => {
+          const option = document.createElement("option");
+          option.value = entry;
+          option.textContent = entry;
+          option.selected = entry === (pool?.reset || "long_rest");
+          resetInput.appendChild(option);
+        });
+        const remove = document.createElement("button"); remove.type = "button"; remove.className = "ghost danger"; remove.textContent = "Remove";
+
+        idInput.addEventListener("input", () => {
+          const previous = String(grants.pools[idx]?.id || "").trim();
+          grants.pools[idx].id = idInput.value;
+          const next = String(idInput.value || "").trim();
+          if (previous && next && previous !== next) {
+            grants.spells.casts.forEach((cast) => {
+              if (cast?.consumes?.pool === previous) {
+                cast.consumes.pool = next;
+              }
+            });
+          }
+          renderPools();
+          renderSpells();
+        });
+        labelInput.addEventListener("input", () => { grants.pools[idx].label = labelInput.value; });
+        formulaInput.addEventListener("input", () => { grants.pools[idx].max_formula = formulaInput.value; });
+        resetInput.addEventListener("change", () => { grants.pools[idx].reset = resetInput.value; });
+        remove.addEventListener("click", () => {
+          const removed = String(grants.pools[idx]?.id || "").trim();
+          grants.pools.splice(idx, 1);
+          grants.spells.casts.forEach((cast) => {
+            if (cast?.consumes?.pool === removed) {
+              delete cast.consumes;
+            }
+          });
+          renderPools();
+          renderSpells();
+        });
+
+        row.append(idInput, labelInput, formulaInput, resetInput, remove);
+        rows.appendChild(row);
+      });
+
+      const hasConflict = grants.pools.some((pool) => {
+        const id = String(pool?.id || "").trim();
+        if (!id) return false;
+        if (duplicateIds.has(id)) return true;
+        if (otherFeatIds.has(id)) return true;
+        if (existingResourceIds.has(id) && !collectFeatPoolIds(feats()[selectedIndex]).includes(id)) {
+          return false;
+        }
+        return false;
+      });
+
+      if (duplicateIds.size) {
+        error.textContent = `Duplicate pool ID(s): ${Array.from(duplicateIds).join(", ")}`;
+      } else if (grants.pools.some((pool) => otherFeatIds.has(String(pool?.id || "").trim()))) {
+        error.textContent = "Pool IDs must be unique across all feats.";
+      } else {
+        error.textContent = "";
+      }
+      apply.disabled = Boolean(error.textContent) || grants.pools.some((pool) => !String(pool?.id || "").trim());
+
+      const addPool = document.createElement("button");
+      addPool.type = "button";
+      addPool.className = "ghost";
+      addPool.textContent = "+ Add Resource Pool";
+      addPool.addEventListener("click", () => {
+        grants.pools.push({ id: "", label: "", max_formula: "1", reset: "long_rest" });
+        renderPools();
+      });
+
+      poolsPane.append(error, rows, addPool);
+    };
+
+    const { spells } = await loadSpellData();
+
+    const renderSpells = () => {
+      spellsPane.innerHTML = "";
+      const toolbar = document.createElement("div");
+      toolbar.className = "array-header";
+      const addCantrip = document.createElement("button"); addCantrip.type = "button"; addCantrip.className = "ghost"; addCantrip.textContent = "+ Add Cantrip";
+      const addSpell = document.createElement("button"); addSpell.type = "button"; addSpell.className = "ghost"; addSpell.textContent = "+ Add Spell";
+      toolbar.append(addCantrip, addSpell);
+      spellsPane.appendChild(toolbar);
+
+      const rows = document.createElement("div");
+      rows.className = "grants-list";
+
+      grants.spells.casts.forEach((cast, idx) => {
+        const row = document.createElement("div");
+        row.className = "granted-spell-row";
+
+        const levelHint = Number(cast?.level_hint ?? 1);
+        const poolChoices = [
+          ...(Array.isArray(data?.resources?.pools) ? data.resources.pools : []),
+          ...grants.pools,
+        ].map((entry) => String(entry?.id || "").trim()).filter(Boolean);
+
+        const select = document.createElement("select");
+        const placeholder = document.createElement("option"); placeholder.value = ""; placeholder.textContent = "Select spell";
+        select.appendChild(placeholder);
+        spells.filter((entry) => {
+          const level = getSpellLevelFromRecord(entry);
+          return levelHint === 0 ? level === 0 : level !== 0;
+        }).forEach((entry) => {
+          const option = document.createElement("option");
+          option.value = entry.id;
+          option.textContent = `${entry.name || entry.id}`;
+          option.selected = entry.id === cast.spell;
+          select.appendChild(option);
+        });
+        select.addEventListener("change", () => {
+          cast.spell = select.value;
+          const actionMeta = inferActionTypeFromSpell(cast.spell, spells);
+          cast.action_type = actionMeta.value;
+          cast.action_type_unknown = actionMeta.unknown;
+          renderSpells();
+        });
+
+        const actionPreview = document.createElement("span");
+        actionPreview.className = "pill";
+        actionPreview.textContent = `Activation: ${cast?.action_type || "action"}`;
+
+        const actionWarn = document.createElement("span");
+        actionWarn.className = "status";
+        actionWarn.textContent = cast?.action_type_unknown ? "Action type unknown; defaulted to Action" : "";
+
+        const consumesType = document.createElement("select");
+        [{ value: "none", label: "Consumes: None" }, { value: "pool", label: "Consumes: Resource Pool" }].forEach((entry) => {
+          const option = document.createElement("option");
+          option.value = entry.value;
+          option.textContent = entry.label;
+          option.selected = (cast?.consumes?.pool ? "pool" : "none") === entry.value;
+          consumesType.appendChild(option);
+        });
+
+        const poolSelect = document.createElement("select");
+        const blankPool = document.createElement("option"); blankPool.value = ""; blankPool.textContent = "Select pool";
+        poolSelect.appendChild(blankPool);
+        poolChoices.forEach((id) => {
+          const option = document.createElement("option");
+          option.value = id;
+          option.textContent = id;
+          option.selected = cast?.consumes?.pool === id;
+          poolSelect.appendChild(option);
+        });
+        poolSelect.disabled = !cast?.consumes?.pool && consumesType.value === "none";
+
+        const cost = document.createElement("input");
+        cost.type = "number";
+        cost.min = "1";
+        cost.value = Number(cast?.consumes?.cost || 1);
+        cost.disabled = consumesType.value === "none";
+
+        consumesType.addEventListener("change", () => {
+          if (consumesType.value === "none") {
+            delete cast.consumes;
+          } else {
+            cast.consumes = cast.consumes || { pool: "", cost: 1 };
+          }
+          renderSpells();
+        });
+        poolSelect.addEventListener("change", () => {
+          cast.consumes = cast.consumes || { cost: 1 };
+          cast.consumes.pool = poolSelect.value;
+        });
+        cost.addEventListener("input", () => {
+          cast.consumes = cast.consumes || { pool: "" };
+          cast.consumes.cost = Math.max(1, Number(cost.value || 1));
+        });
+
+        const advanced = document.createElement("details");
+        const advancedSummary = document.createElement("summary");
+        advancedSummary.textContent = "Advanced";
+        const modifierInput = document.createElement("input");
+        modifierInput.type = "text";
+        modifierInput.placeholder = "modifier";
+        modifierInput.value = cast?.modifier || "";
+        modifierInput.addEventListener("input", () => { cast.modifier = modifierInput.value; });
+        const damageRider = document.createElement("input");
+        damageRider.type = "text";
+        damageRider.placeholder = "damage rider";
+        damageRider.value = cast?.damage_rider || "";
+        damageRider.addEventListener("input", () => { cast.damage_rider = damageRider.value; });
+        advanced.append(advancedSummary, modifierInput, damageRider);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "ghost danger";
+        remove.textContent = "Remove";
+        remove.addEventListener("click", () => {
+          grants.spells.casts.splice(idx, 1);
+          renderSpells();
+        });
+
+        row.append(select, actionPreview, actionWarn, consumesType, poolSelect, cost, advanced, remove);
+        rows.appendChild(row);
+      });
+
+      addCantrip.addEventListener("click", () => {
+        grants.spells.casts.push({ spell: "", level_hint: 0, action_type: "action" });
+        renderSpells();
+      });
+      addSpell.addEventListener("click", () => {
+        grants.spells.casts.push({ spell: "", level_hint: 1, action_type: "action" });
+        renderSpells();
+      });
+
+      spellsPane.appendChild(rows);
+    };
+
+    const hasModalUnsaved = () => JSON.stringify(grants) !== snapshot;
+    const closeWithGuard = () => {
+      if (hasModalUnsaved()) {
+        const shouldClose = window.confirm("You have unsaved changes to this feat grants modal. Discard changes?");
+        if (!shouldClose) return;
+      }
+      overlay.remove();
+      grantsModalOpen = false;
+      renderDetail();
+    };
+
+    tabs.addEventListener("click", (event) => {
+      const btn = event.target.closest("button");
+      if (!btn) return;
+      const poolsActive = btn === poolsTab;
+      poolsTab.classList.toggle("active", poolsActive);
+      spellsTab.classList.toggle("active", !poolsActive);
+      poolsPane.classList.toggle("active", poolsActive);
+      spellsPane.classList.toggle("active", !poolsActive);
     });
 
-    const cfg = document.createElement("button"); cfg.type = "button"; cfg.className = "ghost"; cfg.textContent = "Configure granted pools & spells…";
-    cfg.addEventListener("click", async () => {
-      const overlay = document.createElement("div"); overlay.className = "overlay";
-      const modal = document.createElement("div"); modal.className = "overlay-modal";
-      const h = document.createElement("h3"); h.textContent = "Granted Pools & Spells";
-      modal.appendChild(h);
-
-      if (!feat.grants) feat.grants = {};
-      if (!Array.isArray(feat.grants.pools)) feat.grants.pools = [];
-      if (!feat.grants.spells) feat.grants.spells = { cantrips: [], casts: [] };
-      if (!Array.isArray(feat.grants.spells.cantrips)) feat.grants.spells.cantrips = [];
-      if (!Array.isArray(feat.grants.spells.casts)) feat.grants.spells.casts = [];
-
-      const poolsWrap = document.createElement("div"); poolsWrap.className = "field-group";
-      const poolsTitle = document.createElement("h4"); poolsTitle.textContent = "Resource Pools"; poolsWrap.appendChild(poolsTitle);
-      const poolAdd = document.createElement("button"); poolAdd.type = "button"; poolAdd.className = "ghost"; poolAdd.textContent = "Add Pool";
-      poolsWrap.appendChild(poolAdd);
-      const poolRows = document.createElement("div"); poolsWrap.appendChild(poolRows);
-
-      const renderPools = () => {
-        poolRows.innerHTML = "";
-        feat.grants.pools.forEach((pool, idx) => {
-          const row = document.createElement("div"); row.className = "array-item";
-          const reset = pool.reset || "long_rest";
-          row.innerHTML = `<input type="text" data-k="id" placeholder="id" value="${pool.id||""}">
-<input type="text" data-k="label" placeholder="label" value="${pool.label||""}">
-<input type="text" data-k="max_formula" placeholder="max formula" value="${pool.max_formula||"1"}">`;
-          const sel = document.createElement("select");
-          ["short_rest","long_rest"].forEach((v)=>{const o=document.createElement('option');o.value=v;o.textContent=v;o.selected=v===reset;sel.appendChild(o);});
-          sel.addEventListener("change", ()=>{pool.reset=sel.value;markDirty();});
-          const rm = document.createElement("button"); rm.type="button"; rm.className="ghost danger"; rm.textContent="Remove";
-          rm.addEventListener("click", ()=>{feat.grants.pools.splice(idx,1);renderPools();markDirty();});
-          row.querySelectorAll("input").forEach((inp)=>inp.addEventListener("input",()=>{pool[inp.dataset.k]=inp.value;markDirty();}));
-          row.append(sel, rm);
-          poolRows.appendChild(row);
-        });
-      };
-      poolAdd.addEventListener("click", ()=>{feat.grants.pools.push({id:"",label:"",max_formula:"1",reset:"long_rest"});renderPools();markDirty();});
-      renderPools();
-
-      const spellWrap = document.createElement("div"); spellWrap.className = "field-group";
-      const spellTitle = document.createElement("h4"); spellTitle.textContent = "Granted Spells"; spellWrap.appendChild(spellTitle);
-      const spellAdd = document.createElement("button"); spellAdd.type = "button"; spellAdd.className = "ghost"; spellAdd.textContent = "Add Spell";
-      spellWrap.appendChild(spellAdd);
-      const spellRows = document.createElement("div"); spellWrap.appendChild(spellRows);
-      const spellPayload = await loadSpellData();
-      const spells = Array.isArray(spellPayload?.spells) ? spellPayload.spells : [];
-
-      const renderSpells = () => {
-        spellRows.innerHTML = "";
-        feat.grants.spells.casts.forEach((cast, idx) => {
-          const row = document.createElement("div"); row.className = "array-item";
-          const spellSel = document.createElement("select");
-          const blank = document.createElement("option"); blank.value=""; blank.textContent="Select spell"; spellSel.appendChild(blank);
-          spells.forEach((sp)=>{const o=document.createElement('option');o.value=sp.id;o.textContent=`${sp.name||sp.id}`;o.selected=sp.id===cast.spell;spellSel.appendChild(o);});
-          spellSel.addEventListener("change", ()=>{cast.spell=spellSel.value;cast.action_type=inferActionTypeFromSpell(cast.spell,spells);markDirty();});
-          const action = document.createElement("input"); action.type='text'; action.value=cast.action_type||"action"; action.readOnly=true;
-          const poolSel = document.createElement("select");
-          const poolBlank = document.createElement('option'); poolBlank.value=''; poolBlank.textContent='Pool'; poolSel.appendChild(poolBlank);
-          const allPools = [...(data?.resources?.pools || []), ...(feat.grants.pools || [])];
-          allPools.forEach((pool)=>{const id=pool?.id||''; if(!id) return; const o=document.createElement('option');o.value=id;o.textContent=id;o.selected=id===cast?.consumes?.pool;poolSel.appendChild(o);});
-          poolSel.addEventListener("change", ()=>{cast.consumes = cast.consumes || {}; cast.consumes.pool = poolSel.value; markDirty();});
-          const cost = document.createElement("input"); cost.type='number'; cost.value=cast?.consumes?.cost ?? 1;
-          cost.addEventListener("input", ()=>{cast.consumes = cast.consumes || {}; cast.consumes.cost = Number(cost.value || 1); markDirty();});
-          const dmg = document.createElement("input"); dmg.type='text'; dmg.placeholder='damage rider'; dmg.value=cast.damage_rider||'';
-          dmg.addEventListener("input", ()=>{cast.damage_rider=dmg.value; markDirty();});
-          const rm = document.createElement("button"); rm.type='button'; rm.className='ghost danger'; rm.textContent='Remove';
-          rm.addEventListener("click", ()=>{feat.grants.spells.casts.splice(idx,1);renderSpells();markDirty();});
-          row.append(spellSel, action, poolSel, cost, dmg, rm);
-          spellRows.appendChild(row);
-        });
-      };
-      spellAdd.addEventListener("click", ()=>{feat.grants.spells.casts.push({spell:"",action_type:"action",consumes:{pool:"",cost:1}});renderSpells();markDirty();});
-      renderSpells();
-
-      const controls = document.createElement("div"); controls.className = "action-buttons";
-      const saveBtn = document.createElement("button"); saveBtn.type='button'; saveBtn.className='primary'; saveBtn.textContent='Save Grants';
-      const closeBtn = document.createElement("button"); closeBtn.type='button'; closeBtn.className='ghost'; closeBtn.textContent='Close';
-      saveBtn.addEventListener('click',()=>{ensurePoolsFromFeatures(data); markDirty(); overlay.remove();});
-      closeBtn.addEventListener('click',()=>overlay.remove());
-      controls.append(saveBtn, closeBtn);
-
-      modal.append(poolsWrap, spellWrap, controls);
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
+    closeX.addEventListener("click", closeWithGuard);
+    cancel.addEventListener("click", closeWithGuard);
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) closeWithGuard();
     });
-    detail.appendChild(cfg);
+    overlay.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeWithGuard();
+      }
+      if (event.key === "Tab") {
+        const focusable = modal.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    });
 
-    const saveIndicator = document.createElement("p"); saveIndicator.className = "status"; saveIndicator.textContent = dirty ? "Unsaved changes" : "";
-    detail.appendChild(saveIndicator);
+    apply.addEventListener("click", () => {
+      featDraft.grants = clone(grants);
+      const committed = saveSelectedFeat();
+      if (!committed) return;
+      const ok = ensurePoolsFromFeatures(data, {
+        confirmOverwrite: (id) => window.confirm(`Pool '${id}' already exists in character resources. Overwrite it with feat configuration?`),
+      });
+      if (!ok) return;
+      overlay.remove();
+      grantsModalOpen = false;
+      statusEl.textContent = "Unsaved changes";
+      renderDetail();
+    });
+
+    modal.append(modalHeader, tabs, poolsPane, spellsPane, footer);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    renderPools();
+    renderSpells();
+    closeX.focus();
   };
 
   const renderList = () => {
     list.innerHTML = "";
+    const query = search.value.trim().toLowerCase();
     feats().forEach((feat, idx) => {
-      const btn = document.createElement("button"); btn.type = "button";
-      btn.className = `ghost feat-item${idx === selected ? " active" : ""}`;
-      btn.textContent = feat?.name || feat?.id || `Feat ${idx + 1}`;
-      btn.addEventListener("click", async () => {
-        if (dirty && !window.confirm("You have unsaved feat changes. Switch anyway?")) return;
-        selected = idx;
-        await renderDetail();
+      const title = String(feat?.name || feat?.id || `Feat ${idx + 1}`);
+      const subtitle = [feat?.category, feat?.source].filter(Boolean).join(" · ");
+      if (query && !`${title} ${subtitle}`.toLowerCase().includes(query)) {
+        return;
+      }
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = `feat-row${idx === selectedIndex ? " active" : ""}`;
+      const name = document.createElement("strong");
+      name.textContent = title;
+      const meta = document.createElement("small");
+      meta.textContent = subtitle;
+      const dirty = document.createElement("span");
+      dirty.className = "feat-dirty";
+      dirty.textContent = dirtyByIndex.has(idx) ? "●" : "";
+      row.append(name, meta, dirty);
+      row.addEventListener("click", () => {
+        if (idx === selectedIndex) return;
+        if (!resolveUnsavedFeat()) return;
+        loadSelection(idx);
         renderList();
+        renderDetail();
       });
-      list.appendChild(btn);
+      list.appendChild(row);
     });
   };
 
-  add.addEventListener("click", async () => {
-    const next = feats();
-    next.push({ id: "", name: "", category: "", source: "", description: "", grants: { pools: [], spells: { cantrips: [], casts: [] } } });
-    setValueAtPath(data, path, next);
-    selected = next.length - 1;
-    dirty = true;
-    renderList();
-    await renderDetail();
-  });
+  const renderDetail = () => {
+    detail.innerHTML = "";
+    if (!featDraft) {
+      const empty = document.createElement("p");
+      empty.className = "status";
+      empty.textContent = "No feat selected.";
+      detail.appendChild(empty);
+      return;
+    }
 
+    const fields = ["id", "name", "category", "source", "description"];
+    fields.forEach((fieldKey) => {
+      const row = document.createElement("div");
+      row.className = "field";
+      const label = document.createElement("label");
+      label.textContent = fieldKey;
+      const input = fieldKey === "description" ? document.createElement("textarea") : document.createElement("input");
+      if (fieldKey !== "description") input.type = "text";
+      input.value = featDraft[fieldKey] || "";
+      input.addEventListener("input", () => {
+        featDraft[fieldKey] = input.value;
+        syncStatus();
+        renderList();
+      });
+      row.append(label, input);
+      detail.appendChild(row);
+    });
+
+    const actions = document.createElement("div");
+    actions.className = "action-buttons";
+    const save = document.createElement("button");
+    save.type = "button"; save.className = "primary"; save.textContent = "Save Feat Changes";
+    const revert = document.createElement("button");
+    revert.type = "button"; revert.className = "ghost"; revert.textContent = "Revert";
+    const remove = document.createElement("button");
+    remove.type = "button"; remove.className = "ghost danger"; remove.textContent = "Remove Feat";
+    const grants = document.createElement("button");
+    grants.type = "button"; grants.className = "ghost"; grants.textContent = "Configure Grants…";
+
+    save.addEventListener("click", saveSelectedFeat);
+    revert.addEventListener("click", discardSelectedChanges);
+    remove.addEventListener("click", () => {
+      if (!window.confirm("Remove this feat?")) return;
+      const all = feats();
+      all.splice(selectedIndex, 1);
+      setValueAtPath(data, path, all);
+      selectedIndex = Math.max(0, selectedIndex - 1);
+      loadSelection(selectedIndex);
+      statusEl.textContent = "Unsaved changes";
+      renderList();
+      renderDetail();
+    });
+    grants.addEventListener("click", openGrantsModal);
+
+    actions.append(save, revert, remove, grants);
+    detail.appendChild(actions);
+  };
+
+  const openAddFeatPicker = () => {
+    if (!resolveUnsavedFeat()) return;
+    const overlay = document.createElement("div");
+    overlay.className = "overlay";
+    const modal = document.createElement("div");
+    modal.className = "overlay-modal";
+    const heading = document.createElement("h3");
+    heading.textContent = "Add Feat";
+    const helper = document.createElement("p");
+    helper.className = "status";
+    helper.textContent = "Feat library unavailable in this repo. Create a custom feat.";
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.placeholder = "Feat name";
+    const create = document.createElement("button");
+    create.type = "button";
+    create.className = "primary";
+    create.textContent = "Create Custom Feat";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "ghost";
+    cancel.textContent = "Cancel";
+    const footer = document.createElement("div");
+    footer.className = "action-buttons";
+    footer.append(cancel, create);
+    modal.append(heading, helper, nameInput, footer);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    cancel.addEventListener("click", () => overlay.remove());
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) overlay.remove();
+    });
+    create.addEventListener("click", () => {
+      const all = feats();
+      const existing = new Set(all.map((entry) => String(entry?.id || "").trim()).filter(Boolean));
+      const name = nameInput.value.trim() || "Custom Feat";
+      const id = createUniqueFeatId(name, existing);
+      all.push({ id, name, category: "", source: "", description: "", grants: { pools: [], spells: { casts: [] } } });
+      setValueAtPath(data, path, all);
+      selectedIndex = all.length - 1;
+      loadSelection(selectedIndex);
+      statusEl.textContent = "Unsaved changes";
+      overlay.remove();
+      renderList();
+      renderDetail();
+    });
+  };
+
+  featEditorGuard.hasPendingChanges = () => hasUnsaved() || grantsModalOpen;
+  featEditorGuard.resolvePendingChanges = () => resolveUnsavedFeat();
+
+  add.addEventListener("click", openAddFeatPicker);
+  search.addEventListener("input", renderList);
+
+  if (!feats().length) {
+    setValueAtPath(data, path, []);
+  }
+  loadSelection(0);
   renderList();
   renderDetail();
   return container;
@@ -1707,6 +2205,7 @@ const renderForm = (schema, data) => {
   const panes = document.createElement("div");
   panes.className = "tab-panes";
   const paneById = new Map();
+  let activeTabId = TAB_LAYOUT[0]?.id || "basic";
   TAB_LAYOUT.forEach((tab, index) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -1725,6 +2224,13 @@ const renderForm = (schema, data) => {
     const button = event.target.closest(".tab-button");
     if (!button) return;
     const target = button.dataset.tabTarget;
+    if (activeTabId === "feats" && target !== "feats" && featEditorGuard.hasPendingChanges()) {
+      const ok = featEditorGuard.resolvePendingChanges();
+      if (!ok) {
+        return;
+      }
+    }
+    activeTabId = target;
     tabs.querySelectorAll(".tab-button").forEach((el) => el.classList.toggle("active", el === button));
     panes.querySelectorAll(".tab-pane").forEach((el) => el.classList.toggle("active", el.dataset.tabPane === target));
   });
@@ -1867,6 +2373,11 @@ const boot = async () => {
   derivedStats.recalculate();
   formEl.addEventListener("input", () => { statusEl.textContent = "Unsaved changes"; });
   formEl.addEventListener("change", () => { statusEl.textContent = "Unsaved changes"; });
+  window.addEventListener("beforeunload", (event) => {
+    if (!featEditorGuard.hasPendingChanges()) return;
+    event.preventDefault();
+    event.returnValue = "You have unsaved changes to this feat. Save or discard?";
+  });
   if (exportButton) exportButton.addEventListener("click", () => exportYaml(data));
   if (refreshCacheButton) refreshCacheButton.addEventListener("click", refreshPlayerCache);
   if (overwriteButton) {
