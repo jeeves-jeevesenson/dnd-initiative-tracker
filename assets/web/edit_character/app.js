@@ -5,6 +5,35 @@ const exportButton = document.getElementById("export-button");
 const formEl = document.getElementById("character-form");
 const filenameInput = document.getElementById("filename-input");
 
+const REQUIRED_EDITOR_ELEMENT_IDS = [
+  "draft-status",
+  "overwrite-button",
+  "refresh-cache-button",
+  "export-button",
+  "filename-input",
+  "character-form",
+];
+
+const assertRequiredEditorElements = () => {
+  const missing = REQUIRED_EDITOR_ELEMENT_IDS.filter((id) => !document.getElementById(id));
+  if (!missing.length) {
+    return;
+  }
+  const banner = document.createElement("div");
+  banner.setAttribute("role", "alert");
+  banner.style.background = "#7f1d1d";
+  banner.style.color = "#fff";
+  banner.style.padding = "12px 16px";
+  banner.style.margin = "12px";
+  banner.style.borderRadius = "8px";
+  banner.style.fontFamily = "system-ui, sans-serif";
+  banner.style.fontSize = "14px";
+  banner.style.lineHeight = "1.4";
+  banner.textContent = `Editor failed to start. Missing required element IDs: ${missing.join(", ")}`;
+  document.body.prepend(banner);
+  throw new Error(`Edit character template missing required IDs: ${missing.join(", ")}`);
+};
+
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 const SPELL_PICKER_PATHS = new Set([
@@ -2385,4 +2414,5 @@ const boot = async () => {
   }
 };
 
+assertRequiredEditorElements();
 boot();
