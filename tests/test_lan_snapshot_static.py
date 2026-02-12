@@ -1,3 +1,4 @@
+import threading
 import unittest
 
 import dnd_initative_tracker as tracker_mod
@@ -36,6 +37,24 @@ class LanSnapshotStaticTests(unittest.TestCase):
         self.assertEqual(snap["player_spells"], {"Alice": {"spells": []}})
         self.assertEqual(snap["player_profiles"], {"Alice": {"name": "Alice"}})
         self.assertEqual(snap["resource_pools"], {"Alice": [{"id": "wild_shape", "current": 1}]})
+
+    def test_view_only_state_payload_includes_grid_and_terrain(self):
+        lan = object.__new__(tracker_mod.LanController)
+        lan._cached_snapshot = {
+            "grid": {"cols": 5, "rows": 6, "feet_per_square": 5},
+            "rough_terrain": [{"col": 0, "row": 1}],
+            "obstacles": [{"col": 2, "row": 3}],
+            "units": [],
+        }
+        lan._cached_pcs = []
+        lan._cid_to_host = {}
+        lan._clients_lock = threading.Lock()
+
+        payload = lan._view_only_state_payload({"units": []})
+
+        self.assertEqual(payload["grid"], {"cols": 5, "rows": 6, "feet_per_square": 5})
+        self.assertEqual(payload["rough_terrain"], [{"col": 0, "row": 1}])
+        self.assertEqual(payload["obstacles"], [{"col": 2, "row": 3}])
 
 
 if __name__ == "__main__":
