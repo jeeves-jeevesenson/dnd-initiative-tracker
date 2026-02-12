@@ -6506,8 +6506,6 @@ class BattleMapWindow(tk.Toplevel):
             partner = int(partner_cid)
         except (TypeError, ValueError):
             return
-        if partner == cid_int:
-            return
         tok = self.unit_tokens.get(partner)
         if not tok:
             return

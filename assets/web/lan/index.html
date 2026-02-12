@@ -5268,7 +5268,7 @@ __DAMAGE_TYPE_OPTIONS__
         pos: {col: Number(to.col ?? unit.pos.col), row: Number(to.row ?? unit.pos.row)},
       };
       const updates = [update];
-      const riderCid = normalizeCid(unit.mounted_by_cid, "planning.move.riderCid");
+      const riderCid = normalizeCid(unit.mounted_by_cid, "move.mountedByCid");
       const riderUnit = riderCid !== null ? getUnitByCid(riderCid) : null;
       let movementUnit = unit;
       let movementUpdate = update;
@@ -5278,7 +5278,7 @@ __DAMAGE_TYPE_OPTIONS__
         movementUnit = riderUnit;
         movementUpdate = riderUpdate;
       } else {
-        const mountCid = normalizeCid(unit.rider_cid, "planning.move.mountCid");
+        const mountCid = normalizeCid(unit.rider_cid, "move.riderCid");
         const mountUnit = mountCid !== null ? getUnitByCid(mountCid) : null;
         if (mountUnit) {
           updates.push({cid: mountUnit.cid, pos: {...update.pos}});
@@ -7809,6 +7809,7 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       const hitIsClaimed = claimedCid !== null && cidMatches(hit.cid, claimedCid, "dragToken.claimedCid");
+      // When mounted, dragging either the rider or mount should move the mount token.
       const useMountMove = mountMoveCid !== null && (canDragMount || hitIsClaimed);
       const dragCid = useMountMove ? mountMoveCid : hit.cid;
       dragging = {cid: dragCid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
