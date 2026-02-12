@@ -1335,7 +1335,7 @@ class LanController:
         # Lazy imports so the base app still works without these deps installed.
         try:
             from fastapi import Body, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-            from fastapi.responses import HTMLResponse, Response
+            from fastapi.responses import HTMLResponse, RedirectResponse, Response
             from fastapi.staticfiles import StaticFiles
             import uvicorn
             # Expose these in module globals so FastAPI's type resolver can see 'em even from nested defs.
@@ -1366,7 +1366,7 @@ class LanController:
             "character-form",
         )
 
-        def load_config_editor_html() -> str:
+        def load_edit_character_html() -> str:
             if not edit_entrypoint.exists():
                 raise HTTPException(status_code=404, detail="Edit character page missing.")
             html = edit_entrypoint.read_text(encoding="utf-8")
@@ -1377,7 +1377,7 @@ class LanController:
                 raise HTTPException(
                     status_code=500,
                     detail=(
-                        "Config editor HTML shell is invalid. Missing required "
+                        "Edit character HTML shell is invalid. Missing required "
                         f"selectors/assets: {', '.join(missing)}"
                     ),
                 )
@@ -1418,9 +1418,13 @@ class LanController:
                 raise HTTPException(status_code=404, detail="New character page missing.")
             return HTMLResponse(web_entrypoint.read_text(encoding="utf-8"))
 
-        @self._fastapi_app.get("/config")
+        @self._fastapi_app.get("/edit_character")
         async def edit_character():
-            return HTMLResponse(load_config_editor_html())
+            return HTMLResponse(load_edit_character_html())
+
+        @self._fastapi_app.get("/config")
+        async def config_redirect():
+            return RedirectResponse("/edit_character", status_code=302)
 
         @self._fastapi_app.get("/sw.js")
         async def service_worker():
