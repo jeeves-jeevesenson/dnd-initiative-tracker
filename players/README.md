@@ -1398,3 +1398,27 @@ For best results:
 - `dnd_initative_tracker.py` - Main application that uses these files
 - `Spells/` - Spell definitions referenced by character files
 - `README.md` - Main application documentation
+
+---
+
+## Web Builder UX (Tabbed Form + Autofill)
+
+The `/new_character` and `/edit_character` web forms now use a tabbed layout to group related fields:
+
+- **Basic Info**: root + identity fields and YAML filename controls.
+- **Stats**: leveling, abilities, proficiency, defenses, attacks.
+- **Vitals**: HP/speed/resources.
+- **Feats**: feature list/objects.
+- **Actions**: actions, reactions, bonus actions.
+- **Spellcasting**: spellcasting fields with a large enabled/disabled toggle button.
+
+### Auto-calculated behavior
+
+- **Filename default** uses snake_case from character name (`John Twilight` -> `john_twilight.yaml`).
+- **Ability modifiers** are calculated from ability scores with `(score - 10) // 2`.
+- **Proficiency bonus** auto-scales by level bands (2/3/4/5/6 for levels 1-4/5-8/9-12/13-16/17+).
+- **Saving throw proficiencies** are auto-applied from the **highest-level class** and can still be manually added.
+- **Hit dice** derive from class levels in multiclass builds.
+- **Tool/weapon/armor proficiencies** are expected to be selected from dropdown/list controls (instead of free-text typing) in the web UI.
+
+When YAML is exported/saved, all schema sections are still included even if some tabs were never opened.
