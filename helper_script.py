@@ -6507,7 +6507,7 @@ class BattleMapWindow(tk.Toplevel):
             return
         tok["col"] = col
         tok["row"] = row
-        self._layout_unit(partner)
+        self._layout_unit(partner_id)
 
     def _normalize_token_color(self, color: object) -> Optional[str]:
         if not isinstance(color, str):
