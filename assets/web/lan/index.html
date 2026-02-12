@@ -5268,20 +5268,20 @@ __DAMAGE_TYPE_OPTIONS__
         pos: {col: Number(to.col ?? unit.pos.col), row: Number(to.row ?? unit.pos.row)},
       };
       const updates = [update];
-      const riderCid = normalizeCid(unit.mounted_by_cid, "move.mountedByCid");
-      const riderUnit = riderCid !== null ? getUnitByCid(riderCid) : null;
+      const mountedByCid = normalizeCid(unit.mounted_by_cid, "move.mountedByCid");
+      const mountedByUnit = mountedByCid !== null ? getUnitByCid(mountedByCid) : null;
       let movementSourceUnit = unit;
       let movementSourceUpdate = update;
-      if (riderUnit) {
-        const riderUpdate = {cid: riderUnit.cid, pos: {...update.pos}};
-        updates.push(riderUpdate);
-        movementSourceUnit = riderUnit;
-        movementSourceUpdate = riderUpdate;
+      if (mountedByUnit) {
+        const mountedByUpdate = {cid: mountedByUnit.cid, pos: {...update.pos}};
+        updates.push(mountedByUpdate);
+        movementSourceUnit = mountedByUnit;
+        movementSourceUpdate = mountedByUpdate;
       } else {
-        const mountCid = normalizeCid(unit.rider_cid, "move.riderCid");
-        const mountUnit = mountCid !== null ? getUnitByCid(mountCid) : null;
-        if (mountUnit) {
-          updates.push({cid: mountUnit.cid, pos: {...update.pos}});
+        const riderCid = normalizeCid(unit.rider_cid, "move.riderCid");
+        const riderMountUnit = riderCid !== null ? getUnitByCid(riderCid) : null;
+        if (riderMountUnit) {
+          updates.push({cid: riderMountUnit.cid, pos: {...update.pos}});
           // Movement costs remain on the rider; the mount just mirrors position.
         }
       }
@@ -7809,10 +7809,11 @@ __DAMAGE_TYPE_OPTIONS__
         send({type:"toast", text:"Not yer turn yet, matey."});
         return;
       }
-      const hitIsClaimed = claimedCid !== null && cidMatches(hit.cid, claimedCid, "dragToken.claimedCid");
       const mountUnitForDrag = mountMoveCid !== null ? getUnitByCid(mountMoveCid) : null;
       // When mounted, dragging either the rider or mount should move the mount token.
-      const shouldDragMount = !!mountUnitForDrag && (canDragMount || hitIsClaimed);
+      const shouldDragMount = !!mountUnitForDrag && (
+        canDragMount || (claimedCid !== null && cidMatches(hit.cid, claimedCid, "dragToken.claimedCid"))
+      );
       const dragCid = shouldDragMount ? mountMoveCid : hit.cid;
       const dragUnit = shouldDragMount ? mountUnitForDrag : hit;
       const dragCol = Number(dragUnit?.pos?.col ?? hit.pos.col);

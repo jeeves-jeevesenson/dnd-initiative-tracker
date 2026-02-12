@@ -6500,13 +6500,15 @@ class BattleMapWindow(tk.Toplevel):
             return
         if isinstance(partner_cid, str):
             cleaned = partner_cid.strip()
-            if not cleaned or not cleaned.lstrip("-").isdigit():
+            stripped = cleaned.lstrip("-")
+            if not stripped or not stripped.isdigit():
                 return
-            partner_cid = cleaned
-        try:
-            partner_id = int(partner_cid)
-        except (TypeError, ValueError):
-            return
+            partner_id = int(cleaned)
+        else:
+            try:
+                partner_id = int(partner_cid)
+            except (TypeError, ValueError):
+                return
         tok = self.unit_tokens.get(partner_id)
         if not tok:
             return
