@@ -3827,35 +3827,39 @@ class InitiativeTracker(base.InitiativeTracker):
         if isinstance(self._wild_shape_beast_cache, list):
             return self._wild_shape_beast_cache
 
+        def is_beast_type(value: Any) -> bool:
+            text = str(value or "").strip().lower()
+            return text == "beast" or text.startswith("beast (")
+
         forms: List[Dict[str, Any]] = []
-        specs = getattr(self, "_monster_specs", None)
-        if isinstance(specs, list) and specs:
-            for spec in specs:
-                if not isinstance(spec, MonsterSpec):
+        monsters_dir = _app_base_dir() / "Monsters"
+        seen_ids: set[str] = set()
+        if yaml is not None and monsters_dir.is_dir():
+            for path in monsters_dir.glob("*.yaml"):
+                try:
+                    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+                except Exception:
                     continue
-                raw = spec.raw_data if isinstance(spec.raw_data, dict) else {}
-                if str((raw.get("type") or spec.mtype or "")).strip().lower() != "beast":
+                if not isinstance(raw, dict):
+                    continue
+                if not is_beast_type(raw.get("type")):
                     continue
                 speed_data = raw.get("speed")
-                walk = int(spec.speed or 0)
-                swim = int(spec.swim_speed or 0)
-                fly = int(spec.fly_speed or 0)
-                climb = int(spec.climb_speed or 0)
+                walk = swim = fly = climb = 0
                 if speed_data is not None:
-                    try:
-                        parsed = base._parse_speed_data(speed_data)
-                        walk = int(parsed[0] or 0)
-                        swim = int(parsed[1] or 0)
-                        fly = int(parsed[2] or 0)
-                        climb = int(parsed[4] or 0)
-                    except Exception:
-                        pass
+                    parsed = base._parse_speed_data(speed_data)
+                    walk = int(parsed[0] or 0)
+                    swim = int(parsed[1] or 0)
+                    fly = int(parsed[2] or 0)
+                    climb = int(parsed[4] or 0)
                 abilities = raw.get("abilities") if isinstance(raw.get("abilities"), dict) else {}
+                form_id = path.stem
+                seen_ids.add(form_id)
                 forms.append(
                     {
-                        "id": Path(str(spec.filename or "")).stem or str(raw.get("name") or spec.name or "").strip().lower().replace(" ", "-"),
-                        "name": str(raw.get("name") or spec.name).strip() or str(spec.name),
-                        "challenge_rating": self._parse_cr_value(raw.get("challenge_rating", spec.cr)),
+                        "id": form_id,
+                        "name": str(raw.get("name") or path.stem).strip() or path.stem,
+                        "challenge_rating": self._parse_cr_value(raw.get("challenge_rating") or 0),
                         "size": str(raw.get("size") or "Medium").strip() or "Medium",
                         "ac": int(raw.get("ac") or 10),
                         "hp": int(raw.get("hp") or 1),
@@ -3871,52 +3875,43 @@ class InitiativeTracker(base.InitiativeTracker):
                         "actions": list(raw.get("actions") if isinstance(raw.get("actions"), list) else []),
                     }
                 )
-            forms.sort(key=lambda entry: (entry.get("challenge_rating", 0.0), entry.get("name", "")))
-            self._wild_shape_beast_cache = forms
-            return forms
 
-        monsters_dir = _app_base_dir() / "Monsters"
-        if yaml is None or not monsters_dir.is_dir():
-            self._wild_shape_beast_cache = forms
-            return forms
-        for path in monsters_dir.glob("*.yaml"):
-            try:
-                raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-            except Exception:
-                continue
-            if not isinstance(raw, dict):
-                continue
-            if str(raw.get("type") or "").strip().lower() != "beast":
-                continue
-            speed_data = raw.get("speed")
-            walk = swim = fly = climb = 0
-            if speed_data is not None:
-                parsed = base._parse_speed_data(speed_data)
-                walk = int(parsed[0] or 0)
-                swim = int(parsed[1] or 0)
-                fly = int(parsed[2] or 0)
-                climb = int(parsed[4] or 0)
-            abilities = raw.get("abilities") if isinstance(raw.get("abilities"), dict) else {}
-            forms.append(
-                {
-                    "id": path.stem,
-                    "name": str(raw.get("name") or path.stem).strip() or path.stem,
-                    "challenge_rating": self._parse_cr_value(raw.get("challenge_rating")),
-                    "size": str(raw.get("size") or "Medium").strip() or "Medium",
-                    "ac": int(raw.get("ac") or 10),
-                    "hp": int(raw.get("hp") or 1),
-                    "speed": {"walk": walk, "swim": swim, "fly": fly, "climb": climb},
-                    "abilities": {
-                        "str": int(abilities.get("Str") or 10),
-                        "dex": int(abilities.get("Dex") or 10),
-                        "con": int(abilities.get("Con") or 10),
-                        "int": int(abilities.get("Int") or 10),
-                        "wis": int(abilities.get("Wis") or 10),
-                        "cha": int(abilities.get("Cha") or 10),
-                    },
-                    "actions": list(raw.get("actions") if isinstance(raw.get("actions"), list) else []),
-                }
-            )
+        specs = getattr(self, "_monster_specs", None)
+        if isinstance(specs, list) and specs:
+            for spec in specs:
+                if not isinstance(spec, MonsterSpec):
+                    continue
+                raw = spec.raw_data if isinstance(spec.raw_data, dict) else {}
+                if not is_beast_type(raw.get("type") or spec.mtype):
+                    continue
+                form_id = Path(str(spec.filename or "")).stem or str(raw.get("name") or spec.name or "").strip().lower().replace(" ", "-")
+                if form_id in seen_ids:
+                    continue
+                forms.append(
+                    {
+                        "id": form_id,
+                        "name": str(raw.get("name") or spec.name).strip() or str(spec.name),
+                        "challenge_rating": self._parse_cr_value(raw.get("challenge_rating", spec.cr) or 0),
+                        "size": str(raw.get("size") or "Medium").strip() or "Medium",
+                        "ac": int(raw.get("ac") or 10),
+                        "hp": int(raw.get("hp") or spec.hp or 1),
+                        "speed": {
+                            "walk": int(spec.speed or 0),
+                            "swim": int(spec.swim_speed or 0),
+                            "fly": int(spec.fly_speed or 0),
+                            "climb": int(spec.climb_speed or 0),
+                        },
+                        "abilities": {
+                            "str": 10,
+                            "dex": 10,
+                            "con": 10,
+                            "int": 10,
+                            "wis": 10,
+                            "cha": 10,
+                        },
+                        "actions": list(raw.get("actions") if isinstance(raw.get("actions"), list) else []),
+                    }
+                )
         forms.sort(key=lambda entry: (entry.get("challenge_rating", 0.0), entry.get("name", "")))
         self._wild_shape_beast_cache = forms
         return forms
