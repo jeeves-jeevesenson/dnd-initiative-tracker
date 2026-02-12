@@ -1576,6 +1576,69 @@
     .dm-map-preview{width:min(300px,28vw); display:none; flex-direction:column; padding:8px; opacity:0.55;}
     .dm-map-preview.show{display:flex;}
     .dm-map-preview canvas{width:100%; aspect-ratio:1/1; background:rgba(5,8,14,0.78); border-radius:8px;}
+    .map-view-log-panel{
+      position:absolute;
+      right:12px;
+      bottom:12px;
+      width:min(540px,52vw);
+      max-height:min(42vh, 360px);
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,0.2);
+      background: rgba(8,10,16,0.82);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+      backdrop-filter: blur(8px);
+      z-index: 9;
+      overflow: hidden;
+      pointer-events:auto;
+      display:none;
+      flex-direction:column;
+    }
+    .map-view .map-view-log-panel{display:flex;}
+    .map-view-log-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:8px 10px;
+      border-bottom:1px solid rgba(255,255,255,0.12);
+      font-size:12px;
+      letter-spacing:0.3px;
+    }
+    .map-view-log-title{font-weight:700;}
+    .map-view-log-subtitle{color:var(--muted); font-size:11px;}
+    .map-view-log-list{
+      overflow:auto;
+      padding:8px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      font-size:15px;
+      line-height:1.35;
+    }
+    .map-view-log-entry{
+      display:grid;
+      grid-template-columns: 74px 1fr;
+      gap:8px;
+      align-items:start;
+      padding:5px 8px;
+      border-radius:8px;
+      background: rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.06);
+    }
+    .map-view-log-time{
+      color:var(--muted);
+      font-size:11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin-top:2px;
+    }
+    .map-view-log-msg{color:#f2f6ff; text-shadow: 0 1px 0 rgba(0,0,0,0.45);}
+    .map-view-log-msg.is-crit{font-weight:800; letter-spacing:0.2px;}
+    .map-view-log-msg .damage-type{font-weight:700; text-shadow:0 0 8px currentColor;}
+    @media (max-width: 900px){
+      .map-view-log-panel{left:8px; right:8px; bottom:8px; width:auto; max-height:34vh;}
+      .map-view-log-list{font-size:13px;}
+      .map-view-log-entry{grid-template-columns: 64px 1fr;}
+    }
 
     .log-content{
       overflow:auto;
@@ -1802,6 +1865,13 @@
         <canvas id="dmPreviewCanvas" width="240" height="240"></canvas>
       </aside>
     </div>
+    <aside class="map-view-log-panel" id="mapViewLogPanel" aria-live="polite">
+      <div class="map-view-log-header">
+        <div class="map-view-log-title">Battle Feed</div>
+        <div class="map-view-log-subtitle">Spectator view</div>
+      </div>
+      <div class="map-view-log-list" id="mapViewLogList"></div>
+    </aside>
 
     <div class="modal" id="claimModal" aria-hidden="true">
       <div class="card">
@@ -2600,6 +2670,7 @@ __DAMAGE_TYPE_OPTIONS__
   const qs = new URLSearchParams(location.search);
   const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
   const isMapView = normalizedPath === "/map_view";
+  const isMapViewOnly = isMapView && (qs.get("map_view_only") === "1" || qs.get("view_only") === "1");
   const isPlanning = normalizedPath === "/planning";
   const supportsMapView = !isPlanning;
   const wsPath = isMapView ? "/ws_view" : "/ws";
@@ -3027,6 +3098,8 @@ __DAMAGE_TYPE_OPTIONS__
   const dmSideLayout = document.getElementById("dmSideLayout");
   const dmLogPanel = document.getElementById("dmLogPanel");
   const dmLogList = document.getElementById("dmLogList");
+  const mapViewLogPanel = document.getElementById("mapViewLogPanel");
+  const mapViewLogList = document.getElementById("mapViewLogList");
   const dmMapPreview = document.getElementById("dmMapPreview");
   const dmPreviewCanvas = document.getElementById("dmPreviewCanvas");
   const dmLogAutoScrollInput = document.getElementById("dmLogAutoScroll");
@@ -3312,6 +3385,7 @@ __DAMAGE_TYPE_OPTIONS__
   const mapViewSettingsKey = "inittracker_map_view_settings";
   const dmUiPrefsKey = "inittracker_dm_ui_prefs";
   let dmLogLines = [];
+  let mapViewLogPollTimer = null;
   let dmHighlightUntil = new Map();
   let dmUiPrefs = {showMapPreview:false, showLogPanel:false, autoScroll:true, filters:{attack:true,damage:true,save:true,heal:true,spell:true}};
   try { dmUiPrefs = {...dmUiPrefs, ...(JSON.parse(localStorage.getItem(dmUiPrefsKey)||"{}")||{})}; } catch(_) {}
@@ -3346,7 +3420,7 @@ __DAMAGE_TYPE_OPTIONS__
   const isStandalone = window.navigator.standalone === true;
   if (document.body){
     document.body.classList.toggle("map-view", isMapView);
-    document.body.classList.toggle("map-view-only", isMapView);
+    document.body.classList.toggle("map-view-only", isMapViewOnly);
     document.body.classList.toggle("planning-view", isPlanning);
   }
   if (iosInstallHint){
@@ -3359,7 +3433,7 @@ __DAMAGE_TYPE_OPTIONS__
     turnAlertsPanel.classList.toggle("hidden", shouldHideAlerts);
   }
   applyMapViewSettings(readMapViewSettings());
-  if (isMapView){ dmUiPrefs.showLogPanel = dmUiPrefs.showLogPanel === true; dmUiPrefs.showMapPreview = dmUiPrefs.showMapPreview === true; renderDmLogPanel(); }
+  if (isMapView){ dmUiPrefs.showLogPanel = dmUiPrefs.showLogPanel === true; dmUiPrefs.showMapPreview = dmUiPrefs.showMapPreview === true; renderDmLogPanel(); refreshMapViewLogPolling(); }
   function applyMapViewReadOnlyControls(){
     if (!isMapView) return;
     const controls = [
@@ -4715,6 +4789,8 @@ __DAMAGE_TYPE_OPTIONS__
     }
     refreshSpellPresetOptions();
     updateClaimOverlay();
+    updateMountControls();
+    queueMicrotask(updateMountControls);
     return true;
   }
 
@@ -4950,6 +5026,7 @@ __DAMAGE_TYPE_OPTIONS__
   function setSelectedClaimCid(cid){
     selectedClaimCid = normalizeCid(cid, "claimModal.selectedCid");
     updateClaimSelection();
+    updateMountControls();
   }
 
   function updateClaimSelection(){
@@ -5226,6 +5303,7 @@ __DAMAGE_TYPE_OPTIONS__
       });
       state.units[idx] = next;
     });
+    updateMountControls();
   }
 
   function applyAoePatch(patch){
@@ -5424,8 +5502,26 @@ __DAMAGE_TYPE_OPTIONS__
         cid: unit.cid,
         pos: {col: Number(to.col ?? unit.pos.col), row: Number(to.row ?? unit.pos.row)},
       };
+      const updates = [update];
+      const mountedByCid = normalizeCid(unit.mounted_by_cid, "move.mountedByCid");
+      const mountedByUnit = mountedByCid !== null ? getUnitByCid(mountedByCid) : null;
+      let movementSourceUnit = unit;
+      let movementSourceUpdate = update;
+      if (mountedByUnit) {
+        const mountedByUpdate = {cid: mountedByUnit.cid, pos: {...update.pos}};
+        updates.push(mountedByUpdate);
+        movementSourceUnit = mountedByUnit;
+        movementSourceUpdate = mountedByUpdate;
+      } else {
+        const riderCid = normalizeCid(unit.rider_cid, "move.riderCid");
+        const riderMountUnit = riderCid !== null ? getUnitByCid(riderCid) : null;
+        if (riderMountUnit) {
+          updates.push({cid: riderMountUnit.cid, pos: {...update.pos}});
+          // Movement costs remain on the rider; the mount just mirrors position.
+        }
+      }
       if (gridReady()){
-        const moveRemaining = Number(unit.move_remaining || 0);
+        const moveRemaining = Number(movementSourceUnit.move_remaining ?? 0);
         if (Number.isFinite(moveRemaining) && moveRemaining > 0){
           const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
           const roughMap = buildRoughTerrainMap(state.rough_terrain);
@@ -5443,11 +5539,12 @@ __DAMAGE_TYPE_OPTIONS__
           );
           const cost = costMap.get(cellKey(update.pos.col, update.pos.row));
           if (Number.isFinite(cost)){
-            update.move_remaining = Math.max(0, moveRemaining - cost);
+            movementSourceUpdate.move_remaining = Math.max(0, moveRemaining - cost);
           }
         }
       }
-      applyUnitUpdates([update]);
+      applyUnitUpdates(updates);
+      updateMountControls();
       return;
     }
     if (["dash", "perform_action", "use_action", "use_bonus_action"].includes(type)){
@@ -5483,6 +5580,7 @@ __DAMAGE_TYPE_OPTIONS__
         update.move_remaining = remaining + baseSpeed;
       }
       applyUnitUpdates([update]);
+      updateMountControls();
       return;
     }
     if (type === "cast_aoe"){
@@ -5878,6 +5976,19 @@ __DAMAGE_TYPE_OPTIONS__
     return mode === "summoner" || !!unit.summon_shared_turn;
   }
 
+  function getMountMovementCid(){
+    const rider = getClaimedUnit();
+    if (!rider) return null;
+    const mountCid = normalizeCid(rider.rider_cid, "mountMove.riderCid");
+    if (mountCid === null) return null;
+    const mount = getUnitByCid(mountCid);
+    if (!mount) return null;
+    if (!cidMatches(mount.mounted_by_cid, rider.cid, "mountMove.mountOwner")) return null;
+    const mode = normalizeTextValue(mount.mount_controller_mode);
+    if (mode !== "rider") return null;
+    return mountCid;
+  }
+
   function activeControlledUnitCid(){
     const activeCid = normalizeCid(state?.active_cid, "activeControlled.activeCid");
     if (activeCid === null) return null;
@@ -6175,13 +6286,86 @@ __DAMAGE_TYPE_OPTIONS__
   
   function saveDmUiPrefs(){ try { localStorage.setItem(dmUiPrefsKey, JSON.stringify(dmUiPrefs)); } catch(_) {} }
   function classifyLogLine(text){ const t=(text||"").toLowerCase(); if (t.includes("heal")) return "heal"; if (t.includes("save")||t.includes("concentration")) return "save"; if (t.includes("hits")||t.includes("miss")) return "attack"; if (t.includes("damage")||t.includes("takes")) return "damage"; if (t.includes("spell")||t.includes("🔮")) return "spell"; return "spell"; }
-  function parseBattleLine(line){ const m=String(line||"").match(/^\[([^\]]+)\]\s*\t?\s*(.*)$/); return {time:m?m[1]:"", msg:m?m[2]:String(line||"")}; }
+  function parseBattleLine(line){ const m=String(line||"").match(/^\[([^\]]+)\]\s*	?\s*(.*)$/); return {time:m?m[1]:"", msg:m?m[2]:String(line||"")}; }
+  function escapeHtml(text){
+    return String(text ?? "").replace(/[&<>"']/g, (ch) => {
+      if (ch === "&") return "&amp;";
+      if (ch === "<") return "&lt;";
+      if (ch === ">") return "&gt;";
+      if (ch === "\"") return "&quot;";
+      if (ch === "'") return "&#39;";
+      return ch;
+    });
+  }
+  function isCriticalLine(text){
+    const msg = String(text || "").toLowerCase();
+    return /\b(crit|critical|nat\s*20|natural\s*20)\b/.test(msg);
+  }
+  const damageTypeColorByName = {
+    fire: "#FF9900",
+    cold: "#00CCFF",
+    lightning: "#FFFF00",
+    acid: "#00FF00",
+    poison: "#008000",
+    radiant: "#FFD700",
+    necrotic: "#330033",
+    force: "#800080",
+    psychic: "#FF66CC",
+    thunder: "#9933FF",
+    slashing: "#AAAAAA",
+    piercing: "#AAAAAA",
+    bludgeoning: "#8B4513",
+  };
+  function decorateDamageTypes(message){
+    let html = escapeHtml(String(message || ""));
+    Object.entries(damageTypeColorByName).forEach(([type, color]) => {
+      const rx = new RegExp(`\\b(${type})\\b`, "gi");
+      html = html.replace(rx, `<span class="damage-type" style="color:${color}">$1</span>`);
+    });
+    return html;
+  }
+  function renderMapViewLogPanel(){
+    if (!mapViewLogPanel || !mapViewLogList) return;
+    if (!isMapView){
+      mapViewLogPanel.style.display = "none";
+      return;
+    }
+    mapViewLogPanel.style.display = "flex";
+    const atBottom = mapViewLogList.scrollTop + mapViewLogList.clientHeight >= mapViewLogList.scrollHeight - 20;
+    mapViewLogList.textContent = "";
+    const visibleLines = dmLogLines.slice(-18);
+    visibleLines.forEach((line)=>{
+      const parsed = parseBattleLine(line);
+      const row = document.createElement('div');
+      row.className = "map-view-log-entry";
+      const msgClass = isCriticalLine(parsed.msg) ? "map-view-log-msg is-crit" : "map-view-log-msg";
+      row.innerHTML = `<div class="map-view-log-time">${parsed.time ? parsed.time.slice(11,19) : ''}</div><div class="${msgClass}">${decorateDamageTypes(parsed.msg)}</div>`;
+      mapViewLogList.appendChild(row);
+    });
+    if (atBottom) mapViewLogList.scrollTop = mapViewLogList.scrollHeight;
+  }
+  function refreshMapViewLogPolling(){
+    if (mapViewLogPollTimer){
+      clearInterval(mapViewLogPollTimer);
+      mapViewLogPollTimer = null;
+    }
+    if (!isMapView) return;
+    requestBattleLog();
+    mapViewLogPollTimer = setInterval(()=>{
+      if (ws && ws.readyState === WebSocket.OPEN){
+        send({type:"log_request"});
+      }
+    }, 2500);
+  }
   function renderDmLogPanel(){
-    if (!dmLogPanel || !dmLogList) return;
     const isAdmin = isAdminClient();
+    if (!dmLogPanel || !dmLogList){
+      renderMapViewLogPanel();
+      return;
+    }
     dmLogPanel.classList.toggle('show', !!(isAdmin && dmUiPrefs.showLogPanel));
     dmMapPreview?.classList.toggle('show', !!(isAdmin && dmUiPrefs.showMapPreview));
-    if (!isAdmin) return;
+    if (!isAdmin){ renderMapViewLogPanel(); return; }
     dmLogList.textContent = "";
     const atBottom = dmLogList.scrollTop + dmLogList.clientHeight >= dmLogList.scrollHeight - 12;
     dmLogLines.forEach((line)=>{
@@ -6198,6 +6382,7 @@ __DAMAGE_TYPE_OPTIONS__
       dmLogList.appendChild(row);
     });
     if (dmUiPrefs.autoScroll && (atBottom || dmLogAutoScrollInput?.checked)) dmLogList.scrollTop = dmLogList.scrollHeight;
+    renderMapViewLogPanel();
   }
   function renderDmPreview(){
     if (!dmPreviewCanvas || !state?.grid || !dmUiPrefs.showMapPreview || !isAdminClient()) return;
@@ -6433,7 +6618,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
 
     // tokens
-    const tokens = state.units || [];
+    const tokens = sortedTokensForRender(state.units || []);
     // group labels by cell
     const cellMap = new Map();
     tokens.forEach(u => {
@@ -7016,15 +7201,37 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
 
+  function isFriendlyToMe(unit, me){
+    if (!unit) return false;
+    if (unit.ally === true) return true;
+    const role = normalizeTextValue(unit.role);
+    if (role === "pc" || role === "ally") return true;
+    if (me && unit.summoned_by_cid != null && Number(unit.summoned_by_cid) === Number(me.cid)) return true;
+    return false;
+  }
+
+  function isMountableFor(unit, me){
+    if (!unit) return false;
+    if (unit.can_be_mounted || unit.is_mount) return true;
+    if (me && unit.summoned_by_cid != null && Number(unit.summoned_by_cid) === Number(me.cid)) return true;
+    return false;
+  }
+
   function mountCandidatePair(){
     const me = getClaimedUnit();
-    if (!me || !state?.units) return null;
+    const units = state?.units || state?.combatants || [];
+    if (!me || !Array.isArray(units)) return null;
     if (me.rider_cid || me.mounted_by_cid) return null;
-    const sameTile = state.units.filter(u => u?.ally && Number(u?.pos?.col)===Number(me?.pos?.col) && Number(u?.pos?.row)===Number(me?.pos?.row) && Number(u?.cid)!==Number(me?.cid));
-    if (sameTile.length !== 1) return null;
-    const mount = sameTile[0];
-    if (mount.rider_cid || mount.mounted_by_cid) return null;
-    if (!mount.can_be_mounted && !mount.is_mount) return null;
+    const sameTile = units.filter(u =>
+      u &&
+      Number(u?.pos?.col)===Number(me?.pos?.col) &&
+      Number(u?.pos?.row)===Number(me?.pos?.row) &&
+      Number(u?.cid)!==Number(me?.cid) &&
+      isFriendlyToMe(u, me)
+    );
+    if (!sameTile.length) return null;
+    const mount = sameTile.find(u => !u.rider_cid && !u.mounted_by_cid && isMountableFor(u, me));
+    if (!mount) return null;
     return {rider: me, mount};
   }
 
@@ -7039,6 +7246,25 @@ __DAMAGE_TYPE_OPTIONS__
     if (dismountBtn){
       dismountBtn.classList.toggle("hidden", !(me && me.rider_cid));
     }
+  }
+
+
+  function tokenPriorityScore(unit){
+    if (!unit) return -1;
+    const cid = normalizeCid(unit.cid, "token.priority.cid");
+    if (cid === null) return -1;
+    const activeCid = normalizeCid(state?.active_cid, "token.priority.active");
+    const claimed = normalizeCid(claimedCid, "token.priority.claimed");
+    const scoreBase = Number(cid) * -0.001;
+    if (activeCid !== null && cidMatches(activeCid, cid, "token.priority.activeMatch")) return 4000 + scoreBase;
+    if (claimed !== null && cidMatches(claimed, cid, "token.priority.claimedMatch")) return 3000 + scoreBase;
+    return 1000 + scoreBase;
+  }
+
+  function sortedTokensForRender(tokens){
+    const list = Array.isArray(tokens) ? tokens.slice() : [];
+    list.sort((a, b) => tokenPriorityScore(a) - tokenPriorityScore(b));
+    return list;
   }
 
   function updateHud(){
@@ -7499,6 +7725,8 @@ __DAMAGE_TYPE_OPTIONS__
         updateWaitingOverlay();
         draw();
         updateHud();
+        updateMountControls();
+        queueMicrotask(updateMountControls);
         maybeShowTurnAlert();
         autoCenterOnJoin();
         
@@ -7553,17 +7781,23 @@ __DAMAGE_TYPE_OPTIONS__
         updateHud();
         maybeShowTurnAlert();
         draw();
+        updateMountControls();
+        queueMicrotask(updateMountControls);
       } else if (msg.type === "units_snapshot"){
         if (!state){ state = {}; }
         state.units = Array.isArray(msg.units) ? msg.units : [];
         updateHud();
         draw();
+        updateMountControls();
+        queueMicrotask(updateMountControls);
       } else if (msg.type === "unit_update"){
         const updates = Array.isArray(msg.updates) ? msg.updates : [];
         if (updates.length){
           applyUnitUpdates(updates);
           updateHud();
           draw();
+          updateMountControls();
+          queueMicrotask(updateMountControls);
         }
       } else if (msg.type === "force_claim"){
         if (isMapView) return;
@@ -7629,16 +7863,18 @@ __DAMAGE_TYPE_OPTIONS__
           mountPromptModal.setAttribute("aria-hidden", "false");
         }
       } else if (msg.type === "battle_log"){
+        const lines = Array.isArray(msg.lines) ? msg.lines : [];
         if (logContent){
-          const lines = Array.isArray(msg.lines) ? msg.lines : [];
           logContent.textContent = lines.length ? lines.join("\n") : "No log entries yet.";
-          dmLogLines = lines;
-          const units = state?.units || [];
-          const now = Date.now();
-          lines.slice(-4).forEach((line)=>{ const text=String(line||""); const unit=units.find(u=>text.includes(u.name)); if (unit){ dmHighlightUntil.set(String(unit.cid), now+2200); }});
-          renderDmLogPanel();
         }
-        showLogModal();
+        dmLogLines = lines;
+        const units = state?.units || [];
+        const now = Date.now();
+        lines.slice(-4).forEach((line)=>{ const text=String(line||""); const unit=units.find(u=>text.includes(u.name)); if (unit){ dmHighlightUntil.set(String(unit.cid), now+2200); }});
+        renderDmLogPanel();
+        if (!isMapView){
+          showLogModal();
+        }
       } else if (msg.type === "grid_update"){
         if (!state){ state = {}; }
         if ("grid" in msg){
@@ -7697,17 +7933,40 @@ __DAMAGE_TYPE_OPTIONS__
 
   function hitTestToken(p){
     if (!state || !state.units) return null;
-    for (let i=state.units.length-1; i>=0; i--){
+    const hits = [];
+    for (let i = 0; i < state.units.length; i++){
       const u = state.units[i];
       const {x,y} = gridToScreen(u.pos.col,u.pos.row);
       const r = Math.max(12, zoom*0.45);
       const dx = p.x - x, dy = p.y - y;
       if (dx*dx + dy*dy <= r*r){
-        return u;
+        hits.push(u);
       }
     }
-    return null;
+    if (!hits.length) return null;
+    const activeCid = normalizeCid(state?.active_cid, "hitTest.active");
+    if (activeCid !== null){
+      const activeHit = hits.find((u) => cidMatches(u.cid, activeCid, "hitTest.activeMatch"));
+      if (activeHit) return activeHit;
+    }
+    const claimed = normalizeCid(claimedCid, "hitTest.claimed");
+    if (claimed !== null){
+      const claimedHit = hits.find((u) => cidMatches(u.cid, claimed, "hitTest.claimedMatch"));
+      if (claimedHit) return claimedHit;
+      const mountHit = hits.find((u) => {
+        const riderCid = normalizeCid(u?.mounted_by_cid, "hitTest.mountRider");
+        const summonedBy = normalizeCid(u?.summoned_by_cid, "hitTest.mountSummoned");
+        return (
+          (riderCid !== null && cidMatches(riderCid, claimed, "hitTest.mountByClaimed"))
+          || (summonedBy !== null && cidMatches(summonedBy, claimed, "hitTest.mountSummonByClaimed"))
+        );
+      });
+      if (mountHit) return mountHit;
+    }
+    const renderSorted = sortedTokensForRender(hits);
+    return renderSorted[renderSorted.length - 1] || null;
   }
+
 
   function buildCellMap(tokens){
     const cellMap = new Map();
@@ -7922,7 +8181,10 @@ __DAMAGE_TYPE_OPTIONS__
     if (hit){
       // only drag own token
       const controlledCid = activeControlledUnitCid();
-      if (!claimedCid || (controlledCid === null || !cidMatches(hit.cid, controlledCid, "dragToken.hitCid"))){
+      const mountMoveCid = getMountMovementCid();
+      const canDragMount = mountMoveCid !== null && cidMatches(hit.cid, mountMoveCid, "dragToken.mountCid");
+      const canDragSelf = controlledCid !== null && cidMatches(hit.cid, controlledCid, "dragToken.hitCid");
+      if (!claimedCid || (!canDragSelf && !canDragMount)){
         send({type:"toast", text:"Arrr, that token ain’t yers."});
         return;
       }
@@ -7931,7 +8193,16 @@ __DAMAGE_TYPE_OPTIONS__
         send({type:"toast", text:"Not yer turn yet, matey."});
         return;
       }
-      dragging = {cid: hit.cid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
+      const mountUnitForDrag = mountMoveCid !== null ? getUnitByCid(mountMoveCid) : null;
+      // When mounted, dragging either the rider or mount should move the mount token.
+      const shouldDragMount = !!mountUnitForDrag && (
+        canDragMount || (claimedCid !== null && cidMatches(hit.cid, claimedCid, "dragToken.claimedCid"))
+      );
+      const dragCid = shouldDragMount ? mountMoveCid : hit.cid;
+      const dragUnit = shouldDragMount ? mountUnitForDrag : hit;
+      const dragCol = Number(dragUnit?.pos?.col ?? hit.pos.col);
+      const dragRow = Number(dragUnit?.pos?.row ?? hit.pos.row);
+      dragging = {cid: dragCid, startX: p.x, startY: p.y, origCol: dragCol, origRow: dragRow};
       return;
     }
     if ((isAoeDragMouse || isTouchPointer) && allowAoeDrag(ev)){
@@ -11477,8 +11748,9 @@ __DAMAGE_TYPE_OPTIONS__
 
   if (mountBtn){
     mountBtn.addEventListener("click", () => {
-      if (!pendingMountPair) return;
-      send({type:"mount_request", rider_cid:Number(pendingMountPair.rider.cid), mount_cid:Number(pendingMountPair.mount.cid)});
+      const pair = pendingMountPair || mountCandidatePair();
+      if (!pair) return;
+      send({type:"mount_request", rider_cid:Number(pair.rider.cid), mount_cid:Number(pair.mount.cid)});
     });
   }
   if (dismountBtn){

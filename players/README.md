@@ -1433,3 +1433,28 @@ When YAML is exported/saved, all schema sections are still included even if some
   - `gain_on_short: 1`
 - Wild Shape overlays (beast form stats, token rename/size/speed changes, known-form picks in LAN) are **runtime state** and are not written back to the player YAML file.
 - Long rest clears active Wild Shape overlays and refreshes Wild Shape/LAN exchange restrictions.
+- **Feats tab is now a two-pane editor** (searchable feat list on the left, explicit details/save/revert/remove actions on the right) with per-feat dirty indicators and unsaved-change confirmation when switching feats/tabs or leaving the page.
+- **Configure Grants… modal** replaces inline grants editing. It contains dedicated **Resource Pools** and **Granted Spells** sub-tabs, supports add/remove/edit flows, validates pool ID uniqueness across the character, and only applies changes when confirmed.
+- **Pool materialization is automatic on grants Apply/save/export/overwrite**: feat-local `grants.pools[]` definitions are synchronized into `resources.pools[]` so `consumes.pool` references remain backend-valid.
+- **Granted spell action types** in feat grant configuration are auto-inferred from spell `casting_time` metadata (with Action fallback warning when metadata is missing), and consumes-pool rows use the same spell catalog source as the main spellcasting tab.
+
+### Web editor proficiency and derived tracker behavior
+
+The `/new_character` and `/edit_character` web editors now expose canonical proficiency UIs and live-derived tracker values:
+
+- **Weapons / Armor / Tools** are split into dedicated sections instead of one combined checklist.
+  - Weapons include broad training toggles (**ALL simple weapons**, **ALL martial weapons**) and per-weapon entries.
+  - Armor has explicit **Light / Medium / Heavy / Shield** toggles plus rules reminder text.
+  - Tools use a canonical dropdown-backed picker.
+- **Skills are grouped by governing ability** (STR/DEX/CON/INT/WIS/CHA).
+  - Expertise implies proficiency.
+  - Clearing proficiency also clears expertise for that skill.
+  - Skill bonus display is derived from `ability_mod + proficiency_bonus (+ proficiency_bonus again for expertise)`.
+- **Passive Perception is auto-recalculated live** in the editor from
+  - `10 + wis_mod + proficiency_bonus (if Perception proficient) + proficiency_bonus (if Perception expertise)`.
+  - The formula display is read-only and updates whenever WIS, PB, or Perception proficiency/expertise changes.
+- **Hit Dice include a per-die runtime tracker** in Vitals.
+  - Die rows are derived from class levels (e.g., multiclass can produce d12 + d6 rows).
+  - Each row tracks max and remaining values in `vitals.hit_dice_tracker` while preserving existing `vitals.hit_dice` compatibility fields.
+
+`campaign` and `ip` remain valid YAML root fields for compatibility, but are hidden in the web form UI and passed through unchanged when present in existing character files.

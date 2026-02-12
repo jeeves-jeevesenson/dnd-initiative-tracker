@@ -6483,10 +6483,38 @@ class BattleMapWindow(tk.Toplevel):
         else:
             self._create_unit_token(cid, col, row)
 
+        self._sync_mount_pair_position(cid, col, row)
         self.refresh_units()
         self._update_groups()
         self._update_move_highlight()
         self._update_included_for_selected()
+
+    def _sync_mount_pair_position(self, cid: int, col: int, row: int) -> None:
+        c = self.app.combatants.get(cid)
+        if not c:
+            return
+        partner_cid = getattr(c, "rider_cid", None)
+        if partner_cid is None:
+            partner_cid = getattr(c, "mounted_by_cid", None)
+        if partner_cid is None:
+            return
+        if isinstance(partner_cid, str):
+            cleaned = partner_cid.strip()
+            stripped = cleaned.lstrip("-")
+            if not stripped or not stripped.isdigit():
+                return
+            partner_id = int(cleaned)
+        else:
+            try:
+                partner_id = int(partner_cid)
+            except (TypeError, ValueError):
+                return
+        tok = self.unit_tokens.get(partner_id)
+        if not tok:
+            return
+        tok["col"] = col
+        tok["row"] = row
+        self._layout_unit(partner_id)
 
     def _normalize_token_color(self, color: object) -> Optional[str]:
         if not isinstance(color, str):
@@ -8878,6 +8906,7 @@ class BattleMapWindow(tk.Toplevel):
             self.unit_tokens[self._drag_id]["col"] = col
             self.unit_tokens[self._drag_id]["row"] = row
             self._layout_unit(self._drag_id)
+            self._sync_mount_pair_position(int(self._drag_id), col, row)
 
         elif self._drag_kind == "aoe":
             # allow half-square precision for overlays
@@ -9010,6 +9039,15 @@ class BattleMapWindow(tk.Toplevel):
                                     self.app._rebuild_table(scroll_to_current=True)
                                 except Exception:
                                     pass
+            tok = self.unit_tokens.get(cid)
+            if tok:
+                try:
+                    col = int(tok.get("col"))
+                    row = int(tok.get("row"))
+                except (TypeError, ValueError):
+                    pass
+                else:
+                    self._sync_mount_pair_position(cid, col, row)
 
         if self._drag_kind in ("unit", "aoe"):
             self._update_groups()
