@@ -89,6 +89,67 @@ class WildShapeTests(unittest.TestCase):
         lvl11 = {f["id"] for f in self.app._wild_shape_available_forms(self._profile(11), known_only=True)}
         self.assertIn("cat", lvl11)
 
+
+    def test_load_beast_forms_prefers_monster_index_and_caches(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._wild_shape_beast_cache = None
+        app._monster_specs = [
+            tracker_mod.MonsterSpec(
+                filename="wolf.yaml",
+                name="Wolf",
+                mtype="beast",
+                cr=0.25,
+                hp=11,
+                speed=40,
+                swim_speed=0,
+                fly_speed=0,
+                burrow_speed=0,
+                climb_speed=0,
+                dex=15,
+                init_mod=2,
+                saving_throws={},
+                ability_mods={},
+                raw_data={
+                    "name": "Wolf",
+                    "type": "Beast",
+                    "challenge_rating": "1/4",
+                    "size": "Medium",
+                    "ac": 13,
+                    "hp": 11,
+                    "speed": "40 ft.",
+                    "abilities": {"Str": 12, "Dex": 15, "Con": 12, "Int": 3, "Wis": 12, "Cha": 6},
+                    "actions": [{"name": "Bite", "type": "action"}],
+                },
+            ),
+            tracker_mod.MonsterSpec(
+                filename="bandit.yaml",
+                name="Bandit",
+                mtype="humanoid",
+                cr=0.125,
+                hp=11,
+                speed=30,
+                swim_speed=0,
+                fly_speed=0,
+                burrow_speed=0,
+                climb_speed=0,
+                dex=12,
+                init_mod=1,
+                saving_throws={},
+                ability_mods={},
+                raw_data={
+                    "name": "Bandit",
+                    "type": "Humanoid",
+                    "challenge_rating": "1/8",
+                    "actions": [{"name": "Scimitar", "type": "action"}],
+                },
+            ),
+        ]
+
+        first = app._load_beast_forms()
+        self.assertEqual([entry["id"] for entry in first], ["wolf"])
+        second = app._load_beast_forms()
+        self.assertIs(first, second)
+
     def test_apply_and_revert_wild_shape(self):
         self.app.combatants = {
             1: type("C", (), {

@@ -2518,6 +2518,7 @@ class LanController:
     def _tick(self) -> None:
         """Runs on Tk thread: process actions and broadcast state when changed."""
         move_debug_entries: List[Dict[str, Any]] = []
+        should_schedule_next = True
         try:
             # 1) process queued actions from clients
             processed_any = False
@@ -2582,7 +2583,7 @@ class LanController:
                         pass
 
             # 2) broadcast snapshot if changed (polling-based, avoids wiring every hook)
-            snap = self.app._lan_snapshot()
+            snap = self.app._lan_snapshot(include_static=False)
             self._cached_snapshot = snap
             try:
                 self._cached_pcs = list(
@@ -2673,11 +2674,22 @@ class LanController:
                 elif static_json != self._last_static_json:
                     self._last_static_json = static_json
                     self._broadcast_payload({"type": "static_data", "data": static_payload})
+        except KeyboardInterrupt:
+            should_schedule_next = False
+            self._polling = False
+            try:
+                self.stop()
+            except Exception:
+                pass
+            try:
+                self.app.quit()
+            except Exception:
+                pass
         except Exception as exc:
             self._log_lan_exception("LAN tick error", exc)
         finally:
             # 3) continue polling
-            if self._polling:
+            if should_schedule_next and self._polling:
                 self.app.after(120, self._tick)
 
     @staticmethod
@@ -3821,8 +3833,56 @@ class InitiativeTracker(base.InitiativeTracker):
     def _load_beast_forms(self) -> List[Dict[str, Any]]:
         if isinstance(self._wild_shape_beast_cache, list):
             return self._wild_shape_beast_cache
-        monsters_dir = _app_base_dir() / "Monsters"
+
         forms: List[Dict[str, Any]] = []
+        specs = getattr(self, "_monster_specs", None)
+        if isinstance(specs, list) and specs:
+            for spec in specs:
+                if not isinstance(spec, MonsterSpec):
+                    continue
+                raw = spec.raw_data if isinstance(spec.raw_data, dict) else {}
+                if str((raw.get("type") or spec.mtype or "")).strip().lower() != "beast":
+                    continue
+                speed_data = raw.get("speed")
+                walk = int(spec.speed or 0)
+                swim = int(spec.swim_speed or 0)
+                fly = int(spec.fly_speed or 0)
+                climb = int(spec.climb_speed or 0)
+                if speed_data is not None:
+                    try:
+                        parsed = base._parse_speed_data(speed_data)
+                        walk = int(parsed[0] or 0)
+                        swim = int(parsed[1] or 0)
+                        fly = int(parsed[2] or 0)
+                        climb = int(parsed[4] or 0)
+                    except Exception:
+                        pass
+                abilities = raw.get("abilities") if isinstance(raw.get("abilities"), dict) else {}
+                forms.append(
+                    {
+                        "id": Path(str(spec.filename or "")).stem or str(raw.get("name") or spec.name or "").strip().lower().replace(" ", "-"),
+                        "name": str(raw.get("name") or spec.name).strip() or str(spec.name),
+                        "challenge_rating": self._parse_cr_value(raw.get("challenge_rating", spec.cr)),
+                        "size": str(raw.get("size") or "Medium").strip() or "Medium",
+                        "ac": int(raw.get("ac") or 10),
+                        "hp": int(raw.get("hp") or 1),
+                        "speed": {"walk": walk, "swim": swim, "fly": fly, "climb": climb},
+                        "abilities": {
+                            "str": int(abilities.get("Str") or 10),
+                            "dex": int(abilities.get("Dex") or 10),
+                            "con": int(abilities.get("Con") or 10),
+                            "int": int(abilities.get("Int") or 10),
+                            "wis": int(abilities.get("Wis") or 10),
+                            "cha": int(abilities.get("Cha") or 10),
+                        },
+                        "actions": list(raw.get("actions") if isinstance(raw.get("actions"), list) else []),
+                    }
+                )
+            forms.sort(key=lambda entry: (entry.get("challenge_rating", 0.0), entry.get("name", "")))
+            self._wild_shape_beast_cache = forms
+            return forms
+
+        monsters_dir = _app_base_dir() / "Monsters"
         if yaml is None or not monsters_dir.is_dir():
             self._wild_shape_beast_cache = forms
             return forms
@@ -5528,7 +5588,7 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             pass
 
-    def _lan_snapshot(self) -> Dict[str, Any]:
+    def _lan_snapshot(self, include_static: bool = True) -> Dict[str, Any]:
         # Prefer map window live state when available
         mw = None
         try:
@@ -5873,11 +5933,37 @@ class InitiativeTracker(base.InitiativeTracker):
             "active_cid": active,
             "round_num": int(getattr(self, "round_num", 0) or 0),
             "turn_order": turn_order,
-            "spell_presets": self._spell_presets_payload(),
-            "player_spells": self._player_spell_config_payload(),
-            "player_profiles": self._player_profiles_payload(),
-            "resource_pools": self._player_resource_pools_payload(),
         }
+        if include_static:
+            snap["spell_presets"] = self._spell_presets_payload()
+            snap["player_spells"] = self._player_spell_config_payload()
+            snap["player_profiles"] = self._player_profiles_payload()
+            snap["resource_pools"] = self._player_resource_pools_payload()
+        else:
+            cached_snapshot = getattr(getattr(self, "_lan", None), "_cached_snapshot", {})
+            if not isinstance(cached_snapshot, dict):
+                cached_snapshot = {}
+
+            static_defaults: Dict[str, Any] = {
+                "spell_presets": [],
+                "player_spells": {},
+                "player_profiles": {},
+                "resource_pools": {},
+            }
+            static_builders = {
+                "spell_presets": self._spell_presets_payload,
+                "player_spells": self._player_spell_config_payload,
+                "player_profiles": self._player_profiles_payload,
+                "resource_pools": self._player_resource_pools_payload,
+            }
+            for key, default in static_defaults.items():
+                if key in cached_snapshot:
+                    snap[key] = copy.deepcopy(cached_snapshot.get(key))
+                    continue
+                try:
+                    snap[key] = static_builders[key]()
+                except Exception:
+                    snap[key] = copy.deepcopy(default)
         return snap
 
     def _lan_force_state_broadcast(self) -> None:
@@ -11462,6 +11548,14 @@ class InitiativeTracker(base.InitiativeTracker):
         """Load ./Monsters/*.yml|*.yaml and build a small index for the add dropdown."""
         self._monster_specs = []
         self._monsters_by_name = {}
+        self._wild_shape_beast_cache = None
+        try:
+            cache = self.__dict__.get("_wild_shape_available_cache")
+            if isinstance(cache, dict):
+                cache.clear()
+            self.__dict__["_wild_shape_available_cache_source"] = None
+        except Exception:
+            pass
 
         mdir = self._monsters_dir_path()
         try:
@@ -12159,7 +12253,20 @@ class InitiativeTracker(base.InitiativeTracker):
 
 def main() -> None:
     app = InitiativeTracker()
-    app.mainloop()
+    try:
+        app.mainloop()
+    except KeyboardInterrupt:
+        try:
+            lan = getattr(app, "_lan", None)
+            if lan is not None:
+                lan._polling = False
+                lan.stop()
+        except Exception:
+            pass
+        try:
+            app.destroy()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
