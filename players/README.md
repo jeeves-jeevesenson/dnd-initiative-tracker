@@ -1422,3 +1422,14 @@ The `/new_character` and `/edit_character` web forms now use a tabbed layout to 
 - **Tool/weapon/armor proficiencies** are expected to be selected from dropdown/list controls (instead of free-text typing) in the web UI.
 
 When YAML is exported/saved, all schema sections are still included even if some tabs were never opened.
+
+## Wild Shape Runtime Notes
+
+- Druid characters (level 2+) automatically receive a `wild_shape` resource pool at load time.
+- This pool is normalized to:
+  - `label: Wild Shape`
+  - `max_formula: max(2, min(4, 2 + floor(druid_level / 3)))`
+  - `reset: long_rest`
+  - `gain_on_short: 1`
+- Wild Shape overlays (beast form stats, token rename/size/speed changes, known-form picks in LAN) are **runtime state** and are not written back to the player YAML file.
+- Long rest clears active Wild Shape overlays and refreshes Wild Shape/LAN exchange restrictions.
