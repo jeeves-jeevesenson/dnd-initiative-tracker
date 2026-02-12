@@ -4631,6 +4631,8 @@ __DAMAGE_TYPE_OPTIONS__
     }
     refreshSpellPresetOptions();
     updateClaimOverlay();
+    updateMountControls();
+    queueMicrotask(updateMountControls);
     return true;
   }
 
@@ -4866,6 +4868,7 @@ __DAMAGE_TYPE_OPTIONS__
   function setSelectedClaimCid(cid){
     selectedClaimCid = normalizeCid(cid, "claimModal.selectedCid");
     updateClaimSelection();
+    updateMountControls();
   }
 
   function updateClaimSelection(){
@@ -5142,6 +5145,7 @@ __DAMAGE_TYPE_OPTIONS__
       });
       state.units[idx] = next;
     });
+    updateMountControls();
   }
 
   function applyAoePatch(patch){
@@ -5382,6 +5386,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
       applyUnitUpdates(updates);
+      updateMountControls();
       return;
     }
     if (["dash", "perform_action", "use_action", "use_bonus_action"].includes(type)){
@@ -5417,6 +5422,7 @@ __DAMAGE_TYPE_OPTIONS__
         update.move_remaining = remaining + baseSpeed;
       }
       applyUnitUpdates([update]);
+      updateMountControls();
       return;
     }
     if (type === "cast_aoe"){
@@ -6445,7 +6451,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
 
     // tokens
-    const tokens = state.units || [];
+    const tokens = sortedTokensForRender(state.units || []);
     // group labels by cell
     const cellMap = new Map();
     tokens.forEach(u => {
@@ -7075,6 +7081,25 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+
+  function tokenPriorityScore(unit){
+    if (!unit) return -1;
+    const cid = normalizeCid(unit.cid, "token.priority.cid");
+    if (cid === null) return -1;
+    const activeCid = normalizeCid(state?.active_cid, "token.priority.active");
+    const claimed = normalizeCid(claimedCid, "token.priority.claimed");
+    const scoreBase = Number(cid) * -0.001;
+    if (activeCid !== null && cidMatches(activeCid, cid, "token.priority.activeMatch")) return 4000 + scoreBase;
+    if (claimed !== null && cidMatches(claimed, cid, "token.priority.claimedMatch")) return 3000 + scoreBase;
+    return 1000 + scoreBase;
+  }
+
+  function sortedTokensForRender(tokens){
+    const list = Array.isArray(tokens) ? tokens.slice() : [];
+    list.sort((a, b) => tokenPriorityScore(a) - tokenPriorityScore(b));
+    return list;
+  }
+
   function updateHud(){
     if (!state){ return; }
     const active = state.active_cid;
@@ -7533,6 +7558,8 @@ __DAMAGE_TYPE_OPTIONS__
         updateWaitingOverlay();
         draw();
         updateHud();
+        updateMountControls();
+        queueMicrotask(updateMountControls);
         maybeShowTurnAlert();
         autoCenterOnJoin();
         
@@ -7587,17 +7614,23 @@ __DAMAGE_TYPE_OPTIONS__
         updateHud();
         maybeShowTurnAlert();
         draw();
+        updateMountControls();
+        queueMicrotask(updateMountControls);
       } else if (msg.type === "units_snapshot"){
         if (!state){ state = {}; }
         state.units = Array.isArray(msg.units) ? msg.units : [];
         updateHud();
         draw();
+        updateMountControls();
+        queueMicrotask(updateMountControls);
       } else if (msg.type === "unit_update"){
         const updates = Array.isArray(msg.updates) ? msg.updates : [];
         if (updates.length){
           applyUnitUpdates(updates);
           updateHud();
           draw();
+          updateMountControls();
+          queueMicrotask(updateMountControls);
         }
       } else if (msg.type === "force_claim"){
         if (isMapView) return;
@@ -7733,17 +7766,40 @@ __DAMAGE_TYPE_OPTIONS__
 
   function hitTestToken(p){
     if (!state || !state.units) return null;
-    for (let i=state.units.length-1; i>=0; i--){
+    const hits = [];
+    for (let i = 0; i < state.units.length; i++){
       const u = state.units[i];
       const {x,y} = gridToScreen(u.pos.col,u.pos.row);
       const r = Math.max(12, zoom*0.45);
       const dx = p.x - x, dy = p.y - y;
       if (dx*dx + dy*dy <= r*r){
-        return u;
+        hits.push(u);
       }
     }
-    return null;
+    if (!hits.length) return null;
+    const activeCid = normalizeCid(state?.active_cid, "hitTest.active");
+    if (activeCid !== null){
+      const activeHit = hits.find((u) => cidMatches(u.cid, activeCid, "hitTest.activeMatch"));
+      if (activeHit) return activeHit;
+    }
+    const claimed = normalizeCid(claimedCid, "hitTest.claimed");
+    if (claimed !== null){
+      const claimedHit = hits.find((u) => cidMatches(u.cid, claimed, "hitTest.claimedMatch"));
+      if (claimedHit) return claimedHit;
+      const mountHit = hits.find((u) => {
+        const riderCid = normalizeCid(u?.mounted_by_cid, "hitTest.mountRider");
+        const summonedBy = normalizeCid(u?.summoned_by_cid, "hitTest.mountSummoned");
+        return (
+          (riderCid !== null && cidMatches(riderCid, claimed, "hitTest.mountByClaimed"))
+          || (summonedBy !== null && cidMatches(summonedBy, claimed, "hitTest.mountSummonByClaimed"))
+        );
+      });
+      if (mountHit) return mountHit;
+    }
+    const renderSorted = sortedTokensForRender(hits);
+    return renderSorted[renderSorted.length - 1] || null;
   }
+
 
   function buildCellMap(tokens){
     const cellMap = new Map();

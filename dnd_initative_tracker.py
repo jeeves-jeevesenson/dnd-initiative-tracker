@@ -4051,10 +4051,36 @@ class InitiativeTracker(base.InitiativeTracker):
         """Disable legacy startup dialog; LAN clients use the roster picker modal."""
         return
 
+
+    def _should_skip_turn(self, cid: Optional[int]) -> bool:
+        cid_norm = _normalize_cid_value(cid, "turn.skip.cid")
+        if cid_norm is None:
+            return False
+        combatant = self.combatants.get(int(cid_norm))
+        if combatant is None:
+            return False
+        mounted_by = _normalize_cid_value(getattr(combatant, "mounted_by_cid", None), "turn.skip.mounted_by")
+        return mounted_by is not None and bool(getattr(combatant, "mount_shared_turn", False))
+
+    def _first_non_skipped_turn_cid(self, ordered: List[Any]) -> Optional[int]:
+        for entry in ordered:
+            entry_cid = _normalize_cid_value(getattr(entry, "cid", None), "turn.skip.entry")
+            if entry_cid is None:
+                continue
+            if not self._should_skip_turn(entry_cid):
+                return int(entry_cid)
+        return None
+
     def _process_start_of_turn(self, c: Any) -> Tuple[bool, str, set[str]]:
         skip, msg, dec_skip = super()._process_start_of_turn(c)
         try:
             setattr(c, "has_mounted_this_turn", False)
+            mount_cid = _normalize_cid_value(getattr(c, "rider_cid", None), "turn.start.rider_mount")
+            if mount_cid is not None and mount_cid in self.combatants:
+                mount = self.combatants[int(mount_cid)]
+                mount_speed = int(self._mode_speed(mount))
+                setattr(c, "move_total", mount_speed)
+                setattr(c, "move_remaining", mount_speed)
             self._lan_record_turn_snapshot(int(getattr(c, "cid", -1)))
         except Exception:
             pass
@@ -4097,7 +4123,65 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _start_turns(self) -> None:
         self._apply_pending_pre_summons()
-        super()._start_turns()
+        ordered = self._display_order()
+        if not ordered:
+            messagebox.showinfo("Turn Tracker", "No combatants in the list yet.")
+            return
+        first_cid = self._first_non_skipped_turn_cid(ordered)
+        if first_cid is None:
+            first_cid = int(getattr(ordered[0], "cid", 0))
+        self.current_cid = first_cid
+        self.round_num = 1
+        self.turn_num = 1
+        self._log("--- COMBAT STARTED ---")
+        self._log("--- ROUND 1 ---")
+        self._enter_turn_with_auto_skip(starting=True)
+        self._rebuild_table(scroll_to_current=True)
+
+    def _next_turn(self) -> None:
+        ordered = self._display_order()
+        if not ordered:
+            return
+
+        ids = [int(c.cid) for c in ordered if getattr(c, "cid", None) is not None]
+        if not ids:
+            return
+
+        if self.current_cid is None or self.current_cid not in ids:
+            first_cid = self._first_non_skipped_turn_cid(ordered)
+            self.current_cid = first_cid if first_cid is not None else ids[0]
+            self.round_num = max(1, self.round_num)
+            self.turn_num = max(1, self.turn_num)
+            self._enter_turn_with_auto_skip(starting=True)
+            self._rebuild_table(scroll_to_current=True)
+            return
+
+        ended_cid = self.current_cid
+        self._end_turn_cleanup(self.current_cid)
+        if ended_cid is not None:
+            self._log_turn_end(ended_cid)
+
+        idx = ids.index(self.current_cid)
+        steps = 0
+        wrapped = False
+        next_cid = self.current_cid
+        while steps < len(ids):
+            nxt = (idx + 1 + steps) % len(ids)
+            if nxt == 0:
+                wrapped = True
+            cand = ids[nxt]
+            if not self._should_skip_turn(cand):
+                next_cid = cand
+                break
+            steps += 1
+        self.current_cid = next_cid
+        self.turn_num += 1
+        if wrapped:
+            self.round_num += 1
+            self._log(f"--- ROUND {self.round_num} ---")
+
+        self._enter_turn_with_auto_skip(starting=False)
+        self._rebuild_table(scroll_to_current=True)
 
     def _lan_current_position(self, cid: int) -> Optional[Tuple[int, int]]:
         mw = None
