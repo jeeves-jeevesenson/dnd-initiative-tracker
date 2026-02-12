@@ -12,6 +12,9 @@ const SPELL_PICKER_PATHS = new Set([
   "spellcasting.known_spells.known",
   "spellcasting.prepared_spells.prepared",
 ]);
+const CLASS_OPTIONS = ["Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard"];
+const TOOL_OPTIONS = ["ALL simple weapons","ALL martial weapons","ALL light armor","ALL medium armor","ALL heavy armor","Shield","Alchemist’s Supplies","Brewer’s Supplies","Calligrapher’s Supplies","Carpenter’s Tools","Cartographer’s Tools","Cobbler’s Tools","Cook’s Utensils","Glassblower’s Tools","Jeweler’s Tools","Leatherworker’s Tools","Mason’s Tools","Painter’s Supplies","Potter’s Tools","Smith’s Tools","Tinker’s Tools","Weaver’s Tools","Woodcarver’s Tools","Disguise Kit","Forgery Kit","Herbalism Kit","Navigator’s Tools","Poisoner’s Kit","Thieves’ Tools"];
+const DAMAGE_TYPES = ["slashing","slashing_non_magical","piercing","piercing_non_magical","bludgeoning","bludgeoning_non_magical","acid","cold","fire","force","lightning","necrotic","poison","psychic","radiant","thunder"];
 const SPELL_SLOT_LEVELS = [
   { key: "1", label: "I" },
   { key: "2", label: "II" },
@@ -119,7 +122,10 @@ const mergeDefaults = (payload, defaults) => {
 
 const slugify = (value, separator = "_") => {
   const text = String(value || "").trim().toLowerCase();
-  const normalized = text.replace(/[^\w\s-]/g, "").replace(/[\s-]+/g, separator);
+  const normalized = text
+    .replace(/['`]/g, separator)
+    .replace(/[^a-z0-9\s_-]/g, "")
+    .replace(/[\s-]+/g, separator);
   const trimmed = normalized.replace(new RegExp(`^${separator}+|${separator}+$`, "g"), "");
   return trimmed || "character";
 };
@@ -249,12 +255,39 @@ const createInput = (field, value, path, data) => {
   const inputType = Array.isArray(field.type) ? "string" : field.type;
   const useTextarea = field.key === "description" || field.key === "notes";
   if (inputType === "boolean") {
-    input = document.createElement("input");
-    input.type = "checkbox";
-    input.checked = Boolean(value);
-    input.addEventListener("change", () => {
-      setValueAtPath(data, path, input.checked);
+    if (path.join(".") === "spellcasting.enabled") {
+      input = document.createElement("button");
+      input.type = "button";
+      input.className = `spell-toggle ${Boolean(value) ? "on" : "off"}`;
+      input.textContent = Boolean(value) ? "Spellcasting Enabled" : "Spellcasting Disabled";
+      input.addEventListener("click", () => {
+        const next = !Boolean(getValueAtPath(data, path));
+        setValueAtPath(data, path, next);
+        input.className = `spell-toggle ${next ? "on" : "off"}`;
+        input.textContent = next ? "Spellcasting Enabled" : "Spellcasting Disabled";
+      });
+    } else {
+      input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = Boolean(value);
+      input.addEventListener("change", () => {
+        setValueAtPath(data, path, input.checked);
+      });
+    }
+  } else if (path.join(".").endsWith("leveling.classes.name")) {
+    input = document.createElement("select");
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = "Select class";
+    input.appendChild(emptyOption);
+    CLASS_OPTIONS.forEach((name) => {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      option.selected = String(value || "") === name;
+      input.appendChild(option);
     });
+    input.addEventListener("change", () => setValueAtPath(data, path, input.value));
   } else if (inputType === "integer" || inputType === "number") {
     input = document.createElement("input");
     input.type = "number";
@@ -463,6 +496,126 @@ const renderMapField = (field, path, data) => {
   return container;
 };
 
+
+const renderChecklistArray = (titleText, options, path, data) => {
+  const container = document.createElement("div");
+  container.className = "field-group";
+  const title = document.createElement("h3"); title.textContent = titleText; container.appendChild(title);
+  const set = new Set((getValueAtPath(data, path) || []).map((v) => String(v).toLowerCase()));
+  options.forEach((opt) => {
+    const row = document.createElement("label");
+    row.className = "check-row";
+    const cb = document.createElement("input"); cb.type="checkbox"; cb.checked = set.has(opt.toLowerCase());
+    cb.addEventListener("change", () => {
+      const next = new Set((getValueAtPath(data, path) || []).map((v) => String(v).toLowerCase()));
+      if (cb.checked) next.add(opt.toLowerCase()); else next.delete(opt.toLowerCase());
+      setValueAtPath(data, path, Array.from(next));
+    });
+    const txt=document.createElement("span"); txt.textContent=opt;
+    row.append(cb,txt); container.appendChild(row);
+  });
+  return container;
+};
+
+
+const inferActionTypeFromSpell = (spellId, spellDetails) => {
+  const spell = (spellDetails || []).find((entry) => entry?.id === spellId);
+  const casting = String(spell?.casting_time || "").toLowerCase();
+  if (casting.includes("reaction")) return "reaction";
+  if (casting.includes("bonus")) return "bonus";
+  return "action";
+};
+
+const ensurePoolsFromFeatures = (data) => {
+  const pools = Array.isArray(data?.resources?.pools) ? data.resources.pools : [];
+  const byId = new Map(pools.map((pool) => [String(pool?.id || ""), pool]));
+  const features = Array.isArray(data?.features) ? data.features : [];
+  features.forEach((feature) => {
+    const granted = feature?.grants?.pools || [];
+    granted.forEach((pool) => {
+      const id = String(pool?.id || "").trim();
+      if (!id || byId.has(id)) return;
+      const created = { id, label: pool?.label || id, max_formula: pool?.max_formula || "1", reset: pool?.reset || "long_rest", current: 0 };
+      pools.push(created);
+      byId.set(id, created);
+    });
+  });
+  if (!data.resources) data.resources = {};
+  data.resources.pools = pools;
+};
+
+const renderFeatsEditor = (path, data) => {
+  const container = document.createElement("div");
+  container.className = "feats-editor";
+  const list = document.createElement("div"); list.className = "feats-list";
+  const detail = document.createElement("div"); detail.className = "feats-detail";
+  const body = document.createElement("div"); body.className = "feats-body";
+  const head = document.createElement("div"); head.className='array-header';
+  const t = document.createElement('h3'); t.textContent='Feats';
+  const add = document.createElement('button'); add.type='button'; add.className='ghost'; add.textContent='Add Feat';
+  head.append(t,add); body.append(list,detail); container.append(head,body);
+
+  let selected = 0; let dirty = false;
+  const feats = () => getValueAtPath(data, path) || [];
+
+  const renderList = () => {
+    list.innerHTML='';
+    feats().forEach((feat, idx) => {
+      const b=document.createElement('button'); b.type='button'; b.className=`ghost feat-item${idx===selected?' active':''}`;
+      b.textContent=feat?.name || feat?.id || `Feat ${idx+1}`;
+      b.addEventListener('click', async ()=>{ if(dirty && !window.confirm('Unsaved feat changes. Continue?')) return; selected=idx; await renderDetail(); renderList(); });
+      list.appendChild(b);
+    });
+  };
+
+  const renderDetail = async () => {
+    detail.innerHTML='';
+    const feat = feats()[selected]; if(!feat) return;
+    ["id","name","category","source","description"].forEach((k)=>{
+      const row=document.createElement('div'); row.className='field';
+      const lab=document.createElement('label'); lab.textContent=k;
+      const input=k==='description'?document.createElement('textarea'):document.createElement('input');
+      if(k!=='description') input.type='text';
+      input.value=feat[k]||'';
+      input.addEventListener('input',()=>{feat[k]=input.value;dirty=true;statusEl.textContent='Unsaved changes';renderList();});
+      row.append(lab,input); detail.appendChild(row);
+    });
+
+    const cfg=document.createElement('button'); cfg.type='button'; cfg.className='ghost'; cfg.textContent='Configure granted pools & spells…';
+    cfg.addEventListener('click', async ()=>{
+      const overlay=document.createElement('div'); overlay.className='overlay';
+      const modal=document.createElement('div'); modal.className='overlay-modal';
+      if(!feat.grants) feat.grants={}; if(!Array.isArray(feat.grants.pools)) feat.grants.pools=[];
+      if(!feat.grants.spells) feat.grants.spells={cantrips:[],casts:[]}; if(!Array.isArray(feat.grants.spells.casts)) feat.grants.spells.casts=[];
+      const payload = await fetch('/api/spells?details=true').then(r=>r.ok?r.json():({spells:[]})).catch(()=>({spells:[]}));
+      const spells=Array.isArray(payload.spells)?payload.spells:[];
+      const poolsGroup=document.createElement('div'); poolsGroup.className='field-group'; poolsGroup.innerHTML='<h4>Resource Pools</h4>';
+      const poolAdd=document.createElement('button'); poolAdd.type='button'; poolAdd.className='ghost'; poolAdd.textContent='Add Pool'; poolsGroup.appendChild(poolAdd);
+      const poolRows=document.createElement('div'); poolsGroup.appendChild(poolRows);
+      const renderPools=()=>{poolRows.innerHTML=''; feat.grants.pools.forEach((pool,i)=>{const row=document.createElement('div'); row.className='array-item'; row.innerHTML=`<input type="text" placeholder="id" value="${pool.id||''}"><input type="text" placeholder="label" value="${pool.label||''}"><input type="text" placeholder="max formula" value="${pool.max_formula||'1'}">`; const sel=document.createElement('select'); ['short_rest','long_rest'].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;o.selected=(pool.reset||'long_rest')===v;sel.appendChild(o);}); sel.onchange=()=>{pool.reset=sel.value;dirty=true;}; row.querySelectorAll('input')[0].oninput=e=>{pool.id=e.target.value;dirty=true;}; row.querySelectorAll('input')[1].oninput=e=>{pool.label=e.target.value;dirty=true;}; row.querySelectorAll('input')[2].oninput=e=>{pool.max_formula=e.target.value;dirty=true;}; const rm=document.createElement('button'); rm.type='button'; rm.className='ghost danger'; rm.textContent='Remove'; rm.onclick=()=>{feat.grants.pools.splice(i,1);renderPools();dirty=true;}; row.append(sel,rm); poolRows.appendChild(row);});};
+      poolAdd.onclick=()=>{feat.grants.pools.push({id:'',label:'',max_formula:'1',reset:'long_rest'});renderPools();dirty=true;}; renderPools();
+
+      const spellGroup=document.createElement('div'); spellGroup.className='field-group'; spellGroup.innerHTML='<h4>Granted Spells</h4>';
+      const spellAdd=document.createElement('button'); spellAdd.type='button'; spellAdd.className='ghost'; spellAdd.textContent='Add Spell'; spellGroup.appendChild(spellAdd);
+      const spellRows=document.createElement('div'); spellGroup.appendChild(spellRows);
+      const renderSpells=()=>{spellRows.innerHTML=''; feat.grants.spells.casts.forEach((cast,i)=>{const row=document.createElement('div'); row.className='array-item'; const ss=document.createElement('select'); const b=document.createElement('option'); b.value=''; b.textContent='Select spell'; ss.appendChild(b); spells.forEach(sp=>{const o=document.createElement('option');o.value=sp.id;o.textContent=sp.name||sp.id;o.selected=sp.id===cast.spell;ss.appendChild(o);}); ss.onchange=()=>{cast.spell=ss.value;cast.action_type=inferActionTypeFromSpell(cast.spell,spells);dirty=true;}; const at=document.createElement('input'); at.type='text'; at.readOnly=true; at.value=cast.action_type||'action'; const pool=document.createElement('select'); const pb=document.createElement('option'); pb.value='';pb.textContent='Pool'; pool.appendChild(pb); [...(data?.resources?.pools||[]), ...(feat.grants.pools||[])].forEach(pl=>{if(!pl?.id)return; const o=document.createElement('option');o.value=pl.id;o.textContent=pl.id;o.selected=pl.id===cast?.consumes?.pool;pool.appendChild(o);}); pool.onchange=()=>{cast.consumes=cast.consumes||{}; cast.consumes.pool=pool.value;dirty=true;}; const cost=document.createElement('input'); cost.type='number'; cost.value=cast?.consumes?.cost??1; cost.oninput=()=>{cast.consumes=cast.consumes||{}; cast.consumes.cost=Number(cost.value||1);dirty=true;}; const rm=document.createElement('button'); rm.type='button'; rm.className='ghost danger'; rm.textContent='Remove'; rm.onclick=()=>{feat.grants.spells.casts.splice(i,1);renderSpells();dirty=true;}; row.append(ss,at,pool,cost,rm); spellRows.appendChild(row);});};
+      spellAdd.onclick=()=>{feat.grants.spells.casts.push({spell:'',action_type:'action',consumes:{pool:'',cost:1}});renderSpells();dirty=true;}; renderSpells();
+
+      const ctl=document.createElement('div'); ctl.className='action-buttons';
+      const save=document.createElement('button'); save.type='button'; save.className='primary'; save.textContent='Save Grants';
+      const close=document.createElement('button'); close.type='button'; close.className='ghost'; close.textContent='Close';
+      save.onclick=()=>{ensurePoolsFromFeatures(data); dirty=true; statusEl.textContent='Unsaved changes'; overlay.remove();};
+      close.onclick=()=>overlay.remove(); ctl.append(save,close);
+      modal.append(poolsGroup,spellGroup,ctl); overlay.appendChild(modal); document.body.appendChild(overlay);
+    });
+    detail.appendChild(cfg);
+  };
+
+  add.onclick = async ()=>{const next=feats(); next.push({id:'',name:'',category:'',source:'',description:'',grants:{pools:[],spells:{cantrips:[],casts:[]}}}); setValueAtPath(data,path,next); selected=next.length-1; dirty=true; statusEl.textContent='Unsaved changes'; renderList(); await renderDetail();};
+  renderList(); renderDetail();
+  return container;
+};
+
 const renderSpellPicker = (field, path, data) => {
   const container = document.createElement("div");
   container.className = "array-field spell-picker";
@@ -648,6 +801,12 @@ const renderSpellSlots = (field, path, data) => {
 };
 
 const renderField = (field, path, data, value) => {
+  const pathText = path.join(".");
+  if (pathText === "proficiency.tools") return renderChecklistArray("Tools, Weapons, Armor Training", TOOL_OPTIONS, path, data);
+  if (pathText === "defenses.resistances") return renderChecklistArray("Resistances", DAMAGE_TYPES, path, data);
+  if (pathText === "defenses.immunities") return renderChecklistArray("Immunities", DAMAGE_TYPES, path, data);
+  if (pathText === "defenses.vulnerabilities") return renderChecklistArray("Vulnerabilities", DAMAGE_TYPES, path, data);
+  if (pathText === "features") return renderFeatsEditor(path, data);
   if (isSpellSlotsPath(path)) {
     return renderSpellSlots(field, path, data);
   }
@@ -676,8 +835,47 @@ const renderField = (field, path, data, value) => {
   return createInput(field, value, path, data);
 };
 
+const TAB_LAYOUT = [
+  { id: "basic", label: "Basic Info", sections: ["root", "identity"] },
+  { id: "stats", label: "Stats", sections: ["leveling", "abilities", "proficiency", "defenses", "attacks"] },
+  { id: "vitals", label: "Vitals", sections: ["vitals", "resources"] },
+  { id: "feats", label: "Feats", sections: ["features"] },
+  { id: "actions", label: "Actions", sections: ["actions", "reactions", "bonus_actions"] },
+  { id: "spellcasting", label: "Spellcasting", sections: ["spellcasting"] },
+  { id: "other", label: "Other", sections: ["inventory", "notes"] },
+];
+
 const renderForm = (schema, data) => {
   formEl.innerHTML = "";
+  const tabs = document.createElement("div");
+  tabs.className = "tab-bar";
+  const panes = document.createElement("div");
+  panes.className = "tab-panes";
+  const paneById = new Map();
+  TAB_LAYOUT.forEach((tab, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `tab-button${index === 0 ? " active" : ""}`;
+    button.textContent = tab.label;
+    button.dataset.tabTarget = tab.id;
+    tabs.appendChild(button);
+
+    const pane = document.createElement("div");
+    pane.className = `tab-pane${index === 0 ? " active" : ""}`;
+    pane.dataset.tabPane = tab.id;
+    panes.appendChild(pane);
+    paneById.set(tab.id, pane);
+  });
+  tabs.addEventListener("click", (event) => {
+    const button = event.target.closest(".tab-button");
+    if (!button) return;
+    const target = button.dataset.tabTarget;
+    tabs.querySelectorAll(".tab-button").forEach((el) => el.classList.toggle("active", el === button));
+    panes.querySelectorAll(".tab-pane").forEach((el) => el.classList.toggle("active", el.dataset.tabPane === target));
+  });
+  formEl.appendChild(tabs);
+  formEl.appendChild(panes);
+
   (schema.sections || []).forEach((section) => {
     const sectionEl = document.createElement("section");
     sectionEl.className = "section";
@@ -698,7 +896,9 @@ const renderForm = (schema, data) => {
       sectionEl.appendChild(renderMapField(section, sectionPath, data));
     }
 
-    formEl.appendChild(sectionEl);
+    const targetTab = TAB_LAYOUT.find((tab) => tab.sections.includes(section.id))?.id || "other";
+    const targetPane = paneById.get(targetTab) || paneById.get("other");
+    targetPane.appendChild(sectionEl);
   });
 };
 
@@ -747,6 +947,7 @@ const exportYaml = async (data) => {
   statusEl.textContent = "Preparing YAML export...";
   try {
     normalizeCharacterData(data);
+    ensurePoolsFromFeatures(data);
     const response = await fetch("/api/characters/export", {
       method: "POST",
       headers: {
@@ -793,6 +994,7 @@ const overwriteCharacter = async (data, originalFilename) => {
   statusEl.textContent = "Overwriting character...";
   try {
     normalizeCharacterData(data);
+    ensurePoolsFromFeatures(data);
     const response = await fetch(`/api/characters/${encodeURIComponent(originalFilename)}/overwrite`, {
       method: "POST",
       headers: {
@@ -848,6 +1050,8 @@ const boot = async () => {
 
   normalizeCharacterData(data);
   renderForm(schema, data);
+  formEl.addEventListener("input", () => { statusEl.textContent = "Unsaved changes"; });
+  formEl.addEventListener("change", () => { statusEl.textContent = "Unsaved changes"; });
 
   if (overwriteButton && !originalFilename) {
     overwriteButton.disabled = true;
