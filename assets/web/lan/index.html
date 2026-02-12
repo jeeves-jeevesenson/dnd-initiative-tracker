@@ -5270,13 +5270,13 @@ __DAMAGE_TYPE_OPTIONS__
       const updates = [update];
       const riderCid = normalizeCid(unit.mounted_by_cid, "move.mountedByCid");
       const riderUnit = riderCid !== null ? getUnitByCid(riderCid) : null;
-      let movementUnit = unit;
-      let movementUpdate = update;
+      let movementOwner = unit;
+      let movementOwnerUpdate = update;
       if (riderUnit) {
         const riderUpdate = {cid: riderUnit.cid, pos: {...update.pos}};
         updates.push(riderUpdate);
-        movementUnit = riderUnit;
-        movementUpdate = riderUpdate;
+        movementOwner = riderUnit;
+        movementOwnerUpdate = riderUpdate;
       } else {
         const mountCid = normalizeCid(unit.rider_cid, "move.riderCid");
         const mountUnit = mountCid !== null ? getUnitByCid(mountCid) : null;
@@ -5285,7 +5285,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
       if (gridReady()){
-        const moveRemaining = Number(movementUnit.move_remaining || 0);
+        const moveRemaining = Number(movementOwner.move_remaining || 0);
         if (Number.isFinite(moveRemaining) && moveRemaining > 0){
           const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
           const roughMap = buildRoughTerrainMap(state.rough_terrain);
@@ -5303,7 +5303,7 @@ __DAMAGE_TYPE_OPTIONS__
           );
           const cost = costMap.get(cellKey(update.pos.col, update.pos.row));
           if (Number.isFinite(cost)){
-            movementUpdate.move_remaining = Math.max(0, moveRemaining - cost);
+            movementOwnerUpdate.move_remaining = Math.max(0, moveRemaining - cost);
           }
         }
       }
@@ -7810,8 +7810,8 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const hitIsClaimed = claimedCid !== null && cidMatches(hit.cid, claimedCid, "dragToken.claimedCid");
       // When mounted, dragging either the rider or mount should move the mount token.
-      const useMountMove = mountMoveCid !== null && (canDragMount || hitIsClaimed);
-      const dragCid = useMountMove ? mountMoveCid : hit.cid;
+      const shouldDragMount = mountMoveCid !== null && (canDragMount || hitIsClaimed);
+      const dragCid = shouldDragMount ? mountMoveCid : hit.cid;
       dragging = {cid: dragCid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
       return;
     }

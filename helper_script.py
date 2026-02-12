@@ -6490,11 +6490,7 @@ class BattleMapWindow(tk.Toplevel):
         self._update_included_for_selected()
 
     def _sync_mount_pair_position(self, cid: int, col: int, row: int) -> None:
-        try:
-            cid_int = int(cid)
-        except (TypeError, ValueError):
-            return
-        c = self.app.combatants.get(cid_int)
+        c = self.app.combatants.get(cid)
         if not c:
             return
         partner_cid = getattr(c, "rider_cid", None)
