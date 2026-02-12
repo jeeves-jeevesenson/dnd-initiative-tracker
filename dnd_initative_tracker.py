@@ -3711,6 +3711,155 @@ class LanController:
 # ----------------------------- Tracker -----------------------------
 
 class InitiativeTracker(base.InitiativeTracker):
+    _wild_shape_beast_cache: Optional[List[Dict[str, Any]]] = None
+
+    @staticmethod
+    def _druid_level_from_profile(profile: Dict[str, Any]) -> int:
+        leveling = profile.get("leveling") if isinstance(profile.get("leveling"), dict) else {}
+        classes = leveling.get("classes") if isinstance(leveling.get("classes"), list) else []
+        total = 0
+        for entry in classes:
+            if not isinstance(entry, dict):
+                continue
+            name = str(entry.get("name") or "").strip().lower()
+            if name != "druid":
+                continue
+            try:
+                total += int(entry.get("level") or 0)
+            except Exception:
+                continue
+        if total > 0:
+            return total
+        klass = str(leveling.get("class") or "").strip().lower()
+        if klass == "druid":
+            try:
+                return max(0, int(leveling.get("level") or 0))
+            except Exception:
+                return 0
+        return 0
+
+    @staticmethod
+    def _wild_shape_max_uses_for_level(druid_level: int) -> int:
+        if druid_level < 2:
+            return 0
+        return max(2, min(4, 2 + (int(druid_level) // 3)))
+
+    @staticmethod
+    def _wild_shape_known_limit(druid_level: int) -> int:
+        if druid_level < 2:
+            return 0
+        return min(8, 4 + (max(0, int(druid_level) - 2) // 2))
+
+    @staticmethod
+    def _parse_cr_value(value: Any) -> float:
+        if isinstance(value, (int, float)):
+            return float(value)
+        text = str(value or "").strip()
+        if not text:
+            return 0.0
+        if "/" in text:
+            parts = text.split("/", 1)
+            try:
+                num = float(parts[0])
+                den = float(parts[1])
+                if den == 0:
+                    return 0.0
+                return num / den
+            except Exception:
+                return 0.0
+        try:
+            return float(text)
+        except Exception:
+            return 0.0
+
+    def _load_beast_forms(self) -> List[Dict[str, Any]]:
+        if isinstance(self._wild_shape_beast_cache, list):
+            return self._wild_shape_beast_cache
+        monsters_dir = _app_base_dir() / "Monsters"
+        forms: List[Dict[str, Any]] = []
+        if yaml is None or not monsters_dir.is_dir():
+            self._wild_shape_beast_cache = forms
+            return forms
+        for path in monsters_dir.glob("*.yaml"):
+            try:
+                raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if not isinstance(raw, dict):
+                continue
+            if str(raw.get("type") or "").strip().lower() != "beast":
+                continue
+            speed_data = raw.get("speed")
+            walk = swim = fly = climb = 0
+            if speed_data is not None:
+                parsed = base._parse_speed_data(speed_data)
+                walk = int(parsed[0] or 0)
+                swim = int(parsed[1] or 0)
+                fly = int(parsed[2] or 0)
+                climb = int(parsed[4] or 0)
+            abilities = raw.get("abilities") if isinstance(raw.get("abilities"), dict) else {}
+            forms.append(
+                {
+                    "id": path.stem,
+                    "name": str(raw.get("name") or path.stem).strip() or path.stem,
+                    "challenge_rating": self._parse_cr_value(raw.get("challenge_rating")),
+                    "size": str(raw.get("size") or "Medium").strip() or "Medium",
+                    "ac": int(raw.get("ac") or 10),
+                    "hp": int(raw.get("hp") or 1),
+                    "speed": {"walk": walk, "swim": swim, "fly": fly, "climb": climb},
+                    "abilities": {
+                        "str": int(abilities.get("Str") or 10),
+                        "dex": int(abilities.get("Dex") or 10),
+                        "con": int(abilities.get("Con") or 10),
+                        "int": int(abilities.get("Int") or 10),
+                        "wis": int(abilities.get("Wis") or 10),
+                        "cha": int(abilities.get("Cha") or 10),
+                    },
+                    "actions": list(raw.get("actions") if isinstance(raw.get("actions"), list) else []),
+                }
+            )
+        forms.sort(key=lambda entry: (entry.get("challenge_rating", 0.0), entry.get("name", "")))
+        self._wild_shape_beast_cache = forms
+        return forms
+
+    def _wild_shape_available_forms(
+        self,
+        profile: Dict[str, Any],
+        known_only: bool = True,
+        include_locked: bool = False,
+    ) -> List[Dict[str, Any]]:
+        druid_level = self._druid_level_from_profile(profile)
+        known = {
+            str(item).strip().lower()
+            for item in (profile.get("learned_wild_shapes") if isinstance(profile.get("learned_wild_shapes"), list) else [])
+            if str(item).strip()
+        }
+        if druid_level < 2:
+            return []
+        if druid_level >= 8:
+            max_cr = 1.0
+        elif druid_level >= 4:
+            max_cr = 0.5
+        else:
+            max_cr = 0.25
+        result: List[Dict[str, Any]] = []
+        for form in self._load_beast_forms():
+            allowed = True
+            if float(form.get("challenge_rating") or 0.0) > max_cr:
+                allowed = False
+            speed = form.get("speed") if isinstance(form.get("speed"), dict) else {}
+            if int(speed.get("fly") or 0) > 0 and druid_level < 8:
+                allowed = False
+            if str(form.get("size") or "").strip().lower() == "tiny" and druid_level < 11:
+                allowed = False
+            if known_only and str(form.get("id") or "").strip().lower() not in known:
+                allowed = False
+            if allowed or include_locked:
+                entry = dict(form)
+                entry["allowed"] = bool(allowed)
+                result.append(entry)
+        return result
+
     """Tk tracker + LAN proof-of-concept server."""
 
     def __init__(self) -> None:
@@ -3737,6 +3886,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._spell_index_loaded = False
         self._spell_dir_notice: Optional[str] = None
         self._spell_dir_signature: Optional[Tuple[int, int, Tuple[str, ...]]] = None
+        self._wild_shape_known_by_player: Dict[str, List[str]] = {}
         self._player_yaml_cache_by_path: Dict[Path, Optional[Dict[str, Any]]] = {}
         self._player_yaml_meta_by_path: Dict[Path, Dict[str, object]] = {}
         self._player_yaml_data_by_name: Dict[str, Dict[str, Any]] = {}
@@ -5523,6 +5673,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     "bonus_actions": bonus_actions,
                     "is_prone": self._has_condition(c, "prone"),
                     "is_spellcaster": bool(getattr(c, "is_spellcaster", False)),
+                    "is_wild_shaped": bool(getattr(c, "is_wild_shaped", False)),
+                    "wild_shape_form": str(getattr(c, "wild_shape_form_name", "") or "") or None,
                     "summoned_by_cid": _normalize_cid_value(getattr(c, "summoned_by_cid", None), "snapshot.summoned_by"),
                     "summon_source_spell": str(getattr(c, "summon_source_spell", "") or "") or None,
                     "summon_group_id": str(getattr(c, "summon_group_id", "") or "") or None,
@@ -7018,10 +7170,11 @@ class InitiativeTracker(base.InitiativeTracker):
             if not math.isfinite(safe_value):
                 safe_value = 0.0
             expr = re.sub(rf"\\b{re.escape(str(key))}\\b", str(int(safe_value)), expr)
-        if re.search(r"[a-zA-Z]", expr):
-            return None
         try:
-            result = eval(expr, {"__builtins__": {}})
+            result = eval(
+                expr,
+                {"__builtins__": {}, "min": min, "max": max, "floor": math.floor, "ceil": math.ceil},
+            )
         except Exception:
             return None
         try:
@@ -7177,29 +7330,53 @@ class InitiativeTracker(base.InitiativeTracker):
         resources = data.get("resources") if isinstance(data.get("resources"), dict) else {}
         pools = resources.get("pools") if isinstance(resources.get("pools"), list) else []
         normalized: List[Dict[str, Any]] = []
+        druid_level = self._druid_level_from_profile(data)
+        wild_shape_max = self._wild_shape_max_uses_for_level(druid_level)
+        seen_pool_ids: set[str] = set()
         for entry in pools:
             if not isinstance(entry, dict):
                 continue
             pool_id = str(entry.get("id") or "").strip()
             if not pool_id:
                 continue
+            seen_pool_ids.add(pool_id.lower())
             label = str(entry.get("label") or pool_id).strip() or pool_id
             reset = str(entry.get("reset") or "manual").strip().lower() or "manual"
             max_formula = str(entry.get("max_formula") or "").strip()
             max_value = self._compute_resource_pool_max(data, max_formula, entry.get("max"))
+            if pool_id.lower() == "wild_shape":
+                label = "Wild Shape"
+                reset = "long_rest"
+                max_formula = "max(2, min(4, 2 + floor(druid_level / 3)))"
+                max_value = wild_shape_max
             try:
                 current_value = int(entry.get("current", max_value))
             except Exception:
                 current_value = max_value
             current_value = max(0, min(current_value, max_value))
+            payload = {
+                "id": pool_id,
+                "label": label,
+                "current": current_value,
+                "max": max_value,
+                "max_formula": max_formula,
+                "reset": reset,
+            }
+            if int(entry.get("gain_on_short") or 0) > 0:
+                payload["gain_on_short"] = int(entry.get("gain_on_short") or 0)
+            if pool_id.lower() == "wild_shape":
+                payload["gain_on_short"] = 1
+            normalized.append(payload)
+        if druid_level >= 2 and "wild_shape" not in seen_pool_ids:
             normalized.append(
                 {
-                    "id": pool_id,
-                    "label": label,
-                    "current": current_value,
-                    "max": max_value,
-                    "max_formula": max_formula,
-                    "reset": reset,
+                    "id": "wild_shape",
+                    "label": "Wild Shape",
+                    "current": wild_shape_max,
+                    "max": wild_shape_max,
+                    "max_formula": "max(2, min(4, 2 + floor(druid_level / 3)))",
+                    "reset": "long_rest",
+                    "gain_on_short": 1,
                 }
             )
         return normalized
@@ -7225,6 +7402,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 prof_bonus = 0
         variables = {
             "level": level_value,
+            "druid_level": self._druid_level_from_profile(profile),
             "prof": prof_bonus,
             "proficiency": prof_bonus,
             "str_mod": self._ability_score_modifier(abilities, "str"),
@@ -7427,6 +7605,43 @@ class InitiativeTracker(base.InitiativeTracker):
                     spellcasting = dict(spellcasting)
                     spellcasting["save_dc"] = save_dc
                     profile_payload["spellcasting"] = spellcasting
+            known_map = self.__dict__.get("_wild_shape_known_by_player", {})
+            known_runtime = known_map.get(str(name).strip().lower(), []) if isinstance(known_map, dict) else []
+            druid_level = self._druid_level_from_profile(profile_payload)
+            known_limit = self._wild_shape_known_limit(druid_level)
+            available: List[Dict[str, Any]] = []
+            if druid_level >= 2:
+                raw_available = self._wild_shape_available_forms(
+                    {
+                        **profile_payload,
+                        "learned_wild_shapes": known_runtime,
+                    },
+                    known_only=False,
+                    include_locked=True,
+                )
+                # Keep LAN payload lightweight to avoid websocket snapshot lag.
+                for entry in raw_available:
+                    if not isinstance(entry, dict):
+                        continue
+                    speed = entry.get("speed") if isinstance(entry.get("speed"), dict) else {}
+                    available.append(
+                        {
+                            "id": str(entry.get("id") or "").strip(),
+                            "name": str(entry.get("name") or "").strip(),
+                            "challenge_rating": float(entry.get("challenge_rating") or 0.0),
+                            "size": str(entry.get("size") or "").strip(),
+                            "speed": {
+                                "walk": int(speed.get("walk") or 0),
+                                "swim": int(speed.get("swim") or 0),
+                                "fly": int(speed.get("fly") or 0),
+                                "climb": int(speed.get("climb") or 0),
+                            },
+                            "allowed": bool(entry.get("allowed", False)),
+                        }
+                    )
+            profile_payload["learned_wild_shapes"] = list(known_runtime)
+            profile_payload["wild_shape_known_limit"] = int(known_limit)
+            profile_payload["wild_shape_available_forms"] = available
             payload[name] = profile_payload
         return payload
 
@@ -7985,6 +8200,11 @@ class InitiativeTracker(base.InitiativeTracker):
 
             self._store_character_yaml(path, raw)
             updated[name.lower()] = int(max_hp_value or 0)
+        for cid, combatant in list(self.combatants.items()):
+            if bool(getattr(combatant, "is_wild_shaped", False)):
+                self._revert_wild_shape(int(cid))
+            setattr(combatant, "wild_resurgence_turn_used", False)
+            setattr(combatant, "wild_resurgence_slot_used", False)
         return updated
 
     def _save_player_spell_config(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -8414,6 +8634,199 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             return False, "Could not update spell slots, matey.", None
         return True, "", spend_level
+
+    def _set_wild_shape_pool_current(self, player_name: str, current_value: int) -> Tuple[bool, str, Optional[int]]:
+        self._load_player_yaml_cache()
+        player_key = self._normalize_character_lookup_key(player_name)
+        player_path = self._player_yaml_name_map.get(player_key)
+        raw = self._player_yaml_cache_by_path.get(player_path) if player_path else None
+        if not isinstance(raw, dict):
+            return False, "No resource pools set up for that caster, matey.", None
+        normalized = self._normalize_player_resource_pools(raw)
+        wild_entry = next((entry for entry in normalized if str(entry.get("id") or "").lower() == "wild_shape"), None)
+        if not isinstance(wild_entry, dict):
+            return False, "No Wild Shape uses remain, matey.", None
+        max_value = int(wild_entry.get("max") or 0)
+        clamped = max(0, min(int(current_value), max_value))
+
+        resources = raw.get("resources") if isinstance(raw.get("resources"), dict) else {}
+        pools = resources.get("pools") if isinstance(resources.get("pools"), list) else []
+        found = False
+        for entry in pools:
+            if not isinstance(entry, dict):
+                continue
+            if str(entry.get("id") or "").strip().lower() != "wild_shape":
+                continue
+            entry["id"] = "wild_shape"
+            entry["label"] = "Wild Shape"
+            entry["max_formula"] = "max(2, min(4, 2 + floor(druid_level / 3)))"
+            entry["reset"] = "long_rest"
+            entry["gain_on_short"] = 1
+            entry["current"] = clamped
+            found = True
+            break
+        if not found:
+            pools.append(
+                {
+                    "id": "wild_shape",
+                    "label": "Wild Shape",
+                    "current": clamped,
+                    "max_formula": "max(2, min(4, 2 + floor(druid_level / 3)))",
+                    "reset": "long_rest",
+                    "gain_on_short": 1,
+                }
+            )
+        resources = dict(resources)
+        resources["pools"] = pools
+        raw = dict(raw)
+        raw["resources"] = resources
+        try:
+            self._store_character_yaml(player_path, raw)
+            self._load_player_yaml_cache(force_refresh=True)
+        except Exception:
+            return False, "Could not update Wild Shape pool, matey.", None
+        return True, "", clamped
+
+    def _consume_spell_slot_for_wild_shape_regain(self, caster_name: str) -> Tuple[bool, str, Optional[int]]:
+        try:
+            player_name, slots = self._resolve_spell_slot_profile(caster_name)
+        except ValueError as exc:
+            return False, str(exc), None
+        except Exception:
+            return False, "No spell slots set up for that caster, matey.", None
+        spend_level = None
+        for lvl in range(1, 10):
+            if int(slots.get(str(lvl), {}).get("current", 0) or 0) > 0:
+                spend_level = lvl
+                break
+        if spend_level is None:
+            return False, "No spell slots left to fuel Wild Shape, matey.", None
+        slots[str(spend_level)]["current"] = max(0, int(slots[str(spend_level)].get("current", 0) or 0) - 1)
+        try:
+            self._save_player_spell_slots(player_name, slots)
+        except Exception:
+            return False, "Could not update spell slots, matey.", None
+        return True, "", spend_level
+
+    def _regain_first_level_spell_slot(self, caster_name: str) -> Tuple[bool, str]:
+        try:
+            player_name, slots = self._resolve_spell_slot_profile(caster_name)
+        except ValueError as exc:
+            return False, str(exc)
+        except Exception:
+            return False, "No spell slots set up for that caster, matey."
+        level_one = slots.get("1") if isinstance(slots, dict) else None
+        if not isinstance(level_one, dict) or int(level_one.get("max", 0) or 0) <= 0:
+            return False, "No level 1 spell slots available for that caster, matey."
+        cur = int(level_one.get("current", 0) or 0)
+        max_value = int(level_one.get("max", 0) or 0)
+        if cur >= max_value:
+            return False, "Level 1 spell slots already full, matey."
+        level_one["current"] = min(max_value, cur + 1)
+        try:
+            self._save_player_spell_slots(player_name, slots)
+        except Exception:
+            return False, "Could not update spell slots, matey."
+        return True, ""
+
+    def _apply_wild_shape(self, cid: int, beast_id: str) -> Tuple[bool, str]:
+        c = self.combatants.get(int(cid))
+        if c is None:
+            return False, "That scallywag ain’t in combat no more."
+        player_name = self._pc_name_for(int(cid))
+        self._load_player_yaml_cache()
+        profile = self._player_yaml_data_by_name.get(player_name)
+        if not isinstance(profile, dict):
+            return False, "No player profile found for Wild Shape, matey."
+        known_map = self.__dict__.get("_wild_shape_known_by_player", {})
+        runtime_known = known_map.get(player_name.strip().lower(), []) if isinstance(known_map, dict) else []
+        if not runtime_known and isinstance(profile.get("learned_wild_shapes"), list):
+            runtime_known = [str(item).strip().lower() for item in profile.get("learned_wild_shapes") if str(item).strip()]
+        forms = {
+            str(entry.get("id") or "").lower(): entry
+            for entry in self._wild_shape_available_forms(
+                {**profile, "learned_wild_shapes": runtime_known},
+                known_only=True,
+            )
+        }
+        form = forms.get(str(beast_id or "").strip().lower())
+        if not isinstance(form, dict):
+            return False, "That beast form be unavailable, matey."
+        current_pool = next((p for p in self._normalize_player_resource_pools(profile) if str(p.get("id") or "").lower() == "wild_shape"), None)
+        if not isinstance(current_pool, dict) or int(current_pool.get("current", 0) or 0) <= 0:
+            return False, "No Wild Shape uses remain, matey."
+        ok_pool, pool_err, new_cur = self._set_wild_shape_pool_current(player_name, int(current_pool.get("current", 0)) - 1)
+        if not ok_pool:
+            return False, pool_err or "Could not consume Wild Shape use, matey."
+
+        base_snapshot = {
+            "name": str(getattr(c, "name", "") or ""),
+            "speed": int(getattr(c, "speed", 0) or 0),
+            "swim_speed": int(getattr(c, "swim_speed", 0) or 0),
+            "fly_speed": int(getattr(c, "fly_speed", 0) or 0),
+            "climb_speed": int(getattr(c, "climb_speed", 0) or 0),
+            "burrow_speed": int(getattr(c, "burrow_speed", 0) or 0),
+            "movement_mode": str(getattr(c, "movement_mode", "Normal") or "Normal"),
+            "dex": int(getattr(c, "dex", 10) or 10),
+            "con": int(getattr(c, "con", 10) or 10),
+            "str": int(getattr(c, "str", 10) or 10),
+            "is_spellcaster": bool(getattr(c, "is_spellcaster", False)),
+            "temp_hp": int(getattr(c, "temp_hp", 0) or 0),
+            "actions": copy.deepcopy(getattr(c, "actions", [])),
+            "bonus_actions": copy.deepcopy(getattr(c, "bonus_actions", [])),
+        }
+        setattr(c, "wild_shape_base", base_snapshot)
+        setattr(c, "wild_shape_prev_temp_hp", int(getattr(c, "temp_hp", 0) or 0))
+        setattr(c, "wild_shape_applied_temp_hp", int(self._druid_level_from_profile(profile)))
+        setattr(c, "wild_shape_form_id", str(form.get("id") or ""))
+        setattr(c, "wild_shape_form_name", str(form.get("name") or ""))
+        setattr(c, "wild_shape_pool_current", int(new_cur if new_cur is not None else 0))
+        setattr(c, "wild_resurgence_turn_used", False)
+        setattr(c, "wild_resurgence_slot_used", bool(getattr(c, "wild_resurgence_slot_used", False)))
+
+        speed = form.get("speed") if isinstance(form.get("speed"), dict) else {}
+        setattr(c, "speed", int(speed.get("walk") or 0))
+        setattr(c, "swim_speed", int(speed.get("swim") or 0))
+        setattr(c, "fly_speed", int(speed.get("fly") or 0))
+        setattr(c, "climb_speed", int(speed.get("climb") or 0))
+        setattr(c, "str", int((form.get("abilities") or {}).get("str") or getattr(c, "str", 10) or 10))
+        setattr(c, "dex", int((form.get("abilities") or {}).get("dex") or getattr(c, "dex", 10) or 10))
+        setattr(c, "con", int((form.get("abilities") or {}).get("con") or getattr(c, "con", 10) or 10))
+        setattr(c, "movement_mode", "Fly" if int(speed.get("fly") or 0) > 0 else ("Swim" if int(speed.get("swim") or 0) > 0 else "Normal"))
+        mode_speed = int(self._mode_speed(c) or 0)
+        setattr(c, "move_total", mode_speed)
+        setattr(c, "move_remaining", mode_speed)
+        setattr(c, "temp_hp", int(getattr(c, "wild_shape_applied_temp_hp", 0) or 0))
+        setattr(c, "is_spellcaster", False)
+        setattr(c, "is_wild_shaped", True)
+        setattr(c, "name", f"{base_snapshot['name']} ({str(form.get('name') or '').strip()})")
+        beast_actions = self._normalize_action_entries(form.get("actions") if isinstance(form.get("actions"), list) else [], "action")
+        if beast_actions:
+            setattr(c, "actions", beast_actions)
+        return True, ""
+
+    def _revert_wild_shape(self, cid: int) -> Tuple[bool, str]:
+        c = self.combatants.get(int(cid))
+        if c is None:
+            return False, "That scallywag ain’t in combat no more."
+        if not bool(getattr(c, "is_wild_shaped", False)):
+            return False, "Ye ain't Wild Shaped, matey."
+        base_snapshot = getattr(c, "wild_shape_base", None)
+        if not isinstance(base_snapshot, dict):
+            return False, "Could not restore Wild Shape state, matey."
+        for key in ("name", "speed", "swim_speed", "fly_speed", "climb_speed", "burrow_speed", "movement_mode", "dex", "con", "str", "is_spellcaster"):
+            if key in base_snapshot:
+                setattr(c, key, base_snapshot[key])
+        setattr(c, "actions", copy.deepcopy(base_snapshot.get("actions") if isinstance(base_snapshot.get("actions"), list) else []))
+        setattr(c, "bonus_actions", copy.deepcopy(base_snapshot.get("bonus_actions") if isinstance(base_snapshot.get("bonus_actions"), list) else []))
+        if int(getattr(c, "temp_hp", 0) or 0) == int(getattr(c, "wild_shape_applied_temp_hp", 0) or 0):
+            setattr(c, "temp_hp", 0)
+        setattr(c, "is_wild_shaped", False)
+        setattr(c, "wild_shape_form_id", None)
+        setattr(c, "wild_shape_form_name", None)
+        setattr(c, "wild_shape_base", None)
+        setattr(c, "wild_shape_applied_temp_hp", 0)
+        return True, ""
 
     def _sorted_combatants(self) -> List[base.Combatant]:
         ordered = list(self.combatants.values())
@@ -10535,6 +10948,113 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._log(f"{c.name} used {action_name} ({spend_label})", cid=cid)
                 self._lan.toast(ws_id, f"Used {action_name}.")
                 self._rebuild_table(scroll_to_current=True)
+        elif typ == "wild_shape_apply":
+            beast_id = str(msg.get("beast_id") or "").strip()
+            if not beast_id:
+                self._lan.toast(ws_id, "Pick a beast form first, matey.")
+                return
+            ok, err = self._apply_wild_shape(int(cid), beast_id)
+            if not ok:
+                self._lan.toast(ws_id, err or "Could not Wild Shape, matey.")
+                return
+            self._lan.toast(ws_id, "Wild Shape activated.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "wild_shape_revert":
+            ok, err = self._revert_wild_shape(int(cid))
+            if not ok:
+                self._lan.toast(ws_id, err or "Could not revert Wild Shape, matey.")
+                return
+            self._lan.toast(ws_id, "Reverted Wild Shape.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "wild_shape_regain_use":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            if bool(getattr(c, "wild_resurgence_turn_used", False)):
+                self._lan.toast(ws_id, "Wild Resurgence already used this turn, matey.")
+                return
+            player_name = self._pc_name_for(int(cid))
+            ok_slot, err_slot, spent_level = self._consume_spell_slot_for_wild_shape_regain(player_name)
+            if not ok_slot:
+                self._lan.toast(ws_id, err_slot)
+                return
+            self._load_player_yaml_cache()
+            profile = self._player_yaml_data_by_name.get(player_name) if isinstance(getattr(self, "_player_yaml_data_by_name", None), dict) else None
+            pools = self._normalize_player_resource_pools(profile if isinstance(profile, dict) else {})
+            wild = next((p for p in pools if str(p.get("id") or "").lower() == "wild_shape"), None)
+            if not isinstance(wild, dict):
+                self._lan.toast(ws_id, "No Wild Shape pool found, matey.")
+                return
+            ok_pool, pool_err, _ = self._set_wild_shape_pool_current(player_name, int(wild.get("current", 0) or 0) + 1)
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err)
+                return
+            setattr(c, "wild_resurgence_turn_used", True)
+            self._lan.toast(ws_id, f"Recovered one Wild Shape use (spent level {int(spent_level or 1)} slot).")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "wild_shape_regain_spell":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            if bool(getattr(c, "wild_resurgence_slot_used", False)):
+                self._lan.toast(ws_id, "Wild Shape spell-slot exchange already used this long rest, matey.")
+                return
+            player_name = self._pc_name_for(int(cid))
+            self._load_player_yaml_cache()
+            profile = self._player_yaml_data_by_name.get(player_name) if isinstance(getattr(self, "_player_yaml_data_by_name", None), dict) else None
+            pools = self._normalize_player_resource_pools(profile if isinstance(profile, dict) else {})
+            wild = next((p for p in pools if str(p.get("id") or "").lower() == "wild_shape"), None)
+            if not isinstance(wild, dict) or int(wild.get("current", 0) or 0) <= 0:
+                self._lan.toast(ws_id, "No Wild Shape uses to spend, matey.")
+                return
+            ok_spell, err_spell = self._regain_first_level_spell_slot(player_name)
+            if not ok_spell:
+                self._lan.toast(ws_id, err_spell)
+                return
+            ok_pool, pool_err, _ = self._set_wild_shape_pool_current(player_name, int(wild.get("current", 0) or 0) - 1)
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err)
+                return
+            setattr(c, "wild_resurgence_slot_used", True)
+            self._lan.toast(ws_id, "Recovered one level 1 spell slot.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "wild_shape_set_known":
+            player_name = self._pc_name_for(int(cid))
+            self._load_player_yaml_cache()
+            profile = self._player_yaml_data_by_name.get(player_name) if isinstance(getattr(self, "_player_yaml_data_by_name", None), dict) else None
+            if not isinstance(profile, dict):
+                self._lan.toast(ws_id, "No player profile found, matey.")
+                return
+            druid_level = self._druid_level_from_profile(profile)
+            if druid_level < 2:
+                self._lan.toast(ws_id, "Only druids can manage Wild Shapes, matey.")
+                return
+            known_limit = self._wild_shape_known_limit(druid_level)
+            requested = msg.get("known")
+            if not isinstance(requested, list):
+                requested = []
+            allowed_ids = {
+                str(entry.get("id") or "").strip().lower()
+                for entry in self._wild_shape_available_forms(profile, known_only=False, include_locked=False)
+                if isinstance(entry, dict)
+            }
+            deduped: List[str] = []
+            for raw in requested:
+                beast_id = str(raw or "").strip().lower()
+                if not beast_id or beast_id in deduped:
+                    continue
+                if beast_id not in allowed_ids:
+                    continue
+                deduped.append(beast_id)
+                if len(deduped) >= known_limit:
+                    break
+            known_map = self.__dict__.get("_wild_shape_known_by_player")
+            if not isinstance(known_map, dict):
+                known_map = {}
+                self._wild_shape_known_by_player = known_map
+            known_map[player_name.strip().lower()] = deduped
+            self._lan.toast(ws_id, "Wild Shape forms updated.")
+            self._rebuild_table(scroll_to_current=True)
         elif typ == "use_action":
             c = self.combatants.get(cid)
             if not c:
@@ -10584,6 +11104,8 @@ class InitiativeTracker(base.InitiativeTracker):
         elif typ == "end_turn":
             # Let player end their own turn.
             try:
+                for combatant in self.combatants.values():
+                    setattr(combatant, "wild_resurgence_turn_used", False)
                 self._next_turn()
                 self._lan.toast(ws_id, "Turn ended.")
             except Exception as exc:
