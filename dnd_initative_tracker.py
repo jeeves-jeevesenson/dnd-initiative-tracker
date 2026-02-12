@@ -1357,6 +1357,31 @@ class LanController:
         self._fastapi_app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
         web_entrypoint = assets_dir / "web" / "new_character" / "index.html"
         edit_entrypoint = assets_dir / "web" / "edit_character" / "index.html"
+        required_config_ids = (
+            "draft-status",
+            "overwrite-button",
+            "refresh-cache-button",
+            "export-button",
+            "filename-input",
+            "character-form",
+        )
+
+        def load_config_editor_html() -> str:
+            if not edit_entrypoint.exists():
+                raise HTTPException(status_code=404, detail="Edit character page missing.")
+            html = edit_entrypoint.read_text(encoding="utf-8")
+            missing = [element_id for element_id in required_config_ids if f'id="{element_id}"' not in html]
+            if '/assets/web/edit_character/app.js' not in html:
+                missing.append("script:/assets/web/edit_character/app.js")
+            if missing:
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "Config editor HTML shell is invalid. Missing required "
+                        f"selectors/assets: {', '.join(missing)}"
+                    ),
+                )
+            return html
         for asset_name in ("alert.wav", "ko.wav"):
             if not (assets_dir / asset_name).exists():
                 self.app._oplog(
@@ -1395,9 +1420,7 @@ class LanController:
 
         @self._fastapi_app.get("/config")
         async def edit_character():
-            if not edit_entrypoint.exists():
-                raise HTTPException(status_code=404, detail="Edit character page missing.")
-            return HTMLResponse(edit_entrypoint.read_text(encoding="utf-8"))
+            return HTMLResponse(load_config_editor_html())
 
         @self._fastapi_app.get("/sw.js")
         async def service_worker():
