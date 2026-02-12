@@ -1451,96 +1451,6 @@
       color: var(--muted);
       line-height:1.4;
     }
-    .admin-header{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:8px;
-    }
-    .admin-status{
-      font-size:12px;
-      color: var(--muted);
-      margin-bottom:8px;
-    }
-    .admin-session-list{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      margin-top:6px;
-    }
-    .admin-session{
-      border:1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 10px;
-      background: rgba(10,14,22,0.55);
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-    .admin-session-top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-    .admin-session-ip{
-      font-weight:700;
-      font-size:13px;
-    }
-    .admin-session-meta{
-      font-size:12px;
-      color: var(--muted);
-    }
-    .admin-session-status{
-      font-size:11px;
-      padding:4px 8px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,0.16);
-    }
-    .admin-session-status.connected{
-      border-color: rgba(106,169,255,0.55);
-      color: var(--accent);
-    }
-    .admin-session-status.offline{
-      border-color: rgba(255,255,255,0.2);
-      color: var(--muted);
-    }
-    .admin-session-assign{
-      display:flex;
-      gap:8px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-    .admin-session-assign select{
-      flex:1 1 200px;
-      border:1px solid rgba(255,255,255,0.14);
-      background: rgba(255,255,255,0.06);
-      color: var(--text);
-      border-radius: 8px;
-      padding: 6px 8px;
-      font-size: 12px;
-    }
-    .admin-login-fields{
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      margin-top: 10px;
-    }
-    .admin-login-fields label{
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .admin-login-input{
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: #0f1422;
-      color: var(--text);
-      font-size: 14px;
-    }
     .config-section{margin-top:8px;}
     .config-section summary{
       cursor:pointer;
@@ -2162,41 +2072,7 @@
         </div>
       </div>
     </div>
-    <div class="modal" id="adminModal" aria-hidden="true">
-      <div class="card card-scroll">
-        <div class="admin-header">
-          <h2>Admin Sessions</h2>
-          <button class="btn" id="adminRefresh" type="button">Refresh</button>
-        </div>
-        <div class="admin-status" id="adminStatus">Loading…</div>
-        <div class="form-grid" id="adminPreSummonControls">
-          <div class="form-field"><label for="preSummonTarget">Target</label><select id="preSummonTarget"></select></div>
-          <div class="form-field"><label for="preSummonSpell">Spell</label><select id="preSummonSpell"></select></div>
-          <div class="form-field"><label for="preSummonMonster">Monster</label><select id="preSummonMonster"></select></div>
-          <div class="form-field"><label for="preSummonVariant">Variant</label><input id="preSummonVariant" type="text" placeholder="Celestial" /></div>
-          <div class="form-field"><label for="preSummonSlotLevel">Slot Level</label><input id="preSummonSlotLevel" type="number" min="1" max="9" value="2" /></div>
-          <div class="form-field"><label>&nbsp;</label><button class="btn" id="assignPreSummon" type="button">Assign Pre-Summon</button></div>
-        </div>
-        <div class="admin-session-list" id="adminSessionList"></div>
-        <div class="modal-actions">
-          <button class="btn" id="adminClose">Close</button>
-        </div>
-      </div>
-    </div>
-    <div class="modal" id="adminLoginModal" aria-hidden="true">
-      <div class="card">
-        <h2>Admin Login</h2>
-        <div class="hint">Enter the DM password to manage LAN sessions.</div>
-        <div class="admin-login-fields">
-          <label for="adminPasswordInput">Admin password</label>
-          <input class="admin-login-input" id="adminPasswordInput" type="password" autocomplete="current-password" />
-        </div>
-        <div class="admin-status" id="adminLoginStatus"></div>
-        <div class="modal-actions">
-          <button class="btn" id="adminLoginSubmit" type="button">Login</button>
-          <button class="btn" id="adminLoginCancel" type="button">Cancel</button>
-        </div>
-      </div>
+  </div>
     </div>
   </div>
 
@@ -2488,21 +2364,6 @@ __DAMAGE_TYPE_OPTIONS__
             <button class="btn accent" id="castSubmit" type="submit">Cast</button>
           </div>
         </form>
-      </div>
-    </div>
-    <div class="modal" id="rosterPickerModal" aria-hidden="true">
-      <div class="panel">
-        <h3 style="margin-top:0;">Add Players to Encounter</h3>
-        <div class="hint">Select player characters from the current YAML roster.</div>
-        <div class="modal-body">
-          <div id="rosterPickerStatus" class="hint">Loading roster…</div>
-          <div id="rosterPickerList" class="roster-picker-list"></div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn" id="rosterPickerRefresh" type="button">Refresh</button>
-          <button class="btn" id="rosterPickerAdd" type="button">Add Selected</button>
-          <button class="btn" id="rosterPickerClose" type="button">Close</button>
-        </div>
       </div>
     </div>
 
@@ -3043,35 +2904,8 @@ __DAMAGE_TYPE_OPTIONS__
   const dashBtn = document.getElementById("dash");
   const configBtn = document.getElementById("configBtn");
   const initiativeToggleBtn = document.getElementById("initiativeToggleBtn");
-  const adminMenuBtn = document.getElementById("adminMenuBtn");
-  const adminMenuPopover = document.getElementById("adminMenuPopover");
-  const adminMenuOpenBtn = document.getElementById("adminMenuOpen");
-  const adminMenuRefreshBtn = document.getElementById("adminMenuRefresh");
-  const adminMenuResetPcsBtn = document.getElementById("adminMenuResetPcs");
   const configModal = document.getElementById("configModal");
   const configCloseBtn = document.getElementById("configClose");
-  const adminModal = document.getElementById("adminModal");
-  const adminLoginModal = document.getElementById("adminLoginModal");
-  const adminPasswordInput = document.getElementById("adminPasswordInput");
-  const adminLoginStatus = document.getElementById("adminLoginStatus");
-  const adminLoginSubmit = document.getElementById("adminLoginSubmit");
-  const adminLoginCancel = document.getElementById("adminLoginCancel");
-  const adminSessionList = document.getElementById("adminSessionList");
-  const adminStatus = document.getElementById("adminStatus");
-  const adminRefreshBtn = document.getElementById("adminRefresh");
-  const adminCloseBtn = document.getElementById("adminClose");
-  const rosterPickerModal = document.getElementById("rosterPickerModal");
-  const rosterPickerList = document.getElementById("rosterPickerList");
-  const rosterPickerStatus = document.getElementById("rosterPickerStatus");
-  const rosterPickerRefreshBtn = document.getElementById("rosterPickerRefresh");
-  const rosterPickerAddBtn = document.getElementById("rosterPickerAdd");
-  const rosterPickerCloseBtn = document.getElementById("rosterPickerClose");
-  const preSummonTargetInput = document.getElementById("preSummonTarget");
-  const preSummonSpellInput = document.getElementById("preSummonSpell");
-  const preSummonMonsterInput = document.getElementById("preSummonMonster");
-  const preSummonVariantInput = document.getElementById("preSummonVariant");
-  const preSummonSlotLevelInput = document.getElementById("preSummonSlotLevel");
-  const assignPreSummonBtn = document.getElementById("assignPreSummon");
   const toggleTopbarTitle = document.getElementById("toggleTopbarTitle");
   const toggleConnIndicator = document.getElementById("toggleConnIndicator");
   const toggleLockMap = document.getElementById("toggleLockMap");
@@ -3316,7 +3150,6 @@ __DAMAGE_TYPE_OPTIONS__
   let reconnectTimer = null;
   let reconnecting = false;
   let claimedCid = null;
-  let rosterShownOnStart = false;
   claimedCid = normalizeCid(claimedCid, "init.claimedCid");
   let shownNoOwnedToast = false;
   let pendingClaim = null;
@@ -3346,11 +3179,6 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingMountRequestId = null;
   let pendingMountPair = null;
   let hoveredTurnCid = null;
-  let adminSessions = [];
-  const adminTokenKey = "inittracker_admin_auth";
-  let adminAuthPromise = null;
-  let adminAuthResolve = null;
-  let adminAuthReject = null;
   const claimDebugLoggingEnabled = window.location.hostname === "localhost"
     || window.location.hostname === "127.0.0.1";
 
@@ -4533,348 +4361,6 @@ __DAMAGE_TYPE_OPTIONS__
     configModal.setAttribute("aria-hidden", "true");
     if (configBtn){
       configBtn.setAttribute("aria-expanded", "false");
-    }
-  }
-
-  function setAdminMenu(open){
-    if (!adminMenuPopover || !adminMenuBtn) return;
-    adminMenuPopover.classList.toggle("show", open);
-    adminMenuPopover.setAttribute("aria-hidden", open ? "false" : "true");
-    adminMenuBtn.setAttribute("aria-expanded", open ? "true" : "false");
-  }
-
-  function closeAdminMenu(){
-    setAdminMenu(false);
-  }
-
-  function showAdminModal(){
-    if (!adminModal) return;
-    adminModal.classList.add("show");
-    adminModal.setAttribute("aria-hidden", "false");
-  }
-
-  function hideAdminModal(){
-    if (!adminModal) return;
-    adminModal.classList.remove("show");
-    adminModal.setAttribute("aria-hidden", "true");
-  }
-
-  function showAdminLoginModal(){
-    if (!adminLoginModal) return;
-    adminLoginModal.classList.add("show");
-    adminLoginModal.setAttribute("aria-hidden", "false");
-    if (adminPasswordInput){
-      adminPasswordInput.value = "";
-      setTimeout(() => adminPasswordInput.focus(), 50);
-    }
-  }
-
-  function hideAdminLoginModal(){
-    if (!adminLoginModal) return;
-    adminLoginModal.classList.remove("show");
-    adminLoginModal.setAttribute("aria-hidden", "true");
-    setAdminLoginStatus("");
-  }
-
-  function setAdminStatus(text){
-    if (!adminStatus) return;
-    adminStatus.textContent = text || "";
-  }
-
-  function setAdminLoginStatus(text){
-    if (!adminLoginStatus) return;
-    adminLoginStatus.textContent = text || "";
-  }
-
-  function getAdminAuth(){
-    try {
-      const raw = sessionStorage.getItem(adminTokenKey);
-      if (!raw) return null;
-      const data = JSON.parse(raw);
-      if (!data || typeof data !== "object") return null;
-      if (!data.token) return null;
-      if (data.expiresAt && Date.now() > Number(data.expiresAt)){
-        sessionStorage.removeItem(adminTokenKey);
-        return null;
-      }
-      return data.token;
-    } catch (err){
-      sessionStorage.removeItem(adminTokenKey);
-      return null;
-    }
-  }
-
-  function setAdminAuth(token, expiresIn){
-    if (!token) return;
-    const expiresMs = Math.max(1, Number(expiresIn || 0)) * 1000;
-    const payload = {token, expiresAt: Date.now() + expiresMs};
-    sessionStorage.setItem(adminTokenKey, JSON.stringify(payload));
-  }
-
-  function clearAdminAuth(){
-    sessionStorage.removeItem(adminTokenKey);
-  }
-
-  function requestAdminLogin(){
-    if (getAdminAuth()){
-      return Promise.resolve(getAdminAuth());
-    }
-    if (adminAuthPromise){
-      return adminAuthPromise;
-    }
-    adminAuthPromise = new Promise((resolve, reject) => {
-      adminAuthResolve = resolve;
-      adminAuthReject = reject;
-      showAdminLoginModal();
-    });
-    return adminAuthPromise;
-  }
-
-  function finalizeAdminLogin(success, token){
-    if (!adminAuthPromise) return;
-    const resolve = adminAuthResolve;
-    const reject = adminAuthReject;
-    adminAuthPromise = null;
-    adminAuthResolve = null;
-    adminAuthReject = null;
-    if (success && resolve){
-      resolve(token);
-    } else if (!success && reject){
-      reject(new Error("Admin login canceled."));
-    }
-  }
-
-  async function adminFetch(url, options = {}){
-    const token = await requestAdminLogin();
-    const headers = new Headers(options.headers || {});
-    if (token){
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-    const res = await fetch(url, {...options, headers});
-    if ((res.status === 401 || res.status === 403) && !options._retry){
-      clearAdminAuth();
-      try {
-        await requestAdminLogin();
-      } catch (err){
-        return res;
-      }
-      return adminFetch(url, {...options, _retry: true});
-    }
-    return res;
-  }
-
-  async function sendAdminAction(type){
-    closeAdminMenu();
-    try {
-      const token = await requestAdminLogin();
-      send({type, admin_token: token});
-      localToast("Player characters reset.");
-    } catch (err){
-      console.warn("Admin action canceled.", err);
-      localToast("Admin action canceled.");
-    }
-  }
-
-  async function submitAdminLogin(){
-    const password = adminPasswordInput ? adminPasswordInput.value : "";
-    if (!password){
-      setAdminLoginStatus("Enter a password to continue.");
-      return;
-    }
-    try {
-      setAdminLoginStatus("Signing in…");
-      const res = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({password}),
-      });
-      if (!res.ok){
-        if (res.status === 403){
-          setAdminLoginStatus("Admin password is not configured.");
-        } else {
-          setAdminLoginStatus("Invalid password. Try again.");
-        }
-        return;
-      }
-      const payload = await res.json();
-      if (!payload || !payload.token){
-        setAdminLoginStatus("Login failed.");
-        return;
-      }
-      setAdminAuth(payload.token, payload.expires_in);
-      hideAdminLoginModal();
-      finalizeAdminLogin(true, payload.token);
-    } catch (err){
-      console.warn("Admin login failed.", err);
-      setAdminLoginStatus("Login failed. Try again.");
-    }
-  }
-
-  function renderAdminSessions(){
-    if (!adminSessionList) return;
-    adminSessionList.innerHTML = "";
-    if (!adminSessions.length){
-      const empty = document.createElement("div");
-      empty.className = "hint";
-      empty.textContent = "No sessions found yet.";
-      adminSessionList.appendChild(empty);
-      return;
-    }
-    adminSessions.forEach((session) => {
-      const row = document.createElement("div");
-      row.className = "admin-session";
-      const top = document.createElement("div");
-      top.className = "admin-session-top";
-      const ipWrap = document.createElement("div");
-      const ipText = document.createElement("div");
-      ipText.className = "admin-session-ip";
-      ipText.textContent = session.ip || session.host || "(unknown)";
-      const metaText = document.createElement("div");
-      metaText.className = "admin-session-meta";
-      const reverseDns = session.reverse_dns ? `rDNS: ${session.reverse_dns}` : "rDNS: —";
-      const lastSeen = session.last_seen ? `Last seen: ${session.last_seen}` : "";
-      metaText.textContent = [reverseDns, lastSeen].filter(Boolean).join(" · ");
-      ipWrap.appendChild(ipText);
-      ipWrap.appendChild(metaText);
-      const status = document.createElement("span");
-      status.className = "admin-session-status";
-      const statusValue = String(session.status || "offline").toLowerCase();
-      status.classList.add(statusValue === "connected" ? "connected" : "offline");
-      status.textContent = statusValue === "connected" ? "Connected" : "Offline";
-      top.appendChild(ipWrap);
-      top.appendChild(status);
-
-      const claimedRow = document.createElement("div");
-      claimedRow.className = "admin-session-assign";
-      const claimedText = document.createElement("div");
-      claimedText.className = "admin-session-meta";
-      const claimedLabel = session.claimed_name
-        || (session.cid !== null && session.cid !== undefined ? `cid ${session.cid}` : "Unclaimed");
-      claimedText.textContent = `Claimed: ${claimedLabel}`;
-      claimedRow.appendChild(claimedText);
-
-      row.appendChild(top);
-      row.appendChild(claimedRow);
-      adminSessionList.appendChild(row);
-    });
-  }
-
-  async function fetchAdminSessions({silent} = {}){
-    try {
-      if (!silent) setAdminStatus("Loading sessions…");
-      const res = await adminFetch("/api/admin/sessions");
-      if (!res.ok){
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const payload = await res.json();
-      adminSessions = Array.isArray(payload.sessions) ? payload.sessions : [];
-      setAdminStatus(`Loaded ${adminSessions.length} session${adminSessions.length === 1 ? "" : "s"}.`);
-      renderAdminSessions();
-      refreshPreSummonControls();
-    } catch (err){
-      console.warn("Failed to load admin sessions.", err);
-      setAdminStatus("Failed to load sessions.");
-    }
-  }
-
-  function refreshPreSummonControls(){
-    if (!preSummonTargetInput || !preSummonSpellInput || !preSummonMonsterInput) return;
-    const units = Array.isArray(state?.units) ? state.units : [];
-    const pcs = units.filter((u) => String(u?.role || "") !== "enemy");
-    preSummonTargetInput.textContent = "";
-    pcs.forEach((u) => {
-      const opt = document.createElement("option");
-      opt.value = String(u.cid);
-      opt.textContent = `${u.name || `#${u.cid}`}`;
-      preSummonTargetInput.appendChild(opt);
-    });
-
-    preSummonSpellInput.textContent = "";
-    (cachedSpellPresets || []).filter((preset) => preset?.summon?.mount).forEach((preset) => {
-      const opt = document.createElement("option");
-      opt.value = normalizeTextValue(preset.slug || preset.id || "");
-      opt.textContent = preset.name || opt.value;
-      preSummonSpellInput.appendChild(opt);
-    });
-
-    preSummonMonsterInput.textContent = "";
-    const monsters = Array.isArray(state?.monster_choices) ? state.monster_choices : [];
-    monsters.forEach((entry) => {
-      const opt = document.createElement("option");
-      opt.value = normalizeTextValue(entry?.slug || "");
-      opt.textContent = entry?.name || opt.value;
-      preSummonMonsterInput.appendChild(opt);
-    });
-  }
-
-  function showRosterPickerModal(){
-    if (!rosterPickerModal) return;
-    rosterPickerModal.classList.add("show");
-    rosterPickerModal.setAttribute("aria-hidden", "false");
-  }
-
-  function hideRosterPickerModal(){
-    if (!rosterPickerModal) return;
-    rosterPickerModal.classList.remove("show");
-    rosterPickerModal.setAttribute("aria-hidden", "true");
-  }
-
-  function renderRosterPicker(players){
-    if (!rosterPickerList) return;
-    rosterPickerList.textContent = "";
-    const pool = Array.isArray(players) ? players : [];
-    const unassigned = pool.filter((p) => !p?.assigned);
-    if (!unassigned.length){
-      const empty = document.createElement("div");
-      empty.className = "hint";
-      empty.textContent = "All players are already in this encounter.";
-      rosterPickerList.appendChild(empty);
-      return;
-    }
-    unassigned.forEach((player) => {
-      const row = document.createElement("label");
-      row.className = "roster-picker-item";
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.value = String(player.name || "");
-      const name = document.createElement("span");
-      name.textContent = String(player.name || "Unnamed");
-      row.appendChild(cb);
-      row.appendChild(name);
-      rosterPickerList.appendChild(row);
-    });
-  }
-
-  async function fetchRosterPickerPlayers(options = {}){
-    const forceRefresh = Boolean(options && options.forceRefresh);
-    if (rosterPickerStatus) rosterPickerStatus.textContent = forceRefresh ? "Refreshing roster…" : "Loading roster…";
-    if (forceRefresh){
-      await fetch("/api/players/cache/refresh", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({clear_only: false}),
-      });
-    }
-    const res = await fetch("/api/players/list");
-    if (!res.ok){
-      throw new Error(`HTTP ${res.status}`);
-    }
-    const payload = await res.json();
-    const players = Array.isArray(payload?.players) ? payload.players : [];
-    renderRosterPicker(players);
-    if (rosterPickerStatus) rosterPickerStatus.textContent = `Roster loaded (${players.length}).`;
-    return players;
-  }
-
-  async function openRosterPickerIfNeeded(force = false){
-    const units = Array.isArray(state?.units) ? state.units : [];
-    if (!force && units.length) return;
-    showRosterPickerModal();
-    try {
-      await fetchRosterPickerPlayers({forceRefresh: false});
-    } catch (err){
-      console.warn("Failed to load roster picker", err);
-      if (rosterPickerStatus) rosterPickerStatus.textContent = "Failed to load roster.";
     }
   }
 
@@ -6117,7 +5603,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function isAdminClient(){
-    return !!getAdminAuth();
+    return false;
   }
 
   function canInteractWithAoe(aoe){
@@ -7691,14 +7177,7 @@ __DAMAGE_TYPE_OPTIONS__
           if (Array.isArray(msg.data.monster_choices)){
             state.monster_choices = msg.data.monster_choices;
           }
-          requestAnimationFrame(() => {
-            refreshPreSummonControls();
-          });
-        }
-        if (!isMapView && !rosterShownOnStart){
-          openRosterPickerIfNeeded(true);
-          rosterShownOnStart = true;
-        }
+          }
         updateClaimOverlay();
       } else if (msg.type === "preset"){
         if (msg.preset && typeof msg.preset === "object"){
@@ -7753,7 +7232,6 @@ __DAMAGE_TYPE_OPTIONS__
         }
         requestAnimationFrame(() => {
           updateSpellPresetOptions(state.spell_presets);
-          refreshPreSummonControls();
         });
         if (Object.prototype.hasOwnProperty.call(msg || {}, "pcs") || Object.prototype.hasOwnProperty.call(msg || {}, "claimable")){
           lastPcList = msg.pcs || msg.claimable || [];
@@ -7804,10 +7282,6 @@ __DAMAGE_TYPE_OPTIONS__
           planningSnapshotLocked = true;
         }
         handleAutoClaimStateUpdate();
-        if (!isMapView && !rosterShownOnStart){
-          openRosterPickerIfNeeded(true);
-          rosterShownOnStart = true;
-        }
       } else if (msg.type === "turn_update"){
         if (!state){ state = {}; }
         if ("active_cid" in msg){
@@ -11164,159 +10638,6 @@ __DAMAGE_TYPE_OPTIONS__
       persistMapViewSettings();
     });
   });
-  if (adminMenuBtn && adminMenuPopover){
-    adminMenuBtn.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const isOpen = adminMenuPopover.classList.contains("show");
-      setAdminMenu(!isOpen);
-    });
-  }
-  if (adminMenuOpenBtn){
-    adminMenuOpenBtn.addEventListener("click", async () => {
-      closeAdminMenu();
-      try {
-        await requestAdminLogin();
-      } catch (err){
-        return;
-      }
-      showAdminModal();
-      fetchAdminSessions();
-    });
-  }
-  if (adminMenuRefreshBtn){
-    adminMenuRefreshBtn.addEventListener("click", async () => {
-      closeAdminMenu();
-      try {
-        await requestAdminLogin();
-      } catch (err){
-        return;
-      }
-      fetchAdminSessions();
-    });
-  }
-  if (adminMenuResetPcsBtn){
-    adminMenuResetPcsBtn.addEventListener("click", async () => {
-      await sendAdminAction("reset_player_characters");
-    });
-  }
-  if (adminRefreshBtn){
-    adminRefreshBtn.addEventListener("click", () => {
-      fetchAdminSessions();
-    });
-  }
-  if (assignPreSummonBtn){
-    assignPreSummonBtn.addEventListener("click", async () => {
-      try {
-        const token = await requestAdminLogin();
-        const targetCid = Number(preSummonTargetInput?.value);
-        const spellSlug = normalizeTextValue(preSummonSpellInput?.value || "");
-        const monsterSlug = normalizeTextValue(preSummonMonsterInput?.value || "");
-        const variant = normalizeTextValue(preSummonVariantInput?.value || "");
-        const slotLevel = Number(preSummonSlotLevelInput?.value);
-        if (!Number.isFinite(targetCid) || !spellSlug || !monsterSlug){
-          localToast("Pick target, spell, and monster first.");
-          return;
-        }
-        send({
-          type: "assign_pre_summon",
-          admin_token: token,
-          target_cid: targetCid,
-          spell_slug: spellSlug,
-          monster_slug: monsterSlug,
-          slot_level: Number.isFinite(slotLevel) ? Math.floor(slotLevel) : null,
-          variant: variant || null,
-        });
-        localToast("Pre-summon assigned.");
-      } catch (err){
-        console.warn("Assign pre-summon canceled.", err);
-      }
-    });
-  }
-  if (adminCloseBtn){
-    adminCloseBtn.addEventListener("click", () => {
-      hideAdminModal();
-    });
-  }
-
-  if (rosterPickerRefreshBtn){
-    rosterPickerRefreshBtn.addEventListener("click", () => {
-      fetchRosterPickerPlayers({forceRefresh: true}).catch(() => {});
-    });
-  }
-  if (rosterPickerCloseBtn){
-    rosterPickerCloseBtn.addEventListener("click", () => {
-      hideRosterPickerModal();
-    });
-  }
-  if (rosterPickerAddBtn){
-    rosterPickerAddBtn.addEventListener("click", async () => {
-      const selected = Array.from((rosterPickerList || document.createElement("div")).querySelectorAll('input[type="checkbox"]:checked')).map((el) => el.value).filter(Boolean);
-      if (!selected.length){
-        localToast("Select at least one player.");
-        return;
-      }
-      try {
-        const token = await requestAdminLogin();
-        const res = await fetch("/api/encounter/players/add", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({names: selected})
-        });
-        if (!res.ok){
-          throw new Error(`HTTP ${res.status}`);
-        }
-        hideRosterPickerModal();
-        localToast("Players added.");
-      } catch (err){
-        console.warn("Failed to add roster players", err);
-        localToast("Failed to add players.");
-      }
-    });
-  }
-  if (rosterPickerModal){
-    rosterPickerModal.addEventListener("click", (event) => {
-      if (event.target === rosterPickerModal){
-        hideRosterPickerModal();
-      }
-    });
-  }
-  if (adminModal){
-    adminModal.addEventListener("click", (event) => {
-      if (event.target === adminModal){
-        hideAdminModal();
-      }
-    });
-  }
-  if (adminLoginSubmit){
-    adminLoginSubmit.addEventListener("click", () => {
-      submitAdminLogin();
-    });
-  }
-  if (adminLoginCancel){
-    adminLoginCancel.addEventListener("click", () => {
-      hideAdminLoginModal();
-      finalizeAdminLogin(false);
-    });
-  }
-  if (adminLoginModal){
-    adminLoginModal.addEventListener("click", (event) => {
-      if (event.target === adminLoginModal){
-        hideAdminLoginModal();
-        finalizeAdminLogin(false);
-      }
-    });
-  }
-  if (adminPasswordInput){
-    adminPasswordInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter"){
-        event.preventDefault();
-        submitAdminLogin();
-      }
-    });
-  }
   if (presetSaveBtn){
     presetSaveBtn.addEventListener("click", () => {
       const preset = buildGuiPreset();
@@ -11586,11 +10907,6 @@ __DAMAGE_TYPE_OPTIONS__
     if (connPopoverEl.contains(event.target) || connEl.contains(event.target)) return;
     closeConnPopover();
   });
-  document.addEventListener("click", (event) => {
-    if (!adminMenuPopover || !adminMenuBtn) return;
-    if (adminMenuPopover.contains(event.target) || adminMenuBtn.contains(event.target)) return;
-    closeAdminMenu();
-  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape"){
       if (!monsterDetailOverlay?.classList.contains("hidden")){
@@ -11618,8 +10934,6 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       closeConnPopover();
-      closeAdminMenu();
-      hideAdminModal();
     }
   });
   document.addEventListener("keydown", (event) => {
