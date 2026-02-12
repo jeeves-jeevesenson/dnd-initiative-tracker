@@ -5282,6 +5282,7 @@ __DAMAGE_TYPE_OPTIONS__
         const mountUnit = mountCid !== null ? getUnitByCid(mountCid) : null;
         if (mountUnit) {
           updates.push({cid: mountUnit.cid, pos: {...update.pos}});
+          // Movement costs remain on the rider; the mount just mirrors position.
         }
       }
       if (gridReady()){
@@ -7812,7 +7813,10 @@ __DAMAGE_TYPE_OPTIONS__
       // When mounted, dragging either the rider or mount should move the mount token.
       const shouldDragMount = mountMoveCid !== null && (canDragMount || hitIsClaimed);
       const dragCid = shouldDragMount ? mountMoveCid : hit.cid;
-      dragging = {cid: dragCid, startX: p.x, startY: p.y, origCol: hit.pos.col, origRow: hit.pos.row};
+      const dragUnit = shouldDragMount ? getUnitByCid(mountMoveCid) : hit;
+      const dragCol = Number(dragUnit?.pos?.col ?? hit.pos.col);
+      const dragRow = Number(dragUnit?.pos?.row ?? hit.pos.row);
+      dragging = {cid: dragCid, startX: p.x, startY: p.y, origCol: dragCol, origRow: dragRow};
       return;
     }
     if ((isAoeDragMouse || isTouchPointer) && allowAoeDrag(ev)){

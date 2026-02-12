@@ -6499,10 +6499,10 @@ class BattleMapWindow(tk.Toplevel):
         if partner_cid is None:
             return
         try:
-            partner = int(partner_cid)
+            partner_id = int(partner_cid)
         except (TypeError, ValueError):
             return
-        tok = self.unit_tokens.get(partner)
+        tok = self.unit_tokens.get(partner_id)
         if not tok:
             return
         tok["col"] = col
