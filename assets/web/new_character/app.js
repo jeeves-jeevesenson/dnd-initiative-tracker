@@ -220,6 +220,47 @@ const HIT_DICE_BY_CLASS = new Map([
   ["wizard", "d6"],
 ]);
 const HIT_DICE_ORDER = ["d12", "d10", "d8", "d6"];
+const CLASS_OPTIONS = [
+  "Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard",
+];
+const SAVE_PROFICIENCIES = new Map([
+  ["barbarian", ["str", "con"]],
+  ["bard", ["dex", "cha"]],
+  ["cleric", ["wis", "cha"]],
+  ["druid", ["int", "wis"]],
+  ["fighter", ["str", "con"]],
+  ["monk", ["str", "dex"]],
+  ["paladin", ["wis", "cha"]],
+  ["ranger", ["str", "dex"]],
+  ["rogue", ["dex", "int"]],
+  ["sorcerer", ["con", "cha"]],
+  ["warlock", ["wis", "cha"]],
+  ["wizard", ["int", "wis"]],
+]);
+
+const ABILITY_KEYS = ["str", "dex", "con", "int", "wis", "cha"];
+const ABILITY_LABELS = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
+const SKILL_TO_ABILITY = {
+  acrobatics: "dex", animal_handling: "wis", arcana: "int", athletics: "str", deception: "cha",
+  history: "int", insight: "wis", intimidation: "cha", investigation: "int", medicine: "wis",
+  nature: "int", perception: "wis", performance: "cha", persuasion: "cha", religion: "int",
+  sleight_of_hand: "dex", stealth: "dex", survival: "wis",
+};
+const TOOL_OPTIONS = [
+  "ALL simple weapons", "ALL martial weapons", "ALL light armor", "ALL medium armor", "ALL heavy armor", "Shield",
+  "Alchemist’s Supplies", "Brewer’s Supplies", "Calligrapher’s Supplies", "Carpenter’s Tools", "Cartographer’s Tools",
+  "Cobbler’s Tools", "Cook’s Utensils", "Glassblower’s Tools", "Jeweler’s Tools", "Leatherworker’s Tools", "Mason’s Tools",
+  "Painter’s Supplies", "Potter’s Tools", "Smith’s Tools", "Tinker’s Tools", "Weaver’s Tools", "Woodcarver’s Tools",
+  "Disguise Kit", "Forgery Kit", "Herbalism Kit", "Navigator’s Tools", "Poisoner’s Kit", "Thieves’ Tools",
+  "Dice (Gaming set)", "Dragonchess", "Playing Cards", "Three-dragon Ante", "Bagpipes", "Drum", "Dulcimer", "Flute",
+  "Horn", "Lute", "Lyre", "Pan Flute", "Shawm", "Viol"
+];
+const DAMAGE_TYPES = [
+  "slashing", "slashing_non_magical", "piercing", "piercing_non_magical", "bludgeoning", "bludgeoning_non_magical",
+  "acid", "cold", "fire", "force", "lightning", "necrotic", "poison", "psychic", "radiant", "thunder"
+];
+const INITIATIVE_TOKENS = ["dex_mod", "str_mod", "con_mod", "int_mod", "wis_mod", "cha_mod", "proficiency"];
+
 
 const derivedStats = (() => {
   const AUTO_FIELDS = new Set([
@@ -241,6 +282,7 @@ const derivedStats = (() => {
   const overrides = new Set();
   let boundForm = null;
   let boundData = null;
+  let lastAutoSaves = new Set();
 
   const pathKey = (path) => (Array.isArray(path) ? path.join(".") : path);
   const splitPath = (path) => (Array.isArray(path) ? path : path.split(".").filter(Boolean));
@@ -309,13 +351,12 @@ const derivedStats = (() => {
       return;
     }
     const abilities = boundData?.abilities || {};
-    const proficiency = Number(boundData?.proficiency?.bonus ?? 0);
     const leveling = boundData?.leveling || {};
-    const totalLevel =
-      Number(leveling?.level ?? 0) ||
-      (Array.isArray(leveling?.classes)
-        ? leveling.classes.reduce((sum, entry) => sum + Number(entry?.level ?? 0), 0)
-        : 0);
+    const levelFromClasses = Array.isArray(leveling?.classes)
+      ? leveling.classes.reduce((sum, entry) => sum + Number(entry?.level ?? 0), 0)
+      : 0;
+    const totalLevel = Number(leveling?.level ?? 0) || levelFromClasses;
+    const proficiency = Math.min(6, 2 + Math.floor((Math.max(1, totalLevel) - 1) / 4));
     const hitDie = getHitDice(leveling?.classes);
 
     if (hitDie) {
@@ -324,12 +365,36 @@ const derivedStats = (() => {
     if (totalLevel) {
       applyAutoValue("vitals.hit_dice.total", totalLevel);
     }
+    applyAutoValue("proficiency.bonus", proficiency);
+    if (Array.isArray(leveling?.classes) && leveling.classes.length) {
+      let best = null;
+      leveling.classes.forEach((entry, idx) => {
+        const lvl = Number(entry?.level ?? 0);
+        if (!best || lvl > best.lvl) {
+          best = { idx, lvl, name: String(entry?.name || "").trim().toLowerCase() };
+        }
+      });
+      const autoSaves = new Set((SAVE_PROFICIENCIES.get(best?.name) || []).map((s) => s.toLowerCase()));
+      const currentSaves = new Set((Array.isArray(boundData?.proficiency?.saves) ? boundData.proficiency.saves : []).map((s) => String(s).toLowerCase()));
+      const manual = new Set(Array.from(currentSaves).filter((s) => !lastAutoSaves.has(s)));
+      const merged = Array.from(new Set([...manual, ...autoSaves])).map((s) => s.toUpperCase());
+      applyAutoValue("proficiency.saves", merged);
+      lastAutoSaves = autoSaves;
+    }
 
     const castingAbility = String(boundData?.spellcasting?.casting_ability || "").trim();
     if (castingAbility && Number.isFinite(proficiency)) {
       applyAutoValue("spellcasting.save_dc_formula", "8 + prof + casting_mod");
       applyAutoValue("spellcasting.spell_attack_formula", "prof + casting_mod");
     }
+
+    ABILITY_KEYS.forEach((ability) => {
+      const el = boundForm?.querySelector(`[data-mod-for="abilities.${ability}"]`);
+      if (el) {
+        const modValue = toModifier(abilities?.[ability] ?? 10);
+        el.textContent = modValue >= 0 ? `+${modValue}` : String(modValue);
+      }
+    });
 
     const strMod = toModifier(abilities?.str ?? 10);
     const dexMod = toModifier(abilities?.dex ?? 10);
@@ -378,7 +443,10 @@ const derivedStats = (() => {
 
 const slugify = (value, separator = "_") => {
   const text = String(value || "").trim().toLowerCase();
-  const normalized = text.replace(/[^\w\s-]/g, "").replace(/[\s-]+/g, separator);
+  const normalized = text
+    .replace(/['`]/g, separator)
+    .replace(/[^a-z0-9\s_-]/g, "")
+    .replace(/[\s-]+/g, separator);
   const trimmed = normalized.replace(new RegExp(`^${separator}+|${separator}+$`, "g"), "");
   return trimmed || "character";
 };
@@ -458,12 +526,71 @@ const createInput = (field, value, path, data) => {
   const inputType = Array.isArray(field.type) ? "string" : field.type;
   const useTextarea = field.key === "description" || field.key === "notes";
   if (inputType === "boolean") {
+    if (path.join(".") === "spellcasting.enabled") {
+      input = document.createElement("button");
+      input.type = "button";
+      input.dataset.path = path.join(".");
+      input.className = `spell-toggle ${Boolean(value) ? "on" : "off"}`;
+      input.textContent = Boolean(value) ? "Spellcasting Enabled" : "Spellcasting Disabled";
+      input.addEventListener("click", () => {
+        const next = !Boolean(getValueAtPath(data, path));
+        setValueAtPath(data, path, next);
+        input.className = `spell-toggle ${next ? "on" : "off"}`;
+        input.textContent = next ? "Spellcasting Enabled" : "Spellcasting Disabled";
+      });
+    } else {
+      input = document.createElement("input");
+      input.type = "checkbox";
+      input.dataset.path = path.join(".");
+      input.checked = Boolean(value);
+      input.addEventListener("change", () => {
+        setValueAtPath(data, path, input.checked);
+      });
+    }
+  } else if (path.join(".") === "proficiency.bonus") {
     input = document.createElement("input");
-    input.type = "checkbox";
+    input.type = "number";
     input.dataset.path = path.join(".");
-    input.checked = Boolean(value);
+    input.value = value ?? 2;
+    input.readOnly = true;
+  } else if (ABILITY_KEYS.includes(path[path.length - 1]) && path[0] === "abilities") {
+    const row = document.createElement("div");
+    row.className = "ability-row";
+    const mod = document.createElement("span");
+    mod.className = "ability-mod";
+    mod.dataset.modFor = path.join(".");
+    const m = Math.floor((Number(value ?? 10) - 10) / 2);
+    mod.textContent = m >= 0 ? `+${m}` : String(m);
+    input = document.createElement("input");
+    input.type = "number";
+    input.dataset.path = path.join(".");
+    input.value = value ?? 10;
+    input.addEventListener("input", () => {
+      const nextValue = input.value === "" ? 0 : Number(input.value);
+      setValueAtPath(data, path, Math.trunc(nextValue));
+      const mm = Math.floor((Math.trunc(nextValue) - 10) / 2);
+      mod.textContent = mm >= 0 ? `+${mm}` : String(mm);
+    });
+    row.append(mod, input);
+    wrapper.appendChild(row);
+    appendHelpText(wrapper, field);
+    return wrapper;
+  } else if (path.join(".") === "leveling.classes.name") {
+    input = document.createElement("select");
+    input.dataset.path = path.join(".");
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = "Select class";
+    input.appendChild(emptyOption);
+    CLASS_OPTIONS.forEach((name) => {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      option.selected = String(value || "") === name;
+      input.appendChild(option);
+    });
     input.addEventListener("change", () => {
-      setValueAtPath(data, path, input.checked);
+      setValueAtPath(data, path, input.value);
     });
   } else if (inputType === "integer" || inputType === "number") {
     input = document.createElement("input");
@@ -678,6 +805,321 @@ const renderMapField = (field, path, data) => {
   });
 
   renderItems();
+  return container;
+};
+
+
+const renderSavesMatrix = (path, data) => {
+  const container = document.createElement("div");
+  container.className = "field-group";
+  const title = document.createElement("h3");
+  title.textContent = "Saving Throws";
+  container.appendChild(title);
+  const current = new Set((getValueAtPath(data, path) || []).map((v) => String(v).toLowerCase()));
+  const expPath = ["proficiency", "save_expertise"];
+  const expCurrent = new Set((getValueAtPath(data, expPath) || []).map((v) => String(v).toLowerCase()));
+  ABILITY_KEYS.forEach((ability) => {
+    const row = document.createElement("div");
+    row.className = "save-row";
+    const label = document.createElement("span");
+    label.textContent = ABILITY_LABELS[ability];
+    const prof = document.createElement("input");
+    prof.type = "checkbox";
+    prof.checked = current.has(ability);
+    prof.addEventListener("change", () => {
+      const next = new Set((getValueAtPath(data, path) || []).map((v) => String(v).toLowerCase()));
+      if (prof.checked) next.add(ability); else next.delete(ability);
+      setValueAtPath(data, path, Array.from(next).map((v) => v.toUpperCase()));
+    });
+    const exp = document.createElement("input");
+    exp.type = "checkbox";
+    exp.checked = expCurrent.has(ability);
+    exp.addEventListener("change", () => {
+      const next = new Set((getValueAtPath(data, expPath) || []).map((v) => String(v).toLowerCase()));
+      if (exp.checked) next.add(ability); else next.delete(ability);
+      setValueAtPath(data, expPath, Array.from(next).map((v) => v.toUpperCase()));
+    });
+    const profLabel = document.createElement("label"); profLabel.textContent = "Proficient";
+    const expLabel = document.createElement("label"); expLabel.textContent = "Expertise";
+    row.append(label, profLabel, prof, expLabel, exp);
+    container.appendChild(row);
+  });
+  return container;
+};
+
+const renderSkillsMatrix = (data) => {
+  const container = document.createElement("div");
+  container.className = "field-group";
+  const title = document.createElement("h3");
+  title.textContent = "Skills";
+  container.appendChild(title);
+  const profSet = new Set((getValueAtPath(data, ["proficiency", "skills", "proficient"]) || []).map((v) => String(v).toLowerCase()));
+  const expSet = new Set((getValueAtPath(data, ["proficiency", "skills", "expertise"]) || []).map((v) => String(v).toLowerCase()));
+  const profBonus = Number(getValueAtPath(data, ["proficiency", "bonus"]) || 2);
+  const modFor = (ability) => Math.floor((Number(getValueAtPath(data, ["abilities", ability]) || 10) - 10) / 2);
+  Object.keys(SKILL_TO_ABILITY).forEach((skill) => {
+    const ability = SKILL_TO_ABILITY[skill];
+    const row = document.createElement("div");
+    row.className = "save-row";
+    const label = document.createElement("span");
+    label.textContent = `${skill} (${ABILITY_LABELS[ability]})`;
+    const prof = document.createElement("input"); prof.type = "checkbox"; prof.checked = profSet.has(skill);
+    const exp = document.createElement("input"); exp.type = "checkbox"; exp.checked = expSet.has(skill);
+    const bonus = document.createElement("strong");
+    const total = modFor(ability) + (exp.checked ? profBonus * 2 : (prof.checked ? profBonus : 0));
+    bonus.textContent = total >= 0 ? `+${total}` : String(total);
+    prof.addEventListener("change", () => {
+      const next = new Set((getValueAtPath(data, ["proficiency", "skills", "proficient"]) || []).map((v) => String(v).toLowerCase()));
+      if (prof.checked) next.add(skill); else next.delete(skill);
+      setValueAtPath(data, ["proficiency", "skills", "proficient"], Array.from(next));
+    });
+    exp.addEventListener("change", () => {
+      const next = new Set((getValueAtPath(data, ["proficiency", "skills", "expertise"]) || []).map((v) => String(v).toLowerCase()));
+      if (exp.checked) next.add(skill); else next.delete(skill);
+      setValueAtPath(data, ["proficiency", "skills", "expertise"], Array.from(next));
+    });
+    const l1=document.createElement("label");l1.textContent="Prof";
+    const l2=document.createElement("label");l2.textContent="Exp";
+    row.append(label,l1,prof,l2,exp,bonus);
+    container.appendChild(row);
+  });
+  return container;
+};
+
+const renderChecklistArray = (titleText, options, path, data) => {
+  const container = document.createElement("div");
+  container.className = "field-group";
+  const title = document.createElement("h3"); title.textContent = titleText; container.appendChild(title);
+  const set = new Set((getValueAtPath(data, path) || []).map((v) => String(v).toLowerCase()));
+  options.forEach((opt) => {
+    const row = document.createElement("label");
+    row.className = "check-row";
+    const cb = document.createElement("input"); cb.type="checkbox"; cb.checked = set.has(opt.toLowerCase());
+    cb.addEventListener("change", () => {
+      const next = new Set((getValueAtPath(data, path) || []).map((v) => String(v).toLowerCase()));
+      if (cb.checked) next.add(opt.toLowerCase()); else next.delete(opt.toLowerCase());
+      setValueAtPath(data, path, Array.from(next));
+    });
+    const txt=document.createElement("span"); txt.textContent=opt;
+    row.append(cb,txt); container.appendChild(row);
+  });
+  return container;
+};
+
+const renderInitiativeBlocks = (path, data) => {
+  const container = document.createElement("div"); container.className = "field-group";
+  const title = document.createElement("h3"); title.textContent = "Initiative Formula Blocks"; container.appendChild(title);
+  const value = String(getValueAtPath(data, path) || "dex_mod");
+  let blocks = value.split("+").map((v)=>v.trim()).filter(Boolean);
+  if (!blocks.length) blocks=["dex_mod"];
+  const list = document.createElement("div");
+  const render = () => {
+    list.innerHTML = "";
+    blocks.forEach((token, idx) => {
+      const row = document.createElement("div"); row.className="save-row";
+      const select = document.createElement("select");
+      INITIATIVE_TOKENS.forEach((t)=>{const o=document.createElement('option');o.value=t;o.textContent=t;o.selected=t===token;select.appendChild(o);});
+      select.addEventListener("change", ()=>{blocks[idx]=select.value;setValueAtPath(data,path,blocks.join(' + '));});
+      const remove=document.createElement("button"); remove.type='button'; remove.className='ghost danger'; remove.textContent='×';
+      remove.addEventListener('click',()=>{if(blocks.length>1){blocks.splice(idx,1);setValueAtPath(data,path,blocks.join(' + '));render();}});
+      row.append(select, remove); list.appendChild(row);
+    });
+  };
+  const add = document.createElement("button"); add.type='button'; add.className='ghost'; add.textContent='+';
+  add.addEventListener('click',()=>{blocks.push('dex_mod');setValueAtPath(data,path,blocks.join(' + '));render();});
+  container.append(list, add); render();
+  return container;
+};
+
+
+const inferActionTypeFromSpell = (spellId, spellDetails) => {
+  const spell = (spellDetails || []).find((entry) => entry?.id === spellId);
+  const casting = String(spell?.casting_time || "").toLowerCase();
+  if (casting.includes("reaction")) return "reaction";
+  if (casting.includes("bonus")) return "bonus";
+  return "action";
+};
+
+const ensurePoolsFromFeatures = (data) => {
+  const pools = Array.isArray(data?.resources?.pools) ? data.resources.pools : [];
+  const byId = new Map(pools.map((pool) => [String(pool?.id || ""), pool]));
+  const features = Array.isArray(data?.features) ? data.features : [];
+  features.forEach((feature) => {
+    const granted = feature?.grants?.pools || [];
+    granted.forEach((pool) => {
+      const id = String(pool?.id || "").trim();
+      if (!id) return;
+      if (!byId.has(id)) {
+        const created = { id, label: pool?.label || id, max_formula: pool?.max_formula || "1", reset: pool?.reset || "long_rest", current: 0 };
+        pools.push(created);
+        byId.set(id, created);
+      }
+    });
+  });
+  if (!data.resources) data.resources = {};
+  data.resources.pools = pools;
+};
+
+const renderFeatsEditor = (path, data) => {
+  const container = document.createElement("div");
+  container.className = "feats-editor";
+  const list = document.createElement("div");
+  list.className = "feats-list";
+  const detail = document.createElement("div");
+  detail.className = "feats-detail";
+  const header = document.createElement("div");
+  header.className = "array-header";
+  const title = document.createElement("h3");
+  title.textContent = "Feats";
+  const add = document.createElement("button");
+  add.type = "button"; add.className = "ghost"; add.textContent = "Add Feat";
+  header.append(title, add);
+  container.append(header);
+  const body = document.createElement("div"); body.className = "feats-body";
+  body.append(list, detail);
+  container.append(body);
+
+  let selected = 0;
+  let dirty = false;
+  const feats = () => getValueAtPath(data, path) || [];
+
+  const markDirty = () => { dirty = true; statusEl.textContent = "Unsaved changes"; };
+  const markSaved = () => { dirty = false; };
+
+  const renderDetail = async () => {
+    detail.innerHTML = "";
+    const feat = feats()[selected];
+    if (!feat) return;
+    ["id", "name", "category", "source", "description"].forEach((fieldKey) => {
+      const row = document.createElement("div"); row.className = "field";
+      const label = document.createElement("label"); label.textContent = fieldKey;
+      const input = fieldKey === "description" ? document.createElement("textarea") : document.createElement("input");
+      if (fieldKey !== "description") input.type = "text";
+      input.value = feat[fieldKey] || "";
+      input.addEventListener("input", () => { feat[fieldKey] = input.value; markDirty(); renderList(); });
+      row.append(label, input); detail.append(row);
+    });
+
+    const cfg = document.createElement("button"); cfg.type = "button"; cfg.className = "ghost"; cfg.textContent = "Configure granted pools & spells…";
+    cfg.addEventListener("click", async () => {
+      const overlay = document.createElement("div"); overlay.className = "overlay";
+      const modal = document.createElement("div"); modal.className = "overlay-modal";
+      const h = document.createElement("h3"); h.textContent = "Granted Pools & Spells";
+      modal.appendChild(h);
+
+      if (!feat.grants) feat.grants = {};
+      if (!Array.isArray(feat.grants.pools)) feat.grants.pools = [];
+      if (!feat.grants.spells) feat.grants.spells = { cantrips: [], casts: [] };
+      if (!Array.isArray(feat.grants.spells.cantrips)) feat.grants.spells.cantrips = [];
+      if (!Array.isArray(feat.grants.spells.casts)) feat.grants.spells.casts = [];
+
+      const poolsWrap = document.createElement("div"); poolsWrap.className = "field-group";
+      const poolsTitle = document.createElement("h4"); poolsTitle.textContent = "Resource Pools"; poolsWrap.appendChild(poolsTitle);
+      const poolAdd = document.createElement("button"); poolAdd.type = "button"; poolAdd.className = "ghost"; poolAdd.textContent = "Add Pool";
+      poolsWrap.appendChild(poolAdd);
+      const poolRows = document.createElement("div"); poolsWrap.appendChild(poolRows);
+
+      const renderPools = () => {
+        poolRows.innerHTML = "";
+        feat.grants.pools.forEach((pool, idx) => {
+          const row = document.createElement("div"); row.className = "array-item";
+          const reset = pool.reset || "long_rest";
+          row.innerHTML = `<input type="text" data-k="id" placeholder="id" value="${pool.id||""}">
+<input type="text" data-k="label" placeholder="label" value="${pool.label||""}">
+<input type="text" data-k="max_formula" placeholder="max formula" value="${pool.max_formula||"1"}">`;
+          const sel = document.createElement("select");
+          ["short_rest","long_rest"].forEach((v)=>{const o=document.createElement('option');o.value=v;o.textContent=v;o.selected=v===reset;sel.appendChild(o);});
+          sel.addEventListener("change", ()=>{pool.reset=sel.value;markDirty();});
+          const rm = document.createElement("button"); rm.type="button"; rm.className="ghost danger"; rm.textContent="Remove";
+          rm.addEventListener("click", ()=>{feat.grants.pools.splice(idx,1);renderPools();markDirty();});
+          row.querySelectorAll("input").forEach((inp)=>inp.addEventListener("input",()=>{pool[inp.dataset.k]=inp.value;markDirty();}));
+          row.append(sel, rm);
+          poolRows.appendChild(row);
+        });
+      };
+      poolAdd.addEventListener("click", ()=>{feat.grants.pools.push({id:"",label:"",max_formula:"1",reset:"long_rest"});renderPools();markDirty();});
+      renderPools();
+
+      const spellWrap = document.createElement("div"); spellWrap.className = "field-group";
+      const spellTitle = document.createElement("h4"); spellTitle.textContent = "Granted Spells"; spellWrap.appendChild(spellTitle);
+      const spellAdd = document.createElement("button"); spellAdd.type = "button"; spellAdd.className = "ghost"; spellAdd.textContent = "Add Spell";
+      spellWrap.appendChild(spellAdd);
+      const spellRows = document.createElement("div"); spellWrap.appendChild(spellRows);
+      const spellPayload = await loadSpellData();
+      const spells = Array.isArray(spellPayload?.spells) ? spellPayload.spells : [];
+
+      const renderSpells = () => {
+        spellRows.innerHTML = "";
+        feat.grants.spells.casts.forEach((cast, idx) => {
+          const row = document.createElement("div"); row.className = "array-item";
+          const spellSel = document.createElement("select");
+          const blank = document.createElement("option"); blank.value=""; blank.textContent="Select spell"; spellSel.appendChild(blank);
+          spells.forEach((sp)=>{const o=document.createElement('option');o.value=sp.id;o.textContent=`${sp.name||sp.id}`;o.selected=sp.id===cast.spell;spellSel.appendChild(o);});
+          spellSel.addEventListener("change", ()=>{cast.spell=spellSel.value;cast.action_type=inferActionTypeFromSpell(cast.spell,spells);markDirty();});
+          const action = document.createElement("input"); action.type='text'; action.value=cast.action_type||"action"; action.readOnly=true;
+          const poolSel = document.createElement("select");
+          const poolBlank = document.createElement('option'); poolBlank.value=''; poolBlank.textContent='Pool'; poolSel.appendChild(poolBlank);
+          const allPools = [...(data?.resources?.pools || []), ...(feat.grants.pools || [])];
+          allPools.forEach((pool)=>{const id=pool?.id||''; if(!id) return; const o=document.createElement('option');o.value=id;o.textContent=id;o.selected=id===cast?.consumes?.pool;poolSel.appendChild(o);});
+          poolSel.addEventListener("change", ()=>{cast.consumes = cast.consumes || {}; cast.consumes.pool = poolSel.value; markDirty();});
+          const cost = document.createElement("input"); cost.type='number'; cost.value=cast?.consumes?.cost ?? 1;
+          cost.addEventListener("input", ()=>{cast.consumes = cast.consumes || {}; cast.consumes.cost = Number(cost.value || 1); markDirty();});
+          const dmg = document.createElement("input"); dmg.type='text'; dmg.placeholder='damage rider'; dmg.value=cast.damage_rider||'';
+          dmg.addEventListener("input", ()=>{cast.damage_rider=dmg.value; markDirty();});
+          const rm = document.createElement("button"); rm.type='button'; rm.className='ghost danger'; rm.textContent='Remove';
+          rm.addEventListener("click", ()=>{feat.grants.spells.casts.splice(idx,1);renderSpells();markDirty();});
+          row.append(spellSel, action, poolSel, cost, dmg, rm);
+          spellRows.appendChild(row);
+        });
+      };
+      spellAdd.addEventListener("click", ()=>{feat.grants.spells.casts.push({spell:"",action_type:"action",consumes:{pool:"",cost:1}});renderSpells();markDirty();});
+      renderSpells();
+
+      const controls = document.createElement("div"); controls.className = "action-buttons";
+      const saveBtn = document.createElement("button"); saveBtn.type='button'; saveBtn.className='primary'; saveBtn.textContent='Save Grants';
+      const closeBtn = document.createElement("button"); closeBtn.type='button'; closeBtn.className='ghost'; closeBtn.textContent='Close';
+      saveBtn.addEventListener('click',()=>{ensurePoolsFromFeatures(data); markDirty(); overlay.remove();});
+      closeBtn.addEventListener('click',()=>overlay.remove());
+      controls.append(saveBtn, closeBtn);
+
+      modal.append(poolsWrap, spellWrap, controls);
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+    });
+    detail.appendChild(cfg);
+
+    const saveIndicator = document.createElement("p"); saveIndicator.className = "status"; saveIndicator.textContent = dirty ? "Unsaved changes" : "";
+    detail.appendChild(saveIndicator);
+  };
+
+  const renderList = () => {
+    list.innerHTML = "";
+    feats().forEach((feat, idx) => {
+      const btn = document.createElement("button"); btn.type = "button";
+      btn.className = `ghost feat-item${idx === selected ? " active" : ""}`;
+      btn.textContent = feat?.name || feat?.id || `Feat ${idx + 1}`;
+      btn.addEventListener("click", async () => {
+        if (dirty && !window.confirm("You have unsaved feat changes. Switch anyway?")) return;
+        selected = idx;
+        await renderDetail();
+        renderList();
+      });
+      list.appendChild(btn);
+    });
+  };
+
+  add.addEventListener("click", async () => {
+    const next = feats();
+    next.push({ id: "", name: "", category: "", source: "", description: "", grants: { pools: [], spells: { cantrips: [], casts: [] } } });
+    setValueAtPath(data, path, next);
+    selected = next.length - 1;
+    dirty = true;
+    renderList();
+    await renderDetail();
+  });
+
+  renderList();
+  renderDetail();
   return container;
 };
 
@@ -1021,6 +1463,16 @@ const renderSpellSlots = (field, path, data) => {
 };
 
 const renderField = (field, path, data, value) => {
+  const pathText = path.join(".");
+  if (pathText === "proficiency.saves") { return renderSavesMatrix(path, data); }
+  if (pathText === "proficiency.skills.proficient") { return renderSkillsMatrix(data); }
+  if (pathText === "proficiency.skills.expertise") { const d=document.createElement("div"); d.style.display="none"; return d; }
+  if (pathText === "proficiency.tools") { return renderChecklistArray("Tools, Weapons, Armor Training", TOOL_OPTIONS, path, data); }
+  if (pathText === "defenses.resistances") { return renderChecklistArray("Resistances", DAMAGE_TYPES, path, data); }
+  if (pathText === "defenses.immunities") { return renderChecklistArray("Immunities", DAMAGE_TYPES, path, data); }
+  if (pathText === "defenses.vulnerabilities") { return renderChecklistArray("Vulnerabilities", DAMAGE_TYPES, path, data); }
+  if (pathText === "vitals.initiative.formula") { return renderInitiativeBlocks(path, data); }
+  if (pathText === "features") { return renderFeatsEditor(path, data); }
   if (isSpellSlotsPath(path)) {
     return renderSpellSlots(field, path, data);
   }
@@ -1049,8 +1501,47 @@ const renderField = (field, path, data, value) => {
   return createInput(field, value, path, data);
 };
 
+const TAB_LAYOUT = [
+  { id: "basic", label: "Basic Info", sections: ["root", "identity"] },
+  { id: "stats", label: "Stats", sections: ["leveling", "abilities", "proficiency", "defenses", "attacks"] },
+  { id: "vitals", label: "Vitals", sections: ["vitals", "resources"] },
+  { id: "feats", label: "Feats", sections: ["features"] },
+  { id: "actions", label: "Actions", sections: ["actions", "reactions", "bonus_actions"] },
+  { id: "spellcasting", label: "Spellcasting", sections: ["spellcasting"] },
+  { id: "other", label: "Other", sections: ["inventory", "notes"] },
+];
+
 const renderForm = (schema, data) => {
   formEl.innerHTML = "";
+  const tabs = document.createElement("div");
+  tabs.className = "tab-bar";
+  const panes = document.createElement("div");
+  panes.className = "tab-panes";
+  const paneById = new Map();
+  TAB_LAYOUT.forEach((tab, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `tab-button${index === 0 ? " active" : ""}`;
+    button.textContent = tab.label;
+    button.dataset.tabTarget = tab.id;
+    tabs.appendChild(button);
+
+    const pane = document.createElement("div");
+    pane.className = `tab-pane${index === 0 ? " active" : ""}`;
+    pane.dataset.tabPane = tab.id;
+    panes.appendChild(pane);
+    paneById.set(tab.id, pane);
+  });
+  tabs.addEventListener("click", (event) => {
+    const button = event.target.closest(".tab-button");
+    if (!button) return;
+    const target = button.dataset.tabTarget;
+    tabs.querySelectorAll(".tab-button").forEach((el) => el.classList.toggle("active", el === button));
+    panes.querySelectorAll(".tab-pane").forEach((el) => el.classList.toggle("active", el.dataset.tabPane === target));
+  });
+  formEl.appendChild(tabs);
+  formEl.appendChild(panes);
+
   (schema.sections || []).forEach((section) => {
     const sectionEl = document.createElement("section");
     sectionEl.className = "section";
@@ -1071,7 +1562,9 @@ const renderForm = (schema, data) => {
       sectionEl.appendChild(renderMapField(section, sectionPath, data));
     }
 
-    formEl.appendChild(sectionEl);
+    const targetTab = TAB_LAYOUT.find((tab) => tab.sections.includes(section.id))?.id || "other";
+    const targetPane = paneById.get(targetTab) || paneById.get("other");
+    targetPane.appendChild(sectionEl);
   });
 };
 
@@ -1140,6 +1633,7 @@ const downloadYaml = (yamlText, filename) => {
 const exportYaml = async (data) => {
   statusEl.textContent = "Preparing YAML export...";
   try {
+    ensurePoolsFromFeatures(data);
     const response = await fetch("/api/characters/export", {
       method: "POST",
       headers: {
@@ -1169,8 +1663,17 @@ const boot = async () => {
   renderForm(schema, data);
   derivedStats.bind(formEl, data);
   derivedStats.recalculate();
+  formEl.addEventListener("input", () => { statusEl.textContent = "Unsaved changes"; });
+  formEl.addEventListener("change", () => { statusEl.textContent = "Unsaved changes"; });
+  formEl.addEventListener("input", (event) => {
+    if (event.target?.dataset?.path === "name" || event.target?.dataset?.path === "identity.name") {
+      if (filenameInput && !filenameInput.value.trim()) {
+        filenameInput.value = `${slugify(data?.name || "")}.yaml`;
+      }
+    }
+  });
   if (filenameInput) {
-    filenameInput.value = draft.filename || "";
+    filenameInput.value = draft.filename || `${slugify(data?.name || "")}.yaml`;
     filenameInput.addEventListener("input", () => {
       saveDraft(data, filenameInput.value, { showStatus: false });
     });
