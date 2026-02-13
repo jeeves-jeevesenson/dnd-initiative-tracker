@@ -2256,6 +2256,7 @@ class LanController:
                         "mount_request",
                         "mount_response",
                         "dismount",
+                        "initiative_roll",
                     ):
                         # enqueue for Tk thread
                         with self._clients_lock:
@@ -3272,6 +3273,24 @@ class LanController:
             except Exception:
                 with self._clients_lock:
                     self._terrain_pending.pop(ws_id, None)
+
+    def send_initiative_prompt(self, ws_id: Optional[int], cid: int, name: str) -> None:
+        """Prompt a claimed LAN player to roll initiative for their PC."""
+        if ws_id is None or not self._loop:
+            return
+        try:
+            cid_value = int(cid)
+        except Exception:
+            return
+        payload = {
+            "type": "initiative_prompt",
+            "cid": cid_value,
+            "name": str(name or "").strip() or "Player Character",
+        }
+        try:
+            asyncio.run_coroutine_threadsafe(self._send_async(int(ws_id), payload), self._loop)
+        except Exception:
+            pass
 
     def toast(self, ws_id: Optional[int], text: str) -> None:
         """Send a small toast to one client (best effort)."""
@@ -4719,6 +4738,45 @@ class InitiativeTracker(base.InitiativeTracker):
         self._roster_manager_refresh = refresh_lists
         win.protocol("WM_DELETE_WINDOW", close_window)
         refresh_lists()
+
+    def _roll_lan_initiative_for_claimed_pcs(self) -> None:
+        if not getattr(self, "_lan", None) or not self._lan.is_running():
+            messagebox.showwarning("Roll LAN Initiative", "LAN server is not running.", parent=self)
+            return
+
+        prompted: List[str] = []
+        skipped: List[str] = []
+        with self._lan._clients_lock:
+            cid_to_ws = {int(cid): list(ws_ids) for cid, ws_ids in self._lan._cid_to_ws.items()}
+            view_only = set(self._lan._view_only_clients)
+
+        for c in self.combatants.values():
+            role = self._name_role_memory.get(str(c.name), "enemy")
+            if not (bool(getattr(c, "is_pc", False)) or role == "pc"):
+                continue
+            cid = int(getattr(c, "cid", 0) or 0)
+            if cid <= 0:
+                continue
+            ws_ids = [ws_id for ws_id in cid_to_ws.get(cid, []) if ws_id not in view_only]
+            if not ws_ids:
+                skipped.append(str(c.name))
+                continue
+            for ws_id in ws_ids:
+                self._lan.send_initiative_prompt(ws_id, cid, str(c.name))
+            prompted.append(str(c.name))
+
+        if not prompted:
+            messagebox.showinfo(
+                "Roll LAN Initiative",
+                "No claimed player characters have an active LAN client connection.",
+                parent=self,
+            )
+            return
+
+        summary = f"Prompted {len(prompted)} player character(s): {', '.join(prompted)}"
+        if skipped:
+            summary += f"\n\nSkipped (no claimed LAN client): {', '.join(skipped)}"
+        messagebox.showinfo("Roll LAN Initiative", summary, parent=self)
 
     def _show_lan_url(self) -> None:
         if not self._lan.is_running():
@@ -11094,6 +11152,26 @@ class InitiativeTracker(base.InitiativeTracker):
             self._restore_mount_initiative(int(rider.cid), int(mount.cid))
             self._log(f"{rider.name} dismounts from {mount.name}.", cid=rider.cid)
             self._lan_force_state_broadcast()
+            return
+
+        if typ == "initiative_roll":
+            roll_value = msg.get("initiative")
+            try:
+                roll_total = int(roll_value)
+            except Exception:
+                self._lan.toast(ws_id, "Enter a valid initiative number, matey.")
+                return
+            if roll_total < -99 or roll_total > 999:
+                self._lan.toast(ws_id, "Initiative total be out of range.")
+                return
+            target = self.combatants.get(int(cid)) if cid is not None else None
+            if target is None:
+                self._lan.toast(ws_id, "That scallywag ain’t in combat no more.")
+                return
+            self._set_initiative(int(cid), int(roll_total))
+            self._rebuild_table(scroll_to_current=True)
+            self._lan_force_state_broadcast()
+            self._lan.toast(ws_id, f"Initiative set to {int(roll_total)}.")
             return
 
         if typ == "move":
