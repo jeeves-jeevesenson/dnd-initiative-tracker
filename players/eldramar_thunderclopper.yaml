@@ -1,14 +1,12 @@
+format_version: 2
 name: Eldramar
 player: Eldramar
-campaign: ''
-ip: ''
 identity:
   pronouns: null
   ancestry: null
   background: null
   alignment: null
   description: null
-  name: Eldramar
 leveling:
   level: 10
   classes:
@@ -58,10 +56,6 @@ defenses:
   resistances: []
   immunities: []
   vulnerabilities: []
-attacks:
-  melee_attack_mod: 1
-  ranged_attack_mod: 3
-  weapon_to_hit: 3
 resources:
   pools: []
 features: []
