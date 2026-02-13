@@ -1,5 +1,5 @@
-name: Eldramar
-player: Eldramar
+name: Fred
+player: Fred
 campaign: ''
 ip: ''
 identity:
@@ -8,35 +8,37 @@ identity:
   background: null
   alignment: null
   description: null
-  name: Eldramar
+  name: Fred
 leveling:
-  level: 10
+  level: 7
   classes:
-  - name: Wizard
-    subclass: Evoker
-    level: 10
+  - name: Warlock
+    subclass: Pact of Blood
+    level: 7
 abilities:
-  str: 5
-  dex: 9
-  con: 18
-  int: 20
-  wis: 18
-  cha: 8
+  str: 12
+  dex: 12
+  con: 14
+  int: 14
+  wis: 16
+  cha: 16
 proficiency:
-  bonus: 4
-  saves: []
+  bonus: 3
+  saves:
+  - CHA
+  - WIS
   skills:
     proficient: []
     expertise: []
   tools: []
   languages: []
 vitals:
-  max_hp: 76
-  current_hp: 76
+  max_hp: 78
+  current_hp: 78
   temp_hp: 0
   hit_dice:
-    die: d6
-    total: 10
+    die: d8
+    total: 7
     spent: 0
   speed:
     walk: 30
@@ -59,9 +61,9 @@ defenses:
   immunities: []
   vulnerabilities: []
 attacks:
-  melee_attack_mod: 1
-  ranged_attack_mod: 3
-  weapon_to_hit: 3
+  melee_attack_mod: 4
+  ranged_attack_mod: 4
+  weapon_to_hit: 4
 resources:
   pools: []
 features: []
@@ -127,74 +129,32 @@ spellcasting:
   enabled: true
   spell_yaml_paths:
   - ./Spells
-  casting_ability: int
+  casting_ability: cha
   save_dc_formula: 8 + prof + casting_mod
   spell_attack_formula: prof + casting_mod
   cantrips:
-    max: 8
+    max: 4
     known:
-    - fire-bolt
-    - toll-the-dead
-    - chill-touch
-    - shocking-grasp
-    - lightning-bolt
-    - eldritch-blast
-    - mage-hand
+    - produce-flame
+    - minor-illusion
     - message
+    - sorcerous-burst
   known_spells:
-    max: 30
-    known:
-    - bigby-s-hand
-    - wall-of-fire
-    - fireball
-    - bestow-curse
-    - shatter
-    - blindness-deafness
-    - knock
-    - alarm
-    - comprehend-languages
-    - identify
-    - find-familiar
-    - teleportation-circle
-    - mislead
-    - geas
-    - fabricate
-    - glyph-of-warding
-    - enhance-ability
-    - rope-trick
-    - gust-of-wind
-    - shield
-    - protection-from-evil-and-good
-    - sleep
-    - wall-of-force
-    - banishment
-    - counterspell
-    - haste
-    - greater-invisibility
-    - summon-construct
-    - shocking-grasp
-    - lightning-bolt
+    max: 0
   prepared_spells:
-    max_formula: '18'
+    max_formula: '15'
     prepared:
-    - find-familiar
-    - shocking-grasp
-    - lightning-bolt
-    - wall-of-force
-    - bigby-s-hand
-    - banishment
-    - greater-invisibility
+    - summon-aberration
+    - summon-fey
     - summon-construct
-    - wall-of-fire
-    - counterspell
-    - haste
+    - summon-celestial
+    - summon-undead
+    - create-undead
+    - find-familiar
     - fireball
-    - glyph-of-warding
-    - knock
-    - blindness-deafness
-    - shatter
-    - mage-armor
-    - shield
+    - thunderwave
+    - lightning-bolt
+    - cone-of-cold
   spell_slots:
     '1':
       max: 4
@@ -223,9 +183,10 @@ spellcasting:
     '9':
       max: 0
       current: 0
+  known_enabled: false
 inventory:
   currency:
-    gp: 3008
+    gp: 0
     sp: 0
     cp: 0
   items: []

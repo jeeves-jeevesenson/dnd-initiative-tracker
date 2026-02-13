@@ -1,14 +1,14 @@
-format_version: 2
-name: Johnny Morris
-player: Steve
+name: Johnny
+player: Johnny
 campaign: ''
 ip: ''
 identity:
-  pronouns: he/him
-  ancestry: Plasmoid
-  background: Magician
-  alignment: Chaotic Neutral
-  description: ''
+  pronouns: null
+  ancestry: null
+  background: null
+  alignment: null
+  description: null
+  name: Johnny
 leveling:
   level: 1
   classes:
@@ -131,43 +131,62 @@ reactions:
   description: You can take a reaction when a trigger occurs. A reaction is only available
     once per round.
   type: reaction
-bonus_actions:
-- name: Bonus Action
-  description: You can take a bonus action only when a feature, spell, or ability
-    says you can.
-  type: bonus_action
+bonus_actions: []
 spellcasting:
   enabled: true
   spell_yaml_paths:
   - ./Spells
   casting_ability: wis
-  save_dc_formula: 8 + prof + casting_mod + 1
-  spell_attack_formula: prof + casting_mod + 1
+  save_dc_formula: 8 + prof + casting_mod
+  spell_attack_formula: prof + casting_mod
   cantrips:
     max: 5
-    known: []
+    known:
+    - shillelagh
+    - thorn-whip
+    - produce-flame
+    - shocking-grasp
+    - starry-wisp
   known_spells:
     max: 0
     known: []
   prepared_spells:
     max_formula: '19'
-    prepared: []
+    prepared:
+    - sleep
+    - cure-wounds
+    - speak-with-animals
+    - entangle
+    - thunderwave
+    - locate-object
+    - moonbeam
+    - lightning-bolt
+    - water-walk
+    - conjure-animals
+    - revivify
+    - plant-growth
+    - freedom-of-movement
+    - wall-of-fire
+    - dominate-beast
+    - blight
+    - tree-stride
+    - insect-plague
   spell_slots:
     '1':
       max: 4
-      current: 0
+      current: 4
     '2':
       max: 3
-      current: 0
+      current: 3
     '3':
       max: 3
-      current: 0
+      current: 3
     '4':
       max: 3
-      current: 0
+      current: 3
     '5':
       max: 2
-      current: 0
+      current: 2
     '6':
       max: 0
       current: 0
@@ -180,10 +199,30 @@ spellcasting:
     '9':
       max: 0
       current: 0
+  known_enabled: false
 inventory:
   currency:
     gp: 3038
     sp: 0
     cp: 0
-  items: []
+  items:
+  - name: Quarterstaff
+    quantity: 1
+    description: (red storage B2)
+  - name: Blessed staff +2
+    quantity: 1
+    description: ''
+  - name: Grease staff
+    quantity: 1
+    description: red storage B1
+  - name: 'Fire wand '
+    quantity: 1
+    description: '-Make Bonfire
+
+      -Firebolt 2D10
+
+      -Fireball 8D6'
+  - name: Spine thornwhip 3D6
+    quantity: 1
+    description: ''
 notes: {}

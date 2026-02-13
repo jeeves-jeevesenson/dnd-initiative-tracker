@@ -1,14 +1,14 @@
-format_version: 2
 name: Throat Goat
-player: ThroatGoat
+player: Throat Goat
 campaign: ''
 ip: ''
 identity:
-  pronouns: Dragon / Balls
-  ancestry: Brass Dragonborn
-  background: Entertainer
-  alignment: Chaotic Neutral
-  description: ''
+  pronouns: null
+  ancestry: null
+  background: null
+  alignment: null
+  description: null
+  name: Throat Goat
 leveling:
   level: 1
   classes:
@@ -139,11 +139,7 @@ reactions:
   description: You can take a reaction when a trigger occurs. A reaction is only available
     once per round.
   type: reaction
-bonus_actions:
-- name: Bonus Action
-  description: You can take a bonus action only when a feature, spell, or ability
-    says you can.
-  type: bonus_action
+bonus_actions: []
 spellcasting:
   enabled: true
   spell_yaml_paths:
@@ -153,29 +149,52 @@ spellcasting:
   spell_attack_formula: prof + casting_mod
   cantrips:
     max: 5
-    known: []
+    known:
+    - vicious-mockery
+    - mending
+    - message
+    - eldritch-blast
+    - toll-the-dead
   known_spells:
     max: 0
     known: []
   prepared_spells:
     max_formula: '15'
-    prepared: []
+    prepared:
+    - charm-person
+    - command
+    - speak-with-animals
+    - identify
+    - tasha-s-hideous-laughter
+    - cure-wounds
+    - hellish-rebuke
+    - protection-from-evil-and-good
+    - arms-of-hadar
+    - mirror-image
+    - heat-metal
+    - hold-person
+    - shatter
+    - speak-with-dead
+    - dispel-magic
+    - slow
+    - phantasmal-killer
+    - fount-of-moonlight
   spell_slots:
     '1':
       max: 4
-      current: 0
+      current: 4
     '2':
       max: 3
-      current: 0
+      current: 3
     '3':
       max: 3
-      current: 0
+      current: 3
     '4':
-      max: 4
-      current: 0
+      max: 3
+      current: 3
     '5':
-      max: 0
-      current: 0
+      max: 2
+      current: 2
     '6':
       max: 0
       current: 0
@@ -188,10 +207,17 @@ spellcasting:
     '9':
       max: 0
       current: 0
+  known_enabled: false
 inventory:
   currency:
     gp: 5014
     sp: 0
     cp: 0
-  items: []
+  items:
+  - name: +2 Dagger
+    quantity: 1
+    description: ''
+  - name: Greatsword of Wounding
+    quantity: 1
+    description: ''
 notes: {}

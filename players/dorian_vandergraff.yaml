@@ -1,14 +1,14 @@
-format_version: 2
-name: Dorian Vandergraff
-player: Louis
-campaign: Eldervale
+name: Dorian
+player: Dorian
+campaign: ''
 ip: ''
 identity:
-  pronouns: He/Him
-  ancestry: Human
-  background: Noble
-  alignment: Lawful Neutral
-  description: 'Flawed but caring samurai/monk-style paladin  '
+  pronouns: null
+  ancestry: null
+  background: null
+  alignment: null
+  description: null
+  name: Dorian
 leveling:
   level: 10
   classes:
@@ -123,11 +123,7 @@ reactions:
   description: You can take a reaction when a trigger occurs. A reaction is only available
     once per round.
   type: reaction
-bonus_actions:
-- name: Bonus Action
-  description: You can take a bonus action only when a feature, spell, or ability
-    says you can.
-  type: bonus_action
+bonus_actions: []
 spellcasting:
   enabled: true
   spell_yaml_paths:
@@ -136,43 +132,36 @@ spellcasting:
   save_dc_formula: 8 + prof + casting_mod
   spell_attack_formula: prof + casting_mod
   cantrips:
-    max: 4
-    known:
-    - light
-    - guidance
-    - toll-the-dead
-    - sacred-flame
-  known_spells:
     max: 0
     known: []
+  known_spells:
+    max: 0
   prepared_spells:
     max_formula: '9'
     prepared:
-    - revivify
+    - haste
     - ensnaring-strike
     - moonbeam
     - divine-smite
+    - remove-curse
     - blinding-smite
-    - dispel-magic
     - find-steed
-    - aid
-    - thunderous-smite
   spell_slots:
     '1':
       max: 4
-      current: 0
+      current: 4
     '2':
       max: 3
       current: 0
     '3':
-      max: 2
-      current: 0
+      max: 3
+      current: 3
     '4':
-      max: 0
-      current: 0
+      max: 3
+      current: 3
     '5':
-      max: 0
-      current: 0
+      max: 2
+      current: 2
     '6':
       max: 0
       current: 0
@@ -185,6 +174,7 @@ spellcasting:
     '9':
       max: 0
       current: 0
+  known_enabled: false
 inventory:
   currency:
     gp: 5400

@@ -1,5 +1,5 @@
-name: Eldramar
-player: Eldramar
+name: Vicnor
+player: Vicnor
 campaign: ''
 ip: ''
 identity:
@@ -8,60 +8,79 @@ identity:
   background: null
   alignment: null
   description: null
-  name: Eldramar
+  name: Vicnor
 leveling:
   level: 10
   classes:
-  - name: Wizard
-    subclass: Evoker
+  - name: Rouge
+    subclass: Swashbuckler
     level: 10
 abilities:
-  str: 5
-  dex: 9
-  con: 18
-  int: 20
-  wis: 18
-  cha: 8
+  str: 6
+  dex: 20
+  con: 12
+  int: 9
+  wis: 14
+  cha: 14
 proficiency:
   bonus: 4
-  saves: []
+  saves:
+  - DEX
+  - INT
   skills:
-    proficient: []
-    expertise: []
-  tools: []
-  languages: []
+    proficient:
+    - Athletics
+    - Perception
+    - Deception
+    - Performance
+    expertise:
+    - Acrobatics
+  tools:
+  - Light Armor
+  - Water Vehicles
+  - Simple Weapons
+  - Finesse Weapons
+  - Navigators Tools
+  - Thieves Tools
+  languages:
+  - Common
+  - Draconic
+  - Ratspeak
+  - Undercommon
+  - Theives Cant
 vitals:
-  max_hp: 76
-  current_hp: 76
+  max_hp: 61
+  current_hp: 61
   temp_hp: 0
   hit_dice:
-    die: d6
+    die: d8
     total: 10
     spent: 0
   speed:
-    walk: 30
+    walk: 35
     climb: 0
     fly: 0
-    swim: 0
+    swim: 35
   initiative:
     formula: dex_mod
   passive_perception:
-    formula: 10 + wis_mod
+    formula: 10 + wis_mod + prof
 defenses:
   ac:
     sources:
-    - id: unarmored
-      label: Unarmored
+    - id: null
+      label: null
       when: always
-      base_formula: 10 + dex_mod
+      base_formula: '19'
     bonuses: []
-  resistances: []
+  resistances:
+  - lightning
   immunities: []
   vulnerabilities: []
 attacks:
-  melee_attack_mod: 1
-  ranged_attack_mod: 3
-  weapon_to_hit: 3
+  melee_attack_mod: 7
+  ranged_attack_mod: 4
+  weapon_to_hit: 7
 resources:
   pools: []
 features: []
@@ -114,87 +133,51 @@ reactions:
   description: When a hostile creature you can see moves out of your reach, you can
     use your reaction to make one melee attack against it.
   type: reaction
-- name: Reaction
-  description: You can take a reaction when a trigger occurs. A reaction is only available
-    once per round.
-  type: reaction
-bonus_actions:
-- name: Bonus Action
-  description: You can take a bonus action only when a feature, spell, or ability
-    says you can.
-  type: bonus_action
+bonus_actions: []
 spellcasting:
   enabled: true
   spell_yaml_paths:
   - ./Spells
-  casting_ability: int
-  save_dc_formula: 8 + prof + casting_mod
-  spell_attack_formula: prof + casting_mod
+  casting_ability: wis
+  save_dc_formula: 8 + prof + casting_mod + 1
+  spell_attack_formula: prof + casting_mod + 1
   cantrips:
-    max: 8
+    max: 5
     known:
-    - fire-bolt
     - toll-the-dead
-    - chill-touch
-    - shocking-grasp
-    - lightning-bolt
-    - eldritch-blast
-    - mage-hand
-    - message
+    - sacred-flame
+    - spare-the-dying
+    - guidance
+    - mending
   known_spells:
-    max: 30
-    known:
-    - bigby-s-hand
-    - wall-of-fire
-    - fireball
-    - bestow-curse
-    - shatter
-    - blindness-deafness
-    - knock
-    - alarm
-    - comprehend-languages
-    - identify
-    - find-familiar
-    - teleportation-circle
-    - mislead
-    - geas
-    - fabricate
-    - glyph-of-warding
-    - enhance-ability
-    - rope-trick
-    - gust-of-wind
-    - shield
-    - protection-from-evil-and-good
-    - sleep
-    - wall-of-force
-    - banishment
-    - counterspell
-    - haste
-    - greater-invisibility
-    - summon-construct
-    - shocking-grasp
-    - lightning-bolt
+    max: 0
   prepared_spells:
-    max_formula: '18'
+    max_formula: '25'
     prepared:
-    - find-familiar
-    - shocking-grasp
-    - lightning-bolt
-    - wall-of-force
-    - bigby-s-hand
-    - banishment
-    - greater-invisibility
-    - summon-construct
-    - wall-of-fire
-    - counterspell
-    - haste
-    - fireball
-    - glyph-of-warding
-    - knock
-    - blindness-deafness
+    - thunderwave
+    - healing-word
+    - create-or-destroy-water
+    - guiding-bolt
+    - fog-cloud
+    - cure-wounds
+    - inflict-wounds
+    - gust-of-wind
     - shatter
-    - mage-armor
-    - shield
+    - prayer-of-healing
+    - lesser-restoration
+    - find-traps
+    - call-lightning
+    - sleet-storm
+    - revivify
+    - dispel-magic
+    - bestow-curse
+    - control-water
+    - ice-storm
+    - destructive-wave
+    - insect-plague
+    - flame-strike
+    - dispel-evil-and-good
+    - lightning-bolt
   spell_slots:
     '1':
       max: 4
@@ -223,9 +206,10 @@ spellcasting:
     '9':
       max: 0
       current: 0
+  known_enabled: false
 inventory:
   currency:
-    gp: 3008
+    gp: 9652
     sp: 0
     cp: 0
   items: []
