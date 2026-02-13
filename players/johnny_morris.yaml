@@ -1,7 +1,6 @@
+format_version: 2
 name: Johnny
 player: Johnny
-campaign: ''
-ip: ''
 prepared_wild_shapes:
 - riding-horse
 identity:
@@ -10,7 +9,6 @@ identity:
   background: null
   alignment: null
   description: null
-  name: Johnny
 leveling:
   level: 1
   classes:
@@ -73,10 +71,6 @@ defenses:
   immunities:
   - Posion
   vulnerabilities: []
-attacks:
-  melee_attack_mod: 6
-  ranged_attack_mod: 7
-  weapon_to_hit: 7
 resources:
   pools: []
 features: []
@@ -204,7 +198,6 @@ spellcasting:
     '9':
       max: 0
       current: 0
-  known_enabled: false
 inventory:
   currency:
     gp: 3038

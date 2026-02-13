@@ -1,14 +1,12 @@
+format_version: 2
 name: стихия
 player: стихия
-campaign: ''
-ip: ''
 identity:
   pronouns: bird/birb
   ancestry: Kenku
   background: Acolyte
   alignment: Chaotic Neutral
   description: Bird :V
-  name: стихия
 leveling:
   level: 10
   classes:
@@ -78,10 +76,6 @@ defenses:
   - lightning
   immunities: []
   vulnerabilities: []
-attacks:
-  melee_attack_mod: 7
-  ranged_attack_mod: 4
-  weapon_to_hit: 7
 resources:
   pools:
   - id: tester1
@@ -258,7 +252,6 @@ spellcasting:
     '9':
       max: 0
       current: 0
-  known_enabled: false
 inventory:
   currency:
     gp: 9652

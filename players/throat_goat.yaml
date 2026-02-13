@@ -1,14 +1,12 @@
+format_version: 2
 name: Throat Goat
 player: Throat Goat
-campaign: ''
-ip: ''
 identity:
   pronouns: null
   ancestry: null
   background: null
   alignment: null
   description: null
-  name: Throat Goat
 leveling:
   level: 1
   classes:
@@ -79,10 +77,6 @@ defenses:
   - fire
   immunities: []
   vulnerabilities: []
-attacks:
-  melee_attack_mod: 5
-  ranged_attack_mod: 6
-  weapon_to_hit: 6
 resources:
   pools: []
 features: []
@@ -207,7 +201,6 @@ spellcasting:
     '9':
       max: 0
       current: 0
-  known_enabled: false
 inventory:
   currency:
     gp: 5014
