@@ -650,6 +650,7 @@ class InitiativeTracker(tk.Tk):
         self.move_mode_combo.bind("<<ComboboxSelected>>", lambda _e: self._apply_selected_movement_mode())
         ttk.Button(btn_row, text="Map Mode…", command=self._open_map_mode).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="LAN Admin…", command=self._open_lan_admin).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Roll LAN Initiative", command=self._roll_lan_initiative_for_claimed_pcs).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Long Rest…", command=self._confirm_long_rest).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Clear", command=self._clear_turns).pack(side=tk.LEFT, padx=(0, 8))
 
@@ -792,6 +793,13 @@ class InitiativeTracker(tk.Tk):
         except Exception:
             pass
         messagebox.showinfo("Long Rest", "Player characters restored.", parent=self)
+
+    def _roll_lan_initiative_for_claimed_pcs(self) -> None:
+        messagebox.showinfo(
+            "Roll LAN Initiative",
+            "LAN initiative prompting is not available in this build.",
+            parent=self,
+        )
 
     def _monster_int_from_value(self, value: object) -> Optional[int]:
         if isinstance(value, int):

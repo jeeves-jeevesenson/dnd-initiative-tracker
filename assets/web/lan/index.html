@@ -2553,6 +2553,20 @@ __DAMAGE_TYPE_OPTIONS__
         </div>
       </div>
     </div>
+
+    <div class="modal" id="initiativePromptModal" aria-hidden="true">
+      <div class="card">
+        <h2>Roll Initiative</h2>
+        <div class="hint" id="initiativePromptBody">Roll initiative and enter your total.</div>
+        <div class="modal-body">
+          <input id="initiativePromptInput" type="number" step="1" placeholder="Initiative total" />
+        </div>
+        <div class="modal-actions">
+          <button class="btn accent" id="initiativePromptSubmit" type="button">Submit</button>
+          <button class="btn" id="initiativePromptCancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
   </div>
 </div>
@@ -3248,6 +3262,11 @@ __DAMAGE_TYPE_OPTIONS__
   const mountPromptBody = document.getElementById("mountPromptBody");
   const mountPromptYes = document.getElementById("mountPromptYes");
   const mountPromptNo = document.getElementById("mountPromptNo");
+  const initiativePromptModal = document.getElementById("initiativePromptModal");
+  const initiativePromptBody = document.getElementById("initiativePromptBody");
+  const initiativePromptInput = document.getElementById("initiativePromptInput");
+  const initiativePromptSubmit = document.getElementById("initiativePromptSubmit");
+  const initiativePromptCancel = document.getElementById("initiativePromptCancel");
   const showAllNamesEl = document.getElementById("showAllNames");
   const castOverlay = document.getElementById("sheetCastView");
   const castOverlayOpenBtn = document.getElementById("castOverlayOpen");
@@ -3466,6 +3485,7 @@ __DAMAGE_TYPE_OPTIONS__
   let lastTurnRound = null;
   let selectedTurnCid = null;
   let pendingMountRequestId = null;
+  let pendingInitiativeCid = null;
   let pendingMountPair = null;
   let hoveredTurnCid = null;
   const claimDebugLoggingEnabled = window.location.hostname === "localhost"
@@ -8151,6 +8171,20 @@ __DAMAGE_TYPE_OPTIONS__
           mountPromptModal.classList.add("show");
           mountPromptModal.setAttribute("aria-hidden", "false");
         }
+      } else if (msg.type === "initiative_prompt"){
+        const targetCid = Number(msg.cid);
+        pendingInitiativeCid = Number.isFinite(targetCid) ? targetCid : claimedCid;
+        if (initiativePromptBody){
+          const who = typeof msg.name === "string" && msg.name.trim() ? msg.name.trim() : "your character";
+          initiativePromptBody.textContent = `Roll initiative for ${who} and enter your total.`;
+        }
+        if (initiativePromptInput){
+          initiativePromptInput.value = "";
+        }
+        if (initiativePromptModal){
+          initiativePromptModal.classList.add("show");
+          initiativePromptModal.setAttribute("aria-hidden", "false");
+        }
       } else if (msg.type === "battle_log"){
         const lines = Array.isArray(msg.lines) ? msg.lines : [];
         if (logContent){
@@ -12170,6 +12204,47 @@ __DAMAGE_TYPE_OPTIONS__
     mountPromptNo.addEventListener("click", () => {
       send({type:"mount_response", request_id: pendingMountRequestId, accept:false});
       if (mountPromptModal){ mountPromptModal.classList.remove("show"); mountPromptModal.setAttribute("aria-hidden", "true"); }
+    });
+  }
+
+  function submitInitiativePrompt(){
+    const raw = initiativePromptInput ? String(initiativePromptInput.value || "").trim() : "";
+    const total = Number(raw);
+    if (!raw || !Number.isFinite(total)){
+      localToast("Enter a valid initiative total.");
+      return;
+    }
+    const cid = Number.isFinite(Number(pendingInitiativeCid)) ? Number(pendingInitiativeCid) : Number(claimedCid);
+    if (!Number.isFinite(cid)){
+      localToast("No claimed character to update.");
+      return;
+    }
+    send({type:"initiative_roll", cid, initiative: Math.trunc(total)});
+    if (initiativePromptModal){
+      initiativePromptModal.classList.remove("show");
+      initiativePromptModal.setAttribute("aria-hidden", "true");
+    }
+    pendingInitiativeCid = null;
+  }
+
+  if (initiativePromptSubmit){
+    initiativePromptSubmit.addEventListener("click", () => submitInitiativePrompt());
+  }
+  if (initiativePromptCancel){
+    initiativePromptCancel.addEventListener("click", () => {
+      if (initiativePromptModal){
+        initiativePromptModal.classList.remove("show");
+        initiativePromptModal.setAttribute("aria-hidden", "true");
+      }
+      pendingInitiativeCid = null;
+    });
+  }
+  if (initiativePromptInput){
+    initiativePromptInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter"){
+        event.preventDefault();
+        submitInitiativePrompt();
+      }
     });
   }
 
