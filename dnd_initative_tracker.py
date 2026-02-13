@@ -11381,12 +11381,16 @@ class InitiativeTracker(base.InitiativeTracker):
             c = self.combatants.get(cid)
             if not c:
                 return
-            if bool(getattr(self, "in_combat", False)) and not self._use_bonus_action(c):
+            require_bonus_action = bool(getattr(self, "in_combat", False))
+            if require_bonus_action and int(getattr(c, "bonus_action_remaining", 0) or 0) <= 0:
                 self._lan.toast(ws_id, "No bonus actions left, matey.")
                 return
             ok, err = self._apply_wild_shape(int(cid), beast_id)
             if not ok:
                 self._lan.toast(ws_id, err or "Could not Wild Shape, matey.")
+                return
+            if require_bonus_action and not self._use_bonus_action(c):
+                self._lan.toast(ws_id, "Could not spend bonus action for Wild Shape, matey.")
                 return
             self._lan.toast(ws_id, "Wild Shape activated.")
             self._rebuild_table(scroll_to_current=True)
@@ -11501,18 +11505,23 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._wild_shape_known_by_player = known_map
             known_map[player_name.strip().lower()] = deduped
 
-            player_key = self._normalize_character_lookup_key(player_name)
             player_path = self._find_player_profile_path(player_name)
             if not isinstance(player_path, Path):
-                player_path = self._player_yaml_name_map.get(player_key) if isinstance(getattr(self, "_player_yaml_name_map", None), dict) else None
+                c = self.combatants.get(cid)
+                if c is not None:
+                    player_path = self._find_player_profile_path(getattr(c, "name", ""))
+            if not isinstance(player_path, Path):
+                self._load_player_yaml_cache(force_refresh=True)
+                player_path = self._find_player_profile_path(player_name)
             raw_payload = self._player_yaml_cache_by_path.get(player_path) if isinstance(player_path, Path) else None
             if not (isinstance(player_path, Path) and isinstance(raw_payload, dict)):
                 self._lan.toast(ws_id, "Could not locate yer player file for Wild Shape save, matey.")
                 return
             updated_payload = dict(raw_payload)
+            updated_payload["learned_wild_shapes"] = list(deduped)
             updated_payload["prepared_wild_shapes"] = list(deduped)
-            updated_payload.pop("learned_wild_shapes", None)
             self._store_character_yaml(player_path, updated_payload)
+            self._load_player_yaml_cache(force_refresh=True)
 
             self._lan.toast(ws_id, "Wild Shape forms updated.")
             self._rebuild_table(scroll_to_current=True)

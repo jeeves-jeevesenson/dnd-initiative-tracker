@@ -2257,7 +2257,6 @@
         <div class="sheet-actions">
           <button class="btn" id="useAction">Use Action</button>
           <button class="btn" id="useBonusAction">Use Bonus Action</button>
-          <button class="btn success" id="wildShapeBonusAction" type="button">Wildshape (Bonus)</button>
           <button class="btn" id="dash">Dash</button>
           <button class="btn" id="standUp">Stand Up</button>
           <button class="btn" id="resetTurn">Reset Turn</button>
@@ -3306,7 +3305,6 @@ __DAMAGE_TYPE_OPTIONS__
   const spellLibraryList = document.getElementById("spellLibraryList");
   const spellbookOpenBtn = document.getElementById("spellbookOpen");
   const wildShapeManageOpenBtn = document.getElementById("wildShapeManageOpen");
-  const wildShapeBonusActionBtn = document.getElementById("wildShapeBonusAction");
   const wildShapeMenuOverlay = document.getElementById("wildShapeMenuOverlay");
   const wildShapeMenuManagePoolBtn = document.getElementById("wildShapeMenuManagePool");
   const wildShapeMenuManageFormsBtn = document.getElementById("wildShapeMenuManageForms");
@@ -4000,7 +3998,7 @@ __DAMAGE_TYPE_OPTIONS__
       btn.className = "spellbook-item";
       btn.textContent = `${entry?.name || id} · CR ${entry?.challenge_rating ?? 0}`;
       btn.addEventListener("click", () => {
-        if (!claimedCid) return;
+        if (claimedCid == null) return;
         send({type:"wild_shape_apply", cid: claimedCid, beast_id: id});
         setWildShapePickOverlayOpen(false);
         setWildShapeMenuOpen(false);
@@ -7700,7 +7698,15 @@ __DAMAGE_TYPE_OPTIONS__
         setCastOverlayOpen(true);
         return;
       }
-      if (!claimedCid) return;
+      if (normalizeLowerValue(entry?.name) === "wild shape"){
+        if (!isClaimedUnitDruid()){
+          localToast("Only Druids level 2+ can use Wild Shape.");
+          return;
+        }
+        setWildShapePickOverlayOpen(true);
+        return;
+      }
+      if (claimedCid == null) return;
       const msg = {
         type: "perform_action",
         cid: claimedCid,
@@ -11688,15 +11694,6 @@ __DAMAGE_TYPE_OPTIONS__
       setWildShapeOverlayOpen(true);
     });
   }
-  if (wildShapeBonusActionBtn){
-    wildShapeBonusActionBtn.addEventListener("click", () => {
-      if (!isClaimedUnitDruid()){
-        localToast("Only Druids level 2+ can use Wild Shape.");
-        return;
-      }
-      setWildShapePickOverlayOpen(true);
-    });
-  }
   if (wildShapeMenuCloseBtn){
     wildShapeMenuCloseBtn.addEventListener("click", () => setWildShapeMenuOpen(false));
   }
@@ -11823,7 +11820,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (wildShapeSaveBtn){
     wildShapeSaveBtn.addEventListener("click", () => {
-      if (!claimedCid) return;
+      if (claimedCid == null) return;
       send({type:"wild_shape_set_known", cid: claimedCid, known: wildShapeKnownDraft});
       setWildShapeOverlayOpen(false);
     });
