@@ -297,31 +297,24 @@ class WildShapeTests(unittest.TestCase):
             {"id": "reef-shark"},
         ]
         app._lan = type("Lan", (), {"toast": lambda self, ws_id, text: None, "_append_lan_log": lambda self, msg, level='warning': None})()
+        path = Path("/tmp/leaf.yaml")
+        app._player_yaml_cache_by_path = {path: {"name": "Leaf", "prepared_wild_shapes": ["wolf"]}}
+        app._player_yaml_meta_by_path = {}
+        app._player_yaml_name_map = {"leaf": path}
+        app._find_player_profile_path = lambda _name: path
+        captured = {}
+        app._store_character_yaml = lambda _path, payload: captured.setdefault("payload", dict(payload))
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "leaf.yaml"
-            path.write_text("""name: Leaf
-prepared_wild_shapes:
-  - wolf
-""", encoding="utf-8")
-            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-            app._player_yaml_cache_by_path = {path: raw}
-            app._player_yaml_meta_by_path = {}
-            app._player_yaml_name_map = {"leaf": path}
-            app._player_yaml_lock = tracker_mod.threading.Lock()
-            app._schedule_player_yaml_refresh = lambda: None
+        app._lan_apply_action({
+            "type": "wild_shape_set_known",
+            "cid": 1,
+            "_ws_id": 100,
+            "admin_token": "ok",
+            "known": ["reef-shark", "wolf", "wolf"],
+        })
 
-            app._lan_apply_action({
-                "type": "wild_shape_set_known",
-                "cid": 1,
-                "_ws_id": 100,
-                "admin_token": "ok",
-                "known": ["reef-shark", "wolf", "wolf"],
-            })
-
-            updated = yaml.safe_load(path.read_text(encoding="utf-8"))
-            self.assertEqual(updated.get("prepared_wild_shapes"), ["reef-shark", "wolf"])
-            self.assertNotIn("learned_wild_shapes", updated)
+        self.assertEqual(captured["payload"].get("prepared_wild_shapes"), ["reef-shark", "wolf"])
+        self.assertEqual(captured["payload"].get("learned_wild_shapes"), ["reef-shark", "wolf"])
 
     def test_wild_shape_apply_requires_bonus_action(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
@@ -341,6 +334,28 @@ prepared_wild_shapes:
 
         self.assertEqual(calls["apply"], 0)
         self.assertTrue(any("No bonus actions left" in msg for msg in toasts))
+
+    def test_wild_shape_apply_spends_bonus_action_only_on_success(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app.in_combat = True
+        app.combatants = {1: type("C", (), {"cid": 1, "bonus_action_remaining": 1})()}
+        app._is_admin_token_valid = lambda _token: True
+        app._summon_can_be_controlled_by = lambda claimed, cid: False
+        use_calls = {"count": 0}
+        app._use_bonus_action = lambda _c: (use_calls.__setitem__("count", use_calls["count"] + 1) or True)
+        app._rebuild_table = lambda scroll_to_current=False: None
+        toasts = []
+        app._lan = type("Lan", (), {"toast": lambda self, ws_id, text: toasts.append(text), "_append_lan_log": lambda self, msg, level='warning': None})()
+
+        app._apply_wild_shape = lambda _cid, _beast_id: (False, "bad wolf")
+        app._lan_apply_action({"type": "wild_shape_apply", "cid": 1, "beast_id": "wolf", "_ws_id": 10, "admin_token": "ok"})
+        self.assertEqual(use_calls["count"], 0)
+        self.assertTrue(any("bad wolf" in msg for msg in toasts))
+
+        app._apply_wild_shape = lambda _cid, _beast_id: (True, "")
+        app._lan_apply_action({"type": "wild_shape_apply", "cid": 1, "beast_id": "wolf", "_ws_id": 10, "admin_token": "ok"})
+        self.assertEqual(use_calls["count"], 1)
 
     def test_wild_shape_apply_out_of_combat_does_not_require_bonus_action(self):
         app = object.__new__(tracker_mod.InitiativeTracker)

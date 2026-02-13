@@ -3,7 +3,7 @@ player: Johnny
 campaign: ''
 ip: ''
 prepared_wild_shapes:
-  - riding-horse
+- riding-horse
 identity:
   pronouns: null
   ancestry: null
@@ -133,7 +133,10 @@ reactions:
   description: You can take a reaction when a trigger occurs. A reaction is only available
     once per round.
   type: reaction
-bonus_actions: []
+bonus_actions:
+- name: Wild Shape
+  description: Assume a prepared beast form by expending one Wild Shape use.
+  type: bonus_action
 spellcasting:
   enabled: true
   spell_yaml_paths:
