@@ -580,7 +580,7 @@ This will remove:
 
 #### Creating Standalone Executables (Advanced)
 
-For users who want to create a standalone `.exe` or `.msi` installer that doesn't require Python, see the detailed guide at [`docs/WINDOWS_EXECUTABLE.md`](docs/WINDOWS_EXECUTABLE.md). This is an optional advanced feature using PyInstaller or cx_Freeze.
+For users who want to create a standalone `.exe` bundle that doesn't require Python, see the detailed guide at [`docs/WINDOWS_EXECUTABLE.md`](docs/WINDOWS_EXECUTABLE.md). This is an optional advanced feature using PyInstaller.
 
 ### Linux Installation (Desktop Integration)
 
