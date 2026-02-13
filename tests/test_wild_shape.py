@@ -43,6 +43,16 @@ class WildShapeTests(unittest.TestCase):
                 "actions": [{"name": "Claw", "type": "action"}],
             },
             {
+                "id": "giant-scorpion",
+                "name": "Giant Scorpion",
+                "challenge_rating": 3.0,
+                "size": "Large",
+                "ac": 15,
+                "speed": {"walk": 40, "swim": 0, "fly": 0, "climb": 0},
+                "abilities": {"str": 15, "dex": 13, "con": 15, "int": 1, "wis": 9, "cha": 3},
+                "actions": [],
+            },
+            {
                 "id": "eagle",
                 "name": "Eagle",
                 "challenge_rating": 0.0,
@@ -82,6 +92,7 @@ class WildShapeTests(unittest.TestCase):
         lvl2 = {f["id"] for f in self.app._wild_shape_available_forms(self._profile(2), known_only=True)}
         self.assertIn("wolf", lvl2)
         self.assertNotIn("brown-bear", lvl2)
+        self.assertNotIn("reef-shark", lvl2)
         self.assertNotIn("eagle", lvl2)
         self.assertNotIn("cat", lvl2)
 
@@ -92,7 +103,12 @@ class WildShapeTests(unittest.TestCase):
 
         lvl11 = {f["id"] for f in self.app._wild_shape_available_forms(self._profile(11), known_only=True)}
         self.assertIn("cat", lvl11)
+        self.assertNotIn("giant-scorpion", lvl11)
 
+    def test_available_forms_excludes_above_cr_two_even_when_include_locked(self):
+        forms = self.app._wild_shape_available_forms(self._profile(20), known_only=False, include_locked=True)
+        ids = {f["id"] for f in forms}
+        self.assertNotIn("giant-scorpion", ids)
 
     def test_load_beast_forms_prefers_monster_index_and_caches(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
@@ -306,6 +322,45 @@ prepared_wild_shapes:
             updated = yaml.safe_load(path.read_text(encoding="utf-8"))
             self.assertEqual(updated.get("prepared_wild_shapes"), ["reef-shark", "wolf"])
             self.assertNotIn("learned_wild_shapes", updated)
+
+    def test_wild_shape_apply_requires_bonus_action(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app.in_combat = False
+        app.combatants = {1: type("C", (), {"cid": 1})()}
+        app._is_admin_token_valid = lambda _token: True
+        app._summon_can_be_controlled_by = lambda claimed, cid: False
+        app._use_bonus_action = lambda _c: False
+        calls = {"apply": 0, "rebuild": 0}
+        app._apply_wild_shape = lambda _cid, _beast_id: (calls.__setitem__("apply", calls["apply"] + 1) or True, "")
+        app._rebuild_table = lambda scroll_to_current=False: calls.__setitem__("rebuild", calls["rebuild"] + 1)
+        toasts = []
+        app._lan = type("Lan", (), {"toast": lambda self, ws_id, text: toasts.append(text), "_append_lan_log": lambda self, msg, level='warning': None})()
+
+        app._lan_apply_action({"type": "wild_shape_apply", "cid": 1, "beast_id": "wolf", "_ws_id": 10, "admin_token": "ok"})
+
+        self.assertEqual(calls["apply"], 0)
+        self.assertTrue(any("No bonus actions left" in msg for msg in toasts))
+
+    def test_wild_shape_pool_set_current_handler_clamps_and_persists(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app.in_combat = False
+        app.combatants = {1: type("C", (), {"cid": 1})()}
+        app._pc_name_for = lambda _cid: "Leaf"
+        app._is_admin_token_valid = lambda _token: True
+        app._summon_can_be_controlled_by = lambda claimed, cid: False
+        app._set_wild_shape_pool_current = lambda _name, value: (True, "", max(0, min(2, int(value))))
+        calls = {"rebuild": 0}
+        app._rebuild_table = lambda scroll_to_current=False: calls.__setitem__("rebuild", calls["rebuild"] + 1)
+        toasts = []
+        app._lan = type("Lan", (), {"toast": lambda self, ws_id, text: toasts.append(text), "_append_lan_log": lambda self, msg, level='warning': None})()
+
+        app._lan_apply_action({"type": "wild_shape_pool_set_current", "cid": 1, "current": 99, "_ws_id": 10, "admin_token": "ok"})
+
+        self.assertEqual(getattr(app.combatants[1], "wild_shape_pool_current", None), 2)
+        self.assertEqual(calls["rebuild"], 1)
+        self.assertTrue(any("uses updated" in msg for msg in toasts))
 
 
 if __name__ == "__main__":
