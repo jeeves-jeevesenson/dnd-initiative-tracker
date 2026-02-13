@@ -2,6 +2,8 @@ name: Johnny
 player: Johnny
 campaign: ''
 ip: ''
+prepared_wild_shapes:
+  - riding-horse
 identity:
   pronouns: null
   ancestry: null
