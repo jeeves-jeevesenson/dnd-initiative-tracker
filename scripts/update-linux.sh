@@ -221,7 +221,7 @@ if [ -z "$REMOTE_NAME" ] || [ -z "$REMOTE_BRANCH_PATH" ] || ! git remote get-url
     exit 1
 fi
 git pull "$REMOTE_NAME" "$REMOTE_BRANCH_PATH"
-git clean -fd -e "logs/"
+git clean -fd -e "logs/" -e "launch-inittracker.sh"
 
 # Update dependencies
 if [ -f "$INSTALL_DIR/.venv/bin/activate" ]; then
@@ -251,50 +251,9 @@ if [ -x "$WRAPPER" ] || [ -f "$DESKTOP_FILE" ]; then
 fi
 
 if [ "$desktop_install_detected" = "true" ]; then
-    INSTALL_DIR_ABS="$(cd "$INSTALL_DIR" && pwd)"
-    if [ -d "$APPDIR" ]; then
-        APPDIR_ABS="$(cd "$APPDIR" && pwd)"
-    else
-        APPDIR_ABS="$APPDIR"
-    fi
-    if [ "$INSTALL_DIR_ABS" != "$APPDIR_ABS" ]; then
-        echo ""
-        echo "Syncing updated files to desktop install at ${APPDIR}..."
-        mkdir -p "$APPDIR"
-        if ! command -v rsync >/dev/null 2>&1; then
-            echo "Warning: rsync is not available; desktop install sync skipped."
-        else
-            rsync -a --delete \
-                --exclude ".git" \
-                --exclude ".venv" \
-                --exclude "logs" \
-                "$INSTALL_DIR/" "$APPDIR/"
-
-            mkdir -p "$(dirname "$DESKTOP_FILE")"
-            cat > "$DESKTOP_FILE" <<EOF
-[Desktop Entry]
-Name=D&D Initiative Tracker
-Comment=Run the D&D Initiative Tracker
-Exec=${WRAPPER}
-Path=${APPDIR}
-Icon=${ICON_NAME}
-Terminal=false
-Type=Application
-Categories=Game;Utility;
-StartupNotify=true
-EOF
-
-            if command -v kbuildsycoca5 >/dev/null 2>&1; then
-                kbuildsycoca5 >/dev/null 2>&1 || true
-                echo "Refreshed KDE desktop cache."
-            fi
-
-            if command -v update-desktop-database >/dev/null 2>&1; then
-                update-desktop-database "${HOME}/.local/share/applications" >/dev/null 2>&1 || true
-                echo "Updated desktop database."
-            fi
-        fi
-    fi
+    echo ""
+    echo "Refreshing launcher and desktop entry..."
+    APPDIR="$APPDIR" INSTALL_DESKTOP_ENTRY=1 INSTALL_PIP_DEPS=0 bash "$INSTALL_DIR/scripts/install-linux.sh"
 fi
 
 echo ""
