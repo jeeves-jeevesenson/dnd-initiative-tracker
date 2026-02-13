@@ -2605,25 +2605,25 @@ class InitiativeTracker(tk.Tk):
 
 
     # -------------------------- Action usage --------------------------
-    def _use_action(self, c: Combatant) -> bool:
+    def _use_action(self, c: Combatant, log_message: Optional[str] = None) -> bool:
         if c.action_remaining <= 0:
             return False
         c.action_remaining -= 1
-        self._log(f"{c.name} used an action", cid=c.cid)
+        self._log(log_message or f"{c.name} used an action", cid=c.cid)
         return True
 
-    def _use_bonus_action(self, c: Combatant) -> bool:
+    def _use_bonus_action(self, c: Combatant, log_message: Optional[str] = None) -> bool:
         if c.bonus_action_remaining <= 0:
             return False
         c.bonus_action_remaining -= 1
-        self._log(f"{c.name} used a bonus action", cid=c.cid)
+        self._log(log_message or f"{c.name} used a bonus action", cid=c.cid)
         return True
 
-    def _use_reaction(self, c: Combatant) -> bool:
+    def _use_reaction(self, c: Combatant, log_message: Optional[str] = None) -> bool:
         if c.reaction_remaining <= 0:
             return False
         c.reaction_remaining -= 1
-        self._log(f"{c.name} used a reaction", cid=c.cid)
+        self._log(log_message or f"{c.name} used a reaction", cid=c.cid)
         return True
 
     def _grant_action_targets(self) -> List[Combatant]:
@@ -9718,7 +9718,17 @@ class BattleMapWindow(tk.Toplevel):
                         break
 
             if from_spell and owner_combatant:
-                if not self.app._use_action(owner_combatant):
+                spell_name = str(aoe_meta.get("name") or "").strip().lower() or "a spell"
+                spell_level = aoe_meta.get("level")
+                try:
+                    level_num = int(spell_level)
+                except Exception:
+                    level_num = None
+                if level_num is not None and level_num >= 0:
+                    cast_log = f"{owner_combatant.name} cast {spell_name} at level {level_num}"
+                else:
+                    cast_log = f"{owner_combatant.name} cast {spell_name}"
+                if not self.app._use_action(owner_combatant, log_message=cast_log):
                     self.app._log(f"{owner_combatant.name} has no actions left to spend", cid=owner_combatant.cid)
 
             removed: List[int] = []

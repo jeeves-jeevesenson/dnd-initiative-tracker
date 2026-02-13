@@ -9232,6 +9232,30 @@ class InitiativeTracker(base.InitiativeTracker):
                 by_id[sid] = preset
         return by_slug, by_id
 
+    @staticmethod
+    def _spell_label_from_identifiers(*values: Any) -> str:
+        for value in values:
+            raw = str(value or "").strip()
+            if not raw:
+                continue
+            pretty = raw.replace("-", " ").replace("_", " ")
+            pretty = " ".join(pretty.split())
+            if pretty:
+                return pretty
+        return "a spell"
+
+    def _spell_cast_log_message(self, caster_name: str, spell_name: str, slot_level: Optional[int]) -> str:
+        caster = str(caster_name or "").strip() or "Someone"
+        name = self._spell_label_from_identifiers(spell_name)
+        level_text = ""
+        try:
+            lvl = int(slot_level) if slot_level is not None else None
+        except Exception:
+            lvl = None
+        if lvl is not None and lvl >= 0:
+            level_text = f" at level {lvl}"
+        return f"{caster} cast {name}{level_text}"
+
     def _find_spell_preset(self, spell_slug: Any, spell_id: Any) -> Optional[Dict[str, Any]]:
         by_slug, by_id = self._spell_preset_lookup()
         slug = str(spell_slug or "").strip().lower()
@@ -10139,16 +10163,23 @@ class InitiativeTracker(base.InitiativeTracker):
                 if not self._combatant_can_cast_spell(c, spend):
                     self._lan.toast(ws_id, "No spellcasting action available, matey.")
                     return
+                spell_name = self._spell_label_from_identifiers(
+                    preset.get("name") if isinstance(preset, dict) else "",
+                    preset.get("slug") if isinstance(preset, dict) else "",
+                    spell_slug,
+                    spell_id,
+                )
+                cast_log = self._spell_cast_log_message(c.name, spell_name, slot_level)
                 if spend == "bonus":
-                    if not self._use_bonus_action(c):
+                    if not self._use_bonus_action(c, log_message=cast_log):
                         self._lan.toast(ws_id, "No bonus actions left, matey.")
                         return
                 elif spend == "reaction":
-                    if not self._use_reaction(c):
+                    if not self._use_reaction(c, log_message=cast_log):
                         self._lan.toast(ws_id, "No reactions left, matey.")
                         return
                 else:
-                    if not self._use_action(c):
+                    if not self._use_action(c, log_message=cast_log):
                         self._lan.toast(ws_id, "No actions left, matey.")
                         return
                 c.spell_cast_remaining = max(0, int(getattr(c, "spell_cast_remaining", 0) or 0) - 1)
@@ -10675,16 +10706,23 @@ class InitiativeTracker(base.InitiativeTracker):
                 if not self._combatant_can_cast_spell(c, spend):
                     self._lan.toast(ws_id, "No spellcasting action available, matey.")
                     return
+                spell_name = self._spell_label_from_identifiers(
+                    preset.get("name"),
+                    preset.get("slug"),
+                    spell_slug,
+                    spell_id,
+                )
+                cast_log = self._spell_cast_log_message(c.name, spell_name, slot_level)
                 if spend == "bonus":
-                    if not self._use_bonus_action(c):
+                    if not self._use_bonus_action(c, log_message=cast_log):
                         self._lan.toast(ws_id, "No bonus actions left, matey.")
                         return
                 elif spend == "reaction":
-                    if not self._use_reaction(c):
+                    if not self._use_reaction(c, log_message=cast_log):
                         self._lan.toast(ws_id, "No reactions left, matey.")
                         return
                 else:
-                    if not self._use_action(c):
+                    if not self._use_action(c, log_message=cast_log):
                         self._lan.toast(ws_id, "No actions left, matey.")
                         return
                 c.spell_cast_remaining = False
