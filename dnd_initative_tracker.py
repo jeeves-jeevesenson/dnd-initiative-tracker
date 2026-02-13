@@ -1366,6 +1366,10 @@ class LanController:
             "export-button",
             "filename-input",
             "character-form",
+            "character-select",
+            "open-character-button",
+            "upload-yaml-input",
+            "upload-yaml-button",
         )
 
         def _inject_asset_version(html: str) -> str:
@@ -1759,6 +1763,13 @@ class LanController:
         async def overwrite_character(name: str, payload: Dict[str, Any] = Body(...)):
             try:
                 return self.app._overwrite_character_payload(name, payload)
+            except CharacterApiError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+        @self._fastapi_app.post("/api/characters/upload")
+        async def upload_character(payload: Dict[str, Any] = Body(...)):
+            try:
+                return self.app._upload_character_yaml_payload(payload)
             except CharacterApiError as exc:
                 raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
@@ -7045,6 +7056,49 @@ class InitiativeTracker(base.InitiativeTracker):
         normalized = self._normalize_vitals_speed_schema(normalized)
         profile = self._store_character_yaml(new_path, normalized)
         return {"filename": new_path.name, "character": profile, "archived": archived.name}
+
+    def _upload_character_yaml_payload(self, payload: Any) -> Dict[str, Any]:
+        if not isinstance(payload, dict):
+            raise CharacterApiError(status_code=400, detail={"error": "validation_error", "message": "Invalid payload."})
+        if yaml is None:
+            raise CharacterApiError(status_code=500, detail={"error": "yaml_missing", "message": "YAML support is not available."})
+        yaml_text = str(payload.get("yaml_text") or "")
+        if not yaml_text.strip():
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "validation_error", "message": "YAML file contents are required."},
+            )
+        try:
+            data = yaml.safe_load(yaml_text)
+        except Exception as exc:
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "validation_error", "message": f"Invalid YAML: {exc}"},
+            )
+        if not isinstance(data, dict):
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "validation_error", "message": "Uploaded YAML must be a mapping/object."},
+            )
+        errors = self._validate_character_payload(data)
+        if errors:
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "validation_error", "errors": errors},
+            )
+        updated_name = self._extract_character_name(data) or "character"
+        filename = self._normalize_character_filename(payload.get("filename"), updated_name)
+        players_dir = self._players_dir()
+        players_dir.mkdir(parents=True, exist_ok=True)
+        path = players_dir / filename
+        archived_name = None
+        if path.exists():
+            archived_name = self._archive_character_file(path).name
+        normalized = self._apply_character_name(data, updated_name)
+        normalized = self._character_merge_defaults(normalized)
+        normalized = self._normalize_vitals_speed_schema(normalized)
+        profile = self._store_character_yaml(path, normalized)
+        return {"filename": path.name, "character": profile, "archived": archived_name}
 
     @staticmethod
     def _normalize_player_section(value: Any) -> Dict[str, Any]:

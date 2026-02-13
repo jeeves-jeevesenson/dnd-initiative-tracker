@@ -25,6 +25,12 @@ class _AppStub:
     def after(self, *_args, **_kwargs):
         return None
 
+    def _list_character_filenames(self):
+        return ["hero.yaml"]
+
+    def _upload_character_yaml_payload(self, payload):
+        return {"filename": payload.get("filename", "hero.yaml"), "character": {}}
+
 
 class EditCharacterRoutesTests(unittest.TestCase):
     def _build_lan_controller(self):
@@ -62,6 +68,8 @@ class EditCharacterRoutesTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('id="character-form"', response.text)
+        self.assertIn('id="character-select"', response.text)
+        self.assertIn('id="upload-yaml-input"', response.text)
         self.assertIn('/assets/web/edit_character/app.js', response.text)
 
     def test_edit_character_assets_are_served(self):
@@ -80,6 +88,14 @@ class EditCharacterRoutesTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.headers.get("location", "").endswith("/edit_character"))
+
+    def test_upload_character_yaml_route_accepts_payload(self):
+        client = self._build_test_client()
+
+        response = client.post("/api/characters/upload", json={"filename": "hero.yaml", "yaml_text": "name: Hero"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json().get("filename"), "hero.yaml")
 
 
 if __name__ == "__main__":

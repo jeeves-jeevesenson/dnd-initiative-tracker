@@ -4,6 +4,10 @@ const refreshCacheButton = document.getElementById("refresh-cache-button");
 const exportButton = document.getElementById("export-button");
 const formEl = document.getElementById("character-form");
 const filenameInput = document.getElementById("filename-input");
+const characterSelect = document.getElementById("character-select");
+const openCharacterButton = document.getElementById("open-character-button");
+const uploadYamlInput = document.getElementById("upload-yaml-input");
+const uploadYamlButton = document.getElementById("upload-yaml-button");
 
 const REQUIRED_EDITOR_ELEMENT_IDS = [
   "draft-status",
@@ -12,6 +16,10 @@ const REQUIRED_EDITOR_ELEMENT_IDS = [
   "export-button",
   "filename-input",
   "character-form",
+  "character-select",
+  "open-character-button",
+  "upload-yaml-input",
+  "upload-yaml-button",
 ];
 
 const assertRequiredEditorElements = () => {
@@ -2419,9 +2427,22 @@ const refreshPlayerCache = async () => {
   }
 };
 
-const fetchAssignedCharacter = async () => {
+const fetchCharacterList = async () => {
   try {
-    const response = await fetch("/api/characters/by_ip");
+    const response = await fetch("/api/characters");
+    if (!response.ok) return [];
+    const payload = await response.json();
+    return Array.isArray(payload?.files) ? payload.files : [];
+  } catch (_error) {
+    return [];
+  }
+};
+
+const fetchCharacterByName = async (name) => {
+  const normalized = String(name || "").trim();
+  if (!normalized) return null;
+  try {
+    const response = await fetch(`/api/characters/${encodeURIComponent(normalized)}`);
     if (!response.ok) return null;
     return await response.json();
   } catch (_error) {
@@ -2429,9 +2450,66 @@ const fetchAssignedCharacter = async () => {
   }
 };
 
+const selectedCharacterFromUrl = () => {
+  const params = new URLSearchParams(window.location.search || "");
+  return String(params.get("file") || "").trim();
+};
+
+const populateCharacterSelect = (files, selectedFile) => {
+  if (!characterSelect) return;
+  characterSelect.textContent = "";
+  const chooseOption = document.createElement("option");
+  chooseOption.value = "";
+  chooseOption.textContent = "Choose a YAML file…";
+  characterSelect.appendChild(chooseOption);
+  for (const file of files) {
+    const option = document.createElement("option");
+    option.value = file;
+    option.textContent = file;
+    characterSelect.appendChild(option);
+  }
+  characterSelect.value = selectedFile && files.includes(selectedFile) ? selectedFile : "";
+};
+
+const openSelectedCharacter = () => {
+  const selected = String(characterSelect?.value || "").trim();
+  if (!selected) {
+    statusEl.textContent = "Choose a YAML file first.";
+    return;
+  }
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set("file", selected);
+  window.location.href = nextUrl.toString();
+};
+
+const uploadYaml = async () => {
+  const file = uploadYamlInput?.files?.[0];
+  if (!file) {
+    statusEl.textContent = "Choose a YAML file to upload.";
+    return;
+  }
+  try {
+    const yamlText = await file.text();
+    const response = await fetch("/api/characters/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: file.name, yaml_text: yamlText }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.detail?.message || "upload failed");
+    const saved = String(payload?.filename || file.name);
+    statusEl.textContent = `Uploaded ${saved}.`;
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("file", saved);
+    window.location.href = nextUrl.toString();
+  } catch (_error) {
+    statusEl.textContent = "Unable to upload YAML. Please check the file and try again.";
+  }
+};
+
 const overwriteCharacter = async (data, originalFilename) => {
   const target = originalFilename || filenameInput?.value || "";
-  if (!target) { statusEl.textContent = "No assigned character found to overwrite."; return originalFilename; }
+  if (!target) { statusEl.textContent = "No character selected to overwrite."; return originalFilename; }
   try {
     ensurePoolsFromFeatures(data);
     const response = await fetch(`/api/characters/${encodeURIComponent(target)}/overwrite`, {
@@ -2456,12 +2534,15 @@ const boot = async () => {
   const defaults = buildDefaultsFromSchema(schema);
   let data = defaults;
   let originalFilename = "";
-  const assigned = await fetchAssignedCharacter();
-  if (assigned?.character) {
-    data = mergeDefaults(assigned.character, defaults);
-    originalFilename = assigned.filename || "";
-    if (filenameInput) filenameInput.value = originalFilename;
+  const files = await fetchCharacterList();
+  const selectedFile = selectedCharacterFromUrl();
+  populateCharacterSelect(files, selectedFile);
+  const selectedCharacter = await fetchCharacterByName(selectedFile);
+  if (selectedCharacter?.character) {
+    data = mergeDefaults(selectedCharacter.character, defaults);
+    originalFilename = selectedCharacter.filename || selectedFile || "";
   }
+  if (filenameInput) filenameInput.value = originalFilename;
   renderForm(schema, data);
   derivedStats.bind(formEl, data);
   derivedStats.recalculate();
@@ -2474,9 +2555,12 @@ const boot = async () => {
   });
   if (exportButton) exportButton.addEventListener("click", () => exportYaml(data));
   if (refreshCacheButton) refreshCacheButton.addEventListener("click", refreshPlayerCache);
+  if (openCharacterButton) openCharacterButton.addEventListener("click", openSelectedCharacter);
+  if (uploadYamlButton) uploadYamlButton.addEventListener("click", uploadYaml);
   if (overwriteButton) {
     overwriteButton.addEventListener("click", async () => { originalFilename = await overwriteCharacter(data, originalFilename); });
   }
+  statusEl.textContent = originalFilename ? `Loaded ${originalFilename}.` : "Choose a YAML file and click Open selected YAML.";
 };
 
 assertRequiredEditorElements();

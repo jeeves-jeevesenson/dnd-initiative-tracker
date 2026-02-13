@@ -10,8 +10,8 @@
   <main class="page">
     <header>
       <p class="eyebrow">InitTracker LAN • Character Editor</p>
-      <h1>Edit Assigned Character</h1>
-      <p class="subtitle">Review your assigned character and overwrite YAML safely.</p>
+      <h1>Edit Character YAML</h1>
+      <p class="subtitle">Choose a player YAML, edit it safely, and upload updated YAML files.</p>
       <div class="notice">
         <strong>Need stale YAML fixed?</strong>
         <ul>
@@ -22,6 +22,26 @@
     </header>
 
     <section class="panel">
+      <div class="field-row">
+        <div class="field">
+          <label for="character-select">Choose character YAML</label>
+          <select id="character-select" name="character-select"></select>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button class="ghost" type="button" id="open-character-button">Open selected YAML</button>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="upload-yaml-input">Upload player YAML</label>
+          <input type="file" id="upload-yaml-input" name="upload-yaml-input" accept=".yaml,.yml" />
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button class="ghost" type="button" id="upload-yaml-button">Upload YAML</button>
+        </div>
+      </div>
       <div id="character-form" class="form-grid" aria-live="polite"></div>
       <div class="actions">
         <div class="action-buttons">
@@ -33,7 +53,7 @@
           <label for="filename-input">YAML filename</label>
           <input type="text" id="filename-input" name="filename-input" placeholder="e.g., merisiel.yaml" autocomplete="off" />
         </div>
-        <p class="status" id="draft-status" role="status">Loading your assigned character…</p>
+        <p class="status" id="draft-status" role="status">Choose a YAML file and click Open selected YAML.</p>
       </div>
     </section>
   </main>

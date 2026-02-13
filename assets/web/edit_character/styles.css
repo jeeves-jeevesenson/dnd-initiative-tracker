@@ -130,6 +130,7 @@ label {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   background: #0b0f15;
@@ -145,6 +146,7 @@ input[type="checkbox"] {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   outline: 2px solid rgba(76, 154, 255, 0.35);
   border-color: var(--accent);
