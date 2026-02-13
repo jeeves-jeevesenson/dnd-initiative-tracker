@@ -1,4 +1,8 @@
+import tempfile
 import unittest
+from pathlib import Path
+
+import yaml
 
 import dnd_initative_tracker as tracker_mod
 
@@ -64,7 +68,7 @@ class WildShapeTests(unittest.TestCase):
         return {
             "leveling": {"classes": [{"name": "Druid", "level": level}]},
             "resources": {"pools": []},
-            "learned_wild_shapes": ["wolf", "brown-bear", "reef-shark", "eagle", "cat"],
+            "prepared_wild_shapes": ["wolf", "brown-bear", "reef-shark", "eagle", "cat"],
         }
 
     def test_resource_pool_auto_added(self):
@@ -227,6 +231,81 @@ class WildShapeTests(unittest.TestCase):
         )
         ok2, err2 = self.app._regain_first_level_spell_slot("Alice")
         self.assertTrue(ok2, err2)
+
+    def test_normalize_profile_preserves_prepared_wild_shapes(self):
+        payload = {
+            "name": "Leaf",
+            "leveling": {"classes": [{"name": "Druid", "level": 2}]},
+            "prepared_wild_shapes": [" Wolf ", "wolf", "brown-bear", "reef-shark"],
+        }
+        normalized = self.app._normalize_player_profile(payload, "Leaf")
+        self.assertEqual(normalized.get("prepared_wild_shapes"), ["wolf", "brown-bear", "reef-shark"])
+
+    def test_player_profiles_payload_uses_persisted_shapes_without_runtime_override(self):
+        self.app._load_player_yaml_cache = lambda force_refresh=False: None
+        self.app._player_yaml_data_by_name = {
+            "Leaf": {
+                "name": "Leaf",
+                "leveling": {"classes": [{"name": "Druid", "level": 2}]},
+                "prepared_wild_shapes": ["wolf", "brown-bear"],
+            }
+        }
+        self.app._wild_shape_known_by_player = {}
+        self.app._wild_shape_available_cache = {}
+        self.app._wild_shape_available_cache_source = self.app._wild_shape_beast_cache
+
+        payload = self.app._player_profiles_payload()
+        self.assertEqual(payload["Leaf"]["learned_wild_shapes"], ["wolf", "brown-bear"])
+        self.assertEqual(payload["Leaf"]["prepared_wild_shapes"], ["wolf", "brown-bear"])
+
+    def test_wild_shape_set_known_persists_to_yaml(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app.in_combat = False
+        app.combatants = {1: object()}
+        app._pc_name_for = lambda _cid: "Leaf"
+        app._is_admin_token_valid = lambda _token: True
+        app._summon_can_be_controlled_by = lambda claimed, cid: False
+        app._load_player_yaml_cache = lambda force_refresh=False: None
+        app._rebuild_table = lambda scroll_to_current=False: None
+        app._wild_shape_known_by_player = {}
+        app._player_yaml_data_by_name = {
+            "Leaf": {
+                "name": "Leaf",
+                "leveling": {"classes": [{"name": "Druid", "level": 2}]},
+                "prepared_wild_shapes": ["wolf"],
+            }
+        }
+        app._wild_shape_available_forms = lambda profile, known_only=False, include_locked=False: [
+            {"id": "wolf"},
+            {"id": "reef-shark"},
+        ]
+        app._lan = type("Lan", (), {"toast": lambda self, ws_id, text: None, "_append_lan_log": lambda self, msg, level='warning': None})()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "leaf.yaml"
+            path.write_text("""name: Leaf
+prepared_wild_shapes:
+  - wolf
+""", encoding="utf-8")
+            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+            app._player_yaml_cache_by_path = {path: raw}
+            app._player_yaml_meta_by_path = {}
+            app._player_yaml_name_map = {"leaf": path}
+            app._player_yaml_lock = tracker_mod.threading.Lock()
+            app._schedule_player_yaml_refresh = lambda: None
+
+            app._lan_apply_action({
+                "type": "wild_shape_set_known",
+                "cid": 1,
+                "_ws_id": 100,
+                "admin_token": "ok",
+                "known": ["reef-shark", "wolf", "wolf"],
+            })
+
+            updated = yaml.safe_load(path.read_text(encoding="utf-8"))
+            self.assertEqual(updated.get("prepared_wild_shapes"), ["reef-shark", "wolf"])
+            self.assertNotIn("learned_wild_shapes", updated)
 
 
 if __name__ == "__main__":
