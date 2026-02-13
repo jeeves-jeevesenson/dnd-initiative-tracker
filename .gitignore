@@ -1,5 +1,6 @@
 dnd_initative_tracker_history.log
 old logs/
+logs/old logs/
 __pycache__/
 *.pyc
 .venv/
@@ -7,5 +8,7 @@ __pycache__/
 dist/
 build/
 logs/*.log
+logs/lan_account_links.json
+logs/monster_index.json
 *.spec
 DNDInitiativeTracker.exe
