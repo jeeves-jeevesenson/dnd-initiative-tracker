@@ -472,6 +472,7 @@
     .btn:active{transform: translateY(1px);}
     .btn.danger{background: rgba(255,91,91,0.14); border-color: rgba(255,91,91,0.35);}
     .btn.accent{background: rgba(106,169,255,0.14); border-color: rgba(106,169,255,0.35);}
+    .btn.success{background: rgba(78,204,128,0.22); border-color: rgba(78,204,128,0.55); color:#dcffe8;}
     .topbar-controls{
       display:flex;
       flex-wrap:wrap;
@@ -1233,6 +1234,7 @@
       padding-right:4px;
     }
     .spellbook-item{
+      touch-action: manipulation;
       display:flex;
       justify-content:space-between;
       align-items:center;
@@ -1265,6 +1267,24 @@
       color: var(--muted);
       font-size:11px;
     }
+    .spellbook-item.locked{
+      border-color: rgba(255,180,90,0.3);
+      background: rgba(255,180,90,0.12);
+    }
+    .wildshape-menu-actions{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:8px;
+    }
+    .wildshape-pool-row{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .wildshape-pool-row input{max-width:120px;}
+
     .spellbook-actions{
       display:flex;
       flex-direction:column;
@@ -2237,6 +2257,7 @@
         <div class="sheet-actions">
           <button class="btn" id="useAction">Use Action</button>
           <button class="btn" id="useBonusAction">Use Bonus Action</button>
+          <button class="btn success" id="wildShapeBonusAction" type="button">Wildshape (Bonus)</button>
           <button class="btn" id="dash">Dash</button>
           <button class="btn" id="standUp">Stand Up</button>
           <button class="btn" id="resetTurn">Reset Turn</button>
@@ -2631,6 +2652,44 @@ __DAMAGE_TYPE_OPTIONS__
   </div>
 </div>
 
+<div class="modal" id="wildShapeMenuOverlay" aria-hidden="true">
+  <div class="card">
+    <h2>Wild Shape</h2>
+    <div class="wildshape-menu-actions">
+      <button class="btn" id="wildShapeMenuManagePool" type="button">Manage Resource Pool</button>
+      <button class="btn" id="wildShapeMenuManageForms" type="button">Manage Wildshapes</button>
+      <button class="btn success" id="wildShapeMenuApply" type="button">Wildshape</button>
+      <button class="btn" id="wildShapeMenuRevert" type="button" style="display:none;">Revert</button>
+      <button class="btn" id="wildShapeMenuRegainUse" type="button">Wild Resurgence: Regain Use</button>
+      <button class="btn" id="wildShapeMenuRegainSpell" type="button">Wild Resurgence: Regain Spell Slot</button>
+      <button class="btn" id="wildShapeMenuClose" type="button">Close</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="wildShapePoolOverlay" aria-hidden="true">
+  <div class="card">
+    <h2>Manage Wild Shape Resource Pool</h2>
+    <div class="spellbook-status" id="wildShapePoolSummary"></div>
+    <div class="wildshape-pool-row">
+      <button class="btn" id="wildShapePoolDec" type="button">−</button>
+      <input id="wildShapePoolCurrentInput" type="number" min="0" step="1" />
+      <button class="btn" id="wildShapePoolInc" type="button">+</button>
+    </div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="wildShapePoolBack" type="button">Back</button>
+      <button class="btn accent" id="wildShapePoolApply" type="button">Apply</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="wildShapePickOverlay" aria-hidden="true">
+  <div class="card">
+    <h2>Choose Wild Shape Form</h2>
+    <div class="spellbook-list" id="wildShapePickList" style="max-height:50vh;"></div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="wildShapePickBack" type="button">Back</button>
+    </div>
+  </div>
+</div>
 <div class="spellbook-overlay" id="wildShapeOverlay" aria-hidden="true">
   <div class="spellbook-header">
     <button class="btn" id="wildShapeBack" type="button">Back</button>
@@ -2641,6 +2700,7 @@ __DAMAGE_TYPE_OPTIONS__
   <div class="spellbook-body">
     <div class="spellbook-controls">
       <input id="wildShapeSearch" type="search" placeholder="Search beast forms..." />
+      <label class="chip spellbook-toggle"><input type="checkbox" id="wildShapeShowLocked" />Show locked forms</label>
     </div>
     <div class="spellbook-columns">
       <div class="spellbook-column">
@@ -3227,10 +3287,30 @@ __DAMAGE_TYPE_OPTIONS__
   const spellLibraryList = document.getElementById("spellLibraryList");
   const spellbookOpenBtn = document.getElementById("spellbookOpen");
   const wildShapeManageOpenBtn = document.getElementById("wildShapeManageOpen");
+  const wildShapeBonusActionBtn = document.getElementById("wildShapeBonusAction");
+  const wildShapeMenuOverlay = document.getElementById("wildShapeMenuOverlay");
+  const wildShapeMenuManagePoolBtn = document.getElementById("wildShapeMenuManagePool");
+  const wildShapeMenuManageFormsBtn = document.getElementById("wildShapeMenuManageForms");
+  const wildShapeMenuApplyBtn = document.getElementById("wildShapeMenuApply");
+  const wildShapeMenuRevertBtn = document.getElementById("wildShapeMenuRevert");
+  const wildShapeMenuRegainUseBtn = document.getElementById("wildShapeMenuRegainUse");
+  const wildShapeMenuRegainSpellBtn = document.getElementById("wildShapeMenuRegainSpell");
+  const wildShapeMenuCloseBtn = document.getElementById("wildShapeMenuClose");
+  const wildShapePoolOverlay = document.getElementById("wildShapePoolOverlay");
+  const wildShapePoolSummary = document.getElementById("wildShapePoolSummary");
+  const wildShapePoolCurrentInput = document.getElementById("wildShapePoolCurrentInput");
+  const wildShapePoolDecBtn = document.getElementById("wildShapePoolDec");
+  const wildShapePoolIncBtn = document.getElementById("wildShapePoolInc");
+  const wildShapePoolBackBtn = document.getElementById("wildShapePoolBack");
+  const wildShapePoolApplyBtn = document.getElementById("wildShapePoolApply");
+  const wildShapePickOverlay = document.getElementById("wildShapePickOverlay");
+  const wildShapePickList = document.getElementById("wildShapePickList");
+  const wildShapePickBackBtn = document.getElementById("wildShapePickBack");
   const wildShapeOverlay = document.getElementById("wildShapeOverlay");
   const wildShapeBackBtn = document.getElementById("wildShapeBack");
   const wildShapeSaveBtn = document.getElementById("wildShapeSave");
   const wildShapeSearchInput = document.getElementById("wildShapeSearch");
+  const wildShapeShowLockedInput = document.getElementById("wildShapeShowLocked");
   const wildShapeLeftList = document.getElementById("wildShapeLeftList");
   const wildShapeRightList = document.getElementById("wildShapeRightList");
   const wildShapeAddBtn = document.getElementById("wildShapeAdd");
@@ -3831,34 +3911,11 @@ __DAMAGE_TYPE_OPTIONS__
         chip.style.cursor = "pointer";
         chip.title = "Wild Shape actions";
         chip.addEventListener("click", () => {
-          const me = getClaimedUnit();
-          if (!me) return;
-          const profile = getPlayerProfile(getClaimedPlayerName());
-          const known = Array.isArray(profile?.learned_wild_shapes) ? profile.learned_wild_shapes : [];
-          const forms = Array.isArray(profile?.wild_shape_available_forms)
-            ? profile.wild_shape_available_forms.filter((entry) => entry?.allowed !== false && known.includes(entry?.id))
-            : [];
-          const names = forms.map((entry) => `${entry.name} (${entry.id})`).join("\n");
-          if (me.is_wild_shaped){
-            send({type:"wild_shape_revert", cid: me.cid});
+          if (!isClaimedUnitDruid()){
+            localToast("Only Druids level 2+ can use Wild Shape.");
             return;
           }
-          const pick = prompt(`Enter beast id to Wild Shape into:\n${names}\n\nCommands:\nresurge-use\nresurge-slot\nmanage`, "");
-          const cmd = String(pick || "").trim().toLowerCase();
-          if (!cmd) return;
-          if (cmd === "manage"){
-            setWildShapeOverlayOpen(true);
-            return;
-          }
-          if (cmd === "resurge-use"){
-            send({type:"wild_shape_regain_use", cid: me.cid});
-            return;
-          }
-          if (cmd === "resurge-slot"){
-            send({type:"wild_shape_regain_spell", cid: me.cid});
-            return;
-          }
-          send({type:"wild_shape_apply", cid: me.cid, beast_id: cmd});
+          setWildShapeMenuOpen(true);
         });
       }
       resourcePoolsListEl.appendChild(chip);
@@ -3869,6 +3926,68 @@ __DAMAGE_TYPE_OPTIONS__
   let wildShapeSelectedAvailable = null;
   let wildShapeSelectedKnown = null;
   let wildShapeKnownDraft = [];
+  let wildShapeAllowedMap = new Map();
+
+  function setModalOpen(el, open){
+    if (!el) return;
+    el.classList.toggle("show", !!open);
+    el.setAttribute("aria-hidden", open ? "false" : "true");
+  }
+
+  function setWildShapeMenuOpen(open){
+    setModalOpen(wildShapeMenuOverlay, open);
+    const me = getClaimedUnit();
+    if (wildShapeMenuRevertBtn){
+      wildShapeMenuRevertBtn.style.display = me?.is_wild_shaped ? "" : "none";
+    }
+  }
+
+  function setWildShapePoolOverlayOpen(open){
+    setModalOpen(wildShapePoolOverlay, open);
+    if (!open) return;
+    const pools = getPlayerResourcePools(getClaimedPlayerName());
+    const wildPool = pools.find((entry) => entry.id === "wild_shape");
+    if (!wildPool){
+      if (wildShapePoolSummary) wildShapePoolSummary.textContent = "No Wild Shape pool found.";
+      return;
+    }
+    if (wildShapePoolSummary) wildShapePoolSummary.textContent = `Current uses: ${wildPool.current}/${wildPool.max}`;
+    if (wildShapePoolCurrentInput){
+      wildShapePoolCurrentInput.min = "0";
+      wildShapePoolCurrentInput.max = String(wildPool.max);
+      wildShapePoolCurrentInput.value = String(wildPool.current);
+    }
+  }
+
+  function setWildShapePickOverlayOpen(open){
+    setModalOpen(wildShapePickOverlay, open);
+    if (!open || !wildShapePickList) return;
+    const {forms, known} = getWildShapeProfileData();
+    const knownSet = new Set(known);
+    const picks = forms.filter((entry) => knownSet.has(String(entry?.id || "").trim().toLowerCase()));
+    wildShapePickList.textContent = "";
+    if (!picks.length){
+      const empty = document.createElement("div");
+      empty.className = "spellbook-item";
+      empty.textContent = "No prepared forms. Use Manage Wildshapes first.";
+      wildShapePickList.appendChild(empty);
+      return;
+    }
+    picks.forEach((entry) => {
+      const id = String(entry?.id || "").trim().toLowerCase();
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "spellbook-item";
+      btn.textContent = `${entry?.name || id} · CR ${entry?.challenge_rating ?? 0}`;
+      btn.addEventListener("click", () => {
+        if (!claimedCid) return;
+        send({type:"wild_shape_apply", cid: claimedCid, beast_id: id});
+        setWildShapePickOverlayOpen(false);
+        setWildShapeMenuOpen(false);
+      });
+      wildShapePickList.appendChild(btn);
+    });
+  }
 
   function isClaimedUnitDruid(){
     const name = getClaimedPlayerName();
@@ -3892,31 +4011,46 @@ __DAMAGE_TYPE_OPTIONS__
     return {forms, known, limit};
   }
 
+  function wildShapeLockReason(entry){
+    const reasons = [];
+    if (entry?.allowed === false){
+      const speed = entry?.speed || {};
+      if (Number(speed.fly || 0) > 0) reasons.push("flight locked at current level");
+      if (Number(speed.swim || 0) > 0) reasons.push("swim locked at current level");
+      if (String(entry?.size || "").toLowerCase() === "tiny") reasons.push("tiny forms unlock at level 11");
+      if (!reasons.length) reasons.push("CR too high for current level");
+    }
+    return reasons.join(", ");
+  }
+
   function renderWildShapeOverlay(){
     if (!wildShapeOverlay) return;
     const {forms, limit} = getWildShapeProfileData();
     const query = String(wildShapeSearchInput?.value || "").trim().toLowerCase();
+    const showLocked = !!wildShapeShowLockedInput?.checked;
     if (!Array.isArray(wildShapeKnownDraft) || !wildShapeKnownDraft.length){
       wildShapeKnownDraft = getWildShapeProfileData().known.slice(0, Math.max(0, limit));
     }
     const available = forms.filter((entry) => {
+      const id = String(entry?.id || "").trim().toLowerCase();
       const name = String(entry?.name || "").toLowerCase();
       const cr = String(entry?.challenge_rating ?? "");
-      return !query || name.includes(query) || cr.includes(query);
+      if (!showLocked && entry?.allowed === false) return false;
+      if (!query) return true;
+      return id.includes(query) || name.includes(query) || cr.includes(query);
     });
     if (wildShapeLeftList) wildShapeLeftList.textContent = "";
     if (wildShapeRightList) wildShapeRightList.textContent = "";
+    wildShapeAllowedMap = new Map();
     available.forEach((entry) => {
       const id = String(entry?.id || "").trim().toLowerCase();
+      if (!id) return;
+      wildShapeAllowedMap.set(id, entry);
       const item = document.createElement("button");
       item.type = "button";
-      item.className = `spellbook-item ${wildShapeSelectedAvailable === id ? "selected" : ""}`;
-      item.disabled = entry?.allowed === false;
+      item.dataset.wildshapeId = id;
+      item.className = `spellbook-item ${entry?.allowed === false ? "locked" : ""} ${wildShapeSelectedAvailable === id ? "selected" : ""}`;
       item.textContent = `${entry?.name || id} · CR ${entry?.challenge_rating ?? 0} · ${entry?.size || ""}`;
-      item.addEventListener("click", () => {
-        wildShapeSelectedAvailable = id;
-        renderWildShapeOverlay();
-      });
       wildShapeLeftList?.appendChild(item);
     });
     const knownSet = new Set(wildShapeKnownDraft);
@@ -3924,12 +4058,9 @@ __DAMAGE_TYPE_OPTIONS__
       const id = String(entry?.id || "").trim().toLowerCase();
       const item = document.createElement("button");
       item.type = "button";
+      item.dataset.wildshapeKnownId = id;
       item.className = `spellbook-item ${wildShapeSelectedKnown === id ? "selected" : ""}`;
       item.textContent = `${entry?.name || id} · CR ${entry?.challenge_rating ?? 0}`;
-      item.addEventListener("click", () => {
-        wildShapeSelectedKnown = id;
-        renderWildShapeOverlay();
-      });
       wildShapeRightList?.appendChild(item);
     });
     if (wildShapeStatusEl){
@@ -11523,16 +11654,123 @@ __DAMAGE_TYPE_OPTIONS__
       setWildShapeOverlayOpen(true);
     });
   }
+  if (wildShapeBonusActionBtn){
+    wildShapeBonusActionBtn.addEventListener("click", () => {
+      if (!isClaimedUnitDruid()){
+        localToast("Only Druids level 2+ can use Wild Shape.");
+        return;
+      }
+      setWildShapePickOverlayOpen(true);
+    });
+  }
+  if (wildShapeMenuCloseBtn){
+    wildShapeMenuCloseBtn.addEventListener("click", () => setWildShapeMenuOpen(false));
+  }
+  if (wildShapeMenuManageFormsBtn){
+    wildShapeMenuManageFormsBtn.addEventListener("click", () => {
+      setWildShapeMenuOpen(false);
+      setWildShapeOverlayOpen(true);
+    });
+  }
+  if (wildShapeMenuApplyBtn){
+    wildShapeMenuApplyBtn.addEventListener("click", () => setWildShapePickOverlayOpen(true));
+  }
+  if (wildShapeMenuRevertBtn){
+    wildShapeMenuRevertBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      send({type:"wild_shape_revert", cid: claimedCid});
+      setWildShapeMenuOpen(false);
+    });
+  }
+  if (wildShapeMenuRegainUseBtn){
+    wildShapeMenuRegainUseBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      send({type:"wild_shape_regain_use", cid: claimedCid});
+      setWildShapeMenuOpen(false);
+    });
+  }
+  if (wildShapeMenuRegainSpellBtn){
+    wildShapeMenuRegainSpellBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      send({type:"wild_shape_regain_spell", cid: claimedCid});
+      setWildShapeMenuOpen(false);
+    });
+  }
+  if (wildShapeMenuManagePoolBtn){
+    wildShapeMenuManagePoolBtn.addEventListener("click", () => setWildShapePoolOverlayOpen(true));
+  }
+  if (wildShapePoolBackBtn){
+    wildShapePoolBackBtn.addEventListener("click", () => setWildShapePoolOverlayOpen(false));
+  }
+  if (wildShapePoolDecBtn){
+    wildShapePoolDecBtn.addEventListener("click", () => {
+      if (!wildShapePoolCurrentInput) return;
+      const value = Math.max(Number(wildShapePoolCurrentInput.min || 0), Number(wildShapePoolCurrentInput.value || 0) - 1);
+      wildShapePoolCurrentInput.value = String(value);
+    });
+  }
+  if (wildShapePoolIncBtn){
+    wildShapePoolIncBtn.addEventListener("click", () => {
+      if (!wildShapePoolCurrentInput) return;
+      const max = Number(wildShapePoolCurrentInput.max || 0);
+      const value = Math.min(max, Number(wildShapePoolCurrentInput.value || 0) + 1);
+      wildShapePoolCurrentInput.value = String(value);
+    });
+  }
+  if (wildShapePoolApplyBtn){
+    wildShapePoolApplyBtn.addEventListener("click", () => {
+      if (!claimedCid || !wildShapePoolCurrentInput) return;
+      send({type:"wild_shape_pool_set_current", cid: claimedCid, current: Number(wildShapePoolCurrentInput.value || 0)});
+      setWildShapePoolOverlayOpen(false);
+      setWildShapeMenuOpen(false);
+    });
+  }
+  if (wildShapePickBackBtn){
+    wildShapePickBackBtn.addEventListener("click", () => setWildShapePickOverlayOpen(false));
+  }
   if (wildShapeBackBtn){
     wildShapeBackBtn.addEventListener("click", () => setWildShapeOverlayOpen(false));
   }
   if (wildShapeSearchInput){
     wildShapeSearchInput.addEventListener("input", () => renderWildShapeOverlay());
   }
+  if (wildShapeShowLockedInput){
+    wildShapeShowLockedInput.addEventListener("change", () => renderWildShapeOverlay());
+  }
+  if (wildShapeLeftList){
+    wildShapeLeftList.addEventListener("click", (event) => {
+      const item = event.target?.closest?.("[data-wildshape-id]");
+      if (!item) return;
+      const id = String(item.dataset.wildshapeId || "").trim().toLowerCase();
+      if (!id) return;
+      wildShapeSelectedAvailable = id;
+      const entry = wildShapeAllowedMap.get(id);
+      if (entry?.allowed === false){
+        const reason = wildShapeLockReason(entry);
+        if (wildShapeStatusEl) wildShapeStatusEl.textContent = `Locked: ${reason}.`;
+      }
+      renderWildShapeOverlay();
+    });
+  }
+  if (wildShapeRightList){
+    wildShapeRightList.addEventListener("click", (event) => {
+      const item = event.target?.closest?.("[data-wildshape-known-id]");
+      if (!item) return;
+      const id = String(item.dataset.wildshapeKnownId || "").trim().toLowerCase();
+      if (!id) return;
+      wildShapeSelectedKnown = id;
+      renderWildShapeOverlay();
+    });
+  }
   if (wildShapeAddBtn){
     wildShapeAddBtn.addEventListener("click", () => {
       const {limit} = getWildShapeProfileData();
       if (!wildShapeSelectedAvailable) return;
+      const entry = wildShapeAllowedMap.get(wildShapeSelectedAvailable);
+      if (entry?.allowed === false){
+        localToast(`That form is locked: ${wildShapeLockReason(entry) || "not available"}.`);
+        return;
+      }
       if (wildShapeKnownDraft.includes(wildShapeSelectedAvailable)) return;
       if (wildShapeKnownDraft.length >= limit){
         localToast("No known form slots remaining.");
