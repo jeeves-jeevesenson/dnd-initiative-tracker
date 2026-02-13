@@ -1,6 +1,5 @@
 dnd_initative_tracker_history.log
 old logs/
-logs/old logs/
 __pycache__/
 *.pyc
 .venv/
