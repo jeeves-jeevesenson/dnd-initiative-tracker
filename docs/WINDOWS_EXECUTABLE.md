@@ -1,6 +1,6 @@
 # Creating a Windows Executable (Optional)
 
-If you want to create a standalone Windows executable (.exe) that doesn't require Python to be installed, you can use **PyInstaller** or **cx_Freeze**. This is an **optional** advanced feature for users who want to distribute the application without requiring Python installation.
+If you want to create a standalone Windows executable (.exe) that doesn't require Python to be installed, you can use **PyInstaller**. This is an **optional** advanced feature for users who want to distribute the application without requiring Python installation.
 
 ## Using PyInstaller (Recommended)
 
@@ -54,63 +54,6 @@ pyinstaller --onedir --windowed --name "DnD-Initiative-Tracker" ^
 - The directory bundle is faster but requires all files to be distributed together
 - The executable will be quite large (100-200 MB) due to Python runtime and dependencies
 - Test the executable thoroughly before distribution
-
-## Creating an MSI Installer (Advanced)
-
-For creating a professional MSI installer, you can use **cx_Freeze** with **WiX Toolset**:
-
-### Prerequisites
-
-- Install WiX Toolset from https://wixtoolset.org/
-- Install cx_Freeze: `pip install cx_Freeze`
-
-### Basic Setup
-
-Create a `setup.py` file:
-
-```python
-from cx_Freeze import setup, Executable
-import sys
-
-build_exe_options = {
-    "packages": ["tkinter", "fastapi", "uvicorn", "yaml", "PIL", "qrcode"],
-    "include_files": [
-        ("Monsters", "Monsters"),
-        ("Spells", "Spells"),
-        ("assets", "assets"),
-    ],
-    "excludes": ["test", "unittest"],
-}
-
-setup(
-    name="DnD Initiative Tracker",
-    version="1.0.0",  # Update this to match your application version
-    description="D&D 5e Initiative Tracker and Combat Manager",
-    options={"build_exe": build_exe_options},
-    executables=[
-        Executable(
-            "dnd_initative_tracker.py",
-            base="Win32GUI" if sys.platform == "win32" else None,
-            icon="assets/graphic-192.png",  # Note: Consider converting to .ico format
-            target_name="DnD-Initiative-Tracker.exe",
-        )
-    ],
-)
-```
-
-### Build MSI
-
-```cmd
-# Build the executable
-python setup.py build
-
-# Create MSI installer (requires WiX)
-python setup.py bdist_msi
-```
-
-### Output
-
-- Creates `dist/DnD Initiative Tracker-<version>-win64.msi`
 
 ## Why Not Include Pre-built Executables?
 
