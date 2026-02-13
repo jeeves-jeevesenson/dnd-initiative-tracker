@@ -276,6 +276,31 @@ const INITIATIVE_TOKENS = ["str_mod", "dex_mod", "con_mod", "int_mod", "wis_mod"
 
 const abilityModifier = (score) => Math.floor((Number(score || 0) - 10) / 2);
 const proficiencyBonusForLevel = (level) => Math.min(6, 2 + Math.floor((Math.max(1, Number(level || 1)) - 1) / 4));
+const getDruidLevelFromData = (data) => {
+  const classes = Array.isArray(data?.leveling?.classes) ? data.leveling.classes : [];
+  if (classes.length) {
+    return classes.reduce((sum, entry) => {
+      const className = String(entry?.name || "").trim().toLowerCase();
+      if (className !== "druid") {
+        return sum;
+      }
+      return sum + Math.max(0, Number(entry?.level || 0));
+    }, 0);
+  }
+  const className = String(data?.leveling?.class || "").trim().toLowerCase();
+  if (className === "druid") {
+    return Math.max(0, Number(data?.leveling?.level || 0));
+  }
+  return 0;
+};
+
+const isPreparedWildShapesFieldVisible = (field, data, sectionId) => {
+  if (sectionId !== "root" || field?.key !== "prepared_wild_shapes") {
+    return true;
+  }
+  return getDruidLevelFromData(data) >= 2;
+};
+
 const totalLevelFromData = (data) => {
   const classes = Array.isArray(data?.leveling?.classes) ? data.leveling.classes : [];
   const classTotal = classes.reduce((sum, entry) => sum + Math.max(0, Number(entry?.level || 0)), 0);
@@ -2284,7 +2309,7 @@ const renderForm = (schema, data) => {
 
     const sectionPath = section.path || [];
     if (section.type === "object") {
-      (section.fields || []).filter((field) => !(section.id === "root" && HIDDEN_ROOT_FIELDS.has(field.key))).forEach((field) => {
+      (section.fields || []).filter((field) => !(section.id === "root" && HIDDEN_ROOT_FIELDS.has(field.key)) && isPreparedWildShapesFieldVisible(field, data, section.id)).forEach((field) => {
         const fieldPath = sectionPath.length ? [...sectionPath, field.key] : [field.key];
         const fieldValue = getValueAtPath(data, fieldPath);
         sectionEl.appendChild(renderField(field, fieldPath, data, fieldValue));

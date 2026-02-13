@@ -934,6 +934,7 @@ class PlayerProfile:
     resources: Dict[str, Any] = field(default_factory=dict)
     spellcasting: Dict[str, Any] = field(default_factory=dict)
     inventory: Dict[str, Any] = field(default_factory=dict)
+    prepared_wild_shapes: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -948,6 +949,7 @@ class PlayerProfile:
             "resources": dict(self.resources),
             "spellcasting": dict(self.spellcasting),
             "inventory": dict(self.inventory),
+            "prepared_wild_shapes": list(self.prepared_wild_shapes),
         }
 
 
@@ -3969,11 +3971,7 @@ class InitiativeTracker(base.InitiativeTracker):
         include_locked: bool = False,
     ) -> List[Dict[str, Any]]:
         druid_level = self._druid_level_from_profile(profile)
-        known = {
-            str(item).strip().lower()
-            for item in (profile.get("learned_wild_shapes") if isinstance(profile.get("learned_wild_shapes"), list) else [])
-            if str(item).strip()
-        }
+        known = set(self._normalized_prepared_wild_shapes_from_profile(profile))
         if druid_level < 2:
             return []
         if druid_level >= 8:
@@ -3999,6 +3997,31 @@ class InitiativeTracker(base.InitiativeTracker):
                 entry["allowed"] = bool(allowed)
                 result.append(entry)
         return result
+
+    def _normalize_prepared_wild_shapes(self, raw_values: Any, known_limit: Optional[int] = None) -> List[str]:
+        if not isinstance(raw_values, list):
+            return []
+        deduped: List[str] = []
+        for raw in raw_values:
+            beast_id = str(raw or "").strip().lower()
+            if not beast_id or beast_id in deduped:
+                continue
+            deduped.append(beast_id)
+            if isinstance(known_limit, int) and known_limit >= 0 and len(deduped) >= known_limit:
+                break
+        return deduped
+
+    def _normalized_prepared_wild_shapes_from_profile(self, profile: Dict[str, Any]) -> List[str]:
+        if not isinstance(profile, dict):
+            return []
+        raw_values = profile.get("prepared_wild_shapes")
+        if not isinstance(raw_values, list):
+            raw_values = profile.get("learned_wild_shapes")
+        known_limit: Optional[int] = None
+        druid_level = self._druid_level_from_profile(profile)
+        if druid_level >= 2:
+            known_limit = self._wild_shape_known_limit(druid_level)
+        return self._normalize_prepared_wild_shapes(raw_values, known_limit=known_limit)
 
     """Tk tracker + LAN proof-of-concept server."""
 
@@ -7340,6 +7363,13 @@ class InitiativeTracker(base.InitiativeTracker):
         spellcasting["prepared_list"] = prepared_list
         spellcasting["cantrips_list"] = cantrip_list
 
+        druid_level = self._druid_level_from_profile({"leveling": leveling})
+        known_limit = self._wild_shape_known_limit(druid_level) if druid_level >= 2 else None
+        raw_prepared_wild_shapes = data.get("prepared_wild_shapes")
+        if not isinstance(raw_prepared_wild_shapes, list):
+            raw_prepared_wild_shapes = data.get("learned_wild_shapes")
+        prepared_wild_shapes = self._normalize_prepared_wild_shapes(raw_prepared_wild_shapes, known_limit=known_limit)
+
         profile = PlayerProfile(
             name=name,
             format_version=fmt,
@@ -7352,6 +7382,7 @@ class InitiativeTracker(base.InitiativeTracker):
             resources=resources,
             spellcasting=spellcasting,
             inventory=inventory,
+            prepared_wild_shapes=prepared_wild_shapes,
         )
         return profile.to_dict()
 
@@ -7865,7 +7896,14 @@ class InitiativeTracker(base.InitiativeTracker):
                     spellcasting["save_dc"] = save_dc
                     profile_payload["spellcasting"] = spellcasting
             known_map = self.__dict__.get("_wild_shape_known_by_player", {})
-            known_runtime = known_map.get(str(name).strip().lower(), []) if isinstance(known_map, dict) else []
+            persisted_known = self._normalized_prepared_wild_shapes_from_profile(profile_payload)
+            known_runtime = []
+            if isinstance(known_map, dict):
+                known_runtime = self._normalize_prepared_wild_shapes(
+                    known_map.get(str(name).strip().lower(), []),
+                    known_limit=None,
+                )
+            chosen_known = known_runtime if known_runtime else persisted_known
             druid_level = self._druid_level_from_profile(profile_payload)
             known_limit = self._wild_shape_known_limit(druid_level)
             available: List[Dict[str, Any]] = []
@@ -7904,7 +7942,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     available_cache[druid_level] = trimmed
                     cached_available = trimmed
                 available = cached_available
-            profile_payload["learned_wild_shapes"] = list(known_runtime)
+            profile_payload["learned_wild_shapes"] = list(chosen_known)
+            profile_payload["prepared_wild_shapes"] = list(chosen_known)
             profile_payload["wild_shape_known_limit"] = int(known_limit)
             profile_payload["wild_shape_available_forms"] = available
             payload[name] = profile_payload
@@ -9005,12 +9044,12 @@ class InitiativeTracker(base.InitiativeTracker):
             return False, "No player profile found for Wild Shape, matey."
         known_map = self.__dict__.get("_wild_shape_known_by_player", {})
         runtime_known = known_map.get(player_name.strip().lower(), []) if isinstance(known_map, dict) else []
-        if not runtime_known and isinstance(profile.get("learned_wild_shapes"), list):
-            runtime_known = [str(item).strip().lower() for item in profile.get("learned_wild_shapes") if str(item).strip()]
+        if not runtime_known:
+            runtime_known = self._normalized_prepared_wild_shapes_from_profile(profile)
         forms = {
             str(entry.get("id") or "").lower(): entry
             for entry in self._wild_shape_available_forms(
-                {**profile, "learned_wild_shapes": runtime_known},
+                {**profile, "prepared_wild_shapes": runtime_known, "learned_wild_shapes": runtime_known},
                 known_only=True,
             )
         }
@@ -11318,6 +11357,15 @@ class InitiativeTracker(base.InitiativeTracker):
                 known_map = {}
                 self._wild_shape_known_by_player = known_map
             known_map[player_name.strip().lower()] = deduped
+
+            player_path = self._find_player_profile_path(player_name)
+            raw_payload = self._player_yaml_cache_by_path.get(player_path) if isinstance(player_path, Path) else None
+            if isinstance(player_path, Path) and isinstance(raw_payload, dict):
+                updated_payload = dict(raw_payload)
+                updated_payload["prepared_wild_shapes"] = list(deduped)
+                updated_payload.pop("learned_wild_shapes", None)
+                self._store_character_yaml(player_path, updated_payload)
+
             self._lan.toast(ws_id, "Wild Shape forms updated.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "use_action":

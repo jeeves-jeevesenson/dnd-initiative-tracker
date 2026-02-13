@@ -38,6 +38,19 @@
           "type": "string",
           "default": "",
           "help": "Optional static LAN host/IP assignment. Usually leave blank."
+        },
+        {
+          "key": "prepared_wild_shapes",
+          "label": "Prepared Wild Shapes (Druid only)",
+          "type": "array",
+          "repeatable": true,
+          "items": {
+            "type": "string",
+            "default": "",
+            "placeholder": "e.g., wolf"
+          },
+          "default": [],
+          "help": "Beast IDs like wolf, brown-bear. Only used for Druids level 2+."
         }
       ]
     },

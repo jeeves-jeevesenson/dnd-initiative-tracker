@@ -73,6 +73,9 @@ name: "Character Name"     # Required: Character's name (used for display and fi
 player: "Player Name"      # Optional: Real-world player's name
 campaign: "Campaign Name"  # Optional: Campaign identifier
 ip: "192.168.1.100"       # Optional: Player's IP address for LAN features
+prepared_wild_shapes:      # Optional: Druid-only prepared wild shape beast IDs
+  - wolf
+  - brown-bear
 ```
 
 **Field Descriptions:**
@@ -82,6 +85,7 @@ ip: "192.168.1.100"       # Optional: Player's IP address for LAN features
 - **player**: The real-world player's name. Used for tracking who plays this character.
 - **campaign**: Optional campaign name or identifier. Useful for organizing characters across multiple campaigns.
 - **ip**: IP address for the player's device when using LAN/mobile client features. Can be manually set or auto-detected.
+- **prepared_wild_shapes**: Optional list of beast IDs (for Druid level 2+) used by LAN Wild Shape management. Legacy `learned_wild_shapes` is still read for backward compatibility, but new saves use `prepared_wild_shapes`.
 
 ---
 
@@ -1431,7 +1435,8 @@ When YAML is exported/saved, all schema sections are still included even if some
   - `max_formula: max(2, min(4, 2 + floor(druid_level / 3)))`
   - `reset: long_rest`
   - `gain_on_short: 1`
-- Wild Shape overlays (beast form stats, token rename/size/speed changes, known-form picks in LAN) are **runtime state** and are not written back to the player YAML file.
+- Wild Shape prepared/known form IDs can now be persisted in YAML via `prepared_wild_shapes` (legacy `learned_wild_shapes` is still accepted on read).
+- Wild Shape overlays (beast form stats, token rename/size/speed changes) remain **runtime state** and are not written back to the player YAML file.
 - Long rest clears active Wild Shape overlays and refreshes Wild Shape/LAN exchange restrictions.
 - **Feats tab is now a two-pane editor** (searchable feat list on the left, explicit details/save/revert/remove actions on the right) with per-feat dirty indicators and unsaved-change confirmation when switching feats/tabs or leaving the page.
 - **Configure Grants… modal** replaces inline grants editing. It contains dedicated **Resource Pools** and **Granted Spells** sub-tabs, supports add/remove/edit flows, validates pool ID uniqueness across the character, and only applies changes when confirmed.
