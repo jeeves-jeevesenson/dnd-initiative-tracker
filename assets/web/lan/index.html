@@ -3614,7 +3614,9 @@ __DAMAGE_TYPE_OPTIONS__
   function updateEndTurnState(){
     if (!endTurnBtn) return;
     const needsClaim = claimedCid === null || claimedCid === undefined;
-    const shouldDisable = isMapView || needsClaim;
+    const activeCid = normalizeCid(state?.active_cid, "endTurn.activeCid");
+    const myTurn = !needsClaim && activeCid !== null && cidMatches(activeCid, claimedCid, "endTurn.myTurn");
+    const shouldDisable = isMapView || needsClaim || !myTurn;
     endTurnBtn.disabled = shouldDisable;
     endTurnBtn.setAttribute("aria-disabled", shouldDisable ? "true" : "false");
     let titleText = "";
@@ -3622,6 +3624,8 @@ __DAMAGE_TYPE_OPTIONS__
       titleText = "Claim a character first, matey.";
     } else if (isMapView){
       titleText = "Map view is read-only.";
+    } else if (!myTurn){
+      titleText = "Wait for your turn, matey.";
     }
     if (titleText){
       endTurnBtn.setAttribute("title", titleText);
@@ -12261,6 +12265,12 @@ __DAMAGE_TYPE_OPTIONS__
       if (isMapView) return;
       if (!claimedCid){
         localToast("Claim a character first, matey.");
+        return;
+      }
+      const activeCid = normalizeCid(state?.active_cid, "endTurn.click.activeCid");
+      if (activeCid === null || !cidMatches(activeCid, claimedCid, "endTurn.click.myTurn")){
+        localToast("Not yer turn yet, matey.");
+        updateEndTurnState();
         return;
       }
       send({type:"end_turn", cid: claimedCid});

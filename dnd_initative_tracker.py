@@ -11627,6 +11627,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "No turn snapshot yet, matey.")
         elif typ == "end_turn":
             # Let player end their own turn.
+            active_cid = _normalize_cid_value(
+                getattr(self, "current_cid", None), "lan_action.end_turn.current_cid", log_fn=log_warning
+            )
+            if in_combat and (cid is None or active_cid != int(cid)):
+                self._lan.toast(ws_id, "Not yer turn yet, matey.")
+                return
             try:
                 for combatant in self.combatants.values():
                     setattr(combatant, "wild_resurgence_turn_used", False)
