@@ -555,6 +555,21 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(left_controls, text="Conditions…", command=self._open_condition_tool).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(left_controls, text="Set Start Here", command=self._set_start_here).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(left_controls, text="Clear Start", command=self._clear_start).pack(side=tk.LEFT, padx=(0, 8))
+        self.end_turn_btn = tk.Button(
+            left_controls,
+            text="END TURN",
+            command=self._next_turn,
+            font=("TkDefaultFont", 11, "bold"),
+            bg="#d32f2f",
+            activebackground="#b71c1c",
+            fg="white",
+            activeforeground="white",
+            relief=tk.RAISED,
+            bd=2,
+            padx=12,
+            pady=6,
+        )
+        self.end_turn_btn.pack(side=tk.LEFT, padx=(8, 8))
         ttk.Button(left_controls, text="Refresh monsters/spells", command=self._refresh_monsters_spells).pack(side=tk.LEFT, padx=(8, 0))
 
         library_frame = ttk.LabelFrame(add_frame, text="Creature Library (view-only)")
@@ -631,7 +646,6 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(btn_row, text="Start/Reset", command=self._start_turns).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Set Turn Here", command=self._set_turn_here).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Prev Turn", command=self._prev_turn).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(btn_row, text="Next Turn", command=self._next_turn).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Stand Up", command=self._stand_up_current).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Move…", command=self._open_move_tool).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Dash", command=self._dash_current).pack(side=tk.LEFT, padx=(0, 8))
@@ -2011,6 +2025,37 @@ class InitiativeTracker(tk.Tk):
         self._rebuild_table()
 
     # -------------------------- Turn tracker --------------------------
+    def _update_end_turn_button_state(self) -> None:
+        btn = getattr(self, "end_turn_btn", None)
+        if btn is None:
+            return
+        should_pop = False
+        if self.current_cid is not None and self.current_cid in self.combatants:
+            c = self.combatants[self.current_cid]
+            should_pop = (
+                int(getattr(c, "action_remaining", 0) or 0) <= 0
+                and int(getattr(c, "bonus_action_remaining", 0) or 0) <= 0
+                and int(getattr(c, "move_remaining", 0) or 0) <= 0
+            )
+        if should_pop:
+            btn.configure(
+                text="END TURN ▶",
+                font=("TkDefaultFont", 13, "bold"),
+                bg="#ff1744",
+                activebackground="#d50000",
+                relief=tk.RIDGE,
+                bd=4,
+            )
+        else:
+            btn.configure(
+                text="END TURN",
+                font=("TkDefaultFont", 11, "bold"),
+                bg="#d32f2f",
+                activebackground="#b71c1c",
+                relief=tk.RAISED,
+                bd=2,
+            )
+
     def _update_turn_ui(self) -> None:
         if self.current_cid is None or self.current_cid not in self.combatants:
             self.turn_current_var.set("(not started)")
@@ -2028,6 +2073,7 @@ class InitiativeTracker(tk.Tk):
         self.turn_round_var.set(str(max(1, int(self.round_num))))
         # In D&D terms, each creature's "turn number" matches the round.
         self.turn_count_var.set(str(max(1, int(self.round_num))))
+        self._update_end_turn_button_state()
 
     
     def _log_turn_start(self, cid: int) -> None:
