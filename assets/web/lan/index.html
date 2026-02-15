@@ -5092,7 +5092,6 @@ __DAMAGE_TYPE_OPTIONS__
   function localToast(text){
     if (!noteEl) return;
     noteEl.textContent = text || "…";
-    setTimeout(() => noteEl.textContent = "Tip: drag yer token · unlock “Unlock my AOEs” to move AoEs (touch-hold ok)", 2500);
   }
 
   const DEFAULT_SPELL_COLOR = "#6aa9ff";
@@ -8350,8 +8349,7 @@ __DAMAGE_TYPE_OPTIONS__
           }
         }
         updateHud();
-        noteEl.textContent = msg.text || "Assigned by the DM.";
-        setTimeout(() => noteEl.textContent = "Tip: drag yer token · hold Shift to drag AoE (touch-hold ok)", 2500);
+        localToast(msg.text || "Assigned by the DM.");
         refreshTurnAlertStatus();
         checkAutoClaimResolved();
       } else if (msg.type === "force_unclaim"){
@@ -8387,8 +8385,7 @@ __DAMAGE_TYPE_OPTIONS__
         refreshTurnAlertStatus();
         updateHud();
       } else if (msg.type === "toast"){
-        noteEl.textContent = msg.text || "…";
-        setTimeout(() => noteEl.textContent = "Tip: drag yer token · hold Shift to drag AoE (touch-hold ok)", 2500);
+        localToast(msg.text || "…");
       } else if (msg.type === "mount_prompt"){
         pendingMountRequestId = msg.request_id || null;
         if (mountPromptBody){
