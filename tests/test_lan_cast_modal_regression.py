@@ -62,6 +62,12 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('document.body.classList.toggle("auto-compact", autoCompact);', self.html)
         self.assertIn('class="btn compact-optional" id="battleLog"', self.html)
 
+    def test_player_hp_bar_ui_and_threshold_classes_present(self):
+        self.assertIn('id="playerHpBarWrap"', self.html)
+        self.assertIn('id="playerHpBarFill"', self.html)
+        self.assertIn('playerHpBarFill.classList.toggle("mid", pct <= 50 && pct > 20);', self.html)
+        self.assertIn('playerHpBarFill.classList.toggle("low", pct <= 20);', self.html)
+
 
 if __name__ == "__main__":
     unittest.main()

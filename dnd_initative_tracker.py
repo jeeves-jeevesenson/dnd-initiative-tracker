@@ -6108,6 +6108,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "ally": bool(role in ("pc", "ally")),
                     "token_color": self._token_color_payload(c),
                     "hp": int(getattr(c, "hp", 0) or 0),
+                    "max_hp": int(getattr(c, "max_hp", getattr(c, "hp", 0)) or 0),
                     "speed": int(getattr(c, "speed", 0) or 0),
                     "swim_speed": int(getattr(c, "swim_speed", 0) or 0),
                     "fly_speed": int(getattr(c, "fly_speed", 0) or 0),

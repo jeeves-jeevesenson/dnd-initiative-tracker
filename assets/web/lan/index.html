@@ -1413,6 +1413,30 @@
     .value{font-size:14px; font-weight:700;}
     .chip{font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);}
     .chip input{margin-right:6px;}
+    .hp-bar-wrap{
+      display:none;
+      align-items:center;
+      gap:8px;
+      width:min(360px, 100%);
+    }
+    .hp-bar-wrap.show{display:flex;}
+    .hp-bar-track{
+      flex:1;
+      min-width:120px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.12);
+      overflow:hidden;
+    }
+    .hp-bar-fill{
+      height:100%;
+      width:0%;
+      background:#38c172;
+      transition:width 120ms ease-out, background 120ms ease-out;
+    }
+    .hp-bar-fill.mid{background:#f2c94c;}
+    .hp-bar-fill.low{background:#ff5b5b;}
+    .hp-bar-label{font-size:12px; color:var(--muted);}
     .turn-order{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
     .turn-chip{
       min-width: 26px;
@@ -2329,6 +2353,10 @@
         <div class="chip" id="note">Tip: drag yer token · hold Shift to drag AoE (touch-hold ok)</div>
         <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
       </div>
+      <div class="row hp-bar-wrap" id="playerHpBarWrap" aria-live="polite">
+        <div class="hp-bar-track"><div class="hp-bar-fill" id="playerHpBarFill"></div></div>
+        <div class="hp-bar-label" id="playerHpBarLabel">HP —</div>
+      </div>
       <fieldset class="turn-alerts-panel" id="turnAlertsPanel">
         <legend>Turn Alerts</legend>
         <div class="turn-alerts-row">
@@ -3238,6 +3266,9 @@ __DAMAGE_TYPE_OPTIONS__
   const bonusActionEl = document.getElementById("bonusAction");
   const reactionEl = document.getElementById("reaction");
   const turnEl = document.getElementById("turn");
+  const playerHpBarWrap = document.getElementById("playerHpBarWrap");
+  const playerHpBarFill = document.getElementById("playerHpBarFill");
+  const playerHpBarLabel = document.getElementById("playerHpBarLabel");
   const spellSlotMonitorEl = document.getElementById("spellSlotMonitor");
   const resourcePoolsPanelEl = document.getElementById("resourcePoolsPanel");
   const resourcePoolsListEl = document.getElementById("resourcePoolsList");
@@ -7814,6 +7845,26 @@ __DAMAGE_TYPE_OPTIONS__
     if (dismissSummonsBtn){
       dismissSummonsBtn.disabled = claimedCid == null;
     }
+    const updatePlayerHpBar = (unit) => {
+      if (!playerHpBarWrap || !playerHpBarFill || !playerHpBarLabel){
+        return;
+      }
+      const hp = Number(unit?.hp ?? NaN);
+      const maxHpRaw = Number(unit?.max_hp ?? NaN);
+      const maxHp = Number.isFinite(maxHpRaw) && maxHpRaw > 0
+        ? maxHpRaw
+        : (Number.isFinite(hp) && hp > 0 ? hp : 0);
+      if (!Number.isFinite(hp) || maxHp <= 0){
+        playerHpBarWrap.classList.remove("show");
+        return;
+      }
+      const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+      playerHpBarWrap.classList.add("show");
+      playerHpBarFill.style.width = `${pct}%`;
+      playerHpBarFill.classList.toggle("mid", pct <= 50 && pct > 20);
+      playerHpBarFill.classList.toggle("low", pct <= 20);
+      playerHpBarLabel.textContent = `HP ${Math.round(hp)}/${Math.round(maxHp)}`;
+    };
     let meForHud = null;
     if (claimedCid && state.units){
       const me = state.units.find(u => cidMatches(u.cid, claimedCid, "hud.claimedUnit"));
@@ -7841,7 +7892,9 @@ __DAMAGE_TYPE_OPTIONS__
         if (standUpBtn){
           standUpBtn.disabled = !(myTurn && me.is_prone);
         }
+        updatePlayerHpBar(me);
       } else {
+        updatePlayerHpBar(null);
         moveEl.removeAttribute("title");
         actionEl.textContent = "Action: —";
         bonusActionEl.textContent = "Bonus Action: —";
@@ -7863,6 +7916,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
     } else {
+      updatePlayerHpBar(null);
       moveEl.removeAttribute("title");
       actionEl.textContent = "Action: —";
       bonusActionEl.textContent = "Bonus Action: —";
