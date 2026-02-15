@@ -1,5 +1,8 @@
 import unittest
 from unittest import mock
+from pathlib import Path
+
+import yaml
 
 import dnd_initative_tracker as tracker_mod
 
@@ -434,6 +437,16 @@ class SummonSpawnTests(unittest.TestCase):
         cid = tracker_mod.InitiativeTracker._create_pc_from_profile(h, "Eldramar", {})
         self.assertIsNotNone(cid)
         h._spawn_startup_summons_for_pc.assert_called_once_with(cid, expected_entries)
+
+    def test_conjure_animals_has_summon_automation_config(self):
+        spell = yaml.safe_load(Path("Spells/conjure-animals.yaml").read_text(encoding="utf-8"))
+        summon = spell.get("mechanics", {}).get("summon")
+        self.assertIsInstance(summon, dict)
+        self.assertEqual(summon.get("initiative", {}).get("mode"), "shared")
+        self.assertEqual(summon.get("count", {}).get("min"), 1)
+        self.assertEqual(summon.get("count", {}).get("max"), 8)
+        choices = summon.get("choices", [])
+        self.assertTrue(any(str(choice.get("monster_slug")) == "wolf" for choice in choices if isinstance(choice, dict)))
 
 
 

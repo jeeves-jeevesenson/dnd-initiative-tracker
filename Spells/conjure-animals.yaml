@@ -48,6 +48,32 @@ mechanics:
   targeting: null
   sequence: []
   scaling: null
+  summon:
+    side: caster
+    color: blue
+    choices:
+    - name: Wolf
+      monster_slug: wolf
+    - name: Dire Wolf
+      monster_slug: dire-wolf
+    - name: Giant Eagle
+      monster_slug: giant-eagle
+    - name: Giant Constrictor Snake
+      monster_slug: giant-constrictor-snake
+    count:
+      kind: fixed
+      min: 1
+      max: 8
+    duration:
+      concentration: true
+      up_to: 10 minutes
+    lifecycle:
+      ends_on_zero_hp: true
+      ends_on_spell_end: true
+    control: summoner
+    initiative:
+      mode: shared
+      turn_position: immediately_after_caster
   ui:
     template_preview: false
   notes: []
