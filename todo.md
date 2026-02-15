@@ -90,6 +90,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Acceptance criteria:**
   - DM button triggers LAN initiative modal centered over map (same UX class as character chooser modal behavior).
   - Player can submit initiative without opening spell UI.
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** Initiative prompt modal now lives in the global modal stack instead of the Cast Spell overlay, so it opens without the spell UI.
 - **Investigation context (2026-02-15):**
   - Client already has a dedicated `initiative_prompt` handler that directly opens `#initiativePromptModal` (`assets/web/lan/index.html`).
   - Server already has dedicated sender `send_initiative_prompt(...)`, and DM trigger `_roll_lan_initiative_for_claimed_pcs(...)` calls it (`dnd_initative_tracker.py`).
