@@ -3626,7 +3626,10 @@ class LanController:
         try:
             if hasattr(self.app, "_monster_specs"):
                 monster_choices = [
-                    {"name": str(spec.name), "slug": Path(str(spec.filename or "")).stem}
+                    {
+                        "name": str(spec.name),
+                        "slug": Path(str(spec.filename or "")).with_suffix("").as_posix(),
+                    }
                     for spec in getattr(self.app, "_monster_specs", [])
                 ]
         except Exception:
@@ -9380,17 +9383,27 @@ class InitiativeTracker(base.InitiativeTracker):
         return None
 
     def _find_monster_spec_by_slug(self, monster_slug: Any) -> Optional[MonsterSpec]:
-        slug = str(monster_slug or "").strip().lower()
+        slug = str(monster_slug or "").strip().lower().replace("\\", "/")
         if not slug:
             return None
         if not self._monster_specs:
             self._load_monsters_index()
+        normalized = slug.strip("/")
+        direct_spec: Optional[MonsterSpec] = None
+        basename_spec: Optional[MonsterSpec] = None
         for spec in self._monster_specs:
-            filename_slug = Path(str(spec.filename or "")).stem.strip().lower()
-            if filename_slug == slug:
-                detailed = self._load_monster_details(spec.name)
-                return detailed or spec
-        return None
+            rel = Path(str(spec.filename or "")).with_suffix("").as_posix().strip().lower().replace("\\", "/")
+            base = Path(str(spec.filename or "")).stem.strip().lower()
+            if rel == normalized:
+                direct_spec = spec
+                break
+            if basename_spec is None and base == normalized:
+                basename_spec = spec
+        chosen = direct_spec or basename_spec
+        if chosen is None:
+            return None
+        detailed = self._load_monster_details(chosen.name)
+        return detailed or chosen
 
     @staticmethod
     def _normalize_summon_controller_mode(summon_cfg: Dict[str, Any]) -> str:
@@ -10201,6 +10214,237 @@ class InitiativeTracker(base.InitiativeTracker):
             }
         return spawned
 
+    @staticmethod
+    def _normalize_custom_monster_slug(name: Any) -> str:
+        raw = str(name or "").strip().lower()
+        slug = re.sub(r"[^a-z0-9]+", "-", raw).strip("-")
+        return slug or "custom-summon"
+
+    def _write_temp_monster_yaml(self, payload: Dict[str, Any]) -> Tuple[bool, str, Optional[Path]]:
+        if yaml is None:
+            return False, "Monster YAML support requires PyYAML.", None
+        if not isinstance(payload, dict):
+            return False, "Invalid custom summon payload.", None
+        name = str(payload.get("name") or "").strip()
+        if not name:
+            return False, "Custom summon needs a name.", None
+        safe_name = " ".join(name.split())[:80]
+        if not safe_name:
+            return False, "Custom summon needs a valid name.", None
+        monster_data = {
+            "name": safe_name,
+            "type": str(payload.get("type") or "construct").strip() or "construct",
+            "hp": int(payload.get("hp") or 1),
+            "speed": {
+                "walk": int(payload.get("speeds", {}).get("walk", 30) or 0),
+                "swim": int(payload.get("speeds", {}).get("swim", 0) or 0),
+                "fly": int(payload.get("speeds", {}).get("fly", 0) or 0),
+                "burrow": int(payload.get("speeds", {}).get("burrow", 0) or 0),
+                "climb": int(payload.get("speeds", {}).get("climb", 0) or 0),
+            },
+            "abilities": {
+                "str": int(payload.get("abilities", {}).get("str", 10) or 10),
+                "dex": int(payload.get("abilities", {}).get("dex", 10) or 10),
+                "con": int(payload.get("abilities", {}).get("con", 10) or 10),
+                "int": int(payload.get("abilities", {}).get("int", 10) or 10),
+                "wis": int(payload.get("abilities", {}).get("wis", 10) or 10),
+                "cha": int(payload.get("abilities", {}).get("cha", 10) or 10),
+            },
+            "ac": int(payload.get("ac") or 10),
+            "challenge_rating": payload.get("challenge_rating") if payload.get("challenge_rating") is not None else 0,
+            "traits": payload.get("traits") if isinstance(payload.get("traits"), list) else [],
+            "actions": payload.get("actions") if isinstance(payload.get("actions"), list) else [],
+        }
+
+        temp_dir = self._monsters_dir_path() / "temp"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            base_dir = temp_dir.resolve()
+        except Exception:
+            return False, "Could not access monster temp directory.", None
+
+        base_slug = self._normalize_custom_monster_slug(safe_name)
+        target: Optional[Path] = None
+        for _ in range(100):
+            suffix = "" if target is None else f"-{secrets.token_hex(2)}"
+            candidate = temp_dir / f"{base_slug}{suffix}.yaml"
+            try:
+                resolved = candidate.resolve()
+            except Exception:
+                continue
+            if base_dir not in resolved.parents:
+                continue
+            if resolved.exists():
+                target = resolved
+                continue
+            target = resolved
+            break
+        if target is None:
+            return False, "Could not allocate temp monster file.", None
+
+        if target.exists():
+            target = base_dir / f"{base_slug}-{secrets.token_hex(4)}.yaml"
+
+        data = {"monster": monster_data}
+        try:
+            text = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+            target.write_text(text, encoding="utf-8")
+        except Exception:
+            return False, "Failed to write temp monster file.", None
+        return True, target.stem, target
+
+    def _spawn_custom_summons_from_payload(
+        self,
+        caster_cid: int,
+        payload: Dict[str, Any],
+    ) -> Tuple[bool, str, List[int]]:
+        if not isinstance(payload, dict):
+            return False, "Invalid summon payload.", []
+        name = str(payload.get("name") or "").strip()
+        if not name:
+            return False, "Custom summon needs a name.", []
+        try:
+            hp = int(payload.get("hp"))
+        except Exception:
+            return False, "Custom summon needs valid HP.", []
+        if hp <= 0:
+            return False, "Custom summon HP must be above 0.", []
+
+        abilities = payload.get("abilities") if isinstance(payload.get("abilities"), dict) else payload.get("ability_scores") if isinstance(payload.get("ability_scores"), dict) else None
+        if not isinstance(abilities, dict):
+            return False, "Custom summon ability scores are required.", []
+        normalized_abilities: Dict[str, int] = {}
+        for ability in ("str", "dex", "con", "int", "wis", "cha"):
+            try:
+                val = int(abilities.get(ability))
+            except Exception:
+                return False, "Custom summon ability scores are invalid.", []
+            if val < 1 or val > 30:
+                return False, "Custom summon ability scores must be between 1 and 30.", []
+            normalized_abilities[ability] = val
+
+        speeds = payload.get("speeds") if isinstance(payload.get("speeds"), dict) else payload.get("speed") if isinstance(payload.get("speed"), dict) else None
+        if not isinstance(speeds, dict):
+            return False, "Custom summon speed data is required.", []
+        normalized_speeds: Dict[str, int] = {}
+        for key in ("walk", "swim", "fly", "burrow", "climb"):
+            raw = speeds.get(key, 0)
+            try:
+                val = int(raw)
+            except Exception:
+                return False, "Custom summon speeds are invalid.", []
+            if val < 0:
+                return False, "Custom summon speeds cannot be negative.", []
+            normalized_speeds[key] = val
+        if normalized_speeds.get("walk", 0) <= 0:
+            return False, "Custom summon walk speed is required.", []
+
+        try:
+            quantity = int(payload.get("summon_quantity") if payload.get("summon_quantity") is not None else payload.get("quantity"))
+        except Exception:
+            return False, "Custom summon quantity is required.", []
+        if quantity <= 0:
+            return False, "Custom summon quantity must be above 0.", []
+
+        try:
+            summon_range_ft = float(payload.get("summon_range_ft") if payload.get("summon_range_ft") is not None else payload.get("range_ft"))
+        except Exception:
+            return False, "Custom summon range is required.", []
+        if summon_range_ft < 0:
+            return False, "Custom summon range cannot be negative.", []
+
+        positions_raw = payload.get("summon_positions")
+        if not isinstance(positions_raw, list) or len(positions_raw) < quantity:
+            return False, "Custom summon positions are required for each summon.", []
+        positions: List[Dict[str, int]] = []
+        for entry in positions_raw[:quantity]:
+            if not isinstance(entry, dict):
+                return False, "Custom summon positions are invalid.", []
+            try:
+                col = int(entry.get("col"))
+                row = int(entry.get("row"))
+            except Exception:
+                return False, "Custom summon positions are invalid.", []
+            positions.append({"col": col, "row": row})
+
+        caster = self.combatants.get(int(caster_cid))
+        if caster is None:
+            return False, "Could not find caster.", []
+        caster_pos = self._lan_positions.get(int(caster_cid))
+        if caster_pos is not None and summon_range_ft >= 0:
+            for pos in positions:
+                dist_ft = math.hypot(float(pos["col"]) - float(caster_pos[0]), float(pos["row"]) - float(caster_pos[1])) * 5.0
+                if dist_ft - summon_range_ft > 1e-6:
+                    return False, "Summon position is out of range.", []
+
+        write_ok, slug, _path = self._write_temp_monster_yaml(
+            {
+                "name": name,
+                "hp": hp,
+                "abilities": normalized_abilities,
+                "speeds": normalized_speeds,
+                "ac": payload.get("ac", 10),
+                "type": payload.get("type", "construct"),
+                "challenge_rating": payload.get("challenge_rating", 0),
+                "traits": payload.get("traits"),
+                "actions": payload.get("actions"),
+            }
+        )
+        if not write_ok or not slug:
+            return False, "Could not save custom summon monster.", []
+
+        self._load_monsters_index()
+        spec = self._find_monster_spec_by_slug(f"temp/{slug}") or self._find_monster_spec_by_slug(slug)
+        if spec is None:
+            return False, "Saved custom monster could not be loaded.", []
+
+        group_id = f"custom_summon:{int(time.time() * 1000)}:{caster_cid}:{len(self._summon_groups) + 1}"
+        spawned: List[int] = []
+        for idx in range(quantity):
+            initiative = int(getattr(caster, "initiative", 10) or 10)
+            cid = self._create_combatant(
+                name=self._unique_name(spec.name),
+                hp=int(spec.hp or hp),
+                speed=int(spec.speed or normalized_speeds.get("walk", 30)),
+                swim_speed=int(spec.swim_speed or normalized_speeds.get("swim", 0)),
+                fly_speed=int(spec.fly_speed or normalized_speeds.get("fly", 0)),
+                burrow_speed=int(spec.burrow_speed or normalized_speeds.get("burrow", 0)),
+                climb_speed=int(spec.climb_speed or normalized_speeds.get("climb", 0)),
+                movement_mode="Normal",
+                initiative=initiative,
+                dex=int(spec.dex or normalized_abilities.get("dex", 10)),
+                ally=True,
+                is_pc=False,
+                is_spellcaster=None,
+                saving_throws=dict(spec.saving_throws or {}),
+                ability_mods=dict(spec.ability_mods or {}),
+                monster_spec=spec,
+            )
+            summoned = self.combatants.get(cid)
+            if summoned is None:
+                continue
+            setattr(summoned, "summoned_by_cid", int(caster_cid))
+            setattr(summoned, "summon_source_spell", "custom_summon")
+            setattr(summoned, "summon_group_id", group_id)
+            setattr(summoned, "summon_controller_mode", "shared_turn")
+            pos = positions[idx]
+            self._lan_positions[int(cid)] = (int(pos["col"]), int(pos["row"]))
+            spawned.append(int(cid))
+
+        if not spawned:
+            return False, "No custom summons were created.", []
+
+        self._summon_groups[group_id] = list(spawned)
+        self._summon_group_meta[group_id] = {
+            "caster_cid": int(caster_cid),
+            "spell": "custom_summon",
+            "created_at": time.time(),
+            "concentration": False,
+            "custom": True,
+            "monster_slug": f"temp/{slug}",
+        }
+        return True, "", spawned
+
     def _dismiss_summon_group(self, summon_group_id: str) -> int:
         group_key = str(summon_group_id or "").strip()
         if not group_key:
@@ -10598,7 +10842,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if typ == "cast_aoe":
             payload = msg.get("payload") or {}
             shape = str(payload.get("shape") or payload.get("kind") or "").strip().lower()
-            if shape not in ("circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall"):
+            if shape not in ("circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall", "summon"):
                 self._lan.toast(ws_id, "Pick a valid spell shape, matey.")
                 return
             spend_raw = str(msg.get("action_type") or "").strip().lower()
@@ -10619,6 +10863,24 @@ class InitiativeTracker(base.InitiativeTracker):
             spell_id = str(msg.get("spell_id") or payload.get("spell_id") or "").strip()
             summon_choice = msg.get("summon_choice") if msg.get("summon_choice") not in (None, "") else payload.get("summon_choice")
             c = self.combatants.get(cid) if cid is not None else None
+            if shape == "summon":
+                if not is_admin:
+                    self._lan.toast(ws_id, "Only the DM can create custom summons, matey.")
+                    return
+                if cid is None:
+                    self._lan.toast(ws_id, "Pick a valid caster first, matey.")
+                    return
+                ok_custom, err_custom, spawned_custom = self._spawn_custom_summons_from_payload(
+                    caster_cid=int(cid),
+                    payload=payload,
+                )
+                if not ok_custom:
+                    self._lan.toast(ws_id, err_custom or "Custom summon failed, matey.")
+                    return
+                self._rebuild_table(scroll_to_current=True)
+                self._lan_force_state_broadcast()
+                self._lan.toast(ws_id, f"Summoned {len(spawned_custom)} custom creature(s).")
+                return
             preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_id)
             summon_cfg = preset.get("summon") if isinstance(preset, dict) and isinstance(preset.get("summon"), dict) else None
             if summon_cfg and not is_admin:
@@ -12295,7 +12557,7 @@ class InitiativeTracker(base.InitiativeTracker):
         return _app_base_dir() / "Monsters"
 
     def _load_monsters_index(self) -> None:
-        """Load ./Monsters/*.yml|*.yaml and build a small index for the add dropdown."""
+        """Load ./Monsters/**/*.yml|*.yaml and build an index for monster lookups."""
         self._monster_specs = []
         self._monsters_by_name = {}
         self._wild_shape_beast_cache = None
@@ -12315,30 +12577,42 @@ class InitiativeTracker(base.InitiativeTracker):
 
         files: List[Path] = []
         try:
-            files = sorted(list(mdir.glob("*.yml")) + list(mdir.glob("*.yaml")))
+            files = sorted(
+                [
+                    fp
+                    for fp in mdir.rglob("*")
+                    if fp.is_file() and fp.suffix.lower() in {".yml", ".yaml"}
+                ],
+                key=lambda fp: fp.relative_to(mdir).as_posix().lower(),
+            )
         except Exception:
             files = []
 
         index_path = _ensure_logs_dir() / "monster_index.json"
         index_data = _read_index_file(index_path)
+        cache_version = int(index_data.get("version") or 0) if isinstance(index_data, dict) else 0
         cached_entries = index_data.get("entries") if isinstance(index_data.get("entries"), dict) else {}
+        if cache_version < 2:
+            cached_entries = {}
         new_entries: Dict[str, Any] = {}
         yaml_missing_logged = False
 
         if not files:
-            _write_index_file(index_path, {"version": 1, "entries": {}})
+            _write_index_file(index_path, {"version": 2, "entries": {}})
             return
 
         for fp in files:
+            rel_key = fp.relative_to(mdir).as_posix()
+            rel_filename = rel_key
             meta = _file_stat_metadata(fp)
-            entry = cached_entries.get(fp.name) if isinstance(cached_entries, dict) else None
+            entry = cached_entries.get(rel_key) if isinstance(cached_entries, dict) else None
             if isinstance(entry, dict) and _metadata_matches(entry, meta):
                 summary = entry.get("summary")
                 if isinstance(summary, dict):
                     name = str(summary.get("name") or "").strip()
                     if name:
                         spec = MonsterSpec(
-                            filename=str(fp.name),
+                            filename=rel_filename,
                             name=name,
                             mtype=str(summary.get("mtype") or "unknown").strip() or "unknown",
                             cr=summary.get("cr"),
@@ -12367,12 +12641,11 @@ class InitiativeTracker(base.InitiativeTracker):
                                 new_entry["hash"] = _hash_text(raw)
                             except Exception:
                                 pass
-                        new_entries[fp.name] = new_entry
+                        new_entries[rel_key] = new_entry
                         continue
 
             if yaml is None:
                 if not yaml_missing_logged:
-                    # Monster files are complex; be explicit so the user knows what to install.
                     try:
                         self._log("Monster YAML support requires PyYAML. Install: sudo apt install python3-yaml")
                     except Exception:
@@ -12403,25 +12676,9 @@ class InitiativeTracker(base.InitiativeTracker):
             abilities: Dict[str, Any] = {}
             if not is_legacy:
                 for key in (
-                    "name",
-                    "size",
-                    "type",
-                    "alignment",
-                    "initiative",
-                    "challenge_rating",
-                    "ac",
-                    "hp",
-                    "speed",
-                    "traits",
-                    "actions",
-                    "legendary_actions",
-                    "description",
-                    "habitat",
-                    "treasure",
-            "levels_allowed",
-            "variants",
-            "damage_type_by_variant",
-            "bonus_actions",
+                    "name", "size", "type", "alignment", "initiative", "challenge_rating", "ac", "hp", "speed",
+                    "traits", "actions", "legendary_actions", "description", "habitat", "treasure", "levels_allowed",
+                    "variants", "damage_type_by_variant", "bonus_actions",
                 ):
                     if key in mon:
                         raw_data[key] = mon.get(key)
@@ -12433,94 +12690,51 @@ class InitiativeTracker(base.InitiativeTracker):
                         abilities[key.strip().lower()] = val
                     if abilities:
                         raw_data["abilities"] = abilities
-            else:
-                ab = mon.get("abilities")
-                if isinstance(ab, dict):
-                    for key, val in ab.items():
-                        if not isinstance(key, str):
-                            continue
-                        abilities[key.strip().lower()] = val
-                try:
-                    ch = mon.get("challenge") or {}
-                    if isinstance(ch, dict) and "cr" in ch:
-                        raw_data["challenge_rating"] = ch.get("cr")
-                except Exception:
-                    pass
 
-            name = str(mon.get("name") or (fp.stem if is_legacy else "")).strip()
+            name = str(mon.get("name") or "").strip()
             if not name:
                 continue
-
             mtype = str(mon.get("type") or "unknown").strip() or "unknown"
-
-            cr_val = None
-            try:
-                if is_legacy:
-                    ch = mon.get("challenge") or {}
-                    if isinstance(ch, dict) and "cr" in ch:
-                        cr_val = ch.get("cr")
+            cr = mon.get("challenge_rating")
+            if isinstance(cr, str):
+                cr_text = cr.strip()
+                if cr_text:
+                    cr = _cr_to_float(cr_text)
                 else:
-                    cr_val = mon.get("challenge_rating")
-            except Exception:
-                cr_val = None
-            cr: Optional[float] = None
-            try:
-                if isinstance(cr_val, (int, float)):
-                    cr = float(cr_val)
-                elif isinstance(cr_val, str) and cr_val.strip():
-                    cr = _parse_fractional_cr(cr_val)
-                    if cr is None:
-                        cr = float(cr_val.strip())
-            except Exception:
+                    cr = None
+            elif not isinstance(cr, (int, float)):
                 cr = None
 
-            hp = None
-            try:
-                if is_legacy:
-                    defs = mon.get("defenses") or {}
-                    if isinstance(defs, dict):
-                        hp_block = defs.get("hit_points") or {}
-                        if isinstance(hp_block, dict):
-                            avg = hp_block.get("average")
-                            if isinstance(avg, int):
-                                hp = int(avg)
-                            elif isinstance(avg, str) and avg.strip().isdigit():
-                                hp = int(avg.strip())
-                else:
-                    hp_val = mon.get("hp")
-                    if isinstance(hp_val, int):
-                        hp = int(hp_val)
-                    elif isinstance(hp_val, str):
-                        match = re.match(r"^\s*(\d+)", hp_val)
-                        if match:
-                            hp = int(match.group(1))
-            except Exception:
-                hp = None
+            hp = self._monster_int_from_value(mon.get("hp"))
+            speed = self._monster_int_from_value(mon.get("speed"))
+            swim_speed = self._monster_int_from_value(mon.get("swim_speed"))
+            fly_speed = self._monster_int_from_value(mon.get("fly_speed"))
+            burrow_speed = self._monster_int_from_value(mon.get("burrow_speed"))
+            climb_speed = self._monster_int_from_value(mon.get("climb_speed"))
 
-            speed = None
-            swim_speed = None
-            fly_speed = None
-            burrow_speed = None
-            climb_speed = None
-            try:
-                sp = mon.get("speed")
-                speed, swim_speed, fly_speed, burrow_speed, climb_speed = base._parse_speed_data(sp)
-            except Exception:
-                speed = None
-                swim_speed = None
-                fly_speed = None
-                burrow_speed = None
-                climb_speed = None
+            if speed is None:
+                speed_data = mon.get("speed")
+                if isinstance(speed_data, dict):
+                    speed = self._monster_int_from_value(speed_data.get("walk"))
+                    swim_speed = self._monster_int_from_value(speed_data.get("swim"))
+                    fly_speed = self._monster_int_from_value(speed_data.get("fly"))
+                    burrow_speed = self._monster_int_from_value(speed_data.get("burrow"))
+                    climb_speed = self._monster_int_from_value(speed_data.get("climb"))
+                elif isinstance(speed_data, str):
+                    parsed = self._parse_monster_speed_string(speed_data)
+                    speed = parsed.get("walk")
+                    swim_speed = parsed.get("swim")
+                    fly_speed = parsed.get("fly")
+                    burrow_speed = parsed.get("burrow")
+                    climb_speed = parsed.get("climb")
 
             dex = None
             try:
-                ab = abilities if abilities else (mon.get("abilities") or {})
-                if isinstance(ab, dict):
-                    dv = ab.get("dex")
-                    if isinstance(dv, int):
-                        dex = int(dv)
-                    elif isinstance(dv, str) and dv.strip().lstrip("-").isdigit():
-                        dex = int(dv.strip())
+                dex = self._monster_int_from_value(mon.get("dex"))
+                if dex is None and isinstance(mon.get("abilities"), dict):
+                    dex = self._monster_int_from_value(mon.get("abilities", {}).get("dex"))
+                if dex is None and isinstance(mon.get("abilities"), dict):
+                    dex = self._monster_int_from_value(mon.get("abilities", {}).get("Dex"))
             except Exception:
                 dex = None
 
@@ -12547,11 +12761,11 @@ class InitiativeTracker(base.InitiativeTracker):
                         if isinstance(val, int):
                             saving_throws[ability] = int(val)
                         elif isinstance(val, str):
-                            raw = val.strip()
-                            if raw.startswith("+"):
-                                raw = raw[1:]
-                            if raw.lstrip("-").isdigit():
-                                saving_throws[ability] = int(raw)
+                            raw_save = val.strip()
+                            if raw_save.startswith("+"):
+                                raw_save = raw_save[1:]
+                            if raw_save.lstrip("-").isdigit():
+                                saving_throws[ability] = int(raw_save)
             except Exception:
                 saving_throws = {}
 
@@ -12569,9 +12783,9 @@ class InitiativeTracker(base.InitiativeTracker):
                         if isinstance(val, int):
                             score = int(val)
                         elif isinstance(val, str):
-                            raw = val.strip()
-                            if raw.lstrip("-").isdigit():
-                                score = int(raw)
+                            raw_score = val.strip()
+                            if raw_score.lstrip("-").isdigit():
+                                score = int(raw_score)
                         if score is None:
                             continue
                         ability_mods[ability] = (score - 10) // 2
@@ -12579,7 +12793,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 ability_mods = {}
 
             spec = MonsterSpec(
-                filename=str(fp.name),
+                filename=rel_filename,
                 name=name,
                 mtype=mtype,
                 cr=cr,
@@ -12600,7 +12814,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._monsters_by_name[name] = spec
             self._monster_specs.append(spec)
 
-            new_entries[fp.name] = {
+            new_entries[rel_key] = {
                 "mtime_ns": meta.get("mtime_ns"),
                 "size": meta.get("size"),
                 "hash": _hash_text(raw),
@@ -12622,8 +12836,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 },
             }
 
-        self._monster_specs.sort(key=lambda s: s.name.lower())
-        _write_index_file(index_path, {"version": 1, "entries": new_entries})
+        self._monster_specs.sort(key=lambda spec: (spec.name.lower(), str(spec.filename).lower()))
+        _write_index_file(index_path, {"version": 2, "entries": new_entries})
+
 
     def _load_monster_details(self, name: str) -> Optional[MonsterSpec]:
         spec = self._monsters_by_name.get(str(name or "").strip())

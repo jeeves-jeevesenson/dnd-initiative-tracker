@@ -2546,17 +2546,25 @@ __DAMAGE_TYPE_OPTIONS__
           </div>
           <div id="summonOptions" class="hidden">
             <div class="form-grid">
-              <div class="form-field">
+              <div class="form-field" id="castSummonChoiceField">
                 <label for="castSummonChoice">Summon</label>
                 <select id="castSummonChoice"></select>
               </div>
-              <div class="form-field">
+              <div class="form-field" id="castSummonVariantField">
                 <label for="castSummonVariant">Variant</label>
                 <select id="castSummonVariant"></select>
               </div>
-              <div class="form-field">
+              <div class="form-field" id="castSummonQuantityField">
                 <label for="castSummonQuantity">Quantity</label>
                 <input id="castSummonQuantity" type="number" min="1" step="1" value="1" />
+              </div>
+              <div class="form-field hidden" id="castCustomSummonNameField">
+                <label for="castCustomSummonName">Summon Name</label>
+                <input id="castCustomSummonName" type="text" placeholder="Custom summon" />
+              </div>
+              <div class="form-field hidden" id="castCustomSummonRangeField">
+                <label for="castCustomSummonRange">Range (ft)</label>
+                <input id="castCustomSummonRange" type="number" min="0" step="5" value="30" />
               </div>
             </div>
             <div class="spell-details" id="castSummonMeta" aria-live="polite"></div>
@@ -3401,6 +3409,13 @@ __DAMAGE_TYPE_OPTIONS__
   const castSummonVariantInput = document.getElementById("castSummonVariant");
   const castSummonQuantityInput = document.getElementById("castSummonQuantity");
   const castSummonMeta = document.getElementById("castSummonMeta");
+  const castSummonChoiceField = document.getElementById("castSummonChoiceField");
+  const castSummonVariantField = document.getElementById("castSummonVariantField");
+  const castSummonQuantityField = document.getElementById("castSummonQuantityField");
+  const castCustomSummonNameField = document.getElementById("castCustomSummonNameField");
+  const castCustomSummonRangeField = document.getElementById("castCustomSummonRangeField");
+  const castCustomSummonNameInput = document.getElementById("castCustomSummonName");
+  const castCustomSummonRangeInput = document.getElementById("castCustomSummonRange");
   const castShapeInput = document.getElementById("castShape");
   const castRadiusField = document.getElementById("castRadiusField");
   const castSideField = document.getElementById("castSideField");
@@ -8848,7 +8863,8 @@ __DAMAGE_TYPE_OPTIONS__
         ...pendingSummonPlacement.payload,
         summon_positions: pendingSummonPlacement.positions.slice(),
       };
-      const msg = {type: "cast_spell", payload, action_type: pendingSummonPlacement.actionType};
+      const castType = pendingSummonPlacement.mode === "custom_summon" ? "cast_aoe" : "cast_spell";
+      const msg = {type: castType, payload, action_type: pendingSummonPlacement.actionType};
       if (pendingSummonPlacement.spellSlug){
         msg.spell_slug = pendingSummonPlacement.spellSlug;
       }
@@ -8861,6 +8877,9 @@ __DAMAGE_TYPE_OPTIONS__
       msg.summon_choice = pendingSummonPlacement.summonChoice;
       msg.summon_quantity = pendingSummonPlacement.summonQuantity;
       msg.variant = pendingSummonPlacement.summonVariant || null;
+      if (pendingSummonPlacement.mode === "custom_summon"){
+        msg.payload.shape = "summon";
+      }
       if (isPlanning){
         planningMutate(msg);
         draw();
@@ -9118,6 +9137,15 @@ __DAMAGE_TYPE_OPTIONS__
   const AOE_SHAPES = new Set(["circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall"]);
   const isAoePreset = (preset) => Boolean(preset?.isAoE);
   const isSummonPreset = (preset) => Boolean(preset?.isSummon);
+  const CUSTOM_SUMMON_PRESET_NAME = "Custom Summon";
+  const CUSTOM_SUMMON_PRESET = {
+    name: CUSTOM_SUMMON_PRESET_NAME,
+    slug: "custom-summon",
+    isSummon: true,
+    isCustomSummon: true,
+    shape: "summon",
+    summon: {choices: [{monster_slug: "custom-summon", name: "Custom Summon"}], quantities: [{quantity: 1}]},
+  };
   const loadPreparedSpellFilterList = () => {
     const name = getClaimedPlayerName();
     if (!name) return null;
@@ -9221,6 +9249,9 @@ __DAMAGE_TYPE_OPTIONS__
   function getSelectedSpellPreset(){
     const name = normalizeTextValue(castPresetInput?.value);
     if (!name) return null;
+    if (name === CUSTOM_SUMMON_PRESET_NAME){
+      return {...CUSTOM_SUMMON_PRESET};
+    }
     return cachedSpellPresets.find(preset => normalizeTextValue(preset.name) === name) || null;
   }
   function normalizeSpellActionType(value){
@@ -10384,35 +10415,18 @@ __DAMAGE_TYPE_OPTIONS__
     if (!castPresetInput) return;
     const currentValue = String(castPresetInput.value || "");
     castPresetInput.textContent = "";
-    const availablePresets = cachedSpellPresets.slice();
-    if (!availablePresets.length){
-      castPresetInput.disabled = true;
-      const placeholder = document.createElement("option");
-      placeholder.value = "";
-      placeholder.textContent = "Presets unavailable";
-      castPresetInput.appendChild(placeholder);
-      castPresetInput.value = "";
-      updateSpellPresetDetails(null);
-      return;
-    }
     castPresetInput.disabled = false;
-    const blank = document.createElement("option");
-    blank.value = "";
-    blank.textContent = "Custom";
-    castPresetInput.appendChild(blank);
+
+    const customOption = document.createElement("option");
+    customOption.value = "";
+    customOption.textContent = "Custom";
+    castPresetInput.appendChild(customOption);
+
+    const availablePresets = cachedSpellPresets.slice();
     const preparedSpellSet = getPreparedSpellFilterSet();
     const filtered = filterPresetsByKnownList(availablePresets, preparedSpellSet)
       .filter(matchesSpellFilters);
-    if (!filtered.length){
-      const empty = document.createElement("option");
-      empty.value = "";
-      empty.textContent = "No spells match filters";
-      empty.disabled = true;
-      castPresetInput.appendChild(empty);
-      castPresetInput.value = "";
-      updateSpellPresetDetails(null);
-      return;
-    }
+
     const groups = new Map();
     filtered.forEach((preset) => {
       const level = getPresetLevelNumber(preset);
@@ -10457,15 +10471,29 @@ __DAMAGE_TYPE_OPTIONS__
         }
         optgroup.appendChild(opt);
       });
-      castPresetInput.appendChild(optgroup);
+      if (optgroup.children.length){
+        castPresetInput.appendChild(optgroup);
+      }
     });
-    if (currentValue && filtered.some(p => normalizeTextValue(p.name) === currentValue)){
-      castPresetInput.value = currentValue;
-    } else {
-      castPresetInput.value = "";
+
+    const customSummonOption = document.createElement("option");
+    customSummonOption.value = CUSTOM_SUMMON_PRESET_NAME;
+    customSummonOption.textContent = CUSTOM_SUMMON_PRESET_NAME;
+    castPresetInput.appendChild(customSummonOption);
+
+    if (!filtered.length){
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "No spells match filters";
+      empty.disabled = true;
+      castPresetInput.appendChild(empty);
     }
-    const selected = filtered.find(p => normalizeTextValue(p.name) === castPresetInput.value);
-    updateSpellPresetDetails(selected || null);
+
+    const validValues = new Set(filtered.map((preset) => normalizeTextValue(preset.name)));
+    validValues.add("");
+    validValues.add(CUSTOM_SUMMON_PRESET_NAME);
+    castPresetInput.value = validValues.has(currentValue) ? currentValue : "";
+    updateSpellPresetDetails(getSelectedSpellPreset());
   };
 
   const updateSpellPresetOptions = (presets) => {
@@ -10689,16 +10717,23 @@ __DAMAGE_TYPE_OPTIONS__
 
   const updateSummonOptions = (preset) => {
     const summonSpell = isSummonPreset(preset);
+    const customSummon = Boolean(preset?.isCustomSummon);
     if (summonOptions){
       summonOptions.classList.toggle("hidden", !summonSpell);
     }
     if (aoeOptions){
       aoeOptions.classList.toggle("hidden", summonSpell);
     }
+    castSummonChoiceField?.classList.toggle("hidden", customSummon || !summonSpell);
+    castSummonQuantityField?.classList.toggle("hidden", !summonSpell);
+    castSummonVariantField?.classList.toggle("hidden", customSummon || !summonSpell);
+    castCustomSummonNameField?.classList.toggle("hidden", !customSummon);
+    castCustomSummonRangeField?.classList.toggle("hidden", !customSummon);
+
     const disableForSummon = (input) => {
       if (!input) return;
       input.disabled = summonSpell;
-      if (summonSpell){
+      if (summonSpell && !customSummon){
         input.readOnly = true;
       }
     };
@@ -10713,6 +10748,29 @@ __DAMAGE_TYPE_OPTIONS__
       if (castSubmitBtn) castSubmitBtn.disabled = false;
       return;
     }
+
+    if (customSummon){
+      if (castSummonQuantityInput){
+        const currentQty = Number(castSummonQuantityInput.value);
+        castSummonQuantityInput.min = "1";
+        castSummonQuantityInput.max = "20";
+        castSummonQuantityInput.value = String(Number.isFinite(currentQty) && currentQty > 0 ? Math.floor(currentQty) : 1);
+        castSummonQuantityInput.readOnly = false;
+      }
+      if (castCustomSummonRangeInput){
+        const currentRange = Number(castCustomSummonRangeInput.value);
+        castCustomSummonRangeInput.value = String(Number.isFinite(currentRange) && currentRange >= 0 ? Math.floor(currentRange) : 30);
+      }
+      if (castSummonMeta){
+        const qty = Math.max(1, Math.floor(Number(castSummonQuantityInput?.value || 1)));
+        const range = Math.max(0, Math.floor(Number(castCustomSummonRangeInput?.value || 30)));
+        castSummonMeta.textContent = `Custom summon placement · Quantity: ${qty} · Range: ${range} ft`;
+      }
+      castSummonValidation = {ok: true, reason: ""};
+      if (castSubmitBtn) castSubmitBtn.disabled = false;
+      return;
+    }
+
     const choices = getSummonChoices(preset);
     if (castSummonChoiceInput){
       const current = normalizeTextValue(castSummonChoiceInput.value);
@@ -10736,7 +10794,7 @@ __DAMAGE_TYPE_OPTIONS__
       const currentVariant = normalizeTextValue(castSummonVariantInput.value || "");
       castSummonVariantInput.textContent = "";
       const mountMode = Boolean(preset?.summon?.mount);
-      castSummonVariantInput.closest('.form-field')?.classList.toggle('hidden', !mountMode);
+      castSummonVariantField?.classList.toggle("hidden", !mountMode);
       if (mountMode){
         variants.forEach((variant) => {
           const opt = document.createElement("option");
@@ -10748,14 +10806,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
     }
     const rule = getSummonQuantityRule(preset, Number(castSlotLevelInput?.value), selectedChoice);
-    if (castSummonVariantInput){
-    castSummonVariantInput.addEventListener("change", () => {
-      const preset = getSelectedSpellPreset();
-      validateSummonForm(preset, false);
-    });
-  }
-
-  if (castSummonQuantityInput){
+    if (castSummonQuantityInput){
       castSummonQuantityInput.min = String(rule.min);
       castSummonQuantityInput.max = String(rule.max);
       if (rule.fixed !== null){
@@ -11001,6 +11052,10 @@ __DAMAGE_TYPE_OPTIONS__
     if (castNameInput && preset.name){
       castNameInput.value = String(preset.name || "");
     }
+    if (preset?.isCustomSummon && castCustomSummonNameInput){
+      castCustomSummonNameInput.value = normalizeTextValue(castCustomSummonNameInput.value) || "Custom summon";
+      if (castNameInput) castNameInput.value = castCustomSummonNameInput.value;
+    }
     if (castShapeInput){
       castShapeInput.value = preset.shape ? String(preset.shape || "").toLowerCase() : "";
     }
@@ -11188,7 +11243,7 @@ __DAMAGE_TYPE_OPTIONS__
         updateSpellPresetDetails(null);
         return;
       }
-      const preset = cachedSpellPresets.find(p => String(p.name || "") === name);
+      const preset = getSelectedSpellPreset();
       updateSpellPresetDetails(preset || null);
       applySpellPreset(preset);
     });
@@ -11213,10 +11268,34 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
+  if (castSummonVariantInput){
+    castSummonVariantInput.addEventListener("change", () => {
+      const preset = getSelectedSpellPreset();
+      validateSummonForm(preset, false);
+    });
+  }
+
   if (castSummonQuantityInput){
     castSummonQuantityInput.addEventListener("input", () => {
       const preset = getSelectedSpellPreset();
+      updateSummonOptions(preset);
       validateSummonForm(preset, false);
+    });
+  }
+
+  if (castCustomSummonRangeInput){
+    castCustomSummonRangeInput.addEventListener("input", () => {
+      const preset = getSelectedSpellPreset();
+      updateSummonOptions(preset);
+    });
+  }
+
+  if (castCustomSummonNameInput){
+    castCustomSummonNameInput.addEventListener("input", () => {
+      const preset = getSelectedSpellPreset();
+      if (preset?.isCustomSummon && castNameInput){
+        castNameInput.value = normalizeTextValue(castCustomSummonNameInput.value) || "Custom summon";
+      }
     });
   }
 
@@ -11260,6 +11339,7 @@ __DAMAGE_TYPE_OPTIONS__
       const shape = String(castShapeInput?.value || "").toLowerCase();
       const aoeSpell = isAoePreset(preset);
       const summonSpell = isSummonPreset(preset);
+      const customSummon = Boolean(preset?.isCustomSummon);
       if (aoeSpell && !shape){
         localToast("Pick a spell shape first, matey.");
         return;
@@ -11269,7 +11349,7 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       const slotLevel = Number.isFinite(slotCheck.slotLevel) ? Math.floor(Number(slotCheck.slotLevel)) : null;
-      if (summonSpell){
+      if (summonSpell && !customSummon){
         const summonValidation = validateSummonForm(preset, true);
         if (!summonValidation.ok){
           return;
@@ -11313,6 +11393,46 @@ __DAMAGE_TYPE_OPTIONS__
         rebuildSummonValidCells();
         updateSummonPlacementBanner();
         localToast("Summon placement started. Choose valid highlighted squares.");
+        return;
+      }
+      if (customSummon){
+        const summonQuantity = Number(castSummonQuantityInput?.value);
+        const normalizedQuantity = Number.isFinite(summonQuantity) && summonQuantity > 0 ? Math.floor(summonQuantity) : 1;
+        const customRangeRaw = Number(castCustomSummonRangeInput?.value);
+        const customRangeFt = Number.isFinite(customRangeRaw) && customRangeRaw >= 0 ? Math.floor(customRangeRaw) : 30;
+        const summonName = normalizeTextValue(castCustomSummonNameInput?.value) || normalizeTextValue(castNameInput?.value) || "Custom summon";
+        const payload = {
+          action_type: actionType,
+          shape: "summon",
+          name: summonName,
+          summon_choice: "custom",
+          summon_quantity: normalizedQuantity,
+          summon_range_ft: customRangeFt,
+          slot_level: slotLevel,
+        };
+        const caster = getClaimedUnit();
+        if (!caster || !caster.pos){
+          localToast("Could not find caster position, matey.");
+          return;
+        }
+        pendingSummonPlacement = {
+          mode: "custom_summon",
+          actionType,
+          slotLevel,
+          spellSlug: null,
+          spellId: null,
+          summonChoice: "custom",
+          summonVariant: null,
+          summonQuantity: normalizedQuantity,
+          casterPos: {col: Number(caster.pos.col), row: Number(caster.pos.row)},
+          maxRangeFt: customRangeFt,
+          positions: [],
+          payload,
+          spellName: summonName,
+        };
+        rebuildSummonValidCells();
+        updateSummonPlacementBanner();
+        localToast("Custom summon placement started. Choose valid highlighted squares.");
         return;
       }
       const parsePositive = (value) => {
