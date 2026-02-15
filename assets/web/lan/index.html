@@ -2439,6 +2439,7 @@
                 <option value="cone">Cone</option>
                 <option value="cylinder">Cylinder</option>
                 <option value="wall">Wall</option>
+                <option value="summon">Summon</option>
               </select>
             </div>
             <div class="form-field cast-size-field" id="castRadiusField">
@@ -2532,6 +2533,50 @@ __DAMAGE_TYPE_OPTIONS__
               </div>
             </div>
             <div class="spell-details" id="castSummonMeta" aria-live="polite"></div>
+          </div>
+          <div id="customSummonOptions" class="hidden">
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="castSummonImportMonster">Import Monster</label>
+                <div class="damage-type-controls">
+                  <select id="castSummonImportMonster">
+                    <option value="">Choose monster</option>
+                  </select>
+                  <button class="btn" type="button" id="castSummonImportBtn">Import</button>
+                </div>
+              </div>
+              <div class="form-field">
+                <label for="castCustomSummonName">Creature Name</label>
+                <input id="castCustomSummonName" type="text" placeholder="Custom Beast" />
+              </div>
+              <div class="form-field">
+                <label for="castCustomSummonHp">HP</label>
+                <input id="castCustomSummonHp" type="number" min="1" step="1" value="30" />
+              </div>
+              <div class="form-field">
+                <label for="castCustomSummonQuantity">Quantity</label>
+                <input id="castCustomSummonQuantity" type="number" min="1" step="1" value="1" />
+              </div>
+              <div class="form-field">
+                <label for="castCustomSummonRange">Range (ft)</label>
+                <input id="castCustomSummonRange" type="number" min="5" step="5" value="60" />
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-field"><label for="castCustomSummonSpeed">Normal Speed (ft)</label><input id="castCustomSummonSpeed" type="number" min="0" step="5" value="30" /></div>
+              <div class="form-field"><label for="castCustomSummonSwim">Swim (ft)</label><input id="castCustomSummonSwim" type="number" min="0" step="5" value="0" /></div>
+              <div class="form-field"><label for="castCustomSummonFly">Fly (ft)</label><input id="castCustomSummonFly" type="number" min="0" step="5" value="0" /></div>
+              <div class="form-field"><label for="castCustomSummonBurrow">Burrow (ft)</label><input id="castCustomSummonBurrow" type="number" min="0" step="5" value="0" /></div>
+              <div class="form-field"><label for="castCustomSummonClimb">Climb (ft)</label><input id="castCustomSummonClimb" type="number" min="0" step="5" value="0" /></div>
+            </div>
+            <div class="form-grid">
+              <div class="form-field"><label for="castCustomSummonStr">STR</label><input id="castCustomSummonStr" type="number" min="1" step="1" value="10" /></div>
+              <div class="form-field"><label for="castCustomSummonDex">DEX</label><input id="castCustomSummonDex" type="number" min="1" step="1" value="10" /></div>
+              <div class="form-field"><label for="castCustomSummonCon">CON</label><input id="castCustomSummonCon" type="number" min="1" step="1" value="10" /></div>
+              <div class="form-field"><label for="castCustomSummonInt">INT</label><input id="castCustomSummonInt" type="number" min="1" step="1" value="10" /></div>
+              <div class="form-field"><label for="castCustomSummonWis">WIS</label><input id="castCustomSummonWis" type="number" min="1" step="1" value="10" /></div>
+              <div class="form-field"><label for="castCustomSummonCha">CHA</label><input id="castCustomSummonCha" type="number" min="1" step="1" value="10" /></div>
+            </div>
           </div>
           <div class="spell-details" id="spellPresetDetails" aria-live="polite">
             Select a preset to see spell details.
@@ -3374,6 +3419,24 @@ __DAMAGE_TYPE_OPTIONS__
   const castSummonVariantInput = document.getElementById("castSummonVariant");
   const castSummonQuantityInput = document.getElementById("castSummonQuantity");
   const castSummonMeta = document.getElementById("castSummonMeta");
+  const customSummonOptions = document.getElementById("customSummonOptions");
+  const castSummonImportMonsterInput = document.getElementById("castSummonImportMonster");
+  const castSummonImportBtn = document.getElementById("castSummonImportBtn");
+  const castCustomSummonNameInput = document.getElementById("castCustomSummonName");
+  const castCustomSummonHpInput = document.getElementById("castCustomSummonHp");
+  const castCustomSummonQuantityInput = document.getElementById("castCustomSummonQuantity");
+  const castCustomSummonRangeInput = document.getElementById("castCustomSummonRange");
+  const castCustomSummonSpeedInput = document.getElementById("castCustomSummonSpeed");
+  const castCustomSummonSwimInput = document.getElementById("castCustomSummonSwim");
+  const castCustomSummonFlyInput = document.getElementById("castCustomSummonFly");
+  const castCustomSummonBurrowInput = document.getElementById("castCustomSummonBurrow");
+  const castCustomSummonClimbInput = document.getElementById("castCustomSummonClimb");
+  const castCustomSummonStrInput = document.getElementById("castCustomSummonStr");
+  const castCustomSummonDexInput = document.getElementById("castCustomSummonDex");
+  const castCustomSummonConInput = document.getElementById("castCustomSummonCon");
+  const castCustomSummonIntInput = document.getElementById("castCustomSummonInt");
+  const castCustomSummonWisInput = document.getElementById("castCustomSummonWis");
+  const castCustomSummonChaInput = document.getElementById("castCustomSummonCha");
   const castShapeInput = document.getElementById("castShape");
   const castRadiusField = document.getElementById("castRadiusField");
   const castSideField = document.getElementById("castSideField");
@@ -8012,6 +8075,7 @@ __DAMAGE_TYPE_OPTIONS__
           }
           if (Array.isArray(msg.data.monster_choices)){
             state.monster_choices = msg.data.monster_choices;
+            fillCustomSummonImportChoices();
           }
           }
         updateClaimOverlay();
@@ -8051,6 +8115,7 @@ __DAMAGE_TYPE_OPTIONS__
         if (!state.monster_choices && Array.isArray(oldMonsterChoices)){
           state.monster_choices = oldMonsterChoices;
         }
+        fillCustomSummonImportChoices();
         if (!state.resource_pools && oldResourcePools && typeof oldResourcePools === "object"){
           state.resource_pools = oldResourcePools;
         }
@@ -8780,19 +8845,22 @@ __DAMAGE_TYPE_OPTIONS__
         ...pendingSummonPlacement.payload,
         summon_positions: pendingSummonPlacement.positions.slice(),
       };
-      const msg = {type: "cast_spell", payload, action_type: pendingSummonPlacement.actionType};
-      if (pendingSummonPlacement.spellSlug){
-        msg.spell_slug = pendingSummonPlacement.spellSlug;
+      const msgType = normalizeTextValue(pendingSummonPlacement.msgType || "cast_spell") || "cast_spell";
+      const msg = {type: msgType, payload, action_type: pendingSummonPlacement.actionType};
+      if (msgType === "cast_spell"){
+        if (pendingSummonPlacement.spellSlug){
+          msg.spell_slug = pendingSummonPlacement.spellSlug;
+        }
+        if (pendingSummonPlacement.spellId){
+          msg.spell_id = pendingSummonPlacement.spellId;
+        }
+        if (Number.isFinite(pendingSummonPlacement.slotLevel)){
+          msg.slot_level = pendingSummonPlacement.slotLevel;
+        }
+        msg.summon_choice = pendingSummonPlacement.summonChoice;
+        msg.summon_quantity = pendingSummonPlacement.summonQuantity;
+        msg.variant = pendingSummonPlacement.summonVariant || null;
       }
-      if (pendingSummonPlacement.spellId){
-        msg.spell_id = pendingSummonPlacement.spellId;
-      }
-      if (Number.isFinite(pendingSummonPlacement.slotLevel)){
-        msg.slot_level = pendingSummonPlacement.slotLevel;
-      }
-      msg.summon_choice = pendingSummonPlacement.summonChoice;
-      msg.summon_quantity = pendingSummonPlacement.summonQuantity;
-      msg.variant = pendingSummonPlacement.summonVariant || null;
       if (isPlanning){
         planningMutate(msg);
         draw();
@@ -10586,6 +10654,125 @@ __DAMAGE_TYPE_OPTIONS__
     };
   };
 
+  const isCustomSummonShape = (preset) => {
+    const shape = String(castShapeInput?.value || "").toLowerCase();
+    return shape === "summon" && !isSummonPreset(preset);
+  };
+
+  const parseMovementFromText = (value, key) => {
+    const raw = String(value || "");
+    if (!raw) return null;
+    const lower = raw.toLowerCase();
+    const re = key === "speed"
+      ? /(^|,|;)\s*(?:speed\s*)?(\d+)\s*(?:ft|feet)?\b/
+      : new RegExp(`${key}\\s*(\\d+)\\s*(?:ft|feet)?`, "i");
+    const match = lower.match(re);
+    if (!match) return null;
+    const idx = key === "speed" ? 2 : 1;
+    const n = Number(match[idx]);
+    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+  };
+
+  const parseMonsterSpeedField = (speedData) => {
+    const out = {speed: 0, swim: 0, fly: 0, burrow: 0, climb: 0};
+    if (speedData && typeof speedData === "object" && !Array.isArray(speedData)){
+      const map = {
+        speed: speedData.speed ?? speedData.walk ?? speedData.normal,
+        swim: speedData.swim,
+        fly: speedData.fly,
+        burrow: speedData.burrow,
+        climb: speedData.climb,
+      };
+      Object.entries(map).forEach(([key, value]) => {
+        const n = Number(value);
+        out[key] = Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+      });
+      return out;
+    }
+    if (typeof speedData === "string"){
+      out.speed = parseMovementFromText(speedData, "speed") ?? 0;
+      out.swim = parseMovementFromText(speedData, "swim") ?? 0;
+      out.fly = parseMovementFromText(speedData, "fly") ?? 0;
+      out.burrow = parseMovementFromText(speedData, "burrow") ?? 0;
+      out.climb = parseMovementFromText(speedData, "climb") ?? 0;
+    }
+    return out;
+  };
+
+  const fillCustomSummonImportChoices = () => {
+    if (!castSummonImportMonsterInput) return;
+    const current = normalizeTextValue(castSummonImportMonsterInput.value || "");
+    castSummonImportMonsterInput.textContent = "";
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "Choose monster";
+    castSummonImportMonsterInput.appendChild(blank);
+    const choices = Array.isArray(state?.monster_choices) ? state.monster_choices : [];
+    choices.forEach((choice) => {
+      if (!choice || typeof choice !== "object") return;
+      const slug = normalizeTextValue(choice.slug || "");
+      if (!slug) return;
+      const opt = document.createElement("option");
+      opt.value = slug;
+      opt.textContent = normalizeTextValue(choice.name || slug);
+      castSummonImportMonsterInput.appendChild(opt);
+    });
+    castSummonImportMonsterInput.value = current;
+    if (!castSummonImportMonsterInput.value){
+      castSummonImportMonsterInput.value = "";
+    }
+  };
+
+  const importCustomSummonMonster = async () => {
+    const slug = normalizeTextValue(castSummonImportMonsterInput?.value || "");
+    if (!slug){
+      localToast("Pick a monster to import first, matey.");
+      return;
+    }
+    try {
+      const response = await fetch(`/api/monsters/${encodeURIComponent(slug)}`);
+      if (!response.ok){
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const payload = await response.json();
+      const mon = payload?.monster || {};
+      const abilities = mon.ability_scores || mon.abilities || {};
+      const speed = parseMonsterSpeedField(mon.speed);
+      if (castCustomSummonNameInput) castCustomSummonNameInput.value = normalizeTextValue(mon.name || slug) || "Custom Beast";
+      if (castCustomSummonHpInput){
+        const hp = Number(mon.hit_points ?? mon.hp);
+        if (Number.isFinite(hp) && hp > 0) castCustomSummonHpInput.value = String(Math.floor(hp));
+      }
+      if (castCustomSummonSpeedInput) castCustomSummonSpeedInput.value = String(speed.speed || 0);
+      if (castCustomSummonSwimInput) castCustomSummonSwimInput.value = String(speed.swim || 0);
+      if (castCustomSummonFlyInput) castCustomSummonFlyInput.value = String(speed.fly || 0);
+      if (castCustomSummonBurrowInput) castCustomSummonBurrowInput.value = String(speed.burrow || 0);
+      if (castCustomSummonClimbInput) castCustomSummonClimbInput.value = String(speed.climb || 0);
+      const abilityMap = [
+        [castCustomSummonStrInput, "str"],
+        [castCustomSummonDexInput, "dex"],
+        [castCustomSummonConInput, "con"],
+        [castCustomSummonIntInput, "int"],
+        [castCustomSummonWisInput, "wis"],
+        [castCustomSummonChaInput, "cha"],
+      ];
+      abilityMap.forEach(([input, key]) => {
+        if (!input) return;
+        const value = Number(abilities?.[key]);
+        if (Number.isFinite(value) && value > 0) input.value = String(Math.floor(value));
+      });
+      localToast("Imported monster into custom summon builder.");
+    } catch (_err){
+      localToast("Could not import that monster, matey.");
+    }
+  };
+
+  const parsePositiveIntField = (input) => {
+    const n = Number(input?.value);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return Math.floor(n);
+  };
+
   let castSummonValidation = {ok: true, reason: ""};
   const validateSummonForm = (preset, showToast = false) => {
     if (!isSummonPreset(preset)){
@@ -10621,11 +10808,15 @@ __DAMAGE_TYPE_OPTIONS__
 
   const updateSummonOptions = (preset) => {
     const summonSpell = isSummonPreset(preset);
+    const customSummon = isCustomSummonShape(preset);
     if (summonOptions){
       summonOptions.classList.toggle("hidden", !summonSpell);
     }
+    if (customSummonOptions){
+      customSummonOptions.classList.toggle("hidden", !customSummon);
+    }
     if (aoeOptions){
-      aoeOptions.classList.toggle("hidden", summonSpell);
+      aoeOptions.classList.toggle("hidden", summonSpell || customSummon);
     }
     const disableForSummon = (input) => {
       if (!input) return;
@@ -10636,6 +10827,7 @@ __DAMAGE_TYPE_OPTIONS__
     };
     [castShapeInput, castDefaultDamageInput, castDiceInput, castDamageTypeInput, castAddDamageTypeBtn, castColorInput].forEach(disableForSummon);
     if (!summonSpell){
+      fillCustomSummonImportChoices();
       if (castShapeInput) castShapeInput.readOnly = false;
       if (castDefaultDamageInput) castDefaultDamageInput.readOnly = false;
       if (castDiceInput) castDiceInput.readOnly = false;
@@ -10722,7 +10914,8 @@ __DAMAGE_TYPE_OPTIONS__
 
   const updateCastShapeFields = () => {
     const preset = getSelectedSpellPreset();
-    if (isSummonPreset(preset)){
+    const customSummon = isCustomSummonShape(preset);
+    if (isSummonPreset(preset) || customSummon){
       [castRadiusField, castSideField, castLengthField, castWidthField, castAngleField, castOrientField, castThicknessField, castHeightField].forEach((field) => setCastFieldVisible(field, false));
       [castRadiusInput, castSideInput, castLengthInput, castWidthInput, castAngleInput, castOrientInput, castThicknessInput, castHeightInput].forEach((input) => setCastFieldEnabled(input, false));
       return;
@@ -10755,7 +10948,10 @@ __DAMAGE_TYPE_OPTIONS__
   };
 
   if (castShapeInput){
-    castShapeInput.addEventListener("change", updateCastShapeFields);
+    castShapeInput.addEventListener("change", () => {
+      updateCastShapeFields();
+      updateSummonOptions(getSelectedSpellPreset());
+    });
     updateCastShapeFields();
   }
   updateSummonOptions(null);
@@ -11152,6 +11348,17 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
+  if (castSummonImportBtn){
+    castSummonImportBtn.addEventListener("click", () => {
+      importCustomSummonMonster();
+    });
+  }
+  if (castSummonImportMonsterInput){
+    castSummonImportMonsterInput.addEventListener("change", () => {
+      importCustomSummonMonster();
+    });
+  }
+
   if (castAddDamageTypeBtn){
     castAddDamageTypeBtn.addEventListener("click", () => {
       addCastDamageType(castDamageTypeInput?.value || "");
@@ -11245,6 +11452,78 @@ __DAMAGE_TYPE_OPTIONS__
         rebuildSummonValidCells();
         updateSummonPlacementBanner();
         localToast("Summon placement started. Choose valid highlighted squares.");
+        return;
+      }
+
+      if (shape === "summon" && !summonSpell){
+        const customName = String(castCustomSummonNameInput?.value || "").trim();
+        const hp = parsePositiveIntField(castCustomSummonHpInput);
+        const quantity = parsePositiveIntField(castCustomSummonQuantityInput);
+        const rangeFt = parsePositiveIntField(castCustomSummonRangeInput);
+        const speed = Math.max(0, Number(castCustomSummonSpeedInput?.value || 0) || 0);
+        const swim = Math.max(0, Number(castCustomSummonSwimInput?.value || 0) || 0);
+        const fly = Math.max(0, Number(castCustomSummonFlyInput?.value || 0) || 0);
+        const burrow = Math.max(0, Number(castCustomSummonBurrowInput?.value || 0) || 0);
+        const climb = Math.max(0, Number(castCustomSummonClimbInput?.value || 0) || 0);
+        const abilities = {
+          str: parsePositiveIntField(castCustomSummonStrInput),
+          dex: parsePositiveIntField(castCustomSummonDexInput),
+          con: parsePositiveIntField(castCustomSummonConInput),
+          int: parsePositiveIntField(castCustomSummonIntInput),
+          wis: parsePositiveIntField(castCustomSummonWisInput),
+          cha: parsePositiveIntField(castCustomSummonChaInput),
+        };
+        if (!customName){
+          localToast("Enter a creature name first, matey.");
+          return;
+        }
+        if (!hp){
+          localToast("Enter valid summon HP, matey.");
+          return;
+        }
+        if (!quantity){
+          localToast("Enter valid summon quantity, matey.");
+          return;
+        }
+        if (!rangeFt){
+          localToast("Enter a valid summon range, matey.");
+          return;
+        }
+        if (Object.values(abilities).some((value) => !Number.isFinite(value))){
+          localToast("Enter valid ability scores for the summon, matey.");
+          return;
+        }
+        const caster = getClaimedUnit();
+        if (!caster || !caster.pos){
+          localToast("Could not find caster position, matey.");
+          return;
+        }
+        pendingSummonPlacement = {
+          msgType: "cast_aoe",
+          actionType,
+          summonQuantity: quantity,
+          casterPos: {col: Number(caster.pos.col), row: Number(caster.pos.row)},
+          maxRangeFt: rangeFt,
+          positions: [],
+          payload: {
+            shape: "summon",
+            action_type: actionType,
+            name: `Summon: ${customName}`,
+            summon_quantity: quantity,
+            summon_range_ft: rangeFt,
+            summon_positions: [],
+            custom_summon_monster: {
+              name: customName,
+              hp,
+              speed: {speed, swim, fly, burrow, climb},
+              abilities,
+            },
+          },
+          spellName: `Summon ${customName}`,
+        };
+        rebuildSummonValidCells();
+        updateSummonPlacementBanner();
+        localToast("Custom summon placement started. Choose valid highlighted squares.");
         return;
       }
       const parsePositive = (value) => {
