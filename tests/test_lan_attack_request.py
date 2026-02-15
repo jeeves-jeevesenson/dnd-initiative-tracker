@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 import dnd_initative_tracker as tracker_mod
 
@@ -207,6 +208,47 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(result.get("damage_total"), 9)
         self.assertEqual(self.app.combatants[2].hp, 11)
         self.assertIn((16, "Attack hits."), self.toasts)
+
+    def test_attack_request_auto_resolves_weapon_and_effect_damage_when_hit(self):
+        self.app._profile_for_player_name = lambda name: {
+            "abilities": {"str": 20},
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapons": [
+                    {
+                        "id": "hellfire_battleaxe_plus_2",
+                        "name": "Hellfire Battleaxe (+2)",
+                        "to_hit": 9,
+                        "one_handed": {"damage_formula": "1d8 + str_mod + 2", "damage_type": "slashing"},
+                        "effect": {
+                            "on_hit": "1d6 hellfire damage. Apply Hellfire Stack condition (max 1 stack per target per turn).",
+                            "save_ability": "con",
+                            "save_dc": 17,
+                        },
+                    }
+                ]
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 17,
+            "target_cid": 2,
+            "weapon_id": "hellfire_battleaxe_plus_2",
+            "hit": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4, 6]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("hit"))
+        self.assertEqual(result.get("damage_total"), 17)
+        self.assertEqual(result.get("damage_entries"), [{"amount": 11, "type": "slashing"}, {"amount": 6, "type": "hellfire"}])
+        self.assertEqual(result.get("on_hit_save"), {"ability": "con", "dc": 17})
+        self.assertEqual(self.app.combatants[2].hp, 3)
 
 
 if __name__ == "__main__":

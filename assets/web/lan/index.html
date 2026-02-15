@@ -6543,13 +6543,35 @@ __DAMAGE_TYPE_OPTIONS__
 
   function openAttackResolveModal(target, weapon){
     if (!attackResolveBody || !attackDamageRows) return;
+    const mode = weapon?.one_handed && String(weapon.one_handed.damage_formula || "").trim()
+      ? weapon.one_handed
+      : (weapon?.two_handed && String(weapon.two_handed.damage_formula || "").trim() ? weapon.two_handed : null);
+    const effect = weapon?.effect && typeof weapon.effect === "object" ? weapon.effect : null;
+    const hintParts = [];
+    if (mode){
+      const baseFormula = String(mode.damage_formula || "").trim();
+      const baseType = String(mode.damage_type || "").trim().toLowerCase();
+      if (baseFormula){
+        hintParts.push(`Auto on hit: ${baseFormula}${baseType ? ` ${baseType}` : ""} damage.`);
+      }
+    }
+    const riderText = String(effect?.on_hit || "").trim();
+    if (riderText){
+      hintParts.push(`Rider: ${riderText}`);
+    }
+    const saveAbility = String(effect?.save_ability || "").trim().toUpperCase();
+    const saveDc = Number(effect?.save_dc);
+    if (saveAbility && Number.isFinite(saveDc) && saveDc > 0){
+      hintParts.push(`Save rider: ${saveAbility} DC ${Math.floor(saveDc)}.`);
+    }
     pendingAttackResolve = {
       targetCid: Number(target?.cid),
       targetName: String(target?.name || "target"),
       weaponId: String(weapon?.id || "").trim(),
       weaponName: String(weapon?.name || "Weapon").trim() || "Weapon",
     };
-    attackResolveBody.textContent = `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`;
+    attackResolveBody.textContent = `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`
+      + (hintParts.length ? ` ${hintParts.join(" ")}` : "");
     attackDamageRows.textContent = "";
     addAttackDamageRow();
     attackDamageRows.classList.remove("hidden");

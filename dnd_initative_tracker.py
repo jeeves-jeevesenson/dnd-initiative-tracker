@@ -12523,6 +12523,53 @@ class InitiativeTracker(base.InitiativeTracker):
                     if text in ("false", "0", "no", "n", "miss"):
                         return False
                 return None
+            def _damage_formula_variables(profile_data: Any) -> Dict[str, int]:
+                if not isinstance(profile_data, dict):
+                    profile_data = {}
+                abilities = profile_data.get("abilities") if isinstance(profile_data.get("abilities"), dict) else {}
+                return {
+                    "str_mod": self._ability_score_modifier(abilities, "str"),
+                    "dex_mod": self._ability_score_modifier(abilities, "dex"),
+                    "con_mod": self._ability_score_modifier(abilities, "con"),
+                    "int_mod": self._ability_score_modifier(abilities, "int"),
+                    "wis_mod": self._ability_score_modifier(abilities, "wis"),
+                    "cha_mod": self._ability_score_modifier(abilities, "cha"),
+                }
+            def _roll_damage_formula(formula: Any, variables: Dict[str, int]) -> Optional[int]:
+                if not isinstance(formula, str):
+                    return None
+                raw = formula.strip().lower()
+                if not raw:
+                    return None
+                if not re.fullmatch(r"[0-9d+\-*/(). _a-zA-Z]+", raw):
+                    return None
+                try:
+                    expr = re.sub(
+                        r"(\d*)d(\d+)",
+                        lambda m: str(
+                            sum(
+                                random.randint(1, max(1, int(m.group(2))))
+                                for _ in range(max(1, int(m.group(1) or 1)))
+                            )
+                        ),
+                        raw,
+                    )
+                except Exception:
+                    return None
+                evaluated = self._evaluate_spell_formula(expr, variables)
+                if evaluated is None:
+                    return None
+                return max(0, int(math.floor(evaluated)))
+            def _parse_effect_damage_entries(effect_text: Any, variables: Dict[str, int]) -> List[Dict[str, Any]]:
+                if not isinstance(effect_text, str):
+                    return []
+                entries: List[Dict[str, Any]] = []
+                for match in re.finditer(r"(\d*d\d+(?:\s*[+\-]\s*\d+)?)\s+([a-zA-Z]+)\s+damage", effect_text.lower()):
+                    amount = _roll_damage_formula(match.group(1), variables)
+                    if amount is None or amount <= 0:
+                        continue
+                    entries.append({"amount": int(amount), "type": str(match.group(2) or "").strip().lower()})
+                return entries
             target_cid = _normalize_cid_value(msg.get("target_cid"), "attack_request.target_cid", log_fn=log_warning)
             target = self.combatants.get(int(target_cid)) if target_cid is not None else None
             if target is None:
@@ -12603,6 +12650,18 @@ class InitiativeTracker(base.InitiativeTracker):
                         continue
                     dtype = str(entry.get("type") or "").strip().lower()
                     damage_entries.append({"amount": amount, "type": dtype})
+            effect_block = selected_weapon.get("effect") if isinstance(selected_weapon.get("effect"), dict) else {}
+            if hit and not damage_entries:
+                mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
+                if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
+                    mode_block = selected_weapon.get("two_handed")
+                variables = _damage_formula_variables(profile)
+                mode_formula = mode_block.get("damage_formula") if isinstance(mode_block, dict) else ""
+                mode_damage = _roll_damage_formula(mode_formula, variables)
+                mode_type = str((mode_block or {}).get("damage_type") or "").strip().lower() if isinstance(mode_block, dict) else ""
+                if mode_damage is not None and mode_damage > 0:
+                    damage_entries.append({"amount": int(mode_damage), "type": mode_type})
+                damage_entries.extend(_parse_effect_damage_entries(effect_block.get("on_hit"), variables))
             total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
             if hit and total_damage > 0:
                 before_hp = _parse_int(getattr(target, "hp", None), None)
@@ -12632,6 +12691,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
                 "attack_resource_remaining": int(getattr(c, "attack_resource_remaining", 0) or 0),
             }
+            save_ability = str(effect_block.get("save_ability") or "").strip().lower()
+            save_dc = _parse_int(effect_block.get("save_dc"), 0) or 0
+            if hit and save_ability and save_dc > 0:
+                result_payload["on_hit_save"] = {"ability": save_ability, "dc": int(save_dc)}
             msg["_attack_result"] = dict(result_payload)
             if attack_roll is not None:
                 self._log(
@@ -12655,6 +12718,11 @@ class InitiativeTracker(base.InitiativeTracker):
                     f"{f' ({damage_desc})' if damage_desc else ''}.",
                     cid=int(target_cid),
                 )
+                if save_ability and save_dc > 0:
+                    self._log(
+                        f"{result_payload['target_name']} must make a {save_ability.upper()} save (DC {int(save_dc)}).",
+                        cid=int(target_cid),
+                    )
                 try:
                     self._rebuild_table(scroll_to_current=True)
                 except Exception:
