@@ -5529,7 +5529,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 climb_speed = int(resources.get("climb_speed", climb_speed) or climb_speed)
                 if hp is None:
                     hp = to_int(defenses.get("hp"), None)
-                ac = to_int(defenses.get("ac"), None)
+                ac = self._resolve_player_ac(profile, defenses)
                 if hp is None:
                     hp = 0
                 if max_hp is None:
@@ -5595,7 +5595,7 @@ class InitiativeTracker(base.InitiativeTracker):
         spellcasting = normalized.get("spellcasting", {}) if isinstance(normalized, dict) else {}
 
         hp = to_int(defenses.get("hp"), 0) or 0
-        ac = to_int(defenses.get("ac"), None)
+        ac = self._resolve_player_ac(normalized, defenses)
         max_hp = to_int(vitals.get("max_hp"), None)
         temp_hp = to_int(vitals.get("temp_hp"), 0) or 0
         if "current_hp" in vitals:
@@ -7741,7 +7741,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 safe_value = 0.0
             if not math.isfinite(safe_value):
                 safe_value = 0.0
-            expr = re.sub(rf"\\b{re.escape(str(key))}\\b", str(int(safe_value)), expr)
+            expr = re.sub(rf"\b{re.escape(str(key))}\b", str(int(safe_value)), expr)
         try:
             result = eval(
                 expr,
@@ -7795,6 +7795,93 @@ class InitiativeTracker(base.InitiativeTracker):
         if result is None:
             return None
         return int(math.floor(result))
+
+    def _resolve_player_ac(self, profile: Dict[str, Any], defenses: Any) -> Optional[int]:
+        def to_int(value: Any, fallback: Optional[int] = None) -> Optional[int]:
+            try:
+                return int(value)
+            except Exception:
+                return fallback
+
+        if isinstance(defenses, dict):
+            ac_data = defenses.get("ac")
+        else:
+            ac_data = defenses
+
+        direct_value = to_int(ac_data, None)
+        if direct_value is not None:
+            return direct_value
+
+        abilities = profile.get("abilities") if isinstance(profile.get("abilities"), dict) else {}
+        variables = {
+            "str_mod": self._ability_score_modifier(abilities, "str"),
+            "dex_mod": self._ability_score_modifier(abilities, "dex"),
+            "con_mod": self._ability_score_modifier(abilities, "con"),
+            "int_mod": self._ability_score_modifier(abilities, "int"),
+            "wis_mod": self._ability_score_modifier(abilities, "wis"),
+            "cha_mod": self._ability_score_modifier(abilities, "cha"),
+        }
+
+        def eval_ac_value(value: Any) -> Optional[int]:
+            parsed = to_int(value, None)
+            if parsed is not None:
+                return parsed
+            if isinstance(value, dict):
+                for key in ("value", "ac", "formula", "base_formula"):
+                    nested = eval_ac_value(value.get(key))
+                    if nested is not None:
+                        return nested
+                return None
+            result = self._evaluate_spell_formula(value, variables)
+            if result is None:
+                return None
+            return int(math.floor(result))
+
+        def is_always(when_value: Any) -> bool:
+            if when_value is None:
+                return True
+            if isinstance(when_value, bool):
+                return when_value
+            text = str(when_value).strip().lower()
+            return text in {"", "always", "true"}
+
+        if not isinstance(ac_data, dict):
+            return eval_ac_value(ac_data)
+
+        base_values: List[int] = []
+        fallback_values: List[int] = []
+        sources = ac_data.get("sources")
+        if isinstance(sources, list):
+            for source in sources:
+                if not isinstance(source, dict):
+                    continue
+                source_value = eval_ac_value(source.get("base_formula"))
+                if source_value is None:
+                    source_value = eval_ac_value(source.get("value"))
+                if source_value is None:
+                    continue
+                fallback_values.append(source_value)
+                if is_always(source.get("when")):
+                    base_values.append(source_value)
+        if not base_values:
+            direct_base = eval_ac_value(ac_data)
+            if direct_base is not None:
+                base_values = [direct_base]
+        if not base_values:
+            base_values = fallback_values
+        if not base_values:
+            return None
+
+        bonus_total = 0
+        bonuses = ac_data.get("bonuses")
+        if isinstance(bonuses, list):
+            for bonus in bonuses:
+                if isinstance(bonus, dict) and not is_always(bonus.get("when")):
+                    continue
+                bonus_value = eval_ac_value(bonus)
+                if bonus_value is not None:
+                    bonus_total += bonus_value
+        return max(base_values) + bonus_total
 
     def _normalize_player_spell_config(
         self,

@@ -3025,6 +3025,19 @@ class InitiativeTracker(tk.Tk):
         if column == "#3":
             self._inline_edit_cell(item, column, str(self.combatants[cid].hp), int, lambda v: self._set_hp(cid, v))
             return
+        if column == "#4":
+            self._inline_edit_cell(
+                item,
+                column,
+                str(int(getattr(self.combatants[cid], "temp_hp", 0) or 0)),
+                int,
+                lambda v: self._set_temp_hp(cid, v),
+            )
+            return
+        if column == "#5":
+            current_ac = getattr(self.combatants[cid], "ac", "")
+            self._inline_edit_cell(item, column, str(current_ac), int, lambda v: self._set_ac(cid, v))
+            return
         if column == "#6":
             self._inline_edit_cell(item, column, str(self.combatants[cid].speed), int, lambda v: self._set_speed(cid, v))
             return
@@ -3129,6 +3142,14 @@ class InitiativeTracker(tk.Tk):
     def _set_hp(self, cid: int, new_hp: int) -> None:
         if cid in self.combatants:
             self.combatants[cid].hp = max(0, int(new_hp))
+
+    def _set_temp_hp(self, cid: int, new_temp_hp: int) -> None:
+        if cid in self.combatants:
+            setattr(self.combatants[cid], "temp_hp", max(0, int(new_temp_hp)))
+
+    def _set_ac(self, cid: int, new_ac: int) -> None:
+        if cid in self.combatants:
+            setattr(self.combatants[cid], "ac", max(0, int(new_ac)))
 
     def _set_speed(self, cid: int, new_spd: int) -> None:
         if cid not in self.combatants:

@@ -25,6 +25,40 @@ class DmInitiativeColumnsTests(unittest.TestCase):
         self.assertEqual(tracker._initiative_display(normal), "12")
         self.assertEqual(tracker._initiative_display(nat20), "20★")
 
+    def test_tree_double_click_supports_temp_hp_and_ac_editing(self):
+        tracker = self._tracker()
+        combatant = types.SimpleNamespace(name="PC", hp=10, initiative=2, speed=30, swim_speed=0, temp_hp=3, ac=14)
+        tracker.combatants = {1: combatant}
+        calls = []
+
+        def _inline(item, column, initial, _caster, setter, rebuild=True):
+            calls.append((item, column, initial, rebuild))
+            setter(7 if column == "#4" else 18)
+
+        tracker._inline_edit_cell = _inline
+
+        class _Tree:
+            def identify_row(self, _y):
+                return "1"
+
+            def identify_column(self, _x):
+                return tracker._column_to_test
+
+        tracker.tree = _Tree()
+        event = types.SimpleNamespace(x=0, y=0)
+
+        tracker._column_to_test = "#4"
+        tracker._on_tree_double_click(event)
+        tracker._column_to_test = "#5"
+        tracker._on_tree_double_click(event)
+
+        self.assertEqual(calls[0][1], "#4")
+        self.assertEqual(calls[0][2], "3")
+        self.assertEqual(calls[1][1], "#5")
+        self.assertEqual(calls[1][2], "14")
+        self.assertEqual(combatant.temp_hp, 7)
+        self.assertEqual(combatant.ac, 18)
+
 
 if __name__ == "__main__":
     unittest.main()
