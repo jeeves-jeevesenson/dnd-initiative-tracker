@@ -12511,11 +12511,25 @@ class InitiativeTracker(base.InitiativeTracker):
             if attack_roll is None or attack_roll < 1 or attack_roll > 20:
                 self._lan.toast(ws_id, "Enter a valid d20 roll, matey.")
                 return
-            attack_count = max(1, min(10, _parse_int(msg.get("attack_count"), 1) or 1))
             weapon_id = str(msg.get("weapon_id") or "").strip()
             weapon_name = str(msg.get("weapon_name") or "").strip()
             player_name = self._pc_name_for(int(cid))
             profile = self._profile_for_player_name(player_name)
+            configured_attack_count = 1
+            leveling = profile.get("leveling") if isinstance(profile, dict) else {}
+            classes = leveling.get("classes") if isinstance(leveling, dict) else []
+            if isinstance(classes, list):
+                for entry in classes:
+                    if not isinstance(entry, dict):
+                        continue
+                    class_attack_count = _parse_int(entry.get("attacks_per_action"), None)
+                    if class_attack_count is None:
+                        continue
+                    configured_attack_count = max(1, min(10, max(configured_attack_count, class_attack_count)))
+            attack_count = max(
+                1,
+                min(10, _parse_int(msg.get("attack_count"), configured_attack_count) or configured_attack_count),
+            )
             attacks = profile.get("attacks") if isinstance(profile, dict) else {}
             weapons = attacks.get("weapons") if isinstance(attacks, dict) else []
             selected_weapon: Dict[str, Any] = {}

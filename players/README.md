@@ -153,6 +153,7 @@ leveling:
     - name: "Fighter"       # Class name
       subclass: "Champion"  # Subclass/archetype name
       level: 3              # Levels in this class
+      attacks_per_action: 2 # Optional non-spell melee/ranged attacks per Attack action
     - name: "Rogue"
       subclass: "Thief"
       level: 2
@@ -165,11 +166,13 @@ leveling:
   - **name**: The class name (e.g., Barbarian, Bard, Cleric, Druid, Fighter, Monk, Paladin, Ranger, Rogue, Sorcerer, Warlock, Wizard)
   - **subclass**: Subclass or archetype name (e.g., Champion, Battle Master, Assassin, Arcane Trickster)
   - **level**: Number of levels in this specific class (1-20)
+  - **attacks_per_action**: Optional non-spell melee/ranged attacks granted by this class when taking the Attack action (defaults to `1` if omitted)
 
 **Notes:**
 - For single-class characters, include one class entry with `level` matching total character level
 - For multiclass characters, sum of class levels must equal total `level`
 - Subclass can be empty string if character hasn't chosen a subclass yet
+- When multiple classes set `attacks_per_action`, the tracker uses the highest configured value for LAN attack request defaults
 
 ---
 

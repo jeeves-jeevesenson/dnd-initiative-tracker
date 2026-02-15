@@ -14,6 +14,7 @@ class LanAttackRequestTests(unittest.TestCase):
         self.app._is_valid_summon_turn_for_controller = lambda controlling, target, current: True
         self.app._pc_name_for = lambda cid: "Aelar"
         self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
             "attacks": {
                 "weapon_to_hit": 5,
                 "weapons": [
@@ -59,6 +60,7 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertTrue(result.get("hit"))
         self.assertEqual(result.get("total_to_hit"), 17)
         self.assertEqual(result.get("weapon_name"), "Longsword")
+        self.assertEqual(result.get("attack_count"), 1)
         self.assertNotIn("target_ac", result)
         self.assertIn((9, "Attack hits."), self.toasts)
 
@@ -77,6 +79,23 @@ class LanAttackRequestTests(unittest.TestCase):
 
         self.assertNotIn("_attack_result", msg)
         self.assertIn((10, "Pick one of yer configured weapons first, matey."), self.toasts)
+
+    def test_attack_request_defaults_attack_count_from_class_configuration(self):
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 11,
+            "target_cid": 2,
+            "weapon_id": "shortbow",
+            "attack_roll": 10,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("attack_count"), 2)
 
 
 if __name__ == "__main__":
