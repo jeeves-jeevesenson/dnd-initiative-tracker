@@ -30,8 +30,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
 12. **U02** ✅ Simplify movement mode switching for DM/players.
 13. **U03** ✅ Remove unnecessary initiative top dropdown UI in LAN client.
 14. **U04** ✅ Remove show/hide initiative button.
-15. **U05** Add hotkey/button to fully hide/show bottom panel (default `Delete`).
-16. **U06** Responsive compact mode for small screens.
+15. **U05** ✅ Add hotkey/button to fully hide/show bottom panel (default `Delete`).
+16. **U06** ✅ Responsive compact mode for small screens.
 17. **U07** Show HP bar on player screen with color thresholds.
 18. **U08** Show condition duration/details in top initiative tracker chips.
 19. **U09** Auto-center DM map to active ally/enemy turn + clear turn notice.

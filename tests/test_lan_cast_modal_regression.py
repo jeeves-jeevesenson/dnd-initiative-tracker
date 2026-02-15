@@ -51,6 +51,17 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('moveEl.addEventListener("click", () => {', self.html)
         self.assertIn('send({type:"cycle_movement_mode", cid: claimedCid});', self.html)
 
+    def test_bottom_panel_toggle_button_and_hotkey_are_wired(self):
+        self.assertIn('id="toggleSheetPanel"', self.html)
+        self.assertIn('id="hotkeyToggleSheetPanel"', self.html)
+        self.assertIn('inittracker_hotkey_toggleSheetPanel', self.html)
+        self.assertIn('localStorage.setItem("inittracker_hotkey_toggleSheetPanel", "Delete");', self.html)
+
+    def test_small_viewport_auto_compact_hides_optional_controls(self):
+        self.assertIn("function shouldAutoCompactLayout()", self.html)
+        self.assertIn('document.body.classList.toggle("auto-compact", autoCompact);', self.html)
+        self.assertIn('class="btn compact-optional" id="battleLog"', self.html)
+
 
 if __name__ == "__main__":
     unittest.main()

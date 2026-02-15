@@ -1456,6 +1456,7 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 1px rgba(106,169,255,0.5);
     }
+    .auto-compact .compact-optional{display:none;}
     .turn-chip.claimed{
       border-color: rgba(106,169,255,0.45);
       box-shadow: inset 0 0 0 1px rgba(106,169,255,0.18);
@@ -1910,14 +1911,15 @@
       <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
       <div class="topbar-controls">
         <button class="btn" id="lockMap">Lock Map</button>
-        <button class="btn" id="lockAoeToggle" type="button" aria-pressed="true">Unlock my AOEs</button>
+        <button class="btn compact-optional" id="lockAoeToggle" type="button" aria-pressed="true">Unlock my AOEs</button>
         <button class="btn" id="centerMap">Center on Me</button>
-        <button class="btn" id="tokenColorModeBtn">Token Color</button>
+        <button class="btn compact-optional" id="tokenColorModeBtn">Token Color</button>
         <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
-        <button class="btn" id="measureClear">Clear Measure</button>
+        <button class="btn compact-optional" id="measureClear">Clear Measure</button>
         <button class="btn accent" id="zoomIn">Zoom +</button>
         <button class="btn accent" id="zoomOut">Zoom −</button>
-        <button class="btn" id="battleLog">Battle Log</button>
+        <button class="btn compact-optional" id="battleLog">Battle Log</button>
+        <button class="btn" id="toggleSheetPanel" aria-pressed="false">Hide Panel</button>
       </div>
     </div>
     <div class="topbar-initiative" id="initiativeBarWrap" aria-label="Initiative bar">
@@ -2183,6 +2185,13 @@
                 <input class="hotkey-input" id="hotkeyResetTurn" data-hotkey-action="resetTurn" placeholder="Hotkey" readonly />
               </div>
               <div class="hotkey-conflict" id="hotkeyConflictResetTurn"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Toggle bottom panel</div>
+              <div class="config-controls">
+                <input class="hotkey-input" id="hotkeyToggleSheetPanel" data-hotkey-action="toggleSheetPanel" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictToggleSheetPanel"></div>
             </div>
             <div class="config-item">
               <div class="config-item-title">Hide spell menu for non spell casters</div>
@@ -3257,6 +3266,7 @@ __DAMAGE_TYPE_OPTIONS__
   const actionPickerList = document.getElementById("actionPickerList");
   const actionPickerCancelBtn = document.getElementById("actionPickerCancel");
   const battleLogBtn = document.getElementById("battleLog");
+  const toggleSheetPanelBtn = document.getElementById("toggleSheetPanel");
   const lockMapBtn = document.getElementById("lockMap");
   const lockAoeBtn = document.getElementById("lockAoeToggle");
   const centerMapBtn = document.getElementById("centerMap");
@@ -3311,6 +3321,7 @@ __DAMAGE_TYPE_OPTIONS__
   const hotkeyDashInput = document.getElementById("hotkeyDash");
   const hotkeyStandUpInput = document.getElementById("hotkeyStandUp");
   const hotkeyResetTurnInput = document.getElementById("hotkeyResetTurn");
+  const hotkeyToggleSheetPanelInput = document.getElementById("hotkeyToggleSheetPanel");
   const iosInstallHint = document.getElementById("iosInstallHint");
   const measureToggle = document.getElementById("measureToggle");
   const measureClear = document.getElementById("measureClear");
@@ -3672,6 +3683,7 @@ __DAMAGE_TYPE_OPTIONS__
   };
   const mapViewSettingsKey = "inittracker_map_view_settings";
   const dmUiPrefsKey = "inittracker_dm_ui_prefs";
+  const sheetPanelHiddenKey = "inittracker_ui_sheetPanelHidden";
   let dmLogLines = [];
   let mapViewLogPollTimer = null;
   let dmHighlightUntil = new Map();
@@ -3694,6 +3706,7 @@ __DAMAGE_TYPE_OPTIONS__
   let showResetTurn = readToggle(uiToggleKeys.resetTurn, true);
   let hideSpellMenu = readToggle(uiToggleKeys.hideSpellMenu, false);
   let menusLocked = readToggle(uiToggleKeys.lockMenus, false);
+  let sheetPanelHidden = readToggle(sheetPanelHiddenKey, false);
   let lockMyAoes = readToggle(lockMyAoesKey, true);
   let mapViewSettings = null;
   let connStyle = "full";
@@ -3805,6 +3818,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (sheetWrap){
       applySheetHeight(sheetHeight);
     }
+    applyUiConfig();
   });
   updateSpellbookViewportHeight();
   window.addEventListener("resize", updateSpellbookViewportHeight);
@@ -3995,6 +4009,20 @@ __DAMAGE_TYPE_OPTIONS__
     sheetWrap.style.minHeight = `${min}px`;
     sheetWrap.style.maxHeight = `${max}px`;
     sheetHeight = target;
+    resize();
+    updateModalOffsets();
+  }
+
+  function setSheetPanelHidden(hidden){
+    sheetPanelHidden = !!hidden;
+    persistToggle(sheetPanelHiddenKey, sheetPanelHidden);
+    if (sheetWrap){
+      sheetWrap.classList.toggle("hidden", sheetPanelHidden);
+    }
+    if (toggleSheetPanelBtn){
+      toggleSheetPanelBtn.textContent = sheetPanelHidden ? "Show Panel" : "Hide Panel";
+      toggleSheetPanelBtn.setAttribute("aria-pressed", sheetPanelHidden ? "true" : "false");
+    }
     resize();
     updateModalOffsets();
   }
@@ -4679,7 +4707,17 @@ __DAMAGE_TYPE_OPTIONS__
       storageKey: "inittracker_hotkey_resetTurn",
       action: () => resetTurnBtn && resetTurnBtn.click(),
     },
+    toggleSheetPanel: {
+      input: hotkeyToggleSheetPanelInput,
+      conflictEl: document.getElementById("hotkeyConflictToggleSheetPanel"),
+      storageKey: "inittracker_hotkey_toggleSheetPanel",
+      action: () => setSheetPanelHidden(!sheetPanelHidden),
+    },
   };
+
+  if (!localStorage.getItem("inittracker_hotkey_toggleSheetPanel")){
+    localStorage.setItem("inittracker_hotkey_toggleSheetPanel", "Delete");
+  }
 
   let hotkeyBindings = new Map();
 
@@ -4922,6 +4960,12 @@ __DAMAGE_TYPE_OPTIONS__
     updateConnDisplay();
   }
 
+  function shouldAutoCompactLayout(){
+    const width = window.innerWidth || document.documentElement?.clientWidth || 0;
+    const height = window.innerHeight || document.documentElement?.clientHeight || 0;
+    return width <= 900 || height <= 720;
+  }
+
   function toggleInitiativeBar(forceVisible){
     const shouldShow = typeof forceVisible === "boolean"
       ? forceVisible
@@ -4941,9 +4985,11 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function applyUiConfig(){
+    const autoCompact = initiativeStyle === "full" && shouldAutoCompactLayout();
     document.body.classList.toggle("menus-locked", menusLocked);
-    document.body.classList.toggle("initiative-compact", initiativeStyle === "compact");
+    document.body.classList.toggle("initiative-compact", initiativeStyle === "compact" || autoCompact);
     document.body.classList.toggle("initiative-hidden", initiativeStyle === "hidden");
+    document.body.classList.toggle("auto-compact", autoCompact);
     if (initiativeToggleBtn) initiativeToggleBtn.setAttribute("aria-pressed", initiativeStyle === "hidden" ? "false" : "true");
     if (topbarTitleEl) topbarTitleEl.classList.toggle("hidden", !showTopbarTitle);
     if (connEl) connEl.classList.toggle("hidden", !showConnIndicator);
@@ -4986,6 +5032,13 @@ __DAMAGE_TYPE_OPTIONS__
     if (toggleResetTurn) toggleResetTurn.checked = showResetTurn;
     if (toggleSpellMenu) toggleSpellMenu.checked = hideSpellMenu;
     if (toggleLockMenus) toggleLockMenus.checked = menusLocked;
+    if (sheetWrap){
+      sheetWrap.classList.toggle("hidden", sheetPanelHidden);
+    }
+    if (toggleSheetPanelBtn){
+      toggleSheetPanelBtn.textContent = sheetPanelHidden ? "Show Panel" : "Hide Panel";
+      toggleSheetPanelBtn.setAttribute("aria-pressed", sheetPanelHidden ? "true" : "false");
+    }
     if (sheetHandle){
       sheetHandle.setAttribute("aria-disabled", menusLocked ? "true" : "false");
     }
@@ -12804,6 +12857,11 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       send({type:"cycle_movement_mode", cid: claimedCid});
+    });
+  }
+  if (toggleSheetPanelBtn){
+    toggleSheetPanelBtn.addEventListener("click", () => {
+      setSheetPanelHidden(!sheetPanelHidden);
     });
   }
   if (turnModalOk){
