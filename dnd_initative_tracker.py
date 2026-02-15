@@ -723,6 +723,40 @@ def _parse_fractional_cr(value: str) -> Optional[float]:
     return int(match.group(1)) / denom
 
 
+def _cr_to_float(value: Any) -> Optional[float]:
+    """Parse challenge rating values from YAML/JSON sources.
+
+    Supports numbers, fractional strings (e.g. ``"1/2"``), and mixed
+    strings that include CR first followed by extra text.
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    if not isinstance(value, str):
+        return None
+
+    text = value.strip()
+    if not text:
+        return None
+
+    fraction = _parse_fractional_cr(text)
+    if fraction is not None:
+        return fraction
+
+    try:
+        return float(text)
+    except ValueError:
+        pass
+
+    first_token = text.split(maxsplit=1)[0]
+    fraction = _parse_fractional_cr(first_token)
+    if fraction is not None:
+        return fraction
+    try:
+        return float(first_token)
+    except ValueError:
+        return None
+
+
 def _hash_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
