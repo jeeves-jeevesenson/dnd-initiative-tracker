@@ -39,6 +39,40 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn("speeds,", self.html)
         self.assertIn('const castType = pendingSummonPlacement.mode === "custom_summon" ? "cast_aoe" : "cast_spell";', self.html)
 
+    def test_dismiss_summons_requires_confirmation_with_list(self):
+        self.assertIn('cidMatches(u?.summoned_by_cid, claimedCid, "dismissSummons.owner")', self.html)
+        self.assertIn('window.confirm(', self.html)
+        self.assertIn('Are ye sure ye want to dismiss these summons?', self.html)
+
+    def test_config_no_longer_renders_initiative_style_dropdown(self):
+        self.assertNotIn('<div class="config-item-title">Initiative strip</div>', self.html)
+
+    def test_move_indicator_click_cycles_movement_mode(self):
+        self.assertIn('moveEl.addEventListener("click", () => {', self.html)
+        self.assertIn('send({type:"cycle_movement_mode", cid: claimedCid});', self.html)
+
+    def test_bottom_panel_toggle_button_and_hotkey_are_wired(self):
+        self.assertIn('id="toggleSheetPanel"', self.html)
+        self.assertIn('id="hotkeyToggleSheetPanel"', self.html)
+        self.assertIn('inittracker_hotkey_toggleSheetPanel', self.html)
+        self.assertIn('localStorage.setItem("inittracker_hotkey_toggleSheetPanel", "Delete");', self.html)
+
+    def test_small_viewport_auto_compact_hides_optional_controls(self):
+        self.assertIn("function shouldAutoCompactLayout()", self.html)
+        self.assertIn('document.body.classList.toggle("auto-compact", autoCompact);', self.html)
+        self.assertIn('class="btn compact-optional" id="battleLog"', self.html)
+
+    def test_player_hp_bar_ui_and_threshold_classes_present(self):
+        self.assertIn('id="playerHpBarWrap"', self.html)
+        self.assertIn('id="playerHpBarFill"', self.html)
+        self.assertIn('playerHpBarFill.classList.toggle("mid", pct <= 50 && pct > 20);', self.html)
+        self.assertIn('playerHpBarFill.classList.toggle("low", pct <= 20);', self.html)
+
+    def test_turn_chip_includes_condition_summary_text(self):
+        self.assertIn("const formatTurnChipConditions = (text) => {", self.html)
+        self.assertIn("const conditionText = formatTurnChipConditions(unit?.marks);", self.html)
+        self.assertIn('nameEl.textContent = conditionText ? `${concentrationLabel} · ${conditionText}` : concentrationLabel;', self.html)
+
 
 if __name__ == "__main__":
     unittest.main()

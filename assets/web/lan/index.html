@@ -1413,6 +1413,30 @@
     .value{font-size:14px; font-weight:700;}
     .chip{font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);}
     .chip input{margin-right:6px;}
+    .hp-bar-wrap{
+      display:none;
+      align-items:center;
+      gap:8px;
+      width:min(360px, 100%);
+    }
+    .hp-bar-wrap.show{display:flex;}
+    .hp-bar-track{
+      flex:1;
+      min-width:120px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.12);
+      overflow:hidden;
+    }
+    .hp-bar-fill{
+      height:100%;
+      width:0%;
+      background:#38c172;
+      transition:width 120ms ease-out, background 120ms ease-out;
+    }
+    .hp-bar-fill.mid{background:#f2c94c;}
+    .hp-bar-fill.low{background:#ff5b5b;}
+    .hp-bar-label{font-size:12px; color:var(--muted);}
     .turn-order{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
     .turn-chip{
       min-width: 26px;
@@ -1456,6 +1480,7 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 1px rgba(106,169,255,0.5);
     }
+    .auto-compact .compact-optional{display:none;}
     .turn-chip.claimed{
       border-color: rgba(106,169,255,0.45);
       box-shadow: inset 0 0 0 1px rgba(106,169,255,0.18);
@@ -1910,14 +1935,15 @@
       <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
       <div class="topbar-controls">
         <button class="btn" id="lockMap">Lock Map</button>
-        <button class="btn" id="lockAoeToggle" type="button" aria-pressed="true">Unlock my AOEs</button>
+        <button class="btn compact-optional" id="lockAoeToggle" type="button" aria-pressed="true">Unlock my AOEs</button>
         <button class="btn" id="centerMap">Center on Me</button>
-        <button class="btn" id="tokenColorModeBtn">Token Color</button>
+        <button class="btn compact-optional" id="tokenColorModeBtn">Token Color</button>
         <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
-        <button class="btn" id="measureClear">Clear Measure</button>
+        <button class="btn compact-optional" id="measureClear">Clear Measure</button>
         <button class="btn accent" id="zoomIn">Zoom +</button>
         <button class="btn accent" id="zoomOut">Zoom −</button>
-        <button class="btn" id="battleLog">Battle Log</button>
+        <button class="btn compact-optional" id="battleLog">Battle Log</button>
+        <button class="btn" id="toggleSheetPanel" aria-pressed="false">Hide Panel</button>
       </div>
     </div>
     <div class="topbar-initiative" id="initiativeBarWrap" aria-label="Initiative bar">
@@ -2145,16 +2171,6 @@
           <summary>Bottom Bar</summary>
           <div class="config-list">
             <div class="config-item">
-              <div class="config-item-title">Initiative strip</div>
-              <div class="config-controls">
-                <select id="initiativeStyleSelect">
-                  <option value="full">Full</option>
-                  <option value="compact">Compact</option>
-                  <option value="hidden">Hidden</option>
-                </select>
-              </div>
-            </div>
-            <div class="config-item">
               <div class="config-item-title">Action</div>
               <div class="config-controls">
                 <label class="config-toggle"><input type="checkbox" id="toggleUseAction" />Show</label>
@@ -2193,6 +2209,13 @@
                 <input class="hotkey-input" id="hotkeyResetTurn" data-hotkey-action="resetTurn" placeholder="Hotkey" readonly />
               </div>
               <div class="hotkey-conflict" id="hotkeyConflictResetTurn"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Toggle bottom panel</div>
+              <div class="config-controls">
+                <input class="hotkey-input" id="hotkeyToggleSheetPanel" data-hotkey-action="toggleSheetPanel" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictToggleSheetPanel"></div>
             </div>
             <div class="config-item">
               <div class="config-item-title">Hide spell menu for non spell casters</div>
@@ -2329,6 +2352,10 @@
         <div class="chip" id="turn">Turn: —</div>
         <div class="chip" id="note">Tip: drag yer token · hold Shift to drag AoE (touch-hold ok)</div>
         <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
+      </div>
+      <div class="row hp-bar-wrap" id="playerHpBarWrap" aria-live="polite">
+        <div class="hp-bar-track"><div class="hp-bar-fill" id="playerHpBarFill"></div></div>
+        <div class="hp-bar-label" id="playerHpBarLabel">HP —</div>
       </div>
       <fieldset class="turn-alerts-panel" id="turnAlertsPanel">
         <legend>Turn Alerts</legend>
@@ -3239,6 +3266,9 @@ __DAMAGE_TYPE_OPTIONS__
   const bonusActionEl = document.getElementById("bonusAction");
   const reactionEl = document.getElementById("reaction");
   const turnEl = document.getElementById("turn");
+  const playerHpBarWrap = document.getElementById("playerHpBarWrap");
+  const playerHpBarFill = document.getElementById("playerHpBarFill");
+  const playerHpBarLabel = document.getElementById("playerHpBarLabel");
   const spellSlotMonitorEl = document.getElementById("spellSlotMonitor");
   const resourcePoolsPanelEl = document.getElementById("resourcePoolsPanel");
   const resourcePoolsListEl = document.getElementById("resourcePoolsList");
@@ -3267,6 +3297,7 @@ __DAMAGE_TYPE_OPTIONS__
   const actionPickerList = document.getElementById("actionPickerList");
   const actionPickerCancelBtn = document.getElementById("actionPickerCancel");
   const battleLogBtn = document.getElementById("battleLog");
+  const toggleSheetPanelBtn = document.getElementById("toggleSheetPanel");
   const lockMapBtn = document.getElementById("lockMap");
   const lockAoeBtn = document.getElementById("lockAoeToggle");
   const centerMapBtn = document.getElementById("centerMap");
@@ -3321,6 +3352,7 @@ __DAMAGE_TYPE_OPTIONS__
   const hotkeyDashInput = document.getElementById("hotkeyDash");
   const hotkeyStandUpInput = document.getElementById("hotkeyStandUp");
   const hotkeyResetTurnInput = document.getElementById("hotkeyResetTurn");
+  const hotkeyToggleSheetPanelInput = document.getElementById("hotkeyToggleSheetPanel");
   const iosInstallHint = document.getElementById("iosInstallHint");
   const measureToggle = document.getElementById("measureToggle");
   const measureClear = document.getElementById("measureClear");
@@ -3682,6 +3714,7 @@ __DAMAGE_TYPE_OPTIONS__
   };
   const mapViewSettingsKey = "inittracker_map_view_settings";
   const dmUiPrefsKey = "inittracker_dm_ui_prefs";
+  const sheetPanelHiddenKey = "inittracker_ui_sheetPanelHidden";
   let dmLogLines = [];
   let mapViewLogPollTimer = null;
   let dmHighlightUntil = new Map();
@@ -3704,6 +3737,7 @@ __DAMAGE_TYPE_OPTIONS__
   let showResetTurn = readToggle(uiToggleKeys.resetTurn, true);
   let hideSpellMenu = readToggle(uiToggleKeys.hideSpellMenu, false);
   let menusLocked = readToggle(uiToggleKeys.lockMenus, false);
+  let sheetPanelHidden = readToggle(sheetPanelHiddenKey, false);
   let lockMyAoes = readToggle(lockMyAoesKey, true);
   let mapViewSettings = null;
   let connStyle = "full";
@@ -3815,6 +3849,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (sheetWrap){
       applySheetHeight(sheetHeight);
     }
+    applyUiConfig();
   });
   updateSpellbookViewportHeight();
   window.addEventListener("resize", updateSpellbookViewportHeight);
@@ -4005,6 +4040,20 @@ __DAMAGE_TYPE_OPTIONS__
     sheetWrap.style.minHeight = `${min}px`;
     sheetWrap.style.maxHeight = `${max}px`;
     sheetHeight = target;
+    resize();
+    updateModalOffsets();
+  }
+
+  function setSheetPanelHidden(hidden){
+    sheetPanelHidden = !!hidden;
+    persistToggle(sheetPanelHiddenKey, sheetPanelHidden);
+    if (sheetWrap){
+      sheetWrap.classList.toggle("hidden", sheetPanelHidden);
+    }
+    if (toggleSheetPanelBtn){
+      toggleSheetPanelBtn.textContent = sheetPanelHidden ? "Show Panel" : "Hide Panel";
+      toggleSheetPanelBtn.setAttribute("aria-pressed", sheetPanelHidden ? "true" : "false");
+    }
     resize();
     updateModalOffsets();
   }
@@ -4689,7 +4738,17 @@ __DAMAGE_TYPE_OPTIONS__
       storageKey: "inittracker_hotkey_resetTurn",
       action: () => resetTurnBtn && resetTurnBtn.click(),
     },
+    toggleSheetPanel: {
+      input: hotkeyToggleSheetPanelInput,
+      conflictEl: document.getElementById("hotkeyConflictToggleSheetPanel"),
+      storageKey: "inittracker_hotkey_toggleSheetPanel",
+      action: () => setSheetPanelHidden(!sheetPanelHidden),
+    },
   };
+
+  if (!localStorage.getItem("inittracker_hotkey_toggleSheetPanel")){
+    localStorage.setItem("inittracker_hotkey_toggleSheetPanel", "Delete");
+  }
 
   let hotkeyBindings = new Map();
 
@@ -4932,6 +4991,12 @@ __DAMAGE_TYPE_OPTIONS__
     updateConnDisplay();
   }
 
+  function shouldAutoCompactLayout(){
+    const width = window.innerWidth || document.documentElement?.clientWidth || 0;
+    const height = window.innerHeight || document.documentElement?.clientHeight || 0;
+    return width <= 900 || height <= 720;
+  }
+
   function toggleInitiativeBar(forceVisible){
     const shouldShow = typeof forceVisible === "boolean"
       ? forceVisible
@@ -4951,9 +5016,11 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function applyUiConfig(){
+    const autoCompact = initiativeStyle === "full" && shouldAutoCompactLayout();
     document.body.classList.toggle("menus-locked", menusLocked);
-    document.body.classList.toggle("initiative-compact", initiativeStyle === "compact");
+    document.body.classList.toggle("initiative-compact", initiativeStyle === "compact" || autoCompact);
     document.body.classList.toggle("initiative-hidden", initiativeStyle === "hidden");
+    document.body.classList.toggle("auto-compact", autoCompact);
     if (initiativeToggleBtn) initiativeToggleBtn.setAttribute("aria-pressed", initiativeStyle === "hidden" ? "false" : "true");
     if (topbarTitleEl) topbarTitleEl.classList.toggle("hidden", !showTopbarTitle);
     if (connEl) connEl.classList.toggle("hidden", !showConnIndicator);
@@ -4996,6 +5063,13 @@ __DAMAGE_TYPE_OPTIONS__
     if (toggleResetTurn) toggleResetTurn.checked = showResetTurn;
     if (toggleSpellMenu) toggleSpellMenu.checked = hideSpellMenu;
     if (toggleLockMenus) toggleLockMenus.checked = menusLocked;
+    if (sheetWrap){
+      sheetWrap.classList.toggle("hidden", sheetPanelHidden);
+    }
+    if (toggleSheetPanelBtn){
+      toggleSheetPanelBtn.textContent = sheetPanelHidden ? "Show Panel" : "Hide Panel";
+      toggleSheetPanelBtn.setAttribute("aria-pressed", sheetPanelHidden ? "true" : "false");
+    }
     if (sheetHandle){
       sheetHandle.setAttribute("aria-disabled", menusLocked ? "true" : "false");
     }
@@ -5065,6 +5139,7 @@ __DAMAGE_TYPE_OPTIONS__
   const mapViewBlockedTypes = new Set([
     "move",
     "dash",
+    "cycle_movement_mode",
     "perform_action",
     "end_turn",
     "use_action",
@@ -7454,12 +7529,21 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     const TURN_CHIP_NAME_MAX = 20;
+    const TURN_CHIP_CONDITION_MAX = 24;
     const formatTurnChipName = (name) => {
       const fullName = String(name ?? "");
       if (fullName.length <= TURN_CHIP_NAME_MAX){
         return fullName;
       }
       return `${fullName.slice(0, TURN_CHIP_NAME_MAX - 1).trimEnd()}…`;
+    };
+    const formatTurnChipConditions = (text) => {
+      const fullText = normalizeTextValue(text);
+      if (!fullText) return "";
+      if (fullText.length <= TURN_CHIP_CONDITION_MAX){
+        return fullText;
+      }
+      return `${fullText.slice(0, TURN_CHIP_CONDITION_MAX - 1).trimEnd()}…`;
     };
     const order = Array.isArray(state?.turn_order) ? state.turn_order : [];
     activeTurnOrderEl.innerHTML = "";
@@ -7510,9 +7594,11 @@ __DAMAGE_TYPE_OPTIONS__
       const baseUnitName = unit?.name ? String(unit.name) : `#${cid}`;
       const unitName = unit?.is_mount ? `${baseUnitName} (steed)` : baseUnitName;
       const truncatedUnitName = formatTurnChipName(unitName);
-      chip.setAttribute("aria-label", `Turn ${idx + 1}: ${unitName}`);
+      const conditionText = formatTurnChipConditions(unit?.marks);
+      const fullLabel = conditionText ? `${unitName} · ${conditionText}` : unitName;
+      chip.setAttribute("aria-label", `Turn ${idx + 1}: ${fullLabel}`);
       chip.setAttribute("data-full-name", unitName);
-      chip.setAttribute("title", unitName);
+      chip.setAttribute("title", fullLabel);
       if (unit?.summoned_by_cid !== undefined && unit?.summoned_by_cid !== null){
         const monsterSlug = normalizeTextValue(unit?.monster_slug || "");
         if (monsterSlug){
@@ -7545,9 +7631,10 @@ __DAMAGE_TYPE_OPTIONS__
       chip.appendChild(indexEl);
       const nameEl = document.createElement("span");
       nameEl.className = "turn-chip-name";
-      nameEl.textContent = isUnitConcentrationLinked(unit) ? `${truncatedUnitName} ✦` : truncatedUnitName;
+      const concentrationLabel = isUnitConcentrationLinked(unit) ? `${truncatedUnitName} ✦` : truncatedUnitName;
+      nameEl.textContent = conditionText ? `${concentrationLabel} · ${conditionText}` : concentrationLabel;
       nameEl.setAttribute("data-full-name", unitName);
-      nameEl.setAttribute("title", unitName);
+      nameEl.setAttribute("title", fullLabel);
       chip.appendChild(nameEl);
       chip.addEventListener("click", () => {
         if (cidValue === null) return;
@@ -7770,6 +7857,26 @@ __DAMAGE_TYPE_OPTIONS__
     if (dismissSummonsBtn){
       dismissSummonsBtn.disabled = claimedCid == null;
     }
+    const updatePlayerHpBar = (unit) => {
+      if (!playerHpBarWrap || !playerHpBarFill || !playerHpBarLabel){
+        return;
+      }
+      const hp = Number(unit?.hp ?? NaN);
+      const maxHpRaw = Number(unit?.max_hp ?? NaN);
+      const maxHp = Number.isFinite(maxHpRaw) && maxHpRaw > 0
+        ? maxHpRaw
+        : (Number.isFinite(hp) && hp > 0 ? hp : 0);
+      if (!Number.isFinite(hp) || maxHp <= 0){
+        playerHpBarWrap.classList.remove("show");
+        return;
+      }
+      const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+      playerHpBarWrap.classList.add("show");
+      playerHpBarFill.style.width = `${pct}%`;
+      playerHpBarFill.classList.toggle("mid", pct <= 50 && pct > 20);
+      playerHpBarFill.classList.toggle("low", pct <= 20);
+      playerHpBarLabel.textContent = `HP ${Math.round(hp)}/${Math.round(maxHp)}`;
+    };
     let meForHud = null;
     if (claimedCid && state.units){
       const me = state.units.find(u => cidMatches(u.cid, claimedCid, "hud.claimedUnit"));
@@ -7778,6 +7885,7 @@ __DAMAGE_TYPE_OPTIONS__
         meEl.textContent = me.name;
         const modeLabel = movementModeLabel(me.movement_mode);
         moveEl.textContent = `Move: ${me.move_remaining}/${me.move_total} (${modeLabel})`;
+        moveEl.setAttribute("title", "Click to cycle movement mode");
         actionEl.textContent = `Action: ${me.action_remaining ?? 0}`;
         bonusActionEl.textContent = `Bonus Action: ${me.bonus_action_remaining ?? 0}`;
         if (reactionEl){
@@ -7796,7 +7904,10 @@ __DAMAGE_TYPE_OPTIONS__
         if (standUpBtn){
           standUpBtn.disabled = !(myTurn && me.is_prone);
         }
+        updatePlayerHpBar(me);
       } else {
+        updatePlayerHpBar(null);
+        moveEl.removeAttribute("title");
         actionEl.textContent = "Action: —";
         bonusActionEl.textContent = "Bonus Action: —";
         if (reactionEl){
@@ -7817,6 +7928,8 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
     } else {
+      updatePlayerHpBar(null);
+      moveEl.removeAttribute("title");
       actionEl.textContent = "Action: —";
       bonusActionEl.textContent = "Bonus Action: —";
       if (reactionEl){
@@ -12787,7 +12900,34 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Claim a character first, matey.");
         return;
       }
+      const summonedUnits = Array.isArray(state?.units)
+        ? state.units.filter(u => cidMatches(u?.summoned_by_cid, claimedCid, "dismissSummons.owner"))
+        : [];
+      if (!summonedUnits.length){
+        localToast("Ye have no summons to dismiss.");
+        return;
+      }
+      const summonList = summonedUnits.map(u => `- ${u?.name || `#${u?.cid ?? "?"}`}`).join("\n");
+      const confirmed = window.confirm(
+        `Are ye sure ye want to dismiss these summons?\n${summonList}`
+      );
+      if (!confirmed) return;
       send({type:"dismiss_summons", target_caster_cid: claimedCid, cid: claimedCid});
+    });
+  }
+  if (moveEl){
+    moveEl.addEventListener("click", () => {
+      if (isMapView) return;
+      if (!claimedCid){
+        localToast("Claim a character first, matey.");
+        return;
+      }
+      send({type:"cycle_movement_mode", cid: claimedCid});
+    });
+  }
+  if (toggleSheetPanelBtn){
+    toggleSheetPanelBtn.addEventListener("click", () => {
+      setSheetPanelHidden(!sheetPanelHidden);
     });
   }
   if (turnModalOk){

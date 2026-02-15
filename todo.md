@@ -14,28 +14,29 @@ This file converts the provided bug/feature list into an execution-ready backlog
 
 ### Phase A — High-impact bug fixes, low/medium effort (do first)
 1. **B01** ✅ Mounting triggers false “it’s your turn” prompt/sound.
-2. **B02** Initiative prompt modal incorrectly gated behind Cast Spell menu.
+2. **B02** ✅ Initiative prompt modal incorrectly gated behind Cast Spell menu.
 3. **B03** ✅ Tip dialog resets old message instead of persisting latest message.
-4. **B04** Mount requests sent to non-player tokens; DM approval flow missing.
+4. **B04** ✅ Mount requests sent to non-player tokens; DM approval flow missing.
 5. **B05** ✅ Player mounting logic broken for shared-tile mounting and rider movement rules.
 6. **B06** ✅ Zoom-out has hard lower limit.
-7. **B07** Non-modal popup behavior on DM Tkinter app (windows block each other).
-8. **B08** DM initiative tracker columns/order cleanup.
-9. **B09** Spell rotation support incomplete (“cannot rotate all spells”).
+7. **B07** ✅ Non-modal popup behavior on DM Tkinter app (windows block each other).
+8. **B08** ✅ DM initiative tracker columns/order cleanup.
+9. **B09** ✅ Spell rotation support incomplete (“cannot rotate all spells”).
 10. **B10** Wild Shape quality/regression cleanup.
-11. **B11** Add are you sure warning on dismiss summons. are you sure you want to dismiss (list summons)
-12. **B12** In the heal window on the DM tinkter tracker, add a toggle for if the value is temporary health. Any temp health given to a player overrides the previous temp health. If Gary has 4 temp hp and i open the dialague and Target Gary heals Gary for 8 temp hp, it would just be 8 temp hp. the 4 would be overwritten.
-13. **B13** Remove emojis from battle logging
+11. **B11** ✅ Add are you sure warning on dismiss summons. are you sure you want to dismiss (list summons) 
+11. **B12** Add are you sure warning on dismiss summons. are you sure you want to dismiss (list summons)
+12. **B13** In the heal window on the DM tinkter tracker, add a toggle for if the value is temporary health. Any temp health given to a player overrides the previous temp health. If Gary has 4 temp hp and i open the dialague and Target Gary heals Gary for 8 temp hp, it would just be 8 temp hp. the 4 would be overwritten.
+13. **B14** Remove emojis from battle logging
 
 ### Phase B — UX improvements (medium impact, low/medium effort)
-11. **U01** Make End Turn more obvious (topbar, stronger visual emphasis, smart highlight conditions).
-12. **U02** Simplify movement mode switching for DM/players.
-13. **U03** Remove unnecessary initiative top dropdown UI in LAN client.
+11. **U01** ✅ Make End Turn more obvious (topbar, stronger visual emphasis, smart highlight conditions).
+12. **U02** ✅ Simplify movement mode switching for DM/players.
+13. **U03** ✅ Remove unnecessary initiative top dropdown UI in LAN client.
 14. **U04** ✅ Remove show/hide initiative button.
-15. **U05** Add hotkey/button to fully hide/show bottom panel (default `Delete`).
-16. **U06** Responsive compact mode for small screens.
-17. **U07** Show HP bar on player screen with color thresholds.
-18. **U08** Show condition duration/details in top initiative tracker chips.
+15. **U05** ✅ Add hotkey/button to fully hide/show bottom panel (default `Delete`).
+16. **U06** ✅ Responsive compact mode for small screens.
+17. **U07** ✅ Show HP bar on player screen with color thresholds.
+18. **U08** ✅ Show condition duration/details in top initiative tracker chips.
 19. **U09** Auto-center DM map to active ally/enemy turn + clear turn notice.
 
 ### Phase C — Summon/mount system expansion (larger feature work)
