@@ -12,7 +12,7 @@ class LanEndTurnGuardTests(unittest.TestCase):
         self.app._oplog = lambda *args, **kwargs: None
         self.app._is_admin_token_valid = lambda token: False
         self.app._summon_can_be_controlled_by = lambda claimed, target: False
-        self.app._is_valid_summon_turn_for_controller = lambda controlling, target, current: True
+        self.app._is_valid_summon_turn_for_controller = lambda controlling, target, current: current is None
         self.app.in_combat = True
         self.app.current_cid = 1
         self.app.combatants = {
@@ -43,6 +43,32 @@ class LanEndTurnGuardTests(unittest.TestCase):
         self.assertEqual(self.next_turn_calls, 1)
         self.assertIn((7, "Turn ended."), self.toasts)
         self.assertIn((7, "Not yer turn yet, matey."), self.toasts)
+
+    def test_end_turn_allows_shared_turn_summon_target(self):
+        self.app.combatants[10] = type(
+            "C",
+            (),
+            {"cid": 10, "name": "Summon", "summoned_by_cid": 1, "summon_shared_turn": True},
+        )()
+        self.app._summon_can_be_controlled_by = lambda claimed, target: claimed == 1 and target == 10
+        self.app._is_valid_summon_turn_for_controller = (
+            lambda controlling, target, current: current is None
+            or (controlling == 1 and target == 10 and current == 1)
+        )
+
+        self.app._lan_apply_action({"type": "end_turn", "cid": 10, "_claimed_cid": 1, "_ws_id": 7})
+
+        self.assertEqual(self.next_turn_calls, 1)
+        self.assertIn((7, "Turn ended."), self.toasts)
+
+    def test_should_skip_turn_for_shared_summon(self):
+        self.app.combatants[10] = type(
+            "C",
+            (),
+            {"cid": 10, "name": "Summon", "summoned_by_cid": 1, "summon_shared_turn": True},
+        )()
+
+        self.assertTrue(self.app._should_skip_turn(10))
 
 
 if __name__ == "__main__":

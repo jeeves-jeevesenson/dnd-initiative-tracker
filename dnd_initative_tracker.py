@@ -4556,6 +4556,9 @@ class InitiativeTracker(base.InitiativeTracker):
         combatant = self.combatants.get(int(cid_norm))
         if combatant is None:
             return False
+        summon_owner = _normalize_cid_value(getattr(combatant, "summoned_by_cid", None), "turn.skip.summon.owner")
+        if summon_owner is not None and bool(getattr(combatant, "summon_shared_turn", False)):
+            return True
         mounted_by = _normalize_cid_value(getattr(combatant, "mounted_by_cid", None), "turn.skip.mounted_by")
         return mounted_by is not None and bool(getattr(combatant, "mount_shared_turn", False))
 
@@ -13170,7 +13173,8 @@ class InitiativeTracker(base.InitiativeTracker):
             active_cid = _normalize_cid_value(
                 getattr(self, "current_cid", None), "lan_action.end_turn.current_cid", log_fn=log_warning
             )
-            if in_combat and (cid is None or active_cid != int(cid)):
+            can_end_shared_summon_turn = self._is_valid_summon_turn_for_controller(claimed, cid, active_cid)
+            if in_combat and (cid is None or (active_cid != int(cid) and not can_end_shared_summon_turn)):
                 self._lan.toast(ws_id, "Not yer turn yet, matey.")
                 return
             try:
