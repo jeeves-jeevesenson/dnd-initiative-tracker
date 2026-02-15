@@ -610,6 +610,13 @@
                 "default": 0
               },
               {
+                "key": "range",
+                "label": "Range",
+                "type": "string",
+                "default": "5",
+                "help": "Attack range in feet. For ranged weapons, use normal/long format (e.g., 20/60)."
+              },
+              {
                 "key": "one_handed",
                 "label": "One-Handed Mode",
                 "type": "object",

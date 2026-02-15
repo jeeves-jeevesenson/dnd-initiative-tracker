@@ -1908,6 +1908,7 @@
         <button class="btn" id="centerMap">Center on Me</button>
         <button class="btn compact-optional" id="tokenColorModeBtn">Token Color</button>
         <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
+        <button class="btn" id="attackOverlayToggle" type="button" aria-pressed="false">Attack Overlay</button>
         <button class="btn compact-optional" id="measureClear">Clear Measure</button>
         <button class="btn accent" id="zoomIn">Zoom +</button>
         <button class="btn accent" id="zoomOut">Zoom −</button>
@@ -2308,10 +2309,17 @@
             <option value="">None/Custom</option>
           </select>
         </div>
+        <div class="form-field">
+          <label for="attackWeaponSelect">Attack Weapon</label>
+          <select id="attackWeaponSelect">
+            <option value="">Auto (first configured)</option>
+          </select>
+        </div>
       </div>
       <div class="row">
         <div class="chip" id="move">Move: —</div>
         <div class="chip" id="action">Action: —</div>
+        <div class="chip" id="attackResource">Attacks: —</div>
         <div class="chip" id="bonusAction">Bonus Action: —</div>
         <div class="chip" id="reaction">Reaction: —</div>
         <div class="chip" id="turn">Turn: —</div>
@@ -3227,6 +3235,7 @@ __DAMAGE_TYPE_OPTIONS__
   const meEl = document.getElementById("me");
   const moveEl = document.getElementById("move");
   const actionEl = document.getElementById("action");
+  const attackResourceEl = document.getElementById("attackResource");
   const bonusActionEl = document.getElementById("bonusAction");
   const reactionEl = document.getElementById("reaction");
   const turnEl = document.getElementById("turn");
@@ -3319,6 +3328,7 @@ __DAMAGE_TYPE_OPTIONS__
   const hotkeyToggleSheetPanelInput = document.getElementById("hotkeyToggleSheetPanel");
   const iosInstallHint = document.getElementById("iosInstallHint");
   const measureToggle = document.getElementById("measureToggle");
+  const attackOverlayToggleBtn = document.getElementById("attackOverlayToggle");
   const measureClear = document.getElementById("measureClear");
   const logModal = document.getElementById("logModal");
   const logContent = document.getElementById("logContent");
@@ -3347,6 +3357,7 @@ __DAMAGE_TYPE_OPTIONS__
   const useBonusActionBtn = document.getElementById("useBonusAction");
   const actionSelectEl = document.getElementById("actionSelect");
   const bonusActionSelectEl = document.getElementById("bonusActionSelect");
+  const attackWeaponSelectEl = document.getElementById("attackWeaponSelect");
   const resetTurnBtn = document.getElementById("resetTurn");
   const standUpBtn = document.getElementById("standUp");
   const dismissSummonsBtn = document.getElementById("dismissSummons");
@@ -3650,6 +3661,8 @@ __DAMAGE_TYPE_OPTIONS__
   let showAllNames = localStorage.getItem("inittracker_showAllNames") === "1";
   let measurementMode = false;
   let measurement = {start: null, end: null};
+  let attackOverlayMode = false;
+  let selectedAttackWeaponId = "";
   let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
   const LOS_PREVIEW_MS = 900;
   const sheetHeightKey = "inittracker_sheetHeight";
@@ -4062,6 +4075,45 @@ __DAMAGE_TYPE_OPTIONS__
     const profile = profiles[name];
     if (!profile || typeof profile !== "object") return null;
     return profile;
+  }
+
+  function getClaimedWeapons(){
+    const profile = getPlayerProfile(getClaimedPlayerName());
+    const attacks = profile?.attacks;
+    if (!attacks || typeof attacks !== "object" || !Array.isArray(attacks.weapons)){
+      return [];
+    }
+    return attacks.weapons.filter((entry) => entry && typeof entry === "object");
+  }
+
+  function parseWeaponRangeFeet(weapon){
+    const raw = weapon?.range ?? weapon?.normal_range ?? weapon?.reach ?? "";
+    const text = String(raw || "").trim().toLowerCase();
+    if (!text){
+      return 5;
+    }
+    const firstPart = text.split("/")[0];
+    const match = firstPart.match(/(\d+(?:\.\d+)?)/);
+    if (!match){
+      return 5;
+    }
+    const value = Number(match[1]);
+    return Number.isFinite(value) && value > 0 ? value : 5;
+  }
+
+  function getSelectedAttackWeapon(){
+    const weapons = getClaimedWeapons();
+    if (!weapons.length){
+      return null;
+    }
+    const selectedId = String(selectedAttackWeaponId || "").trim().toLowerCase();
+    if (selectedId){
+      const match = weapons.find((entry) => String(entry?.id || "").trim().toLowerCase() === selectedId);
+      if (match){
+        return match;
+      }
+    }
+    return weapons[0];
   }
 
   function getPlayerResourcePools(name){
@@ -6390,6 +6442,16 @@ __DAMAGE_TYPE_OPTIONS__
     return Math.hypot(dx, dy) * feetPerSquare;
   }
 
+  function setAttackOverlayMode(enabled){
+    attackOverlayMode = !!enabled;
+    if (attackOverlayToggleBtn){
+      attackOverlayToggleBtn.setAttribute("aria-pressed", attackOverlayMode ? "true" : "false");
+      attackOverlayToggleBtn.classList.toggle("accent", attackOverlayMode);
+      attackOverlayToggleBtn.textContent = attackOverlayMode ? "Attack Overlay: On" : "Attack Overlay";
+    }
+    draw();
+  }
+
   function summonCellKey(col, row){
     return `${Number(col)},${Number(row)}`;
   }
@@ -7019,6 +7081,28 @@ __DAMAGE_TYPE_OPTIONS__
             ctx.fillRect(x + 1, y + 1, zoom - 2, zoom - 2);
           });
         }
+      }
+    }
+
+    if (attackOverlayMode){
+      const me = getClaimedUnit();
+      const weapon = getSelectedAttackWeapon();
+      if (me && me.pos && weapon){
+        const rangeFt = parseWeaponRangeFeet(weapon);
+        const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
+        const radiusCells = Math.max(0, Number(rangeFt) / feetPerSquare);
+        const center = gridToScreen(me.pos.col, me.pos.row);
+        ctx.save();
+        ctx.fillStyle = "rgba(255,78,78,0.15)";
+        ctx.strokeStyle = "rgba(255,78,78,0.72)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, Math.max(6, radiusCells * zoom), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
       }
     }
 
@@ -7710,6 +7794,28 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  function populateAttackWeaponSelect(){
+    if (!attackWeaponSelectEl) return;
+    const weapons = getClaimedWeapons();
+    attackWeaponSelectEl.textContent = "";
+    const placeholderOption = document.createElement("option");
+    placeholderOption.value = "";
+    placeholderOption.textContent = "Auto (first configured)";
+    attackWeaponSelectEl.appendChild(placeholderOption);
+    weapons.forEach((weapon) => {
+      const option = document.createElement("option");
+      option.value = String(weapon.id || weapon.name || "").trim();
+      const rangeFt = parseWeaponRangeFeet(weapon);
+      option.textContent = `${String(weapon.name || weapon.id || "Weapon")} (${Math.round(rangeFt)} ft)`;
+      attackWeaponSelectEl.appendChild(option);
+    });
+    if (selectedAttackWeaponId && weapons.some((weapon) => String(weapon.id || weapon.name || "").trim() === selectedAttackWeaponId)){
+      attackWeaponSelectEl.value = selectedAttackWeaponId;
+    } else {
+      attackWeaponSelectEl.value = "";
+    }
+  }
+
 
   function isFriendlyToMe(unit, me){
     if (!unit) return false;
@@ -7825,6 +7931,9 @@ __DAMAGE_TYPE_OPTIONS__
         moveEl.textContent = `Move: ${me.move_remaining}/${me.move_total} (${modeLabel})`;
         moveEl.setAttribute("title", "Click to cycle movement mode");
         actionEl.textContent = `Action: ${me.action_remaining ?? 0}`;
+        if (attackResourceEl){
+          attackResourceEl.textContent = `Attacks: ${me.attack_resource_remaining ?? 0}`;
+        }
         bonusActionEl.textContent = `Bonus Action: ${me.bonus_action_remaining ?? 0}`;
         if (reactionEl){
           reactionEl.textContent = `Reaction: ${me.reaction_remaining ?? 0}`;
@@ -7839,6 +7948,13 @@ __DAMAGE_TYPE_OPTIONS__
         if (bonusActionSelectEl){
           bonusActionSelectEl.disabled = false;
         }
+        populateAttackWeaponSelect();
+        if (attackWeaponSelectEl){
+          attackWeaponSelectEl.disabled = false;
+        }
+        if (attackOverlayToggleBtn){
+          attackOverlayToggleBtn.disabled = false;
+        }
         if (standUpBtn){
           standUpBtn.disabled = !(myTurn && me.is_prone);
         }
@@ -7847,6 +7963,9 @@ __DAMAGE_TYPE_OPTIONS__
         updatePlayerHpBar(null);
         moveEl.removeAttribute("title");
         actionEl.textContent = "Action: —";
+        if (attackResourceEl){
+          attackResourceEl.textContent = "Attacks: —";
+        }
         bonusActionEl.textContent = "Bonus Action: —";
         if (reactionEl){
           reactionEl.textContent = "Reaction: —";
@@ -7861,6 +7980,13 @@ __DAMAGE_TYPE_OPTIONS__
         if (bonusActionSelectEl){
           bonusActionSelectEl.disabled = true;
         }
+        populateAttackWeaponSelect();
+        if (attackWeaponSelectEl){
+          attackWeaponSelectEl.disabled = true;
+        }
+        if (attackOverlayToggleBtn){
+          attackOverlayToggleBtn.disabled = false;
+        }
         if (standUpBtn){
           standUpBtn.disabled = true;
         }
@@ -7869,6 +7995,9 @@ __DAMAGE_TYPE_OPTIONS__
       updatePlayerHpBar(null);
       moveEl.removeAttribute("title");
       actionEl.textContent = "Action: —";
+      if (attackResourceEl){
+        attackResourceEl.textContent = "Attacks: —";
+      }
       bonusActionEl.textContent = "Bonus Action: —";
       if (reactionEl){
         reactionEl.textContent = "Reaction: —";
@@ -7882,6 +8011,13 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (bonusActionSelectEl){
         bonusActionSelectEl.disabled = true;
+      }
+      populateAttackWeaponSelect();
+      if (attackWeaponSelectEl){
+        attackWeaponSelectEl.disabled = true;
+      }
+      if (attackOverlayToggleBtn){
+        attackOverlayToggleBtn.disabled = false;
       }
       if (standUpBtn){
         standUpBtn.disabled = true;
@@ -8472,6 +8608,18 @@ __DAMAGE_TYPE_OPTIONS__
         if (!isMapView){
           showLogModal();
         }
+      } else if (msg.type === "attack_result"){
+        const me = getClaimedUnit();
+        if (me && cidMatches(msg.attacker_cid, me.cid, "attackResult.attacker")){
+          if (Number.isFinite(Number(msg.action_remaining))){
+            me.action_remaining = Number(msg.action_remaining);
+          }
+          if (Number.isFinite(Number(msg.attack_resource_remaining))){
+            me.attack_resource_remaining = Number(msg.attack_resource_remaining);
+          }
+          updateHud();
+          draw();
+        }
       } else if (msg.type === "grid_update"){
         if (!state){ state = {}; }
         if ("grid" in msg){
@@ -8739,6 +8887,9 @@ __DAMAGE_TYPE_OPTIONS__
       }
       return;
     }
+    if (attackOverlayMode){
+      return;
+    }
 
     const isTouchPointer = ev.pointerType === "touch";
     const isAoeDragMouse = ev.pointerType === "mouse" && (ev.button === 0 || ev.button === 1);
@@ -8964,6 +9115,45 @@ __DAMAGE_TYPE_OPTIONS__
       clearAoeDragPending();
     }
     setTokenTooltip(null);
+    if (attackOverlayMode && !isMapView && !pendingSummonPlacement && !dragging && !panning && !aoeDragging){
+      const me = getClaimedUnit();
+      if (!me){
+        localToast("Claim a character first, matey.");
+        return;
+      }
+      const weapon = getSelectedAttackWeapon();
+      if (!weapon){
+        localToast("No configured weapon found, matey.");
+        return;
+      }
+      const hit = hitTestToken(p);
+      if (hit && !cidMatches(hit.cid, me.cid, "attackOverlay.target")){
+        const rangeFt = parseWeaponRangeFeet(weapon);
+        const distFt = distanceFeetBetweenCells(me.pos, hit.pos);
+        if (distFt - rangeFt > 1e-6){
+          localToast("Target be out of attack range.");
+          return;
+        }
+        const rollRaw = window.prompt(`Attack roll vs ${hit.name || "target"} (d20):`, "");
+        if (rollRaw === null){
+          return;
+        }
+        const roll = Number(String(rollRaw).trim());
+        if (!Number.isInteger(roll) || roll < 1 || roll > 20){
+          localToast("Enter a valid d20 roll, matey.");
+          return;
+        }
+        send({
+          type: "attack_request",
+          cid: claimedCid,
+          target_cid: Number(hit.cid),
+          weapon_id: String(weapon.id || "").trim(),
+          weapon_name: String(weapon.name || "").trim(),
+          attack_roll: roll,
+        });
+        return;
+      }
+    }
     if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){
       const g = screenToGrid(p.x, p.y);
       if (!gridReady()){
@@ -12714,6 +12904,17 @@ __DAMAGE_TYPE_OPTIONS__
       config.input.select();
     });
   });
+  if (attackOverlayToggleBtn){
+    attackOverlayToggleBtn.addEventListener("click", () => {
+      setAttackOverlayMode(!attackOverlayMode);
+    });
+  }
+  if (attackWeaponSelectEl){
+    attackWeaponSelectEl.addEventListener("change", (event) => {
+      selectedAttackWeaponId = String(event.target.value || "").trim();
+      draw();
+    });
+  }
   useActionBtn.addEventListener("click", () => {
     if (isMapView) return;
     if (!claimedCid) return;
@@ -12899,6 +13100,7 @@ __DAMAGE_TYPE_OPTIONS__
   resize();
   updateMeasurementControls();
   updateWaitingOverlay();
+  setAttackOverlayMode(false);
 
   if (toggleDmLogPanelInput){
     toggleDmLogPanelInput.checked = dmUiPrefs.showLogPanel === true;

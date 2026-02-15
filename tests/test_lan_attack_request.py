@@ -30,6 +30,8 @@ class LanAttackRequestTests(unittest.TestCase):
             1: type("C", (), {"cid": 1, "name": "Aelar", "ac": 16})(),
             2: type("C", (), {"cid": 2, "name": "Goblin", "ac": 15})(),
         }
+        self.app.combatants[1].action_remaining = 1
+        self.app.combatants[1].attack_resource_remaining = 0
         self.app._lan = type(
             "LanStub",
             (),
@@ -96,6 +98,44 @@ class LanAttackRequestTests(unittest.TestCase):
         result = msg.get("_attack_result")
         self.assertIsInstance(result, dict)
         self.assertEqual(result.get("attack_count"), 2)
+
+    def test_attack_request_auto_spends_action_when_no_attack_resource(self):
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 12,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "attack_roll": 10,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("ok"))
+        self.assertEqual(self.app.combatants[1].action_remaining, 0)
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 1)
+        self.assertEqual(result.get("attack_resource_remaining"), 1)
+
+    def test_attack_request_rejects_when_no_action_and_no_attack_resource(self):
+        self.app.combatants[1].action_remaining = 0
+        self.app.combatants[1].attack_resource_remaining = 0
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 13,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "attack_roll": 10,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertNotIn("_attack_result", msg)
+        self.assertIn((13, "No attacks left, matey."), self.toasts)
 
 
 if __name__ == "__main__":

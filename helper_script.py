@@ -242,6 +242,7 @@ class Combatant:
     temp_move_bonus: int = 0
     temp_move_turns_remaining: int = 0
     action_remaining: int = 1
+    attack_resource_remaining: int = 0
     bonus_action_remaining: int = 1
     reaction_remaining: int = 1
     spell_cast_remaining: int = 1
@@ -2321,6 +2322,7 @@ class InitiativeTracker(tk.Tk):
         c.move_total = eff
         c.move_remaining = eff
         c.action_remaining = 1 + max(0, int(getattr(c, "extra_action_pool", 0) or 0))
+        c.attack_resource_remaining = 0
         c.bonus_action_remaining = 1 + max(0, int(getattr(c, "extra_bonus_pool", 0) or 0))
         c.reaction_remaining = 1
         c.spell_cast_remaining = 1
