@@ -9414,12 +9414,13 @@ class InitiativeTracker(base.InitiativeTracker):
         setattr(c, "actions", copy.deepcopy(base_snapshot.get("actions") if isinstance(base_snapshot.get("actions"), list) else []))
         setattr(c, "bonus_actions", copy.deepcopy(base_snapshot.get("bonus_actions") if isinstance(base_snapshot.get("bonus_actions"), list) else []))
         if int(getattr(c, "temp_hp", 0) or 0) == int(getattr(c, "wild_shape_applied_temp_hp", 0) or 0):
-            setattr(c, "temp_hp", 0)
+            setattr(c, "temp_hp", int(getattr(c, "wild_shape_prev_temp_hp", 0) or 0))
         setattr(c, "is_wild_shaped", False)
         setattr(c, "wild_shape_form_id", None)
         setattr(c, "wild_shape_form_name", None)
         setattr(c, "wild_shape_base", None)
         setattr(c, "wild_shape_applied_temp_hp", 0)
+        setattr(c, "wild_shape_prev_temp_hp", 0)
         return True, ""
 
     def _sorted_combatants(self) -> List[base.Combatant]:

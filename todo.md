@@ -234,6 +234,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/tests/test_wild_shape.py`
 - **Scope note:** only concrete reproducible defects first; broad UX complaints belong in V01.
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** `_revert_wild_shape(...)` now restores the pre-shape temporary HP when the player still has the exact Wild Shape temp-HP grant at revert time, preventing silent loss of existing temp HP.
 - **Investigation context (2026-02-15):**
   - There is already dedicated wild-shape coverage in `tests/test_wild_shape.py` (apply/revert, known/prepared forms, pool handling, LAN handlers).
   - Given existing coverage and broad problem wording, this card should be split into concrete repros before implementation.
