@@ -5459,6 +5459,7 @@ class BattleMapWindow(tk.Toplevel):
         ttk.Button(dm_btn_row, text="Dash", command=self._dm_dash_target).pack(side=tk.LEFT)
         ttk.Button(dm_btn_row, text="Prev Turn", command=self._dm_prev_turn).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(dm_btn_row, text="Next Turn", command=self._dm_next_turn).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(dm_btn_row, text="End Turn", command=self._dm_end_turn_group).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(dm_btn_row, text="Stand Up", command=self._dm_stand_up_target).pack(side=tk.LEFT, padx=(8, 0))
         mode_row = ttk.Frame(dm_ctrl)
         mode_row.pack(fill=tk.X, pady=(6, 0))
@@ -5980,6 +5981,11 @@ class BattleMapWindow(tk.Toplevel):
 
     def _dm_next_turn(self) -> None:
         self.app._next_turn()
+
+    def _dm_end_turn_group(self) -> None:
+        handler = getattr(self.app, "_dm_end_turn_group", None)
+        if callable(handler):
+            handler()
 
     def _dm_prev_turn(self) -> None:
         self.app._prev_turn()

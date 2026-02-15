@@ -2824,7 +2824,7 @@ __DAMAGE_TYPE_OPTIONS__
   const isMapViewOnly = isMapView && mapViewOnlyParam;
   const isPlanning = normalizedPath === "/planning";
   const supportsMapView = !isPlanning;
-  const wsPath = (isMapView && isMapViewOnly) ? "/ws_view" : "/ws";
+  const wsPath = isMapView ? "/ws_view" : "/ws";
   const wsUrl = (() => {
     const lanBase = (window.LAN_BASE_URL || "").trim();
     const fallbackOrigin = (location.origin && location.origin !== "null") ? location.origin : "";
@@ -3644,7 +3644,7 @@ __DAMAGE_TYPE_OPTIONS__
   applyMapViewSettings(readMapViewSettings());
   if (isMapView){ dmUiPrefs.showLogPanel = dmUiPrefs.showLogPanel === true; dmUiPrefs.showMapPreview = dmUiPrefs.showMapPreview === true; renderDmLogPanel(); refreshMapViewLogPolling(); }
   function applyMapViewReadOnlyControls(){
-    if (!isMapViewOnly) return;
+    if (!isMapView) return;
     const controls = [
       useActionBtn,
       useBonusActionBtn,
@@ -3667,8 +3667,7 @@ __DAMAGE_TYPE_OPTIONS__
     const activeCids = getActiveCidsFromState(state);
     const myTurn = !needsClaim && activeCids.some((cid) => cidMatches(cid, claimedCid, "endTurn.myTurn"));
     const playerEnded = !needsClaim && isPlayerControllerDone(state, claimedCid);
-    const dmCanEnd = isMapView && !isMapViewOnly && Array.isArray(state?.turn_group_waiting_on) && state.turn_group_waiting_on.includes("DM");
-    const shouldDisable = dmCanEnd ? false : (isMapView ? true : (needsClaim || !myTurn || playerEnded));
+    const shouldDisable = isMapView || needsClaim || !myTurn || playerEnded;
     endTurnBtn.disabled = shouldDisable;
     endTurnBtn.setAttribute("aria-disabled", shouldDisable ? "true" : "false");
     if (shouldDisable){
@@ -3676,16 +3675,12 @@ __DAMAGE_TYPE_OPTIONS__
       endTurnReadyVisualActive = false;
     }
     let titleText = "";
-    if (dmCanEnd){
-      titleText = "End DM-controlled units for this turn.";
-    } else if (needsClaim){
+    if (needsClaim){
       titleText = "Claim a character first, matey.";
-    } else if (isMapViewOnly){
+    } else if (isMapView){
       titleText = "Map view is read-only.";
     } else if (playerEnded){
       titleText = "Turn already ended.";
-    } else if (isMapView && !dmCanEnd){
-      titleText = "Waiting on players.";
     } else if (!myTurn){
       titleText = "Wait for your turn, matey.";
     }
@@ -5001,7 +4996,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   function send(msg){
     if (isPlanning) return;
-    if (isMapViewOnly && msg && mapViewBlockedTypes.has(msg.type)){
+    if (isMapView && msg && mapViewBlockedTypes.has(msg.type)){
       return;
     }
     if (!ws || ws.readyState !== 1) return;
@@ -12424,13 +12419,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   if (endTurnBtn){
     endTurnBtn.addEventListener("click", () => {
-      if (isMapView && !isMapViewOnly){
-        send({type:"dm_end_turn"});
-        endTurnBtn.disabled = true;
-        endTurnBtn.setAttribute("aria-disabled", "true");
-        return;
-      }
-      if (isMapViewOnly) return;
+      if (isMapView) return;
       if (!claimedCid){
         localToast("Claim a character first, matey.");
         return;

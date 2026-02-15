@@ -158,6 +158,44 @@ class LanSharedInitiativeTests(unittest.TestCase):
         status = app._turn_group_status_payload()
         self.assertEqual(status["active_cids"], [3])
 
+    def test_dm_end_turn_group_marks_dm_done_without_advance_until_players_done(self):
+        app = self._build_app()
+        app.combatants = {
+            1: _c(1, "Alice", 15, 2, ally=True),
+            2: _c(2, "Wolf Ally", 15, 1, ally=True),
+            3: _c(3, "Orc", 10, 0, ally=False),
+        }
+        app.current_cid = 1
+        app._display_order = lambda: [app.combatants[1], app.combatants[2], app.combatants[3]]
+        app._lan._claims = {101: 1}
+        rebuild_calls = []
+        app._rebuild_table = lambda scroll_to_current=False: rebuild_calls.append(bool(scroll_to_current))
+
+        result = app._dm_end_turn_group()
+
+        self.assertTrue(result)
+        self.assertEqual(app.next_turn_calls, 0)
+        self.assertIn(2, app.cleaned)
+        self.assertEqual(rebuild_calls, [True])
+
+    def test_dm_end_turn_group_noop_when_dm_not_controller(self):
+        app = self._build_app()
+        app.combatants = {
+            1: _c(1, "Alice", 15, 2, ally=True),
+            2: _c(2, "Bob", 15, 1, ally=True),
+        }
+        app.current_cid = 1
+        app._display_order = lambda: [app.combatants[1], app.combatants[2]]
+        app._lan._claims = {101: 1, 102: 2}
+        def _unexpected_rebuild(scroll_to_current=False):
+            raise AssertionError("unexpected rebuild")
+        app._rebuild_table = _unexpected_rebuild
+
+        result = app._dm_end_turn_group()
+
+        self.assertFalse(result)
+        self.assertEqual(app.next_turn_calls, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

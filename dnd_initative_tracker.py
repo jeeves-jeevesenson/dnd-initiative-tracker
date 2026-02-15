@@ -4654,6 +4654,20 @@ class InitiativeTracker(base.InitiativeTracker):
         self._refresh_turn_group_state(reset_done=False)
         return False
 
+    def _dm_end_turn_group(self) -> bool:
+        if not bool(getattr(self, "in_combat", False)):
+            return False
+        self._refresh_turn_group_state()
+        controller_map = dict(self.__dict__.get("_turn_group_controller_map", {}))
+        if "dm" not in controller_map:
+            return False
+        if "dm" in self.__dict__.get("_turn_group_done_controllers", set()):
+            return False
+        advanced = self._apply_controller_end_turn("dm")
+        if not advanced:
+            self._rebuild_table(scroll_to_current=True)
+        return True
+
     def _next_turn(self) -> None:
         self._refresh_turn_group_state(reset_done=True)
         ordered = self._display_order()
