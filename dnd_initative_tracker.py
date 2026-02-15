@@ -5468,6 +5468,7 @@ class InitiativeTracker(base.InitiativeTracker):
             fly_speed = 0
             burrow_speed = 0
             climb_speed = 0
+            ac = None
             water = False
             actions: List[Dict[str, Any]] = []
             bonus_actions: List[Dict[str, Any]] = []
@@ -5528,6 +5529,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 climb_speed = int(resources.get("climb_speed", climb_speed) or climb_speed)
                 if hp is None:
                     hp = to_int(defenses.get("hp"), None)
+                ac = to_int(defenses.get("ac"), None)
                 if hp is None:
                     hp = 0
                 if max_hp is None:
@@ -5562,6 +5564,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     if combatant is not None:
                         setattr(combatant, "temp_hp", int(temp_hp or 0))
                         setattr(combatant, "max_hp", int(max_hp or hp or 0))
+                        if ac is not None:
+                            setattr(combatant, "ac", int(ac))
                 except Exception:
                     pass
                 existing.add(nm)
@@ -5591,6 +5595,7 @@ class InitiativeTracker(base.InitiativeTracker):
         spellcasting = normalized.get("spellcasting", {}) if isinstance(normalized, dict) else {}
 
         hp = to_int(defenses.get("hp"), 0) or 0
+        ac = to_int(defenses.get("ac"), None)
         max_hp = to_int(vitals.get("max_hp"), None)
         temp_hp = to_int(vitals.get("temp_hp"), 0) or 0
         if "current_hp" in vitals:
@@ -5663,6 +5668,8 @@ class InitiativeTracker(base.InitiativeTracker):
         if combatant is not None:
             setattr(combatant, "temp_hp", int(temp_hp or 0))
             setattr(combatant, "max_hp", int(max_hp or hp or 0))
+            if ac is not None:
+                setattr(combatant, "ac", int(ac))
             token_color = identity.get("token_color") if isinstance(identity, dict) else None
             if token_color:
                 setattr(combatant, "token_color", token_color)
