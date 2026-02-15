@@ -2812,6 +2812,7 @@ class LanController:
             "move_remaining",
             "move_total",
             "action_remaining",
+            "attack_resource_remaining",
             "bonus_action_remaining",
             "reaction_remaining",
             "spell_cast_remaining",
@@ -4655,6 +4656,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "move_remaining": int(getattr(c, "move_remaining", 0) or 0),
             "move_total": int(getattr(c, "move_total", 0) or 0),
             "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
+            "attack_resource_remaining": int(getattr(c, "attack_resource_remaining", 0) or 0),
             "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
             "reaction_remaining": int(getattr(c, "reaction_remaining", 0) or 0),
             "spell_cast_remaining": int(getattr(c, "spell_cast_remaining", 0) or 0),
@@ -4668,6 +4670,7 @@ class InitiativeTracker(base.InitiativeTracker):
         c.move_remaining = int(snap.get("move_remaining", c.move_remaining))
         c.move_total = int(snap.get("move_total", c.move_total))
         c.action_remaining = int(snap.get("action_remaining", c.action_remaining))
+        c.attack_resource_remaining = int(snap.get("attack_resource_remaining", getattr(c, "attack_resource_remaining", 0)))
         c.bonus_action_remaining = int(snap.get("bonus_action_remaining", c.bonus_action_remaining))
         c.reaction_remaining = int(snap.get("reaction_remaining", c.reaction_remaining))
         c.spell_cast_remaining = int(snap.get("spell_cast_remaining", c.spell_cast_remaining))
@@ -6120,6 +6123,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "move_total": int(getattr(c, "move_total", 0) or 0),
                     "movement_mode": self._movement_mode_label(getattr(c, "movement_mode", "normal")),
                     "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
+                    "attack_resource_remaining": int(getattr(c, "attack_resource_remaining", 0) or 0),
                     "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
                     "reaction_remaining": int(getattr(c, "reaction_remaining", 0) or 0),
                     "spell_cast_remaining": int(getattr(c, "spell_cast_remaining", 0) or 0),
@@ -7650,6 +7654,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 weapon["proficient"] = bool(weapon.get("proficient", True))
                 to_hit_normalized = normalize_attack_int(weapon.get("to_hit"))
                 weapon["to_hit"] = to_hit_normalized if to_hit_normalized is not None else 0
+                weapon["range"] = str(weapon.get("range") or "").strip()
                 weapon["one_handed"] = {
                     "damage_formula": str(one_handed.get("damage_formula") or "").strip(),
                     "damage_type": str(one_handed.get("damage_type") or "").strip(),
@@ -12549,6 +12554,14 @@ class InitiativeTracker(base.InitiativeTracker):
             if not selected_weapon:
                 self._lan.toast(ws_id, "Pick one of yer configured weapons first, matey.")
                 return
+            attack_resources = max(0, _parse_int(getattr(c, "attack_resource_remaining", 0), 0) or 0)
+            if attack_resources <= 0:
+                if not self._use_action(c):
+                    self._lan.toast(ws_id, "No attacks left, matey.")
+                    return
+                attack_resources = int(configured_attack_count)
+            attack_resources = max(0, int(attack_resources) - 1)
+            setattr(c, "attack_resource_remaining", int(attack_resources))
             to_hit = _parse_int(selected_weapon.get("to_hit"), _parse_int(attacks.get("weapon_to_hit"), 0) or 0) or 0
             total_to_hit = int(attack_roll) + int(to_hit)
             target_ac = _parse_int(getattr(target, "ac", None), 10) or 10
@@ -12566,6 +12579,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 "to_hit": int(to_hit),
                 "total_to_hit": int(total_to_hit),
                 "hit": hit,
+                "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
+                "attack_resource_remaining": int(getattr(c, "attack_resource_remaining", 0) or 0),
             }
             msg["_attack_result"] = dict(result_payload)
             self._log(

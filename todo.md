@@ -95,16 +95,15 @@ If you complete an item, move its ID into **Section 5 (Completed archive)** and 
   - targeted: `pytest tests/test_edit_character_routes.py`
 
 ### F06 — LAN attack workflow using configured weapons + hidden AC validation
-- **Status:** In progress
-- **Last update:** 2026-02-15 (copilot-agent, resumed with server-side `attack_request` validation slice)
+- **Status:** Completed
+- **Last update:** 2026-02-15 (copilot-agent, completed attack overlay + attack resource gating)
 - **What changed:**
-  - Added additive LAN `attack_request` action handling in `dnd_initative_tracker.py` with configured-weapon lookup from normalized `attacks.weapons[]`.
-  - Server now resolves hit/miss using target AC internally and returns a safe `attack_result` payload (no raw AC field).
-  - Added focused regression tests in `tests/test_lan_attack_request.py` for hidden-AC-safe result payloads and configured-weapon validation failures.
+  - Added LAN map attack overlay mode toggle (ungated) and red weapon-range circle rendering from configured weapon ranges.
+  - Added LAN attack click flow that sends `attack_request` using configured weapons while preserving hidden-AC-safe server hit resolution.
+  - Added server-side attack resource gating: attack attempts consume `attack_resource_remaining`; when empty, auto-spend one action to grant configured `attacks_per_action` and consume one.
+  - Added focused regression tests in `tests/test_lan_attack_request.py` for auto-spend and no-resource/no-action rejection paths.
 - **What remains:**
-  - Add LAN client UI flow for selecting target/weapon/attack count and submitting `attack_request`.
-  - Add follow-up `damage_apply` flow to apply rolled damage after a hit result.
-  - Player enters rolled damage; server applies typed damage and logs result.
+  - Follow-up `damage_apply` flow can be handled in a future slice.
 - **Handoff notes:**
   - Current server slice requires `target_cid`, a valid d20 `attack_roll`/`roll`, and a configured weapon (`weapon_id` or `weapon_name`) from player profile `attacks.weapons[]`.
   - `attack_result` currently returns hit data (`attack_roll`, `to_hit`, `total_to_hit`, `hit`) and intentionally omits target AC.
@@ -257,7 +256,7 @@ If you complete an item, move its ID into **Section 5 (Completed archive)** and 
 ## 5) Completed archive (condensed)
 
 Completed as of 2026-02-15:
-- **Feature foundations:** F05 (weapon preset schema/docs plus normalized `attacks.weapons[]` runtime payload and regression coverage).
+- **Feature foundations:** F05 (weapon preset schema/docs plus normalized `attacks.weapons[]` runtime payload and regression coverage), F06 (LAN attack overlay, configured-weapon targeting, and action-to-attack-resource gating).
 - **Bug fixes:** B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14.
 - **UX:** U01, U02, U03, U04, U05, U06, U07, U08, U09.
 

@@ -374,6 +374,7 @@ attacks:
       name: "Longsword"
       proficient: true
       to_hit: 7
+      range: "5"
       one_handed:
         damage_formula: "1d8 + str_mod"
         damage_type: "slashing"
@@ -396,6 +397,7 @@ attacks:
   - **name**: Display name for the weapon.
   - **proficient**: Whether proficiency is included when computing to-hit.
   - **to_hit**: Explicit attack bonus for this preset.
+  - **range**: Optional melee/ranged reach in feet (or normal/long like `20/60`; LAN attack overlay uses the first value).
   - **one_handed** / **two_handed**: Optional damage mode metadata.
     - **damage_formula**: Damage expression such as `"1d8 + str_mod"`.
     - **damage_type**: Damage type string.
