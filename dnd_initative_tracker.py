@@ -10972,12 +10972,25 @@ class InitiativeTracker(base.InitiativeTracker):
             summon_choice = msg.get("summon_choice") if msg.get("summon_choice") not in (None, "") else payload.get("summon_choice")
             c = self.combatants.get(cid) if cid is not None else None
             if shape == "summon":
-                if not is_admin:
-                    self._lan.toast(ws_id, "Only the DM can create custom summons, matey.")
-                    return
                 if cid is None:
                     self._lan.toast(ws_id, "Pick a valid caster first, matey.")
                     return
+                if c is None:
+                    self._lan.toast(ws_id, "That scallywag ain’t in combat no more.")
+                    return
+                if not is_admin:
+                    if spend == "bonus":
+                        if not self._use_bonus_action(c):
+                            self._lan.toast(ws_id, "No bonus actions left, matey.")
+                            return
+                    elif spend == "reaction":
+                        if not self._use_reaction(c):
+                            self._lan.toast(ws_id, "No reactions left, matey.")
+                            return
+                    else:
+                        if not self._use_action(c):
+                            self._lan.toast(ws_id, "No actions left, matey.")
+                            return
                 ok_custom, err_custom, spawned_custom = self._spawn_custom_summons_from_payload(
                     caster_cid=int(cid),
                     payload=payload,
