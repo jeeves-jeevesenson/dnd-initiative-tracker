@@ -1,6 +1,7 @@
 format_version: 2
 name: Eldramar
 player: Eldramar
+summon-on-start: owl.yaml
 identity:
   pronouns: null
   ancestry: null

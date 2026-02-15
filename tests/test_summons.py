@@ -11,6 +11,7 @@ class SummonHarness:
         self._summon_group_meta = {}
         self._next_cid = 1
         self._lan_positions = {}
+        self._oplog = lambda *args, **kwargs: None
 
     def _unique_name(self, name):
         return str(name)
@@ -33,6 +34,9 @@ class SummonHarness:
         saving_throws=None,
         ability_mods=None,
         monster_spec=None,
+        actions=None,
+        bonus_actions=None,
+        **_kwargs,
     ):
         cid = self._next_cid
         self._next_cid += 1
@@ -55,6 +59,8 @@ class SummonHarness:
             saving_throws=dict(saving_throws or {}),
             ability_mods=dict(ability_mods or {}),
             monster_spec=monster_spec,
+            actions=list(actions or []),
+            bonus_actions=list(bonus_actions or []),
         )
         self.combatants[cid] = c
         return cid
@@ -68,8 +74,12 @@ class SummonHarness:
     _apply_summon_initiative = tracker_mod.InitiativeTracker._apply_summon_initiative
     _evaluate_dynamic_formula = tracker_mod.InitiativeTracker._evaluate_dynamic_formula
     _apply_monster_variant = tracker_mod.InitiativeTracker._apply_monster_variant
+    _apply_startup_summon_overrides = tracker_mod.InitiativeTracker._apply_startup_summon_overrides
     _spawn_mount = tracker_mod.InitiativeTracker._spawn_mount
     _spawn_summons_from_cast = tracker_mod.InitiativeTracker._spawn_summons_from_cast
+    _spawn_startup_summons_for_pc = tracker_mod.InitiativeTracker._spawn_startup_summons_for_pc
+    _normalize_startup_summon_entries = tracker_mod.InitiativeTracker._normalize_startup_summon_entries
+    _monster_int_from_value = tracker_mod.InitiativeTracker._monster_int_from_value
     _sorted_combatants = tracker_mod.InitiativeTracker._sorted_combatants
 
 
@@ -317,6 +327,90 @@ class SummonSpawnTests(unittest.TestCase):
         self.assertEqual(c.hp, 45)
         self.assertEqual(getattr(c, "summon_variant", None), "Fey")
         self.assertEqual(getattr(c, "token_color", None), "#6aa9ff")
+
+    def test_startup_summon_normalization_supports_alias_and_overrides(self):
+        h = self._build_harness()
+        parsed = h._normalize_startup_summon_entries("owl.yaml", "Eldramar")
+        self.assertEqual(parsed, [{"monster": "owl.yaml", "count": 1, "overrides": {}}])
+
+        parsed = h._normalize_startup_summon_entries(
+            {"monster": "owl", "count": 2, "HP": 7, "ac": 14, "dex": 18, "name": "Familiar"},
+            "Eldramar",
+        )
+        self.assertEqual(len(parsed), 1)
+        self.assertEqual(parsed[0]["monster"], "owl")
+        self.assertEqual(parsed[0]["count"], 2)
+        self.assertEqual(parsed[0]["overrides"]["HP"], 7)
+        self.assertEqual(parsed[0]["overrides"]["ac"], 14)
+        self.assertEqual(parsed[0]["overrides"]["dex"], 18)
+        self.assertEqual(parsed[0]["overrides"]["name"], "Familiar")
+
+    def test_startup_summon_spawn_applies_overrides_and_metadata(self):
+        h = self._build_harness()
+        spec = tracker_mod.MonsterSpec(
+            filename="owl.yaml",
+            name="Owl",
+            mtype="beast",
+            cr=0,
+            hp=1,
+            speed=5,
+            swim_speed=0,
+            fly_speed=60,
+            burrow_speed=0,
+            climb_speed=0,
+            dex=13,
+            init_mod=1,
+            saving_throws={},
+            ability_mods={"dex": 1},
+            raw_data={"name": "Owl", "ac": 11, "hp": 1, "abilities": {"Dex": 13}},
+        )
+        h._find_monster_spec_by_slug = lambda slug: spec if slug == "owl" else None
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=10):
+            spawned = h._spawn_startup_summons_for_pc(
+                100,
+                [
+                    {
+                        "monster": "owl.yaml",
+                        "count": 2,
+                        "overrides": {"HP": 7, "AC": 15, "dex": 18, "name": "Scout Owl"},
+                    }
+                ],
+            )
+
+        self.assertEqual(len(spawned), 2)
+        for cid in spawned:
+            c = h.combatants[cid]
+            self.assertEqual(c.hp, 7)
+            self.assertEqual(getattr(c, "summoned_by_cid", None), 100)
+            self.assertEqual(getattr(c, "summon_source_spell", None), "summon_on_start")
+            self.assertTrue(getattr(c, "summon_group_id", ""))
+            self.assertEqual(c.monster_spec.raw_data.get("ac"), 15)
+            self.assertEqual(c.monster_spec.raw_data.get("abilities", {}).get("Dex"), 18)
+
+        group_id = getattr(h.combatants[spawned[0]], "summon_group_id", "")
+        self.assertEqual(h._summon_groups.get(group_id), spawned)
+        self.assertEqual(h._summon_group_meta.get(group_id, {}).get("caster_cid"), 100)
+        self.assertEqual(h._summon_group_meta.get(group_id, {}).get("spell"), "summon_on_start")
+
+    def test_create_pc_from_profile_triggers_startup_summons(self):
+        h = SummonHarness()
+        h._normalize_action_entries = lambda *_args, **_kwargs: []
+        h._spawn_startup_summons_for_pc = mock.Mock(return_value=[])
+        expected_entries = [{"monster": "owl.yaml", "count": 1, "overrides": {}}]
+        h._normalize_player_profile = lambda _profile, _name: {
+            "name": "Eldramar",
+            "resources": {},
+            "vitals": {"max_hp": 20, "current_hp": 20},
+            "defenses": {"hp": 20},
+            "identity": {},
+            "spellcasting": {},
+            "summon_on_start": expected_entries,
+        }
+
+        cid = tracker_mod.InitiativeTracker._create_pc_from_profile(h, "Eldramar", {})
+        self.assertIsNotNone(cid)
+        h._spawn_startup_summons_for_pc.assert_called_once_with(cid, expected_entries)
 
 
 
