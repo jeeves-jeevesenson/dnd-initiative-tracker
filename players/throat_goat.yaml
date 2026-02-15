@@ -68,7 +68,7 @@ vitals:
 defenses:
   ac:
     sources:
-    - id: studded_leather_armor
+    - id: studded_leather
       label: Studded Leather Armor
       when: always
       base_formula: 12 + dex_mod

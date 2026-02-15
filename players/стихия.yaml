@@ -67,10 +67,11 @@ vitals:
 defenses:
   ac:
     sources:
-    - id: plus1_heavy_armor
+    - id: plate_armor
       label: +1 Heavy Armor
       when: always
-      base_formula: '19'
+      base_formula: '18'
+      magic_bonus: 1
     bonuses: []
   resistances:
   - lightning

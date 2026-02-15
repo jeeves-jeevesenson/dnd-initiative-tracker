@@ -7654,6 +7654,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 weapon["proficient"] = bool(weapon.get("proficient", True))
                 to_hit_normalized = normalize_attack_int(weapon.get("to_hit"))
                 weapon["to_hit"] = to_hit_normalized if to_hit_normalized is not None else 0
+                magic_bonus_normalized = normalize_attack_int(weapon.get("magic_bonus"))
+                if magic_bonus_normalized is None:
+                    magic_bonus_normalized = normalize_attack_int(weapon.get("item_bonus"))
+                weapon["magic_bonus"] = magic_bonus_normalized if magic_bonus_normalized is not None else 0
                 weapon["range"] = str(weapon.get("range") or "").strip()
                 weapon["one_handed"] = {
                     "damage_formula": str(one_handed.get("damage_formula") or "").strip(),
@@ -7944,6 +7948,11 @@ class InitiativeTracker(base.InitiativeTracker):
                     source_value = eval_ac_value(source.get("value"))
                 if source_value is None:
                     continue
+                source_bonus = eval_ac_value(source.get("magic_bonus"))
+                if source_bonus is None:
+                    source_bonus = eval_ac_value(source.get("item_bonus"))
+                if source_bonus is not None:
+                    source_value += source_bonus
                 fallback_values.append(source_value)
                 if is_always(source.get("when")):
                     base_values.append(source_value)
@@ -12563,6 +12572,8 @@ class InitiativeTracker(base.InitiativeTracker):
             attack_resources = max(0, int(attack_resources) - 1)
             setattr(c, "attack_resource_remaining", int(attack_resources))
             to_hit = _parse_int(selected_weapon.get("to_hit"), _parse_int(attacks.get("weapon_to_hit"), 0) or 0) or 0
+            magic_bonus = _parse_int(selected_weapon.get("magic_bonus"), _parse_int(selected_weapon.get("item_bonus"), 0) or 0) or 0
+            to_hit += int(magic_bonus)
             total_to_hit = int(attack_roll) + int(to_hit)
             target_ac = _parse_int(getattr(target, "ac", None), 10) or 10
             hit = bool(total_to_hit >= int(target_ac))

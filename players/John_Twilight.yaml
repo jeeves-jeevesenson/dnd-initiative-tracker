@@ -59,10 +59,11 @@ vitals:
 defenses:
   ac:
     sources:
-    - id: plate_mail_+1
-      label: ''
+    - id: plate_armor
+      label: Plate Armor +1
       when: always
-      base_formula: '20'
+      base_formula: '19'
+      magic_bonus: 1
     bonuses: []
   resistances:
   - necrotic
@@ -71,6 +72,25 @@ defenses:
   - poison
   - sleep
   vulnerabilities: []
+attacks:
+  weapon_to_hit: 11
+  weapons:
+  - id: hellfire_battleaxe_plus_2
+    name: Hellfire Battleaxe (+2)
+    proficient: true
+    to_hit: 9
+    magic_bonus: 2
+    range: '5'
+    one_handed:
+      damage_formula: 1d8 + str_mod + 2
+      damage_type: slashing
+    two_handed:
+      damage_formula: ''
+      damage_type: ''
+    effect:
+      on_hit: 1d6 hellfire damage and 1 hellfire stack (max 1 stack per target per turn).
+      save_ability: ''
+      save_dc: 0
 resources:
   pools: []
 features: []
