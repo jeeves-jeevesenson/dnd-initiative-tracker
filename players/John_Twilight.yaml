@@ -89,9 +89,7 @@ attacks:
       damage_formula: ''
       damage_type: ''
     effect:
-      on_hit: 1d6 hellfire damage. Apply Hellfire Stack condition (max 1 stack per target
-        per turn). Topple mastery rider: target makes a CON save (DC 17) or is knocked
-        prone.
+      on_hit: "1d6 hellfire damage. Apply Hellfire Stack condition (max 1 stack per target per turn). Topple mastery rider: target makes a CON save (DC 17) or is knocked prone."
       save_ability: con
       save_dc: 17
 resources:
@@ -102,12 +100,7 @@ actions:
   description: Make a weapon or unarmed attack against a target within range.
   type: action
 - name: Hellfire Battleaxe (+2)
-  description: Make a melee attack with a +2 battleaxe. On a hit, deal 1d8 + 2 slashing
-    damage plus a separate 1d6 hellfire damage rider (hellfire ignores fire resistance
-    and immunity). Each unique creature hit by this weapon on your turn gains 1 Hellfire
-    Stack condition (multiple hits on the same creature in a turn do not add stacks).
-    At the end of that creature's turn, it takes 1d6 hellfire damage per stack. Topple
-    mastery rider: each creature hit must make a CON save (DC 17) or fall prone.
+  description: "Make a melee attack with a +2 battleaxe. On a hit, deal 1d8 + 2 slashing damage plus a separate 1d6 hellfire damage rider (hellfire ignores fire resistance and immunity). Each unique creature hit by this weapon on your turn gains 1 Hellfire Stack condition (multiple hits on the same creature in a turn do not add stacks). At the end of that creature's turn, it takes 1d6 hellfire damage per stack. Topple mastery rider: each creature hit must make a CON save (DC 17) or fall prone."
   type: action
 - name: Dash
   description: Gain extra movement for the current turn equal to your speed.
