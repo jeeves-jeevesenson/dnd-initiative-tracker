@@ -47,6 +47,7 @@ from tkinter import messagebox, ttk, simpledialog, filedialog
 
 PIL_IMAGE_IMPORT_ERROR: Optional[str] = None
 PIL_IMAGETK_IMPORT_ERROR: Optional[str] = None
+USER_YAML_DIRNAME = "Dnd-Init-Yamls"
 
 try:
     from PIL import Image  # type: ignore
@@ -77,16 +78,21 @@ def _app_base_dir() -> Path:
 
 
 def _app_data_dir() -> Path:
-    if sys.platform.startswith("win"):
-        local_appdata = os.getenv("LOCALAPPDATA")
-        if local_appdata:
-            return Path(local_appdata) / "DnDInitiativeTracker"
+    override = os.getenv("INITTRACKER_DATA_DIR")
+    if override:
+        try:
+            return Path(override).expanduser()
+        except Exception:
+            pass
+    try:
+        docs_dir = Path.home() / "Documents"
+        return docs_dir / USER_YAML_DIRNAME
+    except Exception:
+        pass
     return _app_base_dir()
 
 
 def _seed_user_players_dir() -> None:
-    if not sys.platform.startswith("win"):
-        return
     user_dir = _app_data_dir() / "players"
     base_dir = _app_base_dir() / "players"
     if not base_dir.exists():
@@ -105,6 +111,30 @@ def _seed_user_players_dir() -> None:
                 shutil.copy2(path, dest)
     except Exception:
         pass
+
+
+def _seed_user_monsters_dir() -> Path:
+    user_dir = _app_data_dir() / "Monsters"
+    base_dir = _app_base_dir() / "Monsters"
+    try:
+        user_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return base_dir
+    if not base_dir.exists():
+        return user_dir
+    try:
+        for path in base_dir.rglob("*"):
+            if not path.is_file() or path.suffix.lower() not in {".yaml", ".yml"}:
+                continue
+            rel = path.relative_to(base_dir)
+            dest = user_dir / rel
+            if dest.exists():
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, dest)
+    except Exception:
+        pass
+    return user_dir
 
 
 # --- 2024 Basic Rules (conditions list) ---
@@ -3475,7 +3505,7 @@ class InitiativeTracker(tk.Tk):
 
     # --------------------- Monsters (YAML library) ---------------------
     def _monsters_dir_path(self) -> Path:
-        return _app_base_dir() / "Monsters"
+        return _seed_user_monsters_dir()
 
     def _load_monsters_index(self) -> None:
         """Load ./Monsters/*.yml|*.yaml and build a small index for the add dropdown."""
