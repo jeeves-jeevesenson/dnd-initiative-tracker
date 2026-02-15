@@ -40,33 +40,32 @@ If you complete an item, move its ID into **Section 5 (Completed archive)** and 
 
 > Prioritized for depth/complexity and dependency risk.
 
-1. **F05** — Player weapon schema overhaul + preset model (foundation)
-2. **F06** — LAN attack workflow using configured weapons + hidden AC validation
-3. **F07** — Spell range overlay + LAN damage prompt integration
-7. **F08** — Terrain hazard preset system (DoT + triggers + saves + conditions)
-8. **F09** — Monster auto-path suggestion toggle (DM approve/reject)
-9. **F10** — Token image overlays for players/monsters
-10. **F11** — Custom condition icons
-11. **V01** — Broad Wild Shape quality pass (clarify-first bucket)
+1. **F06** — LAN attack workflow using configured weapons + hidden AC validation
+2. **F07** — Spell range overlay + LAN damage prompt integration
+3. **F08** — Terrain hazard preset system (DoT + triggers + saves + conditions)
+4. **F09** — Monster auto-path suggestion toggle (DM approve/reject)
+5. **F10** — Token image overlays for players/monsters
+6. **F11** — Custom condition icons
+7. **V01** — Broad Wild Shape quality pass (clarify-first bucket)
 
 ---
 
 ## 3) Deep-dive execution cards (large tasks)
 
 ### F05 — Player weapon schema overhaul + preset model
-- **Status:** In progress
-- **Last update:** 2026-02-15 (copilot-agent, schema foundation started)
+- **Status:** Completed
+- **Last update:** 2026-02-15 (copilot-agent, completed and handed off to F06)
 - **What changed:**
   - Added additive `attacks.weapons[]` schema in `assets/web/new_character/schema.json` with per-weapon proficiency, to-hit, one/two-handed damage mode metadata, and optional effect metadata.
   - Added schema route coverage in `tests/test_edit_character_routes.py` to assert the new `attacks.weapons` model is exposed by `/api/characters/schema`.
   - Added `### Attacks Section` documentation in `players/README.md` describing legacy fields plus the new optional weapon preset model.
+  - Added server-side normalization of `attacks.weapons[]` in `dnd_initative_tracker.py` to preserve weapon presets in normalized player profiles while tolerating missing/partial nested fields.
+  - Added normalization coverage in `tests/test_wild_shape.py` for preserving and defaulting `attacks.weapons[]` data.
 - **What remains:**
-  - Confirm/create-edit web UX behavior for new nested weapon fields stays intuitive (round-trip through both editors).
-  - Add/extend server-side normalization tests for backwards compatibility with missing/partial weapon presets.
-  - Implement follow-on LAN attack flow work in F06 after F05 model is fully stabilized.
+  - Follow-on LAN attack execution logic tracked in F06.
 - **Handoff notes:**
-  - Run `PYTHONPATH=. pytest -q tests/test_edit_character_routes.py` and `python -m compileall .` after any follow-up schema edits.
-  - Preserve additive compatibility: keep legacy `attacks.melee_attack_mod`, `attacks.ranged_attack_mod`, and `attacks.weapon_to_hit` unchanged while expanding `attacks.weapons`.
+  - Treat F05 as closed; use the new normalized `attacks.weapons[]` profile payload as the F06 data source.
+  - Validation used for closure: `python -m unittest tests.test_wild_shape` and `python -m compileall .`.
 - **Impact / Complexity:** Very High / Hard
 - **Dependencies:** none (but F06/F07 depend on this)
 - **Primary files likely touched:**
@@ -96,7 +95,18 @@ If you complete an item, move its ID into **Section 5 (Completed archive)** and 
   - targeted: `pytest tests/test_edit_character_routes.py`
 
 ### F06 — LAN attack workflow using configured weapons + hidden AC validation
-- **Status:** Not started
+- **Status:** In progress
+- **Last update:** 2026-02-15 (copilot-agent, started after F05 completion)
+- **What changed:**
+  - Confirmed F05 dependency is complete (schema/docs plus runtime normalization and tests for `attacks.weapons[]`).
+  - F06 is now the active implementation stream.
+- **What remains:**
+  - Add LAN action flow: pick target + weapon + attack count.
+  - Server resolves hit/miss against hidden AC and emits result-safe payloads.
+  - Player enters rolled damage; server applies typed damage and logs result.
+- **Handoff notes:**
+  - First implementation slice: add additive server contract and validation for `attack_request` without exposing target AC.
+  - Start with server-side tests in `tests/test_lan_claimable.py` and `tests/test_planning_auth.py`, then wire client controls.
 - **Impact / Complexity:** Very High / Hard
 - **Dependencies:** F05
 - **Primary files likely touched:**
@@ -245,6 +255,7 @@ If you complete an item, move its ID into **Section 5 (Completed archive)** and 
 ## 5) Completed archive (condensed)
 
 Completed as of 2026-02-15:
+- **Feature foundations:** F05 (weapon preset schema/docs plus normalized `attacks.weapons[]` runtime payload and regression coverage).
 - **Bug fixes:** B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14.
 - **UX:** U01, U02, U03, U04, U05, U06, U07, U08, U09.
 

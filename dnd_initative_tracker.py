@@ -965,6 +965,7 @@ class PlayerProfile:
     proficiency: Dict[str, Any] = field(default_factory=dict)
     vitals: Dict[str, Any] = field(default_factory=dict)
     defenses: Dict[str, Any] = field(default_factory=dict)
+    attacks: Dict[str, Any] = field(default_factory=dict)
     resources: Dict[str, Any] = field(default_factory=dict)
     spellcasting: Dict[str, Any] = field(default_factory=dict)
     inventory: Dict[str, Any] = field(default_factory=dict)
@@ -981,6 +982,7 @@ class PlayerProfile:
             "proficiency": dict(self.proficiency),
             "vitals": dict(self.vitals),
             "defenses": dict(self.defenses),
+            "attacks": dict(self.attacks),
             "resources": dict(self.resources),
             "spellcasting": dict(self.spellcasting),
             "inventory": dict(self.inventory),
@@ -7525,6 +7527,7 @@ class InitiativeTracker(base.InitiativeTracker):
         proficiency = self._normalize_player_section(data.get("proficiency"))
         vitals = self._normalize_player_section(data.get("vitals"))
         defenses = self._normalize_player_section(data.get("defenses"))
+        attacks = self._normalize_player_section(data.get("attacks"))
         resources = self._normalize_player_section(data.get("resources"))
         spellcasting = self._normalize_player_section(data.get("spellcasting"))
         inventory = self._normalize_player_section(data.get("inventory"))
@@ -7592,6 +7595,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 resources["swim_speed"] = data.get("swim_speed")
             if "hp" in data and "hp" not in defenses:
                 defenses["hp"] = data.get("hp")
+            if "melee_attack_mod" in data and "melee_attack_mod" not in attacks:
+                attacks["melee_attack_mod"] = data.get("melee_attack_mod")
+            if "ranged_attack_mod" in data and "ranged_attack_mod" not in attacks:
+                attacks["ranged_attack_mod"] = data.get("ranged_attack_mod")
+            if "weapon_to_hit" in data and "weapon_to_hit" not in attacks:
+                attacks["weapon_to_hit"] = data.get("weapon_to_hit")
             if "actions" in data and "actions" not in resources:
                 resources["actions"] = data.get("actions")
             if "bonus_actions" in data and "bonus_actions" not in resources:
@@ -7609,6 +7618,52 @@ class InitiativeTracker(base.InitiativeTracker):
             vitals_speed = vitals.get("speed") if isinstance(vitals, dict) else None
             if vitals_speed is not None and "base_movement" not in resources and "speed" not in resources:
                 resources["base_movement"] = vitals_speed
+
+        def normalize_attack_int(value: Any) -> Optional[int]:
+            try:
+                return int(value)
+            except Exception:
+                return None
+
+        for key in ("melee_attack_mod", "ranged_attack_mod", "weapon_to_hit"):
+            if key in attacks:
+                normalized_value = normalize_attack_int(attacks.get(key))
+                if normalized_value is not None:
+                    attacks[key] = normalized_value
+
+        raw_weapons = attacks.get("weapons")
+        normalized_weapons: List[Dict[str, Any]] = []
+        if isinstance(raw_weapons, list):
+            for entry in raw_weapons:
+                if not isinstance(entry, dict):
+                    continue
+                weapon = dict(entry)
+                one_handed = dict(weapon.get("one_handed")) if isinstance(weapon.get("one_handed"), dict) else {}
+                two_handed = dict(weapon.get("two_handed")) if isinstance(weapon.get("two_handed"), dict) else {}
+                effect = dict(weapon.get("effect")) if isinstance(weapon.get("effect"), dict) else {}
+                save_dc = normalize_attack_int(effect.get("save_dc"))
+                if save_dc is None:
+                    save_dc = 0
+                weapon["id"] = str(weapon.get("id") or "").strip()
+                weapon["name"] = str(weapon.get("name") or "").strip()
+                weapon["proficient"] = bool(weapon.get("proficient", True))
+                to_hit_normalized = normalize_attack_int(weapon.get("to_hit"))
+                weapon["to_hit"] = to_hit_normalized if to_hit_normalized is not None else 0
+                weapon["one_handed"] = {
+                    "damage_formula": str(one_handed.get("damage_formula") or "").strip(),
+                    "damage_type": str(one_handed.get("damage_type") or "").strip(),
+                }
+                weapon["two_handed"] = {
+                    "damage_formula": str(two_handed.get("damage_formula") or "").strip(),
+                    "damage_type": str(two_handed.get("damage_type") or "").strip(),
+                }
+                weapon["effect"] = {
+                    "on_hit": str(effect.get("on_hit") or "").strip(),
+                    "save_ability": str(effect.get("save_ability") or "").strip().lower(),
+                    "save_dc": save_dc,
+                }
+                normalized_weapons.append(weapon)
+        attacks["weapons"] = normalized_weapons
 
         raw_spell_slots = None
         if isinstance(spellcasting, dict) and "spell_slots" in spellcasting:
@@ -7690,6 +7745,7 @@ class InitiativeTracker(base.InitiativeTracker):
             proficiency=proficiency,
             vitals=vitals,
             defenses=defenses,
+            attacks=attacks,
             resources=resources,
             spellcasting=spellcasting,
             inventory=inventory,
