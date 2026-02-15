@@ -44,7 +44,7 @@
       box-shadow: 0 8px 20px rgba(0,0,0,0.38);
     }
     .map-view{
-      --map-view-bar-height: 84px;
+      --map-view-bar-height: 68px;
       --map-view-order-font-size: 14px;
       --map-view-order-gap: 8px;
       --map-view-order-chip-pad-y: 6px;
@@ -208,31 +208,6 @@
       font-size: 13px;
       color: #f5e3b2;
       font-weight: 700;
-    }
-    .map-view-active-row{
-      gap:8px;
-    }
-    .map-view-active-select{
-      background: rgba(15,19,32,0.82);
-      border:1px solid rgba(255,255,255,0.18);
-      color: var(--text);
-      border-radius: 10px;
-      padding: 6px 28px 6px 10px;
-      font-size: 13px;
-      flex: 1 1 200px;
-      min-width: 160px;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .map-view-active-select.friendly{
-      background: rgba(106,255,176,0.18);
-      border-color: rgba(106,255,176,0.5);
-    }
-    .map-view-active-select.enemy{
-      background: rgba(255,91,91,0.16);
-      border-color: rgba(255,91,91,0.5);
     }
     .map-view-hide-index .turn-chip-index{
       display:none;
@@ -1948,9 +1923,6 @@
         <div class="turn-order map-view-turn-order" id="mapViewTurnOrder" aria-label="Initiative order"></div>
         <div class="turn-order-bubble" id="mapViewTurnOrderBubble" role="status" aria-live="polite"></div>
       </div>
-      <div class="topbar-initiative-row map-view-active-row">
-        <select class="map-view-active-select" id="mapViewActiveSelect" aria-label="Current turn selection"></select>
-      </div>
       <div class="topbar-initiative-row">
         <div class="turn-order-status" id="mapViewTurnOrderStatus"></div>
       </div>
@@ -3240,7 +3212,6 @@ __DAMAGE_TYPE_OPTIONS__
   const mapViewTurnOrderEl = document.getElementById("mapViewTurnOrder");
   const mapViewTurnOrderStatusEl = document.getElementById("mapViewTurnOrderStatus");
   const mapViewTurnOrderBubbleEl = document.getElementById("mapViewTurnOrderBubble");
-  const mapViewActiveSelectEl = document.getElementById("mapViewActiveSelect");
   const mapViewTextSizeInput = document.getElementById("mapViewTextSize");
   const mapViewBarHeightInput = document.getElementById("mapViewBarHeight");
   const mapViewChipPaddingInput = document.getElementById("mapViewChipPadding");
@@ -3941,7 +3912,7 @@ __DAMAGE_TYPE_OPTIONS__
   function readMapViewSettings(){
     const defaults = {
       textSize: 14,
-      barHeight: 84,
+      barHeight: 68,
       chipPadding: 6,
       chipGap: 8,
       cornerRadius: 40,
@@ -7676,35 +7647,6 @@ __DAMAGE_TYPE_OPTIONS__
         statusText = `${statusText} · You are #${claimedIndex + 1}: ${claimedUnit.name}`;
       }
       activeTurnOrderStatusEl.textContent = statusText;
-    }
-    if (mapViewActiveSelectEl){
-      const orderCids = order
-        .map(cid => normalizeCid(cid, "turnOrder.mapViewOrderCid"))
-        .filter(cid => cid !== null);
-      mapViewActiveSelectEl.textContent = "";
-      const placeholder = document.createElement("option");
-      placeholder.value = "";
-      placeholder.textContent = "Select a combatant";
-      mapViewActiveSelectEl.appendChild(placeholder);
-      orderCids.forEach((cid, idx) => {
-        const unit = unitsByCid.get(cid);
-        const label = unit?.name ? unit.name : `#${cid}`;
-        const option = document.createElement("option");
-        option.value = String(cid);
-        option.textContent = `${idx + 1}. ${label}`;
-        mapViewActiveSelectEl.appendChild(option);
-      });
-      if (activeIndex >= 0){
-        const activeOrderCid = normalizeCid(order[activeIndex], "turnOrder.mapViewActiveSelectCid");
-        mapViewActiveSelectEl.value = activeOrderCid !== null ? String(activeOrderCid) : "";
-      } else {
-        mapViewActiveSelectEl.value = "";
-      }
-      const activeOrderCid = activeIndex >= 0 ? normalizeCid(order[activeIndex], "turnOrder.mapViewActiveUnitCid") : null;
-      const activeUnit = activeOrderCid !== null ? unitsByCid.get(activeOrderCid) : null;
-      const activeRole = String(activeUnit?.role || "enemy");
-      mapViewActiveSelectEl.classList.toggle("friendly", activeRole !== "enemy");
-      mapViewActiveSelectEl.classList.toggle("enemy", activeRole === "enemy");
     }
     let fallbackCid = selectedTurnCid;
     if (fallbackCid === null || !chipByCid.has(fallbackCid)){
