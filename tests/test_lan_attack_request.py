@@ -27,8 +27,8 @@ class LanAttackRequestTests(unittest.TestCase):
         self.app.in_combat = True
         self.app.current_cid = 1
         self.app.combatants = {
-            1: type("C", (), {"cid": 1, "name": "Aelar", "ac": 16})(),
-            2: type("C", (), {"cid": 2, "name": "Goblin", "ac": 15})(),
+            1: type("C", (), {"cid": 1, "name": "Aelar", "ac": 16, "hp": 25})(),
+            2: type("C", (), {"cid": 2, "name": "Goblin", "ac": 15, "hp": 20})(),
         }
         self.app.combatants[1].action_remaining = 1
         self.app.combatants[1].attack_resource_remaining = 0
@@ -163,6 +163,50 @@ class LanAttackRequestTests(unittest.TestCase):
 
         self.assertNotIn("_attack_result", msg)
         self.assertIn((13, "No attacks left, matey."), self.toasts)
+
+    def test_attack_request_accepts_manual_miss_without_attack_roll(self):
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 15,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": False,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertFalse(result.get("hit"))
+        self.assertEqual(result.get("damage_total"), 0)
+        self.assertEqual(self.app.combatants[2].hp, 20)
+        self.assertIn((15, "Attack misses."), self.toasts)
+
+    def test_attack_request_applies_manual_damage_entries_on_hit(self):
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 16,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [
+                {"amount": 7, "type": "slashing"},
+                {"amount": 2, "type": "fire"},
+            ],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("hit"))
+        self.assertEqual(result.get("damage_total"), 9)
+        self.assertEqual(self.app.combatants[2].hp, 11)
+        self.assertIn((16, "Attack hits."), self.toasts)
 
 
 if __name__ == "__main__":

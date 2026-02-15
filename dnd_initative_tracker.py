@@ -12513,16 +12513,27 @@ class InitiativeTracker(base.InitiativeTracker):
                     return int(value)
                 except Exception:
                     return fallback
+            def _parse_bool(value: Any) -> Optional[bool]:
+                if isinstance(value, bool):
+                    return value
+                if isinstance(value, str):
+                    text = value.strip().lower()
+                    if text in ("true", "1", "yes", "y", "hit"):
+                        return True
+                    if text in ("false", "0", "no", "n", "miss"):
+                        return False
+                return None
             target_cid = _normalize_cid_value(msg.get("target_cid"), "attack_request.target_cid", log_fn=log_warning)
             target = self.combatants.get(int(target_cid)) if target_cid is not None else None
             if target is None:
                 self._lan.toast(ws_id, "Pick a valid target, matey.")
                 return
+            requested_hit = _parse_bool(msg.get("hit"))
             attack_roll_raw = msg.get("attack_roll")
             if attack_roll_raw is None:
                 attack_roll_raw = msg.get("roll")
             attack_roll = _parse_int(attack_roll_raw, None)
-            if attack_roll is None or attack_roll < 1 or attack_roll > 20:
+            if requested_hit is None and (attack_roll is None or attack_roll < 1 or attack_roll > 20):
                 self._lan.toast(ws_id, "Enter a valid d20 roll, matey.")
                 return
             weapon_id = str(msg.get("weapon_id") or "").strip()
@@ -12574,9 +12585,35 @@ class InitiativeTracker(base.InitiativeTracker):
             to_hit = _parse_int(selected_weapon.get("to_hit"), _parse_int(attacks.get("weapon_to_hit"), 0) or 0) or 0
             magic_bonus = _parse_int(selected_weapon.get("magic_bonus"), _parse_int(selected_weapon.get("item_bonus"), 0) or 0) or 0
             to_hit += int(magic_bonus)
-            total_to_hit = int(attack_roll) + int(to_hit)
+            roll_total = int(attack_roll) if attack_roll is not None else 0
+            total_to_hit = int(roll_total) + int(to_hit)
             target_ac = _parse_int(getattr(target, "ac", None), 10) or 10
-            hit = bool(total_to_hit >= int(target_ac))
+            hit = bool(requested_hit) if requested_hit is not None else bool(total_to_hit >= int(target_ac))
+            damage_entries: List[Dict[str, Any]] = []
+            raw_damage_entries = msg.get("damage_entries")
+            if isinstance(raw_damage_entries, list):
+                for entry in raw_damage_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    amount = _parse_int(entry.get("amount"), None)
+                    if amount is None:
+                        continue
+                    amount = max(0, int(amount))
+                    if amount <= 0:
+                        continue
+                    dtype = str(entry.get("type") or "").strip().lower()
+                    damage_entries.append({"amount": amount, "type": dtype})
+            total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
+            if hit and total_damage > 0:
+                before_hp = _parse_int(getattr(target, "hp", None), None)
+                if before_hp is not None:
+                    after_hp = max(0, int(before_hp) - int(total_damage))
+                    setattr(target, "hp", int(after_hp))
+                    if int(before_hp) > 0 and int(after_hp) <= 0:
+                        try:
+                            self._lan.play_ko(int(cid))
+                        except Exception:
+                            pass
             result_payload: Dict[str, Any] = {
                 "type": "attack_result",
                 "ok": True,
@@ -12586,19 +12623,42 @@ class InitiativeTracker(base.InitiativeTracker):
                 "weapon_id": str(selected_weapon.get("id") or "").strip(),
                 "weapon_name": str(selected_weapon.get("name") or "").strip() or "Weapon",
                 "attack_count": int(attack_count),
-                "attack_roll": int(attack_roll),
+                "attack_roll": int(roll_total),
                 "to_hit": int(to_hit),
                 "total_to_hit": int(total_to_hit),
                 "hit": hit,
+                "damage_total": int(total_damage if hit else 0),
+                "damage_entries": list(damage_entries if hit else []),
                 "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
                 "attack_resource_remaining": int(getattr(c, "attack_resource_remaining", 0) or 0),
             }
             msg["_attack_result"] = dict(result_payload)
-            self._log(
-                f"{c.name} attacks {result_payload['target_name']} with {result_payload['weapon_name']} "
-                f"(roll {attack_roll} + {to_hit} = {total_to_hit}) and {'hits' if hit else 'misses'}.",
-                cid=cid,
-            )
+            if attack_roll is not None:
+                self._log(
+                    f"{c.name} attacks {result_payload['target_name']} with {result_payload['weapon_name']} "
+                    f"(roll {attack_roll} + {to_hit} = {total_to_hit}) and {'hits' if hit else 'misses'}.",
+                    cid=cid,
+                )
+            else:
+                self._log(
+                    f"{c.name} attacks {result_payload['target_name']} with {result_payload['weapon_name']} "
+                    f"and {'hits' if hit else 'misses'}.",
+                    cid=cid,
+                )
+            if hit and total_damage > 0:
+                damage_desc = ", ".join(
+                    f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
+                    for entry in damage_entries
+                )
+                self._log(
+                    f"{result_payload['target_name']} takes {int(total_damage)} damage"
+                    f"{f' ({damage_desc})' if damage_desc else ''}.",
+                    cid=int(target_cid),
+                )
+                try:
+                    self._rebuild_table(scroll_to_current=True)
+                except Exception:
+                    pass
             loop = getattr(self._lan, "_loop", None)
             if ws_id is not None and loop:
                 try:

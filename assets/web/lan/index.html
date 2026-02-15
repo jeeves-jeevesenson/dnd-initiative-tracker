@@ -1993,6 +1993,27 @@
       </div>
     </div>
 
+    <div class="modal" id="attackResolveModal" aria-hidden="true">
+      <div class="card">
+        <h2>Resolve Attack</h2>
+        <div class="hint" id="attackResolveBody">Choose hit or miss, then add damage on a hit.</div>
+        <div class="modal-body">
+          <div class="row">
+            <label class="chip"><input type="radio" name="attackResolveOutcome" id="attackResolveHit" value="hit" checked>Hit</label>
+            <label class="chip"><input type="radio" name="attackResolveOutcome" id="attackResolveMiss" value="miss">Miss</label>
+          </div>
+          <div class="damage-type-list" id="attackDamageRows" aria-live="polite"></div>
+          <div class="modal-actions" style="justify-content:flex-start;padding:0;">
+            <button class="btn" id="attackDamageAdd" type="button">Add damage box</button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn accent" id="attackResolveSubmit" type="button">Confirm</button>
+          <button class="btn" id="attackResolveCancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal" id="colorModal" aria-hidden="true">
       <div class="card">
         <h2>Pick yer token color</h2>
@@ -3373,6 +3394,14 @@ __DAMAGE_TYPE_OPTIONS__
   const initiativePromptInput = document.getElementById("initiativePromptInput");
   const initiativePromptSubmit = document.getElementById("initiativePromptSubmit");
   const initiativePromptCancel = document.getElementById("initiativePromptCancel");
+  const attackResolveModal = document.getElementById("attackResolveModal");
+  const attackResolveBody = document.getElementById("attackResolveBody");
+  const attackResolveHit = document.getElementById("attackResolveHit");
+  const attackResolveMiss = document.getElementById("attackResolveMiss");
+  const attackDamageRows = document.getElementById("attackDamageRows");
+  const attackDamageAdd = document.getElementById("attackDamageAdd");
+  const attackResolveSubmit = document.getElementById("attackResolveSubmit");
+  const attackResolveCancel = document.getElementById("attackResolveCancel");
   const showAllNamesEl = document.getElementById("showAllNames");
   const castOverlay = document.getElementById("sheetCastView");
   const castOverlayOpenBtn = document.getElementById("castOverlayOpen");
@@ -3663,6 +3692,7 @@ __DAMAGE_TYPE_OPTIONS__
   let measurement = {start: null, end: null};
   let attackOverlayMode = false;
   let selectedAttackWeaponId = "";
+  let pendingAttackResolve = null;
   let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
   const LOS_PREVIEW_MS = 900;
   const sheetHeightKey = "inittracker_sheetHeight";
@@ -6452,6 +6482,83 @@ __DAMAGE_TYPE_OPTIONS__
     draw();
   }
 
+  function attackDamageTypeOptions(){
+    const options = [];
+    const select = castDamageTypeInput;
+    if (select){
+      Array.from(select.options || []).forEach((opt) => {
+        const value = String(opt?.value || "").trim();
+        if (!value) return;
+        options.push(value);
+      });
+    }
+    return options;
+  }
+
+  function addAttackDamageRow(initialAmount = "", initialType = ""){
+    if (!attackDamageRows) return;
+    const row = document.createElement("div");
+    row.className = "damage-type-controls";
+    const amountInput = document.createElement("input");
+    amountInput.type = "number";
+    amountInput.min = "0";
+    amountInput.step = "1";
+    amountInput.placeholder = "Damage";
+    amountInput.value = String(initialAmount || "");
+    const typeSelect = document.createElement("select");
+    const placeholderOption = document.createElement("option");
+    placeholderOption.value = "";
+    placeholderOption.textContent = "Damage type";
+    typeSelect.appendChild(placeholderOption);
+    attackDamageTypeOptions().forEach((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = value;
+      typeSelect.appendChild(option);
+    });
+    if (initialType){
+      typeSelect.value = String(initialType).trim().toLowerCase();
+    }
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "btn";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", () => {
+      row.remove();
+    });
+    row.appendChild(amountInput);
+    row.appendChild(typeSelect);
+    row.appendChild(removeBtn);
+    attackDamageRows.appendChild(row);
+  }
+
+  function setAttackResolveModalOpen(open){
+    if (!attackResolveModal) return;
+    attackResolveModal.classList.toggle("show", !!open);
+    attackResolveModal.setAttribute("aria-hidden", open ? "false" : "true");
+    if (!open){
+      pendingAttackResolve = null;
+    }
+  }
+
+  function openAttackResolveModal(target, weapon){
+    if (!attackResolveBody || !attackDamageRows) return;
+    pendingAttackResolve = {
+      targetCid: Number(target?.cid),
+      targetName: String(target?.name || "target"),
+      weaponId: String(weapon?.id || "").trim(),
+      weaponName: String(weapon?.name || "Weapon").trim() || "Weapon",
+    };
+    attackResolveBody.textContent = `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`;
+    attackDamageRows.textContent = "";
+    addAttackDamageRow();
+    attackDamageRows.classList.remove("hidden");
+    if (attackDamageAdd) attackDamageAdd.classList.remove("hidden");
+    if (attackResolveHit) attackResolveHit.checked = true;
+    if (attackResolveMiss) attackResolveMiss.checked = false;
+    setAttackResolveModalOpen(true);
+  }
+
   function summonCellKey(col, row){
     return `${Number(col)},${Number(row)}`;
   }
@@ -9128,29 +9235,17 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const hit = hitTestToken(p);
       if (hit && !cidMatches(hit.cid, me.cid, "attackOverlay.target")){
+        if (isFriendlyToMe(hit, me)){
+          localToast("Pick an enemy target, matey.");
+          return;
+        }
         const rangeFt = parseWeaponRangeFeet(weapon);
         const distFt = distanceFeetBetweenCells(me.pos, hit.pos);
         if (distFt - rangeFt > 1e-6){
           localToast("Target be out of attack range.");
           return;
         }
-        const rollRaw = window.prompt(`Attack roll vs ${hit.name || "target"} (d20):`, "");
-        if (rollRaw === null){
-          return;
-        }
-        const roll = Number(String(rollRaw).trim());
-        if (!Number.isInteger(roll) || roll < 1 || roll > 20){
-          localToast("Enter a valid d20 roll, matey.");
-          return;
-        }
-        send({
-          type: "attack_request",
-          cid: claimedCid,
-          target_cid: Number(hit.cid),
-          weapon_id: String(weapon.id || "").trim(),
-          weapon_name: String(weapon.name || "").trim(),
-          attack_roll: roll,
-        });
+        openAttackResolveModal(hit, weapon);
         return;
       }
     }
@@ -13013,6 +13108,64 @@ __DAMAGE_TYPE_OPTIONS__
         event.preventDefault();
         submitInitiativePrompt();
       }
+    });
+  }
+  if (attackResolveMiss){
+    attackResolveMiss.addEventListener("change", () => {
+      if (attackResolveMiss.checked && attackDamageRows){
+        attackDamageRows.classList.add("hidden");
+      }
+      if (attackResolveMiss.checked && attackDamageAdd){
+        attackDamageAdd.classList.add("hidden");
+      }
+    });
+  }
+  if (attackResolveHit){
+    attackResolveHit.addEventListener("change", () => {
+      if (attackResolveHit.checked && attackDamageRows){
+        attackDamageRows.classList.remove("hidden");
+      }
+      if (attackResolveHit.checked && attackDamageAdd){
+        attackDamageAdd.classList.remove("hidden");
+      }
+    });
+  }
+  if (attackDamageAdd){
+    attackDamageAdd.addEventListener("click", () => addAttackDamageRow());
+  }
+  if (attackResolveCancel){
+    attackResolveCancel.addEventListener("click", () => setAttackResolveModalOpen(false));
+  }
+  if (attackResolveSubmit){
+    attackResolveSubmit.addEventListener("click", () => {
+      if (!pendingAttackResolve){
+        setAttackResolveModalOpen(false);
+        return;
+      }
+      const hit = !(attackResolveMiss && attackResolveMiss.checked);
+      const damageEntries = [];
+      if (hit && attackDamageRows){
+        Array.from(attackDamageRows.querySelectorAll(".damage-type-controls")).forEach((row) => {
+          const amountInput = row.querySelector("input");
+          const typeSelect = row.querySelector("select");
+          const amount = Number(String(amountInput?.value || "").trim());
+          if (!Number.isFinite(amount) || amount <= 0) return;
+          damageEntries.push({
+            amount: Math.floor(amount),
+            type: String(typeSelect?.value || "").trim().toLowerCase(),
+          });
+        });
+      }
+      send({
+        type: "attack_request",
+        cid: claimedCid,
+        target_cid: Number(pendingAttackResolve.targetCid),
+        weapon_id: String(pendingAttackResolve.weaponId || "").trim(),
+        weapon_name: String(pendingAttackResolve.weaponName || "").trim(),
+        hit: hit,
+        damage_entries: damageEntries,
+      });
+      setAttackResolveModalOpen(false);
     });
   }
 
