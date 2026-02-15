@@ -11926,7 +11926,7 @@ class InitiativeTracker(base.InitiativeTracker):
             d["cx"] = float(cx)
             d["cy"] = float(cy)
             kind = str(d.get("kind") or "")
-            if kind in ("line", "cone", "cube"):
+            if kind in ("line", "cone", "cube", "wall", "square"):
                 if angle_deg is not None:
                     d["angle_deg"] = float(angle_deg)
                 if ax is not None:

@@ -8917,7 +8917,7 @@ class BattleMapWindow(tk.Toplevel):
                 return
             kind = str(d.get("kind") or "")
             shift_held = bool(event.state & 0x0001)
-            if kind in ("line", "cone", "cube") and shift_held:
+            if kind in ("line", "cone", "cube", "wall", "square") and shift_held:
                 anchor = self._resolve_aoe_anchor(d)
                 if anchor is not None:
                     ax, ay = anchor
