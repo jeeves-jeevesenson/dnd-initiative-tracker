@@ -3657,12 +3657,60 @@ class LanController:
         """Return static data that only needs to be sent once on connection."""
         spell_presets = self.app._spell_presets_payload() if planning else self._cached_snapshot.get("spell_presets", [])
         monster_choices = []
+        def _as_int(value: Any) -> Optional[int]:
+            try:
+                if value is None:
+                    return None
+                if isinstance(value, bool):
+                    return int(value)
+                if isinstance(value, (int, float)):
+                    return int(value)
+                text = str(value).strip()
+                if not text:
+                    return None
+                return int(float(text))
+            except Exception:
+                return None
+        def _ability_score(raw_data: Dict[str, Any], ability: str) -> int:
+            abilities = raw_data.get("abilities") if isinstance(raw_data.get("abilities"), dict) else {}
+            score = _as_int(abilities.get(ability))
+            if score is None:
+                return 10
+            return max(1, min(30, int(score)))
         try:
             if hasattr(self.app, "_monster_specs"):
                 monster_choices = [
                     {
                         "name": str(spec.name),
                         "slug": Path(str(spec.filename or "")).with_suffix("").as_posix(),
+                        "template": {
+                            "name": str(spec.name or ""),
+                            "type": str(spec.mtype or "construct"),
+                            "hp": max(1, int(spec.hp or 1)),
+                            "ac": max(
+                                1,
+                                int(
+                                    _as_int((spec.raw_data or {}).get("ac"))
+                                    or _as_int((spec.raw_data or {}).get("armor_class"))
+                                    or 10
+                                ),
+                            ),
+                            "speeds": {
+                                "walk": max(1, int(spec.speed or 30)),
+                                "swim": max(0, int(spec.swim_speed or 0)),
+                                "fly": max(0, int(spec.fly_speed or 0)),
+                                "burrow": max(0, int(spec.burrow_speed or 0)),
+                                "climb": max(0, int(spec.climb_speed or 0)),
+                            },
+                            "abilities": {
+                                "str": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "str"),
+                                "dex": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "dex"),
+                                "con": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "con"),
+                                "int": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "int"),
+                                "wis": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "wis"),
+                                "cha": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "cha"),
+                            },
+                        },
                     }
                     for spec in getattr(self.app, "_monster_specs", [])
                 ]
@@ -10334,38 +10382,64 @@ class InitiativeTracker(base.InitiativeTracker):
     ) -> Tuple[bool, str, List[int]]:
         if not isinstance(payload, dict):
             return False, "Invalid summon payload.", []
-        name = str(payload.get("name") or "").strip()
+        source_slug = str(payload.get("monster_slug") or payload.get("source_monster_slug") or "").strip()
+        source_spec: Optional[MonsterSpec] = None
+        source_raw: Dict[str, Any] = {}
+        if source_slug:
+            source_spec = self._find_monster_spec_by_slug(source_slug)
+            if source_spec is not None and isinstance(source_spec.raw_data, dict):
+                source_raw = dict(source_spec.raw_data)
+
+        def _int_value(value: Any, fallback: Optional[int] = None) -> Optional[int]:
+            try:
+                if value is None:
+                    return fallback
+                if isinstance(value, bool):
+                    return int(value)
+                if isinstance(value, (int, float)):
+                    return int(value)
+                text = str(value).strip()
+                if not text:
+                    return fallback
+                return int(float(text))
+            except Exception:
+                return fallback
+
+        source_name = str(getattr(source_spec, "name", "") or "").strip()
+        name = str(payload.get("name") or source_name or "").strip()
         if not name:
             return False, "Custom summon needs a name.", []
-        try:
-            hp = int(payload.get("hp"))
-        except Exception:
+        hp = _int_value(payload.get("hp"), _int_value(getattr(source_spec, "hp", None), None))
+        if hp is None:
             return False, "Custom summon needs valid HP.", []
         if hp <= 0:
             return False, "Custom summon HP must be above 0.", []
 
-        abilities = payload.get("abilities") if isinstance(payload.get("abilities"), dict) else payload.get("ability_scores") if isinstance(payload.get("ability_scores"), dict) else None
-        if not isinstance(abilities, dict):
-            return False, "Custom summon ability scores are required.", []
+        source_abilities = source_raw.get("abilities") if isinstance(source_raw.get("abilities"), dict) else {}
+        abilities = payload.get("abilities") if isinstance(payload.get("abilities"), dict) else payload.get("ability_scores") if isinstance(payload.get("ability_scores"), dict) else source_abilities
         normalized_abilities: Dict[str, int] = {}
         for ability in ("str", "dex", "con", "int", "wis", "cha"):
-            try:
-                val = int(abilities.get(ability))
-            except Exception:
+            val = _int_value(abilities.get(ability) if isinstance(abilities, dict) else None, 10)
+            if val is None:
                 return False, "Custom summon ability scores are invalid.", []
             if val < 1 or val > 30:
                 return False, "Custom summon ability scores must be between 1 and 30.", []
             normalized_abilities[ability] = val
 
-        speeds = payload.get("speeds") if isinstance(payload.get("speeds"), dict) else payload.get("speed") if isinstance(payload.get("speed"), dict) else None
-        if not isinstance(speeds, dict):
-            return False, "Custom summon speed data is required.", []
+        source_speeds = {
+            "walk": _int_value(getattr(source_spec, "speed", None), None),
+            "swim": _int_value(getattr(source_spec, "swim_speed", None), None),
+            "fly": _int_value(getattr(source_spec, "fly_speed", None), None),
+            "burrow": _int_value(getattr(source_spec, "burrow_speed", None), None),
+            "climb": _int_value(getattr(source_spec, "climb_speed", None), None),
+        }
+        speeds = payload.get("speeds") if isinstance(payload.get("speeds"), dict) else payload.get("speed") if isinstance(payload.get("speed"), dict) else source_raw.get("speed") if isinstance(source_raw.get("speed"), dict) else {}
         normalized_speeds: Dict[str, int] = {}
         for key in ("walk", "swim", "fly", "burrow", "climb"):
-            raw = speeds.get(key, 0)
-            try:
-                val = int(raw)
-            except Exception:
+            fallback = source_speeds.get(key, None)
+            default_value = 30 if key == "walk" else 0
+            val = _int_value(speeds.get(key) if isinstance(speeds, dict) else None, fallback if fallback is not None else default_value)
+            if val is None:
                 return False, "Custom summon speeds are invalid.", []
             if val < 0:
                 return False, "Custom summon speeds cannot be negative.", []
@@ -10417,8 +10491,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 "hp": hp,
                 "abilities": normalized_abilities,
                 "speeds": normalized_speeds,
-                "ac": payload.get("ac", 10),
-                "type": payload.get("type", "construct"),
+                "ac": _int_value(payload.get("ac"), _int_value(source_raw.get("ac"), 10)) or 10,
+                "type": str(payload.get("type") or source_raw.get("type") or "construct"),
                 "challenge_rating": payload.get("challenge_rating", 0),
                 "traits": payload.get("traits"),
                 "actions": payload.get("actions"),

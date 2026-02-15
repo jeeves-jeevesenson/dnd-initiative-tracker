@@ -121,6 +121,45 @@ class CustomSummonPipelineTests(unittest.TestCase):
             self.assertNotIn(cid, self.app.combatants)
         self.assertNotIn(group_id, self.app._summon_groups)
 
+    def test_custom_summon_can_import_monster_slug_template(self):
+        (self.monsters_dir / "wolf-spirit.yaml").write_text(
+            (
+                "monster:\n"
+                "  name: Wolf Spirit\n"
+                "  type: beast\n"
+                "  hp: 18\n"
+                "  ac: 13\n"
+                "  speed:\n"
+                "    walk: 40\n"
+                "    climb: 20\n"
+                "  abilities:\n"
+                "    str: 14\n"
+                "    dex: 15\n"
+                "    con: 12\n"
+                "    int: 6\n"
+                "    wis: 12\n"
+                "    cha: 8\n"
+            ),
+            encoding="utf-8",
+        )
+        self.app._load_monsters_index()
+
+        ok, err, spawned = self.app._spawn_custom_summons_from_payload(
+            1,
+            {
+                "monster_slug": "wolf-spirit",
+                "summon_quantity": 1,
+                "summon_range_ft": 30,
+                "summon_positions": [{"col": 1, "row": 0}],
+            },
+        )
+        self.assertTrue(ok, err)
+        self.assertEqual(len(spawned), 1)
+        summoned = self.app.combatants[spawned[0]]
+        self.assertEqual(summoned.name, "Wolf Spirit")
+        self.assertEqual(summoned.hp, 18)
+        self.assertEqual(summoned.speed, 40)
+
 
 class MonsterIndexTempResolutionTests(unittest.TestCase):
     def test_nested_temp_index_and_slug_resolution_are_deterministic(self):
@@ -180,6 +219,10 @@ class MonsterIndexTempResolutionTests(unittest.TestCase):
             choice_slugs = {entry.get("slug") for entry in static_payload.get("monster_choices", [])}
             self.assertIn("goblin", choice_slugs)
             self.assertIn("temp/goblin", choice_slugs)
+            choice_by_slug = {entry.get("slug"): entry for entry in static_payload.get("monster_choices", [])}
+            goblin_template = choice_by_slug["goblin"].get("template", {})
+            self.assertEqual(goblin_template.get("hp"), 7)
+            self.assertEqual(goblin_template.get("speeds", {}).get("walk"), 30)
 
 
 if __name__ == "__main__":
