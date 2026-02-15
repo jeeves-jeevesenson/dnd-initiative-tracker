@@ -12081,7 +12081,13 @@ class InitiativeTracker(base.InitiativeTracker):
             active_cid = _normalize_cid_value(
                 getattr(self, "current_cid", None), "lan_action.end_turn.current_cid", log_fn=log_warning
             )
-            if in_combat and (cid is None or active_cid != int(cid)):
+            can_end_active_summon_turn = bool(
+                in_combat
+                and active_cid is not None
+                and claimed is not None
+                and self._summon_can_be_controlled_by(claimed, active_cid)
+            )
+            if in_combat and (cid is None or active_cid != int(cid)) and not can_end_active_summon_turn:
                 self._lan.toast(ws_id, "Not yer turn yet, matey.")
                 return
             try:

@@ -44,6 +44,16 @@ class LanEndTurnGuardTests(unittest.TestCase):
         self.assertIn((7, "Turn ended."), self.toasts)
         self.assertIn((7, "Not yer turn yet, matey."), self.toasts)
 
+    def test_end_turn_allows_controller_to_end_active_summon_turn(self):
+        self.app.current_cid = 3
+        self.app.combatants[3] = type("C", (), {"cid": 3, "name": "Alice Summon"})()
+        self.app._summon_can_be_controlled_by = lambda claimed, target: claimed == 1 and target == 3
+
+        self.app._lan_apply_action({"type": "end_turn", "_claimed_cid": 1, "_ws_id": 7})
+
+        self.assertEqual(self.next_turn_calls, 1)
+        self.assertIn((7, "Turn ended."), self.toasts)
+
 
 if __name__ == "__main__":
     unittest.main()
