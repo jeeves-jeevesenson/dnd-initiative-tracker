@@ -239,6 +239,8 @@ class Combatant:
     is_spellcaster: bool = False
     token_color: Optional[str] = None
     move_total: int = 0
+    temp_move_bonus: int = 0
+    temp_move_turns_remaining: int = 0
     action_remaining: int = 1
     bonus_action_remaining: int = 1
     reaction_remaining: int = 1
@@ -635,6 +637,7 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(btn_row, text="Stand Up", command=self._stand_up_current).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Move…", command=self._open_move_tool).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Dash", command=self._dash_current).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Temp Move…", command=self._grant_temp_move_bonus).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Give Action", command=self._give_action).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Give Bonus Action", command=self._give_bonus_action).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Label(btn_row, text="Mode").pack(side=tk.LEFT, padx=(0, 4))
@@ -1800,6 +1803,10 @@ class InitiativeTracker(tk.Tk):
             meta = CONDITIONS_META.get(st.ctype, {})
             if bool(meta.get("immobile")):
                 return 0
+        bonus = int(getattr(c, "temp_move_bonus", 0) or 0)
+        turns_left = int(getattr(c, "temp_move_turns_remaining", 0) or 0)
+        if bonus > 0 and turns_left > 0:
+            return self._mode_speed(c) + bonus
         return self._mode_speed(c)
 
 
@@ -2129,7 +2136,16 @@ class InitiativeTracker(tk.Tk):
                     pass
 
         # Reset movement at end of each turn (start-of-turn will set effective movement).
-        base_spd = self._mode_speed(c)
+        turns_left = int(getattr(c, "temp_move_turns_remaining", 0) or 0)
+        if turns_left > 0:
+            turns_left -= 1
+            c.temp_move_turns_remaining = turns_left
+            if turns_left <= 0:
+                c.temp_move_turns_remaining = 0
+                c.temp_move_bonus = 0
+                self._log("temporary movement bonus ended", cid=cid)
+
+        base_spd = self._effective_speed(c)
         c.move_total = int(base_spd)
         c.move_remaining = int(base_spd)
 
@@ -2302,6 +2318,7 @@ class InitiativeTracker(tk.Tk):
 
         # reset movement at start (effective, taking immobile conditions into account)
         eff = self._effective_speed(c)
+        c.move_total = eff
         c.move_remaining = eff
         c.action_remaining = 1 + max(0, int(getattr(c, "extra_action_pool", 0) or 0))
         c.bonus_action_remaining = 1 + max(0, int(getattr(c, "extra_bonus_pool", 0) or 0))
@@ -2903,6 +2920,66 @@ class InitiativeTracker(tk.Tk):
         c.move_total = total + base
         c.move_remaining = rem + base
         self._log(f"{c.name} dashes: move {self._move_cell(c)} ft.", cid=cid)
+        self._rebuild_table(scroll_to_current=True)
+        try:
+            if self._map_window is not None and self._map_window.winfo_exists():
+                self._map_window._update_move_highlight()
+        except Exception:
+            pass
+
+    def _apply_temp_move_bonus(self, cid: int, bonus: int, turns: int) -> bool:
+        if cid not in self.combatants:
+            return False
+        bonus_amt = max(0, int(bonus))
+        turns_amt = max(0, int(turns))
+        if bonus_amt <= 0 or turns_amt <= 0:
+            return False
+        c = self.combatants[cid]
+        old_eff = self._effective_speed(c)
+        c.temp_move_bonus = bonus_amt
+        c.temp_move_turns_remaining = turns_amt
+        new_eff = self._effective_speed(c)
+        delta = new_eff - old_eff
+        if self.current_cid == cid:
+            total = int(getattr(c, "move_total", 0) or 0)
+            if total <= 0:
+                total = old_eff
+            c.move_total = max(0, total + delta)
+            c.move_remaining = max(0, int(getattr(c, "move_remaining", 0) or 0) + delta)
+        else:
+            c.move_total = int(new_eff)
+            c.move_remaining = int(new_eff)
+        turns_label = "turn" if turns_amt == 1 else "turns"
+        self._log(f"temporary movement +{bonus_amt} ft for {turns_amt} {turns_label}", cid=cid)
+        return True
+
+    def _grant_temp_move_bonus(self) -> None:
+        targets = [c for c in self._grant_action_targets() if bool(getattr(c, "is_pc", False))]
+        if not targets:
+            messagebox.showinfo("Turn Tracker", "Select a player character row first.")
+            return
+        bonus = simpledialog.askinteger(
+            "Temporary Movement",
+            "Add how much movement (ft)?",
+            parent=self,
+            minvalue=1,
+        )
+        if bonus is None:
+            return
+        turns = simpledialog.askinteger(
+            "Temporary Movement",
+            "For how many turns?",
+            parent=self,
+            minvalue=1,
+            initialvalue=1,
+        )
+        if turns is None:
+            return
+        applied = False
+        for c in targets:
+            applied = self._apply_temp_move_bonus(c.cid, bonus, turns) or applied
+        if not applied:
+            return
         self._rebuild_table(scroll_to_current=True)
         try:
             if self._map_window is not None and self._map_window.winfo_exists():
