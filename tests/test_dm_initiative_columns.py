@@ -1,5 +1,6 @@
 import types
 import unittest
+from pathlib import Path
 
 import helper_script as helper_mod
 
@@ -58,6 +59,24 @@ class DmInitiativeColumnsTests(unittest.TestCase):
         self.assertEqual(calls[1][2], "14")
         self.assertEqual(combatant.temp_hp, 7)
         self.assertEqual(combatant.ac, 18)
+
+    def test_apply_heal_to_combatant_supports_temp_hp_override(self):
+        tracker = self._tracker()
+        combatant = types.SimpleNamespace(name="Gary", hp=12, temp_hp=4)
+        tracker.combatants = {1: combatant}
+
+        self.assertTrue(tracker._apply_heal_to_combatant(1, 8, is_temp_hp=True))
+        self.assertEqual(combatant.temp_hp, 8)
+        self.assertEqual(combatant.hp, 12)
+
+        self.assertTrue(tracker._apply_heal_to_combatant(1, 5))
+        self.assertEqual(combatant.hp, 17)
+
+    def test_battle_log_templates_no_longer_prefix_emojis(self):
+        source = Path("helper_script.py").read_text(encoding="utf-8")
+        self.assertNotIn('self._log(f"🛡 {c.name} loses concentration on {spell_name}.")', source)
+        self.assertNotIn('self._log(f"🛡 {c.name} maintains concentration on {spell_name}.")', source)
+        self.assertNotIn('f"🎲🔮 {dname}: {attacker} hits {c.name} for {component_desc} damage', source)
 
 
 if __name__ == "__main__":
