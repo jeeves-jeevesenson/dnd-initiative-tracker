@@ -43,9 +43,6 @@ If you complete an item, move its ID into **Section 5 (Completed archive)** and 
 1. **F05** — Player weapon schema overhaul + preset model (foundation)
 2. **F06** — LAN attack workflow using configured weapons + hidden AC validation
 3. **F07** — Spell range overlay + LAN damage prompt integration
-4. **F01** — LAN custom summon preset creation (temp YAML pipeline)
-5. **F02** — Import monster YAML to prefill summon form
-6. **F03** — DM-side assign summon to player flow
 7. **F08** — Terrain hazard preset system (DoT + triggers + saves + conditions)
 8. **F09** — Monster auto-path suggestion toggle (DM approve/reject)
 9. **F10** — Token image overlays for players/monsters
@@ -136,64 +133,6 @@ If you complete an item, move its ID into **Section 5 (Completed archive)** and 
 - **Validation plan:**
   - `python -m compileall .`
   - targeted spell/aoe regression tests
-
-### F01 — LAN custom summon preset creation (temp YAML pipeline)
-- **Status:** Not started
-- **Impact / Complexity:** High / Hard
-- **Dependencies:** none (summon chain foundation)
-- **Primary files likely touched:**
-  - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
-  - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
-  - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/tests/test_custom_summon_pipeline.py`
-- **Scope:**
-  - Add summon option in custom casting presets and form capture for stat block essentials.
-  - Persist temp summon YAML/spec in existing temp pipeline for DM review/promotion.
-- **Plan:**
-  1. Hook LAN form UI to existing server summon payload parser.
-  2. Preserve current temp-file naming and schema compatibility.
-  3. Add regression coverage for malformed/missing summon fields.
-- **Risk notes:**
-  - Avoid broad YAML churn in `Monsters/`.
-  - Keep summon metadata compatible with existing `_summon_groups` behavior.
-- **Validation plan:**
-  - `python -m compileall .`
-  - `pytest tests/test_custom_summon_pipeline.py`
-
-### F02 — Import existing monster YAML to prefill summon form
-- **Status:** Not started
-- **Impact / Complexity:** High / Medium
-- **Dependencies:** F01
-- **Primary files likely touched:**
-  - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
-  - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
-  - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/tests/test_custom_summon_pipeline.py`
-- **Scope:**
-  - LAN picker for existing monster entries,
-  - prefill summon form with editable values before cast.
-- **Plan:**
-  1. Verify static payload already includes needed monster template fields.
-  2. Add client prefill mapper with safe defaults.
-  3. Preserve manual override editing before submit.
-- **Risk notes:**
-  - Keep fallback behavior when monster metadata is partial.
-
-### F03 — DM-side assign summon to player flow
-- **Status:** Not started
-- **Impact / Complexity:** High / Hard
-- **Dependencies:** F01, F02
-- **Primary files likely touched:**
-  - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
-  - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
-  - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/tests/test_custom_summon_pipeline.py`
-- **Scope:**
-  - DM assignment action for summon ownership/control,
-  - clear UI to pick player target and save mapping.
-- **Plan:**
-  1. Define owner reassignment semantics in server state.
-  2. Add DM control affordance + LAN visibility update.
-  3. Add tests for reassignment persistence and permissions.
-- **Risk notes:**
-  - Ownership changes must not orphan summons on reconnect/reload.
 
 ### F08 — Terrain hazard preset system (DoT + triggers + saves + conditions)
 - **Status:** Not started
