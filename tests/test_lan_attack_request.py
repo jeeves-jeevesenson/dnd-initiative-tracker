@@ -29,6 +29,7 @@ class LanAttackRequestTests(unittest.TestCase):
         self.app.round_num = 1
         self.app.turn_num = 1
         self.app._next_stack_id = 1
+        self.app.start_cid = None
         self.app.current_cid = 1
         self.app.combatants = {
             1: type("C", (), {"cid": 1, "name": "Aelar", "ac": 16, "hp": 25, "condition_stacks": []})(),
@@ -48,6 +49,9 @@ class LanAttackRequestTests(unittest.TestCase):
         }
         self.app.combatants[1].action_remaining = 1
         self.app.combatants[1].attack_resource_remaining = 0
+        self.app._display_order = lambda: [self.app.combatants[cid] for cid in sorted(self.app.combatants.keys())]
+        self.app._retarget_current_after_removal = lambda removed, pre_order=None: None
+        self.app._remove_combatants_with_lan_cleanup = lambda cids: [self.app.combatants.pop(int(cid), None) for cid in cids]
         self.app._lan = type(
             "LanStub",
             (),
@@ -319,6 +323,54 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[2].hp, 16)
         self.assertEqual(getattr(self.app.combatants[2], "end_turn_damage_riders", []), [])
         self.assertTrue(any("takes 4 hellfire damage" in message for _, message in self.logs))
+
+    def test_attack_request_removes_target_when_player_damage_drops_hp_to_zero(self):
+        self.app.combatants[2].hp = 6
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 19,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [{"amount": 6, "type": "slashing"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertNotIn(2, self.app.combatants)
+        self.assertTrue(any("dropped to 0 -> removed" in message for _, message in self.logs))
+
+    def test_attack_request_allows_second_attack_when_attack_resource_remaining(self):
+        first = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 20,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": False,
+        }
+        second = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 20,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": False,
+        }
+
+        self.app._lan_apply_action(first)
+        self.assertEqual(self.app.combatants[1].action_remaining, 0)
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 1)
+
+        self.app._lan_apply_action(second)
+        result = second.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertFalse(result.get("hit"))
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 0)
 
 
 if __name__ == "__main__":

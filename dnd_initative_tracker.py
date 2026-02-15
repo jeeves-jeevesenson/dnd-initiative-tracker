@@ -780,6 +780,8 @@ POC_AUTO_SEED_PCS = os.getenv("POC_AUTO_SEED_PCS", "false").lower() == "true"
 LAN_TERRAIN_DEBUG = bool(os.getenv("INITTRACKER_LAN_TERRAIN_DEBUG"))
 
 DAMAGE_TYPES = list(base.DAMAGE_TYPES)
+if "hellfire" not in {str(dtype).strip().lower() for dtype in DAMAGE_TYPES}:
+    DAMAGE_TYPES.append("hellfire")
 
 
 def _build_damage_type_options(damage_types: List[str]) -> str:
@@ -12762,6 +12764,31 @@ class InitiativeTracker(base.InitiativeTracker):
                     after_hp = max(0, int(before_hp) - int(total_damage))
                     setattr(target, "hp", int(after_hp))
                     if int(before_hp) > 0 and int(after_hp) <= 0:
+                        pre_order: List[int] = []
+                        try:
+                            pre_order = [x.cid for x in self._display_order()]
+                        except Exception as exc:
+                            self._oplog(f"attack_request: failed to snapshot turn order before KO cleanup ({exc})", level="warning")
+                            pre_order = []
+                        removed_target = False
+                        try:
+                            self._remove_combatants_with_lan_cleanup([int(target_cid)])
+                            removed_target = int(target_cid) not in self.combatants
+                        except Exception as exc:
+                            self._oplog(f"attack_request: LAN cleanup remove failed for cid={int(target_cid)} ({exc})", level="warning")
+                            # Fallback for partial test stubs or degraded LAN cleanup paths.
+                            removed_target = self.combatants.pop(int(target_cid), None) is not None
+                        if removed_target:
+                            if getattr(self, "start_cid", None) == int(target_cid):
+                                self.start_cid = None
+                            try:
+                                self._retarget_current_after_removal([int(target_cid)], pre_order=pre_order)
+                            except Exception as exc:
+                                self._oplog(
+                                    f"attack_request: failed to retarget after removing cid={int(target_cid)} ({exc})",
+                                    level="warning",
+                                )
+                            self._log(f"{target.name} dropped to 0 -> removed", cid=int(target_cid))
                         try:
                             self._lan.play_ko(int(cid))
                         except Exception:
