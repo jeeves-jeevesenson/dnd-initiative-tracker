@@ -5826,13 +5826,16 @@ __DAMAGE_TYPE_OPTIONS__
       const updates = [update];
       const mountedByCid = normalizeCid(unit.mounted_by_cid, "move.mountedByCid");
       const mountedByUnit = mountedByCid !== null ? getUnitByCid(mountedByCid) : null;
+      const riderControlsMount = unit.mount_shared_turn === true && String(unit.mount_controller_mode || "").toLowerCase() === "rider";
       let movementSourceUnit = unit;
       let movementSourceUpdate = update;
-      if (mountedByUnit) {
+      if (mountedByUnit && riderControlsMount) {
         const mountedByUpdate = {cid: mountedByUnit.cid, pos: {...update.pos}};
         updates.push(mountedByUpdate);
         movementSourceUnit = mountedByUnit;
         movementSourceUpdate = mountedByUpdate;
+      } else if (mountedByUnit) {
+        updates.push({cid: mountedByUnit.cid, pos: {...update.pos}});
       } else {
         const riderCid = normalizeCid(unit.rider_cid, "move.riderCid");
         const riderMountUnit = riderCid !== null ? getUnitByCid(riderCid) : null;
@@ -7599,11 +7602,17 @@ __DAMAGE_TYPE_OPTIONS__
       u &&
       Number(u?.pos?.col)===Number(me?.pos?.col) &&
       Number(u?.pos?.row)===Number(me?.pos?.row) &&
-      Number(u?.cid)!==Number(me?.cid) &&
-      isFriendlyToMe(u, me)
+      Number(u?.cid)!==Number(me?.cid)
     );
     if (!sameTile.length) return null;
-    const mount = sameTile.find(u => !u.rider_cid && !u.mounted_by_cid && isMountableFor(u, me));
+    const mount = sameTile
+      .filter(u => !u.rider_cid && !u.mounted_by_cid)
+      .sort((a, b) => {
+        const aTrueMount = (a?.can_be_mounted || a?.is_mount) ? 0 : 1;
+        const bTrueMount = (b?.can_be_mounted || b?.is_mount) ? 0 : 1;
+        if (aTrueMount !== bTrueMount) return aTrueMount - bTrueMount;
+        return Number(a?.cid ?? 0) - Number(b?.cid ?? 0);
+      })[0];
     if (!mount) return null;
     return {rider: me, mount};
   }
