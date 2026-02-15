@@ -120,6 +120,22 @@ class EditCharacterRoutesTests(unittest.TestCase):
         }
         self.assertTrue({"id", "name", "proficient", "to_hit", "one_handed", "two_handed", "effect"} <= weapon_fields)
 
+    def test_character_schema_includes_class_attacks_per_action_field(self):
+        client = self._build_test_client()
+
+        response = client.get("/api/characters/schema")
+
+        self.assertEqual(response.status_code, 200)
+        sections = response.json().get("schema", {}).get("sections", [])
+        leveling = next((section for section in sections if section.get("id") == "leveling"), {})
+        fields = {field.get("key"): field for field in leveling.get("fields", [])}
+        classes = fields.get("classes", {})
+        class_fields = {
+            field.get("key")
+            for field in classes.get("items", {}).get("fields", [])
+        }
+        self.assertIn("attacks_per_action", class_fields)
+
 
 if __name__ == "__main__":
     unittest.main()

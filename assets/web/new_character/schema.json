@@ -140,6 +140,13 @@
                 "label": "Class Level",
                 "type": "integer",
                 "default": 1
+              },
+              {
+                "key": "attacks_per_action",
+                "label": "Weapon Attacks Per Action",
+                "type": "integer",
+                "default": 1,
+                "help": "Non-spell melee/ranged attacks this class grants for one Attack action (e.g., Fighter 10 = 2)."
               }
             ]
           },
