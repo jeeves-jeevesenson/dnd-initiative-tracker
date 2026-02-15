@@ -44,6 +44,13 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('window.confirm(', self.html)
         self.assertIn('Are ye sure ye want to dismiss these summons?', self.html)
 
+    def test_config_no_longer_renders_initiative_style_dropdown(self):
+        self.assertNotIn('<div class="config-item-title">Initiative strip</div>', self.html)
+
+    def test_move_indicator_click_cycles_movement_mode(self):
+        self.assertIn('moveEl.addEventListener("click", () => {', self.html)
+        self.assertIn('send({type:"cycle_movement_mode", cid: claimedCid});', self.html)
+
 
 if __name__ == "__main__":
     unittest.main()

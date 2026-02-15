@@ -26,9 +26,9 @@ This file converts the provided bug/feature list into an execution-ready backlog
 11. **B11** ✅ Add are you sure warning on dismiss summons. are you sure you want to dismiss (list summons) 
 
 ### Phase B — UX improvements (medium impact, low/medium effort)
-11. **U01** Make End Turn more obvious (topbar, stronger visual emphasis, smart highlight conditions).
-12. **U02** Simplify movement mode switching for DM/players.
-13. **U03** Remove unnecessary initiative top dropdown UI in LAN client.
+11. **U01** ✅ Make End Turn more obvious (topbar, stronger visual emphasis, smart highlight conditions).
+12. **U02** ✅ Simplify movement mode switching for DM/players.
+13. **U03** ✅ Remove unnecessary initiative top dropdown UI in LAN client.
 14. **U04** ✅ Remove show/hide initiative button.
 15. **U05** Add hotkey/button to fully hide/show bottom panel (default `Delete`).
 16. **U06** Responsive compact mode for small screens.

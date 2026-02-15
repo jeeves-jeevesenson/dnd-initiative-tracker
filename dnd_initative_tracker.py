@@ -12227,6 +12227,26 @@ class InitiativeTracker(base.InitiativeTracker):
                     grid={"cols": cols_after, "rows": rows_after},
                 )
                 self._lan.toast(ws_id, f"Moved ({cost} ft).")
+        elif typ == "cycle_movement_mode":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            modes: List[str] = ["normal"]
+            if int(getattr(c, "swim_speed", 0) or 0) > 0:
+                modes.append("swim")
+            if int(getattr(c, "fly_speed", 0) or 0) > 0:
+                modes.append("fly")
+            if int(getattr(c, "burrow_speed", 0) or 0) > 0:
+                modes.append("burrow")
+            current_mode = self._normalize_movement_mode(getattr(c, "movement_mode", "normal"))
+            try:
+                idx = modes.index(current_mode)
+            except ValueError:
+                idx = 0
+            next_mode = modes[(idx + 1) % len(modes)]
+            self._set_movement_mode(int(cid), next_mode)
+            self._rebuild_table(scroll_to_current=True)
+            self._lan.toast(ws_id, f"Movement mode: {self._movement_mode_label(next_mode)}.")
         elif typ == "dash":
             c = self.combatants.get(cid)
             if not c:

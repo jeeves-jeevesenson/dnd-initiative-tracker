@@ -2145,16 +2145,6 @@
           <summary>Bottom Bar</summary>
           <div class="config-list">
             <div class="config-item">
-              <div class="config-item-title">Initiative strip</div>
-              <div class="config-controls">
-                <select id="initiativeStyleSelect">
-                  <option value="full">Full</option>
-                  <option value="compact">Compact</option>
-                  <option value="hidden">Hidden</option>
-                </select>
-              </div>
-            </div>
-            <div class="config-item">
               <div class="config-item-title">Action</div>
               <div class="config-controls">
                 <label class="config-toggle"><input type="checkbox" id="toggleUseAction" />Show</label>
@@ -5065,6 +5055,7 @@ __DAMAGE_TYPE_OPTIONS__
   const mapViewBlockedTypes = new Set([
     "move",
     "dash",
+    "cycle_movement_mode",
     "perform_action",
     "end_turn",
     "use_action",
@@ -7778,6 +7769,7 @@ __DAMAGE_TYPE_OPTIONS__
         meEl.textContent = me.name;
         const modeLabel = movementModeLabel(me.movement_mode);
         moveEl.textContent = `Move: ${me.move_remaining}/${me.move_total} (${modeLabel})`;
+        moveEl.setAttribute("title", "Click to cycle movement mode");
         actionEl.textContent = `Action: ${me.action_remaining ?? 0}`;
         bonusActionEl.textContent = `Bonus Action: ${me.bonus_action_remaining ?? 0}`;
         if (reactionEl){
@@ -7797,6 +7789,7 @@ __DAMAGE_TYPE_OPTIONS__
           standUpBtn.disabled = !(myTurn && me.is_prone);
         }
       } else {
+        moveEl.removeAttribute("title");
         actionEl.textContent = "Action: —";
         bonusActionEl.textContent = "Bonus Action: —";
         if (reactionEl){
@@ -7817,6 +7810,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
     } else {
+      moveEl.removeAttribute("title");
       actionEl.textContent = "Action: —";
       bonusActionEl.textContent = "Bonus Action: —";
       if (reactionEl){
@@ -12800,6 +12794,16 @@ __DAMAGE_TYPE_OPTIONS__
       );
       if (!confirmed) return;
       send({type:"dismiss_summons", target_caster_cid: claimedCid, cid: claimedCid});
+    });
+  }
+  if (moveEl){
+    moveEl.addEventListener("click", () => {
+      if (isMapView) return;
+      if (!claimedCid){
+        localToast("Claim a character first, matey.");
+        return;
+      }
+      send({type:"cycle_movement_mode", cid: claimedCid});
     });
   }
   if (turnModalOk){
