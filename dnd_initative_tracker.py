@@ -7647,7 +7647,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 weapon["id"] = str(weapon.get("id") or "").strip()
                 weapon["name"] = str(weapon.get("name") or "").strip()
                 weapon["proficient"] = bool(weapon.get("proficient", True))
-                weapon["to_hit"] = normalize_attack_int(weapon.get("to_hit")) or 0
+                to_hit_normalized = normalize_attack_int(weapon.get("to_hit"))
+                weapon["to_hit"] = to_hit_normalized if to_hit_normalized is not None else 0
                 weapon["one_handed"] = {
                     "damage_formula": str(one_handed.get("damage_formula") or "").strip(),
                     "damage_type": str(one_handed.get("damage_type") or "").strip(),
