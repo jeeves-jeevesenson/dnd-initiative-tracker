@@ -4906,6 +4906,8 @@ __DAMAGE_TYPE_OPTIONS__
     "reset_turn",
     "cast_aoe",
     "cast_spell",
+    "echo_summon",
+    "echo_swap",
     "aoe_move",
     "aoe_remove",
     "save_preset",
@@ -6210,7 +6212,8 @@ __DAMAGE_TYPE_OPTIONS__
     const remaining = Math.max(0, total - placed);
     const hasRange = Number.isFinite(Number(pendingSummonPlacement.maxRangeFt));
     const rangeLabel = hasRange ? `${Math.round(Number(pendingSummonPlacement.maxRangeFt))} ft` : "any range";
-    summonPlacementBanner.textContent = `You're placing a summon. Click up to ${remaining} square(s) within ${rangeLabel} of your caster to choose spawn locations.`;
+    const placementLabel = pendingSummonPlacement.mode === "echo_summon" ? "Johns Echo" : "a summon";
+    summonPlacementBanner.textContent = `You're placing ${placementLabel}. Click up to ${remaining} square(s) within ${rangeLabel} of your caster to choose spawn locations.`;
     summonPlacementBanner.classList.remove("hidden");
   }
 
@@ -7697,12 +7700,45 @@ __DAMAGE_TYPE_OPTIONS__
     }
     btn.addEventListener("click", () => {
       hideActionPicker();
+      const actionName = normalizeLowerValue(entry?.name);
+      const claimedUnit = getClaimedUnit();
+      const claimedName = normalizeLowerValue(claimedUnit?.name);
+      const isJohnTwilight = claimedName === "john twilight" || claimedName.startsWith("john twilight (");
+      if (isJohnTwilight && actionName === "summon johns echo"){
+        if (claimedCid == null || !claimedUnit || !claimedUnit.pos){
+          localToast("Could not find caster position, matey.");
+          return;
+        }
+        pendingSummonPlacement = {
+          mode: "echo_summon",
+          actionType: "bonus_action",
+          summonQuantity: 1,
+          positions: [],
+          casterPos: {col: Number(claimedUnit.pos.col), row: Number(claimedUnit.pos.row)},
+          maxRangeFt: 15,
+        };
+        rebuildSummonValidCells();
+        updateSummonPlacementBanner();
+        localToast("Echo placement started. Choose a valid highlighted square.");
+        return;
+      }
+      if (isJohnTwilight && actionName === "swap with johns echo"){
+        if (claimedCid == null) return;
+        const msg = {type: "echo_swap", cid: claimedCid};
+        if (isPlanning){
+          planningMutate(msg);
+          draw();
+          updateHud();
+        }
+        send(msg);
+        return;
+      }
       if (isSpellActionEntry(entry)){
         pendingSpellActionType = entry.spend === "bonus" ? "bonus_action" : "action";
         setCastOverlayOpen(true);
         return;
       }
-      if (normalizeLowerValue(entry?.name) === "wild shape"){
+      if (actionName === "wild shape"){
         if (!isClaimedUnitDruid()){
           localToast("Only Druids level 2+ can use Wild Shape.");
           return;
@@ -8719,6 +8755,22 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       pendingSummonPlacement.positions.push({col: g.col, row: g.row});
+      if (pendingSummonPlacement.mode === "echo_summon"){
+        if (claimedCid == null){
+          clearSummonPlacementState();
+          return;
+        }
+        const pos = pendingSummonPlacement.positions[0] || {col: g.col, row: g.row};
+        const msg = {type: "echo_summon", cid: claimedCid, to: {col: Number(pos.col), row: Number(pos.row)}};
+        if (isPlanning){
+          planningMutate(msg);
+          draw();
+          updateHud();
+        }
+        send(msg);
+        clearSummonPlacementState();
+        return;
+      }
       const remaining = pendingSummonPlacement.summonQuantity - pendingSummonPlacement.positions.length;
       if (remaining > 0){
         localToast(`${remaining} summon placement(s) remaining.`);
