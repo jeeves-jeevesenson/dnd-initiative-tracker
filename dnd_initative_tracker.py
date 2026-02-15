@@ -4626,6 +4626,58 @@ class InitiativeTracker(base.InitiativeTracker):
         self._enter_turn_with_auto_skip(starting=False)
         self._rebuild_table(scroll_to_current=True)
 
+    def _end_turn_cleanup(self, cid: Optional[int], skip_decrement_types: Optional[set[str]] = None) -> None:
+        super()._end_turn_cleanup(cid, skip_decrement_types=skip_decrement_types)
+        if cid is None or cid not in self.combatants:
+            return
+        c = self.combatants[cid]
+        riders = list(getattr(c, "end_turn_damage_riders", []) or [])
+        if not riders:
+            return
+        remaining_riders: List[Dict[str, Any]] = []
+        for rider in riders:
+            if not isinstance(rider, dict):
+                continue
+            dice_text = str(rider.get("dice") or "").strip().lower()
+            match = re.fullmatch(r"(\d*)d(\d+)", dice_text)
+            if not match:
+                continue
+            count = int(match.group(1) or 1)
+            sides = int(match.group(2))
+            if count <= 0 or sides <= 0:
+                continue
+            amount = sum(random.randint(1, sides) for _ in range(count))
+            dtype = str(rider.get("type") or "damage").strip() or "damage"
+            source = str(rider.get("source") or "an effect").strip() or "an effect"
+            before_hp = getattr(c, "hp", None)
+            try:
+                before_hp_int = int(before_hp)
+            except Exception:
+                before_hp_int = None
+            if before_hp_int is not None:
+                after_hp = max(0, before_hp_int - int(amount))
+                setattr(c, "hp", int(after_hp))
+                self._log(
+                    f"{c.name} takes {int(amount)} {dtype} damage from {source} at end of turn.",
+                    cid=cid,
+                )
+                if before_hp_int > 0 and after_hp <= 0:
+                    try:
+                        self._lan.play_ko(int(cid))
+                    except Exception:
+                        pass
+            turns_left = rider.get("remaining_turns")
+            try:
+                turns_left_int = int(turns_left)
+            except Exception:
+                turns_left_int = 0
+            turns_left_int -= 1
+            if turns_left_int > 0:
+                updated = dict(rider)
+                updated["remaining_turns"] = int(turns_left_int)
+                remaining_riders.append(updated)
+        setattr(c, "end_turn_damage_riders", remaining_riders)
+
     def _lan_current_position(self, cid: int) -> Optional[Tuple[int, int]]:
         mw = None
         try:
@@ -12580,6 +12632,37 @@ class InitiativeTracker(base.InitiativeTracker):
                         continue
                     entries.append({"amount": int(amount), "type": dtype})
                 return entries
+            def _save_mod_for_target(target_obj: Any, ability_key: str) -> int:
+                key = str(ability_key or "").strip().lower()
+                if not key:
+                    return 0
+                saves = getattr(target_obj, "saving_throws", None)
+                if isinstance(saves, dict):
+                    val = saves.get(key)
+                    try:
+                        return int(val)
+                    except Exception:
+                        pass
+                mods = getattr(target_obj, "ability_mods", None)
+                if isinstance(mods, dict):
+                    val = mods.get(key)
+                    try:
+                        return int(val)
+                    except Exception:
+                        pass
+                return 0
+            def _set_prone_if_needed(target_obj: Any) -> bool:
+                stacks = getattr(target_obj, "condition_stacks", None)
+                if not isinstance(stacks, list):
+                    stacks = []
+                    setattr(target_obj, "condition_stacks", stacks)
+                for st in stacks:
+                    if getattr(st, "ctype", None) == "prone":
+                        return False
+                next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                setattr(self, "_next_stack_id", int(next_sid) + 1)
+                stacks.append(base.ConditionStack(sid=int(next_sid), ctype="prone", remaining_turns=None))
+                return True
             target_cid = _normalize_cid_value(msg.get("target_cid"), "attack_request.target_cid", log_fn=log_warning)
             target = self.combatants.get(int(target_cid)) if target_cid is not None else None
             if target is None:
@@ -12729,14 +12812,56 @@ class InitiativeTracker(base.InitiativeTracker):
                     cid=int(target_cid),
                 )
                 if save_ability and save_dc > 0:
+                    save_roll = random.randint(1, 20)
+                    save_mod = _save_mod_for_target(target, save_ability)
+                    save_total = int(save_roll) + int(save_mod)
+                    save_passed = bool(save_roll != 1 and save_total >= int(save_dc))
+                    result_payload["on_hit_save_result"] = {
+                        "ability": save_ability,
+                        "dc": int(save_dc),
+                        "roll": int(save_roll),
+                        "modifier": int(save_mod),
+                        "total": int(save_total),
+                        "passed": bool(save_passed),
+                    }
                     self._log(
-                        f"{result_payload['target_name']} must make a {save_ability.upper()} save (DC {int(save_dc)}).",
+                        f"{c.name} forces {result_payload['target_name']} to make a {save_ability.upper()} save "
+                        f"(DC {int(save_dc)}): {int(save_roll)} + {int(save_mod)} = {int(save_total)} "
+                        f"({'PASS' if save_passed else 'FAIL'}).",
                         cid=int(target_cid),
                     )
+                    if not save_passed and _set_prone_if_needed(target):
+                        self._log(f"{c.name} knocks {result_payload['target_name']} prone.", cid=int(target_cid))
+                effect_text = str(effect_block.get("on_hit") or "")
+                if "hellfire stack" in effect_text.lower():
+                    marker = (int(getattr(self, "round_num", 0) or 0), int(getattr(self, "turn_num", 0) or 0))
+                    stack_map = getattr(target, "_hellfire_last_applied_by_attacker", None)
+                    if not isinstance(stack_map, dict):
+                        stack_map = {}
+                    attacker_key = str(int(cid))
+                    if tuple(stack_map.get(attacker_key) or ()) != marker:
+                        stack_map[attacker_key] = marker
+                        setattr(target, "_hellfire_last_applied_by_attacker", stack_map)
+                        riders = list(getattr(target, "end_turn_damage_riders", []) or [])
+                        riders.append(
+                            {
+                                "dice": "1d6",
+                                "type": "hellfire",
+                                "remaining_turns": 1,
+                                "source": f"{result_payload['weapon_name']} ({c.name})",
+                            }
+                        )
+                        setattr(target, "end_turn_damage_riders", riders)
+                        self._log(
+                            f"{c.name} applies Hellfire to {result_payload['target_name']} "
+                            f"(1d6 at end of target turn).",
+                            cid=int(target_cid),
+                        )
                 try:
                     self._rebuild_table(scroll_to_current=True)
                 except Exception:
                     pass
+            msg["_attack_result"] = dict(result_payload)
             loop = getattr(self._lan, "_loop", None)
             if ws_id is not None and loop:
                 try:
