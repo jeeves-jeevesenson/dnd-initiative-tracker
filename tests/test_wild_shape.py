@@ -324,6 +324,98 @@ class WildShapeTests(unittest.TestCase):
         self.assertEqual(captured["payload"].get("prepared_wild_shapes"), ["reef-shark", "wolf"])
         self.assertEqual(captured["payload"].get("learned_wild_shapes"), ["reef-shark", "wolf"])
 
+    def test_wild_shape_set_known_uses_slug_lookup_when_combat_name_differs(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app.in_combat = False
+        app.combatants = {1: object()}
+        app._pc_name_for = lambda _cid: "Johnny Morris"
+        app._is_admin_token_valid = lambda _token: True
+        app._summon_can_be_controlled_by = lambda claimed, cid: False
+        app._load_player_yaml_cache = lambda force_refresh=False: None
+        app._rebuild_table = lambda scroll_to_current=False: None
+        app._wild_shape_known_by_player = {}
+        app._player_yaml_data_by_name = {}
+        app._wild_shape_available_forms = lambda profile, known_only=False, include_locked=False: [
+            {"id": "wolf"},
+            {"id": "reef-shark"},
+        ]
+        app._lan = type("Lan", (), {"toast": lambda self, ws_id, text: None, "_append_lan_log": lambda self, msg, level='warning': None})()
+        path = Path("/tmp/johnny_morris.yaml")
+        app._player_yaml_cache_by_path = {
+            path: {
+                "name": "Johnny",
+                "leveling": {"classes": [{"name": "Druid", "level": 2}]},
+                "prepared_wild_shapes": ["wolf"],
+            }
+        }
+        app._player_yaml_meta_by_path = {}
+        app._player_yaml_name_map = {"johnny_morris": path}
+        captured = {}
+        app._store_character_yaml = lambda _path, payload: captured.setdefault("payload", dict(payload))
+
+        app._lan_apply_action({
+            "type": "wild_shape_set_known",
+            "cid": 1,
+            "_ws_id": 100,
+            "admin_token": "ok",
+            "known": ["reef-shark", "wolf"],
+        })
+
+        self.assertEqual(captured["payload"].get("prepared_wild_shapes"), ["reef-shark", "wolf"])
+
+    def test_apply_wild_shape_resolves_profile_with_slug_lookup(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app.combatants = {
+            1: type("C", (), {
+                "cid": 1,
+                "name": "Johnny Morris",
+                "speed": 30,
+                "swim_speed": 0,
+                "fly_speed": 0,
+                "climb_speed": 0,
+                "burrow_speed": 0,
+                "movement_mode": "Normal",
+                "dex": 14,
+                "con": 12,
+                "str": 10,
+                "temp_hp": 0,
+                "actions": [],
+                "bonus_actions": [],
+                "is_spellcaster": True,
+            })()
+        }
+        app._pc_name_for = lambda _cid: "Johnny Morris"
+        app._load_player_yaml_cache = lambda force_refresh=False: None
+        app._set_wild_shape_pool_current = lambda _name, value: (True, "", value)
+        app._wild_shape_beast_cache = [
+            {
+                "id": "wolf",
+                "name": "Wolf",
+                "challenge_rating": 0.25,
+                "size": "Medium",
+                "speed": {"walk": 40, "swim": 0, "fly": 0, "climb": 0},
+                "abilities": {"str": 12, "dex": 15, "con": 12},
+                "actions": [],
+            }
+        ]
+        path = Path("/tmp/johnny_morris.yaml")
+        app._player_yaml_data_by_name = {
+            "Johnny": {
+                "name": "Johnny",
+                "leveling": {"classes": [{"name": "Druid", "level": 10}]},
+                "prepared_wild_shapes": ["wolf"],
+                "resources": {"pools": [{"id": "wild_shape", "current": 2, "max": 4}]},
+            }
+        }
+        app._player_yaml_cache_by_path = {path: app._player_yaml_data_by_name["Johnny"]}
+        app._player_yaml_name_map = {"johnny_morris": path}
+
+        ok, err = app._apply_wild_shape(1, "wolf")
+
+        self.assertTrue(ok, err)
+
     def test_wild_shape_apply_requires_bonus_action(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
         app._oplog = lambda *args, **kwargs: None
@@ -381,6 +473,28 @@ class WildShapeTests(unittest.TestCase):
         app._lan_apply_action({"type": "wild_shape_apply", "cid": 1, "beast_id": "wolf", "_ws_id": 10, "admin_token": "ok"})
 
         self.assertEqual(calls["apply"], 1)
+
+    def test_wild_shape_revert_requires_bonus_action(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app.in_combat = True
+        app.combatants = {1: type("C", (), {"cid": 1, "bonus_action_remaining": 0})()}
+        app._is_admin_token_valid = lambda _token: True
+        app._summon_can_be_controlled_by = lambda claimed, cid: False
+        calls = {"revert": 0}
+        def revert_wild_shape(_cid):
+            calls["revert"] += 1
+            return True, ""
+        app._revert_wild_shape = revert_wild_shape
+        app._use_bonus_action = lambda _c: False
+        app._rebuild_table = lambda scroll_to_current=False: None
+        toasts = []
+        app._lan = type("Lan", (), {"toast": lambda self, ws_id, text: toasts.append(text), "_append_lan_log": lambda self, msg, level='warning': None})()
+
+        app._lan_apply_action({"type": "wild_shape_revert", "cid": 1, "_ws_id": 10, "admin_token": "ok"})
+
+        self.assertEqual(calls["revert"], 0)
+        self.assertTrue(any("No bonus actions left" in msg for msg in toasts))
 
     def test_wild_shape_pool_set_current_handler_clamps_and_persists(self):
         app = object.__new__(tracker_mod.InitiativeTracker)

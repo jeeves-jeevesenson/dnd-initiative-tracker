@@ -6813,6 +6813,20 @@ class InitiativeTracker(base.InitiativeTracker):
                     return known_path
         return None
 
+    def _profile_for_player_name(self, player_name: Any) -> Optional[Dict[str, Any]]:
+        self._load_player_yaml_cache()
+        lookup_name = str(player_name or "").strip()
+        if not lookup_name:
+            return None
+        profile = self._player_yaml_data_by_name.get(lookup_name)
+        if isinstance(profile, dict):
+            return profile
+        player_path = self._find_player_profile_path(lookup_name)
+        raw_profile = self._player_yaml_cache_by_path.get(player_path) if isinstance(player_path, Path) else None
+        if isinstance(raw_profile, dict):
+            return raw_profile
+        return None
+
     @staticmethod
     def _default_spell_slots_for_level(level: int, progression: str) -> Dict[str, Dict[str, int]]:
         full = {
@@ -9277,10 +9291,7 @@ class InitiativeTracker(base.InitiativeTracker):
         player_name = str(caster_name or "").strip()
         if not player_name or player_name.startswith("cid:"):
             raise ValueError("No spell slots set up for that caster, matey.")
-        self._load_player_yaml_cache()
-        player_key = self._normalize_character_lookup_key(player_name)
-        player_path = self._player_yaml_name_map.get(player_key)
-        profile = self._player_yaml_cache_by_path.get(player_path) if player_path else None
+        profile = self._profile_for_player_name(player_name)
         if not isinstance(profile, dict):
             profile = {}
         spellcasting = profile.get("spellcasting", {})
@@ -9326,8 +9337,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _set_wild_shape_pool_current(self, player_name: str, current_value: int) -> Tuple[bool, str, Optional[int]]:
         self._load_player_yaml_cache()
-        player_key = self._normalize_character_lookup_key(player_name)
-        player_path = self._player_yaml_name_map.get(player_key)
+        player_path = self._find_player_profile_path(player_name)
         raw = self._player_yaml_cache_by_path.get(player_path) if player_path else None
         if not isinstance(raw, dict):
             return False, "No resource pools set up for that caster, matey.", None
@@ -9423,8 +9433,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if c is None:
             return False, "That scallywag ain’t in combat no more."
         player_name = self._pc_name_for(int(cid))
-        self._load_player_yaml_cache()
-        profile = self._player_yaml_data_by_name.get(player_name)
+        profile = self._profile_for_player_name(player_name)
         if not isinstance(profile, dict):
             return False, "No player profile found for Wild Shape, matey."
         known_map = self.__dict__.get("_wild_shape_known_by_player", {})
@@ -12433,7 +12442,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if not c:
                 return
             require_bonus_action = bool(getattr(self, "in_combat", False))
-            if require_bonus_action and int(getattr(c, "bonus_action_remaining", 0) or 0) <= 0:
+            if require_bonus_action and int(getattr(c, "bonus_action_remaining", 0)) <= 0:
                 self._lan.toast(ws_id, "No bonus actions left, matey.")
                 return
             ok, err = self._apply_wild_shape(int(cid), beast_id)
@@ -12462,10 +12471,20 @@ class InitiativeTracker(base.InitiativeTracker):
             self._lan.toast(ws_id, "Wild Shape uses updated.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "wild_shape_revert":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            require_bonus_action = bool(getattr(self, "in_combat", False))
+            if require_bonus_action and int(getattr(c, "bonus_action_remaining", 0)) <= 0:
+                self._lan.toast(ws_id, "No bonus actions left, matey.")
+                return
             ok, err = self._revert_wild_shape(int(cid))
             if not ok:
                 self._lan.toast(ws_id, err or "Could not revert Wild Shape, matey.")
                 return
+            if require_bonus_action:
+                setattr(c, "bonus_action_remaining", max(0, int(getattr(c, "bonus_action_remaining", 0)) - 1))
+                self._log(f"{getattr(c, 'name', 'Player')} used a bonus action to revert Wild Shape.", cid=cid)
             self._lan.toast(ws_id, "Reverted Wild Shape.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "wild_shape_regain_use":
@@ -12480,8 +12499,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if not ok_slot:
                 self._lan.toast(ws_id, err_slot)
                 return
-            self._load_player_yaml_cache()
-            profile = self._player_yaml_data_by_name.get(player_name) if isinstance(getattr(self, "_player_yaml_data_by_name", None), dict) else None
+            profile = self._profile_for_player_name(player_name)
             pools = self._normalize_player_resource_pools(profile if isinstance(profile, dict) else {})
             wild = next((p for p in pools if str(p.get("id") or "").lower() == "wild_shape"), None)
             if not isinstance(wild, dict):
@@ -12492,6 +12510,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, pool_err)
                 return
             setattr(c, "wild_resurgence_turn_used", True)
+            self._log(f"{getattr(c, 'name', 'Player')} recovered one Wild Shape use via Wild Resurgence.", cid=cid)
             self._lan.toast(ws_id, f"Recovered one Wild Shape use (spent level {int(spent_level or 1)} slot).")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "wild_shape_regain_spell":
@@ -12502,8 +12521,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "Wild Shape spell-slot exchange already used this long rest, matey.")
                 return
             player_name = self._pc_name_for(int(cid))
-            self._load_player_yaml_cache()
-            profile = self._player_yaml_data_by_name.get(player_name) if isinstance(getattr(self, "_player_yaml_data_by_name", None), dict) else None
+            profile = self._profile_for_player_name(player_name)
             pools = self._normalize_player_resource_pools(profile if isinstance(profile, dict) else {})
             wild = next((p for p in pools if str(p.get("id") or "").lower() == "wild_shape"), None)
             if not isinstance(wild, dict) or int(wild.get("current", 0) or 0) <= 0:
@@ -12518,12 +12536,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, pool_err)
                 return
             setattr(c, "wild_resurgence_slot_used", True)
+            self._log(f"{getattr(c, 'name', 'Player')} recovered one level 1 spell slot via Wild Resurgence.", cid=cid)
             self._lan.toast(ws_id, "Recovered one level 1 spell slot.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "wild_shape_set_known":
             player_name = self._pc_name_for(int(cid))
-            self._load_player_yaml_cache()
-            profile = self._player_yaml_data_by_name.get(player_name) if isinstance(getattr(self, "_player_yaml_data_by_name", None), dict) else None
+            profile = self._profile_for_player_name(player_name)
             if not isinstance(profile, dict):
                 self._lan.toast(ws_id, "No player profile found, matey.")
                 return
