@@ -33,6 +33,14 @@ class DmTurnMapFocusTests(unittest.TestCase):
         self.assertEqual(window._active_cid, 7)
         self.assertEqual(calls, [])
 
+    def test_unmarked_terrain_cell_is_not_rough(self):
+        window = self._map_window()
+
+        cell = window._rough_cell_data(None)
+
+        self.assertFalse(cell["is_rough"])
+        self.assertEqual(cell["movement_type"], "ground")
+
 
 if __name__ == "__main__":
     unittest.main()

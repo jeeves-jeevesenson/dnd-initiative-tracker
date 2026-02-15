@@ -6725,7 +6725,7 @@ class BattleMapWindow(tk.Toplevel):
         if isinstance(cell, str):
             color = self._normalize_hex_color(cell) or "#8d6e63"
             return {"color": color, "label": "", "movement_type": "ground", "is_swim": False, "is_rough": True}
-        return {"color": "#8d6e63", "label": "", "movement_type": "ground", "is_swim": False, "is_rough": True}
+        return {"color": "#8d6e63", "label": "", "movement_type": "ground", "is_swim": False, "is_rough": False}
 
     def _rough_preset_from_ui(self) -> Dict[str, object]:
         label = str(self.rough_color_var.get() or "")
