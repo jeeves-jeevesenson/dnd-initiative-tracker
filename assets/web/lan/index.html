@@ -473,6 +473,33 @@
     .btn.danger{background: rgba(255,91,91,0.14); border-color: rgba(255,91,91,0.35);}
     .btn.accent{background: rgba(106,169,255,0.14); border-color: rgba(106,169,255,0.35);}
     .btn.success{background: rgba(78,204,128,0.22); border-color: rgba(78,204,128,0.55); color:#dcffe8;}
+    .btn.end-turn-top{
+      border-color: rgba(255,88,88,0.8);
+      background: linear-gradient(180deg, rgba(255,102,102,0.95) 0%, rgba(209,48,48,0.95) 100%);
+      color: #fff3f3;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      padding: 10px 16px;
+      box-shadow: 0 8px 18px rgba(112,16,16,0.45), inset 0 0 0 1px rgba(255,255,255,0.22);
+      text-shadow: 0 1px 0 rgba(20,0,0,0.35);
+    }
+    .btn.end-turn-top.end-turn-ready{
+      border-color: rgba(255,213,138,0.95);
+      box-shadow: 0 0 0 2px rgba(255,186,106,0.35), 0 0 20px rgba(255,116,106,0.7), 0 8px 20px rgba(112,16,16,0.55), inset 0 0 0 1px rgba(255,255,255,0.28);
+    }
+    .btn.end-turn-top.end-turn-pop{
+      animation: endTurnPop 260ms ease-out;
+    }
+    .btn.end-turn-top:disabled,
+    .btn.end-turn-top[aria-disabled="true"]{
+      box-shadow: none;
+    }
+    @keyframes endTurnPop{
+      0%{transform: scale(1);}
+      45%{transform: scale(1.12);}
+      100%{transform: scale(1);}
+    }
     .topbar-controls{
       display:flex;
       flex-wrap:wrap;
@@ -1854,6 +1881,7 @@
     }
     @media (max-width: 720px), (max-height: 720px){
       .btn{padding: 6px 8px; font-size: 12px;}
+      .btn.end-turn-top{padding: 9px 12px; font-size: 13px;}
       .topbar{gap:8px; padding: calc(8px + var(--safeInsetTop)) 10px 8px 10px;}
       .sheet{padding: 8px 10px calc(10px + var(--safeInsetBottom)) 10px;}
     }
@@ -1875,6 +1903,7 @@
           <button class="btn" id="connReconnectBtn" type="button">Reconnect</button>
         </div>
       </div>
+      <button class="btn end-turn-top" id="endTurn">End Turn</button>
       <div class="spacer"></div>
       <button class="btn" id="planningBtn" type="button">Planning Mode</button>
       <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
@@ -2263,7 +2292,6 @@
           <button class="btn" id="dismissSummons">Dismiss Summons</button>
           <button class="btn mount hidden" id="mountBtn">Mount</button>
           <button class="btn hidden" id="dismountBtn">Dismount</button>
-          <button class="btn danger" id="endTurn">End Turn</button>
         </div>
       </div>
       <div class="row">
@@ -3483,6 +3511,7 @@ __DAMAGE_TYPE_OPTIONS__
   let stateUpdateCounter = 0;
   let lastActiveCid = null;
   let lastTurnRound = null;
+  let endTurnReadyVisualActive = false;
   let selectedTurnCid = null;
   let pendingMountRequestId = null;
   let pendingInitiativeCid = null;
@@ -3619,6 +3648,10 @@ __DAMAGE_TYPE_OPTIONS__
     const shouldDisable = isMapView || needsClaim || !myTurn;
     endTurnBtn.disabled = shouldDisable;
     endTurnBtn.setAttribute("aria-disabled", shouldDisable ? "true" : "false");
+    if (shouldDisable){
+      endTurnBtn.classList.remove("end-turn-ready", "end-turn-pop");
+      endTurnReadyVisualActive = false;
+    }
     let titleText = "";
     if (needsClaim){
       titleText = "Claim a character first, matey.";
@@ -3632,6 +3665,30 @@ __DAMAGE_TYPE_OPTIONS__
     } else {
       endTurnBtn.removeAttribute("title");
     }
+  }
+  function updateEndTurnReadyVisual(me, myTurn){
+    if (!endTurnBtn || !me || endTurnBtn.disabled){
+      if (endTurnBtn){
+        endTurnBtn.classList.remove("end-turn-ready", "end-turn-pop");
+      }
+      endTurnReadyVisualActive = false;
+      return;
+    }
+    const noMovement = Number(me.move_remaining || 0) <= 0;
+    const noAction = Number(me.action_remaining || 0) <= 0;
+    const noBonusAction = Number(me.bonus_action_remaining || 0) <= 0;
+    const shouldEmphasize = myTurn && noMovement && noAction && noBonusAction;
+    if (shouldEmphasize){
+      endTurnBtn.classList.add("end-turn-ready");
+      if (!endTurnReadyVisualActive){
+        endTurnBtn.classList.remove("end-turn-pop");
+        void endTurnBtn.offsetWidth;
+        endTurnBtn.classList.add("end-turn-pop");
+      }
+    } else {
+      endTurnBtn.classList.remove("end-turn-ready", "end-turn-pop");
+    }
+    endTurnReadyVisualActive = shouldEmphasize;
   }
   applyMapViewReadOnlyControls();
   updateEndTurnState();
@@ -7595,9 +7652,11 @@ __DAMAGE_TYPE_OPTIONS__
     if (dismissSummonsBtn){
       dismissSummonsBtn.disabled = claimedCid == null;
     }
+    let meForHud = null;
     if (claimedCid && state.units){
       const me = state.units.find(u => cidMatches(u.cid, claimedCid, "hud.claimedUnit"));
       if (me){
+        meForHud = me;
         meEl.textContent = me.name;
         const modeLabel = movementModeLabel(me.movement_mode);
         moveEl.textContent = `Move: ${me.move_remaining}/${me.move_total} (${modeLabel})`;
@@ -7665,6 +7724,7 @@ __DAMAGE_TYPE_OPTIONS__
     updateSpellPanelVisibility();
     applyMapViewReadOnlyControls();
     updateEndTurnState();
+    updateEndTurnReadyVisual(meForHud, myTurn);
     updateClaimOverlay();
   }
 
