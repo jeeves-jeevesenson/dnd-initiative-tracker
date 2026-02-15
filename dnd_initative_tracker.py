@@ -6614,7 +6614,7 @@ class InitiativeTracker(base.InitiativeTracker):
         used_cached_only = True
         for fp in files:
             meta = _file_stat_metadata(fp)
-            rel_path = str(fp.relative_to(mdir)).replace("\\", "/")
+            rel_path = str(fp.relative_to(spells_dir)).replace("\\", "/")
             entry = cached_entries.get(rel_path) if isinstance(cached_entries, dict) else None
             if isinstance(entry, dict) and _metadata_matches(entry, meta):
                 preset = entry.get("preset")
