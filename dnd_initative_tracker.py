@@ -10405,7 +10405,7 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 return fallback
 
-        source_name = str(getattr(source_spec, "name", "") or "").strip()
+        source_name = str(getattr(source_spec, "name", "")).strip()
         name = str(payload.get("name") or source_name or "").strip()
         if not name:
             return False, "Custom summon needs a name.", []
@@ -10491,7 +10491,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "hp": hp,
                 "abilities": normalized_abilities,
                 "speeds": normalized_speeds,
-                "ac": _int_value(payload.get("ac"), _int_value(source_raw.get("ac"), 10)) or 10,
+                "ac": _int_value(payload.get("ac"), _int_value(source_raw.get("ac"), 10)),
                 "type": str(payload.get("type") or source_raw.get("type") or "construct"),
                 "challenge_rating": payload.get("challenge_rating", 0),
                 "traits": payload.get("traits"),

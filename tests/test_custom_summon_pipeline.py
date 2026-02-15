@@ -159,6 +159,7 @@ class CustomSummonPipelineTests(unittest.TestCase):
         self.assertEqual(summoned.name, "Wolf Spirit")
         self.assertEqual(summoned.hp, 18)
         self.assertEqual(summoned.speed, 40)
+        self.assertEqual(summoned.climb_speed, 20)
 
 
 class MonsterIndexTempResolutionTests(unittest.TestCase):
