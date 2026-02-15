@@ -357,6 +357,52 @@ defenses:
 
 ---
 
+### Attacks Section
+
+Combat attack modifiers and optional reusable weapon presets:
+
+```yaml
+attacks:
+  melee_attack_mod: 5
+  ranged_attack_mod: 4
+  weapon_to_hit: 5
+  weapons:
+    - id: "longsword"
+      name: "Longsword"
+      proficient: true
+      to_hit: 7
+      one_handed:
+        damage_formula: "1d8 + str_mod"
+        damage_type: "slashing"
+      two_handed:
+        damage_formula: "1d10 + str_mod"
+        damage_type: "slashing"
+      effect:
+        on_hit: ""
+        save_ability: ""
+        save_dc: 0
+```
+
+**Field Descriptions:**
+
+- **melee_attack_mod**: Optional flat melee attack modifier (legacy-compatible).
+- **ranged_attack_mod**: Optional flat ranged attack modifier (legacy-compatible).
+- **weapon_to_hit**: Optional shared attack bonus for generic weapon attacks (legacy-compatible).
+- **weapons**: Optional list of weapon presets for richer per-weapon modeling.
+  - **id**: Stable key for references and future automation.
+  - **name**: Display name for the weapon.
+  - **proficient**: Whether proficiency is included when computing to-hit.
+  - **to_hit**: Explicit attack bonus for this preset.
+  - **one_handed** / **two_handed**: Optional damage mode metadata.
+    - **damage_formula**: Damage expression such as `"1d8 + str_mod"`.
+    - **damage_type**: Damage type string.
+  - **effect**: Optional structured metadata for on-hit rider tracking.
+    - **on_hit**: Short freeform effect description.
+    - **save_ability**: Optional save ability key (`str`, `dex`, `con`, `int`, `wis`, `cha`).
+    - **save_dc**: Optional save DC (0 means not configured).
+
+---
+
 ### Resources Section
 
 Global resource pools for tracking limited-use abilities:

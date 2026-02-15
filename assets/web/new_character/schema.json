@@ -569,6 +569,105 @@
           "type": "integer",
           "default": 0,
           "help": "Auto-filled from the higher of STR/DEX modifiers + proficiency. Edit to override."
+        },
+        {
+          "key": "weapons",
+          "label": "Weapon Presets",
+          "type": "array",
+          "repeatable": true,
+          "items": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "id",
+                "label": "ID",
+                "type": "string",
+                "default": ""
+              },
+              {
+                "key": "name",
+                "label": "Name",
+                "type": "string",
+                "default": ""
+              },
+              {
+                "key": "proficient",
+                "label": "Proficient",
+                "type": "boolean",
+                "default": true
+              },
+              {
+                "key": "to_hit",
+                "label": "To-Hit",
+                "type": "integer",
+                "default": 0
+              },
+              {
+                "key": "one_handed",
+                "label": "One-Handed Mode",
+                "type": "object",
+                "fields": [
+                  {
+                    "key": "damage_formula",
+                    "label": "Damage Formula",
+                    "type": "string",
+                    "default": ""
+                  },
+                  {
+                    "key": "damage_type",
+                    "label": "Damage Type",
+                    "type": "string",
+                    "default": ""
+                  }
+                ]
+              },
+              {
+                "key": "two_handed",
+                "label": "Two-Handed Mode",
+                "type": "object",
+                "fields": [
+                  {
+                    "key": "damage_formula",
+                    "label": "Damage Formula",
+                    "type": "string",
+                    "default": ""
+                  },
+                  {
+                    "key": "damage_type",
+                    "label": "Damage Type",
+                    "type": "string",
+                    "default": ""
+                  }
+                ]
+              },
+              {
+                "key": "effect",
+                "label": "Effect Metadata",
+                "type": "object",
+                "fields": [
+                  {
+                    "key": "on_hit",
+                    "label": "On-Hit Effect",
+                    "type": "string",
+                    "default": ""
+                  },
+                  {
+                    "key": "save_ability",
+                    "label": "Save Ability",
+                    "type": "string",
+                    "default": ""
+                  },
+                  {
+                    "key": "save_dc",
+                    "label": "Save DC",
+                    "type": "integer",
+                    "default": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "default": []
         }
       ]
     },
