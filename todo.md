@@ -184,6 +184,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/helper_script.py`
 - **Technical starting points:** Tkinter `Toplevel`, `grab_set`, `wait_window`, modal/transient usage.
 - **Acceptance criteria:** DM can interact with map, damage, info windows concurrently; no hidden modal grab lock.
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** Monster stat block popups are now non-modal in both Tk code paths by removing `win.grab_set()` from `_open_monster_stat_block(...)`, so DM can keep interacting with map/damage windows while stat blocks stay open.
 - **Investigation context (2026-02-15):**
   - Several Tk dialogs use modal patterns (`dlg.grab_set()` and/or `self.wait_window(dlg)`), including AoE parameter prompts in `helper_script.py`.
   - This is a strong candidate for the “windows block each other” symptom, especially when multiple utility dialogs are opened in sequence.

@@ -978,7 +978,6 @@ class InitiativeTracker(tk.Tk):
         win.title(title)
         win.geometry("560x680")
         win.transient(self)
-        win.after(0, win.grab_set)
 
         body = ttk.Frame(win, padding=10)
         body.pack(fill="both", expand=True)
