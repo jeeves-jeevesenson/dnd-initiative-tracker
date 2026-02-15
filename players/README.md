@@ -73,6 +73,9 @@ name: "Character Name"     # Required: Character's name (used for display and fi
 player: "Player Name"      # Optional: Real-world player's name
 campaign: "Campaign Name"  # Optional: Campaign identifier
 ip: "192.168.1.100"       # Optional: Player's IP address for LAN features
+summon_on_start:          # Optional: Auto-spawn summons when this PC is added to combat
+  - monster: owl.yaml
+    count: 1
 prepared_wild_shapes:      # Optional: Druid-only prepared wild shape beast IDs
   - wolf
   - brown-bear
@@ -85,7 +88,34 @@ prepared_wild_shapes:      # Optional: Druid-only prepared wild shape beast IDs
 - **player**: The real-world player's name. Used for tracking who plays this character.
 - **campaign**: Optional campaign name or identifier. Useful for organizing characters across multiple campaigns.
 - **ip**: IP address for the player's device when using LAN/mobile client features. Can be manually set or auto-detected.
+- **summon_on_start** (alias: `summon-on-start`, `summons_on_start`, `summons-on-start`): Optional startup summons. Supports shorthand string, a single mapping, or a list of entries. Each entry uses `monster`, optional `count`, and optional overrides.
 - **prepared_wild_shapes**: Optional list of beast IDs (for Druid level 2+) used by LAN Wild Shape management. Legacy `learned_wild_shapes` is still read for backward compatibility, but new saves use `prepared_wild_shapes`.
+
+Startup summon examples:
+
+```yaml
+# Shorthand (defaults to count=1, no overrides)
+summon-on-start: owl.yaml
+
+# Single mapping entry
+summon_on_start:
+  monster: owl
+  count: 1
+  name: "Eldramar's Familiar"
+  hp: 7
+  ac: 13
+  dex: 16
+  wis: 14
+
+# List form
+summon_on_start:
+  - owl.yaml
+  - monster: wolf.yaml
+    count: 2
+    overrides:
+      name: "Pack Wolf"
+      speed: "40 ft."
+```
 
 ---
 

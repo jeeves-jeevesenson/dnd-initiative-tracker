@@ -935,6 +935,7 @@ class PlayerProfile:
     spellcasting: Dict[str, Any] = field(default_factory=dict)
     inventory: Dict[str, Any] = field(default_factory=dict)
     prepared_wild_shapes: List[str] = field(default_factory=list)
+    summon_on_start: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -950,6 +951,7 @@ class PlayerProfile:
             "spellcasting": dict(self.spellcasting),
             "inventory": dict(self.inventory),
             "prepared_wild_shapes": list(self.prepared_wild_shapes),
+            "summon_on_start": [dict(entry) for entry in self.summon_on_start if isinstance(entry, dict)],
         }
 
 
@@ -5554,6 +5556,15 @@ class InitiativeTracker(base.InitiativeTracker):
             token_color = identity.get("token_color") if isinstance(identity, dict) else None
             if token_color:
                 setattr(combatant, "token_color", token_color)
+        summon_entries = normalized.get("summon_on_start", []) if isinstance(normalized, dict) else []
+        if isinstance(summon_entries, list) and summon_entries:
+            try:
+                self._spawn_startup_summons_for_pc(cid, summon_entries)
+            except Exception as exc:
+                self._oplog(
+                    f"Player YAML {normalized.get('name') or name}: failed to spawn summon_on_start entries ({exc}).",
+                    level="warning",
+                )
         return cid
 
     def _remove_combatants_with_lan_cleanup(self, cids: Iterable[int]) -> None:
@@ -7318,6 +7329,43 @@ class InitiativeTracker(base.InitiativeTracker):
         payload["vitals"] = vitals
         return payload
 
+    def _normalize_startup_summon_entries(self, raw_value: Any, player_name: str) -> List[Dict[str, Any]]:
+        def parse_entry(entry: Any) -> Optional[Dict[str, Any]]:
+            if isinstance(entry, str):
+                monster = entry.strip()
+                if not monster:
+                    return None
+                return {"monster": monster, "count": 1, "overrides": {}}
+            if not isinstance(entry, dict):
+                return None
+            entry_copy = dict(entry)
+            monster_raw = entry_copy.pop("monster", entry_copy.pop("file", None))
+            monster = str(monster_raw or "").strip()
+            if not monster:
+                return None
+            count_raw = entry_copy.pop("count", 1)
+            try:
+                count = int(count_raw)
+            except Exception:
+                count = 1
+            if count < 0:
+                count = 0
+            explicit_overrides = entry_copy.pop("overrides", {})
+            overrides = dict(explicit_overrides) if isinstance(explicit_overrides, dict) else {}
+            overrides.update(entry_copy)
+            return {"monster": monster, "count": count, "overrides": overrides}
+
+        entries = raw_value if isinstance(raw_value, list) else [raw_value]
+        normalized: List[Dict[str, Any]] = []
+        for entry in entries:
+            parsed = parse_entry(entry)
+            if parsed is None:
+                if entry is not None:
+                    self._oplog(f"Player YAML {player_name}: invalid summon_on_start entry '{entry}'.", level="warning")
+                continue
+            normalized.append(parsed)
+        return normalized
+
     def _normalize_player_profile(self, data: Dict[str, Any], fallback_name: str) -> Dict[str, Any]:
         def normalize_name(value: Any) -> Optional[str]:
             text = str(value or "").strip()
@@ -7486,6 +7534,12 @@ class InitiativeTracker(base.InitiativeTracker):
         if not isinstance(raw_prepared_wild_shapes, list):
             raw_prepared_wild_shapes = data.get("learned_wild_shapes")
         prepared_wild_shapes = self._normalize_prepared_wild_shapes(raw_prepared_wild_shapes, known_limit=known_limit)
+        summon_on_start_raw = None
+        for key in ("summon_on_start", "summon-on-start", "summons_on_start", "summons-on-start"):
+            if key in data:
+                summon_on_start_raw = data.get(key)
+                break
+        summon_on_start = self._normalize_startup_summon_entries(summon_on_start_raw, name)
 
         profile = PlayerProfile(
             name=name,
@@ -7500,6 +7554,7 @@ class InitiativeTracker(base.InitiativeTracker):
             spellcasting=spellcasting,
             inventory=inventory,
             prepared_wild_shapes=prepared_wild_shapes,
+            summon_on_start=summon_on_start,
         )
         return profile.to_dict()
 
@@ -9660,6 +9715,191 @@ class InitiativeTracker(base.InitiativeTracker):
             ability_mods=dict(spec.ability_mods or {}),
             raw_data=raw_data,
         )
+
+    def _apply_startup_summon_overrides(self, spec: MonsterSpec, overrides: Dict[str, Any]) -> MonsterSpec:
+        raw_data = copy.deepcopy(spec.raw_data) if isinstance(spec.raw_data, dict) else {}
+        abilities = raw_data.get("abilities") if isinstance(raw_data.get("abilities"), dict) else {}
+        abilities = dict(abilities)
+        raw_data["abilities"] = abilities
+
+        updated_name = spec.name
+        updated_hp = spec.hp
+        updated_speed = spec.speed
+        updated_swim = spec.swim_speed
+        updated_fly = spec.fly_speed
+        updated_burrow = spec.burrow_speed
+        updated_climb = spec.climb_speed
+        updated_dex = spec.dex
+        updated_init_mod = spec.init_mod
+        updated_ability_mods = dict(spec.ability_mods or {})
+
+        ability_key_map = {
+            "str": "Str",
+            "strength": "Str",
+            "dex": "Dex",
+            "dexterity": "Dex",
+            "con": "Con",
+            "constitution": "Con",
+            "int": "Int",
+            "intelligence": "Int",
+            "wis": "Wis",
+            "wisdom": "Wis",
+            "cha": "Cha",
+            "charisma": "Cha",
+        }
+
+        for key, value in (overrides or {}).items():
+            original_key = str(key or "")
+            normalized_key = original_key.strip().lower()
+            if normalized_key in {"ac"}:
+                raw_data["ac"] = value
+                continue
+            if normalized_key in {"hp"}:
+                raw_data["hp"] = value
+                hp_value = self._monster_int_from_value(value)
+                if hp_value is not None:
+                    updated_hp = hp_value
+                continue
+            if normalized_key == "name":
+                updated_name = str(value or "").strip() or spec.name
+                raw_data["name"] = updated_name
+                continue
+            if normalized_key in ability_key_map:
+                ability_label = ability_key_map[normalized_key]
+                ability_value = self._monster_int_from_value(value)
+                if ability_value is None:
+                    continue
+                abilities[ability_label] = ability_value
+                short = ability_label.lower()[:3]
+                updated_ability_mods[short] = (ability_value - 10) // 2
+                if short == "dex":
+                    updated_dex = ability_value
+                continue
+            if normalized_key == "speed":
+                raw_data["speed"] = value
+                parsed_speed = base._parse_speed_data(value)
+                if parsed_speed[0] is not None:
+                    updated_speed = int(parsed_speed[0])
+                if parsed_speed[1] is not None:
+                    updated_swim = int(parsed_speed[1])
+                if parsed_speed[2] is not None:
+                    updated_fly = int(parsed_speed[2])
+                if parsed_speed[3] is not None:
+                    updated_burrow = int(parsed_speed[3])
+                if parsed_speed[4] is not None:
+                    updated_climb = int(parsed_speed[4])
+                continue
+            if normalized_key == "initiative":
+                raw_data["initiative"] = value
+                init_value = None
+                if isinstance(value, dict):
+                    init_value = self._monster_int_from_value(value.get("modifier"))
+                else:
+                    init_value = self._monster_int_from_value(value)
+                if init_value is not None:
+                    updated_init_mod = init_value
+                continue
+            if original_key in raw_data:
+                raw_data[original_key] = value
+            else:
+                raw_data[normalized_key] = value
+
+        return MonsterSpec(
+            filename=spec.filename,
+            name=updated_name,
+            mtype=spec.mtype,
+            cr=spec.cr,
+            hp=updated_hp,
+            speed=updated_speed,
+            swim_speed=updated_swim,
+            fly_speed=updated_fly,
+            burrow_speed=updated_burrow,
+            climb_speed=updated_climb,
+            dex=updated_dex,
+            init_mod=updated_init_mod,
+            saving_throws=dict(spec.saving_throws or {}),
+            ability_mods=updated_ability_mods,
+            raw_data=raw_data,
+        )
+
+    def _spawn_startup_summons_for_pc(self, caster_cid: int, summon_entries: List[Dict[str, Any]]) -> List[int]:
+        caster = self.combatants.get(int(caster_cid))
+        if caster is None:
+            return []
+        source_spell = "summon_on_start"
+        spawned_all: List[int] = []
+        for entry_idx, raw_entry in enumerate(summon_entries):
+            entry = dict(raw_entry) if isinstance(raw_entry, dict) else {}
+            monster_ref = str(entry.get("monster") or "").strip()
+            if not monster_ref:
+                self._oplog(
+                    f"Player {caster.name} (cid={caster_cid}): summon_on_start entry missing monster.",
+                    level="warning",
+                )
+                continue
+            slug = Path(monster_ref).stem.strip().lower()
+            if not slug:
+                self._oplog(
+                    f"Player {caster.name} (cid={caster_cid}): invalid summon_on_start monster '{monster_ref}'.",
+                    level="warning",
+                )
+                continue
+            spec = self._find_monster_spec_by_slug(slug)
+            if spec is None:
+                self._oplog(
+                    f"Player {caster.name} (cid={caster_cid}): summon_on_start monster '{monster_ref}' not found.",
+                    level="warning",
+                )
+                continue
+            count_raw = entry.get("count", 1)
+            try:
+                quantity = max(0, int(count_raw))
+            except Exception:
+                quantity = 1
+            if quantity <= 0:
+                continue
+            overrides = entry.get("overrides") if isinstance(entry.get("overrides"), dict) else {}
+            summon_spec = self._apply_startup_summon_overrides(spec, dict(overrides))
+            group_id = f"startup:{int(time.time() * 1000)}:{caster_cid}:{entry_idx}:{len(self._summon_groups) + 1}"
+            spawned_group: List[int] = []
+            for _ in range(quantity):
+                init_roll = int(random.randint(1, 20) + int(summon_spec.init_mod or 0))
+                cid = self._create_combatant(
+                    name=self._unique_name(summon_spec.name),
+                    hp=int(summon_spec.hp or 1),
+                    speed=int(summon_spec.speed or 30),
+                    swim_speed=int(summon_spec.swim_speed or 0),
+                    fly_speed=int(summon_spec.fly_speed or 0),
+                    burrow_speed=int(summon_spec.burrow_speed or 0),
+                    climb_speed=int(summon_spec.climb_speed or 0),
+                    movement_mode="Normal",
+                    initiative=init_roll,
+                    dex=summon_spec.dex,
+                    ally=True,
+                    is_pc=False,
+                    is_spellcaster=None,
+                    saving_throws=dict(summon_spec.saving_throws or {}),
+                    ability_mods=dict(summon_spec.ability_mods or {}),
+                    monster_spec=summon_spec,
+                )
+                summoned = self.combatants.get(cid)
+                if summoned is None:
+                    continue
+                setattr(summoned, "summoned_by_cid", int(caster_cid))
+                setattr(summoned, "summon_source_spell", source_spell)
+                setattr(summoned, "summon_group_id", group_id)
+                setattr(summoned, "summon_controller_mode", "summoner")
+                spawned_group.append(cid)
+                spawned_all.append(cid)
+            if spawned_group:
+                self._summon_groups[group_id] = list(spawned_group)
+                self._summon_group_meta[group_id] = {
+                    "caster_cid": int(caster_cid),
+                    "spell": source_spell,
+                    "created_at": time.time(),
+                    "concentration": False,
+                }
+        return spawned_all
 
     @staticmethod
     def _extract_recharge_text(raw_data: Dict[str, Any]) -> List[str]:
