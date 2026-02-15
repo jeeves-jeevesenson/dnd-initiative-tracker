@@ -1908,7 +1908,6 @@
       <button class="btn" id="planningBtn" type="button">Planning Mode</button>
       <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
       <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
-      <button class="btn" id="initiativeToggleBtn" type="button" aria-pressed="true" title="Show or hide initiative bar">⚔️ Initiative</button>
       <div class="topbar-controls">
         <button class="btn" id="lockMap">Lock Map</button>
         <button class="btn" id="lockAoeToggle" type="button" aria-pressed="true">Unlock my AOEs</button>
@@ -8100,10 +8099,9 @@ __DAMAGE_TYPE_OPTIONS__
     const activeCidValue = normalizeCid(activeCid, "turnAlert.activeCid");
     const lastActiveCidValue = normalizeCid(lastActiveCid, "turnAlert.lastActiveCid");
     const isNowMyTurn = activeCidValue !== null && activeCidValue === claimedCid;
-    const wasMyTurn = lastActiveCidValue !== null && lastActiveCidValue === claimedCid;
     const activeChanged = activeCidValue !== lastActiveCidValue;
     const roundChanged = round !== lastTurnRound;
-    if (isNowMyTurn && (!wasMyTurn || activeChanged || roundChanged)){
+    if (isNowMyTurn && (activeChanged || roundChanged)){
       showTurnModal();
     }
     lastActiveCid = activeCid;
@@ -8565,7 +8563,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function clampZoom(value){
-    return Math.min(90, Math.max(12, value));
+    return Math.min(90, Math.max(0.1, value));
   }
 
   function zoomAt(newZoom, focusX, focusY){
