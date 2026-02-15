@@ -13,9 +13,9 @@ This file converts the provided bug/feature list into an execution-ready backlog
 ## 1) Prioritized implementation order (impact × ease × dependency)
 
 ### Phase A — High-impact bug fixes, low/medium effort (do first)
-1. **B01** Mounting triggers false “it’s your turn” prompt/sound.
+1. **B01** ✅ Mounting triggers false “it’s your turn” prompt/sound.
 2. **B02** Initiative prompt modal incorrectly gated behind Cast Spell menu.
-3. **B03** Tip dialog resets old message instead of persisting latest message.
+3. **B03** ✅ Tip dialog resets old message instead of persisting latest message.
 4. **B04** Mount requests sent to non-player tokens; DM approval flow missing.
 5. **B05** Player mounting logic broken for shared-tile mounting and rider movement rules.
 6. **B06** ✅ Zoom-out has hard lower limit.
@@ -28,7 +28,7 @@ This file converts the provided bug/feature list into an execution-ready backlog
 11. **U01** Make End Turn more obvious (topbar, stronger visual emphasis, smart highlight conditions).
 12. **U02** Simplify movement mode switching for DM/players.
 13. **U03** Remove unnecessary initiative top dropdown UI in LAN client.
-14. **U04** Remove show/hide initiative button.
+14. **U04** ✅ Remove show/hide initiative button.
 15. **U05** Add hotkey/button to fully hide/show bottom panel (default `Delete`).
 16. **U06** Responsive compact mode for small screens.
 17. **U07** Show HP bar on player screen with color thresholds.
@@ -71,6 +71,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Acceptance criteria:**
   - Mount action (request/approve/complete) does **not** trigger turn-start audio/“your turn” prompt unless turn actually changed to that player.
   - No regression in real turn-start notification.
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** `maybeShowTurnAlert()` now only triggers when `active_cid` or `round_num` actually changed, preventing mount-related full-state refreshes from retriggering alerts.
 - **Investigation context (2026-02-15):**
   - LAN client calls `maybeShowTurnAlert()` on full `"state"` messages and on `"turn_update"` messages (`assets/web/lan/index.html`).
   - Mount completion currently calls `_lan_force_state_broadcast()` in `_accept_mount(...)`, which always emits a fresh `"state"` message (`dnd_initative_tracker.py`).
@@ -102,6 +104,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Acceptance criteria:**
   - Last emitted tip/error remains visible until replaced by a newer message.
   - No automatic fallback reset to default hint text.
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** Verified current LAN client behavior already satisfies this: `localToast(...)` writes directly to `#note` with no timeout-based reset in the current code.
 - **Investigation context (2026-02-15):**
   - `localToast(...)` and websocket `"toast"`/claim handlers update `#note` and then use unconditional `setTimeout(..., 2500)` resets (`assets/web/lan/index.html`).
   - Multiple overlapping timers can race; an older timer can overwrite a newer status message.
@@ -268,6 +272,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Dependencies:** U03
 - **Likely files:** `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
 - **Technical starting points:** `initiativeToggleBtn`, `toggleInitiativeBar`.
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** Removed topbar `initiativeToggleBtn` entrypoint from LAN markup; internal initiative state/render logic remains intact for compatibility.
 - **Investigation context (2026-02-15):**
   - `initiativeToggleBtn` and `toggleInitiativeBar()` are still active in LAN UI code.
   - Removing this safely likely means preserving internal style state handling while deleting the control entrypoint.
