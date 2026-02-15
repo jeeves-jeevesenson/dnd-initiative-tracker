@@ -2229,7 +2229,7 @@ class InitiativeTracker(tk.Tk):
             # Update map highlight (if map is open)
             try:
                 if self._map_window is not None and self._map_window.winfo_exists():
-                    self._map_window.set_active(c.cid)
+                    self._map_window.set_active(c.cid, auto_center=True)
             except Exception:
                 pass
 
@@ -5970,6 +5970,24 @@ class BattleMapWindow(tk.Toplevel):
             gh = float(self.rows) * float(self.cell)
             cx = self._map_margin + gw / 2.0
             cy = self._map_margin + gh / 2.0
+            left = max(0.0, min(1.0, (cx - cw / 2.0) / sw))
+            top = max(0.0, min(1.0, (cy - ch / 2.0) / sh))
+            self.canvas.xview_moveto(left)
+            self.canvas.yview_moveto(top)
+        except Exception:
+            pass
+
+    def _center_on_cid(self, cid: int) -> None:
+        try:
+            tok = self.unit_tokens.get(int(cid))
+            if not tok:
+                return
+            cx, cy = self._grid_to_pixel(int(tok["col"]), int(tok["row"]))
+            sr = tuple(map(float, self.canvas.cget("scrollregion").split()))
+            sw = max(1.0, sr[2] - sr[0])
+            sh = max(1.0, sr[3] - sr[1])
+            cw = max(1.0, float(self.canvas.winfo_width()))
+            ch = max(1.0, float(self.canvas.winfo_height()))
             left = max(0.0, min(1.0, (cx - cw / 2.0) / sw))
             top = max(0.0, min(1.0, (cy - ch / 2.0) / sh))
             self.canvas.xview_moveto(left)
@@ -10022,12 +10040,14 @@ class BattleMapWindow(tk.Toplevel):
         return included
 
     # ---------------- Active token highlight ----------------
-    def set_active(self, cid: Optional[int]) -> None:
+    def set_active(self, cid: Optional[int], auto_center: bool = False) -> None:
         self._active_cid = cid
         self._apply_active_highlight()
         self._update_move_highlight()
         # Conditions / markers often change on turn transitions; refresh token markers + group labels.
         self._update_groups()
+        if auto_center and cid is not None:
+            self._center_on_cid(cid)
 
     def _apply_active_highlight(self) -> None:
         # reset all outlines to width=2

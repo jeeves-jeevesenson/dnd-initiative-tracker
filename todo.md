@@ -37,7 +37,7 @@ This file converts the provided bug/feature list into an execution-ready backlog
 16. **U06** ✅ Responsive compact mode for small screens.
 17. **U07** ✅ Show HP bar on player screen with color thresholds.
 18. **U08** ✅ Show condition duration/details in top initiative tracker chips.
-19. **U09** Auto-center DM map to active ally/enemy turn + clear turn notice.
+19. **U09** ✅ Auto-center DM map to active ally/enemy turn + clear turn notice.
 
 ### Phase C — Combat automation overhaul epics (highest complexity)
 24. **F05** Player weapon schema overhaul + presets in player YAML.
@@ -350,6 +350,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/helper_script.py`
 - **Requirements:** on ally/enemy turn start, center map on unit and show clear turn-start notification.
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** DM Tkinter Map Mode now auto-centers on the active token each turn (`BattleMapWindow.set_active(..., auto_center=True)` from turn-entry flow), while preserving existing turn-start log notifications (`START R# <name>`).
 - **Investigation context (2026-02-15):**
   - Active-turn state is already explicit (`active_cid`) in LAN/DM state paths.
   - Manual centering controls already exist, so auto-focus can likely reuse existing camera/center helpers.
