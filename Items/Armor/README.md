@@ -1,6 +1,8 @@
 # Armor YAML Schema (Draft)
 
-Use one YAML file per armor item.
+Use either:
+- one YAML file per armor item, or
+- a catalog YAML with `armors: []` entries.
 
 ```yaml
 format_version: 1
