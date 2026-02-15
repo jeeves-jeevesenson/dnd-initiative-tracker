@@ -62,6 +62,7 @@ except Exception as e:  # pragma: no cover
 
 
 FAIL_OUTCOME_LABELS = {"fail", "failed", "failure", "failed_save", "fail_save"}
+USER_YAML_DIRNAME = "Dnd-Init-Yamls"
 
 
 def _app_base_dir() -> Path:
@@ -80,16 +81,21 @@ def _app_base_dir() -> Path:
 
 
 def _app_data_dir() -> Path:
-    if sys.platform.startswith("win"):
-        local_appdata = os.getenv("LOCALAPPDATA")
-        if local_appdata:
-            return Path(local_appdata) / "DnDInitiativeTracker"
+    override = os.getenv("INITTRACKER_DATA_DIR")
+    if override:
+        try:
+            return Path(override).expanduser()
+        except Exception:
+            pass
+    try:
+        docs_dir = Path.home() / "Documents"
+        return docs_dir / USER_YAML_DIRNAME
+    except Exception:
+        pass
     return _app_base_dir()
 
 
 def _seed_user_players_dir() -> None:
-    if not sys.platform.startswith("win"):
-        return
     user_dir = _app_data_dir() / "players"
     base_dir = _app_base_dir() / "players"
     if not base_dir.exists():
@@ -108,6 +114,60 @@ def _seed_user_players_dir() -> None:
                 shutil.copy2(path, dest)
     except Exception:
         pass
+
+
+def _bundled_spells_dir() -> Optional[Path]:
+    base_dir = _app_base_dir()
+    canonical = base_dir / "Spells"
+    fallback = base_dir / "spells"
+    if canonical.exists():
+        return canonical
+    if fallback.exists():
+        return fallback
+    return None
+
+
+def _seed_user_spells_dir() -> Optional[Path]:
+    source_dir = _bundled_spells_dir()
+    if source_dir is None:
+        return None
+    user_dir = _app_data_dir() / "Spells"
+    try:
+        user_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return source_dir
+    try:
+        for path in list(source_dir.glob("*.y*ml")):
+            dest = user_dir / path.name
+            if not dest.exists():
+                shutil.copy2(path, dest)
+    except Exception:
+        pass
+    return user_dir
+
+
+def _seed_user_monsters_dir() -> Path:
+    user_dir = _app_data_dir() / "Monsters"
+    base_dir = _app_base_dir() / "Monsters"
+    try:
+        user_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return base_dir
+    if not base_dir.exists():
+        return user_dir
+    try:
+        for path in base_dir.rglob("*"):
+            if not path.is_file() or path.suffix.lower() not in {".yaml", ".yml"}:
+                continue
+            rel = path.relative_to(base_dir)
+            dest = user_dir / rel
+            if dest.exists():
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, dest)
+    except Exception:
+        pass
+    return user_dir
 
 
 def _load_character_schema_helpers() -> Tuple[Callable[[], Dict[str, Any]], Callable[[Any, Any], Any], Callable[[str, str], str]]:
@@ -4474,22 +4534,15 @@ class InitiativeTracker(base.InitiativeTracker):
         return lines
 
     def _resolve_spells_dir(self) -> Optional[Path]:
+        spells_dir = _seed_user_spells_dir()
+        if spells_dir is not None and spells_dir.exists():
+            return spells_dir
         base_dir = _app_base_dir()
-        canonical = base_dir / "Spells"
-        fallback = base_dir / "spells"
-        if canonical.exists():
-            return canonical
-        if fallback.exists():
-            notice = "Using fallback spell directory './spells/'. Prefer './Spells/'."
-            if self._spell_dir_notice != notice:
-                self._oplog(notice, "warning")
-                self._spell_dir_notice = notice
-            return fallback
         notice = f"No spell presets found. Expected './Spells/' under {base_dir}."
         if self._spell_dir_notice != notice:
             self._oplog(notice, "info")
             self._spell_dir_notice = notice
-        return None
+        return spells_dir
 
     def _open_starting_players_dialog(self) -> None:
         """Disable legacy startup dialog; LAN clients use the roster picker modal."""
@@ -13321,7 +13374,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
     # --------------------- Monsters (YAML library) ---------------------
     def _monsters_dir_path(self) -> Path:
-        return _app_base_dir() / "Monsters"
+        return _seed_user_monsters_dir()
 
     def _load_monsters_index(self) -> None:
         """Load ./Monsters/**/*.yml|*.yaml and build an index for monster lookups."""
