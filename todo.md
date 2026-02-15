@@ -198,6 +198,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Likely files:** `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
 - **Required column order:** `Name | Side | HP | Temp HP | AC | Walk | Swim | Fly | Conditions | Initiative`
 - **Special rule:** replace nat-20 separate column with star marker beside initiative value.
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** Updated DM table schema/order to `Name | Side | HP | Temp HP | AC | Walk | Swim | Fly | Conditions | Initiative`, removed standalone Nat20 column, and now render nat-20 as a `★` suffix in the initiative cell.
 - **Investigation context (2026-02-15):**
   - Current tree definition in `helper_script.py` is `name, side, hp, spd, swim, mode, move, effects, init, nat`.
   - The requested `Temp HP`, `AC`, and `Fly` columns are not currently in the table schema.

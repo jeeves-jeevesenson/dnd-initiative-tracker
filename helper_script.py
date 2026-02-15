@@ -675,7 +675,7 @@ class InitiativeTracker(tk.Tk):
         paned.add(table_frame, weight=4)
         paned.add(log_frame, weight=1)
 
-        columns = ("name", "side", "hp", "spd", "swim", "mode", "move", "effects", "init", "nat")
+        columns = ("name", "side", "hp", "temp_hp", "ac", "walk", "swim", "fly", "effects", "init")
         self.tree = ttk.Treeview(
             table_frame, columns=columns, show="headings", selectmode="extended", style="DnD.Treeview"
         )
@@ -683,24 +683,24 @@ class InitiativeTracker(tk.Tk):
         self.tree.heading("name", text="Name", anchor="w")
         self.tree.heading("side", text="Side", anchor="center")
         self.tree.heading("hp", text="HP", anchor="center")
-        self.tree.heading("spd", text="Land", anchor="center")
+        self.tree.heading("temp_hp", text="Temp HP", anchor="center")
+        self.tree.heading("ac", text="AC", anchor="center")
+        self.tree.heading("walk", text="Walk", anchor="center")
         self.tree.heading("swim", text="Swim", anchor="center")
-        self.tree.heading("mode", text="Mode", anchor="center")
-        self.tree.heading("move", text="Move", anchor="center")
-        self.tree.heading("effects", text="Effects", anchor="center")
-        self.tree.heading("init", text="Init", anchor="center")
-        self.tree.heading("nat", text="Nat20", anchor="center")
+        self.tree.heading("fly", text="Fly", anchor="center")
+        self.tree.heading("effects", text="Conditions", anchor="center")
+        self.tree.heading("init", text="Initiative", anchor="center")
 
         self.tree.column("name", width=320, anchor=tk.W)
         self.tree.column("side", width=70, anchor=tk.CENTER)
         self.tree.column("hp", width=60, anchor=tk.CENTER)
-        self.tree.column("spd", width=60, anchor=tk.CENTER)
+        self.tree.column("temp_hp", width=70, anchor=tk.CENTER)
+        self.tree.column("ac", width=60, anchor=tk.CENTER)
+        self.tree.column("walk", width=60, anchor=tk.CENTER)
         self.tree.column("swim", width=60, anchor=tk.CENTER)
-        self.tree.column("mode", width=70, anchor=tk.CENTER)
-        self.tree.column("move", width=70, anchor=tk.CENTER)
+        self.tree.column("fly", width=60, anchor=tk.CENTER)
         self.tree.column("effects", width=260, anchor=tk.CENTER)
-        self.tree.column("init", width=60, anchor=tk.CENTER)
-        self.tree.column("nat", width=60, anchor=tk.CENTER)
+        self.tree.column("init", width=90, anchor=tk.CENTER)
 
         scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scroll.set)
@@ -2923,10 +2923,12 @@ class InitiativeTracker(tk.Tk):
         ordered = self._display_order()
         for i, c in enumerate(ordered):
             side = "Player Character" if getattr(c, "is_pc", False) else ("Ally" if c.ally else "Enemy")
-            nat = "Yes" if c.nat20 else ""
-            mode = self._movement_mode_label(getattr(c, "movement_mode", "normal"))
+            temp_hp = int(getattr(c, "temp_hp", 0) or 0)
+            ac = self._combatant_ac_display(c)
             swim_disp = "" if int(getattr(c, "swim_speed", 0) or 0) == 0 else int(getattr(c, "swim_speed", 0))
-            values = (c.name, side, c.hp, c.speed, swim_disp, mode, self._move_cell(c), self._format_effects(c), c.initiative, nat)
+            fly_disp = "" if int(getattr(c, "fly_speed", 0) or 0) == 0 else int(getattr(c, "fly_speed", 0))
+            init_disp = self._initiative_display(c)
+            values = (c.name, side, c.hp, temp_hp, ac, c.speed, swim_disp, fly_disp, self._format_effects(c), init_disp)
 
             tags: List[str] = []
             tags.append("odd" if i % 2 else "even")
@@ -3013,20 +3015,20 @@ class InitiativeTracker(tk.Tk):
             return
 
         # Columns:
-        # #1 name, #2 side, #3 hp, #4 land spd, #5 swim spd, #6 mode, #7 move, #8 effects, #9 init, #10 nat
+        # #1 name, #2 side, #3 hp, #4 temp hp, #5 ac, #6 walk, #7 swim, #8 fly, #9 conditions, #10 initiative
         if column == "#1":
             self._inline_edit_cell(item, column, str(self.combatants[cid].name), str, lambda v: self._set_name(cid, v), rebuild=False)
             return
-        if column == "#9":
+        if column == "#10":
             self._inline_edit_cell(item, column, str(self.combatants[cid].initiative), int, lambda v: self._set_initiative(cid, v))
             return
         if column == "#3":
             self._inline_edit_cell(item, column, str(self.combatants[cid].hp), int, lambda v: self._set_hp(cid, v))
             return
-        if column == "#4":
+        if column == "#6":
             self._inline_edit_cell(item, column, str(self.combatants[cid].speed), int, lambda v: self._set_speed(cid, v))
             return
-        if column == "#5":
+        if column == "#7":
             self._inline_edit_cell(item, column, str(self.combatants[cid].swim_speed), int, lambda v: self._set_swim_speed(cid, v))
             return
         if column == "#2":
@@ -3044,27 +3046,29 @@ class InitiativeTracker(tk.Tk):
             self._remember_role(c)
             self._rebuild_table(scroll_to_current=True)
             return
-        if column == "#10":
-            c = self.combatants[cid]
-            c.nat20 = not c.nat20
-            self._rebuild_table(scroll_to_current=True)
-            return
-        if column == "#6":
-            c = self.combatants[cid]
-            current = self._normalize_movement_mode(getattr(c, "movement_mode", "normal"))
-            idx = MOVEMENT_MODES.index(current) if current in MOVEMENT_MODES else 0
-            next_mode = MOVEMENT_MODES[(idx + 1) % len(MOVEMENT_MODES)]
-            self._set_movement_mode(cid, next_mode)
-            self._rebuild_table(scroll_to_current=True)
-            return
-        if column == "#7":
-            self.tree.selection_set(item)
-            self._open_move_tool()
-            return
-        if column == "#8":
+        if column == "#9":
             self.tree.selection_set(item)
             self._open_condition_tool()
             return
+
+    def _combatant_ac_display(self, combatant: Combatant) -> str:
+        ac_value = None
+        for key in ("ac", "armor_class"):
+            raw = getattr(combatant, key, None)
+            if raw is not None:
+                ac_value = raw
+                break
+        if ac_value is None:
+            spec = getattr(combatant, "monster_spec", None)
+            raw_data = getattr(spec, "raw_data", None)
+            if isinstance(raw_data, dict):
+                ac_value = raw_data.get("ac", raw_data.get("armor_class"))
+        formatted = self._format_monster_ac(ac_value)
+        return "" if formatted == "—" else formatted
+
+    def _initiative_display(self, combatant: Combatant) -> str:
+        value = str(int(getattr(combatant, "initiative", 0) or 0))
+        return f"{value}★" if bool(getattr(combatant, "nat20", False)) else value
 
     def _inline_edit_cell(self, item: str, column: str, initial: str, caster, setter, rebuild: bool = True) -> None:
         x, y, w, h = self.tree.bbox(item, column)
