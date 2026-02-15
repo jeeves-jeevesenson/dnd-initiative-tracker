@@ -23,7 +23,6 @@ Write clearly, avoid unnecessary complexity, and prioritize changes that are eas
 - Perform targeted refactors only when they directly reduce risk or are required to make a fix safe.
 
 ## Guardrails
-- Prefer **small, surgical patches** over broad refactors.
 - Preserve backward compatibility unless explicitly told to break it.
 - Do not add dependencies unless there is strong, explicit justification.
 - Never expose secrets, tokens, credentials, or `.env` values in output.
