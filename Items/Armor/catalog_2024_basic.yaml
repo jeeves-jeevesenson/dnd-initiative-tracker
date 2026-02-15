@@ -1,0 +1,103 @@
+format_version: 1
+armors:
+  - id: padded
+    name: Padded
+    type: armor
+    category: light
+    ac:
+      base_formula: "11 + Dex mod"
+    properties:
+      stealth_disadvantage: true
+  - id: leather
+    name: Leather
+    type: armor
+    category: light
+    ac:
+      base_formula: "11 + Dex mod"
+  - id: studded_leather
+    name: Studded Leather
+    type: armor
+    category: light
+    ac:
+      base_formula: "12 + Dex mod"
+  - id: hide
+    name: Hide
+    type: armor
+    category: medium
+    ac:
+      base_formula: "12 + Dex mod"
+      dex_cap: 2
+  - id: chain_shirt
+    name: Chain Shirt
+    type: armor
+    category: medium
+    ac:
+      base_formula: "13 + Dex mod"
+      dex_cap: 2
+  - id: scale_mail
+    name: Scale Mail
+    type: armor
+    category: medium
+    ac:
+      base_formula: "14 + Dex mod"
+      dex_cap: 2
+    properties:
+      stealth_disadvantage: true
+  - id: breastplate
+    name: Breastplate
+    type: armor
+    category: medium
+    ac:
+      base_formula: "14 + Dex mod"
+      dex_cap: 2
+  - id: half_plate
+    name: Half Plate
+    type: armor
+    category: medium
+    ac:
+      base_formula: "15 + Dex mod"
+      dex_cap: 2
+    properties:
+      stealth_disadvantage: true
+  - id: ring_mail
+    name: Ring Mail
+    type: armor
+    category: heavy
+    ac:
+      base_formula: "14"
+      dex_cap: 0
+    properties:
+      stealth_disadvantage: true
+  - id: chain_mail
+    name: Chain Mail
+    type: armor
+    category: heavy
+    ac:
+      base_formula: "16"
+      dex_cap: 0
+    requirements:
+      strength: 13
+    properties:
+      stealth_disadvantage: true
+  - id: splint_armor
+    name: Splint Armor
+    type: armor
+    category: heavy
+    ac:
+      base_formula: "17"
+      dex_cap: 0
+    requirements:
+      strength: 15
+    properties:
+      stealth_disadvantage: true
+  - id: plate_armor
+    name: Plate Armor
+    type: armor
+    category: heavy
+    ac:
+      base_formula: "18"
+      dex_cap: 0
+    requirements:
+      strength: 15
+    properties:
+      stealth_disadvantage: true
