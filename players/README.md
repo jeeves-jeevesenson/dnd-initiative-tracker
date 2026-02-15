@@ -343,6 +343,7 @@ defenses:
   - **label**: Human-readable name displayed in UI
   - **when**: Condition or context when this AC applies (freeform text, e.g., "always", "wearing_armor", "unarmored")
   - **base_formula**: Formula for calculating base AC (see [Formula System](#formula-system))
+  - **magic_bonus** / **item_bonus**: Optional flat bonus for magic armor variants (for example +1 armor).
     - Common formulas:
       - Unarmored: `"10 + dex_mod"` or `"10 + dex_mod + con_mod"` (Barbarian) or `"13 + dex_mod"` (Monk)
       - Light Armor: `"11 + dex_mod"` (Leather), `"12 + dex_mod"` (Studded Leather)
@@ -397,6 +398,7 @@ attacks:
   - **name**: Display name for the weapon.
   - **proficient**: Whether proficiency is included when computing to-hit.
   - **to_hit**: Explicit attack bonus for this preset.
+  - **magic_bonus** / **item_bonus**: Optional flat +1/+2 style bonus applied on top of `to_hit`.
   - **range**: Optional melee/ranged reach in feet (or normal/long like `20/60`; LAN attack overlay uses the first value).
   - **one_handed** / **two_handed**: Optional damage mode metadata.
     - **damage_formula**: Damage expression such as `"1d8 + str_mod"`.

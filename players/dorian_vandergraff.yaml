@@ -53,7 +53,7 @@ vitals:
 defenses:
   ac:
     sources:
-    - id: platemail
+    - id: plate_armor
       label: Platemail
       when: always
       base_formula: '20'

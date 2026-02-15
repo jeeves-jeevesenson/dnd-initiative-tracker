@@ -99,6 +99,33 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertEqual(result.get("attack_count"), 2)
 
+    def test_attack_request_applies_weapon_magic_bonus(self):
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_to_hit": 5,
+                "weapons": [
+                    {"id": "longsword", "name": "Longsword", "to_hit": 5, "magic_bonus": 2},
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 14,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "attack_roll": 10,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("to_hit"), 7)
+        self.assertEqual(result.get("total_to_hit"), 17)
+
     def test_attack_request_auto_spends_action_when_no_attack_resource(self):
         msg = {
             "type": "attack_request",
