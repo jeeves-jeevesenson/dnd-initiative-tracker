@@ -18,7 +18,7 @@ This file converts the provided bug/feature list into an execution-ready backlog
 3. **B03** Tip dialog resets old message instead of persisting latest message.
 4. **B04** Mount requests sent to non-player tokens; DM approval flow missing.
 5. **B05** Player mounting logic broken for shared-tile mounting and rider movement rules.
-6. **B06** Zoom-out has hard lower limit.
+6. **B06** ✅ Zoom-out has hard lower limit.
 7. **B07** Non-modal popup behavior on DM Tkinter app (windows block each other).
 8. **B08** DM initiative tracker columns/order cleanup.
 9. **B09** Spell rotation support incomplete (“cannot rotate all spells”).
@@ -158,6 +158,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Ease:** Easy
 - **Likely files:** `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
 - **Acceptance criteria:** zoom-out no longer hard-stops at previous minimum; map remains stable (no NaN/negative/zero rendering failures).
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** Lower zoom clamp minimum reduced from `12` to `0.1` in `clampZoom(...)`, removing the prior hard stop while still preventing zero/negative zoom.
 - **Investigation context (2026-02-15):**
   - Zoom is hard-clamped by `clampZoom(value) { return Math.min(90, Math.max(12, value)); }` (`assets/web/lan/index.html`).
   - `zoomOut` button calls `zoomAt(zoom - 4, ...)`, so users always stop at 12 due to clamp.

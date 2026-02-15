@@ -8565,7 +8565,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function clampZoom(value){
-    return Math.min(90, Math.max(12, value));
+    return Math.min(90, Math.max(0.1, value));
   }
 
   function zoomAt(newZoom, focusX, focusY){
