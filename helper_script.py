@@ -2520,7 +2520,7 @@ class InitiativeTracker(tk.Tk):
                         changed = True
                 if changed:
                     self._lan_aoes = lan_store
-        self._log(f"🛡 {c.name} loses concentration on {spell_name}.")
+        self._log(f"{c.name} loses concentration on {spell_name}.")
 
     def _queue_concentration_save(self, c: Combatant, source: str) -> None:
         if not getattr(c, "concentrating", False):
@@ -2568,7 +2568,7 @@ class InitiativeTracker(tk.Tk):
             def on_pass() -> None:
                 state["remaining_saves"] = max(0, int(state.get("remaining_saves", 0) or 0) - 1)
                 spell_name = str(getattr(c, "concentration_spell", "") or "").replace("-", " ").strip().title() or "their spell"
-                self._log(f"🛡 {c.name} maintains concentration on {spell_name}.")
+                self._log(f"{c.name} maintains concentration on {spell_name}.")
                 if int(state.get("remaining_saves", 0) or 0) <= 0:
                     if win.winfo_exists():
                         win.destroy()
@@ -3146,6 +3146,16 @@ class InitiativeTracker(tk.Tk):
     def _set_temp_hp(self, cid: int, new_temp_hp: int) -> None:
         if cid in self.combatants:
             setattr(self.combatants[cid], "temp_hp", max(0, int(new_temp_hp)))
+
+    def _apply_heal_to_combatant(self, cid: int, amount: int, *, is_temp_hp: bool = False) -> bool:
+        c = self.combatants.get(cid)
+        if c is None:
+            return False
+        if is_temp_hp:
+            setattr(c, "temp_hp", max(0, int(amount)))
+            return True
+        c.hp = max(0, int(c.hp) + int(amount))
+        return True
 
     def _set_ac(self, cid: int, new_ac: int) -> None:
         if cid in self.combatants:
@@ -4760,6 +4770,9 @@ class InitiativeTracker(tk.Tk):
 
         ttk.Button(add_row, text="Add another heal", command=on_add).pack(side=tk.LEFT)
 
+        temp_hp_mode = tk.BooleanVar(value=False)
+        ttk.Checkbutton(add_row, text="Temporary HP", variable=temp_hp_mode).pack(side=tk.LEFT, padx=(10, 0))
+
         close_after = tk.BooleanVar(value=True)
         ttk.Checkbutton(add_row, text="Close after apply", variable=close_after).pack(side=tk.RIGHT)
 
@@ -4797,19 +4810,26 @@ class InitiativeTracker(tk.Tk):
                     messagebox.showerror("Heal", f"Row {idx}: Amount must be positive.", parent=dlg)
                     return
 
+                if not self._apply_heal_to_combatant(cid, amt, is_temp_hp=temp_hp_mode.get()):
+                    continue
+
                 c = self.combatants.get(cid)
                 if c is None:
                     continue
-
                 target_name = c.name
                 attacker_label = row["attacker_var"].get()
                 attacker_name = _parse_name_from_label(attacker_label)
 
-                c.hp = max(0, int(c.hp) + int(amt))
-                if attacker_name:
-                    self._log(f"{attacker_name} heals {target_name} for {amt} HP")
+                if temp_hp_mode.get():
+                    if attacker_name:
+                        self._log(f"{attacker_name} grants {target_name} {amt} temp HP")
+                    else:
+                        self._log(f"{target_name} gains {amt} temp HP")
                 else:
-                    self._log(f"{target_name} heals {amt} HP")
+                    if attacker_name:
+                        self._log(f"{attacker_name} heals {target_name} for {amt} HP")
+                    else:
+                        self._log(f"{target_name} heals {amt} HP")
 
             self._rebuild_table(scroll_to_current=True)
 
@@ -9796,9 +9816,9 @@ class BattleMapWindow(tk.Toplevel):
                 before = int(getattr(c, "hp", 0))
                 if is_immune:
                     if immune_desc:
-                        self.app._log(f"🛡 Damage to {c.name} was blocked — immune to {immune_desc}.")
+                        self.app._log(f"Damage to {c.name} was blocked — immune to {immune_desc}.")
                     else:
-                        self.app._log(f"🛡 Damage to {c.name} was blocked — immune.")
+                        self.app._log(f"Damage to {c.name} was blocked — immune.")
                 elif total_damage > 0:
                     damage_dealt = True
                     c.hp = max(0, before - int(total_damage))
@@ -9820,20 +9840,20 @@ class BattleMapWindow(tk.Toplevel):
                     if total_damage == 0:
                         if use_att:
                             self.app._log(
-                                f"🔮 {dname}: {attacker} hits {c.name} (save {save_name} {tot}) — no damage{nat1_note}"
+                                f"{dname}: {attacker} hits {c.name} (save {save_name} {tot}) — no damage{nat1_note}"
                             )
                         else:
-                            self.app._log(f"🛡 {dname}: {c.name} avoids AoE damage (save {save_name} {tot}){nat1_note}")
+                            self.app._log(f"{dname}: {c.name} avoids AoE damage (save {save_name} {tot}){nat1_note}")
                     else:
                         half_note = " (half on pass per component)" if (passed and half_on_pass.get()) else ""
                         dead_note = " (Dead)" if (died and use_att) else ""
                         if use_att:
                             self.app._log(
-                                f"🎲🔮 {dname}: {attacker} hits {c.name} for {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note}){dead_note}"
+                                f"{dname}: {attacker} hits {c.name} for {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note}){dead_note}"
                             )
                         else:
                             self.app._log(
-                                f"🔮 {dname}: {c.name} takes {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note})"
+                                f"{dname}: {c.name} takes {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note})"
                             )
 
                 if died and use_att and not is_immune:

@@ -24,9 +24,9 @@ This file converts the provided bug/feature list into an execution-ready backlog
 9. **B09** ✅ Spell rotation support incomplete (“cannot rotate all spells”).
 10. **B10** Wild Shape quality/regression cleanup.
 11. **B11** ✅ Add are you sure warning on dismiss summons. are you sure you want to dismiss (list summons) 
-11. **B12** Add are you sure warning on dismiss summons. are you sure you want to dismiss (list summons)
-12. **B13** In the heal window on the DM tinkter tracker, add a toggle for if the value is temporary health. Any temp health given to a player overrides the previous temp health. If Gary has 4 temp hp and i open the dialague and Target Gary heals Gary for 8 temp hp, it would just be 8 temp hp. the 4 would be overwritten.
-13. **B14** Remove emojis from battle logging
+11. **B12** ✅ Add are you sure warning on dismiss summons. are you sure you want to dismiss (list summons)
+12. **B13** ✅ In the heal window on the DM tinkter tracker, add a toggle for if the value is temporary health. Any temp health given to a player overrides the previous temp health. If Gary has 4 temp hp and i open the dialague and Target Gary heals Gary for 8 temp hp, it would just be 8 temp hp. the 4 would be overwritten.
+13. **B14** ✅ Remove emojis from battle logging
 
 ### Phase B — UX improvements (medium impact, low/medium effort)
 11. **U01** ✅ Make End Turn more obvious (topbar, stronger visual emphasis, smart highlight conditions).

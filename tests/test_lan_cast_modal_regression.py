@@ -41,8 +41,9 @@ class LanCastModalRegressionTests(unittest.TestCase):
 
     def test_dismiss_summons_requires_confirmation_with_list(self):
         self.assertIn('cidMatches(u?.summoned_by_cid, claimedCid, "dismissSummons.owner")', self.html)
+        self.assertIn('const summonList = summonedUnits.map(u => `- ${u?.name || `#${u?.cid ?? "?"}`}`).join("\\n");', self.html)
         self.assertIn('window.confirm(', self.html)
-        self.assertIn('Are ye sure ye want to dismiss these summons?', self.html)
+        self.assertIn("dismiss these summons?\\n${summonList}", self.html)
 
     def test_config_no_longer_renders_initiative_style_dropdown(self):
         self.assertNotIn('<div class="config-item-title">Initiative strip</div>', self.html)
