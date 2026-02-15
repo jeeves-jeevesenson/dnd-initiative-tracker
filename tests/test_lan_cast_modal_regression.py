@@ -39,6 +39,11 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn("speeds,", self.html)
         self.assertIn('const castType = pendingSummonPlacement.mode === "custom_summon" ? "cast_aoe" : "cast_spell";', self.html)
 
+    def test_dismiss_summons_requires_confirmation_with_list(self):
+        self.assertIn('cidMatches(u?.summoned_by_cid, claimedCid, "dismissSummons.owner")', self.html)
+        self.assertIn('window.confirm(', self.html)
+        self.assertIn('Are ye sure ye want to dismiss these summons?', self.html)
+
 
 if __name__ == "__main__":
     unittest.main()

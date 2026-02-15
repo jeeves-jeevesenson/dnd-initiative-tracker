@@ -12787,6 +12787,18 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Claim a character first, matey.");
         return;
       }
+      const summonedUnits = Array.isArray(state?.units)
+        ? state.units.filter(u => cidMatches(u?.summoned_by_cid, claimedCid, "dismissSummons.owner"))
+        : [];
+      if (!summonedUnits.length){
+        localToast("Ye have no summons to dismiss.");
+        return;
+      }
+      const summonList = summonedUnits.map(u => `- ${u?.name || `#${u?.cid ?? "?"}`}`).join("\n");
+      const confirmed = window.confirm(
+        `Are ye sure ye want to dismiss these summons?\n${summonList}`
+      );
+      if (!confirmed) return;
       send({type:"dismiss_summons", target_caster_cid: claimedCid, cid: claimedCid});
     });
   }
