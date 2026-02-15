@@ -1,0 +1,16 @@
+name: Johns Echo
+hp: 1
+speed:
+  Normal: 35 ft.
+  Climb: 0 ft.
+  Fly: 0 ft.
+  Swim: 0 ft.
+  Burrow: 0 ft.
+initiative: '+0'
+abilities:
+  Str: 20
+  Dex: 11
+  Con: 16
+  Int: 7
+  Wis: 12
+  Cha: 20
