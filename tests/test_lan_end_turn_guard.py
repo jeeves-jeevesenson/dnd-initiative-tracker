@@ -13,6 +13,8 @@ class LanEndTurnGuardTests(unittest.TestCase):
         self.app._is_admin_token_valid = lambda token: False
         self.app._summon_can_be_controlled_by = lambda claimed, target: False
         self.app._is_valid_summon_turn_for_controller = lambda controlling, target, current: True
+        self.app._end_turn_cleanup = lambda cid, skip_decrement_types=None: None
+        self.app._log_turn_end = lambda cid: None
         self.app.in_combat = True
         self.app.current_cid = 1
         self.app.combatants = {
@@ -23,6 +25,7 @@ class LanEndTurnGuardTests(unittest.TestCase):
             "LanStub",
             (),
             {
+                "_claims": {7: 1},
                 "toast": lambda _self, ws_id, message: self.toasts.append((ws_id, message)),
                 "_append_lan_log": lambda *args, **kwargs: None,
             },
