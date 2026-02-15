@@ -207,6 +207,7 @@ class WildShapeTests(unittest.TestCase):
         self.assertFalse(c.is_wild_shaped)
         self.assertEqual(c.name, "Alice")
         self.assertTrue(c.is_spellcaster)
+        self.assertEqual(c.temp_hp, 5)
 
     def test_wild_resurgence_slot_exchange(self):
         self.app._resolve_spell_slot_profile = lambda _name: (
