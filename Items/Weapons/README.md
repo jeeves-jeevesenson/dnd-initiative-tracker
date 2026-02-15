@@ -10,7 +10,7 @@ type: "weapon"
 category: "martial_melee"
 proficient: true
 attack_bonus: 0
-range: "5"
+range: 5
 damage:
   one_handed:
     formula: "1d8"
@@ -21,3 +21,7 @@ riders:
     formula: "1d6"
     type: "fire"
 ```
+
+`type` values for damage/riders should use standard damage types when possible. If a custom
+type is needed (for example `hellfire`), document its rules in `notes` so automation can
+interpret special handling.

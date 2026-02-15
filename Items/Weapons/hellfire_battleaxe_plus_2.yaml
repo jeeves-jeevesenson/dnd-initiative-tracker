@@ -5,7 +5,7 @@ type: weapon
 category: martial_melee
 proficient: true
 attack_bonus: 2
-range: "5"
+range: 5
 damage:
   one_handed:
     formula: 1d8 + 2
@@ -15,7 +15,7 @@ riders:
     trigger: on_hit
     formula: 1d6
     type: hellfire
-    notes: Ignores fire resistance and immunity.
+    notes: Hellfire is treated like fire damage, but it ignores fire resistance and immunity.
   - id: hellfire_stack_unique_per_turn
     trigger: on_hit
     effect: apply_dot_stack
