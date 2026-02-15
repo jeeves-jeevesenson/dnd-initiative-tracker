@@ -6517,7 +6517,24 @@ __DAMAGE_TYPE_OPTIONS__
       typeSelect.appendChild(option);
     });
     if (initialType){
-      typeSelect.value = String(initialType).trim().toLowerCase();
+      const normalizedInitial = String(initialType).trim().toLowerCase();
+      let matchedValue = "";
+      Array.from(typeSelect.options || []).forEach((opt) => {
+        if (matchedValue) return;
+        if (String(opt?.value || "").trim().toLowerCase() === normalizedInitial){
+          matchedValue = String(opt.value || "");
+        }
+      });
+      if (!matchedValue && normalizedInitial){
+        const customOption = document.createElement("option");
+        customOption.value = normalizedInitial;
+        customOption.textContent = normalizedInitial;
+        typeSelect.appendChild(customOption);
+        matchedValue = normalizedInitial;
+      }
+      if (matchedValue){
+        typeSelect.value = matchedValue;
+      }
     }
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
@@ -6576,7 +6593,28 @@ __DAMAGE_TYPE_OPTIONS__
     attackResolveBody.textContent = `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`
       + (hintParts.length ? ` ${hintParts.join(" ")}` : "");
     attackDamageRows.textContent = "";
-    addAttackDamageRow();
+    const suggestedTypes = [];
+    const pushSuggestedType = (value) => {
+      const normalized = String(value || "").trim().toLowerCase();
+      if (!normalized || suggestedTypes.includes(normalized)) return;
+      suggestedTypes.push(normalized);
+    };
+    if (mode){
+      pushSuggestedType(mode.damage_type);
+    }
+    if (riderText){
+      // Match rider snippets like "1d6 fire damage" (or "d6 fire damage") and collect the extracted damage type.
+      const riderRegex = /(\d*d\d+(?:\s*[+\-]\s*\d+)?)\s+([a-zA-Z]+)\s+damage/gi;
+      let riderMatch = null;
+      while ((riderMatch = riderRegex.exec(riderText))){
+        pushSuggestedType(riderMatch[2]);
+      }
+    }
+    if (suggestedTypes.length){
+      suggestedTypes.forEach((dtype) => addAttackDamageRow("", dtype));
+    } else {
+      addAttackDamageRow();
+    }
     attackDamageRows.classList.remove("hidden");
     if (attackDamageAdd) attackDamageAdd.classList.remove("hidden");
     if (attackResolveHit) attackResolveHit.checked = true;

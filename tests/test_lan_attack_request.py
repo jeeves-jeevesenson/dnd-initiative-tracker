@@ -26,13 +26,32 @@ class LanAttackRequestTests(unittest.TestCase):
         }
         self.app._log = lambda message, cid=None: self.logs.append((cid, message))
         self.app.in_combat = True
+        self.app.round_num = 1
+        self.app.turn_num = 1
+        self.app._next_stack_id = 1
+        self.app.start_cid = None
         self.app.current_cid = 1
         self.app.combatants = {
-            1: type("C", (), {"cid": 1, "name": "Aelar", "ac": 16, "hp": 25})(),
-            2: type("C", (), {"cid": 2, "name": "Goblin", "ac": 15, "hp": 20})(),
+            1: type("C", (), {"cid": 1, "name": "Aelar", "ac": 16, "hp": 25, "condition_stacks": []})(),
+            2: type(
+                "C",
+                (),
+                {
+                    "cid": 2,
+                    "name": "Goblin",
+                    "ac": 15,
+                    "hp": 20,
+                    "condition_stacks": [],
+                    "saving_throws": {},
+                    "ability_mods": {},
+                },
+            )(),
         }
         self.app.combatants[1].action_remaining = 1
         self.app.combatants[1].attack_resource_remaining = 0
+        self.app._display_order = lambda: [self.app.combatants[cid] for cid in sorted(self.app.combatants.keys())]
+        self.app._retarget_current_after_removal = lambda removed, pre_order=None: None
+        self.app._remove_combatants_with_lan_cleanup = lambda cids: [self.app.combatants.pop(int(cid), None) for cid in cids]
         self.app._lan = type(
             "LanStub",
             (),
@@ -239,7 +258,7 @@ class LanAttackRequestTests(unittest.TestCase):
             "hit": True,
         }
 
-        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4, 6]):
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4, 6, 5]):
             self.app._lan_apply_action(msg)
 
         result = msg.get("_attack_result")
@@ -248,7 +267,110 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(result.get("damage_total"), 17)
         self.assertEqual(result.get("damage_entries"), [{"amount": 11, "type": "slashing"}, {"amount": 6, "type": "hellfire"}])
         self.assertEqual(result.get("on_hit_save"), {"ability": "con", "dc": 17})
+        self.assertEqual(result.get("on_hit_save_result", {}).get("passed"), False)
+        self.assertEqual(sum(1 for st in self.app.combatants[2].condition_stacks if getattr(st, "ctype", None) == "prone"), 1)
+        self.assertEqual(len(getattr(self.app.combatants[2], "end_turn_damage_riders", []) or []), 1)
         self.assertEqual(self.app.combatants[2].hp, 3)
+
+    def test_attack_request_on_hit_save_pass_does_not_apply_prone(self):
+        self.app.combatants[2].saving_throws = {"con": 8}
+        self.app._profile_for_player_name = lambda name: {
+            "abilities": {"str": 20},
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapons": [
+                    {
+                        "id": "hellfire_battleaxe_plus_2",
+                        "name": "Hellfire Battleaxe (+2)",
+                        "to_hit": 9,
+                        "one_handed": {"damage_formula": "1d8 + str_mod + 2", "damage_type": "slashing"},
+                        "effect": {
+                            "on_hit": "1d6 hellfire damage. Apply Hellfire Stack condition (max 1 stack per target per turn).",
+                            "save_ability": "con",
+                            "save_dc": 17,
+                        },
+                    }
+                ]
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 18,
+            "target_cid": 2,
+            "weapon_id": "hellfire_battleaxe_plus_2",
+            "hit": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4, 6, 10]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("on_hit_save_result", {}).get("passed"))
+        self.assertEqual(sum(1 for st in self.app.combatants[2].condition_stacks if getattr(st, "ctype", None) == "prone"), 0)
+
+    def test_end_turn_cleanup_applies_hellfire_rider_damage(self):
+        self.app.combatants[2].end_turn_damage_riders = [
+            {"dice": "1d6", "type": "hellfire", "remaining_turns": 1, "source": "Hellfire Battleaxe (+2) (Aelar)"}
+        ]
+        with mock.patch.object(tracker_mod.base.InitiativeTracker, "_end_turn_cleanup", autospec=True) as base_cleanup:
+            with mock.patch("dnd_initative_tracker.random.randint", return_value=4):
+                self.app._end_turn_cleanup(2)
+
+        base_cleanup.assert_called_once()
+        self.assertEqual(self.app.combatants[2].hp, 16)
+        self.assertEqual(getattr(self.app.combatants[2], "end_turn_damage_riders", []), [])
+        self.assertTrue(any("takes 4 hellfire damage" in message for _, message in self.logs))
+
+    def test_attack_request_removes_target_when_player_damage_drops_hp_to_zero(self):
+        self.app.combatants[2].hp = 6
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 19,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [{"amount": 6, "type": "slashing"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertNotIn(2, self.app.combatants)
+        self.assertTrue(any("dropped to 0 -> removed" in message for _, message in self.logs))
+
+    def test_attack_request_allows_second_attack_when_attack_resource_remaining(self):
+        first = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 20,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": False,
+        }
+        second = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 20,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": False,
+        }
+
+        self.app._lan_apply_action(first)
+        self.assertEqual(self.app.combatants[1].action_remaining, 0)
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 1)
+
+        self.app._lan_apply_action(second)
+        result = second.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertFalse(result.get("hit"))
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 0)
 
 
 if __name__ == "__main__":
