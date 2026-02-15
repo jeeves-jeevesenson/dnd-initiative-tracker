@@ -6543,16 +6543,19 @@ __DAMAGE_TYPE_OPTIONS__
 
   function openAttackResolveModal(target, weapon){
     if (!attackResolveBody || !attackDamageRows) return;
-    const mode = weapon?.one_handed && String(weapon.one_handed.damage_formula || "").trim()
-      ? weapon.one_handed
-      : (weapon?.two_handed && String(weapon.two_handed.damage_formula || "").trim() ? weapon.two_handed : null);
+    let mode = null;
+    if (weapon?.one_handed && String(weapon.one_handed.damage_formula || "").trim()){
+      mode = weapon.one_handed;
+    } else if (weapon?.two_handed && String(weapon.two_handed.damage_formula || "").trim()){
+      mode = weapon.two_handed;
+    }
     const effect = weapon?.effect && typeof weapon.effect === "object" ? weapon.effect : null;
     const hintParts = [];
     if (mode){
       const baseFormula = String(mode.damage_formula || "").trim();
       const baseType = String(mode.damage_type || "").trim().toLowerCase();
       if (baseFormula){
-        hintParts.push(`Auto on hit: ${baseFormula}${baseType ? ` ${baseType}` : ""} damage.`);
+        hintParts.push(`Auto-on-hit: ${baseFormula}${baseType ? ` ${baseType}` : ""} damage.`);
       }
     }
     const riderText = String(effect?.on_hit || "").trim();

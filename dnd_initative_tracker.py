@@ -12508,6 +12508,9 @@ class InitiativeTracker(base.InitiativeTracker):
             c = self.combatants.get(cid)
             if not c:
                 return
+            max_damage_dice_count = 100
+            max_damage_die_sides = 1000
+            min_damage_type_length = 3
             def _parse_int(value: Any, fallback: Optional[int] = None) -> Optional[int]:
                 try:
                     return int(value)
@@ -12543,15 +12546,19 @@ class InitiativeTracker(base.InitiativeTracker):
                     return None
                 if not re.fullmatch(r"[0-9d+\-*/(). _a-zA-Z]+", raw):
                     return None
+                identifiers = {token.lower() for token in re.findall(r"\b[a-zA-Z_][a-zA-Z0-9_]*\b", raw)}
+                if not identifiers.issubset({str(key).lower() for key in variables.keys()}):
+                    return None
                 try:
+                    def _replace_die(match: re.Match[str]) -> str:
+                        count = int(match.group(1) or 1)
+                        sides = int(match.group(2))
+                        if count <= 0 or count > max_damage_dice_count or sides <= 0 or sides > max_damage_die_sides:
+                            raise ValueError("invalid dice notation")
+                        return str(sum(random.randint(1, sides) for _ in range(count)))
                     expr = re.sub(
                         r"(\d*)d(\d+)",
-                        lambda m: str(
-                            sum(
-                                random.randint(1, max(1, int(m.group(2))))
-                                for _ in range(max(1, int(m.group(1) or 1)))
-                            )
-                        ),
+                        _replace_die,
                         raw,
                     )
                 except Exception:
@@ -12565,10 +12572,13 @@ class InitiativeTracker(base.InitiativeTracker):
                     return []
                 entries: List[Dict[str, Any]] = []
                 for match in re.finditer(r"(\d*d\d+(?:\s*[+\-]\s*\d+)?)\s+([a-zA-Z]+)\s+damage", effect_text.lower()):
+                    dtype = str(match.group(2) or "").strip().lower()
+                    if len(dtype) < min_damage_type_length:
+                        continue
                     amount = _roll_damage_formula(match.group(1), variables)
                     if amount is None or amount <= 0:
                         continue
-                    entries.append({"amount": int(amount), "type": str(match.group(2) or "").strip().lower()})
+                    entries.append({"amount": int(amount), "type": dtype})
                 return entries
             target_cid = _normalize_cid_value(msg.get("target_cid"), "attack_request.target_cid", log_fn=log_warning)
             target = self.combatants.get(int(target_cid)) if target_cid is not None else None
