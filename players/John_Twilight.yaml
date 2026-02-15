@@ -132,6 +132,14 @@ bonus_actions:
   description: You can take a bonus action only when a feature, spell, or ability
     says you can.
   type: bonus_action
+- name: Summon Johns Echo
+  description: Summon Johns Echo within 15 ft. This consumes your bonus action for
+    this turn.
+  type: bonus_action
+- name: Swap with Johns Echo
+  description: Swap places with Johns Echo within 15 ft. This consumes your bonus
+    action for this turn.
+  type: bonus_action
 spellcasting:
   enabled: false
   spell_yaml_paths: []
