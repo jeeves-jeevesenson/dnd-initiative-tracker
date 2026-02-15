@@ -256,6 +256,7 @@ This project is data-driven; YAML content controls most game data.
 - `Monsters/*.yaml` — monster stat blocks
 - `Spells/*.yaml` — spell definitions/mechanics
 - `players/*.yaml` — player character defaults
+- `Items/Weapons/*.yaml` / `Items/Armor/*.yaml` — structured item definitions (draft schema)
 - `presets/` — terrain/obstacle presets
 
 See schema docs:

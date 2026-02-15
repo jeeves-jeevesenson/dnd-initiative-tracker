@@ -1,0 +1,74 @@
+format_version: 1
+properties:
+  - id: ammunition
+    name: Ammunition
+    kind: standard
+    description: Used for ranged attacks; requires a free hand to load the weapon.
+  - id: finesse
+    name: Finesse
+    kind: standard
+    description: Use your choice of Strength or Dexterity for attack and damage rolls.
+  - id: heavy
+    name: Heavy
+    kind: standard
+    description: Small creatures have disadvantage on attack rolls with these weapons.
+  - id: light
+    name: Light
+    kind: standard
+    description: Ideal for two-weapon fighting; allows for a bonus action attack with a second Light weapon.
+  - id: loading
+    name: Loading
+    kind: standard
+    description: Limits you to firing only one piece of ammunition per action, regardless of how many attacks you normally have.
+  - id: range
+    name: Range
+    kind: standard
+    description: Lists two numbers; attacks beyond normal range and within long range have disadvantage.
+  - id: reach
+    name: Reach
+    kind: standard
+    description: Increases your reach for melee attacks by 5 feet.
+  - id: thrown
+    name: Thrown
+    kind: standard
+    description: You can throw the weapon to make a ranged attack, using the same ability modifier as a melee attack.
+  - id: two_handed
+    name: Two-Handed
+    kind: standard
+    description: Requires two hands to use effectively.
+  - id: versatile
+    name: Versatile
+    kind: standard
+    description: Can be used with one or two hands; uses alternate damage when used with two hands.
+  - id: cleave
+    name: Cleave
+    kind: mastery
+    description: Hit a creature and make a second attack against another creature within 5 feet, dealing weapon damage only.
+  - id: graze
+    name: Graze
+    kind: mastery
+    description: Deal damage equal to your ability modifier even on a missed attack.
+  - id: nick
+    name: Nick
+    kind: mastery
+    description: When two-weapon fighting with a Light weapon, the extra attack is part of your Attack action once per turn.
+  - id: push
+    name: Push
+    kind: mastery
+    description: On a hit, push a Large or smaller creature up to 10 feet away.
+  - id: sap
+    name: Sap
+    kind: mastery
+    description: On a hit, the target has disadvantage on its next attack roll.
+  - id: slow
+    name: Slow
+    kind: mastery
+    description: Reduce a target's speed by 10 feet on a hit that deals damage.
+  - id: topple
+    name: Topple
+    kind: mastery
+    description: On a hit, force a Constitution saving throw or knock the target prone.
+  - id: vex
+    name: Vex
+    kind: mastery
+    description: On a hit, gain advantage on your next attack against the same creature.

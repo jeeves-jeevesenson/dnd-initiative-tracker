@@ -78,6 +78,13 @@ actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
   type: action
+- name: Hellfire Battleaxe (+2)
+  description: Make a melee attack with a +2 battleaxe. On a hit, deal 1d8 + 2 slashing
+    damage plus 1d6 hellfire damage (hellfire ignores fire resistance and immunity).
+    Each unique creature hit by this weapon on your turn gains 1 hellfire stack (multiple
+    hits on the same creature in a turn do not add stacks). At the end of that creature's
+    turn, it takes 1d6 hellfire damage per stack.
+  type: action
 - name: Dash
   description: Gain extra movement for the current turn equal to your speed.
   type: action
