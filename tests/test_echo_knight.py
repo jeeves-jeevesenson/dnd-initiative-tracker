@@ -181,6 +181,12 @@ class EchoKnightLanTests(unittest.TestCase):
         self.assertEqual(len(self._echo_units()), 0)
         self.assertTrue(any("out of echo range" in text for _ws_id, text in self.toasts))
 
+    def test_echo_summon_accepts_payload_to_coordinates(self):
+        self.app.combatants[1].bonus_action_remaining = 1
+        self._apply({"type": "echo_summon", "payload": {"to": {"col": 6, "row": 5}}})
+        self.assertEqual(len(self._echo_units()), 1)
+        self.assertEqual(self.app.combatants[1].bonus_action_remaining, 0)
+
     def test_echo_swap_requires_echo_and_range_then_swaps_positions(self):
         self._apply({"type": "echo_swap"})
         self.assertTrue(any("Summon Johns Echo first" in text for _ws_id, text in self.toasts))
@@ -203,6 +209,12 @@ class EchoKnightLanTests(unittest.TestCase):
         self.toasts.clear()
         self._apply({"type": "echo_swap"})
         self.assertTrue(any("too far to swap" in text for _ws_id, text in self.toasts))
+
+
+class EchoKnightRoutingTests(unittest.TestCase):
+    def test_lan_controller_action_types_include_echo_actions(self):
+        self.assertIn("echo_summon", tracker_mod.LanController._ACTION_MESSAGE_TYPES)
+        self.assertIn("echo_swap", tracker_mod.LanController._ACTION_MESSAGE_TYPES)
 
 
 if __name__ == "__main__":
