@@ -192,6 +192,9 @@ class WildShapeTests(unittest.TestCase):
         }
         self.app._pc_name_for = lambda _cid: "Alice"
         self.app._load_player_yaml_cache = lambda force_refresh=False: None
+        canonical_path = Path("/tmp/alice.yaml")
+        self.app._player_yaml_name_map = {"alice": canonical_path}
+        self.app._player_yaml_cache_by_path = {canonical_path: {"name": "Alice", **self._profile(8)}}
         self.app._player_yaml_data_by_name = {"Alice": self._profile(8)}
         self.app._set_wild_shape_pool_current = lambda _name, value: (True, "", value)
         ok, err = self.app._apply_wild_shape(1, "brown-bear")
@@ -401,6 +404,136 @@ class WildShapeTests(unittest.TestCase):
         self.assertEqual(getattr(app.combatants[1], "wild_shape_pool_current", None), 2)
         self.assertEqual(calls["rebuild"], 1)
         self.assertTrue(any("uses updated" in msg for msg in toasts))
+
+    def test_canonical_players_root_is_used_for_cache_and_wild_shape_roundtrip(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app._player_yaml_cache_by_path = {}
+        app._player_yaml_meta_by_path = {}
+        app._player_yaml_data_by_name = {}
+        app._player_yaml_name_map = {}
+        app._player_profile_path_by_name = {}
+        app._player_yaml_dir_signature = None
+        app._player_yaml_last_refresh = 0.0
+        app._player_yaml_refresh_interval_s = 0.0
+        app._player_yaml_lock = tracker_mod.threading.Lock()
+        app._players_dir_cache = None
+        app._players_dir_policy_cache = None
+        app._players_dir_logged = False
+        app._yaml_player_key = lambda path, root: path.name
+        app._yaml_players_sync_index = lambda files: {}
+        app._schedule_player_yaml_refresh = lambda: None
+        app._character_slugify = lambda value: str(value or "").strip().lower().replace(" ", "-")
+
+        original_base = tracker_mod._app_base_dir
+        original_data = tracker_mod._app_data_dir
+        original_policy = tracker_mod._players_dir_policy
+        original_seed = tracker_mod._seed_user_players_dir
+
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            repo_players = tmp / "repo" / "players"
+            appdata_players = tmp / "appdata" / "players"
+            repo_players.mkdir(parents=True, exist_ok=True)
+            appdata_players.mkdir(parents=True, exist_ok=True)
+
+            repo_payload = {
+                "name": "Leaf",
+                "leveling": {"classes": [{"name": "Druid", "level": 8}]},
+                "prepared_wild_shapes": ["wolf"],
+                "learned_wild_shapes": ["wolf"],
+                "resources": {"pools": [{"id": "wild_shape", "current": 2, "max": 2}]},
+            }
+            appdata_payload = {
+                "name": "Leaf",
+                "leveling": {"classes": [{"name": "Druid", "level": 8}]},
+                "prepared_wild_shapes": ["wolf"],
+                "learned_wild_shapes": ["wolf"],
+                "resources": {"pools": [{"id": "wild_shape", "current": 2, "max": 2}]},
+            }
+            (repo_players / "leaf.yaml").write_text(yaml.safe_dump(repo_payload, sort_keys=False), encoding="utf-8")
+            canonical_path = appdata_players / "leaf.yaml"
+            canonical_path.write_text(yaml.safe_dump(appdata_payload, sort_keys=False), encoding="utf-8")
+
+            tracker_mod._app_base_dir = lambda: tmp / "repo"
+            tracker_mod._app_data_dir = lambda: tmp / "appdata"
+            tracker_mod._players_dir_policy = lambda: "app_data"
+            tracker_mod._seed_user_players_dir = lambda: None
+
+            try:
+                app._load_player_yaml_cache(force_refresh=True)
+                loaded_path = app._player_yaml_name_map.get("leaf")
+                self.assertEqual(loaded_path, canonical_path)
+                self.assertEqual(app._player_yaml_data_by_name["Leaf"].get("prepared_wild_shapes"), ["wolf"])
+
+                app.in_combat = False
+                app.combatants = {1: type("C", (), {"cid": 1})()}
+                app._pc_name_for = lambda _cid: "Leaf"
+                app._is_admin_token_valid = lambda _token: True
+                app._summon_can_be_controlled_by = lambda claimed, cid: False
+                app._rebuild_table = lambda scroll_to_current=False: None
+                app._wild_shape_known_by_player = {}
+                app._wild_shape_available_forms = lambda profile, known_only=False, include_locked=False: [
+                    {"id": "wolf"},
+                    {"id": "brown-bear"},
+                ]
+                app._lan = type("Lan", (), {"toast": lambda self, ws_id, text: None, "_append_lan_log": lambda self, msg, level='warning': None})()
+
+                app._lan_apply_action({
+                    "type": "wild_shape_set_known",
+                    "cid": 1,
+                    "_ws_id": 7,
+                    "admin_token": "ok",
+                    "known": ["brown-bear"],
+                })
+
+                updated = yaml.safe_load(canonical_path.read_text(encoding="utf-8"))
+                untouched = yaml.safe_load((repo_players / "leaf.yaml").read_text(encoding="utf-8"))
+                self.assertEqual(updated.get("prepared_wild_shapes"), ["brown-bear"])
+                self.assertEqual(untouched.get("prepared_wild_shapes"), ["wolf"])
+
+                app._wild_shape_available_forms = tracker_mod.InitiativeTracker._wild_shape_available_forms.__get__(app, tracker_mod.InitiativeTracker)
+                app._wild_shape_beast_cache = [
+                    {
+                        "id": "brown-bear",
+                        "name": "Brown Bear",
+                        "challenge_rating": 1.0,
+                        "size": "Large",
+                        "ac": 11,
+                        "speed": {"walk": 40, "swim": 0, "fly": 0, "climb": 30},
+                        "abilities": {"str": 17, "dex": 12, "con": 15, "int": 2, "wis": 13, "cha": 7},
+                        "actions": [{"name": "Claw", "type": "action"}],
+                    }
+                ]
+                app.combatants = {
+                    1: type("C", (), {
+                        "cid": 1,
+                        "name": "Leaf",
+                        "speed": 30,
+                        "swim_speed": 0,
+                        "fly_speed": 0,
+                        "climb_speed": 0,
+                        "burrow_speed": 0,
+                        "movement_mode": "Normal",
+                        "dex": 14,
+                        "con": 12,
+                        "str": 10,
+                        "temp_hp": 0,
+                        "actions": [{"name": "Magic", "type": "action"}],
+                        "bonus_actions": [],
+                        "is_spellcaster": True,
+                    })()
+                }
+                app._set_wild_shape_pool_current = lambda _name, value: (True, "", value)
+                app._load_player_yaml_cache(force_refresh=True)
+                ok, err = app._apply_wild_shape(1, "brown-bear")
+                self.assertTrue(ok, err)
+                self.assertIn("Brown Bear", app.combatants[1].name)
+            finally:
+                tracker_mod._app_base_dir = original_base
+                tracker_mod._app_data_dir = original_data
+                tracker_mod._players_dir_policy = original_policy
+                tracker_mod._seed_user_players_dir = original_seed
 
 
 if __name__ == "__main__":

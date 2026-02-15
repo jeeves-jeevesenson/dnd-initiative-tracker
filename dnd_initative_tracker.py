@@ -87,7 +87,22 @@ def _app_data_dir() -> Path:
     return _app_base_dir()
 
 
+def _players_dir_policy() -> str:
+    raw = str(os.getenv("INITTRACKER_PLAYERS_DIR_POLICY", "app_data") or "").strip().lower()
+    if raw in {"repo_local", "repo", "local"}:
+        return "repo_local"
+    return "app_data"
+
+
+def _players_dir_for_policy(policy: str) -> Path:
+    if policy == "repo_local":
+        return _app_base_dir() / "players"
+    return _app_data_dir() / "players"
+
+
 def _seed_user_players_dir() -> None:
+    if _players_dir_policy() != "app_data":
+        return
     if not sys.platform.startswith("win"):
         return
     user_dir = _app_data_dir() / "players"
@@ -4180,6 +4195,10 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_data_by_name: Dict[str, Dict[str, Any]] = {}
         self._player_yaml_name_map: Dict[str, Path] = {}
         self._player_yaml_dir_signature: Optional[Tuple[int, int, Tuple[str, ...]]] = None
+        self._players_dir_cache: Optional[Path] = None
+        self._players_dir_policy_cache: Optional[str] = None
+        self._players_dir_logged = False
+        self._player_profile_path_by_name: Dict[str, str] = {}
         self._player_yaml_last_refresh = 0.0
         self._player_yaml_refresh_interval_s = 1.0
         self._player_yaml_lock = threading.Lock()
@@ -4188,6 +4207,10 @@ class InitiativeTracker(base.InitiativeTracker):
         self._yaml_players_index_path_cache: Optional[Path] = None
         self._roster_manager_refresh: Optional[Callable[[], None]] = None
         self._yaml_players_refresh_cache(rebuild=True)
+        try:
+            self._players_dir()
+        except Exception:
+            pass
 
         # LAN state for when map window isn't open
         self._lan_grid_cols = 20
@@ -6194,6 +6217,11 @@ class InitiativeTracker(base.InitiativeTracker):
             "round_num": int(getattr(self, "round_num", 0) or 0),
             "turn_order": turn_order,
         }
+        if os.getenv("INITTRACKER_DEV_DIAGNOSTICS") == "1":
+            try:
+                snap["debug_players_dir"] = str(self._players_dir().resolve())
+            except Exception:
+                snap["debug_players_dir"] = str(self._players_dir())
         if include_static:
             snap["spell_presets"] = self._spell_presets_payload()
             snap["player_spells"] = self._player_spell_config_payload()
@@ -6765,8 +6793,19 @@ class InitiativeTracker(base.InitiativeTracker):
         return presets
 
     def _players_dir(self) -> Path:
+        policy = _players_dir_policy()
+        players_dir = _players_dir_for_policy(policy)
         _seed_user_players_dir()
-        return _app_data_dir() / "players"
+        cached_policy = getattr(self, "_players_dir_policy_cache", None)
+        cached_dir = getattr(self, "_players_dir_cache", None)
+        if cached_policy != policy or not isinstance(cached_dir, Path) or cached_dir != players_dir:
+            self._players_dir_policy_cache = policy
+            self._players_dir_cache = players_dir
+            self._players_dir_logged = False
+        if not bool(getattr(self, "_players_dir_logged", False)):
+            self._oplog(f"Player profile directory policy='{policy}' resolved_path='{players_dir.resolve()}'", level="info")
+            self._players_dir_logged = True
+        return players_dir
 
     def _write_player_yaml_atomic(self, path: Path, payload: Dict[str, Any]) -> None:
         if yaml is None:
@@ -7047,6 +7086,7 @@ class InitiativeTracker(base.InitiativeTracker):
         return raw if isinstance(raw, dict) else {}
 
     def _store_character_yaml(self, path: Path, payload: Dict[str, Any]) -> Dict[str, Any]:
+        self._oplog(f"Persisting player profile: {path.resolve()}", level="info")
         self._write_player_yaml_atomic(path, payload)
         meta = _file_stat_metadata(path)
         self._player_yaml_cache_by_path[path] = payload
@@ -7056,6 +7096,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_data_by_name[profile_name] = profile
         self._player_yaml_name_map[self._normalize_character_lookup_key(profile_name)] = path
         self._player_yaml_name_map[self._normalize_character_lookup_key(path.stem)] = path
+        self._player_profile_path_by_name[self._normalize_character_lookup_key(profile_name)] = str(path.resolve())
         self._schedule_player_yaml_refresh()
         return profile
 
@@ -8161,16 +8202,24 @@ class InitiativeTracker(base.InitiativeTracker):
             self._player_yaml_meta_by_path = {}
             self._player_yaml_data_by_name = {}
             self._player_yaml_name_map = {}
+            self._player_profile_path_by_name = {}
             self._player_yaml_dir_signature = None
             self._player_yaml_last_refresh = time.monotonic()
             return
 
         players_dir = self._players_dir()
+        other_roots: List[Path] = []
+        base_players = _app_base_dir() / "players"
+        app_data_players = _app_data_dir() / "players"
+        for candidate in (base_players, app_data_players):
+            if candidate != players_dir and candidate not in other_roots:
+                other_roots.append(candidate)
         if not players_dir.exists():
             self._player_yaml_cache_by_path = {}
             self._player_yaml_meta_by_path = {}
             self._player_yaml_data_by_name = {}
             self._player_yaml_name_map = {}
+            self._player_profile_path_by_name = {}
             self._player_yaml_dir_signature = None
             self._player_yaml_last_refresh = time.monotonic()
             return
@@ -8187,6 +8236,42 @@ class InitiativeTracker(base.InitiativeTracker):
             if isinstance(entry, dict) and not bool(entry.get("enabled", True)):
                 continue
             enabled_files.append(path)
+
+        duplicate_candidates: Dict[str, List[Path]] = {}
+        for source_root in [players_dir, *other_roots]:
+            if not source_root.exists():
+                continue
+            try:
+                source_files = sorted(list(source_root.glob("*.yaml")) + list(source_root.glob("*.yml")))
+            except Exception:
+                source_files = []
+            for source_path in source_files:
+                normalized_name = self._normalize_character_lookup_key(source_path.stem)
+                if normalized_name:
+                    duplicate_candidates.setdefault(normalized_name, []).append(source_path)
+                try:
+                    parsed_probe = yaml.safe_load(source_path.read_text(encoding="utf-8"))
+                except Exception:
+                    parsed_probe = None
+                if isinstance(parsed_probe, dict):
+                    profile_name = self._normalize_character_lookup_key(parsed_probe.get("name"))
+                    if profile_name:
+                        duplicate_candidates.setdefault(profile_name, []).append(source_path)
+        duplicates = {
+            key: sorted(set(paths), key=lambda p: str(p.resolve()).lower())
+            for key, paths in duplicate_candidates.items()
+            if len(set(paths)) > 1
+        }
+        if duplicates:
+            for dup_name, dup_paths in sorted(duplicates.items()):
+                chosen = next((path for path in dup_paths if path.parent == players_dir), dup_paths[0])
+                joined = ", ".join(str(path.resolve()) for path in dup_paths)
+                self._oplog(
+                    f"!!! DUPLICATE player profile files for '{dup_name}' across roots: {joined}. "
+                    f"Using canonical path: {chosen.resolve()}",
+                    level="warning",
+                )
+
         dir_signature = _directory_signature(players_dir, files)
         enabled_signature = tuple(sorted(path.name for path in enabled_files))
         combined_signature = (dir_signature, enabled_signature)
@@ -8202,11 +8287,14 @@ class InitiativeTracker(base.InitiativeTracker):
         meta_by_path = dict(self._player_yaml_meta_by_path)
         data_by_name = dict(self._player_yaml_data_by_name)
         name_map = dict(self._player_yaml_name_map)
+        canonical_profile_path_by_name = dict(getattr(self, "_player_profile_path_by_name", {}))
+        loaded_name_sources: Dict[str, Path] = {}
 
         def purge_path_entries(target_path: Path) -> None:
             keys_to_remove = [key for key, value in name_map.items() if value == target_path]
             for key in keys_to_remove:
                 name_map.pop(key, None)
+                canonical_profile_path_by_name.pop(key, None)
             if keys_to_remove:
                 keys_lower = set(keys_to_remove)
                 for name in list(data_by_name.keys()):
@@ -8236,14 +8324,34 @@ class InitiativeTracker(base.InitiativeTracker):
             if isinstance(parsed, dict):
                 profile = self._normalize_player_profile(parsed, path.stem)
                 name = str(profile.get("name") or path.stem).strip() or path.stem
+                normalized_name = self._normalize_character_lookup_key(name)
+                existing = loaded_name_sources.get(normalized_name)
+                if isinstance(existing, Path):
+                    chosen = sorted([existing, path], key=lambda p: str(p.resolve()).lower())[0]
+                    if chosen != path:
+                        self._oplog(
+                            f"Duplicate canonical player profile '{name}' in players dir: "
+                            f"keeping {chosen.resolve()} ignoring {path.resolve()}",
+                            level="warning",
+                        )
+                        continue
+                    self._oplog(
+                        f"Duplicate canonical player profile '{name}' in players dir: "
+                        f"replacing {existing.resolve()} with {path.resolve()} by lexical tie-break",
+                        level="warning",
+                    )
+                loaded_name_sources[normalized_name] = path
                 data_by_name[name] = profile
-                name_map[self._normalize_character_lookup_key(name)] = path
+                name_map[normalized_name] = path
                 name_map[self._normalize_character_lookup_key(path.stem)] = path
+                canonical_profile_path_by_name[normalized_name] = str(path.resolve())
+                self._oplog(f"Loaded player profile '{name}' from {path.resolve()}", level="info")
 
         self._player_yaml_cache_by_path = data_by_path
         self._player_yaml_meta_by_path = meta_by_path
         self._player_yaml_data_by_name = data_by_name
         self._player_yaml_name_map = name_map
+        self._player_profile_path_by_name = canonical_profile_path_by_name
         self._player_yaml_dir_signature = combined_signature
         self._player_yaml_last_refresh = time.monotonic()
     def _player_spell_config_payload(self) -> Dict[str, Dict[str, Any]]:
@@ -8270,6 +8378,11 @@ class InitiativeTracker(base.InitiativeTracker):
             if not isinstance(data, dict):
                 continue
             profile_payload = dict(data)
+            if os.getenv("INITTRACKER_DEV_DIAGNOSTICS") == "1":
+                profile_key = self._normalize_character_lookup_key(name)
+                profile_path = self._player_profile_path_by_name.get(profile_key)
+                if profile_path:
+                    profile_payload["debug_profile_path"] = profile_path
             spellcasting = profile_payload.get("spellcasting")
             if isinstance(spellcasting, dict):
                 if "spell_slots" not in spellcasting:
@@ -9424,9 +9537,12 @@ class InitiativeTracker(base.InitiativeTracker):
             return False, "That scallywag ain’t in combat no more."
         player_name = self._pc_name_for(int(cid))
         self._load_player_yaml_cache()
-        profile = self._player_yaml_data_by_name.get(player_name)
-        if not isinstance(profile, dict):
-            return False, "No player profile found for Wild Shape, matey."
+        player_key = self._normalize_character_lookup_key(player_name)
+        player_path = self._player_yaml_name_map.get(player_key)
+        raw_profile = self._player_yaml_cache_by_path.get(player_path) if isinstance(player_path, Path) else None
+        if not (isinstance(player_path, Path) and isinstance(raw_profile, dict)):
+            return False, "No canonical player profile found for Wild Shape, matey."
+        profile = self._normalize_player_profile(raw_profile, player_path.stem)
         known_map = self.__dict__.get("_wild_shape_known_by_player", {})
         runtime_known = known_map.get(player_name.strip().lower(), []) if isinstance(known_map, dict) else []
         if not runtime_known:
@@ -12556,17 +12672,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._wild_shape_known_by_player = known_map
             known_map[player_name.strip().lower()] = deduped
 
-            player_path = self._find_player_profile_path(player_name)
-            if not isinstance(player_path, Path):
-                c = self.combatants.get(cid)
-                if c is not None:
-                    player_path = self._find_player_profile_path(getattr(c, "name", ""))
-            if not isinstance(player_path, Path):
-                self._load_player_yaml_cache(force_refresh=True)
-                player_path = self._find_player_profile_path(player_name)
+            player_key = self._normalize_character_lookup_key(player_name)
+            player_path = self._player_yaml_name_map.get(player_key)
             raw_payload = self._player_yaml_cache_by_path.get(player_path) if isinstance(player_path, Path) else None
             if not (isinstance(player_path, Path) and isinstance(raw_payload, dict)):
-                self._lan.toast(ws_id, "Could not locate yer player file for Wild Shape save, matey.")
+                self._lan.toast(ws_id, "Could not locate canonical player file for Wild Shape save, matey.")
                 return
             updated_payload = dict(raw_payload)
             updated_payload["learned_wild_shapes"] = list(deduped)
