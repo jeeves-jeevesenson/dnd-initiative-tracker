@@ -39,13 +39,7 @@ This file converts the provided bug/feature list into an execution-ready backlog
 18. **U08** ✅ Show condition duration/details in top initiative tracker chips.
 19. **U09** Auto-center DM map to active ally/enemy turn + clear turn notice.
 
-### Phase C — Summon/mount system expansion (larger feature work)
-20. **F01** LAN custom cast: add summon preset creator (temp YAML in `Monsters/temp/`).
-21. **F02** Summon preset import from existing monster YAML for autofill/edit.
-22. **F03** DM-side “Assign Summon” flow for linking summon to player.
-23. **F04** John Twilight custom Echo bonus-action summon + swap/teleport (15 ft range).
-
-### Phase D — Combat automation overhaul epics (highest complexity)
+### Phase C — Combat automation overhaul epics (highest complexity)
 24. **F05** Player weapon schema overhaul + presets in player YAML.
 25. **F06** LAN attack mode using weapon config, hit-check vs hidden AC, damage logging.
 26. **F07** Spell range overlay + LAN-side damage window flow integration.
@@ -54,7 +48,7 @@ This file converts the provided bug/feature list into an execution-ready backlog
 29. **F10** Token image overlays (player + monster profile images with proper crop/mask).
 30. **F11** Custom condition icons (emoji replacement via image/icon assets).
 
-### Phase E — Vague / needs design clarification (park at bottom)
+### Phase D — Vague / needs design clarification (park at bottom)
 31. **V01** “Wildshaping needs fixed it sucks” (broad quality pass beyond concrete bugs).
 
 ---
