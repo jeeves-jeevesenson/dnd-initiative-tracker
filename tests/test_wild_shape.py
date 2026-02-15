@@ -275,6 +275,13 @@ class WildShapeTests(unittest.TestCase):
         self.assertEqual(payload["Leaf"]["learned_wild_shapes"], ["wolf", "brown-bear"])
         self.assertEqual(payload["Leaf"]["prepared_wild_shapes"], ["wolf", "brown-bear"])
 
+    def test_find_player_profile_path_accepts_slug_equivalent_names(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        path = Path("/tmp/johnny_morris.yaml")
+        app._player_yaml_name_map = {"johnny_morris": path}
+
+        self.assertEqual(app._find_player_profile_path("Johnny Morris"), path)
+
     def test_wild_shape_set_known_persists_to_yaml(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
         app._oplog = lambda *args, **kwargs: None

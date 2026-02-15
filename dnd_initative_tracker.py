@@ -6790,18 +6790,26 @@ class InitiativeTracker(base.InitiativeTracker):
         lookup = self._normalize_character_lookup_key(player_name)
         if not lookup:
             return None
+        lookup_slug = self._character_slugify(str(player_name or ""))
         path = self._player_yaml_name_map.get(lookup)
         if isinstance(path, Path):
             return path
         # Fallback: case-insensitive lookup from canonical profile names.
         for known_name, known_path in self._player_yaml_name_map.items():
-            if self._normalize_character_lookup_key(known_name) == lookup:
+            known_lookup = self._normalize_character_lookup_key(known_name)
+            if known_lookup == lookup:
+                return known_path
+            if lookup_slug and self._character_slugify(known_lookup) == lookup_slug:
                 return known_path
         # Duplicate combatants can get suffixes like "Name 2".
         base_lookup = re.sub(r"\s+\d+$", "", lookup).strip()
+        base_lookup_slug = self._character_slugify(base_lookup)
         if base_lookup:
             for known_name, known_path in self._player_yaml_name_map.items():
-                if self._normalize_character_lookup_key(known_name) == base_lookup:
+                known_lookup = self._normalize_character_lookup_key(known_name)
+                if known_lookup == base_lookup:
+                    return known_path
+                if base_lookup_slug and self._character_slugify(known_lookup) == base_lookup_slug:
                     return known_path
         return None
 
