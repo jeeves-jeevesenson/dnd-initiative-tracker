@@ -214,6 +214,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
   - Spell handling in `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
 - **Acceptance criteria:** every placeable spell template honors rotation controls uniformly.
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** Expanded rotation handling parity to include `wall` and `square` AoEs across LAN gesture gating, LAN/server AoE move persistence, and DM map shift-drag rotation logic; added focused regression coverage in `tests/test_spell_rotation_parity.py`.
 - **Investigation context (2026-02-15):**
   - LAN client rotation gesture gate is explicit: `isAoeRotateMode(...)` currently returns true only for `line`, `cone`, and `cube` AoEs (`assets/web/lan/index.html`).
   - AoE payload/render paths already carry `angle_deg`, so base rotation plumbing exists.

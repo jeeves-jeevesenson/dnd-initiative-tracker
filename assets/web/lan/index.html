@@ -8644,7 +8644,7 @@ __DAMAGE_TYPE_OPTIONS__
   function isAoeRotateMode(ev, aoe){
     if (!aoe) return false;
     const kind = String(aoe.kind || "");
-    if (kind !== "line" && kind !== "cone" && kind !== "cube") return false;
+    if (kind !== "line" && kind !== "cone" && kind !== "cube" && kind !== "wall" && kind !== "square") return false;
     return !!(ev?.shiftKey || shiftMoveMode);
   }
 
