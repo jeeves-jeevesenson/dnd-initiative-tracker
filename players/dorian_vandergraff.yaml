@@ -13,6 +13,7 @@ leveling:
   - name: Paladin
     subclass: Oath of Ancients
     level: 10
+    attacks_per_action: 2
 abilities:
   str: 19
   dex: 15

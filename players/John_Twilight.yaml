@@ -13,6 +13,7 @@ leveling:
   - name: Fighter
     subclass: Echo Knight
     level: 10
+    attacks_per_action: 2
 abilities:
   str: 20
   dex: 11
