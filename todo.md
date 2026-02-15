@@ -96,17 +96,19 @@ If you complete an item, move its ID into **Section 5 (Completed archive)** and 
 
 ### F06 — LAN attack workflow using configured weapons + hidden AC validation
 - **Status:** In progress
-- **Last update:** 2026-02-15 (copilot-agent, started after F05 completion)
+- **Last update:** 2026-02-15 (copilot-agent, resumed with server-side `attack_request` validation slice)
 - **What changed:**
-  - Confirmed F05 dependency is complete (schema/docs plus runtime normalization and tests for `attacks.weapons[]`).
-  - F06 is now the active implementation stream.
+  - Added additive LAN `attack_request` action handling in `dnd_initative_tracker.py` with configured-weapon lookup from normalized `attacks.weapons[]`.
+  - Server now resolves hit/miss using target AC internally and returns a safe `attack_result` payload (no raw AC field).
+  - Added focused regression tests in `tests/test_lan_attack_request.py` for hidden-AC-safe result payloads and configured-weapon validation failures.
 - **What remains:**
-  - Add LAN action flow: pick target + weapon + attack count.
-  - Server resolves hit/miss against hidden AC and emits result-safe payloads.
+  - Add LAN client UI flow for selecting target/weapon/attack count and submitting `attack_request`.
+  - Add follow-up `damage_apply` flow to apply rolled damage after a hit result.
   - Player enters rolled damage; server applies typed damage and logs result.
 - **Handoff notes:**
-  - First implementation slice: add additive server contract and validation for `attack_request` without exposing target AC.
-  - Start with server-side tests in `tests/test_lan_claimable.py` and `tests/test_planning_auth.py`, then wire client controls.
+  - Current server slice requires `target_cid`, a valid d20 `attack_roll`/`roll`, and a configured weapon (`weapon_id` or `weapon_name`) from player profile `attacks.weapons[]`.
+  - `attack_result` currently returns hit data (`attack_roll`, `to_hit`, `total_to_hit`, `hit`) and intentionally omits target AC.
+  - Next slice should wire LAN client controls and consume `attack_result` to drive damage prompt flow.
 - **Impact / Complexity:** Very High / Hard
 - **Dependencies:** F05
 - **Primary files likely touched:**

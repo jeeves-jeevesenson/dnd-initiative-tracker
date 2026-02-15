@@ -1014,6 +1014,7 @@ class LanController:
         "mount_response",
         "dismount",
         "initiative_roll",
+        "attack_request",
     )
 
     def __init__(self, app: "InitiativeTracker") -> None:
@@ -12489,6 +12490,82 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._log(f"{c.name} used {action_name} ({spend_label})", cid=cid)
                 self._lan.toast(ws_id, f"Used {action_name}.")
                 self._rebuild_table(scroll_to_current=True)
+        elif typ == "attack_request":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            def _parse_int(value: Any, fallback: Optional[int] = None) -> Optional[int]:
+                try:
+                    return int(value)
+                except Exception:
+                    return fallback
+            target_cid = _normalize_cid_value(msg.get("target_cid"), "attack_request.target_cid", log_fn=log_warning)
+            target = self.combatants.get(int(target_cid)) if target_cid is not None else None
+            if target is None:
+                self._lan.toast(ws_id, "Pick a valid target, matey.")
+                return
+            attack_roll_raw = msg.get("attack_roll")
+            if attack_roll_raw is None:
+                attack_roll_raw = msg.get("roll")
+            attack_roll = _parse_int(attack_roll_raw, None)
+            if attack_roll is None or attack_roll < 1 or attack_roll > 20:
+                self._lan.toast(ws_id, "Enter a valid d20 roll, matey.")
+                return
+            attack_count = max(1, min(10, _parse_int(msg.get("attack_count"), 1) or 1))
+            weapon_id = str(msg.get("weapon_id") or "").strip()
+            weapon_name = str(msg.get("weapon_name") or "").strip()
+            player_name = self._pc_name_for(int(cid))
+            profile = self._profile_for_player_name(player_name)
+            attacks = profile.get("attacks") if isinstance(profile, dict) else {}
+            weapons = attacks.get("weapons") if isinstance(attacks, dict) else []
+            selected_weapon: Dict[str, Any] = {}
+            if isinstance(weapons, list):
+                target_weapon_id = weapon_id.lower()
+                target_weapon_name = weapon_name.lower()
+                for entry in weapons:
+                    if not isinstance(entry, dict):
+                        continue
+                    entry_id = str(entry.get("id") or "").strip().lower()
+                    entry_name = str(entry.get("name") or "").strip().lower()
+                    if target_weapon_id and entry_id == target_weapon_id:
+                        selected_weapon = entry
+                        break
+                    if target_weapon_name and entry_name and entry_name == target_weapon_name:
+                        selected_weapon = entry
+            if not selected_weapon:
+                self._lan.toast(ws_id, "Pick one of yer configured weapons first, matey.")
+                return
+            to_hit = _parse_int(selected_weapon.get("to_hit"), _parse_int(attacks.get("weapon_to_hit"), 0) or 0) or 0
+            total_to_hit = int(attack_roll) + int(to_hit)
+            target_ac = _parse_int(getattr(target, "ac", None), 10) or 10
+            hit = bool(total_to_hit >= int(target_ac))
+            result_payload: Dict[str, Any] = {
+                "type": "attack_result",
+                "ok": True,
+                "attacker_cid": int(cid),
+                "target_cid": int(target_cid),
+                "target_name": str(getattr(target, "name", "Target") or "Target"),
+                "weapon_id": str(selected_weapon.get("id") or "").strip(),
+                "weapon_name": str(selected_weapon.get("name") or "").strip() or "Weapon",
+                "attack_count": int(attack_count),
+                "attack_roll": int(attack_roll),
+                "to_hit": int(to_hit),
+                "total_to_hit": int(total_to_hit),
+                "hit": hit,
+            }
+            msg["_attack_result"] = dict(result_payload)
+            self._log(
+                f"{c.name} attacks {result_payload['target_name']} with {result_payload['weapon_name']} "
+                f"(roll {attack_roll} + {to_hit} = {total_to_hit}) and {'hits' if hit else 'misses'}.",
+                cid=cid,
+            )
+            loop = getattr(self._lan, "_loop", None)
+            if ws_id is not None and loop:
+                try:
+                    asyncio.run_coroutine_threadsafe(self._lan._send_async(ws_id, result_payload), loop)
+                except Exception:
+                    pass
+            self._lan.toast(ws_id, "Attack hits." if hit else "Attack misses.")
         elif typ == "wild_shape_apply":
             beast_id = str(msg.get("beast_id") or "").strip()
             if not beast_id:
