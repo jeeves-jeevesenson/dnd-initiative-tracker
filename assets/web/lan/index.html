@@ -6732,6 +6732,28 @@ __DAMAGE_TYPE_OPTIONS__
     return mode === "summoner" || !!unit.summon_shared_turn;
   }
 
+  function canSelectControlledUnitCid(cid){
+    const cidValue = normalizeCid(cid, "controlledSelect.cid");
+    if (cidValue === null || claimedCid === null || claimedCid === undefined) return false;
+    if (cidMatches(cidValue, claimedCid, "controlledSelect.claimedMatch")) return true;
+    return canControlSummonUnit(getUnitByCid(cidValue));
+  }
+
+  function unitControllableThisTurn(cid){
+    const cidValue = normalizeCid(cid, "controlledTurn.cid");
+    const activeCid = normalizeCid(state?.active_cid, "controlledTurn.activeCid");
+    if (cidValue === null || activeCid === null || claimedCid === null || claimedCid === undefined){
+      return false;
+    }
+    if (cidMatches(activeCid, claimedCid, "controlledTurn.claimedActive")){
+      if (cidMatches(cidValue, claimedCid, "controlledTurn.claimedSelection")){
+        return true;
+      }
+      return canControlSummonUnit(getUnitByCid(cidValue));
+    }
+    return cidMatches(activeCid, cidValue, "controlledTurn.activeSelection");
+  }
+
   function getMountMovementCid(){
     const rider = getClaimedUnit();
     if (!rider) return null;
@@ -6746,13 +6768,18 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function activeControlledUnitCid(){
-    const activeCid = normalizeCid(state?.active_cid, "activeControlled.activeCid");
-    if (activeCid === null) return null;
-    if (claimedCid !== null && claimedCid !== undefined && activeCid === claimedCid){
+    if (claimedCid === null || claimedCid === undefined){
+      return null;
+    }
+    const selectedCid = normalizeCid(selectedTurnCid, "activeControlled.selectedCid");
+    if (selectedCid !== null && canSelectControlledUnitCid(selectedCid) && unitControllableThisTurn(selectedCid)){
+      return selectedCid;
+    }
+    if (unitControllableThisTurn(claimedCid)){
       return claimedCid;
     }
-    const activeUnit = getUnitByCid(activeCid);
-    if (canControlSummonUnit(activeUnit)){
+    const activeCid = normalizeCid(state?.active_cid, "activeControlled.activeCid");
+    if (activeCid !== null && canControlSummonUnit(getUnitByCid(activeCid))){
       return activeCid;
     }
     return null;
@@ -7817,6 +7844,9 @@ __DAMAGE_TYPE_OPTIONS__
       chip.setAttribute("aria-label", `Turn ${idx + 1}: ${fullLabel}`);
       chip.setAttribute("data-full-name", unitName);
       chip.setAttribute("title", fullLabel);
+      if (cidValue !== null){
+        chip.dataset.cid = String(cidValue);
+      }
       if (unit?.summoned_by_cid !== undefined && unit?.summoned_by_cid !== null){
         const monsterSlug = normalizeTextValue(unit?.monster_slug || "");
         if (monsterSlug){
@@ -8236,6 +8266,8 @@ __DAMAGE_TYPE_OPTIONS__
     btn.addEventListener("click", () => {
       hideActionPicker();
       const actionName = normalizeLowerValue(entry?.name);
+      const actionCid = activeControlledUnitCid();
+      const activeUnit = actionCid === null ? null : getUnitByCid(actionCid);
       const claimedUnit = getClaimedUnit();
       const claimedName = normalizeLowerValue(claimedUnit?.name);
       const isJohnTwilight = claimedName === "john twilight" || claimedName.startsWith("john twilight (");
@@ -8281,10 +8313,10 @@ __DAMAGE_TYPE_OPTIONS__
         setWildShapePickOverlayOpen(true);
         return;
       }
-      if (claimedCid == null) return;
+      if (actionCid === null || !activeUnit) return;
       const msg = {
         type: "perform_action",
-        cid: claimedCid,
+        cid: actionCid,
         spend: entry.spend,
         action: entry.name,
       };
@@ -8299,8 +8331,9 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function openActionPicker(mode){
-    const unit = getClaimedUnit();
-    if (!unit){
+    const unitCid = activeControlledUnitCid();
+    const unit = unitCid === null ? null : getUnitByCid(unitCid);
+    if (!unit || unitCid === null){
       localToast("Claim a character first, matey.");
       return;
     }
@@ -12832,6 +12865,18 @@ __DAMAGE_TYPE_OPTIONS__
   if (mapViewTurnOrderEl){
     mapViewTurnOrderEl.addEventListener("click", async (event) => {
       const chip = event.target.closest(".turn-chip");
+      const chipCid = normalizeCid(chip?.dataset?.cid, "turnOrder.click.cid");
+      if (chipCid !== null && canSelectControlledUnitCid(chipCid)){
+        selectedTurnCid = chipCid;
+        const unit = getUnitByCid(chipCid);
+        if (unit?.name){
+          localToast(`Controlling ${unit.name}.`);
+        }
+        updateTurnOrder();
+        updateHud();
+        draw();
+        return;
+      }
       const slug = chip?.dataset?.monsterSlug;
       if (!slug) return;
       const variant = chip.dataset.monsterVariant || "";
@@ -13219,9 +13264,15 @@ __DAMAGE_TYPE_OPTIONS__
           });
         });
       }
+      const actionCid = activeControlledUnitCid();
+      if (actionCid === null){
+        localToast("Not yer turn yet, matey.");
+        setAttackResolveModalOpen(false);
+        return;
+      }
       send({
         type: "attack_request",
-        cid: claimedCid,
+        cid: actionCid,
         target_cid: Number(pendingAttackResolve.targetCid),
         weapon_id: String(pendingAttackResolve.weaponId || "").trim(),
         weapon_name: String(pendingAttackResolve.weaponName || "").trim(),
