@@ -957,6 +957,28 @@ class PlayerProfile:
 
 class LanController:
     """Runs a FastAPI+WebSocket server in a background thread and bridges actions into the Tk thread."""
+    _ACTION_MESSAGE_TYPES = (
+        "move",
+        "dash",
+        "perform_action",
+        "end_turn",
+        "use_action",
+        "use_bonus_action",
+        "set_color",
+        "reset_turn",
+        "cast_aoe",
+        "cast_spell",
+        "echo_summon",
+        "echo_swap",
+        "aoe_move",
+        "aoe_remove",
+        "dismiss_summons",
+        "reset_player_characters",
+        "mount_request",
+        "mount_response",
+        "dismount",
+        "initiative_roll",
+    )
 
     def __init__(self, app: "InitiativeTracker") -> None:
         if not isinstance(app, InitiativeTracker):
@@ -2251,26 +2273,7 @@ class LanController:
                                 "you": self._build_you_payload(ws_id),
                             },
                         )
-                    elif typ in (
-                        "move",
-                        "dash",
-                        "perform_action",
-                        "end_turn",
-                        "use_action",
-                        "use_bonus_action",
-                        "set_color",
-                        "reset_turn",
-                        "cast_aoe",
-                        "cast_spell",
-                        "aoe_move",
-                        "aoe_remove",
-                        "dismiss_summons",
-                        "reset_player_characters",
-                        "mount_request",
-                        "mount_response",
-                        "dismount",
-                        "initiative_roll",
-                    ):
+                    elif typ in self._ACTION_MESSAGE_TYPES:
                         # enqueue for Tk thread
                         with self._clients_lock:
                             claimed_cid = self._claims.get(ws_id)
