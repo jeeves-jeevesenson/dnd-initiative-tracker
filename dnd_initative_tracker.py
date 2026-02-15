@@ -12030,6 +12030,24 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._accept_mount(int(rider_cid), int(mount_cid), ws_id, auto=True)
                 self._pending_mount_requests.pop(req_id, None)
                 return
+            if not bool(getattr(mount, "is_pc", False)):
+                self._pending_mount_requests.pop(req_id, None)
+                approved = messagebox.askyesno(
+                    "Mount Request",
+                    f"{getattr(rider, 'name', 'A rider')} is trying to mount {getattr(mount, 'name', 'a creature')}. Allow?",
+                )
+                if approved:
+                    self._accept_mount(int(rider_cid), int(mount_cid), ws_id, auto=False)
+                    return
+                passed = messagebox.askyesno(
+                    "Mount Request",
+                    f"{getattr(rider, 'name', 'Rider')} vs {getattr(mount, 'name', 'Creature')}: Pass or Fail?\n\nYes = Pass (allow mount)\nNo = Fail (deny mount)",
+                )
+                if passed:
+                    self._accept_mount(int(rider_cid), int(mount_cid), ws_id, auto=False)
+                elif ws_id is not None:
+                    self._lan.toast(int(ws_id), "Mount request declined.")
+                return
             target_ws_ids = self._find_ws_for_cid(int(mount_cid)) if bool(getattr(mount, "is_pc", False)) else []
             payload = {"type": "mount_prompt", "request_id": req_id, "rider_cid": int(rider_cid), "mount_cid": int(mount_cid), "rider_name": str(getattr(rider, "name", "Rider"))}
             if target_ws_ids and self._lan._loop:

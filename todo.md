@@ -131,10 +131,12 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Acceptance criteria:**
   - No mount request popup to NPC clients.
   - DM mediation is always authoritative for this branch.
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** Non-PC mount requests now use DM-hosted `askyesno` approval plus a required Pass/Fail follow-up when denied; no LAN prompt is broadcast for this branch.
 - **Investigation context (2026-02-15):**
   - Server `mount_request` handler now branches by target type: if `mount.is_pc`, prompt that client; otherwise broadcast to admin (`to_admin`) (`dnd_initative_tracker.py`).
   - Pending request storage and `mount_response` handling already exist (`self._pending_mount_requests` + `"mount_response"` branch).
-  - Gap remaining vs requested behavior: explicit DM follow-up “Pass or Fail?” branch is not currently present in the mount-response protocol.
+  - Resolved in this update: non-player targets now run DM-hosted Allow/Pass/Fail prompts on the tracker host before finalizing mount outcome.
 
 ### B05 — Player mounting rules (shared tile + rider movement lock) are broken
 - **Type:** Bug fix
