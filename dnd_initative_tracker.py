@@ -10034,6 +10034,36 @@ class InitiativeTracker(base.InitiativeTracker):
             payload = {"event": event, "type": typ, "ws_id": ws_id, **fields}
             log_fn(payload, level="info")
 
+        def _echo_group_id(caster_cid: int) -> str:
+            return f"echo:{int(caster_cid)}"
+
+        def _find_echo_for_caster(caster_cid: int) -> Tuple[Optional[int], Any]:
+            group_key = _echo_group_id(int(caster_cid))
+            for ecid, unit in self.combatants.items():
+                owner = _normalize_cid_value(getattr(unit, "summoned_by_cid", None), "echo.owner")
+                if owner != int(caster_cid):
+                    continue
+                if str(getattr(unit, "summon_group_id", "") or "").strip() == group_key:
+                    return int(ecid), unit
+            for ecid, unit in self.combatants.items():
+                owner = _normalize_cid_value(getattr(unit, "summoned_by_cid", None), "echo.owner")
+                if owner != int(caster_cid):
+                    continue
+                source = str(getattr(unit, "summon_source_spell", "") or "").strip().lower()
+                if source == "echo_knight":
+                    return int(ecid), unit
+            return None, None
+
+        def _set_token_position(target_cid: int, col: int, row: int) -> None:
+            self._lan_positions[int(target_cid)] = (int(col), int(row))
+            mw = getattr(self, "_map_window", None)
+            try:
+                if mw is not None and mw.winfo_exists():
+                    x, y = mw._grid_to_pixel(int(col), int(row))
+                    mw._place_unit_at_pixel(int(target_cid), x, y)
+            except Exception:
+                pass
+
         # Basic sanity: claimed cid must match the action cid (if provided)
         cid = _normalize_cid_value(msg.get("cid"), "lan_action.cid", log_fn=log_warning)
         current_cid = None
@@ -10163,6 +10193,150 @@ class InitiativeTracker(base.InitiativeTracker):
                         )
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
                     return
+
+        if typ == "echo_summon":
+            c = self.combatants.get(cid) if cid is not None else None
+            if c is None:
+                self._lan.toast(ws_id, "That scallywag ain’t in combat no more.")
+                return
+            name_key = self._action_name_key(getattr(c, "name", ""))
+            player_name_key = self._action_name_key(_resolve_pc_name(cid))
+            if name_key != "john twilight" and player_name_key != "john twilight":
+                self._lan.toast(ws_id, "Only John Twilight can summon Johns Echo.")
+                return
+            target = msg.get("to") if isinstance(msg.get("to"), dict) else {}
+            if not target:
+                payload = msg.get("payload") if isinstance(msg.get("payload"), dict) else {}
+                target = payload.get("to") if isinstance(payload.get("to"), dict) else payload
+            try:
+                col = int(target.get("col"))
+                row = int(target.get("row"))
+            except Exception:
+                self._lan.toast(ws_id, "Pick a valid square for Johns Echo, matey.")
+                return
+            cols, rows, obstacles, _rough, positions = self._lan_live_map_data()
+            if col < 0 or row < 0 or col >= cols or row >= rows or (col, row) in obstacles:
+                self._lan.toast(ws_id, "That summon square be invalid, matey.")
+                return
+            caster_pos = positions.get(int(cid))
+            if caster_pos is None:
+                caster_pos = self._lan_current_position(int(cid))
+            if caster_pos is None:
+                self._lan.toast(ws_id, "Could not find caster position, matey.")
+                return
+            feet_per_square = 5.0
+            try:
+                mw = getattr(self, "_map_window", None)
+                if mw is not None and mw.winfo_exists():
+                    feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+            except Exception:
+                pass
+            feet_per_square = max(1.0, feet_per_square)
+            dist_ft = math.hypot(col - caster_pos[0], row - caster_pos[1]) * feet_per_square
+            if dist_ft - 15.0 > 1e-6:
+                self._lan.toast(ws_id, "That square be out of echo range, matey.")
+                return
+            if not is_admin and not self._use_bonus_action(c):
+                self._lan.toast(ws_id, "No bonus actions left, matey.")
+                return
+            group_id = _echo_group_id(int(cid))
+            echo_cid, echo = _find_echo_for_caster(int(cid))
+            if echo is None:
+                spec = self._find_monster_spec_by_slug("johns-echo")
+                if spec is None:
+                    self._lan.toast(ws_id, "Johns Echo template is missing, matey.")
+                    return
+                init_mod = int(spec.init_mod or 0)
+                init_roll = int(random.randint(1, 20) + init_mod)
+                echo_cid = self._create_combatant(
+                    name=self._unique_name(spec.name),
+                    hp=int(spec.hp or 1),
+                    speed=int(spec.speed or 30),
+                    swim_speed=int(spec.swim_speed or 0),
+                    fly_speed=int(spec.fly_speed or 0),
+                    burrow_speed=int(spec.burrow_speed or 0),
+                    climb_speed=int(spec.climb_speed or 0),
+                    movement_mode="Normal",
+                    initiative=init_roll,
+                    dex=spec.dex,
+                    ally=True,
+                    is_pc=False,
+                    is_spellcaster=None,
+                    saving_throws=dict(spec.saving_throws or {}),
+                    ability_mods=dict(spec.ability_mods or {}),
+                    monster_spec=spec,
+                )
+                echo = self.combatants.get(int(echo_cid))
+            if echo is None or echo_cid is None:
+                self._lan.toast(ws_id, "Could not summon Johns Echo, matey.")
+                return
+            setattr(echo, "summoned_by_cid", int(cid))
+            setattr(echo, "summon_source_spell", "echo_knight")
+            setattr(echo, "summon_group_id", group_id)
+            setattr(echo, "summon_controller_mode", "shared_turn")
+            setattr(echo, "summon_shared_turn", True)
+            color_override = self._normalize_token_color("#7ec8ff")
+            if color_override:
+                setattr(echo, "token_color", color_override)
+            self._apply_summon_initiative(int(cid), [int(echo_cid)], {"initiative": {"mode": "shared_with_caster"}})
+            _set_token_position(int(echo_cid), col, row)
+            self._summon_groups[group_id] = [int(echo_cid)]
+            self._summon_group_meta[group_id] = {
+                "caster_cid": int(cid),
+                "spell": "echo_knight",
+                "created_at": time.time(),
+                "concentration": False,
+            }
+            self._rebuild_table(scroll_to_current=True)
+            self._lan_force_state_broadcast()
+            self._lan.toast(ws_id, "Johns Echo is ready.")
+            return
+
+        if typ == "echo_swap":
+            c = self.combatants.get(cid) if cid is not None else None
+            if c is None:
+                self._lan.toast(ws_id, "That scallywag ain’t in combat no more.")
+                return
+            name_key = self._action_name_key(getattr(c, "name", ""))
+            player_name_key = self._action_name_key(_resolve_pc_name(cid))
+            if name_key != "john twilight" and player_name_key != "john twilight":
+                self._lan.toast(ws_id, "Only John Twilight can swap with Johns Echo.")
+                return
+            echo_cid, _echo = _find_echo_for_caster(int(cid))
+            if echo_cid is None:
+                self._lan.toast(ws_id, "Summon Johns Echo first, matey.")
+                return
+            _cols, _rows, _obstacles, _rough, positions = self._lan_live_map_data()
+            john_pos = positions.get(int(cid))
+            if john_pos is None:
+                john_pos = self._lan_current_position(int(cid))
+            echo_pos = positions.get(int(echo_cid))
+            if echo_pos is None:
+                echo_pos = self._lan_current_position(int(echo_cid))
+            if john_pos is None or echo_pos is None:
+                self._lan.toast(ws_id, "Both John and Johns Echo need map positions, matey.")
+                return
+            feet_per_square = 5.0
+            try:
+                mw = getattr(self, "_map_window", None)
+                if mw is not None and mw.winfo_exists():
+                    feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+            except Exception:
+                pass
+            feet_per_square = max(1.0, feet_per_square)
+            dist_ft = math.hypot(john_pos[0] - echo_pos[0], john_pos[1] - echo_pos[1]) * feet_per_square
+            if dist_ft - 15.0 > 1e-6:
+                self._lan.toast(ws_id, "Johns Echo be too far to swap, matey.")
+                return
+            if not is_admin and not self._use_bonus_action(c):
+                self._lan.toast(ws_id, "No bonus actions left, matey.")
+                return
+            _set_token_position(int(cid), int(echo_pos[0]), int(echo_pos[1]))
+            _set_token_position(int(echo_cid), int(john_pos[0]), int(john_pos[1]))
+            self._rebuild_table(scroll_to_current=True)
+            self._lan_force_state_broadcast()
+            self._lan.toast(ws_id, "Swapped with Johns Echo.")
+            return
 
         if typ == "cast_aoe":
             payload = msg.get("payload") or {}
