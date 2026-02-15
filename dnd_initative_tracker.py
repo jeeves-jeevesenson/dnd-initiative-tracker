@@ -4886,7 +4886,28 @@ class InitiativeTracker(base.InitiativeTracker):
             if not self._lan.is_running():
                 return
         url = self._lan._best_lan_url()
-        messagebox.showinfo("LAN URL", f"Open this on yer LAN devices:\n\n{url}")
+        win = tk.Toplevel(self)
+        win.title("LAN URL")
+        win.geometry("420x180")
+        win.transient(self)
+
+        frm = tk.Frame(win)
+        frm.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+        tk.Label(frm, text="Open this on yer LAN devices:", justify="left", anchor="w").pack(fill=tk.X)
+        tk.Label(frm, text=url, wraplength=380, justify="left", anchor="w").pack(fill=tk.X, pady=(8, 12))
+
+        btns = tk.Frame(frm)
+        btns.pack(fill=tk.X)
+
+        def copy_url() -> None:
+            try:
+                self.clipboard_clear()
+                self.clipboard_append(url)
+            except Exception:
+                pass
+
+        tk.Button(btns, text="Copy URL", command=copy_url).pack(side=tk.LEFT)
+        tk.Button(btns, text="Close", command=win.destroy).pack(side=tk.RIGHT)
 
     def _show_lan_qr(self) -> None:
         if not self._lan.is_running():
@@ -13282,7 +13303,6 @@ class InitiativeTracker(base.InitiativeTracker):
         win.title(title)
         win.geometry("560x680")
         win.transient(self)
-        win.after(0, win.grab_set)
 
         body = ttk.Frame(win, padding=10)
         body.pack(fill="both", expand=True)

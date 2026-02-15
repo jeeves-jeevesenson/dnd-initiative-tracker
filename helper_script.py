@@ -978,7 +978,6 @@ class InitiativeTracker(tk.Tk):
         win.title(title)
         win.geometry("560x680")
         win.transient(self)
-        win.after(0, win.grab_set)
 
         body = ttk.Frame(win, padding=10)
         body.pack(fill="both", expand=True)
@@ -1464,7 +1463,6 @@ class InitiativeTracker(tk.Tk):
         win.title("Starting Players")
         win.geometry("640x560")
         win.transient(self)
-        win.after(0, win.grab_set)
 
         ttk.Label(
             win,
@@ -2700,7 +2698,6 @@ class InitiativeTracker(tk.Tk):
         dlg.geometry("540x380")
         dlg.minsize(480, 320)
         dlg.transient(self)
-        dlg.after(0, dlg.grab_set)
 
         frm = ttk.Frame(dlg, padding=10)
         frm.pack(fill=tk.BOTH, expand=True)
@@ -3781,7 +3778,6 @@ class InitiativeTracker(tk.Tk):
         dlg.geometry("980x620")
         dlg.minsize(900, 600)
         dlg.transient(self)
-        dlg.after(0, dlg.grab_set)
 
         frm = ttk.Frame(dlg, padding=10)
         frm.pack(fill=tk.BOTH, expand=True)
@@ -4173,7 +4169,6 @@ class InitiativeTracker(tk.Tk):
         dlg.geometry("1120x720")
         dlg.minsize(920, 600)
         dlg.transient(self)
-        dlg.after(0, dlg.grab_set)
 
         outer = ttk.Frame(dlg, padding=10)
         outer.pack(fill=tk.BOTH, expand=True)
@@ -4583,7 +4578,6 @@ class InitiativeTracker(tk.Tk):
         dlg.geometry("920x620")
         dlg.minsize(840, 520)
         dlg.transient(self)
-        dlg.after(0, dlg.grab_set)
 
         outer = ttk.Frame(dlg, padding=10)
         outer.pack(fill=tk.BOTH, expand=True)
@@ -4816,7 +4810,6 @@ class InitiativeTracker(tk.Tk):
         dlg.geometry("1040x720")
         dlg.minsize(880, 620)
         dlg.transient(self)
-        dlg.after(0, dlg.grab_set)
 
         frm = ttk.Frame(dlg, padding=10)
         frm.pack(fill=tk.BOTH, expand=True)
@@ -5339,7 +5332,6 @@ class BattleMapWindow(tk.Toplevel):
                 self._dialog = tk.Toplevel(parent)
                 self._dialog.title("Battle Map Size")
                 self._dialog.transient(parent)
-                self._dialog.grab_set()
 
                 self._min = 5
                 self._max = 200
@@ -7330,7 +7322,6 @@ class BattleMapWindow(tk.Toplevel):
         dlg.geometry("420x220")
         dlg.minsize(380, 200)
         dlg.transient(self)
-        dlg.after(0, dlg.grab_set)
 
         out: dict[str, object] = {"value": None, "mode": "radius"}
 
@@ -7476,7 +7467,6 @@ class BattleMapWindow(tk.Toplevel):
         dlg.geometry("460x260")
         dlg.minsize(420, 230)
         dlg.transient(self)
-        dlg.after(0, dlg.grab_set)
 
         out: Dict[str, Optional[Union[int, str]]] = {"length": None, "angle": None, "orient": "vertical"}
 
@@ -7538,7 +7528,6 @@ class BattleMapWindow(tk.Toplevel):
         dlg.geometry("460x260")
         dlg.minsize(420, 230)
         dlg.transient(self)
-        dlg.after(0, dlg.grab_set)
 
         out: Dict[str, Optional[Union[int, str]]] = {"length": None, "width": None, "orient": "vertical"}
 
@@ -7600,7 +7589,6 @@ class BattleMapWindow(tk.Toplevel):
         dlg.geometry("460x280")
         dlg.minsize(420, 240)
         dlg.transient(self)
-        dlg.after(0, dlg.grab_set)
 
         out: Dict[str, Optional[Union[int, str]]] = {"length": None, "width": None, "height": None, "orient": "vertical"}
 
@@ -9208,7 +9196,6 @@ class BattleMapWindow(tk.Toplevel):
         dlg.geometry("1120x720")
         dlg.minsize(900, 600)
         dlg.transient(self)
-        dlg.after(0, dlg.grab_set)
 
         outer = ttk.Frame(dlg, padding=10)
         outer.pack(fill=tk.BOTH, expand=True)
