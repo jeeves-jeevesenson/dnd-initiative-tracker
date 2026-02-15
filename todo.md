@@ -54,7 +54,19 @@ If you complete an item, move its ID into **Section 5 (Completed archive)** and 
 ## 3) Deep-dive execution cards (large tasks)
 
 ### F05 — Player weapon schema overhaul + preset model
-- **Status:** Not started
+- **Status:** In progress
+- **Last update:** 2026-02-15 (copilot-agent, schema foundation started)
+- **What changed:**
+  - Added additive `attacks.weapons[]` schema in `assets/web/new_character/schema.json` with per-weapon proficiency, to-hit, one/two-handed damage mode metadata, and optional effect metadata.
+  - Added schema route coverage in `tests/test_edit_character_routes.py` to assert the new `attacks.weapons` model is exposed by `/api/characters/schema`.
+  - Added `### Attacks Section` documentation in `players/README.md` describing legacy fields plus the new optional weapon preset model.
+- **What remains:**
+  - Confirm/create-edit web UX behavior for new nested weapon fields stays intuitive (round-trip through both editors).
+  - Add/extend server-side normalization tests for backwards compatibility with missing/partial weapon presets.
+  - Implement follow-on LAN attack flow work in F06 after F05 model is fully stabilized.
+- **Handoff notes:**
+  - Run `PYTHONPATH=. pytest -q tests/test_edit_character_routes.py` and `python -m compileall .` after any follow-up schema edits.
+  - Preserve additive compatibility: keep legacy `attacks.melee_attack_mod`, `attacks.ranged_attack_mod`, and `attacks.weapon_to_hit` unchanged while expanding `attacks.weapons`.
 - **Impact / Complexity:** Very High / Hard
 - **Dependencies:** none (but F06/F07 depend on this)
 - **Primary files likely touched:**

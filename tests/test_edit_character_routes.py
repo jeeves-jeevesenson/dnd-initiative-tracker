@@ -31,6 +31,12 @@ class _AppStub:
     def _upload_character_yaml_payload(self, payload):
         return {"filename": payload.get("filename", "hero.yaml"), "character": {}}
 
+    def _character_schema_config(self):
+        return tracker_mod._CHARACTER_SCHEMA_CONFIG or {}
+
+    def _character_schema_readme_map(self):
+        return tracker_mod._CHARACTER_SCHEMA_README_MAP or {}
+
 
 class EditCharacterRoutesTests(unittest.TestCase):
     def _build_lan_controller(self):
@@ -96,6 +102,23 @@ class EditCharacterRoutesTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json().get("filename"), "hero.yaml")
+
+    def test_character_schema_includes_weapon_presets(self):
+        client = self._build_test_client()
+
+        response = client.get("/api/characters/schema")
+
+        self.assertEqual(response.status_code, 200)
+        sections = response.json().get("schema", {}).get("sections", [])
+        attacks = next((section for section in sections if section.get("id") == "attacks"), {})
+        fields = {field.get("key"): field for field in attacks.get("fields", [])}
+        weapons = fields.get("weapons", {})
+        self.assertEqual(weapons.get("type"), "array")
+        weapon_fields = {
+            field.get("key")
+            for field in weapons.get("items", {}).get("fields", [])
+        }
+        self.assertTrue({"id", "name", "proficient", "to_hit", "one_handed", "two_handed", "effect"} <= weapon_fields)
 
 
 if __name__ == "__main__":
