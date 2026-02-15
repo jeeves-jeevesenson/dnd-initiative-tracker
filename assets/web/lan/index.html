@@ -7529,12 +7529,21 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     const TURN_CHIP_NAME_MAX = 20;
+    const TURN_CHIP_CONDITION_MAX = 24;
     const formatTurnChipName = (name) => {
       const fullName = String(name ?? "");
       if (fullName.length <= TURN_CHIP_NAME_MAX){
         return fullName;
       }
       return `${fullName.slice(0, TURN_CHIP_NAME_MAX - 1).trimEnd()}…`;
+    };
+    const formatTurnChipConditions = (text) => {
+      const fullText = normalizeTextValue(text);
+      if (!fullText) return "";
+      if (fullText.length <= TURN_CHIP_CONDITION_MAX){
+        return fullText;
+      }
+      return `${fullText.slice(0, TURN_CHIP_CONDITION_MAX - 1).trimEnd()}…`;
     };
     const order = Array.isArray(state?.turn_order) ? state.turn_order : [];
     activeTurnOrderEl.innerHTML = "";
@@ -7585,9 +7594,11 @@ __DAMAGE_TYPE_OPTIONS__
       const baseUnitName = unit?.name ? String(unit.name) : `#${cid}`;
       const unitName = unit?.is_mount ? `${baseUnitName} (steed)` : baseUnitName;
       const truncatedUnitName = formatTurnChipName(unitName);
-      chip.setAttribute("aria-label", `Turn ${idx + 1}: ${unitName}`);
+      const conditionText = formatTurnChipConditions(unit?.marks);
+      const fullLabel = conditionText ? `${unitName} · ${conditionText}` : unitName;
+      chip.setAttribute("aria-label", `Turn ${idx + 1}: ${fullLabel}`);
       chip.setAttribute("data-full-name", unitName);
-      chip.setAttribute("title", unitName);
+      chip.setAttribute("title", fullLabel);
       if (unit?.summoned_by_cid !== undefined && unit?.summoned_by_cid !== null){
         const monsterSlug = normalizeTextValue(unit?.monster_slug || "");
         if (monsterSlug){
@@ -7620,9 +7631,10 @@ __DAMAGE_TYPE_OPTIONS__
       chip.appendChild(indexEl);
       const nameEl = document.createElement("span");
       nameEl.className = "turn-chip-name";
-      nameEl.textContent = isUnitConcentrationLinked(unit) ? `${truncatedUnitName} ✦` : truncatedUnitName;
+      const concentrationLabel = isUnitConcentrationLinked(unit) ? `${truncatedUnitName} ✦` : truncatedUnitName;
+      nameEl.textContent = conditionText ? `${concentrationLabel} · ${conditionText}` : concentrationLabel;
       nameEl.setAttribute("data-full-name", unitName);
-      nameEl.setAttribute("title", unitName);
+      nameEl.setAttribute("title", fullLabel);
       chip.appendChild(nameEl);
       chip.addEventListener("click", () => {
         if (cidValue === null) return;

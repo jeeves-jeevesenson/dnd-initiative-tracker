@@ -33,7 +33,7 @@ This file converts the provided bug/feature list into an execution-ready backlog
 15. **U05** ✅ Add hotkey/button to fully hide/show bottom panel (default `Delete`).
 16. **U06** ✅ Responsive compact mode for small screens.
 17. **U07** ✅ Show HP bar on player screen with color thresholds.
-18. **U08** Show condition duration/details in top initiative tracker chips.
+18. **U08** ✅ Show condition duration/details in top initiative tracker chips.
 19. **U09** Auto-center DM map to active ally/enemy turn + clear turn notice.
 
 ### Phase C — Summon/mount system expansion (larger feature work)

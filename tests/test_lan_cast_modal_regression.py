@@ -68,6 +68,11 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('playerHpBarFill.classList.toggle("mid", pct <= 50 && pct > 20);', self.html)
         self.assertIn('playerHpBarFill.classList.toggle("low", pct <= 20);', self.html)
 
+    def test_turn_chip_includes_condition_summary_text(self):
+        self.assertIn("const formatTurnChipConditions = (text) => {", self.html)
+        self.assertIn("const conditionText = formatTurnChipConditions(unit?.marks);", self.html)
+        self.assertIn('nameEl.textContent = conditionText ? `${concentrationLabel} · ${conditionText}` : concentrationLabel;', self.html)
+
 
 if __name__ == "__main__":
     unittest.main()
