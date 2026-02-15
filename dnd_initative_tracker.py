@@ -12504,6 +12504,8 @@ class InitiativeTracker(base.InitiativeTracker):
         c = self.combatants.get(cid)
         if not c:
             return (False, "No such unit.", 0)
+        if _normalize_cid_value(getattr(c, "rider_cid", None), "move.rider_cid") is not None:
+            return (False, "Rider movement uses the mount, matey.", 0)
 
         origin = positions.get(cid)
         if origin is None:
