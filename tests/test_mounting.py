@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import dnd_initative_tracker as tracker_mod
 
@@ -11,21 +12,38 @@ class MountHarness:
     _mount_uses_rider_movement = tracker_mod.InitiativeTracker._mount_uses_rider_movement
     _lan_try_move = tracker_mod.InitiativeTracker._lan_try_move
     _lan_live_map_data = tracker_mod.InitiativeTracker._lan_live_map_data
+    _lan_apply_action = tracker_mod.InitiativeTracker._lan_apply_action
 
     def __init__(self):
         self.combatants = {}
+        self.in_combat = False
         self._lan_positions = {}
         self._lan_grid_cols = 20
         self._lan_grid_rows = 20
         self._lan_obstacles = set()
         self._lan_rough_terrain = {}
         self._map_window = None
-        self._lan = type("LanStub", (), {"toast": lambda *args, **kwargs: None})()
+        self._pending_mount_requests = {}
+        self._lan_toasts = []
+        self._lan_payloads = []
+        self._lan = type(
+            "LanStub",
+            (),
+            {
+                "toast": lambda _, ws_id, text: self._lan_toasts.append((ws_id, text)),
+                "_broadcast_payload": lambda _, payload: self._lan_payloads.append(payload),
+                "_append_lan_log": lambda *args, **kwargs: None,
+            },
+        )()
         self._log = lambda *args, **kwargs: None
         self._rebuild_table = lambda *args, **kwargs: None
         self._lan_force_state_broadcast = lambda: None
         self._mode_speed = lambda c: int(getattr(c, "speed", 0) or 0)
         self._lan_shortest_cost = lambda *args, **kwargs: 5
+        self._find_ws_for_cid = lambda *_args, **_kwargs: []
+        self._summon_can_be_controlled_by = lambda *_args, **_kwargs: False
+        self._is_valid_summon_turn_for_controller = lambda *_args, **_kwargs: True
+        self._is_admin_token_valid = lambda *_args, **_kwargs: False
 
 
 def _make_combatant(
@@ -125,6 +143,46 @@ class MountingTests(unittest.TestCase):
         self.assertEqual(mount.move_remaining, 25)
         self.assertEqual(app._lan_positions[2], (2, 0))
         self.assertEqual(app._lan_positions[1], (2, 0))
+
+    def test_non_player_mount_request_uses_dm_pass_fail_flow(self):
+        app = MountHarness()
+        rider = _make_combatant(1, "Rider", speed=30, initiative=14)
+        mount = _make_combatant(2, "Wolf", speed=40, initiative=10)
+        mount.is_pc = False
+        app.combatants = {1: rider, 2: mount}
+        app._lan_positions = {1: (4, 4), 2: (4, 4)}
+        accepted = []
+        app._accept_mount = lambda rider_cid, mount_cid, ws_id, auto=False: accepted.append(
+            (rider_cid, mount_cid, ws_id, auto)
+        )
+
+        with patch("dnd_initative_tracker.messagebox.askyesno", side_effect=[False, True]) as askyesno:
+            app._lan_apply_action({"type": "mount_request", "_ws_id": 11, "_claimed_cid": 1, "rider_cid": 1, "mount_cid": 2})
+
+        self.assertEqual(len(askyesno.call_args_list), 2)
+        self.assertEqual(accepted, [(1, 2, 11, False)])
+        self.assertEqual(app._lan_payloads, [])
+        self.assertEqual(app._pending_mount_requests, {})
+
+    def test_non_player_mount_request_fail_declines_without_broadcast(self):
+        app = MountHarness()
+        rider = _make_combatant(1, "Rider", speed=30, initiative=14)
+        mount = _make_combatant(2, "Owlbear", speed=40, initiative=10)
+        mount.is_pc = False
+        app.combatants = {1: rider, 2: mount}
+        app._lan_positions = {1: (2, 3), 2: (2, 3)}
+        accepted = []
+        app._accept_mount = lambda rider_cid, mount_cid, ws_id, auto=False: accepted.append(
+            (rider_cid, mount_cid, ws_id, auto)
+        )
+
+        with patch("dnd_initative_tracker.messagebox.askyesno", side_effect=[False, False]):
+            app._lan_apply_action({"type": "mount_request", "_ws_id": 12, "_claimed_cid": 1, "rider_cid": 1, "mount_cid": 2})
+
+        self.assertEqual(accepted, [])
+        self.assertEqual(app._lan_payloads, [])
+        self.assertEqual(app._pending_mount_requests, {})
+        self.assertIn((12, "Mount request declined."), app._lan_toasts)
 
 
 if __name__ == "__main__":
