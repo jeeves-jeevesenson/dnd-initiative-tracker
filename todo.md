@@ -230,6 +230,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - move to top bar,
   - larger/bolder/red styling,
   - visually “pop” when action + bonus action + movement are exhausted.
+- **Investigation context (2026-02-15):**
+  - LAN already has a top-bar end-turn button (`#endTurn`) plus dedicated emphasis classes (`.end-turn-ready`, `.end-turn-pop`) in `assets/web/lan/index.html`.
+  - Current logic already toggles highlight based on action/bonus/movement state, so this card is likely polish/tuning more than new plumbing.
+  - Recommended first step is design validation (size/contrast/animation timing) before code churn.
 
 ### U02 — Simplify movement mode switching
 - **Type:** New feature (UX)
@@ -239,6 +243,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/helper_script.py`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
 - **Goal:** fewer clicks and clearer current mode (walk/swim/fly/etc).
+- **Investigation context (2026-02-15):**
+  - Movement mode normalization/parsing exists across DM + LAN logic, but the UX still appears distributed across several controls/contexts.
+  - Speeds and mode-related fields are present in combatant state, so data support exists.
+  - Main risk is desync between DM and LAN mode state if a “quick switch” UI is added without a single authoritative update path.
 
 ### U03 — Remove initiative top dropdown clutter
 - **Type:** New feature (cleanup)
@@ -246,6 +254,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Ease:** Easy
 - **Likely files:** `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
 - **Technical starting points:** `initiativeStyleSelect` + related topbar controls.
+- **Investigation context (2026-02-15):**
+  - `initiativeStyleSelect` is still present and wired to style persistence/handlers in `assets/web/lan/index.html`.
+  - This is a straightforward UI cleanup candidate with low protocol risk.
+  - Dependency note with U04 remains valid because both controls touch initiative visibility state.
 
 ### U04 — Remove show/hide initiative button
 - **Type:** New feature (cleanup)
@@ -254,6 +266,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Dependencies:** U03
 - **Likely files:** `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
 - **Technical starting points:** `initiativeToggleBtn`, `toggleInitiativeBar`.
+- **Investigation context (2026-02-15):**
+  - `initiativeToggleBtn` and `toggleInitiativeBar()` are still active in LAN UI code.
+  - Removing this safely likely means preserving internal style state handling while deleting the control entrypoint.
+  - Best done in same PR as U03 to avoid temporary inconsistent visibility UX.
 
 ### U05 — Hotkey/button to hide entire bottom panel
 - **Type:** New feature
@@ -264,6 +280,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - configurable hotkey (default Delete),
   - one press hides full bottom tray,
   - second press restores.
+- **Investigation context (2026-02-15):**
+  - A configurable hotkey framework already exists in `assets/web/lan/index.html` (`hotkeyConfig`, conflict validation, persisted bindings).
+  - Bottom tray wrapper exists as `#sheetWrap`, which gives a clear target for full-panel show/hide.
+  - This is likely medium effort because defaults, settings UI, and discoverability messaging must all be updated together.
 
 ### U06 — Small-screen compact mode
 - **Type:** New feature
@@ -271,6 +291,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Ease:** Medium
 - **Likely files:** `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
 - **Requirements:** detect smaller viewports and auto-compact (smaller fonts, hide low-priority controls by default).
+- **Investigation context (2026-02-15):**
+  - Compact-related styles already exist (`.initiative-compact`, responsive media blocks) in LAN CSS.
+  - Missing piece appears to be automatic runtime viewport detection + mode switching policy.
+  - Likely low-risk implementation path: additive auto-compact toggle with manual override preserved.
 
 ### U07 — Player HP bar with thresholds
 - **Type:** New feature
@@ -280,6 +304,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py` (if payload expansion needed)
 - **Rules:** green >50%, yellow <=50%, red <=20%.
+- **Investigation context (2026-02-15):**
+  - HP/max-HP values are already present in combatant snapshots, so server payload expansion may be minimal or unnecessary.
+  - No dedicated player HP-bar component is currently visible in LAN client UI.
+  - Main work is client rendering + threshold styling, with edge-case handling for unknown/zero max HP.
 
 ### U08 — Condition details in initiative chip/selection
 - **Type:** New feature
@@ -289,6 +317,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
 - **Target output example:** `Prone (2)`, `Blind (5)`.
+- **Investigation context (2026-02-15):**
+  - Conditions and durations are already represented server-side; LAN initiative chip currently emphasizes token/name/turn status.
+  - This looks primarily like a presentation-layer enhancement, not core combat-rule work.
+  - Important compatibility point: keep format additive (new optional display text) so older clients do not break.
 
 ### U09 — DM map auto-focus active ally/enemy turn
 - **Type:** New feature
@@ -298,6 +330,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/helper_script.py`
 - **Requirements:** on ally/enemy turn start, center map on unit and show clear turn-start notification.
+- **Investigation context (2026-02-15):**
+  - Active-turn state is already explicit (`active_cid`) in LAN/DM state paths.
+  - Manual centering controls already exist, so auto-focus can likely reuse existing camera/center helpers.
+  - Key UX risk is over-aggressive recentering; this item may need a DM toggle to avoid interrupting planning workflows.
 
 ---
 
@@ -317,6 +353,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - Add `summon` in custom casting presets.
   - Custom form captures base stats/movement/hp/name.
   - Writes temp monster YAML to `Monsters/temp/` for later DM review/promotion.
+- **Investigation context (2026-02-15):**
+  - Server-side custom summon spawning already exists (`_spawn_custom_summons_from_payload(...)`) and writes/loads temp summon data.
+  - Summon grouping metadata is already tracked (`_summon_groups`, `_summon_group_meta`) in `dnd_initative_tracker.py`.
+  - Primary missing piece appears to be LAN-side summon preset/form UX wiring.
 
 ### F02 — Import existing monster YAML to prefill summon form
 - **Type:** New feature
@@ -324,6 +364,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Ease:** Medium
 - **Dependencies:** F01
 - **Likely files:** same as F01.
+- **Investigation context (2026-02-15):**
+  - Server static payload already includes `monster_choices` for LAN consumers.
+  - Monster indexing/spec resolution infrastructure exists, including temp-friendly lookup behavior.
+  - This card is likely UI/form integration on top of existing data sources introduced/used by F01.
 
 ### F03 — DM-side assign summon to player flow
 - **Type:** New feature
@@ -334,6 +378,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
 - **Requirements:** “Assign Summon” button in DM initiative tracker, player picker, summon editor/import.
+- **Investigation context (2026-02-15):**
+  - Summon ownership/source data is already tracked server-side (`summoned_by_cid`, summon group metadata).
+  - No obvious DM-facing assign flow was found yet in current UI.
+  - Likely requires both new DM interaction surfaces and explicit reassignment semantics in LAN protocol/messages.
 
 ### F04 — John Twilight “Johns Echo” bonus action summon + swap teleport
 - **Type:** New feature
@@ -350,6 +398,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - HP 1, DEX 0, other stats 0, speed 35,
   - bonus action summon by John Twilight only,
   - swap positions with John Twilight within 15 ft.
+- **Investigation context (2026-02-15):**
+  - Echo-related summon scaffolding and targeted tests (`tests/test_echo_knight.py`) already exist.
+  - Existing summon control/ownership logic likely covers part of the gating requirements.
+  - Highest-risk gap appears to be explicit “swap within 15 ft” action validation and turn-resource enforcement.
 
 ---
 
@@ -367,6 +419,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/edit_character/app.js`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
 - **Must include:** one/two-handed mode, proficiency, to-hit, damage formula + type, conditions/saves/effects, feat/race/class interactions.
+- **Investigation context (2026-02-15):**
+  - This repo already uses schema-driven character YAML/editor flows, giving a clear extension point for a weapons model.
+  - No canonical weapons schema appears to be established yet, so this remains an RFC-first task.
+  - Backwards compatibility risk is high: schema rollout should be additive with safe defaults for existing player files.
 
 ### F06 — LAN attack workflow using configured weapons + hidden AC validation
 - **Type:** New feature (major)
@@ -381,6 +437,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - server checks hit/miss vs target AC (AC hidden from player),
   - miss logged in battle log (`attacker missed target`),
   - player enters damage rolled, damage type resolved from weapon config.
+- **Investigation context (2026-02-15):**
+  - Core prerequisites (combatants with AC, battle-log system, LAN action handlers) already exist.
+  - No full weapon-driven LAN attack flow is currently obvious in protocol/UI.
+  - This card depends on F05 data model stabilization to avoid redesigning message formats twice.
 
 ### F07 — Spell range overlay + LAN player damage prompt integration
 - **Type:** New feature
@@ -391,6 +451,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/helper_script.py`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
+- **Investigation context (2026-02-15):**
+  - Spell/AoE placement and rotation infrastructure is mature in LAN client code.
+  - Missing link appears to be integrated range visualization + downstream damage prompt workflow.
+  - This should likely share primitives with F06 (targeting/damage UX) to avoid duplicate interaction systems.
 
 ### F08 — Terrain hazard preset system (DoT + triggers + saves + conditions)
 - **Type:** New feature
@@ -401,6 +465,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/helper_script.py`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
 - **Requirements:** trigger toggles (enter/leave/start/end), damage roll config, save type/DC, on-fail conditions.
+- **Investigation context (2026-02-15):**
+  - Terrain, condition, and ongoing-effect building blocks already exist separately.
+  - There is no consolidated hazard preset pipeline yet that combines trigger timing + saves + effect application.
+  - Likely architecture task: define a normalized hazard schema first, then wire trigger engine hooks.
 
 ### F09 — Monster auto-path suggestion toggle
 - **Type:** New feature
@@ -410,6 +478,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/helper_script.py`
 - **Behavior:** when monster turn starts and toggle on, compute nearest ally/summon/player and queue suggested destination using move+dash budget; DM approve/reject (reject reverts start position).
+- **Investigation context (2026-02-15):**
+  - Movement/cost logic and turn state are already centralized, which is a workable base for suggestions.
+  - Missing pieces are suggestion generation UX, approval/reject flow, and reversible move staging.
+  - This is high complexity because “helpful suggestion” must not silently mutate combat state without DM confirmation.
 
 ### F10 — Token image overlays for players/monsters
 - **Type:** New feature
@@ -420,6 +492,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
   - schema/docs for `assets/pfps/players` + `assets/pfps/monsters`
 - **Requirements:** PNG/JPG, auto scale/crop/mask to token shape/size.
+- **Investigation context (2026-02-15):**
+  - Current token rendering is primarily color/label driven; no established token-image payload or renderer contract was found.
+  - This likely needs both server-side optional image metadata and client-side async image caching/masking.
+  - F11 should be coordinated here since both rely on shared asset-loading/fallback behavior.
 
 ### F11 — Custom condition icons
 - **Type:** New feature
@@ -430,6 +506,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/helper_script.py`
   - condition rendering pipeline in tracker server/client state.
+- **Investigation context (2026-02-15):**
+  - Conditions currently map cleanly to text/emoji-style displays, so compatibility fallback exists.
+  - No custom icon asset pipeline was identified yet.
+  - Best implementation path is additive: optional icon key/URL with deterministic fallback to current emoji/text rendering.
 
 ---
 
@@ -445,6 +525,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - expected vs actual,
   - whether DM-side, LAN-side, or both,
   - relevant player YAML/spell/preset used.
+- **Investigation context (2026-02-15):**
+  - Wild-shape internals already have focused test coverage and concrete handlers, but complaint text here is still non-specific.
+  - To keep implementation PRs safe/small, convert this bucket into numbered reproducible defects first (then map each defect to B10 or new B-cards).
+  - Suggested triage source order: LAN action flow (`wild_shape_apply`) → stat-restore/revert paths → player-resource persistence.
 
 ---
 
