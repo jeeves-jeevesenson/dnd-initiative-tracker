@@ -71,6 +71,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Acceptance criteria:**
   - Mount action (request/approve/complete) does **not** trigger turn-start audio/“your turn” prompt unless turn actually changed to that player.
   - No regression in real turn-start notification.
+- **Investigation context (2026-02-15):**
+  - LAN client calls `maybeShowTurnAlert()` on full `"state"` messages and on `"turn_update"` messages (`assets/web/lan/index.html`).
+  - Mount completion currently calls `_lan_force_state_broadcast()` in `_accept_mount(...)`, which always emits a fresh `"state"` message (`dnd_initative_tracker.py`).
+  - High-confidence repro path to validate first: mount request/approval while rider is already active should not retrigger `showTurnModal()`.
 
 ### B02 — Initiative prompt should render independent of spell menu
 - **Type:** Bug fix
@@ -84,6 +88,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Acceptance criteria:**
   - DM button triggers LAN initiative modal centered over map (same UX class as character chooser modal behavior).
   - Player can submit initiative without opening spell UI.
+- **Investigation context (2026-02-15):**
+  - Client already has a dedicated `initiative_prompt` handler that directly opens `#initiativePromptModal` (`assets/web/lan/index.html`).
+  - Server already has dedicated sender `send_initiative_prompt(...)`, and DM trigger `_roll_lan_initiative_for_claimed_pcs(...)` calls it (`dnd_initative_tracker.py`).
+  - This item likely needs an updated repro (version-specific or CSS stacking issue), because the current code path is not visibly gated by `#sheetCastView`.
 
 ### B03 — Tip dialog should persist latest message
 - **Type:** Bug fix
@@ -94,6 +102,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Acceptance criteria:**
   - Last emitted tip/error remains visible until replaced by a newer message.
   - No automatic fallback reset to default hint text.
+- **Investigation context (2026-02-15):**
+  - `localToast(...)` and websocket `"toast"`/claim handlers update `#note` and then use unconditional `setTimeout(..., 2500)` resets (`assets/web/lan/index.html`).
+  - Multiple overlapping timers can race; an older timer can overwrite a newer status message.
+  - This is a straightforward root-cause candidate and one of the easiest fixes in Phase A.
 
 ### B04 — Mount requests to non-player tokens should route to DM approval flow
 - **Type:** Bug fix
@@ -113,6 +125,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Acceptance criteria:**
   - No mount request popup to NPC clients.
   - DM mediation is always authoritative for this branch.
+- **Investigation context (2026-02-15):**
+  - Server `mount_request` handler now branches by target type: if `mount.is_pc`, prompt that client; otherwise broadcast to admin (`to_admin`) (`dnd_initative_tracker.py`).
+  - Pending request storage and `mount_response` handling already exist (`self._pending_mount_requests` + `"mount_response"` branch).
+  - Gap remaining vs requested behavior: explicit DM follow-up “Pass or Fail?” branch is not currently present in the mount-response protocol.
 
 ### B05 — Player mounting rules (shared tile + rider movement lock) are broken
 - **Type:** Bug fix
@@ -131,6 +147,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - Rider cannot move on rider turn while mounted unless unmounting.
   - When mount moves on its turn, rider position mirrors automatically.
 - **Acceptance criteria:** explicit test coverage for mount/unmount/move sync + movement consumption.
+- **Investigation context (2026-02-15):**
+  - Client `mountCandidatePair()` currently allows any same-tile candidate not already in a mount pairing; “true mount” flags are used only for sort priority (`assets/web/lan/index.html`).
+  - Server `_accept_mount(...)` already deducts movement cost and marks mount relationships (`rider_cid` / `mounted_by_cid`) (`dnd_initative_tracker.py`).
+  - Remaining high-risk area appears to be movement/turn-rule enforcement consistency (rider lock, shared movement mirroring) across client + server.
 
 ### B06 — Remove zoom-out lower bound
 - **Type:** Bug fix
@@ -138,6 +158,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Ease:** Easy
 - **Likely files:** `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
 - **Acceptance criteria:** zoom-out no longer hard-stops at previous minimum; map remains stable (no NaN/negative/zero rendering failures).
+- **Investigation context (2026-02-15):**
+  - Zoom is hard-clamped by `clampZoom(value) { return Math.min(90, Math.max(12, value)); }` (`assets/web/lan/index.html`).
+  - `zoomOut` button calls `zoomAt(zoom - 4, ...)`, so users always stop at 12 due to clamp.
+  - Easy fix candidate, but map rendering should be spot-checked for very small zoom values before lowering/removing min bound.
 
 ### B07 — DM popup windows should not block all other app windows
 - **Type:** Bug fix
@@ -148,6 +172,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/helper_script.py`
 - **Technical starting points:** Tkinter `Toplevel`, `grab_set`, `wait_window`, modal/transient usage.
 - **Acceptance criteria:** DM can interact with map, damage, info windows concurrently; no hidden modal grab lock.
+- **Investigation context (2026-02-15):**
+  - Several Tk dialogs use modal patterns (`dlg.grab_set()` and/or `self.wait_window(dlg)`), including AoE parameter prompts in `helper_script.py`.
+  - This is a strong candidate for the “windows block each other” symptom, especially when multiple utility dialogs are opened in sequence.
+  - Any fix should preserve safety for destructive dialogs while removing global input lock behavior for routine tools.
 
 ### B08 — DM initiative tracker column layout/order fix
 - **Type:** Bug fix
@@ -156,6 +184,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Likely files:** `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
 - **Required column order:** `Name | Side | HP | Temp HP | AC | Walk | Swim | Fly | Conditions | Initiative`
 - **Special rule:** replace nat-20 separate column with star marker beside initiative value.
+- **Investigation context (2026-02-15):**
+  - Current tree definition in `helper_script.py` is `name, side, hp, spd, swim, mode, move, effects, init, nat`.
+  - The requested `Temp HP`, `AC`, and `Fly` columns are not currently in the table schema.
+  - Current `Nat20` is still a dedicated column, so this item is mostly a table-schema + row-render update.
 
 ### B09 — Ensure all spells can rotate
 - **Type:** Bug fix
@@ -166,6 +198,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/dnd_initative_tracker.py`
   - Spell handling in `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
 - **Acceptance criteria:** every placeable spell template honors rotation controls uniformly.
+- **Investigation context (2026-02-15):**
+  - LAN client rotation gesture gate is explicit: `isAoeRotateMode(...)` currently returns true only for `line`, `cone`, and `cube` AoEs (`assets/web/lan/index.html`).
+  - AoE payload/render paths already carry `angle_deg`, so base rotation plumbing exists.
+  - Likely bug scope: template-type parity in UI controls/interaction rules rather than missing core angle serialization.
 
 ### B10 — Wild Shape concrete fixes/regressions
 - **Type:** Bug fix
@@ -176,6 +212,10 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/assets/web/lan/index.html`
   - `/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/tests/test_wild_shape.py`
 - **Scope note:** only concrete reproducible defects first; broad UX complaints belong in V01.
+- **Investigation context (2026-02-15):**
+  - There is already dedicated wild-shape coverage in `tests/test_wild_shape.py` (apply/revert, known/prepared forms, pool handling, LAN handlers).
+  - Given existing coverage and broad problem wording, this card should be split into concrete repros before implementation.
+  - Suggested first pass is to collect failing scenarios tied to explicit functions (`_apply_wild_shape`, `_revert_wild_shape`, LAN `wild_shape_apply` action path).
 
 ---
 
@@ -423,4 +463,3 @@ This file converts the provided bug/feature list into an execution-ready backlog
 - **Slice 3 (UI cleanup):** U01+U03+U04+U05+U06.
 - **Slice 4 (summons):** F01+F02 then F03.
 - **Slice 5 (combat overhaul):** F05 design/spec PR, then F06/F07 implementation PRs.
-
