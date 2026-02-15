@@ -17,7 +17,7 @@ This file converts the provided bug/feature list into an execution-ready backlog
 2. **B02** Initiative prompt modal incorrectly gated behind Cast Spell menu.
 3. **B03** ✅ Tip dialog resets old message instead of persisting latest message.
 4. **B04** Mount requests sent to non-player tokens; DM approval flow missing.
-5. **B05** Player mounting logic broken for shared-tile mounting and rider movement rules.
+5. **B05** ✅ Player mounting logic broken for shared-tile mounting and rider movement rules.
 6. **B06** ✅ Zoom-out has hard lower limit.
 7. **B07** Non-modal popup behavior on DM Tkinter app (windows block each other).
 8. **B08** DM initiative tracker columns/order cleanup.
@@ -155,6 +155,8 @@ This file converts the provided bug/feature list into an execution-ready backlog
   - Rider cannot move on rider turn while mounted unless unmounting.
   - When mount moves on its turn, rider position mirrors automatically.
 - **Acceptance criteria:** explicit test coverage for mount/unmount/move sync + movement consumption.
+- **Status (2026-02-15):** ✅ Completed
+- **Implementation note (2026-02-15):** `_lan_try_move(...)` now enforces rider movement lock directly, so mounted riders cannot be moved through alternate server paths; added regression coverage for direct rider move rejection while mounted.
 - **Investigation context (2026-02-15):**
   - Client `mountCandidatePair()` currently allows any same-tile candidate not already in a mount pairing; “true mount” flags are used only for sort priority (`assets/web/lan/index.html`).
   - Server `_accept_mount(...)` already deducts movement cost and marks mount relationships (`rider_cid` / `mounted_by_cid`) (`dnd_initative_tracker.py`).

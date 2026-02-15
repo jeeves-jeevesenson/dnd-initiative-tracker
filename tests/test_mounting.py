@@ -144,6 +144,23 @@ class MountingTests(unittest.TestCase):
         self.assertEqual(app._lan_positions[2], (2, 0))
         self.assertEqual(app._lan_positions[1], (2, 0))
 
+    def test_lan_try_move_blocks_rider_direct_movement_while_mounted(self):
+        app = MountHarness()
+        rider = _make_combatant(1, "Rider", speed=30, initiative=12)
+        mount = _make_combatant(2, "Mount", speed=60, initiative=10, can_be_mounted=True)
+        app.combatants = {1: rider, 2: mount}
+        app._lan_positions = {1: (0, 0), 2: (0, 0)}
+        rider.rider_cid = 2
+        mount.mounted_by_cid = 1
+
+        ok, reason, cost = app._lan_try_move(1, 1, 0)
+
+        self.assertFalse(ok)
+        self.assertEqual(reason, "Rider movement uses the mount, matey.")
+        self.assertEqual(cost, 0)
+        self.assertEqual(app._lan_positions[1], (0, 0))
+        self.assertEqual(app._lan_positions[2], (0, 0))
+
     def test_non_player_mount_request_uses_dm_pass_fail_flow(self):
         app = MountHarness()
         rider = _make_combatant(1, "Rider", speed=30, initiative=14)
