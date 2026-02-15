@@ -9708,7 +9708,7 @@ class InitiativeTracker(base.InitiativeTracker):
     def _sorted_combatants(self) -> List[base.Combatant]:
         ordered = list(self.combatants.values())
 
-        def key(c: Any) -> Tuple[int, int, int, int, str]:
+        def key(c: Any) -> Tuple[int, int, int, int, str, str]:
             anchor_after = _normalize_cid_value(getattr(c, "summon_anchor_after_cid", None), "summon.anchor")
             anchor_seq = int(getattr(c, "summon_anchor_seq", 0) or 0)
             if anchor_after is not None and anchor_after in self.combatants:
@@ -9716,13 +9716,22 @@ class InitiativeTracker(base.InitiativeTracker):
                 init_key = -int(getattr(anchor, "initiative", 0) or 0)
                 nat_key = -(1 if getattr(anchor, "nat20", False) else 0)
                 dex_key = -(int(getattr(anchor, "dex", 0) or 0))
-                return (init_key, nat_key, dex_key, 10_000 + anchor_seq, str(getattr(c, "name", "")).lower())
+                anchor_name = str(getattr(anchor, "name", "")).lower()
+                return (
+                    init_key,
+                    nat_key,
+                    dex_key,
+                    0,
+                    f"{anchor_name}\x00{anchor_seq:06d}",
+                    str(getattr(c, "name", "")).lower(),
+                )
             return (
                 -int(getattr(c, "initiative", 0) or 0),
                 -(1 if getattr(c, "nat20", False) else 0),
                 -(int(getattr(c, "dex", 0) or 0)),
                 0,
                 str(getattr(c, "name", "")).lower(),
+                "",
             )
 
         ordered.sort(key=key)

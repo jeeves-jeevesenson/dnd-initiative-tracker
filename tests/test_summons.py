@@ -190,6 +190,29 @@ class SummonSpawnTests(unittest.TestCase):
         order = [c.cid for c in h._sorted_combatants()]
         self.assertEqual(order[:4], [100, a, b, 200])
 
+    def test_shared_initiative_keeps_summons_adjacent_on_tied_initiative(self):
+        h = self._build_harness()
+        tied_enemy = tracker_mod.base.Combatant(
+            cid=201,
+            name="Aaron",
+            hp=10,
+            speed=30,
+            swim_speed=0,
+            fly_speed=0,
+            burrow_speed=0,
+            climb_speed=0,
+            movement_mode="Normal",
+            move_remaining=30,
+            initiative=15,
+            dex=2,
+        )
+        h.combatants[tied_enemy.cid] = tied_enemy
+        a = h._create_combatant("Summon A", 10, 30, 1, 1, True)
+        h._apply_summon_initiative(100, [a], {"initiative": {"mode": "shared"}})
+
+        order = [c.cid for c in h._sorted_combatants()]
+        self.assertEqual(order[:3], [201, 100, a])
+
     def test_rolled_initiative_assigns_distinct_values_and_sorts(self):
         h = self._build_harness()
         s1 = h._create_combatant("S1", 10, 30, 1, 0, True)
