@@ -962,7 +962,6 @@ class LanController:
         "dash",
         "perform_action",
         "end_turn",
-        "dm_end_turn",
         "use_action",
         "use_bonus_action",
         "set_color",
@@ -1042,9 +1041,6 @@ class LanController:
             "obstacles": [],
             "units": [],
             "active_cid": None,
-            "active_cids": [],
-            "turn_group_controllers_done": [],
-            "turn_group_waiting_on": [],
             "round_num": 0,
         }
         self._cached_pcs: List[Dict[str, Any]] = []
@@ -2756,12 +2752,6 @@ class LanController:
         update: Dict[str, Any] = {}
         if prev.get("active_cid") != curr.get("active_cid"):
             update["active_cid"] = curr.get("active_cid")
-        if prev.get("active_cids") != curr.get("active_cids"):
-            update["active_cids"] = curr.get("active_cids")
-        if prev.get("turn_group_controllers_done") != curr.get("turn_group_controllers_done"):
-            update["turn_group_controllers_done"] = curr.get("turn_group_controllers_done")
-        if prev.get("turn_group_waiting_on") != curr.get("turn_group_waiting_on"):
-            update["turn_group_waiting_on"] = curr.get("turn_group_waiting_on")
         if prev.get("round_num") != curr.get("round_num"):
             update["round_num"] = curr.get("round_num")
         if prev.get("turn_order") != curr.get("turn_order"):
@@ -3771,9 +3761,6 @@ class LanController:
             "spell_presets": self.app._spell_presets_payload(),
             "turn_order": snap.get("turn_order", []),
             "active_cid": snap.get("active_cid"),
-            "active_cids": snap.get("active_cids", []),
-            "turn_group_controllers_done": snap.get("turn_group_controllers_done", []),
-            "turn_group_waiting_on": snap.get("turn_group_waiting_on", []),
             "round_num": snap.get("round_num"),
             "viewer_cid": viewer_cid,
             "is_admin": bool(is_admin),
@@ -4130,11 +4117,6 @@ class InitiativeTracker(base.InitiativeTracker):
         self._summon_group_meta: Dict[str, Dict[str, Any]] = {}
         self._pending_pre_summons: Dict[int, Dict[str, Any]] = {}
         self._pending_mount_requests: Dict[str, Dict[str, Any]] = {}
-        self._turn_group_active_cids: List[int] = []
-        self._turn_group_controller_map: Dict[str, List[int]] = {}
-        self._turn_group_done_controllers: set[str] = set()
-        self._turn_group_signature: Optional[Tuple[Tuple[int, ...], Tuple[Tuple[str, Tuple[int, ...]], ...]]] = None
-        self._turn_group_skip_next_cleanup_cid: Optional[int] = None
 
         # POC helpers: start the LAN server automatically.
         # Start quietly (log on success; avoid popups if deps missing)
@@ -4312,9 +4294,6 @@ class InitiativeTracker(base.InitiativeTracker):
                 "obstacles": [],
                 "units": [],
                 "active_cid": None,
-                "active_cids": [],
-                "turn_group_controllers_done": [],
-                "turn_group_waiting_on": [],
                 "round_num": 0,
             }
             self._lan._last_snapshot = None
@@ -4511,165 +4490,9 @@ class InitiativeTracker(base.InitiativeTracker):
         self._log("--- COMBAT STARTED ---")
         self._log("--- ROUND 1 ---")
         self._enter_turn_with_auto_skip(starting=True)
-        self._refresh_turn_group_state(reset_done=True)
         self._rebuild_table(scroll_to_current=True)
 
-    @staticmethod
-    def _turn_controller_key_for_player(cid: int) -> str:
-        return f"pc:{int(cid)}"
-
-    def _claimed_player_controllers(self) -> set[int]:
-        lan = getattr(self, "_lan", None)
-        claims = getattr(lan, "_claims", {}) if lan is not None else {}
-        if not isinstance(claims, dict):
-            return set()
-        out: set[int] = set()
-        for value in claims.values():
-            cid = _normalize_cid_value(value, "turn_group.claimed_cid")
-            if cid is not None:
-                out.add(int(cid))
-        return out
-
-    def _active_turn_group_cids(self) -> List[int]:
-        current_cid = _normalize_cid_value(getattr(self, "current_cid", None), "turn_group.current_cid")
-        if current_cid is None or int(current_cid) not in self.combatants:
-            return []
-        current = self.combatants.get(int(current_cid))
-        if current is None:
-            return []
-        if not bool(getattr(current, "ally", False)):
-            return [int(current_cid)]
-        init_val = int(getattr(current, "initiative", 0) or 0)
-        bucket = [c for c in self.combatants.values() if int(getattr(c, "initiative", 0) or 0) == init_val]
-        friendly_count = sum(1 for c in bucket if bool(getattr(c, "ally", False)))
-        if friendly_count < 2:
-            return [int(current_cid)]
-        try:
-            ordered = self._display_order()
-        except Exception:
-            ordered = sorted(
-                self.combatants.values(),
-                key=lambda c: int(getattr(c, "cid", 0) or 0),
-            )
-        return [
-            int(c.cid)
-            for c in ordered
-            if int(getattr(c, "initiative", 0) or 0) == init_val and bool(getattr(c, "ally", False))
-        ]
-
-    def _build_turn_group_controller_map(self, active_cids: List[int]) -> Dict[str, List[int]]:
-        claimed = self._claimed_player_controllers()
-        controllers: Dict[str, List[int]] = {}
-        for cid in active_cids:
-            controller: Optional[str] = None
-            if cid in claimed:
-                controller = self._turn_controller_key_for_player(cid)
-            else:
-                combatant = self.combatants.get(int(cid))
-                owner = _normalize_cid_value(
-                    getattr(combatant, "summoned_by_cid", None) if combatant is not None else None,
-                    "turn_group.summon_owner",
-                )
-                if owner is not None and int(owner) in claimed and self._summon_can_be_controlled_by(int(owner), int(cid)):
-                    controller = self._turn_controller_key_for_player(int(owner))
-            if controller is None:
-                controller = "dm"
-            controllers.setdefault(controller, []).append(int(cid))
-        return controllers
-
-    def _refresh_turn_group_state(self, reset_done: bool = False) -> None:
-        active_cids = self._active_turn_group_cids() if bool(getattr(self, "in_combat", False)) else []
-        controller_map = self._build_turn_group_controller_map(active_cids) if active_cids else {}
-        signature = (
-            tuple(active_cids),
-            tuple(sorted((key, tuple(value)) for key, value in controller_map.items())),
-        )
-        if not active_cids:
-            self._turn_group_active_cids = []
-            self._turn_group_controller_map = {}
-            self._turn_group_done_controllers = set()
-            self._turn_group_signature = None
-            return
-        if reset_done or signature != self.__dict__.get("_turn_group_signature", None):
-            done_controllers: set[str] = set()
-        else:
-            done_controllers = {
-                key
-                for key in self.__dict__.get("_turn_group_done_controllers", set())
-                if key in controller_map
-            }
-        self._turn_group_active_cids = list(active_cids)
-        self._turn_group_controller_map = controller_map
-        self._turn_group_done_controllers = done_controllers
-        self._turn_group_signature = signature
-
-    def _turn_group_status_payload(self) -> Dict[str, Any]:
-        self._refresh_turn_group_state()
-        active_cids = list(self.__dict__.get("_turn_group_active_cids", []))
-        done = set(self.__dict__.get("_turn_group_done_controllers", set()))
-        controller_map = dict(self.__dict__.get("_turn_group_controller_map", {}))
-        waiting_labels: List[str] = []
-        for controller, _cids in controller_map.items():
-            if controller in done:
-                continue
-            if controller == "dm":
-                waiting_labels.append("DM")
-                continue
-            if controller.startswith("pc:"):
-                cid = _normalize_cid_value(controller.split(":", 1)[1], "turn_group.waiting_controller")
-                unit = self.combatants.get(int(cid)) if cid is not None else None
-                waiting_labels.append(str(getattr(unit, "name", f"#{cid}" if cid is not None else "Player")))
-        return {
-            "active_cids": active_cids,
-            "turn_group_controllers_done": sorted(done),
-            "turn_group_waiting_on": waiting_labels,
-        }
-
-    def _controller_has_ended_turn(self, claimed_cid: Optional[int]) -> bool:
-        if claimed_cid is None:
-            return False
-        self._refresh_turn_group_state()
-        controller = self._turn_controller_key_for_player(int(claimed_cid))
-        return controller in self.__dict__.get("_turn_group_done_controllers", set())
-
-    def _apply_controller_end_turn(self, controller: str) -> bool:
-        self._refresh_turn_group_state()
-        controller_map = dict(self.__dict__.get("_turn_group_controller_map", {}))
-        done = set(self.__dict__.get("_turn_group_done_controllers", set()))
-        if controller not in controller_map or controller in done:
-            return False
-        for cid in controller_map.get(controller, []):
-            self._end_turn_cleanup(int(cid))
-            self._log_turn_end(int(cid))
-        done.add(controller)
-        self._turn_group_done_controllers = done
-        if all(key in done for key in controller_map):
-            for combatant in self.combatants.values():
-                setattr(combatant, "wild_resurgence_turn_used", False)
-            self._turn_group_skip_next_cleanup_cid = _normalize_cid_value(
-                getattr(self, "current_cid", None), "turn_group.skip_cleanup_cid"
-            )
-            self._next_turn()
-            return True
-        self._refresh_turn_group_state(reset_done=False)
-        return False
-
-    def _dm_end_turn_group(self) -> bool:
-        if not bool(getattr(self, "in_combat", False)):
-            return False
-        self._refresh_turn_group_state()
-        controller_map = dict(self.__dict__.get("_turn_group_controller_map", {}))
-        if "dm" not in controller_map:
-            return False
-        if "dm" in self.__dict__.get("_turn_group_done_controllers", set()):
-            return False
-        advanced = self._apply_controller_end_turn("dm")
-        if not advanced:
-            self._rebuild_table(scroll_to_current=True)
-        return True
-
     def _next_turn(self) -> None:
-        self._refresh_turn_group_state(reset_done=True)
         ordered = self._display_order()
         if not ordered:
             return
@@ -4688,14 +4511,9 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         ended_cid = self.current_cid
-        skip_cleanup_cid = _normalize_cid_value(
-            self.__dict__.get("_turn_group_skip_next_cleanup_cid", None), "turn_group.next_turn_skip_cleanup"
-        )
-        self._turn_group_skip_next_cleanup_cid = None
-        if skip_cleanup_cid is None or ended_cid is None or int(skip_cleanup_cid) != int(ended_cid):
-            self._end_turn_cleanup(self.current_cid)
-            if ended_cid is not None:
-                self._log_turn_end(ended_cid)
+        self._end_turn_cleanup(self.current_cid)
+        if ended_cid is not None:
+            self._log_turn_end(ended_cid)
 
         idx = ids.index(self.current_cid)
         steps = 0
@@ -4717,7 +4535,6 @@ class InitiativeTracker(base.InitiativeTracker):
             self._log(f"--- ROUND {self.round_num} ---")
 
         self._enter_turn_with_auto_skip(starting=False)
-        self._refresh_turn_group_state(reset_done=True)
         self._rebuild_table(scroll_to_current=True)
 
     def _lan_current_position(self, cid: int) -> Optional[Tuple[int, int]]:
@@ -6219,7 +6036,6 @@ class InitiativeTracker(base.InitiativeTracker):
 
         # Active creature
         active = self.current_cid if getattr(self, "current_cid", None) is not None else None
-        turn_group = self._turn_group_status_payload()
 
         grid_payload = None
         if map_ready:
@@ -6261,9 +6077,6 @@ class InitiativeTracker(base.InitiativeTracker):
             "aoes": aoes,
             "units": units,
             "active_cid": active,
-            "active_cids": turn_group.get("active_cids", []),
-            "turn_group_controllers_done": turn_group.get("turn_group_controllers_done", []),
-            "turn_group_waiting_on": turn_group.get("turn_group_waiting_on", []),
             "round_num": int(getattr(self, "round_num", 0) or 0),
             "turn_order": turn_order,
         }
@@ -9497,41 +9310,18 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _sorted_combatants(self) -> List[base.Combatant]:
         ordered = list(self.combatants.values())
-        init_bucket_counts: Dict[int, Dict[str, int]] = {}
-        for combatant in ordered:
-            init_val = int(getattr(combatant, "initiative", 0) or 0)
-            bucket = init_bucket_counts.setdefault(init_val, {"friendly": 0, "enemy": 0})
-            if bool(getattr(combatant, "ally", False)):
-                bucket["friendly"] += 1
-            else:
-                bucket["enemy"] += 1
 
-        def key(c: Any) -> Tuple[int, int, int, int, int, str]:
+        def key(c: Any) -> Tuple[int, int, int, int, str]:
             anchor_after = _normalize_cid_value(getattr(c, "summon_anchor_after_cid", None), "summon.anchor")
             anchor_seq = int(getattr(c, "summon_anchor_seq", 0) or 0)
-            init_val = int(getattr(c, "initiative", 0) or 0)
-            block_key = 0
-            bucket = init_bucket_counts.get(init_val, {})
-            friendly_count = int(bucket.get("friendly", 0) or 0)
-            enemy_count = int(bucket.get("enemy", 0) or 0)
-            if friendly_count >= 2 and enemy_count > 0 and not bool(getattr(c, "ally", False)):
-                block_key = 1
             if anchor_after is not None and anchor_after in self.combatants:
                 anchor = self.combatants[anchor_after]
                 init_key = -int(getattr(anchor, "initiative", 0) or 0)
                 nat_key = -(1 if getattr(anchor, "nat20", False) else 0)
                 dex_key = -(int(getattr(anchor, "dex", 0) or 0))
-                return (
-                    init_key,
-                    block_key,
-                    nat_key,
-                    dex_key,
-                    10_000 + anchor_seq,
-                    str(getattr(c, "name", "")).lower(),
-                )
+                return (init_key, nat_key, dex_key, 10_000 + anchor_seq, str(getattr(c, "name", "")).lower())
             return (
-                -init_val,
-                block_key,
+                -int(getattr(c, "initiative", 0) or 0),
                 -(1 if getattr(c, "nat20", False) else 0),
                 -(int(getattr(c, "dex", 0) or 0)),
                 0,
@@ -9710,19 +9500,7 @@ class InitiativeTracker(base.InitiativeTracker):
     ) -> bool:
         if target_cid is None or current_cid is None:
             return False
-        active_cids: set[int] = set()
-        if isinstance(current_cid, (list, tuple, set)):
-            for value in current_cid:
-                cid = _normalize_cid_value(value, "summon_turn.active_cid")
-                if cid is not None:
-                    active_cids.add(int(cid))
-        else:
-            cid = _normalize_cid_value(current_cid, "summon_turn.active_cid")
-            if cid is not None:
-                active_cids.add(int(cid))
-        if not active_cids:
-            return False
-        if int(target_cid) in active_cids:
+        if int(current_cid) == int(target_cid):
             return True
         combatant = self.combatants.get(int(target_cid))
         if combatant is None:
@@ -9732,7 +9510,7 @@ class InitiativeTracker(base.InitiativeTracker):
             getattr(combatant, "summon_shared_turn", False)
             and controlling_cid is not None
             and owner == int(controlling_cid)
-            and int(controlling_cid) in active_cids
+            and int(current_cid) == int(controlling_cid)
         )
 
     def _mount_rider_is_incapacitated(self, mount: Any) -> bool:
@@ -10571,7 +10349,7 @@ class InitiativeTracker(base.InitiativeTracker):
         else:
             cid = claimed
 
-        if cid is None and not is_admin and typ != "dm_end_turn":
+        if cid is None and not is_admin:
             if is_move:
                 msg["_move_applied"] = False
                 msg["_move_reject_reason"] = "no_claim"
@@ -10656,11 +10434,9 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         # Only allow controlling on your turn (POC)
-        if not is_admin and typ not in ("cast_aoe", "cast_spell", "aoe_move", "aoe_remove", "dismiss_summons", "dm_end_turn"):
+        if not is_admin and typ not in ("cast_aoe", "cast_spell", "aoe_move", "aoe_remove", "dismiss_summons"):
             if in_combat:
-                self._refresh_turn_group_state()
-                active_turn_cids = list(self.__dict__.get("_turn_group_active_cids", []))
-                valid_turn = self._is_valid_summon_turn_for_controller(claimed, cid, active_turn_cids)
+                valid_turn = self._is_valid_summon_turn_for_controller(claimed, cid, current_cid)
                 if not valid_turn:
                     if is_move:
                         msg["_move_applied"] = False
@@ -10673,9 +10449,6 @@ class InitiativeTracker(base.InitiativeTracker):
                             in_combat=in_combat,
                         )
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
-                    return
-                if self._controller_has_ended_turn(claimed):
-                    self._lan.toast(ws_id, "Turn already ended.")
                     return
 
         if typ == "echo_summon":
@@ -12304,42 +12077,20 @@ class InitiativeTracker(base.InitiativeTracker):
             else:
                 self._lan.toast(ws_id, "No turn snapshot yet, matey.")
         elif typ == "end_turn":
-            if claimed is None:
-                self._lan.toast(ws_id, "Claim a character first, matey.")
-                return
-            self._refresh_turn_group_state()
-            controller = self._turn_controller_key_for_player(int(claimed))
-            controller_map = self.__dict__.get("_turn_group_controller_map", {})
-            done_controllers = self.__dict__.get("_turn_group_done_controllers", set())
-            if controller not in controller_map:
+            # Let player end their own turn.
+            active_cid = _normalize_cid_value(
+                getattr(self, "current_cid", None), "lan_action.end_turn.current_cid", log_fn=log_warning
+            )
+            if in_combat and (cid is None or active_cid != int(cid)):
                 self._lan.toast(ws_id, "Not yer turn yet, matey.")
                 return
-            if controller in done_controllers:
-                self._lan.toast(ws_id, "Turn already ended.")
-                return
             try:
-                self._apply_controller_end_turn(controller)
+                for combatant in self.combatants.values():
+                    setattr(combatant, "wild_resurgence_turn_used", False)
+                self._next_turn()
                 self._lan.toast(ws_id, "Turn ended.")
             except Exception as exc:
                 self._oplog(f"LAN end turn failed: {exc}", level="warning")
-        elif typ == "dm_end_turn":
-            self._refresh_turn_group_state()
-            controller_map = self.__dict__.get("_turn_group_controller_map", {})
-            done_controllers = self.__dict__.get("_turn_group_done_controllers", set())
-            if claimed is not None and not is_admin:
-                self._lan.toast(ws_id, "Only the DM can end that turn.")
-                return
-            if "dm" not in controller_map:
-                self._lan.toast(ws_id, "No DM turn to end, matey.")
-                return
-            if "dm" in done_controllers:
-                self._lan.toast(ws_id, "Turn already ended.")
-                return
-            try:
-                self._apply_controller_end_turn("dm")
-                self._lan.toast(ws_id, "Turn ended.")
-            except Exception as exc:
-                self._oplog(f"LAN DM end turn failed: {exc}", level="warning")
 
     def _lan_try_move(self, cid: int, col: int, row: int) -> Tuple[bool, str, int]:
         # Boundaries

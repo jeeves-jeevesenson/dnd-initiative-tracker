@@ -2891,27 +2891,6 @@ __DAMAGE_TYPE_OPTIONS__
     const rightCid = normalizeCid(right, `${context}.right`);
     return leftCid !== null && rightCid !== null && leftCid === rightCid;
   };
-  const turnControllerKeyForPlayer = (cid) => {
-    const cidValue = normalizeCid(cid, "turnController.playerCid");
-    return cidValue === null ? "" : `pc:${cidValue}`;
-  };
-  function getActiveCidsFromState(snapshot){
-    const activeList = Array.isArray(snapshot?.active_cids) ? snapshot.active_cids : [];
-    const normalized = activeList
-      .map((value) => normalizeCid(value, "turn.activeCid"))
-      .filter((value) => value !== null);
-    if (normalized.length){
-      return normalized;
-    }
-    const fallback = normalizeCid(snapshot?.active_cid, "turn.activeCidFallback");
-    return fallback === null ? [] : [fallback];
-  }
-  function isPlayerControllerDone(snapshot, playerCid){
-    const controllerKey = turnControllerKeyForPlayer(playerCid);
-    if (!controllerKey) return false;
-    const done = Array.isArray(snapshot?.turn_group_controllers_done) ? snapshot.turn_group_controllers_done : [];
-    return done.includes(controllerKey);
-  }
 
   function setNotificationStatus(message){
     if (!notificationStatus) return;
@@ -3530,7 +3509,6 @@ __DAMAGE_TYPE_OPTIONS__
   let claimRev = 0;
   let stateUpdateCounter = 0;
   let lastActiveCid = null;
-  let lastActiveCidsRaw = [];
   let lastTurnRound = null;
   let endTurnReadyVisualActive = false;
   let selectedTurnCid = null;
@@ -3664,10 +3642,9 @@ __DAMAGE_TYPE_OPTIONS__
   function updateEndTurnState(){
     if (!endTurnBtn) return;
     const needsClaim = claimedCid === null || claimedCid === undefined;
-    const activeCids = getActiveCidsFromState(state);
-    const myTurn = !needsClaim && activeCids.some((cid) => cidMatches(cid, claimedCid, "endTurn.myTurn"));
-    const playerEnded = !needsClaim && isPlayerControllerDone(state, claimedCid);
-    const shouldDisable = isMapView || needsClaim || !myTurn || playerEnded;
+    const activeCid = normalizeCid(state?.active_cid, "endTurn.activeCid");
+    const myTurn = !needsClaim && activeCid !== null && cidMatches(activeCid, claimedCid, "endTurn.myTurn");
+    const shouldDisable = isMapView || needsClaim || !myTurn;
     endTurnBtn.disabled = shouldDisable;
     endTurnBtn.setAttribute("aria-disabled", shouldDisable ? "true" : "false");
     if (shouldDisable){
@@ -3679,8 +3656,6 @@ __DAMAGE_TYPE_OPTIONS__
       titleText = "Claim a character first, matey.";
     } else if (isMapView){
       titleText = "Map view is read-only.";
-    } else if (playerEnded){
-      titleText = "Turn already ended.";
     } else if (!myTurn){
       titleText = "Wait for your turn, matey.";
     }
@@ -6390,16 +6365,14 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function activeControlledUnitCid(){
-    const activeCids = getActiveCidsFromState(state);
-    if (!activeCids.length) return null;
-    if (claimedCid !== null && claimedCid !== undefined && activeCids.some((cid) => cidMatches(cid, claimedCid, "activeControlled.myCid"))){
+    const activeCid = normalizeCid(state?.active_cid, "activeControlled.activeCid");
+    if (activeCid === null) return null;
+    if (claimedCid !== null && claimedCid !== undefined && activeCid === claimedCid){
       return claimedCid;
     }
-    for (const activeCid of activeCids){
-      const activeUnit = getUnitByCid(activeCid);
-      if (canControlSummonUnit(activeUnit)){
-        return activeCid;
-      }
+    const activeUnit = getUnitByCid(activeCid);
+    if (canControlSummonUnit(activeUnit)){
+      return activeCid;
     }
     return null;
   }
@@ -7033,7 +7006,7 @@ __DAMAGE_TYPE_OPTIONS__
     tokens.forEach(u => {
       const {x,y} = gridToScreen(u.pos.col,u.pos.row);
       const r = Math.max(10, zoom*0.35);
-      const active = getActiveCidsFromState(state).some((cid) => cidMatches(cid, u.cid, "token.activeCid"));
+      const active = (state.active_cid !== null && cidMatches(state.active_cid, u.cid, "token.activeCid"));
       const mine = (claimedCid != null && cidMatches(claimedCid, u.cid, "token.claimedCid"));
       ctx.beginPath();
       ctx.arc(x,y,r,0,Math.PI*2);
@@ -7102,7 +7075,7 @@ __DAMAGE_TYPE_OPTIONS__
       } else {
         label = arr[0].name;
       }
-      const isActive = arr.some(a => getActiveCidsFromState(state).some((cid) => cidMatches(cid, a.cid, "label.activeCid")));
+      const isActive = arr.some(a => state.active_cid !== null && cidMatches(state.active_cid, a.cid, "label.activeCid"));
       labelEntries.push({label, x, y: y - labelOffset, isActive});
     });
     labelEntries.sort((a, b) => Number(a.isActive) - Number(b.isActive));
@@ -7661,10 +7634,10 @@ __DAMAGE_TYPE_OPTIONS__
     if (!unit) return -1;
     const cid = normalizeCid(unit.cid, "token.priority.cid");
     if (cid === null) return -1;
-    const activeCids = getActiveCidsFromState(state);
+    const activeCid = normalizeCid(state?.active_cid, "token.priority.active");
     const claimed = normalizeCid(claimedCid, "token.priority.claimed");
     const scoreBase = Number(cid) * -0.001;
-    if (activeCids.some((activeCid) => cidMatches(activeCid, cid, "token.priority.activeMatch"))) return 4000 + scoreBase;
+    if (activeCid !== null && cidMatches(activeCid, cid, "token.priority.activeMatch")) return 4000 + scoreBase;
     if (claimed !== null && cidMatches(claimed, cid, "token.priority.claimedMatch")) return 3000 + scoreBase;
     return 1000 + scoreBase;
   }
@@ -7678,10 +7651,9 @@ __DAMAGE_TYPE_OPTIONS__
   function updateHud(){
     if (!state){ return; }
     const active = state.active_cid;
-    const activeCids = getActiveCidsFromState(state);
     const round = state.round_num;
     turnEl.textContent = (active === null) ? "Turn: (not started)" : `Round ${round}`;
-    const myTurn = claimedCid != null && activeCids.some((cid) => cidMatches(cid, claimedCid, "hud.myTurn")) && !isPlayerControllerDone(state, claimedCid);
+    const myTurn = claimedCid != null && active !== null && cidMatches(active, claimedCid, "hud.myTurn");
     if (resetTurnBtn){
       resetTurnBtn.disabled = !myTurn;
     }
@@ -8013,18 +7985,18 @@ __DAMAGE_TYPE_OPTIONS__
 
   function maybeShowTurnAlert(){
     if (!state || !claimedCid) return;
-    const activeCids = getActiveCidsFromState(state);
+    const activeCid = state.active_cid;
     const round = state.round_num;
-    const lastActiveCids = getActiveCidsFromState({active_cid: lastActiveCid, active_cids: lastActiveCidsRaw});
-    const isNowMyTurn = activeCids.some((cid) => cidMatches(cid, claimedCid, "turnAlert.nowMyTurn"));
-    const wasMyTurn = lastActiveCids.some((cid) => cidMatches(cid, claimedCid, "turnAlert.wasMyTurn"));
-    const activeChanged = JSON.stringify(activeCids) !== JSON.stringify(lastActiveCids);
+    const activeCidValue = normalizeCid(activeCid, "turnAlert.activeCid");
+    const lastActiveCidValue = normalizeCid(lastActiveCid, "turnAlert.lastActiveCid");
+    const isNowMyTurn = activeCidValue !== null && activeCidValue === claimedCid;
+    const wasMyTurn = lastActiveCidValue !== null && lastActiveCidValue === claimedCid;
+    const activeChanged = activeCidValue !== lastActiveCidValue;
     const roundChanged = round !== lastTurnRound;
     if (isNowMyTurn && (!wasMyTurn || activeChanged || roundChanged)){
       showTurnModal();
     }
-    lastActiveCid = state.active_cid;
-    lastActiveCidsRaw = Array.isArray(state.active_cids) ? state.active_cids.slice() : [];
+    lastActiveCid = activeCid;
     lastTurnRound = round;
   }
 
@@ -8224,15 +8196,6 @@ __DAMAGE_TYPE_OPTIONS__
         if (!state){ state = {}; }
         if ("active_cid" in msg){
           state.active_cid = msg.active_cid;
-        }
-        if ("active_cids" in msg){
-          state.active_cids = msg.active_cids;
-        }
-        if ("turn_group_controllers_done" in msg){
-          state.turn_group_controllers_done = msg.turn_group_controllers_done;
-        }
-        if ("turn_group_waiting_on" in msg){
-          state.turn_group_waiting_on = msg.turn_group_waiting_on;
         }
         if ("round_num" in msg){
           state.round_num = msg.round_num;
@@ -12424,20 +12387,13 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Claim a character first, matey.");
         return;
       }
-      const activeCids = getActiveCidsFromState(state);
-      if (!activeCids.some((cid) => cidMatches(cid, claimedCid, "endTurn.click.myTurn"))){
+      const activeCid = normalizeCid(state?.active_cid, "endTurn.click.activeCid");
+      if (activeCid === null || !cidMatches(activeCid, claimedCid, "endTurn.click.myTurn")){
         localToast("Not yer turn yet, matey.");
         updateEndTurnState();
         return;
       }
-      if (isPlayerControllerDone(state, claimedCid)){
-        localToast("Turn already ended.");
-        updateEndTurnState();
-        return;
-      }
       send({type:"end_turn", cid: claimedCid});
-      endTurnBtn.disabled = true;
-      endTurnBtn.setAttribute("aria-disabled", "true");
     });
   }
   if (dismissSummonsBtn){
