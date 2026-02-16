@@ -12,6 +12,8 @@ school: evocation
 tags:
 - damage
 - aoe
+- save
+- automation_full
 casting_time: Action
 range: Self
 components: V, S, M (a bit of fur and a crystal rod)

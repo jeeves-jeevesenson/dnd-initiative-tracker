@@ -12,6 +12,7 @@ school: conjuration
 tags:
 - damage
 - aoe
+- save
 casting_time: Action
 range: 90 feet
 components: V, S, M (a rotten egg)

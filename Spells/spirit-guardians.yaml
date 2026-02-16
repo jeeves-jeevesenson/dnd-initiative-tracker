@@ -12,6 +12,7 @@ school: conjuration
 tags:
 - damage
 - aoe
+- save
 casting_time: Action
 range: Self
 components: V, S, M (a prayer scroll)

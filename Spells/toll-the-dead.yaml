@@ -13,6 +13,8 @@ tags:
 - damage
 - spell_save_target
 - spell_single_target
+- save
+- automation_full
 casting_time: Action
 range: 60 feet
 components: V, S

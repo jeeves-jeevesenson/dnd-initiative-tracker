@@ -12,6 +12,8 @@ school: conjuration
 tags:
 - damage
 - aoe
+- save
+- automation_full
 casting_time: Action
 range: 150 feet
 components: V, S, M (a pickled tentacle)
