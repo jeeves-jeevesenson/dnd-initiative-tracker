@@ -9,7 +9,9 @@ source:
   srd: false
 level: 0
 school: transmutation
-tags: []
+tags:
+- damage
+- attack
 casting_time: Action
 range: 30 feet
 components: V, S, M (the stem of a thorny plant)
@@ -37,6 +39,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

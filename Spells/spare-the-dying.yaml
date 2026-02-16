@@ -9,7 +9,8 @@ source:
   srd: false
 level: 0
 school: necromancy
-tags: []
+tags:
+- utility
 casting_time: Action
 range: 15 feet
 components: V, S
@@ -36,6 +37,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

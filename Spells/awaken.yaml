@@ -9,7 +9,8 @@ source:
   srd: false
 level: 5
 school: transmutation
-tags: []
+tags:
+- condition
 casting_time: 8 hours
 range: Touch
 components: V, S, M (an agate worth 1,000+ GP, which the spell consumes)
@@ -44,6 +45,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

@@ -9,7 +9,11 @@ source:
   srd: false
 level: 5
 school: conjuration
-tags: []
+tags:
+- damage
+- save
+- attack
+- condition
 casting_time: Bonus Action, which you take immediately after hitting a creature with
   a Melee weapon or an Unarmed Strike
 range: Self
@@ -39,6 +43,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

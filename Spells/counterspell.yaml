@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: abjuration
-tags: []
+tags:
+- save
 casting_time: Reaction, which you take when you see a creature within 60 feet of yourself
   casting a spell with Verbal, Somatic, or Material components
 range: 60 feet
@@ -40,6 +41,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

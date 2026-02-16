@@ -9,7 +9,8 @@ source:
   srd: false
 level: 2
 school: necromancy
-tags: []
+tags:
+- utility
 casting_time: Action or Ritual
 range: Touch
 components: V, S, M (2 copper pieces, which the spell consumes)
@@ -39,6 +40,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

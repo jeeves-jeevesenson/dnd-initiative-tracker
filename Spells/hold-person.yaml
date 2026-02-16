@@ -9,7 +9,9 @@ source:
   srd: false
 level: 2
 school: enchantment
-tags: []
+tags:
+- save
+- condition
 casting_time: Action
 range: 60 feet
 components: V, S, M (a straight piece of iron)
@@ -42,6 +44,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

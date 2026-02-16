@@ -9,7 +9,9 @@ source:
   srd: false
 level: 5
 school: illusion
-tags: []
+tags:
+- damage
+- save
 casting_time: 1 minute
 range: Special
 components: V, S, M (a handful of sand)
@@ -49,6 +51,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

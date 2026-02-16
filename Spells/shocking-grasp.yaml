@@ -9,7 +9,9 @@ source:
   srd: false
 level: 0
 school: evocation
-tags: []
+tags:
+- damage
+- attack
 casting_time: Action
 range: Touch
 components: V, S
@@ -38,6 +40,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

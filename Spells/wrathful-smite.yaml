@@ -9,7 +9,10 @@ source:
   srd: false
 level: 1
 school: necromancy
-tags: []
+tags:
+- damage
+- save
+- condition
 casting_time: Bonus Action, which you take immediately after hitting a creature with
   a Melee weapon or an Unarmed Strike
 range: Self
@@ -38,6 +41,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

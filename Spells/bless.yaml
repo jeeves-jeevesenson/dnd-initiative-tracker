@@ -9,7 +9,8 @@ source:
   srd: false
 level: 1
 school: enchantment
-tags: []
+tags:
+- utility
 casting_time: Action
 range: 30 feet
 components: V, S, M (a Holy Symbol, worth 5+ GP)
@@ -37,6 +38,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

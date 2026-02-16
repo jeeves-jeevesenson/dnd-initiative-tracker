@@ -9,7 +9,9 @@ source:
   srd: false
 level: 0
 school: transmutation
-tags: []
+tags:
+- damage
+- attack
 casting_time: Bonus Action
 range: Self
 components: V, S, M (mistletoe)
@@ -39,6 +41,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

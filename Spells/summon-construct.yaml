@@ -9,7 +9,8 @@ source:
   srd: false
 level: 4
 school: conjuration
-tags: []
+tags:
+- summon
 casting_time: Action
 range: 90 feet
 components: V, S, M (a lockbox worth 400+ GP)
@@ -43,6 +44,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

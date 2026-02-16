@@ -9,7 +9,10 @@ source:
   srd: false
 level: 2
 school: divination
-tags: []
+tags:
+- damage
+- save
+- condition
 casting_time: Action
 range: 120 feet
 components: S
@@ -43,6 +46,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

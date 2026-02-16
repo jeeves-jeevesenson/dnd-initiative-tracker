@@ -9,7 +9,8 @@ source:
   srd: false
 level: 5
 school: evocation
-tags: []
+tags:
+- save
 casting_time: Action
 range: 120 feet
 components: V, S, M (a cube of granite)
@@ -55,6 +56,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

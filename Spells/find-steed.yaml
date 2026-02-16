@@ -9,7 +9,9 @@ source:
   srd: false
 level: 2
 school: conjuration
-tags: []
+tags:
+- summon
+- condition
 casting_time: Action
 range: 30 feet
 components: V, S
@@ -48,6 +50,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

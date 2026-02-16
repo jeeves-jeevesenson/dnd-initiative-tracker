@@ -9,7 +9,8 @@ source:
   srd: false
 level: 1
 school: enchantment
-tags: []
+tags:
+- damage
 casting_time: Bonus Action
 range: 90 feet
 components: V, S, M (the petrified eye of a newt)
@@ -40,6 +41,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

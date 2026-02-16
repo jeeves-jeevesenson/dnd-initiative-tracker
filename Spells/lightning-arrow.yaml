@@ -9,7 +9,9 @@ source:
   srd: false
 level: 3
 school: transmutation
-tags: []
+tags:
+- damage
+- save
 casting_time: Bonus Action, which you can take immediately after hitting or missing
   a target with a ranged attack using a weapon
 range: Self
@@ -41,6 +43,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

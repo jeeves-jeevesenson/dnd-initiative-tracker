@@ -9,7 +9,10 @@ source:
   srd: false
 level: 5
 school: necromancy
-tags: []
+tags:
+- damage
+- save
+- condition
 casting_time: Action
 range: Touch
 components: V, S
@@ -43,6 +46,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

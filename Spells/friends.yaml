@@ -9,7 +9,9 @@ source:
   srd: false
 level: 0
 school: enchantment
-tags: []
+tags:
+- save
+- condition
 casting_time: Action
 range: 10 feet
 components: S, M (some makeup)
@@ -42,6 +44,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

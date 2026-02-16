@@ -9,7 +9,8 @@ source:
   srd: false
 level: 5
 school: conjuration
-tags: []
+tags:
+- summon
 casting_time: Action
 range: 60 feet
 components: V, S, M (an object with the image of a dragon engraved on it worth 500+
@@ -41,6 +42,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

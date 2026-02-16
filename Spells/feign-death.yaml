@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: necromancy
-tags: []
+tags:
+- condition
 casting_time: Action or Ritual
 range: Touch
 components: V, S, M (a pinch of graveyard dirt)
@@ -41,6 +42,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

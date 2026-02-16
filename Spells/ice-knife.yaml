@@ -9,7 +9,10 @@ source:
   srd: false
 level: 1
 school: conjuration
-tags: []
+tags:
+- damage
+- save
+- attack
 casting_time: Action
 range: 60 feet
 components: S, M (a drop of water or a piece of ice)
@@ -40,6 +43,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

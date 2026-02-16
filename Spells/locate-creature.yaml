@@ -9,7 +9,8 @@ source:
   srd: false
 level: 4
 school: divination
-tags: []
+tags:
+- utility
 casting_time: Action
 range: Self
 components: V, S, M (fur from a bloodhound)
@@ -47,6 +48,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

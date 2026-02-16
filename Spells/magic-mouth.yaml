@@ -9,7 +9,8 @@ source:
   srd: false
 level: 2
 school: illusion
-tags: []
+tags:
+- utility
 casting_time: 1 minute or Ritual
 range: 30 feet
 components: V, S, M (jade dust worth 10+ GP, which the spell consumes)
@@ -49,6 +50,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

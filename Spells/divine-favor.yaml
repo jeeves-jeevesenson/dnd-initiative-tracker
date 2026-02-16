@@ -9,7 +9,8 @@ source:
   srd: false
 level: 1
 school: transmutation
-tags: []
+tags:
+- damage
 casting_time: Bonus Action
 range: Self
 components: V, S
@@ -34,6 +35,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

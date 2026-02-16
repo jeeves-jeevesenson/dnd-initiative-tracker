@@ -9,7 +9,8 @@ source:
   srd: false
 level: 1
 school: conjuration
-tags: []
+tags:
+- utility
 casting_time: Action or Ritual
 range: 30 feet
 components: V, S, M (a drop of mercury)
@@ -44,6 +45,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null
