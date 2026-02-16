@@ -438,7 +438,7 @@ class SummonSpawnTests(unittest.TestCase):
         self.assertIsNotNone(cid)
         h._spawn_startup_summons_for_pc.assert_called_once_with(cid, expected_entries)
 
-    def test_conjure_animals_uses_2024_pack_aoe_automation(self):
+    def test_conjure_animals_uses_pack_aoe_automation(self):
         spell = yaml.safe_load(Path("Spells/conjure-animals.yaml").read_text(encoding="utf-8"))
         mechanics = spell.get("mechanics", {})
         self.assertNotIn("summon", mechanics)
@@ -448,8 +448,8 @@ class SummonSpawnTests(unittest.TestCase):
         sequence = mechanics.get("sequence", [])
         self.assertEqual(sequence[0].get("check", {}).get("ability"), "dexterity")
         self.assertEqual(sequence[0].get("outcomes", {}).get("fail", [])[0].get("dice"), "3d10")
-        options = mechanics.get("ui", {}).get("appearance_options", [])
-        self.assertEqual(options, ["Wolves", "Serpents", "Birds"])
+        appearance_options = mechanics.get("ui", {}).get("appearance_options", [])
+        self.assertEqual(appearance_options, ["Wolves", "Serpents", "Birds"])
 
 
 

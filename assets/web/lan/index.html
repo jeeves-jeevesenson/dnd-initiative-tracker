@@ -11253,12 +11253,12 @@ __DAMAGE_TYPE_OPTIONS__
   };
 
   const getSpellAppearanceOptions = (preset) => {
-    const options = Array.isArray(preset?.appearance_options)
-      ? preset.appearance_options
-      : (Array.isArray(preset?.mechanics?.ui?.appearance_options) ? preset.mechanics.ui.appearance_options : []);
-    return options
-      .map((option) => String(option || "").trim())
-      .filter(Boolean);
+    const topLevelOptions = preset?.appearance_options;
+    const mechanicsOptions = preset?.mechanics?.ui?.appearance_options;
+    const options = Array.isArray(topLevelOptions)
+      ? topLevelOptions
+      : (Array.isArray(mechanicsOptions) ? mechanicsOptions : []);
+    return options.map((option) => String(option || "").trim()).filter(Boolean);
   };
 
   const getSummonQuantityRule = (preset, slotLevel, selectedChoice) => {
@@ -11398,7 +11398,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (castSummonVariantInput){
         const currentAppearance = String(castSummonVariantInput.value || "").trim();
-        castSummonVariantInput.textContent = "";
+        castSummonVariantInput.innerHTML = "";
         if (hasAppearanceOptions){
           appearanceOptions.forEach((option) => {
             const opt = document.createElement("option");
@@ -11453,7 +11453,7 @@ __DAMAGE_TYPE_OPTIONS__
     const choices = getSummonChoices(preset);
     if (castSummonChoiceInput){
       const current = normalizeTextValue(castSummonChoiceInput.value);
-      castSummonChoiceInput.textContent = "";
+      castSummonChoiceInput.innerHTML = "";
       choices.forEach((choice) => {
         const opt = document.createElement("option");
         opt.value = choice.monster_slug;
@@ -11471,7 +11471,7 @@ __DAMAGE_TYPE_OPTIONS__
     const variants = Array.isArray(selectedChoiceEntry?.variants) ? selectedChoiceEntry.variants : [];
     if (castSummonVariantInput){
       const currentVariant = normalizeTextValue(castSummonVariantInput.value || "");
-      castSummonVariantInput.textContent = "";
+      castSummonVariantInput.innerHTML = "";
       const mountMode = Boolean(preset?.summon?.mount);
       if (castSummonVariantLabel){
         castSummonVariantLabel.textContent = "Variant";
@@ -12255,8 +12255,9 @@ __DAMAGE_TYPE_OPTIONS__
       const damageType = damageTypes.length === 1 ? damageTypes[0] : "";
       const name = String(castNameInput?.value || "").trim();
       const appearanceSelection = aoeSpell ? String(castSummonVariantInput?.value || "").trim() : "";
+      const baseName = name || String(castNameInput?.placeholder || "Spell").trim();
       const appearanceName = appearanceSelection
-        ? `${name || String(castNameInput?.placeholder || "Spell").trim()} (${appearanceSelection})`
+        ? `${baseName} (${appearanceSelection})`
         : name;
       const color = normalizeHexColor(castColorInput?.value || "") || null;
       let defaultDamage = String(castDefaultDamageInput?.value || "").trim();
