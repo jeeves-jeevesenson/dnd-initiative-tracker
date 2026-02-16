@@ -87,10 +87,7 @@ attacks:
     magic_bonus: 0
     range: '5'
     one_handed:
-      damage_formula: 1d8 + cha_mod
-      damage_type: slashing
-    two_handed:
-      damage_formula: 1d10 + cha_mod
+      damage_formula: 2d6 + cha_mod
       damage_type: slashing
     effect:
       on_hit: Once per turn on a hit, apply one wound stack to the target.

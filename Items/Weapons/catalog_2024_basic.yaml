@@ -199,12 +199,9 @@ weapons:
     attack_bonus: 0
     damage:
       one_handed:
-        formula: 1d8
+        formula: 2d6
         type: slashing
-      versatile:
-        formula: 1d10
-        type: slashing
-    properties: [sap, versatile]
+    properties: [graze, heavy, two_handed]
     riders:
       - id: wounding_on_hit
         trigger: on_hit
