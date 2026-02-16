@@ -56,12 +56,9 @@ mechanics:
   - id: effect
     name: Effect
     outcomes:
-      hit:
-      - effect: condition
-        condition: blinded
-        duration_turns: 0
-      miss: []
+      hit: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Creates three illusory duplicates that can intercept incoming attacks; duplicate destruction and d6 checks are handled manually.

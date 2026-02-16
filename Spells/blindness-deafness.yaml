@@ -60,9 +60,10 @@ mechanics:
     outcomes:
       fail:
       - effect: condition
-        condition: deafened
+        condition: blinded
         duration_turns: 0
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - On a failed save, choose Blinded or Deafened; this entry defaults to Blinded and requires manual selection for Deafened.

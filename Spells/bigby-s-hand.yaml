@@ -83,7 +83,7 @@ mechanics:
         scaling: &id001
           kind: slot_level
           base_slot: 5
-          add_per_slot_above: 2d6
+          add_per_slot_above: 2d8
       - effect: condition
         condition: grappled
         duration_turns: 0
@@ -93,3 +93,4 @@ mechanics:
     template_preview: false
   notes:
   - Spell has multi-mode or persistent behavior; apply ongoing/special-case handling manually.
+  - Grasping Hand crush damage and push/grapple modes use separate mode-specific rules.

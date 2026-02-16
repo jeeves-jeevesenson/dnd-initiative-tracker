@@ -51,15 +51,11 @@ mechanics:
   sequence:
   - id: effect
     name: Effect
-    check:
-      kind: spell_attack
     outcomes:
-      hit:
-      - effect: damage
-        damage_type: force
-        dice: 2d6
-      miss: []
+      hit: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Imbues a held club or quarterstaff; weapon attack/damage updates are applied through weapon usage, not direct spell damage.
+  - Damage die progression is d8 (base), d10 at level 5, d12 at level 11, and 2d6 at level 17.

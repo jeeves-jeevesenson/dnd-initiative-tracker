@@ -62,10 +62,9 @@ mechanics:
       ability: wisdom
       dc: spell_save_dc
     outcomes:
-      fail:
-      - effect: condition
-        condition: prone
+      fail: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Command outcome depends on the chosen word (Approach, Drop, Flee, Grovel, Halt); apply the selected behavior manually on failure.

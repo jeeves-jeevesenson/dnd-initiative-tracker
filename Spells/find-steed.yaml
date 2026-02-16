@@ -62,10 +62,7 @@ mechanics:
   - id: effect
     name: Effect
     outcomes:
-      hit:
-      - effect: condition
-        condition: incapacitated
-      miss: []
+      hit: []
   scaling: null
   ui:
     template_preview: false
