@@ -15,10 +15,10 @@ riders:
   - id: bardiche_push_on_hit
     trigger: on_hit
     save_ability: str
-    save_dc: attacker_spell_save_dc
+    save_dc: wielder_spell_save_dc
     effect: push
     distance_feet: 5
-    notes: No movement logic currently; this metadata preserves intended automation.
+    notes: No movement logic currently; this metadata preserves intended automation. save_dc uses the wielder's current spell save DC.
   - id: bardiche_focus_spell_dc_bonus
     trigger: while_equipped_as_focus
     effect: spell_save_dc_bonus

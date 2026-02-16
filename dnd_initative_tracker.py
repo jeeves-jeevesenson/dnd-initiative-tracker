@@ -96,6 +96,7 @@ def _app_data_dir() -> Path:
 
 
 def _seed_user_players_dir() -> None:
+    _seed_user_items_dir()
     user_dir = _app_data_dir() / "players"
     base_dir = _app_base_dir() / "players"
     if not base_dir.exists():
@@ -6908,7 +6909,6 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _players_dir(self) -> Path:
         _seed_user_players_dir()
-        _seed_user_items_dir()
         return _app_data_dir() / "players"
 
     def _write_player_yaml_atomic(self, path: Path, payload: Dict[str, Any]) -> None:

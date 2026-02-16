@@ -93,6 +93,7 @@ def _app_data_dir() -> Path:
 
 
 def _seed_user_players_dir() -> None:
+    _seed_user_items_dir()
     user_dir = _app_data_dir() / "players"
     base_dir = _app_base_dir() / "players"
     if not base_dir.exists():
@@ -1148,7 +1149,6 @@ class InitiativeTracker(tk.Tk):
     # --------------------- Startup players ---------------------
     def _players_file_path(self) -> Path:
         _seed_user_players_dir()
-        _seed_user_items_dir()
         return _app_data_dir() / "players"
 
     def _player_name_from_filename(self, path: Path) -> Optional[str]:
