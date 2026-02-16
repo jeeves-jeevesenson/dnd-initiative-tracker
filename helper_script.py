@@ -137,6 +137,31 @@ def _seed_user_monsters_dir() -> Path:
     return user_dir
 
 
+def _seed_user_items_dir() -> Path:
+    user_dir = _app_data_dir() / "Items"
+    base_dir = _app_base_dir() / "Items"
+    try:
+        (user_dir / "Weapons").mkdir(parents=True, exist_ok=True)
+        (user_dir / "Armor").mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return base_dir
+    if not base_dir.exists():
+        return user_dir
+    try:
+        for path in base_dir.rglob("*"):
+            if not path.is_file() or path.suffix.lower() not in {".yaml", ".yml"}:
+                continue
+            rel = path.relative_to(base_dir)
+            dest = user_dir / rel
+            if dest.exists():
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, dest)
+    except Exception:
+        pass
+    return user_dir
+
+
 # --- 2024 Basic Rules (conditions list) ---
 # Roll20's Free Basic Rules (2024) index includes:
 # Blinded, Charmed, Deafened, Exhaustion, Frightened, Grappled, Incapacitated,
@@ -1123,6 +1148,7 @@ class InitiativeTracker(tk.Tk):
     # --------------------- Startup players ---------------------
     def _players_file_path(self) -> Path:
         _seed_user_players_dir()
+        _seed_user_items_dir()
         return _app_data_dir() / "players"
 
     def _player_name_from_filename(self, path: Path) -> Optional[str]:

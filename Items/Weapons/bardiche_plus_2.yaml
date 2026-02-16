@@ -1,0 +1,26 @@
+format_version: 1
+id: bardiche_plus_2
+name: Bardiche (+2)
+type: weapon
+category: martial_melee
+proficient: true
+attack_bonus: 2
+range: 10
+damage:
+  one_handed:
+    formula: 1d12 + 2
+    type: force
+properties: [cleave, heavy, reach, two_handed]
+riders:
+  - id: bardiche_push_on_hit
+    trigger: on_hit
+    save_ability: str
+    save_dc: attacker_spell_save_dc
+    effect: push
+    distance_feet: 5
+    notes: No movement logic currently; this metadata preserves intended automation.
+  - id: bardiche_focus_spell_dc_bonus
+    trigger: while_equipped_as_focus
+    effect: spell_save_dc_bonus
+    amount: 1
+    notes: Applies while equipped and used as spellcasting focus.
