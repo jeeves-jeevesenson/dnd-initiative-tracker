@@ -12765,6 +12765,15 @@ class InitiativeTracker(base.InitiativeTracker):
             attacks = profile.get("attacks") if isinstance(profile, dict) else {}
             weapons = attacks.get("weapons") if isinstance(attacks, dict) else []
             selected_weapon: Dict[str, Any] = {}
+            def _weapon_equipped_flag(entry: Dict[str, Any]) -> bool:
+                raw = entry.get("equipped")
+                if isinstance(raw, bool):
+                    return raw
+                if isinstance(raw, (int, float)):
+                    return bool(raw)
+                if isinstance(raw, str):
+                    return raw.strip().lower() in ("1", "true", "yes", "on")
+                return False
             if isinstance(weapons, list):
                 target_weapon_id = weapon_id.lower()
                 target_weapon_name = weapon_name.lower()
@@ -12778,6 +12787,16 @@ class InitiativeTracker(base.InitiativeTracker):
                         break
                     if target_weapon_name and entry_name and entry_name == target_weapon_name:
                         selected_weapon = entry
+                if not selected_weapon and not target_weapon_id and not target_weapon_name:
+                    for entry in weapons:
+                        if isinstance(entry, dict) and _weapon_equipped_flag(entry):
+                            selected_weapon = entry
+                            break
+                    if not selected_weapon:
+                        for entry in weapons:
+                            if isinstance(entry, dict):
+                                selected_weapon = entry
+                                break
             if not selected_weapon:
                 self._lan.toast(ws_id, "Pick one of yer configured weapons first, matey.")
                 return

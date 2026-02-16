@@ -604,6 +604,12 @@
                 "default": true
               },
               {
+                "key": "equipped",
+                "label": "Equipped",
+                "type": "boolean",
+                "default": false
+              },
+              {
                 "key": "to_hit",
                 "label": "To-Hit",
                 "type": "integer",

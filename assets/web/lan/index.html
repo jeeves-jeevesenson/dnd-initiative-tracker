@@ -4116,6 +4116,25 @@ __DAMAGE_TYPE_OPTIONS__
     return attacks.weapons.filter((entry) => entry && typeof entry === "object");
   }
 
+  function isWeaponEquipped(weapon){
+    const value = weapon?.equipped;
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value !== 0;
+    if (typeof value === "string"){
+      const normalized = value.trim().toLowerCase();
+      return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+    }
+    return false;
+  }
+
+  function getDefaultAttackWeapon(weapons){
+    if (!Array.isArray(weapons) || !weapons.length){
+      return null;
+    }
+    const equipped = weapons.find((entry) => isWeaponEquipped(entry));
+    return equipped || weapons[0] || null;
+  }
+
   function parseWeaponRangeFeet(weapon){
     const raw = weapon?.range ?? weapon?.normal_range ?? weapon?.reach ?? "";
     const text = String(raw || "").trim().toLowerCase();
@@ -4143,7 +4162,7 @@ __DAMAGE_TYPE_OPTIONS__
         return match;
       }
     }
-    return weapons[0];
+    return getDefaultAttackWeapon(weapons);
   }
 
   function getPlayerResourcePools(name){
@@ -7997,6 +8016,8 @@ __DAMAGE_TYPE_OPTIONS__
   function populateAttackWeaponSelect(){
     if (!attackWeaponSelectEl) return;
     const weapons = getClaimedWeapons();
+    const defaultWeapon = getDefaultAttackWeapon(weapons);
+    const defaultWeaponId = String(defaultWeapon?.id || defaultWeapon?.name || "").trim();
     attackWeaponSelectEl.textContent = "";
     const placeholderOption = document.createElement("option");
     placeholderOption.value = "";
@@ -8011,6 +8032,8 @@ __DAMAGE_TYPE_OPTIONS__
     });
     if (selectedAttackWeaponId && weapons.some((weapon) => String(weapon.id || weapon.name || "").trim() === selectedAttackWeaponId)){
       attackWeaponSelectEl.value = selectedAttackWeaponId;
+    } else if (defaultWeaponId){
+      attackWeaponSelectEl.value = defaultWeaponId;
     } else {
       attackWeaponSelectEl.value = "";
     }
