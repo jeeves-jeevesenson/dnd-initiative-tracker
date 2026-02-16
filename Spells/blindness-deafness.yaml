@@ -9,7 +9,8 @@ source:
   srd: false
 level: 2
 school: transmutation
-tags: []
+tags:
+- utility
 casting_time: Action
 range: 120 feet
 components: V

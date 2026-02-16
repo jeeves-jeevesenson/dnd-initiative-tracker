@@ -9,7 +9,8 @@ source:
   srd: false
 level: 4
 school: conjuration
-tags: []
+tags:
+- summon
 casting_time: Action
 range: 90 feet
 components: V, S, M (a pickled tentacle and an eyeball in a platinum-inlaid vial worth

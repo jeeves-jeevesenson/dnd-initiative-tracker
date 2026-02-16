@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: divination
-tags: []
+tags:
+- utility
 casting_time: Action
 range: Touch
 components: V, M (a miniature ziggurat)

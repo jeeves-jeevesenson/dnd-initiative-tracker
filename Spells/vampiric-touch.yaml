@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: necromancy
-tags: []
+tags:
+- utility
 casting_time: Action
 range: Self
 components: V, S

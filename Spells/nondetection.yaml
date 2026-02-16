@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: abjuration
-tags: []
+tags:
+- utility
 casting_time: Action
 range: Touch
 components: V, S, M (a pinch of diamond dust worth 25+ GP, which the spell consumes)

@@ -9,7 +9,8 @@ source:
   srd: false
 level: 2
 school: conjuration
-tags: []
+tags:
+- summon
 casting_time: Action
 range: 30 feet
 components: V, S

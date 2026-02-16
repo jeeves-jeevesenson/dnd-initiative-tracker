@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: necromancy
-tags: []
+tags:
+- heal
 casting_time: Action
 range: Touch
 components: V, S, M (a diamond worth 300+ GP, which the spell consumes)

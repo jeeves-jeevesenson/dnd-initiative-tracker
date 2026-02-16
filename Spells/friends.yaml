@@ -9,7 +9,8 @@ source:
   srd: false
 level: 0
 school: enchantment
-tags: []
+tags:
+- utility
 casting_time: Action
 range: 10 feet
 components: S, M (some makeup)

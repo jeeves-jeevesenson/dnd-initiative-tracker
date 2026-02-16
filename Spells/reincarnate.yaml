@@ -9,7 +9,8 @@ source:
   srd: false
 level: 5
 school: necromancy
-tags: []
+tags:
+- heal
 casting_time: 1 hour
 range: Touch
 components: V, S, M (rare oils worth 1,000+ GP, which the spell consumes)

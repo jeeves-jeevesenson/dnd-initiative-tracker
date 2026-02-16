@@ -9,7 +9,8 @@ source:
   srd: false
 level: 2
 school: enchantment
-tags: []
+tags:
+- utility
 casting_time: Action or Ritual
 range: 30 feet
 components: V, S, M (a morsel of food)

@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: divination
-tags: []
+tags:
+- utility
 casting_time: 10 minutes
 range: 1 mile
 components: V, S, M (a focus worth 100+ GP, either a jeweled horn for hearing or a

@@ -9,7 +9,8 @@ source:
   srd: false
 level: 2
 school: abjuration
-tags: []
+tags:
+- heal
 casting_time: Bonus Action
 range: Self
 components: V, S

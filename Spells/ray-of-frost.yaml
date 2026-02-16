@@ -9,7 +9,8 @@ source:
   srd: false
 level: 0
 school: evocation
-tags: []
+tags:
+- utility
 casting_time: Action
 range: 60 feet
 components: V, S

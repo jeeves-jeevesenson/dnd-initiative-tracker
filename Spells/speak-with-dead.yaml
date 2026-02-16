@@ -9,7 +9,8 @@ source:
   srd: false
 level: 3
 school: necromancy
-tags: []
+tags:
+- utility
 casting_time: Action
 range: 10 feet
 components: V, S, M (burning incense)

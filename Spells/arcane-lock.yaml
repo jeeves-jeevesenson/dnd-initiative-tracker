@@ -9,7 +9,8 @@ source:
   srd: false
 level: 2
 school: abjuration
-tags: []
+tags:
+- utility
 casting_time: Action
 range: Touch
 components: V, S, M (gold dust worth 25+ GP, which the spell consumes)

@@ -9,7 +9,8 @@ source:
   srd: false
 level: 5
 school: divination
-tags: []
+tags:
+- utility
 casting_time: 10 minutes
 range: Self
 components: V, S, M (incense worth 250+ GP, which the spell consumes, and four ivory

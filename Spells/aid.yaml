@@ -9,7 +9,8 @@ source:
   srd: false
 level: 2
 school: abjuration
-tags: []
+tags:
+- heal
 casting_time: Action
 range: 30 feet
 components: V, S, M (a strip of white cloth)

@@ -9,7 +9,8 @@ source:
   srd: false
 level: 5
 school: illusion
-tags: []
+tags:
+- utility
 casting_time: 1 minute
 range: Special
 components: V, S, M (a handful of sand)

@@ -9,7 +9,8 @@ source:
   srd: false
 level: 5
 school: conjuration
-tags: []
+tags:
+- summon
 casting_time: Action
 range: 90 feet
 components: V, S, M (a reliquary worth 500+ GP)
