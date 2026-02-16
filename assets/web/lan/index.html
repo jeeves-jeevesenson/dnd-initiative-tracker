@@ -9786,6 +9786,41 @@ __DAMAGE_TYPE_OPTIONS__
     .replace(/\\b\\w/g, (char) => char.toUpperCase());
   const normalizeTextValue = (value) => String(value || "").trim();
   const normalizeLowerValue = (value) => normalizeTextValue(value).toLowerCase();
+  const getSpellTagSet = (preset) => {
+    const tags = Array.isArray(preset?.tags) ? preset.tags.map((tag) => normalizeLowerValue(tag)) : [];
+    return new Set(tags.filter(Boolean));
+  };
+  const resolveSpellActionTag = (preset) => {
+    const tagSet = getSpellTagSet(preset);
+    if (tagSet.has("aoe")) return "aoe";
+    if (tagSet.has("attack") || tagSet.has("spell_attack_target")) return "attack";
+    if (tagSet.has("save") || tagSet.has("spell_save_target")) return "save";
+    if (tagSet.has("auto_hit") || tagSet.has("spell_auto_hit_target")) return "auto_hit";
+    return "";
+  };
+  const reportSpellTagMissing = (preset, extra = {}) => {
+    const payload = {
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: location.href,
+      message: "Spell cast blocked: missing spell action tag",
+      level: "error",
+      spell_name: normalizeTextValue(preset?.name) || "",
+      spell_slug: normalizeTextValue(preset?.slug) || "",
+      tags: Array.isArray(preset?.tags) ? preset.tags.filter(Boolean) : [],
+      ...extra,
+    };
+    try {
+      console.error("Spell cast missing tag", payload);
+      fetch("/api/client-log", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    } catch (err) {
+      console.warn("Failed to report spell tag error.", err);
+    }
+  };
   const getSpellKey = (value) => normalizeLowerValue(value);
   const getPresetSlug = (preset) => {
     const slug = normalizeTextValue(preset?.slug);
@@ -11828,14 +11863,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (!preset || isAoePreset(preset) || isSummonPreset(preset)){
       return null;
     }
-    const tags = Array.isArray(preset?.tags) ? preset.tags.map((tag) => normalizeLowerValue(tag)) : [];
-    const tagSet = new Set(tags.filter(Boolean));
     const uiConfig = preset?.mechanics?.ui?.spell_targeting;
     const modeRaw = normalizeLowerValue(uiConfig?.mode);
-    const mode = modeRaw || (
-      tagSet.has("spell_save_target") ? "save"
-        : (tagSet.has("spell_auto_hit_target") ? "auto_hit" : (tagSet.has("spell_attack_target") ? "attack" : ""))
-    );
+    const mode = modeRaw || resolveSpellActionTag(preset);
     if (!mode) return null;
     const baseCount = Number(uiConfig?.projectiles_base);
     const addPerSlot = Number(uiConfig?.add_per_slot_above);
@@ -12247,9 +12277,15 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       const shape = String(castShapeInput?.value || "").toLowerCase();
-      const aoeSpell = isAoePreset(preset);
+      const spellActionTag = resolveSpellActionTag(preset);
+      const aoeSpell = spellActionTag === "aoe";
       const summonSpell = isSummonPreset(preset);
       const customSummon = Boolean(preset?.isCustomSummon);
+      if (!customSummon && !summonSpell && !spellActionTag){
+        localToast("No tag found for that spell, matey.");
+        reportSpellTagMissing(preset, {source: "cast_form_submit"});
+        return;
+      }
       if (aoeSpell && !shape){
         localToast("Pick a spell shape first, matey.");
         return;

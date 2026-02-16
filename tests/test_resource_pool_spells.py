@@ -77,6 +77,12 @@ class ResourcePoolSpellTests(unittest.TestCase):
         self.assertEqual(err, "")
         self.assertEqual(saved["raw"]["resources"]["pools"][0]["current"], 0)
 
+    def test_consume_spell_slot_allows_cantrip_level_zero(self):
+        ok, err, spent = self.app._consume_spell_slot_for_cast("wizard", 0, 0)
+        self.assertTrue(ok)
+        self.assertEqual(err, "")
+        self.assertEqual(spent, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

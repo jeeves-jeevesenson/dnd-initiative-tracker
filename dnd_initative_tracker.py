@@ -9611,6 +9611,8 @@ class InitiativeTracker(base.InitiativeTracker):
     ) -> Tuple[bool, str, Optional[int]]:
         if slot_level is None:
             return True, "", None
+        if slot_level == 0:
+            return True, "", 0
         if slot_level < 1 or slot_level > 9:
             return False, "Pick a valid spell slot level, matey.", None
         if minimum_level is not None and slot_level < minimum_level:
