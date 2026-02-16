@@ -3511,6 +3511,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castSummonMeta = document.getElementById("castSummonMeta");
   const castSummonChoiceField = document.getElementById("castSummonChoiceField");
   const castSummonVariantField = document.getElementById("castSummonVariantField");
+  const castSummonVariantLabel = castSummonVariantField?.querySelector("label");
   const castSummonQuantityField = document.getElementById("castSummonQuantityField");
   const castCustomSummonNameField = document.getElementById("castCustomSummonNameField");
   const castCustomSummonMonsterSearchField = document.getElementById("castCustomSummonMonsterSearchField");
@@ -11251,6 +11252,15 @@ __DAMAGE_TYPE_OPTIONS__
     });
   };
 
+  const getSpellAppearanceOptions = (preset) => {
+    const options = Array.isArray(preset?.appearance_options)
+      ? preset.appearance_options
+      : (Array.isArray(preset?.mechanics?.ui?.appearance_options) ? preset.mechanics.ui.appearance_options : []);
+    return options
+      .map((option) => String(option || "").trim())
+      .filter(Boolean);
+  };
+
   const getSummonQuantityRule = (preset, slotLevel, selectedChoice) => {
     const count = preset?.summon?.count;
     if (!count || typeof count !== "object") return {min: 1, max: 1, fixed: 1};
@@ -11344,6 +11354,8 @@ __DAMAGE_TYPE_OPTIONS__
   const updateSummonOptions = (preset) => {
     const summonSpell = isSummonPreset(preset);
     const customSummon = Boolean(preset?.isCustomSummon);
+    const appearanceOptions = getSpellAppearanceOptions(preset);
+    const hasAppearanceOptions = !summonSpell && appearanceOptions.length > 0;
     if (summonOptions){
       summonOptions.classList.toggle("hidden", !summonSpell);
     }
@@ -11352,7 +11364,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     castSummonChoiceField?.classList.toggle("hidden", customSummon || !summonSpell);
     castSummonQuantityField?.classList.toggle("hidden", !summonSpell);
-    castSummonVariantField?.classList.toggle("hidden", customSummon || !summonSpell);
+    castSummonVariantField?.classList.toggle("hidden", customSummon || (!summonSpell && !hasAppearanceOptions));
     castCustomSummonNameField?.classList.toggle("hidden", !customSummon);
     castCustomSummonMonsterSearchField?.classList.toggle("hidden", !customSummon);
     castCustomSummonMonsterField?.classList.toggle("hidden", !customSummon);
@@ -11381,6 +11393,24 @@ __DAMAGE_TYPE_OPTIONS__
     };
     [castShapeInput, castDefaultDamageInput, castDiceInput, castDamageTypeInput, castAddDamageTypeBtn, castColorInput].forEach(disableForSummon);
     if (!summonSpell){
+      if (castSummonVariantLabel){
+        castSummonVariantLabel.textContent = hasAppearanceOptions ? "Appearance" : "Variant";
+      }
+      if (castSummonVariantInput){
+        const currentAppearance = String(castSummonVariantInput.value || "").trim();
+        castSummonVariantInput.textContent = "";
+        if (hasAppearanceOptions){
+          appearanceOptions.forEach((option) => {
+            const opt = document.createElement("option");
+            opt.value = option;
+            opt.textContent = option;
+            castSummonVariantInput.appendChild(opt);
+          });
+          castSummonVariantInput.value = currentAppearance || appearanceOptions[0] || "";
+        } else {
+          castSummonVariantInput.value = "";
+        }
+      }
       if (castShapeInput) castShapeInput.readOnly = false;
       if (castDefaultDamageInput) castDefaultDamageInput.readOnly = false;
       if (castDiceInput) castDiceInput.readOnly = false;
@@ -11443,6 +11473,9 @@ __DAMAGE_TYPE_OPTIONS__
       const currentVariant = normalizeTextValue(castSummonVariantInput.value || "");
       castSummonVariantInput.textContent = "";
       const mountMode = Boolean(preset?.summon?.mount);
+      if (castSummonVariantLabel){
+        castSummonVariantLabel.textContent = "Variant";
+      }
       castSummonVariantField?.classList.toggle("hidden", !mountMode);
       if (mountMode){
         variants.forEach((variant) => {
@@ -12221,6 +12254,10 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const damageType = damageTypes.length === 1 ? damageTypes[0] : "";
       const name = String(castNameInput?.value || "").trim();
+      const appearanceSelection = aoeSpell ? String(castSummonVariantInput?.value || "").trim() : "";
+      const appearanceName = appearanceSelection
+        ? `${name || String(castNameInput?.placeholder || "Spell").trim()} (${appearanceSelection})`
+        : name;
       const color = normalizeHexColor(castColorInput?.value || "") || null;
       let defaultDamage = String(castDefaultDamageInput?.value || "").trim();
       let dice = String(castDiceInput?.value || "").trim();
@@ -12260,7 +12297,7 @@ __DAMAGE_TYPE_OPTIONS__
         save_type: dcType || null,
         damage_type: damageType || null,
         damage_types: damageTypes,
-        name: name || null,
+        name: appearanceName || null,
         color,
         cx: center.cx,
         cy: center.cy,

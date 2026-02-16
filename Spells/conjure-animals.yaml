@@ -44,36 +44,40 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
-  summon:
-    side: caster
-    color: blue
-    choices:
-    - name: Wolf
-      monster_slug: wolf
-    - name: Dire Wolf
-      monster_slug: dire-wolf
-    - name: Giant Eagle
-      monster_slug: giant-eagle
-    - name: Giant Constrictor Snake
-      monster_slug: giant-constrictor-snake
-    count:
-      kind: fixed
-      min: 1
-      max: 8
-    duration:
-      concentration: true
-      up_to: 10 minutes
-    lifecycle:
-      ends_on_zero_hp: true
-      ends_on_spell_end: true
-    control: summoner
-    initiative:
-      mode: shared
-      turn_position: immediately_after_caster
+  automation: full
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 60
+    area:
+      shape: square
+      side_ft: 30
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: pack-hazard
+    name: Pack Hazard
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: slashing
+        dice: 3d10
+        scaling: &id001
+          kind: slot_level
+          base_slot: 3
+          add_per_slot_above: 1d10
+      success: []
+  scaling: *id001
   ui:
-    template_preview: false
+    template_preview: true
+    appearance_options:
+    - Wolves
+    - Serpents
+    - Birds
   notes: []

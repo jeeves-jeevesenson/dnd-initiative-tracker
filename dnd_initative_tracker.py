@@ -6521,6 +6521,7 @@ class InitiativeTracker(base.InitiativeTracker):
             url = import_data.get("url")
             lists = parsed.get("lists") if isinstance(parsed.get("lists"), dict) else {}
             mechanics = parsed.get("mechanics") if isinstance(parsed.get("mechanics"), dict) else {}
+            ui_block = mechanics.get("ui") if isinstance(mechanics.get("ui"), dict) else {}
             summon_config = normalize_summon_config(parsed, mechanics)
             if summon_config is not None and "summon" not in mechanics:
                 mechanics = dict(mechanics)
@@ -6558,6 +6559,15 @@ class InitiativeTracker(base.InitiativeTracker):
             }
             if summon_config is not None:
                 preset["summon"] = summon_config
+            appearance_options = ui_block.get("appearance_options")
+            if isinstance(appearance_options, list):
+                cleaned_options = [
+                    str(option).strip()
+                    for option in appearance_options
+                    if str(option).strip()
+                ]
+                if cleaned_options:
+                    preset["appearance_options"] = cleaned_options
             if color:
                 preset["color"] = color
             if isinstance(url, str) and url.strip():

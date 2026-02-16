@@ -438,15 +438,18 @@ class SummonSpawnTests(unittest.TestCase):
         self.assertIsNotNone(cid)
         h._spawn_startup_summons_for_pc.assert_called_once_with(cid, expected_entries)
 
-    def test_conjure_animals_has_summon_automation_config(self):
+    def test_conjure_animals_uses_2024_pack_aoe_automation(self):
         spell = yaml.safe_load(Path("Spells/conjure-animals.yaml").read_text(encoding="utf-8"))
-        summon = spell.get("mechanics", {}).get("summon")
-        self.assertIsInstance(summon, dict)
-        self.assertEqual(summon.get("initiative", {}).get("mode"), "shared")
-        self.assertEqual(summon.get("count", {}).get("min"), 1)
-        self.assertEqual(summon.get("count", {}).get("max"), 8)
-        choices = summon.get("choices", [])
-        self.assertTrue(any(str(choice.get("monster_slug")) == "wolf" for choice in choices if isinstance(choice, dict)))
+        mechanics = spell.get("mechanics", {})
+        self.assertNotIn("summon", mechanics)
+        targeting = mechanics.get("targeting", {})
+        self.assertEqual(targeting.get("area", {}).get("shape"), "square")
+        self.assertEqual(targeting.get("area", {}).get("side_ft"), 30)
+        sequence = mechanics.get("sequence", [])
+        self.assertEqual(sequence[0].get("check", {}).get("ability"), "dexterity")
+        self.assertEqual(sequence[0].get("outcomes", {}).get("fail", [])[0].get("dice"), "3d10")
+        options = mechanics.get("ui", {}).get("appearance_options", [])
+        self.assertEqual(options, ["Wolves", "Serpents", "Birds"])
 
 
 
