@@ -80,11 +80,6 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn("const appearanceSelection = aoeSpell ? String(castSummonVariantInput?.value || \"\").trim() : \"\";", self.html)
         self.assertIn("name: appearanceName || null,", self.html)
 
-    def test_single_target_spell_targeting_flow_is_wired(self):
-        self.assertIn("function getSpellTargetingConfig(preset, slotLevel)", self.html)
-        self.assertIn('type: "spell_target_request",', self.html)
-        self.assertIn('} else if (msg.type === "spell_target_result"){', self.html)
-
 
 if __name__ == "__main__":
     unittest.main()

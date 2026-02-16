@@ -9,10 +9,7 @@ source:
   srd: false
 level: 1
 school: evocation
-tags:
-- damage
-- spell_auto_hit_target
-- spell_multi_target
+tags: []
 casting_time: Action
 range: 120 feet
 components: V, S
@@ -40,32 +37,10 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: full
-  targeting:
-    origin: creature_within_range
-    range:
-      kind: distance
-      distance_ft: 120
-    target_selection:
-      mode: multiple
-  sequence:
-  - id: darts
-    name: Magic Missile Dart
-    outcomes:
-      hit:
-      - effect: damage
-        damage_type: force
-        dice: 1d4
-        scaling: &id001
-          kind: slot_level
-          base_slot: 1
-          add_per_slot_above: 1d4
-  scaling: *id001
+  automation: partial
+  targeting: null
+  sequence: []
+  scaling: null
   ui:
     template_preview: false
-    spell_targeting:
-      mode: auto_hit
-      projectiles_base: 3
-      add_per_slot_above: 1
-      base_slot_level: 1
   notes: []
