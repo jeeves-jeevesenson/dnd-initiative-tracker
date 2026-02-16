@@ -10,7 +10,8 @@ source:
 level: 2
 school: evocation
 tags:
-- utility
+- damage
+- attack
 casting_time: Bonus Action
 range: Self
 components: V, S, M (a sumac leaf)
@@ -42,6 +43,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

@@ -10,7 +10,9 @@ source:
 level: 1
 school: necromancy
 tags:
-- utility
+- damage
+- attack
+- condition
 casting_time: Action
 range: 60 feet
 components: V, S
@@ -38,9 +40,35 @@ text:
   higher_level: null
 mechanics:
   automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  upcastable: true
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 60
+    target_selection:
+      mode: single
+  sequence:
+  - id: ray
+    name: Ray
+    check:
+      kind: spell_attack
+      attack_type: ranged
+    outcomes:
+      hit:
+      - effect: damage
+        damage_type: poison
+        dice: 2d8
+        scaling: &id001
+          kind: slot_level
+          base_slot: 1
+          add_per_slot_above: 1d8
+      - effect: condition
+        condition: poisoned
+        duration_turns: 1
+      miss: []
+  scaling: *id001
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - On hit, the target is Poisoned until the end of your next turn.

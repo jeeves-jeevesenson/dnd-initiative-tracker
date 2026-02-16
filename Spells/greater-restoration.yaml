@@ -10,7 +10,7 @@ source:
 level: 5
 school: abjuration
 tags:
-- utility
+- condition
 casting_time: Action
 range: Touch
 components: V, S, M (diamond dust worth 100+ GP, which the spell consumes)
@@ -42,6 +42,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

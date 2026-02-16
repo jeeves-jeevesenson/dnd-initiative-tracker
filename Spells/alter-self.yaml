@@ -10,7 +10,7 @@ source:
 level: 2
 school: transmutation
 tags:
-- utility
+- damage
 casting_time: Action
 range: Self
 components: V, S
@@ -51,6 +51,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

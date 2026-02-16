@@ -10,7 +10,7 @@ source:
 level: 1
 school: enchantment
 tags:
-- utility
+- condition
 casting_time: Action
 range: Touch
 components: V, S
@@ -39,6 +39,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

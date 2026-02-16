@@ -10,7 +10,7 @@ source:
 level: 2
 school: divination
 tags:
-- utility
+- condition
 casting_time: Action
 range: Self
 components: V, S, M (a pinch of talc)
@@ -38,6 +38,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

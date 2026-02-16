@@ -10,7 +10,7 @@ source:
 level: 1
 school: abjuration
 tags:
-- utility
+- save
 casting_time: Bonus Action
 range: 30 feet
 components: V, S, M (a shard of glass from a mirror)
@@ -39,6 +39,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

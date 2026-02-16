@@ -11,6 +11,8 @@ level: 2
 school: evocation
 tags:
 - summon
+- damage
+- attack
 casting_time: Bonus Action
 range: 60 feet
 components: V, S
@@ -41,6 +43,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

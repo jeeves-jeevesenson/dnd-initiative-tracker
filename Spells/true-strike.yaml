@@ -10,7 +10,7 @@ source:
 level: 0
 school: divination
 tags:
-- utility
+- damage
 casting_time: Action
 range: Self
 components: S, M (a weapon with which you have proficiency and that is worth 1+ CP)
@@ -43,6 +43,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

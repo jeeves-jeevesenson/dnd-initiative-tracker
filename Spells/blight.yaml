@@ -10,7 +10,8 @@ source:
 level: 4
 school: necromancy
 tags:
-- utility
+- damage
+- save
 casting_time: Action
 range: 30 feet
 components: V, S
@@ -42,6 +43,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

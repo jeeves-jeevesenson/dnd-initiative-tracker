@@ -10,7 +10,7 @@ source:
 level: 3
 school: transmutation
 tags:
-- utility
+- condition
 casting_time: Action
 range: Touch
 components: V, S, M (a bit of gauze)
@@ -48,6 +48,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

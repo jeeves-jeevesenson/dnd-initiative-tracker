@@ -10,7 +10,8 @@ source:
 level: 5
 school: transmutation
 tags:
-- utility
+- save
+- condition
 casting_time: Action
 range: 60 feet
 components: V, S
@@ -53,6 +54,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

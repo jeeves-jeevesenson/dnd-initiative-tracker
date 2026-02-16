@@ -10,7 +10,7 @@ source:
 level: 2
 school: illusion
 tags:
-- utility
+- condition
 casting_time: Action
 range: Self
 components: V, S
@@ -45,6 +45,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

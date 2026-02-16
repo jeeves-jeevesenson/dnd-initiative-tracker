@@ -10,7 +10,8 @@ source:
 level: 0
 school: enchantment
 tags:
-- utility
+- damage
+- save
 casting_time: Action
 range: 60 feet
 components: V
@@ -39,6 +40,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

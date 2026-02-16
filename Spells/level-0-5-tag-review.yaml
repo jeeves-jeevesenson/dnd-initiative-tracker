@@ -1,6 +1,6 @@
 schema: dnd55.spell_tag_review.v1
 levels_included: [0, 1, 2, 3, 4, 5]
-category_tags: [attack, save, auto_hit, aoe, summon, heal, utility]
+category_tags: [attack, save, auto_hit, aoe, summon, heal, damage, condition, utility]
 automation_tag: automation_full
 not_fully_automated_spell_ids:
   - aid

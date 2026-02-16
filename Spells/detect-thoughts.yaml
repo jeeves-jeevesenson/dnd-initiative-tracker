@@ -10,7 +10,7 @@ source:
 level: 2
 school: divination
 tags:
-- utility
+- save
 casting_time: Action
 range: Self
 components: V, S, M (a copper piece)
@@ -53,6 +53,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

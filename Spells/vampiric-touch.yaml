@@ -10,7 +10,8 @@ source:
 level: 3
 school: necromancy
 tags:
-- utility
+- damage
+- attack
 casting_time: Action
 range: Self
 components: V, S
@@ -42,6 +43,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

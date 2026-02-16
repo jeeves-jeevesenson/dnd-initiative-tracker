@@ -10,7 +10,8 @@ source:
 level: 2
 school: enchantment
 tags:
-- utility
+- save
+- condition
 casting_time: Action
 range: 30 feet
 components: V, M (a drop of honey)
@@ -48,6 +49,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

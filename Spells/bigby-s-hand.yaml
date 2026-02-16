@@ -11,6 +11,10 @@ level: 5
 school: evocation
 tags:
 - summon
+- damage
+- save
+- attack
+- condition
 casting_time: Action
 range: 120 feet
 components: V, S, M (an eggshell and a glove)
@@ -57,6 +61,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

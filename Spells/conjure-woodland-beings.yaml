@@ -11,6 +11,8 @@ level: 4
 school: conjuration
 tags:
 - summon
+- damage
+- save
 casting_time: Action
 range: Self
 components: V, S
@@ -42,6 +44,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

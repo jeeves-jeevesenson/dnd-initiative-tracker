@@ -10,7 +10,7 @@ source:
 level: 4
 school: conjuration
 tags:
-- utility
+- damage
 casting_time: Action
 range: 500 feet
 components: V
@@ -45,6 +45,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

@@ -10,7 +10,8 @@ source:
 level: 5
 school: divination
 tags:
-- utility
+- damage
+- condition
 casting_time: 1 minute or Ritual
 range: Self
 components: V
@@ -45,6 +46,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

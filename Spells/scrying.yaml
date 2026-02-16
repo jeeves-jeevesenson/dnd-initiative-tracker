@@ -10,7 +10,7 @@ source:
 level: 5
 school: divination
 tags:
-- utility
+- save
 casting_time: 10 minutes
 range: Self
 components: V, S, M (a focus worth 1,000+ GP, such as a crystal ball, mirror, or water-filled
@@ -55,6 +55,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

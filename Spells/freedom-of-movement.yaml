@@ -10,7 +10,7 @@ source:
 level: 4
 school: abjuration
 tags:
-- utility
+- condition
 casting_time: Action
 range: Touch
 components: V, S, M (a leather strap)
@@ -44,6 +44,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

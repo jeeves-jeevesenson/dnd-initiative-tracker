@@ -10,7 +10,8 @@ source:
 level: 5
 school: conjuration
 tags:
-- utility
+- damage
+- attack
 casting_time: Action
 range: 30 feet
 components: S, M (a Melee weapon worth 1+ SP)
@@ -39,6 +40,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

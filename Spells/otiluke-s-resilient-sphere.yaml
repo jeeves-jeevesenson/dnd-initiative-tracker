@@ -10,7 +10,7 @@ source:
 level: 4
 school: evocation
 tags:
-- utility
+- save
 casting_time: Action
 range: 30 feet
 components: V, S, M (a glass sphere)
@@ -45,6 +45,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

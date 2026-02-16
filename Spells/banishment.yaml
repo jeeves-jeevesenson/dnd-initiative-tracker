@@ -10,7 +10,8 @@ source:
 level: 4
 school: abjuration
 tags:
-- utility
+- save
+- condition
 casting_time: Action
 range: 30 feet
 components: V, S, M (a pentacle)
@@ -46,6 +47,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: true
   targeting: null
   sequence: []
   scaling: null

@@ -11,6 +11,8 @@ level: 4
 school: conjuration
 tags:
 - summon
+- damage
+- save
 casting_time: Action
 range: 30 feet
 components: V, S, M (a silver whistle)
@@ -43,6 +45,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null

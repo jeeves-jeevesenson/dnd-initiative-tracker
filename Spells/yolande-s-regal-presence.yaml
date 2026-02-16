@@ -10,7 +10,9 @@ source:
 level: 5
 school: enchantment
 tags:
-- utility
+- damage
+- save
+- condition
 casting_time: Action
 range: Self
 components: V, S, M (a miniature tiara)
@@ -41,6 +43,7 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  upcastable: false
   targeting: null
   sequence: []
   scaling: null
