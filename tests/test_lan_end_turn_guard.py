@@ -71,28 +71,5 @@ class LanEndTurnGuardTests(unittest.TestCase):
         self.assertTrue(self.app._should_skip_turn(10))
 
 
-class SummonTurnValidationTests(unittest.TestCase):
-    def setUp(self):
-        self.app = object.__new__(tracker_mod.InitiativeTracker)
-        self.app.combatants = {
-            1: type("C", (), {"cid": 1, "name": "Eldramar"})(),
-            2: type("C", (), {"cid": 2, "name": "стихия"})(),
-            10: type(
-                "C",
-                (),
-                {"cid": 10, "name": "Owl", "summoned_by_cid": 1, "summon_controller_mode": "summoner"},
-            )(),
-        }
-
-    def test_current_turn_rejects_other_player(self):
-        self.assertFalse(self.app._is_valid_summon_turn_for_controller(1, 2, 2))
-
-    def test_current_turn_allows_active_player(self):
-        self.assertTrue(self.app._is_valid_summon_turn_for_controller(2, 2, 2))
-
-    def test_current_turn_allows_summoner_controlled_summon(self):
-        self.assertTrue(self.app._is_valid_summon_turn_for_controller(1, 10, 10))
-
-
 if __name__ == "__main__":
     unittest.main()

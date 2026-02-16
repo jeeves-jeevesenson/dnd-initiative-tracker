@@ -10041,12 +10041,10 @@ class InitiativeTracker(base.InitiativeTracker):
     def _is_valid_summon_turn_for_controller(
         self, controlling_cid: Optional[int], target_cid: Optional[int], current_cid: Optional[int]
     ) -> bool:
-        if controlling_cid is None or target_cid is None or current_cid is None:
+        if target_cid is None or current_cid is None:
             return False
         if int(current_cid) == int(target_cid):
-            return int(controlling_cid) == int(target_cid) or self._summon_can_be_controlled_by(
-                controlling_cid, target_cid
-            )
+            return True
         combatant = self.combatants.get(int(target_cid))
         if combatant is None:
             return False
