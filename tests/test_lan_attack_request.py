@@ -467,6 +467,71 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertFalse(result.get("hit"))
         self.assertEqual(self.app.combatants[1].attack_resource_remaining, 0)
 
+    def test_attack_request_nick_mastery_grants_dual_wield_extra_attack_once_per_turn(self):
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Rogue", "level": 10, "attacks_per_action": 1}]},
+            "attacks": {
+                "weapon_mastery_enabled": True,
+                "weapons": [
+                    {
+                        "id": "scimitar_plus_1",
+                        "name": "Scimitar +1",
+                        "to_hit": 10,
+                        "equipped": True,
+                        "properties": ["finesse", "light", "nick"],
+                    },
+                    {
+                        "id": "dagger",
+                        "name": "Dagger",
+                        "to_hit": 9,
+                        "equipped": True,
+                        "properties": ["finesse", "light", "thrown", "nick"],
+                    },
+                ],
+            },
+        }
+        first = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 23,
+            "target_cid": 2,
+            "weapon_id": "scimitar_plus_1",
+            "hit": False,
+        }
+        second = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 23,
+            "target_cid": 2,
+            "weapon_id": "dagger",
+            "hit": False,
+        }
+        third = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 23,
+            "target_cid": 2,
+            "weapon_id": "scimitar_plus_1",
+            "hit": False,
+        }
+
+        self.app._lan_apply_action(first)
+        self.assertEqual(self.app.combatants[1].action_remaining, 0)
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 1)
+        self.assertEqual(first.get("_attack_result", {}).get("attack_count"), 2)
+
+        self.app._lan_apply_action(second)
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 0)
+        self.assertFalse(second.get("_attack_result", {}).get("hit"))
+
+        self.app.combatants[1].action_remaining = 1
+        self.app._lan_apply_action(third)
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 0)
+        self.assertEqual(third.get("_attack_result", {}).get("attack_count"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

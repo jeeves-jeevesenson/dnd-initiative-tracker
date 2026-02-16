@@ -75,6 +75,65 @@ defenses:
   - lightning
   immunities: []
   vulnerabilities: []
+attacks:
+  weapon_to_hit: 9
+  weapon_mastery_enabled: true
+  weapons:
+  - id: scimitar_plus_1
+    name: Scimitar +1
+    category: martial_melee
+    weapon_group: Martial Melee
+    proficient: true
+    equipped: true
+    main_hand: true
+    to_hit: 9
+    magic_bonus: 1
+    range: '5'
+    one_handed:
+      damage_formula: 1d6 + dex_mod + 1
+      damage_type: slashing
+    two_handed:
+      damage_formula: ''
+      damage_type: ''
+    properties:
+    - finesse
+    - light
+    - nick
+    mastery: nick
+    weight_lb: 3
+    cost_gp: 25
+    effect:
+      on_hit: ''
+      save_ability: ''
+      save_dc: 0
+  - id: dagger
+    name: Dagger
+    category: simple_melee
+    weapon_group: Simple Melee
+    proficient: true
+    equipped: true
+    off_hand: true
+    to_hit: 9
+    magic_bonus: 0
+    range: 20/60
+    one_handed:
+      damage_formula: 1d4 + dex_mod
+      damage_type: piercing
+    two_handed:
+      damage_formula: ''
+      damage_type: ''
+    properties:
+    - finesse
+    - light
+    - thrown
+    - nick
+    mastery: nick
+    weight_lb: 1
+    cost_gp: 2
+    effect:
+      on_hit: ''
+      save_ability: ''
+      save_dc: 0
 resources:
   pools: []
 features: []

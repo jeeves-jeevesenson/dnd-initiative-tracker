@@ -12761,6 +12761,20 @@ class InitiativeTracker(base.InitiativeTracker):
                     if text in ("false", "0", "no", "n", "miss"):
                         return False
                 return None
+            def _weapon_has_property(entry: Any, prop_id: str) -> bool:
+                if not isinstance(entry, dict):
+                    return False
+                target = str(prop_id or "").strip().lower()
+                if not target:
+                    return False
+                properties = entry.get("properties")
+                if isinstance(properties, list):
+                    for token in properties:
+                        normalized = str(token or "").strip().lower()
+                        if normalized == target:
+                            return True
+                mastery = str(entry.get("mastery") or "").strip().lower()
+                return bool(mastery and mastery == target)
             def _damage_formula_variables(profile_data: Any) -> Dict[str, int]:
                 if not isinstance(profile_data, dict):
                     profile_data = {}
@@ -12874,10 +12888,6 @@ class InitiativeTracker(base.InitiativeTracker):
                     if class_attack_count is None:
                         continue
                     configured_attack_count = max(1, min(10, max(configured_attack_count, class_attack_count)))
-            attack_count = max(
-                1,
-                min(10, _parse_int(msg.get("attack_count"), configured_attack_count) or configured_attack_count),
-            )
             attacks = profile.get("attacks") if isinstance(profile, dict) else {}
             weapons = attacks.get("weapons") if isinstance(attacks, dict) else []
             selected_weapon: Dict[str, Any] = {}
@@ -12916,12 +12926,60 @@ class InitiativeTracker(base.InitiativeTracker):
             if not selected_weapon:
                 self._lan.toast(ws_id, "Pick one of yer configured weapons first, matey.")
                 return
+            turn_marker = (
+                int(getattr(self, "round_num", 0) or 0),
+                int(getattr(self, "turn_num", 0) or 0),
+                int(cid),
+            )
+            weapon_mastery_enabled = _parse_bool(attacks.get("weapon_mastery_enabled") if isinstance(attacks, dict) else None)
+            if weapon_mastery_enabled is None:
+                weapon_mastery_enabled = _parse_bool(attacks.get("weapon_mastery") if isinstance(attacks, dict) else None)
+            if weapon_mastery_enabled is None:
+                weapon_mastery_enabled = False
+            nick_turn_marker = tuple(getattr(c, "_nick_mastery_turn_marker", ()) or ())
+            nick_already_used_this_turn = bool(
+                len(nick_turn_marker) == len(turn_marker) and nick_turn_marker == turn_marker
+            )
+            nick_extra_attack_available = False
+            if weapon_mastery_enabled and not nick_already_used_this_turn and _weapon_has_property(selected_weapon, "light"):
+                other_light_weapon = False
+                has_nick_mastery = _weapon_has_property(selected_weapon, "nick")
+                if isinstance(weapons, list):
+                    selected_key = (
+                        str(selected_weapon.get("id") or "").strip().lower(),
+                        str(selected_weapon.get("name") or "").strip().lower(),
+                    )
+                    for entry in weapons:
+                        if not isinstance(entry, dict):
+                            continue
+                        entry_key = (
+                            str(entry.get("id") or "").strip().lower(),
+                            str(entry.get("name") or "").strip().lower(),
+                        )
+                        if entry_key == selected_key and entry is selected_weapon:
+                            continue
+                        if not _weapon_has_property(entry, "light"):
+                            continue
+                        other_light_weapon = True
+                        if _weapon_has_property(entry, "nick"):
+                            has_nick_mastery = True
+                        if has_nick_mastery:
+                            break
+                nick_extra_attack_available = bool(other_light_weapon and has_nick_mastery)
+            if nick_extra_attack_available:
+                configured_attack_count = min(10, int(configured_attack_count) + 1)
+            attack_count = max(
+                1,
+                min(10, _parse_int(msg.get("attack_count"), configured_attack_count) or configured_attack_count),
+            )
             attack_resources = max(0, _parse_int(getattr(c, "attack_resource_remaining", 0), 0) or 0)
             if attack_resources <= 0:
                 if not self._use_action(c):
                     self._lan.toast(ws_id, "No attacks left, matey.")
                     return
                 attack_resources = int(configured_attack_count)
+                if nick_extra_attack_available:
+                    setattr(c, "_nick_mastery_turn_marker", turn_marker)
             attack_resources = max(0, int(attack_resources) - 1)
             setattr(c, "attack_resource_remaining", int(attack_resources))
             to_hit = _parse_int(selected_weapon.get("to_hit"), _parse_int(attacks.get("weapon_to_hit"), 0) or 0) or 0
