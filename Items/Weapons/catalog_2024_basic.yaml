@@ -189,6 +189,32 @@ weapons:
         formula: 1d10
         type: slashing
     properties: [sap, versatile]
+  - id: sword_of_wounding
+    name: Sword of Wounding
+    category: martial_melee
+    attack_bonus: 0
+    damage:
+      one_handed:
+        formula: 1d8
+        type: slashing
+      versatile:
+        formula: 1d10
+        type: slashing
+    properties: [sap, versatile]
+    riders:
+      - id: wounding_on_hit
+        trigger: on_hit
+        effect: apply_wound_stack
+        stack_limit_per_target_per_turn: 1
+      - id: wounding_start_of_turn
+        trigger: start_of_target_turn
+        formula: 1d4
+        type: necrotic
+        per_stack: true
+        save_ability: con
+        save_dc: 15
+        save_success_effect: end_all_stacks
+    notes: Hit points lost to this weapon can only be regained by finishing a short or long rest.
   - id: maul
     name: Maul
     category: martial_melee

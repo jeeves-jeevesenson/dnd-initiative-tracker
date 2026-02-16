@@ -77,6 +77,25 @@ defenses:
   - fire
   immunities: []
   vulnerabilities: []
+attacks:
+  weapon_to_hit: 9
+  weapons:
+  - id: sword_of_wounding
+    name: Sword of Wounding
+    proficient: true
+    to_hit: 9
+    magic_bonus: 0
+    range: '5'
+    one_handed:
+      damage_formula: 1d8 + cha_mod
+      damage_type: slashing
+    two_handed:
+      damage_formula: 1d10 + cha_mod
+      damage_type: slashing
+    effect:
+      on_hit: Once per turn on a hit, apply one wound stack to the target.
+      save_ability: ''
+      save_dc: 0
 resources:
   pools: []
 features: []
@@ -210,7 +229,7 @@ inventory:
   - name: +2 Dagger
     quantity: 1
     description: ''
-  - name: Greatsword of Wounding
+  - name: Sword of Wounding
     quantity: 1
     description: ''
 notes: {}

@@ -31,6 +31,7 @@ class LanAttackRequestTests(unittest.TestCase):
         self.app._next_stack_id = 1
         self.app.start_cid = None
         self.app.current_cid = 1
+        self.app._map_window = None
         self.app.combatants = {
             1: type("C", (), {"cid": 1, "name": "Aelar", "ac": 16, "hp": 25, "condition_stacks": []})(),
             2: type(
@@ -42,11 +43,13 @@ class LanAttackRequestTests(unittest.TestCase):
                     "ac": 15,
                     "hp": 20,
                     "condition_stacks": [],
+                    "exhaustion_level": 0,
                     "saving_throws": {},
                     "ability_mods": {},
                 },
             )(),
         }
+        self.app.combatants[1].exhaustion_level = 0
         self.app.combatants[1].action_remaining = 1
         self.app.combatants[1].attack_resource_remaining = 0
         self.app._display_order = lambda: [self.app.combatants[cid] for cid in sorted(self.app.combatants.keys())]
@@ -339,6 +342,69 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertTrue(result.get("on_hit_save_result", {}).get("passed"))
         self.assertEqual(sum(1 for st in self.app.combatants[2].condition_stacks if getattr(st, "ctype", None) == "prone"), 0)
+
+    def test_attack_request_sword_of_wounding_applies_one_wound_stack_per_turn(self):
+        self.app._profile_for_player_name = lambda name: {
+            "abilities": {"str": 20},
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapons": [
+                    {
+                        "id": "sword_of_wounding",
+                        "name": "Sword of Wounding",
+                        "to_hit": 9,
+                        "one_handed": {"damage_formula": "1d8 + str_mod", "damage_type": "slashing"},
+                        "effect": {"on_hit": "", "save_ability": "", "save_dc": 0},
+                    }
+                ]
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 21,
+            "target_cid": 2,
+            "weapon_id": "sword_of_wounding",
+            "hit": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4, 5]):
+            self.app._lan_apply_action(msg)
+            self.app._lan_apply_action(dict(msg))
+
+        self.assertEqual(len(getattr(self.app.combatants[2], "start_turn_damage_riders", []) or []), 1)
+        self.assertTrue(any("wounds Goblin" in message for _, message in self.logs))
+
+    def test_process_start_of_turn_sword_of_wounding_rolls_save_and_ends_stacks(self):
+        self.app.combatants[2].saving_throws = {"con": 5}
+        self.app.combatants[2].start_turn_damage_riders = [
+            {
+                "dice": "1d4",
+                "type": "necrotic",
+                "source": "Sword of Wounding (Aelar)",
+                "save_ability": "con",
+                "save_dc": 15,
+                "clear_group": "sword_of_wounding",
+            },
+            {
+                "dice": "1d4",
+                "type": "necrotic",
+                "source": "Sword of Wounding (Aelar)",
+                "save_ability": "con",
+                "save_dc": 15,
+                "clear_group": "sword_of_wounding",
+            },
+        ]
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[3, 2, 10]):
+            _, msg, _ = self.app._process_start_of_turn(self.app.combatants[2])
+
+        self.assertEqual(self.app.combatants[2].hp, 15)
+        self.assertEqual(getattr(self.app.combatants[2], "start_turn_damage_riders", []), [])
+        self.assertIn("takes 3 necrotic", msg)
+        self.assertIn("takes 2 necrotic", msg)
+        self.assertIn("CON save DC 15: 10 + 5 = 15 (PASS)", msg)
 
     def test_end_turn_cleanup_applies_hellfire_rider_damage(self):
         self.app.combatants[2].end_turn_damage_riders = [
