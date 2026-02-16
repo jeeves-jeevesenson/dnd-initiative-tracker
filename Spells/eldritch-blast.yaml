@@ -40,9 +40,36 @@ text:
 mechanics:
   automation: partial
   upcastable: false
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: spell_attack
+      attack_type: ranged
+    outcomes:
+      hit:
+      - effect: damage
+        damage_type: force
+        dice: 1d10
+        scaling: &id001
+          kind: character_level
+          thresholds:
+            5:
+              add: 1d10
+            11:
+              add: 1d10
+            17:
+              add: 1d10
+      miss: []
+  scaling: *id001
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Beam count scales to 2/3/4 at levels 5/11/17 and can be split across targets; resolve per-beam targeting manually.

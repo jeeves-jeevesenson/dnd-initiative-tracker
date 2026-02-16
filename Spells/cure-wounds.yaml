@@ -41,9 +41,24 @@ text:
 mechanics:
   automation: partial
   upcastable: true
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: target_creature
+    range:
+      kind: touch
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    outcomes:
+      hit:
+      - effect: healing
+        dice: 2d8
+      miss: []
+  scaling:
+    kind: slot_level
+    base_slot: 1
+    add_per_slot_above: 2d8
   ui:
     template_preview: false
   notes: []

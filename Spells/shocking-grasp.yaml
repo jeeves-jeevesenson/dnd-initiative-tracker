@@ -41,9 +41,34 @@ text:
 mechanics:
   automation: partial
   upcastable: false
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: target_creature
+    range:
+      kind: touch
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: spell_attack
+      attack_type: melee
+    outcomes:
+      hit:
+      - effect: damage
+        damage_type: lightning
+        dice: 1d8
+        scaling: &id001
+          kind: character_level
+          thresholds:
+            5:
+              add: 1d8
+            11:
+              add: 1d8
+            17:
+              add: 1d8
+      miss: []
+  scaling: *id001
   ui:
     template_preview: false
   notes: []

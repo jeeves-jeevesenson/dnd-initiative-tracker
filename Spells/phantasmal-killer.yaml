@@ -45,9 +45,30 @@ text:
 mechanics:
   automation: partial
   upcastable: true
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: wisdom
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: psychic
+        dice: 4d10
+        scaling: &id001
+          kind: slot_level
+          base_slot: 4
+          add_per_slot_above: 1d10
+  scaling: *id001
   ui:
     template_preview: false
   notes: []

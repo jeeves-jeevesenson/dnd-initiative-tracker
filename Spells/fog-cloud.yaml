@@ -53,7 +53,11 @@ mechanics:
     target_selection:
       mode: area
       friendly_fire: true
-  sequence: []
+  sequence:
+  - id: effect
+    name: Effect
+    outcomes:
+      hit: []
   scaling: null
   ui:
     template_preview: true

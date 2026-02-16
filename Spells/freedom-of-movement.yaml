@@ -45,9 +45,19 @@ text:
 mechanics:
   automation: partial
   upcastable: true
-  targeting: null
-  sequence: []
+  targeting:
+    origin: target_creature
+    range:
+      kind: touch
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    outcomes:
+      hit: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Grants movement protections (ignores difficult terrain and resists speed/condition suppression) and escape benefits; apply these benefits manually.

@@ -37,9 +37,19 @@ text:
 mechanics:
   automation: partial
   upcastable: false
-  targeting: null
-  sequence: []
+  targeting:
+    origin: target_creature
+    range:
+      kind: touch
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    outcomes:
+      hit: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Primary spell effect is utility-oriented; resolve non-damage details manually.

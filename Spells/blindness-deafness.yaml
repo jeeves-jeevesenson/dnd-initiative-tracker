@@ -43,9 +43,27 @@ text:
 mechanics:
   automation: partial
   upcastable: true
-  targeting: null
-  sequence: []
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: constitution
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: condition
+        condition: blinded
+        duration_turns: 0
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - On a failed save, choose Blinded or Deafened; this entry defaults to Blinded and requires manual selection for Deafened.

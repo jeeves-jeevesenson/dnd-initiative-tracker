@@ -46,9 +46,19 @@ text:
 mechanics:
   automation: partial
   upcastable: false
-  targeting: null
-  sequence: []
+  targeting:
+    origin: self
+    range:
+      kind: self
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    outcomes:
+      hit: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Creates three illusory duplicates that can intercept incoming attacks; duplicate destruction and d6 checks are handled manually.

@@ -58,8 +58,18 @@ text:
 mechanics:
   automation: partial
   upcastable: false
-  targeting: null
-  sequence: []
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 10
+    target_selection:
+      mode: special
+  sequence:
+  - id: effect
+    name: Effect
+    outcomes:
+      hit: []
   scaling: null
   summon:
     side: caster
@@ -116,4 +126,5 @@ mechanics:
       mode: rolled_per_creature
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Primary spell effect is utility-oriented; resolve non-damage details manually.
