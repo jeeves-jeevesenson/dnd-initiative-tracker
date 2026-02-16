@@ -1,5 +1,8 @@
 import unittest
 from unittest import mock
+from pathlib import Path
+
+import yaml
 
 import dnd_initative_tracker as tracker_mod
 
@@ -434,6 +437,19 @@ class SummonSpawnTests(unittest.TestCase):
         cid = tracker_mod.InitiativeTracker._create_pc_from_profile(h, "Eldramar", {})
         self.assertIsNotNone(cid)
         h._spawn_startup_summons_for_pc.assert_called_once_with(cid, expected_entries)
+
+    def test_conjure_animals_uses_pack_aoe_automation(self):
+        spell = yaml.safe_load(Path("Spells/conjure-animals.yaml").read_text(encoding="utf-8"))
+        mechanics = spell.get("mechanics", {})
+        self.assertNotIn("summon", mechanics)
+        targeting = mechanics.get("targeting", {})
+        self.assertEqual(targeting.get("area", {}).get("shape"), "square")
+        self.assertEqual(targeting.get("area", {}).get("side_ft"), 30)
+        sequence = mechanics.get("sequence", [])
+        self.assertEqual(sequence[0].get("check", {}).get("ability"), "dexterity")
+        self.assertEqual(sequence[0].get("outcomes", {}).get("fail", [])[0].get("dice"), "3d10")
+        appearance_options = mechanics.get("ui", {}).get("appearance_options", [])
+        self.assertEqual(appearance_options, ["Wolves", "Serpents", "Birds"])
 
 
 

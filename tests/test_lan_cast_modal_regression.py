@@ -74,6 +74,12 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn("const conditionText = formatTurnChipConditions(unit?.marks);", self.html)
         self.assertIn('nameEl.textContent = conditionText ? `${concentrationLabel} · ${conditionText}` : concentrationLabel;', self.html)
 
+    def test_aoe_spell_appearance_options_use_variant_field(self):
+        self.assertIn("const getSpellAppearanceOptions = (preset) => {", self.html)
+        self.assertIn('castSummonVariantLabel.textContent = hasAppearanceOptions ? "Appearance" : "Variant";', self.html)
+        self.assertIn("const appearanceSelection = aoeSpell ? String(castSummonVariantInput?.value || \"\").trim() : \"\";", self.html)
+        self.assertIn("name: appearanceName || null,", self.html)
+
 
 if __name__ == "__main__":
     unittest.main()

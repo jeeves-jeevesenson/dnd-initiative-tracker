@@ -44,10 +44,40 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  automation: full
+  targeting:
+    origin: point_within_range
+    range:
+      kind: distance
+      distance_ft: 60
+    area:
+      shape: square
+      side_ft: 30
+    target_selection:
+      mode: area
+      friendly_fire: true
+  sequence:
+  - id: pack-hazard
+    name: Pack Hazard
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: slashing
+        dice: 3d10
+        scaling: &id001
+          kind: slot_level
+          base_slot: 3
+          add_per_slot_above: 1d10
+      success: []
+  scaling: *id001
   ui:
-    template_preview: false
+    template_preview: true
+    appearance_options:
+    - Wolves
+    - Serpents
+    - Birds
   notes: []
