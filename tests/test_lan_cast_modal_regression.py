@@ -82,6 +82,12 @@ class LanCastModalRegressionTests(unittest.TestCase):
 
     def test_single_target_spell_targeting_flow_is_wired(self):
         self.assertIn("function getSpellTargetingConfig(preset, slotLevel)", self.html)
+        self.assertIn('if (tagSet.has("attack") || tagSet.has("spell_attack_target")) return "attack";', self.html)
+        self.assertIn('if (tagSet.has("save") || tagSet.has("spell_save_target")) return "save";', self.html)
+        self.assertIn('if (tagSet.has("auto_hit") || tagSet.has("spell_auto_hit_target")) return "auto_hit";', self.html)
+        self.assertIn('const aoeSpell = spellActionTag === "aoe";', self.html)
+        self.assertIn('localToast("No tag found for that spell, matey.");', self.html)
+        self.assertIn('message: "Spell cast blocked: missing spell action tag",', self.html)
         self.assertIn('type: "spell_target_request",', self.html)
         self.assertIn('} else if (msg.type === "spell_target_result"){', self.html)
 
