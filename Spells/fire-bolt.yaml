@@ -9,7 +9,10 @@ source:
   srd: false
 level: 0
 school: evocation
-tags: []
+tags:
+- damage
+- spell_attack_target
+- spell_single_target
 casting_time: Action
 range: 120 feet
 components: V, S
@@ -37,10 +40,36 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  automation: full
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    target_selection:
+      mode: single
+  sequence:
+  - id: attack
+    name: Spell Attack
+    check:
+      kind: spell_attack
+    outcomes:
+      hit:
+      - effect: damage
+        damage_type: fire
+        dice: 1d10
+        scaling: &id001
+          kind: character_level
+          thresholds:
+            5:
+              add: 1d10
+            11:
+              add: 1d10
+            17:
+              add: 1d10
+  scaling: *id001
   ui:
     template_preview: false
+    spell_targeting:
+      mode: attack
   notes: []
