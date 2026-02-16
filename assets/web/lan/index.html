@@ -3795,8 +3795,7 @@ __DAMAGE_TYPE_OPTIONS__
   function updateEndTurnState(){
     if (!endTurnBtn) return;
     const needsClaim = claimedCid === null || claimedCid === undefined;
-    const activeCid = normalizeCid(state?.active_cid, "endTurn.activeCid");
-    const myTurn = !needsClaim && activeCid !== null && cidMatches(activeCid, claimedCid, "endTurn.myTurn");
+    const myTurn = !needsClaim && activeControlledUnitCid() !== null;
     const shouldDisable = isMapView || needsClaim || !myTurn;
     endTurnBtn.disabled = shouldDisable;
     endTurnBtn.setAttribute("aria-disabled", shouldDisable ? "true" : "false");
@@ -12930,7 +12929,7 @@ __DAMAGE_TYPE_OPTIONS__
       if (chipCid !== null && canSelectControlledUnitCid(chipCid)){
         selectedTurnCid = chipCid;
         const unit = getUnitByCid(chipCid);
-        if (unit?.name){
+        if (unit?.name && unitControllableThisTurn(chipCid)){
           localToast(`Controlling ${unit.name}.`);
         }
         updateTurnOrder();
@@ -13351,13 +13350,13 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Claim a character first, matey.");
         return;
       }
-      const activeCid = normalizeCid(state?.active_cid, "endTurn.click.activeCid");
-      if (activeCid === null || !cidMatches(activeCid, claimedCid, "endTurn.click.myTurn")){
+      const endTurnCid = activeControlledUnitCid();
+      if (endTurnCid === null){
         localToast("Not yer turn yet, matey.");
         updateEndTurnState();
         return;
       }
-      send({type:"end_turn", cid: claimedCid});
+      send({type:"end_turn", cid: endTurnCid});
     });
   }
   if (dismissSummonsBtn){
