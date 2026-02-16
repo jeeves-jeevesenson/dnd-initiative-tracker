@@ -1103,6 +1103,7 @@ class LanController:
         "dismount",
         "initiative_roll",
         "attack_request",
+        "spell_target_request",
     )
 
     def __init__(self, app: "InitiativeTracker") -> None:
@@ -6625,6 +6626,11 @@ class InitiativeTracker(base.InitiativeTracker):
             color = normalize_color(parsed.get("color"))
             import_data = parsed.get("import") if isinstance(parsed.get("import"), dict) else {}
             url = import_data.get("url")
+            import_raw = import_data.get("raw") if isinstance(import_data.get("raw"), dict) else {}
+            import_description = import_raw.get("description")
+            if import_description in (None, ""):
+                text_block = parsed.get("text") if isinstance(parsed.get("text"), dict) else {}
+                import_description = text_block.get("rules")
             lists = parsed.get("lists") if isinstance(parsed.get("lists"), dict) else {}
             mechanics = parsed.get("mechanics") if isinstance(parsed.get("mechanics"), dict) else {}
             ui_block = mechanics.get("ui") if isinstance(mechanics.get("ui"), dict) else {}
@@ -6678,6 +6684,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 preset["color"] = color
             if isinstance(url, str) and url.strip():
                 preset["url"] = url.strip()
+            if isinstance(import_description, str) and import_description.strip():
+                preset["description"] = import_description.strip()
 
             targeting = mechanics.get("targeting") if isinstance(mechanics.get("targeting"), dict) else {}
             range_data = targeting.get("range") if isinstance(targeting.get("range"), dict) else {}
@@ -12739,6 +12747,197 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._log(f"{c.name} used {action_name} ({spend_label})", cid=cid)
                 self._lan.toast(ws_id, f"Used {action_name}.")
                 self._rebuild_table(scroll_to_current=True)
+        elif typ == "spell_target_request":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+
+            def _parse_int(value: Any, fallback: Optional[int] = None) -> Optional[int]:
+                try:
+                    return int(value)
+                except Exception:
+                    return fallback
+
+            def _parse_bool(value: Any, fallback: bool = False) -> bool:
+                if isinstance(value, bool):
+                    return value
+                if isinstance(value, str):
+                    lowered = value.strip().lower()
+                    if lowered in ("1", "true", "yes", "y", "hit"):
+                        return True
+                    if lowered in ("0", "false", "no", "n", "miss"):
+                        return False
+                return bool(fallback)
+
+            def _save_mod_for_target(target_obj: Any, ability_key: str) -> int:
+                key = str(ability_key or "").strip().lower()
+                if not key:
+                    return 0
+                saves = getattr(target_obj, "saving_throws", None)
+                if isinstance(saves, dict):
+                    val = saves.get(key)
+                    try:
+                        return int(val)
+                    except Exception:
+                        pass
+                mods = getattr(target_obj, "ability_mods", None)
+                if isinstance(mods, dict):
+                    val = mods.get(key)
+                    try:
+                        return int(val)
+                    except Exception:
+                        pass
+                return 0
+
+            target_cid = _normalize_cid_value(msg.get("target_cid"), "spell_target_request.target_cid", log_fn=log_warning)
+            target = self.combatants.get(int(target_cid)) if target_cid is not None else None
+            if target is None:
+                self._lan.toast(ws_id, "Pick a valid target, matey.")
+                return
+
+            spell_name = str(msg.get("spell_name") or msg.get("name") or "Spell").strip() or "Spell"
+            spell_mode = str(msg.get("spell_mode") or msg.get("mode") or "attack").strip().lower()
+            if spell_mode not in ("attack", "auto_hit", "save"):
+                spell_mode = "attack"
+            hit = _parse_bool(msg.get("hit"), fallback=spell_mode == "auto_hit")
+            save_type = str(msg.get("save_type") or "").strip().lower()
+            save_dc = max(0, _parse_int(msg.get("save_dc"), 0) or 0)
+            roll_save = _parse_bool(msg.get("roll_save"), fallback=spell_mode == "save")
+            damage_entries: List[Dict[str, Any]] = []
+            raw_damage_entries = msg.get("damage_entries")
+            if isinstance(raw_damage_entries, list):
+                for entry in raw_damage_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    amount = _parse_int(entry.get("amount"), None)
+                    if amount is None:
+                        continue
+                    amount = max(0, int(amount))
+                    if amount <= 0:
+                        continue
+                    dtype = str(entry.get("type") or "").strip().lower()
+                    damage_entries.append({"amount": amount, "type": dtype})
+
+            result_payload: Dict[str, Any] = {
+                "type": "spell_target_result",
+                "ok": True,
+                "attacker_cid": int(cid),
+                "target_cid": int(target_cid),
+                "target_name": str(getattr(target, "name", "Target") or "Target"),
+                "spell_name": spell_name,
+                "spell_mode": spell_mode,
+            }
+
+            if spell_mode == "save" and save_type and save_dc > 0 and roll_save:
+                save_roll = random.randint(1, 20)
+                save_mod = _save_mod_for_target(target, save_type)
+                save_total = int(save_roll) + int(save_mod)
+                save_passed = bool(save_roll != 1 and save_total >= int(save_dc))
+                result_payload["save_result"] = {
+                    "ability": save_type,
+                    "dc": int(save_dc),
+                    "roll": int(save_roll),
+                    "modifier": int(save_mod),
+                    "total": int(save_total),
+                    "passed": bool(save_passed),
+                }
+                self._log(
+                    f"{target.name} makes a {save_type.upper()} save vs {spell_name} "
+                    f"(DC {int(save_dc)}): {int(save_roll)} + {int(save_mod)} = {int(save_total)} "
+                    f"({'PASS' if save_passed else 'FAIL'}).",
+                    cid=int(target_cid),
+                )
+                if save_passed:
+                    result_payload["hit"] = False
+                    result_payload["damage_total"] = 0
+                    msg["_spell_target_result"] = dict(result_payload)
+                    loop = getattr(self._lan, "_loop", None)
+                    if ws_id is not None and loop:
+                        try:
+                            asyncio.run_coroutine_threadsafe(self._lan._send_async(ws_id, result_payload), loop)
+                        except Exception:
+                            pass
+                    self._lan.toast(ws_id, "Target passed the save.")
+                    return
+                if not damage_entries:
+                    result_payload["needs_damage_prompt"] = True
+                    msg["_spell_target_result"] = dict(result_payload)
+                    loop = getattr(self._lan, "_loop", None)
+                    if ws_id is not None and loop:
+                        try:
+                            asyncio.run_coroutine_threadsafe(self._lan._send_async(ws_id, result_payload), loop)
+                        except Exception:
+                            pass
+                    self._lan.toast(ws_id, "Target failed the save.")
+                    return
+
+            total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
+            if spell_mode == "auto_hit":
+                hit = True
+            result_payload["hit"] = bool(hit)
+            result_payload["damage_entries"] = list(damage_entries if hit else [])
+            result_payload["damage_total"] = int(total_damage if hit else 0)
+
+            if hit and total_damage > 0:
+                before_hp = _parse_int(getattr(target, "hp", None), None)
+                if before_hp is not None:
+                    after_hp = max(0, int(before_hp) - int(total_damage))
+                    setattr(target, "hp", int(after_hp))
+                    if int(before_hp) > 0 and int(after_hp) <= 0:
+                        pre_order: List[int] = []
+                        try:
+                            pre_order = [x.cid for x in self._display_order()]
+                        except Exception:
+                            pre_order = []
+                        removed_target = False
+                        try:
+                            self._remove_combatants_with_lan_cleanup([int(target_cid)])
+                            removed_target = int(target_cid) not in self.combatants
+                        except Exception:
+                            removed_target = self.combatants.pop(int(target_cid), None) is not None
+                        if removed_target:
+                            if getattr(self, "start_cid", None) == int(target_cid):
+                                self.start_cid = None
+                            try:
+                                self._retarget_current_after_removal([int(target_cid)], pre_order=pre_order)
+                            except Exception:
+                                pass
+                            self._log(f"{target.name} dropped to 0 -> removed", cid=int(target_cid))
+                        try:
+                            self._lan.play_ko(int(cid))
+                        except Exception:
+                            pass
+                damage_desc = ", ".join(
+                    f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
+                    for entry in damage_entries
+                )
+                self._log(
+                    f"{c.name} deals {int(total_damage)} damage to {result_payload['target_name']} with {spell_name}"
+                    f"{f' ({damage_desc})' if damage_desc else ''}.",
+                    cid=int(target_cid),
+                )
+            elif hit:
+                self._log(f"{c.name} hits {result_payload['target_name']} with {spell_name}.", cid=int(target_cid))
+            else:
+                self._log(f"{c.name} misses {result_payload['target_name']} with {spell_name}.", cid=int(target_cid))
+
+            try:
+                self._rebuild_table(scroll_to_current=True)
+            except Exception:
+                pass
+            msg["_spell_target_result"] = dict(result_payload)
+            loop = getattr(self._lan, "_loop", None)
+            if ws_id is not None and loop:
+                try:
+                    asyncio.run_coroutine_threadsafe(self._lan._send_async(ws_id, result_payload), loop)
+                except Exception:
+                    pass
+            if not hit:
+                self._lan.toast(ws_id, "Spell misses.")
+            elif total_damage > 0:
+                self._lan.toast(ws_id, "Spell hits.")
+            else:
+                self._lan.toast(ws_id, "Spell resolved.")
         elif typ == "attack_request":
             c = self.combatants.get(cid)
             if not c:

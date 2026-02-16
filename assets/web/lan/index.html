@@ -3694,6 +3694,7 @@ __DAMAGE_TYPE_OPTIONS__
   let attackOverlayMode = false;
   let selectedAttackWeaponId = "";
   let pendingAttackResolve = null;
+  let pendingSpellTargeting = null;
   let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
   const LOS_PREVIEW_MS = 900;
   const sheetHeightKey = "inittracker_sheetHeight";
@@ -6485,6 +6486,14 @@ __DAMAGE_TYPE_OPTIONS__
     return Number.isFinite(value) && value >= 0 ? value : null;
   }
 
+  function parseSpellTargetRangeFeet(preset){
+    const mechanicsRange = Number(preset?.mechanics?.targeting?.range?.distance_ft);
+    if (Number.isFinite(mechanicsRange) && mechanicsRange >= 0){
+      return mechanicsRange;
+    }
+    return parseSpellRangeFeet(preset?.range);
+  }
+
   function distanceFeetBetweenCells(a, b){
     const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
     const dx = Number(a?.col || 0) - Number(b?.col || 0);
@@ -6574,6 +6583,8 @@ __DAMAGE_TYPE_OPTIONS__
     attackResolveModal.classList.toggle("show", !!open);
     attackResolveModal.setAttribute("aria-hidden", open ? "false" : "true");
     if (!open){
+      if (attackResolveHit) attackResolveHit.disabled = false;
+      if (attackResolveMiss) attackResolveMiss.disabled = false;
       pendingAttackResolve = null;
     }
   }
@@ -7303,9 +7314,10 @@ __DAMAGE_TYPE_OPTIONS__
 
     if (attackOverlayMode){
       const me = getClaimedUnit();
-      const weapon = getSelectedAttackWeapon();
-      if (me && me.pos && weapon){
-        const rangeFt = parseWeaponRangeFeet(weapon);
+      const weapon = pendingSpellTargeting ? null : getSelectedAttackWeapon();
+      const spellRangeFt = Number(pendingSpellTargeting?.rangeFt);
+      if (me && me.pos && (weapon || Number.isFinite(spellRangeFt))){
+        const rangeFt = Number.isFinite(spellRangeFt) ? spellRangeFt : parseWeaponRangeFeet(weapon);
         const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
         const radiusCells = Math.max(0, Number(rangeFt) / feetPerSquare);
         const center = gridToScreen(me.pos.col, me.pos.row);
@@ -8847,6 +8859,53 @@ __DAMAGE_TYPE_OPTIONS__
           updateHud();
           draw();
         }
+      } else if (msg.type === "spell_target_result"){
+        if (msg.needs_damage_prompt){
+          const target = getUnitByCid(msg.target_cid);
+          if (pendingSpellTargeting && target){
+            const wounded = Number(target.hp || 0) < Number(target.max_hp || target.hp || 0);
+            const damageDice = wounded && pendingSpellTargeting.damageDiceWhenWounded
+              ? pendingSpellTargeting.damageDiceWhenWounded
+              : pendingSpellTargeting.damageDice;
+            pendingAttackResolve = {
+              mode: "spell",
+              targetCid: Number(msg.target_cid),
+              targetName: String(msg.target_name || target.name || "target"),
+              spellName: pendingSpellTargeting.spellName,
+              spellSlug: pendingSpellTargeting.spellSlug || null,
+              spellId: pendingSpellTargeting.spellId || null,
+              spellMode: "save",
+              saveType: pendingSpellTargeting.saveType || "",
+              saveDc: pendingSpellTargeting.saveDc,
+              forceHit: true,
+              rollSave: false,
+            };
+            if (attackResolveBody){
+              const details = [
+                damageDice ? `Damage: ${damageDice}${pendingSpellTargeting.damageType ? ` ${pendingSpellTargeting.damageType}` : ""}.` : "",
+                pendingSpellTargeting.description ? pendingSpellTargeting.description : "",
+              ].filter(Boolean).join(" ");
+              attackResolveBody.textContent = `Target failed save. Resolve ${pendingSpellTargeting.spellName} on ${pendingAttackResolve.targetName}.`
+                + (details ? ` ${details}` : "");
+            }
+            if (attackDamageRows){
+              attackDamageRows.textContent = "";
+              addAttackDamageRow("", pendingSpellTargeting.damageType || "");
+            }
+            if (attackResolveHit) attackResolveHit.checked = true;
+            if (attackResolveMiss) attackResolveMiss.checked = false;
+            if (attackResolveHit) attackResolveHit.disabled = true;
+            if (attackResolveMiss) attackResolveMiss.disabled = true;
+            setAttackResolveModalOpen(true);
+          }
+        } else if (msg.save_result && msg.save_result.passed && pendingSpellTargeting){
+          pendingSpellTargeting.remainingShots = Math.max(0, Number(pendingSpellTargeting.remainingShots || 0) - 1);
+          if (pendingSpellTargeting.remainingShots <= 0){
+            clearSpellTargetingSession("");
+          } else {
+            localToast(`${pendingSpellTargeting.remainingShots} target${pendingSpellTargeting.remainingShots === 1 ? "" : "s"} remaining.`);
+          }
+        }
       } else if (msg.type === "grid_update"){
         if (!state){ state = {}; }
         if ("grid" in msg){
@@ -9348,24 +9407,76 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Claim a character first, matey.");
         return;
       }
-      const weapon = getSelectedAttackWeapon();
-      if (!weapon){
-        localToast("No configured weapon found, matey.");
-        return;
-      }
       const hit = hitTestToken(p);
       if (hit && !cidMatches(hit.cid, me.cid, "attackOverlay.target")){
         if (isFriendlyToMe(hit, me)){
           localToast("Pick an enemy target, matey.");
           return;
         }
-        const rangeFt = parseWeaponRangeFeet(weapon);
+        const weapon = pendingSpellTargeting ? null : getSelectedAttackWeapon();
+        if (!pendingSpellTargeting && !weapon){
+          localToast("No configured weapon found, matey.");
+          return;
+        }
+        const rangeFt = Number.isFinite(Number(pendingSpellTargeting?.rangeFt))
+          ? Number(pendingSpellTargeting.rangeFt)
+          : parseWeaponRangeFeet(weapon);
         const distFt = distanceFeetBetweenCells(me.pos, hit.pos);
         if (distFt - rangeFt > 1e-6){
           localToast("Target be out of attack range.");
           return;
         }
-        openAttackResolveModal(hit, weapon);
+        if (!pendingSpellTargeting){
+          openAttackResolveModal(hit, weapon);
+          return;
+        }
+        if (pendingSpellTargeting.mode === "save"){
+          const request = {
+            type: "spell_target_request",
+            cid: activeControlledUnitCid(),
+            target_cid: Number(hit.cid),
+            spell_name: pendingSpellTargeting.spellName,
+            spell_slug: pendingSpellTargeting.spellSlug || null,
+            spell_id: pendingSpellTargeting.spellId || null,
+            spell_mode: "save",
+            save_type: pendingSpellTargeting.saveType || null,
+            save_dc: Number.isFinite(Number(pendingSpellTargeting.saveDc)) ? Number(pendingSpellTargeting.saveDc) : null,
+            roll_save: true,
+          };
+          send(request);
+          return;
+        }
+        const autoHit = pendingSpellTargeting.mode === "auto_hit";
+        pendingAttackResolve = {
+          mode: "spell",
+          targetCid: Number(hit.cid),
+          targetName: String(hit.name || "target"),
+          spellName: pendingSpellTargeting.spellName,
+          spellSlug: pendingSpellTargeting.spellSlug || null,
+          spellId: pendingSpellTargeting.spellId || null,
+          spellMode: pendingSpellTargeting.mode,
+          saveType: pendingSpellTargeting.saveType || "",
+          saveDc: pendingSpellTargeting.saveDc,
+          forceHit: autoHit,
+          rollSave: false,
+        };
+        if (attackResolveBody){
+          const details = [
+            pendingSpellTargeting.damageDice ? `Damage: ${pendingSpellTargeting.damageDice}${pendingSpellTargeting.damageType ? ` ${pendingSpellTargeting.damageType}` : ""}.` : "",
+            pendingSpellTargeting.description ? pendingSpellTargeting.description : "",
+          ].filter(Boolean).join(" ");
+          attackResolveBody.textContent = `Resolve ${pendingSpellTargeting.spellName} on ${pendingAttackResolve.targetName}.`
+            + (details ? ` ${details}` : "");
+        }
+        if (attackDamageRows){
+          attackDamageRows.textContent = "";
+          addAttackDamageRow("", pendingSpellTargeting.damageType || "");
+        }
+        if (attackResolveHit) attackResolveHit.checked = true;
+        if (attackResolveMiss) attackResolveMiss.checked = !autoHit;
+        if (attackResolveHit) attackResolveHit.disabled = autoHit;
+        if (attackResolveMiss) attackResolveMiss.disabled = autoHit;
+        setAttackResolveModalOpen(true);
         return;
       }
     }
@@ -11705,6 +11816,79 @@ __DAMAGE_TYPE_OPTIONS__
   let castUpcastConfig = null;
   let castBaseDice = null;
   let castBaseDefaultDamage = null;
+  function clearSpellTargetingSession(showToastMessage = ""){
+    pendingSpellTargeting = null;
+    if (attackOverlayMode){
+      setAttackOverlayMode(false);
+    }
+    if (showToastMessage){
+      localToast(showToastMessage);
+    }
+  }
+  function getSpellTargetingConfig(preset, slotLevel){
+    if (!preset || isAoePreset(preset) || isSummonPreset(preset)){
+      return null;
+    }
+    const tags = Array.isArray(preset?.tags) ? preset.tags.map((tag) => normalizeLowerValue(tag)) : [];
+    const tagSet = new Set(tags.filter(Boolean));
+    const uiConfig = preset?.mechanics?.ui?.spell_targeting;
+    const modeRaw = normalizeLowerValue(uiConfig?.mode);
+    const mode = modeRaw || (
+      tagSet.has("spell_save_target") ? "save"
+        : (tagSet.has("spell_auto_hit_target") ? "auto_hit" : (tagSet.has("spell_attack_target") ? "attack" : ""))
+    );
+    if (!mode) return null;
+    const baseCount = Number(uiConfig?.projectiles_base);
+    const addPerSlot = Number(uiConfig?.add_per_slot_above);
+    const baseSlotLevel = Number.isFinite(Number(uiConfig?.base_slot_level))
+      ? Math.floor(Number(uiConfig.base_slot_level))
+      : Math.max(0, Math.floor(Number(preset?.level || 0)));
+    const selectedSlot = Number.isFinite(Number(slotLevel)) ? Math.floor(Number(slotLevel)) : baseSlotLevel;
+    const countBase = Number.isFinite(baseCount) && baseCount > 0 ? Math.floor(baseCount) : 1;
+    const countAdd = Number.isFinite(addPerSlot) ? Math.floor(addPerSlot) : 0;
+    const projectileCount = Math.max(1, countBase + Math.max(0, selectedSlot - baseSlotLevel) * countAdd);
+    const damageTypes = Array.from(castDamageTypes);
+    const fallbackType = String((Array.isArray(preset?.damage_types) ? preset.damage_types[0] : "") || "").trim().toLowerCase();
+    if (!damageTypes.length && fallbackType){
+      damageTypes.push(fallbackType);
+    }
+    const description = normalizeTextValue(preset?.description) || "";
+    return {
+      mode,
+      rangeFt: parseSpellTargetRangeFeet(preset),
+      saveType: normalizeLowerValue(preset?.save_type),
+      saveDc: Number.isFinite(Number(castDcValueInput?.value)) ? Math.floor(Number(castDcValueInput.value)) : null,
+      damageType: damageTypes[0] || "",
+      damageDice: String(castDiceInput?.value || castDefaultDamageInput?.value || "").trim(),
+      damageDiceWhenWounded: String(uiConfig?.damage_dice_when_wounded || "").trim(),
+      description,
+      projectileCount,
+    };
+  }
+  function startSpellTargetingSession(config, preset, slotLevel){
+    if (!config) return;
+    pendingSpellTargeting = {
+      mode: config.mode,
+      spellName: String(castNameInput?.value || preset?.name || "Spell").trim() || "Spell",
+      spellSlug: normalizeTextValue(preset?.slug) || null,
+      spellId: normalizeTextValue(preset?.id) || null,
+      slotLevel: Number.isFinite(Number(slotLevel)) ? Math.floor(Number(slotLevel)) : null,
+      rangeFt: Number.isFinite(Number(config.rangeFt)) ? Number(config.rangeFt) : null,
+      saveType: config.saveType || "",
+      saveDc: Number.isFinite(Number(config.saveDc)) ? Number(config.saveDc) : null,
+      damageType: String(config.damageType || "").trim().toLowerCase(),
+      damageDice: String(config.damageDice || "").trim(),
+      damageDiceWhenWounded: String(config.damageDiceWhenWounded || "").trim(),
+      description: String(config.description || "").trim(),
+      remainingShots: Math.max(1, Number(config.projectileCount || 1)),
+    };
+    setCastOverlayOpen(false);
+    setAttackOverlayMode(true);
+    const shotLabel = pendingSpellTargeting.remainingShots > 1
+      ? ` (${pendingSpellTargeting.remainingShots} targets)`
+      : "";
+    localToast(`Select target${shotLabel} for ${pendingSpellTargeting.spellName}.`);
+  }
   const setCastDamageTypes = (types) => {
     castDamageTypes.clear();
     if (Array.isArray(types)){
@@ -12393,6 +12577,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
       const msg = {type: aoeSpell ? "cast_aoe" : "cast_spell", payload, action_type: actionType};
+      const spellTargetConfig = !aoeSpell ? getSpellTargetingConfig(preset, slotLevel) : null;
       const presetSlug = normalizeTextValue(preset?.slug);
       const presetId = normalizeTextValue(preset?.id);
       if (presetSlug){
@@ -12416,6 +12601,9 @@ __DAMAGE_TYPE_OPTIONS__
         updateHud();
       }
       send(msg);
+      if (!aoeSpell && spellTargetConfig){
+        startSpellTargetingSession(spellTargetConfig, preset, slotLevel);
+      }
     });
   }
 
@@ -13170,6 +13358,10 @@ __DAMAGE_TYPE_OPTIONS__
   });
   if (attackOverlayToggleBtn){
     attackOverlayToggleBtn.addEventListener("click", () => {
+      if (pendingSpellTargeting && attackOverlayMode){
+        clearSpellTargetingSession("Spell targeting cancelled.");
+        return;
+      }
       setAttackOverlayMode(!attackOverlayMode);
     });
   }
@@ -13331,15 +13523,40 @@ __DAMAGE_TYPE_OPTIONS__
         setAttackResolveModalOpen(false);
         return;
       }
-      send({
-        type: "attack_request",
-        cid: actionCid,
-        target_cid: Number(pendingAttackResolve.targetCid),
-        weapon_id: String(pendingAttackResolve.weaponId || "").trim(),
-        weapon_name: String(pendingAttackResolve.weaponName || "").trim(),
-        hit: hit,
-        damage_entries: damageEntries,
-      });
+      if (pendingAttackResolve.mode === "spell"){
+        send({
+          type: "spell_target_request",
+          cid: actionCid,
+          target_cid: Number(pendingAttackResolve.targetCid),
+          spell_name: String(pendingAttackResolve.spellName || "").trim(),
+          spell_slug: pendingAttackResolve.spellSlug || null,
+          spell_id: pendingAttackResolve.spellId || null,
+          spell_mode: String(pendingAttackResolve.spellMode || "attack"),
+          save_type: pendingAttackResolve.saveType || null,
+          save_dc: Number.isFinite(Number(pendingAttackResolve.saveDc)) ? Number(pendingAttackResolve.saveDc) : null,
+          roll_save: !!pendingAttackResolve.rollSave,
+          hit: pendingAttackResolve.forceHit ? true : hit,
+          damage_entries: damageEntries,
+        });
+        if (pendingSpellTargeting){
+          pendingSpellTargeting.remainingShots = Math.max(0, Number(pendingSpellTargeting.remainingShots || 0) - 1);
+          if (pendingSpellTargeting.remainingShots <= 0){
+            clearSpellTargetingSession("");
+          } else {
+            localToast(`${pendingSpellTargeting.remainingShots} target${pendingSpellTargeting.remainingShots === 1 ? "" : "s"} remaining.`);
+          }
+        }
+      } else {
+        send({
+          type: "attack_request",
+          cid: actionCid,
+          target_cid: Number(pendingAttackResolve.targetCid),
+          weapon_id: String(pendingAttackResolve.weaponId || "").trim(),
+          weapon_name: String(pendingAttackResolve.weaponName || "").trim(),
+          hit: hit,
+          damage_entries: damageEntries,
+        });
+      }
       setAttackResolveModalOpen(false);
     });
   }

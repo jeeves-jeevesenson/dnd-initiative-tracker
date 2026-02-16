@@ -9,7 +9,10 @@ source:
   srd: false
 level: 2
 school: evocation
-tags: []
+tags:
+- damage
+- spell_attack_target
+- spell_multi_target
 casting_time: Action
 range: 120 feet
 components: V, S
@@ -36,10 +39,29 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
-  targeting: null
-  sequence: []
-  scaling: null
+  automation: full
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    target_selection:
+      mode: multiple
+  sequence:
+  - id: rays
+    name: Scorching Ray
+    check:
+      kind: spell_attack
+    outcomes:
+      hit:
+      - effect: damage
+        damage_type: fire
+        dice: 2d6
   ui:
     template_preview: false
+    spell_targeting:
+      mode: attack
+      projectiles_base: 3
+      add_per_slot_above: 1
+      base_slot_level: 2
   notes: []
