@@ -6582,6 +6582,16 @@ __DAMAGE_TYPE_OPTIONS__
     attackDamageRows.appendChild(row);
   }
 
+  function syncAttackResolveDamageVisibility(){
+    const isMiss = !!(attackResolveMiss && attackResolveMiss.checked);
+    if (attackDamageRows){
+      attackDamageRows.classList.toggle("hidden", isMiss);
+    }
+    if (attackDamageAdd){
+      attackDamageAdd.classList.toggle("hidden", isMiss);
+    }
+  }
+
   function setAttackResolveModalOpen(open){
     if (!attackResolveModal) return;
     attackResolveModal.classList.toggle("show", !!open);
@@ -6650,10 +6660,9 @@ __DAMAGE_TYPE_OPTIONS__
     } else {
       addAttackDamageRow();
     }
-    attackDamageRows.classList.remove("hidden");
-    if (attackDamageAdd) attackDamageAdd.classList.remove("hidden");
     if (attackResolveHit) attackResolveHit.checked = true;
     if (attackResolveMiss) attackResolveMiss.checked = false;
+    syncAttackResolveDamageVisibility();
     setAttackResolveModalOpen(true);
   }
 
@@ -8900,6 +8909,7 @@ __DAMAGE_TYPE_OPTIONS__
             if (attackResolveMiss) attackResolveMiss.checked = false;
             if (attackResolveHit) attackResolveHit.disabled = true;
             if (attackResolveMiss) attackResolveMiss.disabled = true;
+            syncAttackResolveDamageVisibility();
             setAttackResolveModalOpen(true);
           }
         } else if (msg.save_result && msg.save_result.passed && pendingSpellTargeting){
@@ -9476,10 +9486,11 @@ __DAMAGE_TYPE_OPTIONS__
           attackDamageRows.textContent = "";
           addAttackDamageRow("", pendingSpellTargeting.damageType || "");
         }
-        if (attackResolveHit) attackResolveHit.checked = true;
+        if (attackResolveHit) attackResolveHit.checked = autoHit;
         if (attackResolveMiss) attackResolveMiss.checked = !autoHit;
         if (attackResolveHit) attackResolveHit.disabled = autoHit;
         if (attackResolveMiss) attackResolveMiss.disabled = autoHit;
+        syncAttackResolveDamageVisibility();
         setAttackResolveModalOpen(true);
         return;
       }
@@ -13564,22 +13575,12 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (attackResolveMiss){
     attackResolveMiss.addEventListener("change", () => {
-      if (attackResolveMiss.checked && attackDamageRows){
-        attackDamageRows.classList.add("hidden");
-      }
-      if (attackResolveMiss.checked && attackDamageAdd){
-        attackDamageAdd.classList.add("hidden");
-      }
+      syncAttackResolveDamageVisibility();
     });
   }
   if (attackResolveHit){
     attackResolveHit.addEventListener("change", () => {
-      if (attackResolveHit.checked && attackDamageRows){
-        attackDamageRows.classList.remove("hidden");
-      }
-      if (attackResolveHit.checked && attackDamageAdd){
-        attackDamageAdd.classList.remove("hidden");
-      }
+      syncAttackResolveDamageVisibility();
     });
   }
   if (attackDamageAdd){
