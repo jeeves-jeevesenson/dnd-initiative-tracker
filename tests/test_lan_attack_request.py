@@ -102,6 +102,35 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertNotIn("_attack_result", msg)
         self.assertIn((10, "Pick one of yer configured weapons first, matey."), self.toasts)
 
+    def test_attack_request_defaults_to_equipped_weapon_when_not_specified(self):
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_to_hit": 5,
+                "weapons": [
+                    {"id": "longsword", "name": "Longsword", "to_hit": 7},
+                    {"id": "battleaxe", "name": "Battleaxe", "to_hit": 8, "equipped": True},
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 22,
+            "target_cid": 2,
+            "attack_roll": 10,
+            "attack_count": 1,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("weapon_name"), "Battleaxe")
+        self.assertEqual(result.get("to_hit"), 8)
+        self.assertNotIn((22, "Pick one of yer configured weapons first, matey."), self.toasts)
+
     def test_attack_request_defaults_attack_count_from_class_configuration(self):
         msg = {
             "type": "attack_request",
