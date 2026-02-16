@@ -3575,6 +3575,11 @@ __DAMAGE_TYPE_OPTIONS__
   const castDamageTypeList = document.getElementById("castDamageTypeList");
   const castAddDamageTypeBtn = document.getElementById("castAddDamageType");
   const castColorInput = document.getElementById("castColor");
+  const castShapeField = castShapeInput?.closest(".form-field");
+  const castDcTypeField = castDcTypeInput?.closest(".form-field");
+  const castDcValueField = castDcValueInput?.closest(".form-field");
+  const castDefaultDamageField = castDefaultDamageInput?.closest(".form-field");
+  const castDiceField = castDiceInput?.closest(".form-field");
   const spellPresetDetails = document.getElementById("spellPresetDetails");
   const sheetWrap = document.getElementById("sheetWrap");
   const sheet = document.getElementById("sheet");
@@ -9796,6 +9801,14 @@ __DAMAGE_TYPE_OPTIONS__
     if (tagSet.has("attack") || tagSet.has("spell_attack_target")) return "attack";
     if (tagSet.has("save") || tagSet.has("spell_save_target")) return "save";
     if (tagSet.has("auto_hit") || tagSet.has("spell_auto_hit_target")) return "auto_hit";
+    const areaShape = normalizeLowerValue(preset?.mechanics?.targeting?.area?.shape || preset?.shape);
+    if (areaShape && AOE_SHAPES.has(areaShape)) return "aoe";
+    const sequence = Array.isArray(preset?.mechanics?.sequence) ? preset.mechanics.sequence : [];
+    for (const step of sequence){
+      const kind = normalizeLowerValue(step?.check?.kind);
+      if (kind === "spell_attack") return "attack";
+      if (kind === "saving_throw") return "save";
+    }
     return "";
   };
   const reportSpellTagMissing = (preset, extra = {}) => {
@@ -11696,6 +11709,13 @@ __DAMAGE_TYPE_OPTIONS__
       [castRadiusInput, castSideInput, castLengthInput, castWidthInput, castAngleInput, castOrientInput, castThicknessInput, castHeightInput].forEach((input) => setCastFieldEnabled(input, false));
       return;
     }
+    const isAoeSpell = resolveSpellActionTag(preset) === "aoe";
+    const automationLevel = normalizeLowerValue(preset?.automation || preset?.mechanics?.automation);
+    if ((preset && !isAoeSpell) || automationLevel === "full"){
+      [castRadiusField, castSideField, castLengthField, castWidthField, castAngleField, castOrientField, castThicknessField, castHeightField].forEach((field) => setCastFieldVisible(field, false));
+      [castRadiusInput, castSideInput, castLengthInput, castWidthInput, castAngleInput, castOrientInput, castThicknessInput, castHeightInput].forEach((input) => setCastFieldEnabled(input, false));
+      return;
+    }
     const shape = String(castShapeInput?.value || "").toLowerCase();
     const usesRadius = shape === "circle" || shape === "sphere" || shape === "cylinder";
     const usesSide = shape === "square" || shape === "cube";
@@ -11723,11 +11743,39 @@ __DAMAGE_TYPE_OPTIONS__
     setCastFieldEnabled(castHeightInput, usesHeight);
   };
 
+  const updateCastAutomationFields = (preset) => {
+    if (!preset){
+      setCastFieldVisible(castShapeField, true);
+      setCastFieldEnabled(castShapeInput, true);
+      [castDcTypeField, castDcValueField, castDefaultDamageField, castDiceField].forEach((field) => setCastFieldVisible(field, true));
+      [castDcTypeInput, castDcValueInput, castDefaultDamageInput, castDiceInput].forEach((input) => setCastFieldEnabled(input, true));
+      return;
+    }
+    const summonSpell = isSummonPreset(preset);
+    const spellActionTag = resolveSpellActionTag(preset);
+    const isAoeSpell = spellActionTag === "aoe";
+    const automationLevel = normalizeLowerValue(preset?.automation || preset?.mechanics?.automation);
+    const fullyAutomated = automationLevel === "full";
+    const showShapeField = !summonSpell && isAoeSpell && !fullyAutomated;
+    setCastFieldVisible(castShapeField, showShapeField);
+    setCastFieldEnabled(castShapeInput, showShapeField);
+    const showManualDamageFields = !summonSpell && !fullyAutomated;
+    setCastFieldVisible(castDcTypeField, showManualDamageFields);
+    setCastFieldEnabled(castDcTypeInput, showManualDamageFields);
+    setCastFieldVisible(castDcValueField, showManualDamageFields);
+    setCastFieldEnabled(castDcValueInput, showManualDamageFields);
+    setCastFieldVisible(castDefaultDamageField, showManualDamageFields);
+    setCastFieldEnabled(castDefaultDamageInput, showManualDamageFields);
+    setCastFieldVisible(castDiceField, showManualDamageFields);
+    setCastFieldEnabled(castDiceInput, showManualDamageFields);
+  };
+
   if (castShapeInput){
     castShapeInput.addEventListener("change", updateCastShapeFields);
     updateCastShapeFields();
   }
   updateSummonOptions(null);
+  updateCastAutomationFields(getSelectedSpellPreset());
 
   const parseDiceSpec = (value) => {
     if (typeof value !== "string") return null;
@@ -11928,6 +11976,11 @@ __DAMAGE_TYPE_OPTIONS__
         }
       });
     }
+    if (castDamageTypeInput){
+      const firstType = Array.from(castDamageTypes)[0] || "";
+      const selectValues = Array.from(castDamageTypeInput.options || []).map((opt) => String(opt?.value || "").trim());
+      castDamageTypeInput.value = firstType && selectValues.includes(firstType) ? firstType : "";
+    }
     renderCastDamageTypes();
   };
   const renderCastDamageTypes = () => {
@@ -11980,6 +12033,7 @@ __DAMAGE_TYPE_OPTIONS__
       castShapeInput.value = preset.shape ? String(preset.shape || "").toLowerCase() : "";
     }
     updateSummonOptions(preset);
+    updateCastAutomationFields(preset);
     updateCastShapeFields();
     if (castRadiusInput){
       castRadiusInput.value = Number.isFinite(Number(preset.radius_ft)) ? Number(preset.radius_ft) : "";
@@ -12160,6 +12214,8 @@ __DAMAGE_TYPE_OPTIONS__
           castSlotLevelInput.readOnly = false;
         }
         updateSummonOptions(null);
+        updateCastAutomationFields(null);
+        updateCastShapeFields();
         updateSpellPresetDetails(null);
         return;
       }

@@ -85,11 +85,20 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('if (tagSet.has("attack") || tagSet.has("spell_attack_target")) return "attack";', self.html)
         self.assertIn('if (tagSet.has("save") || tagSet.has("spell_save_target")) return "save";', self.html)
         self.assertIn('if (tagSet.has("auto_hit") || tagSet.has("spell_auto_hit_target")) return "auto_hit";', self.html)
+        self.assertIn('const kind = normalizeLowerValue(step?.check?.kind);', self.html)
+        self.assertIn('if (kind === "spell_attack") return "attack";', self.html)
         self.assertIn('const aoeSpell = spellActionTag === "aoe";', self.html)
         self.assertIn('localToast("No tag found for that spell, matey.");', self.html)
         self.assertIn('message: "Spell cast blocked: missing spell action tag",', self.html)
         self.assertIn('type: "spell_target_request",', self.html)
         self.assertIn('} else if (msg.type === "spell_target_result"){', self.html)
+
+    def test_automated_spell_fields_can_hide_while_damage_type_defaults(self):
+        self.assertIn("const updateCastAutomationFields = (preset) => {", self.html)
+        self.assertIn("const fullyAutomated = automationLevel === \"full\";", self.html)
+        self.assertIn("const showShapeField = !summonSpell && isAoeSpell && !fullyAutomated;", self.html)
+        self.assertIn("const showManualDamageFields = !summonSpell && !fullyAutomated;", self.html)
+        self.assertIn("const firstType = Array.from(castDamageTypes)[0] || \"\";", self.html)
 
 
 if __name__ == "__main__":
