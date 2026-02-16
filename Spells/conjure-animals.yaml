@@ -9,7 +9,10 @@ source:
   srd: false
 level: 3
 school: conjuration
-tags: []
+tags:
+- save
+- aoe
+- automation_full
 casting_time: Action
 range: 60 feet
 components: V, S

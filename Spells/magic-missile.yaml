@@ -13,6 +13,8 @@ tags:
 - damage
 - spell_auto_hit_target
 - spell_multi_target
+- auto_hit
+- automation_full
 casting_time: Action
 range: 120 feet
 components: V, S

@@ -12,6 +12,7 @@ school: enchantment
 tags:
 - damage
 - aoe
+- save
 casting_time: Action
 range: 60 feet
 components: V, S, M (a pinch of sand or rose petals)

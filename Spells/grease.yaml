@@ -11,6 +11,7 @@ level: 1
 school: conjuration
 tags:
 - aoe
+- save
 casting_time: Action
 range: 60 feet
 components: V, S, M (a bit of pork rind or butter)

@@ -11,6 +11,7 @@ level: 3
 school: conjuration
 tags:
 - aoe
+- save
 casting_time: Action
 range: 150 feet
 components: V, S, M (a miniature umbrella)

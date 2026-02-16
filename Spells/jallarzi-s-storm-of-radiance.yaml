@@ -12,6 +12,8 @@ school: evocation
 tags:
 - damage
 - aoe
+- save
+- automation_full
 casting_time: Action
 range: 120 feet
 components: V, S, M (a pinch of phosphorus)

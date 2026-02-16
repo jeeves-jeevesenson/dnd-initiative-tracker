@@ -11,6 +11,7 @@ level: 6
 school: evocation
 tags:
 - aoe
+- save
 casting_time: Action
 range: Self
 components: V, S, M (a magnifying glass)

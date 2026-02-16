@@ -12,6 +12,7 @@ school: evocation
 tags:
 - damage
 - aoe
+- save
 casting_time: Action
 range: 150 feet
 components: V, S, M (a ball of bat guano and sulfur)

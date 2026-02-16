@@ -11,6 +11,7 @@ level: 1
 school: conjuration
 tags:
 - aoe
+- save
 casting_time: Action
 range: 90 feet
 components: V, S

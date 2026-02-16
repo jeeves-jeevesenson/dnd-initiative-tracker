@@ -12,6 +12,8 @@ school: abjuration
 tags:
 - damage
 - aoe
+- save
+- automation_full
 casting_time: 1 minute
 range: Touch
 components: V, S, M (powdered diamond worth 1,000+ GP, which the spell consumes)

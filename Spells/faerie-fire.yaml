@@ -12,6 +12,7 @@ school: evocation
 tags:
 - damage
 - aoe
+- save
 casting_time: Action
 range: 60 feet
 components: V

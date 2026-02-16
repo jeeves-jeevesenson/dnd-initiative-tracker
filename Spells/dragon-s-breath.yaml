@@ -12,6 +12,7 @@ school: transmutation
 tags:
 - damage
 - aoe
+- save
 casting_time: Bonus Action
 range: Touch
 components: V, S, M (a hot pepper)

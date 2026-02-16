@@ -12,6 +12,7 @@ school: illusion
 tags:
 - damage
 - aoe
+- save
 casting_time: Action
 range: Self
 components: V, S, M (a white feather)
