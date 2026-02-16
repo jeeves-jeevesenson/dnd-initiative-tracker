@@ -6949,7 +6949,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if not preset.get("shape") and has_aoe_tag and not has_area:
                 warnings.append("tagged aoe but missing targeting area")
             if automation == "full":
-                if "shape" not in preset:
+                if has_aoe_tag and "shape" not in preset:
                     automation = "partial"
                 if not dice and not damage_types and not save_type:
                     automation = "partial"
