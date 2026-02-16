@@ -40,9 +40,35 @@ text:
 mechanics:
   automation: partial
   upcastable: false
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 30
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: spell_attack
+      attack_type: melee
+    outcomes:
+      hit:
+      - effect: damage
+        damage_type: piercing
+        dice: 1d6
+        scaling: &id001
+          kind: character_level
+          thresholds:
+            5:
+              add: 1d6
+            11:
+              add: 1d6
+            17:
+              add: 1d6
+      miss: []
+  scaling: *id001
   ui:
     template_preview: false
   notes: []

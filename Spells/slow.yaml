@@ -57,7 +57,15 @@ mechanics:
     target_selection:
       mode: area
       friendly_fire: true
-  sequence: []
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: wisdom
+      dc: spell_save_dc
+    outcomes:
+      hit: []
   scaling: null
   ui:
     template_preview: true

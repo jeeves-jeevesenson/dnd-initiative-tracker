@@ -42,8 +42,23 @@ text:
 mechanics:
   automation: partial
   upcastable: false
-  targeting: null
-  sequence: []
+  targeting:
+    origin: self
+    range:
+      kind: self
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: spell_attack
+    outcomes:
+      hit:
+      - effect: damage
+        damage_type: force
+        dice: 2d6
+      miss: []
   scaling: null
   ui:
     template_preview: false

@@ -46,9 +46,32 @@ text:
 mechanics:
   automation: partial
   upcastable: true
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: self
+    range:
+      kind: self
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: strength
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: piercing
+        dice: 1d6
+        scaling: &id001
+          kind: slot_level
+          base_slot: 1
+          add_per_slot_above: 1d6
+      - effect: condition
+        condition: restrained
+        duration_turns: 0
+  scaling: *id001
   ui:
     template_preview: false
   notes: []

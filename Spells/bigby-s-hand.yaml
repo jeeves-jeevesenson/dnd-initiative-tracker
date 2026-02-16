@@ -62,9 +62,34 @@ text:
 mechanics:
   automation: partial
   upcastable: true
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: spell_attack
+      attack_type: melee
+    outcomes:
+      hit:
+      - effect: damage
+        damage_type: force
+        dice: 5d8
+        scaling: &id001
+          kind: slot_level
+          base_slot: 5
+          add_per_slot_above: 2d6
+      - effect: condition
+        condition: grappled
+        duration_turns: 0
+      miss: []
+  scaling: *id001
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Spell has multi-mode or persistent behavior; apply ongoing/special-case handling manually.

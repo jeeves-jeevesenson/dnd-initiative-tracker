@@ -45,8 +45,25 @@ text:
 mechanics:
   automation: partial
   upcastable: true
-  targeting: null
-  sequence: []
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 30
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: wisdom
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: condition
+        condition: prone
+        duration_turns: 0
   scaling: null
   ui:
     template_preview: false

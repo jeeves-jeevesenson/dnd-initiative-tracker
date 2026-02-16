@@ -43,9 +43,23 @@ text:
 mechanics:
   automation: partial
   upcastable: false
-  targeting: null
-  sequence: []
+  targeting:
+    origin: self
+    range:
+      kind: self
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    outcomes:
+      hit:
+      - effect: condition
+        condition: invisible
+        duration_turns: 0
+      miss: []
   scaling: null
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Spell has multi-mode or persistent behavior; apply ongoing/special-case handling manually.

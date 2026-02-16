@@ -42,9 +42,32 @@ text:
 mechanics:
   automation: partial
   upcastable: true
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: self
+    range:
+      kind: self
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: constitution
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: radiant
+        dice: 3d8
+        scaling: &id001
+          kind: slot_level
+          base_slot: 3
+          add_per_slot_above: 1d8
+      - effect: condition
+        condition: blinded
+        duration_turns: 0
+  scaling: *id001
   ui:
     template_preview: false
   notes: []

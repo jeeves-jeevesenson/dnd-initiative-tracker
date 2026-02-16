@@ -45,8 +45,18 @@ text:
 mechanics:
   automation: partial
   upcastable: true
-  targeting: null
-  sequence: []
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 90
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    outcomes:
+      hit: []
   scaling: null
   summon:
     side: caster
@@ -74,4 +84,5 @@ mechanics:
       turn_position: immediately_after_caster
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - Spell has multi-mode or persistent behavior; apply ongoing/special-case handling manually.
