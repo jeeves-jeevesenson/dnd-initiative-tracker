@@ -12,6 +12,7 @@ school: evocation
 tags:
 - damage
 - save
+- automation_full
 casting_time: Action
 range: 60 feet
 components: V, S
@@ -38,11 +39,38 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: false
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 60
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: saving_throw
+      ability: dexterity
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: radiant
+        dice: 1d8
+        scaling: &id001
+          kind: character_level
+          thresholds:
+            5:
+              add: 1d8
+            11:
+              add: 1d8
+            17:
+              add: 1d8
+      success: []
+  scaling: *id001
   ui:
     template_preview: false
   notes: []

@@ -12,6 +12,7 @@ school: evocation
 tags:
 - damage
 - attack
+- automation_full
 casting_time: Action
 range: 120 feet
 components: V, S
@@ -38,11 +39,33 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: true
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 120
+    target_selection:
+      mode: single
+  sequence:
+  - id: bolt
+    name: Guiding Bolt
+    check:
+      kind: spell_attack
+      attack_type: ranged
+    outcomes:
+      hit:
+      - effect: damage
+        damage_type: radiant
+        dice: 4d6
+        scaling: &id001
+          kind: slot_level
+          base_slot: 1
+          add_per_slot_above: 1d6
+      miss: []
+  scaling: *id001
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - On hit, the next attack roll made against the target before the end of your next turn has Advantage.

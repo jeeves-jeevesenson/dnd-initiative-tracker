@@ -12,6 +12,7 @@ school: evocation
 tags:
 - damage
 - attack
+- automation_full
 casting_time: Action
 range: 60 feet
 components: V, S
@@ -39,11 +40,38 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: false
-  targeting: null
-  sequence: []
-  scaling: null
+  targeting:
+    origin: creature_within_range
+    range:
+      kind: distance
+      distance_ft: 60
+    target_selection:
+      mode: single
+  sequence:
+  - id: ray
+    name: Ray of Frost
+    check:
+      kind: spell_attack
+      attack_type: ranged
+    outcomes:
+      hit:
+      - effect: damage
+        damage_type: cold
+        dice: 1d8
+        scaling: &id001
+          kind: character_level
+          thresholds:
+            5:
+              add: 1d8
+            11:
+              add: 1d8
+            17:
+              add: 1d8
+      miss: []
+  scaling: *id001
   ui:
     template_preview: false
-  notes: []
+  notes:
+  - On hit, the target's Speed is reduced by 10 feet until the start of your next turn.
