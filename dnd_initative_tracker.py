@@ -96,6 +96,7 @@ def _app_data_dir() -> Path:
 
 
 def _seed_user_players_dir() -> None:
+    _seed_user_items_dir()
     user_dir = _app_data_dir() / "players"
     base_dir = _app_base_dir() / "players"
     if not base_dir.exists():
@@ -151,6 +152,31 @@ def _seed_user_monsters_dir() -> Path:
     base_dir = _app_base_dir() / "Monsters"
     try:
         user_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return base_dir
+    if not base_dir.exists():
+        return user_dir
+    try:
+        for path in base_dir.rglob("*"):
+            if not path.is_file() or path.suffix.lower() not in {".yaml", ".yml"}:
+                continue
+            rel = path.relative_to(base_dir)
+            dest = user_dir / rel
+            if dest.exists():
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, dest)
+    except Exception:
+        pass
+    return user_dir
+
+
+def _seed_user_items_dir() -> Path:
+    user_dir = _app_data_dir() / "Items"
+    base_dir = _app_base_dir() / "Items"
+    try:
+        (user_dir / "Weapons").mkdir(parents=True, exist_ok=True)
+        (user_dir / "Armor").mkdir(parents=True, exist_ok=True)
     except Exception:
         return base_dir
     if not base_dir.exists():

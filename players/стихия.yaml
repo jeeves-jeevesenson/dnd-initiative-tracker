@@ -77,6 +77,25 @@ defenses:
   - lightning
   immunities: []
   vulnerabilities: []
+attacks:
+  weapon_to_hit: 7
+  weapons:
+  - id: bardiche_plus_2
+    name: Bardiche (+2)
+    proficient: true
+    to_hit: 7
+    magic_bonus: 2
+    range: '10'
+    one_handed:
+      damage_formula: ''
+      damage_type: ''
+    two_handed:
+      damage_formula: 1d12 + str_mod + 2
+      damage_type: force
+    effect:
+      on_hit: 'Heavy, Reach, Two-Handed (halberd profile). Cleave mastery. On hit, target makes a STR save (DC 18, attacker spell save DC) or is pushed 5 ft.'
+      save_ability: str
+      save_dc: 18
 resources:
   pools:
   - id: tester1
@@ -133,6 +152,9 @@ features:
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
+  type: action
+- name: Bardiche (+2)
+  description: 'Make a melee attack with a +2 magical bardiche (halberd profile: Heavy, Reach, Two-Handed, Cleave). On hit, deal 1d12 + STR mod + 2 force damage. Target makes a STR save (DC 18, attacker spell save DC) or is pushed 5 ft. While equipped as spellcasting focus, this weapon grants +1 to spell save DC.'
   type: action
 - name: Dash
   description: Gain extra movement for the current turn equal to your speed.

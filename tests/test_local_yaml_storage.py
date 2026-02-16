@@ -47,6 +47,28 @@ class LocalYamlStorageTests(unittest.TestCase):
         self.assertEqual(custom_spell.read_text(encoding="utf-8"), "name: Fire Bolt Custom\n")
         self.assertTrue((self.data_dir / "Monsters" / "core" / "wolf.yaml").exists())
 
+    def test_seed_items_without_overwriting_custom(self):
+        weapons_source = self.base_dir / "Items" / "Weapons"
+        weapons_source.mkdir(parents=True, exist_ok=True)
+        (weapons_source / "halberd.yaml").write_text("id: halberd\n", encoding="utf-8")
+        armor_source = self.base_dir / "Items" / "Armor"
+        armor_source.mkdir(parents=True, exist_ok=True)
+        (armor_source / "chainmail.yaml").write_text("id: chainmail\n", encoding="utf-8")
+
+        custom_items_dir = self.data_dir / "Items" / "Weapons"
+        custom_items_dir.mkdir(parents=True, exist_ok=True)
+        custom_weapon = custom_items_dir / "halberd.yaml"
+        custom_weapon.write_text("id: custom-halberd\n", encoding="utf-8")
+
+        with mock.patch.dict("os.environ", {"INITTRACKER_DATA_DIR": str(self.data_dir)}, clear=False):
+            with mock.patch.object(tracker_mod, "_app_base_dir", return_value=self.base_dir):
+                items_dir = tracker_mod._seed_user_items_dir()
+
+        self.assertEqual(items_dir, self.data_dir / "Items")
+        self.assertTrue((self.data_dir / "Items" / "Armor").exists())
+        self.assertEqual(custom_weapon.read_text(encoding="utf-8"), "id: custom-halberd\n")
+        self.assertTrue((self.data_dir / "Items" / "Armor" / "chainmail.yaml").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
