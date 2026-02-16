@@ -4599,6 +4599,86 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _process_start_of_turn(self, c: Any) -> Tuple[bool, str, set[str]]:
         skip, msg, dec_skip = super()._process_start_of_turn(c)
+        if getattr(c, "cid", None) in self.combatants:
+            riders = list(getattr(c, "start_turn_damage_riders", []) or [])
+            if riders:
+                save_groups: Dict[str, Dict[str, Any]] = {}
+                remaining_riders: List[Dict[str, Any]] = []
+                rider_msgs: List[str] = []
+                for rider in riders:
+                    if not isinstance(rider, dict):
+                        continue
+                    dice_text = str(rider.get("dice") or "").strip().lower()
+                    match = re.fullmatch(r"(\d*)d(\d+)", dice_text)
+                    if not match:
+                        continue
+                    count = int(match.group(1) or 1)
+                    sides = int(match.group(2))
+                    if count <= 0 or sides <= 0:
+                        continue
+                    amount = sum(random.randint(1, sides) for _ in range(count))
+                    dtype = str(rider.get("type") or "damage").strip() or "damage"
+                    source = str(rider.get("source") or "an effect").strip() or "an effect"
+                    before_hp = getattr(c, "hp", None)
+                    try:
+                        before_hp_int = int(before_hp)
+                    except Exception:
+                        before_hp_int = None
+                    if before_hp_int is not None:
+                        after_hp = max(0, before_hp_int - int(amount))
+                        setattr(c, "hp", int(after_hp))
+                        rider_msgs.append(f"takes {int(amount)} {dtype} from {source}")
+                        if before_hp_int > 0 and after_hp <= 0:
+                            pre_order = [x.cid for x in self._display_order()]
+                            dead_id = int(getattr(c, "cid", -1))
+                            self.combatants.pop(dead_id, None)
+                            if self.start_cid == dead_id:
+                                self.start_cid = None
+                            self._retarget_current_after_removal([dead_id], pre_order=pre_order)
+                            rider_msgs.append("dropped to 0 -> removed")
+                            return skip, "; ".join(filter(None, [msg, ", ".join(rider_msgs)])), dec_skip
+                    remaining_riders.append(dict(rider))
+                    group_key = str(rider.get("clear_group") or "").strip().lower()
+                    save_ability = str(rider.get("save_ability") or "").strip().lower()
+                    try:
+                        save_dc = int(rider.get("save_dc"))
+                    except Exception:
+                        save_dc = 0
+                    if group_key and save_ability and save_dc > 0 and group_key not in save_groups:
+                        save_groups[group_key] = {"ability": save_ability, "dc": int(save_dc)}
+                for group_key, save_cfg in save_groups.items():
+                    save_roll = random.randint(1, 20)
+                    save_ability = str(save_cfg.get("ability") or "").strip().lower()
+                    save_dc = int(save_cfg.get("dc") or 0)
+                    saves = getattr(c, "saving_throws", None)
+                    save_mod = 0
+                    if isinstance(saves, dict):
+                        try:
+                            save_mod = int(saves.get(save_ability) or 0)
+                        except Exception:
+                            save_mod = 0
+                    if save_mod == 0:
+                        mods = getattr(c, "ability_mods", None)
+                        if isinstance(mods, dict):
+                            try:
+                                save_mod = int(mods.get(save_ability) or 0)
+                            except Exception:
+                                save_mod = 0
+                    save_total = int(save_roll) + int(save_mod)
+                    save_passed = bool(save_roll != 1 and save_total >= int(save_dc))
+                    rider_msgs.append(
+                        f"{save_ability.upper()} save DC {save_dc}: {save_roll} + {save_mod} = {save_total} "
+                        f"({'PASS' if save_passed else 'FAIL'})"
+                    )
+                    if save_passed:
+                        remaining_riders = [
+                            rider
+                            for rider in remaining_riders
+                            if str(rider.get("clear_group") or "").strip().lower() != group_key
+                        ]
+                setattr(c, "start_turn_damage_riders", remaining_riders)
+                if rider_msgs:
+                    msg = "; ".join(filter(None, [msg, ", ".join(rider_msgs)]))
         try:
             setattr(c, "has_mounted_this_turn", False)
             mount_cid = _normalize_cid_value(getattr(c, "rider_cid", None), "turn.start.rider_mount")
@@ -13002,6 +13082,38 @@ class InitiativeTracker(base.InitiativeTracker):
                         self._log(
                             f"{c.name} applies Hellfire to {result_payload['target_name']} "
                             f"(1d6 at end of target turn).",
+                            cid=int(target_cid),
+                        )
+                weapon_id_key = str(selected_weapon.get("id") or "").strip().lower()
+                weapon_name_key = str(selected_weapon.get("name") or "").strip().lower()
+                if (
+                    weapon_id_key == "sword_of_wounding"
+                    or weapon_name_key == "sword of wounding"
+                    or "start of each of the wounded creature's turns" in effect_text.lower()
+                ):
+                    marker = (int(getattr(self, "round_num", 0) or 0), int(getattr(self, "turn_num", 0) or 0))
+                    stack_map = getattr(target, "_wounding_last_applied_by_attacker", None)
+                    if not isinstance(stack_map, dict):
+                        stack_map = {}
+                    attacker_key = str(int(cid))
+                    if tuple(stack_map.get(attacker_key) or ()) != marker:
+                        stack_map[attacker_key] = marker
+                        setattr(target, "_wounding_last_applied_by_attacker", stack_map)
+                        riders = list(getattr(target, "start_turn_damage_riders", []) or [])
+                        riders.append(
+                            {
+                                "dice": "1d4",
+                                "type": "necrotic",
+                                "source": f"{result_payload['weapon_name']} ({c.name})",
+                                "save_ability": "con",
+                                "save_dc": 15,
+                                "clear_group": "sword_of_wounding",
+                            }
+                        )
+                        setattr(target, "start_turn_damage_riders", riders)
+                        self._log(
+                            f"{c.name} wounds {result_payload['target_name']} "
+                            f"(1d4 necrotic at start of target turn; CON save DC 15 ends wounds).",
                             cid=int(target_cid),
                         )
                 try:
