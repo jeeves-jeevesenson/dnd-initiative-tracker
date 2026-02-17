@@ -1882,16 +1882,23 @@ class InitiativeTracker(tk.Tk):
 
     def _effective_speed(self, c: Combatant) -> int:
         """Effective movement for THIS TURN (mode speed, but immobilizing conditions force 0)."""
+        if int(getattr(c, "haste_lethargy_turns_remaining", 0) or 0) > 0:
+            return 0
         # immobilizing conditions set movement to 0 for the turn
         for st in c.condition_stacks:
             meta = CONDITIONS_META.get(st.ctype, {})
             if bool(meta.get("immobile")):
                 return 0
+        speed = self._mode_speed(c)
+        haste_turns = int(getattr(c, "haste_remaining_turns", 0) or 0)
+        haste_mult = int(getattr(c, "haste_speed_multiplier", 0) or 0)
+        if haste_turns > 0 and haste_mult > 1:
+            speed *= haste_mult
         bonus = int(getattr(c, "temp_move_bonus", 0) or 0)
         turns_left = int(getattr(c, "temp_move_turns_remaining", 0) or 0)
         if bonus > 0 and turns_left > 0:
-            return self._mode_speed(c) + bonus
-        return self._mode_speed(c)
+            return speed + bonus
+        return speed
 
 
     def _has_condition(self, c: Combatant, ctype: str) -> bool:
@@ -2205,6 +2212,7 @@ class InitiativeTracker(tk.Tk):
         if cid is None or cid not in self.combatants:
             return
         c = self.combatants[cid]
+        pre_lethargy_turns = int(getattr(c, "haste_lethargy_turns_remaining", 0) or 0)
 
         # Tick down timed conditions at the END of the creature's turn.
         expired: List[str] = []
@@ -2231,6 +2239,14 @@ class InitiativeTracker(tk.Tk):
                 c.temp_move_turns_remaining = 0
                 c.temp_move_bonus = 0
                 self._log("temporary movement bonus ended", cid=cid)
+        haste_turns = int(getattr(c, "haste_remaining_turns", 0) or 0)
+        if haste_turns > 0:
+            haste_turns -= 1
+            c.haste_remaining_turns = haste_turns
+            if haste_turns <= 0:
+                self._clear_haste_effect(c, apply_lethargy=True, reason="spell ended")
+        if pre_lethargy_turns > 0:
+            c.haste_lethargy_turns_remaining = max(0, pre_lethargy_turns - 1)
 
         base_spd = self._effective_speed(c)
         c.move_total = int(base_spd)
@@ -2414,6 +2430,8 @@ class InitiativeTracker(tk.Tk):
         c.spell_cast_remaining = 1
         c.extra_action_pool = 0
         c.extra_bonus_pool = 0
+        if int(getattr(c, "haste_remaining_turns", 0) or 0) > 0:
+            c.action_remaining += 1
         self._reset_concentration_prompt_state(c)
 
         # expire star advantage at start of creature's turn
@@ -2586,6 +2604,72 @@ class InitiativeTracker(tk.Tk):
             )
         label.config(text=text)
 
+    def _ensure_condition_stack(self, c: Combatant, ctype: str, remaining_turns: Optional[int]) -> None:
+        ctype_key = str(ctype or "").strip().lower()
+        if not ctype_key:
+            return
+        for st in getattr(c, "condition_stacks", []):
+            if getattr(st, "ctype", None) == ctype_key:
+                st.remaining_turns = remaining_turns
+                return
+        sid = int(getattr(self, "_next_stack_id", 1) or 1)
+        self._next_stack_id = sid + 1
+        c.condition_stacks.append(ConditionStack(sid=sid, ctype=ctype_key, remaining_turns=remaining_turns))
+
+    def _apply_haste_effect(self, caster: Combatant, target: Combatant, duration_turns: int = 10, ac_bonus: int = 2) -> bool:
+        turns = max(1, int(duration_turns))
+        bonus = max(0, int(ac_bonus))
+        old_eff = self._effective_speed(target)
+        self._clear_haste_effect(target, apply_lethargy=False, reason="")
+        target.haste_source_cid = int(getattr(caster, "cid", 0) or 0)
+        target.haste_remaining_turns = turns
+        target.haste_speed_multiplier = 2
+        target.haste_ac_bonus = bonus
+        if bonus > 0:
+            try:
+                target.ac = max(0, int(getattr(target, "ac", 0) or 0) + bonus)
+            except Exception:
+                target.haste_ac_bonus = 0
+        new_eff = self._effective_speed(target)
+        delta = int(new_eff) - int(old_eff)
+        if self.current_cid == target.cid:
+            target.move_total = max(0, int(getattr(target, "move_total", 0) or 0) + delta)
+            target.move_remaining = max(0, int(getattr(target, "move_remaining", 0) or 0) + delta)
+        else:
+            target.move_total = int(new_eff)
+            target.move_remaining = int(new_eff)
+        return True
+
+    def _clear_haste_effect(self, target: Combatant, apply_lethargy: bool, reason: str) -> bool:
+        active = int(getattr(target, "haste_remaining_turns", 0) or 0) > 0 or int(getattr(target, "haste_ac_bonus", 0) or 0) > 0
+        if not active:
+            return False
+        old_eff = self._effective_speed(target)
+        ac_bonus = max(0, int(getattr(target, "haste_ac_bonus", 0) or 0))
+        if ac_bonus > 0:
+            try:
+                target.ac = max(0, int(getattr(target, "ac", 0) or 0) - ac_bonus)
+            except Exception:
+                pass
+        target.haste_source_cid = None
+        target.haste_remaining_turns = 0
+        target.haste_speed_multiplier = 0
+        target.haste_ac_bonus = 0
+        new_eff = self._effective_speed(target)
+        delta = int(new_eff) - int(old_eff)
+        if self.current_cid == target.cid:
+            target.move_total = max(0, int(getattr(target, "move_total", 0) or 0) + delta)
+            target.move_remaining = max(0, int(getattr(target, "move_remaining", 0) or 0) + delta)
+        else:
+            target.move_total = int(new_eff)
+            target.move_remaining = int(new_eff)
+        if apply_lethargy:
+            target.haste_lethargy_turns_remaining = 1
+            self._ensure_condition_stack(target, "incapacitated", 1)
+            if reason:
+                self._log(f"{target.name} is lethargic after Haste ({reason}).", cid=target.cid)
+        return True
+
     def _end_concentration(self, c: Combatant) -> None:
         if not getattr(c, "concentrating", False):
             return
@@ -2625,6 +2709,9 @@ class InitiativeTracker(tk.Tk):
                         changed = True
                 if changed:
                     self._lan_aoes = lan_store
+        for target in list(getattr(self, "combatants", {}).values()):
+            if int(getattr(target, "haste_source_cid", 0) or 0) == int(c.cid):
+                self._clear_haste_effect(target, apply_lethargy=True, reason="concentration broken")
         self._log(f"{c.name} loses concentration on {spell_name}.")
 
     def _queue_concentration_save(self, c: Combatant, source: str) -> None:
