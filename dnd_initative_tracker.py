@@ -4442,7 +4442,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return []
         deduped: List[str] = []
         for raw in raw_values:
-            beast_id = str(raw or "").strip().lower()
+            beast_id = self._wild_shape_identifier_key(raw)
             if not beast_id or beast_id in deduped:
                 continue
             deduped.append(beast_id)
@@ -7479,6 +7479,15 @@ class InitiativeTracker(base.InitiativeTracker):
     def _normalize_character_lookup_key(value: Any) -> str:
         return str(value or "").strip().casefold()
 
+    @staticmethod
+    def _strip_combat_name_suffix(value: Any) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        without_form = re.sub(r"\s*\([^)]*\)\s*$", "", text).strip()
+        without_dupe = re.sub(r"\s+\d+$", "", without_form).strip()
+        return without_dupe or text
+
     def _find_player_profile_path(self, player_name: Any) -> Optional[Path]:
         lookup = self._normalize_character_lookup_key(player_name)
         if not lookup:
@@ -7504,7 +7513,44 @@ class InitiativeTracker(base.InitiativeTracker):
                     return known_path
                 if base_lookup_slug and self._character_slugify(known_lookup) == base_lookup_slug:
                     return known_path
+        stripped = self._strip_combat_name_suffix(player_name)
+        stripped_lookup = self._normalize_character_lookup_key(stripped)
+        stripped_slug = self._character_slugify(stripped_lookup)
+        if stripped_lookup and stripped_lookup != lookup:
+            direct = self._player_yaml_name_map.get(stripped_lookup)
+            if isinstance(direct, Path):
+                return direct
+            for known_name, known_path in self._player_yaml_name_map.items():
+                known_lookup = self._normalize_character_lookup_key(known_name)
+                if known_lookup == stripped_lookup:
+                    return known_path
+                if stripped_slug and self._character_slugify(known_lookup) == stripped_slug:
+                    return known_path
         return None
+
+    @staticmethod
+    def _wild_shape_identifier_key(value: Any) -> str:
+        raw = str(value or "").strip().lower()
+        if not raw:
+            return ""
+        raw = raw.replace("_", "-")
+        raw = re.sub(r"\s+", "-", raw)
+        raw = re.sub(r"[^a-z0-9-]", "", raw)
+        raw = re.sub(r"-+", "-", raw).strip("-")
+        return raw
+
+    def _wild_shape_alias_lookup(self, forms: List[Dict[str, Any]]) -> Dict[str, str]:
+        aliases: Dict[str, str] = {}
+        for entry in forms:
+            if not isinstance(entry, dict):
+                continue
+            form_id = self._wild_shape_identifier_key(entry.get("id"))
+            if not form_id:
+                continue
+            aliases.setdefault(form_id, form_id)
+            aliases.setdefault(self._wild_shape_identifier_key(str(entry.get("id") or "").replace("-", " ")), form_id)
+            aliases.setdefault(self._wild_shape_identifier_key(entry.get("name")), form_id)
+        return aliases
 
     def _profile_for_player_name(self, player_name: Any) -> Optional[Dict[str, Any]]:
         self._load_player_yaml_cache()
@@ -10382,14 +10428,18 @@ class InitiativeTracker(base.InitiativeTracker):
         runtime_known = known_map.get(player_name.strip().lower(), []) if isinstance(known_map, dict) else []
         if not runtime_known:
             runtime_known = self._normalized_prepared_wild_shapes_from_profile(profile)
+        known_forms = self._wild_shape_available_forms(
+            {**profile, "prepared_wild_shapes": runtime_known, "learned_wild_shapes": runtime_known},
+            known_only=True,
+        )
         forms = {
-            str(entry.get("id") or "").lower(): entry
-            for entry in self._wild_shape_available_forms(
-                {**profile, "prepared_wild_shapes": runtime_known, "learned_wild_shapes": runtime_known},
-                known_only=True,
-            )
+            self._wild_shape_identifier_key(entry.get("id")): entry
+            for entry in known_forms
+            if isinstance(entry, dict)
         }
-        form = forms.get(str(beast_id or "").strip().lower())
+        aliases = self._wild_shape_alias_lookup(known_forms)
+        resolved_id = aliases.get(self._wild_shape_identifier_key(beast_id))
+        form = forms.get(resolved_id or "")
         if not isinstance(form, dict):
             return False, "That beast form be unavailable, matey."
         current_pool = next((p for p in self._normalize_player_resource_pools(profile) if str(p.get("id") or "").lower() == "wild_shape"), None)
@@ -14429,14 +14479,20 @@ class InitiativeTracker(base.InitiativeTracker):
             requested = msg.get("known")
             if not isinstance(requested, list):
                 requested = []
-            allowed_ids = {
-                str(entry.get("id") or "").strip().lower()
+            available_forms = [
+                entry
                 for entry in self._wild_shape_available_forms(profile, known_only=False, include_locked=True)
                 if isinstance(entry, dict)
+            ]
+            allowed_ids = {
+                self._wild_shape_identifier_key(entry.get("id"))
+                for entry in available_forms
             }
+            allowed_ids.discard("")
+            alias_map = self._wild_shape_alias_lookup(available_forms)
             deduped: List[str] = []
             for raw in requested:
-                beast_id = str(raw or "").strip().lower()
+                beast_id = alias_map.get(self._wild_shape_identifier_key(raw))
                 if not beast_id or beast_id in deduped:
                     continue
                 if beast_id not in allowed_ids:

@@ -313,6 +313,18 @@ class WildShapeTests(unittest.TestCase):
 
         self.assertEqual(app._find_player_profile_path("Johnny Morris"), path)
 
+    def test_find_player_profile_path_accepts_wild_shape_display_name(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        path = Path("/tmp/johnny_morris.yaml")
+        app._player_yaml_name_map = {"johnny_morris": path}
+
+        self.assertEqual(app._find_player_profile_path("Johnny Morris (Wolf)"), path)
+
+    def test_normalize_prepared_wild_shapes_accepts_name_variants(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        normalized = app._normalize_prepared_wild_shapes([" Reef Shark ", "reef_shark", "reef-shark"])
+        self.assertEqual(normalized, ["reef-shark"])
+
     def test_wild_shape_set_known_persists_to_yaml(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
         app._oplog = lambda *args, **kwargs: None
@@ -444,6 +456,58 @@ class WildShapeTests(unittest.TestCase):
         app._player_yaml_name_map = {"johnny_morris": path}
 
         ok, err = app._apply_wild_shape(1, "wolf")
+
+        self.assertTrue(ok, err)
+
+    def test_apply_wild_shape_accepts_display_name_input(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app.combatants = {
+            1: type("C", (), {
+                "cid": 1,
+                "name": "Johnny Morris",
+                "speed": 30,
+                "swim_speed": 0,
+                "fly_speed": 0,
+                "climb_speed": 0,
+                "burrow_speed": 0,
+                "movement_mode": "Normal",
+                "dex": 14,
+                "con": 12,
+                "str": 10,
+                "temp_hp": 0,
+                "actions": [],
+                "bonus_actions": [],
+                "is_spellcaster": True,
+            })()
+        }
+        app._pc_name_for = lambda _cid: "Johnny Morris"
+        app._load_player_yaml_cache = lambda force_refresh=False: None
+        app._set_wild_shape_pool_current = lambda _name, value: (True, "", value)
+        app._wild_shape_beast_cache = [
+            {
+                "id": "reef-shark",
+                "name": "Reef Shark",
+                "challenge_rating": 0.5,
+                "size": "Medium",
+                "speed": {"walk": 0, "swim": 40, "fly": 0, "climb": 0},
+                "abilities": {"str": 14, "dex": 13, "con": 13},
+                "actions": [],
+            }
+        ]
+        path = Path("/tmp/johnny_morris.yaml")
+        app._player_yaml_data_by_name = {}
+        app._player_yaml_cache_by_path = {
+            path: {
+                "name": "Johnny",
+                "leveling": {"classes": [{"name": "Druid", "level": 4}]},
+                "prepared_wild_shapes": ["reef-shark"],
+                "resources": {"pools": [{"id": "wild_shape", "current": 2, "max": 2}]},
+            }
+        }
+        app._player_yaml_name_map = {"johnny_morris": path}
+
+        ok, err = app._apply_wild_shape(1, "Reef Shark")
 
         self.assertTrue(ok, err)
 
