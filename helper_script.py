@@ -8950,11 +8950,6 @@ class BattleMapWindow(tk.Toplevel):
         except tk.TclError:
             return False
 
-    def _is_enemy_cid(self, cid: int) -> bool:
-        combatant = self.app.combatants.get(int(cid)) if hasattr(self, "app") else None
-        if combatant is None:
-            return False
-        return not bool(getattr(combatant, "ally", False) or getattr(combatant, "is_pc", False))
 
     def _open_damage_for_target(
         self,
@@ -8993,8 +8988,6 @@ class BattleMapWindow(tk.Toplevel):
             try:
                 target_cid = int(unit_tag.split(":", 1)[1])
             except Exception:
-                return
-            if not self._is_enemy_cid(target_cid):
                 return
             self._open_damage_for_target(
                 target_cid=target_cid,

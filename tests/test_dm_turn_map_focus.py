@@ -94,7 +94,6 @@ class DmMapMiddleClickDamageTests(unittest.TestCase):
 
         window.app = App()
         window.canvas = Canvas()
-        window._is_enemy_cid = lambda cid: cid == 3
         window._open_damage_for_target = lambda target_cid, attacker_cid=None, consume_mode=True: calls.append((attacker_cid, target_cid, consume_mode))
 
         event = type('Event', (), {'x': 10, 'y': 20})()
@@ -102,7 +101,7 @@ class DmMapMiddleClickDamageTests(unittest.TestCase):
 
         self.assertEqual(calls, [(11, 3, False)])
 
-    def test_open_damage_for_target_middle_click_ignores_friendlies(self):
+    def test_open_damage_for_target_middle_click_includes_friendlies(self):
         window = self._map_window()
         calls = []
 
@@ -123,13 +122,18 @@ class DmMapMiddleClickDamageTests(unittest.TestCase):
 
         window.app = App()
         window.canvas = Canvas()
-        window._is_enemy_cid = lambda _cid: False
         window._open_damage_for_target = lambda *args, **kwargs: calls.append((args, kwargs))
 
         event = type('Event', (), {'x': 10, 'y': 20})()
         window._on_canvas_middle_click(event)
 
-        self.assertEqual(calls, [])
+        self.assertEqual(
+            calls,
+            [(
+                (),
+                {"target_cid": 3, "attacker_cid": 11, "consume_mode": False},
+            )],
+        )
 
 
 if __name__ == "__main__":
