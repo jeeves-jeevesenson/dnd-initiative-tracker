@@ -103,6 +103,27 @@ class LanMovementModeCycleTests(unittest.TestCase):
         self.assertEqual(getattr(self.app.combatants[2], "facing_deg", None), 180)
         self.assertEqual(self.broadcast_calls, 1)
 
+    def test_set_facing_syncs_map_window_token_facing(self):
+        layout_calls = []
+
+        class MapWindowStub:
+            def __init__(self):
+                self._token_facing = {}
+
+            def winfo_exists(self):
+                return True
+
+            def _layout_unit(self, cid):
+                layout_calls.append(cid)
+
+        self.app._map_window = MapWindowStub()
+        msg = {"type": "set_facing", "cid": 1, "_claimed_cid": 1, "_ws_id": 9, "facing_deg": 270}
+
+        self.app._lan_apply_action(dict(msg))
+
+        self.assertEqual(self.app._map_window._token_facing.get(1), 270.0)
+        self.assertEqual(layout_calls, [1])
+
 
 if __name__ == "__main__":
     unittest.main()

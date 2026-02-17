@@ -39,6 +39,16 @@ class SpellRotationParityTests(unittest.TestCase):
         self.assertIn('setattr(c, "facing_deg", facing)', py)
         self.assertIn('broadcast_fn = getattr(self.app, "_lan_force_state_broadcast", None)', py)
 
+    def test_cast_aoe_defaults_rotatable_angle_to_caster_facing(self):
+        py = Path("dnd_initative_tracker.py").read_text(encoding="utf-8")
+        self.assertIn('caster_facing_deg = (', py)
+        self.assertIn('aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else float(caster_facing_deg)', py)
+
+    def test_lan_cast_uses_claimed_unit_facing_for_default_angle(self):
+        html = Path("assets/web/lan/index.html").read_text(encoding="utf-8")
+        self.assertIn('const casterFacingDeg = normalizeFacingDeg(getClaimedUnit()?.facing_deg);', html)
+        self.assertIn('const angleDeg = angleDegInput !== null ? angleDegInput : casterFacingDeg;', html)
+
 
 if __name__ == "__main__":
     unittest.main()

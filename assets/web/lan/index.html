@@ -13261,7 +13261,9 @@ __DAMAGE_TYPE_OPTIONS__
       const lengthFt = parsePositive(castLengthInput?.value);
       const widthFt = parsePositive(castWidthInput?.value);
       const angleRaw = String(castAngleInput?.value || "").trim();
-      const angleDeg = angleRaw ? parseNonnegative(castAngleInput?.value) : null;
+      const angleDegInput = angleRaw ? parseNonnegative(castAngleInput?.value) : null;
+      const casterFacingDeg = normalizeFacingDeg(getClaimedUnit()?.facing_deg);
+      const angleDeg = angleDegInput !== null ? angleDegInput : casterFacingDeg;
       const widthRaw = String(castWidthInput?.value || "").trim();
       const thicknessFt = parsePositive(castThicknessInput?.value);
       const thicknessRaw = String(castThicknessInput?.value || "").trim();
