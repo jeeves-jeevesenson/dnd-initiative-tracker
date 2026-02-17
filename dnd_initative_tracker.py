@@ -4372,6 +4372,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 if form_id in seen_ids:
                     continue
                 seen_ids.add(form_id)
+                parsed_speed = base._parse_speed_data(raw.get("speed")) if raw.get("speed") is not None else None
+                raw_abilities = raw.get("abilities") if isinstance(raw.get("abilities"), dict) else {}
                 forms.append(
                     {
                         "id": form_id,
@@ -4381,18 +4383,18 @@ class InitiativeTracker(base.InitiativeTracker):
                         "ac": parse_int_field(raw.get("ac"), 10),
                         "hp": parse_int_field(raw.get("hp") or spec.hp, 1),
                         "speed": {
-                            "walk": int(spec.speed or 0),
-                            "swim": int(spec.swim_speed or 0),
-                            "fly": int(spec.fly_speed or 0),
-                            "climb": int(spec.climb_speed or 0),
+                            "walk": int((parsed_speed[0] if parsed_speed is not None else spec.speed) or 0),
+                            "swim": int((parsed_speed[1] if parsed_speed is not None else spec.swim_speed) or 0),
+                            "fly": int((parsed_speed[2] if parsed_speed is not None else spec.fly_speed) or 0),
+                            "climb": int((parsed_speed[4] if parsed_speed is not None else spec.climb_speed) or 0),
                         },
                         "abilities": {
-                            "str": 10,
-                            "dex": 10,
-                            "con": 10,
-                            "int": 10,
-                            "wis": 10,
-                            "cha": 10,
+                            "str": ability_value(raw_abilities, "Str"),
+                            "dex": ability_value(raw_abilities, "Dex"),
+                            "con": ability_value(raw_abilities, "Con"),
+                            "int": ability_value(raw_abilities, "Int"),
+                            "wis": ability_value(raw_abilities, "Wis"),
+                            "cha": ability_value(raw_abilities, "Cha"),
                         },
                         "actions": list(raw.get("actions") if isinstance(raw.get("actions"), list) else []),
                     }
@@ -10766,6 +10768,15 @@ class InitiativeTracker(base.InitiativeTracker):
         setattr(c, "is_spellcaster", False)
         setattr(c, "is_wild_shaped", True)
         setattr(c, "name", f"{base_snapshot['name']} ({str(form.get('name') or '').strip()})")
+        role_memory = self.__dict__.get("_name_role_memory", {})
+        if isinstance(role_memory, dict):
+            base_name = str(base_snapshot.get("name") or "")
+            display_name = str(getattr(c, "name", "") or "")
+            role = role_memory.get(base_name)
+            if role in ("pc", "ally", "enemy"):
+                role_memory[display_name] = role
+            elif bool(getattr(c, "is_pc", False)):
+                role_memory[display_name] = "pc"
         beast_actions = self._normalize_action_entries(form.get("actions") if isinstance(form.get("actions"), list) else [], "action")
         if beast_actions:
             setattr(c, "actions", beast_actions)
