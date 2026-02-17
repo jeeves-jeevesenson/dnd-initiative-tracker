@@ -857,6 +857,17 @@ def _directory_signature(directory: Path, files: List[Path]) -> Tuple[int, int, 
     return (mtime_ns, len(names), names)
 
 
+def _files_signature(files: List[Path]) -> Tuple[Tuple[str, int, int], ...]:
+    rows: List[Tuple[str, int, int]] = []
+    for path in files:
+        try:
+            stat = path.stat()
+            rows.append((path.name, int(stat.st_mtime_ns), int(stat.st_size)))
+        except Exception:
+            rows.append((path.name, 0, 0))
+    return tuple(sorted(rows))
+
+
 # --- App metadata ---
 APP_VERSION = "41"
 
@@ -4134,6 +4145,9 @@ class InitiativeTracker(base.InitiativeTracker):
         self._spell_index_loaded = False
         self._spell_dir_notice: Optional[str] = None
         self._spell_dir_signature: Optional[Tuple[int, int, Tuple[str, ...]]] = None
+        self._items_registry_cache: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None
+        self._items_dir_signature: Optional[Tuple[Tuple[int, int, Tuple[str, ...]], Tuple[int, int, Tuple[str, ...]], Tuple[Tuple[str, int, int], ...], Tuple[Tuple[str, int, int], ...]]] = None
+        self._items_dir_cache: Optional[Path] = None
         self._wild_shape_known_by_player: Dict[str, List[str]] = {}
         self._player_yaml_cache_by_path: Dict[Path, Optional[Dict[str, Any]]] = {}
         self._player_yaml_meta_by_path: Dict[Path, Dict[str, object]] = {}
@@ -4371,6 +4385,115 @@ class InitiativeTracker(base.InitiativeTracker):
         self._spell_index_entries = {}
         self._spell_index_loaded = False
         self._spell_dir_signature = None
+
+    def _resolve_items_dir(self) -> Optional[Path]:
+        cached = self.__dict__.get("_items_dir_cache")
+        if isinstance(cached, Path) and cached.exists():
+            return cached
+        items_dir = _seed_user_items_dir()
+        if items_dir.exists():
+            self._items_dir_cache = items_dir
+            return items_dir
+        return None
+
+    def _items_registry_payload(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        cached = self.__dict__.get("_items_registry_cache")
+        cached_signature = self.__dict__.get("_items_dir_signature")
+        items_dir = self._resolve_items_dir()
+        if items_dir is None:
+            self._items_registry_cache = {"weapons": {}, "armors": {}}
+            self._items_dir_signature = None
+            return {"weapons": {}, "armors": {}}
+
+        weapons_dir = items_dir / "Weapons"
+        armor_dir = items_dir / "Armor"
+        weapon_files = sorted(list(weapons_dir.glob("*.yaml")) + list(weapons_dir.glob("*.yml"))) if weapons_dir.is_dir() else []
+        armor_files = sorted(list(armor_dir.glob("*.yaml")) + list(armor_dir.glob("*.yml"))) if armor_dir.is_dir() else []
+        signature = (
+            _directory_signature(weapons_dir, weapon_files) if weapons_dir.is_dir() else (0, 0, tuple()),
+            _directory_signature(armor_dir, armor_files) if armor_dir.is_dir() else (0, 0, tuple()),
+            _files_signature(weapon_files),
+            _files_signature(armor_files),
+        )
+        if isinstance(cached, dict) and signature == cached_signature:
+            return cached
+
+        def parse_items_from_file(path: Path, bucket_key: str) -> List[Tuple[str, Dict[str, Any], bool]]:
+            try:
+                parsed = yaml.safe_load(path.read_text(encoding="utf-8")) if yaml is not None else None
+            except Exception as exc:
+                self._oplog(f"Items YAML parse failed for {path}: {exc}", level="warning")
+                return []
+            if not isinstance(parsed, dict):
+                return []
+
+            if bucket_key == "weapons":
+                if "weapons" in parsed and isinstance(parsed.get("weapons"), list):
+                    out: List[Tuple[str, Dict[str, Any], bool]] = []
+                    for raw_entry in parsed.get("weapons") or []:
+                        if not isinstance(raw_entry, dict):
+                            continue
+                        item_id = str(raw_entry.get("id") or "").strip().lower()
+                        if not item_id:
+                            continue
+                        out.append((item_id, dict(raw_entry), False))
+                    return out
+                if "properties" in parsed and "id" not in parsed:
+                    return []
+            else:
+                if "armors" in parsed and isinstance(parsed.get("armors"), list):
+                    out = []
+                    for raw_entry in parsed.get("armors") or []:
+                        if not isinstance(raw_entry, dict):
+                            continue
+                        item_id = str(raw_entry.get("id") or "").strip().lower()
+                        if not item_id:
+                            continue
+                        out.append((item_id, dict(raw_entry), False))
+                    return out
+
+            item_id = str(parsed.get("id") or "").strip().lower()
+            if not item_id:
+                return []
+            return [(item_id, dict(parsed), True)]
+
+        registry: Dict[str, Dict[str, Dict[str, Any]]] = {"weapons": {}, "armors": {}}
+        sources: Dict[str, Dict[str, str]] = {"weapons": {}, "armors": {}}
+
+        for bucket_key, files in (("weapons", weapon_files), ("armors", armor_files)):
+            for path in files:
+                entries = parse_items_from_file(path, bucket_key)
+                for item_id, item_data, is_per_item in entries:
+                    prior = registry[bucket_key].get(item_id)
+                    if prior is None:
+                        registry[bucket_key][item_id] = item_data
+                        sources[bucket_key][item_id] = "per-item" if is_per_item else "catalog"
+                        continue
+                    prior_source = sources[bucket_key].get(item_id, "catalog")
+                    if prior_source == "per-item" and not is_per_item:
+                        self._oplog(
+                            f"Duplicate {bucket_key[:-1]} id '{item_id}' in {path.name}; keeping per-item definition.",
+                            level="warning",
+                        )
+                        continue
+                    if prior_source == "catalog" and is_per_item:
+                        self._oplog(
+                            f"Duplicate {bucket_key[:-1]} id '{item_id}' in {path.name}; preferring per-item definition.",
+                            level="warning",
+                        )
+                        registry[bucket_key][item_id] = item_data
+                        sources[bucket_key][item_id] = "per-item"
+                        continue
+                    self._oplog(
+                        f"Duplicate {bucket_key[:-1]} id '{item_id}' in {path.name}; keeping latest {prior_source} definition.",
+                        level="warning",
+                    )
+                    registry[bucket_key][item_id] = item_data
+                    sources[bucket_key][item_id] = "per-item" if is_per_item else "catalog"
+
+        self._items_registry_cache = registry
+        self._items_dir_signature = signature
+        return registry
 
     def _load_spell_index_entries(self) -> Dict[str, Any]:
         if self._spell_index_loaded:
@@ -7834,11 +7957,12 @@ class InitiativeTracker(base.InitiativeTracker):
 
         raw_weapons = attacks.get("weapons")
         normalized_weapons: List[Dict[str, Any]] = []
+        weapon_registry = self._items_registry_payload().get("weapons", {}) if isinstance(raw_weapons, list) else {}
         if isinstance(raw_weapons, list):
             for entry in raw_weapons:
                 if not isinstance(entry, dict):
                     continue
-                weapon = dict(entry)
+                weapon = self._resolve_weapon_from_items(dict(entry), weapon_registry=weapon_registry)
                 one_handed = dict(weapon.get("one_handed")) if isinstance(weapon.get("one_handed"), dict) else {}
                 two_handed = dict(weapon.get("two_handed")) if isinstance(weapon.get("two_handed"), dict) else {}
                 effect = dict(weapon.get("effect")) if isinstance(weapon.get("effect"), dict) else {}
@@ -7855,6 +7979,17 @@ class InitiativeTracker(base.InitiativeTracker):
                     magic_bonus_normalized = normalize_attack_int(weapon.get("item_bonus"))
                 weapon["magic_bonus"] = magic_bonus_normalized if magic_bonus_normalized is not None else 0
                 weapon["range"] = str(weapon.get("range") or "").strip()
+                properties = weapon.get("properties") if isinstance(weapon.get("properties"), list) else []
+                normalized_properties: List[str] = []
+                for prop in properties:
+                    if isinstance(prop, dict):
+                        prop_id = str(prop.get("id") or prop.get("name") or "").strip().lower()
+                    else:
+                        prop_id = str(prop or "").strip().lower()
+                    if prop_id:
+                        normalized_properties.append(prop_id)
+                weapon["properties"] = normalized_properties
+                weapon["mastery"] = str(weapon.get("mastery") or "").strip().lower()
                 weapon["one_handed"] = {
                     "damage_formula": str(one_handed.get("damage_formula") or "").strip(),
                     "damage_type": str(one_handed.get("damage_type") or "").strip(),
@@ -7959,6 +8094,113 @@ class InitiativeTracker(base.InitiativeTracker):
             summon_on_start=summon_on_start,
         )
         return profile.to_dict()
+
+    def _weapon_formula_has_ability_mod(self, formula: Any) -> bool:
+        text = str(formula or "").strip().lower()
+        if not text:
+            return False
+        return any(token in text for token in ("str_mod", "dex_mod", "con_mod", "int_mod", "wis_mod", "cha_mod", "max(str_mod, dex_mod)"))
+
+    def _weapon_ability_mod_expression(self, item_data: Dict[str, Any]) -> str:
+        properties = item_data.get("properties")
+        prop_ids: set[str] = set()
+        if isinstance(properties, list):
+            for prop in properties:
+                if isinstance(prop, dict):
+                    prop_id = str(prop.get("id") or prop.get("name") or "").strip().lower()
+                else:
+                    prop_id = str(prop or "").strip().lower()
+                if prop_id:
+                    prop_ids.add(prop_id)
+        category = str(item_data.get("category") or "").strip().lower()
+        if "finesse" in prop_ids:
+            return "max(str_mod, dex_mod)"
+        if "ranged" in category:
+            return "dex_mod"
+        return "str_mod"
+
+    def _append_weapon_ability_mod(self, formula: Any, item_data: Dict[str, Any]) -> str:
+        base = str(formula or "").strip()
+        if not base:
+            return ""
+        if self._weapon_formula_has_ability_mod(base):
+            return base
+        return f"{base} + {self._weapon_ability_mod_expression(item_data)}"
+
+    def _resolve_weapon_from_items(
+        self,
+        weapon_entry: Dict[str, Any],
+        weapon_registry: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        weapon = dict(weapon_entry)
+        item_id = str(weapon.get("id") or "").strip().lower()
+        if not item_id:
+            return weapon
+        registry = weapon_registry if isinstance(weapon_registry, dict) else (self._items_registry_payload().get("weapons") or {})
+        item = dict(registry.get(item_id) or {})
+        if not item:
+            return weapon
+
+        if not str(weapon.get("name") or "").strip():
+            weapon["name"] = str(item.get("name") or "").strip()
+        if not str(weapon.get("range") or "").strip():
+            weapon["range"] = str(item.get("range") or "").strip()
+        if "properties" not in weapon and isinstance(item.get("properties"), list):
+            weapon["properties"] = list(item.get("properties") or [])
+        if "mastery" not in weapon and item.get("mastery") not in (None, ""):
+            weapon["mastery"] = item.get("mastery")
+
+        if "magic_bonus" not in weapon and "item_bonus" not in weapon and "attack_bonus" in item:
+            weapon["magic_bonus"] = item.get("attack_bonus")
+
+        one_handed = dict(weapon.get("one_handed")) if isinstance(weapon.get("one_handed"), dict) else {}
+        two_handed = dict(weapon.get("two_handed")) if isinstance(weapon.get("two_handed"), dict) else {}
+        item_damage = item.get("damage") if isinstance(item.get("damage"), dict) else {}
+        item_one = item_damage.get("one_handed") if isinstance(item_damage.get("one_handed"), dict) else {}
+        item_versatile = item_damage.get("versatile") if isinstance(item_damage.get("versatile"), dict) else {}
+        item_two = item_damage.get("two_handed") if isinstance(item_damage.get("two_handed"), dict) else {}
+
+        if not str(one_handed.get("damage_formula") or "").strip() and item_one.get("formula") is not None:
+            one_handed["damage_formula"] = self._append_weapon_ability_mod(item_one.get("formula"), item)
+        if not str(one_handed.get("damage_type") or "").strip() and item_one.get("type") is not None:
+            one_handed["damage_type"] = str(item_one.get("type") or "").strip()
+
+        two_source = item_versatile if item_versatile else item_two
+        if isinstance(two_source, dict):
+            if not str(two_handed.get("damage_formula") or "").strip() and two_source.get("formula") is not None:
+                two_handed["damage_formula"] = self._append_weapon_ability_mod(two_source.get("formula"), item)
+            if not str(two_handed.get("damage_type") or "").strip() and two_source.get("type") is not None:
+                two_handed["damage_type"] = str(two_source.get("type") or "").strip()
+
+        weapon["one_handed"] = one_handed
+        weapon["two_handed"] = two_handed
+
+        effect = dict(weapon.get("effect")) if isinstance(weapon.get("effect"), dict) else {}
+        if not str(effect.get("on_hit") or "").strip():
+            riders = item.get("riders") if isinstance(item.get("riders"), list) else []
+            pieces: List[str] = []
+            has_hellfire_stack = False
+            for rider in riders:
+                if not isinstance(rider, dict):
+                    continue
+                if str(rider.get("trigger") or "").strip().lower() != "on_hit":
+                    continue
+                formula = str(rider.get("formula") or "").strip()
+                dtype = str(rider.get("type") or "").strip()
+                if formula and dtype:
+                    pieces.append(f"{formula} {dtype} damage")
+                notes_text = str(rider.get("notes") or "").strip().lower()
+                stack_key = str(rider.get("stack_key") or "").strip().lower()
+                rider_id = str(rider.get("id") or "").strip().lower()
+                if "hellfire stack" in notes_text or stack_key == "hellfire" or "hellfire" in rider_id:
+                    has_hellfire_stack = True
+            on_hit_text = "; ".join(pieces)
+            if has_hellfire_stack:
+                on_hit_text = (on_hit_text + "; " if on_hit_text else "") + "hellfire stack"
+            if on_hit_text:
+                effect["on_hit"] = on_hit_text
+        weapon["effect"] = effect
+        return weapon
 
     def _normalize_spellcasting_ability(self, value: Any) -> Optional[str]:
         raw = str(value or "").strip().lower()

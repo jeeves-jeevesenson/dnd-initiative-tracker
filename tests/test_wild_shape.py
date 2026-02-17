@@ -280,7 +280,7 @@ class WildShapeTests(unittest.TestCase):
         self.assertEqual(attacks.get("weapon_to_hit"), 6)
         self.assertEqual(attacks.get("weapons", [])[0].get("name"), "Longsword")
         self.assertEqual(attacks.get("weapons", [])[0].get("to_hit"), 7)
-        self.assertEqual(attacks.get("weapons", [])[0].get("two_handed"), {"damage_formula": "", "damage_type": ""})
+        self.assertEqual(attacks.get("weapons", [])[0].get("two_handed"), {"damage_formula": "1d10 + str_mod", "damage_type": "slashing"})
         self.assertEqual(attacks.get("weapons", [])[0].get("effect"), {"on_hit": "", "save_ability": "", "save_dc": 0})
 
     def test_normalize_profile_defaults_missing_attack_weapon_presets(self):
