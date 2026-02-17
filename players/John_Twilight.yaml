@@ -105,10 +105,94 @@ resources:
     max_formula: '2 + (1 if fighter_level >= 4 else 0) + (1 if fighter_level >= 10 else 0)'
     reset: short_rest
     gain_on_short: 1
-features: []
+  - id: unleash_incarnation
+    label: Unleash Incarnation
+    current: 3
+    max_formula: max(1, con_mod)
+    reset: long_rest
+  - id: indomitable
+    label: Indomitable
+    current: 1
+    max_formula: 1 + (1 if fighter_level >= 13 else 0) + (1 if fighter_level >= 17 else 0)
+    reset: long_rest
+  - id: shadow_martyr
+    label: Shadow Martyr
+    current: 1
+    max_formula: '1'
+    reset: short_rest
+features:
+- id: automation_review
+  name: Existing Automation Review
+  category: Tracker Notes
+  source: John Twilight YAML Audit
+  description: 'Existing automation before this update: attacks_per_action was already set to 2 (Extra Attack), Action Surge and Second Wind had resource pools, Second Wind had a usable bonus action entry, and placeholder echo summon/swap bonus actions existed. Missing automation before this update: Manifest Echo lifecycle/limits, Unleash Incarnation uses, Indomitable, Tactical Mind behavior, Tactical Shift movement rider prompt, echo-origin attacks/opportunity attacks, and Echo Avatar/Shadow Martyr.'
+- id: manifest_echo
+  name: Manifest Echo
+  category: Echo Knight Feature
+  source: Fighter (Echo Knight) 3
+  description: 'Bonus Action: manifest an echo in an unoccupied space within 15 ft if no echo is active. Echo stats: AC 14 + prof, HP 1, immune to all conditions, uses your saving throw bonuses, and size matches you. The echo occupies space, can be moved up to 30 ft during your turn without an action, and disappears if farther than 30 ft from you at end of turn (unless Echo Avatar is active), if you become incapacitated, if dismissed, if reduced to 0 HP, or if you manifest a new echo.'
+- id: unleash_incarnation
+  name: Unleash Incarnation
+  category: Echo Knight Feature
+  source: Fighter (Echo Knight) 3
+  description: When you take the Attack action, you can spend 1 use of Unleash Incarnation to make one extra melee attack from the echo's position.
+- id: second_wind
+  name: Second Wind
+  category: Fighter Feature
+  source: Fighter 1
+  description: Bonus Action. Spend 1 use to heal 1d10 + fighter level HP (player can cap at max HP).
+- id: action_surge
+  name: Action Surge
+  category: Fighter Feature
+  source: Fighter 2
+  description: Once per short or long rest, gain one additional action on your turn. The granted action cannot be the Magic action.
+- id: fighter_extra_attack
+  name: Extra Attack
+  category: Fighter Feature
+  source: Fighter 5
+  description: When you take the Attack action, make two weapon attacks instead of one.
+- id: indomitable
+  name: Indomitable
+  category: Fighter Feature
+  source: Fighter 9
+  description: When you fail a saving throw, you can spend 1 use to reroll and add a bonus equal to your fighter level.
+- id: tactical_mind
+  name: Tactical Mind
+  category: Fighter Feature
+  source: Fighter 2
+  description: After failing an ability check, you can spend 1 Second Wind use to add 1d10. If the check still fails, refund the expended Second Wind use.
+- id: tactical_shift
+  name: Tactical Shift
+  category: Fighter Feature
+  source: Fighter 5
+  description: When you use Second Wind, you can move up to half your speed without provoking opportunity attacks.
+- id: echo_avatar
+  name: Echo Avatar
+  category: Echo Knight Feature
+  source: Fighter (Echo Knight) 7
+  description: Action. For up to 10 minutes, perceive through your echo's senses; while active you are blinded and deafened, and your echo can remain up to 1,000 ft away.
+- id: shadow_martyr
+  name: Shadow Martyr
+  category: Echo Knight Feature
+  source: Fighter (Echo Knight) 10
+  description: Reaction, once per short or long rest. Before an attack roll against another creature, teleport your echo to a space within 5 ft of that target and resolve the attack against the echo instead.
+- id: lower_priority_backlog
+  name: Lower-Priority Fighter Backlog
+  category: Tracker Notes
+  source: Implementation Plan
+  description: Manual/low-priority follow-up features include Fighting Style swap handling, Weapon Mastery loadout swapping, and Tactical Master mastery replacement routing.
 actions:
 - name: Attack
-  description: Make a weapon or unarmed attack against a target within range.
+  description: Make two attacks (Extra Attack) with a weapon or unarmed strike. For each attack, choose whether it originates from your space or your echo's space if an echo is active. After taking the Attack action, you may spend 1 Unleash Incarnation use for one additional melee attack from the echo.
+  type: action
+- name: Action Surge
+  description: On your turn, spend 1 Action Surge use to gain one extra action that cannot be the Magic action.
+  type: action
+  uses:
+    pool: action_surge
+    cost: 1
+- name: Echo Avatar
+  description: Enter echo perspective for up to 10 minutes. While active, you are blinded and deafened, and your echo's max tether distance becomes 1,000 ft. End early at will.
   type: action
 - name: Hellfire Battleaxe (+2)
   description: "Make a melee attack with a +2 battleaxe. On a hit, deal 1d8 + 2 slashing damage plus a separate 1d6 hellfire damage rider (hellfire ignores fire resistance and immunity). Each unique creature hit by this weapon on your turn gains 1 Hellfire Stack condition (multiple hits on the same creature in a turn do not add stacks). At the end of that creature's turn, it takes 1d6 hellfire damage per stack. Topple mastery rider: each creature hit must make a CON save (DC 17) or fall prone."
@@ -158,6 +242,24 @@ reactions:
   description: When a hostile creature you can see moves out of your reach, you can
     use your reaction to make one melee attack against it.
   type: reaction
+- name: Echo Opportunity Attack
+  description: When a creature within 5 ft of your echo moves at least 5 ft away, you may use your reaction to make an opportunity attack from the echo's space.
+  type: reaction
+- name: Indomitable
+  description: When you fail a saving throw, spend 1 Indomitable use to reroll and add your fighter level to the reroll.
+  type: reaction
+  uses:
+    pool: indomitable
+    cost: 1
+- name: Shadow Martyr
+  description: Before an attack roll against another creature, spend 1 Shadow Martyr use to teleport your echo within 5 ft of the target; the triggering attack targets the echo instead.
+  type: reaction
+  uses:
+    pool: shadow_martyr
+    cost: 1
+- name: Tactical Mind
+  description: After failing an ability check, you may attempt Tactical Mind by spending 1 Second Wind use to add 1d10; refund that use if the check still fails.
+  type: reaction
 - name: Reaction
   description: You can take a reaction when a trigger occurs. A reaction is only available
     once per round.
@@ -168,18 +270,19 @@ bonus_actions:
     says you can.
   type: bonus_action
 - name: Second Wind
-  description: 'Bonus Action: expend 1 Second Wind use to regain 1d10 + fighter level HP. Tactical Mind (level 2): after failing an ability check, expend a use to add 1d10; use is not spent if still failed. Tactical Shift (level 5): when you activate Second Wind, move up to half speed without provoking opportunity attacks.'
+  description: 'Bonus Action: expend 1 Second Wind use to regain 1d10 + fighter level HP (optionally cap healing at max HP). Tactical Shift: immediately move up to half your speed without provoking opportunity attacks.'
   type: bonus_action
   uses:
     pool: second_wind
     cost: 1
-- name: Summon Johns Echo
-  description: Summon Johns Echo within 15 ft. This consumes your bonus action for
-    this turn.
+- name: Manifest Echo
+  description: 'Bonus Action: if no echo is active, manifest your echo in an unoccupied space within 15 ft. Echo AC = 14 + prof, HP = 1, immune to all conditions, uses your saving throw bonuses, and remains until destroyed/dismissed/replaced/you are incapacitated. You can move the echo up to 30 ft on your turn with no action; it is destroyed if it ends your turn more than 30 ft away (or more than 1,000 ft while Echo Avatar is active).'
   type: bonus_action
-- name: Swap with Johns Echo
-  description: Swap places with Johns Echo within 15 ft. This consumes your bonus
-    action for this turn.
+- name: Dismiss Echo
+  description: 'Bonus Action: dismiss your active echo.'
+  type: bonus_action
+- name: Swap with Echo
+  description: 'Command: spend 15 ft of your movement to teleport and swap places with your echo.'
   type: bonus_action
 spellcasting:
   enabled: false
@@ -230,4 +333,14 @@ inventory:
     sp: 0
     cp: 0
   items: []
-notes: {}
+notes:
+  echo_state_template:
+    active: false
+    entity_name: John's Echo
+    max_distance_feet: 30
+    avatar_max_distance_feet: 1000
+    hp: 1
+    ac_formula: 14 + prof
+    condition_immunities: all
+    movement_per_turn_feet: 30
+    swap_cost_movement_feet: 15
