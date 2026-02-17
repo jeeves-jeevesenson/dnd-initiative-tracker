@@ -9311,7 +9311,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (!unit || !unit.pos) return null;
     const isCurrentlyRotating = rotatingToken && Number(rotatingToken.cid) === Number(unit?.cid);
     if (!shiftMoveMode && !isCurrentlyRotating) return null;
-    const rotationCid = normalizeCid(claimedCid, "rotateHandle.claimedCid");
+    const rotationCid = normalizeCid(activeControlledUnitCid(), "rotateHandle.controlledCid");
     if (rotationCid === null || !cidMatches(unit.cid, rotationCid, "rotateHandle.cid")) return null;
     const {x, y} = gridToScreen(unit.pos.col, unit.pos.row);
     const r = Math.max(10, zoom * 0.35);
@@ -9634,7 +9634,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const rotateHit = hitTestRotateHandle(p);
     if (rotateHit){
-      const rotationCid = normalizeCid(claimedCid, "rotate.hit.claimedCid");
+      const rotationCid = normalizeCid(activeControlledUnitCid(), "rotate.hit.controlledCid");
       if (rotationCid === null || !cidMatches(rotateHit.cid, rotationCid, "rotate.hitCid")){
         send({type:"toast", text:"Arrr, that token ain’t yers."});
         return;
