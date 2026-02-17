@@ -1218,6 +1218,12 @@ class LanController:
         "initiative_roll",
         "attack_request",
         "spell_target_request",
+        "wild_shape_apply",
+        "wild_shape_revert",
+        "wild_shape_regain_use",
+        "wild_shape_regain_spell",
+        "wild_shape_pool_set_current",
+        "wild_shape_set_known",
     )
 
     def __init__(self, app: "InitiativeTracker") -> None:
