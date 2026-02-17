@@ -5674,6 +5674,13 @@ __DAMAGE_TYPE_OPTIONS__
       const tocPayload = await tocResp.json();
       rulesTocCache = Array.isArray(tocPayload?.toc) ? tocPayload.toc : [];
     }
+    if (!rulesSpellPagesCache){
+      const spellPagesResp = await fetch("/api/rules/spell-pages");
+      const spellPagesPayload = await spellPagesResp.json();
+      rulesSpellPagesCache = spellPagesPayload?.pages && typeof spellPagesPayload.pages === "object"
+        ? spellPagesPayload.pages
+        : {};
+    }
     renderRulesToc();
     const available = !!rulesStatusCache?.available;
     if (helpOpenBookBtn) helpOpenBookBtn.disabled = !available;
@@ -11329,6 +11336,7 @@ __DAMAGE_TYPE_OPTIONS__
   let activeSpellDetailSlug = null;
   let rulesStatusCache = null;
   let rulesTocCache = [];
+  let rulesSpellPagesCache = null;
   let rulesViewerLoaded = false;
   let rulesViewerReady = false;
   let rulesLastPage = 1;
@@ -11440,6 +11448,31 @@ __DAMAGE_TYPE_OPTIONS__
   function formatSpellLibraryList(values){
     if (!Array.isArray(values) || !values.length) return "";
     return values.map((value) => formatListGroupLabel(value)).join(", ");
+  }
+
+  function normalizeSpellSourceKey(value){
+    return String(value || "")
+      .toLowerCase()
+      .replaceAll("’", "'")
+      .replace(/\[[^\]]*\]/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+
+  function spellSourcePageForRecord(record){
+    const pages = rulesSpellPagesCache && typeof rulesSpellPagesCache === "object" ? rulesSpellPagesCache : null;
+    if (!pages) return null;
+    const candidates = [record?.name, record?.id ? String(record.id).replace(/[-_]+/g, " ") : ""];
+    for (const candidate of candidates){
+      const key = normalizeSpellSourceKey(candidate);
+      if (!key) continue;
+      const page = Number(pages[key]);
+      if (Number.isFinite(page) && page > 0){
+        return page;
+      }
+    }
+    return null;
   }
 
   function buildSpellLibrarySearchText(record){
@@ -11617,6 +11650,25 @@ __DAMAGE_TYPE_OPTIONS__
         description.className = "spell-library-detail-description";
         description.textContent = record.description;
         body.appendChild(description);
+      }
+
+      const sourcePage = spellSourcePageForRecord(record);
+      if (sourcePage){
+        const sourceRow = document.createElement("div");
+        sourceRow.className = "spell-library-action-row";
+        const sourceBtn = document.createElement("button");
+        sourceBtn.className = "btn";
+        sourceBtn.type = "button";
+        sourceBtn.textContent = "Open Source";
+        sourceBtn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          showHelpModal();
+          ensureRulesData()
+            .then(() => jumpRulesPage(sourcePage))
+            .catch(() => setHelpMessage("Failed to load rules metadata."));
+        });
+        sourceRow.appendChild(sourceBtn);
+        body.appendChild(sourceRow);
       }
 
       const preset = spellPresetBySlug.get(getSpellKey(record.id))

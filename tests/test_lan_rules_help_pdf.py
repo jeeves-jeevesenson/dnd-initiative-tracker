@@ -98,6 +98,42 @@ class LanRulesHelpPdfTests(unittest.TestCase):
         self.assertEqual(toc[0].get("title"), "Fighter")
         self.assertEqual(toc[0].get("page"), 1)
 
+    def test_spell_pages_endpoint_parses_markdown_mapping(self, tmp_path: Path):
+        spells_dir = tmp_path / "Spells"
+        spells_dir.mkdir(parents=True, exist_ok=True)
+        (spells_dir / "spells_by_page.md").write_text(
+            "\n".join(
+                [
+                    "## p.273",
+                    "**Spells**",
+                    "- Fireball",
+                    "- Alarm [R]",
+                    "",
+                    "## p.274",
+                    "**Spells**",
+                    "- Flame Strike",
+                    "",
+                    "**Related statblocks**",
+                    "- Giant Insect Statblock",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        tracker_mod._load_spell_source_page_map.cache_clear()
+        with mock.patch.object(tracker_mod, "_app_base_dir", return_value=tmp_path):
+            client = self._build_test_client()
+            response = client.get("/api/rules/spell-pages")
+        tracker_mod._load_spell_source_page_map.cache_clear()
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        pages = payload.get("pages") or {}
+        self.assertEqual(pages.get("fireball"), 273)
+        self.assertEqual(pages.get("alarm"), 273)
+        self.assertEqual(pages.get("flame strike"), 274)
+        self.assertNotIn("giant insect statblock", pages)
+
 
 if __name__ == "__main__":
     unittest.main()

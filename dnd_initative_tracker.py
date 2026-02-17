@@ -148,6 +148,55 @@ def _coerce_outline_items(raw_outline: Any) -> List[Any]:
     return [raw_outline]
 
 
+def _normalize_spell_source_name(value: str) -> str:
+    text = str(value or "").strip().lower().replace("’", "'")
+    if not text:
+        return ""
+    text = re.sub(r"\[[^\]]*\]", "", text)
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+@lru_cache(maxsize=1)
+def _load_spell_source_page_map() -> Dict[str, int]:
+    path = _app_base_dir() / "Spells" / "spells_by_page.md"
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except Exception:
+        return {}
+    mapping: Dict[str, int] = {}
+    current_page: Optional[int] = None
+    in_spells_section = False
+    page_header_re = re.compile(r"^##\s*p\.(\d+)\s*$", re.IGNORECASE)
+    for raw in lines:
+        line = str(raw or "").strip()
+        page_match = page_header_re.match(line)
+        if page_match:
+            try:
+                current_page = int(page_match.group(1))
+            except Exception:
+                current_page = None
+            in_spells_section = False
+            continue
+        if line.startswith("## "):
+            current_page = None
+            in_spells_section = False
+            continue
+        if line == "**Spells**":
+            in_spells_section = True
+            continue
+        if line.startswith("**") and line.endswith("**") and line != "**Spells**":
+            in_spells_section = False
+            continue
+        if not in_spells_section or current_page is None or not line.startswith("- "):
+            continue
+        name = line[2:].strip()
+        key = _normalize_spell_source_name(name)
+        if key:
+            mapping[key] = current_page
+    return mapping
+
+
 def _seed_user_players_dir() -> None:
     _seed_user_items_dir()
     user_dir = _app_data_dir() / "players"
@@ -1811,6 +1860,13 @@ class LanController:
             if "toc" not in payload:
                 payload["toc"] = []
             return payload
+
+        @self._fastapi_app.get("/api/rules/spell-pages")
+        async def rules_spell_pages(request: Request):
+            host = getattr(getattr(request, "client", None), "host", "")
+            if not self._is_host_allowed(host):
+                raise HTTPException(status_code=403, detail="Unauthorized host.")
+            return {"pages": _load_spell_source_page_map()}
 
         @self._fastapi_app.post("/api/push/subscribe")
         async def push_subscribe(payload: Dict[str, Any] = Body(...)):
