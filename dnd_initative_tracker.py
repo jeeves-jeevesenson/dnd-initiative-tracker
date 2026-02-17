@@ -1705,7 +1705,7 @@ class LanController:
         # Lazy imports so the base app still works without these deps installed.
         try:
             from fastapi import Body, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-            from fastapi.responses import HTMLResponse, RedirectResponse, Response
+            from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
             from fastapi.staticfiles import StaticFiles
             import uvicorn
             # Expose these in module globals so FastAPI's type resolver can see 'em even from nested defs.
@@ -1828,7 +1828,7 @@ class LanController:
             try:
                 if not rules_path.exists() or not rules_path.is_file():
                     raise HTTPException(status_code=404, detail="Rules PDF not found.")
-                return Response(content=rules_path.read_bytes(), media_type="application/pdf")
+                return FileResponse(path=str(rules_path), media_type="application/pdf")
             except HTTPException:
                 raise
             except Exception:
