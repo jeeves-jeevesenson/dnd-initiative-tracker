@@ -21,6 +21,7 @@ There is no formal test suite today. For PRs:
 1. Run `python -m compileall .` to catch syntax errors.
 2. If you touched LAN or `assets/web/`, run any available LAN smoke test scripts (see `scripts/`).
 3. Keep changes minimal and targeted; avoid drive-by refactors.
+4. Do not take screenshots. They usually arent helpful as the app is rendered in various UIs and doesnt have a connection
 
 ## How we collaborate (important)
 When assigned an issue/bug:
