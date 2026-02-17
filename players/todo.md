@@ -171,7 +171,7 @@ These YAML patterns appear in player files but are not generally executed by the
 - Notes field contains malformed-looking escaped text; loads as string but should be cleaned for maintainability.
 
 **Implementation plan**
-1. Perform a data-correction pass for class levels/speed keys/notes hygiene (no engine change required).
+1. ✅ Completed (2026-02-17): performed data-correction pass for class levels/speed keys/notes hygiene (no engine change required).
 2. Add a lightweight player YAML validation command/check for class-level sum and speed key normalization.
 
 ---
@@ -215,6 +215,7 @@ These YAML patterns appear in player files but are not generally executed by the
 1. Build reusable contested-check and attack-trigger framework (needed for Panache/Sneak Attack/Cunning Strike).
 2. Add reaction middleware for damage interception (Uncanny Dodge) and save-result post-processing (Evasion).
 3. Add per-turn/once-per-turn spending guardrails for sneak attack and strike options.
+4. ✅ Completed (2026-02-17): cleaned data quality issues called out in audit (`defenses.ac.sources[0].id/label`, `Theives Cant` typo).
 
 ---
 
@@ -236,6 +237,7 @@ These YAML patterns appear in player files but are not generally executed by the
 1. Implement generic feature-granted actions/reactions ingestion (for Divine Spark/Turn Undead/Wrath of the Storm).
 2. Add damage pipeline hooks for modifier-style effects (Destructive Wrath maximize).
 3. Add subtype-aware trigger hooks (lightning/thunder damage conditions for Tempest features).
+4. ✅ Completed (2026-02-17): normalized save proficiency abbreviation from `CHR` to `CHA`.
 
 ---
 
@@ -253,6 +255,7 @@ These YAML patterns appear in player files but are not generally executed by the
 
 4. **Data quality guardrails**
    - Add validator for player YAML consistency (class level sums, proficiency abbreviations, speed keys, null IDs where IDs are expected).
+   - ✅ Completed (2026-02-17): added focused regression checks in `tests/test_player_yaml_validity.py` covering class-level sum/speed schema (`oldahhman.yaml`), proficiency abbreviation (`стихия.yaml`), and null AC source IDs/language typo cleanup (`vicnor.yaml`).
 
 5. **Regression coverage**
    - Add focused tests per implemented feature family before enabling automatic execution globally.

@@ -45,7 +45,7 @@ proficiency:
   - Draconic
   - Ratspeak
   - Undercommon
-  - Theives Cant
+  - Thieves Cant
 vitals:
   max_hp: 61
   current_hp: 61
@@ -66,8 +66,8 @@ vitals:
 defenses:
   ac:
     sources:
-    - id: null
-      label: null
+    - id: unarmored_plus_dex
+      label: Unarmored + Dex
       when: always
       base_formula: '19'
     bonuses: []
