@@ -3945,8 +3945,8 @@ class InitiativeTracker(tk.Tk):
     def _open_bulk_dialog(self) -> None:
         dlg = tk.Toplevel(self)
         dlg.title("Bulk Add")
-        dlg.geometry("980x620")
-        dlg.minsize(900, 600)
+        dlg.geometry("1120x720")
+        dlg.minsize(980, 660)
         dlg.transient(self)
 
         frm = ttk.Frame(dlg, padding=10)
