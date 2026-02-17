@@ -3856,6 +3856,7 @@ __DAMAGE_TYPE_OPTIONS__
   let attackOverlayMode = false;
   let selectedAttackWeaponId = "";
   let pendingAttackResolve = null;
+  let pendingOpportunityAttack = false;
   let pendingCleavePrompt = null;
   let pendingSpellTargeting = null;
   let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
@@ -4418,6 +4419,24 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const equipped = weapons.find((entry) => isWeaponEquipped(entry));
     return equipped || weapons[0] || null;
+  }
+
+  function isMeleeWeapon(weapon){
+    const category = normalizeLowerValue(weapon?.category || weapon?.weapon_group);
+    if (category.includes("melee")) return true;
+    const rangeText = normalizeLowerValue(weapon?.range);
+    if (!rangeText) return true;
+    if (rangeText.includes("/")) return false;
+    return parseWeaponRangeFeet(weapon) <= 10;
+  }
+
+  function getPrimaryMeleeAttackWeapon(){
+    const weapons = getClaimedWeapons();
+    if (!weapons.length){
+      return null;
+    }
+    const meleeWeapons = weapons.filter((entry) => isMeleeWeapon(entry));
+    return getDefaultAttackWeapon(meleeWeapons);
   }
 
   function parseWeaponRangeFeet(weapon){
@@ -6859,6 +6878,9 @@ __DAMAGE_TYPE_OPTIONS__
 
   function setAttackOverlayMode(enabled){
     attackOverlayMode = !!enabled;
+    if (!attackOverlayMode){
+      pendingOpportunityAttack = false;
+    }
     if (attackOverlayToggleBtn){
       attackOverlayToggleBtn.setAttribute("aria-pressed", attackOverlayMode ? "true" : "false");
       attackOverlayToggleBtn.classList.toggle("accent", attackOverlayMode);
@@ -7035,7 +7057,9 @@ __DAMAGE_TYPE_OPTIONS__
       weaponId: String(weapon?.id || "").trim(),
       weaponName: String(weapon?.name || "Weapon").trim() || "Weapon",
       masteryAdvantage: hasVexAdvantage,
+      opportunityAttack: pendingOpportunityAttack,
     };
+    pendingOpportunityAttack = false;
     const advantageText = hasVexAdvantage ? ' <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>' : "";
     attackResolveBody.innerHTML = `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`
       + (hintParts.length ? ` ${hintParts.join(" ")}` : "")
@@ -8990,6 +9014,29 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (entry.kind === "war_caster"){
         openWarCasterModal();
+        return;
+      }
+      if (entry.spend === "reaction" && actionName === "opportunity attack"){
+        const unit = getClaimedUnit();
+        if (Number(unit?.reaction_remaining || 0) <= 0){
+          localToast("No reactions left, matey.");
+          return;
+        }
+        const meleeWeapon = getPrimaryMeleeAttackWeapon();
+        if (!meleeWeapon){
+          localToast("No melee weapon configured for opportunity attacks.");
+          return;
+        }
+        const meleeWeaponId = String(meleeWeapon.id || "").trim();
+        if (meleeWeaponId){
+          selectedAttackWeaponId = meleeWeaponId;
+          if (attackWeaponSelectEl){
+            attackWeaponSelectEl.value = meleeWeaponId;
+          }
+        }
+        pendingOpportunityAttack = true;
+        setAttackOverlayMode(true);
+        localToast(`Opportunity attack ready with ${String(meleeWeapon.name || "weapon")}. Pick an enemy target.`);
         return;
       }
       if (entry.kind === "reaction_spell"){
@@ -14603,7 +14650,7 @@ __DAMAGE_TYPE_OPTIONS__
           });
         });
       }
-      const actionCid = activeControlledUnitCid();
+      const actionCid = pendingAttackResolve.opportunityAttack ? normalizeCid(claimedCid, "attackResolve.opportunityCid") : activeControlledUnitCid();
       if (actionCid === null){
         localToast("Not yer turn yet, matey.");
         setAttackResolveModalOpen(false);
@@ -14640,6 +14687,7 @@ __DAMAGE_TYPE_OPTIONS__
           weapon_id: String(pendingAttackResolve.weaponId || "").trim(),
           weapon_name: String(pendingAttackResolve.weaponName || "").trim(),
           mastery_free_attack: pendingAttackResolve.masteryFreeAttack || null,
+          opportunity_attack: !!pendingAttackResolve.opportunityAttack,
           hit: hit,
           damage_entries: damageEntries,
         });

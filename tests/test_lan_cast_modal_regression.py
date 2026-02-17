@@ -123,6 +123,12 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn("action_type: \"reaction\"", self.html)
         self.assertIn("spend === \"reaction\"", self.html)
 
+    def test_opportunity_attack_uses_melee_overlay_and_marks_attack_request(self):
+        self.assertIn("function getPrimaryMeleeAttackWeapon()", self.html)
+        self.assertIn('if (entry.spend === "reaction" && actionName === "opportunity attack")', self.html)
+        self.assertIn("pendingOpportunityAttack = true;", self.html)
+        self.assertIn("opportunity_attack: !!pendingAttackResolve.opportunityAttack,", self.html)
+
 
 if __name__ == "__main__":
     unittest.main()
