@@ -5422,6 +5422,7 @@ class BattleMapWindow(tk.Toplevel):
         self._drag_ghost: Optional[tk.Label] = None
         self._hover_tooltip: Optional[tk.Label] = None
         self._hover_tooltip_text: Optional[str] = None
+        self._token_facing: Dict[int, float] = {}
 
         # Background images
         self._next_bg_id = 1
@@ -5440,6 +5441,8 @@ class BattleMapWindow(tk.Toplevel):
         self.bind("<Escape>", lambda e: self._clear_measure())
         self.bind("<KeyPress-r>", lambda e: self.refresh_units())
         self.bind("<Control-z>", lambda e: self._undo_obstacle())
+        self.bind("<KeyPress-q>", lambda e: self._rotate_selected_unit(-45.0))
+        self.bind("<KeyPress-e>", lambda e: self._rotate_selected_unit(45.0))
 
         # Auto-refresh units/markers so slain creatures disappear without manual refresh.
         self._start_polling()
@@ -5517,8 +5520,8 @@ class BattleMapWindow(tk.Toplevel):
                 self._dialog.title("Battle Map Size")
                 self._dialog.transient(parent)
 
-                self._min = 5
-                self._max = 200
+                self._min = 10
+                self._max = 1000
                 self._cols_var = tk.StringVar(value="20")
                 self._rows_var = tk.StringVar(value="20")
 
@@ -5632,10 +5635,12 @@ class BattleMapWindow(tk.Toplevel):
         dm_ctrl.pack(fill=tk.X, pady=(0, 10))
         dm_btn_row = ttk.Frame(dm_ctrl)
         dm_btn_row.pack(fill=tk.X)
-        ttk.Button(dm_btn_row, text="Dash", command=self._dm_dash_target).pack(side=tk.LEFT)
-        ttk.Button(dm_btn_row, text="Prev Turn", command=self._dm_prev_turn).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(dm_btn_row, text="Next Turn", command=self._dm_next_turn).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(dm_btn_row, text="Stand Up", command=self._dm_stand_up_target).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(dm_btn_row, text="Dash", command=self._dm_dash_target).grid(row=0, column=0, sticky="ew")
+        ttk.Button(dm_btn_row, text="Prev Turn", command=self._dm_prev_turn).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        ttk.Button(dm_btn_row, text="Next Turn", command=self._dm_next_turn).grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        ttk.Button(dm_btn_row, text="Stand Up", command=self._dm_stand_up_target).grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=(6, 0))
+        dm_btn_row.columnconfigure(0, weight=1)
+        dm_btn_row.columnconfigure(1, weight=1)
         mode_row = ttk.Frame(dm_ctrl)
         mode_row.pack(fill=tk.X, pady=(6, 0))
         ttk.Label(mode_row, text="Movement:").pack(side=tk.LEFT)
@@ -5750,11 +5755,24 @@ class BattleMapWindow(tk.Toplevel):
         self._set_unit_mode_controls_enabled(False)
 
         btns = ttk.Frame(left)
-        btns.pack(fill=tk.X, pady=(0, 10))
-        ttk.Button(btns, text="Refresh Units (R)", command=self.refresh_units).pack(side=tk.LEFT)
-        ttk.Button(btns, text="Place Selected", command=self._place_selected_units_near_center).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(btns, text="Place All", command=self._place_all_units_near_center).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(btns, text="Clear Measure (Esc)", command=self._clear_measure).pack(side=tk.LEFT, padx=(8, 0))
+        btns.pack(fill=tk.X, pady=(0, 8))
+        ttk.Button(btns, text="Refresh Units (R)", command=self.refresh_units).grid(row=0, column=0, sticky="ew")
+        ttk.Button(btns, text="Place Selected", command=self._place_selected_units_near_center).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        ttk.Button(btns, text="Place All", command=self._place_all_units_near_center).grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        ttk.Button(btns, text="Clear Measure (Esc)", command=self._clear_measure).grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=(6, 0))
+        btns.columnconfigure(0, weight=1)
+        btns.columnconfigure(1, weight=1)
+
+        rot_row = ttk.Frame(left)
+        rot_row.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(rot_row, text="Facing:").pack(side=tk.LEFT)
+        self._facing_value_var = tk.StringVar(value="—")
+        self._facing_value_lbl = ttk.Label(rot_row, textvariable=self._facing_value_var, width=8)
+        self._facing_value_lbl.pack(side=tk.LEFT, padx=(6, 10))
+        self._rotate_left_btn = ttk.Button(rot_row, text="⟲ 45°", command=lambda: self._rotate_selected_unit(-45.0))
+        self._rotate_left_btn.pack(side=tk.LEFT)
+        self._rotate_right_btn = ttk.Button(rot_row, text="45° ⟳", command=lambda: self._rotate_selected_unit(45.0))
+        self._rotate_right_btn.pack(side=tk.LEFT, padx=(6, 0))
 
         # --- Groups panel ---
         ttk.Separator(left).pack(fill=tk.X, pady=(6, 10))
@@ -5803,14 +5821,19 @@ class BattleMapWindow(tk.Toplevel):
 
         aoe_btns = ttk.Frame(left)
         aoe_btns.pack(fill=tk.X, pady=(4, 6))
-        ttk.Button(aoe_btns, text="Add Circle", command=self._add_circle_aoe).pack(side=tk.LEFT)
-        ttk.Button(aoe_btns, text="Add Sphere", command=self._add_sphere_aoe).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(aoe_btns, text="Add Square", command=self._add_square_aoe).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(aoe_btns, text="Add Cube", command=self._add_cube_aoe).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(aoe_btns, text="Add Line", command=self._add_line_aoe).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(aoe_btns, text="Add Cone", command=self._add_cone_aoe).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(aoe_btns, text="Add Wall", command=self._add_wall_aoe).pack(side=tk.LEFT, padx=(8, 0))
-        ttk.Button(aoe_btns, text="Remove", command=self._remove_selected_aoe).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Label(aoe_btns, text="Shape:").grid(row=0, column=0, sticky="w")
+        self._aoe_shape_var = tk.StringVar(value="Circle")
+        self._aoe_shape_combo = ttk.Combobox(
+            aoe_btns,
+            textvariable=self._aoe_shape_var,
+            state="readonly",
+            values=["Circle", "Sphere", "Square", "Cube", "Line", "Cone", "Wall"],
+            width=12,
+        )
+        self._aoe_shape_combo.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        ttk.Button(aoe_btns, text="Add", command=self._add_selected_aoe_shape).grid(row=0, column=2, sticky="ew", padx=(6, 0))
+        ttk.Button(aoe_btns, text="Remove", command=self._remove_selected_aoe).grid(row=0, column=3, sticky="ew", padx=(6, 0))
+        aoe_btns.columnconfigure(1, weight=1)
 
         self.aoe_list = tk.Listbox(left, height=8, exportselection=False)
         self.aoe_list.pack(fill=tk.BOTH, expand=False)
@@ -5986,6 +6009,17 @@ class BattleMapWindow(tk.Toplevel):
                 self.unit_mode_combo.state(["disabled"])
         except Exception:
             self.unit_mode_combo.config(state=(tk.NORMAL if enabled else tk.DISABLED))
+        for attr in ("_rotate_left_btn", "_rotate_right_btn"):
+            btn = getattr(self, attr, None)
+            if btn is None:
+                continue
+            try:
+                if enabled:
+                    btn.state(["!disabled"])
+                else:
+                    btn.state(["disabled"])
+            except Exception:
+                btn.config(state=(tk.NORMAL if enabled else tk.DISABLED))
 
     def _selected_unit_cids(self) -> List[int]:
         cids: List[int] = []
@@ -6000,6 +6034,8 @@ class BattleMapWindow(tk.Toplevel):
         cids = self._selected_unit_cids()
         if not cids:
             self.unit_mode_var.set(MOVEMENT_MODE_LABELS["normal"])
+            if hasattr(self, "_facing_value_var"):
+                self._facing_value_var.set("—")
             self._set_unit_mode_controls_enabled(False)
             return
         self._set_unit_mode_controls_enabled(True)
@@ -6007,6 +6043,45 @@ class BattleMapWindow(tk.Toplevel):
         creature = self.app.combatants.get(cid)
         mode = self.app._movement_mode_label(getattr(creature, "movement_mode", "normal")) if creature else "Normal"
         self.unit_mode_var.set(mode)
+        self._sync_selected_facing_display()
+
+    def _sync_selected_facing_display(self) -> None:
+        if not hasattr(self, "_facing_value_var"):
+            return
+        cids = self._selected_unit_cids()
+        if not cids:
+            self._facing_value_var.set("—")
+            return
+        cid = cids[0]
+        facing = float(self._token_facing.get(cid, 0.0)) % 360.0
+        self._facing_value_var.set(f"{facing:.0f}°")
+
+    def _rotate_selected_unit(self, delta_deg: float) -> None:
+        cids = self._selected_unit_cids()
+        if not cids:
+            return
+        cid = cids[0]
+        new_facing = (float(self._token_facing.get(cid, 0.0)) + float(delta_deg)) % 360.0
+        self._token_facing[cid] = new_facing
+        self._layout_unit(cid)
+        self._sync_selected_facing_display()
+
+    def _add_selected_aoe_shape(self) -> None:
+        shape_var = getattr(self, "_aoe_shape_var", None)
+        shape = str(shape_var.get() if shape_var is not None else "Circle").strip().lower()
+        handlers = {
+            "circle": self._add_circle_aoe,
+            "sphere": self._add_sphere_aoe,
+            "square": self._add_square_aoe,
+            "cube": self._add_cube_aoe,
+            "line": self._add_line_aoe,
+            "cone": self._add_cone_aoe,
+            "wall": self._add_wall_aoe,
+        }
+        fn = handlers.get(shape)
+        if fn is None:
+            return
+        fn()
 
     def _apply_units_movement_mode(self) -> None:
         cids = self._selected_unit_cids()
@@ -6834,6 +6909,8 @@ class BattleMapWindow(tk.Toplevel):
             fill, outline = self._token_colors_for(c)
             try:
                 self.canvas.itemconfigure(int(tok["oval"]), fill=fill, outline=outline)
+                if "facing" in tok:
+                    self.canvas.itemconfigure(int(tok["facing"]), fill=outline)
             except Exception:
                 pass
 
@@ -6868,13 +6945,35 @@ class BattleMapWindow(tk.Toplevel):
             font=("TkDefaultFont", 9),
             tags=(f"unit:{cid}", "unitmarker")
         )
+        facing = float(self._token_facing.get(cid, 0.0)) % 360.0
+        self._token_facing[cid] = facing
+        arrow_len = max(8.0, self.cell * 0.3)
+        arrow_x = x + math.cos(math.radians(facing)) * arrow_len
+        arrow_y = y - math.sin(math.radians(facing)) * arrow_len
+        facing_arrow = self.canvas.create_line(
+            x,
+            y,
+            arrow_x,
+            arrow_y,
+            width=2,
+            fill=outline,
+            arrow=tk.LAST,
+            tags=(f"unit:{cid}", "unitfacing"),
+        )
         if not mt:
             try:
                 self.canvas.itemconfigure(marker_text, state="hidden")
             except Exception:
                 pass
 
-        self.unit_tokens[cid] = {"col": col, "row": row, "oval": oval, "text": name_text, "marker": marker_text}
+        self.unit_tokens[cid] = {
+            "col": col,
+            "row": row,
+            "oval": oval,
+            "text": name_text,
+            "marker": marker_text,
+            "facing": facing_arrow,
+        }
 
         # Re-evaluate grouping + labels now that a token exists
         self._update_groups()
@@ -6891,9 +6990,12 @@ class BattleMapWindow(tk.Toplevel):
             self.canvas.delete(int(tok["text"]))
             if "marker" in tok:
                 self.canvas.delete(int(tok["marker"]))
+            if "facing" in tok:
+                self.canvas.delete(int(tok["facing"]))
         except Exception:
             pass
         self.unit_tokens.pop(cid, None)
+        self._token_facing.pop(cid, None)
 
         # Group labels and move highlight may change when a token leaves the map
         self._update_groups()
@@ -7017,6 +7119,16 @@ class BattleMapWindow(tk.Toplevel):
             y = y + math.sin(ang) * rad
 
         self.canvas.coords(int(tok["oval"]), x - r, y - r, x + r, y + r)
+
+        facing_deg = float(self._token_facing.get(cid, 0.0)) % 360.0
+        if "facing" in tok:
+            arrow_len = max(8.0, self.cell * 0.3)
+            arrow_x = x + math.cos(math.radians(facing_deg)) * arrow_len
+            arrow_y = y - math.sin(math.radians(facing_deg)) * arrow_len
+            try:
+                self.canvas.coords(int(tok["facing"]), x, y, arrow_x, arrow_y)
+            except Exception:
+                pass
 
         # Name above token
         name_y = y - r - 2
@@ -10235,6 +10347,8 @@ class BattleMapWindow(tk.Toplevel):
         try:
             self.canvas.itemconfigure(int(tok["oval"]), width=4)
             self.canvas.tag_raise(int(tok["oval"]))
+            if "facing" in tok:
+                self.canvas.tag_raise(int(tok["facing"]))
             if "marker" in tok:
                 self.canvas.tag_raise(int(tok["marker"]))
             self.canvas.tag_raise(int(tok["text"]))
