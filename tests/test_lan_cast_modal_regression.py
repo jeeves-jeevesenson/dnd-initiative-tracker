@@ -58,6 +58,17 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('inittracker_hotkey_toggleSheetPanel', self.html)
         self.assertIn('localStorage.setItem("inittracker_hotkey_toggleSheetPanel", "Delete");', self.html)
 
+    def test_bottom_panel_height_preference_is_configurable(self):
+        self.assertIn('<div class="config-item-title">Bottom panel height</div>', self.html)
+        self.assertIn('id="sheetHeight"', self.html)
+        self.assertIn("sheetHeightInput.addEventListener(\"input\", () => {", self.html)
+
+    def test_battle_log_has_explicit_text_size_control_and_safe_default_anchor(self):
+        self.assertIn('<div class="config-item-title">Battle log text size</div>', self.html)
+        self.assertIn('const minTop = Math.max(0, topbarHeight + 8);', self.html)
+        self.assertIn('const maxTop = Math.max(minTop, window.innerHeight - sheetHeight - modalRect.height - 8);', self.html)
+        self.assertIn('logModal.style.right = "12px";', self.html)
+
     def test_small_viewport_auto_compact_hides_optional_controls(self):
         self.assertIn("function shouldAutoCompactLayout()", self.html)
         self.assertIn('document.body.classList.toggle("auto-compact", autoCompact);', self.html)
