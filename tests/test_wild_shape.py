@@ -611,6 +611,17 @@ class WildShapeTests(unittest.TestCase):
         self.assertEqual(calls["rebuild"], 1)
         self.assertTrue(any("uses updated" in msg for msg in toasts))
 
+    def test_lan_action_whitelist_includes_wild_shape_actions(self):
+        required_types = {
+            "wild_shape_apply",
+            "wild_shape_revert",
+            "wild_shape_regain_use",
+            "wild_shape_regain_spell",
+            "wild_shape_pool_set_current",
+            "wild_shape_set_known",
+        }
+        self.assertTrue(required_types.issubset(set(tracker_mod.LanController._ACTION_MESSAGE_TYPES)))
+
 
 if __name__ == "__main__":
     unittest.main()
