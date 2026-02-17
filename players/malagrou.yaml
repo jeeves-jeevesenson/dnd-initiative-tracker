@@ -1,0 +1,355 @@
+format_version: 2
+name: Malagrou
+player: ''
+identity:
+  pronouns: ''
+  ancestry: ''
+  background: ''
+  alignment: ''
+  description: ''
+leveling:
+  level: 10
+  classes:
+  - name: Barbarian
+    subclass: Path of the Berserker
+    level: 10
+    attacks_per_action: 2
+abilities:
+  str: 18
+  dex: 14
+  con: 16
+  int: 8
+  wis: 12
+  cha: 10
+proficiency:
+  bonus: 4
+  saves:
+  - STR
+  - CON
+  skills:
+    proficient:
+    - Athletics
+    - Intimidation
+    - Perception
+    - Survival
+    expertise: []
+  tools: []
+  languages:
+  - Common
+vitals:
+  max_hp: 105
+  current_hp: 105
+  temp_hp: 0
+  hit_dice:
+    die: d12
+    total: 10
+    spent: 0
+  speed:
+    walk: 40
+    climb: 0
+    fly: 0
+    swim: 0
+  initiative:
+    formula: dex_mod
+  passive_perception:
+    formula: 10 + wis_mod + prof
+
+
+defenses:
+  ac:
+    sources:
+    - id: unarmored_defense
+      label: Unarmored Defense
+      when: no_armor
+      base_formula: 10 + dex_mod + con_mod
+      shield_allowed: true
+    bonuses: []
+  resistances: []
+  immunities: []
+  vulnerabilities: []
+
+resources:
+  pools:
+  - id: rage
+    name: Rage
+    current: 4
+    max_formula: "2 if barbarian_level < 3 else 3 if barbarian_level < 6 else 4 if barbarian_level < 12 else 5 if barbarian_level < 17 else 6"
+    reset: short_rest_one
+    reset_all: long_rest
+  - id: weapon_mastery_known
+    name: Weapon Mastery Choices
+    current: 3
+    max_formula: "2 if barbarian_level < 4 else 3 if barbarian_level < 10 else 4"
+    reset: long_rest
+
+features:
+- id: barbarian_rage
+  name: Rage
+  level: 1
+  automation:
+    activation: bonus_action
+    consumes_pool: rage
+    duration_rounds: 1
+    max_duration_rounds: 100
+    can_extend_if:
+    - made_attack_roll_vs_enemy
+    - forced_enemy_saving_throw
+    - spent_bonus_action
+    ends_if:
+    - heavy_armor_equipped
+    - incapacitated
+    blocks:
+    - concentration
+    - cast_spells
+    grants:
+      damage_resistance:
+      - bludgeoning
+      - piercing
+      - slashing
+      advantage:
+        checks:
+        - str
+        saves:
+        - str
+      bonus_damage:
+        applies_to:
+        - strength_weapon_attack
+        - strength_unarmed_strike
+        formula: "2 if barbarian_level < 9 else 3 if barbarian_level < 16 else 4"
+- id: weapon_mastery
+  name: Weapon Mastery
+  level: 1
+  automation:
+    mastery_weapon_choices_pool: weapon_mastery_known
+    can_swap_one_on: long_rest
+- id: danger_sense
+  name: Danger Sense
+  level: 2
+  automation:
+    grants:
+      advantage:
+        saves:
+        - dex
+    suppressed_if:
+    - incapacitated
+- id: reckless_attack
+  name: Reckless Attack
+  level: 2
+  automation:
+    trigger: first_attack_roll_on_turn
+    choice: reckless_attack_on
+    grants_until: start_of_next_turn
+    grants:
+      advantage:
+        attack_rolls:
+        - strength_based
+      incoming_attackers_gain_advantage: true
+- id: primal_knowledge
+  name: Primal Knowledge
+  level: 3
+  automation:
+    grants:
+      skill_proficiency_choice_from:
+      - Athletics
+      - Animal Handling
+      - Intimidation
+      - Nature
+      - Perception
+      - Survival
+    rage_strength_skill_override:
+      while: rage_active
+      skills:
+      - Acrobatics
+      - Intimidation
+      - Perception
+      - Stealth
+      - Survival
+- id: fast_movement
+  name: Fast Movement
+  level: 5
+  automation:
+    speed_bonus:
+      mode: walk
+      bonus_ft: 10
+      when_not_wearing: heavy_armor
+- id: feral_instinct
+  name: Feral Instinct
+  level: 7
+  automation:
+    grants:
+      advantage:
+        rolls:
+        - initiative
+- id: instinctive_pounce
+  name: Instinctive Pounce
+  level: 7
+  automation:
+    when: enter_rage
+    free_movement:
+      max_distance_formula: walk_speed / 2
+- id: brutal_strike
+  name: Brutal Strike
+  level: 9
+  automation:
+    requires:
+    - reckless_attack_on
+    choice:
+      forgo_advantage_on_one_strength_attack: true
+    hit_effect:
+      extra_damage:
+        formula: 1d10
+        type: same_as_attack
+      rider_choice:
+      - id: forceful_blow
+        push_target_ft: 15
+        self_move_toward_target_ft_formula: walk_speed / 2
+        self_movement_no_opportunity_attacks: true
+      - id: hamstring_blow
+        target_speed_penalty_ft: 15
+        target_speed_penalty_until: start_of_your_next_turn
+        non_stacking_key: hamstring_blow
+- id: berserker_frenzy
+  name: Frenzy
+  level: 3
+  source: Path of the Berserker
+  automation:
+    requires:
+    - rage_active
+    - reckless_attack_on
+    trigger: first_strength_attack_hit_on_turn
+    extra_damage:
+      formula: "{rage_damage_bonus}d6"
+      type: same_as_attack
+- id: mindless_rage
+  name: Mindless Rage
+  level: 6
+  source: Path of the Berserker
+  automation:
+    while: rage_active
+    grants:
+      condition_immunity:
+      - charmed
+      - frightened
+    on_rage_start:
+      end_conditions:
+      - charmed
+      - frightened
+- id: retaliation
+  name: Retaliation
+  level: 10
+  source: Path of the Berserker
+  automation:
+    trigger:
+    - took_damage_from_creature_within_5ft
+    reaction:
+      make_one_melee_attack_against_triggering_creature: true
+
+actions:
+- name: Attack
+  description: Make a weapon or unarmed attack against a target within range.
+  type: action
+- name: Dash
+  description: Gain extra movement for the current turn equal to your speed.
+  type: action
+- name: Disengage
+  description: Your movement does not provoke opportunity attacks for the rest of the turn.
+  type: action
+- name: Dodge
+  description: Until the start of your next turn, attack rolls against you have disadvantage if you can see the attacker, and you make Dexterity saves with advantage.
+  type: action
+- name: Help
+  description: Aid a creature in the next ability check or attack roll against a target within 5 feet of you.
+  type: action
+- name: Hide
+  description: Attempt to hide by making a Dexterity (Stealth) check.
+  type: action
+- name: Influence
+  description: Attempt to influence a creature through conversation, bargaining, or intimidation.
+  type: action
+- name: Ready
+  description: Prepare an action and a trigger; use your reaction to perform it when the trigger occurs.
+  type: action
+- name: Search
+  description: Devote attention to finding something by making a Wisdom (Perception) or Intelligence (Investigation) check.
+  type: action
+- name: Study
+  description: Focus on detailed observation or research to gain information about a creature, object, or situation.
+  type: action
+- name: Utilize
+  description: Use an object or interact with the environment in a significant way.
+  type: action
+
+reactions:
+- name: Opportunity Attack
+  description: When a hostile creature you can see moves out of your reach, you can use your reaction to make one melee attack against it.
+  type: reaction
+- name: Retaliation
+  description: When a creature within 5 feet damages you, use your reaction to make one melee attack against that creature.
+  type: reaction
+
+bonus_actions:
+- name: Rage
+  description: Enter Rage and apply Rage automation effects.
+  type: bonus_action
+  uses:
+    pool: rage
+    cost: 1
+- name: Reckless Attack
+  description: Declare Reckless Attack on your first attack roll this turn.
+  type: bonus_action
+- name: Bonus Action
+  description: You can take a bonus action only when a feature, spell, or ability says you can.
+  type: bonus_action
+
+spellcasting:
+  enabled: false
+  spell_yaml_paths: []
+  casting_ability: ''
+  save_dc_formula: 8 + prof + casting_mod
+  spell_attack_formula: prof + casting_mod
+  cantrips:
+    max: 0
+    known: []
+  known_spells:
+    max: 0
+    known: []
+  prepared_spells:
+    max_formula: '0'
+    prepared: []
+  spell_slots:
+    '1':
+      max: 0
+      current: 0
+    '2':
+      max: 0
+      current: 0
+    '3':
+      max: 0
+      current: 0
+    '4':
+      max: 0
+      current: 0
+    '5':
+      max: 0
+      current: 0
+    '6':
+      max: 0
+      current: 0
+    '7':
+      max: 0
+      current: 0
+    '8':
+      max: 0
+      current: 0
+    '9':
+      max: 0
+      current: 0
+
+inventory:
+  currency:
+    gp: 0
+    sp: 0
+    cp: 0
+  items: []
+
+notes: {}
