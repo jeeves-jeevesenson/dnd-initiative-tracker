@@ -10,6 +10,7 @@ source:
 level: 3
 school: transmutation
 tags:
+- auto_hit
 - utility
 casting_time: Action
 range: 30 feet
@@ -57,5 +58,11 @@ mechanics:
   scaling: null
   ui:
     template_preview: false
+    spell_targeting:
+      mode: auto_hit
+      target_side: friendly
+      duration_turns: 10
+      ac_bonus: 2
+      overlay_color: "#4caf50"
   notes:
-  - Haste is a willing-target buff with delayed lethargy when it ends; apply action economy and end-of-spell penalties manually.
+  - Haste now applies movement/action/AC bonuses with concentration tracking and applies lethargy when it ends.

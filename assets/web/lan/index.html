@@ -7780,9 +7780,10 @@ __DAMAGE_TYPE_OPTIONS__
         const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
         const radiusCells = Math.max(0, Number(rangeFt) / feetPerSquare);
         const center = gridToScreen(me.pos.col, me.pos.row);
+        const overlayColor = normalizeHexColor(pendingSpellTargeting?.overlayColor || "");
         ctx.save();
-        ctx.fillStyle = "rgba(255,78,78,0.15)";
-        ctx.strokeStyle = "rgba(255,78,78,0.72)";
+        ctx.fillStyle = overlayColor ? rgbaFromHex(overlayColor, 0.15) : "rgba(255,78,78,0.15)";
+        ctx.strokeStyle = overlayColor ? rgbaFromHex(overlayColor, 0.72) : "rgba(255,78,78,0.72)";
         ctx.lineWidth = 2;
         ctx.setLineDash([6, 4]);
         ctx.beginPath();
@@ -8898,6 +8899,17 @@ __DAMAGE_TYPE_OPTIONS__
 
   function runSpellTargetingAgainstTarget(target){
     if (!target || !pendingSpellTargeting){
+      return;
+    }
+    const me = getClaimedUnit();
+    const isFriendlyTarget = !!me && (cidMatches(target.cid, me.cid, "spellTargeting.self") || isFriendlyToMe(target, me));
+    const targetSide = normalizeLowerValue(pendingSpellTargeting.targetSide || "enemy");
+    if (targetSide === "friendly" && !isFriendlyTarget){
+      localToast("Pick a friendly target, matey.");
+      return;
+    }
+    if (targetSide !== "friendly" && isFriendlyTarget){
+      localToast("Pick an enemy target, matey.");
       return;
     }
     if (pendingSpellTargeting.mode === "save"){
@@ -10263,10 +10275,23 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       const hit = hitTestToken(p);
-      if (hit && !cidMatches(hit.cid, me.cid, "attackOverlay.target")){
-        if (isFriendlyToMe(hit, me)){
+      const selectingSpellTarget = !!pendingSpellTargeting;
+      if (hit && (selectingSpellTarget || !cidMatches(hit.cid, me.cid, "attackOverlay.target"))){
+        const isFriendlyTarget = cidMatches(hit.cid, me.cid, "attackOverlay.selfTarget") || isFriendlyToMe(hit, me);
+        if (!pendingSpellTargeting && isFriendlyTarget){
           localToast("Pick an enemy target, matey.");
           return;
+        }
+        if (pendingSpellTargeting){
+          const targetSide = normalizeLowerValue(pendingSpellTargeting.targetSide || "enemy");
+          if (targetSide === "friendly" && !isFriendlyTarget){
+            localToast("Pick a friendly target, matey.");
+            return;
+          }
+          if (targetSide !== "friendly" && isFriendlyTarget){
+            localToast("Pick an enemy target, matey.");
+            return;
+          }
         }
         const weapon = pendingSpellTargeting ? null : getSelectedAttackWeapon();
         if (!pendingSpellTargeting && !weapon){
@@ -12812,6 +12837,9 @@ __DAMAGE_TYPE_OPTIONS__
       damageTypes.push(fallbackType);
     }
     const description = normalizeTextValue(preset?.description) || "";
+    const targetSideRaw = normalizeLowerValue(uiConfig?.target_side);
+    const targetSide = targetSideRaw === "friendly" ? "friendly" : "enemy";
+    const overlayColor = normalizeHexColor(uiConfig?.overlay_color || "");
     return {
       mode,
       rangeFt: parseSpellTargetRangeFeet(preset),
@@ -12822,6 +12850,8 @@ __DAMAGE_TYPE_OPTIONS__
       damageDiceWhenWounded: String(uiConfig?.damage_dice_when_wounded || "").trim(),
       description,
       projectileCount,
+      targetSide,
+      overlayColor,
     };
   }
   function startSpellTargetingSession(config, preset, slotLevel){
@@ -12840,6 +12870,8 @@ __DAMAGE_TYPE_OPTIONS__
       damageDiceWhenWounded: String(config.damageDiceWhenWounded || "").trim(),
       description: String(config.description || "").trim(),
       remainingShots: Math.max(1, Number(config.projectileCount || 1)),
+      targetSide: String(config.targetSide || "enemy").toLowerCase() === "friendly" ? "friendly" : "enemy",
+      overlayColor: normalizeHexColor(config.overlayColor || "") || null,
     };
     setCastOverlayOpen(false);
     setAttackOverlayMode(true);

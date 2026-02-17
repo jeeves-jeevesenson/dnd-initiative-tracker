@@ -13161,6 +13161,31 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
 
             spell_name = str(msg.get("spell_name") or msg.get("name") or "Spell").strip() or "Spell"
+            preset = self._find_spell_preset(msg.get("spell_slug"), msg.get("spell_id"))
+            preset_slug = str((preset or {}).get("slug") or "").strip().lower()
+            preset_id = str((preset or {}).get("id") or "").strip().lower()
+            is_haste = preset_slug == "haste" or preset_id == "haste"
+            haste_duration_turns = 10
+            haste_ac_bonus = 2
+            if is_haste and isinstance(preset, dict):
+                ui_cfg = (
+                    ((preset.get("mechanics") or {}).get("ui") or {}).get("spell_targeting")
+                    if isinstance((preset.get("mechanics") or {}).get("ui"), dict)
+                    else None
+                )
+                if isinstance(ui_cfg, dict):
+                    try:
+                        parsed_turns = int(ui_cfg.get("duration_turns"))
+                        if parsed_turns > 0:
+                            haste_duration_turns = parsed_turns
+                    except Exception:
+                        pass
+                    try:
+                        parsed_bonus = int(ui_cfg.get("ac_bonus"))
+                        if parsed_bonus >= 0:
+                            haste_ac_bonus = parsed_bonus
+                    except Exception:
+                        pass
             spell_mode = str(msg.get("spell_mode") or msg.get("mode") or "attack").strip().lower()
             if spell_mode not in ("attack", "auto_hit", "save"):
                 spell_mode = "attack"
@@ -13244,6 +13269,23 @@ class InitiativeTracker(base.InitiativeTracker):
             result_payload["critical"] = bool(hit and critical)
             result_payload["damage_entries"] = list(damage_entries if hit else [])
             result_payload["damage_total"] = int(total_damage if hit else 0)
+            haste_applied = False
+            if hit and is_haste and c is not None:
+                if bool(getattr(c, "concentrating", False)):
+                    self._end_concentration(c)
+                c.concentrating = True
+                c.concentration_spell = "haste"
+                c.concentration_spell_level = int((preset or {}).get("level") or 0) or None
+                c.concentration_started_turn = (int(self.round_num), int(self.turn_num))
+                current_targets = list(getattr(c, "concentration_target", []) or [])
+                if int(target.cid) not in current_targets:
+                    current_targets.append(int(target.cid))
+                c.concentration_target = current_targets
+                haste_applied = bool(
+                    self._apply_haste_effect(c, target, duration_turns=haste_duration_turns, ac_bonus=haste_ac_bonus)
+                )
+                if haste_applied:
+                    result_payload["haste_applied"] = True
 
             if hit and total_damage > 0:
                 before_hp = _parse_int(getattr(target, "hp", None), None)
@@ -13285,11 +13327,17 @@ class InitiativeTracker(base.InitiativeTracker):
                     cid=int(target_cid),
                 )
             elif hit:
-                self._log(
-                    f"{c.name} hits {result_payload['target_name']} with {spell_name}"
-                    f"{' (CRIT)' if result_payload.get('critical') else ''}.",
-                    cid=int(target_cid),
-                )
+                if haste_applied:
+                    self._log(
+                        f"{c.name} applies Haste to {result_payload['target_name']} ({haste_duration_turns} turns).",
+                        cid=int(target_cid),
+                    )
+                else:
+                    self._log(
+                        f"{c.name} hits {result_payload['target_name']} with {spell_name}"
+                        f"{' (CRIT)' if result_payload.get('critical') else ''}.",
+                        cid=int(target_cid),
+                    )
             else:
                 self._log(f"{c.name} misses {result_payload['target_name']} with {spell_name}.", cid=int(target_cid))
 
