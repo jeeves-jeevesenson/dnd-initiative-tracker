@@ -301,12 +301,11 @@
         if (!doc) return;
         const clamped = clampPage(page);
         currentPage = clamped;
-        if (clamped < loadedStart){
-          loadedStart = Math.max(1, clamped - PAGE_RADIUS);
-          syncLoadedShells();
-        }
-        if (clamped > loadedEnd){
-          loadedEnd = Math.min(pageCount, clamped + PAGE_RADIUS);
+        const nextStart = Math.max(1, clamped - PAGE_RADIUS);
+        const nextEnd = Math.min(pageCount, clamped + PAGE_RADIUS);
+        if (nextStart !== loadedStart || nextEnd !== loadedEnd){
+          loadedStart = nextStart;
+          loadedEnd = nextEnd;
           syncLoadedShells();
         }
         scrollToPage(clamped, smooth);
