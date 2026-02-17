@@ -4560,6 +4560,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_rough_terrain: Dict[Tuple[int, int], object] = {}
         self._lan_aoes: Dict[int, Dict[str, Any]] = {}
         self._lan_next_aoe_id = 1
+        self._lan_auras_enabled = True
         self._turn_snapshots: Dict[int, Dict[str, Any]] = {}
         self._summon_groups: Dict[str, List[int]] = {}
         self._summon_group_meta: Dict[str, Dict[str, Any]] = {}
@@ -6805,9 +6806,40 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             pass
 
+        feet_per_square = 5.0
+        try:
+            if map_ready and mw is not None and mw.winfo_exists():
+                feet_per_square = float(getattr(mw, "feet_per_square", 5.0) or 5.0)
+        except Exception:
+            feet_per_square = 5.0
+
         # Ensure any combatant has a position (spawn near center in a square spiral)
         if self.combatants and len(positions) < len(self.combatants):
             positions = self._lan_seed_missing_positions(positions, cols, rows)
+
+        active_auras = self._lan_active_aura_contexts(positions=positions, feet_per_square=feet_per_square)
+        for idx, aura in enumerate(active_auras):
+            source_cid = aura.get("source_cid")
+            source_pos = positions.get(int(source_cid)) if source_cid is not None else None
+            if not (isinstance(source_pos, tuple) and len(source_pos) == 2):
+                continue
+            aoes.append(
+                {
+                    "aid": -1001 - int(idx),
+                    "kind": "circle",
+                    "name": str(aura.get("name") or "Aura"),
+                    "color": str(aura.get("color") or "#fcebc4"),
+                    "cx": float(source_pos[0]),
+                    "cy": float(source_pos[1]),
+                    "radius_sq": float(aura.get("radius_sq") or max(0.1, 10.0 / max(1.0, feet_per_square))),
+                    "radius_ft": float(aura.get("radius_ft") or 10.0),
+                    "owner_cid": int(source_cid),
+                    "persistent": True,
+                    "is_aura": True,
+                    "aura_id": str(aura.get("aura_id") or f"aura_{idx}"),
+                    "light": True,
+                }
+            )
 
         units: List[Dict[str, Any]] = []
         for c in sorted(self.combatants.values(), key=lambda x: int(x.cid)):
@@ -6817,6 +6849,22 @@ class InitiativeTracker(base.InitiativeTracker):
             actions = self._normalize_action_entries(getattr(c, "actions", []), "action")
             bonus_actions = self._normalize_action_entries(getattr(c, "bonus_actions", []), "bonus_action")
             reactions = self._normalize_action_entries(getattr(c, "reactions", []), "reaction")
+            effect_icons: List[Dict[str, str]] = []
+            for aura in active_auras:
+                if int(c.cid) not in (aura.get("affected") or set()):
+                    continue
+                effect = aura.get("effect") if isinstance(aura.get("effect"), dict) else {}
+                if not effect:
+                    continue
+                effect_icons.append(
+                    {
+                        "id": str(effect.get("id") or "effect"),
+                        "name": str(effect.get("name") or "Effect"),
+                        "icon": str(effect.get("icon") or "✨"),
+                        "description": str(effect.get("description") or ""),
+                    }
+                )
+
             units.append(
                 {
                     "cid": c.cid,
@@ -6867,6 +6915,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "slot_level": getattr(c, "summon_slot_level", None),
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
                     "marks": marks,
+                    "effects": effect_icons,
                 }
             )
 
@@ -6875,7 +6924,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
         grid_payload = None
         if map_ready:
-            grid_payload = {"cols": int(cols), "rows": int(rows), "feet_per_square": 5}
+            grid_payload = {"cols": int(cols), "rows": int(rows), "feet_per_square": float(feet_per_square)}
         turn_order: List[int] = []
         try:
             ordered = self._display_order()
@@ -6915,6 +6964,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "active_cid": active,
             "round_num": int(getattr(self, "round_num", 0) or 0),
             "turn_order": turn_order,
+            "auras_enabled": bool(self.__dict__.get("_lan_auras_enabled", True)),
         }
         if include_static:
             snap["spell_presets"] = self._spell_presets_payload()
@@ -6980,6 +7030,186 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             text = ""
         return (text or "").strip()
+
+    def _lan_is_friendly_unit(self, cid: int) -> bool:
+        combatant = self.combatants.get(int(cid))
+        if combatant is None:
+            return False
+        role = str(self._name_role_memory.get(str(getattr(combatant, "name", "")), "enemy") or "enemy")
+        if role in ("pc", "ally"):
+            return True
+        owner_cid = _normalize_cid_value(getattr(combatant, "summoned_by_cid", None), "lan.aura.summon_owner")
+        if owner_cid is None:
+            return False
+        owner = self.combatants.get(int(owner_cid))
+        if owner is None:
+            return False
+        owner_role = str(self._name_role_memory.get(str(getattr(owner, "name", "")), "enemy") or "enemy")
+        return owner_role in ("pc", "ally")
+
+    def _lan_active_aura_contexts(
+        self,
+        positions: Optional[Dict[int, Tuple[int, int]]] = None,
+        feet_per_square: float = 5.0,
+    ) -> List[Dict[str, Any]]:
+        if not bool(self.__dict__.get("_lan_auras_enabled", True)):
+            return []
+        pos_map = positions if isinstance(positions, dict) else dict(getattr(self, "_lan_positions", {}) or {})
+        fps = max(1.0, float(feet_per_square or 5.0))
+        contexts: List[Dict[str, Any]] = []
+        for combatant in self.combatants.values():
+            cid = _normalize_cid_value(getattr(combatant, "cid", None), "lan.aura.cid")
+            if cid is None:
+                continue
+            if self._has_condition(combatant, "incapacitated"):
+                continue
+            source_name = str(getattr(combatant, "name", "") or "").strip()
+            try:
+                profile = self._profile_for_player_name(source_name)
+            except Exception:
+                profile = {}
+            features = profile.get("features") if isinstance(profile, dict) else []
+            if not isinstance(features, list):
+                continue
+            center = pos_map.get(int(cid))
+            if not (isinstance(center, tuple) and len(center) == 2):
+                continue
+            for feature in features:
+                if not isinstance(feature, dict):
+                    continue
+                grants = feature.get("grants") if isinstance(feature.get("grants"), dict) else {}
+                aura = grants.get("aura") if isinstance(grants.get("aura"), dict) else {}
+                if not aura:
+                    continue
+                try:
+                    radius_ft = float(aura.get("radius_ft") or 0)
+                except Exception:
+                    radius_ft = 0.0
+                if radius_ft <= 0:
+                    continue
+                save_bonus_cfg = aura.get("save_bonus") if isinstance(aura.get("save_bonus"), dict) else {}
+                ability_mod_key = str(save_bonus_cfg.get("ability_mod") or "").strip().lower()
+                min_bonus = 0
+                try:
+                    min_bonus = int(save_bonus_cfg.get("minimum") or 0)
+                except Exception:
+                    min_bonus = 0
+                bonus_mod = 0
+                mods = getattr(combatant, "ability_mods", None)
+                if isinstance(mods, dict) and ability_mod_key:
+                    try:
+                        bonus_mod = int(mods.get(ability_mod_key) or 0)
+                    except Exception:
+                        bonus_mod = 0
+                if bonus_mod == 0 and isinstance(profile, dict) and ability_mod_key:
+                    abilities = profile.get("abilities") if isinstance(profile.get("abilities"), dict) else {}
+                    bonus_mod = int(self._ability_score_modifier(abilities, ability_mod_key)) if abilities else 0
+                save_bonus = max(int(min_bonus), int(bonus_mod))
+                radius_sq = max(0.1, float(radius_ft) / fps)
+                radius_sq_2 = radius_sq * radius_sq
+                affected: set[int] = set()
+                for other_cid, other_pos in pos_map.items():
+                    if not (isinstance(other_pos, tuple) and len(other_pos) == 2):
+                        continue
+                    try:
+                        other_int = int(other_cid)
+                        dx = float(other_pos[0]) - float(center[0])
+                        dy = float(other_pos[1]) - float(center[1])
+                    except Exception:
+                        continue
+                    if (dx * dx + dy * dy) > (radius_sq_2 + 1e-6):
+                        continue
+                    if self._lan_is_friendly_unit(other_int):
+                        affected.add(other_int)
+                dmg_resist_raw = aura.get("damage_resistances") if isinstance(aura.get("damage_resistances"), list) else []
+                dmg_resistances = {str(x or "").strip().lower() for x in dmg_resist_raw if str(x or "").strip()}
+                effect_cfg = aura.get("effect") if isinstance(aura.get("effect"), dict) else {}
+                effect_name = str(effect_cfg.get("name") or "Protected").strip() or "Protected"
+                effect_icon = str(effect_cfg.get("icon") or "🛡️")
+                effect_id = str(effect_cfg.get("id") or "protected").strip().lower() or "protected"
+                desc_template = str(effect_cfg.get("description_template") or "").strip()
+                if desc_template:
+                    effect_description = (
+                        desc_template.replace("{source_name}", source_name).replace("{save_bonus}", str(int(save_bonus)))
+                    )
+                else:
+                    effect_description = (
+                        f"{source_name}s oath protects you. Gain a +{int(save_bonus)} and resistance to "
+                        "Necrotic, Psychic and Radiant damage"
+                    )
+                contexts.append(
+                    {
+                        "source_cid": int(cid),
+                        "source_name": source_name,
+                        "radius_ft": float(radius_ft),
+                        "radius_sq": float(radius_sq),
+                        "save_bonus": int(save_bonus),
+                        "damage_resistances": dmg_resistances,
+                        "affected": affected,
+                        "color": str(aura.get("color") or "#fcebc4"),
+                        "name": str(aura.get("name") or "Aura"),
+                        "aura_id": str(aura.get("id") or effect_id or "aura").strip().lower(),
+                        "effect": {
+                            "id": effect_id,
+                            "name": effect_name,
+                            "icon": effect_icon,
+                            "description": effect_description,
+                        },
+                    }
+                )
+        return contexts
+
+    def _lan_aura_effects_for_target(self, target_obj: Any) -> Dict[str, Any]:
+        try:
+            target_cid = int(getattr(target_obj, "cid", 0) or 0)
+        except Exception:
+            return {"save_bonus": 0, "damage_resistances": set(), "effects": []}
+        _, _, _, _, positions = self._lan_live_map_data()
+        contexts = self._lan_active_aura_contexts(positions=positions)
+        save_bonus = 0
+        damage_resistances: set[str] = set()
+        effects: List[Dict[str, str]] = []
+        seen_effect_ids: set[str] = set()
+        for aura in contexts:
+            if target_cid not in (aura.get("affected") or set()):
+                continue
+            save_bonus += int(aura.get("save_bonus") or 0)
+            damage_resistances.update(set(aura.get("damage_resistances") or set()))
+            effect = aura.get("effect") if isinstance(aura.get("effect"), dict) else None
+            effect_id = str((effect or {}).get("id") or "").strip().lower()
+            if effect and effect_id and effect_id not in seen_effect_ids:
+                seen_effect_ids.add(effect_id)
+                effects.append(effect)
+        return {
+            "save_bonus": int(save_bonus),
+            "damage_resistances": damage_resistances,
+            "effects": effects,
+        }
+
+    def _lan_apply_aura_resistances(self, target_obj: Any, damage_entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not isinstance(damage_entries, list) or not damage_entries:
+            return []
+        aura_effects = self._lan_aura_effects_for_target(target_obj)
+        resistances = {str(t or "").strip().lower() for t in (aura_effects.get("damage_resistances") or set())}
+        if not resistances:
+            return list(damage_entries)
+        adjusted: List[Dict[str, Any]] = []
+        for entry in damage_entries:
+            if not isinstance(entry, dict):
+                continue
+            dtype = str(entry.get("type") or "").strip().lower()
+            try:
+                amount = max(0, int(entry.get("amount") or 0))
+            except Exception:
+                amount = 0
+            if amount <= 0:
+                continue
+            if dtype in resistances:
+                amount //= 2
+            if amount <= 0:
+                continue
+            adjusted.append({"amount": int(amount), "type": dtype})
+        return adjusted
 
     def _spell_presets_payload(self) -> List[Dict[str, Any]]:
         if yaml is None:
@@ -11967,6 +12197,19 @@ class InitiativeTracker(base.InitiativeTracker):
             self._lan_force_state_broadcast()
             return
 
+        if typ == "set_auras_enabled":
+            enabled_raw = msg.get("enabled")
+            enabled = True
+            if isinstance(enabled_raw, str):
+                enabled = enabled_raw.strip().lower() in ("1", "true", "yes", "on")
+            elif isinstance(enabled_raw, (int, float)):
+                enabled = bool(enabled_raw)
+            else:
+                enabled = bool(enabled_raw)
+            self._lan_auras_enabled = bool(enabled)
+            self._lan_force_state_broadcast()
+            return
+
         if typ == "reset_player_characters":
             if not is_admin:
                 self._lan.toast(ws_id, "Admin access required, matey.")
@@ -13563,21 +13806,22 @@ class InitiativeTracker(base.InitiativeTracker):
                 key = str(ability_key or "").strip().lower()
                 if not key:
                     return 0
+                aura_bonus = int((self._lan_aura_effects_for_target(target_obj) or {}).get("save_bonus") or 0)
                 saves = getattr(target_obj, "saving_throws", None)
                 if isinstance(saves, dict):
                     val = saves.get(key)
                     try:
-                        return int(val)
+                        return int(val) + aura_bonus
                     except Exception:
                         pass
                 mods = getattr(target_obj, "ability_mods", None)
                 if isinstance(mods, dict):
                     val = mods.get(key)
                     try:
-                        return int(val)
+                        return int(val) + aura_bonus
                     except Exception:
                         pass
-                return 0
+                return aura_bonus
 
             target_cid = _normalize_cid_value(msg.get("target_cid"), "spell_target_request.target_cid", log_fn=log_warning)
             target = self.combatants.get(int(target_cid)) if target_cid is not None else None
@@ -13687,6 +13931,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan.toast(ws_id, "Target failed the save.")
                     return
 
+            damage_entries = self._lan_apply_aura_resistances(target, damage_entries)
             total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
             if spell_mode == "auto_hit":
                 hit = True
@@ -13920,21 +14165,22 @@ class InitiativeTracker(base.InitiativeTracker):
                 key = str(ability_key or "").strip().lower()
                 if not key:
                     return 0
+                aura_bonus = int((self._lan_aura_effects_for_target(target_obj) or {}).get("save_bonus") or 0)
                 saves = getattr(target_obj, "saving_throws", None)
                 if isinstance(saves, dict):
                     val = saves.get(key)
                     try:
-                        return int(val)
+                        return int(val) + aura_bonus
                     except Exception:
                         pass
                 mods = getattr(target_obj, "ability_mods", None)
                 if isinstance(mods, dict):
                     val = mods.get(key)
                     try:
-                        return int(val)
+                        return int(val) + aura_bonus
                     except Exception:
                         pass
-                return 0
+                return aura_bonus
             def _set_prone_if_needed(target_obj: Any) -> bool:
                 stacks = getattr(target_obj, "condition_stacks", None)
                 if not isinstance(stacks, list):
@@ -14149,6 +14395,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     damage_entries.append({"amount": int(graze_damage), "type": mode_type})
                     graze_applied = True
                     mastery_notes.append(f"Graze deals {int(graze_damage)} damage on the miss.")
+            damage_entries = self._lan_apply_aura_resistances(target, damage_entries)
             total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
             damage_applied = bool(hit or graze_applied)
             mastery_cleave_candidates: List[Dict[str, Any]] = []

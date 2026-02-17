@@ -64,7 +64,28 @@ defenses:
   vulnerabilities: []
 resources:
   pools: []
-features: []
+features:
+- id: aura_of_protection_2024
+  name: Aura of Protection
+  passive: true
+  grants:
+    aura:
+      id: aura_of_protection_2024
+      name: Aura of Protection
+      radius_ft: 10
+      color: '#fcebc4'
+      save_bonus:
+        ability_mod: cha
+        minimum: 1
+      damage_resistances:
+      - necrotic
+      - psychic
+      - radiant
+      effect:
+        id: protected
+        name: Protected
+        icon: 🛡️
+        description_template: '{source_name}s oath protects you. Gain a +{save_bonus} and resistance to Necrotic, Psychic and Radiant damage'
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
