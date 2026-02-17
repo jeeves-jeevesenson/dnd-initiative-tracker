@@ -6,6 +6,55 @@ import dnd_initative_tracker as tracker_mod
 
 
 class LanSnapshotStaticTests(unittest.TestCase):
+    def test_next_turn_notification_target_skips_skipped_combatants(self):
+        lan = object.__new__(tracker_mod.LanController)
+
+        combatants = [
+            type("C", (), {"cid": 1})(),
+            type("C", (), {"cid": 2})(),
+            type("C", (), {"cid": 3})(),
+        ]
+
+        class TrackerStub:
+            def _display_order(self):
+                return combatants
+
+            def _should_skip_turn(self, cid):
+                return int(cid) == 2
+
+        lan._tracker = TrackerStub()
+
+        self.assertEqual(lan._next_turn_notification_target(1), 3)
+
+    def test_dispatch_turn_notification_sends_active_and_up_next_payloads(self):
+        lan = object.__new__(tracker_mod.LanController)
+        sent_payloads = []
+        removed = []
+
+        class TrackerStub:
+            def _pc_name_for(self, cid):
+                return {1: "Alice", 2: "Bob"}.get(int(cid), f"#{cid}")
+
+            def _display_order(self):
+                return [type("C", (), {"cid": 1})(), type("C", (), {"cid": 2})()]
+
+            def _should_skip_turn(self, _cid):
+                return False
+
+        lan._tracker = TrackerStub()
+        lan._subscriptions_for_cid = lambda cid: [{"endpoint": f"https://example.com/{cid}", "keys": {"p256dh": "a", "auth": "b"}}]
+        lan._send_push_notifications = lambda subs, payload: sent_payloads.append((subs, payload)) or []
+        lan._remove_push_subscription = lambda cid, endpoint: removed.append((cid, endpoint))
+
+        lan._dispatch_turn_notification(1, 2, 4)
+
+        self.assertEqual(len(sent_payloads), 2)
+        self.assertEqual(sent_payloads[0][1]["title"], "Your turn!")
+        self.assertEqual(sent_payloads[0][1]["body"], "Alice is up (round 2, turn 4).")
+        self.assertEqual(sent_payloads[1][1]["title"], "You're up next")
+        self.assertEqual(sent_payloads[1][1]["body"], "Alice's turn started — you're next. Plan your move.")
+        self.assertEqual(removed, [])
+
     def test_include_static_false_reuses_cached_static_payload(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
         app._lan_grid_cols = 10

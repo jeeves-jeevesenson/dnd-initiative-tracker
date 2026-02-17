@@ -2703,18 +2703,52 @@ class LanController:
         worker.start()
 
     def _dispatch_turn_notification(self, cid: int, round_num: int, turn_num: int) -> None:
-        subscriptions = self._subscriptions_for_cid(cid)
-        if not subscriptions:
-            return
         name = self._tracker._pc_name_for(cid)
-        payload = {
-            "title": "Your turn!",
-            "body": f"{name} is up (round {round_num}, turn {turn_num}).",
+        subscriptions = self._subscriptions_for_cid(cid)
+        if subscriptions:
+            payload = {
+                "title": "Your turn!",
+                "body": f"{name} is up (round {round_num}, turn {turn_num}).",
+                "url": "/",
+            }
+            invalid = self._send_push_notifications(subscriptions, payload)
+            for endpoint in invalid:
+                self._remove_push_subscription(cid, endpoint)
+
+        next_cid = self._next_turn_notification_target(cid)
+        if next_cid is None or next_cid == cid:
+            return
+        next_subscriptions = self._subscriptions_for_cid(next_cid)
+        if not next_subscriptions:
+            return
+        up_next_payload = {
+            "title": "You're up next",
+            "body": f"{name}'s turn started — you're next. Plan your move.",
             "url": "/",
         }
-        invalid = self._send_push_notifications(subscriptions, payload)
-        for endpoint in invalid:
-            self._remove_push_subscription(cid, endpoint)
+        invalid_next = self._send_push_notifications(next_subscriptions, up_next_payload)
+        for endpoint in invalid_next:
+            self._remove_push_subscription(next_cid, endpoint)
+
+    def _next_turn_notification_target(self, cid: int) -> Optional[int]:
+        try:
+            current_cid = int(cid)
+        except Exception:
+            return None
+        ordered = self._tracker._display_order()
+        ids = [int(c.cid) for c in ordered if getattr(c, "cid", None) is not None]
+        if len(ids) <= 1 or current_cid not in ids:
+            return None
+        start_index = ids.index(current_cid)
+        for offset in range(1, len(ids)):
+            candidate = ids[(start_index + offset) % len(ids)]
+            try:
+                if self._tracker._should_skip_turn(candidate):
+                    continue
+            except Exception:
+                pass
+            return candidate
+        return None
 
     def _send_push_notifications(self, subscriptions: List[Dict[str, Any]], payload: Dict[str, Any]) -> List[str]:
         if not subscriptions:
