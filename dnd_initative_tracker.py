@@ -11456,8 +11456,18 @@ class InitiativeTracker(base.InitiativeTracker):
             c = self.combatants.get(cid)
             if not c:
                 return
-            setattr(c, "facing_deg", int(self._normalize_facing_degrees(msg.get("facing_deg"))))
+            facing = int(self._normalize_facing_degrees(msg.get("facing_deg")))
+            setattr(c, "facing_deg", facing)
             self._sync_owned_rotatable_aoes_with_facing(int(cid), getattr(c, "facing_deg", 0))
+            mw = getattr(self, "_map_window", None)
+            if mw is not None and hasattr(mw, "winfo_exists"):
+                try:
+                    if mw.winfo_exists() and hasattr(mw, "_token_facing"):
+                        mw._token_facing[int(cid)] = float(facing)
+                        if hasattr(mw, "_layout_unit"):
+                            mw._layout_unit(int(cid))
+                except Exception:
+                    pass
             self._lan_force_state_broadcast()
             return
 
@@ -11821,6 +11831,11 @@ class InitiativeTracker(base.InitiativeTracker):
             thickness_ft = parse_positive_float(payload.get("thickness_ft"))
             height_ft = parse_positive_float(payload.get("height_ft"))
             angle_deg = parse_nonnegative_float(payload.get("angle_deg"))
+            caster_facing_deg = (
+                float(self._normalize_facing_degrees(getattr(c, "facing_deg", 0)))
+                if c is not None
+                else 0.0
+            )
             duration_turns = payload.get("duration_turns")
             over_time = parse_bool(payload.get("over_time"))
             concentration_flag = parse_bool(payload.get("concentration"))
@@ -12017,6 +12032,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     aoe["side_ft"] = float(side_ft)
                 else:
                     aoe["side_sq"] = float(size)
+                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else float(caster_facing_deg)
             elif shape == "cube":
                 if side_ft is None and size is None:
                     self._lan.toast(ws_id, "Pick a valid spell side length, matey.")
@@ -12026,6 +12042,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     aoe["side_ft"] = float(side_ft)
                 else:
                     aoe["side_sq"] = float(size)
+                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else float(caster_facing_deg)
             elif shape == "cone":
                 if length_ft is None and size is None:
                     self._lan.toast(ws_id, "Pick a valid spell length, matey.")
@@ -12064,8 +12081,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan.toast(ws_id, "Pick a valid wall thickness and height, matey.")
                     return
                 aoe["orient"] = str(payload.get("orient") or "vertical")
-                if angle_deg is not None:
-                    aoe["angle_deg"] = float(angle_deg)
+                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else float(caster_facing_deg)
                 aoe["ax"] = float(anchor_ax)
                 aoe["ay"] = float(anchor_ay)
             else:
@@ -12084,8 +12100,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     width = parse_positive_float(payload.get("width")) or 1.0
                     aoe["width_sq"] = max(1.0, float(width))
                 aoe["orient"] = str(payload.get("orient") or "vertical")
-                if angle_deg is not None:
-                    aoe["angle_deg"] = float(angle_deg)
+                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else float(caster_facing_deg)
                 aoe["ax"] = float(anchor_ax)
                 aoe["ay"] = float(anchor_ay)
             if map_ready:
