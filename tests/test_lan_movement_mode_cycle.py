@@ -84,7 +84,7 @@ class LanMovementModeCycleTests(unittest.TestCase):
 
     def test_set_facing_rejects_non_claimed_target(self):
         self.app.combatants[2] = type("C", (), {"cid": 2, "name": "Summon"})()
-        self.app._summon_can_be_controlled_by = lambda claimed, target: True
+        self.app._summon_can_be_controlled_by = lambda claimed, target: False
         msg = {"type": "set_facing", "cid": 2, "_claimed_cid": 1, "_ws_id": 9, "facing_deg": 180}
 
         self.app._lan_apply_action(dict(msg))
@@ -92,6 +92,16 @@ class LanMovementModeCycleTests(unittest.TestCase):
         self.assertNotIn("facing_deg", vars(self.app.combatants[2]))
         self.assertEqual(self.broadcast_calls, 0)
         self.assertIn((9, "Arrr, that token ain’t yers."), self.toasts)
+
+    def test_set_facing_allows_controlled_summon_target(self):
+        self.app.combatants[2] = type("C", (), {"cid": 2, "name": "Summon"})()
+        self.app._summon_can_be_controlled_by = lambda claimed, target: claimed == 1 and target == 2
+        msg = {"type": "set_facing", "cid": 2, "_claimed_cid": 1, "_ws_id": 9, "facing_deg": 180}
+
+        self.app._lan_apply_action(dict(msg))
+
+        self.assertEqual(getattr(self.app.combatants[2], "facing_deg", None), 180)
+        self.assertEqual(self.broadcast_calls, 1)
 
 
 if __name__ == "__main__":

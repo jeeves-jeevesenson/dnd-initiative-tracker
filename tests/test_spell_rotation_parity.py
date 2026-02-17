@@ -30,9 +30,9 @@ class SpellRotationParityTests(unittest.TestCase):
         html = Path("assets/web/lan/index.html").read_text(encoding="utf-8")
         self.assertIn("if (!shiftMoveMode && !isCurrentlyRotating) return null;", html)
 
-    def test_lan_rotate_handle_uses_claimed_character_only(self):
+    def test_lan_rotate_handle_uses_active_controlled_character(self):
         html = Path("assets/web/lan/index.html").read_text(encoding="utf-8")
-        self.assertIn('const rotationCid = normalizeCid(claimedCid, "rotateHandle.claimedCid");', html)
+        self.assertIn('const rotationCid = normalizeCid(activeControlledUnitCid(), "rotateHandle.controlledCid");', html)
 
     def test_dm_map_rotation_persists_to_combatant_facing(self):
         py = Path("helper_script.py").read_text(encoding="utf-8")

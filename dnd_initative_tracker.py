@@ -11442,7 +11442,10 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         if typ == "set_facing":
-            if not is_admin and (claimed is None or int(cid) != int(claimed)):
+            if not is_admin and (
+                claimed is None
+                or (int(cid) != int(claimed) and not self._summon_can_be_controlled_by(claimed, cid))
+            ):
                 self._lan.toast(ws_id, "Arrr, that token ain’t yers.")
                 return
             c = self.combatants.get(cid)
