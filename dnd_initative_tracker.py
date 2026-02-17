@@ -1083,6 +1083,7 @@ class LanController:
     """Runs a FastAPI+WebSocket server in a background thread and bridges actions into the Tk thread."""
     _ACTION_MESSAGE_TYPES = (
         "move",
+        "set_facing",
         "dash",
         "perform_action",
         "end_turn",
@@ -5870,6 +5871,100 @@ class InitiativeTracker(base.InitiativeTracker):
             return None
         return value
 
+    def _normalize_facing_degrees(self, value: Any) -> int:
+        try:
+            facing = float(value)
+        except Exception:
+            return 0
+        if not math.isfinite(facing):
+            return 0
+        normalized = facing % 360.0
+        if normalized < 0:
+            normalized += 360.0
+        return int(round(normalized)) % 360
+
+    @staticmethod
+    def _is_rotatable_aoe_kind(kind: Any) -> bool:
+        token = str(kind or "").strip().lower()
+        return token in ("line", "cone", "cube", "wall", "square")
+
+    def _sync_owned_rotatable_aoes_with_facing(self, owner_cid: int, facing_deg: Any) -> bool:
+        facing = float(self._normalize_facing_degrees(facing_deg))
+        changed = False
+        mw = getattr(self, "_map_window", None)
+        map_ready = mw is not None and mw.winfo_exists()
+        store = getattr(mw, "aoes", None) if map_ready else None
+        if not isinstance(store, dict):
+            store = getattr(self, "_lan_aoes", {}) or {}
+        for aid, aoe in (store or {}).items():
+            if not isinstance(aoe, dict):
+                continue
+            try:
+                aoe_owner = int(aoe.get("owner_cid"))
+            except Exception:
+                continue
+            if int(aoe_owner) != int(owner_cid):
+                continue
+            kind = str(aoe.get("kind") or "").strip().lower()
+            if not self._is_rotatable_aoe_kind(kind):
+                continue
+            aoe["angle_deg"] = float(facing)
+            if kind in ("line", "wall"):
+                try:
+                    anchor_x = float(aoe.get("ax"))
+                    anchor_y = float(aoe.get("ay"))
+                    half_length_squares = float(aoe.get("length_sq") or 0.0) / 2.0
+                except Exception:
+                    anchor_x = anchor_y = half_length_squares = None
+                if (
+                    anchor_x is not None
+                    and anchor_y is not None
+                    and half_length_squares is not None
+                    and half_length_squares > 0
+                ):
+                    rad = math.radians(float(facing))
+                    aoe["cx"] = float(anchor_x + math.cos(rad) * half_length_squares)
+                    aoe["cy"] = float(anchor_y + math.sin(rad) * half_length_squares)
+            elif kind == "cone":
+                try:
+                    aoe["cx"] = float(aoe.get("ax"))
+                    aoe["cy"] = float(aoe.get("ay"))
+                except Exception:
+                    pass
+            changed = True
+            if map_ready and hasattr(mw, "_layout_aoe"):
+                try:
+                    mw._layout_aoe(int(aid))
+                except Exception:
+                    pass
+        if changed:
+            if map_ready:
+                try:
+                    self._lan_aoes = dict(getattr(mw, "aoes", {}) or {})
+                except Exception:
+                    pass
+            else:
+                self._lan_aoes = dict(store or {})
+        return bool(changed)
+
+    def _sync_owner_facing_from_rotatable_aoe(self, aoe: Dict[str, Any], angle_deg: Any) -> bool:
+        if not isinstance(aoe, dict):
+            return False
+        if not self._is_rotatable_aoe_kind(aoe.get("kind")):
+            return False
+        try:
+            owner_cid = int(aoe.get("owner_cid"))
+        except Exception:
+            return False
+        c = self.combatants.get(owner_cid)
+        if not c:
+            return False
+        next_facing = int(self._normalize_facing_degrees(angle_deg))
+        if int(self._normalize_facing_degrees(getattr(c, "facing_deg", 0))) == next_facing:
+            return False
+        setattr(c, "facing_deg", next_facing)
+        return True
+
     @staticmethod
     def _player_name_from_filename(path: Path) -> Optional[str]:
         """Normalize a player filename into a roster-friendly name."""
@@ -6231,6 +6326,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "mount_controller_mode": str(getattr(c, "mount_controller_mode", "") or "") or None,
                     "has_mounted_this_turn": bool(getattr(c, "has_mounted_this_turn", False)),
                     "can_be_mounted": bool(getattr(c, "can_be_mounted", False)),
+                    "facing_deg": int(self._normalize_facing_degrees(getattr(c, "facing_deg", 0))),
                     "summon_variant": str(getattr(c, "summon_variant", "") or "") or None,
                     "slot_level": getattr(c, "summon_slot_level", None),
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
@@ -11077,6 +11173,15 @@ class InitiativeTracker(base.InitiativeTracker):
                     pass
             return
 
+        if typ == "set_facing":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            setattr(c, "facing_deg", int(self._normalize_facing_degrees(msg.get("facing_deg"))))
+            self._sync_owned_rotatable_aoes_with_facing(int(cid), getattr(c, "facing_deg", 0))
+            self._lan_force_state_broadcast()
+            return
+
         if typ == "reset_player_characters":
             if not is_admin:
                 self._lan.toast(ws_id, "Admin access required, matey.")
@@ -12223,6 +12328,9 @@ class InitiativeTracker(base.InitiativeTracker):
                     d["ay"] = float(ay)
                 if kind == "cone" and spread_deg is not None:
                     d["spread_deg"] = float(spread_deg)
+            facing_synced = False
+            if angle_deg is not None:
+                facing_synced = self._sync_owner_facing_from_rotatable_aoe(d, angle_deg)
             try:
                 if map_ready and hasattr(mw, "_layout_aoe"):
                     mw._layout_aoe(aid)
@@ -12237,6 +12345,11 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan_aoes = store
             except Exception:
                 pass
+            if facing_synced:
+                try:
+                    self._lan_force_state_broadcast()
+                except Exception:
+                    pass
             _send_aoe_move_ack(
                 True,
                 extra={
@@ -12842,6 +12955,24 @@ class InitiativeTracker(base.InitiativeTracker):
                             return True
                 mastery = str(entry.get("mastery") or "").strip().lower()
                 return bool(mastery and mastery == target)
+            def _weapon_mastery_damage_ability_mod(entry: Any, profile_data: Any, variables: Dict[str, int]) -> int:
+                if not isinstance(entry, dict):
+                    return int(variables.get("str_mod", 0) or 0)
+                formula = ""
+                mode_block = entry.get("one_handed") if isinstance(entry.get("one_handed"), dict) else {}
+                if isinstance(mode_block, dict):
+                    formula = str(mode_block.get("damage_formula") or "").strip().lower()
+                if not formula and isinstance(entry.get("two_handed"), dict):
+                    formula = str((entry.get("two_handed") or {}).get("damage_formula") or "").strip().lower()
+                str_mod = int(variables.get("str_mod", 0) or 0)
+                dex_mod = int(variables.get("dex_mod", 0) or 0)
+                if "dex_mod" in formula and "str_mod" not in formula:
+                    return dex_mod
+                if "str_mod" in formula and "dex_mod" not in formula:
+                    return str_mod
+                if _weapon_has_property(entry, "finesse"):
+                    return max(str_mod, dex_mod)
+                return str_mod
             def _damage_formula_variables(profile_data: Any) -> Dict[str, int]:
                 if not isinstance(profile_data, dict):
                     profile_data = {}
@@ -13071,6 +13202,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     dtype = str(entry.get("type") or "").strip().lower()
                     damage_entries.append({"amount": amount, "type": dtype})
             effect_block = selected_weapon.get("effect") if isinstance(selected_weapon.get("effect"), dict) else {}
+            mastery_notes: List[str] = []
+            graze_applied = False
             if hit and not damage_entries:
                 mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
                 if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
@@ -13082,8 +13215,33 @@ class InitiativeTracker(base.InitiativeTracker):
                 if mode_damage is not None and mode_damage > 0:
                     damage_entries.append({"amount": int(mode_damage), "type": mode_type})
                 damage_entries.extend(_parse_effect_damage_entries(effect_block.get("on_hit"), variables))
+            if weapon_mastery_enabled and _weapon_has_property(selected_weapon, "graze") and not hit:
+                mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
+                if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
+                    mode_block = selected_weapon.get("two_handed")
+                variables = _damage_formula_variables(profile)
+                graze_damage = max(0, _weapon_mastery_damage_ability_mod(selected_weapon, profile, variables))
+                mode_type = str((mode_block or {}).get("damage_type") or "").strip().lower() if isinstance(mode_block, dict) else ""
+                if graze_damage > 0:
+                    damage_entries.append({"amount": int(graze_damage), "type": mode_type})
+                    graze_applied = True
+                    mastery_notes.append(f"Graze deals {int(graze_damage)} damage on the miss.")
+            if weapon_mastery_enabled and hit:
+                if _weapon_has_property(selected_weapon, "cleave"):
+                    mastery_notes.append("Cleave: ye can make a second attack against another nearby target.")
+                if _weapon_has_property(selected_weapon, "push"):
+                    mastery_notes.append("Push: move that Large-or-smaller target up to 10 ft away.")
+                if _weapon_has_property(selected_weapon, "sap"):
+                    mastery_notes.append("Sap: target has disadvantage on its next attack roll.")
+                if _weapon_has_property(selected_weapon, "slow"):
+                    mastery_notes.append("Slow: target speed is reduced by 10 ft until start of yer next turn.")
+                if _weapon_has_property(selected_weapon, "topple"):
+                    mastery_notes.append("Topple: have target make a Constitution save or fall prone.")
+                if _weapon_has_property(selected_weapon, "vex"):
+                    mastery_notes.append("Vex: gain advantage on yer next attack against this target.")
             total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
-            if hit and total_damage > 0:
+            damage_applied = bool(hit or graze_applied)
+            if damage_applied and total_damage > 0:
                 before_hp = _parse_int(getattr(target, "hp", None), None)
                 if before_hp is not None:
                     after_hp = max(0, int(before_hp) - int(total_damage))
@@ -13131,11 +13289,13 @@ class InitiativeTracker(base.InitiativeTracker):
                 "to_hit": int(to_hit),
                 "total_to_hit": int(total_to_hit),
                 "hit": hit,
-                "damage_total": int(total_damage if hit else 0),
-                "damage_entries": list(damage_entries if hit else []),
+                "damage_total": int(total_damage if damage_applied else 0),
+                "damage_entries": list(damage_entries if damage_applied else []),
                 "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
                 "attack_resource_remaining": int(getattr(c, "attack_resource_remaining", 0) or 0),
             }
+            if mastery_notes:
+                result_payload["weapon_property_notes"] = list(mastery_notes)
             save_ability = str(effect_block.get("save_ability") or "").strip().lower()
             save_dc = _parse_int(effect_block.get("save_dc"), 0) or 0
             if hit and save_ability and save_dc > 0:
@@ -13153,7 +13313,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     f"and {'hits' if hit else 'misses'}.",
                     cid=cid,
                 )
-            if hit and total_damage > 0:
+            if damage_applied and total_damage > 0:
                 damage_desc = ", ".join(
                     f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
                     for entry in damage_entries
@@ -13163,7 +13323,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     f"{f' ({damage_desc})' if damage_desc else ''}.",
                     cid=int(target_cid),
                 )
-                if save_ability and save_dc > 0:
+                if hit and save_ability and save_dc > 0:
                     save_roll = random.randint(1, 20)
                     save_mod = _save_mod_for_target(target, save_ability)
                     save_total = int(save_roll) + int(save_mod)
