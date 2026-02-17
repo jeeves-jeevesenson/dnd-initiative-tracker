@@ -12,7 +12,7 @@ leveling:
   classes:
   - name: Monk
     subclass: Warrior of the Open Hand
-    level: 0
+    level: 10
 abilities:
   str: 18
   dex: 14
@@ -44,10 +44,10 @@ vitals:
     total: 10
     spent: 0
   speed:
-    Normal: 50 ft.
-    Climb: 0 ft.
-    Fly: 0 ft.
-    Swim: 0 ft.
+    walk: 50
+    climb: 0
+    fly: 0
+    swim: 0
   initiative:
     formula: dex_mod
   passive_perception:
@@ -193,4 +193,4 @@ inventory:
     quantity: 1
     description: 1d4
 notes:
-  note_1: \\n'AHASHDAFS'asfnj\\n\\n\\njaklasdjlkfa''s'"FUAIKCI
+  note_1: ''

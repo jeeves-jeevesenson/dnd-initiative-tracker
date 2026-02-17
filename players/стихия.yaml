@@ -24,7 +24,7 @@ proficiency:
   bonus: 4
   saves:
   - WIS
-  - CHR
+  - CHA
   skills:
     proficient:
     - History
