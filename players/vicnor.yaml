@@ -10,7 +10,7 @@ identity:
 leveling:
   level: 10
   classes:
-  - name: Rouge
+  - name: Rogue
     subclass: Swashbuckler
     level: 10
 abilities:
@@ -135,8 +135,172 @@ attacks:
       save_ability: ''
       save_dc: 0
 resources:
-  pools: []
-features: []
+  pools:
+  - id: sneak_attack_dice
+    name: Sneak Attack Dice
+    current: 5
+    max_formula: "1 if rogue_level < 3 else 2 if rogue_level < 5 else 3 if rogue_level < 7 else 4 if rogue_level < 9 else 5"
+    reset: turn
+  - id: steady_aim
+    name: Steady Aim
+    current: 1
+    max_formula: '1'
+    reset: turn
+features:
+- id: expertise
+  name: Expertise
+  level: 1
+  automation:
+    grants:
+      expertise_choices: 2
+- id: sneak_attack
+  name: Sneak Attack
+  level: 1
+  automation:
+    once_per_turn: true
+    applies_to:
+    - finesse_weapon_attack
+    - ranged_weapon_attack
+    extra_damage:
+      dice_pool: sneak_attack_dice
+      damage_type: same_as_attack
+    requires_any:
+    - attack_has_advantage
+    - ally_within_5ft_of_target_and_not_incapacitated
+    blocked_if:
+    - attack_has_disadvantage
+- id: thieves_cant
+  name: Thieves' Cant
+  level: 1
+  automation:
+    grants:
+      language:
+      - thieves_cant
+      bonus_language_choices: 1
+- id: weapon_mastery
+  name: Weapon Mastery
+  level: 1
+  automation:
+    mastery_weapon_choices: 2
+    can_swap_all_on: long_rest
+- id: cunning_action
+  name: Cunning Action
+  level: 2
+  automation:
+    grants_bonus_actions:
+    - dash
+    - disengage
+    - hide
+- id: steady_aim
+  name: Steady Aim
+  level: 3
+  automation:
+    activation: bonus_action
+    consumes_pool: steady_aim
+    requires:
+    - not_moved_this_turn
+    grants_until: end_of_turn
+    grants:
+      advantage:
+        next_attack_roll: true
+      speed_override: 0
+- id: cunning_strike
+  name: Cunning Strike
+  level: 5
+  automation:
+    trigger: when_dealing_sneak_attack_damage
+    effects:
+    - id: poison
+      die_cost: 1d6
+      requires:
+      - poisoners_kit_on_person
+      saving_throw:
+        ability: con
+        dc_formula: 8 + dex_mod + prof
+      on_fail:
+        apply_condition: poisoned
+        duration: 1_minute
+        repeat_save_end_of_turn: true
+    - id: trip
+      die_cost: 1d6
+      target_size_max: large
+      saving_throw:
+        ability: dex
+        dc_formula: 8 + dex_mod + prof
+      on_fail:
+        apply_condition: prone
+    - id: withdraw
+      die_cost: 1d6
+      self_move:
+        max_distance_formula: walk_speed / 2
+        no_opportunity_attacks: true
+- id: uncanny_dodge
+  name: Uncanny Dodge
+  level: 5
+  automation:
+    trigger: hit_by_attack_you_can_see
+    reaction:
+      reduce_incoming_damage: half_round_down
+- id: evasion
+  name: Evasion
+  level: 7
+  automation:
+    when_making_dex_save_for_half_damage:
+      on_success: take_no_damage
+      on_failure: take_half_damage
+    blocked_if:
+    - incapacitated
+- id: reliable_talent
+  name: Reliable Talent
+  level: 7
+  automation:
+    minimum_d20_on_ability_checks_with_proficiency: 10
+- id: fancy_footwork
+  name: Fancy Footwork
+  level: 3
+  source: Swashbuckler
+  automation:
+    trigger: made_melee_attack_against_creature
+    effect_on_target:
+      cannot_make_opportunity_attacks_against_you_until: end_of_turn
+- id: rakish_audacity
+  name: Rakish Audacity
+  level: 3
+  source: Swashbuckler
+  automation:
+    grants:
+      initiative_bonus_formula: cha_mod
+    sneak_attack_additional_trigger:
+    - within_5ft_of_target
+    - no_other_creatures_within_5ft_of_you
+    - attack_has_no_disadvantage
+- id: panache
+  name: Panache
+  level: 9
+  source: Swashbuckler
+  automation:
+    activation: action
+    contested_check:
+      actor: cha_persuasion
+      target: wis_insight
+      requires:
+      - target_can_hear_you
+      - share_language_with_target
+    on_success_hostile:
+      duration: 1_minute
+      target_effects:
+      - disadvantage_on_attack_rolls_against_others
+      - cannot_make_opportunity_attacks_against_others
+      ends_if:
+      - ally_damages_or_casts_spell_on_target
+      - distance_between_you_and_target_gt_60ft
+    on_success_non_hostile:
+      duration: 1_minute
+      target_effects:
+      - charmed_by_you
+      - regards_you_as_friendly_acquaintance
+      ends_if:
+      - you_or_allies_harm_target
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
