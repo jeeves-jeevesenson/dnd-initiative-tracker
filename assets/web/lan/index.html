@@ -4447,13 +4447,49 @@ __DAMAGE_TYPE_OPTIONS__
     return String(claimedUnit.name);
   }
 
+  function normalizeCharacterLookupKey(value){
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function characterSlugify(value){
+    return normalizeCharacterLookupKey(value)
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function stripCombatNameSuffix(value){
+    const text = String(value || "").trim();
+    if (!text) return "";
+    const withoutForm = text.replace(/\s*\([^)]*\)\s*$/, "").trim();
+    const withoutDupe = withoutForm.replace(/\s+\d+$/, "").trim();
+    return withoutDupe || text;
+  }
+
   function getPlayerProfile(name){
     if (!name) return null;
     const profiles = state?.player_profiles;
     if (!profiles || typeof profiles !== "object") return null;
-    const profile = profiles[name];
-    if (!profile || typeof profile !== "object") return null;
-    return profile;
+    const direct = profiles[name];
+    if (direct && typeof direct === "object") return direct;
+    const lookup = normalizeCharacterLookupKey(name);
+    const lookupSlug = characterSlugify(name);
+    const stripped = stripCombatNameSuffix(name);
+    const strippedLookup = normalizeCharacterLookupKey(stripped);
+    const strippedSlug = characterSlugify(stripped);
+    for (const [profileName, profile] of Object.entries(profiles)){
+      if (!profile || typeof profile !== "object") continue;
+      const knownLookup = normalizeCharacterLookupKey(profileName);
+      const knownSlug = characterSlugify(profileName);
+      if (
+        knownLookup === lookup
+        || (lookupSlug && knownSlug === lookupSlug)
+        || (strippedLookup && knownLookup === strippedLookup)
+        || (strippedSlug && knownSlug === strippedSlug)
+      ){
+        return profile;
+      }
+    }
+    return null;
   }
 
   function getClaimedWeapons(){
