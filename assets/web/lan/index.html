@@ -2281,6 +2281,13 @@
               <div class="hotkey-conflict" id="hotkeyConflictToggleSheetPanel"></div>
             </div>
             <div class="config-item">
+              <div class="config-item-title">Attack overlay</div>
+              <div class="config-controls">
+                <input class="hotkey-input" id="hotkeyAttackOverlay" data-hotkey-action="toggleAttackOverlay" placeholder="Hotkey" readonly />
+              </div>
+              <div class="hotkey-conflict" id="hotkeyConflictAttackOverlay"></div>
+            </div>
+            <div class="config-item">
               <div class="config-item-title">Hide spell menu for non spell casters</div>
               <div class="config-controls">
                 <label class="config-toggle"><input type="checkbox" id="toggleSpellMenu" />Hide</label>
@@ -3437,6 +3444,7 @@ __DAMAGE_TYPE_OPTIONS__
   const hotkeyStandUpInput = document.getElementById("hotkeyStandUp");
   const hotkeyResetTurnInput = document.getElementById("hotkeyResetTurn");
   const hotkeyToggleSheetPanelInput = document.getElementById("hotkeyToggleSheetPanel");
+  const hotkeyAttackOverlayInput = document.getElementById("hotkeyAttackOverlay");
   const iosInstallHint = document.getElementById("iosInstallHint");
   const measureToggle = document.getElementById("measureToggle");
   const attackOverlayToggleBtn = document.getElementById("attackOverlayToggle");
@@ -5044,10 +5052,19 @@ __DAMAGE_TYPE_OPTIONS__
       storageKey: "inittracker_hotkey_toggleSheetPanel",
       action: () => setSheetPanelHidden(!sheetPanelHidden),
     },
+    toggleAttackOverlay: {
+      input: hotkeyAttackOverlayInput,
+      conflictEl: document.getElementById("hotkeyConflictAttackOverlay"),
+      storageKey: "inittracker_hotkey_toggleAttackOverlay",
+      action: () => attackOverlayToggleBtn && !attackOverlayToggleBtn.disabled && attackOverlayToggleBtn.click(),
+    },
   };
 
   if (!localStorage.getItem("inittracker_hotkey_toggleSheetPanel")){
     localStorage.setItem("inittracker_hotkey_toggleSheetPanel", "Delete");
+  }
+  if (!localStorage.getItem("inittracker_hotkey_toggleAttackOverlay")){
+    localStorage.setItem("inittracker_hotkey_toggleAttackOverlay", "A");
   }
 
   let hotkeyBindings = new Map();
