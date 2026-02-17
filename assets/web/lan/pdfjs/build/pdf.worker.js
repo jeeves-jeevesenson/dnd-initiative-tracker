@@ -1,0 +1,1 @@
+/* Vendored placeholder worker shim. */
