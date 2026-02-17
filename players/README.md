@@ -363,7 +363,7 @@ defenses:
 
 ### Attacks Section
 
-Combat attack modifiers and optional reusable weapon presets:
+Combat attack modifiers and optional reusable weapon presets. Weapon presets can be fully embedded, or minimal (`id` + optional overrides) and resolved from `Items/Weapons/*.yaml` at runtime:
 
 ```yaml
 attacks:
@@ -394,7 +394,8 @@ attacks:
 - **ranged_attack_mod**: Optional flat ranged attack modifier (legacy-compatible).
 - **weapon_to_hit**: Optional shared attack bonus for generic weapon attacks (legacy-compatible).
 - **weapons**: Optional list of weapon presets for richer per-weapon modeling.
-  - **id**: Stable key for references and future automation.
+- **Minimal preset pattern**: You can define only `id` plus selective overrides (for example custom `to_hit`, `magic_bonus`, or damage formula).
+  - **id**: Stable key for references and future automation. If only `id` is provided, base fields are resolved from Items and then your overrides are applied (fill-missing-only).
   - **name**: Display name for the weapon.
   - **proficient**: Whether proficiency is included when computing to-hit.
   - **to_hit**: Explicit attack bonus for this preset.

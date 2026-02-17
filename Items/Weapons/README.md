@@ -1,8 +1,10 @@
 # Weapons YAML Schema (Draft)
 
-Use either:
-- one YAML file per weapon, or
-- a catalog YAML with `weapons: []` entries.
+## Primary format: one file per weapon
+
+Use one YAML file per weapon in this directory. The filename should match the id:
+
+- `longsword.yaml` → `id: longsword`
 
 ```yaml
 format_version: 1
@@ -24,7 +26,9 @@ riders:
     type: "fire"
 ```
 
-Catalog example:
+## Legacy catalog format (optional)
+
+Catalog YAMLs with `weapons: []` are still supported:
 
 ```yaml
 format_version: 1
@@ -42,7 +46,17 @@ weapons:
     properties: ["sap", "versatile"]
 ```
 
-Shared property definitions can be stored in `properties_*.yaml` and referenced by id.
+## Shared property definition files
+
+`properties_*.yaml` files are for property metadata (names/descriptions) and are **not** weapon items.
+They can coexist here and are ignored by the item loader when building weapon records.
+
+## How to add a new weapon
+
+1. Create `Items/Weapons/<weapon_id>.yaml`.
+2. Set `id: <weapon_id>` in the file.
+3. Add fields (`name`, `category`, `damage`, `properties`, etc.) as needed.
+4. Restart/refresh the app so the registry cache sees the new file.
 
 `type` values for damage/riders should use standard damage types when possible. If a custom
 type is needed (for example `hellfire`), document its rules in `notes` so automation can
