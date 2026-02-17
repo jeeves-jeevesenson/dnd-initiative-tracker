@@ -11,6 +11,7 @@ level: 3
 school: transmutation
 tags:
 - auto_hit
+- skip_resolve_attack
 - utility
 casting_time: Action
 range: 30 feet
