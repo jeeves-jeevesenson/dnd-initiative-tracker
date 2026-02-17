@@ -26,6 +26,8 @@
       --modalBottomOffset: 0px;
       --topbar-height: 0px;
       --bottombar-height: 0px;
+      --battle-log-font-size: 14px;
+      --battle-log-font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
     }
     html,body{height:100%; margin:0; background:var(--bg); color:var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; overflow:hidden;}
     .app{height:100dvh; display:flex; flex-direction:column; min-height:0;}
@@ -1732,17 +1734,43 @@
       .map-view-log-entry{grid-template-columns: 64px 1fr;}
     }
 
+    .log-overlay{
+      position:fixed;
+      right:12px;
+      bottom: calc(var(--bottombar-height) + 12px);
+      width:min(560px, 56vw);
+      height:min(42vh, 380px);
+      min-width:260px;
+      min-height:180px;
+      border:1px solid rgba(255,255,255,0.2);
+      border-radius:12px;
+      background: rgba(0,0,0,0.72);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+      backdrop-filter: blur(8px);
+      z-index: 22;
+      display:none;
+      flex-direction:column;
+      overflow:hidden;
+      resize: both;
+    }
+    .log-overlay.show{display:flex;}
     .log-content{
       overflow:auto;
       flex:1;
       min-height:0;
       padding: 10px;
-      border:1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      background: rgba(8,10,16,0.65);
-      font-size: 12px;
-      white-space: pre-wrap;
-      line-height: 1.4;
+      font-size: var(--battle-log-font-size);
+      font-family: var(--battle-log-font-family);
+      line-height: 1.45;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .log-content .map-view-log-entry{
+      background: rgba(255,255,255,0.04);
+    }
+    .log-content .map-view-log-time{
+      font-size: max(10px, calc(var(--battle-log-font-size) * 0.72));
     }
     .spell-slot-monitor-row{
       align-items:center;
@@ -2059,16 +2087,16 @@
         </div>
       </div>
     </div>
-    <div class="modal" id="logModal" aria-hidden="true">
-      <div class="card card-scroll">
-        <h2>Battle Log</h2>
-        <div class="log-content" id="logContent">Loading…</div>
-        <div class="modal-actions">
-          <button class="btn accent" id="logRefresh">Refresh</button>
-          <button class="btn" id="logClose">Close</button>
+    <aside class="log-overlay" id="logModal" aria-hidden="true">
+      <div class="map-view-log-header">
+        <div class="map-view-log-title">Battle Log</div>
+        <div class="config-controls">
+          <button class="btn accent" id="logRefresh" type="button">Refresh</button>
+          <button class="btn" id="logClose" type="button">Hide</button>
         </div>
       </div>
-    </div>
+      <div class="log-content" id="logContent"></div>
+    </aside>
     <div class="modal" id="configModal" aria-hidden="true">
       <div class="card config-card">
         <h2>Config</h2>
@@ -2151,6 +2179,18 @@
                 <input class="hotkey-input" id="hotkeyBattleLog" data-hotkey-action="battleLog" placeholder="Hotkey" readonly />
               </div>
               <div class="hotkey-conflict" id="hotkeyConflictBattleLog"></div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Battle log font</div>
+              <div class="config-controls">
+                <select id="battleLogFontFamily">
+                  <option value="system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif">System</option>
+                  <option value="ui-sans-serif,Arial,Helvetica,sans-serif">Sans-serif</option>
+                  <option value="Georgia,Times New Roman,serif">Serif</option>
+                  <option value="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Monospace</option>
+                </select>
+                <input id="battleLogFontSize" type="range" min="11" max="28" step="1" />
+              </div>
             </div>
             <div class="config-item">
               <div class="config-item-title">DM side log panel</div>
@@ -3266,6 +3306,8 @@ __DAMAGE_TYPE_OPTIONS__
   const mapViewShowTitleInput = document.getElementById("mapViewShowTitle");
   const mapViewShowStatusInput = document.getElementById("mapViewShowStatus");
   const mapViewShowIndexInput = document.getElementById("mapViewShowIndex");
+  const battleLogFontFamilyInput = document.getElementById("battleLogFontFamily");
+  const battleLogFontSizeInput = document.getElementById("battleLogFontSize");
   const connPopoverEl = document.getElementById("connPopover");
   const connPopoverStatusEl = document.getElementById("connPopoverStatus");
   const connReconnectBtn = document.getElementById("connReconnectBtn");
@@ -3752,6 +3794,7 @@ __DAMAGE_TYPE_OPTIONS__
   };
   const mapViewSettingsKey = "inittracker_map_view_settings";
   const dmUiPrefsKey = "inittracker_dm_ui_prefs";
+  const battleLogViewPrefsKey = "inittracker_battle_log_view_prefs";
   const sheetPanelHiddenKey = "inittracker_ui_sheetPanelHidden";
   let dmLogLines = [];
   let mapViewLogPollTimer = null;
@@ -3778,6 +3821,7 @@ __DAMAGE_TYPE_OPTIONS__
   let sheetPanelHidden = readToggle(sheetPanelHiddenKey, false);
   let lockMyAoes = readToggle(lockMyAoesKey, true);
   let mapViewSettings = null;
+  let battleLogViewPrefs = null;
   let connStyle = "full";
   let initiativeStyle = "full";
   let sheetHeight = null;
@@ -3803,6 +3847,8 @@ __DAMAGE_TYPE_OPTIONS__
     turnAlertsPanel.classList.toggle("hidden", shouldHideAlerts);
   }
   applyMapViewSettings(readMapViewSettings());
+  battleLogViewPrefs = readBattleLogViewPrefs();
+  applyBattleLogViewPrefs();
   if (isMapView){ dmUiPrefs.showLogPanel = dmUiPrefs.showLogPanel === true; dmUiPrefs.showMapPreview = dmUiPrefs.showMapPreview === true; renderDmLogPanel(); refreshMapViewLogPolling(); }
   function applyMapViewReadOnlyControls(){
     if (!isMapView) return;
@@ -4066,6 +4112,69 @@ __DAMAGE_TYPE_OPTIONS__
       localStorage.setItem(mapViewSettingsKey, JSON.stringify(mapViewSettings));
     } catch (err){
       console.warn("Failed to persist map view settings.", err);
+    }
+  }
+
+  function readBattleLogViewPrefs(){
+    const defaults = {
+      visible: false,
+      fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif",
+      fontSize: 14,
+      width: null,
+      height: null,
+    };
+    try {
+      const raw = localStorage.getItem(battleLogViewPrefsKey);
+      if (!raw){
+        return defaults;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object"){
+        return defaults;
+      }
+      return {
+        ...defaults,
+        ...parsed,
+      };
+    } catch (_err){
+      return defaults;
+    }
+  }
+
+  function persistBattleLogViewPrefs(){
+    if (!battleLogViewPrefs){
+      return;
+    }
+    try {
+      localStorage.setItem(battleLogViewPrefsKey, JSON.stringify(battleLogViewPrefs));
+    } catch (_err) {}
+  }
+
+  function applyBattleLogViewPrefs(){
+    if (!battleLogViewPrefs){
+      battleLogViewPrefs = readBattleLogViewPrefs();
+    }
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty("--battle-log-font-family", battleLogViewPrefs.fontFamily || "system-ui,sans-serif");
+    rootStyle.setProperty("--battle-log-font-size", `${Number(battleLogViewPrefs.fontSize) || 14}px`);
+    if (battleLogFontFamilyInput){
+      battleLogFontFamilyInput.value = battleLogViewPrefs.fontFamily || "";
+    }
+    if (battleLogFontSizeInput){
+      battleLogFontSizeInput.value = String(Number(battleLogViewPrefs.fontSize) || 14);
+    }
+    if (logModal){
+      if (Number.isFinite(Number(battleLogViewPrefs.width))){
+        logModal.style.width = `${Math.max(260, Number(battleLogViewPrefs.width))}px`;
+      }
+      if (Number.isFinite(Number(battleLogViewPrefs.height))){
+        logModal.style.height = `${Math.max(180, Number(battleLogViewPrefs.height))}px`;
+      }
+      logModal.classList.toggle("show", battleLogViewPrefs.visible === true);
+      logModal.setAttribute("aria-hidden", battleLogViewPrefs.visible === true ? "false" : "true");
+    }
+    if (battleLogBtn){
+      battleLogBtn.setAttribute("aria-pressed", battleLogViewPrefs.visible === true ? "true" : "false");
     }
   }
 
@@ -5780,14 +5889,37 @@ __DAMAGE_TYPE_OPTIONS__
 
   function showLogModal(){
     if (!logModal) return;
-    logModal.classList.add("show");
-    logModal.setAttribute("aria-hidden", "false");
+    battleLogViewPrefs.visible = true;
+    applyBattleLogViewPrefs();
+    persistBattleLogViewPrefs();
   }
 
   function hideLogModal(){
     if (!logModal) return;
-    logModal.classList.remove("show");
-    logModal.setAttribute("aria-hidden", "true");
+    battleLogViewPrefs.visible = false;
+    applyBattleLogViewPrefs();
+    persistBattleLogViewPrefs();
+  }
+
+  function renderBattleLogOverlay(lines){
+    if (!logContent) return;
+    const entries = Array.isArray(lines) ? lines : [];
+    logContent.textContent = "";
+    if (!entries.length){
+      logContent.textContent = "No log entries yet.";
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    entries.forEach((line) => {
+      const parsed = parseBattleLine(line);
+      const row = document.createElement("div");
+      row.className = "map-view-log-entry";
+      const msgClass = isCriticalLine(parsed.msg) ? "map-view-log-msg is-crit" : "map-view-log-msg";
+      row.innerHTML = `<div class="map-view-log-time">${parsed.time ? parsed.time.slice(11,19) : ''}</div><div class="${msgClass}">${decorateDamageTypes(parsed.msg)}</div>`;
+      frag.appendChild(row);
+    });
+    logContent.appendChild(frag);
+    logContent.scrollTop = logContent.scrollHeight;
   }
 
   function requestBattleLog(){
@@ -6735,7 +6867,7 @@ __DAMAGE_TYPE_OPTIONS__
       weaponName: String(weapon?.name || "Weapon").trim() || "Weapon",
       masteryAdvantage: hasVexAdvantage,
     };
-    const advantageText = hasVexAdvantage ? " <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>" : "";
+    const advantageText = hasVexAdvantage ? ' <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>' : "";
     attackResolveBody.innerHTML = `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`
       + (hintParts.length ? ` ${hintParts.join(" ")}` : "")
       + advantageText;
@@ -8715,6 +8847,9 @@ __DAMAGE_TYPE_OPTIONS__
       }
       send({type:"grid_request"});
       send({type:"terrain_request"});
+      if (battleLogViewPrefs?.visible){
+        requestBattleLog();
+      }
     });
     ws.addEventListener("close", (ev) => {
       const wasReconnect = reconnecting;
@@ -8984,17 +9119,12 @@ __DAMAGE_TYPE_OPTIONS__
         }
       } else if (msg.type === "battle_log"){
         const lines = Array.isArray(msg.lines) ? msg.lines : [];
-        if (logContent){
-          logContent.textContent = lines.length ? lines.join("\n") : "No log entries yet.";
-        }
+        renderBattleLogOverlay(lines);
         dmLogLines = lines;
         const units = state?.units || [];
         const now = Date.now();
         lines.slice(-4).forEach((line)=>{ const text=String(line||""); const unit=units.find(u=>text.includes(u.name)); if (unit){ dmHighlightUntil.set(String(unit.cid), now+2200); }});
         renderDmLogPanel();
-        if (!isMapView){
-          showLogModal();
-        }
       } else if (msg.type === "attack_result"){
         const me = getClaimedUnit();
         if (me && cidMatches(msg.attacker_cid, me.cid, "attackResult.attacker")){
@@ -13031,8 +13161,12 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (battleLogBtn){
     battleLogBtn.addEventListener("click", () => {
-      requestBattleLog();
-      showLogModal();
+      if (battleLogViewPrefs?.visible){
+        hideLogModal();
+      } else {
+        showLogModal();
+        requestBattleLog();
+      }
     });
   }
   if (logRefreshBtn){
@@ -13122,6 +13256,30 @@ __DAMAGE_TYPE_OPTIONS__
       persistMapViewSettings();
     });
   });
+  if (battleLogFontFamilyInput){
+    battleLogFontFamilyInput.addEventListener("change", () => {
+      battleLogViewPrefs.fontFamily = battleLogFontFamilyInput.value || battleLogViewPrefs.fontFamily;
+      applyBattleLogViewPrefs();
+      persistBattleLogViewPrefs();
+    });
+  }
+  if (battleLogFontSizeInput){
+    battleLogFontSizeInput.addEventListener("input", () => {
+      battleLogViewPrefs.fontSize = Math.max(11, Math.min(28, Number(battleLogFontSizeInput.value) || 14));
+      applyBattleLogViewPrefs();
+      persistBattleLogViewPrefs();
+    });
+  }
+  if (logModal && window.ResizeObserver){
+    const logResizeObserver = new ResizeObserver((entries) => {
+      const box = entries?.[0]?.contentRect;
+      if (!box || !battleLogViewPrefs?.visible) return;
+      battleLogViewPrefs.width = Math.round(box.width);
+      battleLogViewPrefs.height = Math.round(box.height);
+      persistBattleLogViewPrefs();
+    });
+    logResizeObserver.observe(logModal);
+  }
   if (presetSaveBtn){
     presetSaveBtn.addEventListener("click", () => {
       const preset = buildGuiPreset();
