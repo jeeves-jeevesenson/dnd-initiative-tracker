@@ -2703,7 +2703,10 @@ class LanController:
         worker.start()
 
     def _dispatch_turn_notification(self, cid: int, round_num: int, turn_num: int) -> None:
-        name = self._tracker._pc_name_for(cid)
+        try:
+            name = self._tracker._pc_name_for(cid)
+        except Exception:
+            name = f"cid:{cid}"
         subscriptions = self._subscriptions_for_cid(cid)
         if subscriptions:
             payload = {
@@ -2715,7 +2718,10 @@ class LanController:
             for endpoint in invalid:
                 self._remove_push_subscription(cid, endpoint)
 
-        next_cid = self._next_turn_notification_target(cid)
+        try:
+            next_cid = self._next_turn_notification_target(cid)
+        except Exception:
+            next_cid = None
         if next_cid is None or next_cid == cid:
             return
         next_subscriptions = self._subscriptions_for_cid(next_cid)
