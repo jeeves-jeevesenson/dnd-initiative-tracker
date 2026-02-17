@@ -1531,7 +1531,7 @@ class LanController:
             response = await call_next(request)
             path = request.url.path
             # Never cache HTML shells; they decide which JS/CSS to load.
-            if path in ("/", "/map_view", "/planning", "/new_character", "/edit_character"):
+            if path in ("/", "/planning", "/new_character", "/edit_character"):
                 response.headers["Cache-Control"] = "no-store"
             # Force revalidation of the web editors so updates show up immediately.
             elif path.startswith("/assets/web/new_character/") or path.startswith("/assets/web/edit_character/"):
@@ -1563,14 +1563,6 @@ class LanController:
 
         @self._fastapi_app.get("/")
         async def index():
-            push_key = self.cfg.vapid_public_key
-            push_key_value = json.dumps(push_key) if push_key else "undefined"
-            html = HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value)
-            html = html.replace("__LAN_BASE_URL__", json.dumps(self._best_lan_url()))
-            return HTMLResponse(html)
-
-        @self._fastapi_app.get("/map_view")
-        async def map_view():
             push_key = self.cfg.vapid_public_key
             push_key_value = json.dumps(push_key) if push_key else "undefined"
             html = HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value)
@@ -1979,132 +1971,6 @@ class LanController:
                 )
                 raise HTTPException(status_code=500, detail="Failed to save player spellbook.")
             return {"ok": True, "player": profile}
-
-        @self._fastapi_app.websocket("/ws_view")
-        async def ws_view_endpoint(ws: WebSocket):
-            try:
-                host = getattr(getattr(ws, "client", None), "host", "?")
-                port = getattr(getattr(ws, "client", None), "port", "")
-                ua = ""
-                try:
-                    ua = ws.headers.get("user-agent", "")
-                except Exception:
-                    ua = ""
-                connected_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            except Exception:
-                host, port, ua, connected_at = "?", "", "", ""
-
-            await ws.accept()
-            ws_id = id(ws)
-            reverse_dns = self._resolve_reverse_dns(host)
-
-            with self._clients_lock:
-                self._clients[ws_id] = ws
-                self._clients_meta[ws_id] = {
-                    "host": host,
-                    "port": port,
-                    "ua": ua,
-                    "connected_at": connected_at,
-                    "last_seen": connected_at,
-                    "reverse_dns": reverse_dns,
-                    "view_only": True,
-                }
-                self._view_only_clients.add(ws_id)
-            self.app._oplog(f"LAN map view connected ws_id={ws_id} host={host}:{port} ua={ua}")
-            try:
-                await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
-                await self._send_terrain_update_async(ws_id, self._terrain_payload())
-                # Send static data first (spell presets, etc.) - only sent once
-                await ws.send_text(
-                    self._json_dumps({"type": "static_data", "data": self._static_data_payload()})
-                )
-                # Then send initial state without static data, with personalized "you" field
-                you_data = self._build_you_payload(ws_id)
-                await ws.send_text(
-                    self._json_dumps({
-                        "type": "state", 
-                        "state": self._view_only_state_payload(), 
-                        "pcs": self._pcs_payload(),
-                        "you": you_data
-                    })
-                )
-            except (TypeError, ValueError) as exc:
-                self.app._oplog(
-                    f"LAN map view serialization failed during initial send ws_id={ws_id}: {exc}", level="warning"
-                )
-                self._log_lan_exception(
-                    f"LAN map view serialization failed during initial send ws_id={ws_id}", exc
-                )
-                await ws.close(code=1011, reason="Server error while preparing state.")
-                return
-            except Exception as exc:
-                self.app._oplog(f"LAN map view error during initial send ws_id={ws_id}: {exc}", level="warning")
-                self._log_lan_exception(f"LAN map view error during initial send ws_id={ws_id}", exc)
-                return
-            try:
-                while True:
-                    raw = await ws.receive_text()
-                    try:
-                        with self._clients_lock:
-                            if ws_id in self._clients_meta:
-                                self._clients_meta[ws_id]["last_seen"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    except Exception:
-                        pass
-                    try:
-                        msg = json.loads(raw)
-                    except Exception:
-                        continue
-                    cid_raw = msg.get("cid")
-                    if cid_raw is not None:
-                        msg["cid"] = _normalize_cid_value(
-                            cid_raw,
-                            "lan_message.cid",
-                            log_fn=lambda message: self._append_lan_log(message, level="warning"),
-                        )
-                    typ = str(msg.get("type") or "")
-                    if typ == "client_hello":
-                        client_id = self._normalize_client_id(msg.get("client_id"))
-                        if client_id:
-                            self._register_client_id(ws_id, client_id)
-                    elif typ == "grid_request":
-                        await self._send_grid_update_async(ws_id, self._cached_snapshot.get("grid", {}))
-                    elif typ == "terrain_request":
-                        await self._send_terrain_update_async(ws_id, self._terrain_payload())
-                    elif typ == "state_request":
-                        await self._send_full_state_async(ws_id)
-                    elif typ == "grid_ack":
-                        ver = msg.get("version")
-                        with self._clients_lock:
-                            pending = self._grid_pending.get(ws_id)
-                            if pending and pending[0] == ver:
-                                self._grid_pending.pop(ws_id, None)
-                    elif typ == "terrain_ack":
-                        ver = msg.get("version")
-                        with self._clients_lock:
-                            pending = self._terrain_pending.get(ws_id)
-                            if pending and pending[0] == ver:
-                                self._terrain_pending.pop(ws_id, None)
-                    elif typ == "log_request":
-                        try:
-                            lines = self.app._lan_battle_log_lines()
-                        except Exception:
-                            lines = []
-                        await ws.send_text(self._json_dumps({"type": "battle_log", "lines": lines}))
-            except WebSocketDisconnect:
-                pass
-            except Exception as exc:
-                self.app._oplog(f"LAN map view error during loop ws_id={ws_id}: {exc}", level="warning")
-                self._log_lan_exception(f"LAN map view error during loop ws_id={ws_id}", exc)
-            finally:
-                with self._clients_lock:
-                    self._clients.pop(ws_id, None)
-                    self._clients_meta.pop(ws_id, None)
-                    self._client_hosts.pop(ws_id, None)
-                    self._ws_claim_revs.pop(ws_id, None)
-                    self._view_only_clients.discard(ws_id)
-                    self._grid_pending.pop(ws_id, None)
-                    self._terrain_pending.pop(ws_id, None)
-                self.app._oplog(f"LAN map view disconnected ws_id={ws_id}")
 
         @self._fastapi_app.websocket("/ws")
         async def ws_endpoint(ws: WebSocket):
