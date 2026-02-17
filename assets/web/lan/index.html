@@ -499,6 +499,28 @@
       white-space:nowrap;
     }
     .map-tooltip.show{opacity:1;}
+    .effects-overlay{
+      position:absolute;
+      right:10px;
+      top:10px;
+      z-index:7;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      gap:6px;
+      pointer-events:none;
+    }
+    .effects-overlay.hidden{display:none;}
+    .effects-list{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; pointer-events:auto;}
+    .effect-icon{
+      width:28px; height:28px; border-radius:8px;
+      display:inline-flex; align-items:center; justify-content:center;
+      font-size:16px; line-height:1;
+      border:1px solid rgba(255,255,255,0.32);
+      background:rgba(16,18,24,0.86);
+      box-shadow:0 2px 8px rgba(0,0,0,0.35);
+      cursor:help;
+    }
     .waiting{
       position:absolute; inset:0; display:none; align-items:center; justify-content:center;
       background: rgba(10,12,18,0.82); color: var(--muted); font-size: 16px; letter-spacing: 0.4px;
@@ -1978,6 +2000,7 @@
       <div class="topbar-controls">
         <button class="btn" id="lockMap">Lock Map</button>
         <button class="btn compact-optional" id="lockAoeToggle" type="button" aria-pressed="true">Unlock my AOEs</button>
+        <button class="btn compact-optional" id="auraToggle" type="button" aria-pressed="true">Auras: On</button>
         <button class="btn" id="centerMap">Center on Me</button>
         <button class="btn compact-optional" id="tokenColorModeBtn">Token Color</button>
         <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
@@ -2008,6 +2031,9 @@
     <div class="waiting" id="waitingOverlay">(waiting for combat...)</div>
     <div class="summon-placement-banner hidden" id="summonPlacementBanner" role="status" aria-live="polite"></div>
     <div class="map-tooltip" id="tokenTooltip" role="tooltip" aria-hidden="true"></div>
+    <div class="effects-overlay hidden" id="effectsOverlay" aria-live="polite">
+      <div class="effects-list" id="effectsList"></div>
+    </div>
     <div class="dm-side-layout" id="dmSideLayout">
       <aside class="dm-log-panel" id="dmLogPanel">
         <div class="dm-log-header">
@@ -3489,6 +3515,9 @@ __DAMAGE_TYPE_OPTIONS__
   const toggleSheetPanelBtn = document.getElementById("toggleSheetPanel");
   const lockMapBtn = document.getElementById("lockMap");
   const lockAoeBtn = document.getElementById("lockAoeToggle");
+  const auraToggleBtn = document.getElementById("auraToggle");
+  const effectsOverlay = document.getElementById("effectsOverlay");
+  const effectsList = document.getElementById("effectsList");
   const centerMapBtn = document.getElementById("centerMap");
   const zoomInBtn = document.getElementById("zoomIn");
   const zoomOutBtn = document.getElementById("zoomOut");
@@ -7016,6 +7045,8 @@ __DAMAGE_TYPE_OPTIONS__
     const colorHex = normalizeHexColor(renderAoe.color || "");
     const isPreview = !!options.preview;
     const alphaScale = isPreview ? 0.65 : 1;
+    const alwaysOnAura = !!renderAoe.light || !!renderAoe.is_aura;
+    const fillBaseAlpha = alwaysOnAura ? 0.14 : 0.28;
     ctx.save();
     ctx.lineWidth = 2;
     ctx.setLineDash([6,4]);
@@ -7024,7 +7055,7 @@ __DAMAGE_TYPE_OPTIONS__
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fillStyle = colorHex
-        ? rgbaFromHex(colorHex, 0.28 * alphaScale)
+        ? rgbaFromHex(colorHex, fillBaseAlpha * alphaScale)
         : `rgba(168,197,255,${0.32 * alphaScale})`;
       ctx.strokeStyle = colorHex || `rgba(45,79,138,${0.85 * alphaScale})`;
       ctx.fill();
@@ -7037,7 +7068,7 @@ __DAMAGE_TYPE_OPTIONS__
       const halfW = orient === "horizontal" ? lengthPx / 2 : widthPx / 2;
       const halfH = orient === "horizontal" ? widthPx / 2 : lengthPx / 2;
       ctx.fillStyle = colorHex
-        ? rgbaFromHex(colorHex, 0.28 * alphaScale)
+        ? rgbaFromHex(colorHex, fillBaseAlpha * alphaScale)
         : (renderAoe.kind === "wall"
           ? `rgba(255,230,153,${0.32 * alphaScale})`
           : `rgba(183,255,224,${0.32 * alphaScale})`);
@@ -7097,7 +7128,7 @@ __DAMAGE_TYPE_OPTIONS__
       ctx.arc(x, y, lengthPx, headingRad - halfSpread, headingRad + halfSpread);
       ctx.closePath();
       ctx.fillStyle = colorHex
-        ? rgbaFromHex(colorHex, 0.28 * alphaScale)
+        ? rgbaFromHex(colorHex, fillBaseAlpha * alphaScale)
         : `rgba(255,189,110,${0.32 * alphaScale})`;
       ctx.strokeStyle = colorHex || `rgba(181,110,34,${0.85 * alphaScale})`;
       ctx.fill();
@@ -7509,6 +7540,42 @@ __DAMAGE_TYPE_OPTIONS__
       "title",
       lockMyAoes ? "AOEs locked (click to unlock)." : "AOEs unlocked (click to lock)."
     );
+  }
+
+  function areAurasEnabled(){
+    return state?.auras_enabled !== false;
+  }
+
+  function updateAurasButton(){
+    if (!auraToggleBtn) return;
+    const enabled = areAurasEnabled();
+    auraToggleBtn.textContent = enabled ? "Auras: On" : "Auras: Off";
+    auraToggleBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    auraToggleBtn.classList.toggle("accent", enabled);
+    auraToggleBtn.setAttribute("title", enabled ? "Click to disable always-on auras." : "Click to enable always-on auras.");
+  }
+
+  function renderEffectsOverlay(){
+    if (!effectsOverlay || !effectsList) return;
+    const claimed = getClaimedUnit();
+    const effects = Array.isArray(claimed?.effects) ? claimed.effects : [];
+    if (!claimed || !effects.length){
+      effectsOverlay.classList.add("hidden");
+      effectsList.innerHTML = "";
+      return;
+    }
+    effectsList.innerHTML = "";
+    effects.forEach((effect) => {
+      const icon = document.createElement("div");
+      icon.className = "effect-icon";
+      icon.textContent = String(effect?.icon || "✨");
+      const name = String(effect?.name || "Effect").trim() || "Effect";
+      const desc = String(effect?.description || "").trim();
+      icon.title = desc ? `${name}: ${desc}` : name;
+      icon.setAttribute("aria-label", icon.title);
+      effectsList.appendChild(icon);
+    });
+    effectsOverlay.classList.remove("hidden");
   }
 
   function isAdminClient(){
@@ -9106,6 +9173,8 @@ __DAMAGE_TYPE_OPTIONS__
     applyMapViewReadOnlyControls();
     updateEndTurnState();
     updateEndTurnReadyVisual(meForHud, myTurn);
+    updateAurasButton();
+    renderEffectsOverlay();
     updateClaimOverlay();
   }
 
@@ -10933,6 +11002,13 @@ __DAMAGE_TYPE_OPTIONS__
       lockMyAoes = !lockMyAoes;
       persistToggle(lockMyAoesKey, lockMyAoes);
       updateAoeLockButton();
+    });
+  }
+  if (auraToggleBtn){
+    auraToggleBtn.addEventListener("click", () => {
+      if (enforceLoginGate()) return;
+      const next = !areAurasEnabled();
+      send({type:"set_auras_enabled", enabled: next});
     });
   }
   if (centerMapBtn){
