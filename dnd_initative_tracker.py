@@ -1225,6 +1225,7 @@ class LanController:
         "wild_shape_pool_set_current",
         "wild_shape_set_known",
         "second_wind_use",
+        "action_surge_use",
     )
 
     def __init__(self, app: "InitiativeTracker") -> None:
@@ -14945,6 +14946,27 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._use_bonus_action(c)
             self._log(f"{getattr(c, 'name', 'Player')} uses Second Wind and regains {hp_gain} HP.", cid=cid)
             self._lan.toast(ws_id, f"Second Wind: regained {hp_gain} HP.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "action_surge_use":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            player_name = self._pc_name_for(int(cid))
+            profile = self._profile_for_player_name(player_name)
+            if not isinstance(profile, dict):
+                self._lan.toast(ws_id, "No player profile found, matey.")
+                return
+            fighter_level = self._fighter_level_from_profile(profile)
+            if fighter_level < 2:
+                self._lan.toast(ws_id, "Only fighters level 2+ can use Action Surge, matey.")
+                return
+            ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "action_surge", 1)
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err or "No Action Surge uses remain, matey.")
+                return
+            c.action_remaining = int(getattr(c, "action_remaining", 0) or 0) + 1
+            self._log(f"{getattr(c, 'name', 'Player')} uses Action Surge and gains 1 action.", cid=cid)
+            self._lan.toast(ws_id, "Action Surge used: +1 action.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "use_action":
             c = self.combatants.get(cid)

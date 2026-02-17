@@ -4677,6 +4677,21 @@ __DAMAGE_TYPE_OPTIONS__
         chip.title = "Second Wind";
         chip.addEventListener("click", () => setSecondWindOverlayOpen(true));
       }
+      if (pool.id === "action_surge"){
+        chip.style.cursor = "pointer";
+        chip.title = "Use Action Surge";
+        chip.addEventListener("click", () => {
+          const cid = activeControlledUnitCid();
+          if (cid === null){
+            localToast("Claim a character first, matey.");
+            return;
+          }
+          if (!window.confirm("Action Surge?")){
+            return;
+          }
+          send({type: "action_surge_use", cid});
+        });
+      }
       resourcePoolsListEl.appendChild(chip);
     });
   }
