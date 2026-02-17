@@ -104,6 +104,11 @@ resources:
     max_formula: '3'
     reset: short_rest
 features:
+- id: war_caster
+  name: War Caster
+  category: Feat
+  source: PHB
+  description: Practiced in casting spells amid combat, enabling War Caster reaction spell use in LAN mode.
 - id: test
   name: Test
   category: General Feature
