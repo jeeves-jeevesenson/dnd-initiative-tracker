@@ -1224,6 +1224,7 @@ class LanController:
         "wild_shape_regain_spell",
         "wild_shape_pool_set_current",
         "wild_shape_set_known",
+        "second_wind_use",
     )
 
     def __init__(self, app: "InitiativeTracker") -> None:
@@ -4293,6 +4294,31 @@ class InitiativeTracker(base.InitiativeTracker):
         return 0
 
     @staticmethod
+    def _fighter_level_from_profile(profile: Dict[str, Any]) -> int:
+        leveling = profile.get("leveling") if isinstance(profile.get("leveling"), dict) else {}
+        classes = leveling.get("classes") if isinstance(leveling.get("classes"), list) else []
+        total = 0
+        for entry in classes:
+            if not isinstance(entry, dict):
+                continue
+            name = str(entry.get("name") or "").strip().lower()
+            if name != "fighter":
+                continue
+            try:
+                total += int(entry.get("level") or 0)
+            except Exception:
+                continue
+        if total > 0:
+            return total
+        klass = str(leveling.get("class") or "").strip().lower()
+        if klass == "fighter":
+            try:
+                return max(0, int(leveling.get("level") or 0))
+            except Exception:
+                return 0
+        return 0
+
+    @staticmethod
     def _wild_shape_max_uses_for_level(druid_level: int) -> int:
         if druid_level < 2:
             return 0
@@ -4303,6 +4329,17 @@ class InitiativeTracker(base.InitiativeTracker):
         if druid_level < 2:
             return 0
         return min(8, 4 + (max(0, int(druid_level) - 2) // 2))
+
+    @staticmethod
+    def _second_wind_max_uses_for_level(fighter_level: int) -> int:
+        level = max(0, int(fighter_level or 0))
+        if level < 1:
+            return 0
+        if level >= 10:
+            return 4
+        if level >= 4:
+            return 3
+        return 2
 
     @staticmethod
     def _parse_cr_value(value: Any) -> float:
@@ -8984,7 +9021,9 @@ class InitiativeTracker(base.InitiativeTracker):
         pools = resources.get("pools") if isinstance(resources.get("pools"), list) else []
         normalized: List[Dict[str, Any]] = []
         druid_level = self._druid_level_from_profile(data)
+        fighter_level = self._fighter_level_from_profile(data)
         wild_shape_max = self._wild_shape_max_uses_for_level(druid_level)
+        second_wind_max = self._second_wind_max_uses_for_level(fighter_level)
         seen_pool_ids: set[str] = set()
         for entry in pools:
             if not isinstance(entry, dict):
@@ -9002,6 +9041,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 reset = "long_rest"
                 max_formula = "max(2, min(4, 2 + floor(druid_level / 3)))"
                 max_value = wild_shape_max
+            if pool_id.lower() == "second_wind":
+                label = "Second Wind"
+                reset = "short_rest"
+                max_formula = "2 + (1 if fighter_level >= 4 else 0) + (1 if fighter_level >= 10 else 0)"
+                max_value = second_wind_max
             try:
                 current_value = int(entry.get("current", max_value))
             except Exception:
@@ -9019,6 +9063,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 payload["gain_on_short"] = int(entry.get("gain_on_short") or 0)
             if pool_id.lower() == "wild_shape":
                 payload["gain_on_short"] = 1
+            if pool_id.lower() == "second_wind":
+                payload["gain_on_short"] = 1
             normalized.append(payload)
         if druid_level >= 2 and "wild_shape" not in seen_pool_ids:
             normalized.append(
@@ -9029,6 +9075,18 @@ class InitiativeTracker(base.InitiativeTracker):
                     "max": wild_shape_max,
                     "max_formula": "max(2, min(4, 2 + floor(druid_level / 3)))",
                     "reset": "long_rest",
+                    "gain_on_short": 1,
+                }
+            )
+        if fighter_level >= 1 and "second_wind" not in seen_pool_ids:
+            normalized.append(
+                {
+                    "id": "second_wind",
+                    "label": "Second Wind",
+                    "current": second_wind_max,
+                    "max": second_wind_max,
+                    "max_formula": "2 + (1 if fighter_level >= 4 else 0) + (1 if fighter_level >= 10 else 0)",
+                    "reset": "short_rest",
                     "gain_on_short": 1,
                 }
             )
@@ -9056,6 +9114,7 @@ class InitiativeTracker(base.InitiativeTracker):
         variables = {
             "level": level_value,
             "druid_level": self._druid_level_from_profile(profile),
+            "fighter_level": self._fighter_level_from_profile(profile),
             "prof": prof_bonus,
             "proficiency": prof_bonus,
             "str_mod": self._ability_score_modifier(abilities, "str"),
@@ -14602,6 +14661,32 @@ class InitiativeTracker(base.InitiativeTracker):
             self._load_player_yaml_cache(force_refresh=True)
 
             self._lan.toast(ws_id, "Wild Shape forms updated.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "second_wind_use":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            player_name = self._pc_name_for(int(cid))
+            profile = self._profile_for_player_name(player_name)
+            if not isinstance(profile, dict):
+                self._lan.toast(ws_id, "No player profile found, matey.")
+                return
+            fighter_level = self._fighter_level_from_profile(profile)
+            if fighter_level < 1:
+                self._lan.toast(ws_id, "Only fighters can use Second Wind, matey.")
+                return
+            ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "second_wind", 1)
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err or "No Second Wind uses remain, matey.")
+                return
+            hp_gain = int(sum(random.randint(1, 10) for _ in range(1)) + fighter_level)
+            cur_hp = int(getattr(c, "hp", 0) or 0)
+            max_hp = int(getattr(c, "max_hp", cur_hp) or cur_hp)
+            setattr(c, "hp", max(0, min(max_hp, cur_hp + hp_gain)))
+            if bool(getattr(self, "in_combat", False)) and int(getattr(c, "bonus_action_remaining", 0)) > 0:
+                self._use_bonus_action(c)
+            self._log(f"{getattr(c, 'name', 'Player')} uses Second Wind and regains {hp_gain} HP.", cid=cid)
+            self._lan.toast(ws_id, f"Second Wind: regained {hp_gain} HP.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "use_action":
             c = self.combatants.get(cid)

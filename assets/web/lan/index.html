@@ -3003,6 +3003,21 @@ __DAMAGE_TYPE_OPTIONS__
     </div>
   </div>
 </div>
+<div class="modal" id="secondWindOverlay" aria-hidden="true">
+  <div class="card">
+    <h2>Second Wind</h2>
+    <div class="spellbook-status" id="secondWindSummary"></div>
+    <div class="spellbook-status" id="secondWindRules">
+      Core Mechanics: Bonus Action to regain 1d10 + fighter level HP. Uses: 2 at level 1, 3 at level 4, 4 at level 10. Recharging: regain 1 use on Short Rest, all uses on Long Rest.
+      Tactical Mind (Level 2): When you fail an ability check, expend a use to add 1d10; if the check still fails, the use is not expended.
+      Tactical Shift (Level 5): When you activate Second Wind, move up to half your Speed without provoking Opportunity Attacks.
+    </div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="secondWindCancel" type="button">Cancel</button>
+      <button class="btn accent" id="secondWindUse" type="button">Use 1 Charge</button>
+    </div>
+  </div>
+</div>
 <div class="spellbook-overlay" id="wildShapeOverlay" aria-hidden="true">
   <div class="spellbook-header">
     <button class="btn" id="wildShapeBack" type="button">Back</button>
@@ -3672,6 +3687,10 @@ __DAMAGE_TYPE_OPTIONS__
   const wildShapePickOverlay = document.getElementById("wildShapePickOverlay");
   const wildShapePickList = document.getElementById("wildShapePickList");
   const wildShapePickBackBtn = document.getElementById("wildShapePickBack");
+  const secondWindOverlay = document.getElementById("secondWindOverlay");
+  const secondWindSummary = document.getElementById("secondWindSummary");
+  const secondWindCancelBtn = document.getElementById("secondWindCancel");
+  const secondWindUseBtn = document.getElementById("secondWindUse");
   const wildShapeOverlay = document.getElementById("wildShapeOverlay");
   const wildShapeBackBtn = document.getElementById("wildShapeBack");
   const wildShapeSaveBtn = document.getElementById("wildShapeSave");
@@ -4624,6 +4643,11 @@ __DAMAGE_TYPE_OPTIONS__
           setWildShapeMenuOpen(true);
         });
       }
+      if (pool.id === "second_wind"){
+        chip.style.cursor = "pointer";
+        chip.title = "Second Wind";
+        chip.addEventListener("click", () => setSecondWindOverlayOpen(true));
+      }
       resourcePoolsListEl.appendChild(chip);
     });
   }
@@ -4693,6 +4717,18 @@ __DAMAGE_TYPE_OPTIONS__
       });
       wildShapePickList.appendChild(btn);
     });
+  }
+
+  function setSecondWindOverlayOpen(open){
+    setModalOpen(secondWindOverlay, open);
+    if (!open) return;
+    const pools = getPlayerResourcePools(getClaimedPlayerName());
+    const secondWind = pools.find((entry) => entry.id === "second_wind");
+    if (!secondWind){
+      if (secondWindSummary) secondWindSummary.textContent = "No Second Wind pool found.";
+      return;
+    }
+    if (secondWindSummary) secondWindSummary.textContent = `Current uses: ${secondWind.current}/${secondWind.max}`;
   }
 
   function isClaimedUnitDruid(){
@@ -14532,6 +14568,16 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (wildShapePickBackBtn){
     wildShapePickBackBtn.addEventListener("click", () => setWildShapePickOverlayOpen(false));
+  }
+  if (secondWindCancelBtn){
+    secondWindCancelBtn.addEventListener("click", () => setSecondWindOverlayOpen(false));
+  }
+  if (secondWindUseBtn){
+    secondWindUseBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      send({type:"second_wind_use", cid: claimedCid});
+      setSecondWindOverlayOpen(false);
+    });
   }
   if (wildShapeBackBtn){
     wildShapeBackBtn.addEventListener("click", () => setWildShapeOverlayOpen(false));

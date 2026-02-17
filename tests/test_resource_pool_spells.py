@@ -83,6 +83,20 @@ class ResourcePoolSpellTests(unittest.TestCase):
         self.assertEqual(err, "")
         self.assertEqual(spent, 0)
 
+    def test_normalize_adds_second_wind_pool_for_level_10_fighter(self):
+        profile = {
+            "name": "John Twilight",
+            "leveling": {"classes": [{"name": "Fighter", "level": 10}]},
+            "resources": {"pools": []},
+        }
+        pools = self.app._normalize_player_resource_pools(profile)
+        second_wind = next((entry for entry in pools if entry.get("id") == "second_wind"), None)
+        self.assertIsNotNone(second_wind)
+        self.assertEqual(second_wind["current"], 4)
+        self.assertEqual(second_wind["max"], 4)
+        self.assertEqual(second_wind["reset"], "short_rest")
+        self.assertEqual(second_wind["gain_on_short"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

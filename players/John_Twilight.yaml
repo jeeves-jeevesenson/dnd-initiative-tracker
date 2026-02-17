@@ -99,6 +99,12 @@ resources:
     current: 1
     max_formula: '1'
     reset: short_rest
+  - id: second_wind
+    label: Second Wind
+    current: 4
+    max_formula: '2 + (1 if fighter_level >= 4 else 0) + (1 if fighter_level >= 10 else 0)'
+    reset: short_rest
+    gain_on_short: 1
 features: []
 actions:
 - name: Attack
@@ -169,6 +175,12 @@ bonus_actions:
   description: You can take a bonus action only when a feature, spell, or ability
     says you can.
   type: bonus_action
+- name: Second Wind
+  description: 'Bonus Action: expend 1 Second Wind use to regain 1d10 + fighter level HP. Tactical Mind (level 2): after failing an ability check, expend a use to add 1d10; use is not spent if still failed. Tactical Shift (level 5): when you activate Second Wind, move up to half speed without provoking opportunity attacks.'
+  type: bonus_action
+  uses:
+    pool: second_wind
+    cost: 1
 - name: Summon Johns Echo
   description: Summon Johns Echo within 15 ft. This consumes your bonus action for
     this turn.
