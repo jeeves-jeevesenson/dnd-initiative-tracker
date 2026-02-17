@@ -1,0 +1,11 @@
+format_version: 1
+id: sling
+name: Sling
+category: simple_ranged
+damage:
+  one_handed:
+    formula: 1d4
+    type: bludgeoning
+properties:
+- slow
+- ammunition

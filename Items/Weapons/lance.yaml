@@ -1,0 +1,14 @@
+format_version: 1
+id: lance
+name: Lance
+category: martial_melee
+damage:
+  one_handed:
+    formula: 1d10
+    type: piercing
+properties:
+- topple
+- heavy
+- reach
+- two_handed
+notes: Two-handed unless mounted.

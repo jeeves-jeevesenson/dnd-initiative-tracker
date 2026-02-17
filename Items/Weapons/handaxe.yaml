@@ -1,0 +1,12 @@
+format_version: 1
+id: handaxe
+name: Handaxe
+category: simple_melee
+damage:
+  one_handed:
+    formula: 1d6
+    type: slashing
+properties:
+- vex
+- light
+- thrown

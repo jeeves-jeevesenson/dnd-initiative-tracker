@@ -1,0 +1,12 @@
+format_version: 1
+id: dart
+name: Dart
+category: simple_ranged
+damage:
+  one_handed:
+    formula: 1d4
+    type: piercing
+properties:
+- vex
+- finesse
+- thrown

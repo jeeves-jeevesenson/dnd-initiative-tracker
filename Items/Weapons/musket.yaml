@@ -1,0 +1,13 @@
+format_version: 1
+id: musket
+name: Musket
+category: martial_ranged
+damage:
+  one_handed:
+    formula: 1d12
+    type: piercing
+properties:
+- slow
+- ammunition
+- loading
+- two_handed

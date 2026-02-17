@@ -1,0 +1,11 @@
+format_version: 1
+id: greatclub
+name: Greatclub
+category: simple_melee
+damage:
+  one_handed:
+    formula: 1d8
+    type: bludgeoning
+properties:
+- push
+- two_handed

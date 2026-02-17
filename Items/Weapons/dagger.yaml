@@ -1,0 +1,17 @@
+format_version: 1
+id: dagger
+name: Dagger
+category: simple_melee
+weapon_group: simple_melee
+cost_gp: 2
+weight_lb: 1
+damage:
+  one_handed:
+    formula: 1d4
+    type: piercing
+mastery: nick
+properties:
+- nick
+- finesse
+- light
+- thrown

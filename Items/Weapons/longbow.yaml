@@ -1,0 +1,13 @@
+format_version: 1
+id: longbow
+name: Longbow
+category: martial_ranged
+damage:
+  one_handed:
+    formula: 1d8
+    type: piercing
+properties:
+- slow
+- ammunition
+- heavy
+- two_handed

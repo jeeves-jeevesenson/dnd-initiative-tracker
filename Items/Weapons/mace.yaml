@@ -1,0 +1,10 @@
+format_version: 1
+id: mace
+name: Mace
+category: simple_melee
+damage:
+  one_handed:
+    formula: 1d6
+    type: bludgeoning
+properties:
+- sap

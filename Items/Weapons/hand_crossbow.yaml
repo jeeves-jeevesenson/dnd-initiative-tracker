@@ -1,0 +1,13 @@
+format_version: 1
+id: hand_crossbow
+name: Hand Crossbow
+category: martial_ranged
+damage:
+  one_handed:
+    formula: 1d6
+    type: piercing
+properties:
+- vex
+- ammunition
+- light
+- loading

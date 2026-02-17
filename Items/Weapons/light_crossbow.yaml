@@ -1,0 +1,13 @@
+format_version: 1
+id: light_crossbow
+name: Light Crossbow
+category: simple_ranged
+damage:
+  one_handed:
+    formula: 1d8
+    type: piercing
+properties:
+- slow
+- ammunition
+- loading
+- two_handed

@@ -1,0 +1,16 @@
+format_version: 1
+id: scimitar
+name: Scimitar
+category: martial_melee
+weapon_group: martial_melee
+cost_gp: 25
+weight_lb: 3
+damage:
+  one_handed:
+    formula: 1d6
+    type: slashing
+mastery: nick
+properties:
+- nick
+- finesse
+- light

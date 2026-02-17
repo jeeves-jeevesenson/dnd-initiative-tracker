@@ -1,0 +1,11 @@
+format_version: 1
+id: javelin
+name: Javelin
+category: simple_melee
+damage:
+  one_handed:
+    formula: 1d6
+    type: piercing
+properties:
+- slow
+- thrown

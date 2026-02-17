@@ -1,0 +1,10 @@
+format_version: 1
+id: club
+name: Club
+category: simple_melee
+damage:
+  one_handed:
+    formula: 1d4
+    type: bludgeoning
+properties:
+- slow

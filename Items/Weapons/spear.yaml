@@ -1,0 +1,15 @@
+format_version: 1
+id: spear
+name: Spear
+category: simple_melee
+damage:
+  one_handed:
+    formula: 1d6
+    type: piercing
+  versatile:
+    formula: 1d8
+    type: piercing
+properties:
+- sap
+- thrown
+- versatile

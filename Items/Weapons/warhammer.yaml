@@ -1,0 +1,14 @@
+format_version: 1
+id: warhammer
+name: Warhammer
+category: martial_melee
+damage:
+  one_handed:
+    formula: 1d8
+    type: bludgeoning
+  versatile:
+    formula: 1d10
+    type: bludgeoning
+properties:
+- push
+- versatile

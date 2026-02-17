@@ -1,0 +1,12 @@
+format_version: 1
+id: pistol
+name: Pistol
+category: martial_ranged
+damage:
+  one_handed:
+    formula: 1d10
+    type: piercing
+properties:
+- vex
+- ammunition
+- loading

@@ -1,0 +1,13 @@
+format_version: 1
+id: halberd
+name: Halberd
+category: martial_melee
+damage:
+  one_handed:
+    formula: 1d10
+    type: slashing
+properties:
+- cleave
+- heavy
+- reach
+- two_handed

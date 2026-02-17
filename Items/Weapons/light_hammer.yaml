@@ -1,0 +1,12 @@
+format_version: 1
+id: light_hammer
+name: Light Hammer
+category: simple_melee
+damage:
+  one_handed:
+    formula: 1d4
+    type: bludgeoning
+properties:
+- nick
+- light
+- thrown

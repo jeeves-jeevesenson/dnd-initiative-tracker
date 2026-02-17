@@ -1,0 +1,12 @@
+format_version: 1
+id: shortsword
+name: Shortsword
+category: martial_melee
+damage:
+  one_handed:
+    formula: 1d6
+    type: piercing
+properties:
+- vex
+- finesse
+- light

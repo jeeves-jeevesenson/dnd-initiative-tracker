@@ -1,0 +1,14 @@
+format_version: 1
+id: longsword
+name: Longsword
+category: martial_melee
+damage:
+  one_handed:
+    formula: 1d8
+    type: slashing
+  versatile:
+    formula: 1d10
+    type: slashing
+properties:
+- sap
+- versatile

@@ -1,0 +1,15 @@
+format_version: 1
+id: trident
+name: Trident
+category: martial_melee
+damage:
+  one_handed:
+    formula: 1d8
+    type: piercing
+  versatile:
+    formula: 1d10
+    type: piercing
+properties:
+- topple
+- thrown
+- versatile

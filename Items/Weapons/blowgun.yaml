@@ -1,0 +1,12 @@
+format_version: 1
+id: blowgun
+name: Blowgun
+category: martial_ranged
+damage:
+  one_handed:
+    formula: '1'
+    type: piercing
+properties:
+- vex
+- ammunition
+- loading

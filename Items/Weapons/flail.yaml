@@ -1,0 +1,10 @@
+format_version: 1
+id: flail
+name: Flail
+category: martial_melee
+damage:
+  one_handed:
+    formula: 1d8
+    type: bludgeoning
+properties:
+- sap

@@ -1,0 +1,13 @@
+format_version: 1
+id: glaive
+name: Glaive
+category: martial_melee
+damage:
+  one_handed:
+    formula: 1d10
+    type: slashing
+properties:
+- graze
+- heavy
+- reach
+- two_handed

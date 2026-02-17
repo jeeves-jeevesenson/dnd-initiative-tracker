@@ -1,0 +1,14 @@
+format_version: 1
+id: quarterstaff
+name: Quarterstaff
+category: simple_melee
+damage:
+  one_handed:
+    formula: 1d6
+    type: bludgeoning
+  versatile:
+    formula: 1d8
+    type: bludgeoning
+properties:
+- topple
+- versatile
