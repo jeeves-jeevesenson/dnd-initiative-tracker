@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="InitTracker LAN" />
   <link rel="apple-touch-icon" href="/assets/graphic.png" />
+  <link rel="icon" href="/assets/icon.ico" sizes="any" />
   <link rel="manifest" href="/assets/manifest.webmanifest" />
   <title>InitTracker LAN</title>
   <script>window.PUSH_PUBLIC_KEY=__PUSH_PUBLIC_KEY__;</script>
@@ -3771,6 +3772,8 @@ __DAMAGE_TYPE_OPTIONS__
   let focusTabOnTurn = localStorage.getItem(focusTabOnTurnStorageKey) === "1";
   let pendingTurnAlert = false;
   let pendingVibrate = false;
+  const notificationPermissionAskedKey = "inittracker_notification_permission_asked_v1";
+  let notificationPermissionAsked = localStorage.getItem(notificationPermissionAskedKey) === "1";
   let lastVibrateSupported = canVibrate;
   let userHasInteracted = navigator.userActivation?.hasBeenActive ?? false;
   let castOverlayPreviousFocus = null;
@@ -9225,6 +9228,9 @@ __DAMAGE_TYPE_OPTIONS__
 
   function handleUserGesture(){
     userHasInteracted = true;
+    if (!notificationPermissionAsked){
+      maybeRequestNotificationPermission();
+    }
     if (!audioUnlocked){
       unlockTurnAudio();
       return;
@@ -9252,6 +9258,19 @@ __DAMAGE_TYPE_OPTIONS__
       };
     } catch (err){
       console.warn('Turn notification failed.', err);
+    }
+  }
+
+  async function maybeRequestNotificationPermission(){
+    if (notificationPermissionAsked) return;
+    notificationPermissionAsked = true;
+    localStorage.setItem(notificationPermissionAskedKey, "1");
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "default") return;
+    try {
+      await Notification.requestPermission();
+    } catch (err){
+      console.warn("Notification permission prompt failed.", err);
     }
   }
 
