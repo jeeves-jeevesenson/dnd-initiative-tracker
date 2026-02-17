@@ -90,6 +90,7 @@ class LanSnapshotStaticTests(unittest.TestCase):
         self.assertEqual(snap["units"][0]["hp"], 7)
         self.assertEqual(snap["units"][0]["max_hp"], 22)
         self.assertEqual(snap["units"][0]["facing_deg"], 0)
+        self.assertEqual(snap["units"][0]["reactions"], [])
 
 
     def test_tick_uses_idle_interval_without_clients(self):

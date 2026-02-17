@@ -2813,6 +2813,7 @@ class LanController:
             "is_spellcaster",
             "actions",
             "bonus_actions",
+            "reactions",
         ]
         for cid, curr_unit in curr_units.items():
             prev_unit = prev_units.get(cid, {})
@@ -5710,6 +5711,7 @@ class InitiativeTracker(base.InitiativeTracker):
             water = False
             actions: List[Dict[str, Any]] = []
             bonus_actions: List[Dict[str, Any]] = []
+            reactions: List[Dict[str, Any]] = []
             token_color: Optional[str] = None
 
             # Future-facing: per-PC config file players/<Name>.yaml (optional)
@@ -5777,6 +5779,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     max_hp = hp
                 actions = self._normalize_action_entries(resources.get("actions"), "action")
                 bonus_actions = self._normalize_action_entries(resources.get("bonus_actions"), "bonus_action")
+                reactions = self._normalize_action_entries(resources.get("reactions"), "reaction")
 
             try:
                 init_total = random.randint(1, 20)
@@ -5799,6 +5802,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     is_pc=True,
                     actions=actions,
                     bonus_actions=bonus_actions,
+                    reactions=reactions,
                 )
                 try:
                     combatant = self.combatants.get(cid)
@@ -5880,6 +5884,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
         actions = self._normalize_action_entries(resources.get("actions"), "action")
         bonus_actions = self._normalize_action_entries(resources.get("bonus_actions"), "bonus_action")
+        reactions = self._normalize_action_entries(resources.get("reactions"), "reaction")
 
         try:
             init_total = random.randint(1, 20)
@@ -5903,6 +5908,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 is_spellcaster=bool(spellcasting),
                 actions=actions,
                 bonus_actions=bonus_actions,
+                reactions=reactions,
             )
         except Exception:
             return None
@@ -6437,6 +6443,7 @@ class InitiativeTracker(base.InitiativeTracker):
             marks = self._lan_marks_for(c)
             actions = self._normalize_action_entries(getattr(c, "actions", []), "action")
             bonus_actions = self._normalize_action_entries(getattr(c, "bonus_actions", []), "bonus_action")
+            reactions = self._normalize_action_entries(getattr(c, "reactions", []), "reaction")
             units.append(
                 {
                     "cid": c.cid,
@@ -6460,6 +6467,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "spell_cast_remaining": int(getattr(c, "spell_cast_remaining", 0) or 0),
                     "actions": actions,
                     "bonus_actions": bonus_actions,
+                    "reactions": reactions,
                     "is_prone": self._has_condition(c, "prone"),
                     "is_spellcaster": bool(getattr(c, "is_spellcaster", False)),
                     "is_wild_shaped": bool(getattr(c, "is_wild_shaped", False)),
@@ -9802,6 +9810,8 @@ class InitiativeTracker(base.InitiativeTracker):
     def _iter_combatant_actions(self, c: Any, spend: str) -> List[Dict[str, Any]]:
         if spend == "bonus":
             return self._normalize_action_entries(getattr(c, "bonus_actions", []), "bonus_action")
+        if spend == "reaction":
+            return self._normalize_action_entries(getattr(c, "reactions", []), "reaction")
         return self._normalize_action_entries(getattr(c, "actions", []), "action")
 
     def _find_action_entry(self, c: Any, spend: str, name: str) -> Optional[Dict[str, Any]]:
@@ -9815,6 +9825,8 @@ class InitiativeTracker(base.InitiativeTracker):
         return None
 
     def _combatant_can_cast_spell(self, c: Any, spend: str) -> bool:
+        if spend == "reaction":
+            return True
         spend_list = self._iter_combatant_actions(c, spend)
         if spend == "bonus":
             spend_list = spend_list + self._iter_combatant_actions(c, "action")
@@ -11725,7 +11737,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not ok_slot:
                         self._lan.toast(ws_id, slot_err)
                         return
-                if int(getattr(c, "spell_cast_remaining", 0) or 0) <= 0:
+                if spend != "reaction" and int(getattr(c, "spell_cast_remaining", 0) or 0) <= 0:
                     self._lan.toast(ws_id, "Already cast a spell this turn, matey.")
                     return
                 if not self._combatant_can_cast_spell(c, spend):
@@ -12268,7 +12280,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not ok_slot:
                         self._lan.toast(ws_id, slot_err)
                         return
-                if int(getattr(c, "spell_cast_remaining", 0) or 0) <= 0:
+                if spend != "reaction" and int(getattr(c, "spell_cast_remaining", 0) or 0) <= 0:
                     self._lan.toast(ws_id, "Already cast a spell this turn, matey.")
                     return
                 if not self._combatant_can_cast_spell(c, spend):
@@ -12965,7 +12977,12 @@ class InitiativeTracker(base.InitiativeTracker):
             if not c:
                 return
             spend_raw = str(msg.get("spend") or "action").lower()
-            spend = "bonus" if spend_raw in ("bonus", "bonus_action") else "action"
+            if spend_raw in ("bonus", "bonus_action"):
+                spend = "bonus"
+            elif spend_raw == "reaction":
+                spend = "reaction"
+            else:
+                spend = "action"
             action_name = str(msg.get("action") or msg.get("name") or "").strip()
             action_entry = self._find_action_entry(c, spend, action_name)
             if not action_entry:
@@ -12979,6 +12996,11 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan.toast(ws_id, "No bonus actions left, matey.")
                     return
                 spend_label = "bonus action"
+            elif spend == "reaction":
+                if not self._use_reaction(c):
+                    self._lan.toast(ws_id, "No reactions left, matey.")
+                    return
+                spend_label = "reaction"
             else:
                 if not self._use_action(c):
                     self._lan.toast(ws_id, "No actions left, matey.")
