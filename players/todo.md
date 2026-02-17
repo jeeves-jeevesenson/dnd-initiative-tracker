@@ -43,7 +43,7 @@ These YAML patterns appear in player files but are not generally executed by the
 - Hellfire stack rider automation and turn-tick damage from weapon text (currently descriptive/manual unless separately scripted).
 
 **Cleanup/audit notes**
-- Keep current structure; no schema-breaking cleanup needed.
+- ✅ Completed (2026-02-17): normalized `vitals.speed` keys from `Normal/Climb/Fly/Swim` to canonical `walk/climb/fly/swim` for consistency with player schema usage.
 - Ensure future implementation maps existing `notes.echo_state_template` keys to runtime state fields (avoid duplicate state schemas).
 
 **Implementation plan**
@@ -255,7 +255,7 @@ These YAML patterns appear in player files but are not generally executed by the
 
 4. **Data quality guardrails**
    - Add validator for player YAML consistency (class level sums, proficiency abbreviations, speed keys, null IDs where IDs are expected).
-   - ✅ Completed (2026-02-17): added focused regression checks in `tests/test_player_yaml_validity.py` covering class-level sum/speed schema (`oldahhman.yaml`), proficiency abbreviation (`стихия.yaml`), and null AC source IDs/language typo cleanup (`vicnor.yaml`).
+   - ✅ Completed (2026-02-17): added focused regression checks in `tests/test_player_yaml_validity.py` covering class-level sum/speed schema (`oldahhman.yaml`, `John_Twilight.yaml`), proficiency abbreviation (`стихия.yaml`), and null AC source IDs/language typo cleanup (`vicnor.yaml`).
 
 5. **Regression coverage**
    - Add focused tests per implemented feature family before enabling automatic execution globally.
