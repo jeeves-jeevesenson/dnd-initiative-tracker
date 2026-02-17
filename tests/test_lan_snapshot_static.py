@@ -1,3 +1,4 @@
+import queue
 import threading
 import unittest
 
@@ -89,6 +90,43 @@ class LanSnapshotStaticTests(unittest.TestCase):
         self.assertEqual(snap["units"][0]["hp"], 7)
         self.assertEqual(snap["units"][0]["max_hp"], 22)
         self.assertEqual(snap["units"][0]["facing_deg"], 0)
+
+
+    def test_tick_uses_idle_interval_without_clients(self):
+        lan = object.__new__(tracker_mod.LanController)
+        lan._actions = queue.Queue()
+        lan._clients_lock = threading.Lock()
+        lan._clients = {}
+        lan._polling = True
+        lan._active_poll_interval_ms = 120
+        lan._idle_poll_interval_ms = 350
+        lan._idle_cache_refresh_interval_s = 1.0
+        lan._last_idle_cache_refresh = 0.0
+        lan._cached_snapshot = {}
+        lan._cached_pcs = []
+        lan._log_lan_exception = lambda *args, **kwargs: None
+
+        scheduled = []
+        call_counts = {"snap": 0}
+
+        class AppStub:
+            def _lan_snapshot(self, include_static=False):
+                call_counts["snap"] += 1
+                return {"grid": {}}
+
+            def _lan_claimable(self):
+                return []
+
+            def after(self, ms, fn):
+                scheduled.append((ms, fn))
+
+        lan._tracker = AppStub()
+
+        lan._tick()
+
+        self.assertEqual(call_counts["snap"], 1)
+        self.assertEqual(len(scheduled), 1)
+        self.assertEqual(scheduled[0][0], 350)
 
 
 if __name__ == "__main__":

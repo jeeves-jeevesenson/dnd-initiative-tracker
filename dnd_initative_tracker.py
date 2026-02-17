@@ -1182,6 +1182,10 @@ class LanController:
             "round_num": 0,
         }
         self._cached_pcs: List[Dict[str, Any]] = []
+        self._idle_poll_interval_ms: int = 350
+        self._active_poll_interval_ms: int = 120
+        self._idle_cache_refresh_interval_s: float = 1.0
+        self._last_idle_cache_refresh: float = 0.0
         self._init_admin_auth()
 
     @property
@@ -2535,6 +2539,7 @@ class LanController:
         """Runs on Tk thread: process actions and broadcast state when changed."""
         move_debug_entries: List[Dict[str, Any]] = []
         should_schedule_next = True
+        next_tick_ms = int(self._active_poll_interval_ms)
         try:
             # 1) process queued actions from clients
             processed_any = False
@@ -2597,6 +2602,26 @@ class LanController:
                         self.toast(ws_id, "Something went wrong handling that action.")
                     except Exception:
                         pass
+
+            with self._clients_lock:
+                has_live_clients = bool(self._clients)
+
+            # Keep idle polling cheap for the DM UI: when no clients are connected and no
+            # actions are queued, avoid rebuilding/broadcasting snapshots every 120ms.
+            if not has_live_clients and not processed_any:
+                next_tick_ms = int(self._idle_poll_interval_ms)
+                now = time.monotonic()
+                if now - self._last_idle_cache_refresh >= self._idle_cache_refresh_interval_s:
+                    self._last_idle_cache_refresh = now
+                    self._cached_snapshot = self.app._lan_snapshot(include_static=False)
+                    try:
+                        self._cached_pcs = list(
+                            self.app._lan_pcs() if hasattr(self.app, "_lan_pcs") else self.app._lan_claimable()
+                        )
+                    except Exception as exc:
+                        self._cached_pcs = []
+                        self._log_lan_exception("LAN cached PC snapshot failed", exc)
+                return
 
             # 2) broadcast snapshot if changed (polling-based, avoids wiring every hook)
             snap = self.app._lan_snapshot(include_static=False)
@@ -2706,7 +2731,7 @@ class LanController:
         finally:
             # 3) continue polling
             if should_schedule_next and self._polling:
-                self.app.after(120, self._tick)
+                self.app.after(next_tick_ms, self._tick)
 
     @staticmethod
     def _unit_lookup(units: Any) -> Dict[int, Dict[str, Any]]:
