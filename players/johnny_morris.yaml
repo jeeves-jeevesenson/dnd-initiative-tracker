@@ -10,7 +10,7 @@ identity:
   alignment: null
   description: null
 leveling:
-  level: 1
+  level: 10
   classes:
   - name: Druid
     subclass: Circle of Land
@@ -69,16 +69,244 @@ defenses:
   resistances:
   - Acid
   immunities:
-  - Posion
+  - Poison
   vulnerabilities: []
 resources:
-  pools: []
+  pools:
+  - id: wild_shape
+    label: Wild Shape
+    current: 3
+    max_formula: '2 + (1 if druid_level >= 6 else 0)'
+    reset: long_rest
+    gain_on_short: 1
+  - id: wild_resurgence_slot_recovery
+    label: Wild Resurgence (Spell Slot Recovery)
+    current: 1
+    max_formula: '1'
+    reset: long_rest
+  - id: natural_recovery_free_cast
+    label: Natural Recovery (Free Circle Spell)
+    current: 1
+    max_formula: '1'
+    reset: long_rest
+  - id: natural_recovery_slot_recovery
+    label: Natural Recovery (Slot Recovery)
+    current: 1
+    max_formula: '1'
+    reset: long_rest
 features:
 - id: war_caster
   name: War Caster
   category: Feat
   source: PHB
-  description: Practiced in casting spells amid combat, enabling War Caster reaction spell use in LAN mode.
+  description: Somatic components with occupied hands; concentration advantage; reaction spell on opportunity attack.
+- id: druidic
+  name: Druidic
+  category: Druid Feature
+  source: PHB2024
+  level: 1
+  grants:
+    always_prepared_spells:
+    - speak-with-animals
+- id: primal_order_magician
+  name: Primal Order - Magician
+  category: Druid Feature
+  source: PHB2024
+  level: 1
+  grants:
+    cantrips_known_bonus: 1
+    skill_check_bonuses:
+    - id: primal_order_arcana
+      skill: Arcana
+      bonus_formula: 'max(1, wis_mod)'
+    - id: primal_order_nature
+      skill: Nature
+      bonus_formula: 'max(1, wis_mod)'
+- id: wild_shape
+  name: Wild Shape
+  category: Druid Feature
+  source: PHB2024
+  level: 2
+  grants:
+    pools:
+    - id: wild_shape
+      label: Wild Shape
+      max_formula: '2 + (1 if druid_level >= 6 else 0)'
+      reset: long_rest
+      gain_on_short: 1
+    modifiers:
+    - id: wild_shape_temp_hp
+      trigger: on_activate_wild_shape
+      temp_hp_formula: druid_level
+    known_forms:
+      max_formula: '4 + (2 if druid_level >= 4 else 0) + (2 if druid_level >= 8 else 0)'
+      max_cr_formula: '0.25 if druid_level < 4 else 0.5 if druid_level < 8 else 1'
+      allow_fly_speed_formula: druid_level >= 8
+- id: wild_companion
+  name: Wild Companion
+  category: Druid Feature
+  source: PHB2024
+  level: 2
+  grants:
+    actions:
+    - id: wild_companion_cast
+      name: Wild Companion
+      activation: action
+      spell: find-familiar
+      no_material_components: true
+      familiar_type: fey
+      familiar_duration: until_long_rest
+      consume_one_of:
+      - type: spell_slot
+        min_level: 1
+      - type: pool
+        pool: wild_shape
+        cost: 1
+- id: land_circle_spells
+  name: Circle of the Land Spells
+  category: Druid Subclass Feature
+  source: PHB2024
+  level: 3
+  grants:
+    selectable_land_type:
+      options:
+      - arid
+      - polar
+      - temperate
+      - tropical
+      change_on: long_rest
+    circle_spells_by_land:
+      arid:
+        '3': [blur, burning-hands, fire-bolt]
+        '5': [fireball]
+        '7': [blight]
+        '9': [wall-of-stone]
+      polar:
+        '3': [fog-cloud, hold-person, ray-of-frost]
+        '5': [sleet-storm]
+        '7': [ice-storm]
+        '9': [cone-of-cold]
+      temperate:
+        '3': [misty-step, shocking-grasp, sleep]
+        '5': [lightning-bolt]
+        '7': [freedom-of-movement]
+        '9': [tree-stride]
+      tropical:
+        '3': [acid-splash, ray-of-sickness, web]
+        '5': [stinking-cloud]
+        '7': [polymorph]
+        '9': [insect-plague]
+- id: lands_aid
+  name: Land's Aid
+  category: Druid Subclass Feature
+  source: PHB2024
+  level: 3
+  grants:
+    actions:
+    - id: lands_aid_cast
+      name: Land's Aid
+      activation: action
+      range_ft: 60
+      area:
+        shape: sphere
+        radius_ft: 10
+      save:
+        ability: con
+        dc_formula: spell_save_dc
+        on_success: half
+      damage_formula: '(2 + (1 if druid_level >= 10 else 0) + (1 if druid_level >= 14 else 0))d6'
+      damage_type: necrotic
+      healing_formula: '(2 + (1 if druid_level >= 10 else 0) + (1 if druid_level >= 14 else 0))d6'
+      consumes:
+        pool: wild_shape
+        cost: 1
+- id: wild_resurgence
+  name: Wild Resurgence
+  category: Druid Feature
+  source: PHB2024
+  level: 5
+  grants:
+    modifiers:
+    - id: wild_resurgence_shape_from_slot
+      trigger: on_turn_if_wild_shape_zero
+      effect: grant_pool_uses
+      target_pool: wild_shape
+      amount: 1
+      consumes:
+        type: spell_slot
+        min_level: 1
+    actions:
+    - id: wild_resurgence_slot_from_shape
+      name: Wild Resurgence (Recover Level 1 Slot)
+      activation: no_action
+      effect: recover_spell_slot
+      slot_level: 1
+      consumes:
+        pool: wild_shape
+        cost: 1
+      limited_by:
+        pool: wild_resurgence_slot_recovery
+        cost: 1
+- id: natural_recovery
+  name: Natural Recovery
+  category: Druid Subclass Feature
+  source: PHB2024
+  level: 6
+  grants:
+    actions:
+    - id: natural_recovery_free_cast
+      name: Natural Recovery (Free Circle Spell)
+      activation: cast
+      effect: cast_prepared_circle_spell_without_slot
+      min_spell_level: 1
+      consumes:
+        pool: natural_recovery_free_cast
+        cost: 1
+    - id: natural_recovery_slot_recovery
+      name: Natural Recovery (Recover Spell Slots)
+      activation: short_rest_end
+      effect: recover_spell_slots
+      max_total_levels_formula: 'round_up(druid_level / 2)'
+      max_slot_level: 5
+      consumes:
+        pool: natural_recovery_slot_recovery
+        cost: 1
+- id: elemental_fury
+  name: Elemental Fury
+  category: Druid Feature
+  source: PHB2024
+  level: 7
+  selection: potent_spellcasting
+  grants:
+    modifiers:
+    - id: elemental_fury_potent_spellcasting
+      trigger: druid_cantrip_damage_roll
+      damage_bonus_formula: wis_mod
+      enabled_if: feature_selection == 'potent_spellcasting'
+    damage_riders:
+    - id: elemental_fury_primal_strike
+      once_per_turn: true
+      trigger: weapon_or_beast_attack_hit
+      damage_formula: 1d8
+      damage_type_options:
+      - cold
+      - fire
+      - lightning
+      - thunder
+      enabled_if: feature_selection == 'primal_strike'
+- id: natures_ward
+  name: Nature's Ward
+  category: Druid Subclass Feature
+  source: PHB2024
+  level: 10
+  grants:
+    condition_immunities:
+    - poisoned
+    resistance_by_land:
+      arid: fire
+      polar: cold
+      temperate: lightning
+      tropical: poison
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
