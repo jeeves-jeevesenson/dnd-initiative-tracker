@@ -5712,6 +5712,7 @@ class InitiativeTracker(base.InitiativeTracker):
             actions: List[Dict[str, Any]] = []
             bonus_actions: List[Dict[str, Any]] = []
             reactions: List[Dict[str, Any]] = []
+            token_color: Optional[str] = None
 
             # Future-facing: per-PC config file players/<Name>.yaml (optional)
             data = cfg_cache.get(nm, None)
@@ -5739,6 +5740,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 resources = profile.get("resources", {}) if isinstance(profile, dict) else {}
                 vitals = profile.get("vitals", {}) if isinstance(profile, dict) else {}
                 defenses = profile.get("defenses", {}) if isinstance(profile, dict) else {}
+                identity = profile.get("identity", {}) if isinstance(profile, dict) else {}
+                token_color = self._normalize_token_color(identity.get("token_color"))
                 if isinstance(vitals, dict):
                     max_hp = to_int(vitals.get("max_hp"), None)
                     hp = to_int(vitals.get("current_hp"), None) if "current_hp" in vitals else None
@@ -5808,6 +5811,8 @@ class InitiativeTracker(base.InitiativeTracker):
                         setattr(combatant, "max_hp", int(max_hp or hp or 0))
                         if ac is not None:
                             setattr(combatant, "ac", int(ac))
+                        if token_color:
+                            setattr(combatant, "token_color", token_color)
                 except Exception:
                     pass
                 existing.add(nm)
@@ -9720,8 +9725,7 @@ class InitiativeTracker(base.InitiativeTracker):
         identity["token_color"] = normalized
         existing["identity"] = identity
 
-        yaml_text = yaml.safe_dump(existing, sort_keys=False, allow_unicode=True)
-        path.write_text(yaml_text, encoding="utf-8")
+        self._write_player_yaml_atomic(path, existing)
 
         meta = _file_stat_metadata(path)
         self._player_yaml_cache_by_path[path] = existing
@@ -9731,6 +9735,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_data_by_name[profile_name] = profile
         self._player_yaml_name_map[self._normalize_character_lookup_key(player_name)] = path
         self._player_yaml_name_map[self._normalize_character_lookup_key(path.stem)] = path
+        self._schedule_player_yaml_refresh()
 
         return normalized
 
@@ -11442,8 +11447,8 @@ class InitiativeTracker(base.InitiativeTracker):
             if player_name and not player_name.startswith("cid:"):
                 try:
                     self._save_player_token_color(player_name, color)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self._oplog(f"Could not save token color for {player_name}: {exc}", level="warning")
             mw = getattr(self, "_map_window", None)
             if mw is not None and hasattr(mw, "update_unit_token_colors"):
                 try:
