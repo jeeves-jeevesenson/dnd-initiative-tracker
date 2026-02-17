@@ -8,7 +8,7 @@ identity:
   alignment: null
   description: null
 leveling:
-  level: 1
+  level: 10
   classes:
   - name: Bard
     subclass: College of Glamour
@@ -94,7 +94,32 @@ attacks:
       save_ability: ''
       save_dc: 0
 resources:
-  pools: []
+  pools:
+  - id: bardic_inspiration
+    label: Bardic Inspiration
+    current: 5
+    max_formula: cha_mod
+    reset: short_rest
+  - id: beguiling_magic
+    label: Beguiling Magic
+    current: 1
+    max_formula: '1'
+    reset: long_rest
+  - id: mantle_of_majesty
+    label: Mantle of Majesty
+    current: 1
+    max_formula: '1'
+    reset: long_rest
+  - id: pact_magic_slots
+    label: Pact Magic Slots (Level 1)
+    current: 2
+    max_formula: '2'
+    reset: short_rest
+  - id: magical_cunning
+    label: Magical Cunning
+    current: 1
+    max_formula: '1'
+    reset: long_rest
 features: []
 actions:
 - name: Attack
@@ -140,6 +165,12 @@ actions:
 - name: Utilize
   description: Use an object or interact with the environment in a significant way.
   type: action
+- name: Magical Cunning
+  description: Spend 1 minute in an esoteric rite to regain expended Pact Magic spell slots, up to half your maximum (round up).
+  type: action
+  uses:
+    pool: magical_cunning
+    cost: 1
 reactions:
 - name: Opportunity Attack
   description: When a hostile creature you can see moves out of your reach, you can
@@ -149,7 +180,46 @@ reactions:
   description: You can take a reaction when a trigger occurs. A reaction is only available
     once per round.
   type: reaction
-bonus_actions: []
+- name: Countercharm
+  description: 'When you or a creature within 30 feet fails a save against Charmed
+    or Frightened, use your reaction to let it reroll with advantage.'
+  type: reaction
+bonus_actions:
+- name: Bonus Action
+  description: You can take a bonus action only when a feature, spell, or ability
+    says you can.
+  type: bonus_action
+- name: Bardic Inspiration
+  description: Inspire one creature within 60 feet who can hear or see you. It gains
+    one Bardic Inspiration die (d8) for 1 hour to add to a failed d20 test.
+  type: bonus_action
+  uses:
+    pool: bardic_inspiration
+    cost: 1
+- name: Mantle of Inspiration
+  description: 'Expend one Bardic Inspiration use and roll your d8. Up to 5 other
+    creatures within 60 feet each gain temporary HP equal to twice the roll and can
+    use reactions to move up to speed without opportunity attacks.'
+  type: bonus_action
+  uses:
+    pool: bardic_inspiration
+    cost: 1
+- name: Beguiling Magic
+  description: 'After casting an Enchantment or Illusion spell with a slot, force
+    one creature within 60 feet to make a WIS save vs your spell DC or become Charmed
+    or Frightened for up to 1 minute (repeat save at end of turns).'
+  type: bonus_action
+  uses:
+    pool: beguiling_magic
+    cost: 1
+- name: Mantle of Majesty
+  description: 'Cast Command without a spell slot and gain a 1-minute aura of unearthly
+    majesty (concentration). During it, you can cast Command as a bonus action without
+    a slot; creatures charmed by you auto-fail these saves.'
+  type: bonus_action
+  uses:
+    pool: mantle_of_majesty
+    cost: 1
 spellcasting:
   enabled: true
   spell_yaml_paths:
@@ -200,11 +270,11 @@ spellcasting:
       max: 3
       current: 3
     '4':
-      max: 3
-      current: 3
-    '5':
       max: 2
       current: 2
+    '5':
+      max: 0
+      current: 0
     '6':
       max: 0
       current: 0
