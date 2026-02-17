@@ -96,6 +96,8 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('if (tagSet.has("attack") || tagSet.has("spell_attack_target")) return "attack";', self.html)
         self.assertIn('if (tagSet.has("save") || tagSet.has("spell_save_target")) return "save";', self.html)
         self.assertIn('if (tagSet.has("auto_hit") || tagSet.has("spell_auto_hit_target")) return "auto_hit";', self.html)
+        self.assertIn('const skipResolveAttack = hasSpellTag(preset, "skip_resolve_attack");', self.html)
+        self.assertIn("if (autoHit && pendingSpellTargeting.skipResolveAttack){", self.html)
         self.assertIn('const kind = normalizeLowerValue(step?.check?.kind);', self.html)
         self.assertIn('if (kind === "spell_attack") return "attack";', self.html)
         self.assertIn('const aoeSpell = spellActionTag === "aoe";', self.html)
@@ -103,6 +105,16 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('message: "Spell cast blocked: missing spell action tag",', self.html)
         self.assertIn('type: "spell_target_request",', self.html)
         self.assertIn('} else if (msg.type === "spell_target_result"){', self.html)
+
+    def test_cast_submit_warns_before_replacing_existing_concentration(self):
+        self.assertIn("const concentrationSpell = normalizeTextValue(unit?.concentration_spell || unit?.concentrationSpell || \"\");", self.html)
+        self.assertIn("preset?.concentration === true", self.html)
+        self.assertIn("unit?.concentrating", self.html)
+        self.assertIn("Casting ${spellName} will end it. Continue?", self.html)
+
+    def test_turn_alert_round_value_is_normalized_before_repeat_check(self):
+        self.assertIn("const roundRaw = state.round_num;", self.html)
+        self.assertIn("const lastRound = Number.isFinite(Number(lastTurnRound)) ? Number(lastTurnRound) : lastTurnRound;", self.html)
 
     def test_automated_spell_fields_can_hide_while_damage_type_defaults(self):
         self.assertIn("const updateCastAutomationFields = (preset) => {", self.html)

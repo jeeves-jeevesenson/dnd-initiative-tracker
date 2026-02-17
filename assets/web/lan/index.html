@@ -9153,6 +9153,30 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     const autoHit = pendingSpellTargeting.mode === "auto_hit";
+    if (autoHit && pendingSpellTargeting.skipResolveAttack){
+      const actionCid = activeControlledUnitCid();
+      if (actionCid === null){
+        localToast("Not yer turn yet, matey.");
+        return;
+      }
+      send({
+        type: "spell_target_request",
+        cid: actionCid,
+        target_cid: Number(target.cid),
+        spell_name: pendingSpellTargeting.spellName,
+        spell_slug: pendingSpellTargeting.spellSlug || null,
+        spell_id: pendingSpellTargeting.spellId || null,
+        spell_mode: pendingSpellTargeting.mode,
+        save_type: pendingSpellTargeting.saveType || null,
+        save_dc: Number.isFinite(Number(pendingSpellTargeting.saveDc)) ? Number(pendingSpellTargeting.saveDc) : null,
+        roll_save: false,
+        hit: true,
+        critical: false,
+        damage_entries: [],
+      });
+      consumeSpellTargetingShot();
+      return;
+    }
     pendingAttackResolve = {
       mode: "spell",
       targetCid: Number(target.cid),
@@ -9512,12 +9536,14 @@ __DAMAGE_TYPE_OPTIONS__
   function maybeShowTurnAlert(){
     if (!state || !claimedCid) return;
     const activeCid = state.active_cid;
-    const round = state.round_num;
+    const roundRaw = state.round_num;
+    const round = Number.isFinite(Number(roundRaw)) ? Number(roundRaw) : roundRaw;
     const activeCidValue = normalizeCid(activeCid, "turnAlert.activeCid");
     const lastActiveCidValue = normalizeCid(lastActiveCid, "turnAlert.lastActiveCid");
+    const lastRound = Number.isFinite(Number(lastTurnRound)) ? Number(lastTurnRound) : lastTurnRound;
     const isNowMyTurn = activeCidValue !== null && activeCidValue === claimedCid;
     const activeChanged = activeCidValue !== lastActiveCidValue;
-    const roundChanged = round !== lastTurnRound;
+    const roundChanged = round !== lastRound;
     if (isNowMyTurn && (activeChanged || roundChanged)){
       showTurnModal();
     }
@@ -10939,6 +10965,7 @@ __DAMAGE_TYPE_OPTIONS__
     const tags = Array.isArray(preset?.tags) ? preset.tags.map((tag) => normalizeLowerValue(tag)) : [];
     return new Set(tags.filter(Boolean));
   };
+  const hasSpellTag = (preset, tag) => getSpellTagSet(preset).has(normalizeLowerValue(tag));
   const resolveSpellActionTag = (preset) => {
     const tagSet = getSpellTagSet(preset);
     if (tagSet.has("aoe")) return "aoe";
@@ -13073,6 +13100,17 @@ __DAMAGE_TYPE_OPTIONS__
       localToast(showToastMessage);
     }
   }
+  function consumeSpellTargetingShot(){
+    if (!pendingSpellTargeting){
+      return;
+    }
+    pendingSpellTargeting.remainingShots = Math.max(0, Number(pendingSpellTargeting.remainingShots || 0) - 1);
+    if (pendingSpellTargeting.remainingShots <= 0){
+      clearSpellTargetingSession("");
+    } else {
+      localToast(`${pendingSpellTargeting.remainingShots} target${pendingSpellTargeting.remainingShots === 1 ? "" : "s"} remaining.`);
+    }
+  }
   function getSpellTargetingConfig(preset, slotLevel){
     if (!preset || isAoePreset(preset) || isSummonPreset(preset)){
       return null;
@@ -13099,6 +13137,7 @@ __DAMAGE_TYPE_OPTIONS__
     const targetSideRaw = normalizeLowerValue(uiConfig?.target_side);
     const targetSide = targetSideRaw === "friendly" ? "friendly" : "enemy";
     const overlayColor = normalizeHexColor(uiConfig?.overlay_color || "");
+    const skipResolveAttack = hasSpellTag(preset, "skip_resolve_attack");
     return {
       mode,
       rangeFt: parseSpellTargetRangeFeet(preset),
@@ -13111,6 +13150,7 @@ __DAMAGE_TYPE_OPTIONS__
       projectileCount,
       targetSide,
       overlayColor,
+      skipResolveAttack,
     };
   }
   function startSpellTargetingSession(config, preset, slotLevel){
@@ -13131,6 +13171,7 @@ __DAMAGE_TYPE_OPTIONS__
       remainingShots: Math.max(1, Number(config.projectileCount || 1)),
       targetSide: String(config.targetSide || "enemy").toLowerCase() === "friendly" ? "friendly" : "enemy",
       overlayColor: normalizeHexColor(config.overlayColor || "") || null,
+      skipResolveAttack: config.skipResolveAttack === true,
     };
     setCastOverlayOpen(false);
     setAttackOverlayMode(true);
@@ -13504,6 +13545,24 @@ __DAMAGE_TYPE_OPTIONS__
       const spellName = normalizeTextValue(castNameInput?.value) || "this spell";
       if (!confirm(`Cast ${spellName} using your ${actionLabel}?`)){
         return;
+      }
+      const concentrationSpell = normalizeTextValue(unit?.concentration_spell || unit?.concentrationSpell || "");
+      const concentrationKey = normalizeLowerValue(concentrationSpell);
+      const pendingConcentrationKey = normalizeLowerValue(preset?.slug || spellName);
+      if (
+        preset?.concentration === true
+        && unit?.concentrating
+        && concentrationKey
+        && concentrationKey !== pendingConcentrationKey
+      ){
+        const concentrationLabel = concentrationSpell
+          .split(/[-_\\s]+/)
+          .filter(Boolean)
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ");
+        if (!confirm(`You're concentrating on ${concentrationLabel}. Casting ${spellName} will end it. Continue?`)){
+          return;
+        }
       }
       const shape = String(castShapeInput?.value || "").toLowerCase();
       const spellActionTag = resolveSpellActionTag(preset);
@@ -14975,14 +15034,7 @@ __DAMAGE_TYPE_OPTIONS__
           critical,
           damage_entries: damageEntries,
         });
-        if (pendingSpellTargeting){
-          pendingSpellTargeting.remainingShots = Math.max(0, Number(pendingSpellTargeting.remainingShots || 0) - 1);
-          if (pendingSpellTargeting.remainingShots <= 0){
-            clearSpellTargetingSession("");
-          } else {
-            localToast(`${pendingSpellTargeting.remainingShots} target${pendingSpellTargeting.remainingShots === 1 ? "" : "s"} remaining.`);
-          }
-        }
+        consumeSpellTargetingShot();
       } else {
         send({
           type: "attack_request",
