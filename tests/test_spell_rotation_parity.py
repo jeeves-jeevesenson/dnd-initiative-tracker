@@ -28,7 +28,7 @@ class SpellRotationParityTests(unittest.TestCase):
 
     def test_lan_rotate_handle_is_shift_gated(self):
         html = Path("assets/web/lan/index.html").read_text(encoding="utf-8")
-        self.assertIn("if (!shiftMoveMode && !isActiveRotate) return null;", html)
+        self.assertIn("if (!shiftMoveMode && !isCurrentlyRotating) return null;", html)
 
 
 if __name__ == "__main__":

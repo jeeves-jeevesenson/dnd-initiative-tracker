@@ -77,6 +77,7 @@ class LanMovementModeCycleTests(unittest.TestCase):
         self.app._lan_apply_action(dict(msg))
 
         self.assertEqual(self.app._lan_aoes[7].get("angle_deg"), 180.0)
+        # anchor(5,5) with length_sq=4 means half-length=2 squares; at 180° center shifts to (3,5)
         self.assertAlmostEqual(float(self.app._lan_aoes[7].get("cx")), 3.0)
         self.assertAlmostEqual(float(self.app._lan_aoes[7].get("cy")), 5.0)
         self.assertIsNone(self.app._lan_aoes[8].get("angle_deg"))

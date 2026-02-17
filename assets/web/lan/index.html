@@ -9046,8 +9046,8 @@ __DAMAGE_TYPE_OPTIONS__
 
   function tokenRotateHandle(unit){
     if (!unit || !unit.pos) return null;
-    const isActiveRotate = rotatingToken && Number(rotatingToken.cid) === Number(unit?.cid);
-    if (!shiftMoveMode && !isActiveRotate) return null;
+    const isCurrentlyRotating = rotatingToken && Number(rotatingToken.cid) === Number(unit?.cid);
+    if (!shiftMoveMode && !isCurrentlyRotating) return null;
     const controlledCid = activeControlledUnitCid();
     if (controlledCid === null || !cidMatches(unit.cid, controlledCid, "rotateHandle.cid")) return null;
     const {x, y} = gridToScreen(unit.pos.col, unit.pos.row);
@@ -9093,11 +9093,11 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const next = {...aoe, angle_deg: facing};
       if ((next.kind === "line" || next.kind === "wall") && Number.isFinite(Number(next.ax)) && Number.isFinite(Number(next.ay))){
-        const halfLen = Number(next.length_sq || 0) / 2;
-        if (Number.isFinite(halfLen) && halfLen > 0){
+        const halfLengthSquares = Number(next.length_sq || 0) / 2;
+        if (Number.isFinite(halfLengthSquares) && halfLengthSquares > 0){
           const rad = (facing * Math.PI) / 180;
-          next.cx = Number(next.ax) + Math.cos(rad) * halfLen;
-          next.cy = Number(next.ay) + Math.sin(rad) * halfLen;
+          next.cx = Number(next.ax) + Math.cos(rad) * halfLengthSquares;
+          next.cy = Number(next.ay) + Math.sin(rad) * halfLengthSquares;
         }
       } else if (next.kind === "cone" && Number.isFinite(Number(next.ax)) && Number.isFinite(Number(next.ay))){
         next.cx = Number(next.ax);

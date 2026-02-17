@@ -5913,13 +5913,18 @@ class InitiativeTracker(base.InitiativeTracker):
                 try:
                     anchor_x = float(aoe.get("ax"))
                     anchor_y = float(aoe.get("ay"))
-                    half_len = float(aoe.get("length_sq") or 0.0) / 2.0
+                    half_length_squares = float(aoe.get("length_sq") or 0.0) / 2.0
                 except Exception:
-                    anchor_x = anchor_y = half_len = None
-                if anchor_x is not None and anchor_y is not None and half_len is not None and half_len > 0:
+                    anchor_x = anchor_y = half_length_squares = None
+                if (
+                    anchor_x is not None
+                    and anchor_y is not None
+                    and half_length_squares is not None
+                    and half_length_squares > 0
+                ):
                     rad = math.radians(float(facing))
-                    aoe["cx"] = float(anchor_x + math.cos(rad) * half_len)
-                    aoe["cy"] = float(anchor_y + math.sin(rad) * half_len)
+                    aoe["cx"] = float(anchor_x + math.cos(rad) * half_length_squares)
+                    aoe["cy"] = float(anchor_y + math.sin(rad) * half_length_squares)
             elif kind == "cone":
                 try:
                     aoe["cx"] = float(aoe.get("ax"))
