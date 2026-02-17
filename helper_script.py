@@ -5935,6 +5935,7 @@ class BattleMapWindow(tk.Toplevel):
         self.canvas.bind("<ButtonPress-1>", self._on_canvas_press)
         self.canvas.bind("<B1-Motion>", self._on_canvas_motion)
         self.canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
+        self.canvas.bind("<Button-2>", self._on_canvas_middle_click)
         self.canvas.bind("<Double-Button-1>", self._on_canvas_double_click)
         self.canvas.bind("<Button-3>", self._on_canvas_right_click)
         self.canvas.bind("<Motion>", self._on_canvas_hover)
@@ -8949,18 +8950,51 @@ class BattleMapWindow(tk.Toplevel):
         except tk.TclError:
             return False
 
-    def _open_damage_for_target(self, target_cid: int) -> None:
-        active_cid = getattr(self, "_active_cid", None)
+
+    def _open_damage_for_target(
+        self,
+        target_cid: int,
+        attacker_cid: Optional[int] = None,
+        consume_mode: bool = True,
+    ) -> None:
+        active_cid = attacker_cid
+        if active_cid is None:
+            active_cid = getattr(self, "_active_cid", None)
         if active_cid is None:
             active_cid = getattr(self.app, "current_cid", None)
         try:
             self.app._open_damage_tool(attacker_cid=active_cid, target_cid=target_cid)
         except Exception:
             return
-        try:
-            self.damage_mode_var.set(False)
-        except tk.TclError:
-            pass
+        if consume_mode:
+            try:
+                self.damage_mode_var.set(False)
+            except tk.TclError:
+                pass
+
+    def _on_canvas_middle_click(self, event: tk.Event) -> None:
+        if not hasattr(self, "canvas"):
+            return
+        mx = float(self.canvas.canvasx(event.x))
+        my = float(self.canvas.canvasy(event.y))
+        overl = self.canvas.find_overlapping(mx, my, mx, my)
+        if not overl:
+            return
+        for cand in reversed(overl):
+            tags = self.canvas.gettags(cand)
+            unit_tag = next((tag for tag in tags if tag.startswith("unit:")), None)
+            if not unit_tag:
+                continue
+            try:
+                target_cid = int(unit_tag.split(":", 1)[1])
+            except Exception:
+                return
+            self._open_damage_for_target(
+                target_cid=target_cid,
+                attacker_cid=getattr(self.app, "current_cid", None),
+                consume_mode=False,
+            )
+            return
 
     def _group_label_for_cids(self, cids: List[int]) -> str:
         names: List[str] = []

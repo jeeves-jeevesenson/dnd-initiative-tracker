@@ -42,5 +42,99 @@ class DmTurnMapFocusTests(unittest.TestCase):
         self.assertEqual(cell["movement_type"], "ground")
 
 
+class DmMapMiddleClickDamageTests(unittest.TestCase):
+    def _map_window(self):
+        return object.__new__(helper_mod.BattleMapWindow)
+
+    def test_open_damage_for_target_can_preserve_damage_mode(self):
+        window = self._map_window()
+        calls = []
+
+        class Var:
+            def __init__(self):
+                self.value = True
+            def set(self, value):
+                self.value = value
+
+        class App:
+            def __init__(self):
+                self.current_cid = 8
+            def _open_damage_tool(self, attacker_cid=None, target_cid=None):
+                calls.append((attacker_cid, target_cid))
+
+        window.app = App()
+        window.damage_mode_var = Var()
+        window._active_cid = 5
+
+        window._open_damage_for_target(22, consume_mode=False)
+
+        self.assertEqual(calls, [(5, 22)])
+        self.assertTrue(window.damage_mode_var.value)
+
+    def test_open_damage_for_target_middle_click_uses_current_turn_holder(self):
+        window = self._map_window()
+        calls = []
+
+        class App:
+            def __init__(self):
+                self.current_cid = 11
+                self.combatants = {3: object()}
+            def _open_damage_tool(self, attacker_cid=None, target_cid=None):
+                calls.append((attacker_cid, target_cid))
+
+        class Canvas:
+            def canvasx(self, x):
+                return x
+            def canvasy(self, y):
+                return y
+            def find_overlapping(self, *_args):
+                return [42]
+            def gettags(self, _item):
+                return ("unit:3",)
+
+        window.app = App()
+        window.canvas = Canvas()
+        window._open_damage_for_target = lambda target_cid, attacker_cid=None, consume_mode=True: calls.append((attacker_cid, target_cid, consume_mode))
+
+        event = type('Event', (), {'x': 10, 'y': 20})()
+        window._on_canvas_middle_click(event)
+
+        self.assertEqual(calls, [(11, 3, False)])
+
+    def test_open_damage_for_target_middle_click_includes_friendlies(self):
+        window = self._map_window()
+        calls = []
+
+        class App:
+            def __init__(self):
+                self.current_cid = 11
+                self.combatants = {3: object()}
+
+        class Canvas:
+            def canvasx(self, x):
+                return x
+            def canvasy(self, y):
+                return y
+            def find_overlapping(self, *_args):
+                return [42]
+            def gettags(self, _item):
+                return ("unit:3",)
+
+        window.app = App()
+        window.canvas = Canvas()
+        window._open_damage_for_target = lambda *args, **kwargs: calls.append((args, kwargs))
+
+        event = type('Event', (), {'x': 10, 'y': 20})()
+        window._on_canvas_middle_click(event)
+
+        self.assertEqual(
+            calls,
+            [(
+                (),
+                {"target_cid": 3, "attacker_cid": 11, "consume_mode": False},
+            )],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
