@@ -5682,18 +5682,14 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     const needsClaim = claimedCid === null || claimedCid === undefined;
-    const requiresClaim = !isPlanning;
-    if (requiresClaim){
-      allowUnclaimed = false;
-    }
-    const shouldShow = claimStatus === "unclaimed" && needsClaim && (requiresClaim || !allowUnclaimed);
+    const shouldShow = claimStatus === "unclaimed" && needsClaim && !allowUnclaimed;
     claimModal.classList.toggle("show", shouldShow);
     claimModal.setAttribute("aria-hidden", shouldShow ? "false" : "true");
     if (claimSpectatorBtn){
-      claimSpectatorBtn.classList.add("hidden");
+      claimSpectatorBtn.classList.remove("hidden");
     }
     if (claimContinueBtn){
-      claimContinueBtn.classList.toggle("hidden", requiresClaim);
+      claimContinueBtn.classList.remove("hidden");
     }
     if (shouldShow){
       if (!claimDataReady && claimEmptyHint){
@@ -5704,6 +5700,16 @@ __DAMAGE_TYPE_OPTIONS__
     } else {
       clearClaimRenderRetry();
     }
+  }
+
+  function enterUnclaimedSpectatorMode(){
+    allowUnclaimed = true;
+    setSelectedClaimCid(null);
+    clearAutoClaimPending();
+    clearClaimInFlight();
+    clearLanSelection();
+    setSheetPanelHidden(true);
+    updateClaimOverlay();
   }
 
   function requestCharacterSwitch(){
@@ -9758,12 +9764,12 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (claimContinueBtn){
     claimContinueBtn.addEventListener("click", () => {
-      if (!isPlanning){
-        updateClaimOverlay();
-        return;
-      }
-      allowUnclaimed = true;
-      updateClaimOverlay();
+      enterUnclaimedSpectatorMode();
+    });
+  }
+  if (claimSpectatorBtn){
+    claimSpectatorBtn.addEventListener("click", () => {
+      enterUnclaimedSpectatorMode();
     });
   }
 
