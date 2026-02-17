@@ -6475,6 +6475,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "has_mounted_this_turn": bool(getattr(c, "has_mounted_this_turn", False)),
                     "can_be_mounted": bool(getattr(c, "can_be_mounted", False)),
                     "facing_deg": int(self._normalize_facing_degrees(getattr(c, "facing_deg", 0))),
+                    "vexed_by_cid": _normalize_cid_value(getattr(c, "_vexed_by_cid", None), "snapshot.vexed_by"),
                     "summon_variant": str(getattr(c, "summon_variant", "") or "") or None,
                     "slot_level": getattr(c, "summon_slot_level", None),
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
@@ -13240,6 +13241,16 @@ class InitiativeTracker(base.InitiativeTracker):
                 if _weapon_has_property(entry, "finesse"):
                     return max(str_mod, dex_mod)
                 return str_mod
+            def _mastery_save_dc(entry: Any, profile_data: Any, variables: Dict[str, int]) -> int:
+                if isinstance(entry, dict):
+                    explicit_dc = _parse_int(entry.get("mastery_save_dc"), None)
+                    if explicit_dc is not None and explicit_dc > 0:
+                        return int(explicit_dc)
+                prof_bonus = 2
+                if isinstance(profile_data, dict):
+                    prof_block = profile_data.get("proficiency") if isinstance(profile_data.get("proficiency"), dict) else {}
+                    prof_bonus = max(2, _parse_int(prof_block.get("bonus"), 2) or 2)
+                return int(8 + int(prof_bonus) + int(_weapon_mastery_damage_ability_mod(entry, profile_data, variables)))
             def _damage_formula_variables(profile_data: Any) -> Dict[str, int]:
                 if not isinstance(profile_data, dict):
                     profile_data = {}
@@ -13281,6 +13292,21 @@ class InitiativeTracker(base.InitiativeTracker):
                 if evaluated is None:
                     return None
                 return max(0, int(math.floor(evaluated)))
+            def _ensure_condition(target_obj: Any, ctype: str) -> bool:
+                ctype_key = str(ctype or "").strip().lower()
+                if not ctype_key:
+                    return False
+                stacks = getattr(target_obj, "condition_stacks", None)
+                if not isinstance(stacks, list):
+                    stacks = []
+                    setattr(target_obj, "condition_stacks", stacks)
+                for st in stacks:
+                    if getattr(st, "ctype", None) == ctype_key:
+                        return False
+                next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                setattr(self, "_next_stack_id", int(next_sid) + 1)
+                stacks.append(base.ConditionStack(sid=int(next_sid), ctype=ctype_key, remaining_turns=None))
+                return True
             def _parse_effect_damage_entries(effect_text: Any, variables: Dict[str, int]) -> List[Dict[str, Any]]:
                 if not isinstance(effect_text, str):
                     return []
@@ -13325,6 +13351,24 @@ class InitiativeTracker(base.InitiativeTracker):
                 setattr(self, "_next_stack_id", int(next_sid) + 1)
                 stacks.append(base.ConditionStack(sid=int(next_sid), ctype="prone", remaining_turns=None))
                 return True
+            def _is_enemy_of_attacker(attacker_obj: Any, target_obj: Any) -> bool:
+                attacker_role = str(self.__dict__.get("_name_role_memory", {}).get(str(getattr(attacker_obj, "name", "")), "enemy") or "enemy")
+                target_role = str(self.__dict__.get("_name_role_memory", {}).get(str(getattr(target_obj, "name", "")), "enemy") or "enemy")
+                return bool(attacker_role in ("pc", "ally") and target_role not in ("pc", "ally"))
+            def _push_destination(origin: Tuple[int, int], facing_deg: Any, steps: int) -> Tuple[int, int]:
+                cols, rows, obstacles, _rough, _positions = self._lan_live_map_data()
+                facing = float(self._normalize_facing_degrees(facing_deg))
+                dx = int(round(math.sin(math.radians(facing))))
+                dy = int(round(-math.cos(math.radians(facing))))
+                if dx == 0 and dy == 0:
+                    dy = -1
+                col, row = int(origin[0]), int(origin[1])
+                for _ in range(max(0, int(steps))):
+                    nc, nr = col + dx, row + dy
+                    if nc < 0 or nr < 0 or nc >= cols or nr >= rows or (nc, nr) in obstacles:
+                        break
+                    col, row = nc, nr
+                return int(col), int(row)
             target_cid = _normalize_cid_value(msg.get("target_cid"), "attack_request.target_cid", log_fn=log_warning)
             target = self.combatants.get(int(target_cid)) if target_cid is not None else None
             if target is None:
@@ -13431,22 +13475,27 @@ class InitiativeTracker(base.InitiativeTracker):
                         if has_nick_mastery:
                             break
                 nick_extra_attack_available = bool(other_light_weapon and has_nick_mastery)
+            mastery_free_attack = str(msg.get("mastery_free_attack") or "").strip().lower()
+            is_cleave_followup = mastery_free_attack == "cleave"
             if nick_extra_attack_available:
                 configured_attack_count = min(10, int(configured_attack_count) + 1)
             attack_count = max(
                 1,
                 min(10, _parse_int(msg.get("attack_count"), configured_attack_count) or configured_attack_count),
             )
+            if is_cleave_followup:
+                attack_count = 1
             attack_resources = max(0, _parse_int(getattr(c, "attack_resource_remaining", 0), 0) or 0)
-            if attack_resources <= 0:
-                if not self._use_action(c):
-                    self._lan.toast(ws_id, "No attacks left, matey.")
-                    return
-                attack_resources = int(configured_attack_count)
-                if nick_extra_attack_available:
-                    setattr(c, "_nick_mastery_turn_marker", turn_marker)
-            attack_resources = max(0, int(attack_resources) - 1)
-            setattr(c, "attack_resource_remaining", int(attack_resources))
+            if not is_cleave_followup:
+                if attack_resources <= 0:
+                    if not self._use_action(c):
+                        self._lan.toast(ws_id, "No attacks left, matey.")
+                        return
+                    attack_resources = int(configured_attack_count)
+                    if nick_extra_attack_available:
+                        setattr(c, "_nick_mastery_turn_marker", turn_marker)
+                attack_resources = max(0, int(attack_resources) - 1)
+                setattr(c, "attack_resource_remaining", int(attack_resources))
             to_hit = _parse_int(selected_weapon.get("to_hit"), _parse_int(attacks.get("weapon_to_hit"), 0) or 0) or 0
             magic_bonus = _parse_int(selected_weapon.get("magic_bonus"), _parse_int(selected_weapon.get("item_bonus"), 0) or 0) or 0
             to_hit += int(magic_bonus)
@@ -13470,12 +13519,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     damage_entries.append({"amount": amount, "type": dtype})
             effect_block = selected_weapon.get("effect") if isinstance(selected_weapon.get("effect"), dict) else {}
             mastery_notes: List[str] = []
+            variables = _damage_formula_variables(profile)
             graze_applied = False
             if hit and not damage_entries:
                 mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
                 if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
                     mode_block = selected_weapon.get("two_handed")
-                variables = _damage_formula_variables(profile)
                 mode_formula = mode_block.get("damage_formula") if isinstance(mode_block, dict) else ""
                 mode_damage = _roll_damage_formula(mode_formula, variables)
                 mode_type = str((mode_block or {}).get("damage_type") or "").strip().lower() if isinstance(mode_block, dict) else ""
@@ -13486,28 +13535,24 @@ class InitiativeTracker(base.InitiativeTracker):
                 mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
                 if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
                     mode_block = selected_weapon.get("two_handed")
-                variables = _damage_formula_variables(profile)
                 graze_damage = max(0, _weapon_mastery_damage_ability_mod(selected_weapon, profile, variables))
                 mode_type = str((mode_block or {}).get("damage_type") or "").strip().lower() if isinstance(mode_block, dict) else ""
                 if graze_damage > 0:
                     damage_entries.append({"amount": int(graze_damage), "type": mode_type})
                     graze_applied = True
                     mastery_notes.append(f"Graze deals {int(graze_damage)} damage on the miss.")
-            if weapon_mastery_enabled and hit:
-                if _weapon_has_property(selected_weapon, "cleave"):
-                    mastery_notes.append("Cleave: ye can make a second attack against another nearby target.")
-                if _weapon_has_property(selected_weapon, "push"):
-                    mastery_notes.append("Push: move that Large-or-smaller target up to 10 ft away.")
-                if _weapon_has_property(selected_weapon, "sap"):
-                    mastery_notes.append("Sap: target has disadvantage on its next attack roll.")
-                if _weapon_has_property(selected_weapon, "slow"):
-                    mastery_notes.append("Slow: target speed is reduced by 10 ft until start of yer next turn.")
-                if _weapon_has_property(selected_weapon, "topple"):
-                    mastery_notes.append("Topple: have target make a Constitution save or fall prone.")
-                if _weapon_has_property(selected_weapon, "vex"):
-                    mastery_notes.append("Vex: gain advantage on yer next attack against this target.")
             total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
             damage_applied = bool(hit or graze_applied)
+            mastery_cleave_candidates: List[Dict[str, Any]] = []
+            mastery_vex_advantage = bool(
+                hit
+                and weapon_mastery_enabled
+                and _weapon_has_property(selected_weapon, "vex")
+                and _parse_int(getattr(target, "_vexed_by_cid", None), None) == int(cid)
+            )
+            if mastery_vex_advantage:
+                mastery_notes.append("Vex: Advantage applies to this attack.")
+                setattr(target, "_vexed_by_cid", None)
             if damage_applied and total_damage > 0:
                 before_hp = _parse_int(getattr(target, "hp", None), None)
                 if before_hp is not None:
@@ -13543,6 +13588,70 @@ class InitiativeTracker(base.InitiativeTracker):
                             self._lan.play_ko(int(cid))
                         except Exception:
                             pass
+            if weapon_mastery_enabled and hit:
+                if _weapon_has_property(selected_weapon, "cleave"):
+                    mastery_notes.append("Cleave: ye can make a second attack against another nearby target.")
+                if _weapon_has_property(selected_weapon, "push"):
+                    mastery_notes.append("Push: move that Large-or-smaller target up to 10 ft away.")
+                if _weapon_has_property(selected_weapon, "sap"):
+                    mastery_notes.append("Sap: target has disadvantage on its next attack roll.")
+                if _weapon_has_property(selected_weapon, "slow"):
+                    mastery_notes.append("Slow: target speed is reduced by 10 ft until start of yer next turn.")
+                if _weapon_has_property(selected_weapon, "topple"):
+                    mastery_notes.append("Topple: have target make a Constitution save or fall prone.")
+                if _weapon_has_property(selected_weapon, "vex"):
+                    mastery_notes.append("Vex: gain advantage on yer next attack against this target.")
+                if _weapon_has_property(selected_weapon, "sap") and _ensure_condition(target, "sapped"):
+                    mastery_notes.append("Sap applied: target is Sapped.")
+                if _weapon_has_property(selected_weapon, "slow"):
+                    move_rem = max(0, _parse_int(getattr(target, "move_remaining", 0), 0) or 0)
+                    move_total = max(0, _parse_int(getattr(target, "move_total", move_rem), move_rem) or move_rem)
+                    setattr(target, "move_remaining", max(0, int(move_rem) - 10))
+                    setattr(target, "move_total", max(0, int(move_total) - 10))
+                    mastery_notes.append("Slow applied: target movement reduced by 10 ft.")
+                if _weapon_has_property(selected_weapon, "push"):
+                    origin = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(target_cid))
+                    if isinstance(origin, tuple) and len(origin) == 2:
+                        pushed = _push_destination((int(origin[0]), int(origin[1])), getattr(c, "facing_deg", 0), 2)
+                        self._lan_positions[int(target_cid)] = (int(pushed[0]), int(pushed[1]))
+                        mastery_notes.append("Push applied: target moved up to 10 ft.")
+                if _weapon_has_property(selected_weapon, "topple"):
+                    topple_dc = _mastery_save_dc(selected_weapon, profile, variables)
+                    topple_roll = random.randint(1, 20)
+                    topple_mod = _save_mod_for_target(target, "con")
+                    topple_total = int(topple_roll) + int(topple_mod)
+                    topple_passed = bool(topple_roll != 1 and topple_total >= int(topple_dc))
+                    if not topple_passed and _set_prone_if_needed(target):
+                        mastery_notes.append("Topple applied: target is Prone.")
+                if _weapon_has_property(selected_weapon, "vex"):
+                    _ensure_condition(target, "vexed")
+                    setattr(target, "_vexed_by_cid", int(cid))
+                    mastery_notes.append("Vex applied: next attack by ye has advantage.")
+                if (
+                    _weapon_has_property(selected_weapon, "cleave")
+                    and not is_cleave_followup
+                    and total_damage > 0
+                ):
+                    positions = dict(self.__dict__.get("_lan_positions", {}) or {})
+                    attacker_pos = positions.get(int(cid))
+                    if isinstance(attacker_pos, tuple) and len(attacker_pos) == 2:
+                        ac, ar = int(attacker_pos[0]), int(attacker_pos[1])
+                        for enemy_cid, enemy in self.combatants.items():
+                            try:
+                                ecid = int(enemy_cid)
+                            except Exception:
+                                continue
+                            if ecid in (int(cid), int(target_cid)):
+                                continue
+                            if not _is_enemy_of_attacker(c, enemy):
+                                continue
+                            epos = positions.get(ecid)
+                            if not (isinstance(epos, tuple) and len(epos) == 2):
+                                continue
+                            if abs(int(epos[0]) - ac) <= 1 and abs(int(epos[1]) - ar) <= 1:
+                                mastery_cleave_candidates.append({"cid": ecid, "name": str(getattr(enemy, "name", "Enemy") or "Enemy")})
+                    if mastery_cleave_candidates:
+                        mastery_notes.append("Cleave ready: choose one nearby enemy for a free attack.")
             result_payload: Dict[str, Any] = {
                 "type": "attack_result",
                 "ok": True,
@@ -13560,7 +13669,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 "damage_entries": list(damage_entries if damage_applied else []),
                 "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
                 "attack_resource_remaining": int(getattr(c, "attack_resource_remaining", 0) or 0),
+                "mastery_advantage": bool(mastery_vex_advantage),
             }
+            if mastery_cleave_candidates:
+                result_payload["cleave_candidates"] = list(mastery_cleave_candidates)
             if mastery_notes:
                 result_payload["weapon_property_notes"] = list(mastery_notes)
             save_ability = str(effect_block.get("save_ability") or "").strip().lower()

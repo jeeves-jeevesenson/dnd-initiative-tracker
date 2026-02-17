@@ -32,6 +32,9 @@ class LanAttackRequestTests(unittest.TestCase):
         self.app.start_cid = None
         self.app.current_cid = 1
         self.app._map_window = None
+        self.app._name_role_memory = {"Aelar": "pc", "Goblin": "enemy"}
+        self.app._lan_positions = {1: (5, 5), 2: (5, 4)}
+        self.app._lan_live_map_data = lambda: (20, 20, set(), {}, dict(self.app._lan_positions))
         self.app.combatants = {
             1: type("C", (), {"cid": 1, "name": "Aelar", "ac": 16, "hp": 25, "condition_stacks": []})(),
             2: type(
@@ -603,6 +606,76 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertTrue(result.get("hit"))
         self.assertIn("Push: move that Large-or-smaller target up to 10 ft away.", result.get("weapon_property_notes", []))
+
+    def test_attack_request_push_mastery_moves_target_two_squares_in_facing_direction(self):
+        self.app.combatants[1].facing_deg = 0
+        self.app._profile_for_player_name = lambda name: {
+            "abilities": {"str": 18},
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_mastery_enabled": True,
+                "weapons": [
+                    {
+                        "id": "greatclub",
+                        "name": "Greatclub",
+                        "to_hit": 8,
+                        "one_handed": {"damage_formula": "1d8 + str_mod", "damage_type": "bludgeoning"},
+                        "properties": ["push", "two_handed"],
+                    }
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 26,
+            "target_cid": 2,
+            "weapon_id": "greatclub",
+            "hit": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=5):
+            self.app._lan_apply_action(msg)
+
+        self.assertEqual(self.app._lan_positions.get(2), (5, 2))
+
+    def test_attack_request_cleave_mastery_exposes_nearby_free_attack_candidates(self):
+        self.app.combatants[3] = type("C", (), {"cid": 3, "name": "Orc", "ac": 13, "hp": 12, "condition_stacks": []})()
+        self.app._lan_positions[3] = (6, 5)
+        self.app._profile_for_player_name = lambda name: {
+            "abilities": {"str": 18},
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_mastery_enabled": True,
+                "weapons": [
+                    {
+                        "id": "greataxe",
+                        "name": "Greataxe",
+                        "to_hit": 8,
+                        "one_handed": {"damage_formula": "1d12 + str_mod", "damage_type": "slashing"},
+                        "properties": ["cleave", "heavy", "two_handed"],
+                    }
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 27,
+            "target_cid": 2,
+            "weapon_id": "greataxe",
+            "hit": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=6):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        candidates = result.get("cleave_candidates", [])
+        self.assertTrue(any(int(entry.get("cid")) == 3 for entry in candidates))
 
 
 if __name__ == "__main__":
