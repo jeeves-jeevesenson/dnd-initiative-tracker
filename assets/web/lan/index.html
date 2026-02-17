@@ -1726,7 +1726,7 @@
       margin-top:2px;
     }
     .map-view-log-msg{color:#f2f6ff; text-shadow: 0 1px 0 rgba(0,0,0,0.45);}
-    .map-view-log-msg.is-crit{font-weight:800; letter-spacing:0.2px;}
+    .map-view-log-msg.is-crit{font-weight:800; font-style:italic; letter-spacing:0.2px; color:#7a1016; text-shadow:0 0 10px rgba(122,16,22,0.45);}
     .map-view-log-msg .damage-type{font-weight:700; text-shadow:0 0 8px currentColor;}
     @media (max-width: 900px){
       .map-view-log-panel{left:8px; right:8px; bottom:8px; width:auto; max-height:34vh;}
@@ -4154,10 +4154,17 @@ __DAMAGE_TYPE_OPTIONS__
       if (!parsed || typeof parsed !== "object"){
         return defaults;
       }
-      return {
+      const merged = {
         ...defaults,
         ...parsed,
       };
+      if (Number.isFinite(Number(merged.left)) && Number.isFinite(Number(merged.top))){
+        if (Number(merged.left) <= 4 && Number(merged.top) <= 4){
+          merged.left = null;
+          merged.top = null;
+        }
+      }
+      return merged;
     } catch (_err){
       return defaults;
     }
@@ -7422,13 +7429,19 @@ __DAMAGE_TYPE_OPTIONS__
   };
   function decorateDamageTypes(message){
     const html = escapeHtml(String(message || ""));
-    const typeKeys = Object.keys(damageTypeColorByName);
+    const typeKeys = Object.keys(damageTypeColorByName).sort((a, b) => b.length - a.length);
     const typePattern = typeKeys.join("|");
-    const rx = new RegExp(`\\b\\d+(?:\\.\\d+)?\\s+(?:(${typePattern})\\s+)?damage\\b`, "gi");
-    return html.replace(rx, (match, type) => {
-      const key = String(type || "physical").toLowerCase();
+    const rx = new RegExp(`\\b(\\d+(?:\\.\\d+)?)\\s+(${typePattern})(\\s+damage\\b)?|\\b(\\d+(?:\\.\\d+)?)\\s+(damage\\b)`, "gi");
+    return html.replace(rx, (match, typedAmount, type, typedDamageWord, plainAmount, plainDamageWord) => {
+      const amount = String(typedAmount || plainAmount || "").trim();
+      const typeText = String(type || "").trim();
+      const damageWord = String(typedDamageWord || plainDamageWord || "").trim();
+      const key = String(typeText || "physical").toLowerCase();
       const color = damageTypeColorByName[key] || damageTypeColorByName.physical;
-      return `<span class="damage-type" style="color:${color}">${match}</span>`;
+      if (typeText){
+        return `<span class="damage-type" style="color:${color}"><strong>${amount}</strong> ${typeText}${damageWord ? ` ${damageWord}` : ""}</span>`;
+      }
+      return `<span class="damage-type" style="color:${color}"><strong>${amount}</strong> ${damageWord || "damage"}</span>`;
     });
   }
   function renderMapViewLogPanel(){
