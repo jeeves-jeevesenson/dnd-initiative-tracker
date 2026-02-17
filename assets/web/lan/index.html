@@ -1523,7 +1523,7 @@
     .hint.hidden{display:none;}
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
 
-    .rules-help-layout{display:grid; grid-template-columns:minmax(220px, 32%) 1fr; gap:10px; min-height:55vh;}
+    .rules-help-layout{display:grid; grid-template-columns:minmax(220px, 32%) 1fr; gap:10px; min-height:68vh; max-height:calc(100dvh - 170px);}
     .rules-help-left{display:flex; flex-direction:column; gap:8px; min-height:0;}
     .rules-help-search{width:100%;}
     .rules-help-tree{overflow:auto; border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px; background:rgba(8,10,14,.5); min-height:200px;}
@@ -1531,10 +1531,12 @@
     .rules-help-node button{width:100%; text-align:left; background:transparent; border:0; color:var(--text); padding:4px 6px; border-radius:6px;}
     .rules-help-node button:hover{background:rgba(255,255,255,.1);}
     .rules-help-children{margin-left:12px; border-left:1px solid rgba(255,255,255,.08); padding-left:8px;}
-    .rules-help-right{display:flex; flex-direction:column; gap:8px; min-height:0;}
-    .rules-help-frame{flex:1 1 auto; min-height:300px; border:1px solid rgba(255,255,255,.15); border-radius:10px; background:#0b0d10;}
+    .rules-help-right{display:flex; flex-direction:column; gap:8px; min-height:0; height:100%;}
+    .rules-help-frame{flex:1 1 auto; min-height:460px; height:100%; border:1px solid rgba(255,255,255,.15); border-radius:10px; background:#0b0d10; width:100%;}
     .rules-help-message{font-size:12px; color:var(--muted); min-height:16px;}
-    @media (max-width: 900px){ .rules-help-layout{grid-template-columns:1fr;} }
+    @media (max-width: 1600px){ .rules-help-layout{min-height:64vh; max-height:calc(100dvh - 150px);} }
+    @media (max-width: 1200px){ .rules-help-layout{min-height:60vh; max-height:calc(100dvh - 130px);} }
+    @media (max-width: 900px){ .rules-help-layout{grid-template-columns:1fr; min-height:56vh; max-height:none;} .rules-help-frame{min-height:360px;} }
     .modal-actions .btn{flex:1; min-width:120px;}
     .action-picker-list{
       display:flex;
@@ -5616,8 +5618,8 @@ __DAMAGE_TYPE_OPTIONS__
   function loadRulesViewer(page=1){
     if (!helpViewer) return;
     rulesLastPage = Math.max(1, Number(page || 1));
-    const base = "/assets/web/lan/pdfjs/web/viewer.html?file=/rules.pdf";
-    const url = `${base}#page=${rulesLastPage}`;
+    const base = "/assets/web/lan/pdfjs/web/viewer.html";
+    const url = `${base}?page=${rulesLastPage}#page=${rulesLastPage}`;
     helpViewer.src = url;
     rulesViewerLoaded = true;
   }
@@ -5736,7 +5738,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (helpOpenTabBtn){
     helpOpenTabBtn.addEventListener("click", () => {
-      window.open("/assets/web/lan/pdfjs/web/viewer.html?file=/rules.pdf", "_blank", "noopener,noreferrer");
+      window.open(`/assets/web/lan/pdfjs/web/viewer.html?page=${rulesLastPage || 1}#page=${rulesLastPage || 1}`, "_blank", "noopener,noreferrer");
     });
   }
   if (helpOpenClassBtn){
