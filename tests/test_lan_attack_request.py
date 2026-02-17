@@ -54,6 +54,7 @@ class LanAttackRequestTests(unittest.TestCase):
         }
         self.app.combatants[1].exhaustion_level = 0
         self.app.combatants[1].action_remaining = 1
+        self.app.combatants[1].reaction_remaining = 1
         self.app.combatants[1].attack_resource_remaining = 0
         self.app._display_order = lambda: [self.app.combatants[cid] for cid in sorted(self.app.combatants.keys())]
         self.app._retarget_current_after_removal = lambda removed, pre_order=None: None
@@ -218,6 +219,33 @@ class LanAttackRequestTests(unittest.TestCase):
 
         self.assertNotIn("_attack_result", msg)
         self.assertIn((13, "No attacks left, matey."), self.toasts)
+
+    def test_opportunity_attack_can_resolve_out_of_turn_without_spending_action(self):
+        self.app.current_cid = 2
+        self.app._is_valid_summon_turn_for_controller = lambda controlling, target, current: target == current
+        self.app.combatants[1].action_remaining = 0
+        self.app.combatants[1].attack_resource_remaining = 0
+        self.app.combatants[1].reaction_remaining = 1
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 30,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "opportunity_attack": True,
+            "hit": False,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertFalse(result.get("hit"))
+        self.assertEqual(self.app.combatants[1].reaction_remaining, 0)
+        self.assertEqual(self.app.combatants[1].action_remaining, 0)
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 0)
+        self.assertNotIn((30, "Not yer turn yet, matey."), self.toasts)
 
     def test_attack_request_accepts_manual_miss_without_attack_roll(self):
         msg = {

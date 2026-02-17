@@ -11567,22 +11567,31 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         # Only allow controlling on your turn (POC)
+        opportunity_attack_requested = str(msg.get("opportunity_attack") or "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
         if not is_admin and typ not in ("cast_aoe", "cast_spell", "aoe_move", "aoe_remove", "dismiss_summons"):
             if in_combat:
-                valid_turn = self._is_valid_summon_turn_for_controller(claimed, cid, current_cid)
-                if not valid_turn:
-                    if is_move:
-                        msg["_move_applied"] = False
-                        msg["_move_reject_reason"] = "not_your_turn"
-                        _move_log(
-                            "lan_move_reject",
-                            reason="not_your_turn",
-                            cid=cid,
-                            current_cid=current_cid,
-                            in_combat=in_combat,
-                        )
-                    self._lan.toast(ws_id, "Not yer turn yet, matey.")
-                    return
+                if typ == "attack_request" and opportunity_attack_requested:
+                    pass
+                else:
+                    valid_turn = self._is_valid_summon_turn_for_controller(claimed, cid, current_cid)
+                    if not valid_turn:
+                        if is_move:
+                            msg["_move_applied"] = False
+                            msg["_move_reject_reason"] = "not_your_turn"
+                            _move_log(
+                                "lan_move_reject",
+                                reason="not_your_turn",
+                                cid=cid,
+                                current_cid=current_cid,
+                                in_combat=in_combat,
+                            )
+                        self._lan.toast(ws_id, "Not yer turn yet, matey.")
+                        return
 
         if typ == "echo_summon":
             c = self.combatants.get(cid) if cid is not None else None
@@ -13592,6 +13601,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 nick_extra_attack_available = bool(other_light_weapon and has_nick_mastery)
             mastery_free_attack = str(msg.get("mastery_free_attack") or "").strip().lower()
             is_cleave_followup = mastery_free_attack == "cleave"
+            opportunity_attack = str(msg.get("opportunity_attack") or "").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            )
             if nick_extra_attack_available:
                 configured_attack_count = min(10, int(configured_attack_count) + 1)
             attack_count = max(
@@ -13602,15 +13617,20 @@ class InitiativeTracker(base.InitiativeTracker):
                 attack_count = 1
             attack_resources = max(0, _parse_int(getattr(c, "attack_resource_remaining", 0), 0) or 0)
             if not is_cleave_followup:
-                if attack_resources <= 0:
-                    if not self._use_action(c):
-                        self._lan.toast(ws_id, "No attacks left, matey.")
+                if opportunity_attack:
+                    if not self._use_reaction(c):
+                        self._lan.toast(ws_id, "No reactions left, matey.")
                         return
-                    attack_resources = int(configured_attack_count)
-                    if nick_extra_attack_available:
-                        setattr(c, "_nick_mastery_turn_marker", turn_marker)
-                attack_resources = max(0, int(attack_resources) - 1)
-                setattr(c, "attack_resource_remaining", int(attack_resources))
+                else:
+                    if attack_resources <= 0:
+                        if not self._use_action(c):
+                            self._lan.toast(ws_id, "No attacks left, matey.")
+                            return
+                        attack_resources = int(configured_attack_count)
+                        if nick_extra_attack_available:
+                            setattr(c, "_nick_mastery_turn_marker", turn_marker)
+                    attack_resources = max(0, int(attack_resources) - 1)
+                    setattr(c, "attack_resource_remaining", int(attack_resources))
             to_hit = _parse_int(selected_weapon.get("to_hit"), _parse_int(attacks.get("weapon_to_hit"), 0) or 0) or 0
             magic_bonus = _parse_int(selected_weapon.get("magic_bonus"), _parse_int(selected_weapon.get("item_bonus"), 0) or 0) or 0
             to_hit += int(magic_bonus)
