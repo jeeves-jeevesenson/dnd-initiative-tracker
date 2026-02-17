@@ -5713,6 +5713,7 @@ class InitiativeTracker(base.InitiativeTracker):
             bonus_actions: List[Dict[str, Any]] = []
             reactions: List[Dict[str, Any]] = []
             token_color: Optional[str] = None
+            token_border_color: Optional[str] = None
 
             # Future-facing: per-PC config file players/<Name>.yaml (optional)
             data = cfg_cache.get(nm, None)
@@ -5742,6 +5743,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 defenses = profile.get("defenses", {}) if isinstance(profile, dict) else {}
                 identity = profile.get("identity", {}) if isinstance(profile, dict) else {}
                 token_color = self._normalize_token_color(identity.get("token_color"))
+                token_border_color = self._normalize_token_color(identity.get("token_border_color"))
                 if isinstance(vitals, dict):
                     max_hp = to_int(vitals.get("max_hp"), None)
                     hp = to_int(vitals.get("current_hp"), None) if "current_hp" in vitals else None
@@ -5813,6 +5815,8 @@ class InitiativeTracker(base.InitiativeTracker):
                             setattr(combatant, "ac", int(ac))
                         if token_color:
                             setattr(combatant, "token_color", token_color)
+                        if token_border_color:
+                            setattr(combatant, "token_border_color", token_border_color)
                 except Exception:
                     pass
                 existing.add(nm)
@@ -5920,8 +5924,11 @@ class InitiativeTracker(base.InitiativeTracker):
             if ac is not None:
                 setattr(combatant, "ac", int(ac))
             token_color = identity.get("token_color") if isinstance(identity, dict) else None
+            token_border_color = identity.get("token_border_color") if isinstance(identity, dict) else None
             if token_color:
                 setattr(combatant, "token_color", token_color)
+            if token_border_color:
+                setattr(combatant, "token_border_color", token_border_color)
         summon_entries = normalized.get("summon_on_start", []) if isinstance(normalized, dict) else []
         if isinstance(summon_entries, list) and summon_entries:
             try:
@@ -6153,6 +6160,9 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _token_color_payload(self, c: Any) -> Optional[str]:
         return self._normalize_token_color(getattr(c, "token_color", None))
+
+    def _token_border_color_payload(self, c: Any) -> Optional[str]:
+        return self._normalize_token_color(getattr(c, "token_border_color", None))
 
     def _lan_sync_aoes_to_map(self, mw: Any) -> None:
         store = getattr(self, "_lan_aoes", {}) or {}
@@ -6451,6 +6461,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "role": role if role in ("pc", "ally", "enemy") else "enemy",
                     "ally": bool(role in ("pc", "ally")),
                     "token_color": self._token_color_payload(c),
+                    "token_border_color": self._token_border_color_payload(c),
                     "hp": int(getattr(c, "hp", 0) or 0),
                     "max_hp": int(getattr(c, "max_hp", getattr(c, "hp", 0)) or 0),
                     "speed": int(getattr(c, "speed", 0) or 0),
@@ -7939,6 +7950,10 @@ class InitiativeTracker(base.InitiativeTracker):
             normalized_color = self._normalize_token_color(data.get("token_color"))
             if normalized_color:
                 identity["token_color"] = normalized_color
+        if "token_border_color" not in identity:
+            normalized_border = self._normalize_token_color(data.get("token_border_color"))
+            if normalized_border:
+                identity["token_border_color"] = normalized_border
 
         raw_ip = identity.get("ip") if "ip" in identity else data.get("ip")
         normalized_ip = self._normalize_identity_host(raw_ip)
@@ -9739,6 +9754,50 @@ class InitiativeTracker(base.InitiativeTracker):
 
         return normalized
 
+    def _save_player_token_border_color(self, name: str, color: str) -> str:
+        if yaml is None:
+            raise RuntimeError("PyYAML is required for token border color persistence.")
+        player_name = str(name or "").strip()
+        if not player_name:
+            raise ValueError("Player name is required.")
+        normalized = self._normalize_token_color(color)
+        if not normalized:
+            raise ValueError("Token border color must be a hex value.")
+
+        self._load_player_yaml_cache()
+        path = self._find_player_profile_path(name)
+        if path is None:
+            players_dir = self._players_dir()
+            players_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"{self._sanitize_player_filename(player_name)}.yaml"
+            path = players_dir / filename
+
+        existing = self._player_yaml_cache_by_path.get(path) or {}
+        if not isinstance(existing, dict):
+            existing = {}
+
+        identity = existing.get("identity")
+        if not isinstance(identity, dict):
+            identity = {}
+        if "name" not in identity:
+            identity["name"] = player_name
+        identity["token_border_color"] = normalized
+        existing["identity"] = identity
+
+        self._write_player_yaml_atomic(path, existing)
+
+        meta = _file_stat_metadata(path)
+        self._player_yaml_cache_by_path[path] = existing
+        self._player_yaml_meta_by_path[path] = meta
+        profile = self._normalize_player_profile(existing, path.stem)
+        profile_name = profile.get("name", player_name)
+        self._player_yaml_data_by_name[profile_name] = profile
+        self._player_yaml_name_map[self._normalize_character_lookup_key(player_name)] = path
+        self._player_yaml_name_map[self._normalize_character_lookup_key(path.stem)] = path
+        self._schedule_player_yaml_refresh()
+
+        return normalized
+
     def _save_spell_color(self, spell_id: str, color: Any) -> Dict[str, Any]:
         if yaml is None:
             raise RuntimeError("PyYAML is required for spell persistence.")
@@ -11433,9 +11492,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if not color:
                 self._lan.toast(ws_id, "Pick a valid hex color, matey.")
                 return
-            if self._token_color_forbidden(color):
-                self._lan.toast(ws_id, "No red or white, matey.")
-                return
+            border_color = self._normalize_token_color(msg.get("border_color")) or "#ffffff"
             c = self.combatants.get(cid)
             if not c:
                 return
@@ -11443,10 +11500,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "Rider movement uses the mount, matey.")
                 return
             setattr(c, "token_color", color)
+            setattr(c, "token_border_color", border_color)
             player_name = _resolve_pc_name(cid)
             if player_name and not player_name.startswith("cid:"):
                 try:
                     self._save_player_token_color(player_name, color)
+                    self._save_player_token_border_color(player_name, border_color)
                 except Exception as exc:
                     self._oplog(f"Could not save token color for {player_name}: {exc}", level="warning")
             mw = getattr(self, "_map_window", None)

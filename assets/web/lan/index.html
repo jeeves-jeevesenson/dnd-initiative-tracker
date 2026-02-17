@@ -1600,7 +1600,11 @@
       color: var(--danger);
     }
     .hotkey-hint{font-size:11px; color: var(--muted);}
+    .color-section-title{font-size:12px; color:var(--muted); letter-spacing:0.04em; text-transform:uppercase; font-weight:700; margin:2px 0 6px 0; text-align:left;}
     .color-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+    .rgb-values{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+    .rgb-box{min-width:44px; padding:6px 8px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); background:rgba(255,255,255,0.05); font-size:12px; color:var(--text); text-align:center; font-variant-numeric:tabular-nums;}
+    .color-divider{height:1px; width:100%; margin: 4px 0 2px 0; background:rgba(255,255,255,0.12);}
     .color-swatch{width:36px; height:36px; border-radius:50%; border:2px solid rgba(255,255,255,0.2); background:#6aa9ff;}
     .color-input{width:64px; height:44px; border:none; background:none; padding:0;}
     .turn-modal{
@@ -2075,11 +2079,27 @@
 
     <div class="modal" id="colorModal" aria-hidden="true">
       <div class="card">
-        <h2>Pick yer token color</h2>
+        <h2>Pick yer token colors</h2>
+        <div class="color-section-title">Token</div>
         <div class="row color-row">
           <div class="color-swatch" id="tokenColorSwatch"></div>
           <input class="color-input" type="color" id="tokenColorInput" value="#6aa9ff" />
-          <div class="label">No red or white, matey.</div>
+          <div class="rgb-values" id="tokenColorRgbValues" aria-label="Token RGB value">
+            <div class="rgb-box" id="tokenColorR">R: 106</div>
+            <div class="rgb-box" id="tokenColorG">G: 169</div>
+            <div class="rgb-box" id="tokenColorB">B: 255</div>
+          </div>
+        </div>
+        <div class="color-divider" role="presentation"></div>
+        <div class="color-section-title">Border</div>
+        <div class="row color-row">
+          <div class="color-swatch" id="tokenBorderColorSwatch"></div>
+          <input class="color-input" type="color" id="tokenBorderColorInput" value="#ffffff" />
+          <div class="rgb-values" id="tokenBorderColorRgbValues" aria-label="Border RGB value">
+            <div class="rgb-box" id="tokenBorderColorR">R: 255</div>
+            <div class="rgb-box" id="tokenBorderColorG">G: 255</div>
+            <div class="rgb-box" id="tokenBorderColorB">B: 255</div>
+          </div>
         </div>
         <div class="modal-actions">
           <button class="btn accent" id="tokenColorConfirm">Confirm</button>
@@ -3394,6 +3414,14 @@ __DAMAGE_TYPE_OPTIONS__
   const colorModal = document.getElementById("colorModal");
   const tokenColorInput = document.getElementById("tokenColorInput");
   const tokenColorSwatch = document.getElementById("tokenColorSwatch");
+  const tokenColorR = document.getElementById("tokenColorR");
+  const tokenColorG = document.getElementById("tokenColorG");
+  const tokenColorB = document.getElementById("tokenColorB");
+  const tokenBorderColorInput = document.getElementById("tokenBorderColorInput");
+  const tokenBorderColorSwatch = document.getElementById("tokenBorderColorSwatch");
+  const tokenBorderColorR = document.getElementById("tokenBorderColorR");
+  const tokenBorderColorG = document.getElementById("tokenBorderColorG");
+  const tokenBorderColorB = document.getElementById("tokenBorderColorB");
   const tokenColorConfirm = document.getElementById("tokenColorConfirm");
   const tokenColorCancel = document.getElementById("tokenColorCancel");
   const tokenColorModeBtn = document.getElementById("tokenColorModeBtn");
@@ -5593,27 +5621,34 @@ __DAMAGE_TYPE_OPTIONS__
     return true;
   }
 
-  function isForbiddenColor(hex){
-    const rgb = hexToRgb(hex);
-    if (!rgb) return false;
-    if (rgb.r >= 245 && rgb.g >= 245 && rgb.b >= 245) return true;
-    if (rgb.r >= 200 && rgb.g <= 80 && rgb.b <= 80) return true;
-    return false;
-  }
-
   function rgbaFromHex(hex, alpha){
     const rgb = hexToRgb(hex);
     if (!rgb) return null;
     return `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
   }
 
+  function updateColorRgbBoxes(color, rEl, gEl, bEl){
+    const rgb = hexToRgb(color);
+    if (!rgb) return;
+    if (rEl) rEl.textContent = `R: ${rgb.r}`;
+    if (gEl) gEl.textContent = `G: ${rgb.g}`;
+    if (bEl) bEl.textContent = `B: ${rgb.b}`;
+  }
+
   function updateTokenColorSwatch(color){
-    if (!tokenColorSwatch) return;
-    tokenColorSwatch.style.background = color || "#6aa9ff";
+    const resolved = normalizeHexColor(color) || "#6aa9ff";
+    if (tokenColorSwatch) tokenColorSwatch.style.background = resolved;
+    updateColorRgbBoxes(resolved, tokenColorR, tokenColorG, tokenColorB);
+  }
+
+  function updateTokenBorderColorSwatch(color){
+    const resolved = normalizeHexColor(color) || "#ffffff";
+    if (tokenBorderColorSwatch) tokenBorderColorSwatch.style.background = resolved;
+    updateColorRgbBoxes(resolved, tokenBorderColorR, tokenBorderColorG, tokenBorderColorB);
   }
 
   function openColorModal(unit){
-    if (!colorModal || !tokenColorInput) return;
+    if (!colorModal || !tokenColorInput || !tokenBorderColorInput) return;
     const targetUnit = unit || getClaimedUnit();
     if (!targetUnit){
       localToast("Claim a character first, matey.");
@@ -5623,11 +5658,13 @@ __DAMAGE_TYPE_OPTIONS__
     let preferred = normalizeHexColor(targetUnit?.token_color)
       || normalizeHexColor(localStorage.getItem("inittracker_tokenColor"))
       || "#6aa9ff";
-    if (isForbiddenColor(preferred)){
-      preferred = "#6aa9ff";
-    }
+    const preferredBorder = normalizeHexColor(targetUnit?.token_border_color)
+      || normalizeHexColor(localStorage.getItem("inittracker_tokenBorderColor"))
+      || "#ffffff";
     tokenColorInput.value = preferred;
+    tokenBorderColorInput.value = preferredBorder;
     updateTokenColorSwatch(preferred);
+    updateTokenBorderColorSwatch(preferredBorder);
     colorModal.classList.add("show");
     colorModal.setAttribute("aria-hidden", "false");
   }
@@ -5647,10 +5684,6 @@ __DAMAGE_TYPE_OPTIONS__
     const color = normalizeHexColor(raw);
     if (!color){
       localToast("Pick a valid hex color, matey.");
-      return null;
-    }
-    if (isForbiddenColor(color)){
-      localToast("No red or white, matey.");
       return null;
     }
     return color;
@@ -7884,7 +7917,8 @@ __DAMAGE_TYPE_OPTIONS__
       const dmHl = (dmHighlightUntil.get(String(u.cid)) || 0) > Date.now();
       ctx.lineWidth = (active || dmHl) ? 3 : 2;
       const mountStroke = u.is_mount ? "rgba(106,169,255,0.98)" : null;
-      ctx.strokeStyle = dmHl ? "rgba(255,218,120,0.98)" : (mountStroke || (mine ? "rgba(106,169,255,0.95)" : (active ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.25)")));
+      const customBorderStroke = u.token_border_color ? rgbaFromHex(u.token_border_color, 0.95) : null;
+      ctx.strokeStyle = dmHl ? "rgba(255,218,120,0.98)" : (mountStroke || customBorderStroke || (mine ? "rgba(106,169,255,0.95)" : (active ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.25)")));
       ctx.stroke();
       if (u.is_mount){
         ctx.save();
@@ -10476,6 +10510,11 @@ __DAMAGE_TYPE_OPTIONS__
       updateTokenColorSwatch(ev.target.value);
     });
   }
+  if (tokenBorderColorInput){
+    tokenBorderColorInput.addEventListener("input", (ev) => {
+      updateTokenBorderColorSwatch(ev.target.value);
+    });
+  }
   if (tokenColorConfirm){
     tokenColorConfirm.addEventListener("click", () => {
       const claimedUnit = getClaimedUnit();
@@ -10487,17 +10526,20 @@ __DAMAGE_TYPE_OPTIONS__
       pendingClaim = claimedUnit;
       const color = validateTokenColor(tokenColorInput ? tokenColorInput.value : "");
       if (!color) return;
+      const borderColor = normalizeHexColor(tokenBorderColorInput ? tokenBorderColorInput.value : "") || "#ffffff";
       localStorage.setItem("inittracker_tokenColor", color);
+      localStorage.setItem("inittracker_tokenBorderColor", borderColor);
       const pendingCid = normalizeCid(pendingClaim.cid, "tokenColor.pendingCid");
       if (pendingCid === null) return;
       if (state?.units){
         const unit = state.units.find(u => cidMatches(u.cid, pendingCid, "tokenColor.unitCid"));
         if (unit){
           unit.token_color = color;
+          unit.token_border_color = borderColor;
           draw();
         }
       }
-      send({type:"set_color", cid: pendingCid, color});
+      send({type:"set_color", cid: pendingCid, color, border_color: borderColor});
       meEl.textContent = pendingClaim.name;
       closeColorModal();
     });
