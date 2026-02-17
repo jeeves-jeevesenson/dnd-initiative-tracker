@@ -383,6 +383,7 @@ For bug reports, include:
 ## License and attribution
 
 - Project license: **MIT**
+- Vendored LAN rules viewer assets include **PDF.js** (`pdfjs-dist 3.11.174`) under `assets/web/lan/pdfjs/`, licensed under **Apache License 2.0** (see `assets/web/lan/pdfjs/LICENSE`)
 - Not affiliated with Wizards of the Coast
 - Data/source notes are documented in folder-specific READMEs
 

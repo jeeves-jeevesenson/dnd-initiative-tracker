@@ -3,6 +3,7 @@ import pytest
 pytest.importorskip("httpx")
 pytest.importorskip("pypdf")
 
+import tempfile
 import threading
 import types
 import unittest
@@ -97,6 +98,28 @@ class LanRulesHelpPdfTests(unittest.TestCase):
         self.assertTrue(toc)
         self.assertEqual(toc[0].get("title"), "Fighter")
         self.assertEqual(toc[0].get("page"), 1)
+
+    def test_rules_pdf_supports_byte_range_requests(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pdf_path = Path(tmp_dir) / "Rules.pdf"
+            writer = PdfWriter()
+            writer.add_blank_page(width=300, height=300)
+            with pdf_path.open("wb") as handle:
+                writer.write(handle)
+
+            file_size = pdf_path.stat().st_size
+            with mock.patch.dict("os.environ", {"INITTRACKER_RULES_PDF": str(pdf_path)}, clear=False):
+                client = self._build_test_client()
+                range_response = client.get("/rules.pdf", headers={"Range": "bytes=0-1023"})
+                full_response = client.get("/rules.pdf")
+
+        self.assertEqual(range_response.status_code, 206)
+        self.assertEqual(range_response.headers.get("content-range"), f"bytes 0-{file_size - 1}/{file_size}")
+        self.assertEqual(range_response.headers.get("accept-ranges"), "bytes")
+        self.assertEqual(int(range_response.headers.get("content-length", "0")), file_size)
+        self.assertEqual(len(range_response.content), file_size)
+        self.assertEqual(full_response.status_code, 200)
+        self.assertIn("application/pdf", full_response.headers.get("content-type", ""))
 
     def test_spell_pages_endpoint_parses_markdown_mapping(self, tmp_path: Path):
         spells_dir = tmp_path / "Spells"
