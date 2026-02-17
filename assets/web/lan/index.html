@@ -1738,8 +1738,8 @@
       position:fixed;
       right:12px;
       bottom: calc(var(--bottombar-height) + 12px);
-      width:min(560px, 56vw);
-      height:min(42vh, 380px);
+      width:min(760px, 82vw);
+      height:min(58vh, 560px);
       min-width:260px;
       min-height:180px;
       border:1px solid rgba(255,255,255,0.2);
@@ -1754,6 +1754,11 @@
       resize: both;
     }
     .log-overlay.show{display:flex;}
+    .log-overlay .map-view-log-header{
+      cursor:move;
+      user-select:none;
+      touch-action:none;
+    }
     .log-content{
       overflow:auto;
       flex:1;
@@ -1771,6 +1776,20 @@
     }
     .log-content .map-view-log-time{
       font-size: max(10px, calc(var(--battle-log-font-size) * 0.72));
+    }
+    .log-resize-handle{
+      position:absolute;
+      right:4px;
+      bottom:4px;
+      width:18px;
+      height:18px;
+      cursor:nwse-resize;
+      touch-action:none;
+      opacity:0.75;
+      background:
+        linear-gradient(135deg, transparent 47%, rgba(255,255,255,0.62) 48%, rgba(255,255,255,0.62) 52%, transparent 53%),
+        linear-gradient(135deg, transparent 61%, rgba(255,255,255,0.42) 62%, rgba(255,255,255,0.42) 66%, transparent 67%);
+      border-radius:4px;
     }
     .spell-slot-monitor-row{
       align-items:center;
@@ -2088,14 +2107,14 @@
       </div>
     </div>
     <aside class="log-overlay" id="logModal" aria-hidden="true">
-      <div class="map-view-log-header">
+      <div class="map-view-log-header" id="logHeader">
         <div class="map-view-log-title">Battle Log</div>
         <div class="config-controls">
-          <button class="btn accent" id="logRefresh" type="button">Refresh</button>
           <button class="btn" id="logClose" type="button">Hide</button>
         </div>
       </div>
       <div class="log-content" id="logContent"></div>
+      <div class="log-resize-handle" id="logResizeHandle" aria-hidden="true"></div>
     </aside>
     <div class="modal" id="configModal" aria-hidden="true">
       <div class="card config-card">
@@ -3411,8 +3430,9 @@ __DAMAGE_TYPE_OPTIONS__
   const attackOverlayToggleBtn = document.getElementById("attackOverlayToggle");
   const measureClear = document.getElementById("measureClear");
   const logModal = document.getElementById("logModal");
+  const logHeader = document.getElementById("logHeader");
   const logContent = document.getElementById("logContent");
-  const logRefreshBtn = document.getElementById("logRefresh");
+  const logResizeHandle = document.getElementById("logResizeHandle");
   const logCloseBtn = document.getElementById("logClose");
   const dmSideLayout = document.getElementById("dmSideLayout");
   const dmLogPanel = document.getElementById("dmLogPanel");
@@ -4122,6 +4142,8 @@ __DAMAGE_TYPE_OPTIONS__
       fontSize: 14,
       width: null,
       height: null,
+      left: null,
+      top: null,
     };
     try {
       const raw = localStorage.getItem(battleLogViewPrefsKey);
@@ -4169,6 +4191,22 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (Number.isFinite(Number(battleLogViewPrefs.height))){
         logModal.style.height = `${Math.max(180, Number(battleLogViewPrefs.height))}px`;
+      }
+      if (Number.isFinite(Number(battleLogViewPrefs.left)) && Number.isFinite(Number(battleLogViewPrefs.top))){
+        const modalRect = logModal.getBoundingClientRect();
+        const maxLeft = Math.max(0, window.innerWidth - modalRect.width);
+        const maxTop = Math.max(0, window.innerHeight - modalRect.height);
+        const left = Math.min(maxLeft, Math.max(0, Number(battleLogViewPrefs.left)));
+        const top = Math.min(maxTop, Math.max(0, Number(battleLogViewPrefs.top)));
+        logModal.style.left = `${left}px`;
+        logModal.style.top = `${top}px`;
+        logModal.style.right = "auto";
+        logModal.style.bottom = "auto";
+      } else {
+        logModal.style.left = "";
+        logModal.style.top = "";
+        logModal.style.right = "";
+        logModal.style.bottom = "";
       }
       logModal.classList.toggle("show", battleLogViewPrefs.visible === true);
       logModal.setAttribute("aria-hidden", battleLogViewPrefs.visible === true ? "false" : "true");
@@ -5892,6 +5930,7 @@ __DAMAGE_TYPE_OPTIONS__
     battleLogViewPrefs.visible = true;
     applyBattleLogViewPrefs();
     persistBattleLogViewPrefs();
+    refreshMapViewLogPolling();
   }
 
   function hideLogModal(){
@@ -5899,6 +5938,7 @@ __DAMAGE_TYPE_OPTIONS__
     battleLogViewPrefs.visible = false;
     applyBattleLogViewPrefs();
     persistBattleLogViewPrefs();
+    refreshMapViewLogPolling();
   }
 
   function renderBattleLogOverlay(lines){
@@ -7416,10 +7456,11 @@ __DAMAGE_TYPE_OPTIONS__
       clearInterval(mapViewLogPollTimer);
       mapViewLogPollTimer = null;
     }
-    if (!isMapView) return;
+    const shouldPoll = isMapView || battleLogViewPrefs?.visible === true;
+    if (!shouldPoll) return;
     requestBattleLog();
     mapViewLogPollTimer = setInterval(()=>{
-      if (ws && ws.readyState === WebSocket.OPEN){
+      if (ws && ws.readyState === WebSocket.OPEN && (isMapView || battleLogViewPrefs?.visible === true)){
         send({type:"log_request"});
       }
     }, 2500);
@@ -8853,9 +8894,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
       send({type:"grid_request"});
       send({type:"terrain_request"});
-      if (battleLogViewPrefs?.visible){
-        requestBattleLog();
-      }
+      refreshMapViewLogPolling();
     });
     ws.addEventListener("close", (ev) => {
       const wasReconnect = reconnecting;
@@ -13171,19 +13210,87 @@ __DAMAGE_TYPE_OPTIONS__
         hideLogModal();
       } else {
         showLogModal();
-        requestBattleLog();
       }
-    });
-  }
-  if (logRefreshBtn){
-    logRefreshBtn.addEventListener("click", () => {
-      requestBattleLog();
     });
   }
   if (logCloseBtn){
     logCloseBtn.addEventListener("click", () => {
       hideLogModal();
     });
+  }
+  if (logHeader && logModal){
+    let dragState = null;
+    const endLogDrag = () => {
+      if (!dragState) return;
+      battleLogViewPrefs.left = dragState.left;
+      battleLogViewPrefs.top = dragState.top;
+      persistBattleLogViewPrefs();
+      dragState = null;
+    };
+    logHeader.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("button")) return;
+      const modalRect = logModal.getBoundingClientRect();
+      const maxLeft = Math.max(0, window.innerWidth - modalRect.width);
+      const maxTop = Math.max(0, window.innerHeight - modalRect.height);
+      dragState = {
+        pointerId: event.pointerId,
+        offsetX: event.clientX - modalRect.left,
+        offsetY: event.clientY - modalRect.top,
+        maxLeft,
+        maxTop,
+        left: Math.min(maxLeft, Math.max(0, modalRect.left)),
+        top: Math.min(maxTop, Math.max(0, modalRect.top)),
+      };
+      logModal.style.right = "auto";
+      logModal.style.bottom = "auto";
+      logHeader.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+    logHeader.addEventListener("pointermove", (event) => {
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+      const left = Math.min(dragState.maxLeft, Math.max(0, event.clientX - dragState.offsetX));
+      const top = Math.min(dragState.maxTop, Math.max(0, event.clientY - dragState.offsetY));
+      dragState.left = Math.round(left);
+      dragState.top = Math.round(top);
+      logModal.style.left = `${dragState.left}px`;
+      logModal.style.top = `${dragState.top}px`;
+    });
+    logHeader.addEventListener("pointerup", endLogDrag);
+    logHeader.addEventListener("pointercancel", endLogDrag);
+  }
+  if (logResizeHandle && logModal){
+    let resizeState = null;
+    const endLogResize = () => {
+      if (!resizeState) return;
+      persistBattleLogViewPrefs();
+      resizeState = null;
+    };
+    logResizeHandle.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const modalRect = logModal.getBoundingClientRect();
+      resizeState = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        width: modalRect.width,
+        height: modalRect.height,
+      };
+      logResizeHandle.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+    logResizeHandle.addEventListener("pointermove", (event) => {
+      if (!resizeState || event.pointerId !== resizeState.pointerId) return;
+      const width = Math.max(260, resizeState.width + (event.clientX - resizeState.startX));
+      const height = Math.max(180, resizeState.height + (event.clientY - resizeState.startY));
+      logModal.style.width = `${Math.round(width)}px`;
+      logModal.style.height = `${Math.round(height)}px`;
+      battleLogViewPrefs.width = Math.round(width);
+      battleLogViewPrefs.height = Math.round(height);
+    });
+    logResizeHandle.addEventListener("pointerup", endLogResize);
+    logResizeHandle.addEventListener("pointercancel", endLogResize);
   }
   if (configBtn){
     configBtn.addEventListener("click", () => {
