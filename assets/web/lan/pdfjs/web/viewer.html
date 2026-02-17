@@ -4,16 +4,290 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Rules Viewer</title>
-  <style>html,body,iframe{margin:0;height:100%;width:100%;border:0;background:#111}</style>
+  <style>
+    :root{
+      --bg:#111;
+      --panel:#1a1e28;
+      --text:#eef3fb;
+      --muted:#9aa7be;
+      --border:rgba(255,255,255,.14);
+      --accent:#6aa9ff;
+      color-scheme:dark;
+    }
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+    body{display:flex;flex-direction:column;overflow:hidden;}
+    .toolbar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel);}
+    .toolbar .status{color:var(--muted);font-size:12px;white-space:nowrap;}
+    .viewer-root{flex:1 1 auto;min-height:0;overflow:auto;padding:10px 0;}
+    .load-btn-wrap{display:flex;justify-content:center;padding:8px 14px;}
+    .load-btn{background:rgba(106,169,255,.2);color:var(--text);border:1px solid rgba(106,169,255,.5);border-radius:8px;padding:8px 12px;cursor:pointer;}
+    .load-btn:hover{background:rgba(106,169,255,.3);}
+    .load-btn[hidden]{display:none;}
+    .pages{display:flex;flex-direction:column;gap:12px;padding:0 14px 10px;}
+    .page-shell{position:relative;margin:0 auto;width:min(980px,96%);border:1px solid var(--border);border-radius:10px;background:#0d1018;overflow:hidden;}
+    .page-number{position:absolute;top:8px;right:10px;font-size:11px;color:var(--muted);z-index:2;background:rgba(0,0,0,.35);padding:2px 6px;border-radius:999px;}
+    .page-placeholder{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));}
+    canvas.page-canvas{display:block;width:100%;height:auto;background:#fff;}
+  </style>
 </head>
 <body>
-  <iframe id="pdfFrame" title="Rules PDF"></iframe>
+  <div class="toolbar">
+    <strong>Rules Viewer</strong>
+    <span class="status" id="viewerStatus">Loading PDF…</span>
+  </div>
+  <div class="viewer-root" id="viewerRoot">
+    <div class="load-btn-wrap"><button class="load-btn" id="loadPrevBtn" type="button" hidden>Load more previous</button></div>
+    <div class="pages" id="pages"></div>
+    <div class="load-btn-wrap"><button class="load-btn" id="loadNextBtn" type="button" hidden>Load more next</button></div>
+  </div>
+
   <script src="../build/pdf.js"></script>
   <script>
     (function(){
+      const PAGE_RADIUS = 4;
+      const CHUNK_SIZE = 10;
+      const MAX_MOUNTED = 20;
       const params = new URLSearchParams(location.search);
       const file = params.get('file') || '/rules.pdf';
-      document.getElementById('pdfFrame').src = file;
+      const initialPage = Math.max(1, Number(params.get('page') || 1) || 1);
+      const initialBefore = Math.max(PAGE_RADIUS, Number(params.get('windowBefore') || PAGE_RADIUS) || PAGE_RADIUS);
+      const initialAfter = Math.max(PAGE_RADIUS, Number(params.get('windowAfter') || PAGE_RADIUS) || PAGE_RADIUS);
+      const pagesEl = document.getElementById('pages');
+      const viewerRoot = document.getElementById('viewerRoot');
+      const viewerStatus = document.getElementById('viewerStatus');
+      const loadPrevBtn = document.getElementById('loadPrevBtn');
+      const loadNextBtn = document.getElementById('loadNextBtn');
+
+      const pageStates = [];
+      const rendered = new Map();
+      const canvasPool = [];
+      const renderQueue = new Set();
+      const renderInFlight = new Set();
+      let rafScheduled = false;
+      let scaleVersion = 0;
+      let doc = null;
+      let pageCount = 0;
+      let currentPage = initialPage;
+      let loadedStart = 1;
+      let loadedEnd = 1;
+
+      if (window.pdfjsLib?.GlobalWorkerOptions){
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = '../build/pdf.worker.js';
+      }
+
+      function parseHashPage(){
+        const hash = new URLSearchParams(String(location.hash || '').replace(/^#/, ''));
+        const hp = Number(hash.get('page') || 0);
+        return Number.isFinite(hp) && hp > 0 ? Math.floor(hp) : null;
+      }
+
+      function clampPage(page){
+        return Math.max(1, Math.min(pageCount || 1, Number(page) || 1));
+      }
+
+      function estimateCssHeight(state){
+        const targetWidth = state.shell.clientWidth || Math.max(320, viewerRoot.clientWidth * 0.96);
+        return Math.max(80, Math.round(targetWidth * state.ratio));
+      }
+
+      function createShell(num, ratio){
+        const shell = document.createElement('section');
+        shell.className = 'page-shell';
+        shell.dataset.page = String(num);
+        const badge = document.createElement('div');
+        badge.className = 'page-number';
+        badge.textContent = `Page ${num}`;
+        const placeholder = document.createElement('div');
+        placeholder.className = 'page-placeholder';
+        placeholder.textContent = 'Not rendered';
+        shell.appendChild(badge);
+        shell.appendChild(placeholder);
+        const state = { num, ratio, shell, placeholder, canvas: null, renderScale: 0 };
+        placeholder.style.height = `${estimateCssHeight(state)}px`;
+        return state;
+      }
+
+      async function init(){
+        try {
+          const loadingTask = window.pdfjsLib.getDocument(file);
+          doc = await loadingTask.promise;
+          pageCount = doc.numPages;
+          currentPage = clampPage(parseHashPage() || initialPage);
+          viewerStatus.textContent = `${pageCount} pages`;
+
+          for (let i = 1; i <= pageCount; i++){
+            const page = await doc.getPage(i);
+            const vp = page.getViewport({ scale: 1 });
+            const ratio = vp.height / vp.width;
+            const state = createShell(i, ratio);
+            pageStates.push(state);
+            pagesEl.appendChild(state.shell);
+            page.cleanup();
+          }
+
+          loadedStart = clampPage(currentPage - initialBefore);
+          loadedEnd = clampPage(currentPage + initialAfter);
+          updateScaleVersion();
+          scrollToPage(currentPage, false);
+          scheduleUpdate();
+        } catch (err){
+          viewerStatus.textContent = `Failed to load PDF: ${err?.message || err}`;
+        }
+      }
+
+      function updateScaleVersion(){
+        scaleVersion += 1;
+        pageStates.forEach((state) => {
+          state.placeholder.style.height = `${estimateCssHeight(state)}px`;
+        });
+      }
+
+      function getActiveRange(){
+        const start = Math.max(loadedStart, clampPage(currentPage - PAGE_RADIUS));
+        const end = Math.min(loadedEnd, clampPage(currentPage + PAGE_RADIUS));
+        const pages = [];
+        for (let p = start; p <= end; p++) pages.push(p);
+        if (pages.length > MAX_MOUNTED){
+          return pages.slice(0, MAX_MOUNTED);
+        }
+        return pages;
+      }
+
+      function updateButtons(){
+        loadPrevBtn.hidden = loadedStart <= 1;
+        loadNextBtn.hidden = loadedEnd >= pageCount;
+      }
+
+      function refreshCurrentPageFromScroll(){
+        const center = viewerRoot.scrollTop + (viewerRoot.clientHeight / 2);
+        let bestPage = currentPage;
+        let bestDist = Infinity;
+        for (const state of pageStates){
+          const mid = state.shell.offsetTop + (state.shell.offsetHeight / 2);
+          const dist = Math.abs(mid - center);
+          if (dist < bestDist){ bestDist = dist; bestPage = state.num; }
+        }
+        currentPage = clampPage(bestPage);
+        history.replaceState(null, '', `#page=${currentPage}`);
+      }
+
+      function unmountPage(state){
+        if (!state.canvas) return;
+        if (state.canvas.parentNode === state.shell){
+          state.shell.removeChild(state.canvas);
+        }
+        canvasPool.push(state.canvas);
+        state.canvas = null;
+        state.placeholder.hidden = false;
+      }
+
+      function getCanvas(){
+        return canvasPool.pop() || document.createElement('canvas');
+      }
+
+      async function renderPage(pageNum){
+        if (renderInFlight.has(pageNum)) return;
+        const state = pageStates[pageNum - 1];
+        if (!state) return;
+        renderInFlight.add(pageNum);
+        try {
+          const page = await doc.getPage(pageNum);
+          const cssWidth = state.shell.clientWidth || viewerRoot.clientWidth;
+          const base = page.getViewport({ scale: 1 });
+          const renderScale = (cssWidth / base.width) * (window.devicePixelRatio || 1);
+          const viewport = page.getViewport({ scale: renderScale });
+          let canvas = state.canvas || getCanvas();
+          canvas.className = 'page-canvas';
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          canvas.style.width = `${Math.round(viewport.width / (window.devicePixelRatio || 1))}px`;
+          canvas.style.height = `${Math.round(viewport.height / (window.devicePixelRatio || 1))}px`;
+          const ctx = canvas.getContext('2d', { alpha: false });
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          if (!state.canvas){
+            state.canvas = canvas;
+            state.shell.appendChild(canvas);
+          }
+          state.placeholder.hidden = true;
+          state.renderScale = renderScale;
+          rendered.set(pageNum, scaleVersion);
+          page.cleanup();
+        } finally {
+          renderInFlight.delete(pageNum);
+        }
+      }
+
+      function scheduleUpdate(){
+        if (rafScheduled) return;
+        rafScheduled = true;
+        requestAnimationFrame(async () => {
+          rafScheduled = false;
+          if (!doc) return;
+          refreshCurrentPageFromScroll();
+          const active = new Set(getActiveRange());
+          updateButtons();
+
+          for (const state of pageStates){
+            if (!active.has(state.num)){
+              unmountPage(state);
+              rendered.delete(state.num);
+            }
+          }
+
+          active.forEach((p) => renderQueue.add(p));
+          const tasks = [];
+          for (const pageNum of Array.from(renderQueue)){
+            renderQueue.delete(pageNum);
+            const state = pageStates[pageNum - 1];
+            if (!state) continue;
+            const stale = rendered.get(pageNum) !== scaleVersion;
+            if (stale || !state.canvas){
+              tasks.push(renderPage(pageNum));
+            }
+          }
+          await Promise.all(tasks);
+          viewerStatus.textContent = `Page ${currentPage} / ${pageCount} • Active ${Math.min(active.size, MAX_MOUNTED)}`;
+        });
+      }
+
+      function scrollToPage(page, smooth = true){
+        const target = pageStates[clampPage(page) - 1];
+        if (!target) return;
+        viewerRoot.scrollTo({ top: target.shell.offsetTop - 10, behavior: smooth ? 'smooth' : 'auto' });
+      }
+
+      function jumpToHashPage(){
+        const hp = parseHashPage();
+        if (!hp || !doc) return;
+        const clamped = clampPage(hp);
+        currentPage = clamped;
+        if (clamped < loadedStart){
+          loadedStart = Math.max(1, clamped - PAGE_RADIUS);
+        }
+        if (clamped > loadedEnd){
+          loadedEnd = Math.min(pageCount, clamped + PAGE_RADIUS);
+        }
+        scrollToPage(clamped, true);
+        scheduleUpdate();
+      }
+
+      loadPrevBtn.addEventListener('click', () => {
+        loadedStart = Math.max(1, loadedStart - CHUNK_SIZE);
+        scheduleUpdate();
+      });
+
+      loadNextBtn.addEventListener('click', () => {
+        loadedEnd = Math.min(pageCount, loadedEnd + CHUNK_SIZE);
+        scheduleUpdate();
+      });
+
+      viewerRoot.addEventListener('scroll', scheduleUpdate, { passive: true });
+      window.addEventListener('resize', () => {
+        updateScaleVersion();
+        scheduleUpdate();
+      });
+      window.addEventListener('hashchange', jumpToHashPage);
+      init();
     })();
   </script>
 </body>
