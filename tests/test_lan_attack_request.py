@@ -532,6 +532,78 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[1].attack_resource_remaining, 0)
         self.assertEqual(third.get("_attack_result", {}).get("attack_count"), 1)
 
+    def test_attack_request_graze_mastery_deals_damage_on_miss(self):
+        self.app._profile_for_player_name = lambda name: {
+            "abilities": {"str": 18},
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_mastery_enabled": True,
+                "weapons": [
+                    {
+                        "id": "greatsword",
+                        "name": "Greatsword",
+                        "to_hit": 8,
+                        "one_handed": {"damage_formula": "2d6 + str_mod", "damage_type": "slashing"},
+                        "properties": ["graze", "heavy", "two_handed"],
+                    }
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 24,
+            "target_cid": 2,
+            "weapon_id": "greatsword",
+            "hit": False,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertFalse(result.get("hit"))
+        self.assertEqual(result.get("damage_total"), 4)
+        self.assertEqual(result.get("damage_entries"), [{"amount": 4, "type": "slashing"}])
+        self.assertIn("Graze deals 4 damage on the miss.", result.get("weapon_property_notes", []))
+        self.assertEqual(self.app.combatants[2].hp, 16)
+
+    def test_attack_request_push_mastery_adds_hit_note(self):
+        self.app._profile_for_player_name = lambda name: {
+            "abilities": {"str": 18},
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_mastery_enabled": True,
+                "weapons": [
+                    {
+                        "id": "greatclub",
+                        "name": "Greatclub",
+                        "to_hit": 8,
+                        "one_handed": {"damage_formula": "1d8 + str_mod", "damage_type": "bludgeoning"},
+                        "properties": ["push", "two_handed"],
+                    }
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 25,
+            "target_cid": 2,
+            "weapon_id": "greatclub",
+            "hit": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=5):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("hit"))
+        self.assertIn("Push: move that Large-or-smaller target up to 10 ft away.", result.get("weapon_property_notes", []))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12842,6 +12842,24 @@ class InitiativeTracker(base.InitiativeTracker):
                             return True
                 mastery = str(entry.get("mastery") or "").strip().lower()
                 return bool(mastery and mastery == target)
+            def _weapon_mastery_damage_ability_mod(entry: Any, profile_data: Any, variables: Dict[str, int]) -> int:
+                if not isinstance(entry, dict):
+                    return int(variables.get("str_mod", 0) or 0)
+                formula = ""
+                mode_block = entry.get("one_handed") if isinstance(entry.get("one_handed"), dict) else {}
+                if isinstance(mode_block, dict):
+                    formula = str(mode_block.get("damage_formula") or "").strip().lower()
+                if not formula and isinstance(entry.get("two_handed"), dict):
+                    formula = str((entry.get("two_handed") or {}).get("damage_formula") or "").strip().lower()
+                str_mod = int(variables.get("str_mod", 0) or 0)
+                dex_mod = int(variables.get("dex_mod", 0) or 0)
+                if "dex_mod" in formula and "str_mod" not in formula:
+                    return dex_mod
+                if "str_mod" in formula and "dex_mod" not in formula:
+                    return str_mod
+                if _weapon_has_property(entry, "finesse"):
+                    return max(str_mod, dex_mod)
+                return str_mod
             def _damage_formula_variables(profile_data: Any) -> Dict[str, int]:
                 if not isinstance(profile_data, dict):
                     profile_data = {}
@@ -13071,6 +13089,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     dtype = str(entry.get("type") or "").strip().lower()
                     damage_entries.append({"amount": amount, "type": dtype})
             effect_block = selected_weapon.get("effect") if isinstance(selected_weapon.get("effect"), dict) else {}
+            mastery_notes: List[str] = []
+            graze_applied = False
             if hit and not damage_entries:
                 mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
                 if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
@@ -13082,8 +13102,33 @@ class InitiativeTracker(base.InitiativeTracker):
                 if mode_damage is not None and mode_damage > 0:
                     damage_entries.append({"amount": int(mode_damage), "type": mode_type})
                 damage_entries.extend(_parse_effect_damage_entries(effect_block.get("on_hit"), variables))
+            if weapon_mastery_enabled and _weapon_has_property(selected_weapon, "graze") and not hit:
+                mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
+                if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
+                    mode_block = selected_weapon.get("two_handed")
+                variables = _damage_formula_variables(profile)
+                graze_damage = max(0, _weapon_mastery_damage_ability_mod(selected_weapon, profile, variables))
+                mode_type = str((mode_block or {}).get("damage_type") or "").strip().lower() if isinstance(mode_block, dict) else ""
+                if graze_damage > 0:
+                    damage_entries.append({"amount": int(graze_damage), "type": mode_type})
+                    graze_applied = True
+                    mastery_notes.append(f"Graze deals {int(graze_damage)} damage on the miss.")
+            if weapon_mastery_enabled and hit:
+                if _weapon_has_property(selected_weapon, "cleave"):
+                    mastery_notes.append("Cleave: ye can make a second attack against another nearby target.")
+                if _weapon_has_property(selected_weapon, "push"):
+                    mastery_notes.append("Push: move that Large-or-smaller target up to 10 ft away.")
+                if _weapon_has_property(selected_weapon, "sap"):
+                    mastery_notes.append("Sap: target has disadvantage on its next attack roll.")
+                if _weapon_has_property(selected_weapon, "slow"):
+                    mastery_notes.append("Slow: target speed is reduced by 10 ft until start of yer next turn.")
+                if _weapon_has_property(selected_weapon, "topple"):
+                    mastery_notes.append("Topple: have target make a Constitution save or fall prone.")
+                if _weapon_has_property(selected_weapon, "vex"):
+                    mastery_notes.append("Vex: gain advantage on yer next attack against this target.")
             total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
-            if hit and total_damage > 0:
+            damage_applied = bool(hit or graze_applied)
+            if damage_applied and total_damage > 0:
                 before_hp = _parse_int(getattr(target, "hp", None), None)
                 if before_hp is not None:
                     after_hp = max(0, int(before_hp) - int(total_damage))
@@ -13131,11 +13176,13 @@ class InitiativeTracker(base.InitiativeTracker):
                 "to_hit": int(to_hit),
                 "total_to_hit": int(total_to_hit),
                 "hit": hit,
-                "damage_total": int(total_damage if hit else 0),
-                "damage_entries": list(damage_entries if hit else []),
+                "damage_total": int(total_damage if damage_applied else 0),
+                "damage_entries": list(damage_entries if damage_applied else []),
                 "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
                 "attack_resource_remaining": int(getattr(c, "attack_resource_remaining", 0) or 0),
             }
+            if mastery_notes:
+                result_payload["weapon_property_notes"] = list(mastery_notes)
             save_ability = str(effect_block.get("save_ability") or "").strip().lower()
             save_dc = _parse_int(effect_block.get("save_dc"), 0) or 0
             if hit and save_ability and save_dc > 0:
@@ -13153,7 +13200,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     f"and {'hits' if hit else 'misses'}.",
                     cid=cid,
                 )
-            if hit and total_damage > 0:
+            if damage_applied and total_damage > 0:
                 damage_desc = ", ".join(
                     f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
                     for entry in damage_entries
@@ -13163,7 +13210,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     f"{f' ({damage_desc})' if damage_desc else ''}.",
                     cid=int(target_cid),
                 )
-                if save_ability and save_dc > 0:
+                if hit and save_ability and save_dc > 0:
                     save_roll = random.randint(1, 20)
                     save_mod = _save_mod_for_target(target, save_ability)
                     save_total = int(save_roll) + int(save_mod)

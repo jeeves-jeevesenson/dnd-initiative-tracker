@@ -8876,6 +8876,9 @@ __DAMAGE_TYPE_OPTIONS__
           updateHud();
           draw();
         }
+        if (Array.isArray(msg.weapon_property_notes) && msg.weapon_property_notes.length){
+          localToast(msg.weapon_property_notes.join(" "));
+        }
       } else if (msg.type === "spell_target_result"){
         if (msg.needs_damage_prompt){
           const target = getUnitByCid(msg.target_cid);
