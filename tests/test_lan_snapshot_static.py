@@ -55,6 +55,26 @@ class LanSnapshotStaticTests(unittest.TestCase):
         self.assertEqual(sent_payloads[1][1]["body"], "Alice's turn started — you're next. Plan your move.")
         self.assertEqual(removed, [])
 
+
+    def test_dispatch_turn_notification_still_sends_when_next_lookup_fails(self):
+        lan = object.__new__(tracker_mod.LanController)
+        sent_payloads = []
+
+        class TrackerStub:
+            def _pc_name_for(self, cid):
+                return {1: "Alice"}.get(int(cid), f"#{cid}")
+
+        lan._tracker = TrackerStub()
+        lan._subscriptions_for_cid = lambda cid: [{"endpoint": f"https://example.com/{cid}", "keys": {"p256dh": "a", "auth": "b"}}]
+        lan._send_push_notifications = lambda subs, payload: sent_payloads.append((subs, payload)) or []
+        lan._remove_push_subscription = lambda *_args, **_kwargs: None
+        lan._next_turn_notification_target = lambda _cid: (_ for _ in ()).throw(RuntimeError("boom"))
+
+        lan._dispatch_turn_notification(1, 2, 4)
+
+        self.assertEqual(len(sent_payloads), 1)
+        self.assertEqual(sent_payloads[0][1]["title"], "Your turn!")
+
     def test_include_static_false_reuses_cached_static_payload(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
         app._lan_grid_cols = 10
