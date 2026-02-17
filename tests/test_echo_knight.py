@@ -215,6 +215,7 @@ class EchoKnightRoutingTests(unittest.TestCase):
     def test_lan_controller_action_types_include_echo_actions(self):
         self.assertIn("echo_summon", tracker_mod.LanController._ACTION_MESSAGE_TYPES)
         self.assertIn("echo_swap", tracker_mod.LanController._ACTION_MESSAGE_TYPES)
+        self.assertIn("set_facing", tracker_mod.LanController._ACTION_MESSAGE_TYPES)
 
 
 if __name__ == "__main__":

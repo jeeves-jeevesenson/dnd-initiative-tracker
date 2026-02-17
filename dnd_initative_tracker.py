@@ -1083,6 +1083,7 @@ class LanController:
     """Runs a FastAPI+WebSocket server in a background thread and bridges actions into the Tk thread."""
     _ACTION_MESSAGE_TYPES = (
         "move",
+        "set_facing",
         "dash",
         "perform_action",
         "end_turn",
@@ -5870,6 +5871,18 @@ class InitiativeTracker(base.InitiativeTracker):
             return None
         return value
 
+    def _normalize_facing_degrees(self, value: Any) -> int:
+        try:
+            facing = float(value)
+        except Exception:
+            return 0
+        if not math.isfinite(facing):
+            return 0
+        normalized = facing % 360.0
+        if normalized < 0:
+            normalized += 360.0
+        return int(round(normalized)) % 360
+
     @staticmethod
     def _player_name_from_filename(path: Path) -> Optional[str]:
         """Normalize a player filename into a roster-friendly name."""
@@ -6231,6 +6244,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "mount_controller_mode": str(getattr(c, "mount_controller_mode", "") or "") or None,
                     "has_mounted_this_turn": bool(getattr(c, "has_mounted_this_turn", False)),
                     "can_be_mounted": bool(getattr(c, "can_be_mounted", False)),
+                    "facing_deg": int(self._normalize_facing_degrees(getattr(c, "facing_deg", 0))),
                     "summon_variant": str(getattr(c, "summon_variant", "") or "") or None,
                     "slot_level": getattr(c, "summon_slot_level", None),
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
@@ -11075,6 +11089,14 @@ class InitiativeTracker(base.InitiativeTracker):
                         mw.update_unit_token_colors()
                 except Exception:
                     pass
+            return
+
+        if typ == "set_facing":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            setattr(c, "facing_deg", int(self._normalize_facing_degrees(msg.get("facing_deg"))))
+            self._lan_force_state_broadcast()
             return
 
         if typ == "reset_player_characters":

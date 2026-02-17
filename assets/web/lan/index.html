@@ -3674,6 +3674,8 @@ __DAMAGE_TYPE_OPTIONS__
   let zoom = 32; // px per square
   let panX = 0, panY = 0;
   let dragging = null; // {cid, startX, startY, origCol, origRow}
+  let rotatingToken = null; // {cid}
+  let rotatePreviewDeg = null;
   let aoeDragging = null; // {aid, offsetCol, offsetRow, isRotating}
   let aoeDragPreview = null; // {aid, cx, cy, angle_deg, ax, ay, spread_deg}
   let aoeDragPending = null; // {pointerId, aid, offsetCol, offsetRow, centerCol, centerRow, startX, startY, timerId}
@@ -6130,6 +6132,12 @@ __DAMAGE_TYPE_OPTIONS__
       updateMountControls();
       return;
     }
+    if (type === "set_facing"){
+      const unit = getUnitByCid(msg.cid);
+      if (!unit) return;
+      unit.facing_deg = normalizeFacingDeg(msg.facing_deg);
+      return;
+    }
     if (["dash", "perform_action", "use_action", "use_bonus_action"].includes(type)){
       const unit = getUnitByCid(msg.cid);
       if (!unit) return;
@@ -7485,6 +7493,7 @@ __DAMAGE_TYPE_OPTIONS__
     tokens.forEach(u => {
       const {x,y} = gridToScreen(u.pos.col,u.pos.row);
       const r = Math.max(10, zoom*0.35);
+      const facingRad = (tokenFacingDeg(u) * Math.PI) / 180;
       const active = (state.active_cid !== null && cidMatches(state.active_cid, u.cid, "token.activeCid"));
       const mine = (claimedCid != null && cidMatches(claimedCid, u.cid, "token.claimedCid"));
       ctx.beginPath();
@@ -7533,6 +7542,38 @@ __DAMAGE_TYPE_OPTIONS__
         ctx.textBaseline = "middle";
         ctx.fillStyle = "rgba(255,255,255,0.95)";
         ctx.fillText(marks, x, y);
+      }
+      const facingDotDistance = Math.max(2, r - Math.max(2, zoom * 0.13));
+      const facingDotRadius = Math.max(1.6, zoom * 0.06);
+      ctx.beginPath();
+      ctx.arc(
+        x + Math.cos(facingRad) * facingDotDistance,
+        y + Math.sin(facingRad) * facingDotDistance,
+        facingDotRadius,
+        0,
+        Math.PI * 2
+      );
+      ctx.fillStyle = "rgba(255,255,255,0.95)";
+      ctx.fill();
+
+      const handle = tokenRotateHandle(u);
+      if (handle){
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(12, r + Math.max(7, zoom * 0.2)), 0, Math.PI * 2);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(255,255,255,0.28)";
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(handle.x, handle.y, handle.hitR, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0,0,0,0.88)";
+        ctx.fill();
+        ctx.font = `${Math.max(8, Math.floor(zoom * 0.22))}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        ctx.fillText("↻", handle.x, handle.y);
+        ctx.restore();
       }
     });
 
@@ -8983,6 +9024,52 @@ __DAMAGE_TYPE_OPTIONS__
     return {x: ev.clientX - r.left, y: ev.clientY - r.top};
   }
 
+  function normalizeFacingDeg(value){
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 0;
+    let normalized = num % 360;
+    if (normalized < 0) normalized += 360;
+    return normalized;
+  }
+
+  function tokenFacingDeg(unit){
+    if (rotatingToken && Number(rotatingToken.cid) === Number(unit?.cid) && Number.isFinite(Number(rotatePreviewDeg))){
+      return normalizeFacingDeg(rotatePreviewDeg);
+    }
+    return normalizeFacingDeg(unit?.facing_deg);
+  }
+
+  function tokenRotateHandle(unit){
+    if (!unit || !unit.pos) return null;
+    const controlledCid = activeControlledUnitCid();
+    if (controlledCid === null || !cidMatches(unit.cid, controlledCid, "rotateHandle.cid")) return null;
+    const {x, y} = gridToScreen(unit.pos.col, unit.pos.row);
+    const r = Math.max(10, zoom * 0.35);
+    const orbitR = r + Math.max(7, zoom * 0.2);
+    const facingRad = (tokenFacingDeg(unit) * Math.PI) / 180;
+    return {
+      x: x + Math.cos(facingRad) * orbitR,
+      y: y + Math.sin(facingRad) * orbitR,
+      centerX: x,
+      centerY: y,
+      hitR: Math.max(6, zoom * 0.15),
+    };
+  }
+
+  function hitTestRotateHandle(p){
+    const units = state?.units || [];
+    for (let i = 0; i < units.length; i++){
+      const handle = tokenRotateHandle(units[i]);
+      if (!handle) continue;
+      const dx = p.x - handle.x;
+      const dy = p.y - handle.y;
+      if (dx * dx + dy * dy <= handle.hitR * handle.hitR){
+        return units[i];
+      }
+    }
+    return null;
+  }
+
   function hitTestToken(p){
     if (!state || !state.units) return null;
     const hits = [];
@@ -9179,6 +9266,8 @@ __DAMAGE_TYPE_OPTIONS__
     activePointers.set(ev.pointerId, p);
     if (activePointers.size >= 2){
       dragging = null;
+      rotatingToken = null;
+      rotatePreviewDeg = null;
       panning = null;
       clearAoeDragPending();
       startPinch();
@@ -9231,6 +9320,19 @@ __DAMAGE_TYPE_OPTIONS__
         }
         return;
       }
+    }
+    const rotateHit = hitTestRotateHandle(p);
+    if (rotateHit){
+      const controlledCid = activeControlledUnitCid();
+      if (controlledCid === null || !cidMatches(rotateHit.cid, controlledCid, "rotate.hitCid")){
+        send({type:"toast", text:"Arrr, that token ain’t yers."});
+        return;
+      }
+      rotatingToken = {cid: Number(rotateHit.cid)};
+      const {x, y} = gridToScreen(rotateHit.pos.col, rotateHit.pos.row);
+      rotatePreviewDeg = normalizeFacingDeg((Math.atan2(p.y - y, p.x - x) * 180) / Math.PI);
+      draw();
+      return;
     }
     const hit = hitTestToken(p);
     if (hit){
@@ -9367,6 +9469,16 @@ __DAMAGE_TYPE_OPTIONS__
         aoeDragPreview = {aid: aoeDragging.aid, cx, cy};
       }
       draw();
+      setTokenTooltip(null);
+      return;
+    }
+    if (rotatingToken){
+      const unit = getUnitByCid(rotatingToken.cid);
+      if (unit && unit.pos){
+        const {x, y} = gridToScreen(unit.pos.col, unit.pos.row);
+        rotatePreviewDeg = normalizeFacingDeg((Math.atan2(p.y - y, p.x - x) * 180) / Math.PI);
+        draw();
+      }
       setTokenTooltip(null);
       return;
     }
@@ -9599,6 +9711,20 @@ __DAMAGE_TYPE_OPTIONS__
       draw();
       return;
     }
+    if (rotatingToken){
+      const facingDeg = Number.isFinite(Number(rotatePreviewDeg)) ? normalizeFacingDeg(rotatePreviewDeg) : 0;
+      const msg = {type:"set_facing", cid: Number(rotatingToken.cid), facing_deg: facingDeg};
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
+      rotatingToken = null;
+      rotatePreviewDeg = null;
+      draw();
+      return;
+    }
     dragging && (function(){
       const g = screenToGrid(p.x, p.y);
       const msg = {type:"move", cid: Number(dragging.cid), to: {col: g.col, row: g.row}};
@@ -9625,6 +9751,11 @@ __DAMAGE_TYPE_OPTIONS__
     if (aoeDragging){
       aoeDragging = null;
       aoeDragPreview = null;
+      draw();
+    }
+    if (rotatingToken){
+      rotatingToken = null;
+      rotatePreviewDeg = null;
       draw();
     }
     setTokenTooltip(null);

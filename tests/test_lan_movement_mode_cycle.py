@@ -8,6 +8,7 @@ class LanMovementModeCycleTests(unittest.TestCase):
         self.app = object.__new__(tracker_mod.InitiativeTracker)
         self.toasts = []
         self.rebuild_calls = 0
+        self.broadcast_calls = 0
         self.mode_updates = []
 
         self.app._oplog = lambda *args, **kwargs: None
@@ -43,6 +44,7 @@ class LanMovementModeCycleTests(unittest.TestCase):
             setattr(self.app.combatants[cid], "movement_mode", mode),
         )
         self.app._rebuild_table = lambda scroll_to_current=True: setattr(self, "rebuild_calls", self.rebuild_calls + 1)
+        self.app._lan_force_state_broadcast = lambda: setattr(self, "broadcast_calls", self.broadcast_calls + 1)
 
     def test_cycle_movement_mode_rotates_available_speeds(self):
         msg = {"type": "cycle_movement_mode", "cid": 1, "_claimed_cid": 1, "_ws_id": 7}
@@ -54,6 +56,14 @@ class LanMovementModeCycleTests(unittest.TestCase):
         self.assertEqual(self.rebuild_calls, 2)
         self.assertIn((7, "Movement mode: Swim."), self.toasts)
         self.assertIn((7, "Movement mode: Fly."), self.toasts)
+
+    def test_set_facing_normalizes_degrees_and_broadcasts(self):
+        msg = {"type": "set_facing", "cid": 1, "_claimed_cid": 1, "_ws_id": 9, "facing_deg": 450}
+
+        self.app._lan_apply_action(dict(msg))
+
+        self.assertEqual(getattr(self.app.combatants[1], "facing_deg", None), 90)
+        self.assertEqual(self.broadcast_calls, 1)
 
 
 if __name__ == "__main__":
