@@ -1,0 +1,7 @@
+format_version: 1
+id: studded_leather
+name: Studded Leather
+type: armor
+category: light
+ac:
+  base_formula: 12 + Dex mod

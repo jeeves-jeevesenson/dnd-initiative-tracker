@@ -1,0 +1,12 @@
+format_version: 1
+id: chain_mail
+name: Chain Mail
+type: armor
+category: heavy
+ac:
+  base_formula: '16'
+  dex_cap: 0
+requirements:
+  strength: 13
+properties:
+  stealth_disadvantage: true

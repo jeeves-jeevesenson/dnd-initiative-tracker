@@ -1,0 +1,10 @@
+format_version: 1
+id: ring_mail
+name: Ring Mail
+type: armor
+category: heavy
+ac:
+  base_formula: '14'
+  dex_cap: 0
+properties:
+  stealth_disadvantage: true

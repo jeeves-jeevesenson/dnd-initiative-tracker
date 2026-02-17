@@ -1,0 +1,10 @@
+format_version: 1
+id: scale_mail
+name: Scale Mail
+type: armor
+category: medium
+ac:
+  base_formula: 14 + Dex mod
+  dex_cap: 2
+properties:
+  stealth_disadvantage: true

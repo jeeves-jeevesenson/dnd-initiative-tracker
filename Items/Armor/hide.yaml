@@ -1,0 +1,8 @@
+format_version: 1
+id: hide
+name: Hide
+type: armor
+category: medium
+ac:
+  base_formula: 12 + Dex mod
+  dex_cap: 2

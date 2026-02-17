@@ -1,0 +1,12 @@
+format_version: 1
+id: splint_armor
+name: Splint Armor
+type: armor
+category: heavy
+ac:
+  base_formula: '17'
+  dex_cap: 0
+requirements:
+  strength: 15
+properties:
+  stealth_disadvantage: true

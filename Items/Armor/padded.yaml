@@ -1,0 +1,9 @@
+format_version: 1
+id: padded
+name: Padded
+type: armor
+category: light
+ac:
+  base_formula: 11 + Dex mod
+properties:
+  stealth_disadvantage: true

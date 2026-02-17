@@ -1,0 +1,8 @@
+format_version: 1
+id: chain_shirt
+name: Chain Shirt
+type: armor
+category: medium
+ac:
+  base_formula: 13 + Dex mod
+  dex_cap: 2

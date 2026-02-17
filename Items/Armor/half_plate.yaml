@@ -1,0 +1,10 @@
+format_version: 1
+id: half_plate
+name: Half Plate
+type: armor
+category: medium
+ac:
+  base_formula: 15 + Dex mod
+  dex_cap: 2
+properties:
+  stealth_disadvantage: true
