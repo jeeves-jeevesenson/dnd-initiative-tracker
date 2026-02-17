@@ -5619,7 +5619,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (!helpViewer) return;
     rulesLastPage = Math.max(1, Number(page || 1));
     const base = "/assets/web/lan/pdfjs/web/viewer.html";
-    const url = `${base}?page=${rulesLastPage}#page=${rulesLastPage}`;
+    const nonce = Date.now();
+    const url = `${base}?page=${rulesLastPage}&_ts=${nonce}#page=${rulesLastPage}`;
+    rulesViewerReady = false;
     helpViewer.src = url;
     rulesViewerLoaded = true;
   }
@@ -5632,9 +5634,16 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     try {
+      const frameWin = helpViewer.contentWindow;
+      if (rulesViewerReady && frameWin){
+        frameWin.postMessage({ type: "rules:jump", page: num }, window.location.origin);
+      }
       const current = new URL(helpViewer.src, window.location.origin);
       current.hash = `page=${num}`;
-      helpViewer.src = current.toString();
+      const nextUrl = current.toString();
+      if (helpViewer.src !== nextUrl){
+        helpViewer.src = nextUrl;
+      }
     } catch (_err){
       loadRulesViewer(num);
     }
@@ -5732,6 +5741,12 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (helpSearchInput){
     helpSearchInput.addEventListener("input", () => renderRulesToc());
+  }
+  if (helpViewer){
+    helpViewer.addEventListener("load", () => {
+      rulesViewerReady = true;
+      jumpRulesPage(rulesLastPage || 1);
+    });
   }
   if (helpOpenBookBtn){
     helpOpenBookBtn.addEventListener("click", () => jumpRulesPage(rulesLastPage || 1));
@@ -11315,6 +11330,7 @@ __DAMAGE_TYPE_OPTIONS__
   let rulesStatusCache = null;
   let rulesTocCache = [];
   let rulesViewerLoaded = false;
+  let rulesViewerReady = false;
   let rulesLastPage = 1;
 
   function getPlayerLevel(profile){
