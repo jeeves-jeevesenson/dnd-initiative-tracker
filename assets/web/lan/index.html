@@ -1515,6 +1515,7 @@
       pointer-events:none;
     }
     .hint{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.4;}
+    .mastery-advantage-text{color:#34d399;font-weight:700;}
     .hint.hidden{display:none;}
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
     .modal-actions .btn{flex:1; min-width:120px;}
@@ -2010,6 +2011,17 @@
         <div class="modal-actions">
           <button class="btn accent" id="attackResolveSubmit" type="button">Confirm</button>
           <button class="btn" id="attackResolveCancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="cleavePromptModal" aria-hidden="true">
+      <div class="card card-scroll">
+        <h2>Cleave Attack</h2>
+        <div class="hint" id="cleavePromptBody">Choose one nearby enemy to cleave.</div>
+        <div class="action-picker-list" id="cleavePromptList"></div>
+        <div class="modal-actions">
+          <button class="btn" id="cleavePromptCancel" type="button">Cancel</button>
         </div>
       </div>
     </div>
@@ -3407,6 +3419,10 @@ __DAMAGE_TYPE_OPTIONS__
   const attackDamageAdd = document.getElementById("attackDamageAdd");
   const attackResolveSubmit = document.getElementById("attackResolveSubmit");
   const attackResolveCancel = document.getElementById("attackResolveCancel");
+  const cleavePromptModal = document.getElementById("cleavePromptModal");
+  const cleavePromptBody = document.getElementById("cleavePromptBody");
+  const cleavePromptList = document.getElementById("cleavePromptList");
+  const cleavePromptCancel = document.getElementById("cleavePromptCancel");
   const showAllNamesEl = document.getElementById("showAllNames");
   const castOverlay = document.getElementById("sheetCastView");
   const castOverlayOpenBtn = document.getElementById("castOverlayOpen");
@@ -3706,6 +3722,7 @@ __DAMAGE_TYPE_OPTIONS__
   let attackOverlayMode = false;
   let selectedAttackWeaponId = "";
   let pendingAttackResolve = null;
+  let pendingCleavePrompt = null;
   let pendingSpellTargeting = null;
   let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
   const LOS_PREVIEW_MS = 900;
@@ -6637,6 +6654,50 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  function setCleavePromptOpen(open){
+    if (!cleavePromptModal) return;
+    cleavePromptModal.classList.toggle("show", !!open);
+    cleavePromptModal.setAttribute("aria-hidden", open ? "false" : "true");
+    if (!open){
+      pendingCleavePrompt = null;
+      if (cleavePromptList){
+        cleavePromptList.textContent = "";
+      }
+    }
+  }
+
+  function openCleavePrompt(resultMsg){
+    if (!cleavePromptBody || !cleavePromptList) return;
+    const candidates = Array.isArray(resultMsg?.cleave_candidates) ? resultMsg.cleave_candidates : [];
+    if (!candidates.length){
+      return;
+    }
+    pendingCleavePrompt = {
+      weaponId: String(resultMsg?.weapon_id || "").trim(),
+      weaponName: String(resultMsg?.weapon_name || "Weapon").trim() || "Weapon",
+      candidates,
+    };
+    cleavePromptBody.textContent = "Cleave triggers! Pick one nearby enemy for a free attack.";
+    cleavePromptList.textContent = "";
+    candidates.forEach((entry) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn";
+      btn.textContent = String(entry?.name || `Enemy #${entry?.cid || "?"}`);
+      btn.addEventListener("click", () => {
+        const unit = getUnitByCid(entry?.cid) || {cid: entry?.cid, name: entry?.name || "Enemy"};
+        const weapon = {id: pendingCleavePrompt.weaponId, name: pendingCleavePrompt.weaponName};
+        setCleavePromptOpen(false);
+        openAttackResolveModal(unit, weapon);
+        if (pendingAttackResolve){
+          pendingAttackResolve.masteryFreeAttack = "cleave";
+        }
+      });
+      cleavePromptList.appendChild(btn);
+    });
+    setCleavePromptOpen(true);
+  }
+
   function openAttackResolveModal(target, weapon){
     if (!attackResolveBody || !attackDamageRows) return;
     let mode = null;
@@ -6663,14 +6724,21 @@ __DAMAGE_TYPE_OPTIONS__
     if (saveAbility && Number.isFinite(saveDc) && saveDc > 0){
       hintParts.push(`Save rider: ${saveAbility} DC ${Math.floor(saveDc)}.`);
     }
+    const me = getClaimedUnit();
+    const hasVexAdvantage = Number.isFinite(Number(target?.vexed_by_cid))
+      && Number.isFinite(Number(me?.cid))
+      && Number(target.vexed_by_cid) === Number(me.cid);
     pendingAttackResolve = {
       targetCid: Number(target?.cid),
       targetName: String(target?.name || "target"),
       weaponId: String(weapon?.id || "").trim(),
       weaponName: String(weapon?.name || "Weapon").trim() || "Weapon",
+      masteryAdvantage: hasVexAdvantage,
     };
-    attackResolveBody.textContent = `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`
-      + (hintParts.length ? ` ${hintParts.join(" ")}` : "");
+    const advantageText = hasVexAdvantage ? " <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>" : "";
+    attackResolveBody.innerHTML = `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`
+      + (hintParts.length ? ` ${hintParts.join(" ")}` : "")
+      + advantageText;
     attackDamageRows.textContent = "";
     const suggestedTypes = [];
     const pushSuggestedType = (value) => {
@@ -8941,6 +9009,9 @@ __DAMAGE_TYPE_OPTIONS__
         }
         if (Array.isArray(msg.weapon_property_notes) && msg.weapon_property_notes.length){
           localToast(msg.weapon_property_notes.join(" "));
+        }
+        if (Array.isArray(msg.cleave_candidates) && msg.cleave_candidates.length){
+          openCleavePrompt(msg);
         }
       } else if (msg.type === "spell_target_result"){
         if (msg.needs_damage_prompt){
@@ -13795,6 +13866,9 @@ __DAMAGE_TYPE_OPTIONS__
   if (attackResolveCancel){
     attackResolveCancel.addEventListener("click", () => setAttackResolveModalOpen(false));
   }
+  if (cleavePromptCancel){
+    cleavePromptCancel.addEventListener("click", () => setCleavePromptOpen(false));
+  }
   if (attackResolveSubmit){
     attackResolveSubmit.addEventListener("click", () => {
       if (!pendingAttackResolve){
@@ -13851,6 +13925,7 @@ __DAMAGE_TYPE_OPTIONS__
           target_cid: Number(pendingAttackResolve.targetCid),
           weapon_id: String(pendingAttackResolve.weaponId || "").trim(),
           weapon_name: String(pendingAttackResolve.weaponName || "").trim(),
+          mastery_free_attack: pendingAttackResolve.masteryFreeAttack || null,
           hit: hit,
           damage_entries: damageEntries,
         });
