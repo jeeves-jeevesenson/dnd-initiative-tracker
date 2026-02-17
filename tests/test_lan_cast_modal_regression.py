@@ -111,6 +111,18 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn("const showManualDamageFields = !summonSpell && !fullyAutomated;", self.html)
         self.assertIn("const firstType = Array.from(castDamageTypes)[0] || \"\";", self.html)
 
+    def test_reaction_button_and_war_caster_modal_are_wired(self):
+        self.assertIn('id="useReaction"', self.html)
+        self.assertIn('openActionPicker("reaction");', self.html)
+        self.assertIn('id="warCasterModal"', self.html)
+        self.assertIn('id="warCasterSpellSelect"', self.html)
+        self.assertIn('id="warCasterTargetSelect"', self.html)
+        self.assertIn("function playerHasWarCasterFeat()", self.html)
+        self.assertIn("function isWarCasterEligibleSpellPreset(preset)", self.html)
+        self.assertIn("function runSpellTargetingAgainstTarget(target)", self.html)
+        self.assertIn("action_type: \"reaction\"", self.html)
+        self.assertIn("spend === \"reaction\"", self.html)
+
 
 if __name__ == "__main__":
     unittest.main()

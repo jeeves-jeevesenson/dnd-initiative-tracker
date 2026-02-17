@@ -2096,6 +2096,23 @@
         </div>
       </div>
     </div>
+    <div class="modal" id="warCasterModal" aria-hidden="true">
+      <div class="card">
+        <h2>War Caster Reaction</h2>
+        <div class="form-field">
+          <label for="warCasterSpellSelect">Spell</label>
+          <select id="warCasterSpellSelect"></select>
+        </div>
+        <div class="form-field">
+          <label for="warCasterTargetSelect">Target</label>
+          <select id="warCasterTargetSelect"></select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn accent" id="warCasterCast" type="button">Cast</button>
+          <button class="btn" id="warCasterCancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
     <div class="modal" id="dashModal" aria-hidden="true">
       <div class="card">
         <h2>Use Action or Bonus Action?</h2>
@@ -2397,6 +2414,7 @@
         <div class="sheet-actions">
           <button class="btn" id="useAction">Use Action</button>
           <button class="btn" id="useBonusAction">Use Bonus Action</button>
+          <button class="btn" id="useReaction">Reaction</button>
           <button class="btn" id="dash">Dash</button>
           <button class="btn" id="standUp">Stand Up</button>
           <button class="btn" id="resetTurn">Reset Turn</button>
@@ -3380,6 +3398,11 @@ __DAMAGE_TYPE_OPTIONS__
   const actionPickerTitle = document.getElementById("actionPickerTitle");
   const actionPickerList = document.getElementById("actionPickerList");
   const actionPickerCancelBtn = document.getElementById("actionPickerCancel");
+  const warCasterModal = document.getElementById("warCasterModal");
+  const warCasterSpellSelect = document.getElementById("warCasterSpellSelect");
+  const warCasterTargetSelect = document.getElementById("warCasterTargetSelect");
+  const warCasterCastBtn = document.getElementById("warCasterCast");
+  const warCasterCancelBtn = document.getElementById("warCasterCancel");
   const battleLogBtn = document.getElementById("battleLog");
   const toggleSheetPanelBtn = document.getElementById("toggleSheetPanel");
   const lockMapBtn = document.getElementById("lockMap");
@@ -3467,6 +3490,7 @@ __DAMAGE_TYPE_OPTIONS__
   const switchCharacterBtn = document.getElementById("switchCharacter");
   const useActionBtn = document.getElementById("useAction");
   const useBonusActionBtn = document.getElementById("useBonusAction");
+  const useReactionBtn = document.getElementById("useReaction");
   const actionSelectEl = document.getElementById("actionSelect");
   const bonusActionSelectEl = document.getElementById("bonusActionSelect");
   const attackWeaponSelectEl = document.getElementById("attackWeaponSelect");
@@ -3887,6 +3911,7 @@ __DAMAGE_TYPE_OPTIONS__
     const controls = [
       useActionBtn,
       useBonusActionBtn,
+      useReactionBtn,
       dashBtn,
       standUpBtn,
       resetTurnBtn,
@@ -6399,7 +6424,7 @@ __DAMAGE_TYPE_OPTIONS__
       if (!unit) return;
       const update = {cid: unit.cid};
       const spendRaw = String(msg.spend || "").toLowerCase();
-      const spend = spendRaw.includes("bonus") ? "bonus" : "action";
+      const spend = spendRaw.includes("bonus") ? "bonus" : (spendRaw === "reaction" ? "reaction" : "action");
       const useAction = () => {
         const current = Number(unit.action_remaining || 0);
         update.action_remaining = Math.max(0, current - 1);
@@ -6408,10 +6433,16 @@ __DAMAGE_TYPE_OPTIONS__
         const current = Number(unit.bonus_action_remaining || 0);
         update.bonus_action_remaining = Math.max(0, current - 1);
       };
+      const useReaction = () => {
+        const current = Number(unit.reaction_remaining || 0);
+        update.reaction_remaining = Math.max(0, current - 1);
+      };
       if (type === "use_action"){
         useAction();
       } else if (type === "use_bonus_action"){
         useBonus();
+      } else if (spend === "reaction"){
+        useReaction();
       } else if (spend === "bonus"){
         useBonus();
       } else {
@@ -8557,6 +8588,9 @@ __DAMAGE_TYPE_OPTIONS__
         }
         useActionBtn.disabled = Number(me.action_remaining || 0) <= 0;
         useBonusActionBtn.disabled = Number(me.bonus_action_remaining || 0) <= 0;
+        if (useReactionBtn){
+          useReactionBtn.disabled = Number(me.reaction_remaining || 0) <= 0;
+        }
         populateActionSelect(actionSelectEl, me.actions, "None/Custom");
         populateActionSelect(bonusActionSelectEl, me.bonus_actions, "None/Custom");
         if (actionSelectEl){
@@ -8589,6 +8623,9 @@ __DAMAGE_TYPE_OPTIONS__
         }
         useActionBtn.disabled = true;
         useBonusActionBtn.disabled = true;
+        if (useReactionBtn){
+          useReactionBtn.disabled = true;
+        }
         populateActionSelect(actionSelectEl, [], "None/Custom");
         populateActionSelect(bonusActionSelectEl, [], "None/Custom");
         if (actionSelectEl){
@@ -8621,6 +8658,9 @@ __DAMAGE_TYPE_OPTIONS__
       }
       useActionBtn.disabled = true;
       useBonusActionBtn.disabled = true;
+      if (useReactionBtn){
+        useReactionBtn.disabled = true;
+      }
       populateActionSelect(actionSelectEl, [], "None/Custom");
       populateActionSelect(bonusActionSelectEl, [], "None/Custom");
       if (actionSelectEl){
@@ -8665,13 +8705,193 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  function setWarCasterModalOpen(open){
+    if (!warCasterModal) return;
+    warCasterModal.classList.toggle("show", !!open);
+    warCasterModal.setAttribute("aria-hidden", open ? "false" : "true");
+  }
+
+  function playerHasWarCasterFeat(){
+    const profile = getPlayerProfile(getClaimedPlayerName());
+    if (!profile || typeof profile !== "object"){
+      return false;
+    }
+    const hasWarCasterName = (value) => normalizeLowerValue(value) === "war caster";
+    const features = Array.isArray(profile.features) ? profile.features : [];
+    for (const feature of features){
+      if (typeof feature === "string" && hasWarCasterName(feature)){
+        return true;
+      }
+      if (feature && typeof feature === "object"){
+        if (hasWarCasterName(feature.name) || hasWarCasterName(feature.id)){
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function getPreparedReactionSpellEntries(){
+    const preparedSet = getPreparedSpellFilterSet();
+    if (!(preparedSet instanceof Set) || !preparedSet.size){
+      return [];
+    }
+    return cachedSpellPresets
+      .filter((preset) => {
+        const slug = getPresetSlug(preset);
+        return slug && preparedSet.has(getSpellKey(slug)) && getSpellActionType(preset) === "reaction";
+      })
+      .sort((a, b) => normalizeTextValue(a?.name).localeCompare(normalizeTextValue(b?.name)))
+      .map((preset) => ({
+        name: normalizeTextValue(preset.name),
+        description: normalizeTextValue(preset.description),
+        spend: "reaction",
+        kind: "reaction_spell",
+        spellSlug: getPresetSlug(preset),
+      }))
+      .filter((entry) => entry.name && entry.spellSlug);
+  }
+
+  function isWarCasterEligibleSpellPreset(preset){
+    if (!preset || getSpellActionType(preset) !== "action"){
+      return false;
+    }
+    if (isAoePreset(preset) || isSummonPreset(preset)){
+      return false;
+    }
+    const baseSlotLevel = Number.isFinite(Number(preset?.level)) ? Math.max(0, Math.floor(Number(preset.level))) : 0;
+    const targeting = getSpellTargetingConfig(preset, baseSlotLevel);
+    return Boolean(targeting && Number(targeting.projectileCount || 1) === 1);
+  }
+
+  function getWarCasterEligibleSpellPresets(){
+    const preparedSet = getPreparedSpellFilterSet();
+    if (!(preparedSet instanceof Set) || !preparedSet.size){
+      return [];
+    }
+    return cachedSpellPresets
+      .filter((preset) => {
+        const slug = getPresetSlug(preset);
+        return slug && preparedSet.has(getSpellKey(slug)) && isWarCasterEligibleSpellPreset(preset);
+      })
+      .sort((a, b) => normalizeTextValue(a?.name).localeCompare(normalizeTextValue(b?.name)));
+  }
+
+  function getWarCasterTargets(){
+    const me = getClaimedUnit();
+    const units = Array.isArray(state?.units) ? state.units : [];
+    return units.filter((entry) => {
+      if (!entry || !me || cidMatches(entry.cid, me.cid, "warCaster.self")){
+        return false;
+      }
+      return !isFriendlyToMe(entry, me);
+    });
+  }
+
+  function populateWarCasterModal(){
+    if (!warCasterSpellSelect || !warCasterTargetSelect){
+      return {spells: [], targets: []};
+    }
+    const spells = getWarCasterEligibleSpellPresets();
+    const targets = getWarCasterTargets();
+    warCasterSpellSelect.textContent = "";
+    spells.forEach((preset) => {
+      const opt = document.createElement("option");
+      opt.value = getPresetSlug(preset);
+      opt.textContent = normalizeTextValue(preset.name);
+      warCasterSpellSelect.appendChild(opt);
+    });
+    warCasterTargetSelect.textContent = "";
+    targets.forEach((target) => {
+      const opt = document.createElement("option");
+      opt.value = String(target.cid);
+      opt.textContent = `${target.name || `#${target.cid}`} (CID ${target.cid})`;
+      warCasterTargetSelect.appendChild(opt);
+    });
+    const activeEnemy = targets.find((entry) => cidMatches(entry.cid, state?.active_cid, "warCaster.defaultTarget"));
+    if (activeEnemy){
+      warCasterTargetSelect.value = String(activeEnemy.cid);
+    }
+    return {spells, targets};
+  }
+
+  function runSpellTargetingAgainstTarget(target){
+    if (!target || !pendingSpellTargeting){
+      return;
+    }
+    if (pendingSpellTargeting.mode === "save"){
+      send({
+        type: "spell_target_request",
+        cid: activeControlledUnitCid(),
+        target_cid: Number(target.cid),
+        spell_name: pendingSpellTargeting.spellName,
+        spell_slug: pendingSpellTargeting.spellSlug || null,
+        spell_id: pendingSpellTargeting.spellId || null,
+        spell_mode: "save",
+        save_type: pendingSpellTargeting.saveType || null,
+        save_dc: Number.isFinite(Number(pendingSpellTargeting.saveDc)) ? Number(pendingSpellTargeting.saveDc) : null,
+        roll_save: true,
+      });
+      return;
+    }
+    const autoHit = pendingSpellTargeting.mode === "auto_hit";
+    pendingAttackResolve = {
+      mode: "spell",
+      targetCid: Number(target.cid),
+      targetName: String(target.name || "target"),
+      spellName: pendingSpellTargeting.spellName,
+      spellSlug: pendingSpellTargeting.spellSlug || null,
+      spellId: pendingSpellTargeting.spellId || null,
+      spellMode: pendingSpellTargeting.mode,
+      saveType: pendingSpellTargeting.saveType || "",
+      saveDc: pendingSpellTargeting.saveDc,
+      forceHit: autoHit,
+      rollSave: false,
+    };
+    if (attackResolveBody){
+      const details = [
+        pendingSpellTargeting.damageDice ? `Damage: ${pendingSpellTargeting.damageDice}${pendingSpellTargeting.damageType ? ` ${pendingSpellTargeting.damageType}` : ""}.` : "",
+        pendingSpellTargeting.description ? pendingSpellTargeting.description : "",
+      ].filter(Boolean).join(" ");
+      attackResolveBody.textContent = `Resolve ${pendingSpellTargeting.spellName} on ${pendingAttackResolve.targetName}.`
+        + (details ? ` ${details}` : "");
+    }
+    if (attackDamageRows){
+      attackDamageRows.textContent = "";
+      addAttackDamageRow("", pendingSpellTargeting.damageType || "");
+    }
+    if (attackResolveHit) attackResolveHit.checked = autoHit;
+    if (attackResolveMiss) attackResolveMiss.checked = !autoHit;
+    if (attackResolveHit) attackResolveHit.disabled = autoHit;
+    if (attackResolveMiss) attackResolveMiss.disabled = autoHit;
+    syncAttackResolveDamageVisibility();
+    setAttackResolveModalOpen(true);
+  }
+
+  function openWarCasterModal(){
+    if (!playerHasWarCasterFeat()){
+      localToast("War Caster feat not found on your sheet.");
+      return;
+    }
+    const {spells, targets} = populateWarCasterModal();
+    if (!spells.length){
+      localToast("No War Caster eligible prepared spells.");
+      return;
+    }
+    if (!targets.length){
+      localToast("No enemy targets available.");
+      return;
+    }
+    setWarCasterModalOpen(true);
+  }
+
   function buildActionPickerItem(entry){
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "action-picker-item";
     const nameEl = document.createElement("div");
     nameEl.className = "action-picker-name";
-    const spendLabel = entry.spend === "bonus" ? "Bonus Action" : "Action";
+    const spendLabel = entry.spend === "bonus" ? "Bonus Action" : (entry.spend === "reaction" ? "Reaction" : "Action");
     nameEl.textContent = `${entry.name} (${spendLabel})`;
     btn.appendChild(nameEl);
     if (entry.description){
@@ -8717,8 +8937,27 @@ __DAMAGE_TYPE_OPTIONS__
         send(msg);
         return;
       }
+      if (entry.kind === "war_caster"){
+        openWarCasterModal();
+        return;
+      }
+      if (entry.kind === "reaction_spell"){
+        const preset = spellPresetBySlug.get(getSpellKey(entry.spellSlug))
+          || cachedSpellPresets.find((candidate) => getSpellKey(getPresetSlug(candidate)) === getSpellKey(entry.spellSlug));
+        if (!preset){
+          localToast("Could not find that spell preset, matey.");
+          return;
+        }
+        if (castPresetInput){
+          castPresetInput.value = normalizeTextValue(preset.name);
+        }
+        applySpellPreset(preset);
+        pendingSpellActionType = "reaction";
+        setCastOverlayOpen(true);
+        return;
+      }
       if (isSpellActionEntry(entry)){
-        pendingSpellActionType = entry.spend === "bonus" ? "bonus_action" : "action";
+        pendingSpellActionType = entry.spend === "bonus" ? "bonus_action" : (entry.spend === "reaction" ? "reaction" : "action");
         setCastOverlayOpen(true);
         return;
       }
@@ -8759,6 +8998,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const actions = normalizeActionList(unit.actions, "action");
     const bonusActions = normalizeActionList(unit.bonus_actions, "bonus_action");
+    const reactions = normalizeActionList(unit.reactions, "reaction");
     const items = [];
     if (mode === "action"){
       actionPickerTitle.textContent = "Choose an Action";
@@ -8766,6 +9006,18 @@ __DAMAGE_TYPE_OPTIONS__
     } else if (mode === "bonus"){
       actionPickerTitle.textContent = "Choose a Bonus Action";
       bonusActions.forEach((entry) => items.push({...entry, spend: "bonus"}));
+    } else if (mode === "reaction"){
+      actionPickerTitle.textContent = "Choose a Reaction";
+      reactions.forEach((entry) => items.push({...entry, spend: "reaction"}));
+      getPreparedReactionSpellEntries().forEach((entry) => items.push(entry));
+      if (playerHasWarCasterFeat()){
+        items.push({
+          name: "War Caster Spell",
+          description: "Cast a qualifying action spell as a reaction against a single enemy target.",
+          spend: "reaction",
+          kind: "war_caster",
+        });
+      }
     } else {
       actionPickerTitle.textContent = "Choose Dash";
       const dashEntries = (list, spend) => {
@@ -10597,11 +10849,11 @@ __DAMAGE_TYPE_OPTIONS__
   }
   function canSpendSpellAction(unit, actionType){
     if (!unit) return {ok: false, reason: "Claim a character first, matey."};
-    const remaining = Number(unit.spell_cast_remaining || 0);
-    if (remaining <= 0){
-      return {ok: false, reason: "You already cast a spell this turn."};
-    }
     if (actionType === "bonus_action"){
+      const remaining = Number(unit.spell_cast_remaining || 0);
+      if (remaining <= 0){
+        return {ok: false, reason: "You already cast a spell this turn."};
+      }
       if (!unitHasMagicAction(unit, actionType)){
         return {ok: false, reason: "No bonus-action spellcasting available."};
       }
@@ -10615,6 +10867,10 @@ __DAMAGE_TYPE_OPTIONS__
         return {ok: false, reason: "No reactions left, matey."};
       }
       return {ok: true};
+    }
+    const remaining = Number(unit.spell_cast_remaining || 0);
+    if (remaining <= 0){
+      return {ok: false, reason: "You already cast a spell this turn."};
     }
     if (!unitHasMagicAction(unit, actionType)){
       return {ok: false, reason: "No spellcasting action available."};
@@ -14091,6 +14347,72 @@ __DAMAGE_TYPE_OPTIONS__
     if (!claimedCid) return;
     openActionPicker("bonus");
   });
+  if (useReactionBtn){
+    useReactionBtn.addEventListener("click", () => {
+      if (isMapView) return;
+      if (!claimedCid) return;
+      openActionPicker("reaction");
+    });
+  }
+  if (warCasterCancelBtn){
+    warCasterCancelBtn.addEventListener("click", () => {
+      setWarCasterModalOpen(false);
+    });
+  }
+  if (warCasterCastBtn){
+    warCasterCastBtn.addEventListener("click", () => {
+      const spellSlug = normalizeTextValue(warCasterSpellSelect?.value);
+      const targetCid = normalizeCid(warCasterTargetSelect?.value, "warCaster.target");
+      if (!spellSlug || targetCid === null){
+        localToast("Pick a spell and target first.");
+        return;
+      }
+      const preset = spellPresetBySlug.get(getSpellKey(spellSlug))
+        || cachedSpellPresets.find((entry) => getSpellKey(getPresetSlug(entry)) === getSpellKey(spellSlug));
+      if (!preset){
+        localToast("Could not find that spell preset, matey.");
+        return;
+      }
+      const unit = getClaimedUnit();
+      const actionCheck = canSpendSpellAction(unit, "reaction");
+      if (!actionCheck.ok){
+        localToast(actionCheck.reason || "Cannot cast that reaction right now.");
+        return;
+      }
+      applySpellPreset(preset);
+      const slotCheck = validateCastSlotSelection(preset, true);
+      if (!slotCheck.ok){
+        return;
+      }
+      const slotLevel = Number.isFinite(slotCheck.slotLevel) ? Math.floor(Number(slotCheck.slotLevel)) : null;
+      const payload = {action_type: "reaction", name: normalizeTextValue(preset.name) || "Spell"};
+      if (slotCheck.consumesPool){
+        payload.consumes_pool = {id: slotCheck.consumesPool.id, cost: slotCheck.consumesPool.cost};
+      }
+      const msg = {
+        type: "cast_spell",
+        payload,
+        action_type: "reaction",
+        spell_slug: normalizeTextValue(getPresetSlug(preset)) || null,
+        spell_id: normalizeTextValue(preset.id) || null,
+      };
+      if (Number.isFinite(slotLevel)){
+        msg.slot_level = slotLevel;
+      }
+      if (slotCheck.consumesPool){
+        msg.consumes_pool_id = slotCheck.consumesPool.id;
+        msg.consumes_pool_cost = slotCheck.consumesPool.cost;
+      }
+      send(msg);
+      const config = getSpellTargetingConfig(preset, slotLevel);
+      if (config){
+        startSpellTargetingSession(config, preset, slotLevel);
+        const target = getUnitByCid(targetCid);
+        runSpellTargetingAgainstTarget(target);
+      }
+      setWarCasterModalOpen(false);
+    });
+  }
   if (standUpBtn){
     standUpBtn.addEventListener("click", () => {
       if (isMapView) return;

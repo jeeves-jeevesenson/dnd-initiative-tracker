@@ -1499,6 +1499,7 @@ The `/new_character` and `/edit_character` web forms now use a tabbed layout to 
 - **Feats**: feature list/objects.
 - **Actions**: actions, reactions, bonus actions.
 - **Spellcasting**: spellcasting fields with a large enabled/disabled toggle button.
+- **War Caster (reaction casting)**: add a feat entry named `War Caster` in the **Feats** tab (or `features[]` in YAML). The LAN reaction picker will then show a War Caster flow that only lists prepared spells eligible for War Caster use (action cast time, non-AoE, single-target targeting config) and lets the player pick an enemy target (defaults to the current active enemy when available).
 
 ### Auto-calculated behavior
 

@@ -330,6 +330,7 @@ class Combatant:
     spell_cast_remaining: int = 1
     actions: List[Dict[str, Any]] = field(default_factory=list)
     bonus_actions: List[Dict[str, Any]] = field(default_factory=list)
+    reactions: List[Dict[str, Any]] = field(default_factory=list)
     extra_action_pool: int = 0
     extra_bonus_pool: int = 0
     saving_throws: Dict[str, int] = field(default_factory=dict)
@@ -1951,6 +1952,7 @@ class InitiativeTracker(tk.Tk):
         ability_mods: Optional[Dict[str, int]] = None,
         actions: Optional[List[Dict[str, Any]]] = None,
         bonus_actions: Optional[List[Dict[str, Any]]] = None,
+        reactions: Optional[List[Dict[str, Any]]] = None,
         monster_spec: Optional[MonsterSpec] = None,
     ) -> int:
         cid = self._next_id
@@ -1982,6 +1984,7 @@ class InitiativeTracker(tk.Tk):
             is_spellcaster = inferred_spellcaster
         normalized_actions = self._normalize_action_entries(actions, "action")
         normalized_bonus_actions = self._normalize_action_entries(bonus_actions, "bonus_action")
+        normalized_reactions = self._normalize_action_entries(reactions, "reaction")
 
         c = Combatant(
             cid=cid,
@@ -2006,6 +2009,7 @@ class InitiativeTracker(tk.Tk):
             ability_mods=dict(ability_mods or {}),
             actions=normalized_actions,
             bonus_actions=normalized_bonus_actions,
+            reactions=normalized_reactions,
             monster_spec=monster_spec,
         )
         self.combatants[cid] = c
