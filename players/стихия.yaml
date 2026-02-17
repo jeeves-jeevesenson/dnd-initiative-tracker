@@ -98,62 +98,218 @@ attacks:
       save_dc: 18
 resources:
   pools:
-  - id: tester1
-    label: Test
+  - id: channel_divinity
+    label: Channel Divinity
     current: 3
-    max_formula: '3'
+    max_formula: '2 + (1 if cleric_level >= 6 else 0) + (1 if cleric_level >= 18 else 0)'
     reset: short_rest
+  - id: wrath_of_the_storm
+    label: Wrath of the Storm
+    current: 5
+    max_formula: 'max(1, wis_mod)'
+    reset: long_rest
+  - id: divine_intervention
+    label: Divine Intervention
+    current: 1
+    max_formula: '1'
+    reset: long_rest
 features:
 - id: war_caster
   name: War Caster
   category: Feat
   source: PHB
-  description: Practiced in casting spells amid combat, enabling War Caster reaction spell use in LAN mode.
-- id: test
-  name: Test
-  category: General Feature
-  source: PHB2024.
-  description: Just a test bro
-  grants:
-    pools:
-    - id: tester1
-      label: Test
-      max_formula: '3'
-      reset: short_rest
-    spells:
-      cantrips:
-      - ''
-      casts:
-      - spell: polymorph
-        action_type: action
-        consumes:
-          pool: tester1
-          cost: 1
-    actions: []
-    modifiers: []
-    damage_riders: []
-- id: test2
-  name: Test 2
-  category: Basic Feats
+  description: Somatic components with occupied hands; concentration advantage; reaction spell on opportunity attack.
+- id: divine_order_protector
+  name: Divine Order - Protector
+  category: Cleric Feature
   source: PHB2024
-  description: Just a test 2
+  level: 1
+  description: Martial weapons and heavy armor training.
+- id: channel_divinity
+  name: Channel Divinity
+  category: Cleric Feature
+  source: PHB2024
+  level: 2
   grants:
     pools:
-    - id: nomade
-      label: No Made
-      max_formula: '3'
+    - id: channel_divinity
+      label: Channel Divinity
+      max_formula: '2 + (1 if cleric_level >= 6 else 0) + (1 if cleric_level >= 18 else 0)'
+      reset: short_rest
+    actions:
+    - id: divine_spark
+      name: Divine Spark
+      activation: action
+      range_ft: 30
+      heal_formula: '(1 + (1 if cleric_level >= 7 else 0) + (1 if cleric_level >= 13 else 0) + (1 if cleric_level >= 18 else 0))d8 + wis_mod'
+      damage_formula: '(1 + (1 if cleric_level >= 7 else 0) + (1 if cleric_level >= 13 else 0) + (1 if cleric_level >= 18 else 0))d8 + wis_mod'
+      damage_types:
+      - radiant
+      - necrotic
+      save:
+        ability: con
+        dc_formula: spell_save_dc
+        on_success: half
+      consumes:
+        pool: channel_divinity
+        cost: 1
+    - id: turn_undead
+      name: Turn Undead
+      activation: action
+      range_ft: 30
+      target_type: undead
+      save:
+        ability: wis
+        dc_formula: spell_save_dc
+      duration: 1_minute
+      conditions_on_fail:
+      - frightened
+      - incapacitated
+      breaks_on:
+      - target_takes_damage
+      - source_incapacitated
+      - source_dead
+      consumes:
+        pool: channel_divinity
+        cost: 1
+    modifiers: []
+    damage_riders: []
+- id: sear_undead
+  name: Sear Undead
+  category: Cleric Feature
+  source: PHB2024
+  level: 5
+  description: Turn Undead deals extra radiant damage on failed save.
+  grants:
+    actions: []
+    modifiers:
+    - id: sear_undead_damage
+      applies_to: turn_undead
+      damage_formula: 'max(1, wis_mod)d8'
+      damage_type: radiant
+      trigger: on_failed_save
+      does_not_break_turn: true
+    damage_riders: []
+- id: blessed_strikes
+  name: Blessed Strikes
+  category: Cleric Feature
+  source: PHB2024
+  level: 7
+  selection: divine_strike
+  grants:
+    damage_riders:
+    - id: blessed_strikes_divine_strike
+      once_per_turn: true
+      trigger: weapon_attack_hit
+      damage_formula: 1d8
+      damage_type_options:
+      - radiant
+      - necrotic
+    modifiers: []
+    actions: []
+- id: divine_intervention
+  name: Divine Intervention
+  category: Cleric Feature
+  source: PHB2024
+  level: 10
+  grants:
+    pools:
+    - id: divine_intervention
+      label: Divine Intervention
+      max_formula: '1'
       reset: long_rest
-    spells:
-      cantrips: []
-      casts:
-      - spell: fireball
-        action_type: action
-        consumes:
-          pool: nomade
-          cost: 1
+    actions:
+    - id: divine_intervention_cast
+      name: Divine Intervention
+      activation: action
+      spell_choice:
+        class: cleric
+        max_level: 5
+        disallow_reaction_cast: true
+      no_spell_slot: true
+      ignore_material_components: true
+      consumes:
+        pool: divine_intervention
+        cost: 1
+    modifiers: []
+    damage_riders: []
+- id: tempest_bonus_proficiencies
+  name: Tempest Domain - Bonus Proficiencies
+  category: Cleric Subclass Feature
+  source: PHB2014
+  level: 1
+  description: Martial weapons and heavy armor training.
+- id: wrath_of_the_storm
+  name: Wrath of the Storm
+  category: Cleric Subclass Feature
+  source: PHB2014
+  level: 1
+  grants:
+    pools:
+    - id: wrath_of_the_storm
+      label: Wrath of the Storm
+      max_formula: 'max(1, wis_mod)'
+      reset: long_rest
+    reactions:
+    - id: wrath_of_the_storm_reaction
+      name: Wrath of the Storm
+      trigger: creature_within_5ft_hits_you
+      save:
+        ability: dex
+        dc_formula: spell_save_dc
+        on_success: half
+      damage_formula: 2d8
+      damage_type_options:
+      - lightning
+      - thunder
+      consumes:
+        pool: wrath_of_the_storm
+        cost: 1
     actions: []
     modifiers: []
     damage_riders: []
+- id: destructive_wrath
+  name: Channel Divinity - Destructive Wrath
+  category: Cleric Subclass Feature
+  source: PHB2014
+  level: 2
+  grants:
+    modifiers:
+    - id: destructive_wrath_maximize
+      trigger: lightning_or_thunder_damage_roll
+      effect: maximize_damage_dice
+      consumes:
+        pool: channel_divinity
+        cost: 1
+    actions: []
+    damage_riders: []
+- id: thunderous_strike
+  name: Thunderous Strike
+  category: Cleric Subclass Feature
+  source: PHB2014
+  level: 6
+  grants:
+    modifiers:
+    - id: thunderous_strike_push
+      trigger: deal_lightning_damage
+      target_size_max: large
+      push_distance_ft: 10
+    actions: []
+    damage_riders: []
+- id: tempest_divine_strike
+  name: Tempest Domain - Divine Strike
+  category: Cleric Subclass Feature
+  source: PHB2014
+  level: 8
+  grants:
+    damage_riders:
+    - id: tempest_divine_strike_damage
+      once_per_turn: true
+      trigger: weapon_attack_hit
+      damage_formula: '1d8 + (1d8 if cleric_level >= 14 else 0)'
+      damage_type: thunder
+    modifiers: []
+    actions: []
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
