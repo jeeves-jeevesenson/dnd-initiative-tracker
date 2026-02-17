@@ -263,6 +263,26 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[2].hp, 11)
         self.assertIn((16, "Attack hits."), self.toasts)
 
+    def test_attack_request_includes_critical_flag_and_logs_crit(self):
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 24,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "critical": True,
+            "damage_entries": [{"amount": 4, "type": "slashing"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("critical"))
+        self.assertTrue(any("(CRIT)" in message for _, message in self.logs))
+
     def test_attack_request_auto_resolves_weapon_and_effect_damage_when_hit(self):
         self.app._profile_for_player_name = lambda name: {
             "abilities": {"str": 20},
