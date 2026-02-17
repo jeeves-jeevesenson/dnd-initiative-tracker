@@ -73,7 +73,12 @@ defenses:
   vulnerabilities: []
 resources:
   pools: []
-features: []
+features:
+- id: war_caster
+  name: War Caster
+  category: Feat
+  source: PHB
+  description: Practiced in casting spells amid combat, enabling War Caster reaction spell use in LAN mode.
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
