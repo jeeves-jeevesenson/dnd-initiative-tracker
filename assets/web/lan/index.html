@@ -7363,27 +7363,33 @@ __DAMAGE_TYPE_OPTIONS__
     return /\b(crit|critical|nat\s*20|natural\s*20)\b/.test(msg);
   }
   const damageTypeColorByName = {
-    fire: "#FF9900",
-    cold: "#00CCFF",
-    lightning: "#FFFF00",
-    acid: "#00FF00",
-    poison: "#008000",
-    radiant: "#FFD700",
-    necrotic: "#330033",
-    force: "#800080",
-    psychic: "#FF66CC",
-    thunder: "#9933FF",
-    slashing: "#AAAAAA",
-    piercing: "#AAAAAA",
-    bludgeoning: "#8B4513",
+    acid: "#7CAC00",
+    cold: "#348CC4",
+    fire: "#EC5400",
+    force: "#C83434",
+    healing: "#30B8B8",
+    lightning: "#3058C0",
+    necrotic: "#40AC50",
+    poison: "#44B800",
+    radiant: "#C8A800",
+    thunder: "#8444B8",
+    psychic: "#AC7094",
+    physical: "#888888",
+    piercing: "#888888",
+    bludgeoning: "#888888",
+    slashing: "#888888",
+    hellfire: "#A00000",
   };
   function decorateDamageTypes(message){
-    let html = escapeHtml(String(message || ""));
-    Object.entries(damageTypeColorByName).forEach(([type, color]) => {
-      const rx = new RegExp(`\\b(${type})\\b`, "gi");
-      html = html.replace(rx, `<span class="damage-type" style="color:${color}">$1</span>`);
+    const html = escapeHtml(String(message || ""));
+    const typeKeys = Object.keys(damageTypeColorByName);
+    const typePattern = typeKeys.join("|");
+    const rx = new RegExp(`\\b\\d+(?:\\.\\d+)?\\s+(?:(${typePattern})\\s+)?damage\\b`, "gi");
+    return html.replace(rx, (match, type) => {
+      const key = String(type || "physical").toLowerCase();
+      const color = damageTypeColorByName[key] || damageTypeColorByName.physical;
+      return `<span class="damage-type" style="color:${color}">${match}</span>`;
     });
-    return html;
   }
   function renderMapViewLogPanel(){
     if (!mapViewLogPanel || !mapViewLogList) return;
