@@ -204,6 +204,19 @@ LAN mode is optional and intended for trusted local networks.
 
 Default bind settings are in `dnd_initative_tracker.py` (`LanConfig`, default port `8787`).
 
+### LAN rules Help viewer (local PDF)
+
+The LAN client includes a **Help** modal that can open your own local rules PDF.
+
+- Default PDF location: `~/Documents/Dnd-Init-Yamls/rules/PlayersHandbook2024.pdf`
+- Optional override: set `INITTRACKER_RULES_PDF` to an absolute or relative file path.
+- LAN routes used by the Help UI:
+  - `GET /rules.pdf`
+  - `GET /api/rules/status`
+  - `GET /api/rules/toc`
+
+> The project does **not** ship with any rulebook PDFs. You must provide your own local copy in the runtime data folder.
+
 ### Optional startup behavior
 
 You can change startup behavior in `dnd_initative_tracker.py`:

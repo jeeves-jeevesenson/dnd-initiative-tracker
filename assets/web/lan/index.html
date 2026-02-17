@@ -85,6 +85,7 @@
     }
     .map-view .topbar-main-row #planningBtn,
     .map-view .topbar-main-row #spellLibraryBtn,
+    .map-view .topbar-main-row #helpBtn,
     .map-view .topbar-main-row #configBtn,
     .map-view .topbar-main-row #initiativeToggleBtn,
     .map-view .topbar-main-row .topbar-controls,
@@ -1521,6 +1522,19 @@
     .mastery-advantage-text{color:#34d399;font-weight:700;}
     .hint.hidden{display:none;}
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
+
+    .rules-help-layout{display:grid; grid-template-columns:minmax(220px, 32%) 1fr; gap:10px; min-height:55vh;}
+    .rules-help-left{display:flex; flex-direction:column; gap:8px; min-height:0;}
+    .rules-help-search{width:100%;}
+    .rules-help-tree{overflow:auto; border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px; background:rgba(8,10,14,.5); min-height:200px;}
+    .rules-help-node{margin:4px 0;}
+    .rules-help-node button{width:100%; text-align:left; background:transparent; border:0; color:var(--text); padding:4px 6px; border-radius:6px;}
+    .rules-help-node button:hover{background:rgba(255,255,255,.1);}
+    .rules-help-children{margin-left:12px; border-left:1px solid rgba(255,255,255,.08); padding-left:8px;}
+    .rules-help-right{display:flex; flex-direction:column; gap:8px; min-height:0;}
+    .rules-help-frame{flex:1 1 auto; min-height:300px; border:1px solid rgba(255,255,255,.15); border-radius:10px; background:#0b0d10;}
+    .rules-help-message{font-size:12px; color:var(--muted); min-height:16px;}
+    @media (max-width: 900px){ .rules-help-layout{grid-template-columns:1fr;} }
     .modal-actions .btn{flex:1; min-width:120px;}
     .action-picker-list{
       display:flex;
@@ -1954,6 +1968,7 @@
       <div class="spacer"></div>
       <button class="btn" id="planningBtn" type="button">Planning Mode</button>
       <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
+      <button class="btn" id="helpBtn" type="button" aria-controls="helpModal" aria-expanded="false">Help</button>
       <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
       <div class="topbar-controls">
         <button class="btn" id="lockMap">Lock Map</button>
@@ -2157,6 +2172,29 @@
       <div class="log-content" id="logContent"></div>
       <div class="log-resize-handle" id="logResizeHandle" aria-hidden="true"></div>
     </aside>
+
+    <div class="modal" id="helpModal" aria-hidden="true">
+      <div class="panel" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle" style="width:min(1200px,96vw)">
+        <h2 id="helpModalTitle">Rules Help</h2>
+        <div class="modal-actions" style="margin-top:0;">
+          <button class="btn" id="helpOpenBook" type="button">Open book</button>
+          <button class="btn" id="helpOpenClass" type="button">Open my class</button>
+          <button class="btn" id="helpOpenTab" type="button">Open in new tab</button>
+          <button class="btn" id="helpClose" type="button">Close</button>
+        </div>
+        <div class="rules-help-layout">
+          <div class="rules-help-left">
+            <input class="input rules-help-search" id="helpSearch" type="text" placeholder="Search sections" />
+            <div class="rules-help-tree" id="helpTocTree"></div>
+          </div>
+          <div class="rules-help-right">
+            <div class="rules-help-message" id="helpMessage"></div>
+            <iframe class="rules-help-frame" id="helpViewer" title="Rules PDF viewer" loading="lazy"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal" id="configModal" aria-hidden="true">
       <div class="card config-card">
         <h2>Config</h2>
@@ -3451,6 +3489,16 @@ __DAMAGE_TYPE_OPTIONS__
   const zoomOutBtn = document.getElementById("zoomOut");
   const dashBtn = document.getElementById("dash");
   const configBtn = document.getElementById("configBtn");
+  const helpBtn = document.getElementById("helpBtn");
+  const helpModal = document.getElementById("helpModal");
+  const helpCloseBtn = document.getElementById("helpClose");
+  const helpOpenBookBtn = document.getElementById("helpOpenBook");
+  const helpOpenClassBtn = document.getElementById("helpOpenClass");
+  const helpOpenTabBtn = document.getElementById("helpOpenTab");
+  const helpSearchInput = document.getElementById("helpSearch");
+  const helpTocTree = document.getElementById("helpTocTree");
+  const helpViewer = document.getElementById("helpViewer");
+  const helpMessage = document.getElementById("helpMessage");
   const initiativeToggleBtn = document.getElementById("initiativeToggleBtn");
   const configModal = document.getElementById("configModal");
   const configCloseBtn = document.getElementById("configClose");
@@ -5522,6 +5570,127 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
+  function setHelpMessage(text){
+    if (helpMessage){ helpMessage.textContent = text || ""; }
+  }
+
+  function flattenToc(nodes){
+    const out = [];
+    const walk = (items) => (items || []).forEach((node) => { out.push(node); walk(node.children || []); });
+    walk(nodes || []);
+    return out;
+  }
+
+  function renderRulesToc(){
+    if (!helpTocTree) return;
+    const q = String(helpSearchInput?.value || "").trim().toLowerCase();
+    const matches = (title) => !q || String(title || "").toLowerCase().includes(q);
+    const build = (nodes) => {
+      const frag = document.createDocumentFragment();
+      (nodes || []).forEach((node) => {
+        const childFrag = build(node.children || []);
+        const include = matches(node.title) || childFrag.childNodes.length > 0;
+        if (!include) return;
+        const row = document.createElement("div");
+        row.className = "rules-help-node";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        const page = node.page ? ` (p.${node.page})` : "";
+        btn.textContent = `${node.title}${page}`;
+        btn.addEventListener("click", () => jumpRulesPage(node.page || 1));
+        row.appendChild(btn);
+        if (childFrag.childNodes.length){
+          const children = document.createElement("div");
+          children.className = "rules-help-children";
+          children.appendChild(childFrag);
+          row.appendChild(children);
+        }
+        frag.appendChild(row);
+      });
+      return frag;
+    };
+    helpTocTree.innerHTML = "";
+    helpTocTree.appendChild(build(rulesTocCache));
+  }
+
+  function loadRulesViewer(page=1){
+    if (!helpViewer) return;
+    rulesLastPage = Math.max(1, Number(page || 1));
+    const base = "/assets/web/lan/pdfjs/web/viewer.html?file=/rules.pdf";
+    const url = `${base}#page=${rulesLastPage}`;
+    helpViewer.src = url;
+    rulesViewerLoaded = true;
+  }
+
+  function jumpRulesPage(page=1){
+    const num = Math.max(1, Number(page || 1));
+    rulesLastPage = num;
+    if (!rulesViewerLoaded){
+      loadRulesViewer(num);
+      return;
+    }
+    try {
+      const current = new URL(helpViewer.src, window.location.origin);
+      current.hash = `page=${num}`;
+      helpViewer.src = current.toString();
+    } catch (_err){
+      loadRulesViewer(num);
+    }
+  }
+
+  function normalizeClassToken(value){
+    const raw = String(value || "").trim().toLowerCase();
+    if (!raw) return "";
+    const first = raw.split(/[\/,;&+|]/)[0] || raw;
+    return first.trim().split(/\s+/)[0] || "";
+  }
+
+  function findClassNode(className){
+    const token = normalizeClassToken(className);
+    if (!token) return null;
+    const flat = flattenToc(rulesTocCache);
+    return flat.find((n) => String(n.title || "").trim().toLowerCase() === token)
+      || flat.find((n) => String(n.title || "").trim().toLowerCase().includes(token));
+  }
+
+  async function ensureRulesData(){
+    if (!rulesStatusCache){
+      const statusResp = await fetch("/api/rules/status");
+      rulesStatusCache = await statusResp.json();
+    }
+    if (rulesStatusCache?.available && (!Array.isArray(rulesTocCache) || !rulesTocCache.length)){
+      const tocResp = await fetch("/api/rules/toc");
+      const tocPayload = await tocResp.json();
+      rulesTocCache = Array.isArray(tocPayload?.toc) ? tocPayload.toc : [];
+    }
+    renderRulesToc();
+    const available = !!rulesStatusCache?.available;
+    if (helpOpenBookBtn) helpOpenBookBtn.disabled = !available;
+    if (helpOpenClassBtn) helpOpenClassBtn.disabled = !available;
+    if (!available){
+      setHelpMessage("Place your PDF at: ~/Documents/Dnd-Init-Yamls/rules/PlayersHandbook2024.pdf (or set INITTRACKER_RULES_PDF).");
+    } else if (rulesStatusCache?.error){
+      setHelpMessage(String(rulesStatusCache.error));
+    } else {
+      setHelpMessage("");
+    }
+  }
+
+  function showHelpModal(){
+    if (!helpModal) return;
+    helpModal.classList.add("show");
+    helpModal.setAttribute("aria-hidden", "false");
+    if (helpBtn) helpBtn.setAttribute("aria-expanded", "true");
+    ensureRulesData().catch(() => setHelpMessage("Failed to load rules metadata."));
+  }
+
+  function hideHelpModal(){
+    if (!helpModal) return;
+    helpModal.classList.remove("show");
+    helpModal.setAttribute("aria-hidden", "true");
+    if (helpBtn) helpBtn.setAttribute("aria-expanded", "false");
+  }
+
   function showConfigModal(){
     if (!configModal) return;
     configModal.classList.add("show");
@@ -5538,6 +5707,51 @@ __DAMAGE_TYPE_OPTIONS__
     if (configBtn){
       configBtn.setAttribute("aria-expanded", "false");
     }
+  }
+
+  if (helpBtn){
+    helpBtn.addEventListener("click", () => {
+      if (helpModal?.classList.contains("show")){
+        hideHelpModal();
+        return;
+      }
+      showHelpModal();
+    });
+  }
+  if (helpCloseBtn){
+    helpCloseBtn.addEventListener("click", hideHelpModal);
+  }
+  if (helpModal){
+    helpModal.addEventListener("click", (event) => {
+      if (event.target === helpModal){
+        hideHelpModal();
+      }
+    });
+  }
+  if (helpSearchInput){
+    helpSearchInput.addEventListener("input", () => renderRulesToc());
+  }
+  if (helpOpenBookBtn){
+    helpOpenBookBtn.addEventListener("click", () => jumpRulesPage(rulesLastPage || 1));
+  }
+  if (helpOpenTabBtn){
+    helpOpenTabBtn.addEventListener("click", () => {
+      window.open("/assets/web/lan/pdfjs/web/viewer.html?file=/rules.pdf", "_blank", "noopener,noreferrer");
+    });
+  }
+  if (helpOpenClassBtn){
+    helpOpenClassBtn.addEventListener("click", () => {
+      const claimedName = getClaimedUnit()?.name;
+      const player = claimedName ? state?.player_profiles?.[claimedName] : null;
+      const className = player?.leveling?.class || player?.leveling?.classes?.[0]?.name || "";
+      const node = findClassNode(className);
+      if (!node || !node.page){
+        setHelpMessage(`Could not find a bookmark for class: ${className || "unknown"}`);
+        return;
+      }
+      setHelpMessage("");
+      jumpRulesPage(node.page);
+    });
   }
 
   const mapViewBlockedTypes = new Set([
@@ -11069,6 +11283,10 @@ __DAMAGE_TYPE_OPTIONS__
   let spellbookPreviousFocus = null;
   let spellDetailPreviousFocus = null;
   let activeSpellDetailSlug = null;
+  let rulesStatusCache = null;
+  let rulesTocCache = [];
+  let rulesViewerLoaded = false;
+  let rulesLastPage = 1;
 
   function getPlayerLevel(profile){
     const raw = profile?.leveling?.level ?? profile?.leveling?.total_level ?? profile?.leveling?.lvl;
@@ -14326,6 +14544,10 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (spellbookConfirmModal?.classList.contains("show")){
         hideSpellbookConfirm();
+        return;
+      }
+      if (helpModal?.classList.contains("show")){
+        hideHelpModal();
         return;
       }
       if (spellLibraryOverlay?.classList.contains("show")){

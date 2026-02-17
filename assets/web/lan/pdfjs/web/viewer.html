@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rules Viewer</title>
+  <style>html,body,iframe{margin:0;height:100%;width:100%;border:0;background:#111}</style>
+</head>
+<body>
+  <iframe id="pdfFrame" title="Rules PDF"></iframe>
+  <script src="../build/pdf.js"></script>
+  <script>
+    (function(){
+      const params = new URLSearchParams(location.search);
+      const file = params.get('file') || '/rules.pdf';
+      document.getElementById('pdfFrame').src = file;
+    })();
+  </script>
+</body>
+</html>

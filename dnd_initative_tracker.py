@@ -48,6 +48,11 @@ try:
 except Exception:
     yaml = None  # type: ignore
 
+try:
+    from pypdf import PdfReader  # type: ignore
+except Exception:
+    PdfReader = None  # type: ignore
+
 # Import the full tracker as the base.
 # Keep this file in the same folder as helper_script.py
 try:
@@ -93,6 +98,54 @@ def _app_data_dir() -> Path:
     except Exception:
         pass
     return _app_base_dir()
+
+
+
+
+def _rules_pdf_default_path() -> Path:
+    return _app_data_dir() / "rules" / "PlayersHandbook2024.pdf"
+
+
+def _resolve_rules_pdf_path() -> Optional[Path]:
+    override = str(os.getenv("INITTRACKER_RULES_PDF") or "").strip()
+    if override:
+        try:
+            return Path(override).expanduser()
+        except Exception:
+            return None
+
+    default_path = _rules_pdf_default_path()
+    try:
+        if default_path.exists() and default_path.is_file():
+            return default_path
+    except Exception:
+        return None
+
+    rules_dir = default_path.parent
+    try:
+        candidates = sorted(path for path in rules_dir.glob("*.pdf") if path.is_file())
+    except Exception:
+        return None
+    return candidates[0] if candidates else None
+
+
+def _safe_rules_filename(path: Optional[Path]) -> Optional[str]:
+    if not path:
+        return None
+    try:
+        return path.name
+    except Exception:
+        return None
+
+
+def _coerce_outline_items(raw_outline: Any) -> List[Any]:
+    if raw_outline is None:
+        return []
+    if isinstance(raw_outline, list):
+        return raw_outline
+    if isinstance(raw_outline, tuple):
+        return list(raw_outline)
+    return [raw_outline]
 
 
 def _seed_user_players_dir() -> None:
@@ -1186,6 +1239,8 @@ class LanController:
         self._active_poll_interval_ms: int = 120
         self._idle_cache_refresh_interval_s: float = 1.0
         self._last_idle_cache_refresh: float = 0.0
+        self._rules_toc_cache_key: Optional[Tuple[str, int, int]] = None
+        self._rules_toc_cache_payload: Optional[Dict[str, Any]] = None
         self._init_admin_auth()
 
     @property
@@ -1489,9 +1544,109 @@ class LanController:
                 presets[key] = preset
         return presets
 
-    def _save_host_presets(self) -> None:
-        payload = {"version": 1, "presets": dict(self._host_presets)}
-        _write_index_file(self._host_presets_path(), payload)
+    def _rules_pdf_status_payload(self) -> Dict[str, Any]:
+        path = _resolve_rules_pdf_path()
+        default_rel = f"~/{Path('Documents') / USER_YAML_DIRNAME / 'rules' / 'PlayersHandbook2024.pdf'}"
+        payload: Dict[str, Any] = {
+            "available": False,
+            "filename": None,
+            "toc_available": False,
+            "error": None,
+            "expected_path": default_rel,
+        }
+        if not path:
+            payload["error"] = "Rules PDF is not configured."
+            return payload
+        payload["filename"] = _safe_rules_filename(path)
+        try:
+            if not path.exists() or not path.is_file():
+                payload["error"] = "Rules PDF file was not found."
+                return payload
+        except Exception:
+            payload["error"] = "Unable to access rules PDF file."
+            return payload
+        payload["available"] = True
+        toc_payload = self._rules_pdf_toc_payload(path)
+        payload["toc_available"] = bool(toc_payload.get("toc"))
+        if toc_payload.get("error"):
+            payload["error"] = str(toc_payload.get("error"))
+        return payload
+
+    def _rules_pdf_toc_payload(self, path: Optional[Path] = None) -> Dict[str, Any]:
+        resolved_path = path or _resolve_rules_pdf_path()
+        if not resolved_path:
+            return {"available": False, "filename": None, "toc": [], "error": "Rules PDF is not configured."}
+        filename = _safe_rules_filename(resolved_path)
+        try:
+            stat = resolved_path.stat()
+            cache_key = (str(resolved_path), int(stat.st_mtime_ns), int(stat.st_size))
+        except Exception:
+            return {"available": False, "filename": filename, "toc": [], "error": "Rules PDF is unavailable."}
+        if self._rules_toc_cache_key == cache_key and isinstance(self._rules_toc_cache_payload, dict):
+            return dict(self._rules_toc_cache_payload)
+        payload = {"available": True, "filename": filename, "toc": [], "error": None}
+        if PdfReader is None:
+            payload["error"] = "pypdf dependency is unavailable."
+            self._rules_toc_cache_key = cache_key
+            self._rules_toc_cache_payload = dict(payload)
+            return payload
+        try:
+            reader = PdfReader(str(resolved_path))
+            raw_outline = getattr(reader, "outline", None)
+            if raw_outline is None:
+                raw_outline = getattr(reader, "outlines", None)
+            page_count = len(getattr(reader, "pages", []))
+            outline_items = _coerce_outline_items(raw_outline)
+            toc = self._normalize_rules_outline(reader, outline_items, page_count)
+            payload["toc"] = toc
+            if not toc:
+                payload["error"] = "No PDF bookmarks found."
+        except Exception:
+            payload["toc"] = []
+            payload["error"] = "Failed to parse PDF bookmarks."
+        self._rules_toc_cache_key = cache_key
+        self._rules_toc_cache_payload = dict(payload)
+        return payload
+
+    def _normalize_rules_outline(self, reader: Any, items: List[Any], page_count: int) -> List[Dict[str, Any]]:
+        toc: List[Dict[str, Any]] = []
+        current_parent: Optional[Dict[str, Any]] = None
+        for item in items:
+            if isinstance(item, list):
+                if current_parent is None:
+                    toc.extend(self._normalize_rules_outline(reader, item, page_count))
+                else:
+                    current_parent["children"] = self._normalize_rules_outline(reader, item, page_count)
+                continue
+            node = self._outline_node(reader, item, page_count)
+            if node is None:
+                continue
+            toc.append(node)
+            current_parent = node
+        return toc
+
+    def _outline_node(self, reader: Any, item: Any, page_count: int) -> Optional[Dict[str, Any]]:
+        title = str(getattr(item, "title", "") or "").strip()
+        if not title:
+            return None
+        page_num: Optional[int] = None
+        try:
+            destination = item
+            if hasattr(item, "page"):
+                destination = item
+            page_index = reader.get_destination_page_number(destination)
+            if isinstance(page_index, int) and page_index >= 0:
+                page_num = page_index + 1
+        except Exception:
+            page_num = None
+        if page_num is not None and page_count > 0:
+            page_num = max(1, min(page_num, page_count))
+        return {"title": title, "page": page_num, "children": []}
+
+    def _rules_pdf_log_message(self, prefix: str, path: Optional[Path]) -> None:
+        filename = _safe_rules_filename(path) or "unknown"
+        found = bool(path)
+        self._append_lan_log(f"{prefix} filename={filename} found={found}")
 
     def start(self, quiet: bool = False) -> None:
         if self._server_thread and self._server_thread.is_alive():
@@ -1611,6 +1766,51 @@ class LanController:
         @self._fastapi_app.get("/sw.js")
         async def service_worker():
             return Response(SERVICE_WORKER_JS, media_type="application/javascript")
+
+        @self._fastapi_app.get("/rules.pdf")
+        async def rules_pdf(request: Request):
+            host = getattr(getattr(request, "client", None), "host", "")
+            if not self._is_host_allowed(host):
+                raise HTTPException(status_code=403, detail="Unauthorized host.")
+            rules_path = _resolve_rules_pdf_path()
+            self._rules_pdf_log_message("rules.pdf request", rules_path)
+            if not rules_path:
+                raise HTTPException(status_code=404, detail="Rules PDF is not configured.")
+            try:
+                if not rules_path.exists() or not rules_path.is_file():
+                    raise HTTPException(status_code=404, detail="Rules PDF not found.")
+                return Response(content=rules_path.read_bytes(), media_type="application/pdf")
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(status_code=404, detail="Rules PDF not found.")
+
+        @self._fastapi_app.get("/api/rules/status")
+        async def rules_status(request: Request):
+            host = getattr(getattr(request, "client", None), "host", "")
+            if not self._is_host_allowed(host):
+                raise HTTPException(status_code=403, detail="Unauthorized host.")
+            return self._rules_pdf_status_payload()
+
+        @self._fastapi_app.get("/api/rules/toc")
+        async def rules_toc(request: Request):
+            host = getattr(getattr(request, "client", None), "host", "")
+            if not self._is_host_allowed(host):
+                raise HTTPException(status_code=403, detail="Unauthorized host.")
+            path = _resolve_rules_pdf_path()
+            if not path:
+                return {
+                    "available": False,
+                    "filename": None,
+                    "toc": [],
+                    "error": "Rules PDF is not configured.",
+                }
+            payload = self._rules_pdf_toc_payload(path)
+            if "available" not in payload:
+                payload["available"] = True
+            if "toc" not in payload:
+                payload["toc"] = []
+            return payload
 
         @self._fastapi_app.post("/api/push/subscribe")
         async def push_subscribe(payload: Dict[str, Any] = Body(...)):
