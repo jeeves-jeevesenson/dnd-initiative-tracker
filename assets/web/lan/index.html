@@ -1530,6 +1530,8 @@
     .rules-help-node{margin:4px 0;}
     .rules-help-node button{width:100%; text-align:left; background:transparent; border:0; color:var(--text); padding:4px 6px; border-radius:6px;}
     .rules-help-node button:hover{background:rgba(255,255,255,.1);}
+    .rules-help-pinned{margin:0 0 8px 0; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,.12);}
+    .rules-help-pinned button{width:100%; text-align:left;}
     .rules-help-children{margin-left:12px; border-left:1px solid rgba(255,255,255,.08); padding-left:8px;}
     .rules-help-right{display:flex; flex-direction:column; gap:8px; min-height:0; height:100%;}
     .rules-help-frame{flex:1 1 auto; min-height:460px; height:100%; border:1px solid rgba(255,255,255,.15); border-radius:10px; background:#0b0d10; width:100%;}
@@ -3501,6 +3503,7 @@ __DAMAGE_TYPE_OPTIONS__
   const helpTocTree = document.getElementById("helpTocTree");
   const helpViewer = document.getElementById("helpViewer");
   const helpMessage = document.getElementById("helpMessage");
+  const rulesLastPageStorageKey = "inittracker_rules_last_page_v1";
   const initiativeToggleBtn = document.getElementById("initiativeToggleBtn");
   const configModal = document.getElementById("configModal");
   const configCloseBtn = document.getElementById("configClose");
@@ -5587,6 +5590,8 @@ __DAMAGE_TYPE_OPTIONS__
     if (!helpTocTree) return;
     const q = String(helpSearchInput?.value || "").trim().toLowerCase();
     const matches = (title) => !q || String(title || "").toLowerCase().includes(q);
+    const className = getClaimedPlayerClassName();
+    const classNode = findClassNode(className);
     const build = (nodes) => {
       const frag = document.createDocumentFragment();
       (nodes || []).forEach((node) => {
@@ -5612,6 +5617,17 @@ __DAMAGE_TYPE_OPTIONS__
       return frag;
     };
     helpTocTree.innerHTML = "";
+    if (rulesStatusCache?.available && classNode?.page){
+      const pinned = document.createElement("div");
+      pinned.className = "rules-help-pinned";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn";
+      btn.textContent = `My class: ${className || classNode.title || "Unknown"} (p.${classNode.page})`;
+      btn.addEventListener("click", () => jumpRulesPage(classNode.page || 1));
+      pinned.appendChild(btn);
+      helpTocTree.appendChild(pinned);
+    }
     helpTocTree.appendChild(build(rulesTocCache));
   }
 
@@ -5629,6 +5645,7 @@ __DAMAGE_TYPE_OPTIONS__
   function jumpRulesPage(page=1){
     const num = Math.max(1, Number(page || 1));
     rulesLastPage = num;
+    try { localStorage.setItem(rulesLastPageStorageKey, String(num)); } catch (_err) {}
     if (!rulesViewerLoaded){
       loadRulesViewer(num);
       return;
@@ -5653,15 +5670,39 @@ __DAMAGE_TYPE_OPTIONS__
     const raw = String(value || "").trim().toLowerCase();
     if (!raw) return "";
     const first = raw.split(/[\/,;&+|]/)[0] || raw;
-    return first.trim().split(/\s+/)[0] || "";
+    return first.trim().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/)[0] || "";
+  }
+
+  function getClaimedPlayerClassName(){
+    const claimed = getClaimedUnit?.();
+    const claimedName = String(claimed?.name || "").trim();
+    if (!claimedName) return "";
+    const profiles = state?.player_profiles && typeof state.player_profiles === "object"
+      ? state.player_profiles
+      : null;
+    if (!profiles) return "";
+    const player = profiles[claimedName] || null;
+    if (!player || typeof player !== "object") return "";
+    const leveling = player.leveling && typeof player.leveling === "object" ? player.leveling : null;
+    if (!leveling) return "";
+    if (typeof leveling.class === "string" && leveling.class.trim()) return leveling.class.trim();
+    const classes = Array.isArray(leveling.classes) ? leveling.classes : [];
+    const first = classes.find((entry) => entry && typeof entry === "object" && typeof entry.name === "string" && entry.name.trim());
+    return first?.name?.trim() || "";
   }
 
   function findClassNode(className){
     const token = normalizeClassToken(className);
     if (!token) return null;
     const flat = flattenToc(rulesTocCache);
-    return flat.find((n) => String(n.title || "").trim().toLowerCase() === token)
-      || flat.find((n) => String(n.title || "").trim().toLowerCase().includes(token));
+    const normalized = flat.map((n) => ({
+      node: n,
+      title: String(n?.title || "").trim().toLowerCase().replace(/[^a-z0-9\s-]/g, " ").replace(/\s+/g, " ").trim(),
+    }));
+    return normalized.find((n) => n.title === token)?.node
+      || normalized.find((n) => n.title.startsWith(`${token} `))?.node
+      || normalized.find((n) => n.title.includes(token))?.node
+      || null;
   }
 
   async function ensureRulesData(){
@@ -5686,7 +5727,8 @@ __DAMAGE_TYPE_OPTIONS__
     if (helpOpenBookBtn) helpOpenBookBtn.disabled = !available;
     if (helpOpenClassBtn) helpOpenClassBtn.disabled = !available;
     if (!available){
-      setHelpMessage("Place your PDF at: ~/Documents/Dnd-Init-Yamls/rules/PlayersHandbook2024.pdf (or set INITTRACKER_RULES_PDF).");
+      const expected = rulesStatusCache?.expected_path || "~/Documents/Dnd-Init-Yamls/rules/PlayersHandbook2024.pdf";
+      setHelpMessage(`Place your PDF at: ${expected} (or set INITTRACKER_RULES_PDF).`);
     } else if (rulesStatusCache?.error){
       setHelpMessage(String(rulesStatusCache.error));
     } else {
@@ -5752,7 +5794,12 @@ __DAMAGE_TYPE_OPTIONS__
   if (helpViewer){
     helpViewer.addEventListener("load", () => {
       rulesViewerReady = true;
-      jumpRulesPage(rulesLastPage || 1);
+      try {
+        const frameWin = helpViewer.contentWindow;
+        if (frameWin){
+          frameWin.postMessage({ type: "rules:jump", page: rulesLastPage || 1 }, window.location.origin);
+        }
+      } catch (_err) {}
     });
   }
   if (helpOpenBookBtn){
@@ -5765,12 +5812,14 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (helpOpenClassBtn){
     helpOpenClassBtn.addEventListener("click", () => {
-      const claimedName = getClaimedUnit()?.name;
-      const player = claimedName ? state?.player_profiles?.[claimedName] : null;
-      const className = player?.leveling?.class || player?.leveling?.classes?.[0]?.name || "";
+      const className = getClaimedPlayerClassName();
       const node = findClassNode(className);
+      if (!className){
+        setHelpMessage("Could not determine your class from the claimed character profile.");
+        return;
+      }
       if (!node || !node.page){
-        setHelpMessage(`Could not find a bookmark for class: ${className || "unknown"}`);
+        setHelpMessage(`Could not find a bookmark for class: ${className}`);
         return;
       }
       setHelpMessage("");
@@ -11339,7 +11388,7 @@ __DAMAGE_TYPE_OPTIONS__
   let rulesSpellPagesCache = null;
   let rulesViewerLoaded = false;
   let rulesViewerReady = false;
-  let rulesLastPage = 1;
+  let rulesLastPage = Number(localStorage.getItem(rulesLastPageStorageKey) || 1) || 1;
 
   function getPlayerLevel(profile){
     const raw = profile?.leveling?.level ?? profile?.leveling?.total_level ?? profile?.leveling?.lvl;
