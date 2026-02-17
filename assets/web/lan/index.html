@@ -471,45 +471,9 @@
     }
     .topbar-controls{
       display:flex;
-      flex-direction:column;
-      align-items:stretch;
-      gap:8px;
-      min-width:0;
-      max-width:100%;
-    }
-    .map-tools-row{
-      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
       align-items:center;
-      gap:8px;
-      min-width:0;
-      overflow-x:auto;
-      padding-bottom:2px;
-      scrollbar-width:thin;
-    }
-    .map-tools-row.secondary{
-      max-height:0;
-      opacity:0;
-      pointer-events:none;
-      overflow:hidden;
-      transition:max-height 0.2s ease, opacity 0.2s ease;
-      padding-bottom:0;
-    }
-    .topbar-controls.expanded .map-tools-row.secondary{
-      max-height:56px;
-      opacity:1;
-      pointer-events:auto;
-      overflow-x:auto;
-      padding-bottom:2px;
-    }
-    .map-tools-divider{
-      width:1px;
-      align-self:stretch;
-      background:rgba(255,255,255,0.14);
-      flex:0 0 auto;
-    }
-    #mapToolsToggle{
-      margin-left:auto;
-      flex:0 0 auto;
     }
 
     .mapWrap{flex:1 1 auto; min-height:0; position:relative; overflow:hidden; background:#0a0c12;}
@@ -1938,26 +1902,18 @@
       <button class="btn" id="planningBtn" type="button">Planning Mode</button>
       <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
       <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
-      <div class="topbar-controls" id="mapToolsBar">
-        <div class="map-tools-row primary" aria-label="Primary map tools">
-          <button class="btn" id="lockMap">Lock Map</button>
-          <button class="btn" id="centerMap">Center on Me</button>
-          <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
-          <button class="btn accent" id="zoomIn">Zoom +</button>
-          <button class="btn accent" id="zoomOut">Zoom −</button>
-          <div class="map-tools-divider" role="presentation"></div>
-          <button class="btn" id="rotateLeft" type="button" title="Rotate selected token left">↺ 45°</button>
-          <button class="btn" id="rotateRight" type="button" title="Rotate selected token right">↻ 45°</button>
-          <button class="btn" id="mapToolsToggle" type="button" aria-expanded="false" aria-controls="mapToolsSecondary">More Tools</button>
-        </div>
-        <div class="map-tools-row secondary" id="mapToolsSecondary" aria-label="Additional map tools">
-          <button class="btn compact-optional" id="lockAoeToggle" type="button" aria-pressed="true">Unlock my AOEs</button>
-          <button class="btn compact-optional" id="tokenColorModeBtn">Token Color</button>
-          <button class="btn" id="attackOverlayToggle" type="button" aria-pressed="false">Attack Overlay</button>
-          <button class="btn compact-optional" id="measureClear">Clear Measure</button>
-          <button class="btn compact-optional" id="battleLog">Battle Log</button>
-          <button class="btn" id="toggleSheetPanel" aria-pressed="false">Hide Panel</button>
-        </div>
+      <div class="topbar-controls">
+        <button class="btn" id="lockMap">Lock Map</button>
+        <button class="btn compact-optional" id="lockAoeToggle" type="button" aria-pressed="true">Unlock my AOEs</button>
+        <button class="btn" id="centerMap">Center on Me</button>
+        <button class="btn compact-optional" id="tokenColorModeBtn">Token Color</button>
+        <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
+        <button class="btn" id="attackOverlayToggle" type="button" aria-pressed="false">Attack Overlay</button>
+        <button class="btn compact-optional" id="measureClear">Clear Measure</button>
+        <button class="btn accent" id="zoomIn">Zoom +</button>
+        <button class="btn accent" id="zoomOut">Zoom −</button>
+        <button class="btn compact-optional" id="battleLog">Battle Log</button>
+        <button class="btn" id="toggleSheetPanel" aria-pressed="false">Hide Panel</button>
       </div>
     </div>
     <div class="topbar-initiative" id="initiativeBarWrap" aria-label="Initiative bar">
@@ -3344,10 +3300,6 @@ __DAMAGE_TYPE_OPTIONS__
   const lockMapBtn = document.getElementById("lockMap");
   const lockAoeBtn = document.getElementById("lockAoeToggle");
   const centerMapBtn = document.getElementById("centerMap");
-  const mapToolsBar = document.getElementById("mapToolsBar");
-  const mapToolsToggleBtn = document.getElementById("mapToolsToggle");
-  const rotateLeftBtn = document.getElementById("rotateLeft");
-  const rotateRightBtn = document.getElementById("rotateRight");
   const zoomInBtn = document.getElementById("zoomIn");
   const zoomOutBtn = document.getElementById("zoomOut");
   const dashBtn = document.getElementById("dash");
@@ -6911,31 +6863,6 @@ __DAMAGE_TYPE_OPTIONS__
     return null;
   }
 
-  function rotateControlledTokenBy(stepDeg){
-    const controlledCid = activeControlledUnitCid();
-    if (controlledCid === null){
-      localToast("Claim or select a unit on your turn to rotate.");
-      return;
-    }
-    const unit = getUnitByCid(controlledCid);
-    if (!unit){
-      localToast("Could not find that token to rotate.");
-      return;
-    }
-    const current = normalizeFacingDeg(Number(unit.facing_deg) || 0);
-    const nextFacing = normalizeFacingDeg(current + Number(stepDeg || 0));
-    unit.facing_deg = nextFacing;
-    syncOwnedRotatableAoesWithFacing(unit.cid, nextFacing);
-    const msg = {type:"set_facing", cid: Number(unit.cid), facing_deg: nextFacing};
-    if (isPlanning){
-      planningMutate(msg);
-      draw();
-      updateHud();
-    }
-    send(msg);
-    draw();
-  }
-
   function isUnitConcentrationLinked(unit){
     if (!unit) return false;
     if (unit.concentrating === true) return true;
@@ -9960,26 +9887,6 @@ __DAMAGE_TYPE_OPTIONS__
       if (enforceLoginGate()) return;
       measurementMode = !measurementMode;
       updateMeasurementControls();
-    });
-  }
-  if (rotateLeftBtn){
-    rotateLeftBtn.addEventListener("click", () => {
-      if (enforceLoginGate()) return;
-      rotateControlledTokenBy(-45);
-    });
-  }
-  if (rotateRightBtn){
-    rotateRightBtn.addEventListener("click", () => {
-      if (enforceLoginGate()) return;
-      rotateControlledTokenBy(45);
-    });
-  }
-  if (mapToolsToggleBtn && mapToolsBar){
-    mapToolsToggleBtn.addEventListener("click", () => {
-      const expanded = !mapToolsBar.classList.contains("expanded");
-      mapToolsBar.classList.toggle("expanded", expanded);
-      mapToolsToggleBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
-      mapToolsToggleBtn.textContent = expanded ? "Fewer Tools" : "More Tools";
     });
   }
   if (measureClear){
