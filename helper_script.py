@@ -9435,6 +9435,22 @@ class BattleMapWindow(tk.Toplevel):
             cid = int(self._drag_id)
             if cid in self.unit_tokens:
                 self._layout_unit(cid)
+            c = self.app.combatants.get(cid)
+            if c is not None:
+                facing = int(_normalize_facing_degrees(float(self._token_facing.get(cid, 0.0))))
+                setattr(c, "facing_deg", facing)
+                sync_fn = getattr(self.app, "_sync_owned_rotatable_aoes_with_facing", None)
+                if callable(sync_fn):
+                    try:
+                        sync_fn(cid, facing)
+                    except Exception:
+                        pass
+                broadcast_fn = getattr(self.app, "_lan_force_state_broadcast", None)
+                if callable(broadcast_fn):
+                    try:
+                        broadcast_fn()
+                    except Exception:
+                        pass
             self._rotating_token_cid = None
         elif self._drag_kind == "unit" and self._drag_id is not None:
             cid = int(self._drag_id)

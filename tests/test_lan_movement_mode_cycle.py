@@ -82,6 +82,17 @@ class LanMovementModeCycleTests(unittest.TestCase):
         self.assertAlmostEqual(float(self.app._lan_aoes[7].get("cy")), 5.0)
         self.assertIsNone(self.app._lan_aoes[8].get("angle_deg"))
 
+    def test_set_facing_rejects_non_claimed_target(self):
+        self.app.combatants[2] = type("C", (), {"cid": 2, "name": "Summon"})()
+        self.app._summon_can_be_controlled_by = lambda claimed, target: True
+        msg = {"type": "set_facing", "cid": 2, "_claimed_cid": 1, "_ws_id": 9, "facing_deg": 180}
+
+        self.app._lan_apply_action(dict(msg))
+
+        self.assertNotIn("facing_deg", vars(self.app.combatants[2]))
+        self.assertEqual(self.broadcast_calls, 0)
+        self.assertIn((9, "Arrr, that token ain’t yers."), self.toasts)
+
 
 if __name__ == "__main__":
     unittest.main()
