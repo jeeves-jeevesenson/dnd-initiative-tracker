@@ -58,8 +58,25 @@ defenses:
   immunities: []
   vulnerabilities: []
 resources:
-  pools: []
-features: []
+  pools:
+  - id: arcane_recovery
+    name: Arcane Recovery
+    current: 1
+    max_formula: '1'
+    reset: long_rest
+features:
+- id: arcane_recovery
+  name: Arcane Recovery
+  level: 1
+  source: Wizard
+  description: After a Short Rest, recover expended spell slots with combined levels up
+    to half your Wizard level (round up). No recovered slot can be level 6+.
+  automation:
+    activation_time: short_rest
+    consumes_pool: arcane_recovery
+    recover_spell_slots:
+      max_combined_level_formula: ceil(wizard_level / 2)
+      max_slot_level: 5
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
@@ -89,6 +106,13 @@ actions:
 - name: Magic
   description: Cast a spell or use a magical feature that takes an action.
   type: action
+- name: Arcane Recovery
+  description: After a Short Rest, recover expended spell slots with combined levels
+    up to half your Wizard level (round up). Recovered slots must be level 5 or lower.
+  type: action
+  uses:
+    pool: arcane_recovery
+    cost: 1
 - name: Ready
   description: Prepare an action and a trigger; use your reaction to perform it when
     the trigger occurs.
