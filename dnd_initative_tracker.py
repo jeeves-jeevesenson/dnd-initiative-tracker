@@ -1705,7 +1705,7 @@ class LanController:
         # Lazy imports so the base app still works without these deps installed.
         try:
             from fastapi import Body, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-            from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+            from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response, StreamingResponse
             from fastapi.staticfiles import StaticFiles
             import uvicorn
             # Expose these in module globals so FastAPI's type resolver can see 'em even from nested defs.
@@ -1828,7 +1828,68 @@ class LanController:
             try:
                 if not rules_path.exists() or not rules_path.is_file():
                     raise HTTPException(status_code=404, detail="Rules PDF not found.")
-                return FileResponse(path=str(rules_path), media_type="application/pdf")
+                file_size = int(rules_path.stat().st_size)
+                common_headers = {"Accept-Ranges": "bytes"}
+                range_header = str(request.headers.get("range") or "").strip()
+                if not range_header:
+                    return FileResponse(path=str(rules_path), media_type="application/pdf", headers=common_headers)
+
+                match = re.fullmatch(r"bytes=(\d*)-(\d*)", range_header)
+                if not match:
+                    return Response(
+                        status_code=416,
+                        headers={**common_headers, "Content-Range": f"bytes */{file_size}"},
+                    )
+
+                start_text, end_text = match.group(1), match.group(2)
+                if start_text:
+                    start = int(start_text)
+                    end = int(end_text) if end_text else file_size - 1
+                elif end_text:
+                    suffix_len = int(end_text)
+                    if suffix_len <= 0:
+                        return Response(
+                            status_code=416,
+                            headers={**common_headers, "Content-Range": f"bytes */{file_size}"},
+                        )
+                    start = max(file_size - suffix_len, 0)
+                    end = file_size - 1
+                else:
+                    return Response(
+                        status_code=416,
+                        headers={**common_headers, "Content-Range": f"bytes */{file_size}"},
+                    )
+
+                if start < 0 or start >= file_size or end < start:
+                    return Response(
+                        status_code=416,
+                        headers={**common_headers, "Content-Range": f"bytes */{file_size}"},
+                    )
+
+                end = min(end, file_size - 1)
+                content_length = end - start + 1
+
+                def iter_rules_pdf_chunks() -> Iterable[bytes]:
+                    with rules_path.open("rb") as stream:
+                        stream.seek(start)
+                        remaining = content_length
+                        while remaining > 0:
+                            chunk = stream.read(min(65536, remaining))
+                            if not chunk:
+                                break
+                            remaining -= len(chunk)
+                            yield chunk
+
+                return StreamingResponse(
+                    iter_rules_pdf_chunks(),
+                    status_code=206,
+                    media_type="application/pdf",
+                    headers={
+                        **common_headers,
+                        "Content-Length": str(content_length),
+                        "Content-Range": f"bytes {start}-{end}/{file_size}",
+                    },
+                )
             except HTTPException:
                 raise
             except Exception:

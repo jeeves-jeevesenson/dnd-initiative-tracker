@@ -36,6 +36,7 @@
   <div class="toolbar">
     <strong>Rules Viewer</strong>
     <span class="status" id="viewerStatus">Loading PDF…</span>
+    <button class="load-btn" id="nativeFallbackBtn" type="button" hidden>Open in browser viewer</button>
   </div>
   <div class="viewer-root" id="viewerRoot">
     <div class="load-btn-wrap"><button class="load-btn" id="loadPrevBtn" type="button" hidden>Load more previous</button></div>
@@ -59,6 +60,7 @@
       const viewerStatus = document.getElementById('viewerStatus');
       const loadPrevBtn = document.getElementById('loadPrevBtn');
       const loadNextBtn = document.getElementById('loadNextBtn');
+      const nativeFallbackBtn = document.getElementById('nativeFallbackBtn');
 
       const pageStates = [];
       const rendered = new Map();
@@ -110,6 +112,7 @@
       }
 
       function fallbackNativeViewer(reason){
+        if (nativeFallbackBtn) nativeFallbackBtn.hidden = true;
         loadPrevBtn.hidden = true;
         loadNextBtn.hidden = true;
         pagesEl.classList.add('native');
@@ -123,26 +126,36 @@
         viewerStatus.textContent = reason ? `Using browser PDF viewer (${reason}).` : 'Using browser PDF viewer.';
       }
 
+      function showInitError(reason){
+        viewerStatus.textContent = reason;
+        if (nativeFallbackBtn) nativeFallbackBtn.hidden = false;
+      }
+
       async function init(){
         if (typeof window.pdfjsLib?.getDocument !== 'function'){
-          fallbackNativeViewer('PDF.js unavailable');
+          showInitError('PDF.js failed to initialize.');
           return;
         }
         try {
-          const loadingTask = window.pdfjsLib.getDocument(file);
+          const loadingTask = window.pdfjsLib.getDocument({
+            url: file,
+            cMapUrl: '../cmaps/',
+            cMapPacked: true,
+            standardFontDataUrl: '../standard_fonts/',
+          });
           doc = await loadingTask.promise;
           pageCount = doc.numPages;
           currentPage = clampPage(parseHashPage() || initialPage);
           viewerStatus.textContent = `${pageCount} pages`;
+          const firstPage = await doc.getPage(1);
+          const firstVp = firstPage.getViewport({ scale: 1 });
+          const defaultRatio = firstVp.height / firstVp.width;
+          firstPage.cleanup();
 
           for (let i = 1; i <= pageCount; i++){
-            const page = await doc.getPage(i);
-            const vp = page.getViewport({ scale: 1 });
-            const ratio = vp.height / vp.width;
-            const state = createShell(i, ratio);
+            const state = createShell(i, defaultRatio);
             pageStates.push(state);
             pagesEl.appendChild(state.shell);
-            page.cleanup();
           }
 
           loadedStart = clampPage(currentPage - initialBefore);
@@ -151,7 +164,7 @@
           scrollToPage(currentPage, false);
           scheduleUpdate();
         } catch (err){
-          viewerStatus.textContent = `Failed to load PDF: ${err?.message || err}`;
+          showInitError(`Failed to load PDF.js document: ${err?.message || err}`);
         }
       }
 
@@ -214,6 +227,7 @@
           const page = await doc.getPage(pageNum);
           const cssWidth = state.shell.clientWidth || viewerRoot.clientWidth;
           const base = page.getViewport({ scale: 1 });
+          state.ratio = base.height / base.width;
           const renderScale = (cssWidth / base.width) * (window.devicePixelRatio || 1);
           const viewport = page.getViewport({ scale: renderScale });
           let canvas = state.canvas || getCanvas();
@@ -327,6 +341,9 @@
         loadedStart = Math.max(1, loadedStart - CHUNK_SIZE);
         scheduleUpdate();
       });
+      if (nativeFallbackBtn){
+        nativeFallbackBtn.addEventListener('click', () => fallbackNativeViewer('fallback requested'));
+      }
 
       loadNextBtn.addEventListener('click', () => {
         loadedEnd = Math.min(pageCount, loadedEnd + CHUNK_SIZE);
