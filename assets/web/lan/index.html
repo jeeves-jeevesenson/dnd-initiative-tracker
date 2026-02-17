@@ -2054,6 +2054,9 @@
             <label class="chip"><input type="radio" name="attackResolveOutcome" id="attackResolveHit" value="hit" checked>Hit</label>
             <label class="chip"><input type="radio" name="attackResolveOutcome" id="attackResolveMiss" value="miss">Miss</label>
           </div>
+          <div class="row">
+            <label class="chip"><input type="checkbox" id="attackResolveCrit">Critical hit (for log)</label>
+          </div>
           <div class="damage-type-list" id="attackDamageRows" aria-live="polite"></div>
           <div class="modal-actions" style="justify-content:flex-start;padding:0;">
             <button class="btn" id="attackDamageAdd" type="button">Add damage box</button>
@@ -3549,6 +3552,7 @@ __DAMAGE_TYPE_OPTIONS__
   const attackResolveBody = document.getElementById("attackResolveBody");
   const attackResolveHit = document.getElementById("attackResolveHit");
   const attackResolveMiss = document.getElementById("attackResolveMiss");
+  const attackResolveCrit = document.getElementById("attackResolveCrit");
   const attackDamageRows = document.getElementById("attackDamageRows");
   const attackDamageAdd = document.getElementById("attackDamageAdd");
   const attackResolveSubmit = document.getElementById("attackResolveSubmit");
@@ -6951,6 +6955,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (!open){
       if (attackResolveHit) attackResolveHit.disabled = false;
       if (attackResolveMiss) attackResolveMiss.disabled = false;
+      if (attackResolveCrit) attackResolveCrit.checked = false;
       pendingAttackResolve = null;
     }
   }
@@ -7065,6 +7070,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (attackResolveHit) attackResolveHit.checked = true;
     if (attackResolveMiss) attackResolveMiss.checked = false;
+    if (attackResolveCrit) attackResolveCrit.checked = false;
     syncAttackResolveDamageVisibility();
     setAttackResolveModalOpen(true);
   }
@@ -9582,6 +9588,7 @@ __DAMAGE_TYPE_OPTIONS__
             if (attackResolveMiss) attackResolveMiss.checked = false;
             if (attackResolveHit) attackResolveHit.disabled = true;
             if (attackResolveMiss) attackResolveMiss.disabled = true;
+            if (attackResolveCrit) attackResolveCrit.checked = false;
             syncAttackResolveDamageVisibility();
             setAttackResolveModalOpen(true);
           }
@@ -14590,6 +14597,7 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       const hit = !(attackResolveMiss && attackResolveMiss.checked);
+      const critical = hit && !!(attackResolveCrit && attackResolveCrit.checked);
       const damageEntries = [];
       if (hit && attackDamageRows){
         Array.from(attackDamageRows.querySelectorAll(".damage-type-controls")).forEach((row) => {
@@ -14622,6 +14630,7 @@ __DAMAGE_TYPE_OPTIONS__
           save_dc: Number.isFinite(Number(pendingAttackResolve.saveDc)) ? Number(pendingAttackResolve.saveDc) : null,
           roll_save: !!pendingAttackResolve.rollSave,
           hit: pendingAttackResolve.forceHit ? true : hit,
+          critical,
           damage_entries: damageEntries,
         });
         if (pendingSpellTargeting){
@@ -14641,6 +14650,7 @@ __DAMAGE_TYPE_OPTIONS__
           weapon_name: String(pendingAttackResolve.weaponName || "").trim(),
           mastery_free_attack: pendingAttackResolve.masteryFreeAttack || null,
           hit: hit,
+          critical,
           damage_entries: damageEntries,
         });
       }

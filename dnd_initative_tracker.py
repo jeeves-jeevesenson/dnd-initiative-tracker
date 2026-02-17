@@ -13156,6 +13156,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if spell_mode not in ("attack", "auto_hit", "save"):
                 spell_mode = "attack"
             hit = _parse_bool(msg.get("hit"), fallback=spell_mode == "auto_hit")
+            critical = _parse_bool(msg.get("critical"), fallback=False)
             save_type = str(msg.get("save_type") or "").strip().lower()
             save_dc = max(0, _parse_int(msg.get("save_dc"), 0) or 0)
             roll_save = _parse_bool(msg.get("roll_save"), fallback=spell_mode == "save")
@@ -13231,6 +13232,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if spell_mode == "auto_hit":
                 hit = True
             result_payload["hit"] = bool(hit)
+            result_payload["critical"] = bool(hit and critical)
             result_payload["damage_entries"] = list(damage_entries if hit else [])
             result_payload["damage_total"] = int(total_damage if hit else 0)
 
@@ -13269,11 +13271,16 @@ class InitiativeTracker(base.InitiativeTracker):
                 )
                 self._log(
                     f"{c.name} deals {int(total_damage)} damage to {result_payload['target_name']} with {spell_name}"
-                    f"{f' ({damage_desc})' if damage_desc else ''}.",
+                    f"{f' ({damage_desc})' if damage_desc else ''}"
+                    f"{' (CRIT)' if result_payload.get('critical') else ''}.",
                     cid=int(target_cid),
                 )
             elif hit:
-                self._log(f"{c.name} hits {result_payload['target_name']} with {spell_name}.", cid=int(target_cid))
+                self._log(
+                    f"{c.name} hits {result_payload['target_name']} with {spell_name}"
+                    f"{' (CRIT)' if result_payload.get('critical') else ''}.",
+                    cid=int(target_cid),
+                )
             else:
                 self._log(f"{c.name} misses {result_payload['target_name']} with {spell_name}.", cid=int(target_cid))
 
@@ -13482,6 +13489,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "Pick a valid target, matey.")
                 return
             requested_hit = _parse_bool(msg.get("hit"))
+            requested_critical = _parse_bool(msg.get("critical"))
             attack_roll_raw = msg.get("attack_roll")
             if attack_roll_raw is None:
                 attack_roll_raw = msg.get("roll")
@@ -13759,6 +13767,7 @@ class InitiativeTracker(base.InitiativeTracker):
                                 mastery_cleave_candidates.append({"cid": ecid, "name": str(getattr(enemy, "name", "Enemy") or "Enemy")})
                     if mastery_cleave_candidates:
                         mastery_notes.append("Cleave ready: choose one nearby enemy for a free attack.")
+            is_critical = bool(hit and bool(requested_critical))
             result_payload: Dict[str, Any] = {
                 "type": "attack_result",
                 "ok": True,
@@ -13772,6 +13781,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "to_hit": int(to_hit),
                 "total_to_hit": int(total_to_hit),
                 "hit": hit,
+                "critical": is_critical,
                 "damage_total": int(total_damage if damage_applied else 0),
                 "damage_entries": list(damage_entries if damage_applied else []),
                 "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
@@ -13790,13 +13800,15 @@ class InitiativeTracker(base.InitiativeTracker):
             if attack_roll is not None:
                 self._log(
                     f"{c.name} attacks {result_payload['target_name']} with {result_payload['weapon_name']} "
-                    f"(roll {attack_roll} + {to_hit} = {total_to_hit}) and {'hits' if hit else 'misses'}.",
+                    f"(roll {attack_roll} + {to_hit} = {total_to_hit}) and {'hits' if hit else 'misses'}"
+                    f"{' (CRIT)' if is_critical else ''}.",
                     cid=cid,
                 )
             else:
                 self._log(
                     f"{c.name} attacks {result_payload['target_name']} with {result_payload['weapon_name']} "
-                    f"and {'hits' if hit else 'misses'}.",
+                    f"and {'hits' if hit else 'misses'}"
+                    f"{' (CRIT)' if is_critical else ''}.",
                     cid=cid,
                 )
             if damage_applied and total_damage > 0:
@@ -13806,7 +13818,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 )
                 self._log(
                     f"{result_payload['target_name']} takes {int(total_damage)} damage"
-                    f"{f' ({damage_desc})' if damage_desc else ''}.",
+                    f"{f' ({damage_desc})' if damage_desc else ''}"
+                    f"{' (CRIT)' if is_critical else ''}.",
                     cid=int(target_cid),
                 )
                 if hit and save_ability and save_dc > 0:

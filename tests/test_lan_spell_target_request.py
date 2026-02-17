@@ -122,6 +122,28 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertIn((11, "Spell hits."), self.toasts)
 
 
+    def test_spell_target_request_records_manual_critical_hit(self):
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 12,
+            "target_cid": 2,
+            "spell_name": "Fire Bolt",
+            "spell_mode": "attack",
+            "hit": True,
+            "critical": True,
+            "damage_entries": [{"amount": 9, "type": "fire"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("critical"))
+        self.assertTrue(any("(CRIT)" in message for _, message in self.logs))
+
+
 if __name__ == "__main__":
     unittest.main()
 
