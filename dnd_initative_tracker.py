@@ -9676,6 +9676,12 @@ class InitiativeTracker(base.InitiativeTracker):
         if not isinstance(prepared_spells, dict):
             prepared_spells = {}
         prepared_spells["prepared"] = prepared_list
+        prepared_set = {item.lower() for item in prepared_list}
+        prepared_free = [item for item in normalize_slug_list(prepared_spells.get("free")) if item.lower() in prepared_set]
+        if prepared_free:
+            prepared_spells["free"] = prepared_free
+        else:
+            prepared_spells.pop("free", None)
         spellcasting["prepared_spells"] = prepared_spells
 
         known_spells = spellcasting.get("known_spells")
@@ -9685,6 +9691,12 @@ class InitiativeTracker(base.InitiativeTracker):
             known_spells["known"] = known_list
         else:
             known_spells.pop("known", None)
+        known_set = {item.lower() for item in known_list}
+        known_free = [item for item in normalize_slug_list(known_spells.get("free")) if item.lower() in known_set]
+        if known_free:
+            known_spells["free"] = known_free
+        else:
+            known_spells.pop("free", None)
         spellcasting["known_spells"] = known_spells
 
         existing["spellcasting"] = spellcasting

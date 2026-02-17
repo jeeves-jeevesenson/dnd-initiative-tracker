@@ -3779,9 +3779,11 @@ __DAMAGE_TYPE_OPTIONS__
   let summonValidCells = new Set();
   const preparedSpellDefaults = {
     prepared: [],
+    preparedFree: [],
     max: null,
     maxFormula: "",
     known: [],
+    knownFree: [],
     knownLimit: null,
     knownEnabled: true,
     cantrips: [],
@@ -4964,10 +4966,16 @@ __DAMAGE_TYPE_OPTIONS__
       prepared: normalizePreparedSpellList(
         spellcasting.prepared_list ?? preparedBlock.prepared
       ),
+      preparedFree: normalizePreparedSpellList(
+        spellcasting.prepared_free_list ?? preparedBlock.free
+      ),
       max: limit,
       maxFormula,
       known: normalizePreparedSpellList(
         spellcasting.known_list ?? knownBlock.known ?? spellcasting.known_spell_names
+      ),
+      knownFree: normalizePreparedSpellList(
+        spellcasting.known_free_list ?? knownBlock.free
       ),
       knownLimit,
       knownEnabled: spellcasting.known_enabled !== false,
@@ -11034,6 +11042,8 @@ __DAMAGE_TYPE_OPTIONS__
   let spellbookCantripsMax = null;
   let pendingKnownSet = new Set();
   let pendingPreparedSet = new Set();
+  let pendingKnownFreeSet = new Set();
+  let pendingPreparedFreeSet = new Set();
   let pendingCantripsSet = new Set();
   let spellbookLeftSelection = new Set();
   let spellbookRightSelection = new Set();
@@ -11495,11 +11505,11 @@ __DAMAGE_TYPE_OPTIONS__
     const filteredRight = filterSpellbookSlugs(rightSlugs);
     renderSpellbookList(spellbookLeftList, sortSpellbookSlugs(filteredLeft), spellbookLeftSelection, emptyLabel);
     renderSpellbookList(spellbookRightList, sortSpellbookSlugs(filteredRight), spellbookRightSelection, emptyLabel);
-    const preparedCount = pendingPreparedSet.size;
+    const preparedCount = Array.from(pendingPreparedSet).filter((slug) => !pendingPreparedFreeSet.has(slug)).length;
     const preparedLimitLabel = Number.isFinite(spellbookPreparedLimit)
       ? `${preparedCount}/${spellbookPreparedLimit} prepared`
       : `${preparedCount} prepared`;
-    const knownCount = pendingKnownSet.size;
+    const knownCount = Array.from(pendingKnownSet).filter((slug) => !pendingKnownFreeSet.has(slug)).length;
     const knownLimitLabel = Number.isFinite(spellbookKnownLimit)
       ? `${knownCount}/${spellbookKnownLimit} known`
       : `${knownCount} known`;
@@ -11519,6 +11529,16 @@ __DAMAGE_TYPE_OPTIONS__
     spellbookCantripsMax = config.cantripsMax;
     pendingKnownSet = new Set(config.known.map(normalizeTextValue).filter(Boolean));
     pendingPreparedSet = new Set(config.prepared.map(normalizeTextValue).filter(Boolean));
+    pendingKnownFreeSet = new Set(
+      config.knownFree
+        .map(normalizeTextValue)
+        .filter((slug) => Boolean(slug) && pendingKnownSet.has(slug))
+    );
+    pendingPreparedFreeSet = new Set(
+      config.preparedFree
+        .map(normalizeTextValue)
+        .filter((slug) => Boolean(slug) && pendingPreparedSet.has(slug))
+    );
     pendingCantripsSet = new Set(config.cantrips.map(normalizeTextValue).filter(Boolean));
     spellbookMode = spellbookKnownEnabled ? "known" : "prepared";
     resetSpellbookSelections();
@@ -11560,7 +11580,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (spellbookMode === "prepared"){
       additions.forEach((slug) => {
         if (pendingPreparedSet.has(slug)) return;
-        const nextCount = pendingPreparedSet.size + 1;
+        const nextCount = Array.from(pendingPreparedSet).filter((item) => !pendingPreparedFreeSet.has(item)).length + 1;
         if (Number.isFinite(spellbookPreparedLimit) && nextCount > spellbookPreparedLimit){
           localToast(`Prepared spells limited to ${spellbookPreparedLimit}.`);
           return;
@@ -11581,7 +11601,7 @@ __DAMAGE_TYPE_OPTIONS__
           if (!spellbookKnownEnabled){
             return;
           }
-          const nextCount = pendingKnownSet.size + 1;
+          const nextCount = Array.from(pendingKnownSet).filter((item) => !pendingKnownFreeSet.has(item)).length + 1;
           if (Number.isFinite(spellbookKnownLimit) && nextCount > spellbookKnownLimit){
             localToast(`Known spells limited to ${spellbookKnownLimit}.`);
             return;
@@ -11600,6 +11620,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (spellbookMode === "prepared"){
       removals.forEach((slug) => {
         pendingPreparedSet.delete(slug);
+        pendingPreparedFreeSet.delete(slug);
       });
     } else {
       removals.forEach((slug) => {
@@ -11608,6 +11629,7 @@ __DAMAGE_TYPE_OPTIONS__
           pendingCantripsSet.delete(slug);
         } else {
           pendingKnownSet.delete(slug);
+          pendingKnownFreeSet.delete(slug);
         }
       });
     }

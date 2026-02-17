@@ -1874,6 +1874,11 @@ const renderFeatsEditor = (path, data) => {
 const renderSpellPicker = (field, path, data) => {
   const isCantripPicker = spellPathKey(path) === "spellcasting.cantrips.known";
   const isKnownSpellPicker = spellPathKey(path) === "spellcasting.known_spells.known";
+  const isPreparedSpellPicker = spellPathKey(path) === "spellcasting.prepared_spells.prepared";
+  const freePath = isKnownSpellPicker
+    ? ["spellcasting", "known_spells", "free"]
+    : (isPreparedSpellPicker ? ["spellcasting", "prepared_spells", "free"] : null);
+  const supportsFreeToggle = Boolean(freePath);
   const SORT_MODES = {
     alphabetical: "Alphabetical",
     level: "Level",
@@ -2029,8 +2034,12 @@ const renderSpellPicker = (field, path, data) => {
     status.textContent = text;
   };
 
+  const getNormalizedPathList = (targetPath) => ((getValueAtPath(data, targetPath) || [])
+    .map((item) => normalizeTextValue(item))
+    .filter(Boolean));
+
   const renderSelected = () => {
-    const value = getValueAtPath(data, path) || [];
+    const value = getNormalizedPathList(path);
     selectedContainer.innerHTML = "";
     if (!value.length) {
       const empty = document.createElement("div");
@@ -2039,19 +2048,49 @@ const renderSpellPicker = (field, path, data) => {
       selectedContainer.appendChild(empty);
       return;
     }
+    const selectedSet = new Set(value);
+    const freeSet = supportsFreeToggle
+      ? new Set(getNormalizedPathList(freePath).filter((spellId) => selectedSet.has(spellId)))
+      : new Set();
+    if (supportsFreeToggle) {
+      setValueAtPath(data, freePath, Array.from(freeSet));
+    }
     value.forEach((spellId) => {
       const pill = document.createElement("div");
       pill.className = "spell-chip";
       const label = document.createElement("span");
       label.textContent = spellDisplayById.get(spellId) || spellId;
       pill.appendChild(label);
+      if (supportsFreeToggle) {
+        const freeWrap = document.createElement("label");
+        const freeToggle = document.createElement("input");
+        freeToggle.type = "checkbox";
+        freeToggle.checked = freeSet.has(spellId);
+        freeToggle.addEventListener("change", () => {
+          const nextSelected = new Set(getNormalizedPathList(path));
+          const nextFree = getNormalizedPathList(freePath).filter((item) => nextSelected.has(item));
+          const nextFreeSet = new Set(nextFree);
+          if (freeToggle.checked) {
+            nextFreeSet.add(spellId);
+          } else {
+            nextFreeSet.delete(spellId);
+          }
+          setValueAtPath(data, freePath, Array.from(nextFreeSet));
+        });
+        freeWrap.appendChild(freeToggle);
+        freeWrap.append("Free");
+        pill.appendChild(freeWrap);
+      }
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "ghost danger";
       remove.textContent = "Remove";
       remove.addEventListener("click", () => {
-        const next = (getValueAtPath(data, path) || []).filter((item) => item !== spellId);
+        const next = getNormalizedPathList(path).filter((item) => item !== spellId);
         setValueAtPath(data, path, next);
+        if (supportsFreeToggle) {
+          setValueAtPath(data, freePath, getNormalizedPathList(freePath).filter((item) => item !== spellId));
+        }
         renderSelected();
       });
       pill.appendChild(remove);
