@@ -1930,13 +1930,24 @@ class InitiativeTracker(tk.Tk):
                 continue
             description = str(item.get("description") or "").strip()
             action_type = str(item.get("type") or default_type).strip().lower() or default_type
-            entries.append(
-                {
-                    "name": name,
-                    "description": description,
-                    "type": action_type,
-                }
-            )
+            uses_value = item.get("uses")
+            uses: Optional[Dict[str, Any]] = None
+            if isinstance(uses_value, dict):
+                pool_id = str(uses_value.get("pool") or uses_value.get("id") or "").strip()
+                try:
+                    cost = int(uses_value.get("cost", 1))
+                except Exception:
+                    cost = 1
+                if pool_id:
+                    uses = {"pool": pool_id, "cost": max(1, cost)}
+            payload: Dict[str, Any] = {
+                "name": name,
+                "description": description,
+                "type": action_type,
+            }
+            if uses:
+                payload["uses"] = uses
+            entries.append(payload)
         return entries
 
     # -------------------------- Add / remove --------------------------

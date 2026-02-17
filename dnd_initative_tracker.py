@@ -13499,7 +13499,31 @@ class InitiativeTracker(base.InitiativeTracker):
             if self._mount_action_is_restricted(c, action_name):
                 self._lan.toast(ws_id, "Mounted steed can only Dash, Disengage, or Dodge while rider is active.")
                 return
-            if spend == "bonus":
+
+            action_key = self._action_name_key(action_name)
+            action_uses = action_entry.get("uses") if isinstance(action_entry.get("uses"), dict) else {}
+            action_pool_id = str(action_uses.get("pool") or action_uses.get("id") or "").strip()
+            try:
+                action_pool_cost = int(action_uses.get("cost", 1))
+            except Exception:
+                action_pool_cost = 1
+            action_pool_cost = max(1, action_pool_cost)
+            if action_pool_id:
+                player_name = _resolve_pc_name(cid)
+                ok_pool, pool_err = self._consume_resource_pool_for_cast(
+                    caster_name=player_name,
+                    pool_id=action_pool_id,
+                    cost=action_pool_cost,
+                )
+                if not ok_pool:
+                    self._lan.toast(ws_id, pool_err)
+                    return
+
+            grant_extra_action = action_key == "action surge"
+            if grant_extra_action:
+                c.action_remaining = int(getattr(c, "action_remaining", 0) or 0) + 1
+                spend_label = "free action"
+            elif spend == "bonus":
                 if not self._use_bonus_action(c):
                     self._lan.toast(ws_id, "No bonus actions left, matey.")
                     return
@@ -13514,7 +13538,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan.toast(ws_id, "No actions left, matey.")
                     return
                 spend_label = "action"
-            action_key = self._action_name_key(action_name)
+
             if action_key == "dash":
                 try:
                     base_speed = int(self._mode_speed(c))
@@ -13533,6 +13557,13 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._rebuild_table(scroll_to_current=True)
                 except Exception:
                     pass
+            elif grant_extra_action:
+                self._log(
+                    f"{c.name} used {action_name} ({spend_label}) and gained 1 extra action",
+                    cid=cid,
+                )
+                self._lan.toast(ws_id, "Action Surge used: +1 action.")
+                self._rebuild_table(scroll_to_current=True)
             else:
                 self._log(f"{c.name} used {action_name} ({spend_label})", cid=cid)
                 self._lan.toast(ws_id, f"Used {action_name}.")
