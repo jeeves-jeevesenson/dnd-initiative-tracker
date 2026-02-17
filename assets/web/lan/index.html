@@ -2246,6 +2246,12 @@
               </div>
             </div>
             <div class="config-item">
+              <div class="config-item-title">Rotate handle scale</div>
+              <div class="config-controls">
+                <input id="mapViewRotateHandleScale" type="range" min="0.8" max="2.4" step="0.1" />
+              </div>
+            </div>
+            <div class="config-item">
               <div class="config-item-title">Show tracker title</div>
               <div class="config-controls">
                 <label class="config-toggle"><input type="checkbox" id="mapViewShowTitle" />Show</label>
@@ -3244,6 +3250,7 @@ __DAMAGE_TYPE_OPTIONS__
   const mapViewChipPaddingInput = document.getElementById("mapViewChipPadding");
   const mapViewChipGapInput = document.getElementById("mapViewChipGap");
   const mapViewCornerRadiusInput = document.getElementById("mapViewCornerRadius");
+  const mapViewRotateHandleScaleInput = document.getElementById("mapViewRotateHandleScale");
   const mapViewShowTitleInput = document.getElementById("mapViewShowTitle");
   const mapViewShowStatusInput = document.getElementById("mapViewShowStatus");
   const mapViewShowIndexInput = document.getElementById("mapViewShowIndex");
@@ -3965,6 +3972,7 @@ __DAMAGE_TYPE_OPTIONS__
       chipPadding: 6,
       chipGap: 8,
       cornerRadius: 40,
+      rotateHandleScale: 1.2,
       showTitle: true,
       showStatus: true,
       showIndex: true,
@@ -4019,6 +4027,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (mapViewCornerRadiusInput){
       mapViewCornerRadiusInput.value = String(settings.cornerRadius);
     }
+    if (mapViewRotateHandleScaleInput){
+      mapViewRotateHandleScaleInput.value = String(settings.rotateHandleScale);
+    }
     if (mapViewShowTitleInput){
       mapViewShowTitleInput.checked = !!settings.showTitle;
     }
@@ -4039,6 +4050,12 @@ __DAMAGE_TYPE_OPTIONS__
     } catch (err){
       console.warn("Failed to persist map view settings.", err);
     }
+  }
+
+  function mapRotateHandleScale(){
+    const raw = Number(mapViewSettings?.rotateHandleScale);
+    if (!Number.isFinite(raw)) return 1.2;
+    return Math.min(2.4, Math.max(0.8, raw));
   }
 
   function applySheetHeight(value){
@@ -7565,7 +7582,7 @@ __DAMAGE_TYPE_OPTIONS__
       if (handle){
         ctx.save();
         ctx.beginPath();
-        ctx.arc(x, y, Math.max(12, r + Math.max(7, zoom * 0.2)), 0, Math.PI * 2);
+        ctx.arc(x, y, Math.max(12, handle.orbitR), 0, Math.PI * 2);
         ctx.lineWidth = 1;
         ctx.strokeStyle = "rgba(255,255,255,0.28)";
         ctx.stroke();
@@ -7573,7 +7590,7 @@ __DAMAGE_TYPE_OPTIONS__
         ctx.arc(handle.x, handle.y, handle.hitR, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(0,0,0,0.88)";
         ctx.fill();
-        ctx.font = `${Math.max(8, Math.floor(zoom * 0.22))}px system-ui`;
+        ctx.font = `${Math.max(8, Math.floor((zoom * 0.22) * mapRotateHandleScale()))}px system-ui`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = "rgba(255,255,255,0.95)";
@@ -9052,14 +9069,16 @@ __DAMAGE_TYPE_OPTIONS__
     if (controlledCid === null || !cidMatches(unit.cid, controlledCid, "rotateHandle.cid")) return null;
     const {x, y} = gridToScreen(unit.pos.col, unit.pos.row);
     const r = Math.max(10, zoom * 0.35);
-    const orbitR = r + Math.max(7, zoom * 0.2);
+    const handleScale = mapRotateHandleScale();
+    const orbitR = r + (Math.max(7, zoom * 0.2) * handleScale);
     const facingRad = (tokenFacingDeg(unit) * Math.PI) / 180;
     return {
       x: x + Math.cos(facingRad) * orbitR,
       y: y + Math.sin(facingRad) * orbitR,
       centerX: x,
       centerY: y,
-      hitR: Math.max(6, zoom * 0.15),
+      orbitR,
+      hitR: Math.max(6, zoom * 0.15) * handleScale,
     };
   }
 
@@ -9759,6 +9778,11 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (rotatingToken){
       const facingDeg = Number.isFinite(Number(rotatePreviewDeg)) ? normalizeFacingDeg(rotatePreviewDeg) : 0;
+      const unit = getUnitByCid(rotatingToken.cid);
+      if (unit){
+        unit.facing_deg = facingDeg;
+        syncOwnedRotatableAoesWithFacing(unit.cid, facingDeg);
+      }
       const msg = {type:"set_facing", cid: Number(rotatingToken.cid), facing_deg: facingDeg};
       if (isPlanning){
         planningMutate(msg);
@@ -13001,6 +13025,7 @@ __DAMAGE_TYPE_OPTIONS__
     mapViewChipPaddingInput,
     mapViewChipGapInput,
     mapViewCornerRadiusInput,
+    mapViewRotateHandleScaleInput,
     mapViewShowTitleInput,
     mapViewShowStatusInput,
     mapViewShowIndexInput,
@@ -13017,6 +13042,7 @@ __DAMAGE_TYPE_OPTIONS__
         chipPadding: Number(mapViewChipPaddingInput?.value || mapViewSettings.chipPadding),
         chipGap: Number(mapViewChipGapInput?.value || mapViewSettings.chipGap),
         cornerRadius: Number(mapViewCornerRadiusInput?.value || mapViewSettings.cornerRadius),
+        rotateHandleScale: Number(mapViewRotateHandleScaleInput?.value || mapViewSettings.rotateHandleScale),
         showTitle: !!mapViewShowTitleInput?.checked,
         showStatus: !!mapViewShowStatusInput?.checked,
         showIndex: !!mapViewShowIndexInput?.checked,

@@ -4323,6 +4323,7 @@ class InitiativeTracker(tk.Tk):
         self,
         attacker_cid: Optional[int] = None,
         target_cid: Optional[int] = None,
+        dialog_parent: Optional[tk.Misc] = None,
     ) -> None:
         """Open the Damage tool.
 
@@ -4338,7 +4339,10 @@ class InitiativeTracker(tk.Tk):
         dlg.title("Damage")
         dlg.geometry("1120x720")
         dlg.minsize(920, 600)
-        dlg.transient(self)
+        try:
+            dlg.transient(dialog_parent if dialog_parent is not None else self)
+        except Exception:
+            dlg.transient(self)
 
         outer = ttk.Frame(dlg, padding=10)
         outer.pack(fill=tk.BOTH, expand=True)
@@ -8963,7 +8967,7 @@ class BattleMapWindow(tk.Toplevel):
         if active_cid is None:
             active_cid = getattr(self.app, "current_cid", None)
         try:
-            self.app._open_damage_tool(attacker_cid=active_cid, target_cid=target_cid)
+            self.app._open_damage_tool(attacker_cid=active_cid, target_cid=target_cid, dialog_parent=self)
         except Exception:
             return
         if consume_mode:
