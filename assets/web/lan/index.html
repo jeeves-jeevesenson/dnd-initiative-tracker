@@ -2200,7 +2200,7 @@
               <div class="hotkey-conflict" id="hotkeyConflictBattleLog"></div>
             </div>
             <div class="config-item">
-              <div class="config-item-title">Battle log font</div>
+              <div class="config-item-title">Battle log font family</div>
               <div class="config-controls">
                 <select id="battleLogFontFamily">
                   <option value="system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif">System</option>
@@ -2208,6 +2208,11 @@
                   <option value="Georgia,Times New Roman,serif">Serif</option>
                   <option value="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Monospace</option>
                 </select>
+              </div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Battle log text size</div>
+              <div class="config-controls">
                 <input id="battleLogFontSize" type="range" min="11" max="28" step="1" />
               </div>
             </div>
@@ -2279,6 +2284,12 @@
               <div class="config-item-title">Hide spell menu for non spell casters</div>
               <div class="config-controls">
                 <label class="config-toggle"><input type="checkbox" id="toggleSpellMenu" />Hide</label>
+              </div>
+            </div>
+            <div class="config-item">
+              <div class="config-item-title">Bottom panel height</div>
+              <div class="config-controls">
+                <input id="sheetHeight" type="range" min="180" max="720" step="2" />
               </div>
             </div>
           </div>
@@ -3325,6 +3336,7 @@ __DAMAGE_TYPE_OPTIONS__
   const mapViewShowTitleInput = document.getElementById("mapViewShowTitle");
   const mapViewShowStatusInput = document.getElementById("mapViewShowStatus");
   const mapViewShowIndexInput = document.getElementById("mapViewShowIndex");
+  const sheetHeightInput = document.getElementById("sheetHeight");
   const battleLogFontFamilyInput = document.getElementById("battleLogFontFamily");
   const battleLogFontSizeInput = document.getElementById("battleLogFontSize");
   const connPopoverEl = document.getElementById("connPopover");
@@ -4201,19 +4213,32 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (Number.isFinite(Number(battleLogViewPrefs.left)) && Number.isFinite(Number(battleLogViewPrefs.top))){
         const modalRect = logModal.getBoundingClientRect();
+        const topbarHeight = document.querySelector(".topbar")?.getBoundingClientRect().height || 0;
+        const sheetHeight = sheetWrap && !sheetWrap.classList.contains("hidden")
+          ? sheetWrap.getBoundingClientRect().height
+          : 0;
+        const minTop = Math.max(0, topbarHeight + 8);
         const maxLeft = Math.max(0, window.innerWidth - modalRect.width);
-        const maxTop = Math.max(0, window.innerHeight - modalRect.height);
+        const maxTop = Math.max(minTop, window.innerHeight - sheetHeight - modalRect.height - 8);
         const left = Math.min(maxLeft, Math.max(0, Number(battleLogViewPrefs.left)));
-        const top = Math.min(maxTop, Math.max(0, Number(battleLogViewPrefs.top)));
+        const top = Math.min(maxTop, Math.max(minTop, Number(battleLogViewPrefs.top)));
         logModal.style.left = `${left}px`;
         logModal.style.top = `${top}px`;
         logModal.style.right = "auto";
         logModal.style.bottom = "auto";
       } else {
-        logModal.style.left = "";
-        logModal.style.top = "";
-        logModal.style.right = "";
-        logModal.style.bottom = "";
+        const modalRect = logModal.getBoundingClientRect();
+        const topbarHeight = document.querySelector(".topbar")?.getBoundingClientRect().height || 0;
+        const sheetHeight = sheetWrap && !sheetWrap.classList.contains("hidden")
+          ? sheetWrap.getBoundingClientRect().height
+          : 0;
+        const minTop = Math.max(0, topbarHeight + 8);
+        const maxTop = Math.max(minTop, window.innerHeight - sheetHeight - modalRect.height - 8);
+        const defaultTop = Math.round(minTop + ((maxTop - minTop) / 2));
+        logModal.style.left = "auto";
+        logModal.style.top = `${defaultTop}px`;
+        logModal.style.right = "12px";
+        logModal.style.bottom = "auto";
       }
       logModal.classList.toggle("show", battleLogViewPrefs.visible === true);
       logModal.setAttribute("aria-hidden", battleLogViewPrefs.visible === true ? "false" : "true");
@@ -4241,6 +4266,11 @@ __DAMAGE_TYPE_OPTIONS__
     sheetWrap.style.minHeight = `${min}px`;
     sheetWrap.style.maxHeight = `${max}px`;
     sheetHeight = target;
+    if (sheetHeightInput){
+      sheetHeightInput.min = String(min);
+      sheetHeightInput.max = String(max);
+      sheetHeightInput.value = String(Math.round(target));
+    }
     resize();
     updateModalOffsets();
   }
@@ -4866,13 +4896,24 @@ __DAMAGE_TYPE_OPTIONS__
 
   function persistSheetHeight(){
     if (!Number.isFinite(sheetHeight)) return;
-    localStorage.setItem(sheetHeightKey, String(Math.round(sheetHeight)));
+    const roundedHeight = Math.round(sheetHeight);
+    localStorage.setItem(sheetHeightKey, String(roundedHeight));
+    const localPreset = loadLocalPreset();
+    if (localPreset && typeof localPreset === "object"){
+      localPreset.sheetHeight = roundedHeight;
+      persistLocalPreset(localPreset);
+    }
   }
 
   function loadSheetHeight(){
     if (!sheetWrap) return;
     const stored = Number(localStorage.getItem(sheetHeightKey));
-    applySheetHeight(stored);
+    if (Number.isFinite(stored)){
+      applySheetHeight(stored);
+      return;
+    }
+    const {min, max} = getSheetConstraints();
+    applySheetHeight(Math.round(min + ((max - min) * 0.62)));
   }
 
   function readToggle(key, defaultValue){
@@ -13382,6 +13423,12 @@ __DAMAGE_TYPE_OPTIONS__
       persistMapViewSettings();
     });
   });
+  if (sheetHeightInput){
+    sheetHeightInput.addEventListener("input", () => {
+      applySheetHeight(Number(sheetHeightInput.value));
+      persistSheetHeight();
+    });
+  }
   if (battleLogFontFamilyInput){
     battleLogFontFamilyInput.addEventListener("change", () => {
       battleLogViewPrefs.fontFamily = battleLogFontFamilyInput.value || battleLogViewPrefs.fontFamily;
