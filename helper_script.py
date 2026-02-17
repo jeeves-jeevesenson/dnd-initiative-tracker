@@ -92,6 +92,32 @@ def _app_data_dir() -> Path:
     return _app_base_dir()
 
 
+def _normalize_facing_degrees(angle_deg: float) -> float:
+    """Normalize a facing angle into [0, 360)."""
+    return float(angle_deg) % 360.0
+
+
+def _facing_degrees_from_points(center_x: float, center_y: float, target_x: float, target_y: float) -> float:
+    """Return token-facing degrees where 0 points right and 90 points up."""
+    dx = float(target_x) - float(center_x)
+    dy = float(center_y) - float(target_y)
+    if abs(dx) + abs(dy) < 1e-9:
+        return 0.0
+    return _normalize_facing_degrees(math.degrees(math.atan2(dy, dx)))
+
+
+def _active_rotation_target(active_cid: Optional[int], drag_cid: Optional[int]) -> Optional[int]:
+    """Return the draggable token cid only when it matches the active token."""
+    if active_cid is None or drag_cid is None:
+        return None
+    try:
+        active = int(active_cid)
+        drag = int(drag_cid)
+    except (TypeError, ValueError):
+        return None
+    return drag if drag == active else None
+
+
 def _seed_user_players_dir() -> None:
     _seed_user_items_dir()
     user_dir = _app_data_dir() / "players"
@@ -5423,6 +5449,8 @@ class BattleMapWindow(tk.Toplevel):
         self._hover_tooltip: Optional[tk.Label] = None
         self._hover_tooltip_text: Optional[str] = None
         self._token_facing: Dict[int, float] = {}
+        self._shift_held: bool = False
+        self._rotating_token_cid: Optional[int] = None
 
         # Background images
         self._next_bg_id = 1
@@ -5441,8 +5469,10 @@ class BattleMapWindow(tk.Toplevel):
         self.bind("<Escape>", lambda e: self._clear_measure())
         self.bind("<KeyPress-r>", lambda e: self.refresh_units())
         self.bind("<Control-z>", lambda e: self._undo_obstacle())
-        self.bind("<KeyPress-q>", lambda e: self._rotate_selected_unit(-45.0))
-        self.bind("<KeyPress-e>", lambda e: self._rotate_selected_unit(45.0))
+        self.bind("<KeyPress-Shift_L>", self._on_shift_press)
+        self.bind("<KeyPress-Shift_R>", self._on_shift_press)
+        self.bind("<KeyRelease-Shift_L>", self._on_shift_release)
+        self.bind("<KeyRelease-Shift_R>", self._on_shift_release)
 
         # Auto-refresh units/markers so slain creatures disappear without manual refresh.
         self._start_polling()
@@ -5763,17 +5793,6 @@ class BattleMapWindow(tk.Toplevel):
         btns.columnconfigure(0, weight=1)
         btns.columnconfigure(1, weight=1)
 
-        rot_row = ttk.Frame(left)
-        rot_row.pack(fill=tk.X, pady=(0, 10))
-        ttk.Label(rot_row, text="Facing:").pack(side=tk.LEFT)
-        self._facing_value_var = tk.StringVar(value="—")
-        self._facing_value_lbl = ttk.Label(rot_row, textvariable=self._facing_value_var, width=8)
-        self._facing_value_lbl.pack(side=tk.LEFT, padx=(6, 10))
-        self._rotate_left_btn = ttk.Button(rot_row, text="⟲ 45°", command=lambda: self._rotate_selected_unit(-45.0))
-        self._rotate_left_btn.pack(side=tk.LEFT)
-        self._rotate_right_btn = ttk.Button(rot_row, text="45° ⟳", command=lambda: self._rotate_selected_unit(45.0))
-        self._rotate_right_btn.pack(side=tk.LEFT, padx=(6, 0))
-
         # --- Groups panel ---
         ttk.Separator(left).pack(fill=tk.X, pady=(6, 10))
         groups_notebook = ttk.Notebook(left)
@@ -5967,6 +5986,11 @@ class BattleMapWindow(tk.Toplevel):
         self.canvas.bind("<Button-3>", self._on_canvas_right_click)
         self.canvas.bind("<Motion>", self._on_canvas_hover)
         self.canvas.bind("<Leave>", lambda _e: self._hide_hover_tooltip())
+        self.canvas.bind("<KeyPress-Shift_L>", self._on_shift_press)
+        self.canvas.bind("<KeyPress-Shift_R>", self._on_shift_press)
+        self.canvas.bind("<KeyRelease-Shift_L>", self._on_shift_release)
+        self.canvas.bind("<KeyRelease-Shift_R>", self._on_shift_release)
+        self.canvas.bind("<Enter>", lambda _e: self.canvas.focus_set())
 
     # ---------------- Units list / drag placement ----------------
     def refresh_units(self) -> None:
@@ -6009,17 +6033,6 @@ class BattleMapWindow(tk.Toplevel):
                 self.unit_mode_combo.state(["disabled"])
         except Exception:
             self.unit_mode_combo.config(state=(tk.NORMAL if enabled else tk.DISABLED))
-        for attr in ("_rotate_left_btn", "_rotate_right_btn"):
-            btn = getattr(self, attr, None)
-            if btn is None:
-                continue
-            try:
-                if enabled:
-                    btn.state(["!disabled"])
-                else:
-                    btn.state(["disabled"])
-            except Exception:
-                btn.config(state=(tk.NORMAL if enabled else tk.DISABLED))
 
     def _selected_unit_cids(self) -> List[int]:
         cids: List[int] = []
@@ -6034,8 +6047,6 @@ class BattleMapWindow(tk.Toplevel):
         cids = self._selected_unit_cids()
         if not cids:
             self.unit_mode_var.set(MOVEMENT_MODE_LABELS["normal"])
-            if hasattr(self, "_facing_value_var"):
-                self._facing_value_var.set("—")
             self._set_unit_mode_controls_enabled(False)
             return
         self._set_unit_mode_controls_enabled(True)
@@ -6043,28 +6054,6 @@ class BattleMapWindow(tk.Toplevel):
         creature = self.app.combatants.get(cid)
         mode = self.app._movement_mode_label(getattr(creature, "movement_mode", "normal")) if creature else "Normal"
         self.unit_mode_var.set(mode)
-        self._sync_selected_facing_display()
-
-    def _sync_selected_facing_display(self) -> None:
-        if not hasattr(self, "_facing_value_var"):
-            return
-        cids = self._selected_unit_cids()
-        if not cids:
-            self._facing_value_var.set("—")
-            return
-        cid = cids[0]
-        facing = float(self._token_facing.get(cid, 0.0)) % 360.0
-        self._facing_value_var.set(f"{facing:.0f}°")
-
-    def _rotate_selected_unit(self, delta_deg: float) -> None:
-        cids = self._selected_unit_cids()
-        if not cids:
-            return
-        cid = cids[0]
-        new_facing = (float(self._token_facing.get(cid, 0.0)) + float(delta_deg)) % 360.0
-        self._token_facing[cid] = new_facing
-        self._layout_unit(cid)
-        self._sync_selected_facing_display()
 
     def _add_selected_aoe_shape(self) -> None:
         shape_var = getattr(self, "_aoe_shape_var", None)
@@ -7087,6 +7076,7 @@ class BattleMapWindow(tk.Toplevel):
             self._layout_aoe(aid)
 
         self._apply_active_highlight()
+        self._draw_rotation_affordance()
         self._update_included_for_selected()
 
 
@@ -7154,6 +7144,8 @@ class BattleMapWindow(tk.Toplevel):
             except Exception:
                 pass
         self._sync_aoe_anchor_for_cid(cid)
+        if cid == self._active_cid:
+            self._draw_rotation_affordance()
 
     
     def _marker_text_for(self, cid: int) -> str:
@@ -8891,11 +8883,104 @@ class BattleMapWindow(tk.Toplevel):
         self._update_included_for_selected()
 
     # ---------------- Canvas interactions ----------------
+    def _on_shift_press(self, _event: tk.Event) -> None:
+        self._shift_held = True
+        self._draw_rotation_affordance()
+
+    def _on_shift_release(self, _event: tk.Event) -> None:
+        self._shift_held = False
+        if self._rotating_token_cid is None:
+            self._clear_rotation_affordance()
+
+    def _active_token_center_px(self) -> Optional[Tuple[float, float]]:
+        cid = self._active_cid
+        if cid is None:
+            return None
+        tok = self.unit_tokens.get(cid)
+        if not tok:
+            return None
+        try:
+            x1, y1, x2, y2 = self.canvas.coords(int(tok["oval"]))
+        except Exception:
+            return None
+        return ((float(x1) + float(x2)) / 2.0, (float(y1) + float(y2)) / 2.0)
+
+    def _rotation_handle_position(self, cid: int, center_x: float, center_y: float) -> Tuple[float, float, float]:
+        facing = _normalize_facing_degrees(float(self._token_facing.get(cid, 0.0)))
+        orbit_radius = max(16.0, self.cell * 0.62)
+        hx = center_x + math.cos(math.radians(facing)) * orbit_radius
+        hy = center_y - math.sin(math.radians(facing)) * orbit_radius
+        return hx, hy, orbit_radius
+
+    def _draw_rotation_affordance(self) -> None:
+        self._clear_rotation_affordance()
+        cid = self._active_cid
+        if not self._shift_held or cid is None or cid not in self.unit_tokens:
+            return
+        center = self._active_token_center_px()
+        if center is None:
+            return
+        cx, cy = center
+        hx, hy, orbit_radius = self._rotation_handle_position(cid, cx, cy)
+        handle_radius = max(5.0, self.cell * 0.12)
+        self.canvas.create_oval(
+            cx - orbit_radius,
+            cy - orbit_radius,
+            cx + orbit_radius,
+            cy + orbit_radius,
+            outline="#f0d98c",
+            width=1,
+            dash=(4, 3),
+            tags=("rot_orbit", f"rot_for:{cid}"),
+        )
+        self.canvas.create_oval(
+            hx - handle_radius,
+            hy - handle_radius,
+            hx + handle_radius,
+            hy + handle_radius,
+            fill="#f0d98c",
+            outline="#403522",
+            width=1,
+            tags=("rot_handle", f"rot_for:{cid}"),
+        )
+        self.canvas.tag_raise("rot_orbit")
+        self.canvas.tag_raise("rot_handle")
+
+    def _clear_rotation_affordance(self) -> None:
+        try:
+            self.canvas.delete("rot_orbit")
+            self.canvas.delete("rot_handle")
+        except Exception:
+            pass
+
+    def _rotation_handle_hit_cid(self, mx: float, my: float) -> Optional[int]:
+        if not self._shift_held:
+            return None
+        items = self.canvas.find_overlapping(mx, my, mx, my)
+        for item in reversed(items):
+            tags = self.canvas.gettags(item)
+            if "rot_handle" not in tags:
+                continue
+            for tag in tags:
+                if tag.startswith("rot_for:"):
+                    try:
+                        return int(tag.split(":", 1)[1])
+                    except Exception:
+                        return None
+        return None
+
     def _on_canvas_press(self, event: tk.Event) -> None:
         # Use canvas coordinates (scroll-safe)
         mx = float(self.canvas.canvasx(event.x))
         my = float(self.canvas.canvasy(event.y))
         shift_held = bool(event.state & 0x0001)
+
+        handle_cid = self._rotation_handle_hit_cid(mx, my)
+        if handle_cid is not None:
+            self._drag_kind = "rotate"
+            self._drag_id = handle_cid
+            self._rotating_token_cid = handle_cid
+            return
 
         # Obstacle paint mode (disables other interactions while enabled)
         try:
@@ -8956,6 +9041,9 @@ class BattleMapWindow(tk.Toplevel):
             self._drag_kind = None
             self._drag_id = None
             self._drag_origin_cell = None
+            self._rotating_token_cid = None
+            if not self._shift_held:
+                self._clear_rotation_affordance()
             return
 
         tags = self.canvas.gettags(item)
@@ -9231,7 +9319,17 @@ class BattleMapWindow(tk.Toplevel):
         x = mx + float(self._drag_offset[0])
         y = my + float(self._drag_offset[1])
 
-        if self._drag_kind == "bg":
+        if self._drag_kind == "rotate":
+            cid = _active_rotation_target(self._active_cid, self._drag_id)
+            center = self._active_token_center_px()
+            if cid is None or center is None or cid not in self.unit_tokens:
+                return
+            cx, cy = center
+            self._token_facing[cid] = _facing_degrees_from_points(cx, cy, mx, my)
+            self._layout_unit(cid)
+            self._draw_rotation_affordance()
+
+        elif self._drag_kind == "bg":
             bid = int(self._drag_id)
             d = self.bg_images.get(bid)
             if not d:
@@ -9333,7 +9431,12 @@ class BattleMapWindow(tk.Toplevel):
             return
 
         # Finalize drags, enforce movement for the active creature, then refresh grouping/highlights.
-        if self._drag_kind == "unit" and self._drag_id is not None:
+        if self._drag_kind == "rotate" and self._drag_id is not None:
+            cid = int(self._drag_id)
+            if cid in self.unit_tokens:
+                self._layout_unit(cid)
+            self._rotating_token_cid = None
+        elif self._drag_kind == "unit" and self._drag_id is not None:
             cid = int(self._drag_id)
             origin = self._drag_origin_cell
             if origin and cid in self.unit_tokens:
@@ -9402,6 +9505,8 @@ class BattleMapWindow(tk.Toplevel):
         self._drag_kind = None
         self._drag_id = None
         self._drag_origin_cell = None
+        self._rotating_token_cid = None
+        self._draw_rotation_affordance()
 
     def _on_canvas_double_click(self, event: tk.Event) -> None:
         if getattr(self, "_drawing_obstacles", False) or getattr(self, "_drawing_rough", False):
@@ -10331,6 +10436,7 @@ class BattleMapWindow(tk.Toplevel):
         self._update_move_highlight()
         # Conditions / markers often change on turn transitions; refresh token markers + group labels.
         self._update_groups()
+        self._draw_rotation_affordance()
         if auto_center and cid is not None:
             self._center_on_cid(cid)
 
