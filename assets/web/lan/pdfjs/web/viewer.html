@@ -276,10 +276,9 @@
         viewerRoot.scrollTo({ top: target.shell.offsetTop - 10, behavior: smooth ? 'smooth' : 'auto' });
       }
 
-      function jumpToHashPage(){
-        const hp = parseHashPage();
-        if (!hp || !doc) return;
-        const clamped = clampPage(hp);
+      function jumpToPage(page, smooth = true){
+        if (!doc) return;
+        const clamped = clampPage(page);
         currentPage = clamped;
         if (clamped < loadedStart){
           loadedStart = Math.max(1, clamped - PAGE_RADIUS);
@@ -287,8 +286,41 @@
         if (clamped > loadedEnd){
           loadedEnd = Math.min(pageCount, clamped + PAGE_RADIUS);
         }
-        scrollToPage(clamped, true);
+        scrollToPage(clamped, smooth);
         scheduleUpdate();
+      }
+
+      function jumpToHashPage(){
+        const hp = parseHashPage();
+        if (!hp || !doc) return;
+        jumpToPage(hp, true);
+      }
+
+      function onKeydown(event){
+        if (!doc) return;
+        if (event.defaultPrevented) return;
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
+        let nextPage = null;
+        const key = event.key;
+        if (key === 'ArrowRight' || key === 'PageDown' || key === ' ' || key === 'j'){
+          nextPage = currentPage + 1;
+        } else if (key === 'ArrowLeft' || key === 'PageUp' || key === 'Backspace' || key === 'k'){
+          nextPage = currentPage - 1;
+        } else if (key === 'Home'){
+          nextPage = 1;
+        } else if (key === 'End'){
+          nextPage = pageCount;
+        }
+        if (nextPage === null) return;
+        event.preventDefault();
+        jumpToPage(nextPage, true);
+      }
+
+      function onMessage(event){
+        if (event.origin !== window.location.origin) return;
+        const data = event.data || {};
+        if (data.type !== 'rules:jump') return;
+        jumpToPage(Number(data.page || 1), true);
       }
 
       loadPrevBtn.addEventListener('click', () => {
@@ -307,6 +339,8 @@
         scheduleUpdate();
       });
       window.addEventListener('hashchange', jumpToHashPage);
+      window.addEventListener('message', onMessage);
+      window.addEventListener('keydown', onKeydown);
       init();
     })();
   </script>
