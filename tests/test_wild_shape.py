@@ -170,6 +170,39 @@ class WildShapeTests(unittest.TestCase):
         second = app._load_beast_forms()
         self.assertIs(first, second)
 
+    def test_load_beast_forms_has_specs_parses_normal_speed_dict(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._wild_shape_beast_cache = None
+        app._monster_specs = [
+            tracker_mod.MonsterSpec(
+                filename="riding-horse.yaml",
+                name="Riding Horse",
+                mtype="beast",
+                cr=0.25,
+                hp=13,
+                speed=0,
+                swim_speed=0,
+                fly_speed=0,
+                burrow_speed=0,
+                climb_speed=0,
+                dex=10,
+                init_mod=0,
+                saving_throws={},
+                ability_mods={},
+                raw_data={
+                    "name": "Riding Horse",
+                    "type": "Beast",
+                    "challenge_rating": "1/4",
+                    "speed": {"Normal": "60 ft."},
+                    "abilities": {"Str": 16, "Dex": 10, "Con": 12, "Int": 2, "Wis": 11, "Cha": 7},
+                },
+            )
+        ]
+
+        forms = app._load_beast_forms()
+        self.assertEqual(forms[0]["speed"]["walk"], 60)
+        self.assertEqual(forms[0]["abilities"]["str"], 16)
+
     def test_apply_and_revert_wild_shape(self):
         self.app.combatants = {
             1: type("C", (), {
@@ -208,6 +241,38 @@ class WildShapeTests(unittest.TestCase):
         self.assertEqual(c.name, "Alice")
         self.assertTrue(c.is_spellcaster)
         self.assertEqual(c.temp_hp, 5)
+
+    def test_apply_wild_shape_preserves_role_memory_for_display_name(self):
+        self.app.combatants = {
+            1: type("C", (), {
+                "cid": 1,
+                "name": "Alice",
+                "speed": 30,
+                "swim_speed": 0,
+                "fly_speed": 0,
+                "climb_speed": 0,
+                "burrow_speed": 0,
+                "movement_mode": "Normal",
+                "dex": 14,
+                "con": 12,
+                "str": 10,
+                "temp_hp": 0,
+                "actions": [],
+                "bonus_actions": [],
+                "is_spellcaster": True,
+            })()
+        }
+        self.app._name_role_memory = {"Alice": "pc"}
+        self.app._pc_name_for = lambda _cid: "Alice"
+        self.app._load_player_yaml_cache = lambda force_refresh=False: None
+        self.app._player_yaml_data_by_name = {"Alice": self._profile(8)}
+        self.app._set_wild_shape_pool_current = lambda _name, value: (True, "", value)
+
+        ok, err = self.app._apply_wild_shape(1, "brown-bear")
+
+        self.assertTrue(ok, err)
+        c = self.app.combatants[1]
+        self.assertEqual(self.app._name_role_memory.get(str(c.name), "enemy"), "pc")
 
     def test_wild_resurgence_slot_exchange(self):
         self.app._resolve_spell_slot_profile = lambda _name: (
