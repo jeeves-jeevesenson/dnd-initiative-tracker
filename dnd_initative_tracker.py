@@ -5884,6 +5884,83 @@ class InitiativeTracker(base.InitiativeTracker):
         return int(round(normalized)) % 360
 
     @staticmethod
+    def _is_rotatable_aoe_kind(kind: Any) -> bool:
+        token = str(kind or "").strip().lower()
+        return token in ("line", "cone", "cube", "wall", "square")
+
+    def _sync_owned_rotatable_aoes_with_facing(self, owner_cid: int, facing_deg: Any) -> bool:
+        facing = float(self._normalize_facing_degrees(facing_deg))
+        changed = False
+        mw = getattr(self, "_map_window", None)
+        map_ready = mw is not None and mw.winfo_exists()
+        store = getattr(mw, "aoes", None) if map_ready else None
+        if not isinstance(store, dict):
+            store = getattr(self, "_lan_aoes", {}) or {}
+        for aid, aoe in (store or {}).items():
+            if not isinstance(aoe, dict):
+                continue
+            try:
+                aoe_owner = int(aoe.get("owner_cid"))
+            except Exception:
+                continue
+            if int(aoe_owner) != int(owner_cid):
+                continue
+            kind = str(aoe.get("kind") or "").strip().lower()
+            if not self._is_rotatable_aoe_kind(kind):
+                continue
+            aoe["angle_deg"] = float(facing)
+            if kind in ("line", "wall"):
+                try:
+                    anchor_x = float(aoe.get("ax"))
+                    anchor_y = float(aoe.get("ay"))
+                    half_len = float(aoe.get("length_sq") or 0.0) / 2.0
+                except Exception:
+                    anchor_x = anchor_y = half_len = None
+                if anchor_x is not None and anchor_y is not None and half_len is not None and half_len > 0:
+                    rad = math.radians(float(facing))
+                    aoe["cx"] = float(anchor_x + math.cos(rad) * half_len)
+                    aoe["cy"] = float(anchor_y + math.sin(rad) * half_len)
+            elif kind == "cone":
+                try:
+                    aoe["cx"] = float(aoe.get("ax"))
+                    aoe["cy"] = float(aoe.get("ay"))
+                except Exception:
+                    pass
+            changed = True
+            if map_ready and hasattr(mw, "_layout_aoe"):
+                try:
+                    mw._layout_aoe(int(aid))
+                except Exception:
+                    pass
+        if changed:
+            if map_ready:
+                try:
+                    self._lan_aoes = dict(getattr(mw, "aoes", {}) or {})
+                except Exception:
+                    pass
+            else:
+                self._lan_aoes = dict(store or {})
+        return bool(changed)
+
+    def _sync_owner_facing_from_rotatable_aoe(self, aoe: Dict[str, Any], angle_deg: Any) -> bool:
+        if not isinstance(aoe, dict):
+            return False
+        if not self._is_rotatable_aoe_kind(aoe.get("kind")):
+            return False
+        try:
+            owner_cid = int(aoe.get("owner_cid"))
+        except Exception:
+            return False
+        c = self.combatants.get(owner_cid)
+        if not c:
+            return False
+        next_facing = int(self._normalize_facing_degrees(angle_deg))
+        if int(self._normalize_facing_degrees(getattr(c, "facing_deg", 0))) == next_facing:
+            return False
+        setattr(c, "facing_deg", next_facing)
+        return True
+
+    @staticmethod
     def _player_name_from_filename(path: Path) -> Optional[str]:
         """Normalize a player filename into a roster-friendly name."""
         # Example: "player-name_example" -> "player name example".
@@ -11096,6 +11173,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if not c:
                 return
             setattr(c, "facing_deg", int(self._normalize_facing_degrees(msg.get("facing_deg"))))
+            self._sync_owned_rotatable_aoes_with_facing(int(cid), getattr(c, "facing_deg", 0))
             self._lan_force_state_broadcast()
             return
 
@@ -12245,6 +12323,9 @@ class InitiativeTracker(base.InitiativeTracker):
                     d["ay"] = float(ay)
                 if kind == "cone" and spread_deg is not None:
                     d["spread_deg"] = float(spread_deg)
+            facing_synced = False
+            if angle_deg is not None:
+                facing_synced = self._sync_owner_facing_from_rotatable_aoe(d, angle_deg)
             try:
                 if map_ready and hasattr(mw, "_layout_aoe"):
                     mw._layout_aoe(aid)
@@ -12259,6 +12340,11 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan_aoes = store
             except Exception:
                 pass
+            if facing_synced:
+                try:
+                    self._lan_force_state_broadcast()
+                except Exception:
+                    pass
             _send_aoe_move_ack(
                 True,
                 extra={

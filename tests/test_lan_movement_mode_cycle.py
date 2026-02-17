@@ -43,6 +43,8 @@ class LanMovementModeCycleTests(unittest.TestCase):
             self.mode_updates.append((cid, mode)),
             setattr(self.app.combatants[cid], "movement_mode", mode),
         )
+        self.app._map_window = None
+        self.app._lan_aoes = {}
         self.app._rebuild_table = lambda scroll_to_current=True: setattr(self, "rebuild_calls", self.rebuild_calls + 1)
         self.app._lan_force_state_broadcast = lambda: setattr(self, "broadcast_calls", self.broadcast_calls + 1)
 
@@ -64,6 +66,20 @@ class LanMovementModeCycleTests(unittest.TestCase):
 
         self.assertEqual(getattr(self.app.combatants[1], "facing_deg", None), 90)
         self.assertEqual(self.broadcast_calls, 1)
+
+    def test_set_facing_syncs_owned_rotatable_aoe_angle(self):
+        self.app._lan_aoes = {
+            7: {"aid": 7, "kind": "line", "owner_cid": 1, "angle_deg": 0, "length_sq": 4, "ax": 5, "ay": 5, "cx": 7, "cy": 5},
+            8: {"aid": 8, "kind": "circle", "owner_cid": 1, "radius_sq": 2, "cx": 5, "cy": 5},
+        }
+        msg = {"type": "set_facing", "cid": 1, "_claimed_cid": 1, "_ws_id": 9, "facing_deg": 180}
+
+        self.app._lan_apply_action(dict(msg))
+
+        self.assertEqual(self.app._lan_aoes[7].get("angle_deg"), 180.0)
+        self.assertAlmostEqual(float(self.app._lan_aoes[7].get("cx")), 3.0)
+        self.assertAlmostEqual(float(self.app._lan_aoes[7].get("cy")), 5.0)
+        self.assertIsNone(self.app._lan_aoes[8].get("angle_deg"))
 
 
 if __name__ == "__main__":

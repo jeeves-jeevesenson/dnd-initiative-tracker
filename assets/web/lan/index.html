@@ -6135,7 +6135,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (type === "set_facing"){
       const unit = getUnitByCid(msg.cid);
       if (!unit) return;
-      unit.facing_deg = normalizeFacingDeg(msg.facing_deg);
+      const facingDeg = normalizeFacingDeg(msg.facing_deg);
+      unit.facing_deg = facingDeg;
+      syncOwnedRotatableAoesWithFacing(unit.cid, facingDeg);
       return;
     }
     if (["dash", "perform_action", "use_action", "use_bonus_action"].includes(type)){
@@ -6255,6 +6257,9 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (target.spread_deg !== undefined){
         update.spread_deg = Number(target.spread_deg);
+      }
+      if (target.angle_deg !== undefined){
+        syncFacingFromRotatableAoe(update, target.angle_deg);
       }
       applyAoePatch({
         updates: [update],
@@ -9041,6 +9046,8 @@ __DAMAGE_TYPE_OPTIONS__
 
   function tokenRotateHandle(unit){
     if (!unit || !unit.pos) return null;
+    const isActiveRotate = rotatingToken && Number(rotatingToken.cid) === Number(unit?.cid);
+    if (!shiftMoveMode && !isActiveRotate) return null;
     const controlledCid = activeControlledUnitCid();
     if (controlledCid === null || !cidMatches(unit.cid, controlledCid, "rotateHandle.cid")) return null;
     const {x, y} = gridToScreen(unit.pos.col, unit.pos.row);
@@ -9068,6 +9075,45 @@ __DAMAGE_TYPE_OPTIONS__
       }
     }
     return null;
+  }
+
+  function isRotatableAoeKind(kind){
+    const token = String(kind || "").toLowerCase();
+    return token === "line" || token === "cone" || token === "cube" || token === "wall" || token === "square";
+  }
+
+  function syncOwnedRotatableAoesWithFacing(cid, facingDeg){
+    if (!state || !Array.isArray(state.aoes)) return;
+    const ownerCid = Number(cid);
+    if (!Number.isFinite(ownerCid)) return;
+    const facing = normalizeFacingDeg(facingDeg);
+    state.aoes = state.aoes.map((aoe) => {
+      if (!aoe || Number(aoe.owner_cid) !== ownerCid || !isRotatableAoeKind(aoe.kind)){
+        return aoe;
+      }
+      const next = {...aoe, angle_deg: facing};
+      if ((next.kind === "line" || next.kind === "wall") && Number.isFinite(Number(next.ax)) && Number.isFinite(Number(next.ay))){
+        const halfLen = Number(next.length_sq || 0) / 2;
+        if (Number.isFinite(halfLen) && halfLen > 0){
+          const rad = (facing * Math.PI) / 180;
+          next.cx = Number(next.ax) + Math.cos(rad) * halfLen;
+          next.cy = Number(next.ay) + Math.sin(rad) * halfLen;
+        }
+      } else if (next.kind === "cone" && Number.isFinite(Number(next.ax)) && Number.isFinite(Number(next.ay))){
+        next.cx = Number(next.ax);
+        next.cy = Number(next.ay);
+      }
+      return next;
+    });
+  }
+
+  function syncFacingFromRotatableAoe(aoe, angleDeg){
+    if (!aoe || !isRotatableAoeKind(aoe.kind)) return;
+    const ownerCid = Number(aoe.owner_cid);
+    if (!Number.isFinite(ownerCid)) return;
+    const unit = getUnitByCid(ownerCid);
+    if (!unit) return;
+    unit.facing_deg = normalizeFacingDeg(angleDeg);
   }
 
   function hitTestToken(p){
@@ -13432,11 +13478,13 @@ __DAMAGE_TYPE_OPTIONS__
   document.addEventListener("keydown", (event) => {
     if (isShiftKey(event)){
       shiftMoveMode = true;
+      draw();
     }
   });
   document.addEventListener("keyup", (event) => {
     if (isShiftKey(event)){
       shiftMoveMode = false;
+      draw();
     }
   });
   if (toggleTopbarTitle){
