@@ -47,9 +47,8 @@
   <script src="../build/pdf.js"></script>
   <script>
     (function(){
-      const PAGE_RADIUS = 4;
-      const CHUNK_SIZE = 10;
-      const MAX_MOUNTED = 20;
+      const PAGE_RADIUS = 20;
+      const CHUNK_SIZE = 5;
       const params = new URLSearchParams(location.search);
       const file = params.get('file') || '/rules.pdf';
       const initialPage = Math.max(1, Number(params.get('page') || 1) || 1);
@@ -155,11 +154,11 @@
           for (let i = 1; i <= pageCount; i++){
             const state = createShell(i, defaultRatio);
             pageStates.push(state);
-            pagesEl.appendChild(state.shell);
           }
 
           loadedStart = clampPage(currentPage - initialBefore);
           loadedEnd = clampPage(currentPage + initialAfter);
+          syncLoadedShells();
           updateScaleVersion();
           scrollToPage(currentPage, false);
           scheduleUpdate();
@@ -176,14 +175,20 @@
       }
 
       function getActiveRange(){
-        const start = Math.max(loadedStart, clampPage(currentPage - PAGE_RADIUS));
-        const end = Math.min(loadedEnd, clampPage(currentPage + PAGE_RADIUS));
+        const start = loadedStart;
+        const end = loadedEnd;
         const pages = [];
         for (let p = start; p <= end; p++) pages.push(p);
-        if (pages.length > MAX_MOUNTED){
-          return pages.slice(0, MAX_MOUNTED);
-        }
         return pages;
+      }
+
+      function syncLoadedShells(){
+        pagesEl.textContent = '';
+        for (let p = loadedStart; p <= loadedEnd; p++){
+          const state = pageStates[p - 1];
+          if (!state) continue;
+          pagesEl.appendChild(state.shell);
+        }
       }
 
       function updateButtons(){
@@ -195,7 +200,9 @@
         const center = viewerRoot.scrollTop + (viewerRoot.clientHeight / 2);
         let bestPage = currentPage;
         let bestDist = Infinity;
-        for (const state of pageStates){
+        for (let p = loadedStart; p <= loadedEnd; p++){
+          const state = pageStates[p - 1];
+          if (!state) continue;
           const mid = state.shell.offsetTop + (state.shell.offsetHeight / 2);
           const dist = Math.abs(mid - center);
           if (dist < bestDist){ bestDist = dist; bestPage = state.num; }
@@ -262,7 +269,7 @@
           updateButtons();
 
           for (const state of pageStates){
-            if (!active.has(state.num)){
+            if (state.num < loadedStart || state.num > loadedEnd || !active.has(state.num)){
               unmountPage(state);
               rendered.delete(state.num);
             }
@@ -280,7 +287,7 @@
             }
           }
           await Promise.all(tasks);
-          viewerStatus.textContent = `Page ${currentPage} / ${pageCount} • Active ${Math.min(active.size, MAX_MOUNTED)}`;
+          viewerStatus.textContent = `Page ${currentPage} / ${pageCount} • Loaded ${loadedStart}-${loadedEnd}`;
         });
       }
 
@@ -296,9 +303,11 @@
         currentPage = clamped;
         if (clamped < loadedStart){
           loadedStart = Math.max(1, clamped - PAGE_RADIUS);
+          syncLoadedShells();
         }
         if (clamped > loadedEnd){
           loadedEnd = Math.min(pageCount, clamped + PAGE_RADIUS);
+          syncLoadedShells();
         }
         scrollToPage(clamped, smooth);
         scheduleUpdate();
@@ -339,6 +348,7 @@
 
       loadPrevBtn.addEventListener('click', () => {
         loadedStart = Math.max(1, loadedStart - CHUNK_SIZE);
+        syncLoadedShells();
         scheduleUpdate();
       });
       if (nativeFallbackBtn){
@@ -347,6 +357,7 @@
 
       loadNextBtn.addEventListener('click', () => {
         loadedEnd = Math.min(pageCount, loadedEnd + CHUNK_SIZE);
+        syncLoadedShells();
         scheduleUpdate();
       });
 
