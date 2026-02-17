@@ -8111,7 +8111,9 @@ __DAMAGE_TYPE_OPTIONS__
       const weapon = pendingSpellTargeting ? null : getSelectedAttackWeapon();
       const spellRangeFt = Number(pendingSpellTargeting?.rangeFt);
       if (me && me.pos && (weapon || Number.isFinite(spellRangeFt))){
-        const rangeFt = Number.isFinite(spellRangeFt) ? spellRangeFt : parseWeaponRangeFeet(weapon);
+        const rangeFt = Number.isFinite(spellRangeFt)
+          ? spellRangeFt
+          : parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? 3 : 0);
         const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
         const radiusCells = Math.max(0, Number(rangeFt) / feetPerSquare);
         const center = gridToScreen(me.pos.col, me.pos.row);
