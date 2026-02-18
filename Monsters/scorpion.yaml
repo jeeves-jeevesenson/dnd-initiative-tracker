@@ -22,4 +22,7 @@ description: ''
 habitat: Desert
 actions:
 - name: Sting
-  desc: 'Melee Attack Roll : +2, reach 5 ft. Hit : 1 Piercing damage plus 3 (1d6) Poison damage.'
+  desc: '{@atk mw} {@hit 2} to hit, reach 5 ft., one creature. {@h}1 piercing damage, and the target must make a {@dc 9} Constitution
+    saving throw, taking 4 ({@damage 1d8}) poison damage on a failed save, or half as much damage on a successful one.'
+traits: []
+legendary_actions: []

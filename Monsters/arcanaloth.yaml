@@ -31,3 +31,17 @@ languages:
 description: ''
 habitat: Planar (Lower Planes)
 treasure: Arcana
+traits:
+- name: Magic Resistance
+  desc: The arcanaloth has advantage on saving throws against spells and other magical effects.
+- name: Magic Weapons
+  desc: The arcanaloth's weapon attacks are magical.
+actions:
+- name: Claws
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}8 ({@damage 2d4 + 3}) slashing damage. The target must make
+    a {@dc 14} Constitution saving throw, taking 10 ({@damage 3d6}) poison damage on a failed save, or half as much damage
+    on a successful one.'
+- name: Teleport
+  desc: The arcanaloth magically teleports, along with any equipment it is wearing or carrying, up to 60 feet to an unoccupied
+    space it can see.
+legendary_actions: []

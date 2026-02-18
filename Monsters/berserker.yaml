@@ -18,13 +18,15 @@ abilities:
 senses: Passive Perception 10
 languages:
 - Common
-description: Gripped by the adrenaline of battle, berserkers are reckless invaders, pit fighters, and other ferocious
-  warriors. Berserkers might fight for personal glory or form motivated forces or howling hordes.
+description: Gripped by the adrenaline of battle, berserkers are reckless invaders, pit fighters, and other ferocious warriors.
+  Berserkers might fight for personal glory or form motivated forces or howling hordes.
 habitat: Any
 treasure: Armaments, Individual
 traits:
-- name: Bloodied Frenzy
-  desc: While Bloodied, the berserker has Advantage on attack rolls and saving throws.
+- name: Reckless
+  desc: At the start of its turn, the berserker can gain advantage on all melee weapon attack rolls during that turn, but
+    attack rolls against it have advantage until the start of its next turn.
 actions:
 - name: Greataxe
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 9 (1d12 + 3) Slashing damage.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}9 ({@damage 1d12 + 3}) slashing damage.'
+legendary_actions: []

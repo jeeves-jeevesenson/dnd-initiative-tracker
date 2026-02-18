@@ -22,8 +22,27 @@ skills:
 senses: Darkvision 120 ft., Truesight 30 ft., Passive Perception 19
 languages:
 - Undercommon
-description: Kuo-toa archpriests lead kuo-toa communities by interpreting omens and messages from their strange
-  gods. They wear grotesque ceremonial regalia honoring their deities. Archpriests channel their faith into spells
-  to support their followers.
+description: Kuo-toa archpriests lead kuo-toa communities by interpreting omens and messages from their strange gods. They
+  wear grotesque ceremonial regalia honoring their deities. Archpriests channel their faith into spells to support their followers.
 habitat: Coastal, Underdark
 treasure: Relics
+traits:
+- name: Amphibious
+  desc: The kuo-toa can breathe air and water.
+- name: Otherworldly Perception
+  desc: The kuo-toa can sense the presence of any creature within 30 feet of it that is {@condition invisible} or on the Ethereal
+    Plane. It can pinpoint such a creature that is moving.
+- name: Slippery
+  desc: The kuo-toa has advantage on ability checks and saving throws made to escape a grapple.
+- name: Sunlight Sensitivity
+  desc: While in sunlight, the kuo-toa has disadvantage on attack rolls, as well as on Wisdom ({@skill Perception}) checks
+    that rely on sight.
+actions:
+- name: Multiattack
+  desc: The kuo-toa makes two melee attacks.
+- name: Scepter
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) bludgeoning damage plus 14 ({@damage
+    4d6}) lightning damage.'
+- name: Unarmed Strike
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d4 + 3}) bludgeoning damage.'
+legendary_actions: []

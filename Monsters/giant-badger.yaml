@@ -24,5 +24,13 @@ languages:
 description: ''
 habitat: Forest
 actions:
+- name: Multiattack
+  desc: 'The badger makes two attacks: one with its bite and one with its claws.'
 - name: Bite
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 6 (2d4 + 1) Piercing damage.'
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d6 + 1}) piercing damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}6 ({@damage 2d4 + 1}) slashing damage.'
+traits:
+- name: Keen Smell
+  desc: The badger has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
+legendary_actions: []

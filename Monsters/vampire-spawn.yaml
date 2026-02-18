@@ -21,34 +21,33 @@ skills:
 senses: Darkvision 60 ft., Passive Perception 13
 languages:
 - Common plus one other language
-description: Vampire spawn are newly created vampires. They have yet to fully master their abilities, and many are
-  consumed by their thirst for blood. Vampire spawn might serve more powerful vampires or pursue their own depraved
-  agendas.
+description: Vampire spawn are newly created vampires. They have yet to fully master their abilities, and many are consumed
+  by their thirst for blood. Vampire spawn might serve more powerful vampires or pursue their own depraved agendas.
 habitat: Underdark, Urban
 treasure: Any
 traits:
+- name: Regeneration
+  desc: The vampire regains 10 hit points at the start of its turn if it has at least 1 hit point and isn't in sunlight or
+    running water. If the vampire takes radiant damage or damage from holy water, this trait doesn't function at the start
+    of the vampire's next turn.
 - name: Spider Climb
-  desc: The vampire can climb difficult surfaces, including along ceilings, without needing to make an ability check.
-- name: Vampire Weakness
-  desc: 'The vampire has these weaknesses:'
-- name: Forbiddance
-  desc: The vampire can't enter a residence without an invitation from an occupant.
-- name: Running Water
-  desc: The vampire takes 20 Acid damage if it ends its turn in running water.
-- name: Stake to the Heart
-  desc: The vampire is destroyed if a weapon that deals Piercing damage is driven into the vampire's heart while
-    the vampire has the Incapacitated condition.
-- name: Sunlight
-  desc: The vampire takes 20 Radiant damage if it starts its turn in sunlight. While in sunlight, it has Disadvantage
-    on attack rolls and ability checks.
+  desc: The vampire can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check.
+- name: Vampire Weaknesses
+  desc: 'The vampire has the following flaws: The vampire can''t enter a residence without an invitation from one of the occupants.
+    The vampire takes 20 acid damage when it ends its turn in running water. The vampire is destroyed if a piercing weapon
+    made of wood is driven into its heart while it is {@condition incapacitated} in its resting place. The vampire takes 20
+    radiant damage when it starts its turn in sunlight. While in sunlight, it has disadvantage on attack rolls and ability
+    checks'
 actions:
 - name: Multiattack
-  desc: The vampire makes two Claw attacks and uses Bite.
-- name: Claw
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 8 (2d4 + 3) Slashing damage. If the target is a Medium or smaller
-    creature, it has the Grappled condition (escape DC 13) from one of two claws.'
+  desc: The vampire makes two attacks, only one of which can be a bite attack.
 - name: Bite
-  desc: 'Constitution Saving Throw : DC 14, one creature within 5 feet that is willing or that has the Grappled,
-    Incapacitated, or Restrained condition. Failure : 5 (1d4 + 3) Piercing damage plus 10 (3d6) Necrotic damage.
-    The target''s Hit Point maximum decreases by an amount equal to the Necrotic damage taken, and the vampire regains
-    Hit Points equal to that amount.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one willing creature, or a creature that is {@condition grappled} by the
+    vampire, {@condition incapacitated}, or {@condition restrained}. {@h}6 ({@damage 1d6 + 3}) piercing damage plus 7 ({@damage
+    2d6}) necrotic damage. The target''s hit point maximum is reduced by an amount equal to the necrotic damage taken, and
+    the vampire regains hit points equal to that amount. The reduction lasts until the target finishes a long rest. The target
+    dies if this effect reduces its hit point maximum to 0.'
+- name: Claws
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one creature. {@h}8 ({@damage 2d4 + 3}) slashing damage. Instead of dealing
+    damage, the vampire can grapple the target (escape {@dc 13}).'
+legendary_actions: []

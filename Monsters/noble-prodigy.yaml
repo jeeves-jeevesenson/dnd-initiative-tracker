@@ -21,9 +21,11 @@ skills:
 senses: Passive Perception 16
 languages:
 - Common plus two other languages
-description: Nobles encompass a variety of people with social influence. They might be rulers, wealthy merchants,
-  callous bureaucrats, or the idle elite. Noble prodigies trace their lineage to a legendary hero, a demigod, a
-  dragon, or some other ancestor that grants them magical prowess. Among some nobles, the source of a prodigy's
-  magic might be a family secret.
+description: Nobles encompass a variety of people with social influence. They might be rulers, wealthy merchants, callous
+  bureaucrats, or the idle elite. Noble prodigies trace their lineage to a legendary hero, a demigod, a dragon, or some other
+  ancestor that grants them magical prowess. Among some nobles, the source of a prodigy's magic might be a family secret.
 habitat: Any
 treasure: Individual
+traits: []
+actions: []
+legendary_actions: []

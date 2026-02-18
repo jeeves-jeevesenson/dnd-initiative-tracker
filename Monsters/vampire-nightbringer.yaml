@@ -27,7 +27,10 @@ immunities:
 senses: Darkvision 120 ft., Passive Perception 15
 languages:
 - Common plus one other language
-description: Born of necromantic rituals and planes of existence suffused with negative energy, vampire nightbringers
-  manipulate shadows and feed on the raw life force of living creatures.
+description: Born of necromantic rituals and planes of existence suffused with negative energy, vampire nightbringers manipulate
+  shadows and feed on the raw life force of living creatures.
 habitat: Underdark, Urban
 treasure: Any
+traits: []
+actions: []
+legendary_actions: []

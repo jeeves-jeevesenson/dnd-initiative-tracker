@@ -22,23 +22,29 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 11
 languages:
 - None
-description: In their natural forms, mimics are little more than roaming stomachs, their blobby bodies covered with
-  alien eyes and teeth. They can alter their color, texture, and dimensions to duplicate inanimate objects of their
-  approximate size. Mimics use their disguises as both camouflage and bait. Once victims draw close, mimics strike,
-  lashing out with their sticky pseudopods and toothy mouths. After consuming victims, mimics usually relocate,
-  change form, and await their next meal.
+description: In their natural forms, mimics are little more than roaming stomachs, their blobby bodies covered with alien
+  eyes and teeth. They can alter their color, texture, and dimensions to duplicate inanimate objects of their approximate
+  size. Mimics use their disguises as both camouflage and bait. Once victims draw close, mimics strike, lashing out with their
+  sticky pseudopods and toothy mouths. After consuming victims, mimics usually relocate, change form, and await their next
+  meal.
 habitat: Underdark, Urban
 treasure: Any
 traits:
+- name: Shapechanger
+  desc: The mimic can use its action to polymorph into an object or back into its true, amorphous form. Its statistics are
+    the same in each form. Any equipment it is wearing or carrying isn't transformed. It reverts to its true form if it dies.
 - name: Adhesive (Object Form Only)
-  desc: The mimic adheres to anything that touches it. A Huge or smaller creature adhered to the mimic has the Grappled
-    condition (escape DC 13). Ability checks made to escape this grapple have Disadvantage.
+  desc: The mimic adheres to anything that touches it. A Huge or smaller creature adhered to the mimic is also {@condition
+    grappled} by it (escape {@dc 13}). Ability checks made to escape this grapple have disadvantage.
+- name: False Appearance (Object Form Only)
+  desc: While the mimic remains motionless, it is indistinguishable from an ordinary object.
+- name: Grappler
+  desc: The mimic has advantage on attack rolls against any creature {@condition grappled} by it.
 actions:
-- name: Bite
-  desc: 'Melee Attack Roll : +5 (with Advantage if the target is Grappled by the mimic), reach 5 ft. Hit : 7 (1d8
-    + 3) Piercing damage—or 12 (2d8 + 3) Piercing damage if the target is Grappled by the mimic—plus 4 (1d8) Acid
-    damage.'
 - name: Pseudopod
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Bludgeoning damage plus 4 (1d8) Acid damage. If the
-    target is a Large or smaller creature, it has the Grappled condition (escape DC 13). Ability checks made to
-    escape this grapple have Disadvantage.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d8 + 3}) bludgeoning damage. If the mimic is
+    in object form, the target is subjected to its Adhesive trait.'
+- name: Bite
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d8 + 3}) piercing damage plus 4 ({@damage 1d8})
+    acid damage.'
+legendary_actions: []

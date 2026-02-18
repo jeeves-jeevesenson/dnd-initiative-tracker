@@ -23,20 +23,26 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 17
 languages:
 - —
-description: Most gorgons are iron bulls wreathed in clouds of petrifying gas. Their metal plates vary in sheen
-  and color, from sleek silver to pitted black. The oldest gorgons might be covered in rust, but this rarely impedes
-  their abilities. These gorgons' stomping grounds are littered with the shattered remains of petrified foes. Many
-  gorgons outlive their creators by centuries, misleading some to believe these creations have natural origins and
-  territories. Most such gorgons continue to follow age-old commands, guarding sites long fallen to ruin.
+description: Most gorgons are iron bulls wreathed in clouds of petrifying gas. Their metal plates vary in sheen and color,
+  from sleek silver to pitted black. The oldest gorgons might be covered in rust, but this rarely impedes their abilities.
+  These gorgons' stomping grounds are littered with the shattered remains of petrified foes. Many gorgons outlive their creators
+  by centuries, misleading some to believe these creations have natural origins and territories. Most such gorgons continue
+  to follow age-old commands, guarding sites long fallen to ruin.
 habitat: Forest, Grassland, Hill
 treasure: Any
 actions:
 - name: Gore
-  desc: 'Melee Attack Roll : +8, reach 5 ft. Hit : 18 (2d12 + 5) Piercing damage. If the target is a Large or smaller
-    creature and the gorgon moved 20+ feet straight toward it immediately before the hit, the target has the Prone
-    condition.'
-- name: Petrifying Breath (Recharge 5–6)
-  desc: 'Constitution Saving Throw : DC 15, each creature in a 30-foot Cone. First Failure : The target has the
-    Restrained condition and repeats the save at the end of its next turn if it is still Restrained, ending the
-    effect on itself on a success. Second Failure : The target has the Petrified condition instead of the Restrained
-    condition.'
+  desc: '{@atk mw} {@hit 8} to hit, reach 5 ft., one target. {@h}18 ({@damage 2d12 + 5}) piercing damage.'
+- name: Hooves
+  desc: '{@atk mw} {@hit 8} to hit, reach 5 ft., one target. {@h}16 ({@damage 2d10 + 5}) bludgeoning damage.'
+- name: Petrifying Breath {@recharge 5}
+  desc: The gorgon exhales petrifying gas in a 30-foot cone. Each creature in that area must succeed on a {@dc 13} Constitution
+    saving throw. On a failed save, a target begins to turn to stone and is {@condition restrained}. The {@condition restrained}
+    target must repeat the saving throw at the end of its next turn. On a success, the effect ends on the target. On a failure,
+    the target is {@condition petrified} until freed by the {@spell greater restoration} spell or other magic.
+traits:
+- name: Trampling Charge
+  desc: If the gorgon moves at least 20 feet straight toward a creature and then hits it with a gore attack on the same turn,
+    that target must succeed on a {@dc 16} Strength saving throw or be knocked {@condition prone}. If the target is {@condition
+    prone}, the gorgon can make one attack with its hooves against it as a bonus action.
+legendary_actions: []

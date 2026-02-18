@@ -21,10 +21,13 @@ languages:
 description: ''
 habitat: Forest, Grassland, Hill
 traits:
-- name: Bloodied Fury
-  desc: The boar has Advantage on melee attack rolls while it is Bloodied.
+- name: Charge
+  desc: If the boar moves at least 20 feet straight toward a target and then hits it with a tusk attack on the same turn,
+    the target takes an extra 7 ({@damage 2d6}) slashing damage. If the target is a creature, it must succeed on a {@dc 13}
+    Strength saving throw or be knocked {@condition prone}.
+- name: Relentless (Recharges after a Short or Long Rest)
+  desc: If the boar takes 10 damage or less that would reduce it to 0 hit points, it is reduced to 1 hit point instead.
 actions:
-- name: Gore
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 10 (2d6 + 3) Piercing damage. If the target is a Large or smaller
-    creature and the boar moved 20+ feet straight toward it immediately before the hit, the target takes an extra
-    7 (2d6) Piercing damage and has the Prone condition.'
+- name: Tusk
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}10 ({@damage 2d6 + 3}) slashing damage.'
+legendary_actions: []

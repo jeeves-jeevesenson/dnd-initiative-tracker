@@ -24,17 +24,15 @@ languages:
 - Common
 - Druidic
 - Sylvan
-description: Druids use primal magic, traditional teachings, and bonds with animals and eldritch beings to guard
-  the natural world and heal its ills. These magic-users might be recluses devoted to a particular land, or they
-  might be part of a mystic organization.
+description: Druids use primal magic, traditional teachings, and bonds with animals and eldritch beings to guard the natural
+  world and heal its ills. These magic-users might be recluses devoted to a particular land, or they might be part of a mystic
+  organization.
 habitat: Any
 treasure: Individual, Relics
 actions:
-- name: Multiattack
-  desc: The druid makes two attacks, using Vine Staff or Verdant Wisp in any combination.
-- name: Vine Staff
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Bludgeoning damage plus 2 (1d4) Poison damage.'
-- name: Verdant Wisp
-  desc: 'Ranged Attack Roll : +5, range 90 ft. Hit : 10 (3d6) Radiant damage.'
-- name: Spellcasting
-  desc: 'The druid casts one of the following spells, using Wisdom as the spellcasting ability (spell save DC 13):'
+- name: Quarterstaff
+  desc: '{@atk mw} {@hit 2} to hit ({@hit 4} to hit with shillelagh), reach 5 ft., one target. {@h}3 ({@damage 1d6}) bludgeoning
+    damage, 4 ({@damage 1d8}) bludgeoning damage if wielded with two hands, or 6 ({@damage 1d8 + 2}) bludgeoning damage with
+    {@spell shillelagh}.'
+traits: []
+legendary_actions: []

@@ -27,17 +27,26 @@ description: ''
 habitat: Forest, Underdark
 treasure: Armaments
 traits:
+- name: Fey Ancestry
+  desc: The drider has advantage on saving throws against being {@condition charmed}, and magic can't put the drider to sleep.
 - name: Spider Climb
-  desc: The drider can climb difficult surfaces, including along ceilings, without needing to make an ability check.
+  desc: The drider can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check.
 - name: Sunlight Sensitivity
-  desc: While in sunlight, the drider has Disadvantage on ability checks and attack rolls.
+  desc: While in sunlight, the drider has disadvantage on attack rolls, as well as on Wisdom ({@skill Perception}) checks
+    that rely on sight.
 - name: Web Walker
-  desc: The drider ignores movement restrictions caused by webs, and the drider knows the location of any other
-    creature in contact with the same web.
+  desc: The drider ignores movement restrictions caused by webbing.
 actions:
 - name: Multiattack
-  desc: The drider makes three attacks, using Foreleg or Poison Burst in any combination.
-- name: Foreleg
-  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 13 (2d8 + 4) Piercing damage.'
-- name: Poison Burst
-  desc: 'Ranged Attack Roll : +6, range 120 ft. Hit : 13 (3d6 + 3) Poison damage.'
+  desc: The drider makes three attacks, either with its longsword or its longbow. It can replace one of those attacks with
+    a bite attack.
+- name: Bite
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one creature. {@h}2 ({@damage 1d4}) piercing damage plus 9 ({@damage 2d8})
+    poison damage.'
+- name: Longsword
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d8 + 3}) slashing damage, or 8 ({@damage 1d10
+    + 3}) slashing damage if used with two hands.'
+- name: Longbow
+  desc: '{@atk rw} {@hit 6} to hit, range 150/600 ft., one target. {@h}7 ({@damage 1d8 + 3}) piercing damage plus 4 ({@damage
+    1d8}) poison damage.'
+legendary_actions: []

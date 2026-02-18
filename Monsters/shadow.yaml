@@ -31,20 +31,24 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - None
-description: Shadows are incorporeal Undead that feed on life. They resent the living for possessing the potential
-  and vitality lost to them. Shadows lurk in dark, lonely places, typically sites that were meaningful to them in
-  life or cursed places with ties to death, sinister magic, or the Shadowfell. Their victims rise as new shadows
-  and prey on the living. Shadows might resemble the silhouettes of who they were in life or take on more menacing
-  forms.
+description: Shadows are incorporeal Undead that feed on life. They resent the living for possessing the potential and vitality
+  lost to them. Shadows lurk in dark, lonely places, typically sites that were meaningful to them in life or cursed places
+  with ties to death, sinister magic, or the Shadowfell. Their victims rise as new shadows and prey on the living. Shadows
+  might resemble the silhouettes of who they were in life or take on more menacing forms.
 habitat: Planar (Shadowfell), Underdark, Urban
 treasure: None
 traits:
 - name: Amorphous
-  desc: The shadow can move through a space as narrow as 1 inch without expending extra movement to do so.
+  desc: The shadow can move through a space as narrow as 1 inch wide without squeezing.
+- name: Shadow Stealth
+  desc: While in dim light or darkness, the shadow can take the {@action Hide} action as a bonus action. Its stealth bonus
+    is also improved to +6.
 - name: Sunlight Weakness
-  desc: While in sunlight, the shadow has Disadvantage on D20 Tests.
+  desc: While in sunlight, the shadow has disadvantage on attack rolls, ability checks, and saving throws.
 actions:
-- name: Draining Swipe
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Necrotic damage, and the target''s Strength score
-    decreases by 1d4. The target dies if this reduces that score to 0. If a Humanoid is slain by this attack, a
-    Shadow rises from the corpse 1d4 hours later.'
+- name: Strength Drain
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@h}9 ({@damage 2d6 + 2}) necrotic damage, and the target''s
+    Strength score is reduced by {@dice 1d4}. The target dies if this reduces its Strength to 0. Otherwise, the reduction
+    lasts until the target finishes a short or long rest. If a non-evil humanoid dies from this attack, a new {@creature shadow}
+    rises from the corpse {@dice 1d4} hours later.'
+legendary_actions: []

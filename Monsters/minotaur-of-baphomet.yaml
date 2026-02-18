@@ -24,10 +24,6 @@ languages:
 description: ''
 habitat: Underdark
 treasure: Armaments
-actions:
-- name: Abyssal Glaive
-  desc: 'Melee Attack Roll : +6, reach 10 ft. Hit : 10 (1d12 + 4) Slashing damage plus 10 (3d6) Necrotic damage.'
-- name: Gore (Recharge 5–6)
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 18 (4d6 + 4) Piercing damage. If the target is a Large or smaller
-    creature and the minotaur moved 10+ feet straight toward it immediately before the hit, the target takes an
-    extra 10 (3d6) Piercing damage and has the Prone condition.'
+actions: []
+traits: []
+legendary_actions: []

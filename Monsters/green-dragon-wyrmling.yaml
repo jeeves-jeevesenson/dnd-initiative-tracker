@@ -25,24 +25,23 @@ immunities:
 senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 14
 languages:
 - Draconic
-description: From forbidden forest depths, green dragons whisper evils into the world and manipulate the lives of
-  those who listen. Elusive, conniving, and egotistical, these chromatic dragons patiently prey on the fears of
-  shorter-lived beings, corrupting and isolating them. Green dragons might lurk amid labyrinthine wildernesses for
-  centuries without revealing themselves; even their most devoted followers might know them only as the voice of
-  the woodlands or a whisper in their dreams. Despite their might, most green dragons disdain physical violence,
-  viewing combat as servants' work and preferring to trick foes into dangerous or exploitative scenarios. These
-  dragons collect "baubles" that embody their webs of manipulation and serve as tools of extortion, such as compromising
-  documents, family heirlooms, and sentimental treasures.
+description: From forbidden forest depths, green dragons whisper evils into the world and manipulate the lives of those who
+  listen. Elusive, conniving, and egotistical, these chromatic dragons patiently prey on the fears of shorter-lived beings,
+  corrupting and isolating them. Green dragons might lurk amid labyrinthine wildernesses for centuries without revealing themselves;
+  even their most devoted followers might know them only as the voice of the woodlands or a whisper in their dreams. Despite
+  their might, most green dragons disdain physical violence, viewing combat as servants' work and preferring to trick foes
+  into dangerous or exploitative scenarios. These dragons collect "baubles" that embody their webs of manipulation and serve
+  as tools of extortion, such as compromising documents, family heirlooms, and sentimental treasures.
 habitat: Forest
 treasure: Arcana
 traits:
 - name: Amphibious
   desc: The dragon can breathe air and water.
 actions:
-- name: Multiattack
-  desc: The dragon makes two Rend attacks.
-- name: Rend
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 7 (1d10 + 2) Slashing damage plus 3 (1d6) Poison damage.'
-- name: Poison Breath (Recharge 5–6)
-  desc: 'Constitution Saving Throw : DC 11, each creature in a 15-foot Cone. Failure : 21 (6d6) Poison damage. Success
-    : Half damage.'
+- name: Bite
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d10 + 2}) piercing damage plus 3 ({@damage 1d6})
+    poison damage.'
+- name: Poison Breath {@recharge 5}
+  desc: The dragon exhales poisonous gas in a 15-foot cone. Each creature in that area must make a {@dc 11} Constitution saving
+    throw, taking 21 ({@damage 6d6}) poison damage on a failed save, or half as much damage on a successful one.
+legendary_actions: []

@@ -24,3 +24,13 @@ languages:
 description: ''
 habitat: Underdark
 treasure: Individual
+traits:
+- name: False Appearance
+  desc: While the piercer remains motionless on the ceiling, it is indistinguishable from a normal stalactite.
+- name: Spider Climb
+  desc: The piercer can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check.
+actions:
+- name: Drop
+  desc: '{@atk mw} {@hit 3} to hit, one creature directly underneath the piercer. {@h}3 ({@damage 1d6}) piercing damage per
+    10 feet fallen, up to 21 ({@damage 6d6}). Miss: The piercer takes half the normal falling damage for the distance fallen.'
+legendary_actions: []

@@ -34,11 +34,15 @@ description: ''
 habitat: Underdark, Urban
 traits:
 - name: Incorporeal Movement
-  desc: The specter can move through other creatures and objects as if they were Difficult Terrain. It takes 5 (1d10)
-    Force damage if it ends its turn inside an object.
+  desc: The specter can move through other creatures and objects as if they were {@quickref difficult terrain||3}. It takes
+    5 ({@damage 1d10}) force damage if it ends its turn inside an object.
 - name: Sunlight Sensitivity
-  desc: While in sunlight, the specter has Disadvantage on ability checks and attack rolls.
+  desc: While in sunlight, the specter has disadvantage on attack rolls, as well as on Wisdom ({@skill Perception}) checks
+    that rely on sight.
 actions:
 - name: Life Drain
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 7 (2d6) Necrotic damage. If the target is a creature, its Hit
-    Point maximum decreases by an amount equal to the damage taken.'
+  desc: '{@atk ms} {@hit 4} to hit, reach 5 ft., one creature. {@h}10 ({@damage 3d6}) necrotic damage. The target must succeed
+    on a {@dc 10} Constitution saving throw or its hit point maximum is reduced by an amount equal to the damage taken. This
+    reduction lasts until the creature finishes a long rest. The target dies if this effect reduces its hit point maximum
+    to 0.'
+legendary_actions: []

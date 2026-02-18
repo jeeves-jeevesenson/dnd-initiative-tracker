@@ -26,10 +26,14 @@ habitat: Arctic, Coastal, Desert, Hill, Mountain
 treasure: Any
 actions:
 - name: Multiattack
-  desc: The roc makes two Beak attacks. It can replace one attack with a Talons attack.
+  desc: 'The roc makes two attacks: one with its beak and one with its talons.'
 - name: Beak
-  desc: 'Melee Attack Roll : +13, reach 10 ft. Hit : 28 (3d12 + 9) Piercing damage.'
+  desc: '{@atk mw} {@hit 13} to hit, reach 10 ft., one target. {@h}27 ({@damage 4d8 + 9}) piercing damage.'
 - name: Talons
-  desc: 'Melee Attack Roll : +13, reach 5 ft. Hit : 23 (4d6 + 9) Slashing damage. If the target is a Huge or smaller
-    creature, it has the Grappled condition (escape DC 19) from both talons, and it has the Restrained condition
-    until the grapple ends.'
+  desc: '{@atk mw} {@hit 13} to hit, reach 5 ft., one target. {@h}23 ({@damage 4d6 + 9}) slashing damage, and the target is
+    {@condition grappled} (escape {@dc 19}). Until this grapple ends, the target is {@condition restrained}, and the roc can''t
+    use its talons on another target.'
+traits:
+- name: Keen Sight
+  desc: The roc has advantage on Wisdom ({@skill Perception}) checks that rely on sight.
+legendary_actions: []

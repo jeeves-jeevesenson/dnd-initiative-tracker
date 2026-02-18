@@ -22,9 +22,30 @@ skills:
 senses: Darkvision 120 ft., Truesight 30 ft., Passive Perception 16
 languages:
 - Undercommon
-description: The servants of kuo-toa archpriests, kuo-toa whips—so named for their role in enforcing order among
-  other kuo-toa—lead war bands in carrying out the commands of their superiors. In return for their zeal, these
-  kuo-toa are granted minor magical abilities and pincerlike weapons for subduing foes. In battle, whips drive on
-  other kuo-toa with threats of violence and burbling chants.
+description: The servants of kuo-toa archpriests, kuo-toa whips—so named for their role in enforcing order among other kuo-toa—lead
+  war bands in carrying out the commands of their superiors. In return for their zeal, these kuo-toa are granted minor magical
+  abilities and pincerlike weapons for subduing foes. In battle, whips drive on other kuo-toa with threats of violence and
+  burbling chants.
 habitat: Coastal, Underdark
 treasure: Relics
+traits:
+- name: Amphibious
+  desc: The kuo-toa can breathe air and water.
+- name: Otherworldly Perception
+  desc: The kuo-toa can sense the presence of any creature within 30 feet of it that is {@condition invisible} or on the Ethereal
+    Plane. It can pinpoint such a creature that is moving.
+- name: Slippery
+  desc: The kuo-toa has advantage on ability checks and saving throws made to escape a grapple.
+- name: Sunlight Sensitivity
+  desc: While in sunlight, the kuo-toa has disadvantage on attack rolls, as well as on Wisdom ({@skill Perception}) checks
+    that rely on sight.
+actions:
+- name: Multiattack
+  desc: 'The kuo-toa makes two attacks: one with its bite and one with its pincer staff.'
+- name: Bite
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d4 + 2}) piercing damage.'
+- name: Pincer Staff
+  desc: '{@atk mw} {@hit 4} to hit, reach 10 ft., one target. {@h}5 ({@damage 1d6 + 2}) piercing damage. If the target is
+    a Medium or smaller creature, it is {@condition grappled} (escape {@dc 14}). Until this grapple ends, the kuo-toa can''t
+    use its pincer staff on another target.'
+legendary_actions: []

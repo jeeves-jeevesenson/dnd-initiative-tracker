@@ -22,7 +22,11 @@ description: ''
 habitat: Desert, Hill, Urban
 traits:
 - name: Beast of Burden
-  desc: The mule counts as one size larger for the purpose of determining its carrying capacity.
+  desc: The mule is considered to be a Large animal for the purpose of determining its carrying capacity.
+- name: Sure-Footed
+  desc: The mule has advantage on Strength and Dexterity saving throws made against effects that would knock it {@condition
+    prone}.
 actions:
 - name: Hooves
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 4 (1d4 + 2) Bludgeoning damage.'
+  desc: '{@atk mw} {@hit 2} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d4 + 2}) bludgeoning damage.'
+legendary_actions: []

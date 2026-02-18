@@ -26,18 +26,25 @@ description: ''
 habitat: Planar (Nine Hells)
 treasure: Armaments
 traits:
+- name: Devil's Sight
+  desc: Magical darkness doesn't impede the devil's darkvision.
 - name: Magic Resistance
-  desc: The devil has Advantage on saving throws against spells and other magical effects.
+  desc: The devil has advantage on saving throws against spells and other magical effects.
+- name: Steadfast
+  desc: The devil can't be {@condition frightened} while it can see an allied creature within 30 feet of it.
 actions:
 - name: Multiattack
-  desc: The devil makes one Beard attack and one Infernal Glaive attack.
+  desc: 'The devil makes two attacks: one with its beard and one with its glaive.'
 - name: Beard
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Piercing damage, and the target has the Poisoned
-    condition until the start of the devil''s next turn. Until this poison ends, the target can''t regain Hit Points.'
-- name: Infernal Glaive
-  desc: 'Melee Attack Roll : +5, reach 10 ft. Hit : 8 (1d10 + 3) Slashing damage. If the target is a creature and
-    doesn''t already have an infernal wound, it is subjected to the following effect. Constitution Saving Throw
-    : DC 12. Failure : The target receives an infernal wound. While wounded, the target loses 5 (1d10) Hit Points
-    at the start of each of its turns. The wound closes after 1 minute, after a spell restores Hit Points to the
-    target, or after the target or a creature within 5 feet of it takes an action to stanch the wound, doing so
-    by succeeding on a DC 12 Wisdom (Medicine) check.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one creature. {@h}6 ({@damage 1d8 + 2}) piercing damage, and the target must
+    succeed on a {@dc 12} Constitution saving throw or be {@condition poisoned} for 1 minute. While {@condition poisoned}
+    in this way, the target can''t regain hit points. The target can repeat the saving throw at the end of each of its turns,
+    ending the effect on itself on a success.'
+- name: Glaive
+  desc: '{@atk mw} {@hit 5} to hit, reach 10 ft., one target. {@h}8 ({@damage 1d10 + 3}) slashing damage. If the target is
+    a creature other than an undead or a construct, it must succeed on a {@dc 12} Constitution saving throw or lose 5 ({@dice
+    1d10}) hit points at the start of each of its turns due to an infernal wound. Each time the devil hits the wounded target
+    with this attack, the damage dealt by the wound increases by 5 ({@damage 1d10}). Any creature can take an action to stanch
+    the wound with a successful {@dc 12} Wisdom ({@skill Medicine}) check. The wound also closes if the target receives magical
+    healing.'
+legendary_actions: []

@@ -25,9 +25,12 @@ description: ''
 habitat: Arctic, Forest, Hill
 actions:
 - name: Multiattack
-  desc: The bear makes one Bite attack and one Claw attack.
+  desc: 'The bear makes two attacks: one with its bite and one with its claws.'
 - name: Bite
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Piercing damage.'
-- name: Claw
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 5 (1d4 + 3) Slashing damage. If the target is a Large or smaller
-    creature, it has the Prone condition.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}8 ({@damage 1d8 + 4}) piercing damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) slashing damage.'
+traits:
+- name: Keen Smell
+  desc: The bear has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
+legendary_actions: []

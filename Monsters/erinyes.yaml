@@ -29,22 +29,19 @@ description: ''
 habitat: Planar (Nine Hells)
 treasure: Armaments
 traits:
-- name: Diabolical Restoration
-  desc: If the erinyes dies outside the Nine Hells, its body disappears in sulfurous smoke, and it gains a new body
-    instantly, reviving with all its Hit Points somewhere in the Nine Hells.
+- name: Hellish Weapons
+  desc: The erinyes's weapon attacks are magical and deal an extra 13 ({@damage 3d8}) poison damage on a hit (included in
+    the attacks).
 - name: Magic Resistance
-  desc: The erinyes has Advantage on saving throws against spells and other magical effects.
-- name: Magic Rope
-  desc: The erinyes has a magic rope. While bearing it, the erinyes can use the Entangling Rope action. The rope
-    has AC 20, HP 90, and Immunity to Poison and Psychic damage. The rope turns to dust if reduced to 0 Hit Points,
-    if it is 5+ feet away from the erinyes for 1 hour or more, or if the erinyes dies. If the rope is damaged or
-    destroyed, the erinyes can fully restore it when finishing a Short or Long Rest.
+  desc: The erinyes has advantage on saving throws against spells and other magical effects.
 actions:
 - name: Multiattack
-  desc: The erinyes makes three Withering Sword attacks and can use Entangling Rope.
-- name: Withering Sword
-  desc: 'Melee Attack Roll : +8, reach 5 ft. Hit : 13 (2d8 + 4) Slashing damage plus 11 (2d10) Necrotic damage.'
-- name: Entangling Rope (Requires Magic Rope)
-  desc: 'Strength Saving Throw : DC 16, one creature the erinyes can see within 120 feet. Failure : 14 (4d6) Force
-    damage, and the target has the Restrained condition until the rope is destroyed, the erinyes uses a Bonus Action
-    to release the target, or the erinyes uses Entangling Rope again.'
+  desc: The erinyes makes three attacks.
+- name: Longsword
+  desc: '{@atk mw} {@hit 8} to hit, reach 5 ft., one target. {@h}8 ({@damage 1d8 + 4}) slashing damage, or 9 ({@damage 1d10
+    + 4}) slashing damage if used with two hands, plus 13 ({@damage 3d8}) poison damage.'
+- name: Longbow
+  desc: '{@atk rw} {@hit 7} to hit, range 150/600 ft., one target. {@h}7 ({@damage 1d8 + 3}) piercing damage plus 13 ({@damage
+    3d8}) poison damage, and the target must succeed on a {@dc 14} Constitution saving throw or be {@condition poisoned}.
+    The poison lasts until it is removed by the {@spell lesser restoration} spell or similar magic.'
+legendary_actions: []

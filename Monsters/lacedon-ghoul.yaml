@@ -23,7 +23,10 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Common
-description: Lacedons are loose-skinned, aquatic ghouls. They often arise from the corpses of greedy pirates, those
-  who starved on deserted islands, or scoundrels who met their end by drowning.
+description: Lacedons are loose-skinned, aquatic ghouls. They often arise from the corpses of greedy pirates, those who starved
+  on deserted islands, or scoundrels who met their end by drowning.
 habitat: Swamp, Underdark, Urban
 treasure: Any
+traits: []
+actions: []
+legendary_actions: []

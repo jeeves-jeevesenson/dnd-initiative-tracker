@@ -18,15 +18,12 @@ abilities:
 senses: Passive Perception 10
 languages:
 - Common
-description: Commoners constitute the majority of people who don't pursue magical talents, extraordinary training,
-  or a life of adventure. Some are generous, helpful sorts, while others are more cautious in sharing what they
-  have.
+description: Commoners constitute the majority of people who don't pursue magical talents, extraordinary training, or a life
+  of adventure. Some are generous, helpful sorts, while others are more cautious in sharing what they have.
 habitat: Any
 treasure: Individual
-traits:
-- name: Training
-  desc: The commoner has proficiency in one skill of the DM's choice and has Advantage whenever it makes an ability
-    check using that skill.
+traits: []
 actions:
 - name: Club
-  desc: 'Melee Attack Roll : +2, reach 5 ft. Hit : 2 (1d4) Bludgeoning damage.'
+  desc: '{@atk mw} {@hit 2} to hit, reach 5 ft., one target. {@h}2 ({@damage 1d4}) bludgeoning damage.'
+legendary_actions: []

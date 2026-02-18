@@ -24,5 +24,9 @@ description: ''
 habitat: Forest, Hill, Urban
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 4 (1d6 + 1) Piercing damage. If the target is a Medium or smaller
-    creature, it has the Prone condition.'
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d6 + 1}) piercing damage. If the target is a
+    creature, it must succeed on a {@dc 11} Strength saving throw or be knocked {@condition prone}.'
+traits:
+- name: Keen Hearing and Smell
+  desc: The mastiff has advantage on Wisdom ({@skill Perception}) checks that rely on hearing or smell.
+legendary_actions: []

@@ -25,6 +25,13 @@ description: ''
 habitat: Grassland, Hill, Mountain
 actions:
 - name: Ram
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Bludgeoning damage. If the target is a Large or smaller
-    creature and the goat moved 20+ feet straight toward it immediately before the hit, the target takes an extra
-    5 (2d4) Bludgeoning damage and has the Prone condition.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}8 ({@damage 2d4 + 3}) bludgeoning damage.'
+traits:
+- name: Charge
+  desc: If the goat moves at least 20 feet straight toward a target and then hits it with a ram attack on the same turn, the
+    target takes an extra 5 ({@damage 2d4}) bludgeoning damage. If the target is a creature, it must succeed on a {@dc 13}
+    Strength saving throw or be knocked {@condition prone}.
+- name: Sure-Footed
+  desc: The goat has advantage on Strength and Dexterity saving throws made against effects that would knock it {@condition
+    prone}.
+legendary_actions: []

@@ -24,20 +24,11 @@ immunities:
 senses: Passive Perception 15
 languages:
 - Common
-description: Gripped by the adrenaline of battle, berserkers are reckless invaders, pit fighters, and other ferocious
-  warriors. Berserker commanders bear the scars of battle and drive their followers to match their deadly zeal.
-  These commanders tap into a primal magic to enhance their might.
+description: Gripped by the adrenaline of battle, berserkers are reckless invaders, pit fighters, and other ferocious warriors.
+  Berserker commanders bear the scars of battle and drive their followers to match their deadly zeal. These commanders tap
+  into a primal magic to enhance their might.
 habitat: Any
 treasure: Individual, Armaments
-traits:
-- name: Bloodied Frenzy
-  desc: While Bloodied, the berserker has Advantage on attack rolls and saving throws.
-actions:
-- name: Multiattack
-  desc: The berserker makes three attacks, using Greataxe or Javelin in any combination.
-- name: Greataxe
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 10 (1d12 + 4) Slashing damage, plus 10 (3d6) Thunder damage to
-    the target or another creature within 5 feet of the target.'
-- name: Javelin
-  desc: 'Melee or Ranged Attack Roll : +7, reach 5 ft. or range 30/120 ft. Hit : 18 (4d6 + 4) Piercing damage, and
-    the target''s Speed decreases by 5 feet until the start of the berserker''s next turn.'
+traits: []
+actions: []
+legendary_actions: []

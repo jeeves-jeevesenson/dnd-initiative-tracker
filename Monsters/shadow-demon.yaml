@@ -32,3 +32,17 @@ languages:
 - Abyssal; telepathy 120 ft.
 description: ''
 habitat: Planar (Abyss)
+traits:
+- name: Incorporeal Movement
+  desc: The demon can move through other creatures and objects as if they were {@quickref difficult terrain||3}. It takes
+    5 ({@damage 1d10}) force damage if it ends its turn inside an object.
+- name: Light Sensitivity
+  desc: While in bright light, the demon has disadvantage on attack rolls, as well as on Wisdom ({@skill Perception}) checks
+    that rely on sight.
+- name: Shadow Stealth
+  desc: While in dim light or darkness, the demon can take the {@action Hide} action as a bonus action.
+actions:
+- name: Claws
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one creature. {@h}10 ({@damage 2d6 + 3}) psychic damage or, if the demon
+    had advantage on the attack roll, 17 ({@damage 4d6 + 3}) psychic damage.'
+legendary_actions: []

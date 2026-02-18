@@ -21,23 +21,27 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial (Ignan)
-description: Most salamanders are arrogant yet curious, seeking to create artful blazes or burn that which has never
-  been burned. They eagerly explain their work to strangers before trying to determine how the strangers burn. Salamanders
-  radiate intense heat, which is conducted by their blazing weapons.
+description: Most salamanders are arrogant yet curious, seeking to create artful blazes or burn that which has never been
+  burned. They eagerly explain their work to strangers before trying to determine how the strangers burn. Salamanders radiate
+  intense heat, which is conducted by their blazing weapons.
 habitat: Planar (Elemental Plane of Fire), Underdark
 treasure: Armaments
 traits:
-- name: Fire Aura
-  desc: At the end of each of the salamander's turns, each creature of the salamander's choice in a 5-foot Emanation
-    originating from the salamander takes 7 (2d6) Fire damage.
+- name: Heated Body
+  desc: A creature that touches the salamander or hits it with a melee attack while within 5 feet of it takes 7 ({@damage
+    2d6}) fire damage.
+- name: Heated Weapons
+  desc: Any metal melee weapon the salamander wields deals an extra 3 ({@damage 1d6}) fire damage on a hit (included in the
+    attack).
 actions:
 - name: Multiattack
-  desc: The salamander makes two Flame Spear attacks. It can replace one attack with a use of Constrict.
-- name: Flame Spear
-  desc: 'Melee or Ranged Attack Roll : +7, reach 5 ft. or range 20/60 ft. Hit : 13 (2d8 + 4) Piercing damage plus
-    7 (2d6) Fire damage. Hit or Miss : The spear magically returns to the salamander''s hand immediately after a
-    ranged attack.'
-- name: Constrict
-  desc: 'Strength Saving Throw : DC 15, one Large or smaller creature the salamander can see within 10 feet. Failure
-    : 11 (2d6 + 4) Bludgeoning damage plus 7 (2d6) Fire damage. The target has the Grappled condition (escape DC
-    14), and it has the Restrained condition until the grapple ends.'
+  desc: 'The salamander makes two attacks: one with its spear and one with its tail.'
+- name: Spear
+  desc: '{@atk mw,rw} {@hit 7} to hit, reach 5 ft. or range 20/60 ft., one target. {@h}11 ({@damage 2d6 + 4}) piercing damage,
+    or 13 ({@damage 2d8 + 4}) piercing damage if used with two hands to make a melee attack, plus 3 ({@damage 1d6}) fire damage.'
+- name: Tail
+  desc: '{@atk mw} {@hit 7} to hit, reach 10 ft., one target. {@h}11 ({@damage 2d6 + 4}) bludgeoning damage plus 7 ({@damage
+    2d6}) fire damage, and the target is {@condition grappled} (escape {@dc 14}). Until this grapple ends, the target is {@condition
+    restrained}, the salamander can automatically hit the target with its tail, and the salamander can''t make tail attacks
+    against other targets.'
+legendary_actions: []

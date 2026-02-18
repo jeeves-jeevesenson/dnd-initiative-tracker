@@ -27,25 +27,30 @@ senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 17
 languages:
 - Common
 - Draconic
-description: Relentlessly friendly and curious, most copper dragons view the world as a place of endless wonder
-  and possibility. These gregarious dragons are fonts of patience, hospitality, and humor, and they seek to improve
-  the lives—or, at least, the mood—of those they interact with. If forced to fight to defend themselves or their
-  friends, these dragons favor using their slowing breath and physical attacks to subdue antagonists. Only in cases
-  of extreme peril or emotion do they use their deadly acid breath. Copper dragons typically live in caverns amid
-  picturesque hills and rock formations—particularly those that are prominent landmarks. These dragons collect gifts,
-  though they have little interest in treasure without meaning, no matter how valuable it is. To them, thoughtfully
-  given presents and the feelings or memories they symbolize are more important than masterpieces or magical relics.
+description: Relentlessly friendly and curious, most copper dragons view the world as a place of endless wonder and possibility.
+  These gregarious dragons are fonts of patience, hospitality, and humor, and they seek to improve the lives—or, at least,
+  the mood—of those they interact with. If forced to fight to defend themselves or their friends, these dragons favor using
+  their slowing breath and physical attacks to subdue antagonists. Only in cases of extreme peril or emotion do they use their
+  deadly acid breath. Copper dragons typically live in caverns amid picturesque hills and rock formations—particularly those
+  that are prominent landmarks. These dragons collect gifts, though they have little interest in treasure without meaning,
+  no matter how valuable it is. To them, thoughtfully given presents and the feelings or memories they symbolize are more
+  important than masterpieces or magical relics.
 habitat: Hill
 treasure: Arcana
 actions:
 - name: Multiattack
-  desc: The dragon makes three Rend attacks. It can replace one attack with a use of Slowing Breath.
-- name: Rend
-  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 15 (2d10 + 4) Slashing damage.'
-- name: Acid Breath (Recharge 5–6)
-  desc: 'Dexterity Saving Throw : DC 14, each creature in a 40-foot-long, 5-foot-wide Line. Failure : 40 (9d8) Acid
-    damage. Success : Half damage.'
-- name: Slowing Breath
-  desc: 'Constitution Saving Throw : DC 14, each creature in a 30-foot Cone. Failure : The target can''t take Reactions;
-    its Speed is halved; and it can take either an action or a Bonus Action on its turn, not both. This effect lasts
-    until the end of its next turn.'
+  desc: 'The dragon makes three attacks: one with its bite and two with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 7} to hit, reach 10 ft., one target. {@h}15 ({@damage 2d10 + 4}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) slashing damage.'
+- name: Breath Weapons {@recharge 5}
+  desc: The dragon uses one of the following breath weapons. The dragon exhales acid in a 40-foot line that is 5 feet wide.
+    Each creature in that line must make a {@dc 14} Dexterity saving throw, taking 40 ({@damage 9d8}) acid damage on a failed
+    save, or half as much damage on a successful one. The dragon exhales gas in a 30-foot cone. Each creature in that area
+    must succeed on a {@dc 14} Constitution saving throw. On a failed save, the creature can't use reactions, its speed is
+    halved, and it can't make more than one attack on its turn. In addition, the creature can use either an action or a bonus
+    action on its turn, but not both. These effects last for 1 minute. The creature can repeat the saving throw at the end
+    of each of its turns, ending the effect on itself with a successful save.
+traits: []
+legendary_actions: []

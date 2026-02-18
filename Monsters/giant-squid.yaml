@@ -23,15 +23,6 @@ languages:
 - None
 description: ''
 habitat: Underwater
-traits:
-- name: Water Breathing
-  desc: The squid can breathe only underwater.
-actions:
-- name: Multiattack
-  desc: The squid makes one Bite attack and one Tentacle attack.
-- name: Bite
-  desc: 'Melee Attack Roll : +9, reach 5 ft. Hit : 28 (4d10 + 6) Piercing damage.'
-- name: Tentacle
-  desc: 'Melee Attack Roll : +9, reach 15 ft. Hit : 19 (3d8 + 6) Bludgeoning damage. If the target is a Huge or
-    smaller creature, it has the Grappled condition (escape DC 16) from one of two tentacles, and the squid can
-    pull the target up to 10 feet straight toward itself.'
+traits: []
+actions: []
+legendary_actions: []

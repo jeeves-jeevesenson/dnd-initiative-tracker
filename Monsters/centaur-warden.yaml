@@ -24,7 +24,10 @@ languages:
 - Druidic
 - Elvish
 - Sylvan
-description: Centaur wardens often lead groups of centaur troopers and act as intermediaries between Fey creatures
-  and trespassers into their territories.
+description: Centaur wardens often lead groups of centaur troopers and act as intermediaries between Fey creatures and trespassers
+  into their territories.
 habitat: Forest, Grassland, Planar (Feywild)
 treasure: Individual, Armaments
+traits: []
+actions: []
+legendary_actions: []

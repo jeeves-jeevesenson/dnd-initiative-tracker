@@ -24,3 +24,21 @@ languages:
 description: ''
 habitat: Underdark
 treasure: Armaments
+traits:
+- name: Chameleon Skin
+  desc: The troglodyte has advantage on Dexterity ({@skill Stealth}) checks made to hide.
+- name: Stench
+  desc: Any creature other than a troglodyte that starts its turn within 5 feet of the troglodyte must succeed on a {@dc 12}
+    Constitution saving throw or be {@condition poisoned} until the start of the creature's next turn. On a successful saving
+    throw, the creature is immune to the stench of all troglodytes for 1 hour.
+- name: Sunlight Sensitivity
+  desc: While in sunlight, the troglodyte has disadvantage on attack rolls, as well as on Wisdom ({@skill Perception}) checks
+    that rely on sight.
+actions:
+- name: Multiattack
+  desc: 'The troglodyte makes three attacks: one with its bite and two with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d4 + 2}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d4 + 2}) slashing damage.'
+legendary_actions: []

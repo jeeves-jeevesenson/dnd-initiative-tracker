@@ -22,13 +22,10 @@ skills:
 senses: Passive Perception 12
 languages:
 - Common
-description: Cultist fanatics lead small cults or cells within larger cults. They're privy to more of a cult's mysteries
-  than lower-ranking cultists are, granting them access to magical powers from their patrons.
+description: Cultist fanatics lead small cults or cells within larger cults. They're privy to more of a cult's mysteries than
+  lower-ranking cultists are, granting them access to magical powers from their patrons.
 habitat: Any
 treasure: Individual, Relics
-actions:
-- name: Pact Blade
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 6 (1d8 + 2) Slashing damage plus 7 (2d6) Necrotic damage.'
-- name: Spellcasting
-  desc: 'The cultist casts one of the following spells, using Wisdom as the spellcasting ability (spell save DC
-    12, +4 to hit with spell attacks):'
+actions: []
+traits: []
+legendary_actions: []

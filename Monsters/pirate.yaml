@@ -18,16 +18,10 @@ abilities:
 senses: Passive Perception 11
 languages:
 - Common plus one other language
-description: Along with being competent warriors, pirates are accomplished seafarers who know how to sail and maintain
-  a ship. While some loyally follow their captains' orders, others place greed, superstition, or self-preservation
-  over duty.
+description: Along with being competent warriors, pirates are accomplished seafarers who know how to sail and maintain a ship.
+  While some loyally follow their captains' orders, others place greed, superstition, or self-preservation over duty.
 habitat: Any
 treasure: Individual, Implements
-actions:
-- name: Multiattack
-  desc: The pirate makes two Dagger attacks. It can replace one of these attacks with a use of Enthralling Panache.
-- name: Dagger
-  desc: 'Melee or Ranged Attack Roll : +5, reach 5 ft. or range 20/60 ft. Hit : 5 (1d4 + 3) Piercing damage.'
-- name: Enthralling Panache
-  desc: 'Wisdom Saving Throw : DC 12, one creature the pirate can see within 30 feet. Failure : The target has the
-    Charmed condition until the start of the pirate''s next turn.'
+actions: []
+traits: []
+legendary_actions: []

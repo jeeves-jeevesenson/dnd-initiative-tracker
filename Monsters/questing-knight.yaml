@@ -25,8 +25,11 @@ immunities:
 senses: Passive Perception 15
 languages:
 - Common plus one other language
-description: Knights are skilled warriors trained for war and tested in battle. Many serve the rulers of a realm,
-  a religion, or an order devoted to a cause. Questing knights travel in pursuit of a cause, such as slaying a villain,
-  defeating a monster, recovering an Artifact, or restoring their lost honor.
+description: Knights are skilled warriors trained for war and tested in battle. Many serve the rulers of a realm, a religion,
+  or an order devoted to a cause. Questing knights travel in pursuit of a cause, such as slaying a villain, defeating a monster,
+  recovering an Artifact, or restoring their lost honor.
 habitat: Any
 treasure: Individual, Armaments
+traits: []
+actions: []
+legendary_actions: []

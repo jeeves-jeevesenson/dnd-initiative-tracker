@@ -24,4 +24,9 @@ description: ''
 habitat: Desert, Forest, Grassland, Hill
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 10 (2d6 + 3) Piercing damage.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}10 ({@damage 2d6 + 3}) piercing damage.'
+traits:
+- name: Rampage
+  desc: When the hyena reduces a creature to 0 hit points with a melee attack on its turn, the hyena can take a bonus action
+    to move up to half its speed and make a bite attack.
+legendary_actions: []

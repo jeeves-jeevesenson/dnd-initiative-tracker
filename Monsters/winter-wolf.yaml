@@ -27,13 +27,18 @@ languages:
 description: ''
 habitat: Arctic
 traits:
+- name: Keen Hearing and Smell
+  desc: The wolf has advantage on Wisdom ({@skill Perception}) checks that rely on hearing or smell.
 - name: Pack Tactics
-  desc: The wolf has Advantage on an attack roll against a creature if at least one of the wolf's allies is within
-    5 feet of the creature and the ally doesn't have the Incapacitated condition.
+  desc: The wolf has advantage on an attack roll against a creature if at least one of the wolf's allies is within 5 feet
+    of the creature and the ally isn't {@condition incapacitated}.
+- name: Snow Camouflage
+  desc: The wolf has advantage on Dexterity ({@skill Stealth}) checks made to hide in snowy terrain.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 11 (2d6 + 4) Piercing damage. If the target is a Large or smaller
-    creature, it has the Prone condition.'
-- name: Cold Breath (Recharge 5–6)
-  desc: 'Constitution Saving Throw : DC 12, each creature in a 15-foot Cone. Failure : 18 (4d8) Cold damage. Success
-    : Half damage.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) piercing damage. If the target is
+    a creature, it must succeed on a {@dc 14} Strength saving throw or be knocked {@condition prone}.'
+- name: Cold Breath {@recharge 5}
+  desc: The wolf exhales a blast of freezing wind in a 15-foot cone. Each creature in that area must make a {@dc 12} Dexterity
+    saving throw, taking 18 ({@damage 4d8}) cold damage on a failed save, or half as much damage on a successful one.
+legendary_actions: []

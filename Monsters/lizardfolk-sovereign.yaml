@@ -26,7 +26,10 @@ senses: Darkvision 60 ft., Passive Perception 14
 languages:
 - Draconic
 - Primordial (Terran)
-description: Lizardfolk sovereigns undergo magical rites that imbue them with fantastic strength and magic from
-  the Elemental Plane of Earth. In some, though, it also unlocks a primal viciousness.
+description: Lizardfolk sovereigns undergo magical rites that imbue them with fantastic strength and magic from the Elemental
+  Plane of Earth. In some, though, it also unlocks a primal viciousness.
 habitat: Forest, Swamp
 treasure: Individual
+traits: []
+actions: []
+legendary_actions: []

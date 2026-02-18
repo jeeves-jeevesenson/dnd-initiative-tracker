@@ -28,46 +28,55 @@ senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 24
 languages:
 - Common
 - Draconic
-description: Gregarious and outgoing, brass dragons relish sharing knowledge and stories. Although these metallic
-  dragons favor arid lands, they cheerfully journey considerable distances to visit friendly creatures, pass on
-  what they've learned, and collect news. Though good natured, brass dragons don't shirk from combat when necessary,
-  thwarting foes with magical sleep and searing them with flame. Brass dragons favor warm climes, particularly steppes
-  and rocky or sandy deserts, and they usually dwell near prominent crossroads or oases that regularly draw visitors.
-  They enjoy adopting Humanoid forms, disguising themselves as traveling merchants, scholars, storytellers, or anyone
-  else invested in others' stories. Brass dragons collect eclectic objects. While such items might seem like knickknacks,
-  each is part of a story—perhaps a nostalgic memento or evidence of a tale passed into myth. An old friend's hat
-  and the crown of the last ruler of a forgotten dynasty could occupy the same shelf in a brass dragon's hoard.
+description: Gregarious and outgoing, brass dragons relish sharing knowledge and stories. Although these metallic dragons
+  favor arid lands, they cheerfully journey considerable distances to visit friendly creatures, pass on what they've learned,
+  and collect news. Though good natured, brass dragons don't shirk from combat when necessary, thwarting foes with magical
+  sleep and searing them with flame. Brass dragons favor warm climes, particularly steppes and rocky or sandy deserts, and
+  they usually dwell near prominent crossroads or oases that regularly draw visitors. They enjoy adopting Humanoid forms,
+  disguising themselves as traveling merchants, scholars, storytellers, or anyone else invested in others' stories. Brass
+  dragons collect eclectic objects. While such items might seem like knickknacks, each is part of a story—perhaps a nostalgic
+  memento or evidence of a tale passed into myth. An old friend's hat and the crown of the last ruler of a forgotten dynasty
+  could occupy the same shelf in a brass dragon's hoard.
 habitat: Desert
 treasure: Arcana
 traits:
-- name: Legendary Resistance (4/Day, or 5/Day in Lair)
+- name: Legendary Resistance (3/Day)
   desc: If the dragon fails a saving throw, it can choose to succeed instead.
 actions:
 - name: Multiattack
-  desc: The dragon makes three Rend attacks. It can replace one attack with a use of (A) Sleep Breath or (B) Spellcasting
-    to cast Scorching Ray (level 3 version).
-- name: Rend
-  desc: 'Melee Attack Roll : +14, reach 15 ft. Hit : 19 (2d10 + 8) Slashing damage plus 7 (2d6) Fire damage.'
-- name: Fire Breath (Recharge 5–6)
-  desc: 'Dexterity Saving Throw : DC 21, each creature in a 90-foot-long, 5-foot-wide Line. Failure : 58 (13d8)
-    Fire damage. Success : Half damage.'
-- name: Sleep Breath
-  desc: 'Constitution Saving Throw : DC 21, each creature in a 90-foot Cone. Failure : The target has the Incapacitated
-    condition until the end of its next turn, at which point it repeats the save. Second Failure : The target has
-    the Unconscious condition for 10 minutes. This effect ends for the target if it takes damage or a creature within
-    5 feet of it takes an action to wake it.'
-- name: Spellcasting
-  desc: 'The dragon casts one of the following spells, requiring no Material components and using Charisma as the
-    spellcasting ability (spell save DC 20):'
+  desc: 'The dragon can use its Frightful Presence. It then makes three attacks: one with its bite and two with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 14} to hit, reach 15 ft., one target. {@h}19 ({@damage 2d10 + 8}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 14} to hit, reach 10 ft., one target. {@h}15 ({@damage 2d6 + 8}) slashing damage.'
+- name: Tail
+  desc: '{@atk mw} {@hit 14} to hit, reach 20 ft., one target. {@h}17 ({@damage 2d8 + 8}) bludgeoning damage.'
+- name: Frightful Presence
+  desc: Each creature of the dragon's choice that is within 120 feet of the dragon and aware of it must succeed on a {@dc
+    18} Wisdom saving throw or become {@condition frightened} for 1 minute. A creature can repeat the saving throw at the
+    end of each of its turns, ending the effect on itself on a success. If a creature's saving throw is successful or the
+    effect ends for it, the creature is immune to the dragon's Frightful Presence for the next 24 hours.
+- name: Breath Weapons {@recharge 5}
+  desc: 'The dragon uses one of the following breath weapons: The dragon exhales fire in a 90-foot line that is 10 feet wide.
+    Each creature in that line must make a {@dc 21} Dexterity saving throw, taking 56 ({@damage 16d6}) fire damage on a failed
+    save, or half as much damage on a successful one. The dragon exhales sleep gas in a 90-foot cone. Each creature in that
+    area must succeed on a {@dc 21} Constitution saving throw or fall {@condition unconscious} for 10 minutes. This effect
+    ends for a creature if the creature takes damage or someone uses an action to wake it.'
+- name: Change Shape
+  desc: The dragon magically polymorphs into a humanoid or beast that has a challenge rating no higher than its own, or back
+    into its true form. It reverts to its true form if it dies. Any equipment it is wearing or carrying is absorbed or borne
+    by the new form (the dragon's choice). In a new form, the dragon retains its alignment, hit points, Hit Dice, ability
+    to speak, proficiencies, Legendary Resistance, lair actions, and Intelligence, Wisdom, and Charisma scores, as well as
+    this action. Its statistics and capabilities are otherwise replaced by those of the new form, except any class features
+    or legendary actions of that form.
 legendary_actions:
-- name: Blazing Light
-  desc: The dragon uses Spellcasting to cast Scorching Ray (level 3 version).
-- name: Pounce
-  desc: The dragon moves up to half its Speed, and it makes one Rend attack.
-- name: Scorching Sands
-  desc: 'Dexterity Saving Throw : DC 20, one creature the dragon can see within 120 feet. Failure : 36 (8d8) Fire
-    damage, and the target''s Speed is halved until the end of its next turn. Failure or Success : The dragon can''t
-    take this action again until the start of its next turn.'
-legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s turn, the dragon can
-  expend a use to take one of the following actions. The dragon regains all expended uses at the start of each of
-  its turns.'
+- name: Detect
+  desc: The dragon makes a Wisdom ({@skill Perception}) check.
+- name: Tail Attack
+  desc: The dragon makes a tail attack.
+- name: Wing Attack (Costs 2 Actions)
+  desc: The dragon beats its wings. Each creature within 15 feet of the dragon must succeed on a {@dc 22} Dexterity saving
+    throw or take 15 ({@damage 2d6 + 8}) bludgeoning damage and be knocked {@condition prone}. The dragon can then fly up
+    to half its flying speed.
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s turn, the dragon can expend a
+  use to take one of the following actions. The dragon regains all expended uses at the start of each of its turns.'

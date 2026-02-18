@@ -26,6 +26,12 @@ description: ''
 habitat: Forest
 actions:
 - name: Multiattack
-  desc: The bear makes two Rend attacks.
-- name: Rend
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Slashing damage.'
+  desc: 'The bear makes two attacks: one with its bite and one with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d6 + 2}) piercing damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}7 ({@damage 2d4 + 2}) slashing damage.'
+traits:
+- name: Keen Smell
+  desc: The bear has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
+legendary_actions: []

@@ -23,16 +23,20 @@ skills:
 senses: Passive Perception 15
 languages:
 - Common plus one other language
-description: Scouts are warriors of the wilderness, trained in hunting and tracking. They might be explorers or
-  trappers, or they could perform more martial roles as archers, bounty hunters, or outriders. Scouts are keen archers
-  and acutely aware of their surroundings. They often know several regions particularly well and are familiar with
-  local creatures, landmarks, and perils.
+description: Scouts are warriors of the wilderness, trained in hunting and tracking. They might be explorers or trappers,
+  or they could perform more martial roles as archers, bounty hunters, or outriders. Scouts are keen archers and acutely aware
+  of their surroundings. They often know several regions particularly well and are familiar with local creatures, landmarks,
+  and perils.
 habitat: Any
 treasure: Implements, Individual
 actions:
 - name: Multiattack
-  desc: The scout makes two attacks, using Shortsword and Longbow in any combination.
+  desc: The scout makes two melee attacks or two ranged attacks.
 - name: Shortsword
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d6 + 2}) piercing damage.'
 - name: Longbow
-  desc: 'Ranged Attack Roll : +4, range 150/600 ft. Hit : 6 (1d8 + 2) Piercing damage.'
+  desc: '{@atk rw} {@hit 4} to hit, ranged 150/600 ft., one target. {@h}6 ({@damage 1d8 + 2}) piercing damage.'
+traits:
+- name: Keen Hearing and Sight
+  desc: The scout has advantage on Wisdom ({@skill Perception}) checks that rely on hearing or sight.
+legendary_actions: []

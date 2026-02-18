@@ -26,10 +26,15 @@ immunities:
 senses: Blindsight 30 ft., Passive Perception 10
 languages:
 - Understands Common but can't speak
-description: Lone crawling claws can continue killing sprees they perpetrated in life. Some recklessly attack the
-  living, while others pursue specific victims. In rare cases, a crawling claw wreaks mayhem while the rest of its
-  body still lives, with the original creature potentially unaware of its severed hand's crimes.
+description: Lone crawling claws can continue killing sprees they perpetrated in life. Some recklessly attack the living,
+  while others pursue specific victims. In rare cases, a crawling claw wreaks mayhem while the rest of its body still lives,
+  with the original creature potentially unaware of its severed hand's crimes.
 habitat: Any
 actions:
-- name: Slam
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 2 Necrotic damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}3 ({@damage 1d4 + 1}) bludgeoning or slashing damage (claw''s
+    choice).'
+traits:
+- name: Turn Immunity
+  desc: The claw is immune to effects that turn undead.
+legendary_actions: []

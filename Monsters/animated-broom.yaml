@@ -28,7 +28,10 @@ immunities:
 senses: Blindsight 60 ft., Passive Perception 7
 languages:
 - —
-description: Animated brooms keep their surroundings tidy and defend them when necessary. Launching into the air,
-  these brooms dart about, attacking foes from unexpected angles. Other flying objects, like animated tools or staffs,
-  might also use this stat block.
+description: Animated brooms keep their surroundings tidy and defend them when necessary. Launching into the air, these brooms
+  dart about, attacking foes from unexpected angles. Other flying objects, like animated tools or staffs, might also use this
+  stat block.
 habitat: Urban
+traits: []
+actions: []
+legendary_actions: []

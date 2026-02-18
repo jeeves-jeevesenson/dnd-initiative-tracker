@@ -23,22 +23,31 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 11
 languages:
 - Common plus three other languages
-description: Doppelgangers are supernatural beings with the ability to shape-shift into any humanlike form. Their
-  mind-reading abilities aid them in creating near-perfect disguises and plucking secrets from unguarded minds.
-  Occasionally, doppelgangers use their shape-shifting ability in more overt ways, transforming into unsettling
-  forms to frighten foes.
+description: Doppelgangers are supernatural beings with the ability to shape-shift into any humanlike form. Their mind-reading
+  abilities aid them in creating near-perfect disguises and plucking secrets from unguarded minds. Occasionally, doppelgangers
+  use their shape-shifting ability in more overt ways, transforming into unsettling forms to frighten foes.
 habitat: Underdark, Urban
 treasure: Individual
 actions:
 - name: Multiattack
-  desc: The doppelganger makes two Slam attacks and uses Unsettling Visage if available.
+  desc: The doppelganger makes two melee attacks.
 - name: Slam
-  desc: 'Melee Attack Roll : +6 (with Advantage during the first round of each combat), reach 5 ft. Hit : 11 (2d6
-    + 4) Bludgeoning damage.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d6 + 4}) bludgeoning damage.'
 - name: Read Thoughts
-  desc: The doppelganger casts Detect Thoughts , requiring no spell components and using Charisma as the spellcasting
-    ability (spell save DC 12).
-- name: Unsettling Visage (Recharge 6)
-  desc: 'Wisdom Saving Throw : DC 12, each creature in a 15-foot Emanation originating from the doppelganger that
-    can see the doppelganger. Failure : The target has the Frightened condition and repeats the save at the end
-    of each of its turns, ending the effect on itself on a success. After 1 minute, it succeeds automatically.'
+  desc: The doppelganger magically reads the surface thoughts of one creature within 60 feet of it. The effect can penetrate
+    barriers, but 3 feet of wood or dirt, 2 feet of stone, 2 inches of metal, or a thin sheet of lead blocks it. While the
+    target is in range, the doppelganger can continue reading its thoughts, as long as the doppelganger's {@status concentration}
+    isn't broken (as if {@status concentration||concentrating} on a spell). While reading the target's mind, the doppelganger
+    has advantage on Wisdom ({@skill Insight}) and Charisma ({@skill Deception}, {@skill Intimidation}, and {@skill Persuasion})
+    checks against the target.
+traits:
+- name: Shapechanger
+  desc: The doppelganger can use its action to polymorph into a Small or Medium humanoid it has seen, or back into its true
+    form. Its statistics, other than its size, are the same in each form. Any equipment it is wearing or carrying isn't transformed.
+    It reverts to its true form if it dies.
+- name: Ambusher
+  desc: In the first round of a combat, the doppelganger has advantage on attack rolls against any creature it {@status surprised}.
+- name: Surprise Attack
+  desc: If the doppelganger surprises a creature and hits it with an attack during the first round of combat, the target takes
+    an extra 10 ({@damage 3d6}) damage from the attack.
+legendary_actions: []

@@ -21,14 +21,10 @@ skills:
 senses: Passive Perception 14
 languages:
 - Common
-description: Guard captains often have ample professional experience. They might be accomplished bodyguards, protectors
-  of magic treasures, veteran watch members, or similar wardens.
+description: Guard captains often have ample professional experience. They might be accomplished bodyguards, protectors of
+  magic treasures, veteran watch members, or similar wardens.
 habitat: Any
 treasure: Armaments, Individual
-actions:
-- name: Multiattack
-  desc: The guard makes two attacks, using Javelin or Longsword in any combination.
-- name: Javelin
-  desc: 'Melee or Ranged Attack Roll : +6, reach 5 ft. or range 30/120 ft. Hit : 14 (3d6 + 4) Piercing damage.'
-- name: Longsword
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 15 (2d10 + 4) Slashing damage.'
+actions: []
+traits: []
+legendary_actions: []

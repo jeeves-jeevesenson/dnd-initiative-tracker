@@ -25,26 +25,24 @@ senses: Darkvision 120 ft., Passive Perception 16
 languages:
 - Deep Speech
 - Undercommon; telepathy 120 ft.
-description: A mind flayer's hunger for brains is outmeasured only by its thirst for dominance, and it embraces
-  any plot that allows it to indulge both.
+description: A mind flayer's hunger for brains is outmeasured only by its thirst for dominance, and it embraces any plot that
+  allows it to indulge both.
 habitat: Underdark
 treasure: Arcana
 traits:
 - name: Magic Resistance
-  desc: The mind flayer has Advantage on saving throws against spells and other magical effects.
+  desc: The mind flayer has advantage on saving throws against spells and other magical effects.
 actions:
 - name: Tentacles
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 22 (4d8 + 4) Psychic damage. If the target is a Medium or smaller
-    creature, it has the Grappled condition (escape DC 14) from all the mind flayer''s tentacles, and the target
-    has the Stunned condition until the grapple ends.'
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one creature. {@h}15 ({@damage 2d10 + 4}) psychic damage. If the target is
+    Medium or smaller, it is {@condition grappled} (escape {@dc 15}) and must succeed on a {@dc 15} Intelligence saving throw
+    or be {@condition stunned} until this grapple ends.'
 - name: Extract Brain
-  desc: 'Constitution Saving Throw : DC 15, one creature that is Grappled by the mind flayer''s Tentacles. Failure
-    : 55 (10d10) Piercing damage. Success : Half damage. Failure or Success : If this damage reduces the target
-    to 0 Hit Points, the mind flayer kills it and devours its brain.'
-- name: Mind Blast (Recharge 5–6)
-  desc: 'Intelligence Saving Throw : DC 15, each creature in a 60-foot Cone. Failure : 31 (6d8 + 4) Psychic damage,
-    and the target has the Stunned condition until the end of the mind flayer''s next turn. Success : Half damage
-    only.'
-- name: Spellcasting
-  desc: 'The mind flayer casts one of the following spells, requiring no spell components and using Intelligence
-    as the spellcasting ability (spell save DC 15):'
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one {@condition incapacitated} humanoid {@condition grappled} by the mind
+    flayer. {@h}The target takes 55 ({@damage 10d10}) piercing damage. If this damage reduces the target to 0 hit points,
+    the mind flayer kills the target by extracting and devouring its brain.'
+- name: Mind Blast {@recharge 5}
+  desc: The mind flayer magically emits psychic energy in a 60-foot cone. Each creature in that area must succeed on a {@dc
+    15} Intelligence saving throw or take 22 ({@damage 4d8 + 4}) psychic damage and be {@condition stunned} for 1 minute.
+    A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success.
+legendary_actions: []

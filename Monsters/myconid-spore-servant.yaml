@@ -24,7 +24,10 @@ immunities:
 senses: Blindsight 30 ft., Passive Perception 8
 languages:
 - Telepathy 30 ft.
-description: Spore servants are corpses that have been overgrown and reanimated by a myconid sovereign's spores.
-  These fungus-infested bodies are extensions of a myconid sovereign and obey its will.
+description: Spore servants are corpses that have been overgrown and reanimated by a myconid sovereign's spores. These fungus-infested
+  bodies are extensions of a myconid sovereign and obey its will.
 habitat: Underdark
 treasure: Any
+traits: []
+actions: []
+legendary_actions: []

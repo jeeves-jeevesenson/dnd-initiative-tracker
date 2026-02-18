@@ -28,20 +28,24 @@ habitat: Forest
 treasure: Implements
 traits:
 - name: Spider Climb
-  desc: The ettercap can climb difficult surfaces, including along ceilings, without needing to make an ability
-    check.
+  desc: The ettercap can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check.
+- name: Web Sense
+  desc: While in contact with a web, the ettercap knows the exact location of any other creature in contact with the same
+    web.
 - name: Web Walker
-  desc: The ettercap ignores movement restrictions caused by webs, and the ettercap knows the location of any other
-    creature in contact with the same web.
+  desc: The ettercap ignores movement restrictions caused by webbing.
 actions:
 - name: Multiattack
-  desc: The ettercap makes one Bite attack and one Claw attack.
+  desc: 'The ettercap makes two attacks: one with its bite and one with its claws.'
 - name: Bite
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage plus 2 (1d4) Poison damage, and the
-    target has the Poisoned condition until the start of the ettercap''s next turn.'
-- name: Claw
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 7 (2d4 + 2) Slashing damage.'
-- name: Web Strand (Recharge 5–6)
-  desc: 'Dexterity Saving Throw : DC 12, one Large or smaller creature the ettercap can see within 30 feet. Failure
-    : The target has the Restrained condition until the web is destroyed (AC 10; HP 5; Vulnerability to Fire damage;
-    Immunity to Bludgeoning, Poison, and Psychic damage).'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@h}6 ({@damage 1d8 + 2}) piercing damage plus 4 ({@damage
+    1d8}) poison damage. The target must succeed on a {@dc 11} Constitution saving throw or be {@condition poisoned} for 1
+    minute. The creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success.'
+- name: Claws
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}7 ({@damage 2d4 + 2}) slashing damage.'
+- name: Web {@recharge 5}
+  desc: '{@atk rw} {@hit 4} to hit, range 30/60 ft., one Large or smaller creature. {@h}The creature is {@condition restrained}
+    by webbing. As an action, the {@condition restrained} creature can make a {@dc 11} Strength check, escaping from the webbing
+    on a success. The effect ends if the webbing is destroyed. The webbing has AC 10, 5 hit points, is vulnerable to fire
+    damage and immune to bludgeoning, poison and psychic damage.'
+legendary_actions: []

@@ -22,11 +22,14 @@ languages:
 - Abyssal
 - Common
 - Gnoll
-description: The first gnolls arose from hyenas that fed on flesh tainted by the Abyss. Their corruption and violence
-  delighted the demon lord Yeenoghu, who encouraged their numbers and spread them across the multiverse. Ever since,
-  gnolls have been the cackling servants of Yeenoghu, existing to cause ruin and to feast on what remains. Gnoll
-  demoniacs are berserkers that arise from gnolls who've ritualistically fed on flesh corrupted by the Abyss. Now
-  embodying the ruinous hunger of Yeenoghu, these gnolls throw themselves into battle, heedless of odds or their
-  own survival. Rampaging demoniacs even devour other gnolls in their wild frenzies.
+description: The first gnolls arose from hyenas that fed on flesh tainted by the Abyss. Their corruption and violence delighted
+  the demon lord Yeenoghu, who encouraged their numbers and spread them across the multiverse. Ever since, gnolls have been
+  the cackling servants of Yeenoghu, existing to cause ruin and to feast on what remains. Gnoll demoniacs are berserkers that
+  arise from gnolls who've ritualistically fed on flesh corrupted by the Abyss. Now embodying the ruinous hunger of Yeenoghu,
+  these gnolls throw themselves into battle, heedless of odds or their own survival. Rampaging demoniacs even devour other
+  gnolls in their wild frenzies.
 habitat: Desert, Forest, Grassland, Hill
 treasure: Individual, Armaments
+traits: []
+actions: []
+legendary_actions: []

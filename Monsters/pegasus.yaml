@@ -28,4 +28,6 @@ description: ''
 habitat: Forest, Grassland, Hill, Planar (Upper Planes)
 actions:
 - name: Hooves
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 7 (1d6 + 4) Bludgeoning damage plus 5 (2d4) Radiant damage.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) bludgeoning damage.'
+traits: []
+legendary_actions: []

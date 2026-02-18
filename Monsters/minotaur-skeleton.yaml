@@ -21,15 +21,19 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Understands Abyssal but can't speak
-description: Minotaur skeletons are the reanimated remains of minotaurs or the skeletons of multiple creatures merged
-  into a minotaur-like shape. These hulking skeletons have greater speed and might than smaller skeletons. They
-  menace the living with their horns and mighty greataxes.
+description: Minotaur skeletons are the reanimated remains of minotaurs or the skeletons of multiple creatures merged into
+  a minotaur-like shape. These hulking skeletons have greater speed and might than smaller skeletons. They menace the living
+  with their horns and mighty greataxes.
 habitat: Planar (Shadowfell), Underdark, Urban
 treasure: None
 actions:
+- name: Greataxe
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}17 ({@damage 2d12 + 4}) slashing damage.'
 - name: Gore
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 11 (2d6 + 4) Piercing damage. If the target is a Large or smaller
-    creature and the skeleton moved 20+ feet straight toward it immediately before the hit, the target takes an
-    extra 9 (2d8) Piercing damage and has the Prone condition.'
-- name: Slam
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 15 (2d10 + 4) Bludgeoning damage.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}13 ({@damage 2d8 + 4}) piercing damage.'
+traits:
+- name: Charge
+  desc: If the skeleton moves at least 10 feet straight toward a target and then hits it with a gore attack on the same turn,
+    the target takes an extra 9 ({@damage 2d8}) piercing damage. If the target is a creature, it must succeed on a {@dc 14}
+    Strength saving throw or be pushed up to 10 feet away and knocked {@condition prone}.
+legendary_actions: []

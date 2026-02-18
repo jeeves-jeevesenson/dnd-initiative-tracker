@@ -23,5 +23,9 @@ description: ''
 habitat: Underdark, Urban
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 4 (1d4 + 2) Piercing damage, and the target has the Poisoned
-    condition until the start of the centipede''s next turn.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@h}4 ({@damage 1d4 + 2}) piercing damage, and the target must
+    succeed on a {@dc 11} Constitution saving throw or take 10 ({@damage 3d6}) poison damage. If the poison damage reduces
+    the target to 0 hit points, the target is stable but {@condition poisoned} for 1 hour, even after regaining hit points,
+    and is {@condition paralyzed} while {@condition poisoned} in this way.'
+traits: []
+legendary_actions: []

@@ -30,24 +30,15 @@ description: ''
 habitat: Planar (Nine Hells), Urban
 treasure: Relics
 traits:
-- name: Greater Magic Resistance
-  desc: The rakshasa automatically succeeds on saving throws against spells and other magical effects, and the attack
-    rolls of spells automatically miss it. Without the rakshasa's permission, no spell can observe the rakshasa
-    remotely or detect its thoughts, creature type, or alignment.
-- name: Fiendish Restoration
-  desc: If the rakshasa dies outside the Nine Hells, its body turns to ichor, and it gains a new body instantly,
-    reviving with all its Hit Points somewhere in the Nine Hells.
+- name: Limited Magic Immunity
+  desc: The rakshasa can't be affected or detected by spells of 6th level or lower unless it wishes to be. It has advantage
+    on saving throws against all other spells and magical effects.
 actions:
 - name: Multiattack
-  desc: The rakshasa makes three Cursed Touch attacks.
-- name: Cursed Touch
-  desc: 'Melee Attack Roll : +10, reach 5 ft. Hit : 12 (2d6 + 5) Slashing damage plus 19 (3d12) Necrotic damage.
-    If the target is a creature, it is cursed. While cursed, the target gains no benefit from finishing a Short
-    or Long Rest.'
-- name: Baleful Command (Recharge 5–6)
-  desc: 'Wisdom Saving Throw : DC 18, each enemy in a 30-foot Emanation originating from the rakshasa. Failure :
-    28 (8d6) Psychic damage, and the target has the Frightened and Incapacitated conditions until the start of the
-    rakshasa''s next turn.'
-- name: Spellcasting
-  desc: 'The rakshasa casts one of the following spells, requiring no Material components and using Charisma as
-    the spellcasting ability (spell save DC 18):'
+  desc: The rakshasa makes two claw attacks.
+- name: Claw
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}9 ({@damage 2d6 + 2}) slashing damage, and the target is
+    cursed if it is a creature. The magical curse takes effect whenever the target takes a short or long rest, filling the
+    target''s thoughts with horrible images and dreams. The cursed target gains no benefit from finishing a short or long
+    rest. The curse lasts until it is lifted by a {@spell remove curse} spell or similar magic.'
+legendary_actions: []

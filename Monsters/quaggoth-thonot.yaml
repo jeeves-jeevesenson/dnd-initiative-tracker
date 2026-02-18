@@ -23,6 +23,16 @@ immunities:
 senses: Darkvision 120 ft., Passive Perception 12
 languages:
 - Undercommon
-description: Quaggoth thonots possess psionic abilities, which they use to give themselves an edge in combat and
-  to coerce the service of other quaggoths.
+description: Quaggoth thonots possess psionic abilities, which they use to give themselves an edge in combat and to coerce
+  the service of other quaggoths.
 habitat: Underdark
+traits:
+- name: Wounded Fury
+  desc: While it has 10 hit points or fewer, the quaggoth has advantage on attack rolls. In addition, it deals an extra 7
+    ({@damage 2d6}) damage to any target it hits with a melee attack.
+actions:
+- name: Multiattack
+  desc: The quaggoth makes two claw attacks.
+- name: Claw
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) slashing damage.'
+legendary_actions: []

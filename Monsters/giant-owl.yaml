@@ -28,10 +28,10 @@ description: ''
 habitat: Arctic, Forest, Hill
 traits:
 - name: Flyby
-  desc: The owl doesn't provoke an Opportunity Attack when it flies out of an enemy's reach.
+  desc: The owl doesn't provoke opportunity attacks when it flies out of an enemy's reach.
+- name: Keen Hearing and Sight
+  desc: The owl has advantage on Wisdom ({@skill Perception}) checks that rely on hearing or sight.
 actions:
 - name: Talons
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 7 (1d10 + 2) Slashing damage.'
-- name: Spellcasting
-  desc: 'The owl casts one of the following spells, requiring no spell components and using Wisdom as the spellcasting
-    ability:'
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}8 ({@damage 2d6 + 1}) slashing damage.'
+legendary_actions: []

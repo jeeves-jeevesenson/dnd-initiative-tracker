@@ -23,15 +23,6 @@ languages:
 - Celestial
 - understands the languages you know
 description: See Summon Celestial
-actions:
-- name: Multiattack
-  desc: The spirit makes a number of attacks equal to half this spell's level (round down).
-- name: Radiant Bow (Avenger Only)
-  desc: 'Ranged Attack Roll : Bonus equals your spell attack modifier, range 600 ft. Hit : 2d6 + 2 + the spell''s
-    level Radiant damage.'
-- name: Radiant Mace (Defender Only)
-  desc: 'Melee Attack Roll : Bonus equals your spell attack modifier, reach 5 ft. Hit : 1d10 + 3 + the spell''s
-    level Radiant damage, and the spirit can choose itself or another creature it can see within 10 feet of the
-    target. The chosen creature gains 1d10 Temporary Hit Points.'
-- name: Healing Touch (1/Day)
-  desc: The spirit touches another creature. The target regains Hit Points equal to 2d8 + the spell's level.
+actions: []
+traits: []
+legendary_actions: []

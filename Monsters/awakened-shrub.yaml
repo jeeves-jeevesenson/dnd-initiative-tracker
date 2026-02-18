@@ -18,10 +18,14 @@ abilities:
 senses: Passive Perception 10
 languages:
 - Common plus one other language
-description: Awakened shrubs can be any sort of small plant, from forest bushes to clustered flowers. They often
-  appear near awakened trees or in regions imbued with primal magic. Some have whimsical appearances or foliage
-  resembling rudimentary facial features, while others look like animate topiary creatures.
+description: Awakened shrubs can be any sort of small plant, from forest bushes to clustered flowers. They often appear near
+  awakened trees or in regions imbued with primal magic. Some have whimsical appearances or foliage resembling rudimentary
+  facial features, while others look like animate topiary creatures.
 habitat: Forest
 actions:
 - name: Rake
-  desc: 'Melee Attack Roll : +1, reach 5 ft. Hit : 1 Slashing damage.'
+  desc: '{@atk mw} {@hit 1} to hit, reach 5 ft., one target. {@h}1 ({@damage 1d4 - 1}) slashing damage.'
+traits:
+- name: False Appearance
+  desc: While the shrub remains motionless, it is indistinguishable from a normal shrub.
+legendary_actions: []

@@ -25,8 +25,9 @@ languages:
 description: ''
 habitat: Desert, Forest, Grassland, Urban
 traits:
-- name: Jumper
-  desc: The cat's jump distance is determined using its Dexterity rather than its Strength.
+- name: Keen Smell
+  desc: The cat has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
 actions:
-- name: Scratch
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 1 Slashing damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 0} to hit, reach 5 ft., one target. {@h}1 slashing damage.'
+legendary_actions: []

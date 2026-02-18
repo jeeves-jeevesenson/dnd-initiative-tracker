@@ -23,16 +23,11 @@ languages:
 - Abyssal
 - Common
 - Infernal
-description: Fiend cultists worship fiends or evil deities. They often work to bring ruin to innocents or to summon
-  their sinister patron into the world. Fiend cultists might serve infamous powers such as archdevils and demon
-  lords, or foul immortals—beings such as Demogorgon, Pazuzu, Iuz, Zariel, or Zuggtmoy.
+description: Fiend cultists worship fiends or evil deities. They often work to bring ruin to innocents or to summon their
+  sinister patron into the world. Fiend cultists might serve infamous powers such as archdevils and demon lords, or foul immortals—beings
+  such as Demogorgon, Pazuzu, Iuz, Zariel, or Zuggtmoy.
 habitat: Any
 treasure: Individual, Relics
-actions:
-- name: Multiattack
-  desc: The cultist makes three Pact Axe attacks.
-- name: Pact Axe
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 10 (1d12 + 4) Slashing damage plus 13 (3d8) Fire damage.'
-- name: Spellcasting
-  desc: 'The cultist casts one of the following spells, using Wisdom as the spellcasting ability (spell save DC
-    15, +7 to hit with spell attacks):'
+actions: []
+traits: []
+legendary_actions: []

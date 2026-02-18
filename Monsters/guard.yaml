@@ -20,10 +20,13 @@ skills:
 senses: Passive Perception 12
 languages:
 - Common
-description: Guards are perceptive, but most have little martial training. They might be bouncers, lookouts, members
-  of a city watch, or other keen-eyed warriors.
+description: Guards are perceptive, but most have little martial training. They might be bouncers, lookouts, members of a
+  city watch, or other keen-eyed warriors.
 habitat: Any
 treasure: Armaments, Individual
 actions:
 - name: Spear
-  desc: 'Melee or Ranged Attack Roll : +3, reach 5 ft. or range 20/60 ft. Hit : 4 (1d6 + 1) Piercing damage.'
+  desc: '{@atk mw,rw} {@hit 3} to hit, reach 5 ft. or range 20/60 ft., one target. {@h}4 ({@damage 1d6 + 1}) piercing damage,
+    or 5 ({@damage 1d8 + 1}) piercing damage if used with two hands to make a melee attack.'
+traits: []
+legendary_actions: []

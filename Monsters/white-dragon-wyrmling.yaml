@@ -26,26 +26,22 @@ immunities:
 senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 14
 languages:
 - Draconic
-description: Among the most primal chromatic dragons, white dragons prioritize survival over all. Life is harsh
-  and uncertain in the arctic expanses, glacial heights, and frozen seas where these dragons dwell. White dragons
-  fiercely protect their territories, scouring the frigid regions for food and evidence of trespassers. Most white
-  dragons ignore the plots of smaller creatures and other dragons, concerning themselves only with their own survival.
-  White dragons create lairs to defend themselves from other deadly arctic creatures and from dangerous natural
-  conditions. Within these shelters, white dragons hoard testaments to their superiority, such as monstrous skulls,
-  the gear of defeated rivals, and curiosities that capture their interest. To protect such treasure, white dragons
-  coax ice to form over their hoards or sink their wealth in frigid pools. For white dragons, each piece of treasure
-  embodies a victory—the details of which inflate as these dragons age.
+description: Among the most primal chromatic dragons, white dragons prioritize survival over all. Life is harsh and uncertain
+  in the arctic expanses, glacial heights, and frozen seas where these dragons dwell. White dragons fiercely protect their
+  territories, scouring the frigid regions for food and evidence of trespassers. Most white dragons ignore the plots of smaller
+  creatures and other dragons, concerning themselves only with their own survival. White dragons create lairs to defend themselves
+  from other deadly arctic creatures and from dangerous natural conditions. Within these shelters, white dragons hoard testaments
+  to their superiority, such as monstrous skulls, the gear of defeated rivals, and curiosities that capture their interest.
+  To protect such treasure, white dragons coax ice to form over their hoards or sink their wealth in frigid pools. For white
+  dragons, each piece of treasure embodies a victory—the details of which inflate as these dragons age.
 habitat: Arctic
 treasure: Arcana
-traits:
-- name: Ice Walk
-  desc: The dragon can move across and climb icy surfaces without needing to make an ability check. Additionally,
-    Difficult Terrain composed of ice or snow doesn't cost it extra movement.
+traits: []
 actions:
-- name: Multiattack
-  desc: The dragon makes two Rend attacks.
-- name: Rend
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 6 (1d8 + 2) Slashing damage plus 2 (1d4) Cold damage.'
-- name: Cold Breath (Recharge 5–6)
-  desc: 'Constitution Saving Throw : DC 12, each creature in a 15-foot Cone. Failure : 22 (5d8) Cold damage. Success
-    : Half damage.'
+- name: Bite
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d10 + 2}) piercing damage plus 2 ({@damage 1d4})
+    cold damage.'
+- name: Cold Breath {@recharge 5}
+  desc: The dragon exhales an icy blast of hail in a 15-foot cone. Each creature in that area must make a {@dc 12} Constitution
+    saving throw, taking 22 ({@damage 5d8}) cold damage on a failed save, or half as much damage on a successful one.
+legendary_actions: []

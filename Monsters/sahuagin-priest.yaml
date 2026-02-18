@@ -22,8 +22,10 @@ skills:
 senses: Darkvision 120 ft., Passive Perception 16
 languages:
 - Sahuagin
-description: Sahuagin priests serve the will of Sekolah or other fiendish masters. They direct and support other
-  sahuagin, and they consider every combatant that falls in battle—whether enemy or ally—a sacrifice to their fierce
-  deities.
+description: Sahuagin priests serve the will of Sekolah or other fiendish masters. They direct and support other sahuagin,
+  and they consider every combatant that falls in battle—whether enemy or ally—a sacrifice to their fierce deities.
 habitat: Coastal, Underwater
 treasure: Any
+traits: []
+actions: []
+legendary_actions: []

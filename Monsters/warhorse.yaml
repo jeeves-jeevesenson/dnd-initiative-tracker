@@ -23,6 +23,10 @@ description: ''
 habitat: Urban
 actions:
 - name: Hooves
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 9 (2d4 + 4) Bludgeoning damage. If the horse moved at least 20
-    feet straight toward the target immediately before the hit, the target takes an extra 5 (2d4) Bludgeoning damage
-    and, if it is Huge or smaller, has the Prone condition.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) bludgeoning damage.'
+traits:
+- name: Trampling Charge
+  desc: If the horse moves at least 20 feet straight toward a creature and then hits it with a hooves attack on the same turn,
+    that target must succeed on a {@dc 14} Strength saving throw or be knocked {@condition prone}. If the target is {@condition
+    prone}, the horse can make another attack with its hooves against it as a bonus action.
+legendary_actions: []

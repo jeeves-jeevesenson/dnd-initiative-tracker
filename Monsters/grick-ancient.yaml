@@ -21,7 +21,10 @@ skills:
 senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - —
-description: Gricks can live for centuries, with the eldest growing to monstrous sizes. Grick ancients actively
-  hunt more than they wait in ambush, and they have no qualms about devouring smaller gricks.
+description: Gricks can live for centuries, with the eldest growing to monstrous sizes. Grick ancients actively hunt more
+  than they wait in ambush, and they have no qualms about devouring smaller gricks.
 habitat: Forest, Underdark
 treasure: Any
+traits: []
+actions: []
+legendary_actions: []

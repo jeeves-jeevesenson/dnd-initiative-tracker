@@ -26,31 +26,33 @@ languages:
 - Common
 - Elvish
 - Sylvan
-description: Green hags work bitter magic to foul all that is beautiful and pure. Whether alone or in covens of
-  other hags, these ancient witches call on eerie forces, spreading corruption and plotting doom for those who earn
-  their ire. Green hags are adept deceivers, and they use illusions to cloak themselves in unassuming forms, hoping
-  to tempt innocents into peril. These hags often spirit their victims back to surreal lairs where they hold captives
-  prisoner or cook them into monstrous meals. Green hags frequently know strange magic or forgotten secrets, such
-  as the weaknesses of villains, the locations of lost treasures, or the ways to break curses. They might trade
-  such knowledge for rare magic or symbolic treasures.
+description: Green hags work bitter magic to foul all that is beautiful and pure. Whether alone or in covens of other hags,
+  these ancient witches call on eerie forces, spreading corruption and plotting doom for those who earn their ire. Green hags
+  are adept deceivers, and they use illusions to cloak themselves in unassuming forms, hoping to tempt innocents into peril.
+  These hags often spirit their victims back to surreal lairs where they hold captives prisoner or cook them into monstrous
+  meals. Green hags frequently know strange magic or forgotten secrets, such as the weaknesses of villains, the locations
+  of lost treasures, or the ways to break curses. They might trade such knowledge for rare magic or symbolic treasures.
 habitat: Forest, Hill, Swamp
 treasure: Arcana
 traits:
 - name: Amphibious
   desc: The hag can breathe air and water.
-- name: Coven Magic
-  desc: 'While within 30 feet of at least two hag allies, the hag can cast one of the following spells, requiring
-    no Material components, using the spell''s normal casting time, and using Intelligence as the spellcasting ability
-    (spell save DC 11): Augury , Find Familiar , Identify , Locate Object , Scrying , or Unseen Servant . The hag
-    must finish a Long Rest before using this trait to cast that spell again.'
 - name: Mimicry
-  desc: The hag can mimic animal sounds and humanoid voices. A creature that hears the sounds can tell they are
-    imitations only with a successful DC 14 Wisdom (Insight) check.
+  desc: The hag can mimic animal sounds and humanoid voices. A creature that hears the sounds can tell they are imitations
+    with a successful {@dc 14} Wisdom ({@skill Insight}) check.
 actions:
-- name: Multiattack
-  desc: The hag makes two Claw attacks.
-- name: Claw
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 8 (1d8 + 4) Slashing damage plus 3 (1d6) Poison damage.'
-- name: Spellcasting
-  desc: 'The hag casts one of the following spells, requiring no Material components and using Wisdom as the spellcasting
-    ability (spell save DC 12, +4 to hit with spell attacks):'
+- name: Claws
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}13 ({@damage 2d8 + 4}) slashing damage.'
+- name: Illusory Appearance
+  desc: The hag covers herself and anything she is wearing or carrying with a magical illusion that makes her look like another
+    creature of her general size and humanoid shape. The illusion ends if the hag takes a bonus action to end it or if she
+    dies. The changes wrought by this effect fail to hold up to physical inspection. For example, the hag could appear to
+    have smooth skin, but someone touching her would feel her rough flesh. Otherwise, a creature must take an action to visually
+    inspect the illusion and succeed on a {@dc 20} Intelligence ({@skill Investigation}) check to discern that the hag is
+    disguised.
+- name: Invisible Passage
+  desc: The hag magically turns {@condition invisible} until she attacks or casts a spell, or until her {@status concentration}
+    ends (as if {@status concentration||concentrating} on a spell). While {@condition invisible}, she leaves no physical evidence
+    of her passage, so she can be tracked only by magic. Any equipment she wears or carries is {@condition invisible} with
+    her.
+legendary_actions: []

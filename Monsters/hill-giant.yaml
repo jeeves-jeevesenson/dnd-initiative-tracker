@@ -25,10 +25,10 @@ habitat: Hill
 treasure: Armaments
 actions:
 - name: Multiattack
-  desc: The giant makes two attacks, using Tree Club or Trash Lob in any combination.
-- name: Tree Club
-  desc: 'Melee Attack Roll : +8, reach 10 ft. Hit : 18 (3d8 + 5) Bludgeoning damage. If the target is a Large or
-    smaller creature, it has the Prone condition.'
-- name: Trash Lob
-  desc: 'Ranged Attack Roll : +8, range 60/240 ft. Hit : 16 (2d10 + 5) Bludgeoning damage, and the target has the
-    Poisoned condition until the end of its next turn.'
+  desc: The giant makes two greatclub attacks.
+- name: Greatclub
+  desc: '{@atk mw} {@hit 8} to hit, reach 10 ft., one target. {@h}18 ({@damage 3d8 + 5}) bludgeoning damage.'
+- name: Rock
+  desc: '{@atk rw} {@hit 8} to hit, range 60/240 ft., one target. {@h}21 ({@damage 3d10 + 5}) bludgeoning damage.'
+traits: []
+legendary_actions: []

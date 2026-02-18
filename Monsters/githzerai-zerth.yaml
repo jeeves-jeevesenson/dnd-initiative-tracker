@@ -23,8 +23,18 @@ senses: Passive Perception 16
 languages:
 - Common
 - Gith
-description: Githzerai zerths embody the discipline espoused by their first leader, Zerthimon. Their psionic control
-  aids them in protecting their people and traveling the planes of existence without fear of being followed by githyanki
-  or mind flayer foes.
+description: Githzerai zerths embody the discipline espoused by their first leader, Zerthimon. Their psionic control aids
+  them in protecting their people and traveling the planes of existence without fear of being followed by githyanki or mind
+  flayer foes.
 habitat: Planar (Limbo)
 treasure: Individual, Arcana
+traits:
+- name: Psychic Defense
+  desc: While the githzerai is wearing no armor and wielding no shield, its AC includes its Wisdom modifier.
+actions:
+- name: Multiattack
+  desc: The githzerai makes two unarmed strikes.
+- name: Unarmed Strike
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) bludgeoning damage plus 13 ({@damage
+    3d8}) psychic damage. This is a magic weapon attack.'
+legendary_actions: []

@@ -24,9 +24,6 @@ languages:
 - None
 description: ''
 habitat: Underwater
-traits:
-- name: Water Breathing
-  desc: The seahorse can breathe only underwater.
-actions:
-- name: Bubble Dash
-  desc: While underwater, the seahorse moves up to its Swim Speed without provoking Opportunity Attacks.
+traits: []
+actions: []
+legendary_actions: []

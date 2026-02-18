@@ -19,8 +19,18 @@ senses: Passive Perception 12
 languages:
 - Common
 - Gith
-description: Githyanki knights wield silver blades to slay magic-users who use the Astral Projection spell to intrude
-  on githyanki territories on the Astral Plane. These silver blades are sacred to the githyanki. Non-githyanki who
-  claim these weapons often find themselves hunted by wrathful githyanki knights.
+description: Githyanki knights wield silver blades to slay magic-users who use the Astral Projection spell to intrude on githyanki
+  territories on the Astral Plane. These silver blades are sacred to the githyanki. Non-githyanki who claim these weapons
+  often find themselves hunted by wrathful githyanki knights.
 habitat: Planar (Astral Plane)
 treasure: Armaments
+traits: []
+actions:
+- name: Multiattack
+  desc: The githyanki makes two silver greatsword attacks.
+- name: Silver Greatsword
+  desc: '{@atk mw} {@hit 9} to hit, reach 5 ft., one target. {@h}13 ({@damage 2d6 + 6}) slashing damage plus 10 ({@damage
+    3d6}) psychic damage. This is a magic weapon attack. On a critical hit against a target in an astral body (as with the
+    {@spell astral projection} spell), the githyanki can cut the silvery cord that tethers the target to its material body,
+    instead of dealing damage.'
+legendary_actions: []

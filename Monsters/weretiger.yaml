@@ -25,15 +25,27 @@ description: ''
 habitat: Desert, Forest, Grassland
 treasure: Armaments
 actions:
-- name: Multiattack
-  desc: The weretiger makes two attacks, using Scratch or Longbow in any combination. It can replace one attack
-    with a Bite attack.
+- name: Multiattack (Humanoid or Hybrid Form Only)
+  desc: In humanoid form, the weretiger makes two scimitar attacks or two longbow attacks. In hybrid form, it can attack like
+    a humanoid or make two claw attacks.
 - name: Bite (Tiger or Hybrid Form Only)
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 12 (2d8 + 3) Piercing damage. If the target is a Humanoid, it
-    is subjected to the following effect. Constitution Saving Throw : DC 13. Failure : The target is cursed. If
-    the cursed target drops to 0 Hit Points, it instead becomes a Weretiger under the DM''s control and has 10 Hit
-    Points. Success : The target is immune to this weretiger''s curse for 24 hours.'
-- name: Scratch
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 10 (2d6 + 3) Slashing damage.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}8 ({@damage 1d10 + 3}) piercing damage. If the target is
+    a humanoid, it must succeed on a {@dc 13} Constitution saving throw or be cursed with weretiger lycanthropy.'
+- name: Claw (Tiger or Hybrid Form Only)
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d8 + 3}) slashing damage.'
+- name: Scimitar (Humanoid or Hybrid Form Only)
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) slashing damage.'
 - name: Longbow (Humanoid or Hybrid Form Only)
-  desc: 'Ranged Attack Roll : +4, range 150/600 ft. Hit : 11 (2d8 + 2) Piercing damage.'
+  desc: '{@atk rw} {@hit 4} to hit, range 150/600 ft., one target. {@h}6 ({@damage 1d8 + 2}) piercing damage.'
+traits:
+- name: Shapechanger
+  desc: The weretiger can use its action to polymorph into a tiger-humanoid hybrid or into a tiger, or back into its true
+    form, which is humanoid. Its statistics, other than its size, are the same in each form. Any equipment it is wearing or
+    carrying isn't transformed. It reverts to its true form if it dies.
+- name: Keen Hearing and Smell
+  desc: The weretiger has advantage on Wisdom ({@skill Perception}) checks that rely on hearing or smell.
+- name: Pounce (Tiger or Hybrid Form Only)
+  desc: If the weretiger moves at least 15 feet straight toward a creature and then hits it with a claw attack on the same
+    turn, that target must succeed on a {@dc 14} Strength saving throw or be knocked {@condition prone}. If the target is
+    {@condition prone}, the weretiger can make one bite attack against it as a bonus action.
+legendary_actions: []

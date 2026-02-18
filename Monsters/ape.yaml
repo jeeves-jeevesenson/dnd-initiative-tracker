@@ -26,8 +26,10 @@ description: ''
 habitat: Forest
 actions:
 - name: Multiattack
-  desc: The ape makes two Fist attacks.
+  desc: The ape makes two fist attacks.
 - name: Fist
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 5 (1d4 + 3) Bludgeoning damage.'
-- name: Rock (Recharge 6)
-  desc: 'Ranged Attack Roll : +5, range 25/50 ft. Hit : 10 (2d6 + 3) Bludgeoning damage.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) bludgeoning damage.'
+- name: Rock
+  desc: '{@atk rw} {@hit 5} to hit, range 25/50 ft., one target. {@h}6 ({@damage 1d6 + 3}) bludgeoning damage.'
+traits: []
+legendary_actions: []

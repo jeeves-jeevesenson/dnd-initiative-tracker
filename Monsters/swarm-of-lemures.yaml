@@ -29,6 +29,9 @@ immunities:
 senses: Darkvision 120 ft. (unimpeded by magical Darkness), Passive Perception 11
 languages:
 - Understands Infernal but can't speak
-description: When devils drive hosts of lemures into close proximity or when lemures compress into a single mass,
-  a swarm forms and adopts a unified mind.
+description: When devils drive hosts of lemures into close proximity or when lemures compress into a single mass, a swarm
+  forms and adopts a unified mind.
 habitat: Planar (Nine Hells)
+traits: []
+actions: []
+legendary_actions: []

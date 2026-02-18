@@ -21,15 +21,19 @@ skills:
 senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - —
-description: Gricks tend to be solitary hunters, but young gricks might lurk near dozens of their brood mates for
-  years before gradually drifting apart.
+description: Gricks tend to be solitary hunters, but young gricks might lurk near dozens of their brood mates for years before
+  gradually drifting apart.
 habitat: Forest, Underdark
 treasure: Any
 actions:
 - name: Multiattack
-  desc: The grick makes one Beak attack and one Tentacles attack.
-- name: Beak
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 9 (2d6 + 2) Piercing damage.'
+  desc: The grick makes one attack with its tentacles. If that attack hits, the grick can make one beak attack against the
+    same target.
 - name: Tentacles
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 7 (1d10 + 2) Slashing damage. If the target is a Medium or smaller
-    creature, it has the Grappled condition (escape DC 12) from all four tentacles.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}9 ({@damage 2d6 + 2}) slashing damage.'
+- name: Beak
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d6 + 2}) piercing damage.'
+traits:
+- name: Stone Camouflage
+  desc: The grick has advantage on Dexterity ({@skill Stealth}) checks made to hide in rocky terrain.
+legendary_actions: []

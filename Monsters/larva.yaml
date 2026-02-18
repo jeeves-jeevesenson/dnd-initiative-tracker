@@ -20,6 +20,6 @@ languages:
 - Understands Common plus one other language but can't speak
 description: Larvae have disjointed, painful memories of their past lives. Most desperately avoid other creatures.
 habitat: Planar (Lower Planes)
-actions:
-- name: Bite
-  desc: 'Melee Attack Roll : +1, reach 5 ft. Hit : 1 (1d4 - 1) Necrotic damage.'
+actions: []
+traits: []
+legendary_actions: []

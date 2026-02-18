@@ -22,7 +22,17 @@ senses: Passive Perception 14
 languages:
 - Common
 - Gith
-description: Githzerai monks pursue control of their minds by honing their physical and psionic talents. They might
-  be found beyond githzerai sanctuaries, testing themselves amid the dangerous extremes of the multiverse.
+description: Githzerai monks pursue control of their minds by honing their physical and psionic talents. They might be found
+  beyond githzerai sanctuaries, testing themselves amid the dangerous extremes of the multiverse.
 habitat: Planar (Limbo)
 treasure: Individual, Arcana
+traits:
+- name: Psychic Defense
+  desc: While the githzerai is wearing no armor and wielding no shield, its AC includes its Wisdom modifier.
+actions:
+- name: Multiattack
+  desc: The githzerai makes two unarmed strikes.
+- name: Unarmed Strike
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d8 + 2}) bludgeoning damage plus 9 ({@damage
+    2d8}) psychic damage. This is a magic weapon attack.'
+legendary_actions: []

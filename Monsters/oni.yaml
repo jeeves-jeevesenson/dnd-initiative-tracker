@@ -28,20 +28,21 @@ description: ''
 habitat: Forest, Urban
 treasure: Armaments
 traits:
+- name: Magic Weapons
+  desc: The oni's weapon attacks are magical.
 - name: Regeneration
-  desc: The oni regains 10 Hit Points at the start of each of its turns if it has at least 1 Hit Point.
+  desc: The oni regains 10 hit points at the start of its turn if it has at least 1 hit point.
 actions:
 - name: Multiattack
-  desc: The oni makes two Claw or Nightmare Ray attacks. It can replace one attack with a use of Spellcasting.
-- name: Claw
-  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 10 (1d12 + 4) Slashing damage plus 9 (2d8) Necrotic damage.'
-- name: Nightmare Ray
-  desc: 'Ranged Attack Roll : +5, range 60 ft. Hit : 9 (2d6 + 2) Psychic damage, and the target has the Frightened
-    condition until the start of the oni''s next turn.'
-- name: Shape-Shift
-  desc: The oni shape-shifts into a Small or Medium Humanoid or a Large Giant, or it returns to its true form. Other
-    than its size, its game statistics are the same in each form. Any equipment it is wearing or carrying isn't
-    transformed.
-- name: Spellcasting
-  desc: 'The oni casts one of the following spells, requiring no Material components and using Charisma as the spellcasting
-    ability (spell save DC 13):'
+  desc: The oni makes two attacks, either with its claws or its glaive.
+- name: Claw (Oni Form Only)
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}8 ({@damage 1d8 + 4}) slashing damage.'
+- name: Glaive
+  desc: '{@atk mw} {@hit 7} to hit, reach 10 ft., one target. {@h}15 ({@damage 2d10 + 4}) slashing damage, or 9 ({@damage
+    1d10 + 4}) slashing damage in Small or Medium form.'
+- name: Change Shape
+  desc: The oni magically polymorphs into a Small or Medium humanoid, into a Large giant, or back into its true form. Other
+    than its size, its statistics are the same in each form. The only equipment that is transformed is its glaive, which shrinks
+    so that it can be wielded in humanoid form. If the oni dies, it reverts to its true form, and its glaive reverts to its
+    normal size.
+legendary_actions: []

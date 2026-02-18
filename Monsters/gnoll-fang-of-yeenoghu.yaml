@@ -19,10 +19,23 @@ senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Abyssal
 - Gnoll
-description: The first gnolls arose from hyenas that fed on flesh tainted by the Abyss. Their corruption and violence
-  delighted the demon lord Yeenoghu, who encouraged their numbers and spread them across the multiverse. Ever since,
-  gnolls have been the cackling servants of Yeenoghu, existing to cause ruin and to feast on what remains. Gnolls
-  possessed by demonic vestiges of the demon lord Yeenoghu, fangs of Yeenoghu direct the chaos of gnoll packs. Along
-  the way, these fanatics seek grisly omens from Yeenoghu and strive to interpret the demon lord's vicious goals.
+description: The first gnolls arose from hyenas that fed on flesh tainted by the Abyss. Their corruption and violence delighted
+  the demon lord Yeenoghu, who encouraged their numbers and spread them across the multiverse. Ever since, gnolls have been
+  the cackling servants of Yeenoghu, existing to cause ruin and to feast on what remains. Gnolls possessed by demonic vestiges
+  of the demon lord Yeenoghu, fangs of Yeenoghu direct the chaos of gnoll packs. Along the way, these fanatics seek grisly
+  omens from Yeenoghu and strive to interpret the demon lord's vicious goals.
 habitat: Desert, Forest, Grassland, Hill
 treasure: Individual, Armaments
+traits:
+- name: Rampage
+  desc: When the gnoll reduces a creature to 0 hit points with a melee attack on its turn, the gnoll can take a bonus action
+    to move up to half its speed and make a bite attack.
+actions:
+- name: Multiattack
+  desc: 'The gnoll makes three attacks: one with its bite and two with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one creature. {@h}6 ({@damage 1d6 + 3}) piercing damage, and the target must
+    succeed on a {@dc 12} Constitution saving throw or take 7 ({@damage 2d6}) poison damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d8 + 3}) slashing damage.'
+legendary_actions: []

@@ -20,13 +20,21 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Abyssal; telepathy 60 ft. (works only with creatures that understand Abyssal)
-description: Lone dretches serve other demons or evil magic-users. They are erratic, filthy, and violent, and they
-  demonstrate little sense of self-preservation.
+description: Lone dretches serve other demons or evil magic-users. They are erratic, filthy, and violent, and they demonstrate
+  little sense of self-preservation.
 habitat: Planar (Abyss)
 actions:
-- name: Rend
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 4 (1d6 + 1) Slashing damage.'
+- name: Multiattack
+  desc: 'The dretch makes two attacks: one with its bite and one with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 2} to hit, reach 5 ft., one target. {@h}3 ({@damage 1d6}) piercing damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 2} to hit, reach 5 ft., one target. {@h}5 ({@damage 2d4}) slashing damage.'
 - name: Fetid Cloud (1/Day)
-  desc: 'Constitution Saving Throw : DC 11, each creature in a 10-foot Emanation originating from the dretch. Failure
-    : The target has the Poisoned condition until the end of its next turn. While Poisoned, the creature can take
-    either an action or a Bonus Action on its turn, not both, and it can''t take Reactions.'
+  desc: A 10-foot radius of disgusting green gas extends out from the dretch. The gas spreads around corners, and its area
+    is lightly obscured. It lasts for 1 minute or until a strong wind disperses it. Any creature that starts its turn in that
+    area must succeed on a {@dc 11} Constitution saving throw or be {@condition poisoned} until the start of its next turn.
+    While {@condition poisoned} in this way, the target can take either an action or a bonus action on its turn, not both,
+    and can't take reactions.
+traits: []
+legendary_actions: []

@@ -24,9 +24,27 @@ senses: Darkvision 120 ft., Passive Perception 13
 languages:
 - Abyssal
 - Common
-description: Death knights are deadly combatants and domineering commanders with grim histories. Some strive to
-  end the curses that doom them to undeath, though their selfish souls eternally shackle them to their fates. Others,
-  like the infamous death knight Lord Soth, brood in dismal ruins for centuries, rousing themselves to action only
-  when something reignites their deathless evil.
+description: Death knights are deadly combatants and domineering commanders with grim histories. Some strive to end the curses
+  that doom them to undeath, though their selfish souls eternally shackle them to their fates. Others, like the infamous death
+  knight Lord Soth, brood in dismal ruins for centuries, rousing themselves to action only when something reignites their
+  deathless evil.
 habitat: Any
 treasure: Armaments
+traits:
+- name: Magic Resistance
+  desc: The death knight has advantage on saving throws against spells and other magical effects.
+- name: Marshal Undead
+  desc: Unless the death knight is {@condition incapacitated}, it and undead creatures of its choice within 60 feet of it
+    have advantage on saving throws against features that turn undead.
+actions:
+- name: Multiattack
+  desc: The death knight makes three longsword attacks.
+- name: Longsword
+  desc: '{@atk mw} {@hit 11} to hit, reach 5 ft., one target. {@h}9 ({@damage 1d8 + 5}) slashing damage, or 10 ({@damage 1d10
+    + 5}) slashing damage if used with two hands, plus 18 ({@damage 4d8}) necrotic damage.'
+- name: Hellfire Orb (1/Day)
+  desc: The death knight hurls a magical ball of fire that explodes at a point it can see within 120 feet of it. Each creature
+    in a 20-foot-radius sphere centered on that point must make a {@dc 18} Dexterity saving throw. The sphere spreads around
+    corners. A creature takes 35 ({@damage 10d6}) fire damage and 35 ({@damage 10d6}) necrotic damage on a failed save, or
+    half as much damage on a successful one.
+legendary_actions: []

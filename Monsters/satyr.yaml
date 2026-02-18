@@ -24,17 +24,17 @@ languages:
 - Common
 - Elvish
 - Sylvan
-description: Satyrs enjoy demonstrating their physicality through contests, evicting party poopers, and defending
-  Fey realms.
+description: Satyrs enjoy demonstrating their physicality through contests, evicting party poopers, and defending Fey realms.
 habitat: Forest, Planar (Feywild)
 treasure: Implements
 traits:
 - name: Magic Resistance
-  desc: The satyr has Advantage on saving throws against spells and other magical effects.
+  desc: The satyr has advantage on saving throws against spells and other magical effects.
 actions:
-- name: Hooves
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 5 (1d4 + 3) Bludgeoning damage. If the target is a Medium or
-    smaller creature, the satyr pushes the target up to 10 feet straight away from itself.'
-- name: Mockery
-  desc: 'Wisdom Saving Throw : DC 12, one creature the satyr can see within 90 feet. Failure : 5 (1d6 + 2) Psychic
-    damage.'
+- name: Ram
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}6 ({@damage 2d4 + 1}) bludgeoning damage.'
+- name: Shortsword
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) piercing damage.'
+- name: Shortbow
+  desc: '{@atk rw} {@hit 5} to hit, range 80/320 ft., one target. {@h}6 ({@damage 1d6 + 3}) piercing damage.'
+legendary_actions: []

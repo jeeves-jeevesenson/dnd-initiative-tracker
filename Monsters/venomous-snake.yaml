@@ -21,6 +21,6 @@ languages:
 - None
 description: ''
 habitat: Coastal, Desert, Forest, Grassland, Hill, Swamp
-actions:
-- name: Bite
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 4 (1d4 + 2) Piercing damage plus 3 (1d6) Poison damage.'
+actions: []
+traits: []
+legendary_actions: []

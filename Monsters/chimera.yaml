@@ -26,16 +26,16 @@ habitat: Grassland, Hill, Mountain
 treasure: Any
 actions:
 - name: Multiattack
-  desc: The chimera makes one Ram attack, one Bite attack, and one Claw attack. It can replace the Claw attack with
-    a use of Fire Breath if available.
+  desc: 'The chimera makes three attacks: one with its bite, one with its horns, and one with its claws. When its fire breath
+    is available, it can use the breath in place of its bite or horns.'
 - name: Bite
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 11 (2d6 + 4) Piercing damage, or 18 (4d6 + 4) Piercing damage
-    if the chimera had Advantage on the attack roll.'
-- name: Claw
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 7 (1d6 + 4) Slashing damage.'
-- name: Ram
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 10 (1d12 + 4) Bludgeoning damage. If the target is a Medium or
-    smaller creature, it has the Prone condition.'
-- name: Fire Breath (Recharge 5–6)
-  desc: 'Dexterity Saving Throw : DC 15, each creature in a 15-foot Cone. Failure : 31 (7d8) Fire damage. Success
-    : Half damage.'
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) piercing damage.'
+- name: Horns
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}10 ({@damage 1d12 + 4}) bludgeoning damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) slashing damage.'
+- name: Fire Breath {@recharge 5}
+  desc: The dragon head exhales fire in a 15-foot cone. Each creature in that area must make a {@dc 15} Dexterity saving throw,
+    taking 31 ({@damage 7d8}) fire damage on a failed save, or half as much damage on a successful one.
+traits: []
+legendary_actions: []

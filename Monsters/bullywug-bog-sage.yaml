@@ -24,22 +24,11 @@ languages:
 - Bullywug
 - Common
 - Sylvan
-description: Fey embodiments of swamplands, bullywugs protect the murky wilds and consider themselves cosmically
-  favored for that role. These human-size, toad- or frog-like creatures have close relationships with the creatures
-  of the swamp. Bullywug bog sages channel the magic of the swamp to sicken foes and speak with plants.
+description: Fey embodiments of swamplands, bullywugs protect the murky wilds and consider themselves cosmically favored for
+  that role. These human-size, toad- or frog-like creatures have close relationships with the creatures of the swamp. Bullywug
+  bog sages channel the magic of the swamp to sicken foes and speak with plants.
 habitat: Swamp
 treasure: Implements, Individual
-traits:
-- name: Amphibious
-  desc: The bullywug can breathe air and water.
-- name: Speak with Frogs and Toads
-  desc: The bullywug can communicate simple concepts to frogs and toads when it speaks in Bullywug.
-actions:
-- name: Multiattack
-  desc: The bullywug makes two Bog Staff attacks. It can replace any attack with a use of Spellcasting to cast Ray
-    of Sickness .
-- name: Bog Staff
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Bludgeoning damage plus 10 (3d6) Poison damage.'
-- name: Spellcasting
-  desc: 'The bullywug casts one of the following spells, using Wisdom as the spellcasting ability (spell save DC
-    13, +5 to hit with spell attacks):'
+traits: []
+actions: []
+legendary_actions: []

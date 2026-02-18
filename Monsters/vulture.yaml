@@ -24,9 +24,12 @@ languages:
 description: ''
 habitat: Desert, Grassland, Hill
 traits:
+- name: Keen Sight and Smell
+  desc: The vulture has advantage on Wisdom ({@skill Perception}) checks that rely on sight or smell.
 - name: Pack Tactics
-  desc: The vulture has Advantage on an attack roll against a creature if at least one of the vulture's allies is
-    within 5 feet of the creature and the ally doesn't have the Incapacitated condition.
+  desc: The vulture has advantage on an attack roll against a creature if at least one of the vulture's allies is within 5
+    feet of the creature and the ally isn't {@condition incapacitated}.
 actions:
 - name: Beak
-  desc: 'Melee Attack Roll : +2, reach 5 ft. Hit : 2 (1d4) Piercing damage.'
+  desc: '{@atk mw} {@hit 2} to hit, reach 5 ft., one target. {@h}2 ({@damage 1d4}) piercing damage.'
+legendary_actions: []

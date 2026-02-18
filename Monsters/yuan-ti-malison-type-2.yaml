@@ -25,9 +25,24 @@ languages:
 - Abyssal
 - Common
 - Draconic
-description: Malisons exhibit snakelike features that make them deadly in combat. These malisons have human bodies,
-  but they've replaced their arms with snakes. Malisons possesses deadly venom, which some manipulate into magical
-  strikes. They can also shape-shift into snakes, helping them to position themselves for surprise attacks or to
-  slither away with nary a trace.
+description: Malisons exhibit snakelike features that make them deadly in combat. These malisons have human bodies, but they've
+  replaced their arms with snakes. Malisons possesses deadly venom, which some manipulate into magical strikes. They can also
+  shape-shift into snakes, helping them to position themselves for surprise attacks or to slither away with nary a trace.
 habitat: Desert, Forest, Swamp, Urban
 treasure: Relics
+traits:
+- name: Shapechanger
+  desc: The yuan-ti can use its action to polymorph into a Medium snake, or back into its true form. Its statistics are the
+    same in each form. Any equipment it is wearing or carrying isn't transformed. It doesn't change form if it dies.
+- name: Magic Resistance
+  desc: The yuan-ti has advantage on saving throws against spells and other magical effects.
+- name: Malison Type
+  desc: 'The yuan-ti has one of the following types: Human body with snake head Human head and body with snakes for arms Human
+    head and upper body with a serpentine lower body instead of legs'
+actions:
+- name: Multiattack (Yuan-ti Form Only)
+  desc: The yuan-ti makes two bite attacks using its snake arms.
+- name: Bite
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one creature. {@h}5 ({@damage 1d4 + 3}) piercing damage plus 7 ({@damage
+    2d6}) poison damage.'
+legendary_actions: []

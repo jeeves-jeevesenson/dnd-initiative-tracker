@@ -27,45 +27,55 @@ senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 22
 languages:
 - Common
 - Draconic
-description: Where bronze dragons dwell, wonders flourish. Imaginative yet mindful, these metallic dragons work
-  toward greatness and help others achieve all they can. They strive to preserve innovations, from the works of
-  past civilizations to new discoveries, and they share such works widely. When dealing with shorter-lived beings,
-  bronze dragons prefer to win them over through conversation and cultivation, but they don't shy from battle when
-  villains keep others from achieving their potential. Bronze dragons enjoy the power and endless possibilities
-  of the sea, and they often make their lairs in places of natural beauty or communities they wish to preserve.
-  Within their dwellings, bronze dragons hoard things they believe will be useful one day. They salvage treasure
-  lost to the sea, reclaiming wealth or sunken ships.
+description: Where bronze dragons dwell, wonders flourish. Imaginative yet mindful, these metallic dragons work toward greatness
+  and help others achieve all they can. They strive to preserve innovations, from the works of past civilizations to new discoveries,
+  and they share such works widely. When dealing with shorter-lived beings, bronze dragons prefer to win them over through
+  conversation and cultivation, but they don't shy from battle when villains keep others from achieving their potential. Bronze
+  dragons enjoy the power and endless possibilities of the sea, and they often make their lairs in places of natural beauty
+  or communities they wish to preserve. Within their dwellings, bronze dragons hoard things they believe will be useful one
+  day. They salvage treasure lost to the sea, reclaiming wealth or sunken ships.
 habitat: Coastal
 treasure: Implements
 traits:
 - name: Amphibious
   desc: The dragon can breathe air and water.
-- name: Legendary Resistance (3/Day, or 4/Day in Lair)
+- name: Legendary Resistance (3/Day)
   desc: If the dragon fails a saving throw, it can choose to succeed instead.
 actions:
 - name: Multiattack
-  desc: The dragon makes three Rend attacks. It can replace one attack with a use of (A) Repulsion Breath or (B)
-    Spellcasting to cast Guiding Bolt (level 2 version).
-- name: Rend
-  desc: 'Melee Attack Roll : +12, reach 10 ft. Hit : 16 (2d8 + 7) Slashing damage plus 5 (1d10) Lightning damage.'
-- name: Lightning Breath (Recharge 5–6)
-  desc: 'Dexterity Saving Throw : DC 19, each creature in a 90-foot-long, 5-foot-wide Line. Failure : 55 (10d10)
-    Lightning damage. Success : Half damage.'
-- name: Repulsion Breath
-  desc: 'Strength Saving Throw : DC 19, each creature in a 30-foot Cone. Failure : The target is pushed up to 60
-    feet straight away from the dragon and has the Prone condition.'
-- name: Spellcasting
-  desc: 'The dragon casts one of the following spells, requiring no Material components and using Charisma as the
-    spellcasting ability (spell save DC 17, +10 to hit with spell attacks):'
+  desc: 'The dragon can use its Frightful Presence. It then makes three attacks: one with its bite and two with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 12} to hit, reach 10 ft., one target. {@h}18 ({@damage 2d10 + 7}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 12} to hit, reach 5 ft., one target. {@h}14 ({@damage 2d6 + 7}) slashing damage.'
+- name: Tail
+  desc: '{@atk mw} {@hit 12} to hit, reach 15 ft., one target. {@h}16 ({@damage 2d8 + 7}) bludgeoning damage.'
+- name: Frightful Presence
+  desc: Each creature of the dragon's choice that is within 120 feet of the dragon and aware of it must succeed on a {@dc
+    17} Wisdom saving throw or become {@condition frightened} for 1 minute. A creature can repeat the saving throw at the
+    end of each of its turns, ending the effect on itself on a success. If a creature's saving throw is successful or the
+    effect ends for it, the creature is immune to the dragon's Frightful Presence for the next 24 hours.
+- name: Breath Weapons {@recharge 5}
+  desc: The dragon uses one of the following breath weapons. The dragon exhales lightning in a 90-foot line that is 5 feet
+    wide. Each creature in that line must make a {@dc 19} Dexterity saving throw, taking 66 ({@damage 12d10}) lightning damage
+    on a failed save, or half as much damage on a successful one. The dragon exhales repulsion energy in a 30-foot cone. Each
+    creature in that area must succeed on a {@dc 19} Strength saving throw. On a failed save, the creature is pushed 60 feet
+    away from the dragon.
+- name: Change Shape
+  desc: The dragon magically polymorphs into a humanoid or beast that has a challenge rating no higher than its own, or back
+    into its true form. It reverts to its true form if it dies. Any equipment it is wearing or carrying is absorbed or borne
+    by the new form (the dragon's choice). In a new form, the dragon retains its alignment, hit points, Hit Dice, ability
+    to speak, proficiencies, Legendary Resistance, lair actions, and Intelligence, Wisdom, and Charisma scores, as well as
+    this action. Its statistics and capabilities are otherwise replaced by those of the new form, except any class features
+    or legendary actions of that form.
 legendary_actions:
-- name: Guiding Light
-  desc: The dragon uses Spellcasting to cast Guiding Bolt (level 2 version).
-- name: Pounce
-  desc: The dragon moves up to half its Speed, and it makes one Rend attack.
-- name: Thunderclap
-  desc: 'Constitution Saving Throw : DC 17, each creature in a 20-foot-radius Sphere centered on a point the dragon
-    can see within 90 feet. Failure : 10 (3d6) Thunder damage, and the target has the Deafened condition until the
-    end of its next turn.'
-legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s turn, the dragon can
-  expend a use to take one of the following actions. The dragon regains all expended uses at the start of each of
-  its turns.'
+- name: Detect
+  desc: The dragon makes a Wisdom ({@skill Perception}) check.
+- name: Tail Attack
+  desc: The dragon makes a tail attack.
+- name: Wing Attack (Costs 2 Actions)
+  desc: The dragon beats its wings. Each creature within 10 feet of the dragon must succeed on a {@dc 20} Dexterity saving
+    throw or take 14 ({@damage 2d6 + 7}) bludgeoning damage and be knocked {@condition prone}. The dragon can then fly up
+    to half its flying speed.
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s turn, the dragon can expend a
+  use to take one of the following actions. The dragon regains all expended uses at the start of each of its turns.'

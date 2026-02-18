@@ -21,12 +21,12 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - None
-description: Warhorse skeletons are obedient, supernatural steeds bearing the rotted remains of the barding they
-  wore in life. They're often ridden by the corpses of their former riders.
+description: Warhorse skeletons are obedient, supernatural steeds bearing the rotted remains of the barding they wore in life.
+  They're often ridden by the corpses of their former riders.
 habitat: Planar (Shadowfell), Underdark, Urban
 treasure: None
 actions:
 - name: Hooves
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 7 (1d6 + 4) Bludgeoning damage. If the target is a Large or smaller
-    creature and the skeleton moved 20+ feet straight toward it immediately before the hit, the target has the Prone
-    condition.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) bludgeoning damage.'
+traits: []
+legendary_actions: []

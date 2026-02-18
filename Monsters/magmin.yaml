@@ -24,9 +24,15 @@ description: ''
 habitat: Planar (Elemental Plane of Fire)
 traits:
 - name: Death Burst
-  desc: 'The magmin explodes when it dies. Dexterity Saving Throw : DC 11, each creature in a 10-foot Emanation
-    originating from the magmin. Failure : 7 (2d6) Fire damage. Success : Half damage.'
+  desc: When the magmin dies, it explodes in a burst of fire and magma. Each creature within 10 feet of it must make a {@dc
+    11} Dexterity saving throw, taking 7 ({@damage 2d6}) fire damage on a failed save, or half as much damage on a successful
+    one. Flammable objects that aren't being worn or carried in that area are ignited.
+- name: Ignited Illumination
+  desc: As a bonus action, the magmin can set itself ablaze or extinguish its flames. While ablaze, the magmin sheds bright
+    light in a 10-foot radius and dim light for an additional 10 feet.
 actions:
 - name: Touch
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 7 (2d4 + 2) Fire damage. If the target is a creature or a flammable
-    object that isn''t being worn or carried, it starts burning.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}7 ({@damage 2d6}) fire damage. If the target is a creature
+    or a flammable object, it ignites. Until a creature takes an action to douse the fire, the target takes 3 ({@damage 1d6})
+    fire damage at the end of each of its turns.'
+legendary_actions: []

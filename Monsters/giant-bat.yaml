@@ -23,4 +23,10 @@ description: ''
 habitat: Forest, Mountain, Underdark
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Piercing damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@h}5 ({@damage 1d6 + 2}) piercing damage.'
+traits:
+- name: Echolocation
+  desc: The bat can't use its blindsight while {@condition deafened}.
+- name: Keen Hearing
+  desc: The bat has advantage on Wisdom ({@skill Perception}) checks that rely on hearing.
+legendary_actions: []

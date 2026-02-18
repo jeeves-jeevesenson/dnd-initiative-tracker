@@ -30,13 +30,6 @@ languages:
 - None
 description: ''
 habitat: Underwater
-traits:
-- name: Swarm
-  desc: The swarm can occupy another creature's space and vice versa, and the swarm can move through any opening
-    large enough for a Tiny piranha. The swarm can't regain Hit Points or gain Temporary Hit Points.
-- name: Water Breathing
-  desc: The swarm can breathe only underwater.
-actions:
-- name: Bites
-  desc: 'Melee Attack Roll : +5 (with Advantage if the target doesn''t have all its Hit Points), reach 5 ft. Hit
-    : 8 (2d4 + 3) Piercing damage, or 5 (1d4 + 3) Piercing damage if the swarm is Bloodied.'
+traits: []
+actions: []
+legendary_actions: []

@@ -24,6 +24,15 @@ languages:
 description: ''
 habitat: Forest, Grassland
 actions:
-- name: Rend
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 10 (2d6 + 3) Slashing damage. If the target is a Large or smaller
-    creature, it has the Prone condition.'
+- name: Bite
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}8 ({@damage 1d10 + 3}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d8 + 3}) slashing damage.'
+traits:
+- name: Keen Smell
+  desc: The tiger has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
+- name: Pounce
+  desc: If the tiger moves at least 20 feet straight toward a creature and then hits it with a claw attack on the same turn,
+    that target must succeed on a {@dc 13} Strength saving throw or be knocked {@condition prone}. If the target is {@condition
+    prone}, the tiger can make one bite attack against it as a bonus action.
+legendary_actions: []

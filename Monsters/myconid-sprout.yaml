@@ -21,3 +21,18 @@ languages:
 description: Myconid sprouts tend to their fungal homes and watch for trespassers.
 habitat: Underdark
 treasure: Any
+traits:
+- name: Distress Spores
+  desc: When the myconid takes damage, all other myconids within 240 feet of it can sense its pain.
+- name: Sun Sickness
+  desc: While in sunlight, the myconid has disadvantage on ability checks, attack rolls, and saving throws. The myconid dies
+    if it spends more than 1 hour in direct sunlight.
+actions:
+- name: Fist
+  desc: '{@atk mw} {@hit 1} to hit, reach 5 ft., one target. {@h}1 ({@damage 1d4 - 1}) bludgeoning damage plus 2 ({@damage
+    1d4}) poison damage.'
+- name: Rapport Spores (3/Day)
+  desc: A 10-foot radius of spores extends from the myconid. These spores can go around corners and affect only creatures
+    with an Intelligence of 2 or higher that aren't undead, constructs, or elementals. Affected creatures can communicate
+    telepathically with one another while they are within 30 feet of each other. The effect lasts for 1 hour.
+legendary_actions: []

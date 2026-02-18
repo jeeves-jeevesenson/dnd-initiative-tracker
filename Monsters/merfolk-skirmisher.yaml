@@ -23,11 +23,6 @@ languages:
 description: Merfolk skirmishers defend their homes from aquatic monsters and invaders from the surface.
 habitat: Coastal, Underwater
 treasure: Individual
-traits:
-- name: Amphibious
-  desc: The merfolk can breathe air and water.
-actions:
-- name: Ocean Spear
-  desc: 'Melee or Ranged Attack Roll : +2, reach 5 ft. or range 20/60 ft. Hit : 3 (1d6) Piercing damage plus 2 (1d4)
-    Cold damage. If the target is a creature, its Speed decreases by 10 feet until the end of its next turn. Hit
-    or Miss : The spear magically returns to the merfolk''s hand immediately after a ranged attack.'
+traits: []
+actions: []
+legendary_actions: []

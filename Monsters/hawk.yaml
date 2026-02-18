@@ -25,4 +25,8 @@ description: ''
 habitat: Arctic, Coastal, Forest, Grassland, Hill, Mountain
 actions:
 - name: Talons
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 1 Slashing damage.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}1 slashing damage.'
+traits:
+- name: Keen Sight
+  desc: The hawk has advantage on Wisdom ({@skill Perception}) checks that rely on sight.
+legendary_actions: []

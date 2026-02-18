@@ -32,9 +32,11 @@ description: ''
 habitat: Underdark
 traits:
 - name: Amorphous
-  desc: The jelly can move through a space as narrow as 1 inch without expending extra movement to do so.
+  desc: The jelly can move through a space as narrow as 1 inch wide without squeezing.
 - name: Spider Climb
-  desc: The jelly can climb difficult surfaces, including along ceilings, without needing to make an ability check.
+  desc: The jelly can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check.
 actions:
 - name: Pseudopod
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 12 (3d6 + 2) Acid damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}9 ({@damage 2d6 + 2}) bludgeoning damage plus 3 ({@damage
+    1d6}) acid damage.'
+legendary_actions: []

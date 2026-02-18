@@ -34,18 +34,15 @@ description: ''
 habitat: Desert, Forest, Planar (Upper Planes)
 treasure: Relics
 traits:
-- name: Celestial Restoration
-  desc: If the naga dies, it returns to life in 1d6 days and regains all its Hit Points unless Dispel Evil and Good
-    is cast on its remains.
+- name: Rejuvenation
+  desc: If it dies, the naga returns to life in {@dice 1d6} days and regains all its hit points. Only a {@spell wish} spell
+    can prevent this trait from functioning.
 actions:
-- name: Multiattack
-  desc: The naga makes two Bite attacks. It can replace any attack with a use of Poisonous Spittle.
 - name: Bite
-  desc: 'Melee Attack Roll : +8, reach 10 ft. Hit : 17 (2d12 + 4) Piercing damage plus 22 (4d10) Poison damage.'
-- name: Poisonous Spittle
-  desc: 'Constitution Saving Throw : DC 16, one creature the naga can see within 60 feet. Failure : 31 (7d8) Poison
-    damage, and the target has the Blinded condition until the start of the naga''s next turn. Success : Half damage
-    only.'
-- name: Spellcasting
-  desc: 'The naga casts one of the following spells, requiring no Somatic or Material components and using Wisdom
-    as the spellcasting ability (spell save DC 16):'
+  desc: '{@atk mw} {@hit 8} to hit, reach 10 ft., one creature. {@h}8 ({@damage 1d8 + 4}) piercing damage, and the target
+    must make a {@dc 15} Constitution saving throw, taking 45 ({@damage 10d8}) poison damage on a failed save, or half as
+    much damage on a successful one.'
+- name: Spit Poison
+  desc: '{@atk rw} {@hit 8} to hit, range 15/30 ft., one creature. {@h}The target must make a {@dc 15} Constitution saving
+    throw, taking 45 ({@damage 10d8}) poison damage on a failed save, or half as much damage on a successful one.'
+legendary_actions: []

@@ -30,16 +30,25 @@ description: ''
 habitat: Planar (Upper Planes)
 treasure: Relics
 traits:
-- name: Exalted Restoration
-  desc: If the deva dies outside Mount Celestia, its body disappears, and it gains a new body instantly, reviving
-    with all its Hit Points somewhere in Mount Celestia.
+- name: Angelic Weapons
+  desc: The deva's weapon attacks are magical. When the deva hits with any weapon, the weapon deals an extra {@damage 4d8}
+    radiant damage (included in the attack).
 - name: Magic Resistance
-  desc: The deva has Advantage on saving throws against spells and other magical effects.
+  desc: The deva has advantage on saving throws against spells and other magical effects.
 actions:
 - name: Multiattack
-  desc: The deva makes two Holy Mace attacks.
-- name: Holy Mace
-  desc: 'Melee Attack Roll : +8, reach 5 ft. Hit : 7 (1d6 + 4) Bludgeoning damage plus 18 (4d8) Radiant damage.'
-- name: Spellcasting
-  desc: 'The deva casts one of the following spells, requiring no Material components and using Charisma as the
-    spellcasting ability (spell save DC 17):'
+  desc: The deva makes two melee attacks.
+- name: Mace
+  desc: '{@atk mw} {@hit 8} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d6 + 4}) bludgeoning damage plus 18 ({@damage
+    4d8}) radiant damage.'
+- name: Healing Touch (3/Day)
+  desc: The deva touches another creature. The target magically regains 20 ({@dice 4d8 + 2}) hit points and is freed from
+    any curse, disease, poison, blindness, or deafness.
+- name: Change Shape
+  desc: The deva magically polymorphs into a humanoid or beast that has a challenge rating equal to or less than its own,
+    or back into its true form. It reverts to its true form if it dies. Any equipment it is wearing or carrying is absorbed
+    or borne by the new form (the deva's choice). In a new form, the deva retains its game statistics and ability to speak,
+    but its AC, movement modes, Strength, Dexterity, and special senses are replaced by those of the new form, and it gains
+    any statistics and capabilities (except class features, legendary actions, and lair actions) that the new form has but
+    that it lacks.
+legendary_actions: []

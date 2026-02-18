@@ -28,5 +28,6 @@ traits:
   desc: The crab can breathe air and water.
 actions:
 - name: Claw
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 4 (1d6 + 1) Bludgeoning damage. If the target is a Medium or
-    smaller creature, it has the Grappled condition (escape DC 11) from one of two claws.'
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d6 + 1}) bludgeoning damage, and the target
+    is {@condition grappled} (escape {@dc 11}). The crab has two claws, each of which can grapple only one target.'
+legendary_actions: []

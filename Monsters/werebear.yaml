@@ -26,14 +26,20 @@ habitat: Arctic, Forest, Hill
 treasure: Relics
 actions:
 - name: Multiattack
-  desc: The werebear makes two attacks, using Handaxe or Rend in any combination. It can replace one attack with
-    a Bite attack.
+  desc: In bear form, the werebear makes two claw attacks. In humanoid form, it makes two greataxe attacks. In hybrid form,
+    it can attack like a bear or a humanoid.
 - name: Bite (Bear or Hybrid Form Only)
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 17 (2d12 + 4) Piercing damage. If the target is a Humanoid, it
-    is subjected to the following effect. Constitution Saving Throw : DC 14. Failure : The target is cursed. If
-    the cursed target drops to 0 Hit Points, it instead becomes a Werebear under the DM''s control and has 10 Hit
-    Points. Success : The target is immune to this werebear''s curse for 24 hours.'
-- name: Handaxe (Humanoid or Hybrid Form Only)
-  desc: 'Melee or Ranged Attack Roll : +7, reach 5 ft or range 20/60 ft. Hit : 14 (3d6 + 4) Slashing damage.'
-- name: Rend (Bear or Hybrid Form Only)
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 13 (2d8 + 4) Slashing damage.'
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}15 ({@damage 2d10 + 4}) piercing damage. If the target is
+    a humanoid, it must succeed on a {@dc 14} Constitution saving throw or be cursed with werebear lycanthropy.'
+- name: Claw (Bear or Hybrid Form Only)
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}13 ({@damage 2d8 + 4}) slashing damage.'
+- name: Greataxe (Humanoid or Hybrid Form Only)
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}10 ({@damage 1d12 + 4}) slashing damage.'
+traits:
+- name: Shapechanger
+  desc: The werebear can use its action to polymorph into a Large bear-humanoid hybrid or into a Large bear, or back into
+    its true form, which is humanoid. Its statistics, other than its size and AC, are the same in each form. Any equipment
+    it is wearing or carrying isn't transformed. It reverts to its true form if it dies.
+- name: Keen Smell
+  desc: The werebear has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
+legendary_actions: []

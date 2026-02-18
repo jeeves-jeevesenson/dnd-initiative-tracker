@@ -21,9 +21,11 @@ languages:
 - None
 description: ''
 habitat: Forest, Grassland, Urban
-traits:
-- name: Flyby
-  desc: The wasp doesn't provoke an Opportunity Attack when it flies out of an enemy's reach.
+traits: []
 actions:
 - name: Sting
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage plus 5 (2d4) Poison damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@h}5 ({@damage 1d6 + 2}) piercing damage, and the target must
+    make a {@dc 11} Constitution saving throw, taking 10 ({@damage 3d6}) poison damage on a failed save, or half as much damage
+    on a successful one. If the poison damage reduces the target to 0 hit points, the target is stable but {@condition poisoned}
+    for 1 hour, even after regaining hit points, and is {@condition paralyzed} while {@condition poisoned} in this way.'
+legendary_actions: []

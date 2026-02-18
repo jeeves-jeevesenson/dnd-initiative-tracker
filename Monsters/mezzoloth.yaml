@@ -27,3 +27,20 @@ languages:
 description: ''
 habitat: Planar (Gehenna)
 treasure: Armaments
+traits:
+- name: Magic Resistance
+  desc: The mezzoloth has advantage on saving throws against spells and other magical effects.
+- name: Magic Weapons
+  desc: The mezzoloth's weapon attacks are magical.
+actions:
+- name: Multiattack
+  desc: 'The mezzoloth makes two attacks: one with its claws and one with its trident.'
+- name: Claws
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}9 ({@damage 2d4 + 4}) slashing damage.'
+- name: Trident
+  desc: '{@atk mw,rw} {@hit 7} to hit, reach 5 ft. or range 20/60 ft., one target. {@h}7 ({@damage 1d6 + 4}) piercing damage,
+    or 8 ({@damage 1d8 + 4}) piercing damage when held with two claws and used to make a melee attack.'
+- name: Teleport
+  desc: The mezzoloth magically teleports, along with any equipment it is wearing or carrying, up to 60 feet to an unoccupied
+    space it can see.
+legendary_actions: []

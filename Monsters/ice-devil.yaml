@@ -30,21 +30,32 @@ description: ''
 habitat: Planar (Nine Hells)
 treasure: Arcana
 traits:
-- name: Diabolical Restoration
-  desc: If the devil dies outside the Nine Hells, its body disappears in sulfurous smoke, and it gains a new body
-    instantly, reviving with all its Hit Points somewhere in the Nine Hells.
+- name: Devil's Sight
+  desc: Magical darkness doesn't impede the devil's darkvision.
 - name: Magic Resistance
-  desc: The devil has Advantage on saving throws against spells and other magical effects.
+  desc: The devil has advantage on saving throws against spells and other magical effects.
 actions:
 - name: Multiattack
-  desc: The devil makes three Ice Spear attacks. It can replace one attack with a Tail attack.
-- name: Ice Spear
-  desc: 'Melee or Ranged Attack Roll : +10, reach 5 ft. or range 30/120 ft. Hit : 14 (2d8 + 5) Piercing damage plus
-    10 (3d6) Cold damage. Until the end of its next turn, the target can''t take a Bonus Action or Reaction, its
-    Speed decreases by 10 feet, and it can move or take one action on its turn, not both. Hit or Miss : The spear
-    magically returns to the devil''s hand immediately after a ranged attack.'
+  desc: 'The devil makes three attacks: one with its bite, one with its claws, and one with its tail.'
+- name: Bite
+  desc: '{@atk mw} {@hit 10} to hit, reach 5 ft., one target. {@h}12 ({@damage 2d6 + 5}) piercing damage plus 10 ({@damage
+    3d6}) cold damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 10} to hit, reach 5 ft., one target. {@h}10 ({@damage 2d4 + 5}) slashing damage plus 10 ({@damage
+    3d6}) cold damage.'
 - name: Tail
-  desc: 'Melee Attack Roll : +10, reach 10 ft. Hit : 15 (3d6 + 5) Bludgeoning damage plus 18 (4d8) Cold damage.'
-- name: Ice Wall (Recharge 6)
-  desc: The devil casts Wall of Ice (level 8 version), requiring no spell components and using Intelligence as the
-    spellcasting ability (spell save DC 17).
+  desc: '{@atk mw} {@hit 10} to hit, reach 10 ft., one target. {@h}12 ({@damage 2d6 + 5}) bludgeoning damage plus 10 ({@damage
+    3d6}) cold damage.'
+- name: Wall of Ice {@recharge}
+  desc: The devil magically forms an opaque wall of ice on a solid surface it can see within 60 feet of it. The wall is 1
+    foot thick and up to 30 feet long and 10 feet high, or it's a hemispherical dome up to 20 feet in diameter. When the wall
+    appears, each creature in its space is pushed out of it by the shortest route. The creature chooses which side of the
+    wall to end up on, unless the creature is {@condition incapacitated}. The creature then makes a {@dc 17} Dexterity saving
+    throw, taking 35 ({@damage 10d6}) cold damage on a failed save, or half as much damage on a successful one. The wall lasts
+    for 1 minute or until the devil is {@condition incapacitated} or dies. The wall can be damaged and breached; each 10-foot
+    section has AC 5, 30 hit points, vulnerability to fire damage, and immunity to acid, cold, necrotic, poison, and psychic
+    damage. If a section is destroyed, it leaves behind a sheet of frigid air in the space the wall occupied. Whenever a creature
+    finishes moving through the frigid air on a turn, willingly or otherwise, the creature must make a {@dc 17} Constitution
+    saving throw, taking 17 ({@damage 5d6}) cold damage on a failed save, or half as much damage on a successful one. The
+    frigid air dissipates when the rest of the wall vanishes.
+legendary_actions: []

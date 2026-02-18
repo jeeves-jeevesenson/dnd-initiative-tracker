@@ -29,32 +29,29 @@ description: ''
 habitat: Planar (Nine Hells)
 treasure: Relics
 traits:
-- name: Diabolical Restoration
-  desc: If the pit fiend dies outside the Nine Hells, its body disappears in sulfurous smoke, and it gains a new
-    body instantly, reviving with all its Hit Points somewhere in the Nine Hells.
 - name: Fear Aura
-  desc: 'The pit fiend emanates an aura in a 20-foot Emanation while it doesn''t have the Incapacitated condition.
-    Wisdom Saving Throw : DC 21, any enemy that starts its turn in the aura. Failure : The target has the Frightened
-    condition until the start of its next turn. Success : The target is immune to this pit fiend''s aura for 24
-    hours.'
-- name: Legendary Resistance (4/Day)
-  desc: If the pit fiend fails a saving throw, it can choose to succeed instead.
+  desc: Any creature hostile to the pit fiend that starts its turn within 20 feet of the pit fiend must make a {@dc 21} Wisdom
+    saving throw, unless the pit fiend is {@condition incapacitated}. On a failed save, the creature is {@condition frightened}
+    until the start of its next turn. If a creature's saving throw is successful, the creature is immune to the pit fiend's
+    Fear Aura for the next 24 hours.
 - name: Magic Resistance
-  desc: The pit fiend has Advantage on saving throws against spells and other magical effects.
+  desc: The pit fiend has advantage on saving throws against spells and other magical effects.
+- name: Magic Weapons
+  desc: The pit fiend's weapon attacks are magical.
 actions:
 - name: Multiattack
-  desc: The pit fiend makes one Bite attack, two Devilish Claw attacks, and one Fiery Mace attack.
+  desc: 'The pit fiend makes four attacks: one with its bite, one with its claw, one with its mace, and one with its tail.'
 - name: Bite
-  desc: 'Melee Attack Roll : +14, reach 10 ft. Hit : 18 (3d6 + 8) Piercing damage. If the target is a creature,
-    it must make the following saving throw. Constitution Saving Throw : DC 21. Failure : The target has the Poisoned
-    condition. While Poisoned, the target can''t regain Hit Points and takes 21 (6d6) Poison damage at the start
-    of each of its turns, and it repeats the save at the end of each of its turns, ending the effect on itself on
-    a success. After 1 minute, it succeeds automatically.'
-- name: Devilish Claw
-  desc: 'Melee Attack Roll : +14, reach 10 ft. Hit : 26 (4d8 + 8) Necrotic damage.'
-- name: Fiery Mace
-  desc: 'Melee Attack Roll : +14, reach 10 ft. Hit : 22 (4d6 + 8) Force damage plus 21 (6d6) Fire damage.'
-- name: Hellfire Spellcasting (Recharge 4–6)
-  desc: The pit fiend casts Fireball (level 5 version) twice, requiring no Material components and using Charisma
-    as the spellcasting ability (spell save DC 21). It can replace one Fireball with Hold Monster (level 7 version)
-    or Wall of Fire .
+  desc: '{@atk mw} {@hit 14} to hit, reach 5 ft., one target. {@h}22 ({@damage 4d6 + 8}) piercing damage. The target must
+    succeed on a {@dc 21} Constitution saving throw or become {@condition poisoned}. While {@condition poisoned} in this way,
+    the target can''t regain hit points, and it takes 21 ({@damage 6d6}) poison damage at the start of each of its turns.
+    The {@condition poisoned} target can repeat the saving throw at the end of each of its turns, ending the effect on itself
+    on a success.'
+- name: Claw
+  desc: '{@atk mw} {@hit 14} to hit, reach 10 ft., one target. {@h}17 ({@damage 2d8 + 8}) slashing damage.'
+- name: Mace
+  desc: '{@atk mw} {@hit 14} to hit, reach 10 ft., one target. {@h}15 ({@damage 2d6 + 8}) bludgeoning damage plus 21 ({@damage
+    6d6}) fire damage.'
+- name: Tail
+  desc: '{@atk mw} {@hit 14} to hit, reach 10 ft., one target. {@h}24 ({@damage 3d10 + 8}) bludgeoning damage.'
+legendary_actions: []

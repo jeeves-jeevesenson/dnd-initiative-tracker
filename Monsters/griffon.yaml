@@ -25,7 +25,12 @@ description: ''
 habitat: Arctic, Coastal, Grassland, Hill, Mountain
 actions:
 - name: Multiattack
-  desc: The griffon makes two Rend attacks.
-- name: Rend
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 8 (1d8 + 4) Piercing damage. If the target is a Medium or smaller
-    creature, it has the Grappled condition (escape DC 14) from both of the griffon''s front claws.'
+  desc: 'The griffon makes two attacks: one with its beak and one with its claws.'
+- name: Beak
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}8 ({@damage 1d8 + 4}) piercing damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) slashing damage.'
+traits:
+- name: Keen Sight
+  desc: The griffon has advantage on Wisdom ({@skill Perception}) checks that rely on sight.
+legendary_actions: []

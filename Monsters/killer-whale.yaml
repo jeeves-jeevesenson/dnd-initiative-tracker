@@ -25,8 +25,13 @@ languages:
 description: ''
 habitat: Underwater
 traits:
+- name: Echolocation
+  desc: The whale can't use its blindsight while {@condition deafened}.
 - name: Hold Breath
   desc: The whale can hold its breath for 30 minutes.
+- name: Keen Hearing
+  desc: The whale has advantage on Wisdom ({@skill Perception}) checks that rely on hearing.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 21 (5d6 + 4) Piercing damage.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}21 ({@damage 5d6 + 4}) piercing damage.'
+legendary_actions: []

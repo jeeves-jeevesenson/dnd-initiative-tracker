@@ -18,11 +18,15 @@ abilities:
 senses: Passive Perception 10
 languages:
 - Common plus one other language
-description: Some awakened trees stand in still, meditative states for long periods, making them easy to mistake
-  for normal plants, while others patrol regions of natural power. Awakened trees are sometimes brought to life
-  by influences from the Feywild, which make them colorful and endlessly blooming, or by Shadowfell energy, which
-  covers them with grotesque burls or makes them look lifeless.
+description: Some awakened trees stand in still, meditative states for long periods, making them easy to mistake for normal
+  plants, while others patrol regions of natural power. Awakened trees are sometimes brought to life by influences from the
+  Feywild, which make them colorful and endlessly blooming, or by Shadowfell energy, which covers them with grotesque burls
+  or makes them look lifeless.
 habitat: Forest
 actions:
 - name: Slam
-  desc: 'Melee Attack Roll : +6, reach 10 ft. Hit : 14 (3d6 + 4) Bludgeoning damage.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 10 ft., one target. {@h}14 ({@damage 3d6 + 4}) bludgeoning damage.'
+traits:
+- name: False Appearance
+  desc: While the tree remains motionless, it is indistinguishable from a normal tree.
+legendary_actions: []

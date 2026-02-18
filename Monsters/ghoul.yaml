@@ -22,16 +22,16 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Common
-description: Ghouls rise from the bodies of cannibals and villains with depraved hungers. They form packs out of
-  shared voracity.
+description: Ghouls rise from the bodies of cannibals and villains with depraved hungers. They form packs out of shared voracity.
 habitat: Swamp, Underdark, Urban
 treasure: Any
 actions:
-- name: Multiattack
-  desc: The ghoul makes two Bite attacks.
 - name: Bite
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage plus 3 (1d6) Necrotic damage.'
-- name: Claw
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 4 (1d4 + 2) Slashing damage. If the target is a creature that
-    isn''t an Undead or elf, it is subjected to the following effect. Constitution Saving Throw : DC 10. Failure
-    : The target has the Paralyzed condition until the end of its next turn.'
+  desc: '{@atk mw} {@hit 2} to hit, reach 5 ft., one creature. {@h}9 ({@damage 2d6 + 2}) piercing damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}7 ({@damage 2d4 + 2}) slashing damage. If the target is a
+    creature other than an elf or undead, it must succeed on a {@dc 10} Constitution saving throw or be {@condition paralyzed}
+    for 1 minute. The target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a
+    success.'
+traits: []
+legendary_actions: []

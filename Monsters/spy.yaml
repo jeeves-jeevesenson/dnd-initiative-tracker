@@ -26,12 +26,23 @@ skills:
 senses: Passive Perception 16
 languages:
 - Common plus one other language
-description: Spies use charm and deception to veil their true intentions. If forced into combat, they seek to end
-  such conflicts quietly and decisively.
+description: Spies use charm and deception to veil their true intentions. If forced into combat, they seek to end such conflicts
+  quietly and decisively.
 habitat: Any
 treasure: Individual, Implements
 actions:
+- name: Multiattack
+  desc: The spy makes two melee attacks.
 - name: Shortsword
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage plus 7 (2d6) Poison damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d6 + 2}) piercing damage.'
 - name: Hand Crossbow
-  desc: 'Ranged Attack Roll : +4, range 30/120 ft. Hit : 5 (1d6 + 2) Piercing damage plus 7 (2d6) Poison damage.'
+  desc: '{@atk rw} {@hit 4} to hit, range 30/120 ft., one target. {@h}5 ({@damage 1d6 + 2}) piercing damage.'
+traits:
+- name: Cunning Action
+  desc: On each of its turns, the spy can use a bonus action to take the {@action Dash}, {@action Disengage}, or {@action
+    Hide} action.
+- name: Sneak Attack (1/Turn)
+  desc: The spy deals an extra 7 ({@damage 2d6}) damage when it hits a target with a weapon attack and has advantage on the
+    attack roll, or when the target is within 5 feet of an ally of the spy that isn't {@condition incapacitated} and the spy
+    doesn't have disadvantage on the attack roll.
+legendary_actions: []

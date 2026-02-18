@@ -23,15 +23,18 @@ languages:
 - Common
 - Thieves' Cant
 description: Bandits use the threat of violence to take what they want. Such criminals include gang members, desperadoes,
-  and lawless mercenaries. Yet not all bandits are motivated by greed. Some are driven to lives of crime by unjust
-  laws, desperation, or the threats of merciless leaders. Bandit captains command gangs of scoundrels and conduct
-  straightforward heists. Others serve as guards and muscle for more influential criminals.
+  and lawless mercenaries. Yet not all bandits are motivated by greed. Some are driven to lives of crime by unjust laws, desperation,
+  or the threats of merciless leaders. Bandit captains command gangs of scoundrels and conduct straightforward heists. Others
+  serve as guards and muscle for more influential criminals.
 habitat: Any
 treasure: Any
 actions:
 - name: Multiattack
-  desc: The bandit makes two attacks, using Scimitar and Pistol in any combination.
+  desc: 'The captain makes three melee attacks: two with its scimitar and one with its dagger. Or the captain makes two ranged
+    attacks with its daggers.'
 - name: Scimitar
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Slashing damage.'
-- name: Pistol
-  desc: 'Ranged Attack Roll : +5, range 30/90 ft. Hit : 8 (1d10 + 3) Piercing damage.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) slashing damage.'
+- name: Dagger
+  desc: '{@atk mw,rw} {@hit 5} to hit, reach 5 ft. or range 20/60 ft., one target. {@h}5 ({@damage 1d4 + 3}) piercing damage.'
+traits: []
+legendary_actions: []

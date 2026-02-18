@@ -21,7 +21,10 @@ skills:
 senses: Truesight 30 ft., Passive Perception 22
 languages:
 - Giant
-description: Cyclops oracles gaze through history to learn hidden truths. Many share these secrets with those who
-  aid them in correcting the mistakes of the past.
+description: Cyclops oracles gaze through history to learn hidden truths. Many share these secrets with those who aid them
+  in correcting the mistakes of the past.
 habitat: Coastal, Desert, Grassland, Hill, Mountain, Underdark
 treasure: Armaments
+traits: []
+actions: []
+legendary_actions: []

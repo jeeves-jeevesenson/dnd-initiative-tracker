@@ -26,19 +26,19 @@ senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Primordial (Auran
 - Terran)
-description: Dust mephits are composed of air and fine earth. They are drawn to forsaken places, and they think
-  everything associated with death is hilarious.
+description: Dust mephits are composed of air and fine earth. They are drawn to forsaken places, and they think everything
+  associated with death is hilarious.
 habitat: Planar (Elemental Planes), Desert
 traits:
 - name: Death Burst
-  desc: 'The mephit explodes when it dies. Dexterity Saving Throw : DC 10, each creature in a 5-foot Emanation originating
-    from the mephit. Failure : 5 (2d4) Bludgeoning damage. Success : Half damage.'
+  desc: When the mephit dies, it explodes in a burst of dust. Each creature within 5 feet of it must then succeed on a {@dc
+    10} Constitution saving throw or be {@condition blinded} for 1 minute. A {@condition blinded} creature can repeat the
+    saving throw on each of its turns, ending the effect on itself on a success.
 actions:
-- name: Claw
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 4 (1d4 + 2) Slashing damage.'
-- name: Blinding Breath (Recharge 6)
-  desc: 'Dexterity Saving Throw : DC 10, each creature in a 15-foot Cone. Failure : The target has the Blinded condition
-    until the end of the mephit''s next turn.'
-- name: Sleep (1/Day)
-  desc: The mephit casts the Sleep spell, requiring no spell components and using Charisma as the spellcasting ability
-    (spell save DC 10).
+- name: Claws
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@h}4 ({@damage 1d4 + 2}) slashing damage.'
+- name: Blinding Breath {@recharge}
+  desc: The mephit exhales a 15-foot cone of blinding dust. Each creature in that area must succeed on a {@dc 10} Dexterity
+    saving throw or be {@condition blinded} for 1 minute. A creature can repeat the saving throw at the end of each of its
+    turns, ending the effect on itself on a success.
+legendary_actions: []

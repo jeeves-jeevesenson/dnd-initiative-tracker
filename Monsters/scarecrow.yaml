@@ -28,3 +28,18 @@ languages:
 - Common plus one other language
 description: ''
 habitat: Grassland
+traits:
+- name: False Appearance
+  desc: While the scarecrow remains motionless, it is indistinguishable from an ordinary, inanimate scarecrow.
+actions:
+- name: Multiattack
+  desc: The scarecrow makes two claw attacks.
+- name: Claw
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}6 ({@damage 2d4 + 1}) slashing damage. If the target is a
+    creature, it must succeed on a {@dc 11} Wisdom saving throw or be {@condition frightened} until the end of the scarecrow''s
+    next turn.'
+- name: Terrifying Glare
+  desc: The scarecrow targets one creature it can see within 30 feet of it. If the target can see the scarecrow, the target
+    must succeed on a {@dc 11} Wisdom saving throw or be magically {@condition frightened} until the end of the scarecrow's
+    next turn. The {@condition frightened} target is {@condition paralyzed}.
+legendary_actions: []

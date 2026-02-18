@@ -25,20 +25,22 @@ description: ''
 habitat: Planar (Nine Hells)
 treasure: Implements
 traits:
-- name: Diabolical Restoration
-  desc: If the devil dies outside the Nine Hells, its body disappears in sulfurous smoke, and it gains a new body
-    instantly, reviving with all its Hit Points somewhere in the Nine Hells.
+- name: Devil's Sight
+  desc: Magical darkness doesn't impede the devil's darkvision.
 - name: Magic Resistance
-  desc: The devil has Advantage on saving throws against spells and other magical effects.
+  desc: The devil has advantage on saving throws against spells and other magical effects.
 actions:
 - name: Multiattack
-  desc: The devil makes two Chain attacks and uses Conjure Infernal Chain.
+  desc: The devil makes two attacks with its chains.
 - name: Chain
-  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 11 (2d6 + 4) Slashing damage. If the target is a Large or smaller
-    creature, it has the Grappled condition (escape DC 14) from one of two chains, and it has the Restrained condition
-    until the grapple ends.'
-- name: Conjure Infernal Chain
-  desc: 'The devil conjures a fiery chain to bind a creature. Dexterity Saving Throw : DC 15, one creature the devil
-    can see within 60 feet. Failure : 9 (2d4 + 4) Fire damage, and the target has the Restrained condition until
-    the end of the devil''s next turn, at which point the chain disappears. If the target is Large or smaller, the
-    devil moves the target up to 30 feet straight toward itself. Success : The chain disappears.'
+  desc: '{@atk mw} {@hit 8} to hit, reach 10 ft., one target. {@h}11 ({@damage 2d6 + 4}) slashing damage. The target is {@condition
+    grappled} (escape {@dc 14}) if the devil isn''t already grappling a creature. Until this grapple ends, the target is {@condition
+    restrained} and takes 7 ({@damage 2d6}) piercing damage at the start of each of its turns.'
+- name: Animate Chains (Recharges after a Short or Long Rest)
+  desc: Up to four chains the devil can see within 60 feet of it magically sprout razor-edged barbs and animate under the
+    devil's control, provided that the chains aren't being worn or carried. Each animated chain is an object with AC 20, 20
+    hit points, resistance to piercing damage, and immunity to psychic and thunder damage. When the devil uses Multiattack
+    on its turn, it can use each animated chain to make one additional chain attack. An animated chain can grapple one creature
+    of its own but can't make attacks while grappling. An animated chain reverts to its inanimate state if reduced to 0 hit
+    points or if the devil is {@condition incapacitated} or dies.
+legendary_actions: []

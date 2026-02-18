@@ -28,29 +28,29 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial (Ignan)
-description: Fire elementals arise when spirits of the Elemental Plane of Fire inhabit flames, burning cinders,
-  and heated smoke. These beings are tangible despite largely being made of flames and particles, and they can uses
-  their vague limbs to ignite foes and flammable materials. Fire elementals typically burn in shades of orange and
-  red, but other colors are possible. Most on the Material Plane are summoned by magical means, or they might appear
-  near rifts amid desert depths, volcanoes, wildfires, or magma flows that connect to their home plane.
+description: Fire elementals arise when spirits of the Elemental Plane of Fire inhabit flames, burning cinders, and heated
+  smoke. These beings are tangible despite largely being made of flames and particles, and they can uses their vague limbs
+  to ignite foes and flammable materials. Fire elementals typically burn in shades of orange and red, but other colors are
+  possible. Most on the Material Plane are summoned by magical means, or they might appear near rifts amid desert depths,
+  volcanoes, wildfires, or magma flows that connect to their home plane.
 habitat: Desert, Planar (Elemental Plane of Fire)
 treasure: None
 traits:
-- name: Fiery Aura
-  desc: At the end of each of the elemental's turns, each creature in a 10-foot Emanation originating from the elemental
-    takes 5 (1d10) Fire damage. Creatures and flammable objects in the Emanation start burning.
 - name: Fire Form
-  desc: The elemental can move through a space as narrow as 1 inch wide without expending extra movement to do so,
-    and it can enter a creature's space and stop there. The first time it enters a creature's space on a turn, that
-    creature takes 5 (1d10) Fire damage.
+  desc: The elemental can move through a space as narrow as 1 inch wide without squeezing. A creature that touches the elemental
+    or hits it with a melee attack while within 5 feet of it takes 5 ({@damage 1d10}) fire damage. In addition, the elemental
+    can enter a hostile creature's space and stop there. The first time it enters a creature's space on a turn, that creature
+    takes 5 ({@damage 1d10}) fire damage and catches fire; until someone takes an action to douse the fire, the creature takes
+    5 ({@damage 1d10}) fire damage at the start of each of its turns.
 - name: Illumination
-  desc: The elemental sheds Bright Light in a 30-foot radius and Dim Light for an additional 30 feet.
+  desc: The elemental sheds bright light in a 30-foot radius and dim light in an additional 30 feet.
 - name: Water Susceptibility
-  desc: The elemental takes 3 (1d6) Cold damage for every 5 feet the elemental moves in water or for every gallon
-    of water splashed on it.
+  desc: For every 5 feet the elemental moves in water, or for every gallon of water splashed on it, it takes 1 cold damage.
 actions:
 - name: Multiattack
-  desc: The elemental makes two Burn attacks.
-- name: Burn
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 10 (2d6 + 3) Fire damage. If the target is a creature or a flammable
-    object, it starts burning.'
+  desc: The elemental makes two touch attacks.
+- name: Touch
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}10 ({@damage 2d6 + 3}) fire damage. If the target is a creature
+    or a flammable object, it ignites. Until a creature takes an action to douse the fire, the target takes 5 ({@damage 1d10})
+    fire damage at the start of each of its turns.'
+legendary_actions: []

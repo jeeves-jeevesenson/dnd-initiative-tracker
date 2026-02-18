@@ -24,8 +24,11 @@ languages:
 - Common
 - Draconic
 - Gith
-description: One of Gith's last deeds was to forge an alliance between the githyanki and the dragon god Tiamat.
-  Ever since, the Dragon Queen's red dragon consort, Ephelomon, and his kind have been allies of the githyanki.
-  Githyanki dracomancers uphold this pact and cultivate magic talents that complement the might of red dragons.
+description: One of Gith's last deeds was to forge an alliance between the githyanki and the dragon god Tiamat. Ever since,
+  the Dragon Queen's red dragon consort, Ephelomon, and his kind have been allies of the githyanki. Githyanki dracomancers
+  uphold this pact and cultivate magic talents that complement the might of red dragons.
 habitat: Planar (Astral Plane)
 treasure: Armaments
+traits: []
+actions: []
+legendary_actions: []

@@ -28,43 +28,46 @@ senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 27
 languages:
 - Common
 - Draconic
-description: From forbidden forest depths, green dragons whisper evils into the world and manipulate the lives of
-  those who listen. Elusive, conniving, and egotistical, these chromatic dragons patiently prey on the fears of
-  shorter-lived beings, corrupting and isolating them. Green dragons might lurk amid labyrinthine wildernesses for
-  centuries without revealing themselves; even their most devoted followers might know them only as the voice of
-  the woodlands or a whisper in their dreams. Despite their might, most green dragons disdain physical violence,
-  viewing combat as servants' work and preferring to trick foes into dangerous or exploitative scenarios. These
-  dragons collect "baubles" that embody their webs of manipulation and serve as tools of extortion, such as compromising
-  documents, family heirlooms, and sentimental treasures.
+description: From forbidden forest depths, green dragons whisper evils into the world and manipulate the lives of those who
+  listen. Elusive, conniving, and egotistical, these chromatic dragons patiently prey on the fears of shorter-lived beings,
+  corrupting and isolating them. Green dragons might lurk amid labyrinthine wildernesses for centuries without revealing themselves;
+  even their most devoted followers might know them only as the voice of the woodlands or a whisper in their dreams. Despite
+  their might, most green dragons disdain physical violence, viewing combat as servants' work and preferring to trick foes
+  into dangerous or exploitative scenarios. These dragons collect "baubles" that embody their webs of manipulation and serve
+  as tools of extortion, such as compromising documents, family heirlooms, and sentimental treasures.
 habitat: Forest
 treasure: Arcana
 traits:
 - name: Amphibious
   desc: The dragon can breathe air and water.
-- name: Legendary Resistance (4/Day, or 5/Day in Lair)
+- name: Legendary Resistance (3/Day)
   desc: If the dragon fails a saving throw, it can choose to succeed instead.
 actions:
 - name: Multiattack
-  desc: The dragon makes three Rend attacks. It can replace one attack with a use of Spellcasting to cast Mind Spike
-    (level 5 version).
-- name: Rend
-  desc: 'Melee Attack Roll : +15, reach 15 ft. Hit : 17 (2d8 + 8) Slashing damage plus 10 (3d6) Poison damage.'
-- name: Poison Breath (Recharge 5–6)
-  desc: 'Constitution Saving Throw : DC 22, each creature in a 90-foot Cone. Failure : 77 (22d6) Poison damage.
-    Success : Half damage.'
-- name: Spellcasting
-  desc: 'The dragon casts one of the following spells, requiring no Material components and using Charisma as the
-    spellcasting ability (spell save DC 21):'
+  desc: 'The dragon can use its Frightful Presence. It then makes three attacks: one with its bite and two with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 15} to hit, reach 15 ft., one target. {@h}19 ({@damage 2d10 + 8}) piercing damage plus 10 ({@damage
+    3d6}) poison damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 15} to hit, reach 10 ft., one target. {@h}22 ({@damage 4d6 + 8}) slashing damage.'
+- name: Tail
+  desc: '{@atk mw} {@hit 15} to hit, reach 20 ft., one target. {@h}17 ({@damage 2d8 + 8}) bludgeoning damage.'
+- name: Frightful Presence
+  desc: Each creature of the dragon's choice that is within 120 feet of the dragon and aware of it must succeed on a {@dc
+    19} Wisdom saving throw or become {@condition frightened} for 1 minute. A creature can repeat the saving throw at the
+    end of each of its turns, ending the effect on itself on a success. If a creature's saving throw is successful or the
+    effect ends for it, the creature is immune to the dragon's Frightful Presence for the next 24 hours.
+- name: Poison Breath {@recharge 5}
+  desc: The dragon exhales poisonous gas in a 90-foot cone. Each creature in that area must make a {@dc 22} Constitution saving
+    throw, taking 77 ({@damage 22d6}) poison damage on a failed save, or half as much damage on a successful one.
 legendary_actions:
-- name: Mind Invasion
-  desc: The dragon uses Spellcasting to cast Mind Spike (level 5 version).
-- name: Noxious Miasma
-  desc: 'Constitution Saving Throw : DC 21, each creature in a 30-foot-radius Sphere centered on a point the dragon
-    can see within 90 feet. Failure : 17 (5d6) Poison damage, and the target takes a -2 penalty to AC until the
-    end of its next turn. Failure or Success : The dragon can''t take this action again until the start of its next
-    turn.'
-- name: Pounce
-  desc: The dragon moves up to half its Speed, and it makes one Rend attack.
-legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s turn, The dragon can
-  expend a use to take one of the following actions. The dragon regains all expended uses at the start of each of
-  its turns.'
+- name: Detect
+  desc: The dragon makes a Wisdom ({@skill Perception}) check.
+- name: Tail Attack
+  desc: The dragon makes a tail attack.
+- name: Wing Attack (Costs 2 Actions)
+  desc: The dragon beats its wings. Each creature within 15 feet of the dragon must succeed on a {@dc 23} Dexterity saving
+    throw or take 15 ({@damage 2d6 + 8}) bludgeoning damage and be knocked {@condition prone}. The dragon can then fly up
+    to half its flying speed.
+legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s turn, The dragon can expend a
+  use to take one of the following actions. The dragon regains all expended uses at the start of each of its turns.'

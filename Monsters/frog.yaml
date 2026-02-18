@@ -28,7 +28,6 @@ traits:
 - name: Amphibious
   desc: The frog can breathe air and water.
 - name: Standing Leap
-  desc: The frog's Long Jump is up to 10 feet and its High Jump is up to 5 feet with or without a running start.
-actions:
-- name: Bite
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 1 Piercing damage.'
+  desc: The frog's long jump is up to 10 feet and its high jump is up to 5 feet, with or without a running start.
+actions: []
+legendary_actions: []
