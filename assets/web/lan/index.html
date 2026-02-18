@@ -1484,6 +1484,25 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 1px rgba(106,169,255,0.35);
     }
+    .turn-chip-active-tag{
+      display:none;
+      align-items:center;
+      gap:4px;
+      font-size:10px;
+      line-height:1;
+      letter-spacing:0.02em;
+      text-transform:uppercase;
+      padding:3px 6px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.28);
+      background:rgba(255,255,255,0.12);
+      color:#fff7d4;
+      font-weight:800;
+      flex:0 0 auto;
+    }
+    .turn-chip.active .turn-chip-active-tag{
+      display:inline-flex;
+    }
     .modal{
       position:fixed; inset:0; background: rgba(0,0,0,0.55);
       display:none; align-items:center; justify-content:center;
@@ -1954,7 +1973,9 @@
     }
     .topbar-initiative .turn-chip.active{
       border-color: rgba(214,186,126,0.95);
-      box-shadow: 0 0 0 1px rgba(214,186,126,0.7), 0 0 12px rgba(214,186,126,0.35);
+      background: linear-gradient(180deg, rgba(214,186,126,0.34), rgba(214,186,126,0.16));
+      box-shadow: 0 0 0 1px rgba(214,186,126,0.7), 0 0 16px rgba(214,186,126,0.5), 0 0 30px rgba(214,186,126,0.3);
+      transform: translateY(-1px);
     }
     .topbar-initiative .turn-chip.friendly{
       background: rgba(106,255,176,0.16);
@@ -8798,6 +8819,13 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  function centerActiveTurnChip(chip){
+    if (!activeTurnOrderEl || !chip || typeof chip.scrollIntoView !== "function") return;
+    const isOverflowing = activeTurnOrderEl.scrollWidth > activeTurnOrderEl.clientWidth + 4;
+    if (!isOverflowing) return;
+    chip.scrollIntoView({behavior: "smooth", block: "nearest", inline: "center"});
+  }
+
   function updateTurnOrder(){
     if (!activeTurnOrderEl){
       return;
@@ -8913,6 +8941,13 @@ __DAMAGE_TYPE_OPTIONS__
       nameEl.setAttribute("data-full-name", unitName);
       nameEl.setAttribute("title", fullLabel);
       chip.appendChild(nameEl);
+      if (idx === activeIndex){
+        const activeTagEl = document.createElement("span");
+        activeTagEl.className = "turn-chip-active-tag";
+        activeTagEl.textContent = "Current";
+        activeTagEl.setAttribute("aria-hidden", "true");
+        chip.appendChild(activeTagEl);
+      }
       chip.addEventListener("click", () => {
         if (cidValue === null) return;
         setSelectedTurnCid(cidValue);
@@ -8972,6 +9007,13 @@ __DAMAGE_TYPE_OPTIONS__
       }
     }
     setSelectedTurnCid(fallbackCid);
+    if (activeIndex >= 0){
+      const activeOrderCid = normalizeCid(order[activeIndex], "turnOrder.centerActiveCid");
+      if (activeOrderCid !== null){
+        const activeChip = chipByCid.get(activeOrderCid);
+        centerActiveTurnChip(activeChip);
+      }
+    }
   }
 
   function normalizeActionEntry(entry, defaultType){
