@@ -840,8 +840,8 @@ class InitiativeTracker(tk.Tk):
 
         self._tree_context_menu = tk.Menu(self, tearoff=0)
         self._tree_context_menu.add_command(
-            label="View Monster Info",
-            command=self._open_selected_monster_info,
+            label="View Stat Block",
+            command=self._open_selected_combatant_info,
             state=tk.DISABLED,
         )
 
@@ -998,19 +998,33 @@ class InitiativeTracker(tk.Tk):
     def _monster_stat_block_text(self, spec: MonsterSpec) -> str:
         raw = spec.raw_data or {}
         lines: List[str] = []
-        lines.append(spec.name)
+        
+        # ═══ HEADER ═══
+        lines.append("═" * 60)
+        lines.append(f"  {spec.name.upper()}")
+        lines.append("═" * 60)
         lines.append("")
-        lines.append("Identity")
-        lines.append(f"Name: {spec.name}")
-        lines.append(f"Size: {self._format_monster_simple_value(raw.get('size'))}")
-        lines.append(f"Type: {self._format_monster_simple_value(raw.get('type') or spec.mtype)}")
-        lines.append(f"Alignment: {self._format_monster_simple_value(raw.get('alignment'))}")
-        lines.append(f"Initiative: {self._format_monster_initiative(raw.get('initiative'))}")
-        lines.append(f"AC: {self._format_monster_ac(raw.get('ac'))}")
-        lines.append(f"HP: {self._format_monster_hp(raw.get('hp'))}")
-        lines.append(f"Speed: {self._format_monster_speed(raw.get('speed'))}")
+        
+        # ─── CORE STATS ───
+        lines.append("─── CORE STATS " + "─" * 44)
+        size = self._format_monster_simple_value(raw.get('size'))
+        mtype = self._format_monster_simple_value(raw.get('type') or spec.mtype)
+        alignment = self._format_monster_simple_value(raw.get('alignment'))
+        lines.append(f"  {size} {mtype}, {alignment}")
         lines.append("")
-        lines.append("Ability Scores")
+        
+        # Key combat stats in a scannable format
+        ac_val = self._format_monster_ac(raw.get('ac'))
+        hp_val = self._format_monster_hp(raw.get('hp'))
+        init_val = self._format_monster_initiative(raw.get('initiative'))
+        speed_val = self._format_monster_speed(raw.get('speed'))
+        
+        lines.append(f"  ⚔  AC: {ac_val}     ❤  HP: {hp_val}")
+        lines.append(f"  ⚡ Init: {init_val}     🏃 Speed: {speed_val}")
+        lines.append("")
+        
+        # ─── ABILITIES ───
+        lines.append("─── ABILITIES " + "─" * 46)
         abilities = raw.get("abilities")
         ability_lines = []
         if isinstance(abilities, dict):
@@ -1021,37 +1035,86 @@ class InitiativeTracker(tk.Tk):
                 if score is None:
                     continue
                 mod = (score - 10) // 2
-                ability_lines.append(f"{ab.upper()} {score} ({mod:+d})")
+                ability_lines.append(f"{ab.upper()} {score:2d} ({mod:+d})")
         if ability_lines:
-            lines.append("  " + " | ".join(ability_lines))
+            lines.append("  " + "  |  ".join(ability_lines))
         else:
-            lines.append("  No ability scores available.")
-
-        def add_section(title: str, value: object) -> None:
-            lines.append("")
-            lines.append(title)
-            entries = self._format_monster_feature_lines(value)
+            lines.append("  (No ability scores available)")
+        lines.append("")
+        
+        # ─── ACTIONS (Most important for DMs!) ───
+        actions_data = raw.get("actions")
+        if actions_data and isinstance(actions_data, list) and any(isinstance(x, dict) for x in actions_data):
+            lines.append("─── ⚔  ACTIONS " + "─" * 45)
+            for entry in actions_data:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name") or entry.get("title")
+                desc = entry.get("desc") or entry.get("description") or entry.get("text")
+                if not name:
+                    continue
+                
+                # Parse attack info for better formatting
+                desc_str = self._format_monster_text_block(desc) if desc else ""
+                lines.append(f"  • {name}")
+                
+                # Extract key info from description
+                if desc_str:
+                    # Look for attack roll info
+                    import re
+                    attack_match = re.search(r'Attack Roll\s*:\s*([+\-]?\d+)', desc_str, re.IGNORECASE)
+                    hit_match = re.search(r'Hit\s*:\s*(\d+\s*\([^)]+\)\s*\w+)', desc_str, re.IGNORECASE)
+                    
+                    if attack_match:
+                        lines.append(f"      To Hit: {attack_match.group(1)}")
+                    if hit_match:
+                        lines.append(f"      Damage: {hit_match.group(1)}")
+                    
+                    # Add full description with indentation
+                    for line in desc_str.split('\n'):
+                        lines.append(f"      {line}")
+                lines.append("")
+        
+        # ─── TRAITS ───
+        traits_data = raw.get("traits")
+        if traits_data:
+            lines.append("─── TRAITS " + "─" * 49)
+            entries = self._format_monster_feature_lines(traits_data)
             if entries:
-                lines.extend(entries)
+                for entry in entries:
+                    lines.append(f"  {entry}")
             else:
-                lines.append(f"No {title.lower()} available.")
-
-        add_section("Traits", raw.get("traits"))
-        add_section("Actions", raw.get("actions"))
-        add_section("Legendary Actions", raw.get("legendary_actions"))
-
-        def add_single_line_section(title: str, value: object) -> None:
-            text = self._format_monster_text_block(value)
+                lines.append("  (None)")
             lines.append("")
-            lines.append(title)
-            if text:
-                lines.append(text)
+        
+        # ─── LEGENDARY ACTIONS ───
+        legendary_data = raw.get("legendary_actions")
+        if legendary_data:
+            lines.append("─── LEGENDARY ACTIONS " + "─" * 38)
+            entries = self._format_monster_feature_lines(legendary_data)
+            if entries:
+                for entry in entries:
+                    lines.append(f"  {entry}")
             else:
-                lines.append(f"No {title.lower()} available.")
-
-        add_single_line_section("Description", raw.get("description"))
-        add_single_line_section("Habitat", raw.get("habitat"))
-        add_single_line_section("Treasure", raw.get("treasure"))
+                lines.append("  (None)")
+            lines.append("")
+        
+        # ─── ADDITIONAL INFO ───
+        desc = self._format_monster_text_block(raw.get("description"))
+        habitat = self._format_monster_text_block(raw.get("habitat"))
+        treasure = self._format_monster_text_block(raw.get("treasure"))
+        
+        if desc or habitat or treasure:
+            lines.append("─── ADDITIONAL INFO " + "─" * 40)
+            if desc:
+                lines.append("  Description:")
+                lines.append(f"    {desc}")
+                lines.append("")
+            if habitat:
+                lines.append(f"  Habitat: {habitat}")
+            if treasure:
+                lines.append(f"  Treasure: {treasure}")
+        
         return "\n".join(lines)
 
     def _open_monster_stat_block(self, spec: Optional[MonsterSpec] = None) -> None:
@@ -3244,7 +3307,19 @@ class InitiativeTracker(tk.Tk):
         self._sync_move_mode_selector()
 
     # -------------------------- Inline editing / clicks --------------------------
+    def _selected_combatant(self) -> Optional[Combatant]:
+        """Get the selected combatant (any type: enemy, ally, or PC)."""
+        items = self.tree.selection()
+        if not items:
+            return None
+        try:
+            cid = int(items[0])
+        except ValueError:
+            return None
+        return self.combatants.get(cid)
+    
     def _selected_enemy_combatant(self) -> Optional[Combatant]:
+        """Get the selected combatant only if it's an enemy."""
         items = self.tree.selection()
         if not items:
             return None
@@ -3264,25 +3339,157 @@ class InitiativeTracker(tk.Tk):
         else:
             self.tree.selection_remove(self.tree.selection())
 
-        can_view = self._selected_enemy_combatant() is not None
+        can_view = self._selected_combatant() is not None
         state = tk.NORMAL if can_view else tk.DISABLED
-        self._tree_context_menu.entryconfigure("View Monster Info", state=state)
+        self._tree_context_menu.entryconfigure("View Stat Block", state=state)
         try:
             self._tree_context_menu.tk_popup(event.x_root, event.y_root)
         finally:
             self._tree_context_menu.grab_release()
 
-    def _open_selected_monster_info(self) -> None:
-        c = self._selected_enemy_combatant()
+    def _open_selected_combatant_info(self) -> None:
+        """Open stat block for any combatant (monster, player, or ally)."""
+        c = self._selected_combatant()
         if not c:
             return
-        spec = c.monster_spec or self._monsters_by_name.get(c.name)
-        if spec is not None:
-            spec = self._load_monster_details(spec.name) or spec
-        if not spec:
-            messagebox.showinfo("Monster Info", f"No stat block available for {c.name}.")
-            return
-        self._open_monster_stat_block(spec)
+        
+        # For enemies, use monster spec
+        if not c.ally and not c.is_pc:
+            spec = c.monster_spec or self._monsters_by_name.get(c.name)
+            if spec is not None:
+                spec = self._load_monster_details(spec.name) or spec
+            if not spec:
+                messagebox.showinfo("Stat Block", f"No stat block available for {c.name}.")
+                return
+            self._open_monster_stat_block(spec)
+        else:
+            # For allies and PCs, show a basic stat block with available info
+            self._open_combatant_stat_block(c)
+    
+    def _open_combatant_stat_block(self, c: Combatant) -> None:
+        """Show a stat block for player or ally combatant."""
+        win = tk.Toplevel(self)
+        title = f"{c.name} Stat Block"
+        win.title(title)
+        win.geometry("560x680")
+        win.transient(self)
+
+        body = ttk.Frame(win, padding=10)
+        body.pack(fill="both", expand=True)
+
+        text = tk.Text(body, wrap="word")
+        scroll = ttk.Scrollbar(body, orient="vertical", command=text.yview)
+        text.configure(yscrollcommand=scroll.set)
+        text.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+
+        # Build basic stat block from combatant data
+        lines: List[str] = []
+        lines.append("═" * 60)
+        lines.append(f"  {c.name.upper()}")
+        lines.append("═" * 60)
+        lines.append("")
+        
+        lines.append("─── CORE STATS " + "─" * 44)
+        combatant_type = "Player Character" if c.is_pc else "Ally"
+        lines.append(f"  {combatant_type}")
+        lines.append("")
+        
+        # Combat stats
+        ac_val = getattr(c, 'ac', '?')
+        lines.append(f"  ⚔  AC: {ac_val}     ❤  HP: {c.hp}")
+        lines.append(f"  ⚡ Initiative: {c.initiative}")
+        lines.append("")
+        
+        # Speeds
+        lines.append("─── MOVEMENT " + "─" * 47)
+        lines.append(f"  🏃 Walk: {c.speed} ft.")
+        if c.swim_speed > 0:
+            lines.append(f"  🏊 Swim: {c.swim_speed} ft.")
+        if c.fly_speed > 0:
+            lines.append(f"  🦅 Fly: {c.fly_speed} ft.")
+        if c.climb_speed > 0:
+            lines.append(f"  🧗 Climb: {c.climb_speed} ft.")
+        if c.burrow_speed > 0:
+            lines.append(f"  ⛏  Burrow: {c.burrow_speed} ft.")
+        lines.append("")
+        
+        # Abilities if available
+        if c.ability_mods:
+            lines.append("─── ABILITIES " + "─" * 46)
+            ability_parts = []
+            for ab in ("str", "dex", "con", "int", "wis", "cha"):
+                if ab in c.ability_mods:
+                    mod = c.ability_mods[ab]
+                    ability_parts.append(f"{ab.upper()} ({mod:+d})")
+            if ability_parts:
+                lines.append("  " + "  |  ".join(ability_parts))
+            lines.append("")
+        
+        # Saving throws if available
+        if c.saving_throws:
+            lines.append("─── SAVING THROWS " + "─" * 42)
+            save_parts = []
+            for ab in ("str", "dex", "con", "int", "wis", "cha"):
+                if ab in c.saving_throws:
+                    save = c.saving_throws[ab]
+                    save_parts.append(f"{ab.upper()} {save:+d}")
+            if save_parts:
+                lines.append("  " + "  |  ".join(save_parts))
+            lines.append("")
+        
+        # Actions if available
+        if c.actions:
+            lines.append("─── ⚔  ACTIONS " + "─" * 45)
+            for action in c.actions:
+                if isinstance(action, dict):
+                    name = action.get("name", "Unnamed Action")
+                    desc = action.get("description", "")
+                    lines.append(f"  • {name}")
+                    if desc:
+                        lines.append(f"      {desc}")
+            lines.append("")
+        
+        # Bonus actions if available
+        if c.bonus_actions:
+            lines.append("─── BONUS ACTIONS " + "─" * 42)
+            for action in c.bonus_actions:
+                if isinstance(action, dict):
+                    name = action.get("name", "Unnamed Bonus Action")
+                    desc = action.get("description", "")
+                    lines.append(f"  • {name}")
+                    if desc:
+                        lines.append(f"      {desc}")
+            lines.append("")
+        
+        # Reactions if available
+        if c.reactions:
+            lines.append("─── REACTIONS " + "─" * 46)
+            for action in c.reactions:
+                if isinstance(action, dict):
+                    name = action.get("name", "Unnamed Reaction")
+                    desc = action.get("description", "")
+                    lines.append(f"  • {name}")
+                    if desc:
+                        lines.append(f"      {desc}")
+            lines.append("")
+        
+        # Conditions if active
+        if c.condition_stacks:
+            lines.append("─── ACTIVE CONDITIONS " + "─" * 38)
+            for stack in c.condition_stacks:
+                if hasattr(stack, 'condition'):
+                    lines.append(f"  • {stack.condition}")
+            lines.append("")
+        
+        lines.append("(Note: Full player abilities may require YAML data)")
+        
+        text.insert("1.0", "\n".join(lines))
+        text.configure(state="disabled")
+    
+    def _open_selected_monster_info(self) -> None:
+        """Legacy method for compatibility - redirects to new method."""
+        self._open_selected_combatant_info()
 
     def _on_tree_double_click(self, event) -> None:
         item = self.tree.identify_row(event.y)
