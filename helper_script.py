@@ -9530,6 +9530,18 @@ class BattleMapWindow(tk.Toplevel):
             active_cid = getattr(self, "_active_cid", None)
         if active_cid is None:
             active_cid = getattr(self.app, "current_cid", None)
+        map_attack_handler = getattr(self.app, "_open_map_attack_tool", None)
+        if callable(map_attack_handler):
+            try:
+                if bool(map_attack_handler(attacker_cid=active_cid, target_cid=target_cid, dialog_parent=self)):
+                    if consume_mode:
+                        try:
+                            self.damage_mode_var.set(False)
+                        except tk.TclError:
+                            pass
+                    return
+            except Exception:
+                pass
         try:
             self.app._open_damage_tool(attacker_cid=active_cid, target_cid=target_cid, dialog_parent=self)
         except Exception:
