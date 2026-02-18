@@ -725,6 +725,52 @@ class LanAttackRequestTests(unittest.TestCase):
         candidates = result.get("cleave_candidates", [])
         self.assertTrue(any(int(entry.get("cid")) == 3 for entry in candidates))
 
+    def test_attack_request_applies_once_per_turn_feature_rider_once(self):
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Rogue", "level": 10, "attacks_per_action": 1}]},
+            "attacks": {
+                "weapon_to_hit": 5,
+                "weapons": [
+                    {
+                        "id": "rapier",
+                        "name": "Rapier",
+                        "to_hit": 7,
+                        "properties": ["finesse"],
+                        "one_handed": {"damage_formula": "1d8 + dex_mod", "damage_type": "piercing"},
+                    }
+                ],
+            },
+            "feature_effects": {
+                "damage_riders": [
+                    {
+                        "id": "sneak_attack",
+                        "trigger": ["finesse_weapon_attack"],
+                        "once_per_turn": True,
+                        "damage_formula": "1d6",
+                        "damage_type": "same_as_attack",
+                    }
+                ]
+            },
+        }
+        first = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 33,
+            "target_cid": 2,
+            "weapon_id": "rapier",
+            "hit": True,
+            "damage_entries": [{"amount": 3, "type": "piercing"}],
+        }
+        second = dict(first)
+        second["_ws_id"] = 34
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=1):
+            self.app._lan_apply_action(first)
+            self.app.combatants[1].action_remaining = 1
+            self.app._lan_apply_action(second)
+        self.assertEqual((first.get("_attack_result") or {}).get("damage_total"), 4)
+        self.assertEqual((second.get("_attack_result") or {}).get("damage_total"), 3)
+
 
     def test_attack_request_applies_dorian_aura_bonus_to_saves(self):
         self.app.combatants[3] = type(

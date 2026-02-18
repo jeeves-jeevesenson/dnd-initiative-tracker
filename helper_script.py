@@ -32,6 +32,7 @@ import re
 import json
 import hashlib
 import threading
+import copy
 from pathlib import Path
 from datetime import datetime
 
@@ -1931,6 +1932,8 @@ class InitiativeTracker(tk.Tk):
             description = str(item.get("description") or "").strip()
             action_type = str(item.get("type") or default_type).strip().lower() or default_type
             uses_value = item.get("uses")
+            if not isinstance(uses_value, dict):
+                uses_value = item.get("consumes")
             uses: Optional[Dict[str, Any]] = None
             if isinstance(uses_value, dict):
                 pool_id = str(uses_value.get("pool") or uses_value.get("id") or "").strip()
@@ -1947,6 +1950,18 @@ class InitiativeTracker(tk.Tk):
             }
             if uses:
                 payload["uses"] = uses
+            for extra_key in (
+                "id",
+                "effect",
+                "slot_level",
+                "consume_one_of",
+                "source_feature_id",
+                "source_feature_name",
+                "automation",
+                "feature_state",
+            ):
+                if extra_key in item:
+                    payload[extra_key] = copy.deepcopy(item.get(extra_key))
             entries.append(payload)
         return entries
 
