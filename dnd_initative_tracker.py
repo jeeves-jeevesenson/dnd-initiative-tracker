@@ -7065,6 +7065,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 "resource_pools": self._player_resource_pools_payload,
             }
             for key, default in static_defaults.items():
+                if key == "resource_pools":
+                    try:
+                        snap[key] = static_builders[key]()
+                    except Exception:
+                        snap[key] = copy.deepcopy(default)
+                    continue
                 if key in cached_snapshot:
                     snap[key] = copy.deepcopy(cached_snapshot.get(key))
                     continue
