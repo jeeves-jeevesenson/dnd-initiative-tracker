@@ -821,7 +821,9 @@ class InitiativeTracker(tk.Tk):
         self.tree.tag_configure("even", background="#fbf7eb")
         self.tree.tag_configure("ally", foreground="#1b7f2a")
         self.tree.tag_configure("enemy", foreground="#b02a2a")
-        self.tree.tag_configure("current", background="#fff2b2")
+        self._turn_current_font = tkfont.Font(self, font=tkfont.nametofont("TkDefaultFont"))
+        self._turn_current_font.configure(weight="bold")
+        self.tree.tag_configure("current", background="#ffd24d", foreground="#1a1a1a", font=self._turn_current_font)
         self.tree.tag_configure("start", background="#cfe8ff")
 
         # bindings
@@ -3292,10 +3294,7 @@ class InitiativeTracker(tk.Tk):
         if scroll_to_top:
             self.tree.yview_moveto(0.0)
         elif scroll_to_current and self.current_cid is not None:
-            try:
-                self.tree.see(str(self.current_cid))
-            except Exception:
-                pass
+            self._center_current_turn_row()
         else:
             try:
                 self.tree.yview_moveto(prev_y)
@@ -3304,6 +3303,44 @@ class InitiativeTracker(tk.Tk):
 
         self._update_turn_ui()
         self._sync_move_mode_selector()
+
+    def _center_current_turn_row(self) -> None:
+        if self.current_cid is None:
+            return
+        item_id = str(self.current_cid)
+        if item_id not in self.tree.get_children():
+            return
+
+        try:
+            children = self.tree.get_children()
+            row_count = len(children)
+            if row_count <= 0:
+                return
+
+            self.tree.see(item_id)
+
+            row_height = 24
+            try:
+                style = ttk.Style(self)
+                configured = style.lookup("DnD.Treeview", "rowheight")
+                if configured:
+                    row_height = max(1, int(float(configured)))
+            except Exception:
+                pass
+
+            viewport_height = max(1, int(self.tree.winfo_height()))
+            visible_rows = max(1, viewport_height // row_height)
+            current_index = children.index(item_id)
+
+            center_offset = max(0, visible_rows // 2)
+            target_top_index = max(0, min(row_count - visible_rows, current_index - center_offset))
+            y_fraction = target_top_index / max(1, row_count)
+            self.tree.yview_moveto(y_fraction)
+        except Exception:
+            try:
+                self.tree.see(item_id)
+            except Exception:
+                pass
 
     # -------------------------- Inline editing / clicks --------------------------
     def _selected_combatant(self) -> Optional[Combatant]:
