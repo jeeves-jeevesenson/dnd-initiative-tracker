@@ -11881,6 +11881,343 @@ class InitiativeTracker(base.InitiativeTracker):
                 return entry
         return None
 
+    @staticmethod
+    def _monster_attack_name_key(value: Any) -> str:
+        text = str(value or "").strip().lower()
+        text = re.sub(r"\([^)]*\)", "", text)
+        text = re.sub(r"[^a-z0-9]+", " ", text)
+        return re.sub(r"\s+", " ", text).strip()
+
+    @staticmethod
+    def _monster_attack_count_from_text(value: Any) -> int:
+        raw = str(value or "").strip().lower()
+        if not raw:
+            return 0
+        word_counts = {
+            "one": 1,
+            "two": 2,
+            "three": 3,
+            "four": 4,
+            "five": 5,
+            "six": 6,
+            "seven": 7,
+            "eight": 8,
+            "nine": 9,
+            "ten": 10,
+        }
+        if raw.isdigit():
+            return max(0, min(10, int(raw)))
+        return int(word_counts.get(raw, 0))
+
+    def _monster_attack_options_for_map(self, attacker: Any) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+        spec = getattr(attacker, "monster_spec", None)
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        if not isinstance(raw_data, dict):
+            return [], {}
+        actions = raw_data.get("actions")
+        if not isinstance(actions, list):
+            return [], {}
+
+        options: List[Dict[str, Any]] = []
+        for raw_action in actions:
+            if not isinstance(raw_action, dict):
+                continue
+            name = str(raw_action.get("name") or "").strip()
+            if not name:
+                continue
+            action_key = self._monster_attack_name_key(name)
+            if action_key == "multiattack":
+                continue
+            desc_text = str(raw_action.get("description") or raw_action.get("desc") or "").strip()
+            if not desc_text:
+                continue
+            to_hit: Optional[int] = None
+            hit_match = re.search(r"\{@hit\s*([+\-]?\d+)\}", desc_text, flags=re.IGNORECASE)
+            if hit_match:
+                try:
+                    to_hit = int(hit_match.group(1))
+                except Exception:
+                    to_hit = None
+            if to_hit is None:
+                plain_hit = re.search(r"([+\-]?\d+)\s*to hit", desc_text, flags=re.IGNORECASE)
+                if plain_hit:
+                    try:
+                        to_hit = int(plain_hit.group(1))
+                    except Exception:
+                        to_hit = None
+            if to_hit is None:
+                attack_roll = re.search(r"attack roll\s*:\s*([+\-]?\d+)", desc_text, flags=re.IGNORECASE)
+                if attack_roll:
+                    try:
+                        to_hit = int(attack_roll.group(1))
+                    except Exception:
+                        to_hit = None
+
+            damage_entries: List[Dict[str, str]] = []
+            for dmg in re.finditer(r"\{@damage\s+([^}]+)\}\)\s*([a-zA-Z]+)\s+damage", desc_text, flags=re.IGNORECASE):
+                formula = str(dmg.group(1) or "").strip()
+                dtype = str(dmg.group(2) or "").strip().lower()
+                if formula and dtype:
+                    damage_entries.append({"formula": formula, "type": dtype})
+            if not damage_entries:
+                normalized_desc = re.sub(r"\{@damage\s+([^}]+)\}", r"\1", desc_text, flags=re.IGNORECASE)
+                normalized_desc = re.sub(r"\{@[^}]+\}", " ", normalized_desc)
+                for dmg in re.finditer(r"\((\d*d\d+(?:\s*[+\-]\s*\d+)?)\)\s*([a-zA-Z]+)\s+damage", normalized_desc, flags=re.IGNORECASE):
+                    formula = str(dmg.group(1) or "").strip()
+                    dtype = str(dmg.group(2) or "").strip().lower()
+                    if formula and dtype:
+                        damage_entries.append({"formula": formula, "type": dtype})
+            if to_hit is None or not damage_entries:
+                continue
+            options.append(
+                {
+                    "name": name,
+                    "key": action_key or self._action_name_key(name),
+                    "to_hit": int(to_hit),
+                    "damage_entries": damage_entries,
+                }
+            )
+
+        if not options:
+            return [], {}
+
+        multiattack_counts: Dict[str, int] = {}
+        for raw_action in actions:
+            if not isinstance(raw_action, dict):
+                continue
+            if self._monster_attack_name_key(raw_action.get("name")) != "multiattack":
+                continue
+            text = str(raw_action.get("description") or raw_action.get("desc") or "").strip().lower()
+            if not text:
+                break
+            total_match = re.search(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b\s+attacks?\b", text)
+            if total_match:
+                total_count = self._monster_attack_count_from_text(total_match.group(1))
+                if total_count > 0:
+                    multiattack_counts["__total__"] = int(total_count)
+            phrase_matches = list(
+                re.finditer(
+                    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b\s+with\b\s+(?:its|his|her)?\s*([^.;]+?)(?=(?:\band\b\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+with\b)|[.;]|$)",
+                    text,
+                )
+            )
+            for option in options:
+                key = str(option.get("key") or "")
+                if not key:
+                    continue
+                tokens = [tok for tok in key.split(" ") if tok]
+                tokens.insert(0, key)
+                token_counts: List[int] = []
+                for phrase in phrase_matches:
+                    parsed = self._monster_attack_count_from_text(phrase.group(1))
+                    if parsed <= 0:
+                        continue
+                    segment = str(phrase.group(2) or "")
+                    for token in tokens:
+                        if re.search(rf"\b{re.escape(token)}\b", segment):
+                            token_counts.append(parsed)
+                            break
+                if token_counts:
+                    multiattack_counts[key] = int(min(token_counts))
+            break
+        return options, multiattack_counts
+
+    def _roll_monster_attack_formula(self, formula: Any, critical: bool = False) -> int:
+        raw = str(formula or "").strip().lower()
+        if not raw:
+            return 0
+        if not re.fullmatch(r"[0-9d+\-*/().\s]+", raw):
+            return 0
+
+        def _replace_dice(match: re.Match[str]) -> str:
+            count = int(match.group(1) or 1)
+            sides = int(match.group(2))
+            if count <= 0 or count > 100 or sides <= 0 or sides > 1000:
+                raise ValueError("invalid dice notation")
+            if critical:
+                count *= 2
+            return str(sum(random.randint(1, sides) for _ in range(count)))
+
+        try:
+            expr = re.sub(r"(\d*)d(\d+)", _replace_dice, raw)
+        except Exception:
+            return 0
+        evaluated = self._evaluate_spell_formula(expr, {})
+        if evaluated is None:
+            return 0
+        return max(0, int(math.floor(evaluated)))
+
+    def _resolve_map_attack(
+        self,
+        attacker_cid: int,
+        target_cid: int,
+        attack_option: Dict[str, Any],
+        attack_count: int = 1,
+    ) -> Dict[str, Any]:
+        attacker = self.combatants.get(int(attacker_cid))
+        target = self.combatants.get(int(target_cid))
+        if attacker is None or target is None:
+            return {"ok": False, "reason": "invalid_combatant"}
+        try:
+            target_ac = int(getattr(target, "ac", 10) or 10)
+        except Exception:
+            target_ac = 10
+        attack_name = str(attack_option.get("name") or "Attack").strip() or "Attack"
+        to_hit = int(attack_option.get("to_hit") or 0)
+        count = max(1, min(10, int(attack_count or 1)))
+        damage_templates = attack_option.get("damage_entries") if isinstance(attack_option.get("damage_entries"), list) else []
+        total_damage = 0
+        hits = 0
+        misses = 0
+        removed_target = False
+        last_target_name = str(getattr(target, "name", "Target") or "Target")
+        for attack_index in range(count):
+            if int(target_cid) not in self.combatants:
+                removed_target = True
+                break
+            target = self.combatants[int(target_cid)]
+            last_target_name = str(getattr(target, "name", "Target") or "Target")
+            roll = random.randint(1, 20)
+            critical = roll == 20
+            total_to_hit = int(roll) + int(to_hit)
+            hit = bool(critical or (roll != 1 and total_to_hit >= int(target_ac)))
+            attack_prefix = f"{attacker.name} {attack_name} attack {attack_index + 1}/{count}"
+            if not hit:
+                misses += 1
+                self._log(f"{attack_prefix}: misses {last_target_name} (d20 {roll} + {to_hit} = {total_to_hit} vs AC {target_ac}).", cid=int(target_cid))
+                continue
+            hits += 1
+            damage_entries: List[Dict[str, Any]] = []
+            for template in damage_templates:
+                if not isinstance(template, dict):
+                    continue
+                formula = str(template.get("formula") or "").strip()
+                dtype = str(template.get("type") or "").strip().lower()
+                amount = self._roll_monster_attack_formula(formula, critical=critical)
+                if amount <= 0:
+                    continue
+                damage_entries.append({"amount": int(amount), "type": dtype})
+            damage_total = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
+            total_damage += max(0, damage_total)
+            damage_desc = ", ".join(
+                f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
+                for entry in damage_entries
+            )
+            old_hp = int(getattr(target, "hp", 0) or 0)
+            target.hp = max(0, old_hp - int(damage_total))
+            if damage_total > 0 and int(target.hp) < old_hp:
+                self._queue_concentration_save(target, "damage")
+            if old_hp > 0 and int(target.hp) == 0:
+                dtype_flavor = str((damage_entries[0].get("type") if damage_entries else "") or "")
+                self._log(self._death_flavor_line(attacker.name, damage_total, dtype_flavor, last_target_name), cid=int(target_cid))
+                lan = getattr(self, "_lan", None)
+                if lan:
+                    try:
+                        lan.play_ko(int(attacker_cid))
+                    except Exception:
+                        pass
+                pre_order: List[int] = []
+                try:
+                    pre_order = [x.cid for x in self._display_order()]
+                except Exception:
+                    pre_order = []
+                self.combatants.pop(int(target_cid), None)
+                if getattr(self, "start_cid", None) == int(target_cid):
+                    self.start_cid = None
+                try:
+                    self._retarget_current_after_removal([int(target_cid)], pre_order=pre_order)
+                except Exception:
+                    pass
+                removed_target = True
+            else:
+                crit_note = " (CRIT)" if critical else ""
+                self._log(
+                    f"{attack_prefix}: hits {last_target_name} for {damage_total} damage{f' ({damage_desc})' if damage_desc else ''}{crit_note}.",
+                    cid=int(target_cid),
+                )
+        try:
+            self._rebuild_table(scroll_to_current=True)
+        except Exception:
+            pass
+        return {
+            "ok": True,
+            "attacker_cid": int(attacker_cid),
+            "target_cid": int(target_cid),
+            "target_name": last_target_name,
+            "attack_name": attack_name,
+            "attack_count": int(count),
+            "hits": int(hits),
+            "misses": int(misses),
+            "total_damage": int(total_damage),
+            "target_removed": bool(removed_target),
+        }
+
+    def _open_map_attack_tool(
+        self,
+        attacker_cid: Optional[int] = None,
+        target_cid: Optional[int] = None,
+        dialog_parent: Optional[tk.Misc] = None,
+    ) -> bool:
+        if attacker_cid is None or target_cid is None:
+            return False
+        attacker = self.combatants.get(int(attacker_cid))
+        target = self.combatants.get(int(target_cid))
+        if attacker is None or target is None:
+            return False
+        if bool(getattr(attacker, "ally", False)) or bool(getattr(attacker, "is_pc", False)):
+            return False
+        attack_options, multiattack_counts = self._monster_attack_options_for_map(attacker)
+        if not attack_options:
+            return False
+        dlg = tk.Toplevel(self)
+        dlg.title(f"Attack {target.name}")
+        dlg.transient(dialog_parent if dialog_parent is not None else self)
+        dlg.resizable(False, False)
+        outer = ttk.Frame(dlg, padding=10)
+        outer.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(outer, text=f"{attacker.name} attacks {target.name}").grid(row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(outer, text="Attack:").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        option_names = [str(entry.get("name") or "Attack") for entry in attack_options]
+        attack_var = tk.StringVar(value=option_names[0] if option_names else "")
+        attack_cb = ttk.Combobox(outer, textvariable=attack_var, values=option_names, state="readonly", width=34)
+        attack_cb.grid(row=1, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(outer, text="Attack count:").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        count_var = tk.StringVar(value="1")
+        count_spin = ttk.Spinbox(outer, from_=1, to=10, textvariable=count_var, width=8)
+        count_spin.grid(row=2, column=1, sticky="w", pady=(8, 0))
+
+        def _selected_option() -> Dict[str, Any]:
+            selected_name = str(attack_var.get() or "").strip()
+            for option in attack_options:
+                if str(option.get("name") or "") == selected_name:
+                    return option
+            return attack_options[0]
+
+        def _refresh_default_count(*_args: Any) -> None:
+            selected = _selected_option()
+            key = str(selected.get("key") or "")
+            count = int(multiattack_counts.get(key) or multiattack_counts.get("__total__") or 1)
+            count_var.set(str(max(1, min(10, count))))
+
+        attack_var.trace_add("write", _refresh_default_count)
+        _refresh_default_count()
+
+        btns = ttk.Frame(outer)
+        btns.grid(row=3, column=0, columnspan=2, sticky="e", pady=(12, 0))
+
+        def _resolve_and_close() -> None:
+            selected = _selected_option()
+            try:
+                count = int(str(count_var.get() or "1").strip())
+            except Exception:
+                count = 1
+            self._resolve_map_attack(int(attacker_cid), int(target_cid), selected, attack_count=count)
+            dlg.destroy()
+
+        ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.RIGHT)
+        ttk.Button(btns, text="Attack", command=_resolve_and_close).pack(side=tk.RIGHT, padx=(0, 8))
+        return True
+
     def _combatant_can_cast_spell(self, c: Any, spend: str) -> bool:
         if spend == "reaction":
             return True
