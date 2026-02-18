@@ -25,10 +25,13 @@ description: ''
 habitat: Desert, Forest, Swamp, Underdark, Urban
 traits:
 - name: Spider Climb
-  desc: The spider can climb difficult surfaces, including along ceilings, without needing to make an ability check.
+  desc: The spider can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check.
+- name: Web Sense
+  desc: While in contact with a web, the spider knows the exact location of any other creature in contact with the same web.
 - name: Web Walker
-  desc: The spider ignores movement restrictions caused by webs, and the spider knows the location of any other
-    creature in contact with the same web.
+  desc: The spider ignores movement restrictions caused by webbing.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 1 Piercing damage plus 2 (1d4) Poison damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@h}1 piercing damage, and the target must succeed on a {@dc
+    9} Constitution saving throw or take 2 ({@damage 1d4}) poison damage.'
+legendary_actions: []

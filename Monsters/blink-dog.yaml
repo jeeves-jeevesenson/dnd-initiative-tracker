@@ -21,11 +21,18 @@ skills:
 senses: Darkvision 60 ft., Passive Perception 15
 languages:
 - Blink Dog; understands Elvish and Sylvan but can't speak them
-description: Blink dogs glimmer with a magic that allows them to teleport, "blinking" from one spot to another.
-  These dogs use this power to chase prey, baffle foes, and express joy. They're frequently found among Feywild
-  folk, such as centaurs and pixies—often as members of rollicking hunts between worlds.
+description: Blink dogs glimmer with a magic that allows them to teleport, "blinking" from one spot to another. These dogs
+  use this power to chase prey, baffle foes, and express joy. They're frequently found among Feywild folk, such as centaurs
+  and pixies—often as members of rollicking hunts between worlds.
 habitat: Forest, Planar (Feywild)
 treasure: None
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 5 (1d4 + 3) Piercing damage.'
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d6 + 1}) piercing damage.'
+- name: Teleport {@recharge 4}
+  desc: The dog magically teleports, along with any equipment it is wearing or carrying, up to 40 feet to an unoccupied space
+    it can see. Before or after teleporting, the dog can make one bite attack.
+traits:
+- name: Keen Hearing and Smell
+  desc: The dog has advantage on Wisdom ({@skill Perception}) checks that rely on hearing or smell.
+legendary_actions: []

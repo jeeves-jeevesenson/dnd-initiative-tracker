@@ -23,14 +23,22 @@ description: ''
 habitat: Coastal, Forest, Hill, Mountain
 treasure: Any
 actions:
-- name: Claw
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 6 (2d4 + 1) Slashing damage.'
+- name: Multiattack
+  desc: 'The harpy makes two attacks: one with its claws and one with its club.'
+- name: Claws
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}6 ({@damage 2d4 + 1}) slashing damage.'
+- name: Club
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}3 ({@damage 1d4 + 1}) bludgeoning damage.'
 - name: Luring Song
-  desc: 'The harpy sings a magical melody, which lasts until the harpy''s Concentration ends on it. Wisdom Saving
-    Throw : DC 11, each Humanoid and Giant in a 300-foot Emanation originating from the harpy when the song starts.
-    Failure : The target has the Charmed condition until the song ends and repeats the save at the end of each of
-    its turns. While Charmed, the target has the Incapacitated condition and ignores the Luring Song of other harpies.
-    If the target is more than 5 feet from the harpy, the target moves on its turn toward the harpy by the most
-    direct route, trying to get within 5 feet of the harpy. It doesn''t avoid Opportunity Attacks; however, before
-    moving into damaging terrain (such as lava or a pit) and whenever it takes damage from a source other than the
-    harpy, the target repeats the save. Success : The target is immune to this harpy''s Luring Song for 24 hours.'
+  desc: The harpy sings a magical melody. Every humanoid and giant within 300 feet of the harpy that can hear the song must
+    succeed on a {@dc 11} Wisdom saving throw or be {@condition charmed} until the song ends. The harpy must take a bonus
+    action on its subsequent turns to continue singing. It can stop singing at any time. The song ends if the harpy is {@condition
+    incapacitated}. While {@condition charmed} by the harpy, a target is {@condition incapacitated} and ignores the songs
+    of other harpies. If the {@condition charmed} target is more than 5 feet away from the harpy, the target must move on
+    its turn toward the harpy by the most direct route. It doesn't avoid opportunity attacks, but before moving into damaging
+    terrain, such as lava or a pit, and whenever it takes damage from a source other than the harpy, a target can repeat the
+    saving throw. A creature can also repeat the saving throw at the end of each of its turns. If a creature's saving throw
+    is successful, the effect ends on it. A target that successfully saves is immune to this harpy's song for the next 24
+    hours.
+traits: []
+legendary_actions: []

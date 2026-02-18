@@ -24,7 +24,9 @@ immunities:
 senses: Passive Perception 17
 languages:
 - Primordial (Ignan)
-description: Azer pyromancers conjure flames from the Elemental Plane of Fire to defend themselves and stoke magical
-  forges.
+description: Azer pyromancers conjure flames from the Elemental Plane of Fire to defend themselves and stoke magical forges.
 habitat: Mountain, Planar (Elemental Plane of Fire)
 treasure: Individual, Armaments
+traits: []
+actions: []
+legendary_actions: []

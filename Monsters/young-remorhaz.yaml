@@ -24,3 +24,12 @@ languages:
 - —
 description: Young remorhazes scorch and consume any creatures they can chase down and overwhelm.
 habitat: Arctic
+traits:
+- name: Heated Body
+  desc: A creature that touches the remorhaz or hits it with a melee attack while within 5 feet of it takes 7 ({@damage 2d6})
+    fire damage.
+actions:
+- name: Bite
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}20 ({@damage 3d10 + 4}) piercing damage plus 7 ({@damage
+    2d6}) fire damage.'
+legendary_actions: []

@@ -25,6 +25,12 @@ description: ''
 habitat: Coastal, Grassland, Hill, Mountain
 actions:
 - name: Multiattack
-  desc: The eagle makes two Rend attacks.
-- name: Rend
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 5 (1d4 + 3) Slashing damage plus 3 (1d6) Radiant damage.'
+  desc: 'The eagle makes two attacks: one with its beak and one with its talons.'
+- name: Beak
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) piercing damage.'
+- name: Talons
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}10 ({@damage 2d6 + 3}) slashing damage.'
+traits:
+- name: Keen Sight
+  desc: The eagle has advantage on Wisdom ({@skill Perception}) checks that rely on sight.
+legendary_actions: []

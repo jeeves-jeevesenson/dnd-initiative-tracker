@@ -28,3 +28,6 @@ languages:
 description: Lizardfolk geomancers draw magic from the natural world, using it to protect their people and territories.
 habitat: Forest, Swamp
 treasure: Individual
+traits: []
+actions: []
+legendary_actions: []

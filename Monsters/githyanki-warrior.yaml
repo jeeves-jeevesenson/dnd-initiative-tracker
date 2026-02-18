@@ -22,3 +22,11 @@ languages:
 description: Githyanki warriors use psionic abilities to augment their battle prowess.
 habitat: Planar (Astral Plane)
 treasure: Armaments
+traits: []
+actions:
+- name: Multiattack
+  desc: The githyanki makes two greatsword attacks.
+- name: Greatsword
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}9 ({@damage 2d6 + 2}) slashing damage plus 7 ({@damage 2d6})
+    psychic damage.'
+legendary_actions: []

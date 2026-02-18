@@ -28,7 +28,10 @@ immunities:
 senses: Blindsight 120 ft., Passive Perception 23
 languages:
 - Common plus three other languages
-description: Vampire umbral lords embrace their ties to the darkness, devoting themselves to sinister powers in
-  exchange for access to forbidden magic.
+description: Vampire umbral lords embrace their ties to the darkness, devoting themselves to sinister powers in exchange for
+  access to forbidden magic.
 habitat: Underdark, Urban
 treasure: Any
+traits: []
+actions: []
+legendary_actions: []

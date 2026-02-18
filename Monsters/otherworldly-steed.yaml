@@ -39,13 +39,9 @@ variants:
   damage_type: Necrotic
   bonus_action:
     name: Fell Glare
-    desc: One creature the steed can see within 30 feet must succeed on a Wisdom save or be Frightened until the end of its next turn.
+    desc: One creature the steed can see within 30 feet must succeed on a Wisdom save or be Frightened until the end of its
+      next turn.
 description: See Find Steed
-traits:
-- name: Life Bond
-  desc: When you regain Hit Points from a level 1+ spell, the steed regains the same number of Hit Points if you're
-    within 5 feet of it.
-actions:
-- name: Otherworldly Slam
-  desc: 'Melee Attack Roll : Bonus equals your spell attack modifier, reach 5 ft. Hit : 1d8 plus the spell''s level
-    of Radiant (Celestial), Psychic (Fey), or Necrotic (Fiend) damage.'
+traits: []
+actions: []
+legendary_actions: []

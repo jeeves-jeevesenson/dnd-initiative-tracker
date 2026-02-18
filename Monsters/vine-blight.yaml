@@ -22,8 +22,23 @@ immunities:
 senses: Blindsight 60 ft., Passive Perception 10
 languages:
 - Common
-description: Vine blights resemble humans wrapped in vines common to the areas in which they grow, from hairy ivy
-  vines to flowering kudzu. They can cause plants to burst from the ground around themselves and entangle nearby
-  foes. Unlike most other blights, vine blights can speak. They do so rarely, typically only to convey messages
-  from their masters or to repeat the words of their victims in rasping voices.
+description: Vine blights resemble humans wrapped in vines common to the areas in which they grow, from hairy ivy vines to
+  flowering kudzu. They can cause plants to burst from the ground around themselves and entangle nearby foes. Unlike most
+  other blights, vine blights can speak. They do so rarely, typically only to convey messages from their masters or to repeat
+  the words of their victims in rasping voices.
 habitat: Forest
+traits:
+- name: False Appearance
+  desc: While the blight remains motionless, it is indistinguishable from a tangle of vines.
+actions:
+- name: Constrict
+  desc: '{@atk mw} {@hit 4} to hit, reach 10 ft., one target. {@h}9 ({@damage 2d6 + 2}) bludgeoning damage, and a Large or
+    smaller target is {@condition grappled} (escape {@dc 12}). Until this grapple ends, the target is {@condition restrained},
+    and the blight can''t constrict another target.'
+- name: Entangling Plants {@recharge 5}
+  desc: Grasping roots and vines sprout in a 15-foot radius centered on the blight, withering away after 1 minute. For the
+    duration, that area is {@quickref difficult terrain||3} for nonplant creatures. In addition, each creature of the blight's
+    choice in that area when the plants appear must succeed on a {@dc 12} Strength saving throw or become {@condition restrained}.
+    A creature can use its action to make a {@dc 12} Strength check, freeing itself or another entangled creature within reach
+    on a success.
+legendary_actions: []

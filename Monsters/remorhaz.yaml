@@ -22,16 +22,25 @@ immunities:
 senses: Darkvision 60 ft., Tremorsense 60 ft., Passive Perception 10
 languages:
 - —
-description: Full-grown remorhazes are single-minded ambush predators. They attempt to bite prey and trap it against
-  their searing bodies, then swallow their meal whole. Remorhazes eat as much as they can, since they might go months
-  without feeding.
+description: Full-grown remorhazes are single-minded ambush predators. They attempt to bite prey and trap it against their
+  searing bodies, then swallow their meal whole. Remorhazes eat as much as they can, since they might go months without feeding.
 habitat: Arctic
 traits:
-- name: Heat Aura
-  desc: At the end of each of the remorhaz's turns, each creature in a 5-foot Emanation originating from the remorhaz
-    takes 16 (3d10) Fire damage.
+- name: Heated Body
+  desc: A creature that touches the remorhaz or hits it with a melee attack while within 5 feet of it takes 10 ({@damage 3d6})
+    fire damage.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +11, reach 10 ft. Hit : 18 (2d10 + 7) Piercing damage plus 14 (4d6) Fire damage. If
-    the target is a Large or smaller creature, it has the Grappled condition (escape DC 17), and it has the Restrained
-    condition until the grapple ends.'
+  desc: '{@atk mw} {@hit 11} to hit, reach 10 ft., one target. {@h}40 ({@damage 6d10 + 7}) piercing damage plus 10 ({@damage
+    3d6}) fire damage. If the target is a creature, it is {@condition grappled} (escape {@dc 17}). Until this grapple ends,
+    the target is {@condition restrained}, and the remorhaz can''t bite another target.'
+- name: Swallow
+  desc: The remorhaz makes one bite attack against a Medium or smaller creature it is grappling. If the attack hits, that
+    creature takes the bite's damage and is swallowed, and the grapple ends. While swallowed, the creature is {@condition
+    blinded} and {@condition restrained}, it has {@quickref Cover||3||total cover} against attacks and other effects outside
+    the remorhaz, and it takes 21 ({@damage 6d6}) acid damage at the start of each of the remorhaz's turns. If the remorhaz
+    takes 30 damage or more on a single turn from a creature inside it, the remorhaz must succeed on a {@dc 15} Constitution
+    saving throw at the end of that turn or regurgitate all swallowed creatures, which fall {@condition prone} in a space
+    within 10 feet of the remorhaz. If the remorhaz dies, a swallowed creature is no longer {@condition restrained} by it
+    and can escape from the corpse using 15 feet of movement, exiting {@condition prone}.
+legendary_actions: []

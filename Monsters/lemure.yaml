@@ -23,13 +23,17 @@ immunities:
 senses: Darkvision 120 ft. (unimpeded by magical Darkness), Passive Perception 10
 languages:
 - Understands Infernal but can't speak
-description: Lemures torment weaker creatures, but in the Nine Hells, few such beings exist. To avoid greater suffering,
-  they obey the orders of more powerful devils.
+description: Lemures torment weaker creatures, but in the Nine Hells, few such beings exist. To avoid greater suffering, they
+  obey the orders of more powerful devils.
 habitat: Planar (Nine Hells)
 traits:
-- name: Hellish Restoration
-  desc: If the lemure dies in the Nine Hells, it revives with all its Hit Points in 1d10 days unless it is killed
-    by a creature under the effects of a Bless spell or its remains are sprinkled with Holy Water.
+- name: Devil's Sight
+  desc: Magical darkness doesn't impede the lemure's darkvision.
+- name: Hellish Rejuvenation
+  desc: A lemure that dies in the Nine Hells comes back to life with all its hit points in {@dice 1d10} days unless it is
+    killed by a good-aligned creature with a {@spell bless} spell cast on that creature or its remains are sprinkled with
+    holy water.
 actions:
-- name: Vile Slime
-  desc: 'Melee Attack Roll : +2, reach 5 ft. Hit : 2 (1d4) Poison damage.'
+- name: Fist
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}2 ({@damage 1d4}) bludgeoning damage.'
+legendary_actions: []

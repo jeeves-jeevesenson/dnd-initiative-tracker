@@ -25,3 +25,13 @@ languages:
 - Undercommon
 description: For quaggoths, every fight means life or death. They battle with wild fury and do anything to survive.
 habitat: Underdark
+traits:
+- name: Wounded Fury
+  desc: While it has 10 hit points or fewer, the quaggoth has advantage on attack rolls. In addition, it deals an extra 7
+    ({@damage 2d6}) damage to any target it hits with a melee attack.
+actions:
+- name: Multiattack
+  desc: The quaggoth makes two claw attacks.
+- name: Claw
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) slashing damage.'
+legendary_actions: []

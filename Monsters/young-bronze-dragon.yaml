@@ -27,14 +27,13 @@ senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 17
 languages:
 - Common
 - Draconic
-description: Where bronze dragons dwell, wonders flourish. Imaginative yet mindful, these metallic dragons work
-  toward greatness and help others achieve all they can. They strive to preserve innovations, from the works of
-  past civilizations to new discoveries, and they share such works widely. When dealing with shorter-lived beings,
-  bronze dragons prefer to win them over through conversation and cultivation, but they don't shy from battle when
-  villains keep others from achieving their potential. Bronze dragons enjoy the power and endless possibilities
-  of the sea, and they often make their lairs in places of natural beauty or communities they wish to preserve.
-  Within their dwellings, bronze dragons hoard things they believe will be useful one day. They salvage treasure
-  lost to the sea, reclaiming wealth or sunken ships.
+description: Where bronze dragons dwell, wonders flourish. Imaginative yet mindful, these metallic dragons work toward greatness
+  and help others achieve all they can. They strive to preserve innovations, from the works of past civilizations to new discoveries,
+  and they share such works widely. When dealing with shorter-lived beings, bronze dragons prefer to win them over through
+  conversation and cultivation, but they don't shy from battle when villains keep others from achieving their potential. Bronze
+  dragons enjoy the power and endless possibilities of the sea, and they often make their lairs in places of natural beauty
+  or communities they wish to preserve. Within their dwellings, bronze dragons hoard things they believe will be useful one
+  day. They salvage treasure lost to the sea, reclaiming wealth or sunken ships.
 habitat: Coastal
 treasure: Implements
 traits:
@@ -42,12 +41,15 @@ traits:
   desc: The dragon can breathe air and water.
 actions:
 - name: Multiattack
-  desc: The dragon makes three Rend attacks. It can replace one attack with a use of Repulsion Breath.
-- name: Rend
-  desc: 'Melee Attack Roll : +8, reach 10 ft. Hit : 16 (2d10 + 5) Slashing damage.'
-- name: Lightning Breath (Recharge 5–6)
-  desc: 'Dexterity Saving Throw : DC 15, each creature in a 60-foot-long, 5-foot-wide Line. Failure : 49 (9d10)
-    Lightning damage. Success : Half damage.'
-- name: Repulsion Breath
-  desc: 'Strength Saving Throw : DC 15, each creature in a 30-foot Cone. Failure : The target is pushed up to 40
-    feet straight away from the dragon and has the Prone condition.'
+  desc: 'The dragon makes three attacks: one with its bite and two with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 8} to hit, reach 10 ft., one target. {@h}16 ({@damage 2d10 + 5}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 8} to hit, reach 5 ft., one target. {@h}12 ({@damage 2d6 + 5}) slashing damage.'
+- name: Breath Weapons {@recharge 5}
+  desc: The dragon uses one of the following breath weapons. The dragon exhales lightning in a 60-foot line that is 5 feet
+    wide. Each creature in that line must make a {@dc 15} Dexterity saving throw, taking 55 ({@damage 10d10}) lightning damage
+    on a failed save, or half as much damage on a successful one. The dragon exhales repulsion energy in a 30-foot cone. Each
+    creature in that area must succeed on a {@dc 15} Strength saving throw. On a failed save, the creature is pushed 40 feet
+    away from the dragon.
+legendary_actions: []

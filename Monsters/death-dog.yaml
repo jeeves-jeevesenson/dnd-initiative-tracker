@@ -32,10 +32,15 @@ description: ''
 habitat: Desert
 actions:
 - name: Multiattack
-  desc: The death dog makes two Bite attacks.
+  desc: The dog makes two bite attacks.
 - name: Bite
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 4 (1d4 + 2) Piercing damage. If the target is a creature, it
-    is subjected to the following effect. Constitution Saving Throw : DC 12. First Failure : The target has the
-    Poisoned condition. While Poisoned, the target''s Hit Point maximum doesn''t return to normal when finishing
-    a Long Rest, and it repeats the save every 24 hours that elapse, ending the effect on itself on a success. Subsequent
-    Failures: The Poisoned target''s Hit Point maximum decreases by 5 (1d10).'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d6 + 2}) piercing damage. If the target is a
+    creature, it must succeed on a {@dc 12} Constitution saving throw against disease or become {@condition poisoned} until
+    the disease is cured. Every 24 hours that elapse, the creature must repeat the saving throw, reducing its hit point maximum
+    by 5 ({@dice 1d10}) on a failure. This reduction lasts until the disease is cured. The creature dies if the disease reduces
+    its hit point maximum to 0.'
+traits:
+- name: Two-Headed
+  desc: The dog has advantage on Wisdom ({@skill Perception}) checks and on saving throws against being {@condition blinded},
+    {@condition charmed}, {@condition deafened}, {@condition frightened}, {@condition stunned}, or knocked {@condition unconscious}.
+legendary_actions: []

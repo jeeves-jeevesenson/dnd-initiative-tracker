@@ -28,15 +28,17 @@ traits:
 - name: Amphibious
   desc: The frog can breathe air and water.
 - name: Standing Leap
-  desc: The frog's Long Jump is up to 20 feet and its High Jump is up to 10 feet with or without a running start.
+  desc: The frog's long jump is up to 20 feet and its high jump is up to 10 feet, with or without a running start.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage. If the target is a Medium or smaller
-    creature, it has the Grappled condition (escape DC 11).'
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d6 + 1}) piercing damage, and the target is
+    {@condition grappled} (escape {@dc 11}). Until this grapple ends, the target is {@condition restrained}, and the frog
+    can''t bite another target.'
 - name: Swallow
-  desc: The frog swallows a Small or smaller target it is grappling. While swallowed, the target isn't Grappled
-    but has the Blinded and Restrained conditions, and it has Total Cover against attacks and other effects outside
-    the frog. While swallowing the target, the frog can't use Bite, and if the frog dies, the swallowed target is
-    no longer Restrained and can escape from the corpse using 5 feet of movement, exiting with the Prone condition.
-    At the end of the frog's next turn, the swallowed target takes 5 (2d4) Acid damage. If that damage doesn't kill
-    it, the frog disgorges it, causing it to exit Prone.
+  desc: The frog makes one bite attack against a Small or smaller target it is grappling. If the attack hits, the target is
+    swallowed, and the grapple ends. The swallowed target is {@condition blinded} and {@condition restrained}, it has {@quickref
+    Cover||3||total cover} against attacks and other effects outside the frog, and it takes 5 ({@damage 2d4}) acid damage
+    at the start of each of the frog's turns. The frog can have only one target swallowed at a time. If the frog dies, a swallowed
+    creature is no longer {@condition restrained} by it and can escape from the corpse using 5 feet of movement, exiting {@condition
+    prone}.
+legendary_actions: []

@@ -28,39 +28,41 @@ languages:
 - Common
 - Infernal
 - Primordial
-description: Night hags seek mortals to torment and turn to evil. By day, night hags use supernatural deceptions
-  to plague their victims, shape-shifting to pose as other creatures and make their targets believe the world has
-  turned against them. By night, these hags reinforce their tortures with terrifying dreams. Once they force their
-  targets to desperate limits, night hags claim their victims' tormented spirits, capturing them in sinister traps
-  called soul bags. The hags then slip between planes of existence to barter stolen souls to vile magic-users and
-  fiendish entities. Night hags maintain networks of nefarious customers and collect rumors from across the Lower
-  Planes. These hags might part with their secrets in exchange for magic items and other wicked prices.
+description: Night hags seek mortals to torment and turn to evil. By day, night hags use supernatural deceptions to plague
+  their victims, shape-shifting to pose as other creatures and make their targets believe the world has turned against them.
+  By night, these hags reinforce their tortures with terrifying dreams. Once they force their targets to desperate limits,
+  night hags claim their victims' tormented spirits, capturing them in sinister traps called soul bags. The hags then slip
+  between planes of existence to barter stolen souls to vile magic-users and fiendish entities. Night hags maintain networks
+  of nefarious customers and collect rumors from across the Lower Planes. These hags might part with their secrets in exchange
+  for magic items and other wicked prices.
 habitat: Planar (Lower Planes)
 treasure: Arcana
 traits:
-- name: Coven Magic
-  desc: 'While within 30 feet of at least two hag allies, the hag can cast one of the following spells, requiring
-    no Material components, using the spell''s normal casting time, and using Intelligence as the spellcasting ability
-    (spell save DC 14): Augury , Find Familiar , Identify , Locate Object , Scrying , or Unseen Servant . The hag
-    must finish a Long Rest before using this trait to cast that spell again.'
 - name: Magic Resistance
-  desc: The hag has Advantage on saving throws against spells and other magical effects.
-- name: Soul Bag
-  desc: The hag has a soul bag. While holding or carrying the bag, the hag can use its Nightmare Haunting action.
-    The bag has AC 15, HP 20, and Resistance to all damage. The bag turns to dust if reduced to 0 Hit Points. If
-    the bag is destroyed, any souls the bag is hol
+  desc: The hag has advantage on saving throws against spells and other magical effects.
+- name: Night Hag Items
+  desc: 'A night hag carries two very rare magic items that she must craft for herself. If either object is lost, the night
+    hag will go to great lengths to retrieve it, as creating a new tool takes time and effort. Heartstone: This lustrous black
+    gem allows a night hag to become ethereal while it is in her possession. The touch of a heartstone also cures any disease.
+    Crafting a heartstone takes 30 days. Soul Bag: When an evil humanoid dies as a result of a night hag''s Nightmare Haunting,
+    the hag catches the soul in this black sack made of stitched flesh. A soul bag can hold only one evil soul at a time,
+    and only the night hag who crafted the bag can catch a soul with it. Crafting a soul bag takes 7 days and a humanoid sacrifice
+    (whose flesh is used to make the bag).'
 actions:
-- name: Multiattack
-  desc: The hag makes two Claw attacks.
-- name: Claw
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 13 (2d8 + 4) Slashing damage.'
-- name: Nightmare Haunting (1/Day; Requires Soul Bag)
-  desc: While on the Ethereal Plane, the hag casts Dream , using the same spellcasting ability as Spellcasting.
-    Only the hag can serve as the spell's messenger, and the target must be a creature the hag can see on the Material
-    Plane. The spell fails and is wasted if the target is under the effect of the Protection from Evil and Good
-    spell or within a Magic Circle spell. If the target takes damage from the Dream spell, the target's Hit Point
-    maximum decreases by an amount equal to that damage. If the spell kills the target, its soul is trapped in the
-    hag's soul bag, and the target can't be raised from the dead until its soul is released.
-- name: Spellcasting
-  desc: 'The hag casts one of the following spells, requiring no Material components and using Intelligence as the
-    spellcasting ability (spell save DC 14):'
+- name: Claws (Hag Form Only)
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}13 ({@damage 2d8 + 4}) slashing damage.'
+- name: Change Shape
+  desc: The hag magically polymorphs into a Small or Medium female humanoid, or back into her true form. Her statistics are
+    the same in each form. Any equipment she is wearing or carrying isn't transformed. She reverts to her true form if she
+    dies.
+- name: Etherealness
+  desc: The hag magically enters the Ethereal Plane from the Material Plane, or vice versa. To do so, the hag must have a
+    heartstone in her possession.
+- name: Nightmare Haunting (1/Day)
+  desc: While on the Ethereal Plane, the hag magically touches a sleeping humanoid on the Material Plane. A {@spell protection
+    from evil and good} spell cast on the target prevents this contact, as does a magic circle. As long as the contact persists,
+    the target has dreadful visions. If these visions last for at least 1 hour, the target gains no benefit from its rest,
+    and its hit point maximum is reduced by 5 ({@dice 1d10}). If this effect reduces the target's hit point maximum to 0,
+    the target dies, and if the target was evil, its soul is trapped in the hag's soul bag. The reduction to the target's
+    hit point maximum lasts until removed by the {@spell greater restoration} spell or similar magic.
+legendary_actions: []

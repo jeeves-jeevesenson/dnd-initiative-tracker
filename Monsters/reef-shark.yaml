@@ -25,10 +25,11 @@ description: ''
 habitat: Underwater
 traits:
 - name: Pack Tactics
-  desc: The shark has Advantage on an attack roll against a creature if at least one of the shark's allies is within
-    5 feet of the creature and the ally doesn't have the Incapacitated condition.
+  desc: The shark has advantage on an attack roll against a creature if at least one of the shark's allies is within 5 feet
+    of the creature and the ally isn't {@condition incapacitated}.
 - name: Water Breathing
   desc: The shark can breathe only underwater.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 7 (2d4 + 2) Piercing damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d8 + 2}) piercing damage.'
+legendary_actions: []

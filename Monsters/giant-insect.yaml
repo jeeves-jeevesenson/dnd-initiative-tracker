@@ -20,15 +20,6 @@ senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Understands the languages you know
 description: See Giant Insect
-traits:
-- name: Spider Climb
-  desc: The insect can climb difficult surfaces, including along ceilings, without needing to make an ability check.
-actions:
-- name: Multiattack
-  desc: The insect makes a number of attacks equal to half this spell's level (round down).
-- name: Poison Jab
-  desc: 'Melee Attack Roll : Bonus equals your spell attack modifier, reach 10 ft. Hit : 1d6 + 3 plus the spell''s
-    level Piercing damage plus 1d4 Poison damage.'
-- name: Web Bolt (Spider Only)
-  desc: 'Ranged Attack Roll : Bonus equals your spell attack modifier, range 60 ft. Hit : 1d10 + 3 plus the spell''s
-    level Bludgeoning damage, and the target''s Speed is reduced to 0 until the start of the insect''s next turn.'
+traits: []
+actions: []
+legendary_actions: []

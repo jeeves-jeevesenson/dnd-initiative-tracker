@@ -26,11 +26,12 @@ description: ''
 habitat: Any
 traits:
 - name: Telepathic Bond
-  desc: While the homunculus is on the same plane of existence as its master, the two of them can communicate telepathically
-    with each other.
+  desc: While the homunculus is on the same plane of existence as its master, it can magically convey what it senses to its
+    master, and the two can communicate telepathically.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 1 Piercing damage, and the target is subjected to the following
-    effect. Constitution Saving Throw : DC 12. Failure : The target has the Poisoned condition until the end of
-    the homunculus''s next turn. Failure by 5 or More: The target has the Poisoned condition for 1 minute. While
-    Poisoned, the target has the Unconscious condition, which ends early if the target takes any damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@h}1 piercing damage, and the target must succeed on a {@dc
+    10} Constitution saving throw or be {@condition poisoned} for 1 minute. If the saving throw fails by 5 or more, the target
+    is instead {@condition poisoned} for 5 ({@dice 1d10}) minutes and {@condition unconscious} while {@condition poisoned}
+    in this way.'
+legendary_actions: []

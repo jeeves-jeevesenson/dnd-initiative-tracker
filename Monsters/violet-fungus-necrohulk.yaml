@@ -25,16 +25,9 @@ immunities:
 senses: Blindsight 60 ft., Passive Perception 12
 languages:
 - None
-description: A violet fungus necrohulk forms when a violet fungus colony infests and animates an ample heap of decay.
-  This necrohulk attacks prey and spreads fungal spores for the colony.
+description: A violet fungus necrohulk forms when a violet fungus colony infests and animates an ample heap of decay. This
+  necrohulk attacks prey and spreads fungal spores for the colony.
 habitat: Underdark
-actions:
-- name: Multiattack
-  desc: The necrohulk makes two Rotting Slam attacks.
-- name: Rotting Slam
-  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 9 (1d10+ 4) Bludgeoning damage plus 7 (2d6) Necrotic damage.'
-- name: Spore Bomb (Recharge 5-6)
-  desc: 'Constitution Saving Throw : DC 15, each creature in a 20-foot-radius Sphere centered on a point the necrohulk
-    can see within 60 feet. Failure : 28 (8d6) Necrotic damage, and the target has the Poisoned condition until
-    the start of the necrohulk''s next turn. While Poisoned, the target can''t regain Hit Points. Success : Half
-    damage only.'
+actions: []
+traits: []
+legendary_actions: []

@@ -19,25 +19,31 @@ senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Common
 - Goblin
-description: Hobgoblins embody the primal urge to grow and spread, expressing such drives by bending the world to
-  their whims. Lone hobgoblins claim woodland territories and plunder the wilds. In groups, they form hierarchical,
-  martial societies bent on conquering lands and stripping them of resources to serve their expansionist zeal. Hobgoblins
-  often subjugate animals, monsters, and destructive Fey—particularly goblins and bugbears—to serve their plans.
-  Hobgoblins might ally with dragons, warlords, the servants of warlike gods, or other powerful creatures that promise
-  them control of new territories. Should hobgoblins bring an entire land to heel, they seek new conquests, venturing
-  across seas, into the Underdark, or to stars and planes of existence beyond. Hobgoblin captains are battlefield
-  tacticians. They lead their allies to victory by employing martial skill and rallying others with orders and threats.
-  Hobgoblin captains usually oversee hobgoblin battle groups or gangs of weaker monsters.
+description: Hobgoblins embody the primal urge to grow and spread, expressing such drives by bending the world to their whims.
+  Lone hobgoblins claim woodland territories and plunder the wilds. In groups, they form hierarchical, martial societies bent
+  on conquering lands and stripping them of resources to serve their expansionist zeal. Hobgoblins often subjugate animals,
+  monsters, and destructive Fey—particularly goblins and bugbears—to serve their plans. Hobgoblins might ally with dragons,
+  warlords, the servants of warlike gods, or other powerful creatures that promise them control of new territories. Should
+  hobgoblins bring an entire land to heel, they seek new conquests, venturing across seas, into the Underdark, or to stars
+  and planes of existence beyond. Hobgoblin captains are battlefield tacticians. They lead their allies to victory by employing
+  martial skill and rallying others with orders and threats. Hobgoblin captains usually oversee hobgoblin battle groups or
+  gangs of weaker monsters.
 habitat: Desert, Forest, Grassland, Hill, Mountain, Planar (Acheron), Underdark
 treasure: Armaments, Individual
 traits:
-- name: Aura of Authority
-  desc: While in a 10-foot Emanation originating from the hobgoblin, the hobgoblin and its allies have Advantage
-    on attack rolls and saving throws, provided the hobgoblin doesn't have the Incapacitated condition.
+- name: Martial Advantage
+  desc: Once per turn, the hobgoblin can deal an extra 10 ({@damage 3d6}) damage to a creature it hits with a weapon attack
+    if that creature is within 5 feet of an ally of the hobgoblin that isn't {@condition incapacitated}.
 actions:
 - name: Multiattack
-  desc: The hobgoblin makes two attacks, using Greatsword or Longbow in any combination.
+  desc: The hobgoblin makes two greatsword attacks.
 - name: Greatsword
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 9 (2d6 + 2) Slashing damage plus 3 (1d6) Poison damage.'
-- name: Longbow
-  desc: 'Ranged Attack Roll : +4, range 150/600 ft. Hit : 6 (1d8 + 2) Piercing damage plus 5 (2d4) Poison damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}9 ({@damage 2d6 + 2}) slashing damage.'
+- name: Javelin
+  desc: '{@atk mw,rw} {@hit 4} to hit, reach 5 ft. or range 30/120 ft., one target. {@h}5 ({@damage 1d6 + 2}) piercing damage.'
+- name: Leadership (Recharges after a Short or Long Rest)
+  desc: For 1 minute, the hobgoblin can utter a special command or warning whenever a nonhostile creature that it can see
+    within 30 feet of it makes an attack roll or a saving throw. The creature can add a {@dice d4} to its roll provided it
+    can hear and understand the hobgoblin. A creature can benefit from only one Leadership die at a time. This effect ends
+    if the hobgoblin is {@condition incapacitated}.
+legendary_actions: []

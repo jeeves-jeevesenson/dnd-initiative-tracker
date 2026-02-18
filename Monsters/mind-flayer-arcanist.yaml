@@ -28,7 +28,24 @@ senses: Darkvision 120 ft., Passive Perception 17
 languages:
 - Deep Speech
 - Undercommon; telepathy 120 ft.
-description: Mind flayer arcanists enhance their psionic abilities with magic. Other mind flayers view those that
-  undertake such experiments with disgust and fear.
+description: Mind flayer arcanists enhance their psionic abilities with magic. Other mind flayers view those that undertake
+  such experiments with disgust and fear.
 habitat: Underdark
 treasure: Arcana
+traits:
+- name: Magic Resistance
+  desc: The mind flayer has advantage on saving throws against spells and other magical effects.
+actions:
+- name: Tentacles
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one creature. {@h}15 ({@damage 2d10 + 4}) psychic damage. If the target is
+    Medium or smaller, it is {@condition grappled} (escape {@dc 15}) and must succeed on a {@dc 15} Intelligence saving throw
+    or be {@condition stunned} until this grapple ends.'
+- name: Extract Brain
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one {@condition incapacitated} humanoid {@condition grappled} by the mind
+    flayer. {@h}The target takes 55 ({@damage 10d10}) piercing damage. If this damage reduces the target to 0 hit points,
+    the mind flayer kills the target by extracting and devouring its brain.'
+- name: Mind Blast {@recharge 5}
+  desc: The mind flayer magically emits psychic energy in a 60-foot cone. Each creature in that area must succeed on a {@dc
+    15} Intelligence saving throw or take 22 ({@damage 4d8 + 4}) psychic damage and be {@condition stunned} for 1 minute.
+    A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success.
+legendary_actions: []

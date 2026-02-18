@@ -21,24 +21,30 @@ skills:
 senses: Blindsight 60 ft., Passive Perception 10
 languages:
 - None
-description: Unnatural subterranean hunters, darkmantles veil themselves in magical shadows and use their bizarre
-  anatomies to disguise themselves as stalactites. When prey passes below, lurking darkmantles drop and unfurl their
-  webbed tentacles, attempting to blind, suffocate, or crush their victims. Darkmantles share similarities with
-  piercers and ropers and often hunt near those monsters. Scholars have attempted to establish a shared origin or
-  life cycle between those creatures, but their efforts are thwarted by those monsters' supernatural physiologies
-  and deadly natures.
+description: Unnatural subterranean hunters, darkmantles veil themselves in magical shadows and use their bizarre anatomies
+  to disguise themselves as stalactites. When prey passes below, lurking darkmantles drop and unfurl their webbed tentacles,
+  attempting to blind, suffocate, or crush their victims. Darkmantles share similarities with piercers and ropers and often
+  hunt near those monsters. Scholars have attempted to establish a shared origin or life cycle between those creatures, but
+  their efforts are thwarted by those monsters' supernatural physiologies and deadly natures.
 habitat: Underdark
 treasure: None
 actions:
 - name: Crush
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Bludgeoning damage, and the darkmantle attaches to
-    the target. If the target is a Medium or smaller creature and the darkmantle had Advantage on the attack roll,
-    it covers the target, which has the Blinded condition and is suffocating while the darkmantle is attached in
-    this way. While attached to a target, the darkmantle can attack only the target but has Advantage on its attack
-    rolls. Its Speed becomes 0, it can''t benefit from any bonus to its Speed, and it moves with the target. A creature
-    can take an action to try to detach the darkmantle from itself, doing so with a successful DC 13 Strength (Athletics)
-    check. On its turn, the darkmantle can detach itself by using 5 feet of movement.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one creature. {@h}6 ({@damage 1d6 + 3}) bludgeoning damage, and the darkmantle
+    attaches to the target. If the target is Medium or smaller and the darkmantle has advantage on the attack roll, it attaches
+    by engulfing the target''s head, and the target is also {@condition blinded} and unable to breathe while the darkmantle
+    is attached in this way. While attached to the target, the darkmantle can attack no other creature except the target but
+    has advantage on its attack rolls. The darkmantle''s speed also becomes 0, it can''t benefit from any bonus to its speed,
+    and it moves with the target. A creature can detach the darkmantle by making a successful {@dc 13} Strength check as an
+    action. On its turn, the darkmantle can detach itself from the target by using 5 feet of movement.'
 - name: Darkness Aura (1/Day)
-  desc: Magical Darkness fills a 15-foot Emanation originating from the darkmantle. This effect lasts while the
-    darkmantle maintains Concentration on it, up to 10 minutes. Darkvision can't penetrate this area, and no light
-    can illuminate it.
+  desc: A 15-foot radius of magical darkness extends out from the darkmantle, moves with it, and spreads around corners. The
+    darkness lasts as long as the darkmantle maintains {@status concentration}, up to 10 minutes (as if {@status concentration||concentrating}
+    on a spell). Darkvision can't penetrate this darkness, and no natural light can illuminate it. If any of the darkness
+    overlaps with an area of light created by a spell of 2nd level or lower, the spell creating the light is dispelled.
+traits:
+- name: Echolocation
+  desc: The darkmantle can't use its blindsight while {@condition deafened}.
+- name: False Appearance
+  desc: While the darkmantle remains motionless, it is indistinguishable from a cave formation such as a stalactite or stalagmite.
+legendary_actions: []

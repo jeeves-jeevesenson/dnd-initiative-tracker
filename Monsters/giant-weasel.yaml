@@ -27,4 +27,8 @@ description: ''
 habitat: Forest, Grassland, Hill
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 5 (1d4 + 3) Piercing damage.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d4 + 3}) piercing damage.'
+traits:
+- name: Keen Hearing and Smell
+  desc: The weasel has advantage on Wisdom ({@skill Perception}) checks that rely on hearing or smell.
+legendary_actions: []

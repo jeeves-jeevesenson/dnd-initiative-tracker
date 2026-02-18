@@ -23,18 +23,11 @@ skills:
 senses: Passive Perception 16
 languages:
 - Common plus one other language
-description: Scouts are warriors of the wilderness, trained in hunting and tracking. They might be explorers or
-  trappers, or they could perform more martial roles as archers, bounty hunters, or outriders. Scout captains are
-  experienced explorers and sharpshooters. They might lead bands of other scouts or disappear into the wilds alone
-  for months at a time.
+description: Scouts are warriors of the wilderness, trained in hunting and tracking. They might be explorers or trappers,
+  or they could perform more martial roles as archers, bounty hunters, or outriders. Scout captains are experienced explorers
+  and sharpshooters. They might lead bands of other scouts or disappear into the wilds alone for months at a time.
 habitat: Any
 treasure: Implements, Individual
-actions:
-- name: Multiattack
-  desc: The scout makes two attacks, using Shortsword or Longbow in any combination.
-- name: Shortsword
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Piercing damage, plus 10 (3d6) Piercing damage if
-    the attack was made with Advantage.'
-- name: Longbow
-  desc: 'Ranged Attack Roll : +5, range 150/600 ft. Hit : 7 (1d8 + 3) Piercing damage, plus 10 (3d6) Piercing damage
-    if the attack was made with Advantage.'
+actions: []
+traits: []
+legendary_actions: []

@@ -24,9 +24,12 @@ languages:
 description: ''
 habitat: Forest, Swamp, Underdark, Urban
 traits:
+- name: Keen Smell
+  desc: The rat has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
 - name: Pack Tactics
-  desc: The rat has Advantage on an attack roll against a creature if at least one of the rat's allies is within
-    5 feet of the creature and the ally doesn't have the Incapacitated condition.
+  desc: The rat has advantage on an attack roll against a creature if at least one of the rat's allies is within 5 feet of
+    the creature and the ally isn't {@condition incapacitated}.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +5, reach 5 feet. Hit : 5 (1d4 + 3) Piercing damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d4 + 2}) piercing damage.'
+legendary_actions: []

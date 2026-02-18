@@ -24,10 +24,15 @@ languages:
 description: ''
 habitat: Arctic, Hill, Mountain
 traits:
-- name: Running Leap
-  desc: With a 10-foot running start, the tiger can Long Jump up to 25 feet.
+- name: Keen Smell
+  desc: The tiger has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
+- name: Pounce
+  desc: If the tiger moves at least 20 feet straight toward a creature and then hits it with a claw attack on the same turn,
+    that target must succeed on a {@dc 14} Strength saving throw or be knocked {@condition prone}. If the target is {@condition
+    prone}, the tiger can make one bite attack against it as a bonus action.
 actions:
-- name: Multiattack
-  desc: The tiger makes two Rend attacks.
-- name: Rend
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 11 (2d6 + 4) Slashing damage.'
+- name: Bite
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}10 ({@damage 1d10 + 5}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}12 ({@damage 2d6 + 5}) slashing damage.'
+legendary_actions: []

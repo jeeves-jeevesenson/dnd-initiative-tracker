@@ -24,10 +24,13 @@ languages:
 description: ''
 habitat: Forest, Hill
 traits:
+- name: Keen Hearing and Smell
+  desc: The wolf has advantage on Wisdom ({@skill Perception}) checks that rely on hearing or smell.
 - name: Pack Tactics
-  desc: The wolf has Advantage on an attack roll against a creature if at least one of the wolf's allies is within
-    5 feet of the creature and the ally doesn't have the Incapacitated condition.
+  desc: The wolf has advantage on an attack roll against a creature if at least one of the wolf's allies is within 5 feet
+    of the creature and the ally isn't {@condition incapacitated}.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 8 (1d10 + 3) Piercing damage. If the target is a Large or smaller
-    creature, it has the Prone condition.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}10 ({@damage 2d6 + 3}) piercing damage. If the target is
+    a creature, it must succeed on a {@dc 13} Strength saving throw or be knocked {@condition prone}.'
+legendary_actions: []

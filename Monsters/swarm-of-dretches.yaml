@@ -28,6 +28,9 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Abyssal; telepathy 60 ft. (works only with creatures that understand abyssal)
-description: Swarms of dretches sometimes escape the Abyss onto other planes of existence, or they might be part
-  of a demonic invasion. Without direction, these crude demons rampage and despoil with cruel enthusiasm.
+description: Swarms of dretches sometimes escape the Abyss onto other planes of existence, or they might be part of a demonic
+  invasion. Without direction, these crude demons rampage and despoil with cruel enthusiasm.
 habitat: Planar (Abyss)
+traits: []
+actions: []
+legendary_actions: []

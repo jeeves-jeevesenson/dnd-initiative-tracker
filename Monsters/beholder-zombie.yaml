@@ -23,8 +23,27 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Understands Deep Speech and Undercommon but can't speak
-description: Zombies animated from the corpses of beholders retain some use of those monsters' magical eyestalks.
-  These hovering corpses rely on their magic to destroy impediments and paralyze foes, allowing them to savage foes
-  with their rotting maws. Magic-using beholders typically raise these abominations from the corpses of defeated
-  rivals.
+description: Zombies animated from the corpses of beholders retain some use of those monsters' magical eyestalks. These hovering
+  corpses rely on their magic to destroy impediments and paralyze foes, allowing them to savage foes with their rotting maws.
+  Magic-using beholders typically raise these abominations from the corpses of defeated rivals.
 habitat: Planar (Shadowfell), Underdark, Urban
+traits:
+- name: Undead Fortitude
+  desc: If damage reduces the zombie to 0 hit points, it must make a Constitution saving throw with a DC of 5 + the damage
+    taken, unless the damage is radiant or from a critical hit. On a success, the zombie drops to 1 hit point instead.
+actions:
+- name: Bite
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}14 ({@damage 4d6}) piercing damage.'
+- name: Eye Ray
+  desc: The zombie uses a random magical eye ray, choosing a target that it can see within 60 feet of it. The targeted creature
+    must succeed on a {@dc 14} Constitution saving throw or be {@condition paralyzed} for 1 minute. The target can repeat
+    the saving throw at the end of each of its turns, ending the effect on itself on a success. The targeted creature must
+    succeed on a {@dc 14} Wisdom saving throw or be {@condition frightened} for 1 minute. The target can repeat the saving
+    throw at the end of each of its turns, ending the effect on itself on a success. The targeted creature must make a {@dc
+    14} Constitution saving throw, taking 36 ({@damage 8d8}) necrotic damage on a failed save, or half as much damage on a
+    successful one. If the target is a creature, it must succeed on a {@dc 14} Dexterity saving throw or take 45 ({@damage
+    10d8}) force damage. If this damage reduces the creature to 0 hit points, its body becomes a pile of fine gray dust. If
+    the target is a Large or smaller nonmagical object or creation of magical force, it is disintegrated without a saving
+    throw. If the target is a Huge or larger nonmagical object or creation of magical force, this ray disintegrates a 10-foot
+    cube of it.
+legendary_actions: []

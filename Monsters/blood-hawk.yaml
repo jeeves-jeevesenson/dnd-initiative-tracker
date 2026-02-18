@@ -24,10 +24,12 @@ languages:
 description: ''
 habitat: Arctic, Coastal, Forest, Grassland, Hill, Mountain
 traits:
+- name: Keen Sight
+  desc: The hawk has advantage on Wisdom ({@skill Perception}) checks that rely on sight.
 - name: Pack Tactics
-  desc: The hawk has Advantage on an attack roll against a creature if at least one of the hawk's allies is within
-    5 feet of the creature and the ally doesn't have the Incapacitated condition.
+  desc: The hawk has advantage on an attack roll against a creature if at least one of the hawk's allies is within 5 feet
+    of the creature and the ally isn't {@condition incapacitated}.
 actions:
 - name: Beak
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 4 (1d4 + 2) Piercing damage, or 6 (1d8 + 2) Piercing damage if
-    the target is Bloodied.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d4 + 2}) piercing damage.'
+legendary_actions: []

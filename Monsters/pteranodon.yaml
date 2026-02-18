@@ -25,7 +25,8 @@ description: ''
 habitat: Coastal, Grassland, Mountain
 traits:
 - name: Flyby
-  desc: The pteranodon doesn't provoke an Opportunity Attack when it flies out of an enemy's reach.
+  desc: The pteranodon doesn't provoke opportunity attacks when it flies out of an enemy's reach.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 6 (1d8 + 2) Piercing damage.'
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}6 ({@damage 2d4 + 1}) piercing damage.'
+legendary_actions: []

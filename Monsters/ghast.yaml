@@ -27,13 +27,17 @@ habitat: Swamp, Underdark, Urban
 treasure: Any
 traits:
 - name: Stench
-  desc: 'Constitution Saving Throw : DC 10, any creature that starts its turn in a 5-foot Emanation originating
-    from the ghast. Failure : The target has the Poisoned condition until the start of its next turn. Success :
-    The target is immune to this ghast''s Stench for 24 hours.'
+  desc: Any creature that starts its turn within 5 feet of the ghast must succeed on a {@dc 10} Constitution saving throw
+    or be {@condition poisoned} until the start of its next turn. On a successful saving throw, the creature is immune to
+    the ghast's Stench for 24 hours.
+- name: Turn Defiance
+  desc: The ghast and any ghouls within 30 feet of it have advantage on saving throws against effects that turn undead.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Piercing damage plus 9 (2d8) Necrotic damage.'
-- name: Claw
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 10 (2d6 + 3) Slashing damage. If the target is a non-Undead creature,
-    it is subjected to the following effect. Constitution Saving Throw : DC 10. Failure : The target has the Paralyzed
-    condition until the end of its next turn.'
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one creature. {@h}12 ({@damage 2d8 + 3}) piercing damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}10 ({@damage 2d6 + 3}) slashing damage. If the target is
+    a creature other than an undead, it must succeed on a {@dc 10} Constitution saving throw or be {@condition paralyzed}
+    for 1 minute. The target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a
+    success.'
+legendary_actions: []

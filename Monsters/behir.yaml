@@ -29,13 +29,25 @@ habitat: Underdark
 treasure: Any
 actions:
 - name: Multiattack
-  desc: The behir makes one Bite attack and uses Constrict.
+  desc: 'The behir makes two attacks: one with its bite and one to constrict.'
 - name: Bite
-  desc: 'Melee Attack Roll : +10, reach 10 ft. Hit : 19 (2d12 + 6) Piercing damage plus 11 (2d10) Lightning damage.'
+  desc: '{@atk mw} {@hit 10} to hit, reach 10 ft., one target. {@h}22 ({@damage 3d10 + 6}) piercing damage.'
 - name: Constrict
-  desc: 'Strength Saving Throw : DC 18, one Large or smaller creature the behir can see within 5 feet. Failure :
-    28 (5d8 + 6) Bludgeoning damage. The target has the Grappled condition (escape DC 16), and it has the Restrained
-    condition until the grapple ends.'
-- name: Lightning Breath (Recharge 5–6)
-  desc: 'Dexterity Saving Throw : DC 16, each creature in a 90-foot-long, 5-foot-wide Line. Failure : 66 (12d10)
-    Lightning damage. Success : Half damage.'
+  desc: '{@atk mw} {@hit 10} to hit, reach 5 ft., one Large or smaller creature. {@h}17 ({@damage 2d10 + 6}) bludgeoning damage
+    plus 17 ({@damage 2d10 + 6}) slashing damage. The target is {@condition grappled} (escape {@dc 16}) if the behir isn''t
+    already constricting a creature, and the target is {@condition restrained} until this grapple ends.'
+- name: Lightning Breath {@recharge 5}
+  desc: The behir exhales a line of lightning that is 20 feet long and 5 feet wide. Each creature in that line must make a
+    {@dc 16} Dexterity saving throw, taking 66 ({@damage 12d10}) lightning damage on a failed save, or half as much damage
+    on a successful one.
+- name: Swallow
+  desc: The behir makes one bite attack against a Medium or smaller target it is grappling. If the attack hits, the target
+    is also swallowed, and the grapple ends. While swallowed, the target is {@condition blinded} and {@condition restrained},
+    it has {@quickref Cover||3||total cover} against attacks and other effects outside the behir, and it takes 21 ({@damage
+    6d6}) acid damage at the start of each of the behir's turns. A behir can have only one creature swallowed at a time. If
+    the behir takes 30 damage or more on a single turn from the swallowed creature, the behir must succeed on a {@dc 14} Constitution
+    saving throw at the end of that turn or regurgitate the creature, which falls {@condition prone} in a space within 10
+    feet of the behir. If the behir dies, a swallowed creature is no longer {@condition restrained} by it and can escape from
+    the corpse by using 15 feet of movement, exiting {@condition prone}.
+traits: []
+legendary_actions: []

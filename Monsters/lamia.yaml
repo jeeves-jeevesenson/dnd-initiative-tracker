@@ -28,12 +28,13 @@ habitat: Desert
 treasure: Arcana
 actions:
 - name: Multiattack
-  desc: The lamia makes two Claw attacks. It can replace one attack with a use of Corrupting Touch.
-- name: Claw
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Slashing damage plus 7 (2d6) Psychic damage.'
-- name: Corrupting Touch
-  desc: 'Wisdom Saving Throw : DC 13, one creature the lamia can see within 5 feet. Failure : 13 (3d8) Psychic damage,
-    and the target is cursed for 1 hour. Until the curse ends, the target has the Charmed and Poisoned conditions.'
-- name: Spellcasting
-  desc: 'The lamia casts one of the following spells, requiring no Material components and using Charisma as the
-    spellcasting ability (spell save DC 13):'
+  desc: 'The lamia makes two attacks: one with its claws and one with its dagger or Intoxicating Touch.'
+- name: Claws
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}14 ({@damage 2d10 + 3}) slashing damage.'
+- name: Dagger
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d4 + 3}) piercing damage.'
+- name: Intoxicating Touch
+  desc: '{@atk ms} {@hit 5} to hit, reach 5 ft., one creature. {@h}The target is magically cursed for 1 hour. Until the curse
+    ends, the target has disadvantage on Wisdom saving throws and all ability checks.'
+traits: []
+legendary_actions: []

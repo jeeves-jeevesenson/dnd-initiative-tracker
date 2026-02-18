@@ -21,10 +21,6 @@ languages:
 - None
 description: ''
 habitat: Underwater
-traits:
-- name: Water Breathing
-  desc: The piranha can breathe only underwater.
-actions:
-- name: Bite
-  desc: 'Melee Attack Roll : +5 (with Advantage if the target doesn''t have all its Hit Points), reach 5 ft. Hit
-    : 1 Piercing damage.'
+traits: []
+actions: []
+legendary_actions: []

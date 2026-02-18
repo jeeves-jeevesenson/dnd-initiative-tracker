@@ -22,21 +22,10 @@ skills:
 senses: Passive Perception 17
 languages:
 - Common plus one other language
-description: Skilled in both combat and leadership, warrior commanders overcome challenges through a combination
-  of martial skill and clever tactics.
+description: Skilled in both combat and leadership, warrior commanders overcome challenges through a combination of martial
+  skill and clever tactics.
 habitat: Any
 treasure: Armaments
-actions:
-- name: Multiattack
-  desc: The warrior makes three attacks, using Greatsword or Longbow in any combination.
-- name: Greatsword
-  desc: 'Melee Attack Roll : +9, reach 5 ft. Hit : 19 (4d6 + 5) Slashing damage. The warrior also creates one of
-    the following effects:'
-- name: Sap
-  desc: The target has Disadvantage on its next attack roll before the start of the warrior's next turn.
-- name: Maneuver
-  desc: One ally who can see or hear the warrior can take a Reaction to move up to half the ally's Speed without
-    provoking Opportunity Attacks.
-- name: Longbow
-  desc: 'Ranged Attack Roll : +9, range 150/600 ft. Hit : 18 (3d8 + 5) Piercing damage, and the target''s Speed
-    decreases by 10 feet until the end of the target''s next turn.'
+actions: []
+traits: []
+legendary_actions: []

@@ -24,3 +24,23 @@ languages:
 - Infernal; telepathy 120 ft.
 description: ''
 habitat: Planar (Nine Hells)
+traits:
+- name: Devil's Sight
+  desc: Magical darkness doesn't impede the devil's darkvision.
+- name: Flyby
+  desc: The devil doesn't provoke an opportunity attack when it flies out of an enemy's reach.
+- name: Limited Spines
+  desc: The devil has twelve tail spines. Used spines regrow by the time the devil finishes a long rest.
+- name: Magic Resistance
+  desc: The devil has advantage on saving throws against spells and other magical effects.
+actions:
+- name: Multiattack
+  desc: 'The devil makes two attacks: one with its bite and one with its fork or two with its tail spines.'
+- name: Bite
+  desc: '{@atk mw} {@hit 2} to hit, reach 5 ft., one target. {@h}5 ({@damage 2d4}) slashing damage.'
+- name: Fork
+  desc: '{@atk mw} {@hit 2} to hit, reach 5 ft., one target. {@h}3 ({@damage 1d6}) piercing damage.'
+- name: Tail Spine
+  desc: '{@atk rw} {@hit 4} to hit, range 20/80 ft., one target. {@h}4 ({@damage 1d4 + 2}) piercing damage plus 3 ({@damage
+    1d6}) fire damage.'
+legendary_actions: []

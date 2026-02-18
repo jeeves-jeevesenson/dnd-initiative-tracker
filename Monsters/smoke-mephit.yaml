@@ -27,6 +27,17 @@ senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Primordial (Auran
 - Ignan)
-description: Smoke mephits are elusive beings formed of fiery cinders and hot air. They love misleading creatures
-  and then mocking them for their gullibility.
+description: Smoke mephits are elusive beings formed of fiery cinders and hot air. They love misleading creatures and then
+  mocking them for their gullibility.
 habitat: Planar (Elemental Planes)
+traits:
+- name: Death Burst
+  desc: When the mephit dies, it leaves behind a cloud of smoke that fills a 5-foot-radius sphere centered on its space. The
+    sphere is heavily obscured. Wind disperses the cloud, which otherwise lasts for 1 minute.
+actions:
+- name: Claws
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@h}4 ({@damage 1d4 + 2}) slashing damage.'
+- name: Cinder Breath {@recharge}
+  desc: The mephit exhales a 15-foot cone of smoldering ash. Each creature in that area must succeed on a {@dc 10} Dexterity
+    saving throw or be {@condition blinded} until the end of the mephit's next turn.
+legendary_actions: []

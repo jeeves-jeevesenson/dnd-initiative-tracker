@@ -28,6 +28,9 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - —
-description: Swarms of stirges sometimes form in swamps and Underdark caverns, draining livestock and any other
-  creatures that can't escape them.
+description: Swarms of stirges sometimes form in swamps and Underdark caverns, draining livestock and any other creatures
+  that can't escape them.
 habitat: Desert, Forest, Grassland, Hill, Mountain, Swamp, Underdark, Urban
+traits: []
+actions: []
+legendary_actions: []

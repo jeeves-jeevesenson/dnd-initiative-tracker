@@ -25,7 +25,9 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Understands Abyssal but can't speak
-description: Vaporspawn arise from evil souls shattered by unspeakable torments or the depredations of more powerful
-  demons. These distorted manes undergo endless, painful contortions, and they share their torment with whatever
-  creatures they encounter.
+description: Vaporspawn arise from evil souls shattered by unspeakable torments or the depredations of more powerful demons.
+  These distorted manes undergo endless, painful contortions, and they share their torment with whatever creatures they encounter.
 habitat: Planar (Abyss)
+traits: []
+actions: []
+legendary_actions: []

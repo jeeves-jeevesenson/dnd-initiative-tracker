@@ -28,10 +28,10 @@ immunities:
 senses: Blindsight 60 ft., Passive Perception 7
 languages:
 - —
-description: Animated flying swords move as if wielded by unseen warriors. Whether an animated blade is newly forged
-  or a constellation of broken fragments, the object behaves the same. Other weapons from the Player's Handbook
-  can also be animated and use game statistics similar to those here.
+description: Animated flying swords move as if wielded by unseen warriors. Whether an animated blade is newly forged or a
+  constellation of broken fragments, the object behaves the same. Other weapons from the Player's Handbook can also be animated
+  and use game statistics similar to those here.
 habitat: Urban
-actions:
-- name: Slash
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 6 (1d8 + 2) Slashing damage.'
+actions: []
+traits: []
+legendary_actions: []

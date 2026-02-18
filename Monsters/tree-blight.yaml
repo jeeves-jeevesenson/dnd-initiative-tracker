@@ -21,7 +21,9 @@ senses: Blindsight 60 ft., Passive Perception 10
 languages:
 - Understands Common and Druidic but can't speak
 description: Tree blights look like ancient, dead trees with gnarled limbs and splintered hollows. Imbued with bloodlust,
-  these blights feed on the living. Evidence of their past meals is often tangled amid their branches and roots.
-  Tree blights cooperate with other blights, but they attack other tree-shaped beings they encounter, such as awakened
-  trees and treants.
+  these blights feed on the living. Evidence of their past meals is often tangled amid their branches and roots. Tree blights
+  cooperate with other blights, but they attack other tree-shaped beings they encounter, such as awakened trees and treants.
 habitat: Forest
+traits: []
+actions: []
+legendary_actions: []

@@ -23,7 +23,8 @@ description: ''
 habitat: Underdark
 traits:
 - name: Illumination
-  desc: The beetle sheds Bright Light in a 10-foot radius and Dim Light for an additional 10 feet.
+  desc: The beetle sheds bright light in a 10-foot radius and dim light for an additional 10 ft..
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +1, reach 5 ft. Hit : 1 Fire damage.'
+  desc: '{@atk mw} {@hit 1} to hit, reach 5 ft., one target. {@h}2 ({@damage 1d6 - 1}) slashing damage.'
+legendary_actions: []

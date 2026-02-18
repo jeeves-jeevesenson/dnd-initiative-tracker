@@ -21,15 +21,15 @@ immunities:
 senses: darkvision 60 ft., Passive Perception 8
 languages:
 - Understands Common plus one other language but can't speak
-description: Humanoid zombies usually serve as guardians, servants, or soldiers for evil magic-users. In rare cases,
-  foul magic might result in widespread reanimation of the dead, unleashing hordes of zombies to terrorize the living.
+description: Humanoid zombies usually serve as guardians, servants, or soldiers for evil magic-users. In rare cases, foul
+  magic might result in widespread reanimation of the dead, unleashing hordes of zombies to terrorize the living.
 habitat: Planar (Shadowfell), Underdark, Urban
 treasure: None
 traits:
 - name: Undead Fortitude
-  desc: If damage reduces the zombie to 0 Hit Points, it must make a Constitution saving throw (DC 5 plus the damage
-    taken) unless the damage is Radiant or from a Critical Hit. On a successful save, the zombie drops to 1 Hit
-    Point instead.
+  desc: If damage reduces the zombie to 0 hit points, it must make a Constitution saving throw with a DC of 5 + the damage
+    taken, unless the damage is radiant or from a critical hit. On a success, the zombie drops to 1 hit point instead.
 actions:
 - name: Slam
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 5 (1d8 + 1) Bludgeoning damage.'
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d6 + 1}) bludgeoning damage.'
+legendary_actions: []

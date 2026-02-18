@@ -26,15 +26,22 @@ description: ''
 habitat: Planar (Abyss)
 treasure: Relics
 traits:
-- name: Demonic Restoration
-  desc: If the nalfeshnee dies outside the Abyss, its body dissolves into ichor, and it gains a new body instantly,
-    reviving with all its Hit Points somewhere in the Abyss.
 - name: Magic Resistance
-  desc: The nalfeshnee has Advantage on saving throws against spells and other magical effects.
+  desc: The nalfeshnee has advantage on saving throws against spells and other magical effects.
 actions:
 - name: Multiattack
-  desc: The nalfeshnee makes three Rend attacks.
-- name: Rend
-  desc: 'Melee Attack Roll : +10, reach 10 ft. Hit : 16 (2d10 + 5) Slashing damage plus 11 (2d10) Force damage.'
+  desc: 'The nalfeshnee uses Horror Nimbus if it can. It then makes three attacks: one with its bite and two with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 10} to hit, reach 5 ft., one target. {@h}32 ({@damage 5d10 + 5}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 10} to hit, reach 10 ft., one target. {@h}15 ({@damage 3d6 + 5}) slashing damage.'
+- name: Horror Nimbus {@recharge 5}
+  desc: The nalfeshnee magically emits scintillating, multicolored light. Each creature within 15 feet of the nalfeshnee that
+    can see the light must succeed on a {@dc 15} Wisdom saving throw or be {@condition frightened} for 1 minute. A creature
+    can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. If a creature's
+    saving throw is successful or the effect ends for it, the creature is immune to the nalfeshnee's Horror Nimbus for the
+    next 24 hours.
 - name: Teleport
-  desc: The nalfeshnee teleports up to 120 feet to an unoccupied space it can see.
+  desc: The nalfeshnee magically teleports, along with any equipment it is wearing or carrying, up to 120 feet to an unoccupied
+    space it can see.
+legendary_actions: []

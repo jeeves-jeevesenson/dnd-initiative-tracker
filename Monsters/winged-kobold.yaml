@@ -20,13 +20,26 @@ senses: Darkvision 60 ft., Passive Perception 8
 languages:
 - Common
 - Draconic
-description: Cowardly cousins to chromatic dragons, kobolds serve draconic overlords as warriors and servants. These
-  scrappy menaces mimic the behaviors of their dragon masters. Though their small stature and recklessness make
-  kobolds poor imitators of dragons, what they lack in ferocity they make up for in zeal and ingenuity. They are
-  especially adept at creating traps and setting ambushes. Kobolds' scales resemble those of chromatic dragons that
-  live near their warrens. Rarely, kobolds possess features evocative of metallic dragons or other dragon-like creatures.
-  Some kobolds are born with wings. Called urds by others of their kind, these kobolds are thought to be blessed
-  by a dragon or Tiamat, the Dragon Queen. Despite their favored status, winged kobolds are as cowardly as their
-  brethren and use their flight mostly to keep out of reach of their foes.
+description: Cowardly cousins to chromatic dragons, kobolds serve draconic overlords as warriors and servants. These scrappy
+  menaces mimic the behaviors of their dragon masters. Though their small stature and recklessness make kobolds poor imitators
+  of dragons, what they lack in ferocity they make up for in zeal and ingenuity. They are especially adept at creating traps
+  and setting ambushes. Kobolds' scales resemble those of chromatic dragons that live near their warrens. Rarely, kobolds
+  possess features evocative of metallic dragons or other dragon-like creatures. Some kobolds are born with wings. Called
+  urds by others of their kind, these kobolds are thought to be blessed by a dragon or Tiamat, the Dragon Queen. Despite their
+  favored status, winged kobolds are as cowardly as their brethren and use their flight mostly to keep out of reach of their
+  foes.
 habitat: Arctic, Coastal, Desert, Forest, Hill, Mountain, Swamp, Underdark, Urban
 treasure: Armaments
+traits:
+- name: Sunlight Sensitivity
+  desc: While in sunlight, the kobold has disadvantage on attack rolls, as well as on Wisdom ({@skill Perception}) checks
+    that rely on sight.
+- name: Pack Tactics
+  desc: The kobold has advantage on an attack roll against a creature if at least one of the kobold's allies is within 5 feet
+    of the creature and the ally isn't {@condition incapacitated}.
+actions:
+- name: Dagger
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d4 + 3}) piercing damage.'
+- name: Dropped Rock
+  desc: '{@atk rw} {@hit 5} to hit, one target directly below the kobold. {@h}6 ({@damage 1d6 + 3}) bludgeoning damage.'
+legendary_actions: []

@@ -21,14 +21,20 @@ skills:
 senses: Darkvision 60 ft., Passive Perception 15
 languages:
 - None
-description: Created long ago by misguided mages, owlbears combine keen avian eyes, thick feathers, and a tearing
-  beak with a mighty bearlike frame. Despite their magical origins, owlbears have propagated and spread to wildernesses
-  across the multiverse. Owlbears dwell in distinctive dens. Owlbears are tenacious hunters that might track prey
-  over miles and rarely give up their hunts.
+description: Created long ago by misguided mages, owlbears combine keen avian eyes, thick feathers, and a tearing beak with
+  a mighty bearlike frame. Despite their magical origins, owlbears have propagated and spread to wildernesses across the multiverse.
+  Owlbears dwell in distinctive dens. Owlbears are tenacious hunters that might track prey over miles and rarely give up their
+  hunts.
 habitat: Forest
 treasure: None
 actions:
 - name: Multiattack
-  desc: The owlbear makes two Rend attacks.
-- name: Rend
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 14 (2d8 + 5) Slashing damage.'
+  desc: 'The owlbear makes two attacks: one with its beak and one with its claws.'
+- name: Beak
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one creature. {@h}10 ({@damage 1d10 + 5}) piercing damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}14 ({@damage 2d8 + 5}) slashing damage.'
+traits:
+- name: Keen Sight and Smell
+  desc: The owlbear has advantage on Wisdom ({@skill Perception}) checks that rely on sight or smell.
+legendary_actions: []

@@ -26,21 +26,27 @@ senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 19
 languages:
 - Common
 - Draconic
-description: Arrogant and imperious, blue dragons are chromatic dragons that crave control and collect followers
-  like other dragons hoard treasure. They seek to transform their territories into empires, domains to be feared
-  by nations. Blue dragons have sharp features with piercing horns and scales that range from sapphire to the shades
-  of stormy skies. They dwell in deserts and badlands, particularly regions with dramatic spires from whose tops
-  they might see for miles. They seek lairs near sites of symbolic power, such as the abandoned fortresses of giants,
-  the colossi of fallen empires, or monuments raised by their followers. Regalia of rulership and artistic masterpieces
-  fill blue dragons' hoards. These dragons have no interest in treasures that are common or flawed, preferring one-of-a-kind
-  gemstones, the crowns of fallen royals, and magic items capable of spreading the dragons' influence.
+description: Arrogant and imperious, blue dragons are chromatic dragons that crave control and collect followers like other
+  dragons hoard treasure. They seek to transform their territories into empires, domains to be feared by nations. Blue dragons
+  have sharp features with piercing horns and scales that range from sapphire to the shades of stormy skies. They dwell in
+  deserts and badlands, particularly regions with dramatic spires from whose tops they might see for miles. They seek lairs
+  near sites of symbolic power, such as the abandoned fortresses of giants, the colossi of fallen empires, or monuments raised
+  by their followers. Regalia of rulership and artistic masterpieces fill blue dragons' hoards. These dragons have no interest
+  in treasures that are common or flawed, preferring one-of-a-kind gemstones, the crowns of fallen royals, and magic items
+  capable of spreading the dragons' influence.
 habitat: Coastal, Desert
 treasure: Relics
 actions:
 - name: Multiattack
-  desc: The dragon makes three Rend attacks.
-- name: Rend
-  desc: 'Melee Attack Roll : +9, reach 10 ft. Hit : 12 (2d6 + 5) Slashing damage plus 5 (1d10) Lightning damage.'
-- name: Lightning Breath (Recharge 5–6)
-  desc: 'Dexterity Saving Throw : DC 16, each creature in a 60-foot-long, 5-foot-wide Line. Failure : 55 (10d10)
-    Lightning damage. Success : Half damage.'
+  desc: 'The dragon makes three attacks: one with its bite and two with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 9} to hit, reach 10 ft., one target. {@h}16 ({@damage 2d10 + 5}) piercing damage plus 5 ({@damage
+    1d10}) lightning damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 9} to hit, reach 5 ft., one target. {@h}12 ({@damage 2d6 + 5}) slashing damage.'
+- name: Lightning Breath {@recharge 5}
+  desc: The dragon exhales lightning in a 60-foot line that is 5 feet wide. Each creature in that line must make a {@dc 16}
+    Dexterity saving throw, taking 55 ({@damage 10d10}) lightning damage on a failed save, or half as much damage on a successful
+    one.
+traits: []
+legendary_actions: []

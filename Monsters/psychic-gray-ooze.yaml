@@ -30,6 +30,9 @@ immunities:
 senses: Blindsight 60 ft., Passive Perception 8
 languages:
 - —
-description: Psychic gray oozes exhibit violent psionic abilities. These oozes sometimes result from failed attempts
-  to summon or create creatures linked to the Elemental Plane of Earth, like gargoyles or homunculi.
+description: Psychic gray oozes exhibit violent psionic abilities. These oozes sometimes result from failed attempts to summon
+  or create creatures linked to the Elemental Plane of Earth, like gargoyles or homunculi.
 habitat: Underdark
+traits: []
+actions: []
+legendary_actions: []

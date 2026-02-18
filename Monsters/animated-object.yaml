@@ -25,8 +25,6 @@ senses: Blindsight 30 ft., Passive Perception 6
 languages:
 - Understands the languages you know
 description: See Animate Objects
-actions:
-- name: Slam
-  desc: 'Melee Attack Roll : Bonus equals your spell attack modifier, reach 5 ft. Hit : Force damage equal to 1d4
-    + 3 (Medium or smaller), 2d6 + 3 + your spellcasting ability modifier (Large), or 2d12 + 3 + your spellcasting
-    ability modifier (Huge).'
+actions: []
+traits: []
+legendary_actions: []

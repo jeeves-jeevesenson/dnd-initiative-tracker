@@ -22,9 +22,6 @@ languages:
 - Sylvan
 - understands the languages you know
 description: See Summon Fey
-actions:
-- name: Multiattack
-  desc: The spirit makes a number of Fey Blade attacks equal to half this spell's level (round down).
-- name: Fey Blade
-  desc: 'Melee Attack Roll : Bonus equals your spell attack modifier, reach 5 ft. Hit : 2d6 + 3 + the spell''s level
-    Force damage.'
+actions: []
+traits: []
+legendary_actions: []

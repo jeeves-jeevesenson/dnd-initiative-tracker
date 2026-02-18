@@ -26,20 +26,19 @@ senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial (Aquan
 - Ignan)
-description: These arrogant mephits are made of heat and vaporous water. They often trick creatures into doing them
-  favors, then renege on promised rewards.
+description: These arrogant mephits are made of heat and vaporous water. They often trick creatures into doing them favors,
+  then renege on promised rewards.
 habitat: Planar (Elemental Planes)
 treasure: None
 traits:
-- name: Blurred Form
-  desc: Attack rolls against the mephit are made with Disadvantage unless the mephit has the Incapacitated condition.
 - name: Death Burst
-  desc: 'The mephit explodes when it dies. Dexterity Saving Throw : DC 10, each creature in a 5-foot Emanation originating
-    from the mephit. Failure : 5 (2d4) Fire damage. Success : Half damage.'
+  desc: When the mephit dies, it explodes in a cloud of steam. Each creature within 5 feet of the mephit must succeed on a
+    {@dc 10} Dexterity saving throw or take 4 ({@damage 1d8}) fire damage.
 actions:
-- name: Claw
-  desc: 'Melee Attack Roll : +2, reach 5 ft. Hit : 2 (1d4) Slashing damage plus 2 (1d4) Fire damage.'
-- name: Steam Breath (Recharge 6)
-  desc: 'Constitution Saving Throw : DC 10, each creature in a 15-foot Cone. Failure : 5 (2d4) Fire damage, and
-    the target''s Speed decreases by 10 feet until the end of the mephit''s next turn. Success : Half damage only.
-    Failure or Success : Being underwater doesn''t grant Resistance to this Fire damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 2} to hit, reach 5 ft., one creature. {@h}2 ({@damage 1d4}) slashing damage plus 2 ({@damage 1d4})
+    fire damage.'
+- name: Steam Breath {@recharge}
+  desc: The mephit exhales a 15-foot cone of scalding steam. Each creature in that area must succeed on a {@dc 10} Dexterity
+    saving throw, taking 4 ({@damage 1d8}) fire damage on a failed save, or half as much damage on a successful one.
+legendary_actions: []

@@ -28,4 +28,5 @@ traits:
   desc: The crab can breathe air and water.
 actions:
 - name: Claw
-  desc: 'Melee Attack Roll : +2, reach 5 ft. Hit : 1 Bludgeoning damage.'
+  desc: '{@atk mw} {@hit 0} to hit, reach 5 ft., one target. {@h}1 bludgeoning damage.'
+legendary_actions: []

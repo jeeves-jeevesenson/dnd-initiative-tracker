@@ -27,6 +27,10 @@ description: Slow but mobile, violet fungi rot any flesh they touch with their l
 habitat: Underdark
 actions:
 - name: Multiattack
-  desc: The fungus makes two Rotting Touch attacks.
+  desc: The fungus makes {@dice 1d4} Rotting Touch attacks.
 - name: Rotting Touch
-  desc: 'Melee Attack Roll : +2, reach 10 ft. Hit : 4 (1d8) Necrotic damage.'
+  desc: '{@atk mw} {@hit 2} to hit, reach 10 ft., one creature. {@h}4 ({@damage 1d8}) necrotic damage.'
+traits:
+- name: False Appearance
+  desc: While the violet fungus remains motionless, it is indistinguishable from an ordinary fungus.
+legendary_actions: []

@@ -25,3 +25,22 @@ languages:
 description: ''
 habitat: Planar (Elemental Plane of Earth), Underdark
 treasure: Implements
+traits:
+- name: Earth Glide
+  desc: The dao can burrow through nonmagical, unworked earth and stone. While doing so, the dao doesn't disturb the material
+    it moves through.
+- name: Elemental Demise
+  desc: If the dao dies, its body disintegrates into crystalline powder, leaving behind only equipment the dao was wearing
+    or carrying.
+- name: Sure-Footed
+  desc: The dao has advantage on Strength and Dexterity saving throws made against effects that would knock it {@condition
+    prone}.
+actions:
+- name: Multiattack
+  desc: The Dao makes two fist attacks or two maul attacks.
+- name: Fist
+  desc: '{@atk mw} {@hit 10} to hit, reach 5 ft., one target. {@h}15 ({@damage 2d8 + 6}) bludgeoning damage.'
+- name: Maul
+  desc: '{@atk mw} {@hit 10} to hit, reach 5 ft., one target. {@h}20 ({@damage 4d6 + 6}) bludgeoning damage. If the target
+    is a Huge or smaller creature, it must succeed on a {@dc 18} Strength check or be knocked {@condition prone}.'
+legendary_actions: []

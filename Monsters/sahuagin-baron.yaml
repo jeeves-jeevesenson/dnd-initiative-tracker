@@ -21,9 +21,27 @@ skills:
 senses: Darkvision 120 ft., Passive Perception 17
 languages:
 - Sahuagin
-description: During times of great conflict, Sekolah blesses particularly ruthless sahuagin warriors with increased
-  size and an additional pair of arms, transforming them into sahuagin barons. These boons elevate the recipients'
-  status among their kind, and they become champions or leaders. Sahuagin barons' blood is infused with profane
-  magic capable of searing their enemies and making these foes irresistible targets for other Fiends.
+description: During times of great conflict, Sekolah blesses particularly ruthless sahuagin warriors with increased size and
+  an additional pair of arms, transforming them into sahuagin barons. These boons elevate the recipients' status among their
+  kind, and they become champions or leaders. Sahuagin barons' blood is infused with profane magic capable of searing their
+  enemies and making these foes irresistible targets for other Fiends.
 habitat: Coastal, Underwater
 treasure: Any
+traits:
+- name: Blood Frenzy
+  desc: The sahuagin has advantage on melee attack rolls against any creature that doesn't have all its hit points.
+- name: Limited Amphibiousness
+  desc: The sahuagin can breathe air and water, but it needs to be submerged at least once every 4 hours to avoid suffocating.
+- name: Shark Telepathy
+  desc: The sahuagin can magically command any shark within 120 feet of it, using a limited telepathy.
+actions:
+- name: Multiattack
+  desc: 'The sahuagin makes three attacks: one with his bite and two with his claws or trident.'
+- name: Bite
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}9 ({@damage 2d4 + 4}) piercing damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) slashing damage.'
+- name: Trident
+  desc: '{@atk mw,rw} {@hit 7} to hit, reach 5 ft. or range 20/60 ft., one target. {@h}11 ({@damage 2d6 + 4}) piercing damage,
+    or 13 ({@damage 2d8 + 4}) piercing damage if used with two hands to make a melee attack.'
+legendary_actions: []

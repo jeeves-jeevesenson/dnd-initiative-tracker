@@ -22,7 +22,10 @@ skills:
 senses: Darkvision 60 ft., Passive Perception 13
 languages:
 - Thri-kreen; telepathy 60 ft.
-description: Thri-kreen marauders employ weapons made of stone and bone, such as the spear-like gythka and throwing
-  blades called chatkcha.
+description: Thri-kreen marauders employ weapons made of stone and bone, such as the spear-like gythka and throwing blades
+  called chatkcha.
 habitat: Desert, Grassland
 treasure: Armaments
+traits: []
+actions: []
+legendary_actions: []

@@ -25,9 +25,33 @@ languages:
 - Abyssal
 - Common
 - Draconic
-description: Malisons exhibit snakelike features that make them deadly in combat. These malisons are human from
-  the waist up, but below that extend the coils of a giant snake. Malisons possesses deadly venom, which some manipulate
-  into magical strikes. They can also shape-shift into snakes, helping them to position themselves for surprise
-  attacks or to slither away with nary a trace.
+description: Malisons exhibit snakelike features that make them deadly in combat. These malisons are human from the waist
+  up, but below that extend the coils of a giant snake. Malisons possesses deadly venom, which some manipulate into magical
+  strikes. They can also shape-shift into snakes, helping them to position themselves for surprise attacks or to slither away
+  with nary a trace.
 habitat: Desert, Forest, Swamp, Urban
 treasure: Relics
+traits:
+- name: Shapechanger
+  desc: The yuan-ti can use its action to polymorph into a Medium snake, or back into its true form. Its statistics are the
+    same in each form. Any equipment it is wearing or carrying isn't transformed. It doesn't change form if it dies.
+- name: Magic Resistance
+  desc: The yuan-ti has advantage on saving throws against spells and other magical effects.
+- name: Malison Type
+  desc: 'The yuan-ti has one of the following types: Human body with snake head Human head and body with snakes for arms Human
+    head and upper body with a serpentine lower body instead of legs'
+actions:
+- name: Multiattack (Yuan-ti Form Only)
+  desc: The yuan-ti makes two ranged attacks or two melee attacks, but can constrict only once.
+- name: Bite (Snake Form Only)
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one creature. {@h}5 ({@damage 1d4 + 3}) piercing damage plus 7 ({@damage
+    2d6}) poison damage.'
+- name: Constrict
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}10 ({@damage 2d6 + 3}) bludgeoning damage, and the target
+    is {@condition grappled} (escape {@dc 13}). Until this grapple ends, the target is {@condition restrained}, and the yuan-ti
+    can''t constrict another target.'
+- name: Scimitar (Yuan-ti Form Only)
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) slashing damage.'
+- name: Longbow (Yuan-ti Form Only)
+  desc: '{@atk rw} {@hit 4} to hit, range 150/600 ft., one target. {@h}6 ({@damage 1d8 + 2}) piercing damage.'
+legendary_actions: []

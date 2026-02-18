@@ -25,5 +25,15 @@ languages:
 description: ''
 habitat: Forest, Grassland, Hill
 actions:
-- name: Rend
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Slashing damage.'
+- name: Bite
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d6 + 2}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d4 + 2}) slashing damage.'
+traits:
+- name: Keen Smell
+  desc: The panther has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
+- name: Pounce
+  desc: If the panther moves at least 20 feet straight toward a creature and then hits it with a claw attack on the same turn,
+    that target must succeed on a {@dc 12} Strength saving throw or be knocked {@condition prone}. If the target is {@condition
+    prone}, the panther can make one bite attack against it as a bonus action.
+legendary_actions: []

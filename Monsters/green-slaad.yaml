@@ -22,8 +22,31 @@ senses: Blindsight 30 ft., Darkvision 60 ft., Passive Perception 12
 languages:
 - Common
 - Slaad; telepathy 60 ft.
-description: Green slaadi come into being when the propagation methods of red or blue slaadi affect certain creatures
-  capable of casting spells of level 3 or higher. Green slaadi are more intelligent than their blue and red brethren
-  and often direct their kin to portals where gray slaadi have identified Humanoid communities ripe for invasion.
+description: Green slaadi come into being when the propagation methods of red or blue slaadi affect certain creatures capable
+  of casting spells of level 3 or higher. Green slaadi are more intelligent than their blue and red brethren and often direct
+  their kin to portals where gray slaadi have identified Humanoid communities ripe for invasion.
 habitat: Planar (Limbo)
 treasure: Any
+traits:
+- name: Shapechanger
+  desc: The slaad can use its action to polymorph into a Small or Medium humanoid, or back into its true form. Its statistics,
+    other than its size, are the same in each form. Any equipment it is wearing or carrying isn't transformed. It reverts
+    to its true form if it dies.
+- name: Magic Resistance
+  desc: The slaad has advantage on saving throws against spells and other magical effects.
+- name: Regeneration
+  desc: The slaad regains 10 hit points at the start of its turn if it has at least 1 hit point.
+actions:
+- name: Multiattack
+  desc: 'The slaad makes three attacks: one with its bite and two with its claws or staff. Alternatively, it uses its Hurl
+    Flame twice.'
+- name: Bite (Slaad Form Only)
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) piercing damage.'
+- name: Claw (Slaad Form Only)
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d6 + 4}) slashing damage.'
+- name: Staff
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) bludgeoning damage.'
+- name: Hurl Flame
+  desc: '{@atk rs} {@hit 4} to hit, range 60 ft., one target. {@h}10 ({@damage 3d6}) fire damage. The fire ignites flammable
+    objects that aren''t being worn or carried.'
+legendary_actions: []

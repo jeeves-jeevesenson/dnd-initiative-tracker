@@ -22,18 +22,16 @@ description: ''
 habitat: Forest
 traits:
 - name: Avoidance
-  desc: If the displacer beast is subjected to an effect that allows it to make a saving throw to take only half
-    damage, it instead takes no damage if it succeeds on the save and half damage if it fails. It can't use this
-    trait if it has the Incapacitated condition.
+  desc: If the displacer beast is subjected to an effect that allows it to make a saving throw to take only half damage, it
+    instead takes no damage if it succeeds on the saving throw, and only half damage if it fails.
 - name: Displacement
-  desc: Attack rolls against the displacer beast have Disadvantage, since it projects an illusion that makes it
-    appear to be near its actual location. This trait is suppressed while the displacer beast has the Incapacitated
-    condition.
+  desc: The displacer beast projects a magical illusion that makes it appear to be standing near its actual location, causing
+    attack rolls against it to have disadvantage. If it is hit by an attack, this trait is disrupted until the end of its
+    next turn. This trait is also disrupted while the displacer beast is {@condition incapacitated} or has a speed of 0.
 actions:
 - name: Multiattack
-  desc: The displacer beast makes one Rend attack and one Tentacle attack.
-- name: Rend
-  desc: 'Melee Attack Roll : +6, reach 5 feet. Hit : 9 (1d10 + 4) Slashing damage. If target is a Large or smaller
-    creature, it has the Prone condition.'
+  desc: The displacer beast makes two attacks with its tentacles.
 - name: Tentacle
-  desc: 'Melee Attack Roll : +6, reach 10 feet. Hit : 11 (2d6 + 4) Piercing damage.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 10 ft., one target. {@h}7 ({@damage 1d6 + 4}) bludgeoning damage plus 3 ({@damage
+    1d6}) piercing damage.'
+legendary_actions: []

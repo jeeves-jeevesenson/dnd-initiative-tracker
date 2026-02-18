@@ -29,3 +29,23 @@ languages:
 description: ''
 habitat: Planar (Gehenna)
 treasure: Armaments
+traits:
+- name: Magic Resistance
+  desc: The nycaloth has advantage on saving throws against spells and other magical effects.
+- name: Magic Weapons
+  desc: The nycaloth's weapon attacks are magical.
+actions:
+- name: Multiattack
+  desc: The nycaloth makes two melee attacks, or it makes one melee attack and teleports before or after the attack.
+- name: Claw
+  desc: '{@atk mw} {@hit 9} to hit, reach 5 ft., one target. {@h}12 ({@damage 2d6 + 5}) slashing damage. If the target is
+    a creature, it must succeed on a {@dc 16} Constitution saving throw or take 5 ({@damage 2d4}) slashing damage at the start
+    of each of its turns due to a fiendish wound. Each time the nycaloth hits the wounded target with this attack, the damage
+    dealt by the wound increases by 5 ({@damage 2d4}). Any creature can take an action to stanch the wound with a successful
+    {@dc 13} Wisdom ({@skill Medicine}) check. The wound also closes if the target receives magical healing.'
+- name: Greataxe
+  desc: '{@atk mw} {@hit 9} to hit, reach 5 ft., one target. {@h}18 ({@damage 2d12 + 5}) slashing damage.'
+- name: Teleport
+  desc: The nycaloth magically teleports, along with any equipment it is wearing or carrying, up to 60 feet to an unoccupied
+    space it can see.
+legendary_actions: []

@@ -24,10 +24,11 @@ languages:
 description: ''
 habitat: Desert, Forest, Swamp, Underwater
 actions:
-- name: Multiattack
-  desc: The snake makes one Bite attack and uses Constrict.
 - name: Bite
-  desc: 'Melee Attack Roll : +6, reach 10 ft. Hit : 11 (2d6 + 4) Piercing damage.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 10 ft., one creature. {@h}11 ({@damage 2d6 + 4}) piercing damage.'
 - name: Constrict
-  desc: 'Strength Saving Throw : DC 14, one Large or smaller creature the snake can see within 10 feet. Failure
-    : 13 (2d8 + 4) Bludgeoning damage, and the target has the Grappled condition (escape DC 14).'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one creature. {@h}13 ({@damage 2d8 + 4}) bludgeoning damage, and the target
+    is {@condition grappled} (escape {@dc 16}). Until this grapple ends, the creature is {@condition restrained}, and the
+    snake can''t constrict another target.'
+traits: []
+legendary_actions: []

@@ -22,12 +22,13 @@ skills:
 senses: Passive Perception 12
 languages:
 - Common plus two other languages
-description: Nobles encompass a variety of people with social influence. They might be rulers, wealthy merchants,
-  callous bureaucrats, or the idle elite. A noble's social advantages typically grant the noble access to greater
-  education and training than most common folk, while nobles' experience with business or politics makes many adept
-  negotiators.
+description: Nobles encompass a variety of people with social influence. They might be rulers, wealthy merchants, callous
+  bureaucrats, or the idle elite. A noble's social advantages typically grant the noble access to greater education and training
+  than most common folk, while nobles' experience with business or politics makes many adept negotiators.
 habitat: Any
 treasure: Individual
 actions:
 - name: Rapier
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 5 (1d8 + 1) Piercing damage.'
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d8 + 1}) piercing damage.'
+traits: []
+legendary_actions: []

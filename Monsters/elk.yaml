@@ -24,6 +24,12 @@ description: ''
 habitat: Forest, Grassland, Hill
 actions:
 - name: Ram
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Bludgeoning damage. If the elk moved at least 20
-    feet straight toward the target immediately before the hit, the target takes an extra 3 (1d6) Bludgeoning damage
-    and, if it is Huge or smaller, has the Prone condition.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) bludgeoning damage.'
+- name: Hooves
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one {@condition prone} creature. {@h}8 ({@damage 2d4 + 3}) bludgeoning damage.'
+traits:
+- name: Charge
+  desc: If the elk moves at least 20 feet straight toward a target and then hits it with a ram attack on the same turn, the
+    target takes an extra 7 ({@damage 2d6}) damage. If the target is a creature, it must succeed on a {@dc 13} Strength saving
+    throw or be knocked {@condition prone}.
+legendary_actions: []

@@ -22,10 +22,6 @@ description: Warrior infantry might be trainees or rank-and-file troops. They ar
   nonmagical threats.
 habitat: Any
 treasure: Armaments
-traits:
-- name: Pack Tactics
-  desc: The warrior has Advantage on an attack roll against a creature if at least one of the warrior's allies is
-    within 5 feet of the creature and the ally doesn't have the Incapacitated condition.
-actions:
-- name: Spear
-  desc: 'Melee or Ranged Attack Roll : +3, reach 5 ft. or range 20/60 ft. Hit : 4 (1d6 + 1) Piercing damage.'
+traits: []
+actions: []
+legendary_actions: []

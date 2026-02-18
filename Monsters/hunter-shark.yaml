@@ -24,9 +24,11 @@ languages:
 description: ''
 habitat: Underwater
 traits:
+- name: Blood Frenzy
+  desc: The shark has advantage on melee attack rolls against any creature that doesn't have all its hit points.
 - name: Water Breathing
   desc: The shark can breathe only underwater.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +6 (with Advantage if the target doesn''t have all its Hit Points), reach 5 ft. Hit
-    : 14 (3d6 + 4) Piercing damage.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}13 ({@damage 2d8 + 4}) piercing damage.'
+legendary_actions: []

@@ -26,8 +26,11 @@ languages:
 - Abyssal
 - Common
 - Draconic
-description: Infiltrators can pass as human, their serpentine features limited to scaly skin, forked tongues, and
-  other minor or internal transformations. These spies insinuate themselves among their rivals, manipulating others
-  and making foes vulnerable to the plots of more powerful yuan-ti.
+description: Infiltrators can pass as human, their serpentine features limited to scaly skin, forked tongues, and other minor
+  or internal transformations. These spies insinuate themselves among their rivals, manipulating others and making foes vulnerable
+  to the plots of more powerful yuan-ti.
 habitat: Desert, Forest, Swamp, Urban
 treasure: Relics
+traits: []
+actions: []
+legendary_actions: []

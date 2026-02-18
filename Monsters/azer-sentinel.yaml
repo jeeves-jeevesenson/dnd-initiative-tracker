@@ -24,12 +24,6 @@ languages:
 description: Azer sentinels defend their communities' smiths and channel their flames through their weapons.
 habitat: Mountain, Planar (Elemental Plane of Fire)
 treasure: Individual, Armaments
-traits:
-- name: Fire Aura
-  desc: At the end of each of the azer's turns, each creature of the azer's choice in a 5-foot Emanation originating
-    from the azer takes 5 (1d10) Fire damage unless the azer has the Incapacitated condition.
-- name: Illumination
-  desc: The azer sheds Bright Light in a 10-foot radius and Dim Light for an additional 10 feet.
-actions:
-- name: Burning Hammer
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 8 (1d10 + 3) Bludgeoning damage plus 3 (1d6) Fire damage.'
+traits: []
+actions: []
+legendary_actions: []

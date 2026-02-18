@@ -20,8 +20,15 @@ immunities:
 senses: Blindsight 60 ft., Passive Perception 9
 languages:
 - Understands Common but can't speak
-description: Needle blights have vaguely bipedal forms, with gaunt, misshapen limbs. Whether standing unnaturally
-  still or lurching with their awkward gaits, these blights can't pass as either normal plants or woodland travelers.
-  Once they spot foes, needle blights attack using their thorn-covered claws or by rapidly growing and flinging
-  volleys of serrated, needlelike projectiles.
+description: Needle blights have vaguely bipedal forms, with gaunt, misshapen limbs. Whether standing unnaturally still or
+  lurching with their awkward gaits, these blights can't pass as either normal plants or woodland travelers. Once they spot
+  foes, needle blights attack using their thorn-covered claws or by rapidly growing and flinging volleys of serrated, needlelike
+  projectiles.
 habitat: Forest
+traits: []
+actions:
+- name: Claws
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}6 ({@damage 2d4 + 1}) piercing damage.'
+- name: Needles
+  desc: '{@atk rw} {@hit 3} to hit, range 30/60 ft., one target. {@h}8 ({@damage 2d6 + 1}) piercing damage.'
+legendary_actions: []

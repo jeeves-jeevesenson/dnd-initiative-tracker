@@ -23,11 +23,6 @@ languages:
 - None
 description: ''
 habitat: Forest, Grassland, Swamp
-traits:
-- name: Hold Breath
-  desc: The hippopotamus can hold its breath for 10 minutes.
-actions:
-- name: Multiattack
-  desc: The hippopotamus makes two Bite attacks.
-- name: Bite
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 16 (2d10 + 5) Piercing damage.'
+traits: []
+actions: []
+legendary_actions: []

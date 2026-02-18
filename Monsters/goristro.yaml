@@ -26,3 +26,25 @@ languages:
 description: ''
 habitat: Planar (Abyss)
 treasure: Armaments
+traits:
+- name: Charge
+  desc: If the goristro moves at least 15 feet straight toward a target and then hits it with a gore attack on the same turn,
+    the target takes an extra 38 ({@damage 7d10}) piercing damage. If the target is a creature, it must succeed on a {@dc
+    21} Strength saving throw or be pushed up to 20 feet away and knocked {@condition prone}.
+- name: Labyrinthine Recall
+  desc: The goristro can perfectly recall any path it has traveled.
+- name: Magic Resistance
+  desc: The goristro has advantage on saving throws against spells and other magical effects.
+- name: Siege Monster
+  desc: The goristro deals double damage to objects and structures.
+actions:
+- name: Multiattack
+  desc: 'The goristro makes three attacks: two with its fists and one with its hoof.'
+- name: Fist
+  desc: '{@atk mw} {@hit 13} to hit, reach 10 ft., one target. {@h}20 ({@damage 3d8 + 7}) bludgeoning damage.'
+- name: Hoof
+  desc: '{@atk mw} {@hit 13} to hit, reach 5 ft., one target. {@h}23 ({@damage 3d10 + 7}) bludgeoning damage. If the target
+    is a creature, it must succeed on a {@dc 21} Strength saving throw or be knocked {@condition prone}.'
+- name: Gore
+  desc: '{@atk mw} {@hit 13} to hit, reach 10 ft., one target. {@h}45 ({@damage 7d10 + 7}) piercing damage.'
+legendary_actions: []

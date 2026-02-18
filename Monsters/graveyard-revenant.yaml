@@ -27,7 +27,10 @@ immunities:
 senses: Darkvision 120 ft., Passive Perception 13
 languages:
 - Common plus two other languages
-description: Graveyard revenants possess dozens of bodies that combine to form grotesque masses. They take revenge
-  on those responsible for mass deaths or institutions that callously ruin lives.
+description: Graveyard revenants possess dozens of bodies that combine to form grotesque masses. They take revenge on those
+  responsible for mass deaths or institutions that callously ruin lives.
 habitat: Forest, Swamp, Urban
 treasure: Any
+traits: []
+actions: []
+legendary_actions: []

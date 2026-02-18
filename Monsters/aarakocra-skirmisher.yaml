@@ -22,15 +22,10 @@ senses: Passive Perception 15
 languages:
 - Aarakocra
 - Primordial (Auran)
-description: Aarakocra skirmishers are adept at fighting aerial foes amid the clouds. They often attack land-bound
-  threats with diving strikes from above.
+description: Aarakocra skirmishers are adept at fighting aerial foes amid the clouds. They often attack land-bound threats
+  with diving strikes from above.
 habitat: Mountain, Planar (Elemental Plane of Air)
 treasure: Individual, Implements
-actions:
-- name: Talons
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 4 (1d4 + 2) Slashing damage, or 9 (3d4 + 2) Slashing damage if
-    the aarakocra moved 30+ feet straight toward the target immediately before the hit.'
-- name: Wind Javelin
-  desc: 'Melee or Ranged Attack Roll : +4, reach 5 ft. or range 30/120 ft. Hit : 5 (1d6 + 2) Piercing damage plus
-    2 (1d4) Thunder damage. Hit or Miss : The javelin magically returns to the aarakocra''s hand immediately after
-    a ranged attack.'
+actions: []
+traits: []
+legendary_actions: []

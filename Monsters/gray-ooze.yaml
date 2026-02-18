@@ -30,20 +30,23 @@ immunities:
 senses: Blindsight 60 ft., Passive Perception 8
 languages:
 - None
-description: Gray oozes appear in areas affected by unpredictable magic. Magic-users who fail in their attempts
-  to bind elemental spirits to the bodies of Constructs might also accidentally create gray oozes.
+description: Gray oozes appear in areas affected by unpredictable magic. Magic-users who fail in their attempts to bind elemental
+  spirits to the bodies of Constructs might also accidentally create gray oozes.
 habitat: Underdark
 treasure: None
 traits:
 - name: Amorphous
-  desc: The ooze can move through a space as narrow as 1 inch without expending extra movement to do so.
-- name: Corrosive Form
-  desc: Nonmagical ammunition is destroyed immediately after hitting the ooze and dealing any damage. Any nonmagical
-    weapon takes a cumulative -1 penalty to attack rolls immediately after dealing damage to the ooze and coming
-    into contact with it. The weapon is destroyed if the penalty reaches -5. The penalty can be removed by casting
-    the Mending spell on the weapon. The ooze can eat through 2-inch-thick, nonmagical metal or wood in 1 round.
+  desc: The ooze can move through a space as narrow as 1 inch wide without squeezing.
+- name: Corrode Metal
+  desc: Any nonmagical weapon made of metal that hits the ooze corrodes. After dealing damage, the weapon takes a permanent
+    and cumulative −1 penalty to damage rolls. If its penalty drops to −5, the weapon is destroyed. Nonmagical ammunition
+    made of metal that hits the ooze is destroyed after dealing damage. The ooze can eat through 2-inch-thick, nonmagical
+    metal in 1 round.
+- name: False Appearance
+  desc: While the ooze remains motionless, it is indistinguishable from an oily pool or wet rock.
 actions:
 - name: Pseudopod
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 10 (2d8 + 1) Acid damage. Nonmagical armor worn by the target
-    takes a -1 penalty to the AC it offers. The armor is destroyed if the penalty reduces its AC to 10. The penalty
-    can be removed by casting the Mending spell on the armor.'
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d6 + 1}) bludgeoning damage plus 7 ({@damage
+    2d6}) acid damage, and if the target is wearing nonmagical metal armor, its armor is partly corroded and takes a permanent
+    and cumulative −1 penalty to the AC it offers. The armor is destroyed if the penalty reduces its AC to 10.'
+legendary_actions: []

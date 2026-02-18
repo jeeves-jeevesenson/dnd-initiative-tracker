@@ -25,3 +25,11 @@ languages:
 description: Pixies spend their days frolicking and exploring and avoid direct conflict when they can.
 habitat: Forest, Planar (Feywild)
 treasure: Arcana
+traits:
+- name: Magic Resistance
+  desc: The pixie has advantage on saving throws against spells and other magical effects.
+actions:
+- name: Superior Invisibility
+  desc: The pixie magically turns {@condition invisible} until its {@status concentration} ends (as if {@status concentration||concentrating}
+    on a spell). Any equipment the pixie wears or carries is {@condition invisible} with it.
+legendary_actions: []

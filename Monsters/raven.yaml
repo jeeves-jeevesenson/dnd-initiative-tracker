@@ -25,8 +25,9 @@ description: ''
 habitat: Hill, Swamp, Urban
 traits:
 - name: Mimicry
-  desc: The raven can mimic simple sounds it has heard, such as a whisper or chitter. A hearer can discern the sounds
-    are imitations with a successful DC 10 Wisdom (Insight) check.
+  desc: The raven can mimic simple sounds it has heard, such as a person whispering, a baby crying, or an animal chittering.
+    A creature that hears the sounds can tell they are imitations with a successful {@dc 10} Wisdom ({@skill Insight}) check.
 actions:
 - name: Beak
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 1 Piercing damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}1 piercing damage.'
+legendary_actions: []

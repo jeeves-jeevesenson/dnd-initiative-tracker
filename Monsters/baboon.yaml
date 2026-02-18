@@ -23,8 +23,9 @@ description: ''
 habitat: Forest, Hill
 traits:
 - name: Pack Tactics
-  desc: The baboon has Advantage on an attack roll against a creature if at least one of the baboon's allies is
-    within 5 feet of the creature and the ally doesn't have the Incapacitated condition.
+  desc: The baboon has advantage on an attack roll against a creature if at least one of the baboon's allies is within 5 feet
+    of the creature and the ally isn't {@condition incapacitated}.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +1, reach 5 ft. Hit : 1 (1d4 - 1) Piercing damage.'
+  desc: '{@atk mw} {@hit 1} to hit, reach 5 ft., one target. {@h}1 ({@damage 1d4 - 1}) piercing damage.'
+legendary_actions: []

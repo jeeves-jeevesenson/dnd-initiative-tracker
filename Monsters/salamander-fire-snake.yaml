@@ -21,8 +21,11 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Understands Primordial but can't speak
-description: Juvenile salamanders emerge from burning hot, two-foot-diameter eggs. Called fire snakes, these serpentlike
-  creatures slither through the Plane of Fire and other intensely hot places. After consuming the proper fuels and
-  exposing themselves to fiery extremes, fire snakes grow into salamanders.
+description: Juvenile salamanders emerge from burning hot, two-foot-diameter eggs. Called fire snakes, these serpentlike creatures
+  slither through the Plane of Fire and other intensely hot places. After consuming the proper fuels and exposing themselves
+  to fiery extremes, fire snakes grow into salamanders.
 habitat: Planar (Elemental Plane of Fire), Underdark
 treasure: Armaments
+traits: []
+actions: []
+legendary_actions: []

@@ -24,8 +24,14 @@ habitat: Arctic, Coastal, Grassland, Hill, Mountain
 treasure: Any
 actions:
 - name: Multiattack
-  desc: The manticore makes three attacks, using Rend or Tail Spike in any combination.
-- name: Rend
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Slashing damage.'
+  desc: 'The manticore makes three attacks: one with its bite and two with its claws or three with its tail spikes.'
+- name: Bite
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d8 + 3}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) slashing damage.'
 - name: Tail Spike
-  desc: 'Ranged Attack Roll : +5, range 100/200 ft. Hit : 7 (1d8 + 3) Piercing damage.'
+  desc: '{@atk rw} {@hit 5} to hit, range 100/200 ft., one target. {@h}7 ({@damage 1d8 + 3}) piercing damage.'
+traits:
+- name: Tail Spike Regrowth
+  desc: The manticore has twenty-four tail spikes. Used spikes regrow when the manticore finishes a long rest.
+legendary_actions: []

@@ -25,10 +25,6 @@ languages:
 description: Centaur troopers are knight-like guardians. Many are suspicious of non-Fey creatures.
 habitat: Forest, Grassland, Planar (Feywild)
 treasure: Individual, Armaments
-actions:
-- name: Multiattack
-  desc: The centaur makes two attacks, using Pike or Longbow in any combination.
-- name: Pike
-  desc: 'Melee Attack Roll : +6, reach 10 ft. Hit : 9 (1d10 + 4) Piercing damage.'
-- name: Longbow
-  desc: 'Ranged Attack Roll : +4, range 150/600 ft. Hit : 6 (1d8 + 2) Piercing damage.'
+actions: []
+traits: []
+legendary_actions: []

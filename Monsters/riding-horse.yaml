@@ -23,4 +23,6 @@ description: ''
 habitat: Grassland, Urban
 actions:
 - name: Hooves
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Bludgeoning damage.'
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}8 ({@damage 2d4 + 3}) bludgeoning damage.'
+traits: []
+legendary_actions: []

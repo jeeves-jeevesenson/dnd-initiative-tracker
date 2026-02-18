@@ -24,7 +24,10 @@ languages:
 - Common
 - Elvish
 - Sylvan
-description: Satyr revelmasters use magical music to change the moods of other creatures. They do so to keep their
-  celebrations exciting and to ward off foes.
+description: Satyr revelmasters use magical music to change the moods of other creatures. They do so to keep their celebrations
+  exciting and to ward off foes.
 habitat: Forest, Planar (Feywild)
 treasure: Implements
+traits: []
+actions: []
+legendary_actions: []

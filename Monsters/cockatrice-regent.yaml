@@ -21,6 +21,9 @@ immunities:
 senses: Darkvision 120 ft., Passive Perception 13
 languages:
 - —
-description: Bolder than their smaller cousins, cockatrice regents brim with unstable magical energy they use to
-  restrain distant foes.
+description: Bolder than their smaller cousins, cockatrice regents brim with unstable magical energy they use to restrain
+  distant foes.
 habitat: Grassland
+traits: []
+actions: []
+legendary_actions: []

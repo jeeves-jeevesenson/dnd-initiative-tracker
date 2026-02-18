@@ -18,10 +18,11 @@ abilities:
 senses: Passive Perception 10
 languages:
 - —
-description: Alone or in small groups, axe beaks stalk prey to feed their flocks. When working together, axe beaks
-  use rudimentary tactics, with some distracting threats while others strike vulnerable targets or rush young axe
-  beaks to safety.
+description: Alone or in small groups, axe beaks stalk prey to feed their flocks. When working together, axe beaks use rudimentary
+  tactics, with some distracting threats while others strike vulnerable targets or rush young axe beaks to safety.
 habitat: Arctic, Grassland, Hill
 actions:
 - name: Beak
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 6 (1d8 + 2) Slashing damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d8 + 2}) slashing damage.'
+traits: []
+legendary_actions: []

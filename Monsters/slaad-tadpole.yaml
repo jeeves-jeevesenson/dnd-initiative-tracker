@@ -21,15 +21,15 @@ skills:
 senses: Darkvision 60 ft., Passive Perception 7
 languages:
 - Understands Slaad but can't speak
-description: Slaad tadpoles are ravenous, newborn slaadi. They hatch from eggs implanted into living hosts by red
-  slaadi, but they also appear in great numbers in Limbo and other chaotic realms. Under most conditions, a slaad
-  tadpole transforms into a blue slaad—or a green slaad if its host was able to cast spells of level 3 or higher—within
-  2d12 hours of hatching.
+description: Slaad tadpoles are ravenous, newborn slaadi. They hatch from eggs implanted into living hosts by red slaadi,
+  but they also appear in great numbers in Limbo and other chaotic realms. Under most conditions, a slaad tadpole transforms
+  into a blue slaad—or a green slaad if its host was able to cast spells of level 3 or higher—within 2d12 hours of hatching.
 habitat: Planar (Limbo)
 treasure: Any
 traits:
 - name: Magic Resistance
-  desc: The slaad has Advantage on saving throws against spells and other magical effects.
+  desc: The slaad has advantage on saving throws against spells and other magical effects.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 5 (1d6 + 2) Piercing damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d4 + 2}) piercing damage.'
+legendary_actions: []

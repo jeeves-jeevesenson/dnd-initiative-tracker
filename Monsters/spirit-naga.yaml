@@ -26,16 +26,12 @@ description: ''
 habitat: Planar (Lower Planes), Underdark
 treasure: Arcana
 traits:
-- name: Fiendish Restoration
-  desc: If it dies, the naga returns to life in 1d6 days and regains all its Hit Points. Only a Wish spell can prevent
-    this trait from functioning.
+- name: Rejuvenation
+  desc: If it dies, the naga returns to life in {@dice 1d6} days and regains all its hit points. Only a {@spell wish} spell
+    can prevent this trait from functioning.
 actions:
-- name: Multiattack
-  desc: The naga makes three attacks, using Bite or Necrotic Ray in any combination.
 - name: Bite
-  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 7 (1d6 + 4) Piercing damage plus 14 (4d6) Poison damage.'
-- name: Necrotic Ray
-  desc: 'Ranged Attack Roll : +6, range 60 ft. Hit : 21 (6d6) Necrotic damage.'
-- name: Spellcasting
-  desc: 'The naga casts one of the following spells, requiring no Somatic or Material components and using Intelligence
-    as the spellcasting ability (spell save DC 14):'
+  desc: '{@atk mw} {@hit 7} to hit, reach 10 ft., one creature. {@h}7 ({@damage 1d6 + 4}) piercing damage, and the target
+    must make a {@dc 13} Constitution saving throw, taking 31 ({@damage 7d8}) poison damage on a failed save, or half as much
+    damage on a successful one.'
+legendary_actions: []

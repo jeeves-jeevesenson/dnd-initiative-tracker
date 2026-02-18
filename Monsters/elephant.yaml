@@ -21,9 +21,14 @@ languages:
 description: ''
 habitat: Grassland
 actions:
-- name: Multiattack
-  desc: The elephant makes two Gore attacks.
 - name: Gore
-  desc: 'Melee Attack Roll : +8, reach 5 ft. Hit : 15 (2d8 + 6) Piercing damage. If the target is a Huge or smaller
-    creature and the elephant moved 20+ feet straight toward it immediately before the hit, the target has the Prone
-    condition.'
+  desc: '{@atk mw} {@hit 8} to hit, reach 5 ft., one target. {@h}19 ({@damage 3d8 + 6}) piercing damage.'
+- name: Stomp
+  desc: '{@atk mw} {@hit 8} to hit, reach 5 ft., one {@condition prone} creature. {@h}22 ({@damage 3d10 + 6}) bludgeoning
+    damage.'
+traits:
+- name: Trampling Charge
+  desc: If the elephant moves at least 20 feet straight toward a creature and then hits it with a gore attack on the same
+    turn, that target must succeed on a {@dc 12} Strength saving throw or be knocked {@condition prone}. If the target is
+    {@condition prone}, the elephant can make one stomp attack against it as a bonus action.
+legendary_actions: []

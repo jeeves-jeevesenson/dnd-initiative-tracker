@@ -24,8 +24,9 @@ languages:
 description: ''
 habitat: Forest, Swamp, Underdark, Urban
 traits:
-- name: Agile
-  desc: The rat doesn't provoke Opportunity Attack action when it moves out of an enemy's reach.
+- name: Keen Smell
+  desc: The rat has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +2, reach 5 ft. Hit : 1 Piercing damage.'
+  desc: '{@atk mw} {@hit 0} to hit, reach 5 ft., one target. {@h}1 piercing damage.'
+legendary_actions: []

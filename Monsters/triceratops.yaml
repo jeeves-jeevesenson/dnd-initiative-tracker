@@ -21,9 +21,14 @@ languages:
 description: ''
 habitat: Grassland
 actions:
-- name: Multiattack
-  desc: The triceratops makes two Gore attacks.
 - name: Gore
-  desc: 'Melee Attack Roll : +9, reach 5 ft. Hit : 19 (2d12 + 6) Piercing damage. If the target is Huge or smaller
-    and the triceratops moved 20+ feet straight toward it immediately before the hit, the target takes an extra
-    9 (2d8) Piercing damage and has the Prone condition.'
+  desc: '{@atk mw} {@hit 9} to hit, reach 5 ft., one target. {@h}24 ({@damage 4d8 + 6}) piercing damage.'
+- name: Stomp
+  desc: '{@atk mw} {@hit 9} to hit, reach 5 ft., one {@condition prone} creature. {@h}22 ({@damage 3d10 + 6}) bludgeoning
+    damage.'
+traits:
+- name: Trampling Charge
+  desc: If the triceratops moves at least 20 feet straight toward a creature and then hits it with a gore attack on the same
+    turn, that target must succeed on a {@dc 13} Strength saving throw or be knocked {@condition prone}. If the target is
+    {@condition prone}, the triceratops can make one stomp attack against it as a bonus action.
+legendary_actions: []

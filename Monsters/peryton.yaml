@@ -25,3 +25,19 @@ languages:
 description: ''
 habitat: Hill, Mountain
 treasure: Armaments
+traits:
+- name: Dive Attack
+  desc: If the peryton is flying and dives at least 30 feet straight toward a target and then hits it with a melee weapon
+    attack, the attack deals an extra 9 ({@damage 2d8}) damage to the target.
+- name: Flyby
+  desc: The peryton doesn't provoke an opportunity attack when it flies out of an enemy's reach.
+- name: Keen Sight and Smell
+  desc: The peryton has advantage on Wisdom ({@skill Perception}) checks that rely on sight or smell.
+actions:
+- name: Multiattack
+  desc: The peryton makes one gore attack and one talon attack.
+- name: Gore
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d8 + 3}) piercing damage.'
+- name: Talons
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}8 ({@damage 2d4 + 3}) piercing damage.'
+legendary_actions: []

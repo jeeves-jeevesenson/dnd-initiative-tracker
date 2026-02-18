@@ -21,9 +21,8 @@ languages:
 - None
 description: ''
 habitat: Coastal, Desert, Forest, Swamp, Underdark
-traits:
-- name: Spider Climb
-  desc: The lizard can climb difficult surfaces, including along ceilings, without needing to make an ability check.
+traits: []
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 6 (1d8 + 2) Piercing damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d8 + 2}) piercing damage.'
+legendary_actions: []

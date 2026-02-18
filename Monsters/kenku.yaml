@@ -26,3 +26,15 @@ languages:
 description: ''
 habitat: Forest, Planar (Shadowfell), Urban
 treasure: Individual, Implements
+traits:
+- name: Ambusher
+  desc: In the first round of a combat, the kenku has advantage on attack rolls against any creature it {@status surprised}.
+- name: Mimicry
+  desc: The kenku can mimic any sounds it has heard, including voices. A creature that hears the sounds can tell they are
+    imitations with a successful {@dc 14} Wisdom ({@skill Insight}) check.
+actions:
+- name: Shortsword
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) piercing damage.'
+- name: Shortbow
+  desc: '{@atk rw} {@hit 5} to hit, range 80/320 ft., one target. {@h}6 ({@damage 1d6 + 3}) piercing damage.'
+legendary_actions: []

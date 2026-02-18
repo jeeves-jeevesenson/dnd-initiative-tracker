@@ -24,16 +24,20 @@ languages:
 description: ''
 habitat: Desert, Grassland, Hill, Mountain
 traits:
+- name: Keen Smell
+  desc: The lion has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
 - name: Pack Tactics
-  desc: The lion has Advantage on an attack roll against a creature if at least one of the lion's allies is within
-    5 feet of the creature and the ally doesn't have the Incapacitated condition.
+  desc: The lion has advantage on an attack roll against a creature if at least one of the lion's allies is within 5 feet
+    of the creature and the ally isn't {@condition incapacitated}.
+- name: Pounce
+  desc: If the lion moves at least 20 feet straight toward a creature and then hits it with a claw attack on the same turn,
+    that target must succeed on a {@dc 13} Strength saving throw or be knocked {@condition prone}. If the target is {@condition
+    prone}, the lion can make one bite attack against it as a bonus action.
 - name: Running Leap
-  desc: With a 10-foot running start, the lion can Long Jump up to 25 feet.
+  desc: With a 10-foot running start, the lion can long jump up to 25 feet.
 actions:
-- name: Multiattack
-  desc: The lion makes two Rend attacks. It can replace one of these attacks with a use of Roar.
-- name: Rend
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Slashing damage.'
-- name: Roar
-  desc: 'Wisdom Saving Throw : DC 11, one creature within 15 feet. Failure : The target has the Frightened condition
-    until the start of the lion''s next turn.'
+- name: Bite
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d8 + 3}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) slashing damage.'
+legendary_actions: []

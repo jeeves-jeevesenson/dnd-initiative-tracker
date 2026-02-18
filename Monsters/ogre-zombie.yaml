@@ -21,15 +21,15 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 8
 languages:
 - Understands Common and Giant but can't speak
-description: Ogre zombies serve as tireless labor and undying weapons of war. These massive zombies possess the
-  size and strength to break through barriers that repel smaller zombies.
+description: Ogre zombies serve as tireless labor and undying weapons of war. These massive zombies possess the size and strength
+  to break through barriers that repel smaller zombies.
 habitat: Planar (Shadowfell), Underdark, Urban
 treasure: None
 traits:
 - name: Undead Fortitude
-  desc: If damage reduces the zombie to 0 Hit Points, it makes a Constitution saving throw (DC 5 plus the damage
-    taken) unless the damage is Radiant or from a Critical Hit. On a successful save, the zombie drops to 1 Hit
-    Point instead.
+  desc: If damage reduces the zombie to 0 hit points, it must make a Constitution saving throw with a DC of 5 + the damage
+    taken, unless the damage is radiant or from a critical hit. On a success, the zombie drops to 1 hit point instead.
 actions:
-- name: Slam
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 13 (2d8 + 4) Bludgeoning damage.'
+- name: Morningstar
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}13 ({@damage 2d8 + 4}) bludgeoning damage.'
+legendary_actions: []

@@ -26,6 +26,20 @@ senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial (Aquan
 - Terran)
-description: A combination of earth and water, mud mephits are crude, disgusting creatures. They take every opportunity
-  to ruin objects and pollute food with muck.
+description: A combination of earth and water, mud mephits are crude, disgusting creatures. They take every opportunity to
+  ruin objects and pollute food with muck.
 habitat: Planar (Elemental Planes), Swamp
+traits:
+- name: Death Burst
+  desc: When the mephit dies, it explodes in a burst of sticky mud. Each Medium or smaller creature within 5 feet of it must
+    succeed on a {@dc 11} Dexterity saving throw or be {@condition restrained} until the end of the creature's next turn.
+- name: False Appearance
+  desc: While the mephit remains motionless, it is indistinguishable from an ordinary mound of mud.
+actions:
+- name: Fists
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one creature. {@h}4 ({@damage 1d6 + 1}) bludgeoning damage.'
+- name: Mud Breath {@recharge}
+  desc: The mephit belches viscid mud onto one creature within 5 feet of it. If the target is Medium or smaller, it must succeed
+    on a {@dc 11} Dexterity saving throw or be {@condition restrained} for 1 minute. A creature can repeat the saving throw
+    at the end of each of its turns, ending the effect on itself on a success.
+legendary_actions: []

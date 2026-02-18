@@ -27,3 +27,17 @@ languages:
 description: ''
 habitat: Planar (Abyss)
 treasure: Any
+traits:
+- name: Reckless
+  desc: At the start of its turn, the barlgura can gain advantage on all melee weapon attack rolls it makes during that turn,
+    but attack rolls against it have advantage until the start of its next turn.
+- name: Running Leap
+  desc: The barlgura's long jump is up to 40 feet and its high jump is up to 20 feet when it has a running start.
+actions:
+- name: Multiattack
+  desc: 'The barlgura makes three attacks: one with its bite and two with its fists.'
+- name: Bite
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) piercing damage.'
+- name: Fist
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}9 ({@damage 1d10 + 4}) bludgeoning damage.'
+legendary_actions: []

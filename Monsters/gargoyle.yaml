@@ -25,17 +25,20 @@ immunities:
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial (Terran)
-description: Gargoyles are sculptures inhabited by elemental spirits. Wings and magic allow their heavy stone bodies
-  to fly, and they often perch where they can blend in amid ornate architecture, rock formations, or mundane statues.
-  Gargoyles usually serve the magic-users who conjured them into their bodies, but if left to their own devices,
-  they might play cruel pranks and steal treasures to hoard in lofty lairs.
+description: Gargoyles are sculptures inhabited by elemental spirits. Wings and magic allow their heavy stone bodies to fly,
+  and they often perch where they can blend in amid ornate architecture, rock formations, or mundane statues. Gargoyles usually
+  serve the magic-users who conjured them into their bodies, but if left to their own devices, they might play cruel pranks
+  and steal treasures to hoard in lofty lairs.
 habitat: Underdark, Urban
 treasure: Any
 traits:
-- name: Flyby
-  desc: The gargoyle doesn't provoke an Opportunity Attack when it flies out of an enemy's reach.
+- name: False Appearance
+  desc: While the gargoyle remains motionless, it is indistinguishable from an inanimate statue.
 actions:
 - name: Multiattack
-  desc: The gargoyle makes two Claw attacks.
-- name: Claw
-  desc: 'Melee Attack Roll : +4, reach 5 ft. Hit : 7 (2d4 + 2) Slashing damage.'
+  desc: 'The gargoyle makes two attacks: one with its bite and one with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d6 + 2}) piercing damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d6 + 2}) slashing damage.'
+legendary_actions: []

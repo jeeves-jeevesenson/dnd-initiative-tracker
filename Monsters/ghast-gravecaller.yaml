@@ -27,3 +27,6 @@ languages:
 description: Ghast gravecallers wield fell magic and converse with corpses. They might pose as liches or vampires.
 habitat: Swamp, Underdark, Urban
 treasure: Any
+traits: []
+actions: []
+legendary_actions: []

@@ -28,18 +28,24 @@ habitat: Underdark
 treasure: Arcana
 traits:
 - name: Advanced Telepathy
-  desc: The flumph perceives the content of any telepathic communication within 60 feet of it.
+  desc: The flumph can perceive the content of any telepathic communication used within 60 feet of it, and it can't be {@status
+    surprised} by creatures with any form of telepathy.
 - name: Prone Deficiency
-  desc: If the flumph receives the Prone condition, roll a die. On an odd number, it has the Incapacitated condition.
-    At the end of each of its turns, the flumph makes a DC 10 Dexterity saving throw, ending the Incapacitated condition
-    on a success.
+  desc: If the flumph is knocked {@condition prone}, roll a die. On an odd result, the flumph lands upside-down and is {@condition
+    incapacitated}. At the end of each of its turns, the flumph can make a {@dc 10} Dexterity saving throw, righting itself
+    and ending the {@condition incapacitated} condition if it succeeds.
 - name: Telepathic Shroud
-  desc: The flumph's thoughts can't be read by any means, and magic can't detect its location or observe it remotely.
+  desc: The flumph is immune to any effect that would sense its emotions or read its thoughts, as well as all divination spells.
 actions:
-- name: Tentacle
-  desc: 'Melee Attack Roll : +4, reach 5 feet. Hit : 4 (1d4 + 2) Acid damage.'
+- name: Tendrils
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one creature. {@h}4 ({@damage 1d4 + 2}) piercing damage plus 2 ({@damage
+    1d4}) acid damage. At the end of each of its turns, the target must make a {@dc 10} Constitution saving throw, taking
+    2 ({@damage 1d4}) acid damage on a failure or ending the recurring acid damage on a success. A {@spell lesser restoration}
+    spell cast on the target also ends the recurring acid damage.'
 - name: Stench Spray (1/Day)
-  desc: 'Dexterity Saving Throw : DC 10, one creature the flumph can see within 15 feet. Failure : The target is
-    coated in a foul-smelling liquid, exudes a stench for 1d4 hours, and has the Poisoned condition while the stench
-    lasts. Other creatures have the Poisoned condition while in a 5-foot Emanation originating from the coated target.
-    The target can remove the stench on itself if it bathes during a Short or Long Rest.'
+  desc: Each creature in a 15-foot cone originating from the flumph must succeed on a {@dc 10} Dexterity saving throw or be
+    coated in a foul-smelling liquid. A coated creature exudes a horrible stench for {@dice 1d4} hours. The coated creature
+    is {@condition poisoned} as long as the stench lasts, and other creatures are {@condition poisoned} while with in 5 feet
+    of the coated creature. A creature can remove the stench on itself by using a short rest to bathe in water, alcohol, or
+    vinegar.
+legendary_actions: []

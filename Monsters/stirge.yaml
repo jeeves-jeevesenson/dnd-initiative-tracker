@@ -19,13 +19,16 @@ abilities:
 senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - None
-description: A single stirge is usually little more than an annoyance, but several can be deadly if they attach
-  faster than a victim can remove them.
+description: A single stirge is usually little more than an annoyance, but several can be deadly if they attach faster than
+  a victim can remove them.
 habitat: Desert, Forest, Grassland, Hill, Mountain, Swamp, Underdark, Urban
 treasure: None
 actions:
-- name: Proboscis
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Piercing damage, and the stirge attaches to the target.
-    While attached, the stirge can''t make Proboscis attacks, and the target takes 5 (2d4) Necrotic damage at the
-    start of each of the stirge''s turns. The stirge can detach itself by spending 5 feet of its movement. The target
-    or a creature within 5 feet of it can detach the stirge as an action.'
+- name: Blood Drain
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one creature. {@h}5 ({@damage 1d4 + 3}) piercing damage, and the stirge attaches
+    to the target. While attached, the stirge doesn''t attack. Instead, at the start of each of the stirge''s turns, the target
+    loses 5 ({@dice 1d4 + 3}) hit points due to blood loss. The stirge can detach itself by spending 5 feet of its movement.
+    It does so after it drains 10 hit points of blood from the target or the target dies. A creature, including the target,
+    can use its action to detach the stirge.'
+traits: []
+legendary_actions: []

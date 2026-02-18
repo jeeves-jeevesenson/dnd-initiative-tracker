@@ -22,7 +22,14 @@ immunities:
 senses: Blindsight 60 ft., Passive Perception 9
 languages:
 - Understands Common but can't speak
-description: Resembling bundles of sticks or dead brush, twig blights easily blend in among deadwood, flotsam, and
-  the wood piles common in many rural settings. Groups of them are often found near river crossings, forgotten wells,
-  or natural campsites, where they ambush those who let down their guard.
+description: Resembling bundles of sticks or dead brush, twig blights easily blend in among deadwood, flotsam, and the wood
+  piles common in many rural settings. Groups of them are often found near river crossings, forgotten wells, or natural campsites,
+  where they ambush those who let down their guard.
 habitat: Forest
+traits:
+- name: False Appearance
+  desc: While the blight remains motionless, it is indistinguishable from a dead shrub.
+actions:
+- name: Claws
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}3 ({@damage 1d4 + 1}) piercing damage.'
+legendary_actions: []

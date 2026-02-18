@@ -26,21 +26,28 @@ immunities:
 senses: Darkvision 120 ft., Passive Perception 10
 languages:
 - Understands Common plus two other languages but can't speak
-description: Stone golems take varied forms, such as weathered carvings of ancient deities, lifelike sculptures
-  of heroes, or any other shape their makers imagine. No matter their design or the rock from which they're crafted,
-  these golems are strengthened by the magic that animates them, allowing them to follow their creators' orders
-  for centuries. Stone golems are typically created to protect places of significance to a group, such as a monument
-  to an important event, a leader's tomb, or a faith's sanctuary.
+description: Stone golems take varied forms, such as weathered carvings of ancient deities, lifelike sculptures of heroes,
+  or any other shape their makers imagine. No matter their design or the rock from which they're crafted, these golems are
+  strengthened by the magic that animates them, allowing them to follow their creators' orders for centuries. Stone golems
+  are typically created to protect places of significance to a group, such as a monument to an important event, a leader's
+  tomb, or a faith's sanctuary.
 habitat: Any
 traits:
 - name: Immutable Form
-  desc: The golem can't shape-shift.
+  desc: The golem is immune to any spell or effect that would alter its form.
 - name: Magic Resistance
-  desc: The golem has Advantage on saving throws against spells and other magical effects.
+  desc: The golem has advantage on saving throws against spells and other magical effects.
+- name: Magic Weapons
+  desc: The golem's weapon attacks are magical.
 actions:
 - name: Multiattack
-  desc: The golem makes two attacks, using Slam or Force Bolt in any combination.
+  desc: The golem makes two slam attacks.
 - name: Slam
-  desc: 'Melee Attack Roll : +10, reach 5 ft. Hit : 15 (2d8 + 6) Bludgeoning damage plus 9 (2d8) Force damage.'
-- name: Force Bolt
-  desc: 'Ranged Attack Roll : +9, range 90 ft. Hit : 26 (4d12) Force damage.'
+  desc: '{@atk mw} {@hit 10} to hit, reach 5 ft., one target. {@h}19 ({@damage 3d8 + 6}) bludgeoning damage.'
+- name: Slow {@recharge 5}
+  desc: The golem targets one or more creatures it can see within 10 feet of it. Each target must make a {@dc 17} Wisdom saving
+    throw against this magic. On a failed save, a target can't use reactions, its speed is halved, and it can't make more
+    than one attack on its turn. In addition, the target can take either an action or a bonus action on its turn, not both.
+    These effects last for 1 minute. A target can repeat the saving throw at the end of each of its turns, ending the effect
+    on itself on a success.
+legendary_actions: []

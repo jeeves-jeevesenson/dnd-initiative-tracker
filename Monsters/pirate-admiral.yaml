@@ -22,10 +22,13 @@ skills:
 senses: Passive Perception 16
 languages:
 - Common plus one other language
-description: Pirate admirals command whole pirate fleets. They undertake audacious ventures, such as challenging
-  the navies of coastal nations, hunting legendary sea creatures, or carving out their own pirate kingdoms. Pirate
-  admirals might launch their fleets from hidden fortresses where they hoard their treasure—or keep maps to where
-  they've hidden their riches. Some pirate admirals ally with the followers of oceanic deities, underwater dwellers,
-  and sea monsters, as well as their fellow scalawags.
+description: Pirate admirals command whole pirate fleets. They undertake audacious ventures, such as challenging the navies
+  of coastal nations, hunting legendary sea creatures, or carving out their own pirate kingdoms. Pirate admirals might launch
+  their fleets from hidden fortresses where they hoard their treasure—or keep maps to where they've hidden their riches. Some
+  pirate admirals ally with the followers of oceanic deities, underwater dwellers, and sea monsters, as well as their fellow
+  scalawags.
 habitat: Any
 treasure: Individual, Implements
+traits: []
+actions: []
+legendary_actions: []

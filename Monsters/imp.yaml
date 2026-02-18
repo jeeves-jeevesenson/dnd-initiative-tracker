@@ -27,24 +27,31 @@ senses: Darkvision 120 ft. (unimpeded by magical Darkness), Passive Perception 1
 languages:
 - Common
 - Infernal
-description: Known for their cowardice and toadying, imps serve devils and wicked magic-users. Their abilities to
-  shape-shift and pass unseen make them skillful spies and adept at fleeing danger. Imps sent to surveil other creatures
-  relate what they discover to their masters, but they frequently omit important details or cast events in the worst
-  possible light to mislead their masters into following the imps' devilish council. Imps without masters delight
-  in manipulating other creatures and inflating their own egos. They might take over bands of weaker monsters, or
-  they might pose as helpful spirits and trick influential individuals into pursuing nefarious ends.
+description: Known for their cowardice and toadying, imps serve devils and wicked magic-users. Their abilities to shape-shift
+  and pass unseen make them skillful spies and adept at fleeing danger. Imps sent to surveil other creatures relate what they
+  discover to their masters, but they frequently omit important details or cast events in the worst possible light to mislead
+  their masters into following the imps' devilish council. Imps without masters delight in manipulating other creatures and
+  inflating their own egos. They might take over bands of weaker monsters, or they might pose as helpful spirits and trick
+  influential individuals into pursuing nefarious ends.
 habitat: Any
 treasure: None
 traits:
+- name: Shapechanger
+  desc: The imp can use its action to polymorph into a beast form that resembles a rat (speed 20 ft.), a raven (20 ft., fly
+    60 ft.), or a spider (20 ft., climb 20 ft.), or back into its true form. Its statistics are the same in each form, except
+    for the speed changes noted. Any equipment it is wearing or carrying isn't transformed. It reverts to its true form if
+    it dies.
+- name: Devil's Sight
+  desc: Magical darkness doesn't impede the imp's darkvision.
 - name: Magic Resistance
-  desc: The imp has Advantage on saving throws against spells and other magical effects.
+  desc: The imp has advantage on saving throws against spells and other magical effects.
 actions:
-- name: Sting
-  desc: 'Melee Attack Roll : +5, reach 5 ft. Hit : 6 (1d6 + 3) Piercing damage plus 7 (2d6) Poison damage.'
+- name: Sting (Bite in Beast Form)
+  desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d4 + 3}) piercing damage, and the target must
+    make a {@dc 11} Constitution saving throw, taking 10 ({@damage 3d6}) poison damage on a failed save, or half as much damage
+    on a successful one.'
 - name: Invisibility
-  desc: The imp casts Invisibility on itself, requiring no spell components and using Charisma as the spellcasting
-    ability.
-- name: Shape-Shift
-  desc: The imp shape-shifts to resemble a rat (Speed 20 ft.), a raven (20 ft., Fly 60 ft.), or a spider (20 ft.,
-    Climb 20 ft.), or it returns to its true form. Its statistics are the same in each form, except for its Speed.
-    Any equipment it's wearing or carrying isn't transformed.
+  desc: The imp magically turns {@condition invisible} until it attacks, or until its {@status concentration} ends (as if
+    {@status concentration||concentrating} on a spell). Any equipment the imp wears or carries is {@condition invisible} with
+    it.
+legendary_actions: []

@@ -26,9 +26,16 @@ habitat: Any
 treasure: Individual, Armaments
 actions:
 - name: Multiattack
-  desc: The gladiator makes three Spear attacks. It can replace one attack with a use of Shield Bash.
+  desc: The gladiator makes three melee attacks or two ranged attacks.
 - name: Spear
-  desc: 'Melee or Ranged Attack Roll : +7, reach 5 ft. or range 20/60 ft. Hit : 11 (2d6 + 4) Piercing damage.'
+  desc: '{@atk mw,rw} {@hit 7} to hit, reach 5 ft. and range 20/60 ft., one target. {@h}11 ({@damage 2d6 + 4}) piercing damage,
+    or 13 ({@damage 2d8 + 4}) piercing damage if used with two hands to make a melee attack.'
 - name: Shield Bash
-  desc: 'Strength Saving Throw : DC 15, one creature within 5 feet that the gladiator can see. Failure : 9 (2d4
-    + 4) Bludgeoning damage. If the target is a Medium or smaller creature, it has the Prone condition.'
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one creature. {@h}9 ({@damage 2d4 + 4}) bludgeoning damage. If the target
+    is a Medium or smaller creature, it must succeed on a {@dc 15} Strength saving throw or be knocked {@condition prone}.'
+traits:
+- name: Brave
+  desc: The gladiator has advantage on saving throws against being {@condition frightened}.
+- name: Brute
+  desc: A melee weapon deals one extra die of its damage when the gladiator hits with it (included in the attack).
+legendary_actions: []

@@ -25,4 +25,8 @@ description: ''
 habitat: Coastal, Grassland, Hill, Mountain
 actions:
 - name: Talons
-  desc: 'Melee Attack Roll : +4, reach 5 feet. Hit : 4 (1d4 + 2) Slashing damage.'
+  desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d4 + 2}) slashing damage.'
+traits:
+- name: Keen Sight
+  desc: The eagle has advantage on Wisdom ({@skill Perception}) checks that rely on sight.
+legendary_actions: []

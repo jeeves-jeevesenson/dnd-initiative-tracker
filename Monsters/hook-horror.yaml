@@ -23,3 +23,14 @@ languages:
 - Hook Horror
 description: ''
 habitat: Underdark
+traits:
+- name: Echolocation
+  desc: The hook horror can't use its blindsight while {@condition deafened}.
+- name: Keen Hearing
+  desc: The hook horror has advantage on Wisdom ({@skill Perception}) checks that rely on hearing.
+actions:
+- name: Multiattack
+  desc: The hook horror makes two hook attacks.
+- name: Hook
+  desc: '{@atk mw} {@hit 6} to hit, reach 10 ft., one target. {@h}11 ({@damage 2d6 + 4}) piercing damage.'
+legendary_actions: []

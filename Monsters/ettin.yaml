@@ -32,10 +32,15 @@ habitat: Hill, Mountain, Underdark
 treasure: Individual
 actions:
 - name: Multiattack
-  desc: The ettin makes one Battleaxe attack and one Morningstar attack.
+  desc: 'The ettin makes two attacks: one with its battleaxe and one with its morningstar.'
 - name: Battleaxe
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 14 (2d8 + 5) Slashing damage. If the target is a Large or smaller
-    creature, it has the Prone condition.'
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}14 ({@damage 2d8 + 5}) slashing damage.'
 - name: Morningstar
-  desc: 'Melee Attack Roll : +7, reach 5 ft. Hit : 14 (2d8 + 5) Piercing damage, and the target has Disadvantage
-    on the next attack roll it makes before the end of its next turn.'
+  desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}14 ({@damage 2d8 + 5}) piercing damage.'
+traits:
+- name: Two Heads
+  desc: The ettin has advantage on Wisdom ({@skill Perception}) checks and on saving throws against being {@condition blinded},
+    {@condition charmed}, {@condition deafened}, {@condition frightened}, {@condition stunned}, and knocked {@condition unconscious}.
+- name: Wakeful
+  desc: When one of the ettin's heads is asleep, its other head is awake.
+legendary_actions: []

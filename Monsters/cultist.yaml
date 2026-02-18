@@ -21,11 +21,15 @@ skills:
 senses: Passive Perception 10
 languages:
 - Common
-description: Cultists devote themselves to their faith's leaders and otherworldly masters. While this zeal grants
-  cultists no magical powers, it gives them remarkable resolve in the face of threats. Cultists perform much of
-  a cult's mundane work, which might include evangelism, criminal acts, or serving as sacrifices.
+description: Cultists devote themselves to their faith's leaders and otherworldly masters. While this zeal grants cultists
+  no magical powers, it gives them remarkable resolve in the face of threats. Cultists perform much of a cult's mundane work,
+  which might include evangelism, criminal acts, or serving as sacrifices.
 habitat: Any
 treasure: Individual, Relics
 actions:
-- name: Ritual Sickle
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 3 (1d4 + 1) Slashing damage plus 1 Necrotic damage.'
+- name: Scimitar
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one creature. {@h}4 ({@damage 1d6 + 1}) slashing damage.'
+traits:
+- name: Dark Devotion
+  desc: The cultist has advantage on saving throws against being {@condition charmed} or {@condition frightened}.
+legendary_actions: []

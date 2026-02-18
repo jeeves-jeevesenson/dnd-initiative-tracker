@@ -22,19 +22,11 @@ skills:
 senses: Passive Perception 16
 languages:
 - Common
-description: Death cultists revel in nihilistic forces, embracing them as paths to undeath, multiversal purity,
-  or entropic inevitability. These cultists serve powerful undead beings, apocalyptic prophecies, or immortals with
-  power over death, such as Acererak, Kyuss, Orcus, Vecna, or Wee Jas.
+description: Death cultists revel in nihilistic forces, embracing them as paths to undeath, multiversal purity, or entropic
+  inevitability. These cultists serve powerful undead beings, apocalyptic prophecies, or immortals with power over death,
+  such as Acererak, Kyuss, Orcus, Vecna, or Wee Jas.
 habitat: Any
 treasure: Individual, Relics
-actions:
-- name: Multiattack
-  desc: The cultist makes three attacks, using Dread Scythe or Deathly Ray in any combination.
-- name: Dread Scythe
-  desc: 'Melee Attack Roll : +7, reach 10 ft. Hit : 9 (1d10 + 4) Slashing damage plus 11 (2d10) Necrotic damage,
-    and the target can''t regain Hit Points until the end of its next turn.'
-- name: Deathly Ray
-  desc: 'Ranged Attack Roll : +6, range 120 ft. Hit : 22 (4d10) Necrotic damage.'
-- name: Spellcasting
-  desc: 'The cultist casts one of the following spells, using Wisdom as the spellcasting ability (spell save DC
-    14):'
+actions: []
+traits: []
+legendary_actions: []

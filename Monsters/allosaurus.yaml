@@ -24,8 +24,12 @@ description: ''
 habitat: Grassland
 actions:
 - name: Bite
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 15 (2d10 + 4) Piercing damage.'
-- name: Claws
-  desc: 'Melee Attack Roll : +6, reach 5 ft. Hit : 8 (1d8 + 4) Slashing damage. If the target is a Large or smaller
-    creature and the allosaurus moved 30+ feet straight toward it immediately before the hit, the target has the
-    Prone condition, and the allosaurus can make one Bite attack against it.'
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}15 ({@damage 2d10 + 4}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}8 ({@damage 1d8 + 4}) slashing damage.'
+traits:
+- name: Pounce
+  desc: If the allosaurus moves at least 30 feet straight toward a creature and then hits it with a claw attack on the same
+    turn, that target must succeed on a {@dc 13} Strength saving throw or be knocked {@condition prone}. If the target is
+    {@condition prone}, the allosaurus can make one bite attack against it as a bonus action.
+legendary_actions: []

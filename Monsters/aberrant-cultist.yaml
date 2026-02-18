@@ -23,8 +23,11 @@ senses: Darkvision 90 ft., Passive Perception 17
 languages:
 - Common
 - Deep Speech; telepathy 30 ft.
-description: Aberrant cultists pursue mind-bending powers from alien forces. Aberrant cultists align with monsters
-  such as aboleths and mind flayers or forces such as Cthulhu, Hadar, Ityak-Ortheel the Elf Eater, Nyarlathotep,
-  malicious solar bodies, or entities from the Far Realm.
+description: Aberrant cultists pursue mind-bending powers from alien forces. Aberrant cultists align with monsters such as
+  aboleths and mind flayers or forces such as Cthulhu, Hadar, Ityak-Ortheel the Elf Eater, Nyarlathotep, malicious solar bodies,
+  or entities from the Far Realm.
 habitat: Any
 treasure: Individual, Relics
+traits: []
+actions: []
+legendary_actions: []

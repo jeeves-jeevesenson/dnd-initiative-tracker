@@ -27,18 +27,21 @@ senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Primordial (Aquan
 - Auran)
-description: Ice mephits have bodies made of frigid air and frozen water. They delight in freezing things and dropping
-  ice into peoples' clothes.
+description: Ice mephits have bodies made of frigid air and frozen water. They delight in freezing things and dropping ice
+  into peoples' clothes.
 habitat: Planar (Elemental Planes), Arctic
 traits:
 - name: Death Burst
-  desc: 'The mephit explodes when it dies. Constitution Saving Throw : DC 10, each creature in a 5-foot Emanation
-    originating from the mephit. Failure : 5 (2d4) Cold damage. Success : Half damage.'
+  desc: When the mephit dies, it explodes in a burst of jagged ice. Each creature within 5 feet of it must make a {@dc 10}
+    Dexterity saving throw, taking 4 ({@damage 1d8}) slashing damage on a failed save, or half as much damage on a successful
+    one.
+- name: False Appearance
+  desc: While the mephit remains motionless, it is indistinguishable from an ordinary shard of ice.
 actions:
-- name: Claw
-  desc: 'Melee Attack Roll : +3, reach 5 ft. Hit : 3 (1d4 + 1) Slashing damage plus 2 (1d4) Cold damage.'
-- name: Fog Cloud (1/Day)
-  desc: The mephit casts Fog Cloud , requiring no spell components and using Charisma as the spellcasting ability.
-- name: Frost Breath (Recharge 6)
-  desc: 'Constitution Saving Throw : DC 10, each creature in a 15-foot Cone. Failure : 7 (3d4) Cold damage. Success
-    : Half damage.'
+- name: Claws
+  desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one creature. {@h}3 ({@damage 1d4 + 1}) slashing damage plus 2 ({@damage
+    1d4}) cold damage.'
+- name: Frost Breath {@recharge}
+  desc: The mephit exhales a 15-foot cone of cold air. Each creature in that area must succeed on a {@dc 10} Dexterity saving
+    throw, taking 5 ({@damage 2d4}) cold damage on a failed save, or half as much damage on a successful one.
+legendary_actions: []

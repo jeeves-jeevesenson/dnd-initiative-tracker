@@ -20,9 +20,28 @@ skills:
 senses: Darkvision 60 ft., Passive Perception 11
 languages:
 - Slaad; telepathy 60 ft.
-description: Red slaadi amass in vast throngs in Limbo. There they wrestle and croak-sing as they endlessly dismantle
-  and rebuild islands of drifting planar matter. When they encounter non-slaadi, red slaadi seek to play with, telepathically
-  converse with, or devour the other creatures. These whims change from moment to moment. Red slaadi instinctively
-  avoid harming those bearing slaadi eggs, which red slaadi implant using their claws, or other slaad curses.
+description: Red slaadi amass in vast throngs in Limbo. There they wrestle and croak-sing as they endlessly dismantle and
+  rebuild islands of drifting planar matter. When they encounter non-slaadi, red slaadi seek to play with, telepathically
+  converse with, or devour the other creatures. These whims change from moment to moment. Red slaadi instinctively avoid harming
+  those bearing slaadi eggs, which red slaadi implant using their claws, or other slaad curses.
 habitat: Planar (Limbo)
 treasure: Any
+traits:
+- name: Magic Resistance
+  desc: The slaad has advantage on saving throws against spells and other magical effects.
+- name: Regeneration
+  desc: The slaad regains 10 hit points at the start of its turn if it has at least 1 hit point.
+actions:
+- name: Multiattack
+  desc: 'The slaad makes three attacks: one with its bite and two with its claws.'
+- name: Bite
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}8 ({@damage 2d4 + 3}) piercing damage.'
+- name: Claw
+  desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}7 ({@damage 1d8 + 3}) piercing damage. If the target is a
+    humanoid, it must succeed on a {@dc 14} Constitution saving throw or be infected with a disease—a minuscule slaad egg.
+    A humanoid host can carry only one slaad egg to term at a time. Over three months, the egg moves to the chest cavity,
+    gestates, and forms a {@creature slaad tadpole}. In the 24-hour period before giving birth, the host starts to feel unwell,
+    its speed is halved, and it has disadvantage on attack rolls, ability checks, and saving throws. At birth, the tadpole
+    chews its way through vital organs and out of the host''s chest in 1 round, killing the host in the process. If the disease
+    is cured before the tadpole''s emergence, the unborn slaad is disintegrated.'
+legendary_actions: []
