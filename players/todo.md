@@ -9,21 +9,25 @@ These are the parts already handled by current codepaths in `dnd_initative_track
 - Player YAML loading + normalization (`format_version`, core sections, spellcasting lists/slots, attacks.weapons normalization).
 - `resources.pools[]` normalization including formula evaluation (`max_formula`) for known variables (level/prof/modifiers plus fighter/druid class levels).
 - Action economy spend entries via `actions[]`, `bonus_actions[]`, `reactions[]` with `uses.pool` + `uses.cost`.
+- Feature-granted action/reaction ingestion (`features[].grants.actions|reactions` and `features[].automation.grants.actions|reactions`) into executable combat actions.
 - `attacks.weapons[]` data consumed by LAN attack flow.
 - Wild Shape lifecycle support (`prepared_wild_shapes`, wild-shape known forms, apply/revert/regain actions).
 - Startup summons (`summon_on_start` and aliases) auto-spawn support.
 - Aura support for feature payloads that use `features[].grants.aura`.
 - Pool-granted spell support for `features[].grants.spells.casts[]` (no current player file uses this shape yet).
+- Feature effect ingestion for `features[].grants.modifiers|damage_riders` and `features[].automation.extra_damage` (compiled into `feature_effects`).
+- Damage rider execution in LAN attack flow including trigger matching, `requires_any`, `blocked_if`, and `once_per_turn`.
+- `perform_action` support for `consume_one_of` resource choices (spell slot or pool) and `effect: recover_spell_slots`.
+- Rage lifecycle automation for perform-action Rage + end-turn upkeep hook.
 
 ## Current engine gaps (not automated yet)
 
 These YAML patterns appear in player files but are not generally executed by the engine today:
 
-- Most `features[].automation` blocks (custom trigger/effect DSL currently treated as data only).
-- Most `features[].grants.*` blocks beyond `grants.aura` and `grants.spells.casts`.
-- Feature selection gates (`selection`, `enabled_if`, subclass choice routing).
-- Conditional/rider systems in feature YAML (`damage_riders`, `modifiers`, `contested_check`, `once_per_turn`, custom status transitions).
-- Automatic conversion from feature-granted actions/reactions into executable combat actions.
+- Most `features[].automation` DSL is still data-only beyond currently wired pieces (`automation.grants.*`, `automation.extra_damage`, targeted `recover_spell_slots` handling).
+- Feature selection gates (`selection`, `enabled_if`, subclass choice routing) are preserved in `feature_state` but not generally enforced as runtime rules.
+- `feature_effects.modifiers` are compiled but have limited execution paths today (many modifier semantics remain TODO).
+- Conditional systems outside current attack-rider hooks remain pending (`contested_check`, custom status transitions, broad trigger routing).
 
 ---
 
@@ -80,8 +84,8 @@ These YAML patterns appear in player files but are not generally executed by the
 - Spell prep/slots are fully consumed by current spellcasting payload.
 
 **Not automated yet**
-- `features[].automation.recover_spell_slots` behavior is not auto-executed from feature DSL.
-- Arcane Recovery currently remains mostly manual bookkeeping despite pool spend support.
+- Arcane Recovery/Natural Recovery fallback matching is still name-coupled; broader feature-effect dispatch remains incomplete.
+- Slot-recovery UX is basic (toast/log only, no guided chooser UI).
 
 **Cleanup/audit notes**
 - Optional data quality pass: cantrip list includes non-cantrip slugs (`lightning-bolt`) and duplicates in known/prepared context; not blocking loader, but should be cleaned for rules correctness.
@@ -118,11 +122,11 @@ These YAML patterns appear in player files but are not generally executed by the
 - Spellcasting payload and standard action economy entries work.
 
 **Not automated yet (major backlog)**
-- Most PHB2024 feature blocks in `features[].grants` are data-only today:
-  - `always_prepared_spells`
-  - `actions` with `effect` semantics (Wild Companion, Land’s Aid, Wild Resurgence, Natural Recovery)
-  - `modifiers`, `damage_riders`, `selection`, `enabled_if`, `resistance_by_land`
-  - dynamic land-type spell switching and subclass gating logic
+- Still pending from PHB2024 feature blocks:
+  - `always_prepared_spells` and dynamic land-type spell switching
+  - broad `modifiers` execution and `resistance_by_land` application
+  - `selection`/`enabled_if` runtime gating and subclass choice routing
+  - non-slot action effects beyond current `recover_spell_slots` and resource-consumption handling
 
 **Cleanup/audit notes**
 - YAML structure is rich and internally consistent; avoid churn until engine support lands.
@@ -143,8 +147,9 @@ These YAML patterns appear in player files but are not generally executed by the
 - Core profile loading and action economy work.
 
 **Not automated yet (major backlog)**
-- Extensive Barbarian feature DSL under `features[].automation` is currently non-executable.
-- Complex trigger/rider logic unimplemented: rage maintenance, reckless toggles, once-per-turn riders, retaliation trigger, movement riders, condition immunity while raging, etc.
+- Much of the Barbarian DSL under `features[].automation` remains non-executable.
+- Complex trigger/rider logic still pending: reckless toggles, retaliation trigger, movement riders, condition immunity while raging, etc.
+- Once-per-turn rider enforcement now exists in attack flow, but coverage is currently narrow and data-shape dependent.
 
 **Cleanup/audit notes**
 - Data includes both `reset` and `reset_all` patterns; confirm intended semantics before implementing reset engine extensions.
@@ -204,8 +209,9 @@ These YAML patterns appear in player files but are not generally executed by the
 - Core spellcasting and action handling works.
 
 **Not automated yet (major backlog)**
-- Rogue/Swashbuckler feature DSL in `features[].automation` is currently data-only.
-- Not implemented: Sneak Attack trigger checks, Cunning Strike options, Uncanny Dodge reactive mitigation, Evasion conditionals, Panache contested checks, etc.
+- Rogue/Swashbuckler DSL remains only partially executable.
+- Sneak Attack-style rider automation is now possible through damage-rider triggers + once-per-turn limiter.
+- Still not implemented: Cunning Strike options, Uncanny Dodge reactive mitigation, Evasion conditionals, Panache contested checks, etc.
 
 **Cleanup/audit notes**
 - `defenses.ac.sources[0].id/label` are `null`; acceptable to loader but should be normalized to stable IDs for maintainability.
@@ -244,11 +250,13 @@ These YAML patterns appear in player files but are not generally executed by the
 ## Cross-player implementation roadmap (recommended order)
 
 1. **Schema execution foundation**
-   - Add explicit parser/normalizer for `features[].grants.actions|reactions|modifiers|damage_riders`.
+   - ✅ Completed (2026-02-18): parser/normalizer now compiles `features[].grants.actions|reactions|modifiers|damage_riders` and `features[].automation.grants.*` into runtime profile state.
    - Keep backward compatibility by treating unknown keys as passive metadata.
 
 2. **Reusable effect handlers**
-   - Pool/slot consumption, recover slots, temporary condition application, movement riders, contested checks, per-turn limits.
+   - ✅ Completed (2026-02-18): action resource spend (`consume_one_of`) and recover-slots handler now wired for LAN `perform_action`.
+   - ✅ Completed (2026-02-18): per-turn limiter + attack-rider trigger execution path landed.
+   - Remaining: temporary condition application/movement riders/contested checks as reusable generic handlers.
 
 3. **Class slices with highest value/risk**
    - Druid (Johnny), Barbarian (Malagrou), Rogue (Vicnor), Cleric (стихия), then Fighter Echo (John).
