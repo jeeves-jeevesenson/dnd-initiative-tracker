@@ -233,6 +233,82 @@ class SessionSaveLoadTests(unittest.TestCase):
             self.assertIn("First", log_text)
             self.assertIn("Second", log_text)
 
+    def test_apply_saved_positions_to_map_window_creates_and_moves_tokens(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app = self._make_app(Path(tmpdir) / "battle.log")
+            app.combatants = {1: types.SimpleNamespace(cid=1), 2: types.SimpleNamespace(cid=2)}
+            app._lan_positions = {1: (4, 5), 2: (7, 8)}
+
+            created = []
+            laid_out = []
+
+            mw = types.SimpleNamespace(
+                unit_tokens={1: {"col": 0, "row": 0}},
+                _create_unit_token=lambda cid, col, row: created.append((cid, col, row)),
+                _layout_unit=lambda cid: laid_out.append(cid),
+                _update_groups=lambda: None,
+                _update_move_highlight=lambda: None,
+                _update_included_for_selected=lambda: None,
+                winfo_exists=lambda: True,
+            )
+
+            app._apply_saved_positions_to_map_window(mw)
+
+            self.assertEqual(mw.unit_tokens[1]["col"], 4)
+            self.assertEqual(mw.unit_tokens[1]["row"], 5)
+            self.assertEqual(laid_out, [1])
+            self.assertEqual(created, [(2, 7, 8)])
+
+    def test_reset_map_state_clears_stored_and_live_map_data(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app = self._make_app(Path(tmpdir) / "battle.log")
+            app._lan_positions = {1: (1, 2)}
+            app._lan_obstacles = {(0, 0)}
+            app._lan_rough_terrain = {(1, 1): {"color": "#fff"}}
+            app._lan_aoes = {1: {"kind": "circle"}}
+            app._session_bg_images = [{"bid": 1, "path": "x"}]
+            app._session_next_bg_id = 3
+            app._lan_force_state_broadcast = lambda: None
+
+            deleted_items = []
+
+            class _Canvas:
+                def delete(self, item):
+                    deleted_items.append(item)
+
+            mw = types.SimpleNamespace(
+                obstacles={(3, 3)},
+                rough_terrain={(4, 4): {"color": "#000"}},
+                aoes={9: {"kind": "cone"}},
+                unit_tokens={10: {"col": 1, "row": 1}},
+                _token_facing={10: 0},
+                bg_images={5: {"item": 88}},
+                _next_aoe_id=12,
+                _next_bg_id=6,
+                _redraw_all=lambda: None,
+                refresh_units=lambda: None,
+                _refresh_aoe_list=lambda: None,
+                canvas=_Canvas(),
+                winfo_exists=lambda: True,
+            )
+            app._map_window = mw
+
+            app._reset_map_state()
+
+            self.assertEqual(app._lan_positions, {})
+            self.assertEqual(app._lan_obstacles, set())
+            self.assertEqual(app._lan_rough_terrain, {})
+            self.assertEqual(app._lan_aoes, {})
+            self.assertEqual(app._lan_next_aoe_id, 1)
+            self.assertEqual(app._session_bg_images, [])
+            self.assertEqual(app._session_next_bg_id, 1)
+            self.assertEqual(mw.unit_tokens, {})
+            self.assertEqual(mw.obstacles, set())
+            self.assertEqual(mw.rough_terrain, {})
+            self.assertEqual(mw.aoes, {})
+            self.assertEqual(mw.bg_images, {})
+            self.assertEqual(deleted_items, [88])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5661,6 +5661,8 @@ class InitiativeTracker(base.InitiativeTracker):
             session_menu.add_separator()
             session_menu.add_command(label="Quick Save", command=self._quick_save_session)
             session_menu.add_command(label="Quick Load", command=self._quick_load_session)
+            session_menu.add_separator()
+            session_menu.add_command(label="Reset Map", command=self._reset_map_state)
             menubar.add_cascade(label="Session", menu=session_menu)
             
             # Add Help menu
@@ -6063,6 +6065,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 mw._next_aoe_id = int(self._lan_next_aoe_id)
                 mw._redraw_all()
                 mw.refresh_units()
+                self._apply_saved_positions_to_map_window(mw)
                 try:
                     mw._refresh_aoe_list()
                 except Exception:
@@ -6127,6 +6130,49 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception as exc:
             messagebox.showerror("Quick Load", f"Failed to quick load session:\n{exc}", parent=self)
 
+    def _reset_map_state(self) -> None:
+        """Clear map layout, token placements, overlays, and backgrounds."""
+        self._lan_positions = {}
+        self._lan_obstacles = set()
+        self._lan_rough_terrain = {}
+        self._lan_aoes = {}
+        self._lan_next_aoe_id = 1
+        self._session_bg_images = []
+        self._session_next_bg_id = 1
+
+        mw = getattr(self, "_map_window", None)
+        try:
+            if mw is not None and mw.winfo_exists():
+                mw.obstacles = set()
+                mw.rough_terrain = {}
+                mw.aoes = {}
+                mw._next_aoe_id = 1
+                mw.unit_tokens = {}
+                try:
+                    mw._token_facing = {}
+                except Exception:
+                    pass
+                try:
+                    for bid, data in list((getattr(mw, "bg_images", {}) or {}).items()):
+                        item_id = data.get("item") if isinstance(data, dict) else None
+                        if item_id:
+                            mw.canvas.delete(item_id)
+                        mw.bg_images.pop(bid, None)
+                except Exception:
+                    pass
+                mw._next_bg_id = 1
+                mw._redraw_all()
+                mw.refresh_units()
+                try:
+                    mw._refresh_aoe_list()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        self._lan_force_state_broadcast()
+        self._log("Map reset.")
+
     def _open_map_mode(self) -> None:
         super()._open_map_mode()
         mw = getattr(self, "_map_window", None)
@@ -6145,6 +6191,7 @@ class InitiativeTracker(base.InitiativeTracker):
             mw._next_bg_id = int(getattr(self, "_session_next_bg_id", 1) or 1)
             mw._redraw_all()
             mw.refresh_units()
+            self._apply_saved_positions_to_map_window(mw)
             try:
                 mw._refresh_aoe_list()
             except Exception:
@@ -6152,6 +6199,116 @@ class InitiativeTracker(base.InitiativeTracker):
             self._restore_map_backgrounds(list(getattr(self, "_session_bg_images", []) or []))
         except Exception:
             pass
+
+        # Persist live map state when the DM closes Map Mode so quick save/load keeps token placement.
+        try:
+            original_close = getattr(mw, "_on_close", None)
+            if callable(original_close) and not bool(getattr(mw, "_lan_close_hook_installed", False)):
+                def _close_with_persist() -> None:
+                    try:
+                        self._snapshot_map_window_state()
+                    except Exception:
+                        pass
+                    original_close()
+
+                mw._on_close = _close_with_persist
+                try:
+                    mw.protocol("WM_DELETE_WINDOW", mw._on_close)
+                except Exception:
+                    pass
+                mw._lan_close_hook_installed = True
+        except Exception:
+            pass
+
+    def _snapshot_map_window_state(self) -> None:
+        """Copy live map window state into session-backed LAN fields."""
+        mw = getattr(self, "_map_window", None)
+        try:
+            if mw is None or not mw.winfo_exists():
+                return
+        except Exception:
+            return
+
+        try:
+            self._lan_grid_cols = int(getattr(mw, "cols", self._lan_grid_cols) or self._lan_grid_cols)
+            self._lan_grid_rows = int(getattr(mw, "rows", self._lan_grid_rows) or self._lan_grid_rows)
+            self._lan_positions = {
+                int(cid): (int(tok.get("col")), int(tok.get("row")))
+                for cid, tok in (getattr(mw, "unit_tokens", {}) or {}).items()
+            }
+            self._lan_obstacles = set(getattr(mw, "obstacles", set()) or set())
+            self._lan_rough_terrain = dict(getattr(mw, "rough_terrain", {}) or {})
+            self._lan_aoes = {int(k): dict(v) for k, v in (getattr(mw, "aoes", {}) or {}).items()}
+            self._lan_next_aoe_id = int(getattr(mw, "_next_aoe_id", self._lan_next_aoe_id) or self._lan_next_aoe_id)
+            bg_images: List[Dict[str, Any]] = []
+            for bid, data in sorted((getattr(mw, "bg_images", {}) or {}).items()):
+                bg_images.append(
+                    {
+                        "bid": int(bid),
+                        "path": str(data.get("path") or ""),
+                        "x": float(data.get("x", 0.0) or 0.0),
+                        "y": float(data.get("y", 0.0) or 0.0),
+                        "scale_pct": float(data.get("scale_pct", 100.0) or 100.0),
+                        "trans_pct": float(data.get("trans_pct", 0.0) or 0.0),
+                        "locked": bool(data.get("locked", False)),
+                    }
+                )
+            self._session_bg_images = bg_images
+            self._session_next_bg_id = int(getattr(mw, "_next_bg_id", self._session_next_bg_id) or self._session_next_bg_id)
+        except Exception:
+            return
+
+    def _apply_saved_positions_to_map_window(self, mw: Any) -> None:
+        """Ensure map window tokens match persisted LAN positions."""
+        if mw is None:
+            return
+        try:
+            if not mw.winfo_exists():
+                return
+        except Exception:
+            return
+
+        positions = dict(getattr(self, "_lan_positions", {}) or {})
+        if not positions:
+            return
+
+        changed = False
+        for cid, pos in positions.items():
+            if int(cid) not in self.combatants:
+                continue
+            try:
+                col = int(pos[0])
+                row = int(pos[1])
+            except Exception:
+                continue
+            tok = getattr(mw, "unit_tokens", {}).get(int(cid))
+            if tok:
+                tok["col"] = col
+                tok["row"] = row
+                try:
+                    mw._layout_unit(int(cid))
+                except Exception:
+                    pass
+                changed = True
+            else:
+                try:
+                    mw._create_unit_token(int(cid), col, row)
+                    changed = True
+                except Exception:
+                    pass
+        if changed:
+            try:
+                mw._update_groups()
+            except Exception:
+                pass
+            try:
+                mw._update_move_highlight()
+            except Exception:
+                pass
+            try:
+                mw._update_included_for_selected()
+            except Exception:
+                pass
 
 
     def _open_roster_manager(self) -> None:
