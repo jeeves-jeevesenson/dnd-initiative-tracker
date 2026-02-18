@@ -842,7 +842,7 @@ class InitiativeTracker(tk.Tk):
 
         self._tree_context_menu = tk.Menu(self, tearoff=0)
         self._tree_context_menu.add_command(
-            label="View Stat Block",
+            label="View Creature Info",
             command=self._open_selected_combatant_info,
             state=tk.DISABLED,
         )
@@ -3377,7 +3377,7 @@ class InitiativeTracker(tk.Tk):
 
         can_view = self._selected_combatant() is not None
         state = tk.NORMAL if can_view else tk.DISABLED
-        self._tree_context_menu.entryconfigure("View Stat Block", state=state)
+        self._tree_context_menu.entryconfigure("View Creature Info", state=state)
         try:
             self._tree_context_menu.tk_popup(event.x_root, event.y_root)
         finally:

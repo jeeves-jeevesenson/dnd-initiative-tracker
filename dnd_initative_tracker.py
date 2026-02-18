@@ -17677,31 +17677,151 @@ class InitiativeTracker(base.InitiativeTracker):
             spec = self._monsters_by_name.get(nm)
 
         win = tk.Toplevel(self)
-        title = f"{spec.name} Stat Block" if spec else "Monster Info"
+        title = f"{spec.name} Creature Info" if spec else "Creature Info"
         win.title(title)
-        win.geometry("560x680")
+        win.geometry("760x760")
+        win.minsize(700, 620)
         win.transient(self)
 
-        body = ttk.Frame(win, padding=10)
+        style = ttk.Style(win)
+        try:
+            style.configure("CreatureInfo.Header.TLabel", font=("TkDefaultFont", 14, "bold"))
+            style.configure("CreatureInfo.Meta.TLabel", font=("TkDefaultFont", 10))
+            style.configure("CreatureInfo.Section.TLabelframe.Label", font=("TkDefaultFont", 10, "bold"))
+        except Exception:
+            pass
+
+        body = ttk.Frame(win, padding=12)
         body.pack(fill="both", expand=True)
+        body.columnconfigure(0, weight=1)
+        body.rowconfigure(2, weight=1)
 
         if not spec or not spec.raw_data:
             ttk.Label(
                 body,
-                text="No stat block available for this monster.",
-                wraplength=520,
+                text="No stat block available for this creature.",
+                wraplength=680,
                 justify="left",
-            ).pack(anchor="w")
+            ).grid(row=0, column=0, sticky="w")
             return
 
-        text = tk.Text(body, wrap="word")
-        scroll = ttk.Scrollbar(body, orient="vertical", command=text.yview)
-        text.configure(yscrollcommand=scroll.set)
-        text.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
+        raw = spec.raw_data or {}
 
-        text.insert("1.0", self._monster_stat_block_text(spec))
-        text.configure(state="disabled")
+        header = ttk.Frame(body)
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        header.columnconfigure(0, weight=1)
+        ttk.Label(header, text=str(spec.name or "Unknown Creature"), style="CreatureInfo.Header.TLabel").grid(
+            row=0,
+            column=0,
+            sticky="w",
+        )
+
+        cr = self._format_monster_simple_value(raw.get("cr"))
+        init = self._format_monster_initiative(raw.get("initiative"))
+        meta_bits = [
+            f"Size: {self._format_monster_simple_value(raw.get('size'))}",
+            f"Type: {self._format_monster_simple_value(raw.get('type') or spec.mtype)}",
+            f"Alignment: {self._format_monster_simple_value(raw.get('alignment'))}",
+            f"CR: {cr}",
+            f"Init: {init}",
+        ]
+        ttk.Label(
+            header,
+            text="   •   ".join(meta_bits),
+            style="CreatureInfo.Meta.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(2, 0))
+
+        summary = ttk.Frame(body)
+        summary.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        for idx in range(4):
+            summary.columnconfigure(idx, weight=1)
+        summary_items = [
+            ("AC", self._format_monster_ac(raw.get("ac"))),
+            ("HP", self._format_monster_hp(raw.get("hp"))),
+            ("Speed", self._format_monster_speed(raw.get("speed"))),
+            ("PB", self._format_monster_simple_value(raw.get("proficiency_bonus"))),
+        ]
+        for idx, (label, val) in enumerate(summary_items):
+            card = ttk.LabelFrame(summary, text=label, style="CreatureInfo.Section.TLabelframe")
+            card.grid(row=0, column=idx, sticky="nsew", padx=(0 if idx == 0 else 6, 0))
+            ttk.Label(card, text=str(val), padding=(8, 6), justify="center").pack(fill="x")
+
+        content = ttk.Frame(body)
+        content.grid(row=2, column=0, sticky="nsew")
+        content.columnconfigure(0, weight=1)
+        content.rowconfigure(1, weight=1)
+
+        abilities_box = ttk.LabelFrame(content, text="Ability Scores", style="CreatureInfo.Section.TLabelframe")
+        abilities_box.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        abilities = raw.get("abilities")
+        ability_parts: List[str] = []
+        if isinstance(abilities, dict):
+            for ab in ("str", "dex", "con", "int", "wis", "cha"):
+                if ab not in abilities:
+                    continue
+                score = self._monster_int_from_value(abilities.get(ab))
+                if score is None:
+                    continue
+                mod = (score - 10) // 2
+                ability_parts.append(f"{ab.upper()} {score:>2} ({mod:+d})")
+        ttk.Label(
+            abilities_box,
+            text="   |   ".join(ability_parts) if ability_parts else "No ability scores available.",
+            padding=(8, 6),
+            justify="left",
+        ).pack(fill="x")
+
+        detail = tk.Text(content, wrap="word", padx=10, pady=10, relief="flat", borderwidth=0)
+        detail_scroll = ttk.Scrollbar(content, orient="vertical", command=detail.yview)
+        detail.configure(yscrollcommand=detail_scroll.set)
+        detail.grid(row=1, column=0, sticky="nsew")
+        detail_scroll.grid(row=1, column=1, sticky="ns")
+
+        detail.tag_configure("section", font=("TkDefaultFont", 11, "bold"), spacing1=10, spacing3=4)
+        detail.tag_configure("item", lmargin1=12, lmargin2=20, spacing1=2, spacing3=2)
+        detail.tag_configure("body", lmargin1=8, lmargin2=8, spacing1=2, spacing3=6)
+
+        def add_feature_section(title: str, value: object) -> None:
+            detail.insert("end", f"{title}\n", "section")
+            entries = self._format_monster_feature_lines(value)
+            if entries:
+                for entry in entries:
+                    detail.insert("end", f"{entry}\n", "item")
+            else:
+                detail.insert("end", f"No {title.lower()} available.\n", "body")
+
+        def add_text_section(title: str, value: object) -> None:
+            detail.insert("end", f"{title}\n", "section")
+            text_value = self._format_monster_text_block(value)
+            detail.insert("end", f"{text_value if text_value else f'No {title.lower()} available.'}\n", "body")
+
+        for title, key in (
+            ("Saving Throws", "saving_throws"),
+            ("Skills", "skills"),
+            ("Damage Vulnerabilities", "damage_vulnerabilities"),
+            ("Damage Resistances", "damage_resistances"),
+            ("Damage Immunities", "damage_immunities"),
+            ("Condition Immunities", "condition_immunities"),
+            ("Senses", "senses"),
+            ("Languages", "languages"),
+        ):
+            value = self._format_monster_text_block(raw.get(key))
+            if value:
+                detail.insert("end", f"{title}\n", "section")
+                detail.insert("end", f"{value}\n", "body")
+
+        add_feature_section("Traits", raw.get("traits"))
+        add_feature_section("Actions", raw.get("actions"))
+        add_feature_section("Bonus Actions", raw.get("bonus_actions"))
+        add_feature_section("Reactions", raw.get("reactions"))
+        add_feature_section("Legendary Actions", raw.get("legendary_actions"))
+        add_feature_section("Mythic Actions", raw.get("mythic_actions"))
+
+        add_text_section("Description", raw.get("description"))
+        add_text_section("Habitat", raw.get("habitat"))
+        add_text_section("Treasure", raw.get("treasure"))
+
+        detail.configure(state="disabled")
 
     def _on_monster_selected(self) -> None:
         nm = self.name_var.get().strip()
