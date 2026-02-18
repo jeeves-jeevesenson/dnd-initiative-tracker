@@ -42,6 +42,37 @@ class PlayerYamlValidityTests(unittest.TestCase):
         self.assertIn("CHA", saves)
         self.assertNotIn("CHR", saves)
 
+    def test_player_yaml_guardrails(self):
+        valid_save_keys = {"STR", "DEX", "CON", "INT", "WIS", "CHA"}
+        required_speed_keys = {"walk", "climb", "fly", "swim"}
+        for path in sorted(Path("players").glob("*.yaml")):
+            data = self._load(str(path))
+            with self.subTest(player=path.name):
+                leveling = data.get("leveling") if isinstance(data.get("leveling"), dict) else {}
+                classes = leveling.get("classes") if isinstance(leveling.get("classes"), list) else []
+                if classes:
+                    class_level_sum = sum(int((entry or {}).get("level") or 0) for entry in classes if isinstance(entry, dict))
+                    self.assertEqual(
+                        int(leveling.get("level") or 0),
+                        class_level_sum,
+                        msg=f"{path.name}: leveling.level must equal sum(leveling.classes[].level)",
+                    )
+                speed = ((data.get("vitals") or {}).get("speed") or {})
+                self.assertEqual(
+                    set(speed.keys()),
+                    required_speed_keys,
+                    msg=f"{path.name}: vitals.speed must define walk/climb/fly/swim keys",
+                )
+                saves = ((data.get("proficiency") or {}).get("saves") or [])
+                bad_saves = [entry for entry in saves if str(entry or "").strip().upper() not in valid_save_keys]
+                self.assertFalse(bad_saves, msg=f"{path.name}: unsupported save abbreviations {bad_saves}")
+                ac_sources = (((data.get("defenses") or {}).get("ac") or {}).get("sources") or [])
+                for source in ac_sources:
+                    if not isinstance(source, dict):
+                        continue
+                    self.assertTrue(str(source.get("id") or "").strip(), msg=f"{path.name}: defenses.ac.sources[] entries need an id")
+                    self.assertTrue(str(source.get("label") or "").strip(), msg=f"{path.name}: defenses.ac.sources[] entries need a label")
+
 
 if __name__ == "__main__":
     unittest.main()

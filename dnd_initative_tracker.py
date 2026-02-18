@@ -1170,6 +1170,9 @@ class PlayerProfile:
     resources: Dict[str, Any] = field(default_factory=dict)
     spellcasting: Dict[str, Any] = field(default_factory=dict)
     inventory: Dict[str, Any] = field(default_factory=dict)
+    features: List[Dict[str, Any]] = field(default_factory=list)
+    feature_state: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    feature_effects: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
     prepared_wild_shapes: List[str] = field(default_factory=list)
     summon_on_start: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -1187,6 +1190,13 @@ class PlayerProfile:
             "resources": dict(self.resources),
             "spellcasting": dict(self.spellcasting),
             "inventory": dict(self.inventory),
+            "features": [dict(entry) for entry in self.features if isinstance(entry, dict)],
+            "feature_state": {str(key): dict(value) for key, value in self.feature_state.items() if isinstance(value, dict)},
+            "feature_effects": {
+                str(key): [dict(entry) for entry in value if isinstance(entry, dict)]
+                for key, value in self.feature_effects.items()
+                if isinstance(value, list)
+            },
             "prepared_wild_shapes": list(self.prepared_wild_shapes),
             "summon_on_start": [dict(entry) for entry in self.summon_on_start if isinstance(entry, dict)],
         }
@@ -5020,6 +5030,9 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _process_start_of_turn(self, c: Any) -> Tuple[bool, str, set[str]]:
         skip, msg, dec_skip = super()._process_start_of_turn(c)
+        setattr(c, "_rage_attack_made_this_turn", False)
+        setattr(c, "_rage_took_damage_this_turn", False)
+        self._run_combatant_turn_hooks(c, "start_turn")
         if getattr(c, "cid", None) in self.combatants:
             riders = list(getattr(c, "start_turn_damage_riders", []) or [])
             if riders:
@@ -5216,6 +5229,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if cid is None or cid not in self.combatants:
             return
         c = self.combatants[cid]
+        self._run_combatant_turn_hooks(c, "end_turn")
         riders = list(getattr(c, "end_turn_damage_riders", []) or [])
         if not riders:
             return
@@ -6215,6 +6229,16 @@ class InitiativeTracker(base.InitiativeTracker):
                     if combatant is not None:
                         setattr(combatant, "temp_hp", int(temp_hp or 0))
                         setattr(combatant, "max_hp", int(max_hp or hp or 0))
+                        setattr(
+                            combatant,
+                            "feature_state",
+                            copy.deepcopy(profile.get("feature_state") if isinstance(profile.get("feature_state"), dict) else {}),
+                        )
+                        setattr(
+                            combatant,
+                            "feature_effects",
+                            copy.deepcopy(profile.get("feature_effects") if isinstance(profile.get("feature_effects"), dict) else {}),
+                        )
                         if ac is not None:
                             setattr(combatant, "ac", int(ac))
                         if token_color:
@@ -6325,6 +6349,18 @@ class InitiativeTracker(base.InitiativeTracker):
         if combatant is not None:
             setattr(combatant, "temp_hp", int(temp_hp or 0))
             setattr(combatant, "max_hp", int(max_hp or hp or 0))
+            setattr(
+                combatant,
+                "feature_state",
+                copy.deepcopy(normalized.get("feature_state") if isinstance(normalized.get("feature_state"), dict) else {}),
+            )
+            setattr(
+                combatant,
+                "feature_effects",
+                copy.deepcopy(
+                    normalized.get("feature_effects") if isinstance(normalized.get("feature_effects"), dict) else {}
+                ),
+            )
             if ac is not None:
                 setattr(combatant, "ac", int(ac))
             token_color = identity.get("token_color") if isinstance(identity, dict) else None
@@ -8809,6 +8845,36 @@ class InitiativeTracker(base.InitiativeTracker):
                 summon_on_start_raw = data.get(key)
                 break
         summon_on_start = self._normalize_startup_summon_entries(summon_on_start_raw, name)
+        feature_runtime = self._feature_runtime_from_profile(data)
+        feature_actions = feature_runtime.get("compiled_actions") if isinstance(feature_runtime.get("compiled_actions"), dict) else {}
+
+        def _append_unique_actions(target_key: str, default_type: str) -> None:
+            existing_entries = self._normalize_action_entries(resources.get(target_key), default_type)
+            merged = list(existing_entries)
+            seen_keys = {
+                (
+                    self._action_name_key(entry.get("name")),
+                    self._action_name_key(entry.get("type") or default_type),
+                )
+                for entry in existing_entries
+                if isinstance(entry, dict)
+            }
+            for candidate in feature_actions.get(target_key, []) if isinstance(feature_actions.get(target_key), list) else []:
+                if not isinstance(candidate, dict):
+                    continue
+                dedupe_key = (
+                    self._action_name_key(candidate.get("name")),
+                    self._action_name_key(candidate.get("type") or default_type),
+                )
+                if dedupe_key in seen_keys:
+                    continue
+                seen_keys.add(dedupe_key)
+                merged.append(copy.deepcopy(candidate))
+            resources[target_key] = merged
+
+        _append_unique_actions("actions", "action")
+        _append_unique_actions("bonus_actions", "bonus_action")
+        _append_unique_actions("reactions", "reaction")
 
         profile = PlayerProfile(
             name=name,
@@ -8823,6 +8889,9 @@ class InitiativeTracker(base.InitiativeTracker):
             resources=resources,
             spellcasting=spellcasting,
             inventory=inventory,
+            features=feature_runtime.get("features", []),
+            feature_state=feature_runtime.get("feature_state", {}),
+            feature_effects=feature_runtime.get("feature_effects", {}),
             prepared_wild_shapes=prepared_wild_shapes,
             summon_on_start=summon_on_start,
         )
@@ -9361,6 +9430,126 @@ class InitiativeTracker(base.InitiativeTracker):
         if result is None:
             return fallback_value
         return max(0, int(math.floor(result)))
+
+    def _feature_runtime_from_profile(self, profile: Dict[str, Any]) -> Dict[str, Any]:
+        features_raw = profile.get("features")
+        features = features_raw if isinstance(features_raw, list) else []
+        compiled_actions: Dict[str, List[Dict[str, Any]]] = {"actions": [], "bonus_actions": [], "reactions": []}
+        feature_state: Dict[str, Dict[str, Any]] = {}
+        effects: Dict[str, List[Dict[str, Any]]] = {"modifiers": [], "damage_riders": []}
+
+        def _activation_bucket(value: Any, default_bucket: str = "actions") -> str:
+            key = str(value or "").strip().lower()
+            if key in ("reaction", "reactions"):
+                return "reactions"
+            if key in ("bonus", "bonus_action", "bonus actions", "bonus-action"):
+                return "bonus_actions"
+            return default_bucket
+
+        for index, feature in enumerate(features):
+            if not isinstance(feature, dict):
+                continue
+            feature_id = str(feature.get("id") or f"feature_{index + 1}").strip() or f"feature_{index + 1}"
+            feature_name = str(feature.get("name") or feature_id).strip() or feature_id
+            grants = feature.get("grants") if isinstance(feature.get("grants"), dict) else {}
+            automation = feature.get("automation") if isinstance(feature.get("automation"), dict) else {}
+            automation_grants = automation.get("grants") if isinstance(automation.get("grants"), dict) else {}
+            state_entry: Dict[str, Any] = {}
+            for key in ("selection", "enabled_if", "subclass", "source"):
+                if key in feature:
+                    state_entry[key] = copy.deepcopy(feature.get(key))
+            if "enabled_if" in automation:
+                state_entry["automation_enabled_if"] = copy.deepcopy(automation.get("enabled_if"))
+            if state_entry:
+                feature_state[feature_id] = state_entry
+
+            for source_grants in (grants, automation_grants):
+                action_entries = source_grants.get("actions") if isinstance(source_grants.get("actions"), list) else []
+                reaction_entries = source_grants.get("reactions") if isinstance(source_grants.get("reactions"), list) else []
+                for action_entry in action_entries:
+                    if not isinstance(action_entry, dict):
+                        continue
+                    action_name = str(action_entry.get("name") or action_entry.get("id") or "").strip()
+                    if not action_name:
+                        self._oplog(
+                            f"Player YAML {profile.get('name') or 'unknown'}: feature '{feature_name}' has grants.actions entry missing name.",
+                            level="warning",
+                        )
+                        continue
+                    bucket = _activation_bucket(action_entry.get("activation"), "actions")
+                    payload = {
+                        "id": str(action_entry.get("id") or "").strip(),
+                        "name": action_name,
+                        "description": str(action_entry.get("description") or action_entry.get("desc") or "").strip(),
+                        "type": "reaction" if bucket == "reactions" else ("bonus_action" if bucket == "bonus_actions" else "action"),
+                        "source_feature_id": feature_id,
+                        "source_feature_name": feature_name,
+                        "feature_state": copy.deepcopy(state_entry),
+                    }
+                    for key in ("effect", "slot_level", "consume_one_of", "automation"):
+                        if key in action_entry:
+                            payload[key] = copy.deepcopy(action_entry.get(key))
+                    consumes = action_entry.get("consumes") if isinstance(action_entry.get("consumes"), dict) else {}
+                    pool_id = str(consumes.get("pool") or consumes.get("id") or "").strip()
+                    if pool_id:
+                        try:
+                            pool_cost = int(consumes.get("cost", 1))
+                        except Exception:
+                            pool_cost = 1
+                        payload["uses"] = {"pool": pool_id, "cost": max(1, pool_cost)}
+                    compiled_actions[bucket].append(payload)
+                for reaction_entry in reaction_entries:
+                    if not isinstance(reaction_entry, dict):
+                        continue
+                    reaction_name = str(reaction_entry.get("name") or reaction_entry.get("id") or "").strip()
+                    if not reaction_name:
+                        continue
+                    payload = {
+                        "id": str(reaction_entry.get("id") or "").strip(),
+                        "name": reaction_name,
+                        "description": str(reaction_entry.get("description") or reaction_entry.get("desc") or "").strip(),
+                        "type": "reaction",
+                        "source_feature_id": feature_id,
+                        "source_feature_name": feature_name,
+                        "feature_state": copy.deepcopy(state_entry),
+                    }
+                    consumes = reaction_entry.get("consumes") if isinstance(reaction_entry.get("consumes"), dict) else {}
+                    pool_id = str(consumes.get("pool") or consumes.get("id") or "").strip()
+                    if pool_id:
+                        try:
+                            pool_cost = int(consumes.get("cost", 1))
+                        except Exception:
+                            pool_cost = 1
+                        payload["uses"] = {"pool": pool_id, "cost": max(1, pool_cost)}
+                    compiled_actions["reactions"].append(payload)
+                modifiers = source_grants.get("modifiers") if isinstance(source_grants.get("modifiers"), list) else []
+                for modifier in modifiers:
+                    if isinstance(modifier, dict):
+                        effects["modifiers"].append({**copy.deepcopy(modifier), "source_feature_id": feature_id})
+                riders = source_grants.get("damage_riders") if isinstance(source_grants.get("damage_riders"), list) else []
+                for rider in riders:
+                    if isinstance(rider, dict):
+                        effects["damage_riders"].append({**copy.deepcopy(rider), "source_feature_id": feature_id})
+
+            if isinstance(automation, dict) and isinstance(automation.get("extra_damage"), dict):
+                converted = {
+                    "id": str(feature.get("id") or feature.get("name") or "").strip().lower() or f"feature_{index + 1}",
+                    "source_feature_id": feature_id,
+                    "trigger": copy.deepcopy(automation.get("applies_to")),
+                    "once_per_turn": bool(automation.get("once_per_turn")),
+                    "requires_any": copy.deepcopy(automation.get("requires_any")),
+                    "blocked_if": copy.deepcopy(automation.get("blocked_if")),
+                    "damage_formula": copy.deepcopy((automation.get("extra_damage") or {}).get("formula")),
+                    "dice_pool": copy.deepcopy((automation.get("extra_damage") or {}).get("dice_pool")),
+                    "damage_type": copy.deepcopy((automation.get("extra_damage") or {}).get("damage_type")),
+                }
+                effects["damage_riders"].append(converted)
+        return {
+            "features": [dict(entry) for entry in features if isinstance(entry, dict)],
+            "feature_state": feature_state,
+            "feature_effects": effects,
+            "compiled_actions": compiled_actions,
+        }
 
     def _player_pool_granted_spells(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
         pools = self._normalize_player_resource_pools(profile)
@@ -10578,6 +10767,163 @@ class InitiativeTracker(base.InitiativeTracker):
     @staticmethod
     def _action_name_key(value: Any) -> str:
         return str(value or "").strip().lower()
+
+    def _once_per_turn_key(self) -> Tuple[int, int]:
+        return (
+            int(getattr(self, "round_num", 0) or 0),
+            int(getattr(self, "turn_num", 0) or 0),
+        )
+
+    def _once_per_turn_limiter_allows(self, cid: Any, feature_id: Any) -> bool:
+        cid_value = _normalize_cid_value(cid, "feature.once_per_turn.cid")
+        feature_key = str(feature_id or "").strip().lower()
+        if cid_value is None or not feature_key:
+            return False
+        marker = self._once_per_turn_key()
+        tracker = self.__dict__.get("_once_per_turn_feature_markers")
+        if not isinstance(tracker, dict):
+            tracker = {}
+            self._once_per_turn_feature_markers = tracker
+        return tuple(tracker.get((int(cid_value), feature_key)) or ()) != marker
+
+    def _once_per_turn_limiter_mark(self, cid: Any, feature_id: Any) -> None:
+        cid_value = _normalize_cid_value(cid, "feature.once_per_turn.mark_cid")
+        feature_key = str(feature_id or "").strip().lower()
+        if cid_value is None or not feature_key:
+            return
+        tracker = self.__dict__.get("_once_per_turn_feature_markers")
+        if not isinstance(tracker, dict):
+            tracker = {}
+            self._once_per_turn_feature_markers = tracker
+        tracker[(int(cid_value), feature_key)] = self._once_per_turn_key()
+
+    def _register_combatant_turn_hook(self, c: Any, hook: Dict[str, Any]) -> None:
+        if c is None or not isinstance(hook, dict):
+            return
+        hooks = list(getattr(c, "_feature_turn_hooks", []) or [])
+        hooks.append(dict(hook))
+        setattr(c, "_feature_turn_hooks", hooks)
+
+    def _run_combatant_turn_hooks(self, c: Any, when: str) -> None:
+        if c is None:
+            return
+        hooks = list(getattr(c, "_feature_turn_hooks", []) or [])
+        if not hooks:
+            return
+        retained: List[Dict[str, Any]] = []
+        for hook in hooks:
+            if not isinstance(hook, dict):
+                continue
+            hook_when = str(hook.get("when") or "").strip().lower()
+            if hook_when and hook_when != str(when or "").strip().lower():
+                retained.append(dict(hook))
+                continue
+            hook_type = str(hook.get("type") or "").strip().lower()
+            if hook_type == "rage_upkeep":
+                if not bool(getattr(c, "rage_active", False)):
+                    continue
+                maintained = bool(getattr(c, "_rage_attack_made_this_turn", False)) or bool(getattr(c, "_rage_took_damage_this_turn", False))
+                if not maintained:
+                    setattr(c, "rage_active", False)
+                    self._remove_condition_type(c, "rage")
+                    self._log(f"{c.name}'s Rage ends.", cid=getattr(c, "cid", None))
+                    continue
+                retained.append(dict(hook))
+                continue
+            retained.append(dict(hook))
+        setattr(c, "_feature_turn_hooks", retained)
+
+    @staticmethod
+    def _class_level_from_profile(profile: Dict[str, Any], class_name: str) -> int:
+        key = str(class_name or "").strip().lower()
+        if not key or not isinstance(profile, dict):
+            return 0
+        leveling = profile.get("leveling") if isinstance(profile.get("leveling"), dict) else {}
+        classes = leveling.get("classes") if isinstance(leveling.get("classes"), list) else []
+        total = 0
+        for entry in classes:
+            if not isinstance(entry, dict):
+                continue
+            if str(entry.get("name") or "").strip().lower() != key:
+                continue
+            try:
+                total += int(entry.get("level") or 0)
+            except Exception:
+                continue
+        if total > 0:
+            return total
+        if str(leveling.get("class") or "").strip().lower() == key:
+            try:
+                return max(0, int(leveling.get("level") or 0))
+            except Exception:
+                return 0
+        return 0
+
+    def _recover_spell_slots(
+        self,
+        player_name: str,
+        profile: Dict[str, Any],
+        recover_cfg: Dict[str, Any],
+    ) -> Tuple[bool, str, List[int]]:
+        if not isinstance(recover_cfg, dict):
+            return False, "No spell slot recovery config found.", []
+        spellcasting = profile.get("spellcasting") if isinstance(profile.get("spellcasting"), dict) else {}
+        slots = self._normalize_spell_slots(spellcasting.get("spell_slots"))
+        variables = {
+            "level": self._coerce_level_value(profile.get("leveling") if isinstance(profile.get("leveling"), dict) else {}),
+            "wizard_level": self._class_level_from_profile(profile, "wizard"),
+            "druid_level": self._class_level_from_profile(profile, "druid"),
+            "cleric_level": self._class_level_from_profile(profile, "cleric"),
+            "fighter_level": self._class_level_from_profile(profile, "fighter"),
+            "rogue_level": self._class_level_from_profile(profile, "rogue"),
+        }
+        max_level = 9
+        try:
+            max_level = int(recover_cfg.get("max_slot_level", 9))
+        except Exception:
+            max_level = 9
+        max_level = max(1, min(9, max_level))
+        recover_budget = 1
+        budget_formula = recover_cfg.get("max_total_levels_formula")
+        if budget_formula is None:
+            budget_formula = recover_cfg.get("max_combined_level_formula")
+        if budget_formula is not None:
+            evaluated = self._evaluate_spell_formula(str(budget_formula), variables)
+            if evaluated is not None:
+                recover_budget = max(1, int(math.floor(evaluated)))
+        target_level = recover_cfg.get("slot_level")
+        recovered_levels: List[int] = []
+        if target_level is not None:
+            try:
+                target_level_int = int(target_level)
+            except Exception:
+                target_level_int = 0
+            target_level_int = max(1, min(max_level, target_level_int))
+            key = str(target_level_int)
+            entry = slots.get(key, {"max": 0, "current": 0})
+            current = max(0, int(entry.get("current", 0) or 0))
+            maximum = max(0, int(entry.get("max", 0) or 0))
+            if maximum > current and recover_budget >= target_level_int:
+                entry["current"] = min(maximum, current + 1)
+                slots[key] = entry
+                recovered_levels.append(target_level_int)
+        else:
+            remaining_budget = recover_budget
+            for level in range(max_level, 0, -1):
+                key = str(level)
+                entry = slots.get(key, {"max": 0, "current": 0})
+                current = max(0, int(entry.get("current", 0) or 0))
+                maximum = max(0, int(entry.get("max", 0) or 0))
+                while maximum > current and remaining_budget >= level:
+                    current += 1
+                    remaining_budget -= level
+                    recovered_levels.append(level)
+                entry["current"] = current
+                slots[key] = entry
+        if not recovered_levels:
+            return False, "No expended spell slots qualify for recovery.", []
+        self._save_player_spell_slots(player_name, slots)
+        return True, "", recovered_levels
 
     def _iter_combatant_actions(self, c: Any, spend: str) -> List[Dict[str, Any]]:
         if spend == "bonus":
@@ -13822,8 +14168,8 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 action_pool_cost = 1
             action_pool_cost = max(1, action_pool_cost)
+            player_name = _resolve_pc_name(cid)
             if action_pool_id:
-                player_name = _resolve_pc_name(cid)
                 ok_pool, pool_err = self._consume_resource_pool_for_cast(
                     caster_name=player_name,
                     pool_id=action_pool_id,
@@ -13831,6 +14177,32 @@ class InitiativeTracker(base.InitiativeTracker):
                 )
                 if not ok_pool:
                     self._lan.toast(ws_id, pool_err)
+                    return
+            consume_one_of = action_entry.get("consume_one_of") if isinstance(action_entry.get("consume_one_of"), list) else []
+            if consume_one_of:
+                one_of_ok = False
+                one_of_errors: List[str] = []
+                for choice in consume_one_of:
+                    if not isinstance(choice, dict):
+                        continue
+                    choice_type = str(choice.get("type") or "").strip().lower()
+                    if choice_type == "spell_slot":
+                        min_level = _parse_int(choice.get("min_level"), 1) or 1
+                        ok_slot, slot_err, _spent_slot = self._consume_spell_slot_for_cast(player_name, min_level, min_level)
+                        if ok_slot:
+                            one_of_ok = True
+                            break
+                        one_of_errors.append(slot_err)
+                    elif choice_type == "pool":
+                        choice_pool = str(choice.get("pool") or "").strip()
+                        choice_cost = _parse_int(choice.get("cost"), 1) or 1
+                        ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, choice_pool, choice_cost)
+                        if ok_pool:
+                            one_of_ok = True
+                            break
+                        one_of_errors.append(pool_err)
+                if not one_of_ok:
+                    self._lan.toast(ws_id, next((msg for msg in one_of_errors if msg), "No valid resource option available, matey."))
                     return
 
             grant_extra_action = action_key == "action surge"
@@ -13879,6 +14251,53 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "Action Surge used: +1 action.")
                 self._rebuild_table(scroll_to_current=True)
             else:
+                if action_key == "rage":
+                    setattr(c, "rage_active", True)
+                    stacks = getattr(c, "condition_stacks", None)
+                    if not isinstance(stacks, list):
+                        stacks = []
+                        setattr(c, "condition_stacks", stacks)
+                    if not self._has_condition(c, "rage"):
+                        next_sid = int(self.__dict__.get("_next_stack_id", 1) or 1)
+                        setattr(self, "_next_stack_id", int(next_sid) + 1)
+                        stacks.append(base.ConditionStack(sid=int(next_sid), ctype="rage", remaining_turns=None))
+                    if not any(
+                        isinstance(hook, dict)
+                        and str(hook.get("type") or "").strip().lower() == "rage_upkeep"
+                        for hook in list(getattr(c, "_feature_turn_hooks", []) or [])
+                    ):
+                        self._register_combatant_turn_hook(
+                            c,
+                            {"type": "rage_upkeep", "when": "end_turn", "source": "rage"},
+                        )
+                action_effect = str(action_entry.get("effect") or "").strip().lower()
+                if action_effect in ("recover_spell_slots", "recover_spell_slot") or action_key in ("arcane recovery", "natural recovery (recover spell slots)"):
+                    recover_cfg: Dict[str, Any] = {}
+                    if action_effect in ("recover_spell_slots", "recover_spell_slot"):
+                        recover_cfg = dict(action_entry)
+                    if not recover_cfg:
+                        profile = self._profile_for_player_name(player_name)
+                        feature_name_key = self._action_name_key(action_name)
+                        if isinstance(profile, dict):
+                            for feature in profile.get("features") if isinstance(profile.get("features"), list) else []:
+                                if not isinstance(feature, dict):
+                                    continue
+                                if self._action_name_key(feature.get("name")) != feature_name_key:
+                                    continue
+                                automation = feature.get("automation") if isinstance(feature.get("automation"), dict) else {}
+                                if isinstance(automation.get("recover_spell_slots"), dict):
+                                    recover_cfg = dict(automation.get("recover_spell_slots") or {})
+                                    break
+                    if recover_cfg:
+                        profile = self._profile_for_player_name(player_name)
+                        if isinstance(profile, dict):
+                            ok_recover, recover_err, recovered_levels = self._recover_spell_slots(player_name, profile, recover_cfg)
+                            if ok_recover:
+                                recovered_text = ", ".join(f"L{lvl}" for lvl in recovered_levels)
+                                self._log(f"{c.name} recovers spell slots ({recovered_text}).", cid=cid)
+                                self._lan.toast(ws_id, f"Recovered spell slots: {recovered_text}.")
+                            else:
+                                self._lan.toast(ws_id, recover_err or "Could not recover spell slots, matey.")
                 self._log(f"{c.name} used {action_name} ({spend_label})", cid=cid)
                 self._lan.toast(ws_id, f"Used {action_name}.")
                 self._rebuild_table(scroll_to_current=True)
@@ -14380,6 +14799,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if not selected_weapon:
                 self._lan.toast(ws_id, "Pick one of yer configured weapons first, matey.")
                 return
+            setattr(c, "_rage_attack_made_this_turn", True)
             turn_marker = (
                 int(getattr(self, "round_num", 0) or 0),
                 int(getattr(self, "turn_num", 0) or 0),
@@ -14497,6 +14917,62 @@ class InitiativeTracker(base.InitiativeTracker):
                     damage_entries.append({"amount": int(graze_damage), "type": mode_type})
                     graze_applied = True
                     mastery_notes.append(f"Graze deals {int(graze_damage)} damage on the miss.")
+            damage_riders = []
+            feature_effects = getattr(c, "feature_effects", None)
+            if not isinstance(feature_effects, dict) and isinstance(profile, dict):
+                feature_effects = profile.get("feature_effects")
+            if isinstance(feature_effects, dict):
+                damage_riders = feature_effects.get("damage_riders") if isinstance(feature_effects.get("damage_riders"), list) else []
+            if hit and isinstance(damage_riders, list):
+                trigger_tags: set[str] = {"weapon_attack_hit", "weapon_or_beast_attack_hit"}
+                if _weapon_has_property(selected_weapon, "finesse"):
+                    trigger_tags.add("finesse_weapon_attack")
+                weapon_range_text = str(selected_weapon.get("range") or "").strip().lower()
+                if "/" in weapon_range_text or "ranged" in weapon_range_text:
+                    trigger_tags.add("ranged_weapon_attack")
+                advantage_flag = bool(_parse_bool(msg.get("attack_has_advantage")))
+                disadvantage_flag = bool(_parse_bool(msg.get("attack_has_disadvantage")))
+                ally_near_flag = bool(_parse_bool(msg.get("ally_within_5ft")))
+                for rider in damage_riders:
+                    if not isinstance(rider, dict):
+                        continue
+                    rider_id = str(rider.get("id") or rider.get("source_feature_id") or "").strip().lower()
+                    rider_trigger = rider.get("trigger")
+                    rider_triggers = rider_trigger if isinstance(rider_trigger, list) else [rider_trigger]
+                    normalized_triggers = {str(entry or "").strip().lower() for entry in rider_triggers if str(entry or "").strip()}
+                    if normalized_triggers and normalized_triggers.isdisjoint(trigger_tags):
+                        continue
+                    requires_any = rider.get("requires_any") if isinstance(rider.get("requires_any"), list) else []
+                    if requires_any:
+                        require_flags: Dict[str, bool] = {
+                            "attack_has_advantage": advantage_flag,
+                            "ally_within_5ft_of_target_and_not_incapacitated": ally_near_flag,
+                        }
+                        if not any(require_flags.get(str(flag or "").strip().lower(), False) for flag in requires_any):
+                            continue
+                    blocked_if = {str(flag or "").strip().lower() for flag in (rider.get("blocked_if") if isinstance(rider.get("blocked_if"), list) else [])}
+                    if "attack_has_disadvantage" in blocked_if and disadvantage_flag:
+                        continue
+                    if bool(rider.get("once_per_turn")) and not self._once_per_turn_limiter_allows(cid, rider_id):
+                        continue
+                    rider_formula = str(rider.get("damage_formula") or "").strip()
+                    dice_pool = str(rider.get("dice_pool") or "").strip().lower()
+                    if not rider_formula and dice_pool and isinstance(profile, dict):
+                        pools = self._normalize_player_resource_pools(profile)
+                        for pool in pools:
+                            if str(pool.get("id") or "").strip().lower() == dice_pool:
+                                rider_formula = f"{max(1, int(pool.get('current', 0) or 0))}d6"
+                                break
+                    rider_amount = _roll_damage_formula(rider_formula, variables) if rider_formula else None
+                    if rider_amount is None or rider_amount <= 0:
+                        continue
+                    rider_type = str(rider.get("damage_type") or "").strip().lower()
+                    if rider_type in ("", "same_as_attack"):
+                        rider_type = str((damage_entries[0] if damage_entries else {}).get("type") or "").strip().lower()
+                    damage_entries.append({"amount": int(rider_amount), "type": rider_type})
+                    if bool(rider.get("once_per_turn")):
+                        self._once_per_turn_limiter_mark(cid, rider_id)
+                    mastery_notes.append(f"{str(rider.get('id') or 'rider').strip() or 'rider'} adds {int(rider_amount)} damage.")
             damage_entries = self._lan_apply_aura_resistances(target, damage_entries)
             total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
             damage_applied = bool(hit or graze_applied)
@@ -14511,6 +14987,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 mastery_notes.append("Vex: Advantage applies to this attack.")
                 setattr(target, "_vexed_by_cid", None)
             if damage_applied and total_damage > 0:
+                setattr(target, "_rage_took_damage_this_turn", True)
                 before_hp = _parse_int(getattr(target, "hp", None), None)
                 if before_hp is not None:
                     after_hp = max(0, int(before_hp) - int(total_damage))
