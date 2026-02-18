@@ -4695,7 +4695,13 @@ __DAMAGE_TYPE_OPTIONS__
           if (!window.confirm("Action Surge?")){
             return;
           }
-          send({type: "action_surge_use", cid});
+          const msg = {type: "action_surge_use", cid};
+          if (isPlanning){
+            planningMutate(msg);
+            draw();
+            updateHud();
+          }
+          send(msg);
         });
       }
       resourcePoolsListEl.appendChild(chip);
@@ -6974,6 +6980,17 @@ __DAMAGE_TYPE_OPTIONS__
       renderResourcePools();
       return;
     }
+    if (type === "action_surge_use"){
+      const unit = getUnitByCid(msg.cid);
+      if (!unit) return;
+      mutateResourcePoolCounter(unit, {id: "action_surge", cost: 1});
+      const update = {cid: unit.cid};
+      const current = Number(unit.action_remaining || 0);
+      update.action_remaining = Math.max(0, current + 1);
+      applyUnitUpdates([update]);
+      renderResourcePools();
+      return;
+    }
     if (type === "cast_spell"){
       const unit = getUnitByCid(msg.cid);
       if (!unit) return;
@@ -6992,6 +7009,7 @@ __DAMAGE_TYPE_OPTIONS__
       applyUnitUpdates([update]);
       mutateSpellSlotCounter(unit, msg.slot_level ?? payload.slot_level ?? payload.level);
       mutateResourcePoolCounter(unit, payload.consumes_pool);
+      renderResourcePools();
       updateMountControls();
       return;
     }
@@ -14244,7 +14262,7 @@ __DAMAGE_TYPE_OPTIONS__
         msg.consumes_pool_id = slotCheck.consumesPool.id;
         msg.consumes_pool_cost = slotCheck.consumesPool.cost;
       }
-      if (aoeSpell && isPlanning){
+      if (isPlanning){
         planningMutate(msg);
         draw();
         updateHud();
@@ -14712,7 +14730,13 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Enter your Second Wind d10 roll (1-10). Add fighter level automatically.");
         return;
       }
-      send({type:"second_wind_use", cid: claimedCid, healing_roll: Math.floor(rolled)});
+      const msg = {type:"second_wind_use", cid: claimedCid, healing_roll: Math.floor(rolled)};
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
       setSecondWindOverlayOpen(false);
     });
   }
