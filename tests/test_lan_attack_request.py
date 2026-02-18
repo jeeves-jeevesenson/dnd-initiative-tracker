@@ -109,6 +109,41 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertNotIn("_attack_result", msg)
         self.assertIn((10, "Pick one of yer configured weapons first, matey."), self.toasts)
 
+    def test_wild_shape_attack_request_accepts_inline_weapon_payload(self):
+        self.app.combatants[1].is_wild_shaped = True
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Druid", "level": 8}]},
+            "attacks": {"weapon_to_hit": 0, "weapons": []},
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 44,
+            "target_cid": 2,
+            "weapon_id": "bite",
+            "weapon_name": "Bite",
+            "weapon": {
+                "id": "bite",
+                "name": "Bite",
+                "to_hit": 5,
+                "range": "5 ft",
+                "category": "melee_weapon",
+                "one_handed": {"damage_formula": "1d8 + 3", "damage_type": "piercing"},
+            },
+            "hit": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("ok"))
+        self.assertEqual(result.get("weapon_name"), "Bite")
+        self.assertEqual(result.get("damage_total"), 7)
+        self.assertEqual(result.get("damage_entries", [])[0].get("type"), "piercing")
+
     def test_attack_request_defaults_to_equipped_weapon_when_not_specified(self):
         self.app._profile_for_player_name = lambda name: {
             "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
@@ -154,6 +189,40 @@ class LanAttackRequestTests(unittest.TestCase):
         result = msg.get("_attack_result")
         self.assertIsInstance(result, dict)
         self.assertEqual(result.get("attack_count"), 2)
+
+    def test_wild_shape_attack_count_grants_matching_attack_resources(self):
+        self.app.combatants[1].is_wild_shaped = True
+        self.app.combatants[1].action_remaining = 1
+        self.app.combatants[1].attack_resource_remaining = 0
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Druid", "level": 8}]},
+            "attacks": {"weapon_to_hit": 0, "weapons": []},
+        }
+        base_msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 45,
+            "target_cid": 2,
+            "weapon": {
+                "id": "claw",
+                "name": "Claw",
+                "to_hit": 5,
+                "range": "5 ft",
+                "category": "melee_weapon",
+                "one_handed": {"damage_formula": "1d4 + 3", "damage_type": "slashing"},
+            },
+            "attack_count": 2,
+            "hit": True,
+        }
+
+        self.app._lan_apply_action(dict(base_msg))
+        self.assertEqual(self.app.combatants[1].action_remaining, 0)
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 1)
+
+        self.app._lan_apply_action(dict(base_msg))
+        self.assertEqual(self.app.combatants[1].action_remaining, 0)
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 0)
 
     def test_attack_request_applies_weapon_magic_bonus(self):
         self.app._profile_for_player_name = lambda name: {

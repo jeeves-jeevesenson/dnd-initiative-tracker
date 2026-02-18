@@ -227,6 +227,22 @@ class WildShapeTests(unittest.TestCase):
         self.app._load_player_yaml_cache = lambda force_refresh=False: None
         self.app._player_yaml_data_by_name = {"Alice": self._profile(8)}
         self.app._set_wild_shape_pool_current = lambda _name, value: (True, "", value)
+        self.app._wild_shape_beast_cache = [
+            {
+                "id": "brown-bear",
+                "name": "Brown Bear",
+                "challenge_rating": 1.0,
+                "size": "Large",
+                "ac": 11,
+                "speed": {"walk": 40, "swim": 0, "fly": 0, "climb": 30},
+                "abilities": {"str": 17, "dex": 12, "con": 15, "int": 2, "wis": 13, "cha": 7},
+                "actions": [
+                    {"name": "Multiattack", "desc": "The bear makes one Bite attack and one Claw attack."},
+                    {"name": "Bite", "desc": "Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Piercing damage."},
+                    {"name": "Claw", "desc": "Melee Attack Roll : +5, reach 5 ft. Hit : 5 (1d4 + 3) Slashing damage."},
+                ],
+            }
+        ]
         ok, err = self.app._apply_wild_shape(1, "brown-bear")
         self.assertTrue(ok, err)
         c = self.app.combatants[1]
@@ -314,6 +330,61 @@ class WildShapeTests(unittest.TestCase):
         self.assertNotIn("wild shape", lower_names)
         self.assertIn("end wildshape early", lower_names)
         self.assertIn("second wind", lower_names)
+
+    def test_apply_wild_shape_marks_attack_actions_for_attack_overlay(self):
+        self.app.combatants = {
+            1: type("C", (), {
+                "cid": 1,
+                "name": "Alice",
+                "speed": 30,
+                "swim_speed": 0,
+                "fly_speed": 0,
+                "climb_speed": 0,
+                "burrow_speed": 0,
+                "movement_mode": "Normal",
+                "dex": 14,
+                "con": 12,
+                "str": 10,
+                "temp_hp": 0,
+                "actions": [],
+                "bonus_actions": [],
+                "is_spellcaster": True,
+            })()
+        }
+        self.app._pc_name_for = lambda _cid: "Alice"
+        self.app._load_player_yaml_cache = lambda force_refresh=False: None
+        self.app._player_yaml_data_by_name = {"Alice": self._profile(8)}
+        self.app._set_wild_shape_pool_current = lambda _name, value: (True, "", value)
+        self.app._wild_shape_beast_cache = [
+            {
+                "id": "brown-bear",
+                "name": "Brown Bear",
+                "challenge_rating": 1.0,
+                "size": "Large",
+                "ac": 11,
+                "speed": {"walk": 40, "swim": 0, "fly": 0, "climb": 30},
+                "abilities": {"str": 17, "dex": 12, "con": 15, "int": 2, "wis": 13, "cha": 7},
+                "actions": [
+                    {"name": "Multiattack", "desc": "The bear makes one Bite attack and one Claw attack."},
+                    {"name": "Bite", "desc": "Melee Attack Roll : +5, reach 5 ft. Hit : 7 (1d8 + 3) Piercing damage."},
+                    {"name": "Claw", "desc": "Melee Attack Roll : +5, reach 5 ft. Hit : 5 (1d4 + 3) Slashing damage."},
+                ],
+            }
+        ]
+
+        ok, err = self.app._apply_wild_shape(1, "brown-bear")
+
+        self.assertTrue(ok, err)
+        c = self.app.combatants[1]
+        bite = next((entry for entry in c.actions if str(entry.get("name") or "").lower() == "bite"), None)
+        self.assertIsNotNone(bite)
+        self.assertEqual(bite.get("attack_overlay_mode"), "attack_request")
+        self.assertEqual(bite.get("attack_count"), 2)
+        weapon = bite.get("attack_weapon") if isinstance(bite.get("attack_weapon"), dict) else {}
+        self.assertEqual(weapon.get("name"), "Bite")
+        self.assertEqual(weapon.get("to_hit"), 5)
+        self.assertEqual(weapon.get("one_handed", {}).get("damage_formula"), "1d8 + 3")
+        self.assertEqual(weapon.get("one_handed", {}).get("damage_type"), "piercing")
 
     def test_apply_wild_shape_preserves_role_memory_for_display_name(self):
         self.app.combatants = {
@@ -707,6 +778,25 @@ class WildShapeTests(unittest.TestCase):
         app._lan_apply_action({"type": "wild_shape_apply", "cid": 1, "beast_id": "wolf", "_ws_id": 10, "admin_token": "ok"})
 
         self.assertEqual(calls["apply"], 1)
+
+    def test_wild_shape_apply_preserves_existing_action_usage(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app.in_combat = True
+        app.combatants = {
+            1: type("C", (), {"cid": 1, "action_remaining": 0, "bonus_action_remaining": 1})()
+        }
+        app._is_admin_token_valid = lambda _token: True
+        app._summon_can_be_controlled_by = lambda claimed, cid: False
+        app._apply_wild_shape = lambda _cid, _beast_id: (True, "")
+        app._use_bonus_action = lambda c: (setattr(c, "bonus_action_remaining", max(0, int(getattr(c, "bonus_action_remaining", 0)) - 1)) or True)
+        app._rebuild_table = lambda scroll_to_current=False: None
+        app._lan = type("Lan", (), {"toast": lambda self, ws_id, text: None, "_append_lan_log": lambda self, msg, level='warning': None})()
+
+        app._lan_apply_action({"type": "wild_shape_apply", "cid": 1, "beast_id": "wolf", "_ws_id": 10, "admin_token": "ok"})
+
+        self.assertEqual(getattr(app.combatants[1], "action_remaining", None), 0)
+        self.assertEqual(getattr(app.combatants[1], "bonus_action_remaining", None), 0)
 
     def test_wild_shape_revert_requires_bonus_action(self):
         app = object.__new__(tracker_mod.InitiativeTracker)

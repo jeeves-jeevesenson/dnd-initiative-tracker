@@ -3973,6 +3973,7 @@ __DAMAGE_TYPE_OPTIONS__
   let attackOverlayMode = false;
   let selectedAttackWeaponId = "";
   let pendingAttackResolve = null;
+  let pendingActionAttackWeapon = null;
   let pendingOpportunityAttack = false;
   let pendingCleavePrompt = null;
   let pendingSpellTargeting = null;
@@ -7344,6 +7345,7 @@ __DAMAGE_TYPE_OPTIONS__
     attackOverlayMode = !!enabled;
     if (!attackOverlayMode){
       pendingOpportunityAttack = false;
+      pendingActionAttackWeapon = null;
     }
     if (attackOverlayToggleBtn){
       attackOverlayToggleBtn.setAttribute("aria-pressed", attackOverlayMode ? "true" : "false");
@@ -7521,12 +7523,15 @@ __DAMAGE_TYPE_OPTIONS__
       targetName: String(target?.name || "target"),
       weaponId: String(weapon?.id || "").trim(),
       weaponName: String(weapon?.name || "Weapon").trim() || "Weapon",
+      weapon: weapon && typeof weapon === "object" ? {...weapon} : null,
+      attackCount: Number.isFinite(Number(weapon?.attack_count)) ? Math.max(1, Math.floor(Number(weapon.attack_count))) : null,
       masteryAdvantage: hasVexAdvantage,
       opportunityAttack: pendingOpportunityAttack,
     };
     pendingOpportunityAttack = false;
     const advantageText = hasVexAdvantage ? ' <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>' : "";
-    attackResolveBody.innerHTML = `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`
+    const resolvePrompt = String(weapon?.resolve_prompt || "").trim();
+    attackResolveBody.innerHTML = `${resolvePrompt || `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`}`
       + (hintParts.length ? ` ${hintParts.join(" ")}` : "")
       + advantageText;
     attackDamageRows.textContent = "";
@@ -8979,9 +8984,15 @@ __DAMAGE_TYPE_OPTIONS__
     if (typeof entry !== "object") return null;
     const name = normalizeTextValue(entry.name);
     if (!name) return null;
-    const description = normalizeTextValue(entry.description) || "";
+    const description = normalizeTextValue(entry.description || entry.desc) || "";
     const type = normalizeLowerValue(entry.type) || defaultType;
-    return {name, description, type};
+    const normalized = {name, description, type};
+    if (entry.id != null) normalized.id = String(entry.id);
+    if (entry.attack_overlay_mode != null) normalized.attack_overlay_mode = String(entry.attack_overlay_mode);
+    if (entry.attack_count != null) normalized.attack_count = Number(entry.attack_count);
+    if (entry.resolve_prompt != null) normalized.resolve_prompt = String(entry.resolve_prompt);
+    if (entry.attack_weapon && typeof entry.attack_weapon === "object") normalized.attack_weapon = {...entry.attack_weapon};
+    return normalized;
   }
 
   function normalizeActionList(entries, defaultType){
@@ -8994,6 +9005,73 @@ __DAMAGE_TYPE_OPTIONS__
   function isSpellActionEntry(entry){
     const name = normalizeLowerValue(entry?.name);
     return name === "magic" || name === "cast a spell" || name === "cast spell" || name === "spellcasting";
+  }
+
+  function getWildShapeAttackCount(unit){
+    const actions = normalizeActionList(unit?.actions, "action");
+    const multi = actions.find((entry) => normalizeLowerValue(entry?.name) === "multiattack");
+    if (!multi) return 1;
+    const explicit = Number(multi.attack_count);
+    if (Number.isFinite(explicit) && explicit >= 2) return Math.max(2, Math.floor(explicit));
+    const text = normalizeLowerValue(multi.description);
+    if (!text) return 1;
+    const words = {one: 1, two: 2, three: 3, four: 4, five: 5};
+    let total = 0;
+    Object.entries(words).forEach(([word, value]) => {
+      const matches = text.match(new RegExp(`\\b${word}\\b[^.]*?\\battack\\b`, "g"));
+      if (Array.isArray(matches)) total += matches.length * value;
+    });
+    const digitMatches = text.match(/\b(\d+)\b[^.]*?\battack\b/g);
+    if (Array.isArray(digitMatches)){
+      digitMatches.forEach((chunk) => {
+        const match = chunk.match(/\b(\d+)\b/);
+        const value = Number(match?.[1]);
+        if (Number.isFinite(value) && value > 0) total += value;
+      });
+    }
+    return total >= 2 ? Math.min(10, total) : 1;
+  }
+
+  function weaponFromWildShapeAction(entry, unit){
+    if (!entry || typeof entry !== "object") return null;
+    if (entry.attack_weapon && typeof entry.attack_weapon === "object"){
+      return {
+        ...entry.attack_weapon,
+        id: String(entry.attack_weapon.id || entry.id || entry.name || "").trim(),
+        name: String(entry.attack_weapon.name || entry.name || "Wild Shape Attack").trim(),
+      };
+    }
+    const desc = String(entry.description || "").trim();
+    if (!desc) return null;
+    const lower = normalizeLowerValue(desc);
+    if (!lower.includes("attack roll") || !lower.includes("hit")) return null;
+    const toHitMatch = desc.match(/attack roll\s*:\s*([+\-]?\d+)/i);
+    const rangeMatch = desc.match(/(?:reach|range)\s*(\d+)\s*ft/i);
+    const damageMatch = desc.match(/hit\s*:\s*[^.]*?\(([^)]+)\)\s*([a-zA-Z]+)\s+damage/i);
+    const name = String(entry.name || "Wild Shape Attack").trim() || "Wild Shape Attack";
+    const idBase = String(entry.id || name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const weapon = {
+      id: idBase || "wild-shape-attack",
+      name,
+      category: lower.includes("ranged attack roll") ? "ranged_weapon" : "melee_weapon",
+      range: rangeMatch ? `${Math.floor(Number(rangeMatch[1]) || 5)} ft` : (lower.includes("ranged attack roll") ? "60 ft" : "5 ft"),
+    };
+    if (toHitMatch){
+      const toHit = Number(toHitMatch[1]);
+      if (Number.isFinite(toHit)) weapon.to_hit = Math.floor(toHit);
+    }
+    if (damageMatch){
+      weapon.one_handed = {
+        damage_formula: String(damageMatch[1] || "").trim(),
+        damage_type: String(damageMatch[2] || "").trim().toLowerCase(),
+      };
+    }
+    const multiattackCount = getWildShapeAttackCount(unit);
+    return {
+      ...weapon,
+      attack_count: multiattackCount,
+      resolve_prompt: String(entry.resolve_prompt || `Attack target with ${name}.`).trim(),
+    };
   }
 
   function populateActionSelect(selectEl, options, placeholder){
@@ -9602,6 +9680,19 @@ __DAMAGE_TYPE_OPTIONS__
         pendingSpellActionType = entry.spend === "bonus" ? "bonus_action" : (entry.spend === "reaction" ? "reaction" : "action");
         setCastOverlayOpen(true);
         return;
+      }
+      if (entry.spend === "action" && claimedUnit?.is_wild_shaped){
+        const wildShapeWeapon = weaponFromWildShapeAction(entry, claimedUnit);
+        if (wildShapeWeapon){
+          pendingActionAttackWeapon = {
+            ...wildShapeWeapon,
+            attack_count: Number.isFinite(Number(entry.attack_count)) ? Math.max(1, Math.floor(Number(entry.attack_count))) : Number(wildShapeWeapon.attack_count || 1),
+            resolve_prompt: String(entry.resolve_prompt || wildShapeWeapon.resolve_prompt || "").trim(),
+          };
+          setAttackOverlayMode(true);
+          localToast(pendingActionAttackWeapon.resolve_prompt || `Pick a target for ${String(wildShapeWeapon.name || "attack")}.`);
+          return;
+        }
       }
       if (actionName === "wild shape"){
         if (!isClaimedUnitDruid()){
@@ -10845,7 +10936,7 @@ __DAMAGE_TYPE_OPTIONS__
             return;
           }
         }
-        const weapon = pendingSpellTargeting ? null : getSelectedAttackWeapon();
+        const weapon = pendingSpellTargeting ? null : (pendingActionAttackWeapon || getSelectedAttackWeapon());
         if (!pendingSpellTargeting && !weapon){
           localToast("No configured weapon found, matey.");
           return;
@@ -15405,6 +15496,8 @@ __DAMAGE_TYPE_OPTIONS__
           target_cid: Number(pendingAttackResolve.targetCid),
           weapon_id: String(pendingAttackResolve.weaponId || "").trim(),
           weapon_name: String(pendingAttackResolve.weaponName || "").trim(),
+          weapon: pendingAttackResolve.weapon && typeof pendingAttackResolve.weapon === "object" ? {...pendingAttackResolve.weapon} : null,
+          attack_count: Number.isFinite(Number(pendingAttackResolve.attackCount)) ? Math.max(1, Math.floor(Number(pendingAttackResolve.attackCount))) : null,
           mastery_free_attack: pendingAttackResolve.masteryFreeAttack || null,
           opportunity_attack: !!pendingAttackResolve.opportunityAttack,
           hit: hit,

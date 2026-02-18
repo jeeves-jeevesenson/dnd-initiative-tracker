@@ -1929,7 +1929,7 @@ class InitiativeTracker(tk.Tk):
             name = str(item.get("name") or "").strip()
             if not name:
                 continue
-            description = str(item.get("description") or "").strip()
+            description = str(item.get("description") or item.get("desc") or "").strip()
             action_type = str(item.get("type") or default_type).strip().lower() or default_type
             uses_value = item.get("uses")
             if not isinstance(uses_value, dict):
@@ -1959,6 +1959,10 @@ class InitiativeTracker(tk.Tk):
                 "source_feature_name",
                 "automation",
                 "feature_state",
+                "attack_overlay_mode",
+                "attack_count",
+                "attack_weapon",
+                "resolve_prompt",
             ):
                 if extra_key in item:
                     payload[extra_key] = copy.deepcopy(item.get(extra_key))
