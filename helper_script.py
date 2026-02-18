@@ -1029,9 +1029,8 @@ class InitiativeTracker(tk.Tk):
         ability_lines = []
         if isinstance(abilities, dict):
             for ab in ("str", "dex", "con", "int", "wis", "cha"):
-                if ab not in abilities:
-                    continue
-                score = self._monster_int_from_value(abilities.get(ab))
+                # Check both lowercase and capitalized keys
+                score = self._monster_int_from_value(abilities.get(ab) or abilities.get(ab.capitalize()))
                 if score is None:
                     continue
                 mod = (score - 10) // 2
