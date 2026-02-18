@@ -11114,6 +11114,8 @@ class InitiativeTracker(base.InitiativeTracker):
         c = self.combatants.get(int(cid))
         if c is None:
             return False, "That scallywag ain’t in combat no more."
+        if bool(getattr(c, "is_wild_shaped", False)):
+            return False, "Already Wild Shaped, matey."
         player_name = self._pc_name_for(int(cid))
         profile = self._profile_for_player_name(player_name)
         if not isinstance(profile, dict):
@@ -11196,6 +11198,25 @@ class InitiativeTracker(base.InitiativeTracker):
         beast_actions = self._normalize_action_entries(form.get("actions") if isinstance(form.get("actions"), list) else [], "action")
         if beast_actions:
             setattr(c, "actions", beast_actions)
+        base_bonus_actions = base_snapshot.get("bonus_actions") if isinstance(base_snapshot.get("bonus_actions"), list) else []
+        retained_bonus_actions = []
+        for entry in base_bonus_actions:
+            if not isinstance(entry, dict):
+                retained_bonus_actions.append(copy.deepcopy(entry))
+                continue
+            if self._wild_shape_identifier_key(entry.get("id")) == "wild-shape":
+                continue
+            if self._wild_shape_identifier_key(entry.get("name")) == "wild-shape":
+                continue
+            retained_bonus_actions.append(copy.deepcopy(entry))
+        retained_bonus_actions.append(
+            {
+                "name": "End Wildshape Early",
+                "description": "Revert to your normal form.",
+                "type": "bonus_action",
+            }
+        )
+        setattr(c, "bonus_actions", retained_bonus_actions)
         return True, ""
 
     def _revert_wild_shape(self, cid: int) -> Tuple[bool, str]:
@@ -15260,6 +15281,8 @@ class InitiativeTracker(base.InitiativeTracker):
             if require_bonus_action and not self._use_bonus_action(c):
                 self._lan.toast(ws_id, "Could not spend bonus action for Wild Shape, matey.")
                 return
+            if require_bonus_action:
+                setattr(c, "bonus_action_remaining", 0)
             self._lan.toast(ws_id, "Wild Shape activated.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "wild_shape_pool_set_current":
@@ -15290,6 +15313,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if not ok:
                 self._lan.toast(ws_id, err or "Could not revert Wild Shape, matey.")
                 return
+            setattr(c, "temp_hp", 0)
             if require_bonus_action:
                 setattr(c, "bonus_action_remaining", max(0, int(getattr(c, "bonus_action_remaining", 0)) - 1))
                 self._log(f"{getattr(c, 'name', 'Player')} used a bonus action to revert Wild Shape.", cid=cid)

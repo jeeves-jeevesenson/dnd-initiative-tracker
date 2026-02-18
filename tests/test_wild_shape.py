@@ -242,6 +242,79 @@ class WildShapeTests(unittest.TestCase):
         self.assertTrue(c.is_spellcaster)
         self.assertEqual(c.temp_hp, 5)
 
+    def test_apply_wild_shape_blocks_nested_forms(self):
+        self.app.combatants = {
+            1: type("C", (), {
+                "cid": 1,
+                "name": "Alice",
+                "speed": 30,
+                "swim_speed": 0,
+                "fly_speed": 0,
+                "climb_speed": 0,
+                "burrow_speed": 0,
+                "movement_mode": "Normal",
+                "dex": 14,
+                "con": 12,
+                "str": 10,
+                "temp_hp": 0,
+                "actions": [],
+                "bonus_actions": [{"name": "Wild Shape", "type": "bonus_action"}],
+                "is_spellcaster": True,
+            })()
+        }
+        self.app._pc_name_for = lambda _cid: "Alice"
+        self.app._load_player_yaml_cache = lambda force_refresh=False: None
+        self.app._player_yaml_data_by_name = {"Alice": self._profile(8)}
+        self.app._set_wild_shape_pool_current = lambda _name, value: (True, "", value)
+
+        ok, err = self.app._apply_wild_shape(1, "eagle")
+        self.assertTrue(ok, err)
+        c = self.app.combatants[1]
+        first_name = c.name
+
+        ok2, err2 = self.app._apply_wild_shape(1, "wolf")
+        self.assertFalse(ok2)
+        self.assertIn("Already Wild Shaped", err2)
+        self.assertEqual(c.name, first_name)
+
+    def test_apply_wild_shape_replaces_bonus_action_with_end_early(self):
+        self.app.combatants = {
+            1: type("C", (), {
+                "cid": 1,
+                "name": "Alice",
+                "speed": 30,
+                "swim_speed": 0,
+                "fly_speed": 0,
+                "climb_speed": 0,
+                "burrow_speed": 0,
+                "movement_mode": "Normal",
+                "dex": 14,
+                "con": 12,
+                "str": 10,
+                "temp_hp": 0,
+                "actions": [],
+                "bonus_actions": [
+                    {"name": "Wild Shape", "type": "bonus_action"},
+                    {"name": "Second Wind", "type": "bonus_action"},
+                ],
+                "is_spellcaster": True,
+            })()
+        }
+        self.app._pc_name_for = lambda _cid: "Alice"
+        self.app._load_player_yaml_cache = lambda force_refresh=False: None
+        self.app._player_yaml_data_by_name = {"Alice": self._profile(8)}
+        self.app._set_wild_shape_pool_current = lambda _name, value: (True, "", value)
+
+        ok, err = self.app._apply_wild_shape(1, "eagle")
+
+        self.assertTrue(ok, err)
+        c = self.app.combatants[1]
+        names = [str((entry or {}).get("name") or "") for entry in c.bonus_actions if isinstance(entry, dict)]
+        lower_names = {name.lower() for name in names}
+        self.assertNotIn("wild shape", lower_names)
+        self.assertIn("end wildshape early", lower_names)
+        self.assertIn("second wind", lower_names)
+
     def test_apply_wild_shape_preserves_role_memory_for_display_name(self):
         self.app.combatants = {
             1: type("C", (), {
@@ -616,6 +689,7 @@ class WildShapeTests(unittest.TestCase):
         app._apply_wild_shape = lambda _cid, _beast_id: (True, "")
         app._lan_apply_action({"type": "wild_shape_apply", "cid": 1, "beast_id": "wolf", "_ws_id": 10, "admin_token": "ok"})
         self.assertEqual(use_calls["count"], 1)
+        self.assertEqual(getattr(app.combatants[1], "bonus_action_remaining", None), 0)
 
     def test_wild_shape_apply_out_of_combat_does_not_require_bonus_action(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
@@ -655,6 +729,21 @@ class WildShapeTests(unittest.TestCase):
 
         self.assertEqual(calls["revert"], 0)
         self.assertTrue(any("No bonus actions left" in msg for msg in toasts))
+
+    def test_wild_shape_revert_handler_sets_temp_hp_to_zero(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app.in_combat = False
+        app.combatants = {1: type("C", (), {"cid": 1, "temp_hp": 11})()}
+        app._is_admin_token_valid = lambda _token: True
+        app._summon_can_be_controlled_by = lambda claimed, cid: False
+        app._revert_wild_shape = lambda _cid: (True, "")
+        app._rebuild_table = lambda scroll_to_current=False: None
+        app._lan = type("Lan", (), {"toast": lambda self, ws_id, text: None, "_append_lan_log": lambda self, msg, level='warning': None})()
+
+        app._lan_apply_action({"type": "wild_shape_revert", "cid": 1, "_ws_id": 10, "admin_token": "ok"})
+
+        self.assertEqual(app.combatants[1].temp_hp, 0)
 
     def test_wild_shape_pool_set_current_handler_clamps_and_persists(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
