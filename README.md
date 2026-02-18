@@ -246,6 +246,14 @@ Key capabilities:
 - AoE overlays (circle/square/line)
 - Optional background image support (Pillow)
 
+### Session snapshots (DM)
+
+- Use **Session → Save Session…** to write a full DM-side session snapshot as JSON.
+- Default save folder: `~/Documents/Dnd-Init-Yamls/sessions`.
+- Use **Session → Load Session…** to restore a snapshot.
+- **Quick Save** / **Quick Load** use `~/Documents/Dnd-Init-Yamls/sessions/quick_save.json`.
+- Session snapshots are separate from YAML content and do **not** modify `players/*.yaml`, `Monsters/*.yaml`, or other data definitions.
+
 ## Configuration
 
 Primary runtime toggles are in `dnd_initative_tracker.py`.

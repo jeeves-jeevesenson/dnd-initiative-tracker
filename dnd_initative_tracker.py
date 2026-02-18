@@ -33,14 +33,14 @@ import hmac
 import secrets
 import traceback
 from datetime import datetime
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 import copy
 from collections import deque
 import sys
 
 import tkinter as tk
-from tkinter import messagebox, scrolledtext, ttk
+from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 # Monster YAML loader (PyYAML)
 try:
@@ -68,6 +68,7 @@ except Exception as e:  # pragma: no cover
 
 FAIL_OUTCOME_LABELS = {"fail", "failed", "failure", "failed_save", "fail_save"}
 USER_YAML_DIRNAME = "Dnd-Init-Yamls"
+SESSION_SNAPSHOT_SCHEMA_VERSION = 1
 
 
 def _app_base_dir() -> Path:
@@ -4611,6 +4612,8 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_aoes: Dict[int, Dict[str, Any]] = {}
         self._lan_next_aoe_id = 1
         self._lan_auras_enabled = True
+        self._session_bg_images: List[Dict[str, Any]] = []
+        self._session_next_bg_id = 1
         self._turn_snapshots: Dict[int, Dict[str, Any]] = {}
         self._summon_groups: Dict[str, List[int]] = {}
         self._summon_group_meta: Dict[str, Dict[str, Any]] = {}
@@ -5651,6 +5654,14 @@ class InitiativeTracker(base.InitiativeTracker):
             lan.add_command(label="Manage YAML Players…", command=self._open_yaml_player_manager)
             lan.add_command(label="Refresh Player YAML Index", command=self._refresh_player_yaml_index)
             menubar.add_cascade(label="LAN", menu=lan)
+
+            session_menu = tk.Menu(menubar, tearoff=0)
+            session_menu.add_command(label="Save Session…", command=self._save_session_dialog)
+            session_menu.add_command(label="Load Session…", command=self._load_session_dialog)
+            session_menu.add_separator()
+            session_menu.add_command(label="Quick Save", command=self._quick_save_session)
+            session_menu.add_command(label="Quick Load", command=self._quick_load_session)
+            menubar.add_cascade(label="Session", menu=session_menu)
             
             # Add Help menu
             help_menu = tk.Menu(menubar, tearoff=0)
@@ -5662,6 +5673,486 @@ class InitiativeTracker(base.InitiativeTracker):
             self.config(menu=menubar)
         except Exception:
             pass
+
+    def _session_saves_dir(self) -> Path:
+        path = _app_data_dir() / "sessions"
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        return path
+
+    def _session_default_filename(self) -> str:
+        return f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+
+    def _session_quicksave_path(self) -> Path:
+        return self._session_saves_dir() / "quick_save.json"
+
+    def _json_safe(self, value: Any) -> Any:
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        if isinstance(value, Path):
+            return str(value)
+        if is_dataclass(value):
+            try:
+                return self._json_safe(asdict(value))
+            except Exception:
+                return str(value)
+        if isinstance(value, dict):
+            return {str(k): self._json_safe(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple, set)):
+            return [self._json_safe(v) for v in value]
+        return str(value)
+
+    def _session_combatant_payload(self, c: Any) -> Dict[str, Any]:
+        monster_spec = getattr(c, "monster_spec", None)
+        monster_slug = str(getattr(c, "monster_slug", "") or "") or None
+        monster_name = None
+        if monster_spec is not None:
+            monster_name = str(getattr(monster_spec, "name", "") or "") or None
+            if not monster_slug:
+                monster_slug = str(getattr(monster_spec, "filename", "") or "") or None
+        attrs: Dict[str, Any] = {}
+        for key, val in dict(getattr(c, "__dict__", {})).items():
+            if key in {
+                "cid", "name", "hp", "speed", "swim_speed", "fly_speed", "burrow_speed", "climb_speed",
+                "movement_mode", "move_total", "move_remaining", "initiative", "dex", "roll", "nat20", "ally",
+                "is_pc", "is_spellcaster", "actions", "bonus_actions", "reactions", "saving_throws", "ability_mods",
+                "monster_spec",
+            }:
+                continue
+            attrs[key] = self._json_safe(val)
+        return {
+            "cid": int(getattr(c, "cid", 0) or 0),
+            "name": str(getattr(c, "name", "") or ""),
+            "hp": int(getattr(c, "hp", 0) or 0),
+            "speed": int(getattr(c, "speed", 0) or 0),
+            "swim_speed": int(getattr(c, "swim_speed", 0) or 0),
+            "fly_speed": int(getattr(c, "fly_speed", 0) or 0),
+            "burrow_speed": int(getattr(c, "burrow_speed", 0) or 0),
+            "climb_speed": int(getattr(c, "climb_speed", 0) or 0),
+            "movement_mode": str(getattr(c, "movement_mode", "normal") or "normal"),
+            "move_total": int(getattr(c, "move_total", 0) or 0),
+            "move_remaining": int(getattr(c, "move_remaining", 0) or 0),
+            "initiative": int(getattr(c, "initiative", 0) or 0),
+            "dex": getattr(c, "dex", None),
+            "roll": getattr(c, "roll", None),
+            "nat20": bool(getattr(c, "nat20", False)),
+            "ally": bool(getattr(c, "ally", False)),
+            "is_pc": bool(getattr(c, "is_pc", False)),
+            "is_spellcaster": bool(getattr(c, "is_spellcaster", False)),
+            "monster_slug": monster_slug,
+            "monster_name": monster_name,
+            "actions": self._json_safe(getattr(c, "actions", [])),
+            "bonus_actions": self._json_safe(getattr(c, "bonus_actions", [])),
+            "reactions": self._json_safe(getattr(c, "reactions", [])),
+            "saving_throws": self._json_safe(getattr(c, "saving_throws", {})),
+            "ability_mods": self._json_safe(getattr(c, "ability_mods", {})),
+            "attrs": attrs,
+        }
+
+    def _session_snapshot_payload(self, label: Optional[str] = None) -> Dict[str, Any]:
+        mw = getattr(self, "_map_window", None)
+        map_open = False
+        try:
+            map_open = bool(mw is not None and mw.winfo_exists())
+        except Exception:
+            map_open = False
+            mw = None
+
+        cols = int(getattr(self, "_lan_grid_cols", 20) or 20)
+        rows = int(getattr(self, "_lan_grid_rows", 20) or 20)
+        feet_per_square = 5.0
+        positions = dict(getattr(self, "_lan_positions", {}) or {})
+        obstacles = set(getattr(self, "_lan_obstacles", set()) or set())
+        rough_terrain = dict(getattr(self, "_lan_rough_terrain", {}) or {})
+        aoes = dict(getattr(self, "_lan_aoes", {}) or {})
+        next_aoe_id = int(getattr(self, "_lan_next_aoe_id", 1) or 1)
+        bg_images = list(getattr(self, "_session_bg_images", []) or [])
+        next_bg_id = int(getattr(self, "_session_next_bg_id", 1) or 1)
+
+        if map_open and mw is not None:
+            try:
+                cols = int(getattr(mw, "cols", cols) or cols)
+                rows = int(getattr(mw, "rows", rows) or rows)
+                feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+                positions = {int(cid): (int(tok.get("col")), int(tok.get("row"))) for cid, tok in (getattr(mw, "unit_tokens", {}) or {}).items()}
+                obstacles = set(getattr(mw, "obstacles", obstacles) or set())
+                rough_terrain = dict(getattr(mw, "rough_terrain", rough_terrain) or {})
+                aoes = dict(getattr(mw, "aoes", aoes) or {})
+                next_aoe_id = int(getattr(mw, "_next_aoe_id", next_aoe_id) or next_aoe_id)
+                bg_images = []
+                for bid, data in sorted((getattr(mw, "bg_images", {}) or {}).items()):
+                    bg_images.append({
+                        "bid": int(bid),
+                        "path": str(data.get("path") or ""),
+                        "x": float(data.get("x", 0.0) or 0.0),
+                        "y": float(data.get("y", 0.0) or 0.0),
+                        "scale_pct": float(data.get("scale_pct", 100.0) or 100.0),
+                        "trans_pct": float(data.get("trans_pct", 0.0) or 0.0),
+                        "locked": bool(data.get("locked", False)),
+                    })
+                next_bg_id = int(getattr(mw, "_next_bg_id", next_bg_id) or next_bg_id)
+            except Exception:
+                pass
+
+        self._lan_grid_cols, self._lan_grid_rows = cols, rows
+        self._lan_positions = {int(cid): (int(pos[0]), int(pos[1])) for cid, pos in positions.items()}
+        self._lan_obstacles = {(int(c), int(r)) for c, r in obstacles}
+        self._lan_rough_terrain = dict(rough_terrain)
+        self._lan_aoes = dict(aoes)
+        self._lan_next_aoe_id = max(1, int(next_aoe_id))
+        self._session_bg_images = list(bg_images)
+        self._session_next_bg_id = max(1, int(next_bg_id))
+
+        return {
+            "schema_version": SESSION_SNAPSHOT_SCHEMA_VERSION,
+            "metadata": {
+                "saved_at": datetime.now().isoformat(timespec="seconds"),
+                "app_version": APP_VERSION,
+                "label": str(label or "").strip() or None,
+            },
+            "combat": {
+                "combatants": [self._session_combatant_payload(c) for c in sorted(self.combatants.values(), key=lambda x: int(getattr(x, "cid", 0) or 0))],
+                "next_id": int(getattr(self, "_next_id", 1) or 1),
+                "next_stack_id": int(getattr(self, "_next_stack_id", 1) or 1),
+                "current_cid": getattr(self, "current_cid", None),
+                "start_cid": getattr(self, "start_cid", None),
+                "round_num": int(getattr(self, "round_num", 1) or 1),
+                "turn_num": int(getattr(self, "turn_num", 0) or 0),
+                "in_combat": bool(getattr(self, "in_combat", False)),
+                "turn_snapshots": self._json_safe(getattr(self, "_turn_snapshots", {})),
+                "name_role_memory": self._json_safe(getattr(self, "_name_role_memory", {})),
+                "summon_groups": self._json_safe(getattr(self, "_summon_groups", {})),
+                "summon_group_meta": self._json_safe(getattr(self, "_summon_group_meta", {})),
+                "pending_pre_summons": self._json_safe(getattr(self, "_pending_pre_summons", {})),
+                "pending_mount_requests": self._json_safe(getattr(self, "_pending_mount_requests", {})),
+                "concentration_save_state": self._json_safe(getattr(self, "_concentration_save_state", {})),
+            },
+            "map": {
+                "grid": {"cols": cols, "rows": rows, "feet_per_square": feet_per_square},
+                "positions": [{"cid": int(cid), "col": int(pos[0]), "row": int(pos[1])} for cid, pos in sorted(self._lan_positions.items())],
+                "obstacles": [{"col": int(c), "row": int(r)} for c, r in sorted(self._lan_obstacles)],
+                "rough_terrain": [{"col": int(c), "row": int(r), **(dict(cell) if isinstance(cell, dict) else {"color": str(cell), "movement_type": "ground", "is_swim": False, "is_rough": True})} for (c, r), cell in sorted(self._lan_rough_terrain.items())],
+                "aoes": self._json_safe(self._lan_aoes),
+                "next_aoe_id": int(self._lan_next_aoe_id),
+                "auras_enabled": bool(getattr(self, "_lan_auras_enabled", True)),
+                "bg_images": self._json_safe(self._session_bg_images),
+                "next_bg_id": int(self._session_next_bg_id),
+            },
+            "log": {"lines": self._json_safe(self._lan_battle_log_lines(limit=0))},
+        }
+
+    def _save_session_to_path(self, path: Path, label: Optional[str] = None) -> None:
+        payload = self._session_snapshot_payload(label=label)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    def _load_session_from_path(self, path: Path) -> None:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if int(payload.get("schema_version", 0) or 0) != SESSION_SNAPSHOT_SCHEMA_VERSION:
+            raise ValueError(f"Unsupported snapshot schema_version: {payload.get('schema_version')}")
+        self._apply_session_snapshot(payload, source_path=path)
+
+    def _restore_map_backgrounds(self, bg_entries: List[Dict[str, Any]]) -> None:
+        mw = getattr(self, "_map_window", None)
+        try:
+            if mw is None or not mw.winfo_exists():
+                return
+        except Exception:
+            return
+        try:
+            for _, data in list((getattr(mw, "bg_images", {}) or {}).items()):
+                try:
+                    item_id = int(data.get("item") or 0)
+                    if item_id:
+                        mw.canvas.delete(item_id)
+                except Exception:
+                    pass
+            mw.bg_images = {}
+        except Exception:
+            return
+
+        pil_image_mod = getattr(base, "Image", None)
+        loaded: Dict[int, Dict[str, object]] = {}
+        for entry in bg_entries:
+            try:
+                bid = int(entry.get("bid"))
+                image_path = str(entry.get("path") or "")
+                if not image_path or pil_image_mod is None:
+                    continue
+                if not Path(image_path).exists():
+                    self._log(f"Session load: background image missing, skipped: {image_path}")
+                    continue
+                pil = pil_image_mod.open(image_path).convert("RGBA")
+                loaded[bid] = {
+                    "path": image_path,
+                    "pil": pil,
+                    "tk": None,
+                    "item": None,
+                    "x": float(entry.get("x", 0.0) or 0.0),
+                    "y": float(entry.get("y", 0.0) or 0.0),
+                    "scale_pct": float(entry.get("scale_pct", 100.0) or 100.0),
+                    "trans_pct": float(entry.get("trans_pct", 0.0) or 0.0),
+                    "locked": bool(entry.get("locked", False)),
+                }
+            except Exception:
+                continue
+        mw.bg_images = loaded
+        for bid in sorted(loaded.keys()):
+            try:
+                mw._update_bg_canvas_item(int(bid), recreate=True)
+            except Exception:
+                pass
+        try:
+            mw._refresh_bg_list()
+        except Exception:
+            pass
+
+    def _apply_session_snapshot(self, payload: Dict[str, Any], source_path: Optional[Path] = None) -> None:
+        combat = payload.get("combat") if isinstance(payload.get("combat"), dict) else {}
+        map_state = payload.get("map") if isinstance(payload.get("map"), dict) else {}
+        log_state = payload.get("log") if isinstance(payload.get("log"), dict) else {}
+
+        existing_cids = [int(cid) for cid in list(getattr(self, "combatants", {}).keys())]
+        if existing_cids:
+            self._remove_combatants_with_lan_cleanup(existing_cids)
+        self.combatants = {}
+
+        combatants_payload = combat.get("combatants") if isinstance(combat.get("combatants"), list) else []
+        for entry in sorted(combatants_payload, key=lambda item: int(item.get("cid", 0) or 0)):
+            cid = int(entry.get("cid", 0) or 0)
+            if cid <= 0:
+                continue
+            spec = None
+            if entry.get("monster_slug"):
+                spec = self._find_monster_spec_by_slug(entry.get("monster_slug"))
+            if spec is None and entry.get("monster_name"):
+                spec = self._monsters_by_name.get(str(entry.get("monster_name")))
+            self._next_id = cid
+            new_cid = self._create_combatant(
+                name=str(entry.get("name") or f"#{cid}"),
+                hp=int(entry.get("hp", 0) or 0),
+                speed=int(entry.get("speed", 0) or 0),
+                swim_speed=int(entry.get("swim_speed", 0) or 0),
+                fly_speed=int(entry.get("fly_speed", 0) or 0),
+                burrow_speed=int(entry.get("burrow_speed", 0) or 0),
+                climb_speed=int(entry.get("climb_speed", 0) or 0),
+                movement_mode=str(entry.get("movement_mode") or "normal"),
+                initiative=int(entry.get("initiative", 0) or 0),
+                dex=entry.get("dex"),
+                ally=bool(entry.get("ally", False)),
+                is_pc=bool(entry.get("is_pc", False)),
+                is_spellcaster=bool(entry.get("is_spellcaster", False)),
+                actions=entry.get("actions") if isinstance(entry.get("actions"), list) else [],
+                bonus_actions=entry.get("bonus_actions") if isinstance(entry.get("bonus_actions"), list) else [],
+                reactions=entry.get("reactions") if isinstance(entry.get("reactions"), list) else [],
+                saving_throws=entry.get("saving_throws") if isinstance(entry.get("saving_throws"), dict) else {},
+                ability_mods=entry.get("ability_mods") if isinstance(entry.get("ability_mods"), dict) else {},
+                monster_spec=spec,
+            )
+            c = self.combatants.get(new_cid)
+            if c is None:
+                continue
+            setattr(c, "roll", entry.get("roll"))
+            setattr(c, "nat20", bool(entry.get("nat20", False)))
+            setattr(c, "move_total", int(entry.get("move_total", getattr(c, "move_total", 0)) or 0))
+            setattr(c, "move_remaining", int(entry.get("move_remaining", getattr(c, "move_remaining", 0)) or 0))
+            attrs = entry.get("attrs") if isinstance(entry.get("attrs"), dict) else {}
+            for key, val in attrs.items():
+                if key == "condition_stacks" and isinstance(val, list):
+                    stacks: List[base.ConditionStack] = []
+                    for st in val:
+                        if not isinstance(st, dict):
+                            continue
+                        try:
+                            stacks.append(base.ConditionStack(
+                                sid=int(st.get("sid", 0) or 0),
+                                ctype=str(st.get("ctype") or ""),
+                                remaining_turns=st.get("remaining_turns"),
+                                dot_type=st.get("dot_type"),
+                                dice=st.get("dice") if isinstance(st.get("dice"), dict) else None,
+                            ))
+                        except Exception:
+                            continue
+                    setattr(c, key, stacks)
+                    continue
+                if key == "concentration_started_turn" and isinstance(val, list) and len(val) == 2:
+                    try:
+                        setattr(c, key, (int(val[0]), int(val[1])))
+                    except Exception:
+                        setattr(c, key, None)
+                    continue
+                setattr(c, key, val)
+
+        self._next_id = int(combat.get("next_id", max(self.combatants.keys(), default=0) + 1) or 1)
+        self._next_stack_id = int(combat.get("next_stack_id", getattr(self, "_next_stack_id", 1)) or 1)
+        self.current_cid = combat.get("current_cid")
+        self.start_cid = combat.get("start_cid")
+        self.round_num = int(combat.get("round_num", 1) or 1)
+        self.turn_num = int(combat.get("turn_num", 0) or 0)
+        self.in_combat = bool(combat.get("in_combat", False))
+        self._turn_snapshots = dict(combat.get("turn_snapshots") if isinstance(combat.get("turn_snapshots"), dict) else {})
+        self._name_role_memory = dict(combat.get("name_role_memory") if isinstance(combat.get("name_role_memory"), dict) else {})
+        self._summon_groups = dict(combat.get("summon_groups") if isinstance(combat.get("summon_groups"), dict) else {})
+        self._summon_group_meta = dict(combat.get("summon_group_meta") if isinstance(combat.get("summon_group_meta"), dict) else {})
+        self._pending_pre_summons = dict(combat.get("pending_pre_summons") if isinstance(combat.get("pending_pre_summons"), dict) else {})
+        self._pending_mount_requests = dict(combat.get("pending_mount_requests") if isinstance(combat.get("pending_mount_requests"), dict) else {})
+        self._concentration_save_state = dict(combat.get("concentration_save_state") if isinstance(combat.get("concentration_save_state"), dict) else {})
+
+        grid = map_state.get("grid") if isinstance(map_state.get("grid"), dict) else {}
+        self._lan_grid_cols = int(grid.get("cols", 20) or 20)
+        self._lan_grid_rows = int(grid.get("rows", 20) or 20)
+        self._lan_positions = {}
+        for item in map_state.get("positions") if isinstance(map_state.get("positions"), list) else []:
+            if isinstance(item, dict):
+                try:
+                    self._lan_positions[int(item.get("cid"))] = (int(item.get("col")), int(item.get("row")))
+                except Exception:
+                    pass
+        self._lan_obstacles = set()
+        for item in map_state.get("obstacles") if isinstance(map_state.get("obstacles"), list) else []:
+            if isinstance(item, dict):
+                try:
+                    self._lan_obstacles.add((int(item.get("col")), int(item.get("row"))))
+                except Exception:
+                    pass
+        rough: Dict[Tuple[int, int], Dict[str, object]] = {}
+        for item in map_state.get("rough_terrain") if isinstance(map_state.get("rough_terrain"), list) else []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                key = (int(item.get("col")), int(item.get("row")))
+            except Exception:
+                continue
+            rough[key] = {
+                "color": str(item.get("color") or ""),
+                "movement_type": str(item.get("movement_type") or "ground"),
+                "is_swim": bool(item.get("is_swim", False)),
+                "is_rough": bool(item.get("is_rough", True)),
+            }
+        self._lan_rough_terrain = rough
+        raw_aoes = map_state.get("aoes") if isinstance(map_state.get("aoes"), dict) else {}
+        self._lan_aoes = {}
+        for raw_key, raw_value in raw_aoes.items():
+            try:
+                self._lan_aoes[int(raw_key)] = dict(raw_value) if isinstance(raw_value, dict) else {}
+            except Exception:
+                continue
+        self._lan_next_aoe_id = int(map_state.get("next_aoe_id", 1) or 1)
+        self._lan_auras_enabled = bool(map_state.get("auras_enabled", True))
+        self._session_bg_images = list(map_state.get("bg_images") if isinstance(map_state.get("bg_images"), list) else [])
+        self._session_next_bg_id = int(map_state.get("next_bg_id", 1) or 1)
+
+        lines = log_state.get("lines") if isinstance(log_state.get("lines"), list) else []
+        history = self._history_file_path()
+        history.parent.mkdir(parents=True, exist_ok=True)
+        clean_lines = [str(line) for line in lines]
+        history.write_text("\n".join(clean_lines) + ("\n" if clean_lines else ""), encoding="utf-8")
+        self._load_history_into_log()
+
+        mw = getattr(self, "_map_window", None)
+        try:
+            if mw is not None and mw.winfo_exists():
+                mw.cols = int(self._lan_grid_cols)
+                mw.rows = int(self._lan_grid_rows)
+                mw.feet_per_square = float(grid.get("feet_per_square", getattr(mw, "feet_per_square", 5.0)) or 5.0)
+                mw.obstacles = set(self._lan_obstacles)
+                mw.rough_terrain = dict(self._lan_rough_terrain)
+                mw.aoes = {int(k): dict(v) for k, v in self._lan_aoes.items()}
+                mw._next_aoe_id = int(self._lan_next_aoe_id)
+                mw._redraw_all()
+                mw.refresh_units()
+                try:
+                    mw._refresh_aoe_list()
+                except Exception:
+                    pass
+                self._restore_map_backgrounds(self._session_bg_images)
+        except Exception:
+            pass
+
+        self._update_turn_ui()
+        self._rebuild_table(scroll_to_current=True)
+        self._lan_force_state_broadcast()
+        if source_path is not None:
+            self._log(f"Session loaded: {source_path}")
+
+    def _save_session_dialog(self) -> None:
+        default_path = self._session_saves_dir() / self._session_default_filename()
+        chosen = filedialog.asksaveasfilename(
+            parent=self,
+            title="Save Session Snapshot",
+            initialdir=str(default_path.parent),
+            initialfile=default_path.name,
+            defaultextension=".json",
+            filetypes=[("JSON", "*.json"), ("All files", "*.*")],
+        )
+        if not chosen:
+            return
+        try:
+            self._save_session_to_path(Path(chosen))
+            self._log(f"Session saved: {chosen}")
+        except Exception as exc:
+            messagebox.showerror("Save Session", f"Failed to save session:\n{exc}", parent=self)
+
+    def _load_session_dialog(self) -> None:
+        chosen = filedialog.askopenfilename(
+            parent=self,
+            title="Load Session Snapshot",
+            initialdir=str(self._session_saves_dir()),
+            filetypes=[("JSON", "*.json"), ("All files", "*.*")],
+        )
+        if not chosen:
+            return
+        try:
+            self._load_session_from_path(Path(chosen))
+        except Exception as exc:
+            messagebox.showerror("Load Session", f"Failed to load session:\n{exc}", parent=self)
+
+    def _quick_save_session(self) -> None:
+        path = self._session_quicksave_path()
+        try:
+            self._save_session_to_path(path, label="quick_save")
+            self._log(f"Quick save written: {path}")
+        except Exception as exc:
+            messagebox.showerror("Quick Save", f"Failed to quick save session:\n{exc}", parent=self)
+
+    def _quick_load_session(self) -> None:
+        path = self._session_quicksave_path()
+        if not path.exists():
+            messagebox.showinfo("Quick Load", f"No quick save found at:\n{path}", parent=self)
+            return
+        try:
+            self._load_session_from_path(path)
+        except Exception as exc:
+            messagebox.showerror("Quick Load", f"Failed to quick load session:\n{exc}", parent=self)
+
+    def _open_map_mode(self) -> None:
+        super()._open_map_mode()
+        mw = getattr(self, "_map_window", None)
+        try:
+            if mw is None or not mw.winfo_exists():
+                return
+        except Exception:
+            return
+        try:
+            mw.cols = int(getattr(self, "_lan_grid_cols", getattr(mw, "cols", 20)) or 20)
+            mw.rows = int(getattr(self, "_lan_grid_rows", getattr(mw, "rows", 20)) or 20)
+            mw.obstacles = set(getattr(self, "_lan_obstacles", set()) or set())
+            mw.rough_terrain = dict(getattr(self, "_lan_rough_terrain", {}) or {})
+            mw.aoes = {int(k): dict(v) for k, v in dict(getattr(self, "_lan_aoes", {}) or {}).items()}
+            mw._next_aoe_id = int(getattr(self, "_lan_next_aoe_id", 1) or 1)
+            mw._next_bg_id = int(getattr(self, "_session_next_bg_id", 1) or 1)
+            mw._redraw_all()
+            mw.refresh_units()
+            try:
+                mw._refresh_aoe_list()
+            except Exception:
+                pass
+            self._restore_map_backgrounds(list(getattr(self, "_session_bg_images", []) or []))
+        except Exception:
+            pass
+
 
     def _open_roster_manager(self) -> None:
         win = tk.Toplevel(self)
