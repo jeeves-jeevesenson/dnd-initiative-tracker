@@ -11195,7 +11195,70 @@ class InitiativeTracker(base.InitiativeTracker):
                 role_memory[display_name] = role
             elif bool(getattr(c, "is_pc", False)):
                 role_memory[display_name] = "pc"
-        beast_actions = self._normalize_action_entries(form.get("actions") if isinstance(form.get("actions"), list) else [], "action")
+        raw_form_actions = form.get("actions") if isinstance(form.get("actions"), list) else []
+        beast_actions = self._normalize_action_entries(raw_form_actions, "action")
+        multiattack_count = 1
+        for raw_action in raw_form_actions:
+            if not isinstance(raw_action, dict):
+                continue
+            if self._action_name_key(raw_action.get("name")) != "multiattack":
+                continue
+            multi_text = str(raw_action.get("description") or raw_action.get("desc") or "").strip().lower()
+            if not multi_text:
+                break
+            word_counts = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
+            count = 0
+            for word, value in word_counts.items():
+                count += len(re.findall(rf"\b{word}\b[^.]*?\battack\b", multi_text))
+            for match in re.finditer(r"\b(\d+)\b[^.]*?\battack\b", multi_text):
+                try:
+                    count += int(match.group(1))
+                except Exception:
+                    continue
+            if count > 0:
+                multiattack_count = max(1, min(10, int(count)))
+            break
+        for entry in beast_actions:
+            if not isinstance(entry, dict):
+                continue
+            desc_text = str(entry.get("description") or "").strip()
+            lowered = desc_text.lower()
+            if "attack roll" not in lowered or "hit" not in lowered:
+                continue
+            to_hit_match = re.search(r"attack roll\s*:\s*([+\-]?\d+)", desc_text, flags=re.IGNORECASE)
+            range_match = re.search(r"(?:reach|range)\s*(\d+)\s*ft", desc_text, flags=re.IGNORECASE)
+            damage_match = re.search(
+                r"hit\s*:\s*[^.]*?\(([^)]+)\)\s*([a-zA-Z]+)\s+damage",
+                desc_text,
+                flags=re.IGNORECASE,
+            )
+            weapon_name = str(entry.get("name") or "").strip()
+            weapon_id = str(entry.get("id") or "").strip()
+            if not weapon_id:
+                weapon_id = re.sub(r"[^a-z0-9]+", "-", weapon_name.lower()).strip("-")
+            weapon_payload: Dict[str, Any] = {
+                "id": weapon_id or "wild-shape-attack",
+                "name": weapon_name or "Wild Shape Attack",
+                "category": "ranged_weapon" if "ranged attack roll" in lowered else "melee_weapon",
+                "range": f"{int(range_match.group(1))} ft"
+                if range_match
+                else ("60 ft" if "ranged attack roll" in lowered else "5 ft"),
+            }
+            if to_hit_match:
+                try:
+                    weapon_payload["to_hit"] = int(to_hit_match.group(1))
+                except Exception:
+                    pass
+            if damage_match:
+                weapon_payload["one_handed"] = {
+                    "damage_formula": str(damage_match.group(1)).strip(),
+                    "damage_type": str(damage_match.group(2)).strip().lower(),
+                }
+            entry["attack_overlay_mode"] = "attack_request"
+            entry["attack_weapon"] = weapon_payload
+            if multiattack_count > 1:
+                entry["attack_count"] = int(multiattack_count)
+            entry["resolve_prompt"] = f"Attack target with {weapon_payload['name']}."
         if beast_actions:
             setattr(c, "actions", beast_actions)
         base_bonus_actions = base_snapshot.get("bonus_actions") if isinstance(base_snapshot.get("bonus_actions"), list) else []
@@ -14828,6 +14891,12 @@ class InitiativeTracker(base.InitiativeTracker):
                                 selected_weapon = entry
                                 break
             if not selected_weapon:
+                inline_weapon = msg.get("weapon") if isinstance(msg.get("weapon"), dict) else {}
+                if bool(getattr(c, "is_wild_shaped", False)) and isinstance(inline_weapon, dict):
+                    inline_name = str(inline_weapon.get("name") or "").strip()
+                    if inline_name:
+                        selected_weapon = copy.deepcopy(inline_weapon)
+            if not selected_weapon:
                 self._lan.toast(ws_id, "Pick one of yer configured weapons first, matey.")
                 return
             setattr(c, "_rage_attack_made_this_turn", True)
@@ -14885,6 +14954,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 1,
                 min(10, _parse_int(msg.get("attack_count"), configured_attack_count) or configured_attack_count),
             )
+            if bool(getattr(c, "is_wild_shaped", False)) and attack_count > configured_attack_count:
+                configured_attack_count = int(attack_count)
             if is_cleave_followup:
                 attack_count = 1
             attack_resources = max(0, _parse_int(getattr(c, "attack_resource_remaining", 0), 0) or 0)
