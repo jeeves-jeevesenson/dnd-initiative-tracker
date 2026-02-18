@@ -67,7 +67,7 @@ class DmMapAttackAutomationTests(unittest.TestCase):
         self.assertEqual(counts.get("claws"), 2)
         self.assertEqual(counts.get("greatsword"), 2)
 
-    def test_resolve_map_attack_applies_attack_roll_and_damage_components(self):
+    def test_resolve_map_attack_rolls_to_hit_and_reports_manual_damage_rolls(self):
         attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()
         target = type("Combatant", (), {"cid": 2, "name": "Knight", "ac": 15, "hp": 30})()
         self.app.combatants = {1: attacker, 2: target}
@@ -81,15 +81,43 @@ class DmMapAttackAutomationTests(unittest.TestCase):
             ],
         }
 
-        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[12, 4, 3, 2, 5]):
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[12, 4]):
             result = self.app._resolve_map_attack(1, 2, attack_option, attack_count=2)
 
         self.assertTrue(result.get("ok"))
         self.assertEqual(result.get("hits"), 1)
         self.assertEqual(result.get("misses"), 1)
+        self.assertEqual(result.get("total_damage"), 0)
+        self.assertEqual(self.app.combatants[2].hp, 30)
+        self.assertEqual(
+            result.get("damage_rolls"),
+            [
+                {"formula": "1d10 + 5", "type": "slashing", "count": 1},
+                {"formula": "2d6", "type": "necrotic", "count": 1},
+            ],
+        )
+        self.assertEqual(result.get("damage_types"), ["slashing", "necrotic"])
+        self.assertTrue(any("roll damage manually" in message for _cid, message in self.logs))
+
+    def test_apply_map_attack_manual_damage_updates_hp_and_logs_components(self):
+        attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()
+        target = type("Combatant", (), {"cid": 2, "name": "Knight", "ac": 15, "hp": 30})()
+        self.app.combatants = {1: attacker, 2: target}
+
+        result = self.app._apply_map_attack_manual_damage(
+            1,
+            2,
+            "Claws",
+            [
+                {"amount": 9, "type": "slashing"},
+                {"amount": 5, "type": "necrotic"},
+            ],
+        )
+
+        self.assertTrue(result.get("ok"))
         self.assertEqual(result.get("total_damage"), 14)
         self.assertEqual(self.app.combatants[2].hp, 16)
-        self.assertTrue(any("14 damage" in message for _cid, message in self.logs))
+        self.assertTrue(any("applies 14 damage" in message for _cid, message in self.logs))
 
 
 if __name__ == "__main__":

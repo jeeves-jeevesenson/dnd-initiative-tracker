@@ -12066,17 +12066,18 @@ class InitiativeTracker(base.InitiativeTracker):
         to_hit = int(attack_option.get("to_hit") or 0)
         count = max(1, min(10, int(attack_count or 1)))
         damage_templates = attack_option.get("damage_entries") if isinstance(attack_option.get("damage_entries"), list) else []
-        total_damage = 0
         hits = 0
         misses = 0
-        removed_target = False
         last_target_name = str(getattr(target, "name", "Target") or "Target")
         for attack_index in range(count):
             if int(target_cid) not in self.combatants:
-                removed_target = True
                 break
             target = self.combatants[int(target_cid)]
             last_target_name = str(getattr(target, "name", "Target") or "Target")
+            try:
+                target_ac = int(getattr(target, "ac", 10) or 10)
+            except Exception:
+                target_ac = 10
             roll = random.randint(1, 20)
             critical = roll == 20
             total_to_hit = int(roll) + int(to_hit)
@@ -12087,58 +12088,29 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._log(f"{attack_prefix}: misses {last_target_name} (d20 {roll} + {to_hit} = {total_to_hit} vs AC {target_ac}).", cid=int(target_cid))
                 continue
             hits += 1
-            damage_entries: List[Dict[str, Any]] = []
+            crit_note = " (CRIT)" if critical else ""
+            self._log(f"{attack_prefix}: hits {last_target_name}{crit_note} (d20 {roll} + {to_hit} = {total_to_hit} vs AC {target_ac}).", cid=int(target_cid))
+        damage_rolls: List[Dict[str, Any]] = []
+        damage_types: List[str] = []
+        if hits > 0:
             for template in damage_templates:
                 if not isinstance(template, dict):
                     continue
                 formula = str(template.get("formula") or "").strip()
-                dtype = str(template.get("type") or "").strip().lower()
-                amount = self._roll_monster_attack_formula(formula, critical=critical)
-                if amount <= 0:
+                dtype = str(template.get("type") or "").strip().lower() or "damage"
+                if not formula:
                     continue
-                damage_entries.append({"amount": int(amount), "type": dtype})
-            damage_total = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
-            total_damage += max(0, damage_total)
-            damage_desc = ", ".join(
-                f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
-                for entry in damage_entries
+                damage_rolls.append({"formula": formula, "type": dtype, "count": int(hits)})
+                if dtype not in damage_types:
+                    damage_types.append(dtype)
+        if damage_rolls:
+            roll_summary = ", ".join(
+                f"{int(entry.get('count') or 0)}×({str(entry.get('formula') or '').strip()}) {str(entry.get('type') or 'damage').strip()}"
+                for entry in damage_rolls
+                if int(entry.get("count") or 0) > 0 and str(entry.get("formula") or "").strip()
             )
-            old_hp = int(getattr(target, "hp", 0) or 0)
-            target.hp = max(0, old_hp - int(damage_total))
-            if damage_total > 0 and int(target.hp) < old_hp:
-                self._queue_concentration_save(target, "damage")
-            if old_hp > 0 and int(target.hp) == 0:
-                dtype_flavor = str((damage_entries[0].get("type") if damage_entries else "") or "")
-                self._log(self._death_flavor_line(attacker.name, damage_total, dtype_flavor, last_target_name), cid=int(target_cid))
-                lan = getattr(self, "_lan", None)
-                if lan:
-                    try:
-                        lan.play_ko(int(attacker_cid))
-                    except Exception:
-                        pass
-                pre_order: List[int] = []
-                try:
-                    pre_order = [x.cid for x in self._display_order()]
-                except Exception:
-                    pre_order = []
-                self.combatants.pop(int(target_cid), None)
-                if getattr(self, "start_cid", None) == int(target_cid):
-                    self.start_cid = None
-                try:
-                    self._retarget_current_after_removal([int(target_cid)], pre_order=pre_order)
-                except Exception:
-                    pass
-                removed_target = True
-            else:
-                crit_note = " (CRIT)" if critical else ""
-                self._log(
-                    f"{attack_prefix}: hits {last_target_name} for {damage_total} damage{f' ({damage_desc})' if damage_desc else ''}{crit_note}.",
-                    cid=int(target_cid),
-                )
-        try:
-            self._rebuild_table(scroll_to_current=True)
-        except Exception:
-            pass
+            if roll_summary:
+                self._log(f"{attacker.name} {attack_name}: roll damage manually — {roll_summary}.", cid=int(target_cid))
         return {
             "ok": True,
             "attacker_cid": int(attacker_cid),
@@ -12148,6 +12120,87 @@ class InitiativeTracker(base.InitiativeTracker):
             "attack_count": int(count),
             "hits": int(hits),
             "misses": int(misses),
+            "total_damage": 0,
+            "target_removed": False,
+            "damage_rolls": damage_rolls,
+            "damage_types": damage_types,
+        }
+
+    def _apply_map_attack_manual_damage(
+        self,
+        attacker_cid: int,
+        target_cid: int,
+        attack_name: str,
+        damage_entries: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        attacker = self.combatants.get(int(attacker_cid))
+        target = self.combatants.get(int(target_cid))
+        if attacker is None or target is None:
+            return {"ok": False, "reason": "invalid_combatant"}
+        normalized_entries: List[Dict[str, Any]] = []
+        for entry in damage_entries:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                amount = int(entry.get("amount") or 0)
+            except Exception:
+                amount = 0
+            if amount <= 0:
+                continue
+            dtype = str(entry.get("type") or "").strip().lower() or "damage"
+            normalized_entries.append({"amount": int(amount), "type": dtype})
+        total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in normalized_entries))
+        if total_damage <= 0:
+            return {"ok": False, "reason": "no_damage"}
+
+        target_name = str(getattr(target, "name", "Target") or "Target")
+        old_hp = int(getattr(target, "hp", 0) or 0)
+        target.hp = max(0, old_hp - int(total_damage))
+        if int(target.hp) < old_hp:
+            self._queue_concentration_save(target, "damage")
+        removed_target = False
+        if old_hp > 0 and int(target.hp) == 0:
+            dtype_flavor = str((normalized_entries[0].get("type") if normalized_entries else "") or "")
+            self._log(self._death_flavor_line(attacker.name, total_damage, dtype_flavor, target_name), cid=int(target_cid))
+            lan = getattr(self, "_lan", None)
+            if lan:
+                try:
+                    lan.play_ko(int(attacker_cid))
+                except Exception:
+                    pass
+            pre_order: List[int] = []
+            try:
+                pre_order = [x.cid for x in self._display_order()]
+            except Exception:
+                pre_order = []
+            self.combatants.pop(int(target_cid), None)
+            if getattr(self, "start_cid", None) == int(target_cid):
+                self.start_cid = None
+            try:
+                self._retarget_current_after_removal([int(target_cid)], pre_order=pre_order)
+            except Exception:
+                pass
+            removed_target = True
+        else:
+            damage_desc = ", ".join(
+                f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
+                for entry in normalized_entries
+            )
+            attack_label = str(attack_name or "Attack").strip() or "Attack"
+            self._log(
+                f"{attacker.name} {attack_label}: applies {total_damage} damage to {target_name}{f' ({damage_desc})' if damage_desc else ''}.",
+                cid=int(target_cid),
+            )
+        try:
+            self._rebuild_table(scroll_to_current=True)
+        except Exception:
+            pass
+        return {
+            "ok": True,
+            "attacker_cid": int(attacker_cid),
+            "target_cid": int(target_cid),
+            "target_name": target_name,
+            "attack_name": str(attack_name or "Attack"),
             "total_damage": int(total_damage),
             "target_removed": bool(removed_target),
         }
@@ -12169,6 +12222,68 @@ class InitiativeTracker(base.InitiativeTracker):
         attack_options, multiattack_counts = self._monster_attack_options_for_map(attacker)
         if not attack_options:
             return False
+
+        def _open_manual_damage_prompt(result_payload: Dict[str, Any]) -> None:
+            if int(result_payload.get("hits") or 0) <= 0:
+                return
+            damage_rolls = result_payload.get("damage_rolls") if isinstance(result_payload.get("damage_rolls"), list) else []
+            if not damage_rolls:
+                return
+            damage_types = result_payload.get("damage_types") if isinstance(result_payload.get("damage_types"), list) else []
+            if not damage_types:
+                return
+            prompt = tk.Toplevel(self)
+            prompt.title("Apply Damage")
+            prompt.transient(dialog_parent if dialog_parent is not None else self)
+            prompt.resizable(False, False)
+            body = ttk.Frame(prompt, padding=10)
+            body.pack(fill=tk.BOTH, expand=True)
+            ttk.Label(body, text=f"Manual damage for {result_payload.get('attack_name') or 'Attack'}").grid(
+                row=0, column=0, columnspan=2, sticky="w"
+            )
+            summary = ", ".join(
+                f"{int(entry.get('count') or 0)}×({str(entry.get('formula') or '').strip()}) {str(entry.get('type') or 'damage').strip()}"
+                for entry in damage_rolls
+                if int(entry.get("count") or 0) > 0 and str(entry.get("formula") or "").strip()
+            )
+            if summary:
+                ttk.Label(body, text=f"Roll: {summary}").grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
+            row = 2
+            amount_vars: Dict[str, tk.StringVar] = {}
+            for dtype in damage_types:
+                label = str(dtype or "damage").strip() or "damage"
+                ttk.Label(body, text=f"{label.title()} damage:").grid(row=row, column=0, sticky="w", pady=(8, 0))
+                var = tk.StringVar(value="")
+                ttk.Entry(body, textvariable=var, width=10).grid(row=row, column=1, sticky="w", pady=(8, 0))
+                amount_vars[label] = var
+                row += 1
+            btns = ttk.Frame(body)
+            btns.grid(row=row, column=0, columnspan=2, sticky="e", pady=(12, 0))
+
+            def _apply_damage() -> None:
+                entries: List[Dict[str, Any]] = []
+                for dtype, var in amount_vars.items():
+                    raw = str(var.get() or "").strip()
+                    if not raw:
+                        continue
+                    try:
+                        amount = int(raw)
+                    except Exception:
+                        amount = 0
+                    if amount <= 0:
+                        continue
+                    entries.append({"amount": int(amount), "type": dtype})
+                self._apply_map_attack_manual_damage(
+                    int(result_payload.get("attacker_cid") or attacker_cid),
+                    int(result_payload.get("target_cid") or target_cid),
+                    str(result_payload.get("attack_name") or "Attack"),
+                    entries,
+                )
+                prompt.destroy()
+
+            ttk.Button(btns, text="Skip", command=prompt.destroy).pack(side=tk.RIGHT)
+            ttk.Button(btns, text="Apply Damage", command=_apply_damage).pack(side=tk.RIGHT, padx=(0, 8))
+
         dlg = tk.Toplevel(self)
         dlg.title(f"Attack {target.name}")
         dlg.transient(dialog_parent if dialog_parent is not None else self)
@@ -12211,8 +12326,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 count = int(str(count_var.get() or "1").strip())
             except Exception:
                 count = 1
-            self._resolve_map_attack(int(attacker_cid), int(target_cid), selected, attack_count=count)
+            result = self._resolve_map_attack(int(attacker_cid), int(target_cid), selected, attack_count=count)
             dlg.destroy()
+            if isinstance(result, dict):
+                _open_manual_damage_prompt(result)
 
         ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.RIGHT)
         ttk.Button(btns, text="Attack", command=_resolve_and_close).pack(side=tk.RIGHT, padx=(0, 8))
