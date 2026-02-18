@@ -9593,6 +9593,14 @@ __DAMAGE_TYPE_OPTIONS__
         setWildShapePickOverlayOpen(true);
         return;
       }
+      if (actionName === "end wildshape early"){
+        if (claimedCid == null){
+          localToast("Claim a character first, matey.");
+          return;
+        }
+        send({type:"wild_shape_revert", cid: claimedCid});
+        return;
+      }
       if (actionCid === null || !activeUnit) return;
       const msg = {
         type: "perform_action",
