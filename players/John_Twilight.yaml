@@ -49,10 +49,10 @@ vitals:
     total: 10
     spent: 0
   speed:
-    Normal: 30 ft.
-    Climb: 0 ft.
-    Fly: 0 ft.
-    Swim: 0 ft.
+    walk: 30 ft.
+    climb: 0 ft.
+    fly: 0 ft.
+    swim: 0 ft.
   initiative:
     formula: dex_mod
   passive_perception:

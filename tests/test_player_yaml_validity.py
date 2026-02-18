@@ -13,6 +13,8 @@ class PlayerYamlValidityTests(unittest.TestCase):
         data = self._load("players/John_Twilight.yaml")
         self.assertIsInstance(data, dict)
         self.assertEqual(str(data.get("name") or "").strip(), "John Twilight")
+        speed = ((data.get("vitals") or {}).get("speed") or {})
+        self.assertEqual(set(speed.keys()), {"walk", "climb", "fly", "swim"})
 
     def test_oldahhman_leveling_and_speed_schema(self):
         data = self._load("players/oldahhman.yaml")
