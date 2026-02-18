@@ -9059,7 +9059,7 @@ class InitiativeTracker(base.InitiativeTracker):
         trimmed = formula.strip()
         if not trimmed:
             return None
-        if not re.fullmatch(r"[0-9+\-*/(). _a-zA-Z]+", trimmed):
+        if not re.fullmatch(r"[0-9+\-*/().,_ <>!=a-zA-Z]+", trimmed):
             return None
         expr = trimmed
         for key, value in variables.items():
@@ -9417,6 +9417,10 @@ class InitiativeTracker(base.InitiativeTracker):
             "level": level_value,
             "druid_level": self._druid_level_from_profile(profile),
             "fighter_level": self._fighter_level_from_profile(profile),
+            "barbarian_level": self._class_level_from_profile(profile, "barbarian"),
+            "rogue_level": self._class_level_from_profile(profile, "rogue"),
+            "wizard_level": self._class_level_from_profile(profile, "wizard"),
+            "cleric_level": self._class_level_from_profile(profile, "cleric"),
             "prof": prof_bonus,
             "proficiency": prof_bonus,
             "str_mod": self._ability_score_modifier(abilities, "str"),
@@ -12529,7 +12533,7 @@ class InitiativeTracker(base.InitiativeTracker):
         else:
             cid = claimed
 
-        if cid is None and not is_admin:
+        if cid is None and not is_admin and typ not in ("set_auras_enabled",):
             if is_move:
                 msg["_move_applied"] = False
                 msg["_move_reject_reason"] = "no_claim"
@@ -12538,7 +12542,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         # Must exist
-        if cid is not None and cid not in self.combatants:
+        if cid is not None and cid not in self.combatants and typ not in ("set_auras_enabled",):
             if is_move:
                 msg["_move_applied"] = False
                 msg["_move_reject_reason"] = "combatant_missing"
@@ -15415,7 +15419,20 @@ class InitiativeTracker(base.InitiativeTracker):
             if not ok_pool:
                 self._lan.toast(ws_id, pool_err or "No Second Wind uses remain, matey.")
                 return
-            hp_gain = int(sum(random.randint(1, 10) for _ in range(1)) + fighter_level)
+            healing_roll = None
+            for key in ("healing_roll", "roll", "rolled"):
+                value = msg.get(key)
+                if value in (None, ""):
+                    continue
+                try:
+                    healing_roll = int(value)
+                except Exception:
+                    healing_roll = None
+                break
+            if healing_roll is None:
+                hp_gain = int(sum(random.randint(1, 10) for _ in range(1)) + fighter_level)
+            else:
+                hp_gain = int(max(1, healing_roll) + fighter_level)
             cur_hp = int(getattr(c, "hp", 0) or 0)
             max_hp = int(getattr(c, "max_hp", cur_hp) or cur_hp)
             setattr(c, "hp", max(0, min(max_hp, cur_hp + hp_gain)))
