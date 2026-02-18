@@ -83,6 +83,29 @@ class ResourcePoolSpellTests(unittest.TestCase):
         self.assertEqual(err, "")
         self.assertEqual(spent, 0)
 
+
+    def test_normalize_pool_formula_supports_barbarian_level_variable(self):
+        profile = {
+            "name": "Malagrou",
+            "leveling": {"classes": [{"name": "Barbarian", "level": 10}]},
+            "resources": {
+                "pools": [
+                    {
+                        "id": "rage",
+                        "label": "Rage",
+                        "current": 4,
+                        "max_formula": "2 if barbarian_level < 3 else 3 if barbarian_level < 6 else 4 if barbarian_level < 12 else 5 if barbarian_level < 17 else 6",
+                        "reset": "short_rest",
+                    }
+                ]
+            },
+        }
+        pools = self.app._normalize_player_resource_pools(profile)
+        rage = next((entry for entry in pools if entry.get("id") == "rage"), None)
+        self.assertIsNotNone(rage)
+        self.assertEqual(rage["max"], 4)
+        self.assertEqual(rage["current"], 4)
+
     def test_normalize_adds_second_wind_pool_for_level_10_fighter(self):
         profile = {
             "name": "John Twilight",

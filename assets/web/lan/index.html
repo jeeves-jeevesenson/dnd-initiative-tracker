@@ -3034,9 +3034,14 @@ __DAMAGE_TYPE_OPTIONS__
     <h2>Second Wind</h2>
     <div class="spellbook-status" id="secondWindSummary"></div>
     <div class="spellbook-status" id="secondWindRules">
+      Roll 1d10, enter the die result below, and this will add your fighter level automatically.
       Core Mechanics: Bonus Action to regain 1d10 + fighter level HP. Uses: 2 at level 1, 3 at level 4, 4 at level 10. Recharging: regain 1 use on Short Rest, all uses on Long Rest.
       Tactical Mind (Level 2): When you fail an ability check, expend a use to add 1d10; if the check still fails, the use is not expended.
       Tactical Shift (Level 5): When you activate Second Wind, move up to half your Speed without provoking Opportunity Attacks.
+    </div>
+    <div class="wildshape-pool-row" style="margin-top:8px;">
+      <label for="secondWindRollInput">d10 roll</label>
+      <input id="secondWindRollInput" type="number" min="1" max="10" step="1" placeholder="1-10" />
     </div>
     <div class="modal-actions" style="margin-top:10px;">
       <button class="btn" id="secondWindCancel" type="button">Cancel</button>
@@ -3718,6 +3723,7 @@ __DAMAGE_TYPE_OPTIONS__
   const wildShapePickBackBtn = document.getElementById("wildShapePickBack");
   const secondWindOverlay = document.getElementById("secondWindOverlay");
   const secondWindSummary = document.getElementById("secondWindSummary");
+  const secondWindRollInput = document.getElementById("secondWindRollInput");
   const secondWindCancelBtn = document.getElementById("secondWindCancel");
   const secondWindUseBtn = document.getElementById("secondWindUse");
   const wildShapeOverlay = document.getElementById("wildShapeOverlay");
@@ -6949,6 +6955,25 @@ __DAMAGE_TYPE_OPTIONS__
       updateMountControls();
       return;
     }
+    if (type === "set_auras_enabled"){
+      if (!state || typeof state !== "object") state = {};
+      state.auras_enabled = msg.enabled !== false;
+      updateAurasButton();
+      draw();
+      return;
+    }
+    if (type === "second_wind_use"){
+      const unit = getUnitByCid(msg.cid);
+      if (!unit) return;
+      mutateResourcePoolCounter(unit, {id: "second_wind", cost: 1});
+      const update = {cid: unit.cid};
+      const current = Number(unit.bonus_action_remaining || 0);
+      update.bonus_action_remaining = Math.max(0, current - 1);
+      applyUnitUpdates([update]);
+      renderSecondWindSummary();
+      renderResourcePools();
+      return;
+    }
     if (type === "cast_spell"){
       const unit = getUnitByCid(msg.cid);
       if (!unit) return;
@@ -9482,7 +9507,9 @@ __DAMAGE_TYPE_OPTIONS__
       const claimedUnit = getClaimedUnit();
       const claimedName = normalizeLowerValue(claimedUnit?.name);
       const isJohnTwilight = claimedName === "john twilight" || claimedName.startsWith("john twilight (");
-      if (isJohnTwilight && actionName === "summon johns echo"){
+      const isManifestEcho = actionName === "summon johns echo" || actionName === "manifest echo";
+      const isSwapEcho = actionName === "swap with johns echo" || actionName === "swap with echo";
+      if (isJohnTwilight && isManifestEcho){
         if (claimedCid == null || !claimedUnit || !claimedUnit.pos){
           localToast("Could not find caster position, matey.");
           return;
@@ -9500,7 +9527,7 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Echo placement started. Choose a valid highlighted square.");
         return;
       }
-      if (isJohnTwilight && actionName === "swap with johns echo"){
+      if (isJohnTwilight && isSwapEcho){
         if (claimedCid == null) return;
         const msg = {type: "echo_swap", cid: claimedCid};
         if (isPlanning){
@@ -10799,7 +10826,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
         const rangeFt = Number.isFinite(Number(pendingSpellTargeting?.rangeFt))
           ? Number(pendingSpellTargeting.rangeFt)
-          : parseWeaponRangeFeet(weapon);
+          : (parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? 3 : 0));
         const distFt = distanceFeetBetweenCells(me.pos, hit.pos);
         if (distFt - rangeFt > 1e-6){
           localToast("Target be out of attack range.");
@@ -11059,6 +11086,10 @@ __DAMAGE_TYPE_OPTIONS__
     auraToggleBtn.addEventListener("click", () => {
       if (enforceLoginGate()) return;
       const next = !areAurasEnabled();
+      if (!state || typeof state !== "object") state = {};
+      state.auras_enabled = next;
+      updateAurasButton();
+      draw();
       send({type:"set_auras_enabled", enabled: next});
     });
   }
@@ -14668,7 +14699,12 @@ __DAMAGE_TYPE_OPTIONS__
   if (secondWindUseBtn){
     secondWindUseBtn.addEventListener("click", () => {
       if (!claimedCid) return;
-      send({type:"second_wind_use", cid: claimedCid});
+      const rolled = Number(secondWindRollInput?.value ?? "");
+      if (!Number.isFinite(rolled) || rolled < 1 || rolled > 10){
+        localToast("Enter your Second Wind d10 roll (1-10). Add fighter level automatically.");
+        return;
+      }
+      send({type:"second_wind_use", cid: claimedCid, healing_roll: Math.floor(rolled)});
       setSecondWindOverlayOpen(false);
     });
   }

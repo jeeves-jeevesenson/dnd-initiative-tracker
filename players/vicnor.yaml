@@ -350,7 +350,16 @@ reactions:
   description: When a hostile creature you can see moves out of your reach, you can
     use your reaction to make one melee attack against it.
   type: reaction
-bonus_actions: []
+bonus_actions:
+- name: "Cunning Action: Dash"
+  description: Bonus Action. You take the Dash action.
+  type: bonus_action
+- name: "Cunning Action: Disengage"
+  description: Bonus Action. You take the Disengage action.
+  type: bonus_action
+- name: "Cunning Action: Hide"
+  description: Bonus Action. You take the Hide action.
+  type: bonus_action
 spellcasting:
   enabled: true
   spell_yaml_paths:
