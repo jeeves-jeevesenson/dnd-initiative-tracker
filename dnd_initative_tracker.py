@@ -1544,7 +1544,7 @@ class LanController:
             return None
         if len(text) > 128:
             return None
-        return text
+        return ""
 
     def _lan_log_lines(self, limit: int = 200) -> List[str]:
         with self._lan_log_lock:
@@ -5221,24 +5221,32 @@ class InitiativeTracker(base.InitiativeTracker):
                     amount = sum(random.randint(1, sides) for _ in range(count))
                     dtype = str(rider.get("type") or "damage").strip() or "damage"
                     source = str(rider.get("source") or "an effect").strip() or "an effect"
+                    adjusted = self._adjust_damage_entries_for_target(c, [{"amount": int(amount), "type": str(dtype).lower()}])
+                    applied_entries = list(adjusted.get("entries") or [])
+                    applied_amount = int(sum(int(entry.get("amount", 0) or 0) for entry in applied_entries))
                     before_hp = getattr(c, "hp", None)
                     try:
                         before_hp_int = int(before_hp)
                     except Exception:
                         before_hp_int = None
-                    if before_hp_int is not None:
-                        after_hp = max(0, before_hp_int - int(amount))
+                    if before_hp_int is not None and applied_amount > 0:
+                        after_hp = max(0, before_hp_int - int(applied_amount))
                         setattr(c, "hp", int(after_hp))
-                        rider_msgs.append(f"takes {int(amount)} {dtype} from {source}")
-                        if before_hp_int > 0 and after_hp <= 0:
-                            pre_order = [x.cid for x in self._display_order()]
-                            dead_id = int(getattr(c, "cid", -1))
-                            self.combatants.pop(dead_id, None)
-                            if self.start_cid == dead_id:
-                                self.start_cid = None
-                            self._retarget_current_after_removal([dead_id], pre_order=pre_order)
-                            rider_msgs.append("dropped to 0 -> removed")
-                            return skip, "; ".join(filter(None, [msg, ", ".join(rider_msgs)])), dec_skip
+                        rider_msgs.append(f"takes {int(applied_amount)} {dtype} from {source}")
+                    elif before_hp_int is not None:
+                        after_hp = before_hp_int
+                        rider_msgs.append(f"ignores {int(amount)} {dtype} from {source}")
+                    else:
+                        after_hp = None
+                    if before_hp_int is not None and after_hp is not None and before_hp_int > 0 and after_hp <= 0:
+                        pre_order = [x.cid for x in self._display_order()]
+                        dead_id = int(getattr(c, "cid", -1))
+                        self.combatants.pop(dead_id, None)
+                        if self.start_cid == dead_id:
+                            self.start_cid = None
+                        self._retarget_current_after_removal([dead_id], pre_order=pre_order)
+                        rider_msgs.append("dropped to 0 -> removed")
+                        return skip, "; ".join(filter(None, [msg, ", ".join(rider_msgs)])), dec_skip
                     remaining_riders.append(dict(rider))
                     group_key = str(rider.get("clear_group") or "").strip().lower()
                     save_ability = str(rider.get("save_ability") or "").strip().lower()
@@ -5416,23 +5424,34 @@ class InitiativeTracker(base.InitiativeTracker):
             amount = sum(random.randint(1, sides) for _ in range(count))
             dtype = str(rider.get("type") or "damage").strip() or "damage"
             source = str(rider.get("source") or "an effect").strip() or "an effect"
+            adjusted = self._adjust_damage_entries_for_target(c, [{"amount": int(amount), "type": str(dtype).lower()}])
+            applied_entries = list(adjusted.get("entries") or [])
+            applied_amount = int(sum(int(entry.get("amount", 0) or 0) for entry in applied_entries))
             before_hp = getattr(c, "hp", None)
             try:
                 before_hp_int = int(before_hp)
             except Exception:
                 before_hp_int = None
-            if before_hp_int is not None:
-                after_hp = max(0, before_hp_int - int(amount))
+            if before_hp_int is not None and applied_amount > 0:
+                after_hp = max(0, before_hp_int - int(applied_amount))
                 setattr(c, "hp", int(after_hp))
                 self._log(
-                    f"{c.name} takes {int(amount)} {dtype} damage from {source} at end of turn.",
+                    f"{c.name} takes {int(applied_amount)} {dtype} damage from {source} at end of turn.",
                     cid=cid,
                 )
-                if before_hp_int > 0 and after_hp <= 0:
-                    try:
-                        self._lan.play_ko(int(cid))
-                    except Exception:
-                        pass
+            elif before_hp_int is not None:
+                after_hp = before_hp_int
+                self._log(
+                    f"{c.name} ignores {int(amount)} {dtype} damage from {source} at end of turn.",
+                    cid=cid,
+                )
+            else:
+                after_hp = None
+            if before_hp_int is not None and after_hp is not None and before_hp_int > 0 and after_hp <= 0:
+                try:
+                    self._lan.play_ko(int(cid))
+                except Exception:
+                    pass
             turns_left = rider.get("remaining_turns")
             try:
                 turns_left_int = int(turns_left)
@@ -5649,7 +5668,7 @@ class InitiativeTracker(base.InitiativeTracker):
         cols = int(getattr(self, "_lan_grid_cols", 20) or 20)
         rows = int(getattr(self, "_lan_grid_rows", 20) or 20)
         feet_per_square = 5.0
-        positions = dict(getattr(self, "_lan_positions", {}) or {})
+        positions = dict(self.__dict__.get("_lan_positions", {}) or {})
         obstacles = set(getattr(self, "_lan_obstacles", set()) or set())
         rough_terrain = dict(getattr(self, "_lan_rough_terrain", {}) or {})
         aoes = dict(getattr(self, "_lan_aoes", {}) or {})
@@ -6161,7 +6180,7 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             return
 
-        positions = dict(getattr(self, "_lan_positions", {}) or {})
+        positions = dict(self.__dict__.get("_lan_positions", {}) or {})
         if not positions:
             return
 
@@ -8068,7 +8087,10 @@ class InitiativeTracker(base.InitiativeTracker):
             target_cid = int(getattr(target_obj, "cid", 0) or 0)
         except Exception:
             return {"save_bonus": 0, "damage_resistances": set(), "effects": []}
-        _, _, _, _, positions = self._lan_live_map_data()
+        try:
+            _, _, _, _, positions = self._lan_live_map_data()
+        except Exception:
+            positions = dict(self.__dict__.get("_lan_positions", {}) or {})
         contexts = self._lan_active_aura_contexts(positions=positions)
         save_bonus = 0
         damage_resistances: set[str] = set()
@@ -8090,30 +8112,161 @@ class InitiativeTracker(base.InitiativeTracker):
             "effects": effects,
         }
 
-    def _lan_apply_aura_resistances(self, target_obj: Any, damage_entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        if not isinstance(damage_entries, list) or not damage_entries:
-            return []
-        aura_effects = self._lan_aura_effects_for_target(target_obj)
-        resistances = {str(t or "").strip().lower() for t in (aura_effects.get("damage_resistances") or set())}
-        if not resistances:
-            return list(damage_entries)
+    def _canonical_damage_type(self, value: Any) -> str:
+        text = str(value or "").strip().lower()
+        if not text:
+            return ""
+        allowed = {str(dtype or "").strip().lower() for dtype in DAMAGE_TYPES if str(dtype or "").strip()}
+        return text if text in allowed else ""
+
+    def _canonical_condition_key(self, value: Any) -> str:
+        text = str(value or "").strip().lower()
+        if not text:
+            return ""
+        cond_meta = getattr(base, "CONDITIONS_META", {})
+        if not isinstance(cond_meta, dict):
+            return ""
+        if text in cond_meta:
+            return text
+        for key, meta in cond_meta.items():
+            label = ""
+            if isinstance(meta, dict):
+                label = str(meta.get("label") or "").strip().lower()
+            if label and text == label:
+                return str(key).strip().lower()
+        return ""
+
+    def _combatant_defense_sets(self, target_obj: Any) -> Dict[str, set[str]]:
+        defenses: Dict[str, set[str]] = {
+            "damage_resistances": set(),
+            "damage_immunities": set(),
+            "damage_vulnerabilities": set(),
+            "condition_immunities": set(),
+        }
+
+        def _add_damage(target_key: str, values: Any) -> None:
+            if not isinstance(values, list):
+                return
+            for item in values:
+                dtype = self._canonical_damage_type(item)
+                if dtype:
+                    defenses[target_key].add(dtype)
+
+        def _add_condition(values: Any) -> None:
+            if not isinstance(values, list):
+                return
+            for item in values:
+                ckey = self._canonical_condition_key(item)
+                if ckey:
+                    defenses["condition_immunities"].add(ckey)
+
+        def _classify_legacy(values: Any, target_key: str) -> None:
+            if not isinstance(values, list):
+                return
+            for item in values:
+                dtype = self._canonical_damage_type(item)
+                if dtype:
+                    defenses[target_key].add(dtype)
+                    continue
+                ckey = self._canonical_condition_key(item)
+                if ckey:
+                    defenses["condition_immunities"].add(ckey)
+
+        spec = getattr(target_obj, "monster_spec", None)
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        if isinstance(raw_data, dict):
+            _add_damage("damage_resistances", raw_data.get("damage_resistances"))
+            _add_damage("damage_immunities", raw_data.get("damage_immunities"))
+            _add_damage("damage_vulnerabilities", raw_data.get("damage_vulnerabilities"))
+            _add_condition(raw_data.get("condition_immunities"))
+            _classify_legacy(raw_data.get("resistances"), "damage_resistances")
+            _classify_legacy(raw_data.get("immunities"), "damage_immunities")
+            _classify_legacy(raw_data.get("vulnerabilities"), "damage_vulnerabilities")
+
+        try:
+            if bool(getattr(target_obj, "is_pc", False)):
+                player_name = self._pc_name_for(int(getattr(target_obj, "cid", 0) or 0))
+                profile = self._profile_for_player_name(player_name)
+            else:
+                profile = None
+        except Exception:
+            profile = None
+        if isinstance(profile, dict):
+            profile_defenses = profile.get("defenses") if isinstance(profile.get("defenses"), dict) else {}
+            _add_damage("damage_resistances", profile_defenses.get("resistances"))
+            _add_damage("damage_immunities", profile_defenses.get("immunities"))
+            _add_damage("damage_vulnerabilities", profile_defenses.get("vulnerabilities"))
+            _add_condition(profile_defenses.get("condition_immunities"))
+
+        try:
+            aura_effects = self._lan_aura_effects_for_target(target_obj)
+        except Exception:
+            aura_effects = {"damage_resistances": set()}
+        aura_resistances = set((aura_effects or {}).get("damage_resistances") or set())
+        for item in aura_resistances:
+            dtype = self._canonical_damage_type(item)
+            if dtype:
+                defenses["damage_resistances"].add(dtype)
+        return defenses
+
+    def _adjust_damage_entries_for_target(self, target_obj: Any, damage_entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+        defenses = self._combatant_defense_sets(target_obj)
+        resistances = set(defenses.get("damage_resistances") or set())
+        immunities = set(defenses.get("damage_immunities") or set())
+        vulnerabilities = set(defenses.get("damage_vulnerabilities") or set())
         adjusted: List[Dict[str, Any]] = []
-        for entry in damage_entries:
+        notes: List[Dict[str, Any]] = []
+        for entry in damage_entries if isinstance(damage_entries, list) else []:
             if not isinstance(entry, dict):
                 continue
-            dtype = str(entry.get("type") or "").strip().lower()
             try:
-                amount = max(0, int(entry.get("amount") or 0))
+                original = max(0, int(entry.get("amount") or 0))
             except Exception:
-                amount = 0
-            if amount <= 0:
+                original = 0
+            if original <= 0:
                 continue
-            if dtype in resistances:
-                amount //= 2
-            if amount <= 0:
-                continue
-            adjusted.append({"amount": int(amount), "type": dtype})
-        return adjusted
+            raw_type = str(entry.get("type") or "").strip().lower()
+            dtype = self._canonical_damage_type(raw_type)
+            applied = int(original)
+            reasons: List[str] = []
+            if dtype:
+                if dtype in immunities:
+                    applied = 0
+                    reasons.append("immune")
+                else:
+                    is_resistant = dtype in resistances
+                    is_vulnerable = dtype in vulnerabilities
+                    if is_resistant and is_vulnerable:
+                        reasons.append("resistant+vulnerable cancel")
+                    elif is_resistant:
+                        applied = int(applied // 2)
+                        reasons.append("resistant")
+                    elif is_vulnerable:
+                        applied = int(applied * 2)
+                        reasons.append("vulnerable")
+            if applied > 0:
+                adjusted.append({"amount": int(applied), "type": raw_type})
+            if reasons:
+                notes.append(
+                    {
+                        "type": raw_type,
+                        "canonical_type": dtype,
+                        "original": int(original),
+                        "applied": int(applied),
+                        "reasons": list(reasons),
+                    }
+                )
+        return {"entries": adjusted, "notes": notes, "defenses": defenses}
+
+    def _condition_is_immune_for_target(self, target_obj: Any, condition_value: Any) -> bool:
+        ckey = self._canonical_condition_key(condition_value)
+        if not ckey:
+            return False
+        defenses = self._combatant_defense_sets(target_obj)
+        return ckey in set(defenses.get("condition_immunities") or set())
+
+    def _lan_apply_aura_resistances(self, target_obj: Any, damage_entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return list((self._adjust_damage_entries_for_target(target_obj, damage_entries) or {}).get("entries") or [])
 
     def _spell_presets_payload(self) -> List[Dict[str, Any]]:
         if yaml is None:
@@ -12042,18 +12195,38 @@ class InitiativeTracker(base.InitiativeTracker):
                 continue
             dtype = str(entry.get("type") or "").strip().lower() or "damage"
             normalized_entries.append({"amount": int(amount), "type": dtype})
-        total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in normalized_entries))
-        if total_damage <= 0:
-            return {"ok": False, "reason": "no_damage"}
+        adjustment = self._adjust_damage_entries_for_target(target, normalized_entries)
+        adjusted_entries = list(adjustment.get("entries") or [])
+        adjustment_notes = list(adjustment.get("notes") or [])
+        total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in adjusted_entries))
 
         target_name = str(getattr(target, "name", "Target") or "Target")
+        if total_damage <= 0:
+            if adjustment_notes:
+                note_text = "; ".join(
+                    f"{int(note.get('original') or 0)} {str(note.get('type') or 'damage')}→{int(note.get('applied') or 0)} ({', '.join(note.get('reasons') or [])})"
+                    for note in adjustment_notes
+                )
+                self._log(f"{attacker.name} {attack_name}: damage blocked for {target_name} ({note_text}).", cid=int(target_cid))
+            else:
+                self._log(f"{attacker.name} {attack_name}: no damage dealt to {target_name}.", cid=int(target_cid))
+            return {
+                "ok": True,
+                "attacker_cid": int(attacker_cid),
+                "target_cid": int(target_cid),
+                "target_name": target_name,
+                "attack_name": str(attack_name or "Attack"),
+                "total_damage": 0,
+                "target_removed": False,
+            }
+
         old_hp = int(getattr(target, "hp", 0) or 0)
         target.hp = max(0, old_hp - int(total_damage))
         if int(target.hp) < old_hp:
             self._queue_concentration_save(target, "damage")
         removed_target = False
         if old_hp > 0 and int(target.hp) == 0:
-            dtype_flavor = str((normalized_entries[0].get("type") if normalized_entries else "") or "")
+            dtype_flavor = str((adjusted_entries[0].get("type") if adjusted_entries else "") or "")
             self._log(self._death_flavor_line(attacker.name, total_damage, dtype_flavor, target_name), cid=int(target_cid))
             lan = getattr(self, "_lan", None)
             if lan:
@@ -12077,7 +12250,7 @@ class InitiativeTracker(base.InitiativeTracker):
         else:
             damage_desc = ", ".join(
                 f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
-                for entry in normalized_entries
+                for entry in adjusted_entries
             )
             attack_label = str(attack_name or "Attack").strip() or "Attack"
             self._log(
@@ -15862,7 +16035,9 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan.toast(ws_id, "Target failed the save.")
                     return
 
-            damage_entries = self._lan_apply_aura_resistances(target, damage_entries)
+            adjustment = self._adjust_damage_entries_for_target(target, damage_entries)
+            damage_entries = list(adjustment.get("entries") or [])
+            adjustment_notes = list(adjustment.get("notes") or [])
             total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
             if spell_mode == "auto_hit":
                 hit = True
@@ -16068,6 +16243,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 ctype_key = str(ctype or "").strip().lower()
                 if not ctype_key:
                     return False
+                if self._condition_is_immune_for_target(target_obj, ctype_key):
+                    return False
                 stacks = getattr(target_obj, "condition_stacks", None)
                 if not isinstance(stacks, list):
                     stacks = []
@@ -16113,6 +16290,8 @@ class InitiativeTracker(base.InitiativeTracker):
                         pass
                 return aura_bonus
             def _set_prone_if_needed(target_obj: Any) -> bool:
+                if self._condition_is_immune_for_target(target_obj, "prone"):
+                    return False
                 stacks = getattr(target_obj, "condition_stacks", None)
                 if not isinstance(stacks, list):
                     stacks = []
@@ -16391,7 +16570,9 @@ class InitiativeTracker(base.InitiativeTracker):
                     if bool(rider.get("once_per_turn")):
                         self._once_per_turn_limiter_mark(cid, rider_id)
                     mastery_notes.append(f"{str(rider.get('id') or 'rider').strip() or 'rider'} adds {int(rider_amount)} damage.")
-            damage_entries = self._lan_apply_aura_resistances(target, damage_entries)
+            adjustment = self._adjust_damage_entries_for_target(target, damage_entries)
+            damage_entries = list(adjustment.get("entries") or [])
+            adjustment_notes = list(adjustment.get("notes") or [])
             total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
             damage_applied = bool(hit or graze_applied)
             mastery_cleave_candidates: List[Dict[str, Any]] = []

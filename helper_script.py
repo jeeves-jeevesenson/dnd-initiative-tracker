@@ -5438,6 +5438,9 @@ class InitiativeTracker(tk.Tk):
                 if cid not in self.combatants:
                     continue
                 c = self.combatants[cid]
+                if hasattr(self, "_condition_is_immune_for_target") and self._condition_is_immune_for_target(c, ckey):
+                    self._log(f"Condition blocked for {c.name} — immune to {ckey}.", cid=cid)
+                    continue
                 # non-stacking: remove existing of same type
                 c.condition_stacks = [st for st in c.condition_stacks if st.ctype != ckey]
                 st = ConditionStack(sid=self._next_stack_id, ctype=ckey, remaining_turns=remaining)
@@ -10679,7 +10682,10 @@ class BattleMapWindow(tk.Toplevel):
                 if died and use_att and not is_immune:
                     death_logged.add(cid)
 
-                if apply_condition and (r > 0 and not passed) and condition_key and not is_immune:
+                cond_immune = bool(is_immune)
+                if apply_condition and (r > 0 and not passed) and condition_key and hasattr(self.app, "_condition_is_immune_for_target"):
+                    cond_immune = cond_immune or bool(self.app._condition_is_immune_for_target(c, condition_key))
+                if apply_condition and (r > 0 and not passed) and condition_key and not cond_immune:
                     c.condition_stacks = [st for st in c.condition_stacks if st.ctype != condition_key]
                     st = ConditionStack(
                         sid=self.app._next_stack_id,
@@ -10693,8 +10699,8 @@ class BattleMapWindow(tk.Toplevel):
                         self.app._log(f"set condition: {lab} (indef)", cid=cid)
                     else:
                         self.app._log(f"set condition: {lab} ({condition_turns} turn(s))", cid=cid)
-                elif apply_condition and (r > 0 and not passed) and condition_key and is_immune:
-                    self.app._log(f"Condition blocked for {c.name} — immune.", cid=cid)
+                elif apply_condition and (r > 0 and not passed) and condition_key and cond_immune:
+                    self.app._log(f"Condition blocked for {c.name} — immune to {condition_key}.", cid=cid)
 
                 if died:
                     removed.append(cid)

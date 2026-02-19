@@ -138,6 +138,31 @@ class DmMapAttackAutomationTests(unittest.TestCase):
         self.assertEqual(result.get("total_damage"), 10)
         self.assertEqual(self.app.combatants[2].hp, 20)
 
+    def test_apply_map_attack_manual_damage_applies_resistance_and_immunity(self):
+        attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()
+        target = type("Combatant", (), {"cid": 2, "name": "Knight", "ac": 15, "hp": 30})()
+        target.monster_spec = type(
+            "Spec",
+            (),
+            {"raw_data": {"damage_resistances": ["necrotic"], "damage_immunities": ["poison"]}},
+        )()
+        self.app.combatants = {1: attacker, 2: target}
+
+        result = self.app._apply_map_attack_manual_damage(
+            1,
+            2,
+            "Claws",
+            [
+                {"amount": 10, "type": "slashing"},
+                {"amount": 10, "type": "necrotic"},
+                {"amount": 10, "type": "poison"},
+            ],
+        )
+
+        self.assertTrue(result.get("ok"))
+        self.assertEqual(result.get("total_damage"), 15)
+        self.assertEqual(self.app.combatants[2].hp, 15)
+
 
 if __name__ == "__main__":
     unittest.main()
