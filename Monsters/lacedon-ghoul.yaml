@@ -29,3 +29,5 @@ legendary_actions: []
 condition_immunities:
 - Exhaustion
 - Poisoned
+damage_immunities:
+- Poison

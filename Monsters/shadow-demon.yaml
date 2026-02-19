@@ -57,3 +57,11 @@ condition_immunities:
 - Poisoned
 - Prone
 - Restrained
+damage_vulnerabilities:
+- Bludgeoning
+- Cold
+- Fire
+- Lightning
+- Piercing
+- Slashing
+- Poison

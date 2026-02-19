@@ -49,3 +49,5 @@ actions:
     of the coated creature. A creature can remove the stench on itself by using a short rest to bathe in water, alcohol, or
     vinegar.
 legendary_actions: []
+damage_vulnerabilities:
+- Psychic

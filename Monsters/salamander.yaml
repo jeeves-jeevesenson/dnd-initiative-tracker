@@ -49,3 +49,5 @@ damage_resistances:
 - Slashing
 damage_immunities:
 - Fire
+damage_vulnerabilities:
+- Cold

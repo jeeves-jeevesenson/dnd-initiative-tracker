@@ -41,3 +41,5 @@ damage_resistances:
 - Fire
 damage_immunities:
 - Poison
+condition_immunities:
+- Poisoned

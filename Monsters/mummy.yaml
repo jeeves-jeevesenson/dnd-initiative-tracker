@@ -49,3 +49,5 @@ condition_immunities:
 - Frightened
 - Paralyzed
 - Poisoned
+damage_vulnerabilities:
+- Poison

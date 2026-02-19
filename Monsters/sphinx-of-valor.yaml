@@ -36,3 +36,7 @@ legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another
   use to take one of the following actions. The sphinx regains all expended uses at the start of each of its turns.'
 condition_immunities:
 - Frightened
+damage_resistances:
+- Necrotic
+damage_immunities:
+- Psychic

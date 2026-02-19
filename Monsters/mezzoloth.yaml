@@ -48,3 +48,5 @@ damage_resistances:
 damage_immunities:
 - Acid
 - Poison
+condition_immunities:
+- Poisoned

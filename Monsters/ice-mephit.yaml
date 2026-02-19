@@ -46,3 +46,5 @@ damage_immunities:
 - Poison
 condition_immunities:
 - Poisoned
+damage_vulnerabilities:
+- Poison

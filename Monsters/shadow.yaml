@@ -60,3 +60,8 @@ condition_immunities:
 - Prone
 - Restrained
 - Unconscious
+damage_vulnerabilities:
+- Cold
+- Fire
+- Lightning
+- Poison
