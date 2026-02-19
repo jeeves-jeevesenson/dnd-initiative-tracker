@@ -119,6 +119,25 @@ class DmMapAttackAutomationTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[2].hp, 16)
         self.assertTrue(any("applies 14 damage" in message for _cid, message in self.logs))
 
+    def test_apply_map_attack_manual_damage_accepts_simple_addition_expressions(self):
+        attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()
+        target = type("Combatant", (), {"cid": 2, "name": "Knight", "ac": 15, "hp": 30})()
+        self.app.combatants = {1: attacker, 2: target}
+
+        parsed_entries = []
+        amount_inputs = {"slashing": "2+3", "necrotic": "4+1"}
+        for dtype, raw in amount_inputs.items():
+            evaluated = self.app._evaluate_spell_formula(raw, {})
+            amount = int(evaluated) if evaluated is not None else 0
+            if amount > 0:
+                parsed_entries.append({"amount": amount, "type": dtype})
+
+        result = self.app._apply_map_attack_manual_damage(1, 2, "Claws", parsed_entries)
+
+        self.assertTrue(result.get("ok"))
+        self.assertEqual(result.get("total_damage"), 10)
+        self.assertEqual(self.app.combatants[2].hp, 20)
+
 
 if __name__ == "__main__":
     unittest.main()
