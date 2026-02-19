@@ -8172,16 +8172,28 @@ class InitiativeTracker(base.InitiativeTracker):
                 if ckey:
                     defenses["condition_immunities"].add(ckey)
 
+        def _consume_defense_map(raw_map: Any) -> None:
+            if not isinstance(raw_map, dict):
+                return
+            _add_damage("damage_resistances", raw_map.get("damage_resistances"))
+            _add_damage("damage_immunities", raw_map.get("damage_immunities"))
+            _add_damage("damage_vulnerabilities", raw_map.get("damage_vulnerabilities"))
+            _add_condition(raw_map.get("condition_immunities"))
+            _classify_legacy(raw_map.get("resistances"), "damage_resistances")
+            _classify_legacy(raw_map.get("immunities"), "damage_immunities")
+            _classify_legacy(raw_map.get("vulnerabilities"), "damage_vulnerabilities")
+
         spec = getattr(target_obj, "monster_spec", None)
         raw_data = getattr(spec, "raw_data", None) if spec is not None else None
-        if isinstance(raw_data, dict):
-            _add_damage("damage_resistances", raw_data.get("damage_resistances"))
-            _add_damage("damage_immunities", raw_data.get("damage_immunities"))
-            _add_damage("damage_vulnerabilities", raw_data.get("damage_vulnerabilities"))
-            _add_condition(raw_data.get("condition_immunities"))
-            _classify_legacy(raw_data.get("resistances"), "damage_resistances")
-            _classify_legacy(raw_data.get("immunities"), "damage_immunities")
-            _classify_legacy(raw_data.get("vulnerabilities"), "damage_vulnerabilities")
+        _consume_defense_map(raw_data)
+
+        if spec is not None and not isinstance(raw_data, dict):
+            for alt_attr in ("raw", "data", "details"):
+                _consume_defense_map(getattr(spec, alt_attr, None))
+
+        for alt_attr in ("monster_raw_data", "raw_data", "stat_block", "monster_data"):
+            _consume_defense_map(getattr(target_obj, alt_attr, None))
+        _consume_defense_map(getattr(target_obj, "defenses", None))
 
         try:
             if bool(getattr(target_obj, "is_pc", False)):
@@ -17384,13 +17396,13 @@ class InitiativeTracker(base.InitiativeTracker):
         index_data = _read_index_file(index_path)
         cache_version = int(index_data.get("version") or 0) if isinstance(index_data, dict) else 0
         cached_entries = index_data.get("entries") if isinstance(index_data.get("entries"), dict) else {}
-        if cache_version < 2:
+        if cache_version < 3:
             cached_entries = {}
         new_entries: Dict[str, Any] = {}
         yaml_missing_logged = False
 
         if not files:
-            _write_index_file(index_path, {"version": 2, "entries": {}})
+            _write_index_file(index_path, {"version": 3, "entries": {}})
             return
 
         for fp in files:
@@ -17471,6 +17483,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     "name", "size", "type", "alignment", "initiative", "challenge_rating", "ac", "hp", "speed",
                     "traits", "actions", "legendary_actions", "description", "habitat", "treasure", "levels_allowed",
                     "variants", "damage_type_by_variant", "bonus_actions",
+                    "damage_vulnerabilities", "damage_resistances", "damage_immunities", "condition_immunities",
+                    "vulnerabilities", "resistances", "immunities",
                 ):
                     if key in mon:
                         raw_data[key] = mon.get(key)
@@ -17629,7 +17643,7 @@ class InitiativeTracker(base.InitiativeTracker):
             }
 
         self._monster_specs.sort(key=lambda spec: (spec.name.lower(), str(spec.filename).lower()))
-        _write_index_file(index_path, {"version": 2, "entries": new_entries})
+        _write_index_file(index_path, {"version": 3, "entries": new_entries})
 
 
     def _load_monster_details(self, name: str) -> Optional[MonsterSpec]:
@@ -17673,6 +17687,13 @@ class InitiativeTracker(base.InitiativeTracker):
             "variants",
             "damage_type_by_variant",
             "bonus_actions",
+            "damage_vulnerabilities",
+            "damage_resistances",
+            "damage_immunities",
+            "condition_immunities",
+            "vulnerabilities",
+            "resistances",
+            "immunities",
         ):
             if key in monster_data:
                 raw_data[key] = monster_data.get(key)
