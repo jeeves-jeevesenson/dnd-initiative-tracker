@@ -46,3 +46,23 @@ actions:
   desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one creature. {@h}10 ({@damage 2d6 + 3}) psychic damage or, if the demon
     had advantage on the attack roll, 17 ({@damage 4d6 + 3}) psychic damage.'
 legendary_actions: []
+damage_resistances: &id001
+- Acid
+- Bludgeoning
+- Cold
+- Fire
+- Lightning
+- Piercing
+- Slashing
+- Poison
+resistances: *id001
+damage_immunities:
+- Necrotic
+- Poison
+condition_immunities:
+- Exhaustion
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone

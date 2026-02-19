@@ -37,3 +37,8 @@ traits:
     the target takes an extra 9 ({@damage 2d8}) piercing damage. If the target is a creature, it must succeed on a {@dc 14}
     Strength saving throw or be pushed up to 10 feet away and knocked {@condition prone}.
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Exhaustion
+- Poisoned

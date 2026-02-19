@@ -48,3 +48,11 @@ actions:
     the wound with a successful {@dc 12} Wisdom ({@skill Medicine}) check. The wound also closes if the target receives magical
     healing.'
 legendary_actions: []
+damage_resistances: &id001
+- Poison
+resistances: *id001
+damage_immunities:
+- Fire
+- Poison
+condition_immunities:
+- Frightened

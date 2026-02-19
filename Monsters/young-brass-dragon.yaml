@@ -53,3 +53,5 @@ actions:
     ends for a creature if the creature takes damage or someone uses an action to wake it.
 traits: []
 legendary_actions: []
+damage_immunities:
+- Fire

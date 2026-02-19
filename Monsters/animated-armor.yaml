@@ -44,3 +44,13 @@ traits:
 - name: False Appearance
   desc: While the armor remains motionless, it is indistinguishable from a normal suit of armor.
 legendary_actions: []
+damage_immunities:
+- Poison
+- Psychic
+condition_immunities:
+- Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified

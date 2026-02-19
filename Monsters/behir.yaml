@@ -51,3 +51,5 @@ actions:
     the corpse by using 15 feet of movement, exiting {@condition prone}.
 traits: []
 legendary_actions: []
+damage_immunities:
+- Lightning

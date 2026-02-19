@@ -42,3 +42,6 @@ actions:
     dies; until the treant dies or is more than 120 feet from the tree; or until the treant takes a bonus action to turn it
     back into an inanimate tree. The tree then takes root if possible.
 legendary_actions: []
+damage_resistances: &id001
+- Bludgeoning
+resistances: *id001

@@ -48,3 +48,15 @@ actions:
   desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}8 ({@damage 1d8 + 4}) slashing damage, or 9 ({@damage 1d10
     + 4}) slashing damage if used with two hands.'
 legendary_actions: []
+damage_immunities:
+- Necrotic
+- Poison
+condition_immunities:
+- Blinded
+- Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified
+- Poisoned

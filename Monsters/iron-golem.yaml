@@ -51,3 +51,13 @@ actions:
   desc: The golem exhales poisonous gas in a 15-foot cone. Each creature in that area must make a {@dc 19} Constitution saving
     throw, taking 45 ({@damage 10d8}) poison damage on a failed save, or half as much damage on a successful one.
 legendary_actions: []
+damage_immunities:
+- Fire
+- Poison
+- Psychic
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified

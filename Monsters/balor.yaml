@@ -56,3 +56,15 @@ actions:
   desc: The balor magically teleports, along with any equipment it is wearing or carrying, up to 120 feet to an unoccupied
     space it can see.
 legendary_actions: []
+damage_resistances: &id001
+- Cold
+- Lightning
+- Bludgeoning
+- Piercing
+- Slashing
+resistances: *id001
+damage_immunities:
+- Fire
+- Poison
+condition_immunities:
+- Poisoned

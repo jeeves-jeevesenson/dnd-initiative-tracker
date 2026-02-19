@@ -34,3 +34,12 @@ habitat: Underdark
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Blinded
+- Charmed
+- Deafened
+- Frightened
+- Paralyzed
+- Poisoned

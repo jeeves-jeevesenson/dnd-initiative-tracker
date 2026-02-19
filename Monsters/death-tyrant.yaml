@@ -73,3 +73,11 @@ actions:
 legendary_actions:
 - name: Eye Ray
   desc: The death tyrant uses one random eye ray.
+damage_immunities:
+- Poison
+condition_immunities:
+- Charmed
+- Exhaustion
+- Paralyzed
+- Petrified
+- Poisoned

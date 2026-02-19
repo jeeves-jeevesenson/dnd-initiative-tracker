@@ -35,3 +35,8 @@ actions:
     success.'
 traits: []
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Charmed
+- Exhaustion

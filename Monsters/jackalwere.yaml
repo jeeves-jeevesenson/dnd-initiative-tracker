@@ -47,3 +47,7 @@ actions:
     to this jackalwere's gaze for the next 24 hours. Undead and creatures immune to being {@condition charmed} aren't affected
     by it.
 legendary_actions: []
+damage_immunities:
+- Bludgeoning
+- Piercing
+- Slashing

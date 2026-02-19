@@ -51,3 +51,5 @@ actions:
   desc: '{@atk rw} {@hit 4} to hit, range 150/600 ft., one target. {@h}6 ({@damage 1d8 + 2}) piercing damage plus 7 ({@damage
     2d6}) poison damage.'
 legendary_actions: []
+damage_immunities:
+- Poison

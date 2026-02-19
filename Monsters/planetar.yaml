@@ -46,3 +46,6 @@ actions:
   desc: The planetar touches another creature. The target magically regains 30 ({@dice 6d8 + 3}) hit points and is freed from
     any curse, disease, poison, blindness, or deafness.
 legendary_actions: []
+condition_immunities:
+- Charmed
+- Exhaustion

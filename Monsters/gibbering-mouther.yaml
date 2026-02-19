@@ -47,3 +47,5 @@ actions:
     of light on impact. Each creature within 5 feet of the flash must succeed on a {@dc 13} Dexterity saving throw or be {@condition
     blinded} until the end of the mouther's next turn.
 legendary_actions: []
+condition_immunities:
+- Prone

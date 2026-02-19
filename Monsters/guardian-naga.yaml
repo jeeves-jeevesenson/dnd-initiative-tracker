@@ -46,3 +46,8 @@ actions:
   desc: '{@atk rw} {@hit 8} to hit, range 15/30 ft., one creature. {@h}The target must make a {@dc 15} Constitution saving
     throw, taking 45 ({@damage 10d8}) poison damage on a failed save, or half as much damage on a successful one.'
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Charmed
+- Poisoned

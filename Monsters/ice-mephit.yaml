@@ -45,3 +45,8 @@ actions:
   desc: The mephit exhales a 15-foot cone of cold air. Each creature in that area must succeed on a {@dc 10} Dexterity saving
     throw, taking 5 ({@damage 2d4}) cold damage on a failed save, or half as much damage on a successful one.
 legendary_actions: []
+damage_immunities:
+- Cold
+- Poison
+condition_immunities:
+- Poisoned

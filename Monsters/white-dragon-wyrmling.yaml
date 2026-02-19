@@ -45,3 +45,5 @@ actions:
   desc: The dragon exhales an icy blast of hail in a 15-foot cone. Each creature in that area must make a {@dc 12} Constitution
     saving throw, taking 22 ({@damage 5d8}) cold damage on a failed save, or half as much damage on a successful one.
 legendary_actions: []
+damage_immunities:
+- Cold

@@ -48,3 +48,5 @@ actions:
     of each of its turns, ending the effect on itself with a successful save.
 traits: []
 legendary_actions: []
+damage_immunities:
+- Acid

@@ -51,3 +51,15 @@ actions:
     4d8}) acid damage. In addition, nonmagical armor worn by the target is partly dissolved and takes a permanent and cumulative
     −1 penalty to the AC it offers. The armor is destroyed if the penalty reduces its AC to 10.'
 legendary_actions: []
+damage_immunities:
+- Acid
+- Cold
+- Lightning
+- Slashing
+condition_immunities:
+- Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Grappled
+- Prone

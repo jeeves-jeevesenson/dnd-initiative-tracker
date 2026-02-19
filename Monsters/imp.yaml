@@ -55,3 +55,9 @@ actions:
     {@status concentration||concentrating} on a spell). Any equipment the imp wears or carries is {@condition invisible} with
     it.
 legendary_actions: []
+damage_resistances: &id001
+- Poison
+resistances: *id001
+damage_immunities:
+- Fire
+- Poison

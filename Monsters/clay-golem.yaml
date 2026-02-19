@@ -57,3 +57,19 @@ actions:
   desc: Until the end of its next turn, the golem magically gains a +2 bonus to its AC, has advantage on Dexterity saving
     throws, and can use its slam attack as a bonus action.
 legendary_actions: []
+damage_resistances: &id001
+- Bludgeoning
+- Piercing
+- Poison
+- Psychic
+resistances: *id001
+damage_immunities:
+- Acid
+- Poison
+- Psychic
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified

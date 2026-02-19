@@ -45,3 +45,13 @@ actions:
   desc: The arcanaloth magically teleports, along with any equipment it is wearing or carrying, up to 60 feet to an unoccupied
     space it can see.
 legendary_actions: []
+damage_resistances: &id001
+- Cold
+- Fire
+- Poison
+resistances: *id001
+damage_immunities:
+- Acid
+- Poison
+condition_immunities:
+- Charmed

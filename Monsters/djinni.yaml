@@ -45,3 +45,5 @@ actions:
     check. If the check succeeds, the creature is no longer {@condition restrained} and moves to the nearest space outside
     the whirlwind.
 legendary_actions: []
+damage_immunities:
+- Lightning

@@ -43,3 +43,5 @@ actions:
     the saving throw at the end of each of its turns, ending the effect on itself on a success.
 traits: []
 legendary_actions: []
+damage_immunities:
+- Cold

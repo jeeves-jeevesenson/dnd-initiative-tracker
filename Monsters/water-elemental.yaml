@@ -51,3 +51,16 @@ actions:
     grappled} by it takes 13 ({@damage 2d8 + 4}) bludgeoning damage. A creature within 5 feet of the elemental can pull a
     creature or object out of it by taking an action to make a {@dc 14} Strength check and succeeding.
 legendary_actions: []
+damage_resistances: &id001
+- Acid
+resistances: *id001
+damage_immunities:
+- Poison
+condition_immunities:
+- Exhaustion
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained

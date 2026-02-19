@@ -38,3 +38,11 @@ traits:
 - name: Turn Immunity
   desc: The claw is immune to effects that turn undead.
 legendary_actions: []
+damage_immunities:
+- Necrotic
+- Poison
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Incapacitated

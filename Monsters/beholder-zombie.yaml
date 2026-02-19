@@ -47,3 +47,8 @@ actions:
     throw. If the target is a Huge or larger nonmagical object or creation of magical force, this ray disintegrates a 10-foot
     cube of it.
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Exhaustion
+- Poisoned

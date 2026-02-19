@@ -43,3 +43,8 @@ actions:
   desc: The mephit exhales a 15-foot cone of fire. Each creature in that area must make a {@dc 11} Dexterity saving throw,
     taking 7 ({@damage 2d6}) fire damage on a failed save, or half as much damage on a successful one.
 legendary_actions: []
+damage_immunities:
+- Fire
+- Poison
+condition_immunities:
+- Exhaustion

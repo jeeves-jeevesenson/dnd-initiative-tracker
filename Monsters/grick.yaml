@@ -37,3 +37,8 @@ traits:
 - name: Stone Camouflage
   desc: The grick has advantage on Dexterity ({@skill Stealth}) checks made to hide in rocky terrain.
 legendary_actions: []
+damage_resistances: &id001
+- Bludgeoning
+- Piercing
+- Slashing
+resistances: *id001

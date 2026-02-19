@@ -43,3 +43,6 @@ actions:
     saving throw, taking 52 ({@damage 15d6}) fire damage on a failed save, or half as much damage on a successful one. Being
     underwater doesn't grant resistance against this damage.
 legendary_actions: []
+damage_resistances: &id001
+- Fire
+resistances: *id001

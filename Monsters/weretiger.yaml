@@ -49,3 +49,7 @@ traits:
     turn, that target must succeed on a {@dc 14} Strength saving throw or be knocked {@condition prone}. If the target is
     {@condition prone}, the weretiger can make one bite attack against it as a bonus action.
 legendary_actions: []
+damage_immunities:
+- Bludgeoning
+- Piercing
+- Slashing

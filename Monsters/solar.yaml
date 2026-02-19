@@ -70,3 +70,10 @@ legendary_actions:
     spell removes the blindness.
 legendary_uses: 'Legendary Action Uses: 3. Immediately after another creature''s turn, the solar can expend a use to take
   one of the following actions. The solar regains all expended uses at the start of each of its turns.'
+damage_immunities:
+- Poison
+- Radiant
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened

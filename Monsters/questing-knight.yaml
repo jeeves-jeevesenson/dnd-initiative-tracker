@@ -33,3 +33,5 @@ treasure: Individual, Armaments
 traits: []
 actions: []
 legendary_actions: []
+condition_immunities:
+- Charmed

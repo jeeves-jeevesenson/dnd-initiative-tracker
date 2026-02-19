@@ -44,3 +44,9 @@ traits:
 - name: Wakeful
   desc: When one of the ettin's heads is asleep, its other head is awake.
 legendary_actions: []
+condition_immunities:
+- Blinded
+- Charmed
+- Deafened
+- Frightened
+- Stunned

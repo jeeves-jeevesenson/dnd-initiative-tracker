@@ -33,3 +33,6 @@ actions:
 - name: Claws
   desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}3 ({@damage 1d4 + 1}) piercing damage.'
 legendary_actions: []
+condition_immunities:
+- Blinded
+- Deafened

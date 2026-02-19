@@ -42,3 +42,5 @@ actions:
   desc: The wolf exhales a blast of freezing wind in a 15-foot cone. Each creature in that area must make a {@dc 12} Dexterity
     saving throw, taking 18 ({@damage 4d8}) cold damage on a failed save, or half as much damage on a successful one.
 legendary_actions: []
+damage_immunities:
+- Cold

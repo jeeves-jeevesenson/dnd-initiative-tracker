@@ -51,3 +51,9 @@ actions:
 - name: Bite
   desc: '{@atk mw} {@hit 8} to hit, reach 10 ft., one target. {@h}10 ({@damage 1d10 + 5}) piercing damage.'
 legendary_actions: []
+condition_immunities:
+- Blinded
+- Charmed
+- Deafened
+- Frightened
+- Stunned

@@ -26,3 +26,5 @@ description: See Summon Celestial
 actions: []
 traits: []
 legendary_actions: []
+condition_immunities:
+- Charmed

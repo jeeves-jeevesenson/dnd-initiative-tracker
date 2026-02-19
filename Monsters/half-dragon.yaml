@@ -35,3 +35,8 @@ treasure: Armaments
 traits: []
 actions: []
 legendary_actions: []
+damage_resistances: &id001
+- Cold
+- Fire
+- Lightning
+resistances: *id001

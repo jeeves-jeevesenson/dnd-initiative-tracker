@@ -59,3 +59,14 @@ actions:
     of the revenant for 1 minute. The {@condition frightened} target can repeat the saving throw at the end of each of its
     turns, with disadvantage if it can see the revenant, ending the {@condition frightened} condition on itself on a success.
 legendary_actions: []
+damage_resistances: &id001
+- Necrotic
+resistances: *id001
+damage_immunities:
+- Poison
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Poisoned

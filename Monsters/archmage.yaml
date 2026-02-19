@@ -38,3 +38,5 @@ actions:
 - name: Dagger
   desc: '{@atk mw,rw} {@hit 6} to hit, reach 5 ft. or range 20/60 ft., one target. {@h}4 ({@damage 1d4 + 2}) piercing damage.'
 legendary_actions: []
+damage_immunities:
+- Psychic

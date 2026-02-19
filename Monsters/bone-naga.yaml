@@ -29,3 +29,9 @@ treasure: Relics
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Charmed
+- Exhaustion
+- Paralyzed

@@ -53,3 +53,5 @@ actions:
   desc: The dragon exhales an icy blast in a 30-foot cone. Each creature in that area must make a {@dc 15} Constitution saving
     throw, taking 45 ({@damage 10d8}) cold damage on a failed save, or half as much damage on a successful one.
 legendary_actions: []
+damage_immunities:
+- Cold

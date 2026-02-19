@@ -43,3 +43,17 @@ actions:
     must succeed on a {@dc 11} Wisdom saving throw or be magically {@condition frightened} until the end of the scarecrow's
     next turn. The {@condition frightened} target is {@condition paralyzed}.
 legendary_actions: []
+damage_resistances: &id001
+- Bludgeoning
+- Piercing
+- Slashing
+resistances: *id001
+damage_immunities:
+- Poison
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Poisoned
+- Unconscious

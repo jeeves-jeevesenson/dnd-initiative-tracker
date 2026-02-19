@@ -35,3 +35,8 @@ treasure: Any
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Cold
+- Necrotic
+condition_immunities:
+- Charmed

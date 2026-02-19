@@ -30,3 +30,12 @@ actions:
 - name: Claws
   desc: '{@atk mw} {@hit 2} to hit, reach 5 ft., one target. {@h}5 ({@damage 2d4}) slashing damage.'
 legendary_actions: []
+damage_resistances: &id001
+- Cold
+- Fire
+resistances: *id001
+damage_immunities:
+- Poison
+condition_immunities:
+- Charmed
+- Frightened

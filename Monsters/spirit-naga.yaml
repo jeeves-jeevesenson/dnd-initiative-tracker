@@ -35,3 +35,7 @@ actions:
     must make a {@dc 13} Constitution saving throw, taking 31 ({@damage 7d8}) poison damage on a failed save, or half as much
     damage on a successful one.'
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Charmed

@@ -47,3 +47,11 @@ actions:
     hours.
 traits: []
 legendary_actions: []
+damage_immunities:
+- Necrotic
+- Poison
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Paralyzed

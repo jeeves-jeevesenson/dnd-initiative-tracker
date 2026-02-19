@@ -37,3 +37,5 @@ actions:
 - name: Hurl Flame
   desc: '{@atk rs} {@hit 7} to hit, range 120 ft., one target. {@h}17 ({@damage 5d6}) fire damage.'
 legendary_actions: []
+damage_immunities:
+- Fire

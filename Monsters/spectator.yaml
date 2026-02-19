@@ -46,3 +46,5 @@ actions:
 - name: Create Food and Water
   desc: The spectator magically creates enough food and water to sustain itself for 24 hours.
 legendary_actions: []
+condition_immunities:
+- Exhaustion

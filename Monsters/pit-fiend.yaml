@@ -55,3 +55,14 @@ actions:
 - name: Tail
   desc: '{@atk mw} {@hit 14} to hit, reach 10 ft., one target. {@h}24 ({@damage 3d10 + 8}) bludgeoning damage.'
 legendary_actions: []
+damage_resistances: &id001
+- Cold
+- Bludgeoning
+- Piercing
+- Slashing
+resistances: *id001
+damage_immunities:
+- Fire
+- Poison
+condition_immunities:
+- Poisoned

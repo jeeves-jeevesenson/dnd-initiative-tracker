@@ -46,3 +46,5 @@ traits:
     that target must succeed on a {@dc 16} Strength saving throw or be knocked {@condition prone}. If the target is {@condition
     prone}, the gorgon can make one attack with its hooves against it as a bonus action.
 legendary_actions: []
+condition_immunities:
+- Exhaustion

@@ -59,3 +59,7 @@ actions:
     saving throw, taking 17 ({@damage 5d6}) cold damage on a failed save, or half as much damage on a successful one. The
     frigid air dissipates when the rest of the wall vanishes.
 legendary_actions: []
+damage_immunities:
+- Cold
+- Fire
+- Poison

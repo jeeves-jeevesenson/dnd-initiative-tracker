@@ -51,3 +51,12 @@ actions:
     These effects last for 1 minute. A target can repeat the saving throw at the end of each of its turns, ending the effect
     on itself on a success.
 legendary_actions: []
+damage_immunities:
+- Poison
+- Psychic
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified

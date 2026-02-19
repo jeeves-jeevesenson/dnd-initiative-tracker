@@ -43,3 +43,7 @@ traits:
 - name: Keen Smell
   desc: The wererat has advantage on Wisdom ({@skill Perception}) checks that rely on smell.
 legendary_actions: []
+damage_immunities:
+- Bludgeoning
+- Piercing
+- Slashing

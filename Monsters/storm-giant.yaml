@@ -47,3 +47,5 @@ actions:
     of that point must make a {@dc 17} Dexterity saving throw, taking 54 ({@damage 12d8}) lightning damage on a failed save,
     or half as much damage on a successful one.
 legendary_actions: []
+damage_immunities:
+- Lightning

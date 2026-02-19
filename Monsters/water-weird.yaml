@@ -43,3 +43,13 @@ actions:
     grapple ends, the target is {@condition restrained}, the water weird tries to drown it, and the water weird can''t constrict
     another target.'
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Exhaustion
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained

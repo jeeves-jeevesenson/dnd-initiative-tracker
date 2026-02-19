@@ -45,3 +45,9 @@ actions:
     3d8}) poison damage, and the target must succeed on a {@dc 14} Constitution saving throw or be {@condition poisoned}.
     The poison lasts until it is removed by the {@spell lesser restoration} spell or similar magic.'
 legendary_actions: []
+damage_resistances: &id001
+- Poison
+resistances: *id001
+damage_immunities:
+- Fire
+- Poison

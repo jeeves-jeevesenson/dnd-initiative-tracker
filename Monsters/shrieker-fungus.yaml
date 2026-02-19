@@ -29,3 +29,7 @@ habitat: Underdark
 traits: []
 actions: []
 legendary_actions: []
+condition_immunities:
+- Blinded
+- Charmed
+- Deafened

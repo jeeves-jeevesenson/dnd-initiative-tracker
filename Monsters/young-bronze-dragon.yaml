@@ -53,3 +53,5 @@ actions:
     creature in that area must succeed on a {@dc 15} Strength saving throw. On a failed save, the creature is pushed 40 feet
     away from the dragon.
 legendary_actions: []
+damage_immunities:
+- Lightning

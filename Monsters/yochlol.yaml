@@ -54,3 +54,9 @@ actions:
     the creature must succeed on a {@dc 14} Constitution saving throw or be {@condition poisoned} until the start of its next
     turn. While {@condition poisoned} in this way, the target is {@condition incapacitated}.
 legendary_actions: []
+damage_resistances: &id001
+- Cold
+- Fire
+resistances: *id001
+damage_immunities:
+- Poison

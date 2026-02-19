@@ -39,3 +39,16 @@ actions:
 - name: Slam
   desc: '{@atk mw} {@hit 8} to hit, reach 10 ft., one target. {@h}14 ({@damage 2d8 + 5}) bludgeoning damage.'
 legendary_actions: []
+damage_resistances: &id001
+- Bludgeoning
+- Piercing
+- Slashing
+resistances: *id001
+damage_immunities:
+- Poison
+condition_immunities:
+- Exhaustion
+- Paralyzed
+- Petrified
+- Poisoned
+- Unconscious

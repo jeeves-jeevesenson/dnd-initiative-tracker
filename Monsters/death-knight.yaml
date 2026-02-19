@@ -48,3 +48,9 @@ actions:
     corners. A creature takes 35 ({@damage 10d6}) fire damage and 35 ({@damage 10d6}) necrotic damage on a failed save, or
     half as much damage on a successful one.
 legendary_actions: []
+damage_immunities:
+- Necrotic
+- Poison
+condition_immunities:
+- Exhaustion
+- Frightened

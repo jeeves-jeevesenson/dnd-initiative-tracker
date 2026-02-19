@@ -30,3 +30,6 @@ treasure: Individual, Armaments
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Fire
+- Poison
