@@ -5055,20 +5055,11 @@ class InitiativeTracker(tk.Tk):
                 resist_note = ""
                 imm_note = ""
                 base_components = []
-                applied_components = []
                 total_applied = 0
                 for comp in components:
-                    dtype_display = comp["dtype"].lower() if comp["dtype"] else "untyped"
-                    base_components.append(f"{comp['amount']} {dtype_display}")
-                    applied = comp["amount"]
-                    if row["resistant_var"].get():
-                        applied = applied // 2
-                    total_applied += int(applied)
-                    applied_components.append(f"{applied} {dtype_display}")
-                crit_suffix = " Critical Hit!" if row["crit_var"].get() and total_applied > 0 else ""
+                    base_components.append(f"{comp['amount']} {(comp['dtype'].lower() if comp['dtype'] else 'untyped')}")
 
                 component_summary = " + ".join(base_components)
-                applied_summary = " + ".join(applied_components)
 
                 if row["immune_var"].get():
                     imm_note = " (immune)"
@@ -5086,8 +5077,59 @@ class InitiativeTracker(tk.Tk):
                             self._log(f"Damage to {target_name} was blocked — immune.{imm_note}")
                     continue
 
-                if row["resistant_var"].get():
+                # Build normalized damage entries and run through automated defense adjustment
+                defense_note = ""
+                normalized_entries = [
+                    {"amount": comp["amount"], "type": str(comp["dtype"]).lower() if comp["dtype"] else ""}
+                    for comp in components
+                    if comp["amount"] > 0
+                ]
+                force_resistant = bool(row["resistant_var"].get())
+                if normalized_entries and hasattr(self, "_adjust_damage_entries_for_target"):
+                    adj = self._adjust_damage_entries_for_target(c, normalized_entries)
+                    adj_entries = adj.get("entries") or []
+                    adj_notes = adj.get("notes") or []
+                    if adj_notes:
+                        note_parts = []
+                        for n in adj_notes:
+                            reasons = ", ".join(n.get("reasons") or [])
+                            note_parts.append(f"{reasons}: {n['original']} {n['type']}→{n['applied']}")
+                        defense_note = " (" + "; ".join(note_parts) + ")"
+                    # Apply force-resistant on top of automated adjustment (but avoid double-halving if already resistant)
+                    applied_entries = []
+                    for entry in adj_entries:
+                        amt = int(entry.get("amount") or 0)
+                        if force_resistant:
+                            # Only halve if automation didn't already apply resistance for this type
+                            already_resisted = any(
+                                n.get("type") == str(entry.get("type") or "").lower() and "resistant" in (n.get("reasons") or [])
+                                for n in adj_notes
+                            )
+                            if not already_resisted:
+                                amt = amt // 2
+                        applied_entries.append({"amount": amt, "type": entry.get("type", "")})
+                    total_applied = sum(int(e["amount"]) for e in applied_entries)
+                else:
+                    # Fallback: manual resistant only
+                    for comp in components:
+                        amt = comp["amount"]
+                        if force_resistant:
+                            amt = amt // 2
+                        total_applied += int(amt)
+                    applied_entries = [
+                        {"amount": (comp["amount"] // 2 if force_resistant else comp["amount"]),
+                         "type": str(comp["dtype"]).lower() if comp["dtype"] else ""}
+                        for comp in components
+                    ]
+
+                if force_resistant:
                     resist_note = " (resistant)"
+
+                applied_components_str = " + ".join(
+                    f"{e['amount']} {e['type'] or 'untyped'}".strip() for e in applied_entries if e["amount"] > 0
+                )
+                applied_summary = applied_components_str or "0"
+                crit_suffix = " Critical Hit!" if row["crit_var"].get() and total_applied > 0 else ""
 
                 old_hp = int(c.hp)
                 c.hp = max(0, old_hp - int(total_applied))
@@ -5105,11 +5147,11 @@ class InitiativeTracker(tk.Tk):
                     self.combatants.pop(cid, None)
                     removed_all.append(cid)
                 else:
-                    summary = applied_summary if row["resistant_var"].get() else component_summary
+                    summary = applied_summary if (force_resistant or defense_note) else component_summary
                     if attacker_name:
-                        self._log(f"{attacker_name} deals {summary} damage to {target_name}{resist_note}{crit_suffix}")
+                        self._log(f"{attacker_name} deals {summary} damage to {target_name}{resist_note}{defense_note}{crit_suffix}")
                     else:
-                        self._log(f"{target_name} takes {summary} damage{resist_note}{crit_suffix}")
+                        self._log(f"{target_name} takes {summary} damage{resist_note}{defense_note}{crit_suffix}")
 
             if removed_all:
                 if getattr(self, "start_cid", None) in removed_all:
@@ -10632,6 +10674,35 @@ class BattleMapWindow(tk.Toplevel):
                         total_damage += applied
                     component_desc = _format_component_desc(applied_components)
 
+                # Apply YAML/aura resistances & immunities (unless DM forced immune via UI)
+                defense_note = ""
+                if not is_immune and not nat1_max_applied and applied_components:
+                    damage_entries_for_adj = [
+                        {"amount": amt, "type": str(dtype).lower()}
+                        for amt, dtype in applied_components
+                        if amt > 0
+                    ]
+                    if damage_entries_for_adj and hasattr(self.app, "_adjust_damage_entries_for_target"):
+                        adj = self.app._adjust_damage_entries_for_target(c, damage_entries_for_adj)
+                        adj_entries = adj.get("entries") or []
+                        adj_notes = adj.get("notes") or []
+                        if adj_notes:
+                            note_parts = []
+                            for n in adj_notes:
+                                reasons = ", ".join(n.get("reasons") or [])
+                                note_parts.append(f"{reasons}: {n['original']} {n['type']}→{n['applied']}")
+                            defense_note = " (" + "; ".join(note_parts) + ")"
+                        # Rebuild applied_components and total_damage from adjusted entries
+                        adjusted_map: dict = {}
+                        for entry in adj_entries:
+                            adjusted_map[str(entry.get("type") or "").lower()] = int(entry.get("amount") or 0)
+                        applied_components = [
+                            (adjusted_map.get(str(dtype).lower(), 0), dtype)
+                            for _, dtype in applied_components
+                        ]
+                        total_damage = sum(amt for amt, _ in applied_components)
+                        component_desc = _format_component_desc(applied_components)
+
                 immune_desc = component_desc
                 if not immune_desc:
                     immune_desc = _format_component_desc(components)
@@ -10661,7 +10732,9 @@ class BattleMapWindow(tk.Toplevel):
                 if not is_immune:
                     nat1_note = " (max on nat 1)" if nat1_max_applied else ""
                     if total_damage == 0:
-                        if use_att:
+                        if defense_note:
+                            self.app._log(f"Damage to {c.name} was blocked{defense_note}.")
+                        elif use_att:
                             self.app._log(
                                 f"{dname}: {attacker} hits {c.name} (save {save_name} {tot}) — no damage{nat1_note}"
                             )
@@ -10672,11 +10745,11 @@ class BattleMapWindow(tk.Toplevel):
                         dead_note = " (Dead)" if (died and use_att) else ""
                         if use_att:
                             self.app._log(
-                                f"{dname}: {attacker} hits {c.name} for {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note}){dead_note}"
+                                f"{dname}: {attacker} hits {c.name} for {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note}){defense_note}{dead_note}"
                             )
                         else:
                             self.app._log(
-                                f"{dname}: {c.name} takes {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note})"
+                                f"{dname}: {c.name} takes {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note}){defense_note}"
                             )
 
                 if died and use_att and not is_immune:
