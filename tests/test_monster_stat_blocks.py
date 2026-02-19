@@ -1,17 +1,12 @@
 import unittest
-import threading
+from pathlib import Path
 
 import dnd_initative_tracker as tracker_mod
 
 
 class MonsterStatBlockTests(unittest.TestCase):
     def _tracker(self):
-        tracker = object.__new__(tracker_mod.InitiativeTracker)
-        tracker._monster_image_cache = {}
-        tracker._monster_image_cache_ttl_s = 60
-        tracker._monster_image_negative_ttl_s = 30
-        tracker._monster_image_lock = threading.Lock()
-        return tracker
+        return object.__new__(tracker_mod.InitiativeTracker)
 
     def test_variant_and_slot_level_are_applied_to_payload(self):
         tracker = self._tracker()
@@ -82,6 +77,41 @@ class MonsterStatBlockTests(unittest.TestCase):
 
         payload = tracker._monster_stat_block_payload(spec)
         self.assertEqual(payload["recharge"], ["Fire Breath (Recharge 5-6)"])
+
+    def test_payload_uses_local_monster_image_when_present(self):
+        tracker = self._tracker()
+        image_dir = Path(tracker_mod.__file__).parent / "Monsters" / "Images"
+        image_dir.mkdir(parents=True, exist_ok=True)
+        image_path = image_dir / "unit-test-monster.jpg"
+
+        try:
+            image_path.write_bytes(b"\xff\xd8\xff\xd9")
+            spec = tracker_mod.MonsterSpec(
+                filename="unit-test-monster.yaml",
+                name="Unit Test Monster",
+                mtype="Beast",
+                cr=1,
+                hp=10,
+                speed=30,
+                swim_speed=0,
+                fly_speed=0,
+                burrow_speed=0,
+                climb_speed=0,
+                dex=10,
+                init_mod=0,
+                saving_throws={},
+                ability_mods={},
+                raw_data={},
+            )
+
+            payload = tracker._monster_stat_block_payload(spec)
+            self.assertEqual(payload.get("image_url"), "/monsters/images/unit-test-monster.jpg")
+            self.assertNotIn("image_proxy_url", payload)
+        finally:
+            try:
+                image_path.unlink()
+            except FileNotFoundError:
+                pass
 
 
 if __name__ == "__main__":
