@@ -15,12 +15,6 @@ abilities:
   Int: 4
   Wis: 10
   Cha: 16
-immunities:
-- Fire (Fire only)
-- Poison; Exhaustion
-- Paralyzed
-- Petrified
-- Poisoned
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial
@@ -29,12 +23,11 @@ description: See Summon Elemental
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Lightning
 - Piercing
 - Poison
 - Fire
-resistances: *id001
 damage_immunities:
 - Poison
 - Fire
@@ -42,3 +35,4 @@ condition_immunities:
 - Exhaustion
 - Paralyzed
 - Petrified
+- Poisoned

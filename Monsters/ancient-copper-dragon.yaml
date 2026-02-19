@@ -21,8 +21,6 @@ skills:
 - Deception +13
 - Perception +17
 - Stealth +8
-immunities:
-- Acid
 senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 27
 languages:
 - Common

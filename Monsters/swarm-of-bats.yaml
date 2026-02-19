@@ -16,15 +16,6 @@ abilities:
   Int: 2
   Wis: 12
   Cha: 4
-immunities:
-- Charmed
-- Frightened
-- Grappled
-- Paralyzed
-- Petrified
-- Prone
-- Restrained
-- Stunned
 senses: Blindsight 60 ft., Passive Perception 11
 languages:
 - None
@@ -43,10 +34,9 @@ actions:
   desc: '{@atk mw} {@hit 4} to hit, reach 0 ft., one creature in the swarm''s space. {@h}5 ({@damage 2d4}) piercing damage,
     or 2 ({@damage 1d4}) piercing damage if the swarm has half of its hit points or fewer.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Piercing
-resistances: *id001
 condition_immunities:
 - Charmed
 - Frightened
@@ -55,3 +45,4 @@ condition_immunities:
 - Petrified
 - Prone
 - Restrained
+- Stunned

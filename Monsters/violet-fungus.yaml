@@ -15,11 +15,6 @@ abilities:
   Int: 1
   Wis: 3
   Cha: 1
-immunities:
-- Blinded
-- Charmed
-- Deafened
-- Frightened
 senses: Blindsight 30 ft., Passive Perception 6
 languages:
 - None
@@ -38,3 +33,4 @@ condition_immunities:
 - Blinded
 - Charmed
 - Deafened
+- Frightened

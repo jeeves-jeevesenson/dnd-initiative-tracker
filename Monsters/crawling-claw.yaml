@@ -16,13 +16,6 @@ abilities:
   Int: 5
   Wis: 10
   Cha: 4
-immunities:
-- Necrotic
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Incapacitated
-- Poisoned
 senses: Blindsight 30 ft., Passive Perception 10
 languages:
 - Understands Common but can't speak
@@ -46,3 +39,4 @@ condition_immunities:
 - Exhaustion
 - Frightened
 - Incapacitated
+- Poisoned

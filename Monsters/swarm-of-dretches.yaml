@@ -15,16 +15,6 @@ abilities:
   Int: 5
   Wis: 8
   Cha: 3
-immunities:
-- Poison; Charmed
-- Frightened
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Stunned
 senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Abyssal; telepathy 60 ft. (works only with creatures that understand abyssal)
@@ -34,13 +24,12 @@ habitat: Planar (Abyss)
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Cold
 - Fire
 - Lightning
 - Piercing
-resistances: *id001
 damage_immunities:
 - Poison
 condition_immunities:
@@ -52,3 +41,4 @@ condition_immunities:
 - Poisoned
 - Prone
 - Restrained
+- Stunned

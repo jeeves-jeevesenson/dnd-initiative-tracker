@@ -18,9 +18,6 @@ abilities:
 skills:
 - Perception +3
 - Stealth +4
-immunities:
-- Poison; Exhaustion
-- Poisoned
 senses: Darkvision 60 ft., Passive Perception 13
 languages:
 - Common plus one other language
@@ -52,3 +49,4 @@ damage_immunities:
 - Poison
 condition_immunities:
 - Exhaustion
+- Poisoned

@@ -15,13 +15,6 @@ abilities:
   Int: 7
   Wis: 10
   Cha: 3
-immunities:
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Paralyzed
-- Petrified
-- Poisoned
 senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 10
 languages:
 - Understands commands given in any language but can't speak
@@ -55,3 +48,4 @@ condition_immunities:
 - Frightened
 - Paralyzed
 - Petrified
+- Poisoned

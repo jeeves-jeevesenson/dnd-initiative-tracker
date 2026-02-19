@@ -15,16 +15,6 @@ abilities:
   Int: 3
   Wis: 11
   Cha: 8
-immunities:
-- Poison
-- Psychic; Charmed
-- Exhaustion
-- Frightened
-- Paralyzed
-- Petrified
-- Poisoned
-- Stunned
-- Unconscious
 senses: Truesight 300 ft., Passive Perception 10
 languages:
 - Understands Celestial and Common but can't speak
@@ -34,10 +24,9 @@ treasure: Relics
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Necrotic
 - Psychic
-resistances: *id001
 damage_immunities:
 - Poison
 - Psychic
@@ -49,3 +38,4 @@ condition_immunities:
 - Petrified
 - Poisoned
 - Stunned
+- Unconscious

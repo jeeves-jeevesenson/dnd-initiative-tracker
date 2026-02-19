@@ -16,17 +16,6 @@ abilities:
   Int: 12
   Wis: 14
   Cha: 15
-immunities:
-- Necrotic
-- Poison; Charmed
-- Exhaustion
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Unconscious
 senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Common plus two other languages
@@ -57,14 +46,13 @@ actions:
     {@creature specter} is under the wraith's control. The wraith can have no more than seven specters under its control at
     one time.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Acid
 - Bludgeoning
 - Cold
 - Fire
 - Piercing
 - Poison
-resistances: *id001
 damage_immunities:
 - Necrotic
 - Poison
@@ -77,3 +65,4 @@ condition_immunities:
 - Poisoned
 - Prone
 - Restrained
+- Unconscious

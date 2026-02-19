@@ -16,8 +16,6 @@ abilities:
   Int: 8
   Wis: 13
   Cha: 8
-immunities:
-- Poison; Poisoned
 senses: Darkvision 120 ft., Passive Perception 11
 languages:
 - Abyssal; telepathy 120 ft.
@@ -44,9 +42,8 @@ actions:
   desc: The vrock emits a horrific screech. Each creature within 20 feet of it that can hear it and that isn't a demon must
     succeed on a {@dc 14} Constitution saving throw or be {@condition stunned} until the end of the vrock's next turn.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
-resistances: *id001
 damage_immunities:
 - Poison

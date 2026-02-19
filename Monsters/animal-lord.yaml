@@ -22,10 +22,6 @@ skills:
 - Athletics +13
 - Perception +18
 - Stealth +13
-immunities:
-- Charmed
-- Frightened
-- Stunned
 senses: Truesight 120 ft., Passive Perception 28
 languages:
 - All
@@ -35,12 +31,12 @@ treasure: Relics
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
 - Necrotic
 - Psychic
-resistances: *id001
 condition_immunities:
 - Charmed
 - Frightened
+- Stunned

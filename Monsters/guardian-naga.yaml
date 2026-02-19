@@ -21,11 +21,6 @@ skills:
 - Arcana +11
 - History +11
 - Religion +11
-immunities:
-- Poison; Charmed
-- Paralyzed
-- Poisoned
-- Restrained
 senses: Darkvision 60 ft., Passive Perception 14
 languages:
 - Celestial
@@ -51,3 +46,5 @@ damage_immunities:
 condition_immunities:
 - Charmed
 - Poisoned
+- Paralyzed
+- Restrained

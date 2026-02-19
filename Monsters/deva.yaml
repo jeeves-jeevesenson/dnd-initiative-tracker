@@ -19,10 +19,6 @@ abilities:
 skills:
 - Insight +9
 - Perception +9
-immunities:
-- Charmed
-- Exhaustion
-- Frightened
 senses: Darkvision 120 ft., Passive Perception 19
 languages:
 - All; telepathy 120 ft.
@@ -55,3 +51,4 @@ legendary_actions: []
 condition_immunities:
 - Charmed
 - Exhaustion
+- Frightened

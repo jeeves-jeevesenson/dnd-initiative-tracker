@@ -16,8 +16,6 @@ abilities:
   Int: 14
   Wis: 10
   Cha: 20
-immunities:
-- Fire
 senses: Darkvision 120 ft., Passive Perception 10
 languages:
 - Primordial (Ignan)
@@ -30,3 +28,5 @@ treasure: Armaments
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Fire

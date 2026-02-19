@@ -14,13 +14,6 @@ abilities:
   Int: 3
   Wis: 3
   Cha: 1
-immunities:
-- Poison
-- Psychic; Charmed
-- Exhaustion
-- Frightened
-- Paralyzed
-- Poisoned
 senses: Blindsight 30 ft., Passive Perception 6
 languages:
 - Understands the languages you know
@@ -36,3 +29,4 @@ condition_immunities:
 - Exhaustion
 - Frightened
 - Paralyzed
+- Poisoned

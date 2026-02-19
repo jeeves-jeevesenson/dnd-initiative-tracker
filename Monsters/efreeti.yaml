@@ -16,8 +16,6 @@ abilities:
   Int: 16
   Wis: 15
   Cha: 19
-immunities:
-- Fire
 senses: Darkvision 120 ft., Passive Perception 12
 languages:
 - Primordial (Ignan)

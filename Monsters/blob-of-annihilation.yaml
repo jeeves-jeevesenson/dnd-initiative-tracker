@@ -15,20 +15,6 @@ abilities:
   Int: 10
   Wis: 16
   Cha: 10
-immunities:
-- Acid
-- Necrotic
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Stunned
-- Unconscious
 senses: Blindsight 120 ft., Passive Perception 13
 languages:
 - —
@@ -38,12 +24,11 @@ treasure: Any
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Piercing
 - Necrotic
 - Poison
-resistances: *id001
 damage_immunities:
 - Acid
 - Necrotic
@@ -59,3 +44,4 @@ condition_immunities:
 - Prone
 - Restrained
 - Stunned
+- Unconscious

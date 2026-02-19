@@ -19,9 +19,6 @@ skills:
 - Deception +10
 - Insight +8
 - Perception +8
-immunities:
-- Charmed
-- Frightened
 senses: Truesight 60 ft., Passive Perception 18
 languages:
 - Common
@@ -44,3 +41,4 @@ actions:
 legendary_actions: []
 condition_immunities:
 - Charmed
+- Frightened

@@ -15,15 +15,6 @@ abilities:
   Int: 13
   Wis: 16
   Cha: 18
-immunities:
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Paralyzed
-- Petrified
-- Poisoned
-- Stunned
-- Unconscious
 senses: Darkvision 120 ft., Passive Perception 13
 languages:
 - Common plus two other languages
@@ -34,9 +25,8 @@ treasure: Any
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Necrotic
-resistances: *id001
 damage_immunities:
 - Poison
 condition_immunities:
@@ -47,3 +37,4 @@ condition_immunities:
 - Petrified
 - Poisoned
 - Stunned
+- Unconscious

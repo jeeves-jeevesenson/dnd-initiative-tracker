@@ -18,11 +18,6 @@ abilities:
   Cha: 22
 skills:
 - Perception +9
-immunities:
-- Fire
-- Poison; Charmed
-- Frightened
-- Poisoned
 senses: Truesight 120 ft., Passive Perception 19
 languages:
 - Abyssal; telepathy 120 ft.
@@ -56,15 +51,15 @@ actions:
   desc: The balor magically teleports, along with any equipment it is wearing or carrying, up to 120 feet to an unoccupied
     space it can see.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Lightning
 - Bludgeoning
 - Piercing
 - Slashing
-resistances: *id001
 damage_immunities:
 - Fire
 - Poison
 condition_immunities:
 - Poisoned
+- Frightened

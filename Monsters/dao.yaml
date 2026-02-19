@@ -17,8 +17,6 @@ abilities:
   Int: 12
   Wis: 13
   Cha: 18
-immunities:
-- Petrified
 senses: Darkvision 120 ft., Passive Perception 11
 languages:
 - Primordial (Terran)

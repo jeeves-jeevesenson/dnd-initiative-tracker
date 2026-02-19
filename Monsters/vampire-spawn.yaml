@@ -51,9 +51,8 @@ actions:
   desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one creature. {@h}8 ({@damage 2d4 + 3}) slashing damage. Instead of dealing
     damage, the vampire can grapple the target (escape {@dc 13}).'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Necrotic
 - Bludgeoning
 - Piercing
 - Slashing
-resistances: *id001

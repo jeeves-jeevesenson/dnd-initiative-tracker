@@ -16,8 +16,6 @@ abilities:
   Int: 10
   Wis: 13
   Cha: 15
-immunities:
-- Fire
 senses: Passive Perception 11
 languages:
 - Understands Abyssal

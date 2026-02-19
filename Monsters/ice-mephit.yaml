@@ -19,10 +19,6 @@ abilities:
 skills:
 - Perception +2
 - Stealth +3
-immunities:
-- Cold
-- Poison; Exhaustion
-- Poisoned
 senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Primordial (Aquan

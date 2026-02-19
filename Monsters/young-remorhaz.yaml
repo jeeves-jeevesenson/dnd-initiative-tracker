@@ -16,9 +16,6 @@ abilities:
   Int: 3
   Wis: 10
   Cha: 4
-immunities:
-- Cold
-- Fire
 senses: Darkvision 60 ft., Tremorsense 60 ft., Passive Perception 10
 languages:
 - —
@@ -35,3 +32,4 @@ actions:
 legendary_actions: []
 damage_immunities:
 - Cold
+- Fire

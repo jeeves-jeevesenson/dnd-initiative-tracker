@@ -19,10 +19,6 @@ abilities:
 skills:
 - Perception +2
 - Stealth +4
-immunities:
-- Fire
-- Poison; Exhaustion
-- Poisoned
 senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Primordial (Auran
@@ -46,3 +42,4 @@ damage_immunities:
 - Poison
 condition_immunities:
 - Exhaustion
+- Poisoned

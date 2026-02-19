@@ -16,8 +16,6 @@ abilities:
   Int: 11
   Wis: 10
   Cha: 12
-immunities:
-- Fire
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial (Ignan)
@@ -45,10 +43,9 @@ actions:
     restrained}, the salamander can automatically hit the target with its tail, and the salamander can''t make tail attacks
     against other targets.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Piercing
 - Slashing
-resistances: *id001
 damage_immunities:
 - Fire

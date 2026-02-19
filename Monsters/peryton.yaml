@@ -41,8 +41,7 @@ actions:
 - name: Talons
   desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}8 ({@damage 2d4 + 3}) piercing damage.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Piercing
 - Slashing
-resistances: *id001

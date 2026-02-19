@@ -92,9 +92,8 @@ legendary_actions:
   desc: The vampire makes one bite attack.
 legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s turn, The vampire can expend
   a use to take one of the following actions. The vampire regains all expended uses at the start of each of its turns.'
-damage_resistances: &id001
+damage_resistances:
 - Necrotic
 - Bludgeoning
 - Piercing
 - Slashing
-resistances: *id001

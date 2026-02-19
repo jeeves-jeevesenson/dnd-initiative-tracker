@@ -15,8 +15,6 @@ abilities:
   Int: 6
   Wis: 10
   Cha: 3
-immunities:
-- Deafened
 senses: Blindsight 60 ft., Passive Perception 10
 languages:
 - Understands Common and Druidic but can't speak
@@ -27,3 +25,5 @@ habitat: Forest
 traits: []
 actions: []
 legendary_actions: []
+condition_immunities:
+- Deafened

@@ -19,10 +19,6 @@ skills:
 - Deception +14
 - Perception +11
 - Persuasion +21
-immunities:
-- Charmed
-- Exhaustion
-- Frightened
 senses: Truesight 60 ft., Passive Perception 21
 languages:
 - All
@@ -44,10 +40,10 @@ treasure: Arcana
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
-resistances: *id001
 condition_immunities:
 - Charmed
 - Exhaustion
+- Frightened

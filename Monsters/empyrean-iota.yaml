@@ -20,8 +20,6 @@ skills:
 - History +4
 - Insight +5
 - Perception +5
-immunities:
-- Prone
 senses: Truesight 30 ft., Passive Perception 15
 languages:
 - All
@@ -34,7 +32,8 @@ treasure: Relics
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Piercing
-resistances: *id001
+condition_immunities:
+- Prone

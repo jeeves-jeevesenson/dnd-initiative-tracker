@@ -15,17 +15,6 @@ abilities:
   Int: 1
   Wis: 12
   Cha: 3
-immunities:
-- Fire
-- Poison; Charmed
-- Frightened
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Stunned
 senses: Darkvision 120 ft. (unimpeded by magical Darkness), Passive Perception 11
 languages:
 - Understands Infernal but can't speak
@@ -35,12 +24,11 @@ habitat: Planar (Nine Hells)
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Cold
 - Piercing
 - Poison
-resistances: *id001
 damage_immunities:
 - Fire
 - Poison
@@ -53,3 +41,4 @@ condition_immunities:
 - Poisoned
 - Prone
 - Restrained
+- Stunned

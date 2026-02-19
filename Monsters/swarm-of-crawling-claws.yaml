@@ -16,19 +16,6 @@ abilities:
   Int: 5
   Wis: 10
   Cha: 4
-immunities:
-- Necrotic
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Grappled
-- Incapacitated
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Stunned
 senses: Blindsight 30 ft., Passive Perception 10
 languages:
 - Understands Common but can't speak
@@ -39,11 +26,10 @@ treasure: None
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Piercing
 - Poison
-resistances: *id001
 damage_immunities:
 - Necrotic
 - Poison
@@ -58,3 +44,4 @@ condition_immunities:
 - Poisoned
 - Prone
 - Restrained
+- Stunned

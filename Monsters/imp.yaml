@@ -20,9 +20,6 @@ skills:
 - Deception +4
 - Insight +3
 - Stealth +5
-immunities:
-- Fire
-- Poison; Poisoned
 senses: Darkvision 120 ft. (unimpeded by magical Darkness), Passive Perception 11
 languages:
 - Common
@@ -55,9 +52,8 @@ actions:
     {@status concentration||concentrating} on a spell). Any equipment the imp wears or carries is {@condition invisible} with
     it.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Poison
-resistances: *id001
 damage_immunities:
 - Fire
 - Poison

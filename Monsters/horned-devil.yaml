@@ -16,9 +16,6 @@ abilities:
   Int: 12
   Wis: 16
   Cha: 18
-immunities:
-- Fire
-- Poison; Poisoned
 senses: Darkvision 150 ft. (unimpeded by magical Darkness), Passive Perception 13
 languages:
 - Infernal; telepathy 120 ft.

@@ -22,8 +22,6 @@ skills:
 - Perception +9
 - Persuasion +9
 - Stealth +6
-immunities:
-- Fire
 senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 19
 languages:
 - Common

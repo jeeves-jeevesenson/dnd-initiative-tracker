@@ -16,9 +16,6 @@ abilities:
   Int: 18
   Wis: 20
   Cha: 18
-immunities:
-- Psychic
-- Radiant
 senses: Truesight 120 ft., Passive Perception 15
 languages:
 - All; telepathy 120 ft.
@@ -48,9 +45,9 @@ actions:
     any statistics and capabilities (except class features, legendary actions, and lair actions) that the new form has but
     that it lacks. If the new form has a bite attack, the couatl can use its bite in that form.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Piercing
-resistances: *id001
 damage_immunities:
 - Psychic
+- Radiant

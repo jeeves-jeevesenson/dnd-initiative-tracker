@@ -20,8 +20,6 @@ skills:
 - Insight +5
 - Perception +5
 - Stealth +5
-immunities:
-- Charmed
 senses: Darkvision 120 ft., Passive Perception 15
 languages:
 - Abyssal
@@ -66,6 +64,7 @@ actions:
     the target dies, and if the target was evil, its soul is trapped in the hag's soul bag. The reduction to the target's
     hit point maximum lasts until removed by the {@spell greater restoration} spell or similar magic.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
-resistances: *id001
+condition_immunities:
+- Charmed

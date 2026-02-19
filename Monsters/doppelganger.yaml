@@ -18,8 +18,6 @@ abilities:
 skills:
 - Deception +6
 - Insight +3
-immunities:
-- Charmed
 senses: Darkvision 60 ft., Passive Perception 11
 languages:
 - Common plus three other languages

@@ -16,15 +16,6 @@ abilities:
   Int: 2
   Wis: 6
   Cha: 1
-immunities:
-- Lightning
-- Slashing; Charmed
-- Deafened
-- Exhaustion
-- Frightened
-- Grappled
-- Prone
-- Restrained
 senses: Blindsight 60 ft., Passive Perception 8
 languages:
 - None
@@ -40,9 +31,8 @@ actions:
   desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}9 ({@damage 2d6 + 2}) bludgeoning damage plus 3 ({@damage
     1d6}) acid damage.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Slashing
-resistances: *id001
 damage_immunities:
 - Lightning
 - Slashing
@@ -53,3 +43,4 @@ condition_immunities:
 - Frightened
 - Grappled
 - Prone
+- Restrained

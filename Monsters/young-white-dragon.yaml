@@ -21,8 +21,6 @@ abilities:
 skills:
 - Perception +6
 - Stealth +3
-immunities:
-- Cold
 senses: Blindsight 30 ft., Darkvision 120 ft., Passive Perception 16
 languages:
 - Common

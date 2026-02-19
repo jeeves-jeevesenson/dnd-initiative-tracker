@@ -17,8 +17,6 @@ abilities:
   Cha: 12
 skills:
 - Perception +9
-immunities:
-- Deafened
 senses: Blindsight 120 ft., Passive Perception 19
 languages:
 - Common
@@ -31,6 +29,7 @@ habitat: Forest
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Fire
-resistances: *id001
+condition_immunities:
+- Deafened

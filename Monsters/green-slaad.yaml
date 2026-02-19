@@ -50,10 +50,9 @@ actions:
   desc: '{@atk rs} {@hit 4} to hit, range 60 ft., one target. {@h}10 ({@damage 3d6}) fire damage. The fire ignites flammable
     objects that aren''t being worn or carried.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Acid
 - Cold
 - Fire
 - Lightning
 - Thunder
-resistances: *id001

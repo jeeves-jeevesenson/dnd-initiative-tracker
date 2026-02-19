@@ -19,13 +19,6 @@ abilities:
   Cha: 11
 skills:
 - Perception +9
-immunities:
-- Fire
-- Poison; Charmed
-- Deafened
-- Frightened
-- Paralyzed
-- Poisoned
 senses: Blindsight 120 ft., Passive Perception 19
 languages:
 - None
@@ -81,11 +74,10 @@ legendary_actions:
   desc: The tarrasque makes one bite attack or uses its Swallow.
 legendary_uses: 'Legendary Action Uses: 3. Immediately after another creature''s turn, The tarrasque can expend a use to take
   one of the following actions. The tarrasque regains all expended uses at the start of each of its turns.'
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Piercing
 - Poison
-resistances: *id001
 damage_immunities:
 - Fire
 - Poison
@@ -94,3 +86,4 @@ condition_immunities:
 - Deafened
 - Frightened
 - Paralyzed
+- Poisoned

@@ -19,8 +19,6 @@ abilities:
 skills:
 - Deception +11
 - Insight +6
-immunities:
-- Poison; Poisoned
 senses: Darkvision 120 ft., Passive Perception 12
 languages:
 - Abyssal
@@ -54,9 +52,8 @@ actions:
     the creature must succeed on a {@dc 14} Constitution saving throw or be {@condition poisoned} until the start of its next
     turn. While {@condition poisoned} in this way, the target is {@condition incapacitated}.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
-resistances: *id001
 damage_immunities:
 - Poison

@@ -19,13 +19,6 @@ skills:
 - History +5
 - Perception +9
 - Religion +5
-immunities:
-- Necrotic
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Paralyzed
-- Poisoned
 senses: Truesight 60 ft., Passive Perception 19
 languages:
 - Common plus three other languages
@@ -88,3 +81,4 @@ condition_immunities:
 - Exhaustion
 - Frightened
 - Paralyzed
+- Poisoned

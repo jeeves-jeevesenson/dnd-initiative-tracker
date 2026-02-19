@@ -19,9 +19,6 @@ abilities:
 skills:
 - Perception +4
 - Stealth +4
-immunities:
-- Acid
-- Poison; Poisoned
 senses: Blindsight 60 ft., Passive Perception 14
 languages:
 - Abyssal
@@ -49,11 +46,10 @@ actions:
   desc: The nycaloth magically teleports, along with any equipment it is wearing or carrying, up to 60 feet to an unoccupied
     space it can see.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
 - Poison
-resistances: *id001
 damage_immunities:
 - Acid
 - Poison

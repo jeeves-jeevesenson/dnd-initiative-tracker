@@ -30,6 +30,5 @@ traits:
 - name: False Appearance
   desc: While the tree remains motionless, it is indistinguishable from a normal tree.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
-resistances: *id001

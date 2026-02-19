@@ -18,8 +18,6 @@ abilities:
 skills:
 - Perception +7
 - Survival +7
-immunities:
-- Poison; Poisoned
 senses: Darkvision 120 ft., Passive Perception 17
 languages:
 - Abyssal
@@ -48,9 +46,8 @@ actions:
 - name: Gore
   desc: '{@atk mw} {@hit 13} to hit, reach 10 ft., one target. {@h}45 ({@damage 7d10 + 7}) piercing damage.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
-resistances: *id001
 damage_immunities:
 - Poison

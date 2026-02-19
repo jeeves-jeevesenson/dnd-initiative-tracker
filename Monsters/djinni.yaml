@@ -16,9 +16,6 @@ abilities:
   Int: 15
   Wis: 16
   Cha: 20
-immunities:
-- Lightning
-- Thunder
 senses: Darkvision 120 ft., Passive Perception 13
 languages:
 - Primordial (Auran)
@@ -47,3 +44,4 @@ actions:
 legendary_actions: []
 damage_immunities:
 - Lightning
+- Thunder

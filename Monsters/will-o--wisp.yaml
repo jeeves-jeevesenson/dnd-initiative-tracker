@@ -16,16 +16,6 @@ abilities:
   Int: 13
   Wis: 14
   Cha: 11
-immunities:
-- Lightning
-- Poison; Exhaustion
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Unconscious
 senses: Darkvision 120 ft., Passive Perception 12
 languages:
 - Common plus one other language
@@ -51,7 +41,7 @@ actions:
   desc: The will-o'-wisp and its light magically become {@condition invisible} until it attacks or uses its Consume Life,
     or until its {@status concentration} ends (as if {@status concentration||concentrating} on a spell).
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Acid
 - Bludgeoning
 - Cold
@@ -59,7 +49,6 @@ damage_resistances: &id001
 - Necrotic
 - Piercing
 - Poison
-resistances: *id001
 damage_immunities:
 - Lightning
 - Poison
@@ -71,3 +60,4 @@ condition_immunities:
 - Poisoned
 - Prone
 - Restrained
+- Unconscious

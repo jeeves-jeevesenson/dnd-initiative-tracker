@@ -44,9 +44,8 @@ actions:
     red slaad} or, if it has the ability to cast spells of 3rd level or higher, a {@creature green slaad}. Only a {@spell
     wish} spell can reverse the transformation.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Acid
 - Cold
 - Fire
 - Lightning
-resistances: *id001

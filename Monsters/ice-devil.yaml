@@ -19,10 +19,6 @@ skills:
 - Insight +7
 - Perception +7
 - Persuasion +9
-immunities:
-- Cold
-- Fire
-- Poison; Poisoned
 senses: Blindsight 120 ft., Passive Perception 17
 languages:
 - Infernal; telepathy 120 ft.

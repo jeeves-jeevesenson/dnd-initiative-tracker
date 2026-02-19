@@ -20,13 +20,6 @@ skills:
 - History +12
 - Insight +9
 - Perception +9
-immunities:
-- Necrotic
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Paralyzed
-- Poisoned
 senses: Truesight 120 ft., Passive Perception 19
 languages:
 - All
@@ -70,10 +63,9 @@ legendary_actions:
     taking 21 ({@damage 6d6}) necrotic damage on a failed save, or half as much damage on a successful one.
 legendary_uses: 'Legendary Action Uses: 3 (4 in Lair). Immediately after another creature''s turn, The lich can expend a use
   to take one of the following actions. The lich regains all expended uses at the start of each of its turns.'
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Poison
-resistances: *id001
 damage_immunities:
 - Necrotic
 - Poison
@@ -82,3 +74,4 @@ condition_immunities:
 - Exhaustion
 - Frightened
 - Paralyzed
+- Poisoned

@@ -15,13 +15,6 @@ abilities:
   Int: 5
   Wis: 8
   Cha: 3
-immunities:
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Grappled
-- Poisoned
-- Restrained
 senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Understands Abyssal but can't speak
@@ -31,10 +24,9 @@ habitat: Planar (Abyss)
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
-resistances: *id001
 damage_immunities:
 - Poison
 condition_immunities:
@@ -43,3 +35,4 @@ condition_immunities:
 - Frightened
 - Grappled
 - Poisoned
+- Restrained
