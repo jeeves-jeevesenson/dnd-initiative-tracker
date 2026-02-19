@@ -4636,285 +4636,159 @@ class InitiativeTracker(base.InitiativeTracker):
             self.after(250, lambda: self._lan.start(quiet=True))
 
     def _open_combatant_stat_block(self, c: base.Combatant) -> None:
-        """Override to show enhanced stat blocks with player YAML data when available."""
-        # For PCs and allies, try to load full YAML data
-        if c.is_pc or c.ally:
-            self._load_player_yaml_cache()
-            player_data = None
-            
-            # Try to find player YAML data
-            for name_key in [c.name, c.name.lower(), c.name.replace(" ", "_").lower()]:
-                if name_key in self._player_yaml_data_by_name:
-                    player_data = self._player_yaml_data_by_name[name_key]
-                    break
-            
-            # If we have YAML data, show enhanced player stat block
-            if player_data:
-                self._open_player_yaml_stat_block(c, player_data)
-            else:
-                # Fall back to basic combatant stat block
-                super()._open_combatant_stat_block(c)
-        else:
-            # For enemies, use parent implementation (monster spec)
+        """Use the full creature-info modal for player/allied YAML profiles too."""
+        if not (c.is_pc or c.ally):
             super()._open_combatant_stat_block(c)
-    
-    def _open_player_yaml_stat_block(self, c: base.Combatant, player_data: Dict[str, Any]) -> None:
-        """Show a detailed stat block for a player using their YAML data."""
-        win = tk.Toplevel(self)
-        title = f"{c.name} Stat Block"
-        win.title(title)
-        win.geometry("600x720")
-        win.transient(self)
+            return
+        player_data = self._lookup_player_yaml_for_combatant(c)
+        if not isinstance(player_data, dict):
+            super()._open_combatant_stat_block(c)
+            return
+        player_spec = self._player_yaml_to_monster_spec(c, player_data)
+        self._open_monster_stat_block(player_spec)
 
-        body = ttk.Frame(win, padding=10)
-        body.pack(fill="both", expand=True)
+    def _lookup_player_yaml_for_combatant(self, c: base.Combatant) -> Optional[Dict[str, Any]]:
+        self._load_player_yaml_cache()
+        candidates = [str(c.name or "").strip()]
+        normalized = self._normalize_character_lookup_key(c.name)
+        if normalized:
+            candidates.append(normalized)
+        for key in candidates:
+            if key in self._player_yaml_data_by_name:
+                return self._player_yaml_data_by_name.get(key)
+        if normalized:
+            path = self._player_yaml_name_map.get(normalized)
+            if isinstance(path, Path):
+                cached = self._player_yaml_cache_by_path.get(path)
+                if isinstance(cached, dict):
+                    return cached
+        return None
 
-        text = tk.Text(body, wrap="word", font=("Courier", 10))
-        scroll = ttk.Scrollbar(body, orient="vertical", command=text.yview)
-        text.configure(yscrollcommand=scroll.set)
-        text.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
+    def _player_yaml_to_monster_spec(self, c: base.Combatant, player_data: Dict[str, Any]) -> MonsterSpec:
+        identity = player_data.get("identity") if isinstance(player_data.get("identity"), dict) else {}
+        leveling = player_data.get("leveling") if isinstance(player_data.get("leveling"), dict) else {}
+        vitals = player_data.get("vitals") if isinstance(player_data.get("vitals"), dict) else {}
+        defenses = player_data.get("defenses") if isinstance(player_data.get("defenses"), dict) else {}
+        proficiency = player_data.get("proficiency") if isinstance(player_data.get("proficiency"), dict) else {}
+        abilities = player_data.get("abilities") if isinstance(player_data.get("abilities"), dict) else {}
+        actions = player_data.get("actions") if isinstance(player_data.get("actions"), list) else list(c.actions)
+        bonus_actions = player_data.get("bonus_actions") if isinstance(player_data.get("bonus_actions"), list) else list(c.bonus_actions)
+        reactions = player_data.get("reactions") if isinstance(player_data.get("reactions"), list) else list(c.reactions)
 
-        lines: List[str] = []
-        
-        # ═══ HEADER ═══
-        lines.append("═" * 60)
-        lines.append(f"  {c.name.upper()}")
-        lines.append("═" * 60)
-        lines.append("")
-        
-        # ─── IDENTITY ───
-        identity = player_data.get("identity", {})
-        leveling = player_data.get("leveling", {})
-        
-        lines.append("─── IDENTITY " + "─" * 47)
-        combatant_type = "Player Character" if c.is_pc else "Ally"
-        lines.append(f"  {combatant_type}")
-        
-        # Level and class
-        level = leveling.get("level", "?")
-        classes = leveling.get("classes", [])
+        speed = vitals.get("speed") if isinstance(vitals.get("speed"), dict) else {}
+        ac_block = defenses.get("ac") if isinstance(defenses.get("ac"), dict) else {}
+        ac_sources = ac_block.get("sources") if isinstance(ac_block.get("sources"), list) else []
+        ac_value: object = getattr(c, "ac", None)
+        if isinstance(ac_sources, list):
+            for source in ac_sources:
+                if isinstance(source, dict):
+                    ac_value = source.get("value") or source.get("base_formula") or ac_value
+                    break
+
+        traits: List[Dict[str, str]] = []
+        classes = leveling.get("classes") if isinstance(leveling.get("classes"), list) else []
         if classes:
-            class_str = ", ".join([f"{cls.get('name', '?')} {cls.get('level', '?')}" for cls in classes if isinstance(cls, dict)])
-            lines.append(f"  Level {level}: {class_str}")
-        elif level:
-            lines.append(f"  Level {level}")
-        
-        # Other identity info
-        if identity.get("ancestry"):
-            lines.append(f"  Ancestry: {identity['ancestry']}")
-        if identity.get("background"):
-            lines.append(f"  Background: {identity['background']}")
-        if identity.get("alignment"):
-            lines.append(f"  Alignment: {identity['alignment']}")
-        lines.append("")
-        
-        # ─── CORE STATS ───
-        lines.append("─── CORE STATS " + "─" * 44)
-        vitals = player_data.get("vitals", {})
-        defenses = player_data.get("defenses", {})
-        
-        # HP
-        max_hp = vitals.get("max_hp", c.hp)
-        current_hp = vitals.get("current_hp", c.hp)
-        lines.append(f"  ❤  HP: {current_hp}/{max_hp}")
-        
-        # AC
-        ac_data = defenses.get("ac", {})
-        ac_val = "?"
-        if isinstance(ac_data, dict):
-            sources = ac_data.get("sources", [])
-            if sources and isinstance(sources[0], dict):
-                base = sources[0].get("base_formula", "?")
-                ac_val = f"{base} (see formula)"
-        lines.append(f"  ⚔  AC: {ac_val}")
-        
-        # Initiative
-        init_data = vitals.get("initiative", {})
-        init_formula = init_data.get("formula", "dex_mod") if isinstance(init_data, dict) else "dex_mod"
-        lines.append(f"  ⚡ Initiative: {c.initiative} ({init_formula})")
-        
-        # Speed
-        speed_data = vitals.get("speed", {})
-        if isinstance(speed_data, dict):
-            walk = speed_data.get("walk", c.speed)
-            lines.append(f"  🏃 Speed: {walk} ft.")
-            if speed_data.get("swim", 0) > 0:
-                lines.append(f"      Swim: {speed_data['swim']} ft.")
-            if speed_data.get("fly", 0) > 0:
-                lines.append(f"      Fly: {speed_data['fly']} ft.")
-            if speed_data.get("climb", 0) > 0:
-                lines.append(f"      Climb: {speed_data['climb']} ft.")
-        else:
-            lines.append(f"  🏃 Speed: {c.speed} ft.")
-        lines.append("")
-        
-        # ─── ABILITIES ───
-        abilities = player_data.get("abilities", {})
-        if abilities:
-            lines.append("─── ABILITIES " + "─" * 46)
-            ability_parts = []
-            for ab in ("str", "dex", "con", "int", "wis", "cha"):
-                if ab in abilities:
-                    score = abilities[ab]
-                    mod = (score - 10) // 2
-                    ability_parts.append(f"{ab.upper()} {score:2d} ({mod:+d})")
-            if ability_parts:
-                lines.append("  " + "  |  ".join(ability_parts))
-            lines.append("")
-        
-        # ─── PROFICIENCIES ───
-        proficiency = player_data.get("proficiency", {})
-        if proficiency:
-            lines.append("─── PROFICIENCIES " + "─" * 42)
-            prof_bonus = proficiency.get("bonus", "?")
-            lines.append(f"  Proficiency Bonus: +{prof_bonus}")
-            
-            # Saving throws
-            saves = proficiency.get("saves", [])
-            if saves:
-                lines.append(f"  Saving Throws: {', '.join([s.upper() for s in saves])}")
-            
-            # Skills
-            skills = proficiency.get("skills", {})
-            if isinstance(skills, dict):
-                proficient = skills.get("proficient", [])
-                expertise = skills.get("expertise", [])
-                if proficient:
-                    lines.append(f"  Skills: {', '.join(proficient)}")
-                if expertise:
-                    lines.append(f"  Expertise: {', '.join(expertise)}")
-            
-            lines.append("")
-        
-        # ─── DEFENSES ───
-        if defenses:
-            resistances = defenses.get("resistances", [])
-            immunities = defenses.get("immunities", [])
-            vulnerabilities = defenses.get("vulnerabilities", [])
-            
-            if resistances or immunities or vulnerabilities:
-                lines.append("─── DEFENSES " + "─" * 47)
-                if resistances:
-                    lines.append(f"  Resistances: {', '.join(resistances)}")
-                if immunities:
-                    lines.append(f"  Immunities: {', '.join(immunities)}")
-                if vulnerabilities:
-                    lines.append(f"  Vulnerabilities: {', '.join(vulnerabilities)}")
-                lines.append("")
-        
-        # ─── ATTACKS ───
-        attacks = player_data.get("attacks", {})
-        if attacks:
-            weapons = attacks.get("weapons", [])
-            if weapons:
-                lines.append("─── ⚔  ATTACKS " + "─" * 45)
-                for weapon in weapons:
-                    if isinstance(weapon, dict):
-                        name = weapon.get("name", "Unnamed Weapon")
-                        lines.append(f"  • {name}")
-                        
-                        # Attack bonus
-                        to_hit = weapon.get("to_hit", "?")
-                        lines.append(f"      To Hit: {to_hit}")
-                        
-                        # Damage
-                        damage = weapon.get("damage", "?")
-                        damage_type = weapon.get("damage_type", "")
-                        if damage_type:
-                            lines.append(f"      Damage: {damage} {damage_type}")
-                        else:
-                            lines.append(f"      Damage: {damage}")
-                        
-                        # Properties
-                        properties = weapon.get("properties", [])
-                        if properties:
-                            lines.append(f"      Properties: {', '.join(properties)}")
-                        lines.append("")
-                lines.append("")
-        
-        # ─── SPELLCASTING ───
-        spellcasting = player_data.get("spellcasting", {})
-        if spellcasting and spellcasting.get("enabled"):
-            lines.append("─── 📜 SPELLCASTING " + "─" * 39)
-            
-            casting_ability = spellcasting.get("casting_ability", "?").upper()
-            save_dc = spellcasting.get("save_dc_formula", "?")
-            spell_attack = spellcasting.get("spell_attack_formula", "?")
-            
-            lines.append(f"  Casting Ability: {casting_ability}")
-            lines.append(f"  Spell Save DC: {save_dc}")
-            lines.append(f"  Spell Attack: {spell_attack}")
-            lines.append("")
-            
-            # Cantrips
-            cantrips_data = spellcasting.get("cantrips", {})
-            if isinstance(cantrips_data, dict):
-                known_cantrips = cantrips_data.get("known", [])
-                if known_cantrips:
-                    lines.append(f"  Cantrips Known: {', '.join(known_cantrips)}")
-                    lines.append("")
-            
-            # Prepared spells
-            prepared_data = spellcasting.get("prepared_spells", {})
-            if isinstance(prepared_data, dict):
-                prepared = prepared_data.get("prepared", [])
-                if prepared:
-                    lines.append(f"  Prepared Spells ({len(prepared)}):")
-                    for spell in prepared:
-                        lines.append(f"    • {spell}")
-                    lines.append("")
-            
-            # Spell slots
-            spell_slots = spellcasting.get("spell_slots", {})
-            if spell_slots:
-                lines.append("  Spell Slots:")
-                for level in range(1, 10):
-                    slot_data = spell_slots.get(str(level), {})
-                    if isinstance(slot_data, dict):
-                        current = slot_data.get("current", 0)
-                        max_slots = slot_data.get("max", 0)
-                        if max_slots > 0:
-                            lines.append(f"    Level {level}: {current}/{max_slots}")
-                lines.append("")
-        
-        # ─── FEATURES ───
-        features = player_data.get("features", [])
-        if features:
-            lines.append("─── CLASS FEATURES " + "─" * 41)
-            for feature in features:
-                if isinstance(feature, dict):
-                    name = feature.get("name", "Unnamed Feature")
-                    category = feature.get("category", "")
-                    desc = feature.get("description", "")
-                    
-                    if category:
-                        lines.append(f"  • {name} ({category})")
-                    else:
-                        lines.append(f"  • {name}")
-                    
-                    if desc:
-                        # Wrap long descriptions
-                        for line in desc.split('\n'):
-                            lines.append(f"      {line}")
-                    lines.append("")
-        
-        # ─── RESOURCES ───
-        resources = player_data.get("resources", {})
-        if resources:
-            pools = resources.get("pools", [])
-            if pools:
-                lines.append("─── RESOURCES " + "─" * 46)
-                for pool in pools:
-                    if isinstance(pool, dict):
-                        label = pool.get("label", "Unknown")
-                        current = pool.get("current", 0)
-                        max_formula = pool.get("max_formula", "?")
-                        lines.append(f"  • {label}: {current} (max: {max_formula})")
-                lines.append("")
-        
-        text.insert("1.0", "\n".join(lines))
-        text.configure(state="disabled")
+            class_text = ", ".join(
+                f"{entry.get('name', 'Class')} {entry.get('level', '?')}"
+                for entry in classes
+                if isinstance(entry, dict)
+            )
+            if class_text:
+                traits.append({"name": "Classes", "description": class_text})
+
+        features = player_data.get("features") if isinstance(player_data.get("features"), list) else []
+        for feature in features:
+            if not isinstance(feature, dict):
+                continue
+            fname = str(feature.get("name") or "").strip()
+            fdesc = str(feature.get("description") or feature.get("desc") or "").strip()
+            if fname:
+                traits.append({"name": fname, "description": fdesc})
+
+        spellcasting = player_data.get("spellcasting") if isinstance(player_data.get("spellcasting"), dict) else {}
+        if spellcasting.get("enabled"):
+            spell_lines: List[str] = []
+            casting_ability = spellcasting.get("casting_ability")
+            if casting_ability:
+                spell_lines.append(f"Casting Ability: {str(casting_ability).upper()}")
+            for key, label in (("save_dc_formula", "Save DC"), ("spell_attack_formula", "Spell Attack")):
+                value = spellcasting.get(key)
+                if value:
+                    spell_lines.append(f"{label}: {value}")
+            prepared = spellcasting.get("prepared_spells")
+            if isinstance(prepared, dict) and isinstance(prepared.get("prepared"), list):
+                prepared_spells = [str(name).strip() for name in prepared.get("prepared", []) if str(name).strip()]
+                if prepared_spells:
+                    spell_lines.append("Prepared: " + ", ".join(prepared_spells))
+            if spell_lines:
+                traits.append({"name": "Spellcasting", "description": " | ".join(spell_lines)})
+
+        description_parts = []
+        for key in ("ancestry", "background", "alignment", "description"):
+            value = identity.get(key)
+            if value:
+                description_parts.append(f"{key.title()}: {value}")
+
+        pb = proficiency.get("bonus")
+        saves = proficiency.get("saves") if isinstance(proficiency.get("saves"), list) else []
+        skills = proficiency.get("skills") if isinstance(proficiency.get("skills"), dict) else {}
+
+        raw_data: Dict[str, Any] = {
+            "name": str(player_data.get("name") or c.name),
+            "size": "Medium",
+            "type": "player character" if c.is_pc else "ally",
+            "alignment": identity.get("alignment") or "—",
+            "cr": "—",
+            "initiative": {"modifier": c.initiative},
+            "ac": ac_value,
+            "hp": {
+                "average": vitals.get("current_hp", c.hp),
+                "max": vitals.get("max_hp", c.hp),
+            },
+            "speed": {
+                "walk": speed.get("walk", c.speed),
+                "swim": speed.get("swim", c.swim_speed),
+                "fly": speed.get("fly", c.fly_speed),
+                "climb": speed.get("climb", c.climb_speed),
+            },
+            "proficiency_bonus": pb if pb is not None else "—",
+            "abilities": {ab: abilities.get(ab) for ab in ("str", "dex", "con", "int", "wis", "cha") if ab in abilities},
+            "saving_throws": [str(save).upper() for save in saves if str(save).strip()],
+            "skills": {
+                "proficient": skills.get("proficient", []),
+                "expertise": skills.get("expertise", []),
+            },
+            "damage_vulnerabilities": defenses.get("vulnerabilities", []),
+            "damage_resistances": defenses.get("resistances", []),
+            "damage_immunities": defenses.get("immunities", []),
+            "condition_immunities": defenses.get("condition_immunities", []),
+            "traits": traits,
+            "actions": actions,
+            "bonus_actions": bonus_actions,
+            "reactions": reactions,
+            "description": "\n".join(description_parts),
+            "languages": proficiency.get("languages", []),
+        }
+
+        dex_score = self._monster_int_from_value(abilities.get("dex")) if "dex" in abilities else None
+        init_mod = ((dex_score - 10) // 2) if dex_score is not None else None
+        return MonsterSpec(
+            filename=f"player::{self._sanitize_player_filename(c.name)}.yaml",
+            name=str(player_data.get("name") or c.name),
+            mtype="Player Character" if c.is_pc else "Ally",
+            cr=None,
+            hp=self._monster_int_from_value(vitals.get("current_hp")) or int(c.hp),
+            speed=self._monster_int_from_value(speed.get("walk")) or int(c.speed),
+            swim_speed=self._monster_int_from_value(speed.get("swim")) or int(c.swim_speed),
+            fly_speed=self._monster_int_from_value(speed.get("fly")) or int(c.fly_speed),
+            burrow_speed=int(c.burrow_speed),
+            climb_speed=self._monster_int_from_value(speed.get("climb")) or int(c.climb_speed),
+            dex=dex_score,
+            init_mod=init_mod,
+            saving_throws=dict(c.saving_throws),
+            ability_mods=dict(c.ability_mods),
+            raw_data=raw_data,
+        )
 
     # --------------------- Spell preset cache ---------------------
 
