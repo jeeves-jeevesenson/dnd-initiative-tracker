@@ -5684,7 +5684,9 @@ class BattleMapWindow(tk.Toplevel):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Map size prompt
-        size = self._prompt_map_size()
+        size = self._consume_preset_map_size()
+        if size is None:
+            size = self._prompt_map_size()
         if size is None:
             self.after(0, self.destroy)
             return
@@ -5841,6 +5843,22 @@ class BattleMapWindow(tk.Toplevel):
         # Auto-refresh units/markers so slain creatures disappear without manual refresh.
         self._start_polling()
 
+    def _consume_preset_map_size(self) -> Optional[Tuple[int, int]]:
+        """Use a one-shot map size set by the app (used for session restore auto-open)."""
+        raw = getattr(self.app, "_map_open_without_prompt_size", None)
+        if not isinstance(raw, (tuple, list)) or len(raw) != 2:
+            return None
+        try:
+            cols = max(10, min(1000, int(raw[0])))
+            rows = max(10, min(1000, int(raw[1])))
+        except Exception:
+            return None
+        try:
+            self.app._map_open_without_prompt_size = None
+        except Exception:
+            pass
+        return cols, rows
+
     def _apply_lan_map_state(self) -> None:
         redraw_move_highlight = False
         lan_rough = getattr(self.app, "_lan_rough_terrain", None)
@@ -5916,8 +5934,10 @@ class BattleMapWindow(tk.Toplevel):
 
                 self._min = 10
                 self._max = 1000
-                self._cols_var = tk.StringVar(value="20")
-                self._rows_var = tk.StringVar(value="20")
+                default_cols = int(getattr(self._parent.app, "_lan_grid_cols", 20) or 20)
+                default_rows = int(getattr(self._parent.app, "_lan_grid_rows", 20) or 20)
+                self._cols_var = tk.StringVar(value=str(max(self._min, min(self._max, default_cols))))
+                self._rows_var = tk.StringVar(value=str(max(self._min, min(self._max, default_rows))))
 
                 container = ttk.Frame(self._dialog, padding=12)
                 container.grid(row=0, column=0, sticky="nsew")
