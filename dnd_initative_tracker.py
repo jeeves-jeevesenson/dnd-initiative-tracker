@@ -12150,10 +12150,11 @@ class InitiativeTracker(base.InitiativeTracker):
                     raw = str(var.get() or "").strip()
                     if not raw:
                         continue
-                    try:
-                        amount = int(raw)
-                    except Exception:
+                    evaluated = self._evaluate_spell_formula(raw, {})
+                    if evaluated is None:
                         amount = 0
+                    else:
+                        amount = int(math.floor(evaluated))
                     if amount <= 0:
                         continue
                     entries.append({"amount": int(amount), "type": dtype})
