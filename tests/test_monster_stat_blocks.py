@@ -1,11 +1,17 @@
 import unittest
+import threading
 
 import dnd_initative_tracker as tracker_mod
 
 
 class MonsterStatBlockTests(unittest.TestCase):
     def _tracker(self):
-        return object.__new__(tracker_mod.InitiativeTracker)
+        tracker = object.__new__(tracker_mod.InitiativeTracker)
+        tracker._monster_image_cache = {}
+        tracker._monster_image_cache_ttl_s = 60
+        tracker._monster_image_negative_ttl_s = 30
+        tracker._monster_image_lock = threading.Lock()
+        return tracker
 
     def test_variant_and_slot_level_are_applied_to_payload(self):
         tracker = self._tracker()
