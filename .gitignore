@@ -11,3 +11,8 @@ logs/lan_account_links.json
 logs/monster_index.json
 *.spec
 DNDInitiativeTracker.exe
+
+# local image archive artifacts
+manifest.jsonl
+failed_slugs.txt
+monster-list.xml
