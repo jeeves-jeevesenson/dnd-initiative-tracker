@@ -359,6 +359,12 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(result.get("damage_total"), 9)
         self.assertEqual(self.app.combatants[2].hp, 11)
         self.assertIn((16, "Attack hits."), self.toasts)
+        self.assertTrue(
+            any(
+                "Aelar deals 9 slashing damage with Longsword to Goblin (7 slashing, 2 fire)." in message
+                for _, message in self.logs
+            )
+        )
 
     def test_attack_request_includes_critical_flag_and_logs_crit(self):
         msg = {

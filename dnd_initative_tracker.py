@@ -16553,11 +16553,17 @@ class InitiativeTracker(base.InitiativeTracker):
                     f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
                     for entry in damage_entries
                 )
+                first_damage_type = ""
+                if damage_entries:
+                    first_damage_type = str(damage_entries[0].get("type") or "").strip().lower()
+                damage_type_label = first_damage_type or "damage"
                 self._log(
-                    f"{result_payload['target_name']} takes {int(total_damage)} damage"
+                    f"{c.name} deals {int(total_damage)} {damage_type_label} damage "
+                    f"with {result_payload['weapon_name']}"
+                    f" to {result_payload['target_name']}"
                     f"{f' ({damage_desc})' if damage_desc else ''}"
                     f"{' (CRIT)' if is_critical else ''}.",
-                    cid=int(target_cid),
+                    cid=cid,
                 )
                 if hit and save_ability and save_dc > 0:
                     save_roll = random.randint(1, 20)
