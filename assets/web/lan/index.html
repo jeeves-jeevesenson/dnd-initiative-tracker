@@ -3949,6 +3949,7 @@ __DAMAGE_TYPE_OPTIONS__
   let stateUpdateCounter = 0;
   let lastActiveCid = null;
   let lastTurnRound = null;
+  let turnAlertPrimed = false;
   let endTurnReadyVisualActive = false;
   let selectedTurnCid = null;
   let pendingMountRequestId = null;
@@ -9940,6 +9941,12 @@ __DAMAGE_TYPE_OPTIONS__
     const isNowMyTurn = activeCidValue !== null && activeCidValue === claimedCid;
     const activeChanged = activeCidValue !== lastActiveCidValue;
     const roundChanged = round !== lastRound;
+    if (!turnAlertPrimed){
+      lastActiveCid = activeCid;
+      lastTurnRound = round;
+      turnAlertPrimed = true;
+      return;
+    }
     if (isNowMyTurn && (activeChanged || roundChanged)){
       showTurnModal();
     }
