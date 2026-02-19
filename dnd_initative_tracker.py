@@ -13436,13 +13436,33 @@ class InitiativeTracker(base.InitiativeTracker):
             match = re.search(pattern, raw_html, flags=re.IGNORECASE)
             if match:
                 return match.group(1)
-        img_pattern = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"'][^>]*>", flags=re.IGNORECASE)
-        for match in img_pattern.finditer(raw_html):
+
+        picture_div_pattern = re.compile(
+            r"<div[^>]+class=[\"'][^\"']*\bpicture\b[^\"']*[\"'][^>]*>(.*?)</div>",
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        img_src_pattern = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"'][^>]*>", flags=re.IGNORECASE)
+        for div_match in picture_div_pattern.finditer(raw_html):
+            block_html = div_match.group(1)
+            img_match = img_src_pattern.search(block_html)
+            if img_match:
+                src = str(img_match.group(1) or "").strip()
+                if src:
+                    return src
+
+        for match in img_src_pattern.finditer(raw_html):
             src = str(match.group(1) or "").strip()
             if not src:
                 continue
             lowered = src.lower()
-            if "/monster/img/" in lowered or "monster" in lowered:
+            if lowered.startswith("img/") or "/monster/img/" in lowered:
+                return src
+        for match in img_src_pattern.finditer(raw_html):
+            src = str(match.group(1) or "").strip()
+            if not src:
+                continue
+            lowered = src.lower()
+            if "monster" in lowered:
                 return src
         return None
 
