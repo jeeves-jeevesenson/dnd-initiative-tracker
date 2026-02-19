@@ -996,6 +996,31 @@ class LanAttackRequestTests(unittest.TestCase):
         result = msg.get("_attack_result")
         self.assertEqual(result.get("damage_entries"), [{"amount": 4, "type": "radiant"}])
 
+    def test_attack_request_applies_monster_spec_damage_resistance_and_immunity(self):
+        self.app.combatants[2].monster_spec = type(
+            "Spec",
+            (),
+            {"raw_data": {"damage_resistances": ["slashing"], "damage_immunities": ["fire"]}},
+        )()
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 30,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [{"amount": 10, "type": "slashing"}, {"amount": 10, "type": "fire"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("damage_total"), 5)
+        self.assertEqual(result.get("damage_entries"), [{"amount": 5, "type": "slashing"}])
+        self.assertEqual(self.app.combatants[2].hp, 15)
+
 
 if __name__ == "__main__":
     unittest.main()
