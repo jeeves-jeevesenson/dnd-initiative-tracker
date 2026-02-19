@@ -17836,6 +17836,14 @@ class InitiativeTracker(base.InitiativeTracker):
             return ", ".join(parts)
         return str(value)
 
+    def _monster_detail_value(self, raw: Dict[str, Any], *keys: str) -> str:
+        values: List[str] = []
+        for key in keys:
+            text = self._format_monster_text_block(raw.get(key))
+            if text:
+                values.append(text)
+        return "; ".join(values)
+
     def _format_monster_feature_lines(self, value: object) -> List[str]:
         lines: List[str] = []
         if isinstance(value, list):
@@ -18064,17 +18072,18 @@ class InitiativeTracker(base.InitiativeTracker):
             text_value = self._format_monster_text_block(value)
             detail.insert("end", f"{text_value if text_value else f'No {title.lower()} available.'}\n", "body")
 
-        for title, key in (
-            ("Saving Throws", "saving_throws"),
-            ("Skills", "skills"),
-            ("Damage Vulnerabilities", "damage_vulnerabilities"),
-            ("Damage Resistances", "damage_resistances"),
-            ("Damage Immunities", "damage_immunities"),
-            ("Condition Immunities", "condition_immunities"),
-            ("Senses", "senses"),
-            ("Languages", "languages"),
+        for title, keys in (
+            ("Saving Throws", ("saving_throws",)),
+            ("Skills", ("skills",)),
+            ("Damage Vulnerabilities", ("damage_vulnerabilities",)),
+            ("Damage Resistances", ("damage_resistances", "damage_resistances_special")),
+            ("Damage Immunities", ("damage_immunities", "damage_immunities_special")),
+            ("Condition Immunities", ("condition_immunities", "condition_immunities_special")),
+            ("Other Resistances", ("other_resistances",)),
+            ("Senses", ("senses",)),
+            ("Languages", ("languages",)),
         ):
-            value = self._format_monster_text_block(raw.get(key))
+            value = self._monster_detail_value(raw, *keys)
             if value:
                 detail.insert("end", f"{title}\n", "section")
                 detail.insert("end", f"{value}\n", "body")
