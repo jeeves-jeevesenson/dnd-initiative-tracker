@@ -5930,12 +5930,21 @@ class InitiativeTracker(base.InitiativeTracker):
         self._session_bg_images = list(map_state.get("bg_images") if isinstance(map_state.get("bg_images"), list) else [])
         self._session_next_bg_id = int(map_state.get("next_bg_id", 1) or 1)
 
+        # Let map mode open with the saved grid size without re-prompting.
+        self._map_open_without_prompt_size = (int(self._lan_grid_cols), int(self._lan_grid_rows))
+
         lines = log_state.get("lines") if isinstance(log_state.get("lines"), list) else []
         history = self._history_file_path()
         history.parent.mkdir(parents=True, exist_ok=True)
         clean_lines = [str(line) for line in lines]
         history.write_text("\n".join(clean_lines) + ("\n" if clean_lines else ""), encoding="utf-8")
         self._load_history_into_log()
+
+        # Always open map mode when loading a snapshot so saved grid + placements are immediately applied.
+        try:
+            self._open_map_mode()
+        except Exception:
+            pass
 
         mw = getattr(self, "_map_window", None)
         try:
