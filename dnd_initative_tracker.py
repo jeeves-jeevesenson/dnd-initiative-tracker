@@ -13446,6 +13446,21 @@ class InitiativeTracker(base.InitiativeTracker):
             },
             "senses": raw_data.get("senses"),
             "languages": raw_data.get("languages"),
+            "damage_vulnerabilities": raw_data.get("damage_vulnerabilities")
+            if isinstance(raw_data.get("damage_vulnerabilities"), list)
+            else raw_data.get("vulnerabilities")
+            if isinstance(raw_data.get("vulnerabilities"), list)
+            else [],
+            "damage_resistances": raw_data.get("damage_resistances")
+            if isinstance(raw_data.get("damage_resistances"), list)
+            else raw_data.get("resistances")
+            if isinstance(raw_data.get("resistances"), list)
+            else [],
+            "damage_immunities": raw_data.get("damage_immunities")
+            if isinstance(raw_data.get("damage_immunities"), list)
+            else raw_data.get("immunities")
+            if isinstance(raw_data.get("immunities"), list)
+            else [],
             "traits": raw_data.get("traits") if isinstance(raw_data.get("traits"), list) else [],
             "actions": raw_data.get("actions") if isinstance(raw_data.get("actions"), list) else [],
             "bonus_actions": raw_data.get("bonus_actions") if isinstance(raw_data.get("bonus_actions"), list) else [],

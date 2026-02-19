@@ -80,6 +80,66 @@ class MonsterStatBlockTests(unittest.TestCase):
         payload = tracker._monster_stat_block_payload(spec)
         self.assertEqual(payload["recharge"], ["Fire Breath (Recharge 5-6)"])
 
+    def test_payload_includes_damage_defense_fields(self):
+        tracker = self._tracker()
+        spec = tracker_mod.MonsterSpec(
+            filename="test-monster.yaml",
+            name="Test Monster",
+            mtype="Fiend",
+            cr=5,
+            hp=100,
+            speed=30,
+            swim_speed=0,
+            fly_speed=0,
+            burrow_speed=0,
+            climb_speed=0,
+            dex=10,
+            init_mod=0,
+            saving_throws={},
+            ability_mods={},
+            raw_data={
+                "damage_vulnerabilities": ["radiant"],
+                "damage_resistances": ["cold", "fire"],
+                "damage_immunities": ["poison"],
+            },
+        )
+
+        payload = tracker._monster_stat_block_payload(spec)
+
+        self.assertEqual(payload["damage_vulnerabilities"], ["radiant"])
+        self.assertEqual(payload["damage_resistances"], ["cold", "fire"])
+        self.assertEqual(payload["damage_immunities"], ["poison"])
+
+    def test_payload_falls_back_to_legacy_damage_defense_fields(self):
+        tracker = self._tracker()
+        spec = tracker_mod.MonsterSpec(
+            filename="legacy-monster.yaml",
+            name="Legacy Monster",
+            mtype="Undead",
+            cr=5,
+            hp=100,
+            speed=30,
+            swim_speed=0,
+            fly_speed=0,
+            burrow_speed=0,
+            climb_speed=0,
+            dex=10,
+            init_mod=0,
+            saving_throws={},
+            ability_mods={},
+            raw_data={
+                "vulnerabilities": ["radiant"],
+                "resistances": ["necrotic"],
+                "immunities": ["poison"],
+            },
+        )
+
+        payload = tracker._monster_stat_block_payload(spec)
+
+        self.assertEqual(payload["damage_vulnerabilities"], ["radiant"])
+        self.assertEqual(payload["damage_resistances"], ["necrotic"])
+        self.assertEqual(payload["damage_immunities"], ["poison"])
+
     def test_payload_uses_local_monster_image_when_present(self):
         tracker = self._tracker()
         image_dir = Path(tracker_mod.__file__).parent / "Monsters" / "Images"
