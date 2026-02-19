@@ -54,6 +54,12 @@ try:
 except Exception:
     PdfReader = None  # type: ignore
 
+try:
+    from PIL import Image, ImageTk  # type: ignore
+except Exception:
+    Image = None  # type: ignore
+    ImageTk = None  # type: ignore
+
 # Import the full tracker as the base.
 # Keep this file in the same folder as helper_script.py
 try:
@@ -13363,7 +13369,7 @@ class InitiativeTracker(base.InitiativeTracker):
         speed_data = raw_data.get("speed")
         speed = speed_data if isinstance(speed_data, (dict, list, str, int, float)) else spec.speed
 
-        slug = Path(str(spec.filename or "")).stem.strip().lower()
+        slug = self._monster_slug_from_spec(spec)
         payload: Dict[str, Any] = {
             "slug": slug,
             "name": raw_data.get("name") or spec.name,
@@ -13398,14 +13404,39 @@ class InitiativeTracker(base.InitiativeTracker):
         return payload
 
     def _local_monster_image_url(self, slug: str) -> Optional[str]:
+        image_path = self._resolve_local_monster_image_path(slug)
+        if image_path is None:
+            return None
+        return f"/monsters/images/{urllib.parse.quote(image_path.name)}"
+
+    def _monster_slug_from_spec(self, spec: Optional[MonsterSpec]) -> str:
+        if spec is None:
+            return ""
+        filename = str(getattr(spec, "filename", "") or "").strip()
+        if filename:
+            slug = Path(filename).stem.strip().lower()
+            if slug:
+                return slug
+        name = str(getattr(spec, "name", "") or "").strip().lower()
+        return re.sub(r"[^a-z0-9]+", "-", name).strip("-")
+
+    def _resolve_local_monster_image_path(self, slug: str) -> Optional[Path]:
         safe_slug = str(slug or "").strip().lower()
         if not safe_slug:
             return None
-        image_dir = Path(__file__).parent / "Monsters" / "Images"
-        image_path = image_dir / f"{safe_slug}.jpg"
-        if not image_path.is_file():
-            return None
-        return f"/monsters/images/{urllib.parse.quote(safe_slug)}.jpg"
+        image_dirs = [
+            _app_data_dir() / "Monsters" / "Images",
+            _app_base_dir() / "Monsters" / "Images",
+        ]
+        for image_dir in image_dirs:
+            for ext in (".jpg", ".jpeg", ".png", ".webp"):
+                image_path = image_dir / f"{safe_slug}{ext}"
+                try:
+                    if image_path.is_file():
+                        return image_path
+                except Exception:
+                    continue
+        return None
 
     def _spawn_mount(
         self,
@@ -17841,6 +17872,8 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         raw = spec.raw_data or {}
+        slug = self._monster_slug_from_spec(spec)
+        image_path = self._resolve_local_monster_image_path(slug)
 
         header = ttk.Frame(body)
         header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
@@ -17865,6 +17898,21 @@ class InitiativeTracker(base.InitiativeTracker):
             text="   •   ".join(meta_bits),
             style="CreatureInfo.Meta.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(2, 0))
+
+        if image_path is not None and Image is not None and ImageTk is not None:
+            try:
+                with Image.open(image_path) as img:
+                    preview = img.copy()
+                resampling = getattr(Image, "Resampling", None)
+                resample_filter = resampling.LANCZOS if resampling is not None else Image.LANCZOS
+                preview.thumbnail((240, 240), resample_filter)
+                photo = ImageTk.PhotoImage(preview)
+                image_label = ttk.Label(header, image=photo)
+                image_label.image = photo
+                win._monster_photo = photo
+                image_label.grid(row=0, column=1, rowspan=2, sticky="ne", padx=(10, 0))
+            except Exception:
+                pass
 
         summary = ttk.Frame(body)
         summary.grid(row=1, column=0, sticky="ew", pady=(0, 10))

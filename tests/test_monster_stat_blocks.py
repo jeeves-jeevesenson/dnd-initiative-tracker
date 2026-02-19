@@ -1,5 +1,7 @@
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest import mock
 
 import dnd_initative_tracker as tracker_mod
 
@@ -112,6 +114,27 @@ class MonsterStatBlockTests(unittest.TestCase):
                 image_path.unlink()
             except FileNotFoundError:
                 pass
+
+    def test_resolve_local_monster_image_prefers_user_data_and_extensions(self):
+        tracker = self._tracker()
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data_dir = root / "data"
+            base_dir = root / "base"
+            user_images = data_dir / "Monsters" / "Images"
+            base_images = base_dir / "Monsters" / "Images"
+            user_images.mkdir(parents=True)
+            base_images.mkdir(parents=True)
+
+            (user_images / "aboleth.png").write_bytes(b"png")
+            (base_images / "aboleth.jpg").write_bytes(b"jpg")
+
+            with mock.patch.object(tracker_mod, "_app_data_dir", return_value=data_dir), mock.patch.object(
+                tracker_mod, "_app_base_dir", return_value=base_dir
+            ):
+                image_path = tracker._resolve_local_monster_image_path("aboleth")
+                self.assertEqual(image_path, user_images / "aboleth.png")
+                self.assertEqual(tracker._local_monster_image_url("aboleth"), "/monsters/images/aboleth.png")
 
 
 if __name__ == "__main__":
