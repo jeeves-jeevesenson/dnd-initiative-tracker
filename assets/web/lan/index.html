@@ -410,6 +410,20 @@
       font-size: 15px;
       margin-top: 2px;
     }
+    .monster-detail-image-wrap{
+      margin: 0 0 12px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+    }
+    .monster-detail-image{
+      width: 100%;
+      max-height: min(38vh, 320px);
+      object-fit: contain;
+      display: block;
+      background: rgba(0,0,0,0.22);
+    }
     .close-btn{
       position: fixed;
       top: 18px;
@@ -8770,7 +8784,13 @@ __DAMAGE_TYPE_OPTIONS__
       const spellcastingHtml = spellcasting
         ? `<p>${escapeHtml(typeof spellcasting === "string" ? spellcasting : JSON.stringify(spellcasting))}</p>`
         : "<p>None.</p>";
+      const rawImageUrl = normalizeTextValue(mon.image_proxy_url) || normalizeTextValue(mon.image_url);
+      const imageUrl = rawImageUrl && /^(\/|https?:\/\/)/i.test(rawImageUrl) ? rawImageUrl : "";
+      const imageBlock = imageUrl
+        ? `<div class="monster-detail-image-wrap"><img class="monster-detail-image" alt="${escapeHtml((normalizeTextValue(mon.name) || cleanSlug) + " illustration")}" src="${escapeHtml(imageUrl)}" loading="lazy" onerror="this.closest('.monster-detail-image-wrap')?.remove();" /></div>`
+        : "";
       monsterDetailContent.innerHTML = `
+        ${imageBlock}
         <h2>${escapeHtml(normalizeTextValue(mon.name) || cleanSlug)}</h2>
         <p><em>${escapeHtml(typeBits || "Unknown")} ${alignment ? `, ${escapeHtml(alignment)}` : ""}</em></p>
         <p><strong>Armor Class:</strong> ${escapeHtml(String(mon.armor_class ?? "—"))}</p>

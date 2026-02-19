@@ -13,6 +13,8 @@ from __future__ import annotations
 import asyncio
 import random
 import math
+import html
+import mimetypes
 from functools import lru_cache
 from pathlib import Path
 import json
@@ -32,6 +34,9 @@ import hashlib
 import hmac
 import secrets
 import traceback
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
@@ -2301,6 +2306,19 @@ class LanController:
                 raise HTTPException(status_code=404, detail="Monster not found.")
             mod_spec = self.app._apply_monster_variant(spec, variant, slot_level)
             return {"monster": self.app._monster_stat_block_payload(mod_spec)}
+
+        @self._fastapi_app.get("/api/monsters/{slug}/image")
+        async def get_monster_image(slug: str):
+            monster_slug = str(slug or "").strip().lower()
+            if not monster_slug:
+                raise HTTPException(status_code=400, detail="Missing monster slug.")
+            spec = self.app._find_monster_spec_by_slug(monster_slug)
+            if spec is None:
+                raise HTTPException(status_code=404, detail="Monster not found.")
+            payload, content_type = self.app._fetch_monster_image_bytes(monster_slug)
+            if not payload or not content_type:
+                raise HTTPException(status_code=404, detail="Monster image not found.")
+            return Response(content=payload, media_type=content_type)
 
         @self._fastapi_app.post("/api/players/{name}/spellbook")
         async def update_player_spellbook(name: str, payload: Dict[str, Any] = Body(...)):
@@ -4619,6 +4637,10 @@ class InitiativeTracker(base.InitiativeTracker):
         self._summon_group_meta: Dict[str, Dict[str, Any]] = {}
         self._pending_pre_summons: Dict[int, Dict[str, Any]] = {}
         self._pending_mount_requests: Dict[str, Dict[str, Any]] = {}
+        self._monster_image_cache: Dict[str, Dict[str, Any]] = {}
+        self._monster_image_cache_ttl_s = 60 * 60 * 12
+        self._monster_image_negative_ttl_s = 60 * 45
+        self._monster_image_lock = threading.Lock()
 
         # POC helpers: start the LAN server automatically.
         # Start quietly (log on success; avoid popups if deps missing)
@@ -13242,8 +13264,9 @@ class InitiativeTracker(base.InitiativeTracker):
         speed_data = raw_data.get("speed")
         speed = speed_data if isinstance(speed_data, (dict, list, str, int, float)) else spec.speed
 
+        slug = Path(str(spec.filename or "")).stem.strip().lower()
         payload: Dict[str, Any] = {
-            "slug": Path(str(spec.filename or "")).stem.strip().lower(),
+            "slug": slug,
             "name": raw_data.get("name") or spec.name,
             "size": raw_data.get("size"),
             "type": raw_data.get("type") or spec.mtype,
@@ -13270,7 +13293,107 @@ class InitiativeTracker(base.InitiativeTracker):
             "selected_variant": raw_data.get("selected_variant"),
             "selected_damage_type": raw_data.get("selected_damage_type"),
         }
+        image_url = self._resolve_aidedd_monster_image_url(slug)
+        if image_url:
+            payload["image_url"] = image_url
+            payload["image_proxy_url"] = f"/api/monsters/{urllib.parse.quote(slug)}/image"
         return payload
+
+    def _aidedd_monster_page_url(self, slug: str) -> str:
+        safe_slug = re.sub(r"[^a-z0-9-]+", "-", str(slug or "").strip().lower()).strip("-")
+        return f"https://www.aidedd.org/monster/{safe_slug}"
+
+    def _aidedd_request_headers(self) -> Dict[str, str]:
+        return {
+            "User-Agent": "dnd-init-tracker/monster-image-resolver/1.0",
+            "Accept": "text/html,application/xhtml+xml",
+        }
+
+    def _extract_aidedd_image_url(self, raw_html: str) -> Optional[str]:
+        if not raw_html:
+            return None
+        for pattern in (
+            r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+        ):
+            match = re.search(pattern, raw_html, flags=re.IGNORECASE)
+            if match:
+                return match.group(1)
+        img_pattern = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"'][^>]*>", flags=re.IGNORECASE)
+        for match in img_pattern.finditer(raw_html):
+            src = str(match.group(1) or "").strip()
+            if not src:
+                continue
+            lowered = src.lower()
+            if "/monster/img/" in lowered or "monster" in lowered:
+                return src
+        return None
+
+    def _normalize_aidedd_image_url(self, source_url: str, page_url: str) -> Optional[str]:
+        candidate = html.unescape(str(source_url or "").strip())
+        if not candidate:
+            return None
+        absolute = urllib.parse.urljoin(page_url, candidate)
+        parsed = urllib.parse.urlparse(absolute)
+        if parsed.scheme not in {"http", "https"}:
+            return None
+        if "aidedd.org" not in (parsed.netloc or ""):
+            return None
+        return absolute.replace("http://", "https://", 1)
+
+    def _resolve_aidedd_monster_image_url(self, slug: str) -> Optional[str]:
+        key = re.sub(r"[^a-z0-9-]+", "-", str(slug or "").strip().lower()).strip("-")
+        if not key:
+            return None
+        now = time.time()
+        with self._monster_image_lock:
+            cache_entry = self._monster_image_cache.get(key)
+            if isinstance(cache_entry, dict) and float(cache_entry.get("expires_at") or 0) > now:
+                return cache_entry.get("image_url") or None
+
+        page_url = self._aidedd_monster_page_url(key)
+        resolved_url: Optional[str] = None
+        try:
+            request = urllib.request.Request(page_url, headers=self._aidedd_request_headers())
+            with urllib.request.urlopen(request, timeout=2.0) as response:
+                charset = getattr(response.headers, "get_content_charset", lambda _default=None: None)(None) or "utf-8"
+                raw_html = response.read().decode(charset, errors="replace")
+            source_url = self._extract_aidedd_image_url(raw_html)
+            resolved_url = self._normalize_aidedd_image_url(source_url or "", page_url)
+        except Exception:
+            resolved_url = None
+
+        ttl = self._monster_image_cache_ttl_s if resolved_url else self._monster_image_negative_ttl_s
+        with self._monster_image_lock:
+            self._monster_image_cache[key] = {
+                "image_url": resolved_url,
+                "expires_at": now + ttl,
+            }
+        return resolved_url
+
+    def _fetch_monster_image_bytes(self, slug: str) -> Tuple[Optional[bytes], Optional[str]]:
+        image_url = self._resolve_aidedd_monster_image_url(slug)
+        if not image_url:
+            return None, None
+        try:
+            request = urllib.request.Request(
+                image_url,
+                headers={
+                    "User-Agent": "dnd-init-tracker/monster-image-proxy/1.0",
+                    "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+                },
+            )
+            with urllib.request.urlopen(request, timeout=2.5) as response:
+                content_type = str(response.headers.get("Content-Type") or "").strip()
+                payload = response.read()
+            if not payload:
+                return None, None
+            if not content_type:
+                guessed, _ = mimetypes.guess_type(image_url)
+                content_type = guessed or "application/octet-stream"
+            return payload, content_type
+        except Exception:
+            return None, None
 
     def _spawn_mount(
         self,
