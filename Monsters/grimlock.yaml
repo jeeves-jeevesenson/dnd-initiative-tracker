@@ -37,3 +37,6 @@ traits:
 - name: Stone Camouflage
   desc: The grimlock has advantage on Dexterity ({@skill Stealth}) checks made to hide in rocky terrain.
 legendary_actions: []
+condition_immunities: &id001
+- Blinded
+immunities: *id001

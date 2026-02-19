@@ -59,3 +59,12 @@ actions:
 - name: Etherealness
   desc: The fiend magically enters the Ethereal Plane from the Material Plane, or vice versa.
 legendary_actions: []
+damage_resistances: &id001
+- Cold
+- Fire
+- Lightning
+- Poison
+- Bludgeoning
+- Piercing
+- Slashing
+resistances: *id001

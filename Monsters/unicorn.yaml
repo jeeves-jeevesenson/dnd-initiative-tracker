@@ -59,3 +59,8 @@ legendary_actions:
   desc: The unicorn magically regains 11 ({@dice 2d8 + 2}) hit points.
 legendary_uses: 'Legendary Action Uses: 3. Immediately after another creature''s turn, the unicorn can expend a use to take
   one of the following actions. The unicorn regains all expended uses at the start of each of its turns.'
+damage_immunities:
+- Poison
+condition_immunities:
+- Charmed
+- Paralyzed

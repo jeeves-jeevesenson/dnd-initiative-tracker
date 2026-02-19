@@ -44,3 +44,9 @@ traits:
   desc: The dog has advantage on Wisdom ({@skill Perception}) checks and on saving throws against being {@condition blinded},
     {@condition charmed}, {@condition deafened}, {@condition frightened}, {@condition stunned}, or knocked {@condition unconscious}.
 legendary_actions: []
+condition_immunities:
+- Blinded
+- Charmed
+- Deafened
+- Frightened
+- Stunned

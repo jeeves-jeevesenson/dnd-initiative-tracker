@@ -26,3 +26,5 @@ description: See Summon Fiend
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Poison

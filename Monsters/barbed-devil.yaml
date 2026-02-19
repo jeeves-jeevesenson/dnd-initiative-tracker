@@ -49,3 +49,9 @@ actions:
   desc: '{@atk rs} {@hit 5} to hit, range 150 ft., one target. {@h}10 ({@damage 3d6}) fire damage. If the target is a flammable
     object that isn''t being worn or carried, it also catches fire.'
 legendary_actions: []
+damage_resistances: &id001
+- Poison
+resistances: *id001
+damage_immunities:
+- Fire
+- Poison

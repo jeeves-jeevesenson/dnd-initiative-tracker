@@ -40,3 +40,16 @@ actions:
   desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}9 ({@damage 2d6 + 2}) bludgeoning damage plus 3 ({@damage
     1d6}) acid damage.'
 legendary_actions: []
+damage_resistances: &id001
+- Slashing
+resistances: *id001
+damage_immunities:
+- Lightning
+- Slashing
+condition_immunities:
+- Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Grappled
+- Prone

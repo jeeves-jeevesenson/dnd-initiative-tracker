@@ -33,3 +33,7 @@ actions:
   desc: '{@atk rw} {@hit 4} to hit, range 80/320 ft., one target. {@h}5 ({@damage 1d6 + 2}) piercing damage.'
 traits: []
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Exhaustion

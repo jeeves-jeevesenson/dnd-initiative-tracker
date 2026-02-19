@@ -33,3 +33,9 @@ actions:
 - name: Bite
   desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}4 ({@damage 1d4 + 2}) piercing damage.'
 legendary_actions: []
+damage_resistances: &id001
+- Acid
+- Cold
+- Fire
+- Lightning
+resistances: *id001

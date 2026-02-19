@@ -32,3 +32,6 @@ actions:
 - name: Needles
   desc: '{@atk rw} {@hit 3} to hit, range 30/60 ft., one target. {@h}8 ({@damage 2d6 + 1}) piercing damage.'
 legendary_actions: []
+condition_immunities:
+- Blinded
+- Deafened

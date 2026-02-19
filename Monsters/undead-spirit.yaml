@@ -28,3 +28,10 @@ description: See Summon Undead
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Necrotic
+- Poison
+condition_immunities:
+- Exhaustion
+- Frightened
+- Paralyzed

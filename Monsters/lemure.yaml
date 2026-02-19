@@ -37,3 +37,12 @@ actions:
 - name: Fist
   desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}2 ({@damage 1d4}) bludgeoning damage.'
 legendary_actions: []
+damage_resistances: &id001
+- Poison
+resistances: *id001
+damage_immunities:
+- Fire
+- Poison
+condition_immunities:
+- Charmed
+- Frightened

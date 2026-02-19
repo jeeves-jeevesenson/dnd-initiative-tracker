@@ -49,3 +49,5 @@ actions:
   desc: The dragon exhales acid in a 30-foot line that is 5 feet wide. Each creature in that line must make a {@dc 14} Dexterity
     saving throw, taking 49 ({@damage 11d8}) acid damage on a failed save, or half as much damage on a successful one.
 legendary_actions: []
+damage_immunities:
+- Acid

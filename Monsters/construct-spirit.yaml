@@ -27,3 +27,8 @@ description: See Summon Construc
 traits: []
 actions: []
 legendary_actions: []
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Paralyzed

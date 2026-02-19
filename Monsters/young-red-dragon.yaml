@@ -48,3 +48,5 @@ actions:
     taking 56 ({@damage 16d6}) fire damage on a failed save, or half as much damage on a successful one.
 traits: []
 legendary_actions: []
+damage_immunities:
+- Fire

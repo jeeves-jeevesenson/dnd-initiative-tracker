@@ -36,3 +36,16 @@ habitat: Underdark
 traits: []
 actions: []
 legendary_actions: []
+damage_resistances: &id001
+- Acid
+- Cold
+- Fire
+resistances: *id001
+condition_immunities:
+- Blinded
+- Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Grappled
+- Prone

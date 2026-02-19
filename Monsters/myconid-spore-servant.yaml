@@ -31,3 +31,10 @@ treasure: Any
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Blinded
+- Charmed
+- Frightened
+- Paralyzed

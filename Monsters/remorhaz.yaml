@@ -44,3 +44,5 @@ actions:
     within 10 feet of the remorhaz. If the remorhaz dies, a swallowed creature is no longer {@condition restrained} by it
     and can escape from the corpse using 15 feet of movement, exiting {@condition prone}.
 legendary_actions: []
+damage_immunities:
+- Cold

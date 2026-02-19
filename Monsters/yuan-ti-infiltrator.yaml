@@ -34,3 +34,5 @@ treasure: Relics
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Poison

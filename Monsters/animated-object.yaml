@@ -28,3 +28,11 @@ description: See Animate Objects
 actions: []
 traits: []
 legendary_actions: []
+damage_immunities:
+- Poison
+- Psychic
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Paralyzed

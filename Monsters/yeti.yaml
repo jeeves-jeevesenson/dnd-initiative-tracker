@@ -49,3 +49,5 @@ actions:
     of its turns, ending the effect on itself on a success. If the target's saving throw is successful, or if the effect ends
     on it, the target is immune to the Chilling Gaze of all yetis (but not abominable yetis) for 1 hour.
 legendary_actions: []
+damage_immunities:
+- Cold

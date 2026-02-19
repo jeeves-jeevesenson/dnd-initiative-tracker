@@ -49,3 +49,13 @@ actions:
 - name: Fire Ray
   desc: '{@atk rs} {@hit 5} to hit, range 30 ft., one target. {@h}10 ({@damage 3d6}) fire damage.'
 legendary_actions: []
+damage_immunities:
+- Fire
+- Necrotic
+- Poison
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Paralyzed
+- Poisoned

@@ -35,3 +35,5 @@ actions:
 - name: Claw
   desc: '{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}6 ({@damage 1d6 + 3}) slashing damage.'
 legendary_actions: []
+damage_immunities:
+- Poison

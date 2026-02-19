@@ -55,3 +55,25 @@ actions:
     weapon, attacking one creature along the object's path ({@hit 4} to hit) and dealing 5 ({@damage 2d4}) bludgeoning damage
     on a hit.
 legendary_actions: []
+damage_resistances: &id001
+- Acid
+- Bludgeoning
+- Cold
+- Fire
+- Lightning
+- Piercing
+- Slashing
+- Poison
+resistances: *id001
+damage_immunities:
+- Necrotic
+- Poison
+condition_immunities:
+- Charmed
+- Exhaustion
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained

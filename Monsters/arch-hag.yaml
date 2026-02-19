@@ -44,3 +44,10 @@ treasure: Arcana
 traits: []
 actions: []
 legendary_actions: []
+damage_resistances: &id001
+- Cold
+- Fire
+resistances: *id001
+condition_immunities:
+- Charmed
+- Exhaustion

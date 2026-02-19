@@ -45,3 +45,5 @@ actions:
     one.
 traits: []
 legendary_actions: []
+damage_immunities:
+- Lightning

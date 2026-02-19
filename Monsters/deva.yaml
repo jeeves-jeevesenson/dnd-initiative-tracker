@@ -52,3 +52,6 @@ actions:
     any statistics and capabilities (except class features, legendary actions, and lair actions) that the new form has but
     that it lacks.
 legendary_actions: []
+condition_immunities:
+- Charmed
+- Exhaustion

@@ -35,3 +35,7 @@ actions:
     is instead {@condition poisoned} for 5 ({@dice 1d10}) minutes and {@condition unconscious} while {@condition poisoned}
     in this way.'
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Charmed

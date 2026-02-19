@@ -54,3 +54,9 @@ actions:
     ends (as if {@status concentration||concentrating} on a spell). Any equipment the quasit wears or carries is {@condition
     invisible} with it.
 legendary_actions: []
+damage_resistances: &id001
+- Cold
+- Fire
+resistances: *id001
+damage_immunities:
+- Poison

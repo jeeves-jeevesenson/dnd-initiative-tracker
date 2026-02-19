@@ -66,3 +66,5 @@ actions:
 legendary_actions:
 - name: Eye Ray
   desc: The beholder uses one random eye ray.
+condition_immunities:
+- Prone

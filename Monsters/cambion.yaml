@@ -48,3 +48,8 @@ actions:
     saving throw, ending the effect on itself on a success. If a target's saving throw is successful, or if the effect ends
     for it, the creature is immune to the cambion's Fiendish Charm for the next 24 hours.
 legendary_actions: []
+damage_resistances: &id001
+- Cold
+- Fire
+- Lightning
+resistances: *id001

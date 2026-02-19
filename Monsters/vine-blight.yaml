@@ -42,3 +42,6 @@ actions:
     A creature can use its action to make a {@dc 12} Strength check, freeing itself or another entangled creature within reach
     on a success.
 legendary_actions: []
+condition_immunities:
+- Blinded
+- Deafened

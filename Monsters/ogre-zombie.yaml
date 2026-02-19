@@ -33,3 +33,7 @@ actions:
 - name: Morningstar
   desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}13 ({@damage 2d8 + 4}) bludgeoning damage.'
 legendary_actions: []
+damage_immunities:
+- Poison
+condition_immunities:
+- Exhaustion

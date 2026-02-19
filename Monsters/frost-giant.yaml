@@ -35,3 +35,5 @@ actions:
   desc: '{@atk rw} {@hit 9} to hit, range 60/240 ft., one target. {@h}28 ({@damage 4d10 + 6}) bludgeoning damage.'
 traits: []
 legendary_actions: []
+damage_immunities:
+- Cold

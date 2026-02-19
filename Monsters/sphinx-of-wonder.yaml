@@ -33,3 +33,7 @@ treasure: Arcana
 traits: []
 actions: []
 legendary_actions: []
+damage_resistances: &id001
+- Necrotic
+- Psychic
+resistances: *id001

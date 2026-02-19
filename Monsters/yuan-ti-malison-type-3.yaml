@@ -55,3 +55,5 @@ actions:
 - name: Longbow (Yuan-ti Form Only)
   desc: '{@atk rw} {@hit 4} to hit, range 150/600 ft., one target. {@h}6 ({@damage 1d8 + 2}) piercing damage.'
 legendary_actions: []
+damage_immunities:
+- Poison

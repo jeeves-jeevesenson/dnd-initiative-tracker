@@ -44,3 +44,9 @@ actions:
     for 1 minute. The target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a
     success.'
 legendary_actions: []
+damage_resistances: &id001
+- Poison
+resistances: *id001
+damage_immunities:
+- Fire
+- Poison

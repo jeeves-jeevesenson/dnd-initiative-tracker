@@ -29,3 +29,8 @@ treasure: None
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Fire
+- Poison
+condition_immunities:
+- Exhaustion

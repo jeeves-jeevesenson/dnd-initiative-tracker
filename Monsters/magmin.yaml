@@ -36,3 +36,10 @@ actions:
     or a flammable object, it ignites. Until a creature takes an action to douse the fire, the target takes 3 ({@damage 1d6})
     fire damage at the end of each of its turns.'
 legendary_actions: []
+damage_resistances: &id001
+- Bludgeoning
+- Piercing
+- Slashing
+resistances: *id001
+damage_immunities:
+- Fire

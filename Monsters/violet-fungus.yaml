@@ -34,3 +34,7 @@ traits:
 - name: False Appearance
   desc: While the violet fungus remains motionless, it is indistinguishable from an ordinary fungus.
 legendary_actions: []
+condition_immunities:
+- Blinded
+- Charmed
+- Deafened

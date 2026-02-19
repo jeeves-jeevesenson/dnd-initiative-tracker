@@ -35,3 +35,5 @@ actions:
   desc: '{@atk rw} {@hit 11} to hit, range 60/240 ft., one target. {@h}29 ({@damage 4d10 + 7}) bludgeoning damage.'
 traits: []
 legendary_actions: []
+damage_immunities:
+- Fire

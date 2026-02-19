@@ -41,3 +41,8 @@ actions:
   desc: The mephit exhales a 15-foot cone of smoldering ash. Each creature in that area must succeed on a {@dc 10} Dexterity
     saving throw or be {@condition blinded} until the end of the mephit's next turn.
 legendary_actions: []
+damage_immunities:
+- Fire
+- Poison
+condition_immunities:
+- Exhaustion

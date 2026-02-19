@@ -48,3 +48,9 @@ actions:
     any statistics and capabilities (except class features, legendary actions, and lair actions) that the new form has but
     that it lacks. If the new form has a bite attack, the couatl can use its bite in that form.
 legendary_actions: []
+damage_resistances: &id001
+- Bludgeoning
+- Piercing
+resistances: *id001
+damage_immunities:
+- Psychic

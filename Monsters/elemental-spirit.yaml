@@ -29,3 +29,16 @@ description: See Summon Elemental
 traits: []
 actions: []
 legendary_actions: []
+damage_resistances: &id001
+- Lightning
+- Piercing
+- Poison
+- Fire
+resistances: *id001
+damage_immunities:
+- Poison
+- Fire
+condition_immunities:
+- Exhaustion
+- Paralyzed
+- Petrified

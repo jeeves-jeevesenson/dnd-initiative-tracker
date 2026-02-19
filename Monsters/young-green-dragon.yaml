@@ -51,3 +51,5 @@ actions:
   desc: The dragon exhales poisonous gas in a 30-foot cone. Each creature in that area must make a {@dc 14} Constitution saving
     throw, taking 42 ({@damage 12d6}) poison damage on a failed save, or half as much damage on a successful one.
 legendary_actions: []
+damage_immunities:
+- Poison

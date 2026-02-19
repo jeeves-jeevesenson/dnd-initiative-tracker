@@ -56,3 +56,26 @@ actions:
     undead. All other creatures within 30 feet of her that can hear her must make a {@dc 13} Constitution saving throw. On
     a failure, a creature drops to 0 hit points. On a success, a creature takes 10 ({@damage 3d6}) psychic damage.
 legendary_actions: []
+damage_resistances: &id001
+- Acid
+- Fire
+- Lightning
+- Thunder
+- Bludgeoning
+- Piercing
+- Slashing
+resistances: *id001
+damage_immunities:
+- Cold
+- Necrotic
+- Poison
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained

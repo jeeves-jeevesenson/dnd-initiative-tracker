@@ -33,3 +33,15 @@ habitat: Underwater
 traits: []
 actions: []
 legendary_actions: []
+damage_resistances: &id001
+- Bludgeoning
+- Piercing
+resistances: *id001
+condition_immunities:
+- Charmed
+- Frightened
+- Grappled
+- Paralyzed
+- Petrified
+- Prone
+- Restrained

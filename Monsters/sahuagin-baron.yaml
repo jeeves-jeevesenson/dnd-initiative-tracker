@@ -45,3 +45,6 @@ actions:
   desc: '{@atk mw,rw} {@hit 7} to hit, reach 5 ft. or range 20/60 ft., one target. {@h}11 ({@damage 2d6 + 4}) piercing damage,
     or 13 ({@damage 2d8 + 4}) piercing damage if used with two hands to make a melee attack.'
 legendary_actions: []
+damage_resistances: &id001
+- Acid
+resistances: *id001

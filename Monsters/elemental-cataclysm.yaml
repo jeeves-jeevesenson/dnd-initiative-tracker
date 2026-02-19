@@ -45,3 +45,23 @@ habitat: Planar (Elemental Chaos)
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Acid
+- Cold
+- Fire
+- Lightning
+- Poison
+- Thunder
+condition_immunities:
+- Blinded
+- Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained
+- Stunned

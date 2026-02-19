@@ -64,3 +64,25 @@ actions:
     body. The target is immune to this ghost's Possession for 24 hours after succeeding on the saving throw or after the possession
     ends.
 legendary_actions: []
+damage_resistances: &id001
+- Acid
+- Bludgeoning
+- Cold
+- Fire
+- Lightning
+- Piercing
+- Slashing
+- Poison
+resistances: *id001
+damage_immunities:
+- Necrotic
+- Poison
+condition_immunities:
+- Charmed
+- Exhaustion
+- Frightened
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone

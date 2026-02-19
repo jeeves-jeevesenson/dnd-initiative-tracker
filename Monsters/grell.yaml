@@ -42,3 +42,7 @@ actions:
 - name: Beak
   desc: '{@atk mw} {@hit 4} to hit, reach 5 ft., one target. {@h}7 ({@damage 2d4 + 2}) piercing damage.'
 legendary_actions: []
+damage_immunities:
+- Lightning
+condition_immunities:
+- Blinded

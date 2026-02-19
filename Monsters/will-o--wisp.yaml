@@ -51,3 +51,23 @@ actions:
   desc: The will-o'-wisp and its light magically become {@condition invisible} until it attacks or uses its Consume Life,
     or until its {@status concentration} ends (as if {@status concentration||concentrating} on a spell).
 legendary_actions: []
+damage_resistances: &id001
+- Acid
+- Bludgeoning
+- Cold
+- Fire
+- Necrotic
+- Piercing
+- Poison
+resistances: *id001
+damage_immunities:
+- Lightning
+- Poison
+condition_immunities:
+- Exhaustion
+- Grappled
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone
+- Restrained

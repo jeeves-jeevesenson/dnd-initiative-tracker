@@ -44,3 +44,9 @@ actions:
     If this effect reduces a creature''s hit point maximum to 0, the creature dies. This reduction to a creature''s hit point
     maximum lasts until the creature finishes a long rest or until it is affected by a spell like {@spell greater restoration}.'
 legendary_actions: []
+damage_resistances: &id001
+- Cold
+- Fire
+resistances: *id001
+damage_immunities:
+- Poison

@@ -70,3 +70,22 @@ legendary_actions:
   desc: The demilich targets one creature it can see within 30 feet of it. The target must succeed on a {@dc 15} Wisdom saving
     throw or be magically cursed. Until the curse ends, the target has disadvantage on attack rolls and saving throws. The
     target can repeat the saving throw at the end of each of its turns, ending the curse on a success.
+damage_resistances: &id001
+- Bludgeoning
+- Piercing
+- Poison
+- Psychic
+resistances: *id001
+damage_immunities:
+- Necrotic
+- Poison
+- Psychic
+condition_immunities:
+- Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified
+- Poisoned
+- Prone

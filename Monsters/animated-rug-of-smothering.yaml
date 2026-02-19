@@ -34,3 +34,13 @@ habitat: Urban
 actions: []
 traits: []
 legendary_actions: []
+damage_immunities:
+- Poison
+- Psychic
+condition_immunities:
+- Charmed
+- Deafened
+- Exhaustion
+- Frightened
+- Paralyzed
+- Petrified

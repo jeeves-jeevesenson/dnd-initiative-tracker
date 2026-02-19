@@ -55,3 +55,11 @@ actions:
     An engulfed creature can try to escape by taking an action to make a {@dc 12} Strength check. On a success, the creature
     escapes and enters a space of its choice within 5 feet of the cube.
 legendary_actions: []
+damage_immunities:
+- Acid
+condition_immunities:
+- Blinded
+- Charmed
+- Deafened
+- Exhaustion
+- Frightened
