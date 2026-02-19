@@ -356,74 +356,6 @@
     }
     .hidden{display:none !important;}
 
-    .monster-detail-overlay{
-      position: fixed;
-      inset: 0;
-      background: rgba(7, 10, 16, 0.82);
-      backdrop-filter: blur(4px);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 24px;
-      z-index: 110;
-    }
-    .monster-detail-content{
-      width: min(90vw, 980px);
-      max-width: 90vw;
-      max-height: 90vh;
-      overflow-y: auto;
-      background: rgba(15, 19, 32, 0.98);
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 14px;
-      box-shadow: 0 18px 38px rgba(0,0,0,0.45);
-      padding: 20px;
-      line-height: 1.45;
-    }
-    .monster-detail-content h2,
-    .monster-detail-content h3{
-      margin: 0 0 10px;
-    }
-    .monster-detail-content p{
-      margin: 0 0 8px;
-      color: var(--text);
-    }
-    .monster-detail-content ul{
-      margin: 0 0 12px;
-      padding-left: 18px;
-    }
-    .monster-detail-content .ability-grid{
-      display:grid;
-      grid-template-columns: repeat(6, minmax(56px, 1fr));
-      gap: 8px;
-      margin: 8px 0 14px;
-    }
-    .monster-detail-content .ability-cell{
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px;
-      padding: 8px 6px;
-      text-align:center;
-      background: rgba(255,255,255,0.05);
-      font-size: 12px;
-    }
-    .monster-detail-content .ability-cell strong{
-      display:block;
-      font-size: 15px;
-      margin-top: 2px;
-    }
-    .monster-detail-image-wrap{
-      margin: 0 0 12px;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.04);
-    }
-    .monster-detail-image{
-      width: 100%;
-      max-height: min(38vh, 320px);
-      object-fit: contain;
-      display: block;
-      background: rgba(0,0,0,0.22);
-    }
     .close-btn{
       position: fixed;
       top: 18px;
@@ -440,9 +372,6 @@
       cursor: pointer;
     }
     @media (max-width: 760px){
-      .monster-detail-overlay{padding: 12px;}
-      .monster-detail-content{padding: 14px;}
-      .monster-detail-content .ability-grid{grid-template-columns: repeat(3, minmax(56px, 1fr));}
       .close-btn{top: 10px; right: 10px;}
     }
     .spacer{flex:1;}
@@ -3099,11 +3028,6 @@ __DAMAGE_TYPE_OPTIONS__
   </div>
 </div>
 
-<div id="monsterDetailOverlay" class="monster-detail-overlay hidden" role="dialog" aria-modal="true" aria-hidden="true">
-  <button id="monsterDetailCloseBtn" class="close-btn" aria-label="Close" type="button">×</button>
-  <div id="monsterDetailContent" class="monster-detail-content"></div>
-</div>
-
 <script>
 (() => {
   const logClientError = (payload) => {
@@ -3780,9 +3704,6 @@ __DAMAGE_TYPE_OPTIONS__
   const spellDetailColorSwatch = document.getElementById("spellDetailColorSwatch");
   const spellDetailColorValue = document.getElementById("spellDetailColorValue");
   const spellDetailStatus = document.getElementById("spellDetailStatus");
-  const monsterDetailOverlay = document.getElementById("monsterDetailOverlay");
-  const monsterDetailCloseBtn = document.getElementById("monsterDetailCloseBtn");
-  const monsterDetailContent = document.getElementById("monsterDetailContent");
   const castNameInput = document.getElementById("castName");
   const castSubmitBtn = document.getElementById("castSubmit");
   const aoeOptions = document.getElementById("aoeOptions");
@@ -8722,110 +8643,6 @@ __DAMAGE_TYPE_OPTIONS__
     activeTurnOrderBubbleEl.style.top = `${top}px`;
   }
 
-  function monsterDetailEntryList(entries){
-    if (!Array.isArray(entries) || !entries.length){
-      return "<p>None.</p>";
-    }
-    const items = entries.map((entry) => {
-      const name = normalizeTextValue(entry?.name || "");
-      const desc = normalizeTextValue(entry?.desc || "");
-      if (!name && !desc) return "";
-      if (!name) return `<li>${escapeHtml(desc)}</li>`;
-      if (!desc) return `<li><strong>${escapeHtml(name)}.</strong></li>`;
-      return `<li><strong>${escapeHtml(name)}.</strong> ${escapeHtml(desc)}</li>`;
-    }).filter(Boolean);
-    if (!items.length){
-      return "<p>None.</p>";
-    }
-    return `<ul>${items.join("")}</ul>`;
-  }
-
-  function hideMonsterDetail(){
-    if (!monsterDetailOverlay) return;
-    monsterDetailOverlay.classList.add("hidden");
-    monsterDetailOverlay.setAttribute("aria-hidden", "true");
-  }
-
-  async function showMonsterDetail(slug, variant, slotLevel){
-    if (!monsterDetailOverlay || !monsterDetailContent) return;
-    const cleanSlug = normalizeTextValue(slug);
-    if (!cleanSlug) return;
-    monsterDetailContent.innerHTML = "<p>Loading monster details…</p>";
-    monsterDetailOverlay.classList.remove("hidden");
-    monsterDetailOverlay.setAttribute("aria-hidden", "false");
-    const params = new URLSearchParams();
-    const cleanVariant = normalizeTextValue(variant || "");
-    if (cleanVariant){
-      params.set("variant", cleanVariant);
-    }
-    const maybeSlot = Number(slotLevel);
-    if (Number.isFinite(maybeSlot) && maybeSlot >= 0){
-      params.set("slot_level", String(maybeSlot));
-    }
-    const query = params.toString();
-    const url = `/api/monsters/${encodeURIComponent(cleanSlug)}${query ? `?${query}` : ""}`;
-    try {
-      const response = await fetch(url);
-      if (!response.ok){
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const payload = await response.json();
-      const mon = payload?.monster || {};
-      const abilities = mon.ability_scores || {};
-      const abilityCells = [["STR","str"],["DEX","dex"],["CON","con"],["INT","int"],["WIS","wis"],["CHA","cha"]]
-        .map(([label,key]) => `<div class="ability-cell"><span>${label}</span><strong>${escapeHtml(String(abilities?.[key] ?? "—"))}</strong></div>`)
-        .join("");
-      const typeBits = [normalizeTextValue(mon.size), normalizeTextValue(mon.type)].filter(Boolean).join(" ");
-      const alignment = normalizeTextValue(mon.alignment);
-      const speed = Array.isArray(mon.speed) ? mon.speed.join(", ") : (typeof mon.speed === "object" && mon.speed !== null ? Object.entries(mon.speed).map(([k,v]) => `${k}: ${v}`).join(", ") : (mon.speed ?? "—"));
-      const languages = Array.isArray(mon.languages) ? mon.languages.join(", ") : (normalizeTextValue(mon.languages) || "—");
-      const senses = normalizeTextValue(mon.senses) || "—";
-      const damageVulnerabilities = Array.isArray(mon.damage_vulnerabilities) ? mon.damage_vulnerabilities : [];
-      const damageResistances = Array.isArray(mon.damage_resistances) ? mon.damage_resistances : [];
-      const damageImmunities = Array.isArray(mon.damage_immunities) ? mon.damage_immunities : [];
-      const formatMonsterDamageList = (entries) => entries.length ? escapeHtml(entries.join(", ")) : "—";
-      const recharge = Array.isArray(mon.recharge) ? mon.recharge : [];
-      const spellcasting = mon.spellcasting;
-      const spellcastingHtml = spellcasting
-        ? `<p>${escapeHtml(typeof spellcasting === "string" ? spellcasting : JSON.stringify(spellcasting))}</p>`
-        : "<p>None.</p>";
-      const rawImageUrl = normalizeTextValue(mon.image_proxy_url) || normalizeTextValue(mon.image_url);
-      const imageUrl = rawImageUrl && /^(\/|https?:\/\/)/i.test(rawImageUrl) ? rawImageUrl : "";
-      const imageBlock = imageUrl
-        ? `<div class="monster-detail-image-wrap"><img class="monster-detail-image" alt="${escapeHtml((normalizeTextValue(mon.name) || cleanSlug) + " illustration")}" src="${escapeHtml(imageUrl)}" loading="lazy" onerror="this.closest('.monster-detail-image-wrap')?.remove();" /></div>`
-        : "";
-      monsterDetailContent.innerHTML = `
-        ${imageBlock}
-        <h2>${escapeHtml(normalizeTextValue(mon.name) || cleanSlug)}</h2>
-        <p><em>${escapeHtml(typeBits || "Unknown")} ${alignment ? `, ${escapeHtml(alignment)}` : ""}</em></p>
-        <p><strong>Armor Class:</strong> ${escapeHtml(String(mon.armor_class ?? "—"))}</p>
-        <p><strong>Hit Points:</strong> ${escapeHtml(String(mon.hit_points ?? "—"))}</p>
-        <p><strong>Speed:</strong> ${escapeHtml(String(speed ?? "—"))}</p>
-        <h3>Ability Scores</h3>
-        <div class="ability-grid">${abilityCells}</div>
-        <p><strong>Senses:</strong> ${escapeHtml(senses)}</p>
-        <p><strong>Languages:</strong> ${escapeHtml(languages)}</p>
-        <p><strong>Damage Vulnerabilities:</strong> ${formatMonsterDamageList(damageVulnerabilities)}</p>
-        <p><strong>Damage Resistances:</strong> ${formatMonsterDamageList(damageResistances)}</p>
-        <p><strong>Damage Immunities:</strong> ${formatMonsterDamageList(damageImmunities)}</p>
-        <h3>Traits</h3>
-        ${monsterDetailEntryList(mon.traits)}
-        <h3>Actions</h3>
-        ${monsterDetailEntryList(mon.actions)}
-        <h3>Bonus Actions</h3>
-        ${monsterDetailEntryList(mon.bonus_actions)}
-        <h3>Legendary Actions</h3>
-        ${monsterDetailEntryList(mon.legendary_actions)}
-        <h3>Spellcasting</h3>
-        ${spellcastingHtml}
-        <h3>Recharge</h3>
-        ${recharge.length ? `<ul>${recharge.map((entry) => `<li>${escapeHtml(String(entry))}</li>`).join("")}</ul>` : "<p>None.</p>"}
-      `;
-    } catch (error){
-      monsterDetailContent.innerHTML = `<p>Could not load monster details for <strong>${escapeHtml(cleanSlug)}</strong>.</p>`;
-    }
-  }
-
   function updateTurnOrder(){
     if (!activeTurnOrderEl){
       return;
@@ -8903,20 +8720,6 @@ __DAMAGE_TYPE_OPTIONS__
       chip.setAttribute("title", fullLabel);
       if (cidValue !== null){
         chip.dataset.cid = String(cidValue);
-      }
-      if (unit?.summoned_by_cid !== undefined && unit?.summoned_by_cid !== null){
-        const monsterSlug = normalizeTextValue(unit?.monster_slug || "");
-        if (monsterSlug){
-          chip.dataset.monsterSlug = monsterSlug;
-          const monsterVariant = normalizeTextValue(unit?.summon_variant || "");
-          if (monsterVariant){
-            chip.dataset.monsterVariant = monsterVariant;
-          }
-          const slotLevel = Number(unit?.slot_level);
-          if (Number.isFinite(slotLevel) && slotLevel >= 0){
-            chip.dataset.slotLevel = String(slotLevel);
-          }
-        }
       }
       if (idx === claimedIndex){
         const claimedMarker = document.createElement("span");
@@ -15029,7 +14832,7 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
   if (mapViewTurnOrderEl){
-    mapViewTurnOrderEl.addEventListener("click", async (event) => {
+    mapViewTurnOrderEl.addEventListener("click", (event) => {
       const chip = event.target.closest(".turn-chip");
       const chipCid = normalizeCid(chip?.dataset?.cid, "turnOrder.click.cid");
       if (chipCid !== null && canSelectControlledUnitCid(chipCid)){
@@ -15043,28 +14846,8 @@ __DAMAGE_TYPE_OPTIONS__
         draw();
         return;
       }
-      const slug = chip?.dataset?.monsterSlug;
-      if (!slug) return;
-      const variant = chip.dataset.monsterVariant || "";
-      const slotLevel = chip.dataset.slotLevel || "";
-      showMonsterDetail(slug, variant, slotLevel);
     });
   }
-  if (monsterDetailCloseBtn){
-    monsterDetailCloseBtn.addEventListener("click", hideMonsterDetail);
-  }
-  if (monsterDetailOverlay){
-    monsterDetailOverlay.addEventListener("click", (event) => {
-      if (event.target === event.currentTarget){
-        hideMonsterDetail();
-      }
-    });
-  }
-  window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape"){
-      hideMonsterDetail();
-    }
-  });
 
   if (connEl && connPopoverEl){
     connEl.addEventListener("click", (event) => {
@@ -15085,10 +14868,6 @@ __DAMAGE_TYPE_OPTIONS__
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape"){
-      if (!monsterDetailOverlay?.classList.contains("hidden")){
-        hideMonsterDetail();
-        return;
-      }
       if (spellbookConfirmModal?.classList.contains("show")){
         hideSpellbookConfirm();
         return;
