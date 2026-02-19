@@ -34,3 +34,5 @@ legendary_actions: []
 condition_immunities:
 - Blinded
 - Deafened
+damage_vulnerabilities:
+- Fire

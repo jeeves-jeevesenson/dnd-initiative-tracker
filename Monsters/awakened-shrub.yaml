@@ -31,3 +31,5 @@ traits:
 legendary_actions: []
 damage_resistances:
 - Piercing
+damage_vulnerabilities:
+- Fire

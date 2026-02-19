@@ -31,3 +31,5 @@ damage_immunities:
 condition_immunities:
 - Exhaustion
 - Poisoned
+damage_vulnerabilities:
+- Poison
