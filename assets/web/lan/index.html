@@ -8779,6 +8779,10 @@ __DAMAGE_TYPE_OPTIONS__
       const speed = Array.isArray(mon.speed) ? mon.speed.join(", ") : (typeof mon.speed === "object" && mon.speed !== null ? Object.entries(mon.speed).map(([k,v]) => `${k}: ${v}`).join(", ") : (mon.speed ?? "—"));
       const languages = Array.isArray(mon.languages) ? mon.languages.join(", ") : (normalizeTextValue(mon.languages) || "—");
       const senses = normalizeTextValue(mon.senses) || "—";
+      const damageVulnerabilities = Array.isArray(mon.damage_vulnerabilities) ? mon.damage_vulnerabilities : [];
+      const damageResistances = Array.isArray(mon.damage_resistances) ? mon.damage_resistances : [];
+      const damageImmunities = Array.isArray(mon.damage_immunities) ? mon.damage_immunities : [];
+      const formatMonsterDamageList = (entries) => entries.length ? escapeHtml(entries.join(", ")) : "—";
       const recharge = Array.isArray(mon.recharge) ? mon.recharge : [];
       const spellcasting = mon.spellcasting;
       const spellcastingHtml = spellcasting
@@ -8800,6 +8804,9 @@ __DAMAGE_TYPE_OPTIONS__
         <div class="ability-grid">${abilityCells}</div>
         <p><strong>Senses:</strong> ${escapeHtml(senses)}</p>
         <p><strong>Languages:</strong> ${escapeHtml(languages)}</p>
+        <p><strong>Damage Vulnerabilities:</strong> ${formatMonsterDamageList(damageVulnerabilities)}</p>
+        <p><strong>Damage Resistances:</strong> ${formatMonsterDamageList(damageResistances)}</p>
+        <p><strong>Damage Immunities:</strong> ${formatMonsterDamageList(damageImmunities)}</p>
         <h3>Traits</h3>
         ${monsterDetailEntryList(mon.traits)}
         <h3>Actions</h3>
