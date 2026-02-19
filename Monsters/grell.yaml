@@ -19,9 +19,6 @@ abilities:
 skills:
 - Perception +4
 - Stealth +6
-immunities:
-- Lightning; Blinded
-- Prone
 senses: Blindsight 60 ft., Passive Perception 14
 languages:
 - Deep Speech
@@ -46,3 +43,4 @@ damage_immunities:
 - Lightning
 condition_immunities:
 - Blinded
+- Prone

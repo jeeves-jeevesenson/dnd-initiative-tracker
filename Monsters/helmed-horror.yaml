@@ -18,17 +18,6 @@ abilities:
   Cha: 10
 skills:
 - Perception +4
-immunities:
-- Necrotic
-- Poison; Blinded
-- Charmed
-- Deafened
-- Exhaustion
-- Frightened
-- Paralyzed
-- Petrified
-- Poisoned
-- Stunned
 senses: Blindsight 60 ft., Passive Perception 14
 languages:
 - Understands Common plus one other language but can't speak
@@ -60,3 +49,4 @@ condition_immunities:
 - Paralyzed
 - Petrified
 - Poisoned
+- Stunned

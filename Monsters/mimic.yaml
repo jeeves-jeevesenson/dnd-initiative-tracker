@@ -17,8 +17,6 @@ abilities:
   Cha: 8
 skills:
 - Stealth +5
-immunities:
-- Acid; Prone
 senses: Darkvision 60 ft., Passive Perception 11
 languages:
 - None

@@ -16,16 +16,6 @@ abilities:
   Int: 6
   Wis: 10
   Cha: 6
-immunities:
-- Poison
-- Thunder; Exhaustion
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Unconscious
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial (Auran)
@@ -48,12 +38,11 @@ actions:
     on a {@dc 13} Dexterity saving throw or take the same damage and be knocked {@condition prone}. If the saving throw is
     successful, the target takes half the bludgeoning damage and isn't flung away or knocked {@condition prone}.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Lightning
 - Piercing
 - Thunder
-resistances: *id001
 damage_immunities:
 - Poison
 - Thunder
@@ -65,3 +54,4 @@ condition_immunities:
 - Poisoned
 - Prone
 - Restrained
+- Unconscious

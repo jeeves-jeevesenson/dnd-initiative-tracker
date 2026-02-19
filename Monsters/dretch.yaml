@@ -15,8 +15,6 @@ abilities:
   Int: 5
   Wis: 8
   Cha: 3
-immunities:
-- Poison; Poisoned
 senses: Darkvision 60 ft., Passive Perception 9
 languages:
 - Abyssal; telepathy 60 ft. (works only with creatures that understand Abyssal)
@@ -38,9 +36,8 @@ actions:
     and can't take reactions.
 traits: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
-resistances: *id001
 damage_immunities:
 - Poison

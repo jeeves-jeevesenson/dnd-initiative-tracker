@@ -17,9 +17,6 @@ abilities:
   Cha: 7
 skills:
 - Perception +7
-immunities:
-- Exhaustion
-- Petrified
 senses: Darkvision 60 ft., Passive Perception 17
 languages:
 - —
@@ -48,3 +45,4 @@ traits:
 legendary_actions: []
 condition_immunities:
 - Exhaustion
+- Petrified

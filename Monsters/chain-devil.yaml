@@ -15,9 +15,6 @@ abilities:
   Int: 11
   Wis: 12
   Cha: 14
-immunities:
-- Fire
-- Poison; Poisoned
 senses: Darkvision 120 ft. (unimpeded by magical Darkness), Passive Perception 11
 languages:
 - Infernal; telepathy 120 ft.
@@ -44,12 +41,11 @@ actions:
     of its own but can't make attacks while grappling. An animated chain reverts to its inanimate state if reduced to 0 hit
     points or if the devil is {@condition incapacitated} or dies.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Bludgeoning
 - Piercing
 - Slashing
-resistances: *id001
 damage_immunities:
 - Fire
 - Poison

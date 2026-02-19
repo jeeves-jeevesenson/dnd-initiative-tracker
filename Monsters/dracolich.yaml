@@ -20,13 +20,6 @@ abilities:
 skills:
 - Perception +14
 - Stealth +6
-immunities:
-- Necrotic
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Paralyzed
-- Poisoned
 senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 24
 languages:
 - Common
@@ -47,3 +40,4 @@ condition_immunities:
 - Exhaustion
 - Frightened
 - Paralyzed
+- Poisoned

@@ -16,9 +16,6 @@ abilities:
   Int: 19
   Wis: 12
   Cha: 15
-immunities:
-- Poison; Frightened
-- Poisoned
 senses: Truesight 120 ft., Passive Perception 11
 languages:
 - Abyssal; telepathy 120 ft.
@@ -45,11 +42,11 @@ actions:
   desc: The nalfeshnee magically teleports, along with any equipment it is wearing or carrying, up to 120 feet to an unoccupied
     space it can see.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
-resistances: *id001
 damage_immunities:
 - Poison
 condition_immunities:
 - Frightened
+- Poisoned

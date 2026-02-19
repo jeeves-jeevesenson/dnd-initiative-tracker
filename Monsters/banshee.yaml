@@ -16,18 +16,6 @@ abilities:
   Int: 12
   Wis: 11
   Cha: 17
-immunities:
-- Cold
-- Necrotic
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Common
@@ -56,7 +44,7 @@ actions:
     undead. All other creatures within 30 feet of her that can hear her must make a {@dc 13} Constitution saving throw. On
     a failure, a creature drops to 0 hit points. On a success, a creature takes 10 ({@damage 3d6}) psychic damage.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Acid
 - Fire
 - Lightning
@@ -64,7 +52,6 @@ damage_resistances: &id001
 - Bludgeoning
 - Piercing
 - Slashing
-resistances: *id001
 damage_immunities:
 - Cold
 - Necrotic

@@ -16,9 +16,6 @@ abilities:
   Int: 11
   Wis: 14
   Cha: 8
-immunities:
-- Fire
-- Poison; Poisoned
 senses: Darkvision 120 ft. (unimpeded by magical Darkness), Passive Perception 12
 languages:
 - Infernal; telepathy 120 ft.
@@ -44,9 +41,8 @@ actions:
   desc: '{@atk rw} {@hit 4} to hit, range 20/80 ft., one target. {@h}4 ({@damage 1d4 + 2}) piercing damage plus 3 ({@damage
     1d6}) fire damage.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Poison
-resistances: *id001
 damage_immunities:
 - Fire
 - Poison

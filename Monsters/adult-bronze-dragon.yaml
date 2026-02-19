@@ -21,8 +21,6 @@ skills:
 - Insight +7
 - Perception +12
 - Stealth +5
-immunities:
-- Lightning
 senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 22
 languages:
 - Common

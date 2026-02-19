@@ -16,17 +16,6 @@ abilities:
   Int: 10
   Wis: 10
   Cha: 11
-immunities:
-- Necrotic
-- Poison; Charmed
-- Exhaustion
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Unconscious
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Understands Common plus one other language but can't speak
@@ -46,7 +35,7 @@ actions:
     reduction lasts until the creature finishes a long rest. The target dies if this effect reduces its hit point maximum
     to 0.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Acid
 - Bludgeoning
 - Cold
@@ -55,7 +44,6 @@ damage_resistances: &id001
 - Piercing
 - Slashing
 - Poison
-resistances: *id001
 damage_immunities:
 - Necrotic
 - Poison
@@ -68,3 +56,4 @@ condition_immunities:
 - Poisoned
 - Prone
 - Restrained
+- Unconscious

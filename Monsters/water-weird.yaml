@@ -16,15 +16,6 @@ abilities:
   Int: 11
   Wis: 10
   Cha: 10
-immunities:
-- Poison; Exhaustion
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Unconscious
 senses: Blindsight 30 ft., Passive Perception 10
 languages:
 - Understands Primordial but can't speak
@@ -53,3 +44,4 @@ condition_immunities:
 - Poisoned
 - Prone
 - Restrained
+- Unconscious

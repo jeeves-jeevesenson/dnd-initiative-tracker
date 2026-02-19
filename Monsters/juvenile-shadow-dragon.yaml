@@ -20,8 +20,6 @@ abilities:
 skills:
 - Perception +4
 - Stealth +6
-immunities:
-- Necrotic
 senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 14
 languages:
 - Common
@@ -32,3 +30,5 @@ treasure: Any
 traits: []
 actions: []
 legendary_actions: []
+damage_immunities:
+- Necrotic

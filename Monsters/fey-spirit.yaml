@@ -15,8 +15,6 @@ abilities:
   Int: 14
   Wis: 11
   Cha: 16
-immunities:
-- Charmed
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Sylvan
@@ -25,3 +23,5 @@ description: See Summon Fey
 actions: []
 traits: []
 legendary_actions: []
+condition_immunities:
+- Charmed

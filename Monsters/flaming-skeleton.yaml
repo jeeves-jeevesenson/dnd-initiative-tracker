@@ -15,10 +15,6 @@ abilities:
   Int: 10
   Wis: 15
   Cha: 8
-immunities:
-- Fire
-- Poison; Exhaustion
-- Poisoned
 senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Understands Common plus one other language but can't speak
@@ -34,3 +30,4 @@ damage_immunities:
 - Poison
 condition_immunities:
 - Exhaustion
+- Poisoned

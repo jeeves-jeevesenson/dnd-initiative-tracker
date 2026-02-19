@@ -18,9 +18,6 @@ abilities:
 skills:
 - Athletics +7
 - Perception +5
-immunities:
-- Charmed
-- Frightened
 senses: Passive Perception 15
 languages:
 - Common
@@ -34,3 +31,4 @@ actions: []
 legendary_actions: []
 condition_immunities:
 - Charmed
+- Frightened

@@ -18,15 +18,6 @@ abilities:
   Cha: 2
 skills:
 - Stealth +2
-immunities:
-- Blinded
-- Charmed
-- Deafened
-- Exhaustion
-- Frightened
-- Grappled
-- Prone
-- Restrained
 senses: Blindsight 60 ft., Passive Perception 8
 languages:
 - None
@@ -50,10 +41,9 @@ actions:
     2d6}) acid damage, and if the target is wearing nonmagical metal armor, its armor is partly corroded and takes a permanent
     and cumulative −1 penalty to the AC it offers. The armor is destroyed if the penalty reduces its AC to 10.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Acid
 - Cold
-resistances: *id001
 condition_immunities:
 - Blinded
 - Charmed
@@ -62,3 +52,4 @@ condition_immunities:
 - Frightened
 - Grappled
 - Prone
+- Restrained

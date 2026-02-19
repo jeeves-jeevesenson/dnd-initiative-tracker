@@ -18,25 +18,6 @@ abilities:
   Int: 9
   Wis: 14
   Cha: 9
-immunities:
-- Acid
-- Cold
-- Fire
-- Lightning
-- Poison
-- Thunder; Blinded
-- Charmed
-- Deafened
-- Exhaustion
-- Frightened
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Stunned
-- Unconscious
 senses: Truesight 150 ft., Passive Perception 12
 languages:
 - Primordial
@@ -65,3 +46,4 @@ condition_immunities:
 - Prone
 - Restrained
 - Stunned
+- Unconscious

@@ -18,13 +18,6 @@ abilities:
 skills:
 - Perception +5
 - Stealth +4
-immunities:
-- Blinded
-- Charmed
-- Deafened
-- Frightened
-- Stunned
-- Unconscious
 senses: Darkvision 120 ft., Passive Perception 15
 languages:
 - —
@@ -50,3 +43,4 @@ condition_immunities:
 - Deafened
 - Frightened
 - Stunned
+- Unconscious

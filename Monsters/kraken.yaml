@@ -19,12 +19,6 @@ abilities:
 skills:
 - History +13
 - Perception +11
-immunities:
-- Cold
-- Lightning; Frightened
-- Grappled
-- Paralyzed
-- Restrained
 senses: Truesight 120 ft., Passive Perception 21
 languages:
 - Understands Abyssal
@@ -87,3 +81,4 @@ condition_immunities:
 - Frightened
 - Grappled
 - Paralyzed
+- Restrained

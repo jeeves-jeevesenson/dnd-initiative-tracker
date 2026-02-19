@@ -19,11 +19,6 @@ abilities:
 skills:
 - Perception +5
 - Stealth +7
-immunities:
-- Cold
-- Necrotic; Charmed
-- Exhaustion
-- Frightened
 senses: Darkvision 120 ft., Passive Perception 15
 languages:
 - Common plus one other language
@@ -40,3 +35,4 @@ damage_immunities:
 condition_immunities:
 - Charmed
 - Exhaustion
+- Frightened

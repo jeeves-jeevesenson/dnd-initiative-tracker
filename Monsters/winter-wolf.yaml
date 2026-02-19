@@ -18,8 +18,6 @@ abilities:
 skills:
 - Perception +5
 - Stealth +5
-immunities:
-- Cold
 senses: Passive Perception 15
 languages:
 - Common

@@ -20,8 +20,6 @@ skills:
 - Deception +6
 - Perception +4
 - Stealth +7
-immunities:
-- Poisoned
 senses: Darkvision 120 ft., Passive Perception 14
 languages:
 - Abyssal
@@ -48,8 +46,9 @@ actions:
     saving throw, ending the effect on itself on a success. If a target's saving throw is successful, or if the effect ends
     for it, the creature is immune to the cambion's Fiendish Charm for the next 24 hours.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
 - Lightning
-resistances: *id001
+condition_immunities:
+- Poisoned

@@ -15,11 +15,6 @@ abilities:
   Int: 12
   Wis: 16
   Cha: 18
-immunities:
-- Necrotic
-- Poison; Exhaustion
-- Frightened
-- Poisoned
 senses: Darkvision 120 ft., Passive Perception 13
 languages:
 - Abyssal
@@ -54,3 +49,4 @@ damage_immunities:
 condition_immunities:
 - Exhaustion
 - Frightened
+- Poisoned

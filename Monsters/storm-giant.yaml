@@ -22,9 +22,6 @@ skills:
 - Athletics +14
 - History +8
 - Perception +10
-immunities:
-- Lightning
-- Thunder
 senses: Darkvision 120 ft., Truesight 30 ft., Passive Perception 20
 languages:
 - Common
@@ -49,3 +46,4 @@ actions:
 legendary_actions: []
 damage_immunities:
 - Lightning
+- Thunder

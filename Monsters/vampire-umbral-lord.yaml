@@ -21,10 +21,6 @@ skills:
 - Arcana +9
 - Perception +13
 - Stealth +9
-immunities:
-- Cold
-- Necrotic; Charmed
-- Exhaustion
 senses: Blindsight 120 ft., Passive Perception 23
 languages:
 - Common plus three other languages
@@ -40,3 +36,4 @@ damage_immunities:
 - Necrotic
 condition_immunities:
 - Charmed
+- Exhaustion

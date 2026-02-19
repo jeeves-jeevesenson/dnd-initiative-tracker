@@ -15,8 +15,6 @@ abilities:
   Int: 5
   Wis: 12
   Cha: 13
-immunities:
-- Poison; Poisoned
 senses: Darkvision 120 ft., Passive Perception 11
 languages:
 - Abyssal; telepathy 120 ft.
@@ -38,9 +36,8 @@ actions:
 - name: Claws
   desc: '{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) slashing damage.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
-resistances: *id001
 damage_immunities:
 - Poison

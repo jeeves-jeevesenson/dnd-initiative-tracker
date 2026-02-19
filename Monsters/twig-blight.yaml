@@ -17,8 +17,6 @@ abilities:
   Cha: 3
 skills:
 - Stealth +4
-immunities:
-- Deafened
 senses: Blindsight 60 ft., Passive Perception 9
 languages:
 - Understands Common but can't speak

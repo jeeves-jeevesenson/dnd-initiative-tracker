@@ -15,9 +15,6 @@ abilities:
   Int: 12
   Wis: 13
   Cha: 10
-immunities:
-- Fire
-- Poison; Poisoned
 senses: Passive Perception 11
 languages:
 - Primordial (Ignan)

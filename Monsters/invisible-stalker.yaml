@@ -19,15 +19,6 @@ abilities:
 skills:
 - Perception +8
 - Stealth +10
-immunities:
-- Poison; Exhaustion
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Unconscious
 senses: Darkvision 60 ft., Passive Perception 18
 languages:
 - Common
@@ -46,10 +37,9 @@ actions:
 - name: Slam
   desc: '{@atk mw} {@hit 6} to hit, reach 5 ft., one target. {@h}10 ({@damage 2d6 + 3}) bludgeoning damage.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Piercing
-resistances: *id001
 damage_immunities:
 - Poison
 condition_immunities:
@@ -60,3 +50,4 @@ condition_immunities:
 - Poisoned
 - Prone
 - Restrained
+- Unconscious

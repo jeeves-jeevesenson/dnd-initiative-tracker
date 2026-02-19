@@ -41,7 +41,6 @@ actions:
     is pushed up to 20 feet away from the marid and knocked {@condition prone}. On a success, a target takes half the bludgeoning
     damage, but is neither pushed nor knocked {@condition prone}.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Acid
 - Cold
-resistances: *id001

@@ -21,10 +21,6 @@ skills:
 - Deception +7
 - Insight +7
 - Perception +7
-immunities:
-- Acid
-- Poison; Charmed
-- Poisoned
 senses: Truesight 120 ft., Passive Perception 17
 languages:
 - All; telepathy 120 ft.
@@ -45,13 +41,13 @@ actions:
   desc: The arcanaloth magically teleports, along with any equipment it is wearing or carrying, up to 60 feet to an unoccupied
     space it can see.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
 - Poison
-resistances: *id001
 damage_immunities:
 - Acid
 - Poison
 condition_immunities:
 - Charmed
+- Poisoned

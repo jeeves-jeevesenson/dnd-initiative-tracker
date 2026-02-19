@@ -19,10 +19,6 @@ abilities:
 skills:
 - Perception +6
 - Stealth +6
-immunities:
-- Poison; Paralyzed
-- Petrified
-- Poisoned
 senses: Darkvision 60 ft., Tremorsense 60 ft., Passive Perception 16
 languages:
 - Primordial (Terran)
@@ -51,3 +47,4 @@ damage_immunities:
 condition_immunities:
 - Paralyzed
 - Petrified
+- Poisoned

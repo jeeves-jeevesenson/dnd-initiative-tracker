@@ -15,13 +15,6 @@ abilities:
   Int: 13
   Wis: 16
   Cha: 18
-immunities:
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Paralyzed
-- Poisoned
-- Stunned
 senses: Darkvision 60 ft., Passive Perception 13
 languages:
 - Common plus one other language
@@ -59,9 +52,8 @@ actions:
     of the revenant for 1 minute. The {@condition frightened} target can repeat the saving throw at the end of each of its
     turns, with disadvantage if it can see the revenant, ending the {@condition frightened} condition on itself on a success.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Necrotic
-resistances: *id001
 damage_immunities:
 - Poison
 condition_immunities:
@@ -70,3 +62,4 @@ condition_immunities:
 - Frightened
 - Paralyzed
 - Poisoned
+- Stunned

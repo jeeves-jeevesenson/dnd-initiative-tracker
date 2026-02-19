@@ -15,11 +15,6 @@ abilities:
   Int: 1
   Wis: 11
   Cha: 3
-immunities:
-- Fire
-- Poison; Charmed
-- Frightened
-- Poisoned
 senses: Darkvision 120 ft. (unimpeded by magical Darkness), Passive Perception 10
 languages:
 - Understands Infernal but can't speak
@@ -37,12 +32,12 @@ actions:
 - name: Fist
   desc: '{@atk mw} {@hit 3} to hit, reach 5 ft., one target. {@h}2 ({@damage 1d4}) bludgeoning damage.'
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Poison
-resistances: *id001
 damage_immunities:
 - Fire
 - Poison
 condition_immunities:
 - Charmed
 - Frightened
+- Poisoned

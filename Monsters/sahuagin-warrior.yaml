@@ -28,6 +28,5 @@ treasure: Any
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Acid
-resistances: *id001

@@ -15,12 +15,6 @@ abilities:
   Int: 4
   Wis: 10
   Cha: 9
-immunities:
-- Necrotic
-- Poison; Exhaustion
-- Frightened
-- Paralyzed
-- Poisoned
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Understands the languages you know
@@ -35,3 +29,4 @@ condition_immunities:
 - Exhaustion
 - Frightened
 - Paralyzed
+- Poisoned

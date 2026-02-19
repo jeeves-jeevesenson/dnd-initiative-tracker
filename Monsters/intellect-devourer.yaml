@@ -50,11 +50,9 @@ actions:
     devourer can voluntarily leave the body, teleporting to the nearest unoccupied space within 5 feet of it. The body then
     dies, unless its brain is restored within 1 round.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Bludgeoning
 - Piercing
 - Slashing
-resistances: *id001
-condition_immunities: &id002
+condition_immunities:
 - Blinded
-immunities: *id002

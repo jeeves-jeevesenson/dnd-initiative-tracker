@@ -22,8 +22,6 @@ skills:
 - Perception +12
 - Persuasion +9
 - Stealth +6
-immunities:
-- Poison; Poisoned
 senses: Blindsight 60 ft., Darkvision 120 ft., Passive Perception 22
 languages:
 - Common

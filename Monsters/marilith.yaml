@@ -18,8 +18,6 @@ abilities:
   Cha: 20
 skills:
 - Perception +8
-immunities:
-- Poison; Poisoned
 senses: Truesight 120 ft., Passive Perception 18
 languages:
 - Abyssal; telepathy 120 ft.
@@ -47,9 +45,8 @@ actions:
   desc: The marilith magically teleports, along with any equipment it is wearing or carrying, up to 120 feet to an unoccupied
     space it can see.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
-resistances: *id001
 damage_immunities:
 - Poison

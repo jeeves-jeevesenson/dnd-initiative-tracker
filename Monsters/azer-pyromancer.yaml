@@ -18,9 +18,6 @@ abilities:
 skills:
 - Arcana +4
 - Perception +7
-immunities:
-- Fire
-- Poison; Poisoned
 senses: Passive Perception 17
 languages:
 - Primordial (Ignan)

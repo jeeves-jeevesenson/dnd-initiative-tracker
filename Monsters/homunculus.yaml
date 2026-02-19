@@ -16,9 +16,6 @@ abilities:
   Int: 10
   Wis: 10
   Cha: 7
-immunities:
-- Poison; Charmed
-- Poisoned
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Understands Common plus one other language but can't speak
@@ -39,3 +36,4 @@ damage_immunities:
 - Poison
 condition_immunities:
 - Charmed
+- Poisoned

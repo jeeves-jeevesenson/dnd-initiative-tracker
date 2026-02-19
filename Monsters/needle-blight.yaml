@@ -15,8 +15,6 @@ abilities:
   Int: 4
   Wis: 8
   Cha: 3
-immunities:
-- Deafened
 senses: Blindsight 60 ft., Passive Perception 9
 languages:
 - Understands Common but can't speak

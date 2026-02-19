@@ -18,10 +18,6 @@ abilities:
   Cha: 25
 skills:
 - Perception +11
-immunities:
-- Charmed
-- Exhaustion
-- Frightened
 senses: Truesight 120 ft., Passive Perception 21
 languages:
 - All; telepathy 120 ft.
@@ -49,3 +45,4 @@ legendary_actions: []
 condition_immunities:
 - Charmed
 - Exhaustion
+- Frightened

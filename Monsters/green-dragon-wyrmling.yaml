@@ -20,8 +20,6 @@ abilities:
 skills:
 - Perception +4
 - Stealth +3
-immunities:
-- Poison; Poisoned
 senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 14
 languages:
 - Draconic

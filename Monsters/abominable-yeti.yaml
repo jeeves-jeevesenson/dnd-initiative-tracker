@@ -19,8 +19,6 @@ abilities:
 skills:
 - Perception +9
 - Stealth +8
-immunities:
-- Cold
 senses: Darkvision 60 ft., Passive Perception 19
 languages:
 - Yeti

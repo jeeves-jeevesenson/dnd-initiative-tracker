@@ -19,8 +19,6 @@ abilities:
 skills:
 - Perception +6
 - Stealth +7
-immunities:
-- Lightning
 senses: Darkvision 90 ft., Passive Perception 16
 languages:
 - Draconic

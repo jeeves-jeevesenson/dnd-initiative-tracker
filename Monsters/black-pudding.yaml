@@ -16,17 +16,6 @@ abilities:
   Int: 1
   Wis: 6
   Cha: 1
-immunities:
-- Acid
-- Cold
-- Lightning
-- Slashing; Charmed
-- Deafened
-- Exhaustion
-- Frightened
-- Grappled
-- Prone
-- Restrained
 senses: Blindsight 60 ft., Passive Perception 8
 languages:
 - None
@@ -63,3 +52,4 @@ condition_immunities:
 - Frightened
 - Grappled
 - Prone
+- Restrained

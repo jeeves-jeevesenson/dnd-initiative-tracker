@@ -17,8 +17,6 @@ abilities:
   Cha: 10
 skills:
 - Stealth +5
-immunities:
-- Poison; Poisoned
 senses: Darkvision 120 ft., Passive Perception 10
 languages:
 - Abyssal
@@ -54,9 +52,8 @@ actions:
     ends (as if {@status concentration||concentrating} on a spell). Any equipment the quasit wears or carries is {@condition
     invisible} with it.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Cold
 - Fire
-resistances: *id001
 damage_immunities:
 - Poison

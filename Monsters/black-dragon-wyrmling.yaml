@@ -20,8 +20,6 @@ abilities:
 skills:
 - Perception +4
 - Stealth +4
-immunities:
-- Acid
 senses: Blindsight 10 ft., Darkvision 60 ft., Passive Perception 14
 languages:
 - Draconic

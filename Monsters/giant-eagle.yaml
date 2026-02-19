@@ -34,6 +34,5 @@ traits:
 - name: Keen Sight
   desc: The eagle has advantage on Wisdom ({@skill Perception}) checks that rely on sight.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Necrotic
-resistances: *id001

@@ -19,15 +19,6 @@ abilities:
 skills:
 - Arcana +5
 - Perception +2
-immunities:
-- Fire
-- Necrotic
-- Poison; Charmed
-- Exhaustion
-- Frightened
-- Paralyzed
-- Poisoned
-- Prone
 senses: Darkvision 60 ft., Passive Perception 12
 languages:
 - Common plus two other languages
@@ -59,3 +50,4 @@ condition_immunities:
 - Frightened
 - Paralyzed
 - Poisoned
+- Prone

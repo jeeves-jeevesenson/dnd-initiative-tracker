@@ -16,10 +16,6 @@ abilities:
   Int: 10
   Wis: 14
   Cha: 14
-immunities:
-- Charmed
-- Frightened
-- Poisoned
 senses: Blindsight 30 ft., Darkvision 60 ft., Passive Perception 12
 languages:
 - Draconic
@@ -28,12 +24,12 @@ description: See Summon Dragon
 traits: []
 actions: []
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Acid
 - Cold
 - Fire
 - Lightning
-resistances: *id001
 condition_immunities:
 - Charmed
 - Frightened
+- Poisoned

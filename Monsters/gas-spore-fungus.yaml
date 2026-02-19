@@ -16,14 +16,6 @@ abilities:
   Int: 1
   Wis: 1
   Cha: 1
-immunities:
-- Poison; Blinded
-- Charmed
-- Deafened
-- Frightened
-- Paralyzed
-- Poisoned
-- Prone
 senses: Blindsight 30 ft., Passive Perception 5
 languages:
 - —
@@ -43,3 +35,4 @@ condition_immunities:
 - Frightened
 - Paralyzed
 - Poisoned
+- Prone

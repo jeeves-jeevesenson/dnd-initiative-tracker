@@ -16,15 +16,6 @@ abilities:
   Int: 5
   Wis: 10
   Cha: 8
-immunities:
-- Poison; Exhaustion
-- Grappled
-- Paralyzed
-- Petrified
-- Poisoned
-- Prone
-- Restrained
-- Unconscious
 senses: Darkvision 60 ft., Passive Perception 10
 languages:
 - Primordial (Aquan)
@@ -51,9 +42,8 @@ actions:
     grappled} by it takes 13 ({@damage 2d8 + 4}) bludgeoning damage. A creature within 5 feet of the elemental can pull a
     creature or object out of it by taking an action to make a {@dc 14} Strength check and succeeding.
 legendary_actions: []
-damage_resistances: &id001
+damage_resistances:
 - Acid
-resistances: *id001
 damage_immunities:
 - Poison
 condition_immunities:
@@ -64,3 +54,4 @@ condition_immunities:
 - Poisoned
 - Prone
 - Restrained
+- Unconscious

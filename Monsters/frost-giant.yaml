@@ -18,8 +18,6 @@ abilities:
 skills:
 - Athletics +9
 - Perception +3
-immunities:
-- Cold
 senses: Passive Perception 13
 languages:
 - Giant

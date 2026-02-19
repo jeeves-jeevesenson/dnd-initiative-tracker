@@ -21,9 +21,6 @@ skills:
 - Insight +7
 - Perception +7
 - Stealth +6
-immunities:
-- Psychic; Charmed
-- Frightened
 senses: Darkvision 120 ft., Passive Perception 17
 languages:
 - Deep Speech
@@ -53,3 +50,4 @@ damage_immunities:
 - Psychic
 condition_immunities:
 - Charmed
+- Frightened
