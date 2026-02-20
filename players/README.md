@@ -397,7 +397,7 @@ attacks:
 - **Minimal preset pattern**: You can define only `id` plus selective overrides (for example custom `to_hit`, `magic_bonus`, or damage formula).
   - **id**: Stable key for references and future automation. If only `id` is provided, base fields are resolved from Items and then your overrides are applied (fill-missing-only).
   - **name**: Display name for the weapon.
-  - **proficient**: Whether proficiency is included when computing to-hit.
+  - **proficient**: Whether proficiency is included when computing to-hit (player-specific; do not set this in `Items/Weapons/*.yaml`).
   - **to_hit**: Explicit attack bonus for this preset.
   - **magic_bonus** / **item_bonus**: Optional flat +1/+2 style bonus applied on top of `to_hit`.
   - **range**: Optional melee/ranged reach in feet (or normal/long like `20/60`; LAN attack overlay uses the first value).

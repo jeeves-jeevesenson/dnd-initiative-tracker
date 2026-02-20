@@ -12,7 +12,6 @@ id: "stable_weapon_id"
 name: "Display Name"
 type: "weapon"
 category: "martial_melee"
-proficient: true
 attack_bonus: 0
 range: 5
 damage:
@@ -61,6 +60,9 @@ They can coexist here and are ignored by the item loader when building weapon re
 `type` values for damage/riders should use standard damage types when possible. If a custom
 type is needed (for example `hellfire`), document its rules in `notes` so automation can
 interpret special handling.
+
+
+Weapon proficiency is **not** defined in item YAML. Set proficiency per-character in `players/*.yaml` under `attacks.weapons[].proficient`.
 
 `damage.one_handed` is the default/base damage slot used by current schemas, even for
 weapons that are effectively two-handed-only. Add `properties: ["two_handed"]` to capture
