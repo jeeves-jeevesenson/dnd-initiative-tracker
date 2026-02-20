@@ -68,6 +68,38 @@ defenses:
   immunities: []
   vulnerabilities: []
 
+attacks:
+  weapon_to_hit: 8
+  weapon_mastery_enabled: true
+  weapons:
+  - id: big_ass_axe_plus_1
+    name: Big Ass Axe +1
+    category: martial_melee
+    weapon_group: Martial Melee
+    proficient: true
+    equipped: true
+    main_hand: true
+    to_hit: 8
+    magic_bonus: 1
+    range: '5'
+    one_handed:
+      damage_formula: 2d12 + str_mod + 1
+      damage_type: slashing
+    two_handed:
+      damage_formula: ''
+      damage_type: ''
+    properties:
+    - heavy
+    - two_handed
+    - cleave
+    mastery: cleave
+    weight_lb: 7
+    cost_gp: 20
+    effect:
+      on_hit: ''
+      save_ability: ''
+      save_dc: 0
+
 resources:
   pools:
   - id: rage
