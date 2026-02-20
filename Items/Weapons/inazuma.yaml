@@ -1,0 +1,22 @@
+format_version: 1
+id: inazuma
+name: Inazuma
+type: weapon
+category: martial_melee
+range: 5
+damage:
+  one_handed:
+    formula: 1d8
+    type: slashing
+  versatile:
+    formula: 1d10
+    type: slashing
+mastery: sap
+properties:
+- sap
+- versatile
+riders:
+- id: inazuma_lightning_on_hit
+  trigger: on_hit
+  formula: 2d4
+  type: lightning
