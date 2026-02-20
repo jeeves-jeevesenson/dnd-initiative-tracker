@@ -120,6 +120,19 @@ class ResourcePoolSpellTests(unittest.TestCase):
         self.assertEqual(second_wind["reset"], "short_rest")
         self.assertEqual(second_wind["gain_on_short"], 1)
 
+    def test_normalize_adds_lay_on_hands_pool_for_level_10_paladin(self):
+        profile = {
+            "name": "Dorian",
+            "leveling": {"classes": [{"name": "Paladin", "level": 10}]},
+            "resources": {"pools": []},
+        }
+        pools = self.app._normalize_player_resource_pools(profile)
+        lay_on_hands = next((entry for entry in pools if entry.get("id") == "lay_on_hands"), None)
+        self.assertIsNotNone(lay_on_hands)
+        self.assertEqual(lay_on_hands["current"], 50)
+        self.assertEqual(lay_on_hands["max"], 50)
+        self.assertEqual(lay_on_hands["reset"], "long_rest")
+
 
 if __name__ == "__main__":
     unittest.main()

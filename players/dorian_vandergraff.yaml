@@ -85,7 +85,13 @@ attacks:
       save_ability: ''
       save_dc: 0
 resources:
-  pools: []
+  pools:
+  - id: lay_on_hands
+    label: Lay on Hands
+    current: 50
+    max: 50
+    max_formula: paladin_level * 5
+    reset: long_rest
 features:
 - id: aura_of_protection_2024
   name: Aura of Protection

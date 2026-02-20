@@ -1244,6 +1244,7 @@ class LanController:
         "wild_shape_set_known",
         "second_wind_use",
         "action_surge_use",
+        "lay_on_hands_use",
     )
 
     def __init__(self, app: "InitiativeTracker") -> None:
@@ -10318,8 +10319,10 @@ class InitiativeTracker(base.InitiativeTracker):
         normalized: List[Dict[str, Any]] = []
         druid_level = self._druid_level_from_profile(data)
         fighter_level = self._fighter_level_from_profile(data)
+        paladin_level = self._class_level_from_profile(data, "paladin")
         wild_shape_max = self._wild_shape_max_uses_for_level(druid_level)
         second_wind_max = self._second_wind_max_uses_for_level(fighter_level)
+        lay_on_hands_max = max(0, int(paladin_level) * 5)
         seen_pool_ids: set[str] = set()
         for entry in pools:
             if not isinstance(entry, dict):
@@ -10342,6 +10345,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 reset = "short_rest"
                 max_formula = "2 + (1 if fighter_level >= 4 else 0) + (1 if fighter_level >= 10 else 0)"
                 max_value = second_wind_max
+            if pool_id.lower() == "lay_on_hands":
+                label = "Lay on Hands"
+                reset = "long_rest"
+                max_formula = "paladin_level * 5"
+                max_value = lay_on_hands_max
             try:
                 current_value = int(entry.get("current", max_value))
             except Exception:
@@ -10386,6 +10394,17 @@ class InitiativeTracker(base.InitiativeTracker):
                     "gain_on_short": 1,
                 }
             )
+        if paladin_level >= 1 and "lay_on_hands" not in seen_pool_ids:
+            normalized.append(
+                {
+                    "id": "lay_on_hands",
+                    "label": "Lay on Hands",
+                    "current": lay_on_hands_max,
+                    "max": lay_on_hands_max,
+                    "max_formula": "paladin_level * 5",
+                    "reset": "long_rest",
+                }
+            )
         return normalized
 
     def _compute_resource_pool_max(self, profile: Dict[str, Any], formula: Any, fallback: Any) -> int:
@@ -10415,6 +10434,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "rogue_level": self._class_level_from_profile(profile, "rogue"),
             "wizard_level": self._class_level_from_profile(profile, "wizard"),
             "cleric_level": self._class_level_from_profile(profile, "cleric"),
+            "paladin_level": self._class_level_from_profile(profile, "paladin"),
             "prof": prof_bonus,
             "proficiency": prof_bonus,
             "str_mod": self._ability_score_modifier(abilities, "str"),
@@ -17093,6 +17113,48 @@ class InitiativeTracker(base.InitiativeTracker):
             c.action_remaining = int(getattr(c, "action_remaining", 0) or 0) + 1
             self._log(f"{getattr(c, 'name', 'Player')} uses Action Surge and gains 1 action.", cid=cid)
             self._lan.toast(ws_id, "Action Surge used: +1 action.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "lay_on_hands_use":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            player_name = self._pc_name_for(int(cid))
+            profile = self._profile_for_player_name(player_name)
+            if not isinstance(profile, dict):
+                self._lan.toast(ws_id, "No player profile found, matey.")
+                return
+            paladin_level = self._class_level_from_profile(profile, "paladin")
+            if paladin_level < 1:
+                self._lan.toast(ws_id, "Only paladins can use Lay on Hands, matey.")
+                return
+            target_cid = _normalize_cid_value(msg.get("target_cid"), "lay_on_hands_use.target_cid", log_fn=log_warning)
+            target = self.combatants.get(int(target_cid)) if target_cid is not None else None
+            if target is None:
+                self._lan.toast(ws_id, "Pick a valid target, matey.")
+                return
+            try:
+                heal_amount = int(msg.get("amount", 0))
+            except Exception:
+                heal_amount = 0
+            if heal_amount <= 0:
+                self._lan.toast(ws_id, "Healing amount must be at least 1, matey.")
+                return
+            ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "lay_on_hands", heal_amount)
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err or "No Lay on Hands points remain, matey.")
+                return
+            cur_hp = int(getattr(target, "hp", 0) or 0)
+            max_hp = int(getattr(target, "max_hp", cur_hp) or cur_hp)
+            actual_heal = max(0, min(heal_amount, max_hp - cur_hp))
+            setattr(target, "hp", max(0, min(max_hp, cur_hp + heal_amount)))
+            if bool(getattr(self, "in_combat", False)) and int(getattr(c, "action_remaining", 0) or 0) > 0:
+                self._use_action(c)
+            self._log(
+                f"{getattr(c, 'name', 'Player')} uses Lay on Hands on {getattr(target, 'name', 'Target')} "
+                f"for {actual_heal} HP ({heal_amount} points spent).",
+                cid=int(target.cid),
+            )
+            self._lan.toast(ws_id, f"Lay on Hands: healed {actual_heal} HP.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "use_action":
             c = self.combatants.get(cid)
