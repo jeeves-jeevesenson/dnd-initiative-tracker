@@ -7,6 +7,7 @@ class EchoKnightLanTests(unittest.TestCase):
     def setUp(self):
         self.app = object.__new__(tracker_mod.InitiativeTracker)
         self.toasts = []
+        self.echo_prompts = []
         self.broadcasts = 0
         self.rebuilds = 0
         self.bonus_uses = 0
@@ -50,10 +51,14 @@ class EchoKnightLanTests(unittest.TestCase):
         self.app.current_cid = 1
         self.app.in_combat = True
         self.app._lan_positions = {1: (5, 5)}
+        self.app._lan_aoes = {}
         self.app._summon_groups = {}
         self.app._summon_group_meta = {}
+        self.app._pending_echo_tether_confirms = {}
         self.app._map_window = None
+        self.app._turn_snapshots = {}
         self.app._oplog = lambda *args, **kwargs: None
+        self.app._log = lambda *args, **kwargs: None
         self.app._is_admin_token_valid = lambda token: False
         self.app._summon_can_be_controlled_by = lambda claimed, target: False
         self.app._is_valid_summon_turn_for_controller = lambda controlling, target, current: True
@@ -68,6 +73,7 @@ class EchoKnightLanTests(unittest.TestCase):
             (),
             {
                 "toast": lambda _self, ws_id, text: self.toasts.append((ws_id, text)),
+                "send_echo_tether_prompt": lambda _self, ws_id, request_id: self.echo_prompts.append((ws_id, request_id)),
                 "_append_lan_log": lambda *args, **kwargs: None,
             },
         )()
@@ -211,10 +217,51 @@ class EchoKnightLanTests(unittest.TestCase):
         self.assertTrue(any("too far to swap" in text for _ws_id, text in self.toasts))
 
 
+    def test_echo_move_warns_on_owner_turn_and_yes_moves_then_destroys_echo(self):
+        self.app.combatants[1].bonus_action_remaining = 1
+        self._apply({"type": "echo_summon", "to": {"col": 6, "row": 5}})
+        echo = self._echo_units()[0]
+
+        self._apply({"type": "move", "cid": 1, "to": {"col": 11, "row": 5}})
+        self.assertEqual(len(self.echo_prompts), 1)
+        self.assertEqual(self.app._lan_positions.get(1), (5, 5))
+
+        request_id = self.echo_prompts[0][1]
+        self._apply({"type": "echo_tether_response", "request_id": request_id, "accept": True})
+        self.assertEqual(self.app._lan_positions.get(1), (11, 5))
+        self.assertNotIn(echo.cid, self.app.combatants)
+
+    def test_echo_move_warn_no_keeps_position_and_echo(self):
+        self.app.combatants[1].bonus_action_remaining = 1
+        self._apply({"type": "echo_summon", "to": {"col": 6, "row": 5}})
+        echo = self._echo_units()[0]
+
+        self._apply({"type": "move", "cid": 1, "to": {"col": 11, "row": 5}})
+        self.assertEqual(len(self.echo_prompts), 1)
+        request_id = self.echo_prompts[0][1]
+        self._apply({"type": "echo_tether_response", "request_id": request_id, "accept": False})
+
+        self.assertEqual(self.app._lan_positions.get(1), (5, 5))
+        self.assertIn(echo.cid, self.app.combatants)
+
+    def test_echo_involuntary_move_destroys_without_warning(self):
+        self.app.combatants[1].bonus_action_remaining = 1
+        self._apply({"type": "echo_summon", "to": {"col": 6, "row": 5}})
+        echo = self._echo_units()[0]
+        self.app.current_cid = 99
+
+        self._apply({"type": "move", "cid": 1, "to": {"col": 11, "row": 5}})
+
+        self.assertEqual(len(self.echo_prompts), 0)
+        self.assertEqual(self.app._lan_positions.get(1), (11, 5))
+        self.assertNotIn(echo.cid, self.app.combatants)
+
+
 class EchoKnightRoutingTests(unittest.TestCase):
     def test_lan_controller_action_types_include_echo_actions(self):
         self.assertIn("echo_summon", tracker_mod.LanController._ACTION_MESSAGE_TYPES)
         self.assertIn("echo_swap", tracker_mod.LanController._ACTION_MESSAGE_TYPES)
+        self.assertIn("echo_tether_response", tracker_mod.LanController._ACTION_MESSAGE_TYPES)
         self.assertIn("set_facing", tracker_mod.LanController._ACTION_MESSAGE_TYPES)
 
 
