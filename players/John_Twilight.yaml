@@ -107,7 +107,6 @@ resources:
     gain_on_short: 1
   - id: unleash_incarnation
     label: Unleash Incarnation
-    current: 3
     max_formula: max(1, con_mod)
     reset: long_rest
   - id: indomitable

@@ -3931,6 +3931,7 @@ __DAMAGE_TYPE_OPTIONS__
   let selectedAttackWeaponId = "";
   let pendingAttackResolve = null;
   let pendingActionAttackWeapon = null;
+  let pendingUnleashIncarnation = null;
   let pendingOpportunityAttack = false;
   let pendingCleavePrompt = null;
   let pendingSpellTargeting = null;
@@ -4683,6 +4684,52 @@ __DAMAGE_TYPE_OPTIONS__
           setAttackOverlayMode(true);
           localToast("Select a creature within 5 ft for Lay on Hands.");
           draw();
+        });
+      }
+      if (pool.id === "unleash_incarnation"){
+        chip.style.cursor = "pointer";
+        chip.title = "Unleash Incarnation";
+        chip.addEventListener("click", () => {
+          if (pool.current <= 0){
+            localToast("That resource pool be exhausted, matey.");
+            return;
+          }
+          const claimedUnit = getClaimedUnit();
+          if (!claimedUnit){
+            localToast("Claim a character first, matey.");
+            return;
+          }
+          const units = Array.isArray(state?.units) ? state.units : [];
+          const echo = units.find((entry) => {
+            if (!entry) return false;
+            const source = normalizeLowerValue(entry.summon_source_spell || entry.summonSourceSpell || "");
+            if (source !== "echo_knight") return false;
+            return cidMatches(entry.summoned_by_cid, claimedUnit.cid, "unleash.echoOwner");
+          });
+          if (!echo || !echo.pos){
+            localToast("Arr... I dont be seeing no echo, matey");
+            return;
+          }
+          if (!window.confirm(`Use Unleash Incarnation? (${pool.current}/${pool.max} remaining uses)`)){
+            return;
+          }
+          const weapon = getPrimaryMeleeAttackWeapon();
+          if (!weapon){
+            localToast("No configured melee weapon found, matey.");
+            return;
+          }
+          pendingUnleashIncarnation = {
+            poolId: pool.id,
+            poolLabel: pool.label,
+            cost: 1,
+            echoCid: Number(echo.cid),
+          };
+          pendingActionAttackWeapon = {
+            ...weapon,
+            resolve_prompt: `Resolve Unleash Incarnation on target with ${String(weapon.name || "weapon")}.`,
+          };
+          setAttackOverlayMode(true);
+          localToast("Select an enemy within echo range for Unleash Incarnation.");
         });
       }
       resourcePoolsListEl.appendChild(chip);
@@ -7362,6 +7409,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (!attackOverlayMode){
       pendingOpportunityAttack = false;
       pendingActionAttackWeapon = null;
+      pendingUnleashIncarnation = null;
     }
     if (attackOverlayToggleBtn){
       attackOverlayToggleBtn.setAttribute("aria-pressed", attackOverlayMode ? "true" : "false");
@@ -7543,6 +7591,7 @@ __DAMAGE_TYPE_OPTIONS__
       attackCount: Number.isFinite(Number(weapon?.attack_count)) ? Math.max(1, Math.floor(Number(weapon.attack_count))) : null,
       masteryAdvantage: hasVexAdvantage,
       opportunityAttack: pendingOpportunityAttack,
+      consumesPool: pendingUnleashIncarnation ? {...pendingUnleashIncarnation} : null,
     };
     pendingOpportunityAttack = false;
     const advantageText = hasVexAdvantage ? ' <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>' : "";
@@ -8290,10 +8339,11 @@ __DAMAGE_TYPE_OPTIONS__
 
     if (attackOverlayMode){
       const me = getClaimedUnit();
-      const weapon = pendingSpellTargeting ? null : getSelectedAttackWeapon();
+      const attackOrigin = pendingUnleashIncarnation ? getUnitByCid(pendingUnleashIncarnation.echoCid) : me;
+      const weapon = pendingSpellTargeting ? null : (pendingActionAttackWeapon || getSelectedAttackWeapon());
       const spellRangeFt = Number(pendingSpellTargeting?.rangeFt);
       const layOnHandsRangeFt = Number(pendingLayOnHandsTargeting?.rangeFt);
-      if (me && me.pos && (weapon || Number.isFinite(spellRangeFt) || Number.isFinite(layOnHandsRangeFt))){
+      if (attackOrigin && attackOrigin.pos && (weapon || Number.isFinite(spellRangeFt) || Number.isFinite(layOnHandsRangeFt))){
         const rangeFt = Number.isFinite(layOnHandsRangeFt)
           ? layOnHandsRangeFt
           : (Number.isFinite(spellRangeFt)
@@ -8301,7 +8351,7 @@ __DAMAGE_TYPE_OPTIONS__
             : parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? 3 : 0));
         const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
         const radiusCells = Math.max(0, Number(rangeFt) / feetPerSquare);
-        const center = gridToScreen(me.pos.col, me.pos.row);
+        const center = gridToScreen(attackOrigin.pos.col, attackOrigin.pos.row);
         const overlayColor = normalizeHexColor(pendingLayOnHandsTargeting ? "#4caf50" : (pendingSpellTargeting?.overlayColor || ""));
         ctx.save();
         ctx.fillStyle = overlayColor ? rgbaFromHex(overlayColor, 0.15) : "rgba(255,78,78,0.15)";
@@ -10833,8 +10883,14 @@ __DAMAGE_TYPE_OPTIONS__
     setTokenTooltip(null);
     if (attackOverlayMode && !isMapView && !pendingSummonPlacement && !dragging && !panning && !aoeDragging){
       const me = getClaimedUnit();
+      const overlayOrigin = pendingUnleashIncarnation ? getUnitByCid(pendingUnleashIncarnation.echoCid) : me;
       if (!me){
         localToast("Claim a character first, matey.");
+        return;
+      }
+      if (pendingUnleashIncarnation && (!overlayOrigin || !overlayOrigin.pos)){
+        localToast("Arr... I dont be seeing no echo, matey");
+        setAttackOverlayMode(false);
         return;
       }
       const hit = hitTestToken(p);
@@ -10881,7 +10937,7 @@ __DAMAGE_TYPE_OPTIONS__
         const rangeFt = Number.isFinite(Number(pendingSpellTargeting?.rangeFt))
           ? Number(pendingSpellTargeting.rangeFt)
           : (parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? 3 : 0));
-        const distFt = distanceFeetBetweenCells(me.pos, hit.pos);
+        const distFt = distanceFeetBetweenCells((overlayOrigin && overlayOrigin.pos) ? overlayOrigin.pos : me.pos, hit.pos);
         if (distFt - rangeFt > 1e-6){
           localToast("Target be out of attack range.");
           return;
@@ -15457,6 +15513,13 @@ __DAMAGE_TYPE_OPTIONS__
           attack_count: Number.isFinite(Number(pendingAttackResolve.attackCount)) ? Math.max(1, Math.floor(Number(pendingAttackResolve.attackCount))) : null,
           mastery_free_attack: pendingAttackResolve.masteryFreeAttack || null,
           opportunity_attack: !!pendingAttackResolve.opportunityAttack,
+          consumes_pool: pendingAttackResolve.consumesPool && typeof pendingAttackResolve.consumesPool === "object"
+            ? {
+              id: pendingAttackResolve.consumesPool.poolId,
+              label: pendingAttackResolve.consumesPool.poolLabel,
+              cost: Number.isFinite(Number(pendingAttackResolve.consumesPool.cost)) ? Math.max(1, Math.floor(Number(pendingAttackResolve.consumesPool.cost))) : 1,
+            }
+            : null,
           hit: hit,
           critical,
           damage_entries: damageEntries,

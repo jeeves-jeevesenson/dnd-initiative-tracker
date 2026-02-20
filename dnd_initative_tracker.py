@@ -16029,7 +16029,6 @@ class InitiativeTracker(base.InitiativeTracker):
                         continue
                     dtype = str(entry.get("type") or "").strip().lower()
                     damage_entries.append({"amount": amount, "type": dtype})
-
             result_payload: Dict[str, Any] = {
                 "type": "spell_target_result",
                 "ok": True,
@@ -16514,13 +16513,32 @@ class InitiativeTracker(base.InitiativeTracker):
                 configured_attack_count = int(attack_count)
             if is_cleave_followup:
                 attack_count = 1
+            consumes_pool_raw = msg.get("consumes_pool") if isinstance(msg.get("consumes_pool"), dict) else {}
+            consumes_pool_id = str(
+                msg.get("consumes_pool_id")
+                or consumes_pool_raw.get("id")
+                or consumes_pool_raw.get("pool")
+                or ""
+            ).strip()
+            try:
+                consumes_pool_cost = int(msg.get("consumes_pool_cost") if msg.get("consumes_pool_cost") is not None else consumes_pool_raw.get("cost", 1))
+            except Exception:
+                consumes_pool_cost = 1
+            consumes_pool_cost = max(1, consumes_pool_cost)
+            consumes_pool_key = consumes_pool_id.strip().lower()
+            is_unleash_incarnation_attack = consumes_pool_key == "unleash_incarnation"
+            if is_unleash_incarnation_attack:
+                echo_cid, _echo = _find_echo_for_caster(int(profile_cid))
+                if echo_cid is None:
+                    self._lan.toast(ws_id, "Arr... I dont be seeing no echo, matey")
+                    return
             attack_resources = max(0, _parse_int(getattr(resource_c, "attack_resource_remaining", 0), 0) or 0)
             if not is_cleave_followup:
                 if opportunity_attack:
                     if not self._use_reaction(resource_c):
                         self._lan.toast(ws_id, "No reactions left, matey.")
                         return
-                else:
+                elif not is_unleash_incarnation_attack:
                     if attack_resources <= 0:
                         if not self._use_action(resource_c):
                             self._lan.toast(ws_id, "No attacks left, matey.")
@@ -16747,6 +16765,14 @@ class InitiativeTracker(base.InitiativeTracker):
                     if mastery_cleave_candidates:
                         mastery_notes.append("Cleave ready: choose one nearby enemy for a free attack.")
             is_critical = bool(hit and bool(requested_critical))
+            if consumes_pool_id and not is_admin:
+                should_consume_pool = (not hit) or (int(total_damage) > 0)
+                if should_consume_pool:
+                    owner_name = self._pc_name_for(int(getattr(resource_c, "cid", cid) or cid))
+                    ok_pool, pool_err = self._consume_resource_pool_for_cast(owner_name, consumes_pool_id, consumes_pool_cost)
+                    if not ok_pool:
+                        self._lan.toast(ws_id, pool_err)
+                        return
             result_payload: Dict[str, Any] = {
                 "type": "attack_result",
                 "ok": True,

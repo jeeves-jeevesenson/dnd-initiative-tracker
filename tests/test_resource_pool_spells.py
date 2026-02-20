@@ -120,6 +120,23 @@ class ResourcePoolSpellTests(unittest.TestCase):
         self.assertEqual(second_wind["reset"], "short_rest")
         self.assertEqual(second_wind["gain_on_short"], 1)
 
+    def test_normalize_unleash_incarnation_uses_con_mod_formula(self):
+        profile = {
+            "name": "John Twilight",
+            "abilities": {"con": 20},
+            "leveling": {"classes": [{"name": "Fighter", "level": 10}]},
+            "resources": {
+                "pools": [
+                    {"id": "unleash_incarnation", "label": "Unleash Incarnation", "max_formula": "max(1, con_mod)", "reset": "long_rest"}
+                ]
+            },
+        }
+        pools = self.app._normalize_player_resource_pools(profile)
+        unleash = next((entry for entry in pools if entry.get("id") == "unleash_incarnation"), None)
+        self.assertIsNotNone(unleash)
+        self.assertEqual(unleash["max"], 5)
+        self.assertEqual(unleash["current"], 5)
+
     def test_normalize_adds_lay_on_hands_pool_for_level_10_paladin(self):
         profile = {
             "name": "Dorian",
