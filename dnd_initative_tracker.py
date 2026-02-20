@@ -16166,6 +16166,18 @@ class InitiativeTracker(base.InitiativeTracker):
             c = self.combatants.get(cid)
             if not c:
                 return
+            resource_c = c
+            try:
+                summoned_by_cid = int(getattr(c, "summoned_by_cid", 0) or 0)
+            except Exception:
+                summoned_by_cid = 0
+            if (
+                summoned_by_cid > 0
+                and str(getattr(c, "summon_source_spell", "") or "").strip().lower() == "echo_knight"
+            ):
+                owner = self.combatants.get(int(summoned_by_cid))
+                if owner is not None:
+                    resource_c = owner
             max_damage_dice_count = 100
             max_damage_die_sides = 1000
             min_damage_type_length = 3
@@ -16365,7 +16377,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             weapon_id = str(msg.get("weapon_id") or "").strip()
             weapon_name = str(msg.get("weapon_name") or "").strip()
-            player_name = self._pc_name_for(int(cid))
+            profile_cid = int(getattr(resource_c, "cid", cid) or cid)
+            player_name = self._pc_name_for(int(profile_cid))
             profile = self._profile_for_player_name(player_name)
             configured_attack_count = 1
             leveling = profile.get("leveling") if isinstance(profile, dict) else {}
@@ -16433,7 +16446,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 weapon_mastery_enabled = _parse_bool(attacks.get("weapon_mastery") if isinstance(attacks, dict) else None)
             if weapon_mastery_enabled is None:
                 weapon_mastery_enabled = False
-            nick_turn_marker = tuple(getattr(c, "_nick_mastery_turn_marker", ()) or ())
+            nick_turn_marker = tuple(getattr(resource_c, "_nick_mastery_turn_marker", ()) or ())
             nick_already_used_this_turn = bool(
                 len(nick_turn_marker) == len(turn_marker) and nick_turn_marker == turn_marker
             )
@@ -16481,22 +16494,22 @@ class InitiativeTracker(base.InitiativeTracker):
                 configured_attack_count = int(attack_count)
             if is_cleave_followup:
                 attack_count = 1
-            attack_resources = max(0, _parse_int(getattr(c, "attack_resource_remaining", 0), 0) or 0)
+            attack_resources = max(0, _parse_int(getattr(resource_c, "attack_resource_remaining", 0), 0) or 0)
             if not is_cleave_followup:
                 if opportunity_attack:
-                    if not self._use_reaction(c):
+                    if not self._use_reaction(resource_c):
                         self._lan.toast(ws_id, "No reactions left, matey.")
                         return
                 else:
                     if attack_resources <= 0:
-                        if not self._use_action(c):
+                        if not self._use_action(resource_c):
                             self._lan.toast(ws_id, "No attacks left, matey.")
                             return
                         attack_resources = int(configured_attack_count)
                         if nick_extra_attack_available:
-                            setattr(c, "_nick_mastery_turn_marker", turn_marker)
+                            setattr(resource_c, "_nick_mastery_turn_marker", turn_marker)
                     attack_resources = max(0, int(attack_resources) - 1)
-                    setattr(c, "attack_resource_remaining", int(attack_resources))
+                    setattr(resource_c, "attack_resource_remaining", int(attack_resources))
             to_hit = _parse_int(selected_weapon.get("to_hit"), _parse_int(attacks.get("weapon_to_hit"), 0) or 0) or 0
             magic_bonus = _parse_int(selected_weapon.get("magic_bonus"), _parse_int(selected_weapon.get("item_bonus"), 0) or 0) or 0
             to_hit += int(magic_bonus)
@@ -16596,7 +16609,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         rider_type = str((damage_entries[0] if damage_entries else {}).get("type") or "").strip().lower()
                     damage_entries.append({"amount": int(rider_amount), "type": rider_type})
                     if bool(rider.get("once_per_turn")):
-                        self._once_per_turn_limiter_mark(cid, rider_id)
+                        self._once_per_turn_limiter_mark(profile_cid, rider_id)
                     mastery_notes.append(f"{str(rider.get('id') or 'rider').strip() or 'rider'} adds {int(rider_amount)} damage.")
             adjustment = self._adjust_damage_entries_for_target(target, damage_entries)
             damage_entries = list(adjustment.get("entries") or [])
@@ -16608,7 +16621,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 hit
                 and weapon_mastery_enabled
                 and _weapon_has_property(selected_weapon, "vex")
-                and _parse_int(getattr(target, "_vexed_by_cid", None), None) == int(cid)
+                and _parse_int(getattr(target, "_vexed_by_cid", None), None) == int(profile_cid)
             )
             if mastery_vex_advantage:
                 mastery_notes.append("Vex: Advantage applies to this attack.")
@@ -16686,7 +16699,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         mastery_notes.append("Topple applied: target is Prone.")
                 if _weapon_has_property(selected_weapon, "vex"):
                     _ensure_condition(target, "vexed")
-                    setattr(target, "_vexed_by_cid", int(cid))
+                    setattr(target, "_vexed_by_cid", int(profile_cid))
                     mastery_notes.append("Vex applied: next attack by ye has advantage.")
                 if (
                     _weapon_has_property(selected_weapon, "cleave")
@@ -16730,8 +16743,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 "critical": is_critical,
                 "damage_total": int(total_damage if damage_applied else 0),
                 "damage_entries": list(damage_entries if damage_applied else []),
-                "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
-                "attack_resource_remaining": int(getattr(c, "attack_resource_remaining", 0) or 0),
+                "action_remaining": int(getattr(resource_c, "action_remaining", 0) or 0),
+                "attack_resource_remaining": int(getattr(resource_c, "attack_resource_remaining", 0) or 0),
                 "mastery_advantage": bool(mastery_vex_advantage),
             }
             if mastery_cleave_candidates:
