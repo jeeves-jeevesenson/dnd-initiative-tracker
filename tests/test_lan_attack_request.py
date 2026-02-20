@@ -251,6 +251,101 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(result.get("to_hit"), 7)
         self.assertEqual(result.get("total_to_hit"), 17)
 
+    def test_echo_attack_uses_owner_weapon_profile(self):
+        self.app.combatants[3] = type(
+            "C",
+            (),
+            {
+                "cid": 3,
+                "name": "Johns Echo",
+                "ac": 14,
+                "hp": 1,
+                "condition_stacks": [],
+                "exhaustion_level": 0,
+                "summoned_by_cid": 1,
+                "summon_source_spell": "echo_knight",
+                "summon_shared_turn": True,
+            },
+        )()
+        self.app._summon_can_be_controlled_by = lambda claimed, target: int(claimed) == 1 and int(target) == 3
+        self.app._pc_name_for = lambda cid: "John Twilight" if int(cid) == 1 else "Unknown"
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Fighter", "level": 11, "attacks_per_action": 3}]},
+            "attacks": {
+                "weapon_to_hit": 6,
+                "weapons": [
+                    {"id": "greatsword", "name": "Greatsword", "to_hit": 9},
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 3,
+            "_claimed_cid": 1,
+            "_ws_id": 52,
+            "target_cid": 2,
+            "attack_roll": 10,
+            "weapon_id": "greatsword",
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("weapon_name"), "Greatsword")
+        self.assertEqual(result.get("to_hit"), 9)
+
+    def test_echo_attack_consumes_owner_action_and_attack_resources(self):
+        self.app.combatants[1].action_remaining = 1
+        self.app.combatants[1].attack_resource_remaining = 0
+        self.app.combatants[3] = type(
+            "C",
+            (),
+            {
+                "cid": 3,
+                "name": "Johns Echo",
+                "ac": 14,
+                "hp": 1,
+                "condition_stacks": [],
+                "exhaustion_level": 0,
+                "summoned_by_cid": 1,
+                "summon_source_spell": "echo_knight",
+                "summon_shared_turn": True,
+                "action_remaining": 1,
+                "attack_resource_remaining": 0,
+            },
+        )()
+        self.app._summon_can_be_controlled_by = lambda claimed, target: int(claimed) == 1 and int(target) == 3
+        self.app._pc_name_for = lambda cid: "John Twilight" if int(cid) == 1 else "Unknown"
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Fighter", "level": 5, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_to_hit": 5,
+                "weapons": [
+                    {"id": "longsword", "name": "Longsword", "to_hit": 7},
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 3,
+            "_claimed_cid": 1,
+            "_ws_id": 53,
+            "target_cid": 2,
+            "attack_roll": 11,
+            "weapon_id": "longsword",
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(self.app.combatants[1].action_remaining, 0)
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 1)
+        self.assertEqual(self.app.combatants[3].action_remaining, 1)
+        self.assertEqual(self.app.combatants[3].attack_resource_remaining, 0)
+        self.assertEqual(result.get("attack_resource_remaining"), 1)
+
     def test_attack_request_auto_spends_action_when_no_attack_resource(self):
         msg = {
             "type": "attack_request",
