@@ -9724,7 +9724,8 @@ class InitiativeTracker(base.InitiativeTracker):
             for entry in raw_weapons:
                 if not isinstance(entry, dict):
                     continue
-                weapon = self._resolve_weapon_from_items(dict(entry), weapon_registry=weapon_registry)
+                player_weapon_entry = dict(entry)
+                weapon = self._resolve_weapon_from_items(dict(player_weapon_entry), weapon_registry=weapon_registry)
                 one_handed = dict(weapon.get("one_handed")) if isinstance(weapon.get("one_handed"), dict) else {}
                 two_handed = dict(weapon.get("two_handed")) if isinstance(weapon.get("two_handed"), dict) else {}
                 effect = dict(weapon.get("effect")) if isinstance(weapon.get("effect"), dict) else {}
@@ -9733,7 +9734,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     save_dc = 0
                 weapon["id"] = str(weapon.get("id") or "").strip()
                 weapon["name"] = str(weapon.get("name") or "").strip()
-                weapon["proficient"] = bool(weapon.get("proficient", True))
+                weapon["proficient"] = bool(player_weapon_entry.get("proficient", True))
                 to_hit_normalized = normalize_attack_int(weapon.get("to_hit"))
                 weapon["to_hit"] = to_hit_normalized if to_hit_normalized is not None else 0
                 magic_bonus_normalized = normalize_attack_int(weapon.get("magic_bonus"))
