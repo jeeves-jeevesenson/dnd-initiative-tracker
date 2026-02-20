@@ -2992,6 +2992,21 @@ __DAMAGE_TYPE_OPTIONS__
     </div>
   </div>
 </div>
+<div class="modal" id="layOnHandsOverlay" aria-hidden="true">
+  <div class="card">
+    <h2>Lay on Hands</h2>
+    <div class="spellbook-status" id="layOnHandsSummary"></div>
+    <div class="spellbook-status" id="layOnHandsTarget"></div>
+    <div class="wildshape-pool-row" style="margin-top:8px;">
+      <label for="layOnHandsAmountInput">HP to heal</label>
+      <input id="layOnHandsAmountInput" type="number" min="1" step="1" placeholder="1+" />
+    </div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="layOnHandsCancel" type="button">Cancel</button>
+      <button class="btn accent" id="layOnHandsUse" type="button">Heal</button>
+    </div>
+  </div>
+</div>
 <div class="spellbook-overlay" id="wildShapeOverlay" aria-hidden="true">
   <div class="spellbook-header">
     <button class="btn" id="wildShapeBack" type="button">Back</button>
@@ -3664,6 +3679,12 @@ __DAMAGE_TYPE_OPTIONS__
   const secondWindRollInput = document.getElementById("secondWindRollInput");
   const secondWindCancelBtn = document.getElementById("secondWindCancel");
   const secondWindUseBtn = document.getElementById("secondWindUse");
+  const layOnHandsOverlay = document.getElementById("layOnHandsOverlay");
+  const layOnHandsSummary = document.getElementById("layOnHandsSummary");
+  const layOnHandsTarget = document.getElementById("layOnHandsTarget");
+  const layOnHandsAmountInput = document.getElementById("layOnHandsAmountInput");
+  const layOnHandsCancelBtn = document.getElementById("layOnHandsCancel");
+  const layOnHandsUseBtn = document.getElementById("layOnHandsUse");
   const wildShapeOverlay = document.getElementById("wildShapeOverlay");
   const wildShapeBackBtn = document.getElementById("wildShapeBack");
   const wildShapeSaveBtn = document.getElementById("wildShapeSave");
@@ -3913,6 +3934,8 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingOpportunityAttack = false;
   let pendingCleavePrompt = null;
   let pendingSpellTargeting = null;
+  let pendingLayOnHandsTargeting = null;
+  let pendingLayOnHandsResolve = null;
   let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
   const LOS_PREVIEW_MS = 900;
   const sheetHeightKey = "inittracker_sheetHeight";
@@ -4641,6 +4664,27 @@ __DAMAGE_TYPE_OPTIONS__
           send(msg);
         });
       }
+      if (pool.id === "lay_on_hands"){
+        chip.style.cursor = "pointer";
+        chip.title = "Lay on Hands";
+        chip.addEventListener("click", () => {
+          const me = getClaimedUnit();
+          if (!me || !me.pos){
+            localToast("Claim a character first, matey.");
+            return;
+          }
+          pendingLayOnHandsTargeting = {
+            poolCurrent: Number(pool.current || 0),
+            poolMax: Number(pool.max || 0),
+            rangeFt: 5,
+          };
+          pendingLayOnHandsResolve = null;
+          setLayOnHandsOverlayOpen(false);
+          setAttackOverlayMode(true);
+          localToast("Select a creature within 5 ft for Lay on Hands.");
+          draw();
+        });
+      }
       resourcePoolsListEl.appendChild(chip);
     });
   }
@@ -4722,6 +4766,26 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     if (secondWindSummary) secondWindSummary.textContent = `Current uses: ${secondWind.current}/${secondWind.max}`;
+  }
+
+  function setLayOnHandsOverlayOpen(open){
+    setModalOpen(layOnHandsOverlay, open);
+    if (!open) return;
+    const pools = getPlayerResourcePools(getClaimedPlayerName());
+    const pool = pools.find((entry) => entry.id === "lay_on_hands");
+    const current = Math.max(0, Number(pool?.current || 0));
+    const max = Math.max(0, Number(pool?.max || 0));
+    if (layOnHandsSummary) layOnHandsSummary.textContent = pool ? `Pool: ${current}/${max}` : "No Lay on Hands pool found.";
+    if (layOnHandsTarget){
+      layOnHandsTarget.textContent = pendingLayOnHandsResolve
+        ? `Target: ${pendingLayOnHandsResolve.targetName}`
+        : "Target: none selected";
+    }
+    if (layOnHandsAmountInput){
+      layOnHandsAmountInput.min = "1";
+      layOnHandsAmountInput.max = String(current);
+      layOnHandsAmountInput.value = current > 0 ? "1" : "0";
+    }
   }
 
   function isClaimedUnitDruid(){
@@ -5910,6 +5974,7 @@ __DAMAGE_TYPE_OPTIONS__
     "aoe_move",
     "aoe_remove",
     "save_preset",
+    "lay_on_hands_use",
   ]);
 
   function send(msg){
@@ -6925,6 +6990,21 @@ __DAMAGE_TYPE_OPTIONS__
       const current = Number(unit.action_remaining || 0);
       update.action_remaining = Math.max(0, current + 1);
       applyUnitUpdates([update]);
+      renderResourcePools();
+      return;
+    }
+    if (type === "lay_on_hands_use"){
+      const unit = getUnitByCid(msg.cid);
+      const target = getUnitByCid(msg.target_cid);
+      const amount = Math.max(0, Number(msg.amount || 0));
+      if (!unit || !target || amount <= 0) return;
+      mutateResourcePoolCounter(unit, {id: "lay_on_hands", cost: amount});
+      const targetHp = Number(target.hp || 0);
+      const targetMaxHp = Number(target.max_hp || targetHp);
+      applyUnitUpdates([
+        {cid: unit.cid, action_remaining: Math.max(0, Number(unit.action_remaining || 0) - 1)},
+        {cid: target.cid, hp: Math.max(0, Math.min(targetMaxHp, targetHp + amount))},
+      ]);
       renderResourcePools();
       return;
     }
@@ -8212,14 +8292,17 @@ __DAMAGE_TYPE_OPTIONS__
       const me = getClaimedUnit();
       const weapon = pendingSpellTargeting ? null : getSelectedAttackWeapon();
       const spellRangeFt = Number(pendingSpellTargeting?.rangeFt);
-      if (me && me.pos && (weapon || Number.isFinite(spellRangeFt))){
-        const rangeFt = Number.isFinite(spellRangeFt)
-          ? spellRangeFt
-          : parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? 3 : 0);
+      const layOnHandsRangeFt = Number(pendingLayOnHandsTargeting?.rangeFt);
+      if (me && me.pos && (weapon || Number.isFinite(spellRangeFt) || Number.isFinite(layOnHandsRangeFt))){
+        const rangeFt = Number.isFinite(layOnHandsRangeFt)
+          ? layOnHandsRangeFt
+          : (Number.isFinite(spellRangeFt)
+            ? spellRangeFt
+            : parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? 3 : 0));
         const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
         const radiusCells = Math.max(0, Number(rangeFt) / feetPerSquare);
         const center = gridToScreen(me.pos.col, me.pos.row);
-        const overlayColor = normalizeHexColor(pendingSpellTargeting?.overlayColor || "");
+        const overlayColor = normalizeHexColor(pendingLayOnHandsTargeting ? "#4caf50" : (pendingSpellTargeting?.overlayColor || ""));
         ctx.save();
         ctx.fillStyle = overlayColor ? rgbaFromHex(overlayColor, 0.15) : "rgba(255,78,78,0.15)";
         ctx.strokeStyle = overlayColor ? rgbaFromHex(overlayColor, 0.72) : "rgba(255,78,78,0.72)";
@@ -10756,9 +10839,10 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const hit = hitTestToken(p);
       const selectingSpellTarget = !!pendingSpellTargeting;
-      if (hit && (selectingSpellTarget || !cidMatches(hit.cid, me.cid, "attackOverlay.target"))){
+      const selectingLayOnHandsTarget = !!pendingLayOnHandsTargeting;
+      if (hit && (selectingSpellTarget || selectingLayOnHandsTarget || !cidMatches(hit.cid, me.cid, "attackOverlay.target"))){
         const isFriendlyTarget = cidMatches(hit.cid, me.cid, "attackOverlay.selfTarget") || isFriendlyToMe(hit, me);
-        if (!pendingSpellTargeting && isFriendlyTarget){
+        if (!pendingSpellTargeting && !pendingLayOnHandsTargeting && isFriendlyTarget){
           localToast("Pick an enemy target, matey.");
           return;
         }
@@ -10772,6 +10856,22 @@ __DAMAGE_TYPE_OPTIONS__
             localToast("Pick an enemy target, matey.");
             return;
           }
+        }
+        if (pendingLayOnHandsTargeting){
+          const rangeFt = Number.isFinite(Number(pendingLayOnHandsTargeting?.rangeFt))
+            ? Number(pendingLayOnHandsTargeting.rangeFt)
+            : 5;
+          const distFt = distanceFeetBetweenCells(me.pos, hit.pos);
+          if (distFt - rangeFt > 1e-6){
+            localToast("Target be out of Lay on Hands range.");
+            return;
+          }
+          pendingLayOnHandsResolve = {
+            targetCid: Number(hit.cid),
+            targetName: String(hit.name || "target"),
+          };
+          setLayOnHandsOverlayOpen(true);
+          return;
         }
         const weapon = pendingSpellTargeting ? null : (pendingActionAttackWeapon || getSelectedAttackWeapon());
         if (!pendingSpellTargeting && !weapon){
@@ -14666,6 +14766,50 @@ __DAMAGE_TYPE_OPTIONS__
       }
       send(msg);
       setSecondWindOverlayOpen(false);
+    });
+  }
+  if (layOnHandsCancelBtn){
+    layOnHandsCancelBtn.addEventListener("click", () => {
+      setLayOnHandsOverlayOpen(false);
+      pendingLayOnHandsResolve = null;
+      pendingLayOnHandsTargeting = null;
+      if (attackOverlayMode){
+        setAttackOverlayMode(false);
+      }
+    });
+  }
+  if (layOnHandsUseBtn){
+    layOnHandsUseBtn.addEventListener("click", () => {
+      if (!claimedCid) return;
+      if (!pendingLayOnHandsResolve){
+        localToast("Pick a Lay on Hands target first.");
+        return;
+      }
+      const pools = getPlayerResourcePools(getClaimedPlayerName());
+      const pool = pools.find((entry) => entry.id === "lay_on_hands");
+      const available = Math.max(0, Number(pool?.current || 0));
+      const amount = Math.floor(Number(layOnHandsAmountInput?.value ?? ""));
+      if (!Number.isFinite(amount) || amount <= 0){
+        localToast("Enter a valid Lay on Hands healing amount.");
+        return;
+      }
+      if (amount > available){
+        localToast("Not enough Lay on Hands points remaining.");
+        return;
+      }
+      const msg = {type:"lay_on_hands_use", cid: claimedCid, target_cid: pendingLayOnHandsResolve.targetCid, amount};
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
+      setLayOnHandsOverlayOpen(false);
+      pendingLayOnHandsResolve = null;
+      pendingLayOnHandsTargeting = null;
+      if (attackOverlayMode){
+        setAttackOverlayMode(false);
+      }
     });
   }
   if (wildShapeBackBtn){

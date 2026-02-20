@@ -142,5 +142,13 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn("opportunity_attack: !!pendingAttackResolve.opportunityAttack,", self.html)
 
 
+    def test_lay_on_hands_targeting_overlay_and_modal_are_wired(self):
+        self.assertIn('id="layOnHandsOverlay"', self.html)
+        self.assertIn('pendingLayOnHandsTargeting = {', self.html)
+        self.assertIn('setLayOnHandsOverlayOpen(true);', self.html)
+        self.assertIn('const msg = {type:"lay_on_hands_use", cid: claimedCid, target_cid: pendingLayOnHandsResolve.targetCid, amount};', self.html)
+        self.assertIn('normalizeHexColor(pendingLayOnHandsTargeting ? "#4caf50"', self.html)
+
+
 if __name__ == "__main__":
     unittest.main()

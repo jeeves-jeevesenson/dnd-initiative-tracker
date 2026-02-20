@@ -120,5 +120,57 @@ class LanActionSurgePoolTests(unittest.TestCase):
         self.assertTrue(any("uses Second Wind and regains 17 HP" in message for _cid, message in logs))
 
 
+    def test_lay_on_hands_use_consumes_pool_spends_action_and_heals_target(self):
+        toasts = []
+        logs = []
+        consumed = []
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app._is_admin_token_valid = lambda token: False
+        app._summon_can_be_controlled_by = lambda claimed, target: False
+        app._is_valid_summon_turn_for_controller = lambda controlling, target, current: True
+        app._pc_name_for = lambda cid: "Dorian"
+        app._profile_for_player_name = lambda name: {"leveling": {"classes": [{"name": "Paladin", "level": 10}]}}
+        app._class_level_from_profile = lambda profile, klass: 10 if str(klass).lower() == "paladin" else 0
+        app._consume_resource_pool_for_cast = lambda player_name, pool_id, cost: (consumed.append((player_name, pool_id, cost)) or True, "")
+        app._log = lambda message, cid=None: logs.append((cid, message))
+        app._rebuild_table = lambda scroll_to_current=True: None
+        app._use_action = lambda c: True
+        app.in_combat = True
+        app.current_cid = 1
+        app.round_num = 1
+        app.turn_num = 1
+        app.start_cid = None
+        app.combatants = {
+            1: type("C", (), {"cid": 1, "name": "Dorian", "action_remaining": 1, "hp": 40, "max_hp": 102})(),
+            2: type("T", (), {"cid": 2, "name": "Ally", "hp": 10, "max_hp": 60})(),
+        }
+        app._lan = type(
+            "LanStub",
+            (),
+            {
+                "toast": lambda _self, ws_id, message: toasts.append((ws_id, message)),
+                "_append_lan_log": lambda *args, **kwargs: None,
+                "_loop": None,
+            },
+        )()
+
+        app._lan_apply_action(
+            {
+                "type": "lay_on_hands_use",
+                "cid": 1,
+                "target_cid": 2,
+                "amount": 25,
+                "_claimed_cid": 1,
+                "_ws_id": 42,
+            }
+        )
+
+        self.assertEqual(app.combatants[2].hp, 35)
+        self.assertEqual(consumed, [("Dorian", "lay_on_hands", 25)])
+        self.assertIn((42, "Lay on Hands: healed 25 HP."), toasts)
+        self.assertTrue(any("uses Lay on Hands on Ally" in message for _cid, message in logs))
+
+
 if __name__ == "__main__":
     unittest.main()
