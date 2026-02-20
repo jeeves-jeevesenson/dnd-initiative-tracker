@@ -2839,6 +2839,16 @@ __DAMAGE_TYPE_OPTIONS__
     </div>
   </div>
 </div>
+<div class="modal" id="echoTetherPromptModal" aria-hidden="true">
+  <div class="card">
+    <h2>Echo Warning</h2>
+    <div class="hint" id="echoTetherPromptBody">Warning. Moving here will destroy your echo. Proceed?</div>
+    <div class="modal-actions">
+      <button class="btn accent" id="echoTetherPromptYes">Yes</button>
+      <button class="btn" id="echoTetherPromptNo">No</button>
+    </div>
+  </div>
+</div>
 <div class="spellbook-overlay" id="spellbookOverlay" aria-hidden="true">
   <div class="spellbook-header">
     <button class="btn" id="spellbookBack" type="button">Back</button>
@@ -3600,6 +3610,10 @@ __DAMAGE_TYPE_OPTIONS__
   const mountPromptBody = document.getElementById("mountPromptBody");
   const mountPromptYes = document.getElementById("mountPromptYes");
   const mountPromptNo = document.getElementById("mountPromptNo");
+  const echoTetherPromptModal = document.getElementById("echoTetherPromptModal");
+  const echoTetherPromptBody = document.getElementById("echoTetherPromptBody");
+  const echoTetherPromptYes = document.getElementById("echoTetherPromptYes");
+  const echoTetherPromptNo = document.getElementById("echoTetherPromptNo");
   const initiativePromptModal = document.getElementById("initiativePromptModal");
   const initiativePromptBody = document.getElementById("initiativePromptBody");
   const initiativePromptInput = document.getElementById("initiativePromptInput");
@@ -3895,6 +3909,7 @@ __DAMAGE_TYPE_OPTIONS__
   let endTurnReadyVisualActive = false;
   let selectedTurnCid = null;
   let pendingMountRequestId = null;
+  let pendingEchoTetherRequestId = null;
   let pendingInitiativeCid = null;
   let pendingMountPair = null;
   let hoveredTurnCid = null;
@@ -10183,6 +10198,15 @@ __DAMAGE_TYPE_OPTIONS__
           mountPromptModal.classList.add("show");
           mountPromptModal.setAttribute("aria-hidden", "false");
         }
+      } else if (msg.type === "echo_tether_prompt") {
+        pendingEchoTetherRequestId = msg.request_id || null;
+        if (echoTetherPromptBody){
+          echoTetherPromptBody.textContent = String(msg.text || "Warning. Moving here will destroy your echo. Proceed?");
+        }
+        if (echoTetherPromptModal){
+          echoTetherPromptModal.classList.add("show");
+          echoTetherPromptModal.setAttribute("aria-hidden", "false");
+        }
       } else if (msg.type === "initiative_prompt"){
         const targetCid = Number(msg.cid);
         pendingInitiativeCid = Number.isFinite(targetCid) ? targetCid : claimedCid;
@@ -15396,6 +15420,18 @@ __DAMAGE_TYPE_OPTIONS__
     mountPromptNo.addEventListener("click", () => {
       send({type:"mount_response", request_id: pendingMountRequestId, accept:false});
       if (mountPromptModal){ mountPromptModal.classList.remove("show"); mountPromptModal.setAttribute("aria-hidden", "true"); }
+    });
+  }
+  if (echoTetherPromptYes){
+    echoTetherPromptYes.addEventListener("click", () => {
+      send({type:"echo_tether_response", request_id: pendingEchoTetherRequestId, accept:true});
+      if (echoTetherPromptModal){ echoTetherPromptModal.classList.remove("show"); echoTetherPromptModal.setAttribute("aria-hidden", "true"); }
+    });
+  }
+  if (echoTetherPromptNo){
+    echoTetherPromptNo.addEventListener("click", () => {
+      send({type:"echo_tether_response", request_id: pendingEchoTetherRequestId, accept:false});
+      if (echoTetherPromptModal){ echoTetherPromptModal.classList.remove("show"); echoTetherPromptModal.setAttribute("aria-hidden", "true"); }
     });
   }
 

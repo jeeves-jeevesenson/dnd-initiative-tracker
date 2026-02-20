@@ -1232,6 +1232,7 @@ class LanController:
         "reset_player_characters",
         "mount_request",
         "mount_response",
+        "echo_tether_response",
         "dismount",
         "initiative_roll",
         "attack_request",
@@ -3708,6 +3709,19 @@ class LanController:
                 with self._clients_lock:
                     self._terrain_pending.pop(ws_id, None)
 
+    def send_echo_tether_prompt(self, ws_id: Optional[int], request_id: str) -> None:
+        if ws_id is None or not self._loop:
+            return
+        payload = {
+            "type": "echo_tether_prompt",
+            "request_id": str(request_id or "").strip(),
+            "text": "Warning. Moving here will destroy your echo. Proceed?",
+        }
+        try:
+            asyncio.run_coroutine_threadsafe(self._send_async(int(ws_id), payload), self._loop)
+        except Exception:
+            pass
+
     def send_initiative_prompt(self, ws_id: Optional[int], cid: int, name: str) -> None:
         """Prompt a claimed LAN player to roll initiative for their PC."""
         if ws_id is None or not self._loop:
@@ -4630,6 +4644,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._summon_group_meta: Dict[str, Dict[str, Any]] = {}
         self._pending_pre_summons: Dict[int, Dict[str, Any]] = {}
         self._pending_mount_requests: Dict[str, Dict[str, Any]] = {}
+        self._pending_echo_tether_confirms: Dict[str, Dict[str, Any]] = {}
 
         # POC helpers: start the LAN server automatically.
         # Start quietly (log on success; avoid popups if deps missing)
@@ -14036,6 +14051,121 @@ class InitiativeTracker(base.InitiativeTracker):
             removed += self._dismiss_summon_group(group_id)
         return removed
 
+    def _find_echo_for_caster(self, caster_cid: int) -> Tuple[Optional[int], Any]:
+        group_key = f"echo:{int(caster_cid)}"
+        for ecid, unit in self.combatants.items():
+            owner = _normalize_cid_value(getattr(unit, "summoned_by_cid", None), "echo.owner")
+            if owner != int(caster_cid):
+                continue
+            if str(getattr(unit, "summon_group_id", "") or "").strip() == group_key:
+                return int(ecid), unit
+        for ecid, unit in self.combatants.items():
+            owner = _normalize_cid_value(getattr(unit, "summoned_by_cid", None), "echo.owner")
+            if owner != int(caster_cid):
+                continue
+            source = str(getattr(unit, "summon_source_spell", "") or "").strip().lower()
+            if source == "echo_knight":
+                return int(ecid), unit
+        return None, None
+
+    def _johns_echo_tether_move_details(self, mover_cid: Optional[int], dest_col: int, dest_row: int) -> Tuple[Optional[int], Optional[int], bool]:
+        if mover_cid is None:
+            return None, None, False
+        mover = self.combatants.get(int(mover_cid))
+        if mover is None:
+            return None, None, False
+
+        owner_cid: Optional[int] = None
+        mover_name_key = self._action_name_key(getattr(mover, "name", ""))
+        if mover_name_key == "john twilight":
+            owner_cid = int(mover_cid)
+        else:
+            source = str(getattr(mover, "summon_source_spell", "") or "").strip().lower()
+            group_id = str(getattr(mover, "summon_group_id", "") or "").strip().lower()
+            if source == "echo_knight" or group_id.startswith("echo:"):
+                owner_cid = _normalize_cid_value(getattr(mover, "summoned_by_cid", None), "echo.owner")
+
+        if owner_cid is None:
+            return None, None, False
+        owner = self.combatants.get(int(owner_cid))
+        if owner is None or self._action_name_key(getattr(owner, "name", "")) != "john twilight":
+            return None, None, False
+
+        echo_cid, _echo = self._find_echo_for_caster(int(owner_cid))
+        if echo_cid is None:
+            return int(owner_cid), None, False
+
+        john_pos = self._lan_positions.get(int(owner_cid)) or self._lan_current_position(int(owner_cid))
+        echo_pos = self._lan_positions.get(int(echo_cid)) or self._lan_current_position(int(echo_cid))
+        if john_pos is None or echo_pos is None:
+            return int(owner_cid), int(echo_cid), False
+
+        next_john_pos = (int(dest_col), int(dest_row)) if int(mover_cid) == int(owner_cid) else (int(john_pos[0]), int(john_pos[1]))
+        next_echo_pos = (int(dest_col), int(dest_row)) if int(mover_cid) == int(echo_cid) else (int(echo_pos[0]), int(echo_pos[1]))
+
+        feet_per_square = 5.0
+        try:
+            mw = getattr(self, "_map_window", None)
+            if mw is not None and mw.winfo_exists():
+                feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+        except Exception:
+            pass
+        feet_per_square = max(1.0, feet_per_square)
+        dist_ft = math.hypot(int(next_john_pos[0]) - int(next_echo_pos[0]), int(next_john_pos[1]) - int(next_echo_pos[1])) * feet_per_square
+        return int(owner_cid), int(echo_cid), bool(dist_ft - 20.0 > 1e-6)
+
+    def _enforce_johns_echo_tether(self, moved_cid: Optional[int]) -> bool:
+        if moved_cid is None:
+            return False
+        moved = self.combatants.get(int(moved_cid))
+        if moved is None:
+            return False
+
+        owner_cid: Optional[int] = None
+        moved_name_key = self._action_name_key(getattr(moved, "name", ""))
+        if moved_name_key == "john twilight":
+            owner_cid = int(moved_cid)
+        else:
+            source = str(getattr(moved, "summon_source_spell", "") or "").strip().lower()
+            group_id = str(getattr(moved, "summon_group_id", "") or "").strip().lower()
+            if source == "echo_knight" or group_id.startswith("echo:"):
+                owner_cid = _normalize_cid_value(getattr(moved, "summoned_by_cid", None), "echo.owner")
+
+        if owner_cid is None:
+            return False
+        owner = self.combatants.get(int(owner_cid))
+        if owner is None or self._action_name_key(getattr(owner, "name", "")) != "john twilight":
+            return False
+
+        echo_cid, _echo = self._find_echo_for_caster(int(owner_cid))
+        if echo_cid is None:
+            return False
+
+        john_pos = self._lan_positions.get(int(owner_cid)) or self._lan_current_position(int(owner_cid))
+        echo_pos = self._lan_positions.get(int(echo_cid)) or self._lan_current_position(int(echo_cid))
+        if john_pos is None or echo_pos is None:
+            return False
+
+        feet_per_square = 5.0
+        try:
+            mw = getattr(self, "_map_window", None)
+            if mw is not None and mw.winfo_exists():
+                feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+        except Exception:
+            pass
+        feet_per_square = max(1.0, feet_per_square)
+        dist_ft = math.hypot(int(john_pos[0]) - int(echo_pos[0]), int(john_pos[1]) - int(echo_pos[1])) * feet_per_square
+        if dist_ft - 20.0 <= 1e-6:
+            return False
+
+        removed = self._dismiss_summon_group(f"echo:{int(owner_cid)}")
+        if removed <= 0 and int(echo_cid) in self.combatants:
+            self._remove_combatants_with_lan_cleanup([int(echo_cid)])
+            self._rebuild_table(scroll_to_current=True)
+            self._lan_force_state_broadcast()
+            removed = 1
+        return bool(removed)
+
     def _lan_apply_action(self, msg: Dict[str, Any]) -> None:
         """Apply client actions on the Tk thread."""
         tracker: Optional["InitiativeTracker"]
@@ -14104,23 +14234,6 @@ class InitiativeTracker(base.InitiativeTracker):
 
         def _echo_group_id(caster_cid: int) -> str:
             return f"echo:{int(caster_cid)}"
-
-        def _find_echo_for_caster(caster_cid: int) -> Tuple[Optional[int], Any]:
-            group_key = _echo_group_id(int(caster_cid))
-            for ecid, unit in self.combatants.items():
-                owner = _normalize_cid_value(getattr(unit, "summoned_by_cid", None), "echo.owner")
-                if owner != int(caster_cid):
-                    continue
-                if str(getattr(unit, "summon_group_id", "") or "").strip() == group_key:
-                    return int(ecid), unit
-            for ecid, unit in self.combatants.items():
-                owner = _normalize_cid_value(getattr(unit, "summoned_by_cid", None), "echo.owner")
-                if owner != int(caster_cid):
-                    continue
-                source = str(getattr(unit, "summon_source_spell", "") or "").strip().lower()
-                if source == "echo_knight":
-                    return int(ecid), unit
-            return None, None
 
         def _set_token_position(target_cid: int, col: int, row: int) -> None:
             self._lan_positions[int(target_cid)] = (int(col), int(row))
@@ -14355,7 +14468,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "No bonus actions left, matey.")
                 return
             group_id = _echo_group_id(int(cid))
-            echo_cid, echo = _find_echo_for_caster(int(cid))
+            echo_cid, echo = self._find_echo_for_caster(int(cid))
             if echo is None:
                 spec = self._find_monster_spec_by_slug("johns-echo")
                 if spec is None:
@@ -14417,7 +14530,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if name_key != "john twilight" and player_name_key != "john twilight":
                 self._lan.toast(ws_id, "Only John Twilight can swap with Johns Echo.")
                 return
-            echo_cid, _echo = _find_echo_for_caster(int(cid))
+            echo_cid, _echo = self._find_echo_for_caster(int(cid))
             if echo_cid is None:
                 self._lan.toast(ws_id, "Summon Johns Echo first, matey.")
                 return
@@ -15591,6 +15704,29 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan.toast(int(requester_ws), "Mount request declined.")
             return
 
+        if typ == "echo_tether_response":
+            request_id = str(msg.get("request_id") or "").strip()
+            pending = self._pending_echo_tether_confirms.pop(request_id, None)
+            if not pending:
+                return
+            pending_ws = pending.get("ws_id")
+            if pending_ws is not None and ws_id is not None and int(pending_ws) != int(ws_id):
+                return
+            if not bool(msg.get("accept")):
+                return
+            target_cid = _normalize_cid_value(pending.get("cid"), "echo_tether_response.cid")
+            target_col = _normalize_cid_value(pending.get("col"), "echo_tether_response.col")
+            target_row = _normalize_cid_value(pending.get("row"), "echo_tether_response.row")
+            if target_cid is None or target_col is None or target_row is None:
+                return
+            ok, reason, cost = self._lan_try_move(int(target_cid), int(target_col), int(target_row))
+            if not ok:
+                self._lan.toast(ws_id, reason or "Can’t move there.")
+                return
+            self._enforce_johns_echo_tether(int(target_cid))
+            self._lan.toast(ws_id, f"Moved ({cost} ft).")
+            return
+
         if typ == "dismount":
             rider = self.combatants.get(cid)
             if rider is None:
@@ -15676,6 +15812,39 @@ class InitiativeTracker(base.InitiativeTracker):
                 move_remaining=getattr(self.combatants.get(cid), "move_remaining", None) if cid else None,
             )
 
+            owner_cid, echo_cid, breaks_echo_tether = self._johns_echo_tether_move_details(cid, int(col), int(row))
+            is_owner_turn = bool(owner_cid is not None and current_cid is not None and int(owner_cid) == int(current_cid))
+            should_prompt_echo_warning = bool(
+                not is_admin
+                and breaks_echo_tether
+                and ws_id is not None
+                and owner_cid is not None
+                and echo_cid is not None
+                and int(cid) in (int(owner_cid), int(echo_cid))
+                and is_owner_turn
+            )
+            if should_prompt_echo_warning:
+                request_id = f"echo_tether:{int(time.time()*1000)}:{int(cid)}:{int(col)}:{int(row)}"
+                self._pending_echo_tether_confirms[request_id] = {
+                    "cid": int(cid),
+                    "col": int(col),
+                    "row": int(row),
+                    "ws_id": int(ws_id),
+                }
+                try:
+                    self._lan.send_echo_tether_prompt(int(ws_id), request_id)
+                except Exception:
+                    if getattr(self._lan, "_loop", None):
+                        asyncio.run_coroutine_threadsafe(
+                            self._lan._send_async(int(ws_id), {
+                                "type": "echo_tether_prompt",
+                                "request_id": request_id,
+                                "text": "Warning. Moving here will destroy your echo. Proceed?",
+                            }),
+                            self._lan._loop,
+                        )
+                return
+
             ok, reason, cost = self._lan_try_move(cid, col, row)
             if not ok:
                 if is_move:
@@ -15717,6 +15886,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     map_token_pos_after=map_token_pos_after,
                     grid={"cols": cols_after, "rows": rows_after},
                 )
+                if breaks_echo_tether:
+                    self._enforce_johns_echo_tether(int(cid))
                 self._lan.toast(ws_id, f"Moved ({cost} ft).")
         elif typ == "cycle_movement_mode":
             c = self.combatants.get(cid)
@@ -16726,6 +16897,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     if isinstance(origin, tuple) and len(origin) == 2:
                         pushed = _push_destination((int(origin[0]), int(origin[1])), getattr(c, "facing_deg", 0), 2)
                         self._lan_positions[int(target_cid)] = (int(pushed[0]), int(pushed[1]))
+                        self._enforce_johns_echo_tether(int(target_cid))
                         mastery_notes.append("Push applied: target moved up to 10 ft.")
                 if _weapon_has_property(selected_weapon, "topple"):
                     topple_dc = _mastery_save_dc(selected_weapon, profile, variables)
