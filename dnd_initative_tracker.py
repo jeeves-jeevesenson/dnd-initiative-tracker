@@ -6110,8 +6110,10 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             return
         try:
-            mw.cols = int(getattr(self, "_lan_grid_cols", getattr(mw, "cols", 20)) or 20)
-            mw.rows = int(getattr(self, "_lan_grid_rows", getattr(mw, "rows", 20)) or 20)
+            mw.cols = int(getattr(mw, "cols", getattr(self, "_lan_grid_cols", 20)) or 20)
+            mw.rows = int(getattr(mw, "rows", getattr(self, "_lan_grid_rows", 20)) or 20)
+            self._lan_grid_cols = int(mw.cols)
+            self._lan_grid_rows = int(mw.rows)
             mw.obstacles = set(getattr(self, "_lan_obstacles", set()) or set())
             mw.rough_terrain = dict(getattr(self, "_lan_rough_terrain", {}) or {})
             mw.aoes = {int(k): dict(v) for k, v in dict(getattr(self, "_lan_aoes", {}) or {}).items()}

@@ -309,6 +309,46 @@ class SessionSaveLoadTests(unittest.TestCase):
             self.assertEqual(mw.bg_images, {})
             self.assertEqual(deleted_items, [88])
 
+    def test_open_map_mode_keeps_prompted_grid_size_and_syncs_lan_state(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app = self._make_app(Path(tmpdir) / "battle.log")
+            app._lan_grid_cols = 20
+            app._lan_grid_rows = 20
+            app._lan_obstacles = set()
+            app._lan_rough_terrain = {}
+            app._lan_aoes = {}
+            app._lan_next_aoe_id = 1
+            app._session_next_bg_id = 1
+            app._session_bg_images = []
+            app._apply_saved_positions_to_map_window = lambda _mw: None
+            app._restore_map_backgrounds = lambda _images: None
+
+            map_window = types.SimpleNamespace(
+                cols=100,
+                rows=100,
+                obstacles=set(),
+                rough_terrain={},
+                aoes={},
+                _next_aoe_id=1,
+                _next_bg_id=1,
+                _redraw_all=lambda: None,
+                refresh_units=lambda: None,
+                _refresh_aoe_list=lambda: None,
+                winfo_exists=lambda: True,
+            )
+
+            original_open_map_mode = tracker_mod.base.InitiativeTracker._open_map_mode
+            try:
+                tracker_mod.base.InitiativeTracker._open_map_mode = lambda self: setattr(self, "_map_window", map_window)
+                tracker_mod.InitiativeTracker._open_map_mode(app)
+            finally:
+                tracker_mod.base.InitiativeTracker._open_map_mode = original_open_map_mode
+
+            self.assertEqual(map_window.cols, 100)
+            self.assertEqual(map_window.rows, 100)
+            self.assertEqual(app._lan_grid_cols, 100)
+            self.assertEqual(app._lan_grid_rows, 100)
+
 
 if __name__ == "__main__":
     unittest.main()
