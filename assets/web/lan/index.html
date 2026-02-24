@@ -2455,30 +2455,18 @@
         <button class="btn" id="switchCharacter" type="button">Switch character</button>
         <div class="spacer"></div>
         <div class="sheet-actions">
-          <button class="btn" id="useAction">Use Action</button>
-          <button class="btn" id="useBonusAction">Use Bonus Action</button>
+          <button class="btn hidden" id="dismissSummons">Dismiss Summons</button>
+          <button class="btn" id="resetTurn">Reset Turn</button>
           <button class="btn" id="useReaction">Reaction</button>
           <button class="btn" id="dash">Dash</button>
           <button class="btn" id="standUp">Stand Up</button>
-          <button class="btn" id="resetTurn">Reset Turn</button>
-          <button class="btn" id="dismissSummons">Dismiss Summons</button>
+          <button class="btn" id="useBonusAction">Use Bonus Action</button>
           <button class="btn mount hidden" id="mountBtn">Mount</button>
+          <button class="btn hidden" id="endTurnSheet">End Turn</button>
           <button class="btn hidden" id="dismountBtn">Dismount</button>
         </div>
       </div>
       <div class="row">
-        <div class="form-field">
-          <label for="actionSelect">Action</label>
-          <select id="actionSelect">
-            <option value="">None/Custom</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label for="bonusActionSelect">Bonus Action</label>
-          <select id="bonusActionSelect">
-            <option value="">None/Custom</option>
-          </select>
-        </div>
         <div class="form-field">
           <label for="attackWeaponSelect">Attack Weapon</label>
           <select id="attackWeaponSelect">
@@ -3604,6 +3592,7 @@ __DAMAGE_TYPE_OPTIONS__
   const standUpBtn = document.getElementById("standUp");
   const dismissSummonsBtn = document.getElementById("dismissSummons");
   const endTurnBtn = document.getElementById("endTurn");
+  const endTurnSheetBtn = document.getElementById("endTurnSheet");
   const mountBtn = document.getElementById("mountBtn");
   const dismountBtn = document.getElementById("dismountBtn");
   const mountPromptModal = document.getElementById("mountPromptModal");
@@ -4046,8 +4035,7 @@ __DAMAGE_TYPE_OPTIONS__
       standUpBtn,
       resetTurnBtn,
       endTurnBtn,
-      actionSelectEl,
-      bonusActionSelectEl,
+      endTurnSheetBtn,
     ];
     controls.forEach((control) => {
       if (!control) return;
@@ -4056,14 +4044,16 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
   function updateEndTurnState(){
-    if (!endTurnBtn) return;
     const needsClaim = claimedCid === null || claimedCid === undefined;
     const myTurn = !needsClaim && activeControlledUnitCid() !== null;
     const shouldDisable = isMapView || needsClaim || !myTurn;
-    endTurnBtn.disabled = shouldDisable;
-    endTurnBtn.setAttribute("aria-disabled", shouldDisable ? "true" : "false");
+    const endTurnButtons = [endTurnBtn, endTurnSheetBtn].filter(Boolean);
+    endTurnButtons.forEach((button) => {
+      button.disabled = shouldDisable;
+      button.setAttribute("aria-disabled", shouldDisable ? "true" : "false");
+    });
     if (shouldDisable){
-      endTurnBtn.classList.remove("end-turn-ready", "end-turn-pop");
+      endTurnButtons.forEach((button) => button.classList.remove("end-turn-ready", "end-turn-pop"));
       endTurnReadyVisualActive = false;
     }
     let titleText = "";
@@ -4074,17 +4064,18 @@ __DAMAGE_TYPE_OPTIONS__
     } else if (!myTurn){
       titleText = "Wait for your turn, matey.";
     }
-    if (titleText){
-      endTurnBtn.setAttribute("title", titleText);
-    } else {
-      endTurnBtn.removeAttribute("title");
-    }
+    endTurnButtons.forEach((button) => {
+      if (titleText){
+        button.setAttribute("title", titleText);
+      } else {
+        button.removeAttribute("title");
+      }
+    });
   }
   function updateEndTurnReadyVisual(me, myTurn){
-    if (!endTurnBtn || !me || endTurnBtn.disabled){
-      if (endTurnBtn){
-        endTurnBtn.classList.remove("end-turn-ready", "end-turn-pop");
-      }
+    const endTurnButtons = [endTurnBtn, endTurnSheetBtn].filter(Boolean);
+    if (!endTurnButtons.length || !me || endTurnButtons.every((button) => button.disabled)){
+      endTurnButtons.forEach((button) => button.classList.remove("end-turn-ready", "end-turn-pop"));
       endTurnReadyVisualActive = false;
       return;
     }
@@ -4092,16 +4083,18 @@ __DAMAGE_TYPE_OPTIONS__
     const noAction = Number(me.action_remaining || 0) <= 0;
     const noBonusAction = Number(me.bonus_action_remaining || 0) <= 0;
     const shouldEmphasize = myTurn && noMovement && noAction && noBonusAction;
-    if (shouldEmphasize){
-      endTurnBtn.classList.add("end-turn-ready");
-      if (!endTurnReadyVisualActive){
-        endTurnBtn.classList.remove("end-turn-pop");
-        void endTurnBtn.offsetWidth;
-        endTurnBtn.classList.add("end-turn-pop");
+    endTurnButtons.forEach((button) => {
+      if (shouldEmphasize && !button.disabled){
+        button.classList.add("end-turn-ready");
+        if (!endTurnReadyVisualActive){
+          button.classList.remove("end-turn-pop");
+          void button.offsetWidth;
+          button.classList.add("end-turn-pop");
+        }
+      } else {
+        button.classList.remove("end-turn-ready", "end-turn-pop");
       }
-    } else {
-      endTurnBtn.classList.remove("end-turn-ready", "end-turn-pop");
-    }
+    });
     endTurnReadyVisualActive = shouldEmphasize;
   }
   applyMapViewReadOnlyControls();
@@ -9185,6 +9178,9 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (dismissSummonsBtn){
       dismissSummonsBtn.disabled = claimedCid == null;
+      const hasOwnedSummons = !!claimedCid && Array.isArray(state?.units)
+        && state.units.some(u => cidMatches(u?.summoned_by_cid, claimedCid, "dismissSummons.owner"));
+      dismissSummonsBtn.classList.toggle("hidden", !hasOwnedSummons);
     }
     const updatePlayerHpBar = (unit) => {
       if (!playerHpBarWrap || !playerHpBarFill || !playerHpBarLabel){
@@ -9223,7 +9219,9 @@ __DAMAGE_TYPE_OPTIONS__
         if (reactionEl){
           reactionEl.textContent = `Reaction: ${me.reaction_remaining ?? 0}`;
         }
-        useActionBtn.disabled = Number(me.action_remaining || 0) <= 0;
+        if (useActionBtn){
+          useActionBtn.disabled = Number(me.action_remaining || 0) <= 0;
+        }
         useBonusActionBtn.disabled = Number(me.bonus_action_remaining || 0) <= 0;
         if (useReactionBtn){
           useReactionBtn.disabled = Number(me.reaction_remaining || 0) <= 0;
@@ -9258,7 +9256,9 @@ __DAMAGE_TYPE_OPTIONS__
         if (reactionEl){
           reactionEl.textContent = "Reaction: —";
         }
-        useActionBtn.disabled = true;
+        if (useActionBtn){
+          useActionBtn.disabled = true;
+        }
         useBonusActionBtn.disabled = true;
         if (useReactionBtn){
           useReactionBtn.disabled = true;
@@ -9293,7 +9293,9 @@ __DAMAGE_TYPE_OPTIONS__
       if (reactionEl){
         reactionEl.textContent = "Reaction: —";
       }
-      useActionBtn.disabled = true;
+      if (useActionBtn){
+        useActionBtn.disabled = true;
+      }
       useBonusActionBtn.disabled = true;
       if (useReactionBtn){
         useReactionBtn.disabled = true;
@@ -9316,6 +9318,12 @@ __DAMAGE_TYPE_OPTIONS__
       if (standUpBtn){
         standUpBtn.disabled = true;
       }
+    }
+    if (endTurnSheetBtn){
+      const actionTotal = Number(meForHud?.action_total || 0);
+      const actionRemaining = Number(meForHud?.action_remaining || 0);
+      const usedAction = actionTotal > 0 && actionRemaining < actionTotal;
+      endTurnSheetBtn.classList.toggle("hidden", !(myTurn && usedAction));
     }
     renderSpellSlotMonitor();
     renderResourcePools();
@@ -15297,11 +15305,13 @@ __DAMAGE_TYPE_OPTIONS__
       draw();
     });
   }
-  useActionBtn.addEventListener("click", () => {
-    if (isMapView) return;
-    if (!claimedCid) return;
-    openActionPicker("action");
-  });
+  if (useActionBtn){
+    useActionBtn.addEventListener("click", () => {
+      if (isMapView) return;
+      if (!claimedCid) return;
+      openActionPicker("action");
+    });
+  }
   useBonusActionBtn.addEventListener("click", () => {
     if (isMapView) return;
     if (!claimedCid) return;
@@ -15565,21 +15575,25 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
+  const handleEndTurn = () => {
+    if (isMapView) return;
+    if (!claimedCid){
+      localToast("Claim a character first, matey.");
+      return;
+    }
+    const endTurnCid = activeControlledUnitCid();
+    if (endTurnCid === null){
+      localToast("Not yer turn yet, matey.");
+      updateEndTurnState();
+      return;
+    }
+    send({type:"end_turn", cid: endTurnCid});
+  };
   if (endTurnBtn){
-    endTurnBtn.addEventListener("click", () => {
-      if (isMapView) return;
-      if (!claimedCid){
-        localToast("Claim a character first, matey.");
-        return;
-      }
-      const endTurnCid = activeControlledUnitCid();
-      if (endTurnCid === null){
-        localToast("Not yer turn yet, matey.");
-        updateEndTurnState();
-        return;
-      }
-      send({type:"end_turn", cid: endTurnCid});
-    });
+    endTurnBtn.addEventListener("click", handleEndTurn);
+  }
+  if (endTurnSheetBtn){
+    endTurnSheetBtn.addEventListener("click", handleEndTurn);
   }
   if (dismissSummonsBtn){
     dismissSummonsBtn.addEventListener("click", () => {
