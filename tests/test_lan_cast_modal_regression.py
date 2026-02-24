@@ -101,8 +101,11 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('const kind = normalizeLowerValue(step?.check?.kind);', self.html)
         self.assertIn('if (kind === "spell_attack") return "attack";', self.html)
         self.assertIn('const aoeSpell = spellActionTag === "aoe";', self.html)
+        self.assertIn('const smiteSpell = hasSpellTag(preset, "smite");', self.html)
+        self.assertIn('if (!customSummon && !summonSpell && !smiteSpell && !spellActionTag){', self.html)
         self.assertIn('localToast("No tag found for that spell, matey.");', self.html)
         self.assertIn('message: "Spell cast blocked: missing spell action tag",', self.html)
+        self.assertIn('const spellTargetConfig = (!aoeSpell && !smiteSpell) ? getSpellTargetingConfig(preset, slotLevel) : null;', self.html)
         self.assertIn('type: "spell_target_request",', self.html)
         self.assertIn('} else if (msg.type === "spell_target_result"){', self.html)
 

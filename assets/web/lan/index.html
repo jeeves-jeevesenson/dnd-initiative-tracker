@@ -14917,7 +14917,8 @@ __DAMAGE_TYPE_OPTIONS__
       const aoeSpell = spellActionTag === "aoe";
       const summonSpell = isSummonPreset(preset);
       const customSummon = Boolean(preset?.isCustomSummon);
-      if (!customSummon && !summonSpell && !spellActionTag){
+      const smiteSpell = hasSpellTag(preset, "smite");
+      if (!customSummon && !summonSpell && !smiteSpell && !spellActionTag){
         localToast("No tag found for that spell, matey.");
         reportSpellTagMissing(preset, {source: "cast_form_submit"});
         return;
@@ -15250,7 +15251,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
       const msg = {type: aoeSpell ? "cast_aoe" : "cast_spell", payload, action_type: actionType};
-      const spellTargetConfig = !aoeSpell ? getSpellTargetingConfig(preset, slotLevel) : null;
+      const spellTargetConfig = (!aoeSpell && !smiteSpell) ? getSpellTargetingConfig(preset, slotLevel) : null;
       const presetSlug = normalizeTextValue(preset?.slug);
       const presetId = normalizeTextValue(preset?.id);
       if (presetSlug){
