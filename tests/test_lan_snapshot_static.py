@@ -160,6 +160,40 @@ class LanSnapshotStaticTests(unittest.TestCase):
         self.assertEqual(snap["units"][0]["max_hp"], 22)
         self.assertEqual(snap["units"][0]["facing_deg"], 0)
         self.assertEqual(snap["units"][0]["reactions"], [])
+        self.assertEqual(snap["units"][0]["action_total"], 1)
+
+
+    def test_units_include_action_total_from_combatant(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._lan_grid_cols = 10
+        app._lan_grid_rows = 10
+        app._lan_obstacles = set()
+        app._lan_positions = {}
+        app._lan_aoes = {}
+        app._lan_rough_terrain = {}
+        app.current_cid = None
+        app.round_num = 1
+        app._display_order = lambda: [1]
+        app._oplog = lambda *args, **kwargs: None
+        app._name_role_memory = {"alice": "pc"}
+        app._lan_marks_for = lambda _c: []
+        app._normalize_action_entries = lambda _entries, _kind: []
+        app._token_color_payload = lambda _c: None
+        app._has_condition = lambda _c, _name: False
+        app._lan_seed_missing_positions = lambda positions, *_args: positions
+        app._build_you_payload = lambda _ws_id=None: {"claimed_cid": None, "claimed_name": None}
+        app._spell_presets_payload = lambda: []
+        app._player_spell_config_payload = lambda: {}
+        app._player_profiles_payload = lambda: {}
+        app._player_resource_pools_payload = lambda: {}
+        app._lan = type("LanStub", (), {"_cached_snapshot": None})()
+        app.combatants = {
+            1: type("C", (), {"cid": 1, "name": "Alice", "hp": 7, "max_hp": 22, "action_total": 3})(),
+        }
+
+        snap = app._lan_snapshot(include_static=False)
+
+        self.assertEqual(snap["units"][0]["action_total"], 3)
 
 
     def test_tick_uses_idle_interval_without_clients(self):
