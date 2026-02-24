@@ -233,6 +233,22 @@ class SessionSaveLoadTests(unittest.TestCase):
             self.assertIn("First", log_text)
             self.assertIn("Second", log_text)
 
+
+    def test_auto_load_quick_save_on_startup_loads_existing_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app = self._make_app(Path(tmpdir) / "battle.log")
+            quick_path = Path(tmpdir) / "sessions" / "quick_save.json"
+            quick_path.parent.mkdir(parents=True, exist_ok=True)
+            quick_path.write_text("{}", encoding="utf-8")
+
+            app._session_quicksave_path = lambda: quick_path
+            loaded_paths = []
+            app._load_session_from_path = lambda path: loaded_paths.append(Path(path))
+
+            app._auto_load_quick_save_on_startup()
+
+            self.assertEqual(loaded_paths, [quick_path])
+
     def test_apply_saved_positions_to_map_window_creates_and_moves_tokens(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             app = self._make_app(Path(tmpdir) / "battle.log")
