@@ -5571,7 +5571,17 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     const {min, max} = getSheetConstraints();
-    applySheetHeight(Math.round(min + ((max - min) * 0.62)));
+    const viewportHeight = window.innerHeight || 0;
+    const preferredRatio = viewportHeight <= 760 ? 0.72 : 0.64;
+    let target = Math.round(min + ((max - min) * preferredRatio));
+    const poolsPanel = document.getElementById("resourcePoolsPanel");
+    if (poolsPanel){
+      const required = Math.ceil(poolsPanel.offsetTop + poolsPanel.offsetHeight + 20);
+      if (Number.isFinite(required) && required > 0){
+        target = Math.max(target, required);
+      }
+    }
+    applySheetHeight(Math.min(max, target));
   }
 
   function readToggle(key, defaultValue){
