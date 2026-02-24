@@ -9,6 +9,12 @@ damage:
   one_handed:
     formula: 1d8 + 2
     type: slashing
+  versatile:
+    formula: 1d10 + 2
+    type: slashing
+properties:
+  - versatile
+  - topple
 riders:
   - id: hellfire_on_hit
     trigger: on_hit
