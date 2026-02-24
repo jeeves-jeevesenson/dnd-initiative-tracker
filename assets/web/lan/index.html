@@ -2851,6 +2851,7 @@ __DAMAGE_TYPE_OPTIONS__
       <button class="btn" id="echoTetherPromptNo">No</button>
     </div>
   </div>
+</div>
 
 <div class="modal" id="castSpellModal" aria-hidden="true">
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="castSpellModalTitle" style="width:min(1200px,96vw)">
@@ -2876,7 +2877,6 @@ __DAMAGE_TYPE_OPTIONS__
       </div>
     </div>
   </div>
-</div>
 </div>
 <div class="spellbook-overlay" id="spellbookOverlay" aria-hidden="true">
   <div class="spellbook-header">
@@ -3675,6 +3675,9 @@ __DAMAGE_TYPE_OPTIONS__
   const castSpellPresetList = document.getElementById("castSpellPresetList");
   const castSpellPresetSummary = document.getElementById("castSpellPresetSummary");
   const castSpellPreview = document.getElementById("castSpellPreview");
+  if (castSpellModal?.parentElement?.classList?.contains("modal")){
+    console.warn("#castSpellModal is nested inside another .modal and may not display correctly.");
+  }
   const castPanel = document.getElementById("castPanel");
   const castForm = document.getElementById("castForm");
   const castSearchInput = document.getElementById("castSearch");
