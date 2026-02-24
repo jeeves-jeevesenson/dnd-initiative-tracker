@@ -142,6 +142,19 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn("opportunity_attack: !!pendingAttackResolve.opportunityAttack,", self.html)
 
 
+
+    def test_aoe_cast_uses_cursor_follow_placement_mode(self):
+        self.assertIn('let pendingAoePlacement = null;', self.html)
+        self.assertIn('pendingAoePlacement = {', self.html)
+        self.assertIn('localToast("AoE placement: move cursor, click to place.");', self.html)
+        self.assertIn('if (pendingAoePlacement){', self.html)
+        self.assertIn('const previewAoe = getPendingAoePlacementPreview();', self.html)
+        self.assertIn('renderAoeOverlay(previewAoe, {preview: true});', self.html)
+        self.assertIn('msg.payload.cx = Math.round(Number(cursor.col));', self.html)
+        self.assertIn('msg.payload.cy = Math.round(Number(cursor.row));', self.html)
+        self.assertIn('if (pendingAoePlacement){\n      setPendingAoePlacementCursorFromPointer(p);\n      draw();', self.html)
+        self.assertIn('if (pendingAoePlacement){\n        clearPendingAoePlacement();\n        localToast("AoE placement cancelled.");', self.html)
+
     def test_lay_on_hands_targeting_overlay_and_modal_are_wired(self):
         self.assertIn('id="layOnHandsOverlay"', self.html)
         self.assertIn('pendingLayOnHandsTargeting = {', self.html)
