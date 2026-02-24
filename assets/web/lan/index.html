@@ -2936,6 +2936,7 @@ __DAMAGE_TYPE_OPTIONS__
     <h2 id="castSpellModalTitle">Cast Spell</h2>
     <div class="modal-actions" style="margin-top:0;">
       <button class="btn" id="castSpellModalBack" type="button">Back</button>
+      <button class="btn accent" id="castSpellModalManageSpells" type="button">Manage Spells</button>
       <div class="spacer"></div>
       <button class="btn" id="castSpellModalClose" type="button">Close</button>
     </div>
@@ -3753,6 +3754,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castSpellModal = document.getElementById("castSpellModal");
   const castSpellModalOpenBtn = document.getElementById("castSpellModalOpen");
   const castSpellModalBackBtn = document.getElementById("castSpellModalBack");
+  const castSpellModalManageSpellsBtn = document.getElementById("castSpellModalManageSpells");
   const castSpellModalCloseBtn = document.getElementById("castSpellModalClose");
   const castSpellModalSearchInput = document.getElementById("castSpellModalSearch");
   const castSpellPresetList = document.getElementById("castSpellPresetList");
@@ -6513,6 +6515,12 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (castSpellModalBackBtn){
     castSpellModalBackBtn.addEventListener("click", hideCastSpellModal);
+  }
+  if (castSpellModalManageSpellsBtn){
+    castSpellModalManageSpellsBtn.addEventListener("click", () => {
+      hideCastSpellModal();
+      openSpellbookOverlay(true);
+    });
   }
   if (castSpellModalCloseBtn){
     castSpellModalCloseBtn.addEventListener("click", hideCastSpellModal);
