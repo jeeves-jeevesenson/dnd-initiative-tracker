@@ -5529,6 +5529,87 @@ class InitiativeTracker(base.InitiativeTracker):
         self._enter_turn_with_auto_skip(starting=True)
         self._rebuild_table(scroll_to_current=True)
 
+    def _claimed_cids_snapshot(self) -> set[int]:
+        lan = getattr(self, "_lan", None)
+        if lan is None:
+            return set()
+        getter = getattr(lan, "_claims_payload", None)
+        if not callable(getter):
+            return set()
+        try:
+            payload = getter()
+        except Exception:
+            return set()
+        if not isinstance(payload, dict):
+            return set()
+        claimed: set[int] = set()
+        for raw_cid in payload.keys():
+            try:
+                claimed.add(int(raw_cid))
+            except Exception:
+                continue
+        return claimed
+
+    def _should_show_dm_up_alert(
+        self,
+        prev_cid: Optional[int],
+        next_cid: Optional[int],
+        claimed_cids: Optional[set[int]] = None,
+    ) -> bool:
+        if prev_cid is None or next_cid is None:
+            return False
+        if claimed_cids is None:
+            claimed_cids = self._claimed_cids_snapshot()
+        try:
+            prev_id = int(prev_cid)
+            next_id = int(next_cid)
+        except Exception:
+            return False
+        if prev_id not in claimed_cids or next_id in claimed_cids:
+            return False
+        combatants = getattr(self, "combatants", None)
+        if not isinstance(combatants, dict):
+            return False
+        prev = combatants.get(prev_id)
+        if prev is None:
+            return False
+        return bool(getattr(prev, "is_pc", False))
+
+    def _show_dm_up_alert_dialog(self) -> None:
+        parent = self
+        dialog = tk.Toplevel(parent)
+        dialog.title("Turn Tracker")
+        dialog.transient(parent)
+        dialog.resizable(False, False)
+
+        frame = ttk.Frame(dialog, padding=14)
+        frame.grid(row=0, column=0, sticky="nsew")
+        ttk.Label(frame, text="DM is up!").grid(row=0, column=0, sticky="w")
+        ok_btn = ttk.Button(frame, text="OK", command=dialog.destroy)
+        ok_btn.grid(row=1, column=0, sticky="e", pady=(10, 0))
+
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        dialog.bind("<Return>", lambda _evt: dialog.destroy())
+        dialog.bind("<Escape>", lambda _evt: dialog.destroy())
+
+        dialog.update_idletasks()
+        width = dialog.winfo_reqwidth()
+        height = dialog.winfo_reqheight()
+        screen_w = dialog.winfo_screenwidth()
+        screen_h = dialog.winfo_screenheight()
+        xpos = max(0, (screen_w - width) // 2)
+        ypos = max(0, (screen_h - height) // 2)
+        dialog.geometry(f"{width}x{height}+{xpos}+{ypos}")
+
+        dialog.wm_attributes("-topmost", True)
+        dialog.lift()
+        dialog.focus_force()
+        dialog.after_idle(lambda: dialog.wm_attributes("-topmost", False))
+
+        dialog.grab_set()
+        ok_btn.focus_set()
+        dialog.wait_window(dialog)
+
     def _next_turn(self) -> None:
         ordered = self._display_order()
         if not ordered:
@@ -5548,6 +5629,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return
 
         ended_cid = self.current_cid
+        claimed_cids = self._claimed_cids_snapshot()
         self._end_turn_cleanup(self.current_cid)
         if ended_cid is not None:
             self._log_turn_end(ended_cid)
@@ -5570,6 +5652,9 @@ class InitiativeTracker(base.InitiativeTracker):
         if wrapped:
             self.round_num += 1
             self._log(f"--- ROUND {self.round_num} ---")
+
+        if self._should_show_dm_up_alert(ended_cid, self.current_cid, claimed_cids=claimed_cids):
+            self._show_dm_up_alert_dialog()
 
         self._enter_turn_with_auto_skip(starting=False)
         self._rebuild_table(scroll_to_current=True)
