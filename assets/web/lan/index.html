@@ -2010,7 +2010,6 @@
         <button class="btn" id="centerMap">Center on Me</button>
         <button class="btn compact-optional" id="tokenColorModeBtn">Token Color</button>
         <button class="btn" id="measureToggle" aria-pressed="false">Measure</button>
-        <button class="btn" id="attackOverlayToggle" type="button" aria-pressed="false">Attack Overlay</button>
         <button class="btn compact-optional" id="measureClear">Clear Measure</button>
         <button class="btn accent" id="zoomIn">Zoom +</button>
         <button class="btn accent" id="zoomOut">Zoom −</button>
@@ -2525,6 +2524,7 @@
           <button class="btn" id="standUp">Stand Up</button>
           <button class="btn" id="useBonusAction">Use Bonus Action</button>
           <button class="btn" id="castSpellModalOpen" type="button">Cast Spell</button>
+          <button class="btn" id="attackOverlayToggle" type="button" aria-pressed="false">Attack</button>
           <button class="btn mount hidden" id="mountBtn">Mount</button>
           <button class="btn end-turn-sheet hidden" id="endTurnSheet">End Turn</button>
           <button class="btn hidden" id="dismountBtn">Dismount</button>
@@ -7709,7 +7709,6 @@ __DAMAGE_TYPE_OPTIONS__
     if (attackOverlayToggleBtn){
       attackOverlayToggleBtn.setAttribute("aria-pressed", attackOverlayMode ? "true" : "false");
       attackOverlayToggleBtn.classList.toggle("accent", attackOverlayMode);
-      attackOverlayToggleBtn.textContent = attackOverlayMode ? "Attack Overlay: On" : "Attack Overlay";
     }
     draw();
   }
@@ -15938,6 +15937,7 @@ __DAMAGE_TYPE_OPTIONS__
           critical,
           damage_entries: damageEntries,
         });
+        setAttackOverlayMode(false);
       }
       setAttackResolveModalOpen(false);
     });
