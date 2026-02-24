@@ -386,6 +386,18 @@
       touch-action: manipulation;
     }
     .btn:active{transform: translateY(1px);}
+    .btn:disabled,
+    .btn[aria-disabled="true"],
+    .btn.is-disabled{
+      opacity: 0.56;
+      filter: saturate(0.55);
+      cursor: not-allowed;
+    }
+    .btn:disabled:active,
+    .btn[aria-disabled="true"]:active,
+    .btn.is-disabled:active{
+      transform: none;
+    }
     .btn.danger{background: rgba(255,91,91,0.14); border-color: rgba(255,91,91,0.35);}
     .btn.accent{background: rgba(106,169,255,0.14); border-color: rgba(106,169,255,0.35);}
     .btn.success{background: rgba(78,204,128,0.22); border-color: rgba(78,204,128,0.55); color:#dcffe8;}
@@ -1560,6 +1572,18 @@
       text-align:left;
       color: var(--text);
       cursor:pointer;
+    }
+    .action-picker-item:disabled,
+    .action-picker-item[aria-disabled="true"],
+    .action-picker-item.is-disabled{
+      opacity: 0.56;
+      filter: saturate(0.55);
+      cursor: not-allowed;
+    }
+    .action-picker-item:disabled:active,
+    .action-picker-item[aria-disabled="true"]:active,
+    .action-picker-item.is-disabled:active{
+      transform: none;
     }
     .action-picker-item .action-picker-name{
       font-weight:650;
@@ -6018,6 +6042,7 @@ __DAMAGE_TYPE_OPTIONS__
     applyConnStyle();
     updateHotkeyInputs();
     updateSpellPanelVisibility();
+    updateResourceGatedControls();
     updateMountControls();
     updateAoeLockButton();
   }
@@ -6603,6 +6628,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     refreshSpellPresetOptions();
     updateClaimOverlay();
+    updateResourceGatedControls();
     updateMountControls();
     queueMicrotask(updateMountControls);
     return true;
@@ -8375,16 +8401,21 @@ __DAMAGE_TYPE_OPTIONS__
   function setControlDisabledState(control, disabled, reason, fallbackTitle = ""){
     if (!control) return;
     const isDisabled = !!disabled;
+    const reasonText = typeof reason === "string" ? reason.trim() : "";
     control.disabled = isDisabled;
     control.setAttribute("aria-disabled", isDisabled ? "true" : "false");
-    if (isDisabled){
-      if (reason){
-        control.title = reason;
-      }
-    } else if (fallbackTitle){
-      control.title = fallbackTitle;
+    control.classList.toggle("is-disabled", isDisabled);
+    control.toggleAttribute("data-disabled", isDisabled);
+    if (isDisabled && reasonText){
+      control.setAttribute("data-disabled-reason", reasonText);
+      control.title = reasonText;
     } else {
-      control.removeAttribute("title");
+      control.removeAttribute("data-disabled-reason");
+      if (fallbackTitle){
+        control.title = fallbackTitle;
+      } else {
+        control.removeAttribute("title");
+      }
     }
   }
 
@@ -10145,9 +10176,13 @@ __DAMAGE_TYPE_OPTIONS__
     const isDisabled = !!disabledReason;
     btn.disabled = isDisabled;
     btn.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+    btn.classList.toggle("is-disabled", isDisabled);
+    btn.toggleAttribute("data-disabled", isDisabled);
     if (isDisabled){
+      btn.setAttribute("data-disabled-reason", disabledReason);
       btn.title = disabledReason;
     } else {
+      btn.removeAttribute("data-disabled-reason");
       btn.removeAttribute("title");
     }
     const nameEl = document.createElement("div");
