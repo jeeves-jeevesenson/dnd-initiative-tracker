@@ -3961,6 +3961,27 @@ class LanController:
             payload[str(cid_value)] = client_id
         return payload
 
+    def claimed_cids_snapshot(self) -> set[int]:
+        """Return currently claimed CIDs using active LAN claim state."""
+        with self._clients_lock:
+            claimed: set[int] = set()
+            for raw_cid in self._claims.values():
+                try:
+                    claimed.add(int(raw_cid))
+                except Exception:
+                    continue
+            for client_id, raw_cid in self._client_id_claims.items():
+                ws_ids = self._client_id_to_ws.get(client_id, set())
+                if not ws_ids:
+                    continue
+                if not any(ws_id in self._clients for ws_id in ws_ids):
+                    continue
+                try:
+                    claimed.add(int(raw_cid))
+                except Exception:
+                    continue
+        return claimed
+
     async def _unclaim_ws_async(
         self, ws_id: int, reason: str = "Unclaimed", clear_ownership: bool = False
     ) -> int:
@@ -5533,6 +5554,20 @@ class InitiativeTracker(base.InitiativeTracker):
         lan = getattr(self, "_lan", None)
         if lan is None:
             return set()
+        direct_getter = getattr(lan, "claimed_cids_snapshot", None)
+        if callable(direct_getter):
+            try:
+                claimed = direct_getter()
+            except Exception:
+                claimed = None
+            if isinstance(claimed, (set, list, tuple)):
+                normalized: set[int] = set()
+                for raw_cid in claimed:
+                    try:
+                        normalized.add(int(raw_cid))
+                    except Exception:
+                        continue
+                return normalized
         getter = getattr(lan, "_claims_payload", None)
         if not callable(getter):
             return set()
