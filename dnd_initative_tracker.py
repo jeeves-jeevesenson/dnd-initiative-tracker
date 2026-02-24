@@ -4645,10 +4645,12 @@ class InitiativeTracker(base.InitiativeTracker):
         self._pending_pre_summons: Dict[int, Dict[str, Any]] = {}
         self._pending_mount_requests: Dict[str, Dict[str, Any]] = {}
         self._pending_echo_tether_confirms: Dict[str, Dict[str, Any]] = {}
+        self._session_has_saved = False
 
         # POC helpers: start the LAN server automatically.
         # Start quietly (log on success; avoid popups if deps missing)
         self.after(0, self._auto_load_quick_save_on_startup)
+        self.after(600, self._check_for_updates_on_startup)
         if POC_AUTO_START_LAN:
             self.after(250, lambda: self._lan.start(quiet=True))
 
@@ -5769,6 +5771,7 @@ class InitiativeTracker(base.InitiativeTracker):
         payload = self._session_snapshot_payload(label=label)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        self._session_has_saved = True
 
     def _load_session_from_path(self, path: Path) -> None:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -6750,96 +6753,22 @@ class InitiativeTracker(base.InitiativeTracker):
     def _check_for_updates(self) -> None:
         """Check for available updates from GitHub."""
         try:
-            import subprocess
-            import sys
-            
             # Run update check in a separate thread to avoid blocking UI
             def check_updates_thread():
                 try:
                     has_update, message, update_info = update_checker.check_for_updates()
-                    
+
                     # Schedule UI update on main thread
                     def show_result():
                         if has_update and update_info:
-                            # Show update available dialog
-                            update_type = update_info.get("type", "")
-                            
-                            # Ask user if they want to update
-                            result = messagebox.askyesno(
-                                "Update Available",
-                                f"{message}\n\nWould you like to update now?\n\n"
-                                "Note: The application will need to be restarted after updating.",
-                                icon="info"
-                            )
-                            
-                            if result:
-                                # Get the update command
-                                update_cmd = update_checker.get_update_command()
-                                
-                                if update_cmd:
-                                    # Show info about running update
-                                    messagebox.showinfo(
-                                        "Running Update",
-                                        "The update script will now run in a separate window.\n\n"
-                                        "Please follow the instructions in the update window.\n"
-                                        "After the update completes, restart the application."
-                                    )
-                                    
-                                    # Launch update script in a new terminal/console
-                                    if sys.platform.startswith("win"):
-                                        # Windows: use start command to open in new window
-                                        subprocess.Popen(
-                                            update_cmd,
-                                            shell=True,
-                                            creationflags=subprocess.CREATE_NEW_CONSOLE
-                                        )
-                                    else:
-                                        # Linux/macOS: try to open in a terminal
-                                        script_path = update_cmd.split('"')[1] if '"' in update_cmd else None
-                                        if script_path:
-                                            # Try various terminal emulators
-                                            terminals = [
-                                                ["gnome-terminal", "--", "bash", script_path],
-                                                ["konsole", "-e", "bash", script_path],
-                                                ["xterm", "-e", "bash", script_path],
-                                                ["x-terminal-emulator", "-e", "bash", script_path],
-                                            ]
-                                            
-                                            launched = False
-                                            for term_cmd in terminals:
-                                                try:
-                                                    subprocess.Popen(term_cmd)
-                                                    launched = True
-                                                    break
-                                                except FileNotFoundError:
-                                                    continue
-                                            
-                                            if not launched:
-                                                # Fallback: run in background and show message
-                                                subprocess.Popen(["bash", script_path])
-                                                messagebox.showinfo(
-                                                    "Update Running",
-                                                    "The update is running in the background.\n"
-                                                    "Check your terminal for progress."
-                                                )
-                                else:
-                                    # No update command available, show manual instructions
-                                    messagebox.showinfo(
-                                        "Update Available",
-                                        f"{message}\n\nTo update manually:\n\n"
-                                        "1. Close the application\n"
-                                        "2. Navigate to the installation directory\n"
-                                        "3. Run: git pull origin main\n"
-                                        "4. Run: pip install -r requirements.txt\n"
-                                        "5. Restart the application"
-                                    )
+                            self._offer_update_and_run_if_confirmed(message)
                         else:
                             # No updates available
                             messagebox.showinfo("No Updates", message)
-                    
+
                     # Schedule on main thread
                     self.after(0, show_result)
-                    
+
                 except Exception as e:
                     # Schedule error message on main thread
                     def show_error():
@@ -6850,11 +6779,11 @@ class InitiativeTracker(base.InitiativeTracker):
                             "Please check your internet connection and try again."
                         )
                     self.after(0, show_error)
-            
+
             # Start the check in a background thread
             thread = threading.Thread(target=check_updates_thread, daemon=True)
             thread.start()
-            
+
             # Show a message that we're checking
             messagebox.showinfo(
                 "Checking for Updates",
@@ -6868,6 +6797,88 @@ class InitiativeTracker(base.InitiativeTracker):
                 "Update Check Error",
                 f"Could not check for updates.\n\nError: {str(e)}"
             )
+
+    def _check_for_updates_on_startup(self) -> None:
+        """Check for updates without user-visible popups unless an update is found."""
+
+        def check_updates_thread() -> None:
+            try:
+                has_update, message, update_info = update_checker.check_for_updates()
+            except Exception as exc:
+                self._oplog(f"Startup update check failed: {exc}", level="debug")
+                return
+
+            if not (has_update and update_info):
+                return
+
+            self.after(0, lambda: self._offer_update_and_run_if_confirmed(message))
+
+        thread = threading.Thread(target=check_updates_thread, daemon=True)
+        thread.start()
+
+    def _has_meaningful_session_state(self) -> bool:
+        return bool(getattr(self, "combatants", {}))
+
+    def _offer_update_and_run_if_confirmed(self, message: str) -> None:
+        result = messagebox.askyesno(
+            "Update Available",
+            f"{message}\n\nWould you like to update now?\n\n"
+            "Note: The application will need to be restarted after updating.",
+            icon="info",
+        )
+        if not result:
+            return
+        if (
+            not getattr(self, "_session_has_saved", False)
+            and self._has_meaningful_session_state()
+            and messagebox.askyesno("Quick Save", "quick save? yes no", parent=self)
+        ):
+            self._quick_save_session()
+        self._launch_update_workflow(message)
+
+    def _launch_update_workflow(self, message: str) -> None:
+        import subprocess
+
+        update_cmd = update_checker.get_update_command()
+        if update_cmd:
+            messagebox.showinfo(
+                "Running Update",
+                "The update script will now run in a separate window.\n\n"
+                "Please follow the instructions in the update window.\n"
+                "After the update completes, restart the application.",
+            )
+            if sys.platform.startswith("win"):
+                subprocess.Popen(update_cmd, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                return
+            script_path = update_cmd.split('"')[1] if '"' in update_cmd else None
+            if script_path:
+                terminals = [
+                    ["gnome-terminal", "--", "bash", script_path],
+                    ["konsole", "-e", "bash", script_path],
+                    ["xterm", "-e", "bash", script_path],
+                    ["x-terminal-emulator", "-e", "bash", script_path],
+                ]
+                for term_cmd in terminals:
+                    try:
+                        subprocess.Popen(term_cmd)
+                        return
+                    except FileNotFoundError:
+                        continue
+                subprocess.Popen(["bash", script_path])
+                messagebox.showinfo(
+                    "Update Running",
+                    "The update is running in the background.\nCheck your terminal for progress.",
+                )
+                return
+        messagebox.showinfo(
+            "Update Available",
+            f"{message}\n\nTo update manually:\n\n"
+            "1. Close the application\n"
+            "2. Navigate to the installation directory\n"
+            "3. Run: git pull origin main\n"
+            "4. Run: pip install -r requirements.txt\n"
+            "5. Restart the application",
+        )
     
     def _show_about(self) -> None:
         """Show about dialog with version information."""
