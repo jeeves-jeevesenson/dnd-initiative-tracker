@@ -2532,9 +2532,15 @@
       </div>
       <div class="row">
         <div class="form-field">
-          <label for="attackWeaponSelect">Attack Weapon</label>
-          <select id="attackWeaponSelect">
+          <label for="mainhandWeaponSelect">Mainhand</label>
+          <select id="mainhandWeaponSelect">
             <option value="">Auto (first configured)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="offhandWeaponSelect">Offhand</label>
+          <select id="offhandWeaponSelect">
+            <option value="">None</option>
           </select>
         </div>
       </div>
@@ -3678,7 +3684,8 @@ __DAMAGE_TYPE_OPTIONS__
   const useReactionBtn = document.getElementById("useReaction");
   const actionSelectEl = document.getElementById("actionSelect");
   const bonusActionSelectEl = document.getElementById("bonusActionSelect");
-  const attackWeaponSelectEl = document.getElementById("attackWeaponSelect");
+  const mainhandWeaponSelectEl = document.getElementById("mainhandWeaponSelect");
+  const offhandWeaponSelectEl = document.getElementById("offhandWeaponSelect");
   const resetTurnBtn = document.getElementById("resetTurn");
   const standUpBtn = document.getElementById("standUp");
   const dismissSummonsBtn = document.getElementById("dismissSummons");
@@ -4039,7 +4046,11 @@ __DAMAGE_TYPE_OPTIONS__
   let measurementMode = false;
   let measurement = {start: null, end: null};
   let attackOverlayMode = false;
-  let selectedAttackWeaponId = "";
+  const weaponSelectionStorageKey = "inittracker_weapon_selection_by_character";
+  let selectedMainhandWeaponValue = "";
+  let selectedOffhandWeaponValue = "";
+  let cachedOffhandWeaponValue = "";
+  let weaponSelectionCharacterKey = "";
   let pendingAttackResolve = null;
   let pendingActionAttackWeapon = null;
   let pendingUnleashIncarnation = null;
@@ -4631,6 +4642,193 @@ __DAMAGE_TYPE_OPTIONS__
     return attacks.weapons.filter((entry) => entry && typeof entry === "object");
   }
 
+  function getWeaponSelectionCharacterKey(){
+    const claimedName = getClaimedPlayerName();
+    const stripped = stripCombatNameSuffix(claimedName || "");
+    const slug = characterSlugify(stripped || claimedName || "");
+    return slug || "";
+  }
+
+  function readWeaponSelectionStore(){
+    try {
+      const parsed = JSON.parse(localStorage.getItem(weaponSelectionStorageKey) || "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (_err){
+      return {};
+    }
+  }
+
+  function saveCurrentWeaponSelections(){
+    const key = getWeaponSelectionCharacterKey();
+    if (!key) return;
+    const store = readWeaponSelectionStore();
+    store[key] = {
+      mainhand: String(selectedMainhandWeaponValue || "").trim(),
+      offhand: String(cachedOffhandWeaponValue || "").trim(),
+    };
+    try {
+      localStorage.setItem(weaponSelectionStorageKey, JSON.stringify(store));
+    } catch (_err) {}
+  }
+
+  function loadWeaponSelectionsForClaimedCharacter(){
+    const key = getWeaponSelectionCharacterKey();
+    if (!key){
+      selectedMainhandWeaponValue = "";
+      selectedOffhandWeaponValue = "";
+      cachedOffhandWeaponValue = "";
+      return;
+    }
+    const entry = readWeaponSelectionStore()[key] || {};
+    selectedMainhandWeaponValue = String(entry.mainhand || "").trim();
+    selectedOffhandWeaponValue = String(entry.offhand || "").trim();
+    cachedOffhandWeaponValue = selectedOffhandWeaponValue;
+  }
+
+  function ensureWeaponSelectionCharacterLoaded(){
+    const key = getWeaponSelectionCharacterKey();
+    if (key === weaponSelectionCharacterKey) return;
+    weaponSelectionCharacterKey = key;
+    loadWeaponSelectionsForClaimedCharacter();
+  }
+
+  function getWeaponPropertySet(weapon){
+    const properties = Array.isArray(weapon?.properties) ? weapon.properties : [];
+    return new Set(properties.map((entry) => normalizeLowerValue(entry)).filter(Boolean));
+  }
+
+  function isWeaponVersatile(weapon){
+    const properties = getWeaponPropertySet(weapon);
+    const hasTwoHandedOnlyProperty = properties.has("two_handed") && !properties.has("versatile");
+    const hasVersatileProperty = properties.has("versatile");
+    const hasTwoFormula = !!String(weapon?.two_handed?.damage_formula || "").trim();
+    if (hasTwoHandedOnlyProperty) return false;
+    return hasVersatileProperty || hasTwoFormula;
+  }
+
+  function isWeaponTwoHandedOnly(weapon){
+    const properties = getWeaponPropertySet(weapon);
+    return properties.has("two_handed") && !properties.has("versatile");
+  }
+
+  function buildMainhandOptions(weapons){
+    const options = [];
+    (Array.isArray(weapons) ? weapons : []).forEach((weapon) => {
+      const id = String(weapon?.id || weapon?.name || "").trim();
+      const name = String(weapon?.name || weapon?.id || "Weapon").trim() || "Weapon";
+      if (!id) return;
+      if (isWeaponVersatile(weapon)){
+        options.push({value: `${id}|one`, weapon, mode: "one", label: `${name} (One Handed)`});
+        options.push({value: `${id}|two`, weapon, mode: "two", label: `${name} (Two Handed)`});
+        return;
+      }
+      if (isWeaponTwoHandedOnly(weapon)){
+        options.push({value: `${id}|two`, weapon, mode: "two", label: `${name} (Two Handed)`});
+        return;
+      }
+      options.push({value: `${id}|one`, weapon, mode: "one", label: `${name} (One Handed)`});
+    });
+    return options;
+  }
+
+  function buildOffhandOptions(weapons){
+    const options = [];
+    (Array.isArray(weapons) ? weapons : []).forEach((weapon) => {
+      const id = String(weapon?.id || weapon?.name || "").trim();
+      const name = String(weapon?.name || weapon?.id || "Weapon").trim() || "Weapon";
+      if (!id) return;
+      if (isWeaponTwoHandedOnly(weapon)) return;
+      options.push({value: `${id}|one`, weapon, mode: "one", label: `${name} (One Handed)`});
+    });
+    return options;
+  }
+
+  function getDefaultMainhandValue(weapons, mainhandOptions){
+    const defaultWeapon = getDefaultAttackWeapon(weapons);
+    const defaultId = String(defaultWeapon?.id || defaultWeapon?.name || "").trim();
+    if (!defaultId) return "";
+    const preferred = `${defaultId}|one`;
+    if (mainhandOptions.some((entry) => entry.value === preferred)) return preferred;
+    const fallback = mainhandOptions.find((entry) => entry.value.startsWith(`${defaultId}|`));
+    return fallback ? fallback.value : (mainhandOptions[0]?.value || "");
+  }
+
+  function getSelectedMainhandWeapon(){
+    const weapons = getClaimedWeapons();
+    const options = buildMainhandOptions(weapons);
+    const selectedValue = String(selectedMainhandWeaponValue || "").trim();
+    const selected = options.find((entry) => entry.value === selectedValue) || options.find((entry) => entry.value === getDefaultMainhandValue(weapons, options)) || options[0] || null;
+    if (!selected) return null;
+    const mode = selected.mode === "two" ? "two" : "one";
+    return {
+      ...(selected.weapon || {}),
+      selected_mode: mode,
+      one_handed: mode === "one"
+        ? (selected.weapon?.one_handed || {})
+        : (isWeaponVersatile(selected.weapon)
+          ? (selected.weapon?.two_handed || selected.weapon?.one_handed || {})
+          : (selected.weapon?.two_handed || selected.weapon?.one_handed || {})),
+      two_handed: selected.weapon?.two_handed || {},
+    };
+  }
+
+  function isMainhandSelectionTwoHanded(){
+    const selectedValue = String(selectedMainhandWeaponValue || "").trim();
+    return selectedValue.endsWith("|two");
+  }
+
+  function refreshWeaponSelectors(){
+    const weapons = getClaimedWeapons();
+    const mainhandOptions = buildMainhandOptions(weapons);
+    const offhandOptions = buildOffhandOptions(weapons);
+    if (mainhandWeaponSelectEl){
+      mainhandWeaponSelectEl.textContent = "";
+      mainhandOptions.forEach((entry) => {
+        const option = document.createElement("option");
+        option.value = entry.value;
+        option.textContent = entry.label;
+        mainhandWeaponSelectEl.appendChild(option);
+      });
+      const candidate = String(selectedMainhandWeaponValue || "").trim();
+      if (candidate && mainhandOptions.some((entry) => entry.value === candidate)){
+        mainhandWeaponSelectEl.value = candidate;
+      } else {
+        const fallback = getDefaultMainhandValue(weapons, mainhandOptions);
+        selectedMainhandWeaponValue = fallback;
+        mainhandWeaponSelectEl.value = fallback;
+      }
+    }
+    const mainhandTwo = isMainhandSelectionTwoHanded();
+    if (offhandWeaponSelectEl){
+      offhandWeaponSelectEl.textContent = "";
+      const none = document.createElement("option");
+      none.value = "";
+      none.textContent = "None";
+      offhandWeaponSelectEl.appendChild(none);
+      offhandOptions.forEach((entry) => {
+        const option = document.createElement("option");
+        option.value = entry.value;
+        option.textContent = entry.label;
+        offhandWeaponSelectEl.appendChild(option);
+      });
+      const savedCandidate = String(cachedOffhandWeaponValue || selectedOffhandWeaponValue || "").trim();
+      const validSaved = savedCandidate && offhandOptions.some((entry) => entry.value === savedCandidate);
+      if (!mainhandTwo && validSaved){
+        selectedOffhandWeaponValue = savedCandidate;
+        offhandWeaponSelectEl.value = savedCandidate;
+      } else {
+        selectedOffhandWeaponValue = "";
+        offhandWeaponSelectEl.value = "";
+      }
+      offhandWeaponSelectEl.disabled = mainhandTwo;
+      offhandWeaponSelectEl.style.opacity = mainhandTwo ? "0.6" : "";
+    }
+    if (mainhandTwo){
+      selectedOffhandWeaponValue = "";
+    }
+    saveCurrentWeaponSelections();
+  }
+
   function isWeaponEquipped(weapon){
     const value = weapon?.equipped;
     if (typeof value === "boolean") return value;
@@ -4665,7 +4863,13 @@ __DAMAGE_TYPE_OPTIONS__
       return null;
     }
     const meleeWeapons = weapons.filter((entry) => isMeleeWeapon(entry));
-    return getDefaultAttackWeapon(meleeWeapons);
+    const selectedMainhand = getSelectedMainhandWeapon();
+    if (selectedMainhand && isMeleeWeapon(selectedMainhand)){
+      return selectedMainhand;
+    }
+    const fallback = getDefaultAttackWeapon(meleeWeapons);
+    if (!fallback) return null;
+    return {...fallback, selected_mode: "one"};
   }
 
   function parseWeaponRangeFeet(weapon){
@@ -4684,18 +4888,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function getSelectedAttackWeapon(){
-    const weapons = getClaimedWeapons();
-    if (!weapons.length){
-      return null;
-    }
-    const selectedId = String(selectedAttackWeaponId || "").trim().toLowerCase();
-    if (selectedId){
-      const match = weapons.find((entry) => String(entry?.id || "").trim().toLowerCase() === selectedId);
-      if (match){
-        return match;
-      }
-    }
-    return getDefaultAttackWeapon(weapons);
+    return getSelectedMainhandWeapon();
   }
 
   function getPlayerResourcePools(name){
@@ -7849,7 +8042,10 @@ __DAMAGE_TYPE_OPTIONS__
   function openAttackResolveModal(target, weapon){
     if (!attackResolveBody || !attackDamageRows) return;
     let mode = null;
-    if (weapon?.one_handed && String(weapon.one_handed.damage_formula || "").trim()){
+    const selectedMode = String(weapon?.selected_mode || "").trim().toLowerCase();
+    if (selectedMode === "two" && weapon?.two_handed && String(weapon.two_handed.damage_formula || "").trim()){
+      mode = weapon.two_handed;
+    } else if (weapon?.one_handed && String(weapon.one_handed.damage_formula || "").trim()){
       mode = weapon.one_handed;
     } else if (weapon?.two_handed && String(weapon.two_handed.damage_formula || "").trim()){
       mode = weapon.two_handed;
@@ -9441,32 +9637,6 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
-  function populateAttackWeaponSelect(){
-    if (!attackWeaponSelectEl) return;
-    const weapons = getClaimedWeapons();
-    const defaultWeapon = getDefaultAttackWeapon(weapons);
-    const defaultWeaponId = String(defaultWeapon?.id || defaultWeapon?.name || "").trim();
-    attackWeaponSelectEl.textContent = "";
-    const placeholderOption = document.createElement("option");
-    placeholderOption.value = "";
-    placeholderOption.textContent = "Auto (first configured)";
-    attackWeaponSelectEl.appendChild(placeholderOption);
-    weapons.forEach((weapon) => {
-      const option = document.createElement("option");
-      option.value = String(weapon.id || weapon.name || "").trim();
-      const rangeFt = parseWeaponRangeFeet(weapon);
-      option.textContent = `${String(weapon.name || weapon.id || "Weapon")} (${Math.round(rangeFt)} ft)`;
-      attackWeaponSelectEl.appendChild(option);
-    });
-    if (selectedAttackWeaponId && weapons.some((weapon) => String(weapon.id || weapon.name || "").trim() === selectedAttackWeaponId)){
-      attackWeaponSelectEl.value = selectedAttackWeaponId;
-    } else if (defaultWeaponId){
-      attackWeaponSelectEl.value = defaultWeaponId;
-    } else {
-      attackWeaponSelectEl.value = "";
-    }
-  }
-
 
   function isFriendlyToMe(unit, me){
     if (!unit) return false;
@@ -9576,6 +9746,7 @@ __DAMAGE_TYPE_OPTIONS__
       playerHpBarLabel.textContent = `HP ${Math.round(hp)}/${Math.round(maxHp)}`;
     };
     let meForHud = null;
+    ensureWeaponSelectionCharacterLoaded();
     if (claimedCid && state.units){
       const me = state.units.find(u => cidMatches(u.cid, claimedCid, "hud.claimedUnit"));
       if (me){
@@ -9607,9 +9778,12 @@ __DAMAGE_TYPE_OPTIONS__
         if (bonusActionSelectEl){
           bonusActionSelectEl.disabled = false;
         }
-        populateAttackWeaponSelect();
-        if (attackWeaponSelectEl){
-          attackWeaponSelectEl.disabled = false;
+        refreshWeaponSelectors();
+        if (mainhandWeaponSelectEl){
+          mainhandWeaponSelectEl.disabled = false;
+        }
+        if (offhandWeaponSelectEl){
+          offhandWeaponSelectEl.disabled = isMainhandSelectionTwoHanded();
         }
         if (attackOverlayToggleBtn){
           attackOverlayToggleBtn.disabled = false;
@@ -9644,9 +9818,12 @@ __DAMAGE_TYPE_OPTIONS__
         if (bonusActionSelectEl){
           bonusActionSelectEl.disabled = true;
         }
-        populateAttackWeaponSelect();
-        if (attackWeaponSelectEl){
-          attackWeaponSelectEl.disabled = true;
+        refreshWeaponSelectors();
+        if (mainhandWeaponSelectEl){
+          mainhandWeaponSelectEl.disabled = true;
+        }
+        if (offhandWeaponSelectEl){
+          offhandWeaponSelectEl.disabled = true;
         }
         if (attackOverlayToggleBtn){
           attackOverlayToggleBtn.disabled = false;
@@ -9681,9 +9858,12 @@ __DAMAGE_TYPE_OPTIONS__
       if (bonusActionSelectEl){
         bonusActionSelectEl.disabled = true;
       }
-      populateAttackWeaponSelect();
-      if (attackWeaponSelectEl){
-        attackWeaponSelectEl.disabled = true;
+      refreshWeaponSelectors();
+      if (mainhandWeaponSelectEl){
+        mainhandWeaponSelectEl.disabled = true;
+      }
+      if (offhandWeaponSelectEl){
+        offhandWeaponSelectEl.disabled = true;
       }
       if (attackOverlayToggleBtn){
         attackOverlayToggleBtn.disabled = false;
@@ -10037,10 +10217,13 @@ __DAMAGE_TYPE_OPTIONS__
         }
         const meleeWeaponId = String(meleeWeapon.id || "").trim();
         if (meleeWeaponId){
-          selectedAttackWeaponId = meleeWeaponId;
-          if (attackWeaponSelectEl){
-            attackWeaponSelectEl.value = meleeWeaponId;
-          }
+          const preferredValue = `${meleeWeaponId}|one`;
+          const fallbackValue = `${meleeWeaponId}|two`;
+          const mainhandOptions = buildMainhandOptions(getClaimedWeapons());
+          selectedMainhandWeaponValue = mainhandOptions.some((entry) => entry.value === preferredValue)
+            ? preferredValue
+            : (mainhandOptions.some((entry) => entry.value === fallbackValue) ? fallbackValue : selectedMainhandWeaponValue);
+          refreshWeaponSelectors();
         }
         pendingOpportunityAttack = true;
         setAttackOverlayMode(true);
@@ -15770,9 +15953,18 @@ __DAMAGE_TYPE_OPTIONS__
       setAttackOverlayMode(!attackOverlayMode);
     });
   }
-  if (attackWeaponSelectEl){
-    attackWeaponSelectEl.addEventListener("change", (event) => {
-      selectedAttackWeaponId = String(event.target.value || "").trim();
+  if (mainhandWeaponSelectEl){
+    mainhandWeaponSelectEl.addEventListener("change", (event) => {
+      selectedMainhandWeaponValue = String(event.target.value || "").trim();
+      refreshWeaponSelectors();
+      draw();
+    });
+  }
+  if (offhandWeaponSelectEl){
+    offhandWeaponSelectEl.addEventListener("change", (event) => {
+      selectedOffhandWeaponValue = String(event.target.value || "").trim();
+      cachedOffhandWeaponValue = selectedOffhandWeaponValue;
+      saveCurrentWeaponSelections();
       draw();
     });
   }

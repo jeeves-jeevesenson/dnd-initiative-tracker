@@ -6,7 +6,7 @@ category: martial_melee
 attack_bonus: 2
 range: 10
 damage:
-  one_handed:
+  two_handed:
     formula: 1d12 + 2
     type: force
 properties: [cleave, heavy, reach, two_handed]

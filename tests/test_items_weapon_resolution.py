@@ -140,6 +140,47 @@ class ItemsWeaponResolutionTests(unittest.TestCase):
         self.assertEqual(rapier["one_handed"]["damage_formula"], "1d8 + max(str_mod, dex_mod)")
         self.assertEqual(shortbow["one_handed"]["damage_formula"], "1d6 + dex_mod")
 
+    def test_resolve_weapon_from_items_maps_versatile_to_two_handed_formula(self):
+        registry = {
+            "weapons": {
+                "inazuma": {
+                    "id": "inazuma",
+                    "name": "Inazuma",
+                    "damage": {
+                        "one_handed": {"formula": "1d8", "type": "slashing"},
+                        "versatile": {"formula": "1d10", "type": "slashing"},
+                    },
+                    "properties": ["versatile"],
+                }
+            },
+            "armors": {},
+        }
+        weapon = {"id": "inazuma", "one_handed": {}, "two_handed": {}}
+        resolved = self.app._resolve_weapon_from_items(weapon, registry["weapons"])
+
+        self.assertEqual(resolved["two_handed"]["damage_formula"], "1d10 + str_mod")
+
+    def test_resolve_weapon_from_items_maps_two_handed_damage_without_one_handed(self):
+        registry = {
+            "weapons": {
+                "bardiche_plus_2": {
+                    "id": "bardiche_plus_2",
+                    "name": "Bardiche (+2)",
+                    "damage": {
+                        "two_handed": {"formula": "1d12 + 2", "type": "force"},
+                    },
+                    "properties": ["two_handed"],
+                }
+            },
+            "armors": {},
+        }
+        weapon = {"id": "bardiche_plus_2", "one_handed": {}, "two_handed": {}}
+        resolved = self.app._resolve_weapon_from_items(weapon, registry["weapons"])
+
+        self.assertEqual(resolved["one_handed"].get("damage_formula", ""), "")
+        self.assertEqual(resolved["two_handed"]["damage_formula"], "1d12 + 2 + str_mod")
+
+
 
 if __name__ == "__main__":
     unittest.main()
