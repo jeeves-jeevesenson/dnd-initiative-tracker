@@ -595,6 +595,9 @@ class InitiativeTracker(tk.Tk):
 
         # Remember roles for name-based log styling (pc/ally/enemy)
         self._name_role_memory: Dict[str, str] = {}
+        self._name_highlight_regex: Optional[re.Pattern[str]] = None
+        self._name_highlight_regex_key: Tuple[Tuple[str, str], ...] = ()
+        self._name_highlight_tag_by_name: Dict[str, str] = {}
         try:
             for _nm in self._load_starting_players_roster():
                 self._name_role_memory[str(_nm)] = "pc"
@@ -1336,39 +1339,62 @@ class InitiativeTracker(tk.Tk):
             return "nm_ally"
         return None
 
-    def _apply_name_tags_in_range(self, start: str, end: str) -> None:
-        """Bold/italic/underline known names in a given text range."""
-        if not hasattr(self, "log_text"):
-            return
-        # Build a de-duplicated name list (memory + current combatants)
+    def _line_likely_has_name_highlight(self, content: str) -> bool:
+        if not content:
+            return False
+        if ":" in content:
+            return True
+        lowered = content.lower()
+        markers = (" hits ", " misses ", " moved ", " start ", " end ")
+        return any(marker in lowered for marker in markers)
+
+    def _name_highlight_state(self) -> Tuple[Optional[re.Pattern[str]], Dict[str, str]]:
         names = set(self._name_role_memory.keys())
         for c in self.combatants.values():
             names.add(c.name)
-            # keep memory warm
             self._remember_role(c)
-
-        # Longest names first to reduce partial overlaps.
-        ordered = sorted(names, key=lambda s: (-len(s), s))
-        for nm in ordered:
-            if not nm:
+        names_to_tag: Dict[str, str] = {}
+        for name in names:
+            if not name:
                 continue
-            tag = self._tag_for_name(nm)
+            tag = self._tag_for_name(name)
+            if tag:
+                names_to_tag[name] = tag
+        key = tuple(sorted(names_to_tag.items()))
+        if key != self._name_highlight_regex_key:
+            self._name_highlight_regex_key = key
+            self._name_highlight_tag_by_name = dict(names_to_tag)
+            ordered_names = [name for name, _ in sorted(names_to_tag.items(), key=lambda item: (-len(item[0]), item[0]))]
+            if ordered_names:
+                pattern = "|".join(re.escape(name) for name in ordered_names)
+                self._name_highlight_regex = re.compile(rf"(?<!\w)({pattern})(?!\w)")
+            else:
+                self._name_highlight_regex = None
+        return self._name_highlight_regex, self._name_highlight_tag_by_name
+
+    def _apply_name_tags_in_range(self, start: str, end: str, content_text: Optional[str] = None) -> None:
+        """Bold/italic/underline known names in a given text range."""
+        if not hasattr(self, "log_text"):
+            return
+        text = content_text if content_text is not None else self.log_text.get(start, end)
+        if not text:
+            return
+        if not self._line_likely_has_name_highlight(text):
+            return
+        regex, tags_by_name = self._name_highlight_state()
+        if not regex:
+            return
+        for match in regex.finditer(text):
+            name = match.group(1)
+            tag = tags_by_name.get(name)
             if not tag:
                 continue
-            idx = start
-            while True:
-                try:
-                    pos = self.log_text.search(nm, idx, stopindex=end)
-                except Exception:
-                    break
-                if not pos:
-                    break
-                match_end = f"{pos}+{len(nm)}c"
-                try:
-                    self.log_text.tag_add(tag, pos, match_end)
-                except Exception:
-                    pass
-                idx = match_end
+            match_start = f"{start}+{match.start(1)}c"
+            match_end = f"{start}+{match.end(1)}c"
+            try:
+                self.log_text.tag_add(tag, match_start, match_end)
+            except Exception:
+                pass
 
     def _append_log_line(self, stamp: str, content: str, write_file: bool) -> None:
         if not hasattr(self, "log_text"):
@@ -1381,7 +1407,7 @@ class InitiativeTracker(tk.Tk):
         self.log_text.insert(tk.END, content)
         content_end = self.log_text.index(tk.END)
         self.log_text.insert(tk.END, "\n")
-        self._apply_name_tags_in_range(content_start, content_end)
+        self._apply_name_tags_in_range(content_start, content_end, content_text=content)
         self.log_text.configure(state="disabled")
         self.log_text.see(tk.END)
 
