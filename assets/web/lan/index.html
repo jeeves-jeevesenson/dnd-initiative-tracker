@@ -5714,10 +5714,17 @@ __DAMAGE_TYPE_OPTIONS__
     localStorage.setItem("inittracker_hotkey_toggleSheetPanel", "Delete");
   }
   if (!localStorage.getItem("inittracker_hotkey_toggleAttackOverlay")){
-    localStorage.setItem("inittracker_hotkey_toggleAttackOverlay", "A");
+    localStorage.setItem("inittracker_hotkey_toggleAttackOverlay", "");
   }
 
   let hotkeyBindings = new Map();
+  const RESERVED_PAN_BASE_KEYS = new Set(["W", "A", "S", "D", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+  const PAN_KEY_CODES = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+  const panHeldKeys = new Set();
+  let panVelocityX = 0;
+  let panVelocityY = 0;
+  let panLoopId = null;
+  let panLastTs = 0;
 
   function normalizeHotkeyEvent(event){
     if (!event) return null;
@@ -5744,10 +5751,38 @@ __DAMAGE_TYPE_OPTIONS__
     return false;
   }
 
+  function hotkeyContainsReservedPanKey(value){
+    const combo = String(value || "").trim();
+    if (!combo) return false;
+    const parts = combo.split("+").map((part) => String(part || "").trim()).filter(Boolean);
+    if (!parts.length) return false;
+    const base = parts[parts.length - 1];
+    return RESERVED_PAN_BASE_KEYS.has(base);
+  }
+
+  function clearReservedHotkeysFromStorage(){
+    Object.values(hotkeyConfig).forEach((config) => {
+      if (!config || !config.storageKey) return;
+      const stored = (localStorage.getItem(config.storageKey) || "").trim();
+      if (stored && hotkeyContainsReservedPanKey(stored)){
+        localStorage.removeItem(config.storageKey);
+      }
+    });
+  }
+
   function setHotkey(action, value){
     const config = hotkeyConfig[action];
     if (!config) return;
-    const stored = value ? String(value) : "";
+    const stored = value ? String(value).trim() : "";
+    if (stored && hotkeyContainsReservedPanKey(stored)){
+      if (config.conflictEl){
+        config.conflictEl.textContent = "Reserved";
+      }
+      if (config.input){
+        config.input.classList.add("conflict");
+      }
+      return;
+    }
     if (stored){
       localStorage.setItem(config.storageKey, stored);
     } else {
@@ -5773,11 +5808,12 @@ __DAMAGE_TYPE_OPTIONS__
       if (!config || !config.input) return;
       const stored = (localStorage.getItem(config.storageKey) || "").trim();
       const conflicts = stored && usage[stored] && usage[stored].length > 1;
-      config.input.classList.toggle("conflict", !!conflicts);
+      const reserved = stored && hotkeyContainsReservedPanKey(stored);
+      config.input.classList.toggle("conflict", !!(conflicts || reserved));
       if (config.conflictEl){
-        config.conflictEl.textContent = conflicts ? "Conflict" : "";
+        config.conflictEl.textContent = reserved ? "Reserved" : (conflicts ? "Conflict" : "");
       }
-      if (stored && !conflicts){
+      if (stored && !conflicts && !reserved){
         hotkeyBindings.set(stored, action);
       }
     });
@@ -9341,6 +9377,88 @@ __DAMAGE_TYPE_OPTIONS__
       draw();
     }
     return ok;
+  }
+
+  function panDirectionFromKeyboardEvent(event){
+    const key = String(event?.key || "");
+    const code = String(event?.code || "");
+    if (code === "KeyW" || key === "w" || key === "W" || key === "ArrowUp") return {x: 0, y: -1};
+    if (code === "KeyS" || key === "s" || key === "S" || key === "ArrowDown") return {x: 0, y: 1};
+    if (code === "KeyA" || key === "a" || key === "A" || key === "ArrowLeft") return {x: -1, y: 0};
+    if (code === "KeyD" || key === "d" || key === "D" || key === "ArrowRight") return {x: 1, y: 0};
+    return null;
+  }
+
+  function canKeyboardPan(event){
+    if (isTypingTarget(event?.target)) return false;
+    if (event?.ctrlKey || event?.altKey || event?.metaKey) return false;
+    if (lockMap) return false;
+    if (!gridReady()) return false;
+    return true;
+  }
+
+  function nudgeKeyboardPan(direction){
+    const dist = Math.max(10, zoom * 0.32);
+    panX += direction.x * dist;
+    panY += direction.y * dist;
+    draw();
+  }
+
+  function updateKeyboardPanLoop(ts){
+    if (!panLastTs) panLastTs = ts;
+    const dt = Math.max(0.001, Math.min(0.05, (ts - panLastTs) / 1000));
+    panLastTs = ts;
+    let dirX = 0;
+    let dirY = 0;
+    panHeldKeys.forEach((code) => {
+      if (code === "KeyW" || code === "ArrowUp") dirY -= 1;
+      else if (code === "KeyS" || code === "ArrowDown") dirY += 1;
+      else if (code === "KeyA" || code === "ArrowLeft") dirX -= 1;
+      else if (code === "KeyD" || code === "ArrowRight") dirX += 1;
+    });
+    const mag = Math.hypot(dirX, dirY);
+    if (mag > 0){
+      dirX /= mag;
+      dirY /= mag;
+    }
+    const speed = Math.max(220, zoom * 12);
+    const targetX = dirX * speed;
+    const targetY = dirY * speed;
+    const rate = mag > 0 ? 13 : 18;
+    const blend = 1 - Math.exp(-rate * dt);
+    panVelocityX += (targetX - panVelocityX) * blend;
+    panVelocityY += (targetY - panVelocityY) * blend;
+    if (Math.abs(panVelocityX) > 0.1 || Math.abs(panVelocityY) > 0.1){
+      panX += panVelocityX * dt;
+      panY += panVelocityY * dt;
+      draw();
+    }
+    const moving = Math.abs(panVelocityX) > 2 || Math.abs(panVelocityY) > 2;
+    if (panHeldKeys.size || moving){
+      panLoopId = requestAnimationFrame(updateKeyboardPanLoop);
+    } else {
+      panLoopId = null;
+      panVelocityX = 0;
+      panVelocityY = 0;
+      panLastTs = 0;
+    }
+  }
+
+  function ensureKeyboardPanLoop(){
+    if (panLoopId !== null) return;
+    panLastTs = 0;
+    panLoopId = requestAnimationFrame(updateKeyboardPanLoop);
+  }
+
+  function clearKeyboardPanState(){
+    panHeldKeys.clear();
+    panVelocityX = 0;
+    panVelocityY = 0;
+    panLastTs = 0;
+    if (panLoopId !== null){
+      cancelAnimationFrame(panLoopId);
+      panLoopId = null;
+    }
   }
 
   function autoCenterOnJoin(){
@@ -16415,6 +16533,36 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   document.addEventListener("keydown", (event) => {
+    const direction = panDirectionFromKeyboardEvent(event);
+    if (!direction || !canKeyboardPan(event)) return;
+    const code = String(event.code || event.key || "");
+    const normalizedCode = PAN_KEY_CODES.has(code) ? code : (event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "ArrowLeft" || event.key === "ArrowRight" ? event.key : code);
+    const wasHeld = panHeldKeys.has(normalizedCode);
+    panHeldKeys.add(normalizedCode);
+    event.preventDefault();
+    if (!event.repeat && !wasHeld){
+      nudgeKeyboardPan(direction);
+    }
+    ensureKeyboardPanLoop();
+  });
+
+  document.addEventListener("keyup", (event) => {
+    const direction = panDirectionFromKeyboardEvent(event);
+    if (!direction) return;
+    const code = String(event.code || event.key || "");
+    const normalizedCode = PAN_KEY_CODES.has(code) ? code : (event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "ArrowLeft" || event.key === "ArrowRight" ? event.key : code);
+    panHeldKeys.delete(normalizedCode);
+    event.preventDefault();
+    if (!panHeldKeys.size){
+      ensureKeyboardPanLoop();
+    }
+  });
+
+  window.addEventListener("blur", () => {
+    clearKeyboardPanState();
+  });
+
+  document.addEventListener("keydown", (event) => {
     if (event.defaultPrevented) return;
     if (isTypingTarget(event.target)) return;
     const combo = normalizeHotkeyEvent(event);
@@ -16429,6 +16577,9 @@ __DAMAGE_TYPE_OPTIONS__
   });
   document.addEventListener("pointerdown", handleUserGesture, {passive: true});
   document.addEventListener("keydown", handleUserGesture);
+
+  clearReservedHotkeysFromStorage();
+  updateHotkeyInputs();
 
   const mapWrap = document.querySelector(".mapWrap");
   if (mapWrap && window.ResizeObserver){

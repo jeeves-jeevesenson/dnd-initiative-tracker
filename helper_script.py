@@ -33,6 +33,7 @@ import json
 import hashlib
 import threading
 import copy
+import time
 from pathlib import Path
 from datetime import datetime
 
@@ -744,7 +745,7 @@ class InitiativeTracker(tk.Tk):
         ttk.Button(btn_row, text="Clear", command=self._clear_turns).pack(side=tk.LEFT, padx=(0, 8))
 
         ttk.Label(
-            btn_row, text="Shortcuts: Space=Next, Shift+Space=Prev, C=Conditions, D=Damage, H=Heal, M=Move, W=Mode, P=Map"
+            btn_row, text="Shortcuts: Space=Next, Shift+Space=Prev, C=Conditions, G=Damage, H=Heal, M=Move, P=Map"
         ).pack(
             side=tk.LEFT, padx=(14, 0)
         )
@@ -833,12 +834,11 @@ class InitiativeTracker(tk.Tk):
         self.tree.bind("<<TreeviewSelect>>", lambda _e: self._sync_move_mode_selector())
         self.bind("<space>", lambda e: self._next_turn())
         self.bind("<Shift-space>", lambda e: self._prev_turn())
-        self.bind("<KeyPress-d>", lambda e: self._open_damage_tool())
+        self.bind("<KeyPress-g>", lambda e: self._open_damage_tool())
         self.bind("<KeyPress-h>", lambda e: self._open_heal_tool())
         self.bind("<KeyPress-c>", lambda e: self._open_condition_tool())
         self.bind("<KeyPress-t>", lambda e: self._open_dot_tool())
         self.bind("<KeyPress-m>", lambda e: self._open_move_tool())
-        self.bind("<KeyPress-w>", lambda e: self._cycle_movement_mode_selected())
         self.bind("<KeyPress-p>", lambda e: self._open_map_mode())
 
         self._tree_context_menu = tk.Menu(self, tearoff=0)
@@ -5786,6 +5786,21 @@ class BattleMapWindow(tk.Toplevel):
         self._drawing_rough: bool = False
         self._suspend_lan_sync: bool = False
         self._map_dirty: bool = False
+        self._pan_key_to_dir: Dict[str, Tuple[int, int]] = {
+            "w": (0, -1),
+            "a": (-1, 0),
+            "s": (0, 1),
+            "d": (1, 0),
+            "Up": (0, -1),
+            "Down": (0, 1),
+            "Left": (-1, 0),
+            "Right": (1, 0),
+        }
+        self._pan_held_dirs: Set[str] = set()
+        self._pan_velocity_x: float = 0.0
+        self._pan_velocity_y: float = 0.0
+        self._pan_last_time: Optional[float] = None
+        self._pan_after_id: Optional[str] = None
 
         # Grouping: multiple units can occupy the same square. We show a single group label and fan the tokens slightly.
         self._cell_to_cids: Dict[Tuple[int, int], List[int]] = {}
@@ -5900,6 +5915,9 @@ class BattleMapWindow(tk.Toplevel):
         self.bind("<KeyPress-Shift_R>", self._on_shift_press)
         self.bind("<KeyRelease-Shift_L>", self._on_shift_release)
         self.bind("<KeyRelease-Shift_R>", self._on_shift_release)
+        self.bind("<KeyPress>", self._on_pan_key_press, add="+")
+        self.bind("<KeyRelease>", self._on_pan_key_release, add="+")
+        self.bind("<FocusOut>", self._on_pan_focus_out, add="+")
 
         # Auto-refresh units/markers so slain creatures disappear without manual refresh.
         self._start_polling()
@@ -5973,6 +5991,7 @@ class BattleMapWindow(tk.Toplevel):
             self._update_move_highlight()
 
     def _on_close(self) -> None:
+        self._stop_keyboard_panning(reset_velocity=True)
         try:
             self._stop_polling()
         except Exception:
@@ -5983,6 +6002,128 @@ class BattleMapWindow(tk.Toplevel):
         except Exception:
             pass
         self.destroy()
+
+    def _pan_event_allowed(self, event: tk.Event) -> bool:
+        if bool(getattr(event, "state", 0) & (0x0004 | 0x0008 | 0x0080)):
+            return False
+        target = getattr(event, "widget", None)
+        return not isinstance(target, (tk.Entry, ttk.Entry, tk.Text, tk.Spinbox, ttk.Combobox))
+
+    def _pan_direction_from_event(self, event: tk.Event) -> Optional[str]:
+        keysym = str(getattr(event, "keysym", "") or "")
+        if keysym in self._pan_key_to_dir:
+            return keysym
+        lower = keysym.lower()
+        if lower in self._pan_key_to_dir:
+            return lower
+        return None
+
+    def _on_pan_key_press(self, event: tk.Event) -> None:
+        if not self._pan_event_allowed(event):
+            return
+        key = self._pan_direction_from_event(event)
+        if not key:
+            return
+        already_held = key in self._pan_held_dirs
+        self._pan_held_dirs.add(key)
+        if not already_held and not bool(getattr(event, "state", 0) & 0x4000):
+            self._nudge_pan_tap(key)
+        self._start_keyboard_panning()
+
+    def _on_pan_key_release(self, event: tk.Event) -> None:
+        key = self._pan_direction_from_event(event)
+        if not key:
+            return
+        self._pan_held_dirs.discard(key)
+        if not self._pan_held_dirs:
+            self._start_keyboard_panning()
+
+    def _on_pan_focus_out(self, _event: tk.Event) -> None:
+        self._stop_keyboard_panning(reset_velocity=True)
+
+    def _nudge_pan_tap(self, key: str) -> None:
+        direction = self._pan_key_to_dir.get(key)
+        if not direction:
+            return
+        self._move_canvas_by_pixels(direction[0] * max(12.0, self.cell * 0.35), direction[1] * max(12.0, self.cell * 0.35))
+
+    def _start_keyboard_panning(self) -> None:
+        if self._pan_after_id is not None:
+            return
+        self._pan_last_time = time.monotonic()
+        self._pan_after_id = self.after(16, self._keyboard_pan_tick)
+
+    def _stop_keyboard_panning(self, reset_velocity: bool = False) -> None:
+        self._pan_held_dirs.clear()
+        if self._pan_after_id is not None:
+            try:
+                self.after_cancel(self._pan_after_id)
+            except Exception:
+                pass
+            self._pan_after_id = None
+        self._pan_last_time = None
+        if reset_velocity:
+            self._pan_velocity_x = 0.0
+            self._pan_velocity_y = 0.0
+
+    def _keyboard_pan_tick(self) -> None:
+        self._pan_after_id = None
+        now = time.monotonic()
+        prev = self._pan_last_time or now
+        self._pan_last_time = now
+        dt = max(0.001, min(0.05, now - prev))
+
+        dir_x = 0.0
+        dir_y = 0.0
+        for key in self._pan_held_dirs:
+            dx, dy = self._pan_key_to_dir.get(key, (0, 0))
+            dir_x += dx
+            dir_y += dy
+        mag = math.hypot(dir_x, dir_y)
+        if mag > 1e-6:
+            dir_x /= mag
+            dir_y /= mag
+
+        base_speed = max(220.0, float(self.cell) * 12.0)
+        target_vx = dir_x * base_speed
+        target_vy = dir_y * base_speed
+        rate = 13.0 if mag > 0 else 18.0
+        blend = 1.0 - math.exp(-rate * dt)
+        self._pan_velocity_x += (target_vx - self._pan_velocity_x) * blend
+        self._pan_velocity_y += (target_vy - self._pan_velocity_y) * blend
+
+        self._move_canvas_by_pixels(self._pan_velocity_x * dt, self._pan_velocity_y * dt)
+
+        moving = abs(self._pan_velocity_x) > 2.0 or abs(self._pan_velocity_y) > 2.0
+        if self._pan_held_dirs or moving:
+            self._pan_after_id = self.after(16, self._keyboard_pan_tick)
+        else:
+            self._pan_velocity_x = 0.0
+            self._pan_velocity_y = 0.0
+            self._pan_last_time = None
+
+    def _move_canvas_by_pixels(self, dx: float, dy: float) -> None:
+        if abs(dx) < 1e-6 and abs(dy) < 1e-6:
+            return
+        try:
+            sr = [float(v) for v in str(self.canvas.cget("scrollregion")).split()]
+            if len(sr) != 4:
+                return
+            x0, y0, x1, y1 = sr
+            sw = max(1.0, x1 - x0)
+            sh = max(1.0, y1 - y0)
+            cw = max(1.0, float(self.canvas.winfo_width()))
+            ch = max(1.0, float(self.canvas.winfo_height()))
+            cur_left = float(self.canvas.canvasx(0))
+            cur_top = float(self.canvas.canvasy(0))
+            max_left = max(x0, x1 - cw)
+            max_top = max(y0, y1 - ch)
+            new_left = min(max_left, max(x0, cur_left + dx))
+            new_top = min(max_top, max(y0, cur_top + dy))
+            self.canvas.xview_moveto(max(0.0, min(1.0, (new_left - x0) / sw)))
+            self.canvas.yview_moveto(max(0.0, min(1.0, (new_top - y0) / sh)))
+        except Exception:
+            pass
 
     def _prompt_map_size(self) -> Optional[Tuple[int, int]]:
         class _MapSizeDialog:
