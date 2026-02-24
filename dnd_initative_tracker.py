@@ -8114,6 +8114,15 @@ class InitiativeTracker(base.InitiativeTracker):
                     "duration_turns": d.get("duration_turns"),
                     "remaining_turns": d.get("remaining_turns"),
                 }
+                if bool(d.get("fixed_to_caster")) and d.get("anchor_cid") is not None:
+                    try:
+                        anchor_cid = int(d.get("anchor_cid"))
+                        anchor_pos = positions.get(anchor_cid)
+                    except Exception:
+                        anchor_pos = None
+                    if isinstance(anchor_pos, tuple) and len(anchor_pos) == 2:
+                        payload["cx"] = float(anchor_pos[0])
+                        payload["cy"] = float(anchor_pos[1])
                 for extra_key in (
                     "dc",
                     "save_type",
@@ -8129,6 +8138,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "trigger_on_start_or_enter",
                     "persistent",
                     "anchor_cid",
+                    "fixed_to_caster",
                 ):
                     if d.get(extra_key) not in (None, ""):
                         payload[extra_key] = d.get(extra_key)
@@ -15184,6 +15194,19 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, f"Summoned {len(spawned_custom)} custom creature(s).")
                 return
             preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_id)
+            preset_dict = preset if isinstance(preset, dict) else {}
+            centered_shapes = {"circle", "sphere", "cylinder", "square", "cube"}
+            preset_mechanics = preset_dict.get("mechanics") if isinstance(preset_dict.get("mechanics"), dict) else {}
+            preset_targeting = preset_mechanics.get("targeting") if isinstance(preset_mechanics.get("targeting"), dict) else {}
+            preset_range_data = preset_targeting.get("range") if isinstance(preset_targeting.get("range"), dict) else {}
+            range_text = str(preset_dict.get("range") or "").strip().lower()
+            range_kind = str((preset_range_data.get("kind") if isinstance(preset_range_data, dict) else "") or "").strip().lower()
+            targeting_origin = str(preset_targeting.get("origin") or "").strip().lower()
+            preset_self_range = range_text.startswith("self") or range_kind == "self" or targeting_origin == "self"
+            requested_fixed_to_caster = payload.get("fixed_to_caster") is True
+            force_fixed_to_caster = shape in centered_shapes and (preset_self_range or requested_fixed_to_caster)
+            if requested_fixed_to_caster and not (preset_self_range and shape in centered_shapes):
+                force_fixed_to_caster = False
             summon_cfg = preset.get("summon") if isinstance(preset, dict) and isinstance(preset.get("summon"), dict) else None
             if summon_cfg and not is_admin:
                 self._lan.toast(ws_id, "Summon spawning is DM-only for now, matey.")
@@ -15404,6 +15427,10 @@ class InitiativeTracker(base.InitiativeTracker):
             if anchor_ax is None or anchor_ay is None:
                 anchor_ax = float(cx)
                 anchor_ay = float(cy)
+            if force_fixed_to_caster and cid is not None:
+                anchor_cid = cid
+                cx = float(anchor_ax)
+                cy = float(anchor_ay)
             if map_ready:
                 aid = int(getattr(mw, "_next_aoe_id", 1))
                 setattr(mw, "_next_aoe_id", aid + 1)
@@ -15449,6 +15476,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 aoe["concentration_bound"] = True
             if anchor_cid is not None:
                 aoe["anchor_cid"] = anchor_cid
+            if force_fixed_to_caster:
+                aoe["fixed_to_caster"] = True
             if over_time_flag:
                 aoe["over_time"] = True
             if persistent_flag:
@@ -15966,6 +15995,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 decision = "reject_missing_aoe"
                 _log_aoe_move(decision)
                 _send_aoe_move_ack(False, reason_code=decision)
+                return
+            if bool(d.get("fixed_to_caster")):
+                decision = "reject_fixed_to_caster"
+                _log_aoe_move(decision)
+                _send_aoe_move_ack(False, reason_code=decision)
+                self._lan.toast(ws_id, "That self-range spell is fixed to its caster.")
                 return
             if bool(d.get("pinned")) and not is_admin:
                 decision = "reject_pinned"

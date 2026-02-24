@@ -158,6 +158,14 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('if (pendingAoePlacement){\n      setPendingAoePlacementCursorFromPointer(p);\n      draw();', self.html)
         self.assertIn('if (pendingAoePlacement){\n        clearPendingAoePlacement();\n        localToast("AoE placement cancelled.");', self.html)
 
+    def test_aoe_target_preview_panel_is_present_and_updates_during_preview(self):
+        self.assertIn('id="aoeTargetPreview"', self.html)
+        self.assertIn('id="aoeTargetPreviewAllies"', self.html)
+        self.assertIn('id="aoeTargetPreviewEnemies"', self.html)
+        self.assertIn('function updateAoeTargetPreviewPanel(previewAoe)', self.html)
+        self.assertIn('updateAoeTargetPreviewPanel(previewAoe);', self.html)
+        self.assertIn('hideAoeTargetPreviewPanel();', self.html)
+
     def test_lay_on_hands_targeting_overlay_and_modal_are_wired(self):
         self.assertIn('id="layOnHandsOverlay"', self.html)
         self.assertIn('pendingLayOnHandsTargeting = {', self.html)

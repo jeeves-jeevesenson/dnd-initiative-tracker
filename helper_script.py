@@ -8809,7 +8809,10 @@ class BattleMapWindow(tk.Toplevel):
             kind = str(d.get("kind") or "")
             d["ax"] = ax
             d["ay"] = ay
-            if kind == "line":
+            if bool(d.get("fixed_to_caster")) and kind in ("circle", "sphere", "cylinder", "square", "cube"):
+                d["cx"] = ax
+                d["cy"] = ay
+            elif kind == "line":
                 length_sq = float(d.get("length_sq") or 0.0)
                 angle = d.get("angle_deg")
                 orient = str(d.get("orient") or "vertical")
@@ -8835,11 +8838,14 @@ class BattleMapWindow(tk.Toplevel):
             return
         kind = str(d["kind"])
         anchor = None
-        if kind in ("line", "cone"):
+        if kind in ("line", "cone") or (bool(d.get("fixed_to_caster")) and kind in ("circle", "sphere", "cylinder", "square", "cube")):
             anchor = self._resolve_aoe_anchor(d)
             if anchor is not None:
                 ax, ay = anchor
-                if kind == "line":
+                if bool(d.get("fixed_to_caster")) and kind in ("circle", "sphere", "cylinder", "square", "cube"):
+                    d["cx"] = ax
+                    d["cy"] = ay
+                elif kind == "line":
                     length_sq = float(d.get("length_sq") or 0.0)
                     angle = d.get("angle_deg")
                     orient = str(d.get("orient") or "vertical")
