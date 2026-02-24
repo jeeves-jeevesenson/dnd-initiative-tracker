@@ -1,7 +1,7 @@
 schema: dnd55.spell.v1
 id: move-earth
 name: Move Earth
-color: "#6aa9ff"
+color: "#C2B280"
 edition: '2024'
 source:
   book: "Player\xB4s Handbook 2024 (BR)"

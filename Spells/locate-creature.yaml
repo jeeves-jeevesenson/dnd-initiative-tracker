@@ -1,7 +1,7 @@
 schema: dnd55.spell.v1
 id: locate-creature
 name: Locate Creature
-color: "#6aa9ff"
+color: "#F4E66A"
 edition: '2024'
 source:
   book: "Player\xB4s Handbook 2024 (BR)"

@@ -1,7 +1,7 @@
 schema: dnd55.spell.v1
 id: speak-with-plants
 name: Speak with Plants
-color: "#6aa9ff"
+color: "#F4E66A"
 edition: '2024'
 source:
   book: "Player\xB4s Handbook 2024 (BR)"

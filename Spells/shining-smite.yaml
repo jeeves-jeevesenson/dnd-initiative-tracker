@@ -1,7 +1,7 @@
 schema: dnd55.spell.v1
 id: shining-smite
 name: Shining Smite
-color: "#6aa9ff"
+color: "#FFFFE0"
 edition: '2024'
 source:
   book: "Player\xB4s Handbook 2024 (BR)"
