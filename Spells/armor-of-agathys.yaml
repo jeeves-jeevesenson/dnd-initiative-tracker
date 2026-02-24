@@ -1,7 +1,7 @@
 schema: dnd55.spell.v1
 id: armor-of-agathys
 name: Armor of Agathys
-color: "#6aa9ff"
+color: "#00FFFF"
 edition: '2024'
 source:
   book: "Player\xB4s Handbook 2024"
