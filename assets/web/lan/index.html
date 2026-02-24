@@ -4069,6 +4069,19 @@ __DAMAGE_TYPE_OPTIONS__
   let lockMap = false;
   let lastGrid = {cols: null, rows: null};
   let lastGridVersion = null;
+  let roughTerrainVersion = 0;
+  let obstacleVersion = 0;
+  let cachedRoughMap = null;
+  let cachedRoughMapVersion = -1;
+  let cachedObstacleSet = null;
+  let cachedObstacleSetVersion = -1;
+  let movementRangeCacheKey = "";
+  let movementRangeCostMap = null;
+  const movementRangePerfDebug = localStorage.getItem("lanPerfDebug") === "1";
+  const movementRangeCacheStats = {hits: 0, misses: 0};
+  if (movementRangePerfDebug){
+    window.__lanMovementRangeCacheStats = movementRangeCacheStats;
+  }
   let fittedToGrid = false;
   let showAllNames = localStorage.getItem("inittracker_showAllNames") === "1";
   let measurementMode = false;
@@ -7161,16 +7174,85 @@ __DAMAGE_TYPE_OPTIONS__
     send({type:"log_request"});
   }
 
+  function invalidateMovementRangeCache(){
+    movementRangeCacheKey = "";
+    movementRangeCostMap = null;
+  }
+
+  function getCachedRoughTerrainMap(){
+    if (cachedRoughMap && cachedRoughMapVersion === roughTerrainVersion){
+      return cachedRoughMap;
+    }
+    cachedRoughMap = buildRoughTerrainMap(state?.rough_terrain);
+    cachedRoughMapVersion = roughTerrainVersion;
+    return cachedRoughMap;
+  }
+
+  function getCachedObstacleSet(){
+    if (cachedObstacleSet && cachedObstacleSetVersion === obstacleVersion){
+      return cachedObstacleSet;
+    }
+    cachedObstacleSet = buildObstacleSet(state?.obstacles);
+    cachedObstacleSetVersion = obstacleVersion;
+    return cachedObstacleSet;
+  }
+
+  function getMovementRangeCostMap(unit, cols, rows, feetPerSquare){
+    if (!unit || !unit.pos) return null;
+    const mode = normalizeMovementMode(unit.movement_mode);
+    const key = [
+      Number(unit.pos.col),
+      Number(unit.pos.row),
+      Math.max(0, Number(unit.move_remaining || 0)),
+      Number(cols),
+      Number(rows),
+      Math.max(1, Number(feetPerSquare || 5)),
+      mode,
+      Math.max(0, Number(unit.speed || 0)),
+      Math.max(0, Number(unit.swim_speed || 0)),
+      roughTerrainVersion,
+      obstacleVersion,
+    ].join("|");
+    if (key === movementRangeCacheKey && movementRangeCostMap){
+      if (movementRangePerfDebug){
+        movementRangeCacheStats.hits += 1;
+      }
+      return movementRangeCostMap;
+    }
+    if (movementRangePerfDebug){
+      movementRangeCacheStats.misses += 1;
+    }
+    movementRangeCostMap = movementCostMap(
+      Number(unit.pos.col),
+      Number(unit.pos.row),
+      Math.max(0, Number(unit.move_remaining || 0)),
+      unit,
+      getCachedRoughTerrainMap(),
+      getCachedObstacleSet(),
+      Number(cols),
+      Number(rows),
+      Math.max(1, Number(feetPerSquare || 5)),
+    );
+    movementRangeCacheKey = key;
+    return movementRangeCostMap;
+  }
+
   function applyTerrainPayload(terrain){
     if (!state){ state = {}; }
     if (!terrain || typeof terrain !== "object") return;
     if (Array.isArray(terrain.rough_terrain)){
       state.rough_terrain = terrain.rough_terrain;
+      roughTerrainVersion += 1;
+      cachedRoughMapVersion = -1;
+      invalidateMovementRangeCache();
     } else if (!state.rough_terrain){
       state.rough_terrain = [];
     }
     if (Array.isArray(terrain.obstacles)){
       state.obstacles = terrain.obstacles;
+      obstacleVersion += 1;
+      cachedObstacleSetVersion = -1;
+      invalidateMovementRangeCache();
     } else if (!state.obstacles){
       state.obstacles = [];
     }
@@ -7199,6 +7281,9 @@ __DAMAGE_TYPE_OPTIONS__
         roughMap.delete(key);
       });
       state.rough_terrain = Array.from(roughMap.values());
+      roughTerrainVersion += 1;
+      cachedRoughMapVersion = -1;
+      invalidateMovementRangeCache();
     }
 
     const obstacleUpdates = Array.isArray(patch.obstacle_updates) ? patch.obstacle_updates : [];
@@ -7217,6 +7302,9 @@ __DAMAGE_TYPE_OPTIONS__
         const [col, row] = key.split(",").map(Number);
         return {col, row};
       });
+      obstacleVersion += 1;
+      cachedObstacleSetVersion = -1;
+      invalidateMovementRangeCache();
     }
   }
 
@@ -8930,6 +9018,7 @@ __DAMAGE_TYPE_OPTIONS__
   function draw(){
     if (!state) return;
     if (!gridReady()){
+      invalidateMovementRangeCache();
       updateWaitingOverlay();
       return;
     }
@@ -9001,27 +9090,17 @@ __DAMAGE_TYPE_OPTIONS__
         const move = Math.max(0, Number(me.move_remaining || 0));
         const feet = Math.max(1, Number(state.grid.feet_per_square || 5));
         if (move > 0){
-          const roughMap = buildRoughTerrainMap(state.rough_terrain);
-          const obstacleSet = buildObstacleSet(state.obstacles);
-          const costMap = movementCostMap(
-            Number(me.pos.col),
-            Number(me.pos.row),
-            move,
-            me,
-            roughMap,
-            obstacleSet,
-            cols,
-            rows,
-            feet,
-          );
-          costMap.forEach((cost, key) => {
-            if (!cost) return;
-            const [col, row] = key.split(",").map(Number);
-            const x = panX + col * zoom;
-            const y = panY + row * zoom;
-            ctx.fillStyle = "rgba(106,169,255,0.18)";
-            ctx.fillRect(x + 1, y + 1, zoom - 2, zoom - 2);
-          });
+          const costMap = getMovementRangeCostMap(me, cols, rows, feet);
+          if (costMap){
+            costMap.forEach((cost, key) => {
+              if (!cost) return;
+              const [col, row] = key.split(",").map(Number);
+              const x = panX + col * zoom;
+              const y = panY + row * zoom;
+              ctx.fillStyle = "rgba(106,169,255,0.18)";
+              ctx.fillRect(x + 1, y + 1, zoom - 2, zoom - 2);
+            });
+          }
         }
       }
     }
@@ -10963,6 +11042,20 @@ __DAMAGE_TYPE_OPTIONS__
         if (!state.obstacles && Array.isArray(oldObstacles)){
           state.obstacles = oldObstacles;
         }
+        let movementTerrainChanged = false;
+        if (state.rough_terrain !== oldTerrain){
+          roughTerrainVersion += 1;
+          cachedRoughMapVersion = -1;
+          movementTerrainChanged = true;
+        }
+        if (state.obstacles !== oldObstacles){
+          obstacleVersion += 1;
+          cachedObstacleSetVersion = -1;
+          movementTerrainChanged = true;
+        }
+        if (movementTerrainChanged){
+          invalidateMovementRangeCache();
+        }
         if (isMapView){
           claimedCid = null;
           claimStatus = "unclaimed";
@@ -11204,6 +11297,7 @@ __DAMAGE_TYPE_OPTIONS__
         if (!state){ state = {}; }
         if ("grid" in msg){
           state.grid = msg.grid;
+          invalidateMovementRangeCache();
         }
         if (gridReady()){
           const cols = state.grid.cols;
