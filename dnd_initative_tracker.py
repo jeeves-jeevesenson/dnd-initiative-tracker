@@ -15721,9 +15721,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not self._use_action(c, log_message=cast_log):
                         self._lan.toast(ws_id, "No actions left, matey.")
                         return
-                c.spell_cast_remaining = False
-                c.action_remaining = False
-                c.bonus_action_remaining = False
+                c.spell_cast_remaining = max(0, int(getattr(c, "spell_cast_remaining", 0) or 0) - 1)
                 smite_slug = self._smite_slug_from_preset(preset)
                 if smite_slug and smite_slug in _SMITE_SPELL_CONFIG:
                     setattr(

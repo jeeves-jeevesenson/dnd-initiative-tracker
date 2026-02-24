@@ -676,6 +676,8 @@ class LanAttackRequestTests(unittest.TestCase):
         )
 
         self.assertEqual((getattr(self.app.combatants[1], "pending_smite_charge", {}) or {}).get("slug"), "searing-smite")
+        self.assertEqual(self.app.combatants[1].bonus_action_remaining, 1)
+        self.assertEqual(self.app.combatants[1].action_remaining, 1)
 
         msg = {
             "type": "attack_request",
