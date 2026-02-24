@@ -16820,6 +16820,27 @@ class InitiativeTracker(base.InitiativeTracker):
                         continue
                     dtype = str(entry.get("type") or "").strip().lower()
                     damage_entries.append({"amount": amount, "type": dtype})
+
+            damage_dice_text = str(msg.get("damage_dice") or "").strip().lower()
+            damage_type_hint = str(msg.get("damage_type") or "").strip().lower() or "damage"
+            auto_spell_damage = bool(hit and not damage_entries and damage_dice_text)
+            if auto_spell_damage:
+                dice_match = re.fullmatch(r"\s*(\d+)d(\d+)\s*([+\-]\s*\d+)?\s*", damage_dice_text)
+                if dice_match:
+                    dice_count = max(0, int(dice_match.group(1)))
+                    dice_sides = max(0, int(dice_match.group(2)))
+                    mod_text = str(dice_match.group(3) or "").replace(" ", "")
+                    flat_mod = _parse_int(mod_text, 0) or 0
+                    amount = 0
+                    if dice_count > 0 and dice_sides > 0:
+                        if critical and spell_mode in ("attack", "auto_hit"):
+                            amount = int(dice_count) * int(dice_sides) + int(flat_mod)
+                        else:
+                            amount = sum(random.randint(1, int(dice_sides)) for _ in range(int(dice_count))) + int(flat_mod)
+                    else:
+                        amount = int(flat_mod)
+                    if amount > 0:
+                        damage_entries.append({"amount": int(amount), "type": damage_type_hint})
             result_payload: Dict[str, Any] = {
                 "type": "spell_target_result",
                 "ok": True,
@@ -17060,7 +17081,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "wis_mod": self._ability_score_modifier(abilities, "wis"),
                     "cha_mod": self._ability_score_modifier(abilities, "cha"),
                 }
-            def _roll_damage_formula(formula: Any, variables: Dict[str, int]) -> Optional[int]:
+            def _roll_damage_formula(formula: Any, variables: Dict[str, int], dice_multiplier: int = 1) -> Optional[int]:
                 if not isinstance(formula, str):
                     return None
                 raw = formula.strip().lower()
@@ -17075,9 +17096,11 @@ class InitiativeTracker(base.InitiativeTracker):
                     def _replace_die(match: re.Match[str]) -> str:
                         count = int(match.group(1) or 1)
                         sides = int(match.group(2))
-                        if count <= 0 or count > max_damage_dice_count or sides <= 0 or sides > max_damage_die_sides:
+                        multiplier = max(1, int(dice_multiplier or 1))
+                        effective_count = int(count) * int(multiplier)
+                        if effective_count <= 0 or effective_count > max_damage_dice_count or sides <= 0 or sides > max_damage_die_sides:
                             raise ValueError("invalid dice notation")
-                        return str(sum(random.randint(1, sides) for _ in range(count)))
+                        return str(sum(random.randint(1, sides) for _ in range(effective_count)))
                     expr = re.sub(
                         r"(\d*)d(\d+)",
                         _replace_die,
@@ -17108,7 +17131,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 setattr(self, "_next_stack_id", int(next_sid) + 1)
                 stacks.append(base.ConditionStack(sid=int(next_sid), ctype=ctype_key, remaining_turns=remaining_turns))
                 return True
-            def _parse_effect_damage_entries(effect_text: Any, variables: Dict[str, int]) -> List[Dict[str, Any]]:
+            def _parse_effect_damage_entries(effect_text: Any, variables: Dict[str, int], dice_multiplier: int = 1) -> List[Dict[str, Any]]:
                 if not isinstance(effect_text, str):
                     return []
                 entries: List[Dict[str, Any]] = []
@@ -17116,7 +17139,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     dtype = str(match.group(2) or "").strip().lower()
                     if len(dtype) < min_damage_type_length:
                         continue
-                    amount = _roll_damage_formula(match.group(1), variables)
+                    amount = _roll_damage_formula(match.group(1), variables, dice_multiplier=dice_multiplier)
                     if amount is None or amount <= 0:
                         continue
                     entries.append({"amount": int(amount), "type": dtype})
@@ -17362,20 +17385,70 @@ class InitiativeTracker(base.InitiativeTracker):
                         continue
                     dtype = str(entry.get("type") or "").strip().lower()
                     damage_entries.append({"amount": amount, "type": dtype})
+            auto_roll = bool(hit and not damage_entries)
+            auto_crit = bool(auto_roll and requested_critical is True)
+
+            def _weapon_formula_already_includes_magic_bonus(weapon_entry: Any, damage_formula: Any, bonus: int) -> bool:
+                if not isinstance(weapon_entry, dict):
+                    return False
+                if not isinstance(damage_formula, str):
+                    return False
+                bonus_val = int(bonus or 0)
+                if bonus_val == 0:
+                    return False
+                formula_text = str(damage_formula or "").strip().lower()
+                if not formula_text:
+                    return False
+                if re.search(r"\b(?:magic_bonus|item_bonus)\b", formula_text):
+                    return True
+                bonus_abs = abs(int(bonus_val))
+                has_plus_marker = False
+                weapon_name = str(weapon_entry.get("name") or "").strip().lower()
+                weapon_id = str(weapon_entry.get("id") or "").strip().lower()
+                if bonus_val > 0:
+                    has_plus_marker = bool(
+                        re.search(rf"\(\+\s*{bonus_abs}\)", weapon_name)
+                        or re.search(rf"\+\s*{bonus_abs}\b", weapon_name)
+                        or f"plus_{bonus_abs}" in weapon_id
+                        or f"plus{bonus_abs}" in weapon_id
+                    )
+                if bonus_val < 0:
+                    has_plus_marker = bool(
+                        re.search(rf"\(-\s*{bonus_abs}\)", weapon_name)
+                        or re.search(rf"-\s*{bonus_abs}\b", weapon_name)
+                        or f"minus_{bonus_abs}" in weapon_id
+                        or f"minus{bonus_abs}" in weapon_id
+                    )
+                if not has_plus_marker:
+                    return False
+                numeric_terms = [
+                    int(token)
+                    for token in re.findall(r"(?<![a-z0-9_])[+\-]?\d+(?![a-z0-9_])", formula_text)
+                ]
+                if bonus_val > 0:
+                    return int(bonus_abs) in numeric_terms
+                return -int(bonus_abs) in numeric_terms
             effect_block = selected_weapon.get("effect") if isinstance(selected_weapon.get("effect"), dict) else {}
             mastery_notes: List[str] = []
             variables = _damage_formula_variables(profile)
             graze_applied = False
-            if hit and not damage_entries:
+            if auto_roll:
                 mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
                 if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
                     mode_block = selected_weapon.get("two_handed")
                 mode_formula = mode_block.get("damage_formula") if isinstance(mode_block, dict) else ""
-                mode_damage = _roll_damage_formula(mode_formula, variables)
+                mode_damage = _roll_damage_formula(mode_formula, variables, dice_multiplier=2 if auto_crit else 1)
                 mode_type = str((mode_block or {}).get("damage_type") or "").strip().lower() if isinstance(mode_block, dict) else ""
                 if mode_damage is not None and mode_damage > 0:
                     damage_entries.append({"amount": int(mode_damage), "type": mode_type})
-                damage_entries.extend(_parse_effect_damage_entries(effect_block.get("on_hit"), variables))
+                if (
+                    mode_damage is not None
+                    and mode_damage > 0
+                    and int(magic_bonus) != 0
+                    and not _weapon_formula_already_includes_magic_bonus(selected_weapon, mode_formula, magic_bonus)
+                ):
+                    damage_entries.append({"amount": int(magic_bonus), "type": mode_type or "damage"})
+                damage_entries.extend(_parse_effect_damage_entries(effect_block.get("on_hit"), variables, dice_multiplier=2 if auto_crit else 1))
             if weapon_mastery_enabled and _weapon_has_property(selected_weapon, "graze") and not hit:
                 mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
                 if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
@@ -17432,7 +17505,7 @@ class InitiativeTracker(base.InitiativeTracker):
                             if str(pool.get("id") or "").strip().lower() == dice_pool:
                                 rider_formula = f"{max(1, int(pool.get('current', 0) or 0))}d6"
                                 break
-                    rider_amount = _roll_damage_formula(rider_formula, variables) if rider_formula else None
+                    rider_amount = _roll_damage_formula(rider_formula, variables, dice_multiplier=2 if auto_crit else 1) if rider_formula else None
                     if rider_amount is None or rider_amount <= 0:
                         continue
                     rider_type = str(rider.get("damage_type") or "").strip().lower()
@@ -17458,7 +17531,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 if isinstance(smite_cfg, dict):
                     smite_dice = self._smite_damage_dice(smite_cfg, pending_smite.get("slot_level"))
                     smite_type = str(smite_cfg.get("damage_type") or "").strip().lower() or "damage"
-                    smite_amount = _roll_damage_formula(smite_dice, {}) if smite_dice else None
+                    smite_amount = _roll_damage_formula(smite_dice, {}, dice_multiplier=2 if auto_crit else 1) if smite_dice else None
                     if smite_amount is not None and smite_amount > 0:
                         damage_entries.append({"amount": int(smite_amount), "type": smite_type})
                     smite_result = {

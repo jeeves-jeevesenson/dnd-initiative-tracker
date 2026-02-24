@@ -2180,14 +2180,14 @@
     <div class="modal" id="attackResolveModal" aria-hidden="true">
       <div class="card">
         <h2>Resolve Attack</h2>
-        <div class="hint" id="attackResolveBody">Choose hit or miss, then add damage on a hit.</div>
+        <div class="hint" id="attackResolveBody">Choose hit or miss, then add damage on a hit. Leave damage blank to auto-roll when a weapon/spell formula is available.</div>
         <div class="modal-body">
           <div class="row">
             <label class="chip"><input type="radio" name="attackResolveOutcome" id="attackResolveHit" value="hit" checked>Hit</label>
             <label class="chip"><input type="radio" name="attackResolveOutcome" id="attackResolveMiss" value="miss">Miss</label>
           </div>
           <div class="row">
-            <label class="chip"><input type="checkbox" id="attackResolveCrit">Critical hit (for log)</label>
+            <label class="chip"><input type="checkbox" id="attackResolveCrit">Critical hit</label>
           </div>
           <div class="damage-type-list" id="attackDamageRows" aria-live="polite"></div>
           <div class="modal-actions" style="justify-content:flex-start;padding:0;">
@@ -10566,6 +10566,8 @@ __DAMAGE_TYPE_OPTIONS__
         hit: true,
         critical: false,
         damage_entries: [],
+        damage_dice: String(pendingSpellTargeting.damageDice || "").trim() || null,
+        damage_type: String(pendingSpellTargeting.damageType || "").trim().toLowerCase() || null,
       });
       consumeSpellTargetingShot();
       return;
@@ -10582,6 +10584,8 @@ __DAMAGE_TYPE_OPTIONS__
       saveDc: pendingSpellTargeting.saveDc,
       forceHit: autoHit,
       rollSave: false,
+      damageDice: pendingSpellTargeting.damageDice || "",
+      damageType: pendingSpellTargeting.damageType || "",
     };
     if (attackResolveBody){
       const details = [
@@ -11463,6 +11467,8 @@ __DAMAGE_TYPE_OPTIONS__
               saveDc: pendingSpellTargeting.saveDc,
               forceHit: true,
               rollSave: false,
+              damageDice: damageDice || "",
+              damageType: pendingSpellTargeting.damageType || "",
             };
             if (attackResolveBody){
               const details = [
@@ -12223,6 +12229,8 @@ __DAMAGE_TYPE_OPTIONS__
           saveDc: pendingSpellTargeting.saveDc,
           forceHit: autoHit,
           rollSave: false,
+          damageDice: pendingSpellTargeting.damageDice || "",
+          damageType: pendingSpellTargeting.damageType || "",
         };
         if (attackResolveBody){
           const details = [
@@ -16833,6 +16841,8 @@ __DAMAGE_TYPE_OPTIONS__
           hit: pendingAttackResolve.forceHit ? true : hit,
           critical,
           damage_entries: damageEntries,
+          damage_dice: String(pendingAttackResolve.damageDice || "").trim() || null,
+          damage_type: String(pendingAttackResolve.damageType || "").trim().toLowerCase() || null,
         });
         consumeSpellTargetingShot();
       } else {

@@ -160,6 +160,56 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertTrue(result.get("critical"))
         self.assertTrue(any("(CRIT)" in message for _, message in self.logs))
 
+
+    def test_spell_target_request_auto_crit_uses_max_damage_from_damage_dice(self):
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 15,
+            "target_cid": 2,
+            "spell_name": "Fire Bolt",
+            "spell_mode": "attack",
+            "hit": True,
+            "critical": True,
+            "damage_entries": [],
+            "damage_dice": "1d10",
+            "damage_type": "fire",
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("critical"))
+        self.assertEqual(result.get("damage_entries"), [{"amount": 10, "type": "fire"}])
+        self.assertEqual(result.get("damage_total"), 10)
+        self.assertEqual(self.app.combatants[2].hp, 10)
+
+    def test_spell_target_request_auto_roll_damage_dice_when_blank(self):
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 16,
+            "target_cid": 2,
+            "spell_name": "Ray of Frost",
+            "spell_mode": "attack",
+            "hit": True,
+            "critical": False,
+            "damage_entries": [],
+            "damage_dice": "2d6+1",
+            "damage_type": "cold",
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[2, 5]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("damage_entries"), [{"amount": 8, "type": "cold"}])
+        self.assertEqual(result.get("damage_total"), 8)
+        self.assertEqual(self.app.combatants[2].hp, 12)
     def test_haste_spell_target_request_applies_buffs_and_concentration(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "haste",
