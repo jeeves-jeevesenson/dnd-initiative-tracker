@@ -521,6 +521,48 @@
       box-shadow:0 6px 18px rgba(0,0,0,0.35);
       pointer-events:none;
     }
+    .aoe-target-preview{
+      position:absolute;
+      top:10px;
+      right:10px;
+      z-index:8;
+      width:min(220px, 34vw);
+      max-height:min(40vh, 300px);
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.18);
+      background:rgba(15,19,32,0.78);
+      box-shadow:0 6px 18px rgba(0,0,0,0.28);
+      color:#e8eef7;
+      pointer-events:none;
+      backdrop-filter: blur(6px);
+      font-size:11px;
+      line-height:1.35;
+    }
+    .aoe-target-preview.hidden{display:none;}
+    .aoe-target-preview h4{
+      margin:0 0 4px 0;
+      font-size:11px;
+      letter-spacing:0.25px;
+      text-transform:uppercase;
+      color:rgba(232,238,247,0.92);
+    }
+    .aoe-target-preview .legend{
+      margin-bottom:6px;
+      color:rgba(232,238,247,0.7);
+      font-size:10px;
+    }
+    .aoe-target-preview .ally{color:#84efaa;}
+    .aoe-target-preview .enemy{color:#ff8f8f;}
+    .aoe-target-preview .section + .section{margin-top:4px;}
+    .aoe-target-preview .section-label{font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:0.25px;}
+    .aoe-target-preview ul{
+      margin:2px 0 0;
+      padding-left:14px;
+      max-height:84px;
+      overflow:auto;
+      pointer-events:auto;
+    }
 
     .sheet-wrap{
       position:sticky; bottom:0; z-index:20;
@@ -2061,6 +2103,18 @@
     <canvas id="c"></canvas>
     <div class="waiting" id="waitingOverlay">(waiting for combat...)</div>
     <div class="summon-placement-banner hidden" id="summonPlacementBanner" role="status" aria-live="polite"></div>
+    <div class="aoe-target-preview hidden" id="aoeTargetPreview" aria-live="polite" aria-hidden="true">
+      <h4>AoE targets</h4>
+      <div class="legend"><span class="ally">Allies</span> · <span class="enemy">Enemies</span></div>
+      <div class="section">
+        <div class="section-label ally">Allies</div>
+        <ul id="aoeTargetPreviewAllies"></ul>
+      </div>
+      <div class="section">
+        <div class="section-label enemy">Enemies</div>
+        <ul id="aoeTargetPreviewEnemies"></ul>
+      </div>
+    </div>
     <div class="map-tooltip" id="tokenTooltip" role="tooltip" aria-hidden="true"></div>
     <div class="effects-overlay hidden" id="effectsOverlay" aria-live="polite">
       <div class="effects-list" id="effectsList"></div>
@@ -3949,6 +4003,9 @@ __DAMAGE_TYPE_OPTIONS__
   const sheetHandle = document.getElementById("sheetHandle");
   const tokenTooltip = document.getElementById("tokenTooltip");
   const summonPlacementBanner = document.getElementById("summonPlacementBanner");
+  const aoeTargetPreview = document.getElementById("aoeTargetPreview");
+  const aoeTargetPreviewAllies = document.getElementById("aoeTargetPreviewAllies");
+  const aoeTargetPreviewEnemies = document.getElementById("aoeTargetPreviewEnemies");
   const clientInitPayload = {
     timestamp: new Date().toISOString(),
     userAgent: navigator.userAgent,
@@ -3989,6 +4046,7 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingSummonPlacement = null;
   let pendingAoePlacement = null;
   let summonValidCells = new Set();
+  let aoeTargetPreviewSignature = "";
   const preparedSpellDefaults = {
     prepared: [],
     preparedFree: [],
@@ -8021,6 +8079,129 @@ __DAMAGE_TYPE_OPTIONS__
     return null;
   }
 
+  function aoeContainsGridPoint(aoe, point){
+    if (!aoe || !point) return false;
+    const cx = Number(aoe.cx ?? 0);
+    const cy = Number(aoe.cy ?? 0);
+    const dx = Number(point.col) - cx;
+    const dy = Number(point.row) - cy;
+    const kind = String(aoe.kind || "");
+    if (kind === "circle" || kind === "sphere" || kind === "cylinder"){
+      const radius = Math.max(0, Number(aoe.radius_sq || 0));
+      return dx * dx + dy * dy <= radius * radius;
+    }
+    if (kind === "square" || kind === "cube"){
+      const side = Math.max(0, Number(aoe.side_sq || 0));
+      const half = side / 2;
+      const angleDeg = Number.isFinite(Number(aoe.angle_deg)) ? Number(aoe.angle_deg) : null;
+      if (angleDeg !== null){
+        const rad = (-angleDeg * Math.PI) / 180;
+        const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+        const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+        return Math.abs(rx) <= half && Math.abs(ry) <= half;
+      }
+      return Math.abs(dx) <= half && Math.abs(dy) <= half;
+    }
+    if (kind === "line" || kind === "wall"){
+      const length = Math.max(0, Number(aoe.length_sq || 0));
+      const width = Math.max(0, Number(aoe.width_sq || 0));
+      const angleDeg = Number.isFinite(Number(aoe.angle_deg)) ? Number(aoe.angle_deg) : null;
+      const orient = aoe.orient === "horizontal" ? "horizontal" : "vertical";
+      if (angleDeg !== null){
+        const rad = (-angleDeg * Math.PI) / 180;
+        const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+        const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+        return Math.abs(rx) <= length / 2 && Math.abs(ry) <= width / 2;
+      }
+      const halfW = orient === "horizontal" ? length / 2 : width / 2;
+      const halfH = orient === "horizontal" ? width / 2 : length / 2;
+      return Math.abs(dx) <= halfW && Math.abs(dy) <= halfH;
+    }
+    if (kind === "cone"){
+      const length = Math.max(0, Number(aoe.length_sq || 0));
+      const dist = Math.hypot(dx, dy);
+      if (dist > length) return false;
+      const angleToPoint = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const headingDeg = coneHeadingDeg(aoe);
+      const spreadDeg = coneSpreadDeg(aoe);
+      const diff = angularDiffDeg(angleToPoint, headingDeg);
+      return diff <= spreadDeg / 2;
+    }
+    return false;
+  }
+
+  function isAoeAllyUnit(unit){
+    if (!unit || typeof unit !== "object") return false;
+    if (unit.ally === true) return true;
+    const role = String(unit.role || "").toLowerCase();
+    return role === "pc" || role === "ally";
+  }
+
+  function renderAoeTargetPreviewList(listEl, names, cls){
+    if (!listEl) return;
+    listEl.textContent = "";
+    if (!names.length){
+      const li = document.createElement("li");
+      li.textContent = "None";
+      li.className = cls;
+      listEl.appendChild(li);
+      return;
+    }
+    names.forEach((name) => {
+      const li = document.createElement("li");
+      li.textContent = name;
+      li.className = cls;
+      listEl.appendChild(li);
+    });
+  }
+
+  function updateAoeTargetPreviewPanel(previewAoe){
+    if (!aoeTargetPreview || !aoeTargetPreviewAllies || !aoeTargetPreviewEnemies){
+      return;
+    }
+    if (!previewAoe || !Array.isArray(state?.units)){
+      hideAoeTargetPreviewPanel();
+      return;
+    }
+    const allies = [];
+    const enemies = [];
+    state.units.forEach((unit) => {
+      if (!unit?.pos) return;
+      const col = Number(unit.pos.col);
+      const row = Number(unit.pos.row);
+      if (!Number.isFinite(col) || !Number.isFinite(row)) return;
+      if (!aoeContainsGridPoint(previewAoe, {col, row})) return;
+      const unitName = String(unit.name || `#${unit.cid ?? "?"}`);
+      if (isAoeAllyUnit(unit)) allies.push(unitName);
+      else enemies.push(unitName);
+    });
+    allies.sort((a, b) => a.localeCompare(b));
+    enemies.sort((a, b) => a.localeCompare(b));
+    const signature = `${allies.join("|")}::${enemies.join("|")}`;
+    if (signature === aoeTargetPreviewSignature){
+      aoeTargetPreview.classList.remove("hidden");
+      aoeTargetPreview.setAttribute("aria-hidden", "false");
+      return;
+    }
+    aoeTargetPreviewSignature = signature;
+    renderAoeTargetPreviewList(aoeTargetPreviewAllies, allies, "ally");
+    renderAoeTargetPreviewList(aoeTargetPreviewEnemies, enemies, "enemy");
+    aoeTargetPreview.classList.remove("hidden");
+    aoeTargetPreview.setAttribute("aria-hidden", "false");
+  }
+
+  function hideAoeTargetPreviewPanel(){
+    aoeTargetPreviewSignature = "";
+    if (aoeTargetPreview){
+      aoeTargetPreview.classList.add("hidden");
+      aoeTargetPreview.setAttribute("aria-hidden", "true");
+    }
+    if (aoeTargetPreviewAllies) aoeTargetPreviewAllies.textContent = "";
+    if (aoeTargetPreviewEnemies) aoeTargetPreviewEnemies.textContent = "";
+  }
+
+
+
 
   function gridReady(){
     if (!state || !state.grid) return false;
@@ -8053,6 +8234,20 @@ __DAMAGE_TYPE_OPTIONS__
       return mechanicsRange;
     }
     return parseSpellRangeFeet(preset?.range);
+  }
+
+  function isSelfRangeAoePreset(preset){
+    const rangeText = String(preset?.range || "").trim().toLowerCase();
+    if (rangeText.startsWith("self")) return true;
+    const rangeKind = String(preset?.mechanics?.targeting?.range?.kind || "").trim().toLowerCase();
+    if (rangeKind === "self") return true;
+    const origin = String(preset?.mechanics?.targeting?.origin || "").trim().toLowerCase();
+    return origin === "self";
+  }
+
+  function isCenteredAoeShape(shape){
+    const kind = String(shape || "").toLowerCase();
+    return kind === "circle" || kind === "sphere" || kind === "cylinder" || kind === "square" || kind === "cube";
   }
 
   function distanceFeetBetweenCells(a, b){
@@ -8310,6 +8505,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   function clearPendingAoePlacement(shouldRedraw = true){
     pendingAoePlacement = null;
+    hideAoeTargetPreviewPanel();
     if (shouldRedraw){
       draw();
     }
@@ -9207,6 +9403,9 @@ __DAMAGE_TYPE_OPTIONS__
       if (previewAoe){
         renderAoeOverlay(previewAoe, {preview: true});
       }
+      updateAoeTargetPreviewPanel(previewAoe);
+    } else {
+      hideAoeTargetPreviewPanel();
     }
 
     // measurement line
@@ -11328,9 +11527,13 @@ __DAMAGE_TYPE_OPTIONS__
         console.log("[AOE move ack]", msg);
         if (msg.ok === false){
           const reasonCode = typeof msg.reason_code === "string" ? msg.reason_code : "";
-          const reason = reasonCode ? reasonCode.replace(/_/g, " ").toLowerCase() : "";
-          const reasonText = reason ? reason[0].toUpperCase() + reason.slice(1) : "";
-          localToast(reasonText ? `AOE move rejected (${reasonText}).` : "AOE move rejected.");
+          if (reasonCode === "reject_fixed_to_caster"){
+            localToast("That self-range spell is fixed to the caster.");
+          } else {
+            const reason = reasonCode ? reasonCode.replace(/_/g, " ").toLowerCase() : "";
+            const reasonText = reason ? reason[0].toUpperCase() + reason.slice(1) : "";
+            localToast(reasonText ? `AOE move rejected (${reasonText}).` : "AOE move rejected.");
+          }
         }
       } else if (msg.type === "play_audio"){
         if (!msg.audio) return;
@@ -15400,6 +15603,29 @@ __DAMAGE_TYPE_OPTIONS__
         msg.consumes_pool_cost = slotCheck.consumesPool.cost;
       }
       if (aoeSpell){
+        const caster = getClaimedUnit();
+        const selfRangeCentered = isSelfRangeAoePreset(preset) && isCenteredAoeShape(shape);
+        if (selfRangeCentered && caster?.pos){
+          const casterCol = Number(caster.pos.col);
+          const casterRow = Number(caster.pos.row);
+          msg.payload = msg.payload || {};
+          msg.payload.cx = casterCol;
+          msg.payload.cy = casterRow;
+          msg.payload.fixed_to_caster = true;
+          if (isPlanning){
+            planningMutate(msg);
+            draw();
+            updateHud();
+          }
+          send(msg);
+          if (castSpellModal?.classList.contains("show")){
+            hideCastSpellModal();
+          }
+          if (castOverlay?.classList.contains("show")){
+            setCastOverlayOpen(false);
+          }
+          return;
+        }
         if (castSpellModal?.classList.contains("show")){
           hideCastSpellModal();
         }
