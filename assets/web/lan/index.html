@@ -1541,6 +1541,8 @@
     .cast-preview-dtype-row select{flex:1;}
     .cast-preview-dtype-list{margin-top:8px;}
     .cast-preview-section{margin-top:10px;}
+    .cast-preview-actions{display:block;}
+    .cast-preview-cast-btn{width:100%; padding:8px;}
     .rules-help-left{display:flex; flex-direction:column; gap:8px; min-height:0;}
     .rules-help-search{width:100%;}
     .rules-help-tree{overflow:auto; border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px; background:rgba(8,10,14,.5); min-height:200px;}
@@ -6420,10 +6422,10 @@ __DAMAGE_TYPE_OPTIONS__
     const details = spellPresetDetails?.cloneNode(true);
     if (details){ details.classList.add("cast-preview-section"); castSpellPreview.appendChild(details); }
     const actions = document.createElement("div");
-    actions.className = "form-actions cast-preview-section";
+    actions.className = "form-actions cast-preview-section cast-preview-actions";
     const castBtn = document.createElement("button");
     castBtn.type = "button";
-    castBtn.className = "btn accent";
+    castBtn.className = "btn success cast-preview-cast-btn";
     castBtn.textContent = "Cast";
     castBtn.addEventListener("click", () => castSubmitBtn?.click());
     actions.appendChild(castBtn);
