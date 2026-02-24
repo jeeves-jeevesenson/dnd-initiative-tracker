@@ -411,10 +411,33 @@
     .btn.end-turn-top[aria-disabled="true"]{
       box-shadow: none;
     }
+    .btn.end-turn-sheet{
+      border-color: rgba(255,88,88,0.9);
+      background: linear-gradient(180deg, rgba(255,108,108,0.98) 0%, rgba(195,36,36,0.98) 100%);
+      color: #fff4f4;
+      font-size: 15px;
+      font-weight: 850;
+      letter-spacing: 0.03em;
+      padding: 11px 18px;
+      box-shadow: 0 0 0 1px rgba(255,228,228,0.22), 0 0 16px rgba(255,88,88,0.65), 0 10px 22px rgba(94,8,8,0.62), inset 0 0 0 1px rgba(255,255,255,0.26);
+      text-shadow: 0 1px 0 rgba(20,0,0,0.35);
+      animation: endTurnSheetPulse 1.4s ease-in-out infinite;
+    }
+    .btn.end-turn-sheet.hidden{
+      animation: none;
+    }
     @keyframes endTurnPop{
       0%{transform: scale(1);}
       45%{transform: scale(1.12);}
       100%{transform: scale(1);}
+    }
+    @keyframes endTurnSheetPulse{
+      0%, 100%{
+        box-shadow: 0 0 0 1px rgba(255,228,228,0.22), 0 0 14px rgba(255,88,88,0.55), 0 10px 22px rgba(94,8,8,0.58), inset 0 0 0 1px rgba(255,255,255,0.22);
+      }
+      50%{
+        box-shadow: 0 0 0 2px rgba(255,198,198,0.32), 0 0 24px rgba(255,74,74,0.9), 0 12px 26px rgba(94,8,8,0.72), inset 0 0 0 1px rgba(255,255,255,0.32);
+      }
     }
     .topbar-controls{
       display:flex;
@@ -1638,6 +1661,28 @@
       max-height: calc(100vh - var(--safeInsetTop) - var(--safeInsetBottom) - 40px);
     }
     .turn-card h2{margin:0 0 12px 0; font-size:18px;}
+    .turn-countdown{
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: rgba(255,206,206,0.95);
+      letter-spacing: 0.02em;
+    }
+    .turn-flash{
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 150;
+      opacity: 0;
+      background: radial-gradient(circle at center, rgba(255,70,70,0.68) 0%, rgba(220,0,0,0.54) 45%, rgba(120,0,0,0.42) 100%);
+    }
+    .turn-flash.active{
+      animation: turnFlashFade 2s ease-out forwards;
+    }
+    @keyframes turnFlashFade{
+      0%{opacity:0.95;}
+      100%{opacity:0;}
+    }
     .dm-side-layout{
       position:absolute;
       top:10px;
@@ -1930,6 +1975,7 @@
     @media (max-width: 720px), (max-height: 720px){
       .btn{padding: 6px 8px; font-size: 12px;}
       .btn.end-turn-top{padding: 9px 12px; font-size: 13px;}
+      .btn.end-turn-sheet{padding: 10px 14px; font-size: 14px;}
       .topbar{gap:8px; padding: calc(8px + var(--safeInsetTop)) 10px 8px 10px;}
       .sheet{padding: 8px 10px calc(10px + var(--safeInsetBottom)) 10px;}
     }
@@ -2480,7 +2526,7 @@
           <button class="btn" id="useBonusAction">Use Bonus Action</button>
           <button class="btn" id="castSpellModalOpen" type="button">Cast Spell</button>
           <button class="btn mount hidden" id="mountBtn">Mount</button>
-          <button class="btn hidden" id="endTurnSheet">End Turn</button>
+          <button class="btn end-turn-sheet hidden" id="endTurnSheet">End Turn</button>
           <button class="btn hidden" id="dismountBtn">Dismount</button>
         </div>
       </div>
@@ -3078,9 +3124,11 @@ __DAMAGE_TYPE_OPTIONS__
 <div class="turn-modal" id="turnModal" aria-hidden="true">
   <div class="turn-card" role="dialog" aria-live="assertive">
     <h2>It’s your turn!</h2>
+    <div class="turn-countdown" id="turnModalCountdown" aria-live="polite">Alert repeats in 5s</div>
     <button class="btn accent" id="turnModalOk">OK</button>
   </div>
 </div>
+<div class="turn-flash" id="turnFlash" aria-hidden="true"></div>
 
 <script>
 (() => {
@@ -3622,6 +3670,8 @@ __DAMAGE_TYPE_OPTIONS__
   const claimContinueBtn = document.getElementById("claimContinue");
   const turnModal = document.getElementById("turnModal");
   const turnModalOk = document.getElementById("turnModalOk");
+  const turnModalCountdown = document.getElementById("turnModalCountdown");
+  const turnFlash = document.getElementById("turnFlash");
   const switchCharacterBtn = document.getElementById("switchCharacter");
   const useActionBtn = document.getElementById("useAction");
   const useBonusActionBtn = document.getElementById("useBonusAction");
@@ -3891,6 +3941,9 @@ __DAMAGE_TYPE_OPTIONS__
   let focusTabOnTurn = localStorage.getItem(focusTabOnTurnStorageKey) === "1";
   let pendingTurnAlert = false;
   let pendingVibrate = false;
+  let turnModalCountdownInterval = null;
+  let turnModalAttentionTimeout = null;
+  let turnModalCountdownValue = 5;
   const notificationPermissionAskedKey = "inittracker_notification_permission_asked_v1";
   let notificationPermissionAsked = localStorage.getItem(notificationPermissionAskedKey) === "1";
   let lastVibrateSupported = canVibrate;
@@ -10015,17 +10068,71 @@ __DAMAGE_TYPE_OPTIONS__
     showActionPicker();
   }
 
+  function clearTurnModalAttention(){
+    if (turnModalCountdownInterval){
+      clearInterval(turnModalCountdownInterval);
+      turnModalCountdownInterval = null;
+    }
+    if (turnModalAttentionTimeout){
+      clearTimeout(turnModalAttentionTimeout);
+      turnModalAttentionTimeout = null;
+    }
+  }
+
+  function updateTurnModalCountdown(seconds){
+    if (!turnModalCountdown) return;
+    turnModalCountdownValue = Math.max(0, Number(seconds) || 0);
+    turnModalCountdown.textContent = `Alert repeats in ${turnModalCountdownValue}s`;
+  }
+
+  function triggerTurnAttentionFlash(){
+    if (!turnFlash) return;
+    turnFlash.classList.remove("active");
+    void turnFlash.offsetWidth;
+    turnFlash.classList.add("active");
+  }
+
   function hideTurnModal(){
+    clearTurnModalAttention();
+    if (turnModalCountdown){
+      updateTurnModalCountdown(5);
+    }
     if (!turnModal) return;
     turnModal.classList.remove("show");
     turnModal.setAttribute("aria-hidden", "true");
   }
 
-  function playTurnAlert(){
+  function playTurnAlert(volume = 0.78){
+    const nextVolume = Number.isFinite(Number(volume)) ? Math.min(1, Math.max(0, Number(volume))) : 0.78;
+    turnAlertAudio.volume = nextVolume;
     turnAlertAudio.currentTime = 0;
     turnAlertAudio.play().catch((err) => {
       console.warn("Turn alert audio failed to play.", err);
+    }).finally(() => {
+      turnAlertAudio.volume = 0.78;
     });
+  }
+
+  function startTurnModalCountdown(){
+    clearTurnModalAttention();
+    updateTurnModalCountdown(5);
+    turnModalAttentionTimeout = setTimeout(() => {
+      turnModalAttentionTimeout = null;
+      if (!turnModal || !turnModal.classList.contains("show")) return;
+      playTurnAlert(1);
+      triggerTurnAttentionFlash();
+    }, 5000);
+    turnModalCountdownInterval = setInterval(() => {
+      if (!turnModal || !turnModal.classList.contains("show")){
+        clearTurnModalAttention();
+        return;
+      }
+      updateTurnModalCountdown(turnModalCountdownValue - 1);
+      if (turnModalCountdownValue <= 0 && turnModalCountdownInterval){
+        clearInterval(turnModalCountdownInterval);
+        turnModalCountdownInterval = null;
+      }
+    }, 1000);
   }
 
   function playKoAlert(){
@@ -10127,8 +10234,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (document.visibilityState === "hidden") return;
     turnModal.classList.add("show");
     turnModal.setAttribute("aria-hidden", "false");
+    startTurnModalCountdown();
     if (audioUnlocked){
-      playTurnAlert();
+      playTurnAlert(0.78);
     } else {
       pendingTurnAlert = true;
     }
