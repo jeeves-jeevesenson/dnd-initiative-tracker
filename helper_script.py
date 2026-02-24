@@ -5797,10 +5797,12 @@ class BattleMapWindow(tk.Toplevel):
             "Right": (1, 0),
         }
         self._pan_held_dirs: Set[str] = set()
+        self._pan_pressed_at: Dict[str, float] = {}
         self._pan_velocity_x: float = 0.0
         self._pan_velocity_y: float = 0.0
         self._pan_last_time: Optional[float] = None
         self._pan_after_id: Optional[str] = None
+        self._pan_hold_threshold_s: float = 0.15
 
         # Grouping: multiple units can occupy the same square. We show a single group label and fan the tokens slightly.
         self._cell_to_cids: Dict[Tuple[int, int], List[int]] = {}
@@ -6026,6 +6028,8 @@ class BattleMapWindow(tk.Toplevel):
             return
         already_held = key in self._pan_held_dirs
         self._pan_held_dirs.add(key)
+        if not already_held:
+            self._pan_pressed_at[key] = time.monotonic()
         if not already_held and not bool(getattr(event, "state", 0) & 0x4000):
             self._nudge_pan_tap(key)
         self._start_keyboard_panning()
@@ -6035,8 +6039,15 @@ class BattleMapWindow(tk.Toplevel):
         if not key:
             return
         self._pan_held_dirs.discard(key)
+        pressed_at = self._pan_pressed_at.pop(key, None)
+        is_short_tap = pressed_at is not None and (time.monotonic() - pressed_at) < self._pan_hold_threshold_s
         if not self._pan_held_dirs:
-            self._start_keyboard_panning()
+            if is_short_tap:
+                self._stop_keyboard_panning(reset_velocity=True)
+            else:
+                self._pan_velocity_x = 0.0 if abs(self._pan_velocity_x) < 0.5 else self._pan_velocity_x
+                self._pan_velocity_y = 0.0 if abs(self._pan_velocity_y) < 0.5 else self._pan_velocity_y
+                self._start_keyboard_panning()
 
     def _on_pan_focus_out(self, _event: tk.Event) -> None:
         self._stop_keyboard_panning(reset_velocity=True)
@@ -6055,6 +6066,7 @@ class BattleMapWindow(tk.Toplevel):
 
     def _stop_keyboard_panning(self, reset_velocity: bool = False) -> None:
         self._pan_held_dirs.clear()
+        self._pan_pressed_at.clear()
         if self._pan_after_id is not None:
             try:
                 self.after_cancel(self._pan_after_id)
@@ -6084,13 +6096,31 @@ class BattleMapWindow(tk.Toplevel):
             dir_x /= mag
             dir_y /= mag
 
-        base_speed = max(220.0, float(self.cell) * 12.0)
-        target_vx = dir_x * base_speed
-        target_vy = dir_y * base_speed
-        rate = 13.0 if mag > 0 else 18.0
+        now_monotonic = now
+        longest_hold = 0.0
+        for key in self._pan_held_dirs:
+            pressed_at = self._pan_pressed_at.get(key)
+            if pressed_at is None:
+                continue
+            longest_hold = max(longest_hold, max(0.0, now_monotonic - pressed_at))
+        accel_window_s = 0.55
+        hold_progress = 0.0
+        if longest_hold > self._pan_hold_threshold_s:
+            hold_progress = min(1.0, (longest_hold - self._pan_hold_threshold_s) / accel_window_s)
+
+        base_speed = max(260.0, float(self.cell) * 14.0)
+        max_speed = base_speed * 1.95
+        target_speed = base_speed + (max_speed - base_speed) * hold_progress
+        target_vx = dir_x * target_speed
+        target_vy = dir_y * target_speed
+        rate = 12.0 if mag > 0 else 22.0
         blend = 1.0 - math.exp(-rate * dt)
         self._pan_velocity_x += (target_vx - self._pan_velocity_x) * blend
         self._pan_velocity_y += (target_vy - self._pan_velocity_y) * blend
+
+        if mag <= 1e-6:
+            self._pan_velocity_x = 0.0 if abs(self._pan_velocity_x) < 3.0 else self._pan_velocity_x
+            self._pan_velocity_y = 0.0 if abs(self._pan_velocity_y) < 3.0 else self._pan_velocity_y
 
         self._move_canvas_by_pixels(self._pan_velocity_x * dt, self._pan_velocity_y * dt)
 
