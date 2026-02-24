@@ -147,6 +147,8 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         log_text = "\n".join(entry for _cid, entry in self.logs)
         self.assertIn("Frost Burst: Goblin save DEX FAIL", log_text)
         self.assertIn("Frost Burst: Orc save DEX PASS", log_text)
+        self.assertIn("Goblin save DEX FAIL (5 vs DC 14) -> 5 Cold damage", log_text)
+        self.assertIn("Orc save DEX PASS (15 vs DC 14) -> 4 Cold damage", log_text)
 
     def test_cast_aoe_non_full_automation_does_not_auto_resolve(self):
         self.preset["automation"] = "manual"
