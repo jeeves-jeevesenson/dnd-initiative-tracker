@@ -8,9 +8,18 @@ class DmTurnAlertTests(unittest.TestCase):
         self.app = object.__new__(tracker_mod.InitiativeTracker)
         self.app.combatants = {}
 
-    def _set_claims(self, claimed_cids):
-        payload = {str(cid): f"client-{cid}" for cid in claimed_cids}
-        self.app._lan = type("LanStub", (), {"_claims_payload": lambda _self: dict(payload)})()
+    def _set_claims(self, claimed_cids, payload=None):
+        if payload is None:
+            payload = {str(cid): f"client-{cid}" for cid in claimed_cids}
+
+        class LanStub:
+            def claimed_cids_snapshot(self):
+                return set(claimed_cids)
+
+            def _claims_payload(self):
+                return dict(payload)
+
+        self.app._lan = LanStub()
 
     def test_claimed_pc_to_unclaimed_npc_alerts(self):
         self.app.combatants = {
@@ -47,6 +56,15 @@ class DmTurnAlertTests(unittest.TestCase):
         self._set_claims(set())
 
         self.assertFalse(self.app._should_show_dm_up_alert(7, 8))
+
+    def test_claimed_snapshot_used_when_claims_payload_empty(self):
+        self.app.combatants = {
+            9: type("C", (), {"cid": 9, "is_pc": True})(),
+            10: type("C", (), {"cid": 10, "is_pc": False})(),
+        }
+        self._set_claims({9}, payload={})
+
+        self.assertTrue(self.app._should_show_dm_up_alert(9, 10))
 
 
 if __name__ == "__main__":
