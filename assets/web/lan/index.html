@@ -9379,14 +9379,33 @@ __DAMAGE_TYPE_OPTIONS__
     return ok;
   }
 
-  function panDirectionFromKeyboardEvent(event){
-    const key = String(event?.key || "");
+  const PAN_DIRECTION_BY_CODE = Object.freeze({
+    KeyW: {x: 0, y: -1},
+    ArrowUp: {x: 0, y: -1},
+    KeyS: {x: 0, y: 1},
+    ArrowDown: {x: 0, y: 1},
+    KeyA: {x: -1, y: 0},
+    ArrowLeft: {x: -1, y: 0},
+    KeyD: {x: 1, y: 0},
+    ArrowRight: {x: 1, y: 0},
+  });
+
+  function normalizedPanCodeFromKeyboardEvent(event){
     const code = String(event?.code || "");
-    if (code === "KeyW" || key === "w" || key === "W" || key === "ArrowUp") return {x: 0, y: -1};
-    if (code === "KeyS" || key === "s" || key === "S" || key === "ArrowDown") return {x: 0, y: 1};
-    if (code === "KeyA" || key === "a" || key === "A" || key === "ArrowLeft") return {x: -1, y: 0};
-    if (code === "KeyD" || key === "d" || key === "D" || key === "ArrowRight") return {x: 1, y: 0};
-    return null;
+    if (PAN_KEY_CODES.has(code)) return code;
+    const key = String(event?.key || "");
+    if (key === "ArrowUp" || key === "ArrowDown" || key === "ArrowLeft" || key === "ArrowRight") return key;
+    const lower = key.toLowerCase();
+    if (lower === "w") return "KeyW";
+    if (lower === "a") return "KeyA";
+    if (lower === "s") return "KeyS";
+    if (lower === "d") return "KeyD";
+    return "";
+  }
+
+  function panDirectionFromKeyboardEvent(event){
+    const normalizedCode = normalizedPanCodeFromKeyboardEvent(event);
+    return PAN_DIRECTION_BY_CODE[normalizedCode] || null;
   }
 
   function canKeyboardPan(event){
@@ -9411,17 +9430,17 @@ __DAMAGE_TYPE_OPTIONS__
     let dirX = 0;
     let dirY = 0;
     panHeldKeys.forEach((code) => {
-      if (code === "KeyW" || code === "ArrowUp") dirY -= 1;
-      else if (code === "KeyS" || code === "ArrowDown") dirY += 1;
-      else if (code === "KeyA" || code === "ArrowLeft") dirX -= 1;
-      else if (code === "KeyD" || code === "ArrowRight") dirX += 1;
+      const direction = PAN_DIRECTION_BY_CODE[code];
+      if (!direction) return;
+      dirX += direction.x;
+      dirY += direction.y;
     });
     const mag = Math.hypot(dirX, dirY);
     if (mag > 0){
       dirX /= mag;
       dirY /= mag;
     }
-    const speed = Math.max(220, zoom * 12);
+    const speed = Math.max(320, zoom * 16);
     const targetX = dirX * speed;
     const targetY = dirY * speed;
     const rate = mag > 0 ? 13 : 18;
@@ -16535,8 +16554,8 @@ __DAMAGE_TYPE_OPTIONS__
   document.addEventListener("keydown", (event) => {
     const direction = panDirectionFromKeyboardEvent(event);
     if (!direction || !canKeyboardPan(event)) return;
-    const code = String(event.code || event.key || "");
-    const normalizedCode = PAN_KEY_CODES.has(code) ? code : (event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "ArrowLeft" || event.key === "ArrowRight" ? event.key : code);
+    const normalizedCode = normalizedPanCodeFromKeyboardEvent(event);
+    if (!normalizedCode) return;
     const wasHeld = panHeldKeys.has(normalizedCode);
     panHeldKeys.add(normalizedCode);
     event.preventDefault();
@@ -16549,8 +16568,8 @@ __DAMAGE_TYPE_OPTIONS__
   document.addEventListener("keyup", (event) => {
     const direction = panDirectionFromKeyboardEvent(event);
     if (!direction) return;
-    const code = String(event.code || event.key || "");
-    const normalizedCode = PAN_KEY_CODES.has(code) ? code : (event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "ArrowLeft" || event.key === "ArrowRight" ? event.key : code);
+    const normalizedCode = normalizedPanCodeFromKeyboardEvent(event);
+    if (!normalizedCode) return;
     panHeldKeys.delete(normalizedCode);
     event.preventDefault();
     if (!panHeldKeys.size){
