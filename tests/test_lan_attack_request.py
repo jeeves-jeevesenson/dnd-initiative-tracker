@@ -627,6 +627,122 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertIn("takes 2 necrotic", msg)
         self.assertIn("CON save DC 15: 10 + 5 = 15 (PASS)", msg)
 
+    def test_smite_cast_sets_charge_and_next_melee_hit_consumes_it(self):
+        self.app._find_spell_preset = lambda **_kwargs: {
+            "slug": "searing-smite",
+            "id": "searing-smite",
+            "name": "Searing Smite",
+            "level": 1,
+            "action_type": "bonus_action",
+            "tags": ["smite"],
+            "summon": None,
+        }
+        self.app._consume_spell_slot_for_cast = lambda **_kwargs: (True, "", 1)
+        self.app._combatant_can_cast_spell = lambda *_args, **_kwargs: True
+        self.app._use_bonus_action = lambda *_args, **_kwargs: True
+        self.app._use_action = lambda *_args, **_kwargs: True
+        self.app._use_reaction = lambda *_args, **_kwargs: True
+        self.app._rebuild_table = lambda *args, **kwargs: None
+        self.app._lan_force_state_broadcast = lambda: None
+        self.app._profile_for_player_name = lambda _name: {
+            "abilities": {"str": 16},
+            "leveling": {"classes": [{"name": "Paladin", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapons": [
+                    {
+                        "id": "longsword",
+                        "name": "Longsword",
+                        "to_hit": 7,
+                        "one_handed": {"damage_formula": "1d8 + str_mod", "damage_type": "slashing"},
+                    }
+                ]
+            },
+        }
+        self.app.combatants[1].spell_cast_remaining = 1
+        self.app.combatants[1].action_remaining = 1
+        self.app.combatants[1].bonus_action_remaining = 1
+
+        self.app._lan_apply_action(
+            {
+                "type": "cast_spell",
+                "cid": 1,
+                "_claimed_cid": 1,
+                "_ws_id": 52,
+                "spell_slug": "searing-smite",
+                "slot_level": 1,
+                "action_type": "bonus_action",
+                "payload": {"spell_slug": "searing-smite", "slot_level": 1, "action_type": "bonus_action"},
+            }
+        )
+
+        self.assertEqual((getattr(self.app.combatants[1], "pending_smite_charge", {}) or {}).get("slug"), "searing-smite")
+
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 53,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4, 5]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result") or {}
+        self.assertEqual(result.get("smite", {}).get("slug"), "searing-smite")
+        self.assertEqual(result.get("damage_total"), 12)
+        self.assertIsNone(getattr(self.app.combatants[1], "pending_smite_charge", None))
+        self.assertEqual(len(getattr(self.app.combatants[2], "start_turn_damage_riders", []) or []), 1)
+
+    def test_blinding_smite_start_turn_save_ends_condition(self):
+        self.app._profile_for_player_name = lambda _name: {
+            "abilities": {"str": 16},
+            "leveling": {"classes": [{"name": "Paladin", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapons": [
+                    {
+                        "id": "longsword",
+                        "name": "Longsword",
+                        "to_hit": 7,
+                        "one_handed": {"damage_formula": "1d8 + str_mod", "damage_type": "slashing"},
+                    }
+                ]
+            },
+        }
+        self.app.combatants[1].pending_smite_charge = {
+            "slug": "blinding-smite",
+            "name": "Blinding Smite",
+            "slot_level": 3,
+            "save_dc": 13,
+        }
+        self.app.combatants[2].hp = 80
+        self.app.combatants[1].spell_cast_remaining = 1
+        self.app.combatants[1].action_remaining = 1
+        self.app.combatants[1].bonus_action_remaining = 1
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 54,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4, 6, 5, 3, 3]):
+            self.app._lan_apply_action(msg)
+
+        self.assertTrue(any(getattr(st, "ctype", None) == "blinded" for st in self.app.combatants[2].condition_stacks))
+        self.assertEqual(len(getattr(self.app.combatants[2], "start_turn_save_riders", []) or []), 1)
+
+        self.app.combatants[2].saving_throws = {"con": 4}
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=9):
+            _, start_msg, _ = self.app._process_start_of_turn(self.app.combatants[2])
+
+        self.assertIn("CON save DC 13: 9 + 4 = 13 (PASS)", start_msg)
+        self.assertFalse(any(getattr(st, "ctype", None) == "blinded" for st in self.app.combatants[2].condition_stacks))
+        self.assertEqual(getattr(self.app.combatants[2], "start_turn_save_riders", []), [])
+
     def test_end_turn_cleanup_applies_hellfire_rider_damage(self):
         self.app.combatants[2].end_turn_damage_riders = [
             {"dice": "1d6", "type": "hellfire", "remaining_turns": 1, "source": "Hellfire Battleaxe (+2) (Aelar)"}

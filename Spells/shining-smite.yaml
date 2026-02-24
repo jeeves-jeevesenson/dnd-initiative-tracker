@@ -12,6 +12,7 @@ school: transmutation
 tags:
 - damage
 - condition
+- smite
 casting_time: Bonus Action, which you take immediately after hitting a creature with
   a Melee weapon or an Unarmed Strike
 range: Self

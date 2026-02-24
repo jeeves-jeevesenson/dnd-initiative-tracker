@@ -1051,6 +1051,52 @@ _CAST_TIME_BONUS_RE = re.compile(r"\bbonus[\s-]*action\b")
 _CAST_TIME_REACTION_RE = re.compile(r"\breaction\b")
 _CAST_TIME_ACTION_RE = re.compile(r"\baction\b")
 
+_SMITE_SPELL_CONFIG: Dict[str, Dict[str, Any]] = {
+    "divine-smite": {"damage_type": "radiant", "base_dice": "2d8", "base_slot": 1, "upcast_die": "1d8"},
+    "searing-smite": {
+        "damage_type": "fire",
+        "base_dice": "1d6",
+        "base_slot": 1,
+        "upcast_die": "1d6",
+        "start_turn_rider": {"dice": "1d6", "type": "fire", "save_ability": "con"},
+    },
+    "thunderous-smite": {
+        "damage_type": "thunder",
+        "base_dice": "2d6",
+        "base_slot": 1,
+        "upcast_die": "1d6",
+        "save": {"ability": "str", "apply_prone": True, "push_10ft": True},
+    },
+    "wrathful-smite": {
+        "damage_type": "necrotic",
+        "base_dice": "1d6",
+        "base_slot": 1,
+        "upcast_die": "1d6",
+        "save": {"ability": "wis", "condition": "frightened", "repeat_each_turn": True},
+    },
+    "shining-smite": {"damage_type": "radiant", "base_dice": "2d6", "base_slot": 2, "upcast_die": "1d6"},
+    "blinding-smite": {
+        "damage_type": "radiant",
+        "base_dice": "3d8",
+        "base_slot": 3,
+        "upcast_die": "1d8",
+        "save": {"ability": "con", "condition": "blinded", "repeat_each_turn": True},
+    },
+    "staggering-smite": {
+        "damage_type": "psychic",
+        "base_dice": "4d6",
+        "base_slot": 4,
+        "upcast_die": "1d6",
+        "save": {"ability": "wis", "condition": "stunned", "duration_turns": 1},
+    },
+    "banishing-smite": {
+        "damage_type": "force",
+        "base_dice": "5d10",
+        "base_slot": 5,
+        "save": {"ability": "cha", "condition": "incapacitated", "duration_turns": 10, "hp_threshold_max": 50},
+    },
+}
+
 
 @lru_cache(maxsize=None)
 def _load_lan_asset(name: str) -> str:
@@ -5373,6 +5419,69 @@ class InitiativeTracker(base.InitiativeTracker):
                 setattr(c, "start_turn_damage_riders", remaining_riders)
                 if rider_msgs:
                     msg = "; ".join(filter(None, [msg, ", ".join(rider_msgs)]))
+            save_riders = list(getattr(c, "start_turn_save_riders", []) or [])
+            if save_riders:
+                remaining_save_riders: List[Dict[str, Any]] = []
+                cleared_groups: set[str] = set()
+                rider_msgs: List[str] = []
+                for rider in save_riders:
+                    if not isinstance(rider, dict):
+                        continue
+                    save_ability = str(rider.get("save_ability") or "").strip().lower()
+                    try:
+                        save_dc = int(rider.get("save_dc"))
+                    except Exception:
+                        save_dc = 0
+                    if not save_ability or save_dc <= 0:
+                        continue
+                    save_roll = random.randint(1, 20)
+                    save_mod = 0
+                    saves = getattr(c, "saving_throws", None)
+                    if isinstance(saves, dict):
+                        try:
+                            save_mod = int(saves.get(save_ability) or 0)
+                        except Exception:
+                            save_mod = 0
+                    if save_mod == 0:
+                        mods = getattr(c, "ability_mods", None)
+                        if isinstance(mods, dict):
+                            try:
+                                save_mod = int(mods.get(save_ability) or 0)
+                            except Exception:
+                                save_mod = 0
+                    save_total = int(save_roll) + int(save_mod)
+                    save_passed = bool(save_roll != 1 and save_total >= int(save_dc))
+                    rider_msgs.append(
+                        f"{save_ability.upper()} save DC {save_dc}: {save_roll} + {save_mod} = {save_total} "
+                        f"({'PASS' if save_passed else 'FAIL'})"
+                    )
+                    clear_group = str(rider.get("clear_group") or "").strip().lower()
+                    condition = str(rider.get("condition") or "").strip().lower()
+                    if save_passed:
+                        if clear_group:
+                            cleared_groups.add(clear_group)
+                        if condition:
+                            stacks = list(getattr(c, "condition_stacks", []) or [])
+                            stacks = [st for st in stacks if str(getattr(st, "ctype", "")).strip().lower() != condition]
+                            setattr(c, "condition_stacks", stacks)
+                        continue
+                    remaining_save_riders.append(dict(rider))
+                if cleared_groups:
+                    remaining_save_riders = [
+                        rider
+                        for rider in remaining_save_riders
+                        if str(rider.get("clear_group") or "").strip().lower() not in cleared_groups
+                    ]
+                    start_turn_damage_riders = list(getattr(c, "start_turn_damage_riders", []) or [])
+                    start_turn_damage_riders = [
+                        rider
+                        for rider in start_turn_damage_riders
+                        if str(rider.get("clear_group") or "").strip().lower() not in cleared_groups
+                    ]
+                    setattr(c, "start_turn_damage_riders", start_turn_damage_riders)
+                setattr(c, "start_turn_save_riders", remaining_save_riders)
+                if rider_msgs:
+                    msg = "; ".join(filter(None, [msg, ", ".join(rider_msgs)]))
         try:
             setattr(c, "has_mounted_this_turn", False)
             mount_cid = _normalize_cid_value(getattr(c, "rider_cid", None), "turn.start.rider_mount")
@@ -8188,6 +8297,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "monster_slug": str(getattr(c, "monster_slug", "") or "") or None,
                     "concentrating": bool(getattr(c, "concentrating", False)),
                     "concentration_spell": str(getattr(c, "concentration_spell", "") or "") or None,
+                    "smite_charge": self._json_safe(getattr(c, "pending_smite_charge", None)),
                     "is_mount": bool(getattr(c, "is_mount", False)),
                     "rider_cid": _normalize_cid_value(getattr(c, "rider_cid", None), "snapshot.rider_cid"),
                     "mounted_by_cid": _normalize_cid_value(getattr(c, "mounted_by_cid", None), "snapshot.mounted_by"),
@@ -13227,6 +13337,47 @@ class InitiativeTracker(base.InitiativeTracker):
             level_text = f" at level {lvl}"
         return f"{caster} cast {name}{level_text}"
 
+    @staticmethod
+    def _smite_slug_from_preset(preset: Any) -> str:
+        if not isinstance(preset, dict):
+            return ""
+        candidates = (
+            str(preset.get("slug") or "").strip().lower(),
+            str(preset.get("id") or "").strip().lower(),
+        )
+        for candidate in candidates:
+            if candidate in _SMITE_SPELL_CONFIG:
+                return candidate
+        tags = preset.get("tags")
+        has_smite_tag = isinstance(tags, list) and any(str(tag).strip().lower() == "smite" for tag in tags)
+        if not has_smite_tag:
+            return ""
+        for candidate in candidates:
+            if candidate.endswith("-smite"):
+                return candidate
+        return ""
+
+    @staticmethod
+    def _smite_damage_dice(config: Dict[str, Any], slot_level: Optional[int]) -> Optional[str]:
+        base_dice = str(config.get("base_dice") or "").strip().lower()
+        match_base = re.fullmatch(r"(\d+)d(\d+)", base_dice)
+        if not match_base:
+            return None
+        count = int(match_base.group(1))
+        sides = int(match_base.group(2))
+        add_count = 0
+        add_die = str(config.get("upcast_die") or "").strip().lower()
+        match_add = re.fullmatch(r"(\d+)d(\d+)", add_die)
+        if match_add and int(match_add.group(2)) == sides:
+            base_slot = int(config.get("base_slot") or 0)
+            effective_slot = int(slot_level or base_slot or 0)
+            if base_slot > 0 and effective_slot > base_slot:
+                add_count = int(match_add.group(1)) * int(effective_slot - base_slot)
+        total_count = count + add_count
+        if total_count <= 0:
+            return None
+        return f"{int(total_count)}d{int(sides)}"
+
     def _find_spell_preset(self, spell_slug: Any, spell_id: Any) -> Optional[Dict[str, Any]]:
         by_slug, by_id = self._spell_preset_lookup()
         slug = str(spell_slug or "").strip().lower()
@@ -15573,6 +15724,18 @@ class InitiativeTracker(base.InitiativeTracker):
                 c.spell_cast_remaining = False
                 c.action_remaining = False
                 c.bonus_action_remaining = False
+                smite_slug = self._smite_slug_from_preset(preset)
+                if smite_slug and smite_slug in _SMITE_SPELL_CONFIG:
+                    setattr(
+                        c,
+                        "pending_smite_charge",
+                        {
+                            "slug": smite_slug,
+                            "name": str(preset.get("name") or smite_slug.replace("-", " ").title()),
+                            "slot_level": slot_level,
+                        },
+                    )
+                    self._lan.toast(ws_id, f"{str(getattr(c, 'name', 'Caster') or 'Caster')} readies {str(preset.get('name') or 'a smite')}.")
                 if summon_cfg and cid is not None:
                     spawned_cids = self._spawn_summons_from_cast(
                         caster_cid=cid,
@@ -15610,6 +15773,18 @@ class InitiativeTracker(base.InitiativeTracker):
                     c.concentrating = True
                     c.concentration_spell = str(preset.get("slug") or preset.get("id") or "")
                     c.concentration_target = list(spawned_cids)
+            if c is not None:
+                smite_slug = self._smite_slug_from_preset(preset)
+                if smite_slug and smite_slug in _SMITE_SPELL_CONFIG:
+                    setattr(
+                        c,
+                        "pending_smite_charge",
+                        {
+                            "slug": smite_slug,
+                            "name": str(preset.get("name") or smite_slug.replace("-", " ").title()),
+                            "slot_level": slot_level,
+                        },
+                    )
             self._lan_force_state_broadcast()
             self._lan.toast(ws_id, f"Casted {preset.get('name') or 'spell'}.")
             return
@@ -16823,7 +16998,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 if evaluated is None:
                     return None
                 return max(0, int(math.floor(evaluated)))
-            def _ensure_condition(target_obj: Any, ctype: str) -> bool:
+            def _ensure_condition(target_obj: Any, ctype: str, remaining_turns: Optional[int] = None) -> bool:
                 ctype_key = str(ctype or "").strip().lower()
                 if not ctype_key:
                     return False
@@ -16835,10 +17010,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     setattr(target_obj, "condition_stacks", stacks)
                 for st in stacks:
                     if getattr(st, "ctype", None) == ctype_key:
+                        if remaining_turns is not None:
+                            setattr(st, "remaining_turns", int(remaining_turns))
                         return False
                 next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
                 setattr(self, "_next_stack_id", int(next_sid) + 1)
-                stacks.append(base.ConditionStack(sid=int(next_sid), ctype=ctype_key, remaining_turns=None))
+                stacks.append(base.ConditionStack(sid=int(next_sid), ctype=ctype_key, remaining_turns=remaining_turns))
                 return True
             def _parse_effect_damage_entries(effect_text: Any, variables: Dict[str, int]) -> List[Dict[str, Any]]:
                 if not isinstance(effect_text, str):
@@ -17174,6 +17351,39 @@ class InitiativeTracker(base.InitiativeTracker):
                     if bool(rider.get("once_per_turn")):
                         self._once_per_turn_limiter_mark(profile_cid, rider_id)
                     mastery_notes.append(f"{str(rider.get('id') or 'rider').strip() or 'rider'} adds {int(rider_amount)} damage.")
+            smite_result: Optional[Dict[str, Any]] = None
+            smite_save_cfg: Optional[Dict[str, Any]] = None
+            smite_cfg: Optional[Dict[str, Any]] = None
+            smite_start_turn_rider_cfg: Optional[Dict[str, Any]] = None
+            is_melee_attack = True
+            weapon_category = str(selected_weapon.get("category") or "").strip().lower()
+            weapon_range_text = str(selected_weapon.get("range") or "").strip().lower()
+            if "ranged" in weapon_category or "/" in weapon_range_text or "ranged" in weapon_range_text:
+                is_melee_attack = False
+            pending_smite = getattr(c, "pending_smite_charge", None)
+            if hit and is_melee_attack and isinstance(pending_smite, dict):
+                smite_slug = str(pending_smite.get("slug") or "").strip().lower()
+                smite_cfg = _SMITE_SPELL_CONFIG.get(smite_slug)
+                if isinstance(smite_cfg, dict):
+                    smite_dice = self._smite_damage_dice(smite_cfg, pending_smite.get("slot_level"))
+                    smite_type = str(smite_cfg.get("damage_type") or "").strip().lower() or "damage"
+                    smite_amount = _roll_damage_formula(smite_dice, {}) if smite_dice else None
+                    if smite_amount is not None and smite_amount > 0:
+                        damage_entries.append({"amount": int(smite_amount), "type": smite_type})
+                    smite_result = {
+                        "slug": smite_slug,
+                        "name": str(pending_smite.get("name") or smite_slug.replace("-", " ").title()),
+                        "damage": {"amount": int(max(0, smite_amount or 0)), "type": smite_type},
+                    }
+                    smite_save_cfg = smite_cfg.get("save") if isinstance(smite_cfg.get("save"), dict) else None
+                    smite_start_turn_rider_cfg = smite_cfg.get("start_turn_rider") if isinstance(smite_cfg.get("start_turn_rider"), dict) else None
+                    setattr(c, "pending_smite_charge", None)
+                    if smite_result.get("damage", {}).get("amount", 0):
+                        self._log(
+                            f"{c.name}'s {smite_result['name']} adds {smite_result['damage']['amount']} "
+                            f"{smite_type} damage.",
+                            cid=cid,
+                        )
             adjustment = self._adjust_damage_entries_for_target(target, damage_entries)
             damage_entries = list(adjustment.get("entries") or [])
             adjustment_notes = list(adjustment.get("notes") or [])
@@ -17323,10 +17533,31 @@ class InitiativeTracker(base.InitiativeTracker):
                 result_payload["cleave_candidates"] = list(mastery_cleave_candidates)
             if mastery_notes:
                 result_payload["weapon_property_notes"] = list(mastery_notes)
+            if isinstance(smite_result, dict):
+                result_payload["smite"] = dict(smite_result)
             save_ability = str(effect_block.get("save_ability") or "").strip().lower()
             save_dc = _parse_int(effect_block.get("save_dc"), 0) or 0
             if hit and save_ability and save_dc > 0:
                 result_payload["on_hit_save"] = {"ability": save_ability, "dc": int(save_dc)}
+            smite_save_ability = str((smite_save_cfg or {}).get("ability") or "").strip().lower()
+            smite_save_dc = 0
+            if smite_save_ability:
+                try:
+                    smite_save_dc = int((pending_smite or {}).get("save_dc"))
+                except Exception:
+                    smite_save_dc = 0
+                if smite_save_dc <= 0:
+                    aura_bonus = int((self._lan_aura_effects_for_target(c) or {}).get("save_bonus") or 0)
+                    smite_save_dc = int(8 + max(2, int((pending_smite or {}).get("proficiency_bonus") or 2)) + max(0, aura_bonus))
+                hp_threshold = (smite_save_cfg or {}).get("hp_threshold_max")
+                hp_threshold_pass = True
+                if hp_threshold is not None:
+                    try:
+                        hp_threshold_pass = int(getattr(target, "hp", 0) or 0) <= int(hp_threshold)
+                    except Exception:
+                        hp_threshold_pass = False
+                if hp_threshold_pass:
+                    result_payload["smite_save"] = {"ability": smite_save_ability, "dc": int(smite_save_dc)}
             msg["_attack_result"] = dict(result_payload)
             if attack_roll is not None:
                 self._log(
@@ -17380,6 +17611,108 @@ class InitiativeTracker(base.InitiativeTracker):
                     )
                     if not save_passed and _set_prone_if_needed(target):
                         self._log(f"{c.name} knocks {result_payload['target_name']} prone.", cid=int(target_cid))
+                if hit and smite_save_ability and smite_save_dc > 0:
+                    hp_threshold = (smite_save_cfg or {}).get("hp_threshold_max")
+                    hp_threshold_pass = True
+                    if hp_threshold is not None:
+                        try:
+                            hp_threshold_pass = int(getattr(target, "hp", 0) or 0) <= int(hp_threshold)
+                        except Exception:
+                            hp_threshold_pass = False
+                    if hp_threshold_pass:
+                        save_roll = random.randint(1, 20)
+                        save_mod = _save_mod_for_target(target, smite_save_ability)
+                        save_total = int(save_roll) + int(save_mod)
+                        save_passed = bool(save_roll != 1 and save_total >= int(smite_save_dc))
+                        smite_save_result = {
+                            "ability": smite_save_ability,
+                            "dc": int(smite_save_dc),
+                            "roll": int(save_roll),
+                            "modifier": int(save_mod),
+                            "total": int(save_total),
+                            "passed": bool(save_passed),
+                        }
+                        result_payload["smite_save_result"] = smite_save_result
+                        self._log(
+                            f"{result_payload.get('smite', {}).get('name', 'Smite')} forces "
+                            f"{result_payload['target_name']} to make a {smite_save_ability.upper()} save "
+                            f"(DC {int(smite_save_dc)}): {int(save_roll)} + {int(save_mod)} = {int(save_total)} "
+                            f"({'PASS' if save_passed else 'FAIL'}).",
+                            cid=int(target_cid),
+                        )
+                        if not save_passed:
+                            if bool((smite_save_cfg or {}).get("apply_prone")) and _set_prone_if_needed(target):
+                                self._log(f"{c.name} knocks {result_payload['target_name']} prone.", cid=int(target_cid))
+                            if bool((smite_save_cfg or {}).get("push_10ft")):
+                                origin = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(target_cid))
+                                if isinstance(origin, tuple) and len(origin) == 2:
+                                    pushed = _push_destination((int(origin[0]), int(origin[1])), getattr(c, "facing_deg", 0), 2)
+                                    self._lan_positions[int(target_cid)] = (int(pushed[0]), int(pushed[1]))
+                                    self._enforce_johns_echo_tether(int(target_cid))
+                            smite_condition = str((smite_save_cfg or {}).get("condition") or "").strip().lower()
+                            if smite_condition:
+                                duration_turns = (smite_save_cfg or {}).get("duration_turns")
+                                turns = None
+                                try:
+                                    turns = int(duration_turns) if duration_turns is not None else None
+                                except Exception:
+                                    turns = None
+                                _ensure_condition(target, smite_condition, turns)
+                                if bool((smite_save_cfg or {}).get("repeat_each_turn")):
+                                    group = f"smite_{str((smite_result or {}).get('slug') or '')}_{int(cid)}"
+                                    riders = list(getattr(target, "start_turn_save_riders", []) or [])
+                                    riders.append(
+                                        {
+                                            "clear_group": group,
+                                            "save_ability": smite_save_ability,
+                                            "save_dc": int(smite_save_dc),
+                                            "condition": smite_condition,
+                                        }
+                                    )
+                                    setattr(target, "start_turn_save_riders", riders)
+                            if isinstance(smite_start_turn_rider_cfg, dict):
+                                rider_dice = self._smite_damage_dice(
+                                    {"base_dice": smite_start_turn_rider_cfg.get("dice"), "base_slot": smite_cfg.get("base_slot"), "upcast_die": smite_cfg.get("upcast_die")},
+                                    (pending_smite or {}).get("slot_level"),
+                                )
+                                group = f"smite_{str((smite_result or {}).get('slug') or '')}_{int(cid)}"
+                                riders = list(getattr(target, "start_turn_damage_riders", []) or [])
+                                riders.append(
+                                    {
+                                        "dice": rider_dice or str(smite_start_turn_rider_cfg.get("dice") or "1d6"),
+                                        "type": str(smite_start_turn_rider_cfg.get("type") or "damage"),
+                                        "source": str((smite_result or {}).get("name") or "Smite"),
+                                        "save_ability": str(smite_start_turn_rider_cfg.get("save_ability") or "").strip().lower(),
+                                        "save_dc": int(smite_save_dc),
+                                        "clear_group": group,
+                                    }
+                                )
+                                setattr(target, "start_turn_damage_riders", riders)
+                if hit and isinstance(smite_start_turn_rider_cfg, dict) and not smite_save_ability:
+                    rider_dc = int((pending_smite or {}).get("save_dc") or 0)
+                    if rider_dc <= 0:
+                        aura_bonus = int((self._lan_aura_effects_for_target(c) or {}).get("save_bonus") or 0)
+                        rider_dc = int(8 + max(2, int((pending_smite or {}).get("proficiency_bonus") or 2)) + max(0, aura_bonus))
+                    rider_dice = self._smite_damage_dice(
+                        {
+                            "base_dice": smite_start_turn_rider_cfg.get("dice"),
+                            "base_slot": (smite_cfg or {}).get("base_slot"),
+                            "upcast_die": (smite_cfg or {}).get("upcast_die"),
+                        },
+                        (pending_smite or {}).get("slot_level"),
+                    )
+                    riders = list(getattr(target, "start_turn_damage_riders", []) or [])
+                    riders.append(
+                        {
+                            "dice": rider_dice or str(smite_start_turn_rider_cfg.get("dice") or "1d6"),
+                            "type": str(smite_start_turn_rider_cfg.get("type") or "damage"),
+                            "source": str((smite_result or {}).get("name") or "Smite"),
+                            "save_ability": str(smite_start_turn_rider_cfg.get("save_ability") or "").strip().lower(),
+                            "save_dc": int(rider_dc),
+                            "clear_group": f"smite_{str((smite_result or {}).get('slug') or '')}_{int(cid)}",
+                        }
+                    )
+                    setattr(target, "start_turn_damage_riders", riders)
                 effect_text = str(effect_block.get("on_hit") or "")
                 if "hellfire stack" in effect_text.lower():
                     marker = (int(getattr(self, "round_num", 0) or 0), int(getattr(self, "turn_num", 0) or 0))
