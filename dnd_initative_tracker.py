@@ -1382,6 +1382,10 @@ class LanController:
         self._actions: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._last_snapshot: Optional[Dict[str, Any]] = None
         self._last_static_json: Optional[str] = None
+        self._monster_choices_cache: List[Dict[str, Any]] = []
+        self._monster_choices_cache_key: Optional[Tuple[int, int]] = None
+        self._last_static_check_ts: float = 0.0
+        self._static_check_interval_s: float = 0.9
         self._polling: bool = False
         self._grid_version: int = 0
         self._grid_pending: Dict[int, Tuple[int, float]] = {}
@@ -3178,19 +3182,43 @@ class LanController:
 
                 self._last_snapshot = copy.deepcopy(snap)
 
-            try:
-                static_payload = self._static_data_payload()
-                static_json = json.dumps(static_payload, sort_keys=True, separators=(",", ":"))
-            except Exception as exc:
-                static_payload = None
-                static_json = None
-                self._log_lan_exception("LAN static payload build failed", exc)
-            if static_payload is not None and static_json is not None:
-                if self._last_static_json is None:
-                    self._last_static_json = static_json
-                elif static_json != self._last_static_json:
-                    self._last_static_json = static_json
-                    self._broadcast_payload({"type": "static_data", "data": static_payload})
+            now = time.monotonic()
+            static_check_due = bool(processed_any)
+            if not static_check_due:
+                static_check_due = (
+                    now - float(getattr(self, "_last_static_check_ts", 0.0))
+                    >= float(getattr(self, "_static_check_interval_s", 0.9))
+                )
+            if static_check_due:
+                self._last_static_check_ts = now
+                static_payload: Optional[Dict[str, Any]] = None
+                static_json: Optional[str] = None
+                static_build_ms = 0.0
+                static_json_ms = 0.0
+                monster_choices_count = 0
+                try:
+                    build_start = time.perf_counter()
+                    static_payload = self._static_data_payload()
+                    static_build_ms = (time.perf_counter() - build_start) * 1000.0
+                    json_start = time.perf_counter()
+                    static_json = json.dumps(static_payload, sort_keys=True, separators=(",", ":"))
+                    static_json_ms = (time.perf_counter() - json_start) * 1000.0
+                    monster_choices_count = len(static_payload.get("monster_choices", []))
+                except Exception as exc:
+                    self._log_lan_exception("LAN static payload build failed", exc)
+                if os.getenv("LAN_PERF_DEBUG") == "1":
+                    self._lan_logger.info(
+                        "LAN_PERF static_check build_ms=%.2f json_ms=%.2f monster_choices=%d",
+                        static_build_ms,
+                        static_json_ms,
+                        monster_choices_count,
+                    )
+                if static_payload is not None and static_json is not None:
+                    if self._last_static_json is None:
+                        self._last_static_json = static_json
+                    elif static_json != self._last_static_json:
+                        self._last_static_json = static_json
+                        self._broadcast_payload({"type": "static_data", "data": static_payload})
         except KeyboardInterrupt:
             should_schedule_next = False
             self._polling = False
@@ -4161,10 +4189,16 @@ class LanController:
             obstacles = []
         return {"rough_terrain": rough, "obstacles": obstacles}
 
-    def _static_data_payload(self, planning: bool = False) -> Dict[str, Any]:
-        """Return static data that only needs to be sent once on connection."""
-        spell_presets = self.app._spell_presets_payload() if planning else self._cached_snapshot.get("spell_presets", [])
-        monster_choices = []
+    def _monster_choices_payload(self) -> List[Dict[str, Any]]:
+        specs = getattr(self.app, "_monster_specs", [])
+        if not isinstance(specs, list):
+            specs = []
+        cache_key = (id(specs), len(specs))
+        if cache_key == getattr(self, "_monster_choices_cache_key", None):
+            return getattr(self, "_monster_choices_cache", [])
+
+        monster_choices: List[Dict[str, Any]] = []
+
         def _as_int(value: Any) -> Optional[int]:
             try:
                 if value is None:
@@ -4179,51 +4213,61 @@ class LanController:
                 return int(float(text))
             except Exception:
                 return None
+
         def _ability_score(raw_data: Dict[str, Any], ability: str) -> int:
             abilities = raw_data.get("abilities") if isinstance(raw_data.get("abilities"), dict) else {}
             score = _as_int(abilities.get(ability))
             if score is None:
                 return 10
             return max(1, min(30, int(score)))
+
         try:
-            if hasattr(self.app, "_monster_specs"):
-                monster_choices = [
-                    {
-                        "name": str(spec.name),
-                        "slug": Path(str(spec.filename or "")).with_suffix("").as_posix(),
-                        "template": {
-                            "name": str(spec.name or ""),
-                            "type": str(spec.mtype or "construct"),
-                            "hp": max(1, int(spec.hp or 1)),
-                            "ac": max(
-                                1,
-                                int(
-                                    _as_int((spec.raw_data or {}).get("ac"))
-                                    or _as_int((spec.raw_data or {}).get("armor_class"))
-                                    or 10
-                                ),
+            monster_choices = [
+                {
+                    "name": str(spec.name),
+                    "slug": Path(str(spec.filename or "")).with_suffix("").as_posix(),
+                    "template": {
+                        "name": str(spec.name or ""),
+                        "type": str(spec.mtype or "construct"),
+                        "hp": max(1, int(spec.hp or 1)),
+                        "ac": max(
+                            1,
+                            int(
+                                _as_int((spec.raw_data or {}).get("ac"))
+                                or _as_int((spec.raw_data or {}).get("armor_class"))
+                                or 10
                             ),
-                            "speeds": {
-                                "walk": max(1, int(spec.speed or 30)),
-                                "swim": max(0, int(spec.swim_speed or 0)),
-                                "fly": max(0, int(spec.fly_speed or 0)),
-                                "burrow": max(0, int(spec.burrow_speed or 0)),
-                                "climb": max(0, int(spec.climb_speed or 0)),
-                            },
-                            "abilities": {
-                                "str": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "str"),
-                                "dex": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "dex"),
-                                "con": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "con"),
-                                "int": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "int"),
-                                "wis": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "wis"),
-                                "cha": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "cha"),
-                            },
+                        ),
+                        "speeds": {
+                            "walk": max(1, int(spec.speed or 30)),
+                            "swim": max(0, int(spec.swim_speed or 0)),
+                            "fly": max(0, int(spec.fly_speed or 0)),
+                            "burrow": max(0, int(spec.burrow_speed or 0)),
+                            "climb": max(0, int(spec.climb_speed or 0)),
                         },
-                    }
-                    for spec in getattr(self.app, "_monster_specs", [])
-                ]
+                        "abilities": {
+                            "str": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "str"),
+                            "dex": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "dex"),
+                            "con": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "con"),
+                            "int": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "int"),
+                            "wis": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "wis"),
+                            "cha": _ability_score(spec.raw_data if isinstance(spec.raw_data, dict) else {}, "cha"),
+                        },
+                    },
+                }
+                for spec in specs
+            ]
         except Exception:
             monster_choices = []
+
+        self._monster_choices_cache_key = cache_key
+        self._monster_choices_cache = monster_choices
+        return monster_choices
+
+    def _static_data_payload(self, planning: bool = False) -> Dict[str, Any]:
+        """Return static data that only needs to be sent once on connection."""
+        spell_presets = self.app._spell_presets_payload() if planning else self._cached_snapshot.get("spell_presets", [])
+        monster_choices = self._monster_choices_payload()
         return {
             "spell_presets": spell_presets,
             "player_spells": self._cached_snapshot.get("player_spells", {}),

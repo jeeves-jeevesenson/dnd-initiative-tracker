@@ -6,6 +6,43 @@ import dnd_initative_tracker as tracker_mod
 
 
 class LanSnapshotStaticTests(unittest.TestCase):
+    def test_monster_choices_payload_cache_uses_monster_specs_id_and_len(self):
+        lan = object.__new__(tracker_mod.LanController)
+
+        class Spec:
+            def __init__(self, name, filename):
+                self.name = name
+                self.filename = filename
+                self.mtype = "beast"
+                self.hp = 9
+                self.speed = 30
+                self.swim_speed = 0
+                self.fly_speed = 0
+                self.burrow_speed = 0
+                self.climb_speed = 0
+                self.raw_data = {"ac": 12, "abilities": {"str": 14, "dex": 13, "con": 12, "int": 10, "wis": 11, "cha": 8}}
+
+        class AppStub:
+            def __init__(self):
+                self._monster_specs = [Spec("Wolf", "wolf.yaml")]
+
+        lan._tracker = AppStub()
+        lan._monster_choices_cache = []
+        lan._monster_choices_cache_key = None
+
+        first = lan._monster_choices_payload()
+        second = lan._monster_choices_payload()
+        self.assertIs(first, second)
+
+        lan._tracker._monster_specs = list(lan._tracker._monster_specs)
+        third = lan._monster_choices_payload()
+        self.assertIsNot(third, second)
+
+        lan._tracker._monster_specs.append(Spec("Bear", "bear.yaml"))
+        fourth = lan._monster_choices_payload()
+        self.assertIsNot(fourth, third)
+        self.assertEqual(len(fourth), 2)
+
     def test_next_turn_notification_target_skips_skipped_combatants(self):
         lan = object.__new__(tracker_mod.LanController)
 
@@ -231,6 +268,81 @@ class LanSnapshotStaticTests(unittest.TestCase):
         self.assertEqual(call_counts["snap"], 1)
         self.assertEqual(len(scheduled), 1)
         self.assertEqual(scheduled[0][0], 350)
+
+    def test_tick_throttles_static_payload_checks_when_idle_with_clients(self):
+        lan = object.__new__(tracker_mod.LanController)
+        lan._actions = queue.Queue()
+        lan._clients_lock = threading.Lock()
+        lan._clients = {1: object()}
+        lan._polling = False
+        lan._active_poll_interval_ms = 120
+        lan._idle_poll_interval_ms = 350
+        lan._idle_cache_refresh_interval_s = 1.0
+        lan._last_idle_cache_refresh = 0.0
+        lan._cached_snapshot = {"grid": {"cols": 8, "rows": 8}, "units": [], "obstacles": []}
+        lan._cached_pcs = []
+        lan._log_lan_exception = lambda *args, **kwargs: None
+        lan._move_debug_log = lambda *args, **kwargs: None
+        lan._broadcast_grid_update = lambda *_args, **_kwargs: None
+        lan._build_turn_update = lambda *_args, **_kwargs: {}
+        lan._build_unit_updates = lambda *_args, **_kwargs: (None, [])
+        lan._build_terrain_patch = lambda *_args, **_kwargs: None
+        lan._apply_terrain_patch_to_map = lambda *_args, **_kwargs: None
+        lan._build_aoe_patch = lambda *_args, **_kwargs: None
+        lan._broadcast_payload = lambda *_args, **_kwargs: None
+        lan._grid_last_sent = None
+        lan._grid_version = 0
+        lan._last_snapshot = None
+        lan._last_static_json = None
+        lan._last_static_check_ts = 0.0
+        lan._static_check_interval_s = 10.0
+
+        static_call_count = {"count": 0}
+
+        def _fake_static_data_payload():
+            static_call_count["count"] += 1
+            return {
+                "spell_presets": [],
+                "player_spells": {},
+                "player_profiles": {},
+                "resource_pools": {},
+                "monster_choices": [],
+                "conditions": [],
+                "dice_types": [],
+                "token_colours": [],
+            }
+
+        lan._static_data_payload = _fake_static_data_payload
+
+        class AppStub:
+            def _lan_snapshot(self, include_static=False):
+                return {
+                    "grid": {"cols": 8, "rows": 8},
+                    "units": [],
+                    "obstacles": [],
+                    "rough_terrain": [],
+                    "active_cid": None,
+                    "round_num": 1,
+                }
+
+            def _lan_claimable(self):
+                return []
+
+            def _lan_apply_action(self, _msg):
+                return None
+
+            def after(self, _ms, _fn):
+                return None
+
+        lan._tracker = AppStub()
+
+        lan._tick()
+        lan._tick()
+        self.assertEqual(static_call_count["count"], 1)
+
+        lan._actions.put({"type": "noop"})
+        lan._tick()
+        self.assertEqual(static_call_count["count"], 2)
 
 
 if __name__ == "__main__":

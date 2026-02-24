@@ -9371,7 +9371,7 @@ __DAMAGE_TYPE_OPTIONS__
     return true;
   }
 
-  function centerOnClaimed(){
+  function centerOnClaimed(shouldDraw = true){
     if (!state || !state.units || claimedCid === null || claimedCid === undefined) return false;
     if (!gridReady()) return false;
     const me = state.units.find(u => cidMatches(u.cid, claimedCid, "centerOnClaimed"));
@@ -9379,12 +9379,14 @@ __DAMAGE_TYPE_OPTIONS__
     const ok = centerOnPoint(me.pos.col, me.pos.row);
     if (ok){
       centeredCid = String(claimedCid);
-      draw();
+      if (shouldDraw){
+        draw();
+      }
     }
     return ok;
   }
 
-  function centerOnGridCenter(){
+  function centerOnGridCenter(shouldDraw = true){
     if (!state || !state.grid) return false;
     if (!gridReady()) return false;
     const cols = Number(state.grid.cols || 0);
@@ -9392,7 +9394,7 @@ __DAMAGE_TYPE_OPTIONS__
     const col = Math.max(0, (cols - 1) / 2);
     const row = Math.max(0, (rows - 1) / 2);
     const ok = centerOnPoint(col, row);
-    if (ok){
+    if (ok && shouldDraw){
       draw();
     }
     return ok;
@@ -9499,17 +9501,17 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
-  function autoCenterOnJoin(){
+  function autoCenterOnJoin(shouldDraw = true){
     if (!gridReady()) return;
     if (claimedCid !== null && claimedCid !== undefined){
       if (!initialCenterDone || (initialCenterFallback && centeredCid !== String(claimedCid))){
-        if (centerOnClaimed()){
+        if (centerOnClaimed(shouldDraw)){
           initialCenterDone = true;
           initialCenterFallback = false;
         }
       }
     } else if (!initialCenterDone) {
-      if (centerOnGridCenter()){
+      if (centerOnGridCenter(shouldDraw)){
         initialCenterDone = true;
         initialCenterFallback = true;
       }
@@ -10790,6 +10792,55 @@ __DAMAGE_TYPE_OPTIONS__
     "aoe_patch",
   ]);
 
+  let uiFlushQueued = false;
+  let uiNeedsDraw = false;
+  let uiNeedsHud = false;
+  let uiNeedsMount = false;
+  let uiNeedsTurnAlert = false;
+  let uiNeedsAutoCenter = false;
+
+  function scheduleUiFlush({draw = false, hud = false, mount = false, turnAlert = false, autoCenter = false} = {}){
+    uiNeedsDraw = uiNeedsDraw || !!draw;
+    uiNeedsHud = uiNeedsHud || !!hud;
+    uiNeedsMount = uiNeedsMount || !!mount;
+    uiNeedsTurnAlert = uiNeedsTurnAlert || !!turnAlert;
+    uiNeedsAutoCenter = uiNeedsAutoCenter || !!autoCenter;
+    if (uiFlushQueued){
+      return;
+    }
+    uiFlushQueued = true;
+    requestAnimationFrame(flushUiUpdates);
+  }
+
+  function flushUiUpdates(){
+    const needsHud = uiNeedsHud;
+    const needsDraw = uiNeedsDraw;
+    const needsMount = uiNeedsMount;
+    const needsTurnAlert = uiNeedsTurnAlert;
+    const needsAutoCenter = uiNeedsAutoCenter;
+    uiFlushQueued = false;
+    uiNeedsDraw = false;
+    uiNeedsHud = false;
+    uiNeedsMount = false;
+    uiNeedsTurnAlert = false;
+    uiNeedsAutoCenter = false;
+    if (needsHud){
+      updateHud();
+    }
+    if (needsDraw){
+      draw();
+    }
+    if (needsMount){
+      updateMountControls();
+    }
+    if (needsTurnAlert){
+      maybeShowTurnAlert();
+    }
+    if (needsAutoCenter){
+      autoCenterOnJoin(false);
+    }
+  }
+
   function connect(){
     if (!wsUrl){
       setConn(false, "Disconnected");
@@ -10929,12 +10980,7 @@ __DAMAGE_TYPE_OPTIONS__
         logClaimMessage("state", lastPcList);
         maybeAutoClaimFromState(msg, lastPcList);
         updateWaitingOverlay();
-        draw();
-        updateHud();
-        updateMountControls();
-        queueMicrotask(updateMountControls);
-        maybeShowTurnAlert();
-        autoCenterOnJoin();
+        scheduleUiFlush({hud:true, draw:true, mount:true, turnAlert:true, autoCenter:true});
         
         // Use server-authoritative claim state from "you" field
         if (msg.you && "claimed_cid" in msg.you){
@@ -10984,26 +11030,16 @@ __DAMAGE_TYPE_OPTIONS__
         if ("turn_order" in msg){
           state.turn_order = msg.turn_order;
         }
-        updateHud();
-        maybeShowTurnAlert();
-        draw();
-        updateMountControls();
-        queueMicrotask(updateMountControls);
+        scheduleUiFlush({hud:true, draw:true, mount:true, turnAlert:true});
       } else if (msg.type === "units_snapshot"){
         if (!state){ state = {}; }
         state.units = Array.isArray(msg.units) ? msg.units : [];
-        updateHud();
-        draw();
-        updateMountControls();
-        queueMicrotask(updateMountControls);
+        scheduleUiFlush({hud:true, draw:true, mount:true});
       } else if (msg.type === "unit_update"){
         const updates = Array.isArray(msg.updates) ? msg.updates : [];
         if (updates.length){
           applyUnitUpdates(updates);
-          updateHud();
-          draw();
-          updateMountControls();
-          queueMicrotask(updateMountControls);
+          scheduleUiFlush({hud:true, draw:true, mount:true});
         }
       } else if (msg.type === "force_claim"){
         if (isMapView) return;
@@ -11181,19 +11217,19 @@ __DAMAGE_TYPE_OPTIONS__
         updateWaitingOverlay();
         lastGridVersion = msg.version ?? lastGridVersion;
         send({type:"grid_ack", version: msg.version});
-        draw();
+        scheduleUiFlush({draw:true});
       } else if (msg.type === "terrain_update"){
         applyTerrainPayload(msg.terrain);
         updateWaitingOverlay();
         send({type:"terrain_ack", version: msg.version});
-        draw();
+        scheduleUiFlush({draw:true});
       } else if (msg.type === "terrain_patch"){
         applyTerrainPatch(msg);
         updateWaitingOverlay();
-        draw();
+        scheduleUiFlush({draw:true});
       } else if (msg.type === "aoe_patch"){
         applyAoePatch(msg);
-        draw();
+        scheduleUiFlush({draw:true});
       } else if (msg.type === "aoe_move_ack"){
         console.log("[AOE move ack]", msg);
         if (msg.ok === false){
