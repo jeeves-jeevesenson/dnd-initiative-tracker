@@ -529,6 +529,8 @@
       flex-direction:column;
       flex:1 1 auto;
       min-height:0;
+      overflow:auto;
+      padding-right: 2px;
     }
     .cast-panel{
       margin-top: 10px;
@@ -1490,6 +1492,20 @@
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
 
     .rules-help-layout{display:grid; grid-template-columns:minmax(220px, 32%) 1fr; gap:10px; min-height:68vh; max-height:calc(100dvh - 170px);}
+    .cast-modal-layout{display:grid; grid-template-columns:minmax(240px, 34%) 1fr; gap:10px; min-height:62vh; max-height:calc(100dvh - 180px);}
+    .cast-modal-left,
+    .cast-modal-right{min-height:0; overflow:auto; border:1px solid rgba(255,255,255,0.1); border-radius:12px; background:rgba(10,14,22,0.55); padding:10px;}
+    .cast-modal-search{margin-bottom:10px;}
+    .cast-modal-list{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
+    .cast-modal-list .btn{justify-content:flex-start; text-align:left; width:100%;}
+    .cast-modal-list .btn.active{border-color:var(--accent); box-shadow:0 0 0 1px rgba(106,169,255,0.35) inset;}
+    .cast-preview-empty{font-size:13px; color:var(--muted);}
+    .cast-preview-heading{font-size:15px; font-weight:700; margin-bottom:8px;}
+    .cast-preview-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px;}
+    .cast-preview-dtype-row{display:flex; gap:8px; align-items:center;}
+    .cast-preview-dtype-row select{flex:1;}
+    .cast-preview-dtype-list{margin-top:8px;}
+    .cast-preview-section{margin-top:10px;}
     .rules-help-left{display:flex; flex-direction:column; gap:8px; min-height:0;}
     .rules-help-search{width:100%;}
     .rules-help-tree{overflow:auto; border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px; background:rgba(8,10,14,.5); min-height:200px;}
@@ -1505,6 +1521,7 @@
     @media (max-width: 1600px){ .rules-help-layout{min-height:64vh; max-height:calc(100dvh - 150px);} }
     @media (max-width: 1200px){ .rules-help-layout{min-height:60vh; max-height:calc(100dvh - 130px);} }
     @media (max-width: 900px){ .rules-help-layout{grid-template-columns:1fr; min-height:56vh; max-height:none;} .rules-help-frame{min-height:360px;} }
+    @media (max-width: 900px){ .cast-modal-layout{grid-template-columns:1fr; min-height:56vh; max-height:none;} }
     .modal-actions .btn{flex:1; min-width:120px;}
     .action-picker-list{
       display:flex;
@@ -2461,6 +2478,7 @@
           <button class="btn" id="dash">Dash</button>
           <button class="btn" id="standUp">Stand Up</button>
           <button class="btn" id="useBonusAction">Use Bonus Action</button>
+          <button class="btn" id="castSpellModalOpen" type="button">Cast Spell</button>
           <button class="btn mount hidden" id="mountBtn">Mount</button>
           <button class="btn hidden" id="endTurnSheet">End Turn</button>
           <button class="btn hidden" id="dismountBtn">Dismount</button>
@@ -2506,9 +2524,6 @@
           <summary>Resource Pools</summary>
           <div class="resource-pool-list" id="resourcePoolsList"></div>
         </details>
-      </div>
-      <div class="cast-menu-trigger" id="castMenuTrigger">
-        <button class="btn" id="castOverlayOpen" type="button">Cast Spell</button>
       </div>
       </div>
     </div>
@@ -2836,6 +2851,32 @@ __DAMAGE_TYPE_OPTIONS__
       <button class="btn" id="echoTetherPromptNo">No</button>
     </div>
   </div>
+
+<div class="modal" id="castSpellModal" aria-hidden="true">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="castSpellModalTitle" style="width:min(1200px,96vw)">
+    <h2 id="castSpellModalTitle">Cast Spell</h2>
+    <div class="modal-actions" style="margin-top:0;">
+      <button class="btn" id="castSpellModalBack" type="button">Back</button>
+      <div class="spacer"></div>
+      <button class="btn" id="castSpellModalClose" type="button">Close</button>
+    </div>
+    <div class="cast-modal-layout">
+      <div class="cast-modal-left">
+        <div class="form-field cast-modal-search">
+          <label for="castSpellModalSearch">Search</label>
+          <input id="castSpellModalSearch" type="search" placeholder="Search spells" />
+        </div>
+        <details open>
+          <summary id="castSpellPresetSummary">Spells &amp; Presets (None)</summary>
+          <div class="cast-modal-list" id="castSpellPresetList"></div>
+        </details>
+      </div>
+      <div class="cast-modal-right" id="castSpellPreview" aria-live="polite">
+        <div class="cast-preview-empty">Please select a spell to cast</div>
+      </div>
+    </div>
+  </div>
+</div>
 </div>
 <div class="spellbook-overlay" id="spellbookOverlay" aria-hidden="true">
   <div class="spellbook-header">
@@ -3626,6 +3667,14 @@ __DAMAGE_TYPE_OPTIONS__
   const castOverlayOpenBtn = document.getElementById("castOverlayOpen");
   const castOverlayBackBtn = document.getElementById("castOverlayBack");
   const castMenuTrigger = document.getElementById("castMenuTrigger");
+  const castSpellModal = document.getElementById("castSpellModal");
+  const castSpellModalOpenBtn = document.getElementById("castSpellModalOpen");
+  const castSpellModalBackBtn = document.getElementById("castSpellModalBack");
+  const castSpellModalCloseBtn = document.getElementById("castSpellModalClose");
+  const castSpellModalSearchInput = document.getElementById("castSpellModalSearch");
+  const castSpellPresetList = document.getElementById("castSpellPresetList");
+  const castSpellPresetSummary = document.getElementById("castSpellPresetSummary");
+  const castSpellPreview = document.getElementById("castSpellPreview");
   const castPanel = document.getElementById("castPanel");
   const castForm = document.getElementById("castForm");
   const castSearchInput = document.getElementById("castSearch");
@@ -3844,6 +3893,8 @@ __DAMAGE_TYPE_OPTIONS__
   let lastVibrateSupported = canVibrate;
   let userHasInteracted = navigator.userActivation?.hasBeenActive ?? false;
   let castOverlayPreviousFocus = null;
+  let castSpellModalPreviousFocus = null;
+  let castSpellModalSelection = "";
   let pendingSpellActionType = null;
   let pendingSummonPlacement = null;
   let summonValidCells = new Set();
@@ -5936,6 +5987,161 @@ __DAMAGE_TYPE_OPTIONS__
     if (helpBtn) helpBtn.setAttribute("aria-expanded", "false");
   }
 
+  function renderCastSpellModalPresetList(){
+    if (!castSpellPresetList) return;
+    const search = normalizeLowerValue(castSpellModalSearchInput?.value || "");
+    castSpellPresetList.textContent = "";
+    const preparedSet = getPreparedSpellFilterSet();
+    const presets = filterPresetsByKnownList(cachedSpellPresets.slice(), preparedSet)
+      .filter((preset) => !search || normalizeLowerValue(preset?.name).includes(search));
+    const entries = [
+      {label: "None", value: ""},
+      {label: "Custom", value: "__custom__"},
+      {label: CUSTOM_SUMMON_PRESET_NAME, value: CUSTOM_SUMMON_PRESET_NAME},
+      ...presets.map((preset) => ({label: normalizeTextValue(preset.name), value: normalizeTextValue(preset.name)})),
+    ];
+    entries.forEach((entry) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn" + (castSpellModalSelection === entry.value ? " active" : "");
+      btn.textContent = entry.label || "Unnamed";
+      btn.addEventListener("click", () => selectCastSpellModalPreset(entry.value));
+      castSpellPresetList.appendChild(btn);
+    });
+  }
+
+  function renderCastSpellPreview(){
+    if (!castSpellPreview) return;
+    const selected = castSpellModalSelection;
+    const preset = selected && selected !== "__custom__" ? (selected === CUSTOM_SUMMON_PRESET_NAME ? CUSTOM_SUMMON_PRESET : getSelectedSpellPreset()) : null;
+    castSpellPreview.textContent = "";
+    if (!selected){
+      castSpellPreview.innerHTML = '<div class="cast-preview-empty">Please select a spell to cast</div>';
+      return;
+    }
+    const heading = document.createElement("div");
+    heading.className = "cast-preview-heading";
+    heading.textContent = normalizeTextValue(castNameInput?.value || preset?.name || (selected === "__custom__" ? "Custom" : "Spell"));
+    castSpellPreview.appendChild(heading);
+    const form = document.createElement("div");
+    form.className = "cast-preview-grid";
+    const addField = (label, inputEl) => {
+      if (!inputEl) return;
+      const wrap = document.createElement("div");
+      wrap.className = "form-field";
+      const lab = document.createElement("label");
+      lab.textContent = label;
+      wrap.appendChild(lab);
+      wrap.appendChild(inputEl);
+      form.appendChild(wrap);
+    };
+    const mkNumber = (value, min, onInput) => {
+      const input = document.createElement("input");
+      input.type = "number";
+      if (min !== null) input.min = String(min);
+      input.step = "1";
+      input.value = String(value ?? "");
+      input.addEventListener("input", onInput);
+      return input;
+    };
+    const slot = mkNumber(castSlotLevelInput?.value || "", 0, () => { castSlotLevelInput.value = slot.value; castSlotLevelInput.dispatchEvent(new Event("input", {bubbles:true})); renderCastSpellPreview(); });
+    addField("Slot Level", slot);
+    const isSummon = isSummonPreset(preset || (selected === CUSTOM_SUMMON_PRESET_NAME ? CUSTOM_SUMMON_PRESET : null));
+    const isAoe = isAoePreset(preset);
+    if (isSummon){
+      const summonSelect = castSummonChoiceInput?.cloneNode(true);
+      summonSelect?.addEventListener("change", () => { if (castSummonChoiceInput){ castSummonChoiceInput.value = summonSelect.value; castSummonChoiceInput.dispatchEvent(new Event("change", {bubbles:true})); renderCastSpellPreview(); } });
+      addField("Summon", summonSelect);
+      const variant = castSummonVariantInput?.cloneNode(true);
+      variant?.addEventListener("change", () => { if (castSummonVariantInput){ castSummonVariantInput.value = variant.value; castSummonVariantInput.dispatchEvent(new Event("change", {bubbles:true})); renderCastSpellPreview(); } });
+      if (variant && !variant.disabled) addField("Variant", variant);
+      const qty = document.createElement("input"); qty.type = "text"; qty.readOnly = true; qty.value = String(castSummonQuantityInput?.value || "1");
+      addField("Quantity", qty);
+      const color = document.createElement("input"); color.type = "color"; color.value = castColorInput?.value || DEFAULT_SPELL_COLOR;
+      color.addEventListener("input", ()=>{ if (castColorInput) castColorInput.value = color.value; });
+      addField("Color", color);
+    } else if (isAoe){
+      const dtype = document.createElement("input"); dtype.type = "text"; dtype.value = Array.from(castDamageTypes).join(", "); dtype.readOnly = true;
+      addField("Damage Type(s)", dtype);
+      const color = document.createElement("input"); color.type = "color"; color.value = castColorInput?.value || DEFAULT_SPELL_COLOR;
+      color.addEventListener("input", ()=>{ if (castColorInput) castColorInput.value = color.value; });
+      addField("Color", color);
+    } else {
+      if (castDcTypeInput?.value){
+        const dcType = castDcTypeInput.cloneNode(true);
+        dcType.addEventListener("change", ()=>{ castDcTypeInput.value = dcType.value; });
+        addField("DC Type", dcType);
+        const dcVal = mkNumber(castDcValueInput?.value || "", 0, ()=>{ castDcValueInput.value = dcVal.value; });
+        addField("Save DC", dcVal);
+      }
+      const dmg = document.createElement("input"); dmg.type = "text"; dmg.value = castDefaultDamageInput?.value || "";
+      dmg.addEventListener("input", ()=>{ castDefaultDamageInput.value = dmg.value; });
+      addField("Default Damage", dmg);
+      const dice = document.createElement("input"); dice.type = "text"; dice.value = castDiceInput?.value || "";
+      dice.addEventListener("input", ()=>{ castDiceInput.value = dice.value; castDiceInput.dispatchEvent(new Event("input", {bubbles:true})); renderCastSpellPreview(); });
+      addField("Damage Dice", dice);
+      const dtypeWrap = document.createElement("div"); dtypeWrap.className = "form-field";
+      const lbl = document.createElement("label"); lbl.textContent = "Damage Types"; dtypeWrap.appendChild(lbl);
+      const row = document.createElement("div"); row.className = "cast-preview-dtype-row";
+      const select = castDamageTypeInput?.cloneNode(true);
+      const addBtn = document.createElement("button"); addBtn.type = "button"; addBtn.className = "btn"; addBtn.textContent = "Add";
+      addBtn.addEventListener("click", ()=>{ addCastDamageType(select?.value || ""); renderCastSpellPreview(); });
+      if (select) row.appendChild(select);
+      row.appendChild(addBtn);
+      dtypeWrap.appendChild(row);
+      const list = castDamageTypeList?.cloneNode(true); if (list){ list.classList.add("cast-preview-dtype-list"); dtypeWrap.appendChild(list); }
+      form.appendChild(dtypeWrap);
+      const color = document.createElement("input"); color.type = "color"; color.value = castColorInput?.value || DEFAULT_SPELL_COLOR;
+      color.addEventListener("input", ()=>{ if (castColorInput) castColorInput.value = color.value; });
+      addField("Color", color);
+    }
+    castSpellPreview.appendChild(form);
+    const details = spellPresetDetails?.cloneNode(true);
+    if (details){ details.classList.add("cast-preview-section"); castSpellPreview.appendChild(details); }
+    const actions = document.createElement("div");
+    actions.className = "form-actions cast-preview-section";
+    const castBtn = document.createElement("button");
+    castBtn.type = "button";
+    castBtn.className = "btn accent";
+    castBtn.textContent = "Cast";
+    castBtn.addEventListener("click", () => castSubmitBtn?.click());
+    actions.appendChild(castBtn);
+    castSpellPreview.appendChild(actions);
+  }
+
+  function selectCastSpellModalPreset(value){
+    castSpellModalSelection = String(value || "");
+    if (castSpellPresetSummary){
+      const label = castSpellModalSelection === "" ? "None" : (castSpellModalSelection === "__custom__" ? "Custom" : castSpellModalSelection);
+      castSpellPresetSummary.textContent = `Spells & Presets (${label})`;
+    }
+    if (castPresetInput){
+      castPresetInput.value = castSpellModalSelection === "__custom__" ? "" : castSpellModalSelection;
+      castPresetInput.dispatchEvent(new Event("change", {bubbles:true}));
+    }
+    renderCastSpellModalPresetList();
+    renderCastSpellPreview();
+  }
+
+  function showCastSpellModal(){
+    if (!castSpellModal) return;
+    castSpellModal.classList.add("show");
+    castSpellModal.setAttribute("aria-hidden", "false");
+    castSpellModalPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    castSpellModalSelection = castPresetInput?.value === "" ? (castSpellModalSelection || "") : String(castPresetInput?.value || "");
+    if (castSpellModalSelection === "Custom") castSpellModalSelection = "__custom__";
+    renderCastSpellModalPresetList();
+    renderCastSpellPreview();
+    requestAnimationFrame(() => castSpellModalBackBtn?.focus());
+  }
+
+  function hideCastSpellModal(){
+    if (!castSpellModal) return;
+    castSpellModal.classList.remove("show");
+    castSpellModal.setAttribute("aria-hidden", "true");
+    if (castSpellModalPreviousFocus){ castSpellModalPreviousFocus.focus(); castSpellModalPreviousFocus = null; }
+  }
+
   function showConfigModal(){
     if (!configModal) return;
     configModal.classList.add("show");
@@ -5956,6 +6162,10 @@ __DAMAGE_TYPE_OPTIONS__
 
   if (helpBtn){
     helpBtn.addEventListener("click", () => {
+      if (castSpellModal?.classList.contains("show")){
+        hideCastSpellModal();
+        return;
+      }
       if (helpModal?.classList.contains("show")){
         hideHelpModal();
         return;
@@ -5972,6 +6182,27 @@ __DAMAGE_TYPE_OPTIONS__
         hideHelpModal();
       }
     });
+  }
+  if (castSpellModalOpenBtn){
+    castSpellModalOpenBtn.addEventListener("click", () => {
+      showCastSpellModal();
+    });
+  }
+  if (castSpellModalBackBtn){
+    castSpellModalBackBtn.addEventListener("click", hideCastSpellModal);
+  }
+  if (castSpellModalCloseBtn){
+    castSpellModalCloseBtn.addEventListener("click", hideCastSpellModal);
+  }
+  if (castSpellModal){
+    castSpellModal.addEventListener("click", (event) => {
+      if (event.target === castSpellModal){
+        hideCastSpellModal();
+      }
+    });
+  }
+  if (castSpellModalSearchInput){
+    castSpellModalSearchInput.addEventListener("input", renderCastSpellModalPresetList);
   }
   if (helpSearchInput){
     helpSearchInput.addEventListener("input", () => renderRulesToc());
@@ -7878,6 +8109,15 @@ __DAMAGE_TYPE_OPTIONS__
       castOverlayOpenBtn.disabled = wildShaped;
       castOverlayOpenBtn.setAttribute("aria-disabled", wildShaped ? "true" : "false");
       castOverlayOpenBtn.title = wildShaped ? "Spellcasting is disabled while Wild Shaped." : "Cast Spell";
+    }
+    if (castSpellModalOpenBtn){
+      castSpellModalOpenBtn.classList.toggle("hidden", hideForNonCaster);
+      castSpellModalOpenBtn.disabled = wildShaped;
+      castSpellModalOpenBtn.setAttribute("aria-disabled", wildShaped ? "true" : "false");
+      castSpellModalOpenBtn.title = wildShaped ? "Spellcasting is disabled while Wild Shaped." : "Cast Spell";
+      if (hideForNonCaster && castSpellModal?.classList.contains("show")){
+        hideCastSpellModal();
+      }
     }
   }
 
@@ -12952,6 +13192,10 @@ __DAMAGE_TYPE_OPTIONS__
     validValues.add(CUSTOM_SUMMON_PRESET_NAME);
     castPresetInput.value = validValues.has(currentValue) ? currentValue : "";
     updateSpellPresetDetails(getSelectedSpellPreset());
+    if (castSpellModal?.classList.contains("show")){
+      renderCastSpellModalPresetList();
+      renderCastSpellPreview();
+    }
   };
 
   const updateSpellPresetOptions = (presets) => {
@@ -13894,6 +14138,9 @@ __DAMAGE_TYPE_OPTIONS__
       const preset = getSelectedSpellPreset();
       updateSpellPresetDetails(preset || null);
       applySpellPreset(preset);
+      if (castSpellModal?.classList.contains("show")){
+        renderCastSpellPreview();
+      }
     });
   }
 
@@ -15102,6 +15349,10 @@ __DAMAGE_TYPE_OPTIONS__
     if (event.key === "Escape"){
       if (spellbookConfirmModal?.classList.contains("show")){
         hideSpellbookConfirm();
+        return;
+      }
+      if (castSpellModal?.classList.contains("show")){
+        hideCastSpellModal();
         return;
       }
       if (helpModal?.classList.contains("show")){
