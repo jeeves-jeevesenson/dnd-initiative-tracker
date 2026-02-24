@@ -3984,6 +3984,7 @@ __DAMAGE_TYPE_OPTIONS__
   let castSpellModalSelection = "";
   let pendingSpellActionType = null;
   let pendingSummonPlacement = null;
+  let pendingAoePlacement = null;
   let summonValidCells = new Set();
   const preparedSpellDefaults = {
     prepared: [],
@@ -8163,6 +8164,31 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+
+  function clearPendingAoePlacement(shouldRedraw = true){
+    pendingAoePlacement = null;
+    if (shouldRedraw){
+      draw();
+    }
+  }
+
+  function setPendingAoePlacementCursorFromPointer(pointer){
+    if (!pendingAoePlacement || !pointer) return;
+    const gridPos = screenToGridFloat(pointer.x, pointer.y);
+    pendingAoePlacement.cursor = {col: Number(gridPos.col), row: Number(gridPos.row)};
+  }
+
+  function getPendingAoePlacementPreview(){
+    if (!pendingAoePlacement) return null;
+    const cursor = pendingAoePlacement.cursor || {col: Number(pendingAoePlacement.payload?.cx || 0), row: Number(pendingAoePlacement.payload?.cy || 0)};
+    const previewPayload = {
+      ...pendingAoePlacement.payload,
+      cx: Number(cursor.col),
+      cy: Number(cursor.row),
+    };
+    return buildPlanningAoe(previewPayload);
+  }
+
   function updateSummonPlacementBanner(){
     if (!summonPlacementBanner) return;
     if (!pendingSummonPlacement){
@@ -9040,6 +9066,12 @@ __DAMAGE_TYPE_OPTIONS__
           preview: true,
           override: Object.keys(override).length ? override : null,
         });
+      }
+    }
+    if (pendingAoePlacement){
+      const previewAoe = getPendingAoePlacementPreview();
+      if (previewAoe){
+        renderAoeOverlay(previewAoe, {preview: true});
       }
     }
 
@@ -11337,6 +11369,23 @@ __DAMAGE_TYPE_OPTIONS__
     if (attackOverlayMode){
       return;
     }
+    if (pendingAoePlacement){
+      if (ev.button !== 0 && ev.pointerType === "mouse") return;
+      setPendingAoePlacementCursorFromPointer(p);
+      const msg = {...pendingAoePlacement.msg, payload: {...(pendingAoePlacement.msg?.payload || {})}};
+      const cursor = pendingAoePlacement.cursor || {col: 0, row: 0};
+      msg.payload.cx = Math.round(Number(cursor.col));
+      msg.payload.cy = Math.round(Number(cursor.row));
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
+      clearPendingAoePlacement(false);
+      draw();
+      return;
+    }
 
     const isTouchPointer = ev.pointerType === "touch";
     const isAoeDragMouse = ev.pointerType === "mouse" && (ev.button === 0 || ev.button === 1);
@@ -11472,6 +11521,12 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (pinchState && activePointers.size >= 2){
       updatePinch();
+      setTokenTooltip(null);
+      return;
+    }
+    if (pendingAoePlacement){
+      setPendingAoePlacementCursorFromPointer(p);
+      draw();
       setTokenTooltip(null);
       return;
     }
@@ -15057,6 +15112,22 @@ __DAMAGE_TYPE_OPTIONS__
         msg.consumes_pool_id = slotCheck.consumesPool.id;
         msg.consumes_pool_cost = slotCheck.consumesPool.cost;
       }
+      if (aoeSpell){
+        if (castSpellModal?.classList.contains("show")){
+          hideCastSpellModal();
+        }
+        if (castOverlay?.classList.contains("show")){
+          setCastOverlayOpen(false);
+        }
+        pendingAoePlacement = {
+          msg,
+          payload: {...payload},
+          cursor: {col: Number(payload.cx), row: Number(payload.cy)},
+        };
+        localToast("AoE placement: move cursor, click to place.");
+        draw();
+        return;
+      }
       if (isPlanning){
         planningMutate(msg);
         draw();
@@ -15069,7 +15140,7 @@ __DAMAGE_TYPE_OPTIONS__
       if (castOverlay?.classList.contains("show")){
         setCastOverlayOpen(false);
       }
-      if (!aoeSpell && spellTargetConfig){
+      if (spellTargetConfig){
         startSpellTargetingSession(spellTargetConfig, preset, slotLevel);
       }
     });
@@ -15785,6 +15856,11 @@ __DAMAGE_TYPE_OPTIONS__
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape"){
+      if (pendingAoePlacement){
+        clearPendingAoePlacement();
+        localToast("AoE placement cancelled.");
+        return;
+      }
       if (spellbookConfirmModal?.classList.contains("show")){
         hideSpellbookConfirm();
         return;
