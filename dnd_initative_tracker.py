@@ -725,7 +725,11 @@ def _archive_startup_logs() -> None:
     except OSError:
         return
     try:
-        candidates = (entry for entry in logs.iterdir() if entry.is_file() and entry.name.endswith(".log"))
+        candidates = (
+            entry
+            for entry in logs.iterdir()
+            if entry.is_file() and entry.name.endswith(".log") and entry.name != "time.log"
+        )
         first_entry = next(candidates, None)
     except OSError:
         return
@@ -753,6 +757,44 @@ def _archive_startup_logs() -> None:
             shutil.move(str(entry), str(dest))
         except OSError:
             pass
+
+def _archive_startup_time_log() -> None:
+    """Archive logs/time.log into logs/time/<timestamp>_archived.log when non-empty."""
+    try:
+        logs = _ensure_logs_dir()
+    except OSError:
+        return
+
+    time_log = logs / "time.log"
+    if not time_log.exists() or not time_log.is_file():
+        return
+
+    try:
+        has_data = bool((time_log.read_text(encoding="utf-8") or "").strip())
+    except OSError:
+        return
+
+    if has_data:
+        try:
+            archive_dir = logs / "time"
+            archive_dir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            archived = archive_dir / f"{stamp}_archived.log"
+            if archived.exists():
+                n = 1
+                while archived.exists():
+                    archived = archive_dir / f"{stamp}_archived_{n}.log"
+                    n += 1
+            shutil.move(str(time_log), str(archived))
+        except OSError:
+            return
+
+    try:
+        time_log.parent.mkdir(parents=True, exist_ok=True)
+        time_log.write_text("", encoding="utf-8")
+    except OSError:
+        pass
+
 
 
 def _make_ops_logger() -> logging.Logger:
@@ -4587,6 +4629,7 @@ class InitiativeTracker(base.InitiativeTracker):
     """Tk tracker + LAN proof-of-concept server."""
 
     def __init__(self) -> None:
+        _archive_startup_time_log()
         _archive_startup_logs()
         super().__init__()
         self.title(f"DnD Initiative Tracker — v{APP_VERSION}")
@@ -5357,8 +5400,119 @@ class InitiativeTracker(base.InitiativeTracker):
             )
         self._pending_pre_summons = {}
 
+    def _format_elapsed_duration(self, elapsed_seconds: float) -> str:
+        try:
+            total = int(round(float(elapsed_seconds)))
+        except Exception:
+            total = 0
+        if total < 0:
+            total = 0
+        hours, rem = divmod(total, 3600)
+        mins, secs = divmod(rem, 60)
+        if hours > 0:
+            return f"{hours}:{mins:02d}:{secs:02d}"
+        return f"{mins}:{secs:02d}"
+
+    def _append_time_round_summary(self, round_num: int, buckets: Dict[str, float], order: List[str]) -> None:
+        if not buckets:
+            return
+        try:
+            logs = _ensure_logs_dir()
+            logs.mkdir(parents=True, exist_ok=True)
+            path = logs / "time.log"
+        except Exception:
+            return
+
+        lines = [f"Round {max(1, int(round_num))}:"]
+        dm_seconds = float(buckets.get("DM Time", 0.0) or 0.0)
+        lines.append(f"DM Time: {self._format_elapsed_duration(dm_seconds)}")
+        for name in order:
+            if name == "DM Time":
+                continue
+            lines.append(f"{name}: {self._format_elapsed_duration(float(buckets.get(name, 0.0) or 0.0))}")
+        lines.append("")
+        try:
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write("\n".join(lines))
+                fh.write("\n")
+        except Exception:
+            return
+
+    def _flush_timing_round_if_ready(self, next_round: Optional[int] = None) -> None:
+        if not bool(getattr(self, "_turn_timing_active", False)):
+            return
+        last_round = int(getattr(self, "_turn_timing_last_round", 0) or 0)
+        if last_round <= 0:
+            return
+        if next_round is None:
+            next_round = int(getattr(self, "round_num", last_round) or last_round)
+        if int(next_round) <= last_round:
+            return
+        buckets = dict(getattr(self, "_turn_timing_round_totals", {}) or {})
+        order = list(getattr(self, "_turn_timing_pc_order", []) or [])
+        self._append_time_round_summary(last_round, buckets, order)
+        self._turn_timing_round_totals = {}
+        self._turn_timing_pc_order = []
+        self._turn_timing_last_round = int(next_round)
+
+    def _log_turn_start(self, cid: int) -> None:
+        super()._log_turn_start(cid)
+        try:
+            if not bool(getattr(self, "_turn_timing_active", False)):
+                return
+            current_round = int(getattr(self, "round_num", 0) or 0)
+            last_round = int(getattr(self, "_turn_timing_last_round", 0) or 0)
+            if last_round <= 0:
+                self._turn_timing_last_round = max(1, current_round)
+            elif current_round > last_round:
+                self._flush_timing_round_if_ready(next_round=current_round)
+            self._turn_timing_current_cid = int(cid)
+            self._turn_timing_start_ts = float(time.perf_counter())
+        except Exception:
+            return
+
+    def _log_turn_end(self, cid: int, note: str = "") -> None:
+        super()._log_turn_end(cid, note=note)
+        try:
+            if not bool(getattr(self, "_turn_timing_active", False)):
+                return
+            running_cid = getattr(self, "_turn_timing_current_cid", None)
+            started = getattr(self, "_turn_timing_start_ts", None)
+            if running_cid is None or started is None or int(running_cid) != int(cid):
+                return
+            elapsed = float(time.perf_counter()) - float(started)
+            if elapsed < 0:
+                elapsed = 0.0
+            combatant = getattr(self, "combatants", {}).get(int(cid)) if isinstance(getattr(self, "combatants", None), dict) else None
+            bucket = "DM Time"
+            if combatant is not None and bool(getattr(combatant, "is_pc", False)):
+                bucket = str(getattr(combatant, "name", "") or f"#{cid}")
+            totals = getattr(self, "_turn_timing_round_totals", None)
+            if not isinstance(totals, dict):
+                totals = {}
+                self._turn_timing_round_totals = totals
+            totals[bucket] = float(totals.get(bucket, 0.0) or 0.0) + float(elapsed)
+            if bucket != "DM Time":
+                order = getattr(self, "_turn_timing_pc_order", None)
+                if not isinstance(order, list):
+                    order = []
+                    self._turn_timing_pc_order = order
+                if bucket not in order:
+                    order.append(bucket)
+        except Exception:
+            return
+        finally:
+            self._turn_timing_current_cid = None
+            self._turn_timing_start_ts = None
+
     def _start_turns(self) -> None:
         self._apply_pending_pre_summons()
+        self._turn_timing_active = True
+        self._turn_timing_current_cid = None
+        self._turn_timing_start_ts = None
+        self._turn_timing_last_round = 1
+        self._turn_timing_round_totals = {}
+        self._turn_timing_pc_order = []
         ordered = self._display_order()
         if not ordered:
             messagebox.showinfo("Turn Tracker", "No combatants in the list yet.")
