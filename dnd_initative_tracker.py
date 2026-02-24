@@ -9048,6 +9048,23 @@ class InitiativeTracker(base.InitiativeTracker):
                 chunks.append(f"{'+'.join(reasons)}: {original} {dtype}->{applied}")
             return f" ({'; '.join(chunks)})" if chunks else ""
 
+        def _damage_type_label(entries: List[Dict[str, Any]]) -> str:
+            labels: List[str] = []
+            seen: set[str] = set()
+            for entry in entries if isinstance(entries, list) else []:
+                if not isinstance(entry, dict):
+                    continue
+                raw_type = str(entry.get("type") or "").strip().lower()
+                canonical = self._canonical_damage_type(raw_type)
+                dtype = canonical or raw_type
+                if not dtype or dtype in seen:
+                    continue
+                seen.add(dtype)
+                labels.append(dtype.title())
+            if not labels:
+                return ""
+            return f" {'+'.join(labels)}"
+
         removed: List[int] = []
         for target_cid in included:
             target = self.combatants.get(int(target_cid))
@@ -9083,7 +9100,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 effect_name = str(effect.get("effect") or "").strip().lower()
                 if effect_name == "damage":
                     amount = _scaled_damage(effect)
-                    dtype = str(effect.get("damage_type") or aoe.get("damage_type") or "").strip().lower() or "untyped"
+                    dtype = str(effect.get("damage_type") or effect.get("type") or aoe.get("damage_type") or "").strip().lower() or "untyped"
                     if amount > 0:
                         damage_entries.append({"amount": int(amount), "type": dtype})
                 elif effect_name == "condition" and not passed:
@@ -9114,6 +9131,7 @@ class InitiativeTracker(base.InitiativeTracker):
             adjustment = self._adjust_damage_entries_for_target(target, damage_entries) if damage_entries else {"entries": [], "notes": []}
             adjusted_entries = list((adjustment or {}).get("entries") or [])
             adjustment_note = _adjustment_note(list((adjustment or {}).get("notes") or []))
+            damage_type_label = _damage_type_label(damage_entries)
             total_damage = sum(int(entry.get("amount") or 0) for entry in adjusted_entries if isinstance(entry, dict))
             before = int(getattr(target, "hp", 0) or 0)
             if total_damage > 0:
@@ -9122,7 +9140,7 @@ class InitiativeTracker(base.InitiativeTracker):
             after = int(getattr(target, "hp", 0) or 0)
             status = "PASS" if passed else "FAIL"
             self._log(
-                f"{spell_name}: {target.name} save {ability.upper()} {status} ({total} vs DC {dc}) -> {total_damage} damage{adjustment_note}"
+                f"{spell_name}: {target.name} save {ability.upper()} {status} ({total} vs DC {dc}) -> {total_damage}{damage_type_label} damage{adjustment_note}"
             )
             for cond in applied_conditions:
                 self._log(f"set condition: {cond}", cid=int(target_cid))
