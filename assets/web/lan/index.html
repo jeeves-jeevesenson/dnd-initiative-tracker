@@ -14634,6 +14634,12 @@ __DAMAGE_TYPE_OPTIONS__
         updateHud();
       }
       send(msg);
+      if (castSpellModal?.classList.contains("show")){
+        hideCastSpellModal();
+      }
+      if (castOverlay?.classList.contains("show")){
+        setCastOverlayOpen(false);
+      }
       if (!aoeSpell && spellTargetConfig){
         startSpellTargetingSession(spellTargetConfig, preset, slotLevel);
       }
