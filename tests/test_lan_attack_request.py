@@ -456,7 +456,7 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertIn((16, "Attack hits."), self.toasts)
         self.assertTrue(
             any(
-                "Aelar deals 9 slashing damage with Longsword to Goblin (7 slashing, 2 fire)." in message
+                "Aelar deals 9 total damage with Longsword to Goblin (7 slashing, 2 fire)." in message
                 for _, message in self.logs
             )
         )
@@ -1233,6 +1233,54 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(result.get("damage_total"), 5)
         self.assertEqual(result.get("damage_entries"), [{"amount": 5, "type": "slashing"}])
         self.assertEqual(self.app.combatants[2].hp, 15)
+
+    def test_attack_request_logs_total_damage_and_resistance_adjustments_for_gray_ooze(self):
+        self.app._monster_specs = []
+        self.app._monsters_by_name = {}
+        self.app._load_monsters_index()
+        ooze_spec = self.app._find_monster_spec_by_slug("Monsters/gray-ooze.yaml")
+        self.assertIsNotNone(ooze_spec)
+        self.app.combatants[2].monster_spec = ooze_spec
+        self.app.combatants[2].name = "Gray Ooze"
+
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 31,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [
+                {"amount": 1, "type": "slashing"},
+                {"amount": 1, "type": "lightning"},
+                {"amount": 6, "type": "acid"},
+                {"amount": 6, "type": "cold"},
+            ],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("damage_total"), 8)
+        self.assertEqual(
+            result.get("damage_entries"),
+            [
+                {"amount": 1, "type": "slashing"},
+                {"amount": 1, "type": "lightning"},
+                {"amount": 3, "type": "acid"},
+                {"amount": 3, "type": "cold"},
+            ],
+        )
+        self.assertEqual(self.app.combatants[2].hp, 12)
+        self.assertTrue(
+            any(
+                "Aelar deals 8 total damage with Longsword to Gray Ooze (1 slashing, 1 lightning, 3 acid (resist!), 3 cold (resist!))."
+                in message
+                for _, message in self.logs
+            )
+        )
 
 
 if __name__ == "__main__":

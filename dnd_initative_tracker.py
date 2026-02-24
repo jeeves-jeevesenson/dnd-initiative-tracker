@@ -6073,6 +6073,7 @@ class InitiativeTracker(base.InitiativeTracker):
             monster_name = str(getattr(monster_spec, "name", "") or "") or None
             if not monster_slug:
                 monster_slug = str(getattr(monster_spec, "filename", "") or "") or None
+        monster_slug = self._normalize_monster_slug_value(monster_slug)
         attrs: Dict[str, Any] = {}
         for key, val in dict(getattr(c, "__dict__", {})).items():
             if key in {
@@ -13389,12 +13390,11 @@ class InitiativeTracker(base.InitiativeTracker):
         return None
 
     def _find_monster_spec_by_slug(self, monster_slug: Any) -> Optional[MonsterSpec]:
-        slug = str(monster_slug or "").strip().lower().replace("\\", "/")
-        if not slug:
+        normalized = self._normalize_monster_slug_value(monster_slug)
+        if not normalized:
             return None
         if not self._monster_specs:
             self._load_monsters_index()
-        normalized = slug.strip("/")
         direct_spec: Optional[MonsterSpec] = None
         basename_spec: Optional[MonsterSpec] = None
         for spec in self._monster_specs:
@@ -13410,6 +13410,20 @@ class InitiativeTracker(base.InitiativeTracker):
             return None
         detailed = self._load_monster_details(chosen.name)
         return detailed or chosen
+
+    def _normalize_monster_slug_value(self, monster_slug: Any) -> Optional[str]:
+        slug = str(monster_slug or "").strip().lower().replace("\\", "/")
+        if not slug:
+            return None
+        normalized = slug.strip("/")
+        if normalized.endswith(".yaml"):
+            normalized = normalized[:-5]
+        elif normalized.endswith(".yml"):
+            normalized = normalized[:-4]
+        if normalized.startswith("monsters/"):
+            normalized = normalized[len("monsters/"):]
+        normalized = normalized.strip("/")
+        return normalized or None
 
     @staticmethod
     def _normalize_summon_controller_mode(summon_cfg: Dict[str, Any]) -> str:
@@ -17572,16 +17586,37 @@ class InitiativeTracker(base.InitiativeTracker):
                     cid=cid,
                 )
             if damage_applied and total_damage > 0:
+                def _adjustment_note_text(reasons: List[str]) -> str:
+                    items = [str(reason or "").strip().lower() for reason in reasons if str(reason or "").strip()]
+                    if not items:
+                        return ""
+                    if "immune" in items:
+                        return " (immune!)"
+                    if "vulnerable" in items:
+                        return " (vulnerable!)"
+                    if "resistant" in items:
+                        return " (resist!)"
+                    return ""
+
+                adjustment_lookup: Dict[Tuple[str, int], Dict[str, Any]] = {}
+                for note in adjustment_notes:
+                    if not isinstance(note, dict):
+                        continue
+                    key = (
+                        str(note.get("type") or "").strip().lower(),
+                        int(note.get("applied", 0) or 0),
+                    )
+                    if key not in adjustment_lookup:
+                        adjustment_lookup[key] = note
                 damage_desc = ", ".join(
-                    f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
+                    (
+                        f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
+                        f"{_adjustment_note_text(list((adjustment_lookup.get((str(entry.get('type') or '').strip().lower(), int(entry.get('amount', 0) or 0))) or {}).get('reasons') or []))}"
+                    )
                     for entry in damage_entries
                 )
-                first_damage_type = ""
-                if damage_entries:
-                    first_damage_type = str(damage_entries[0].get("type") or "").strip().lower()
-                damage_type_label = first_damage_type or "damage"
                 self._log(
-                    f"{c.name} deals {int(total_damage)} {damage_type_label} damage "
+                    f"{c.name} deals {int(total_damage)} total damage "
                     f"with {result_payload['weapon_name']}"
                     f" to {result_payload['target_name']}"
                     f"{f' ({damage_desc})' if damage_desc else ''}"
