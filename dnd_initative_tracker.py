@@ -5447,11 +5447,21 @@ class InitiativeTracker(base.InitiativeTracker):
 
         lines = [f"Round {max(1, int(round_num))}:"]
         dm_seconds = float(buckets.get("DM Time", 0.0) or 0.0)
+        round_seconds = 0.0
+        for value in buckets.values():
+            try:
+                seconds = float(value)
+            except Exception:
+                seconds = 0.0
+            if seconds < 0:
+                seconds = 0.0
+            round_seconds += seconds
         lines.append(f"DM Time: {self._format_elapsed_duration(dm_seconds)}")
         for name in order:
             if name == "DM Time":
                 continue
             lines.append(f"{name}: {self._format_elapsed_duration(float(buckets.get(name, 0.0) or 0.0))}")
+        lines.append(f"Round Time: {self._format_elapsed_duration(round_seconds)}")
         lines.append("")
         try:
             with path.open("a", encoding="utf-8") as fh:
