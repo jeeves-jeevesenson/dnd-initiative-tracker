@@ -8814,6 +8814,357 @@ class InitiativeTracker(base.InitiativeTracker):
     def _lan_apply_aura_resistances(self, target_obj: Any, damage_entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return list((self._adjust_damage_entries_for_target(target_obj, damage_entries) or {}).get("entries") or [])
 
+    def _lan_compute_included_units_for_aoe(self, aoe: Dict[str, Any]) -> List[int]:
+        if not isinstance(aoe, dict):
+            return []
+        kind = str(aoe.get("kind") or "").strip().lower()
+        if not kind:
+            return []
+        _cols, _rows, _obstacles, _rough, positions = self._lan_live_map_data()
+        cx = float(aoe.get("cx") or 0.0)
+        cy = float(aoe.get("cy") or 0.0)
+        included: List[int] = []
+        token_half = 0.5
+        if kind in ("circle", "sphere", "cylinder"):
+            r2 = float(aoe.get("radius_sq") or 0.0) ** 2
+            for cid, pos in positions.items():
+                px, py = float(pos[0]), float(pos[1])
+                if (px - cx) ** 2 + (py - cy) ** 2 <= r2:
+                    included.append(int(cid))
+        elif kind in ("line", "wall"):
+            length_sq = float(aoe.get("length_sq") or 0.0)
+            width_sq = float(aoe.get("width_sq") or 0.0)
+            angle_deg = aoe.get("angle_deg")
+            if angle_deg is None:
+                orient = str(aoe.get("orient") or "vertical").strip().lower()
+                angle_deg = 0.0 if orient == "horizontal" else 90.0
+            angle_rad = math.radians(float(angle_deg))
+            cos_a = math.cos(-angle_rad)
+            sin_a = math.sin(-angle_rad)
+            for cid, pos in positions.items():
+                dx = float(pos[0]) - cx
+                dy = float(pos[1]) - cy
+                rx = dx * cos_a - dy * sin_a
+                ry = dx * sin_a + dy * cos_a
+                if abs(rx) <= (length_sq / 2.0) + token_half and abs(ry) <= (width_sq / 2.0) + token_half:
+                    included.append(int(cid))
+        elif kind == "cone":
+            length_sq = float(aoe.get("length_sq") or 0.0)
+            spread_deg = aoe.get("spread_deg")
+            has_spread = spread_deg is not None
+            if spread_deg is None:
+                spread_deg = aoe.get("angle_deg")
+            if spread_deg is None:
+                spread_deg = 90.0
+            spread_deg = float(spread_deg)
+            orient = str(aoe.get("orient") or "vertical").strip().lower()
+            heading_deg = 0.0 if orient == "horizontal" else -90.0
+            if has_spread and aoe.get("angle_deg") is not None:
+                heading_deg = float(aoe.get("angle_deg"))
+            heading_rad = math.radians(float(heading_deg))
+            half_spread = math.radians(spread_deg / 2.0)
+            for cid, pos in positions.items():
+                dx = float(pos[0]) - cx
+                dy = float(pos[1]) - cy
+                dist = math.hypot(dx, dy)
+                if dist > length_sq + token_half:
+                    continue
+                angle = math.atan2(dy, dx) - heading_rad
+                while angle <= -math.pi:
+                    angle += math.pi * 2
+                while angle > math.pi:
+                    angle -= math.pi * 2
+                if abs(angle) <= half_spread:
+                    included.append(int(cid))
+        else:
+            half = float(aoe.get("side_sq") or 0.0) / 2.0
+            angle = aoe.get("angle_deg") if kind in ("square", "cube") else None
+            if angle is None:
+                x1, y1 = cx - half, cy - half
+                x2, y2 = cx + half, cy + half
+                for cid, pos in positions.items():
+                    px, py = float(pos[0]), float(pos[1])
+                    if x1 <= px <= x2 and y1 <= py <= y2:
+                        included.append(int(cid))
+            else:
+                angle_rad = math.radians(float(angle))
+                cos_a = math.cos(-angle_rad)
+                sin_a = math.sin(-angle_rad)
+                for cid, pos in positions.items():
+                    dx = float(pos[0]) - cx
+                    dy = float(pos[1]) - cy
+                    rx = dx * cos_a - dy * sin_a
+                    ry = dx * sin_a + dy * cos_a
+                    if abs(rx) <= half and abs(ry) <= half:
+                        included.append(int(cid))
+        order = [c.cid for c in self._display_order()] if hasattr(self, "_display_order") else []
+        order_idx = {int(c): i for i, c in enumerate(order)}
+        included.sort(key=lambda item: order_idx.get(int(item), 10**9))
+        return included
+
+    def _lan_auto_resolve_cast_aoe(
+        self,
+        aid: int,
+        aoe: Dict[str, Any],
+        *,
+        caster: Optional[base.Combatant],
+        spell_slug: str,
+        spell_id: str,
+        slot_level: Optional[int],
+        preset: Optional[Dict[str, Any]],
+    ) -> bool:
+        if not isinstance(aoe, dict) or not isinstance(preset, dict):
+            return False
+        automation = str(preset.get("automation") or "").strip().lower()
+        tags = {str(tag).strip().lower() for tag in (preset.get("tags") or []) if str(tag).strip()}
+        if automation != "full" and "automation_full" not in tags:
+            return False
+        mechanics = preset.get("mechanics") if isinstance(preset.get("mechanics"), dict) else {}
+        sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
+        step = None
+        for candidate in sequence:
+            if not isinstance(candidate, dict):
+                continue
+            check = candidate.get("check") if isinstance(candidate.get("check"), dict) else {}
+            if str(check.get("kind") or "").strip().lower() != "saving_throw":
+                continue
+            outcomes = candidate.get("outcomes") if isinstance(candidate.get("outcomes"), dict) else {}
+            has_supported = False
+            for bucket in outcomes.values():
+                if not isinstance(bucket, list):
+                    continue
+                for effect in bucket:
+                    if not isinstance(effect, dict):
+                        continue
+                    effect_name = str(effect.get("effect") or "").strip().lower()
+                    if effect_name in ("damage", "condition"):
+                        has_supported = True
+                        break
+                if has_supported:
+                    break
+            if has_supported:
+                step = candidate
+                break
+        if not isinstance(step, dict):
+            return False
+        check = step.get("check") if isinstance(step.get("check"), dict) else {}
+        ability = str(check.get("ability") or aoe.get("save_type") or "").strip().lower()[:3]
+        if ability not in ("str", "dex", "con", "int", "wis", "cha"):
+            return False
+        dc = None
+        if aoe.get("dc") is not None:
+            try:
+                dc = int(aoe.get("dc"))
+            except Exception:
+                dc = None
+        if dc is None:
+            raw_dc = check.get("dc")
+            if isinstance(raw_dc, (int, float)):
+                dc = int(raw_dc)
+            elif isinstance(raw_dc, str):
+                raw_dc_str = raw_dc.strip().lower()
+                if raw_dc_str.isdigit():
+                    dc = int(raw_dc_str)
+                elif raw_dc_str == "spell_save_dc" and caster is not None:
+                    player_name = self._pc_name_for(int(caster.cid)) if hasattr(self, "_pc_name_for") else str(caster.name)
+                    profile = self._profile_for_player_name(player_name) if hasattr(self, "_profile_for_player_name") else {}
+                    if isinstance(profile, dict):
+                        spellcasting = profile.get("spellcasting") if isinstance(profile.get("spellcasting"), dict) else {}
+                        explicit = spellcasting.get("save_dc")
+                        try:
+                            dc = int(explicit)
+                        except Exception:
+                            dc = self._compute_spell_save_dc(profile)
+        if dc is None or dc <= 0:
+            return False
+        outcomes = step.get("outcomes") if isinstance(step.get("outcomes"), dict) else {}
+        included = self._lan_compute_included_units_for_aoe(aoe)
+        if not included:
+            if aoe.get("pinned") is not True and not aoe.get("persistent") and not aoe.get("over_time"):
+                self._lan_remove_aoe_by_id(aid)
+            return True
+        spell_name = str(preset.get("name") or aoe.get("name") or "AoE")
+
+        def _roll_dice(expr: Any) -> Optional[int]:
+            if not isinstance(expr, str):
+                return None
+            raw = expr.strip().lower()
+            if not raw or not re.fullmatch(r"[0-9d+\-*/(). _]+", raw):
+                return None
+            try:
+                def _replace_die(match: re.Match[str]) -> str:
+                    count = int(match.group(1) or 1)
+                    sides = int(match.group(2))
+                    if count <= 0 or sides <= 0:
+                        raise ValueError("invalid dice")
+                    return str(sum(random.randint(1, sides) for _ in range(count)))
+                expr_eval = re.sub(r"(\d*)d(\d+)", _replace_die, raw)
+            except Exception:
+                return None
+            total = self._evaluate_spell_formula(expr_eval, {})
+            if total is None:
+                return None
+            return max(0, int(math.floor(total)))
+
+        def _scaled_damage(effect: Dict[str, Any]) -> int:
+            base_expr = effect.get("dice")
+            base_amount = _roll_dice(base_expr)
+            if base_amount is None:
+                return 0
+            total = int(base_amount)
+            scaling = effect.get("scaling") if isinstance(effect.get("scaling"), dict) else mechanics.get("scaling") if isinstance(mechanics.get("scaling"), dict) else None
+            if isinstance(scaling, dict) and scaling.get("kind") == "slot_level" and slot_level is not None:
+                try:
+                    base_slot = int(scaling.get("base_slot"))
+                except Exception:
+                    base_slot = None
+                add_expr = scaling.get("add_per_slot_above")
+                if base_slot is not None and isinstance(add_expr, str) and slot_level > base_slot:
+                    for _ in range(int(slot_level - base_slot)):
+                        extra = _roll_dice(add_expr)
+                        if extra is not None:
+                            total += int(extra)
+            mult = effect.get("multiplier")
+            try:
+                if mult is not None:
+                    total = int(math.floor(float(total) * float(mult)))
+            except Exception:
+                pass
+            return max(0, int(total))
+
+        def _adjustment_note(notes: List[Dict[str, Any]]) -> str:
+            chunks: List[str] = []
+            for note in notes if isinstance(notes, list) else []:
+                if not isinstance(note, dict):
+                    continue
+                reasons = [str(reason) for reason in (note.get("reasons") or []) if str(reason).strip()]
+                if not reasons:
+                    continue
+                original = int(note.get("original") or 0)
+                applied = int(note.get("applied") or 0)
+                if original == applied:
+                    continue
+                dtype = str(note.get("canonical_type") or note.get("type") or "untyped").strip() or "untyped"
+                chunks.append(f"{'+'.join(reasons)}: {original} {dtype}->{applied}")
+            return f" ({'; '.join(chunks)})" if chunks else ""
+
+        removed: List[int] = []
+        for target_cid in included:
+            target = self.combatants.get(int(target_cid))
+            if target is None:
+                continue
+            saves = getattr(target, "saving_throws", None)
+            mods = getattr(target, "ability_mods", None)
+            if isinstance(saves, dict) and saves.get(ability) is not None:
+                save_mod = int(saves.get(ability) or 0)
+            elif isinstance(mods, dict) and mods.get(ability) is not None:
+                save_mod = int(mods.get(ability) or 0)
+            else:
+                save_mod = 0
+            roll = int(random.randint(1, 20))
+            total = int(roll + save_mod)
+            passed = bool(roll != 1 and total >= int(dc))
+            outcome_key = "success" if passed else "fail"
+            bucket = outcomes.get(outcome_key)
+            if not isinstance(bucket, list):
+                fallback_keys = ("pass", "saved", "save") if passed else tuple(FAIL_OUTCOME_LABELS)
+                bucket = []
+                for key in fallback_keys:
+                    probe = outcomes.get(key)
+                    if isinstance(probe, list):
+                        bucket = probe
+                        break
+            damage_entries: List[Dict[str, Any]] = []
+            blocked_conditions: List[str] = []
+            applied_conditions: List[str] = []
+            for effect in bucket if isinstance(bucket, list) else []:
+                if not isinstance(effect, dict):
+                    continue
+                effect_name = str(effect.get("effect") or "").strip().lower()
+                if effect_name == "damage":
+                    amount = _scaled_damage(effect)
+                    dtype = str(effect.get("damage_type") or aoe.get("damage_type") or "").strip().lower() or "untyped"
+                    if amount > 0:
+                        damage_entries.append({"amount": int(amount), "type": dtype})
+                elif effect_name == "condition" and not passed:
+                    condition_key = str(effect.get("condition") or "").strip().lower()
+                    if not condition_key:
+                        continue
+                    duration_turns = effect.get("duration_turns")
+                    remaining_turns = None
+                    if duration_turns not in (None, ""):
+                        try:
+                            parsed = int(duration_turns)
+                            remaining_turns = None if parsed <= 0 else parsed
+                        except Exception:
+                            remaining_turns = None
+                    if self._condition_is_immune_for_target(target, condition_key):
+                        blocked_conditions.append(condition_key)
+                        continue
+                    stacks = getattr(target, "condition_stacks", None)
+                    if not isinstance(stacks, list):
+                        stacks = []
+                        target.condition_stacks = stacks
+                    target.condition_stacks = [st for st in stacks if getattr(st, "ctype", None) != condition_key]
+                    next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                    self._next_stack_id = next_sid + 1
+                    target.condition_stacks.append(base.ConditionStack(sid=next_sid, ctype=condition_key, remaining_turns=remaining_turns))
+                    applied_conditions.append(condition_key)
+
+            adjustment = self._adjust_damage_entries_for_target(target, damage_entries) if damage_entries else {"entries": [], "notes": []}
+            adjusted_entries = list((adjustment or {}).get("entries") or [])
+            adjustment_note = _adjustment_note(list((adjustment or {}).get("notes") or []))
+            total_damage = sum(int(entry.get("amount") or 0) for entry in adjusted_entries if isinstance(entry, dict))
+            before = int(getattr(target, "hp", 0) or 0)
+            if total_damage > 0:
+                target.hp = max(0, before - int(total_damage))
+                self._queue_concentration_save(target, "aoe")
+            after = int(getattr(target, "hp", 0) or 0)
+            status = "PASS" if passed else "FAIL"
+            self._log(
+                f"{spell_name}: {target.name} save {ability.upper()} {status} ({total} vs DC {dc}) -> {total_damage} damage{adjustment_note}"
+            )
+            for cond in applied_conditions:
+                self._log(f"set condition: {cond}", cid=int(target_cid))
+            for cond in blocked_conditions:
+                self._log(f"Condition blocked for {target.name} — immune to {cond}.", cid=int(target_cid))
+            if before > 0 and after == 0:
+                removed.append(int(target_cid))
+
+        if removed:
+            pre_order = [x.cid for x in self._display_order()] if hasattr(self, "_display_order") else []
+            if hasattr(self, "_remove_combatants_with_lan_cleanup"):
+                self._remove_combatants_with_lan_cleanup(removed)
+            else:
+                for dead_cid in removed:
+                    self.combatants.pop(int(dead_cid), None)
+            if hasattr(self, "_retarget_current_after_removal"):
+                self._retarget_current_after_removal(removed, pre_order=pre_order)
+        self._rebuild_table(scroll_to_current=True)
+        self._lan_force_state_broadcast()
+        if aoe.get("pinned") is not True and not aoe.get("persistent") and not aoe.get("over_time"):
+            self._lan_remove_aoe_by_id(aid)
+        return True
+
+    def _lan_remove_aoe_by_id(self, aid: int) -> None:
+        mw = getattr(self, "_map_window", None)
+        map_ready = mw is not None and mw.winfo_exists()
+        if map_ready:
+            try:
+                if hasattr(mw, "_remove_aoe_by_id"):
+                    mw._remove_aoe_by_id(int(aid))
+                elif hasattr(mw, "aoes") and isinstance(mw.aoes, dict):
+                    mw.aoes.pop(int(aid), None)
+                if hasattr(mw, "_refresh_aoe_list"):
+                    mw._refresh_aoe_list()
+                self._lan_aoes = dict(getattr(mw, "aoes", {}) or {})
+            except Exception:
+                pass
+        else:
+            store = dict(getattr(self, "_lan_aoes", {}) or {})
+            store.pop(int(aid), None)
+            self._lan_aoes = store
+
     def _spell_presets_payload(self) -> List[Dict[str, Any]]:
         if yaml is None:
             return []
@@ -15641,7 +15992,19 @@ class InitiativeTracker(base.InitiativeTracker):
                 if spawned_cids:
                     self._rebuild_table(scroll_to_current=True)
                     self._lan_force_state_broadcast()
-            self._lan.toast(ws_id, f"Casted {aoe['name']}.")
+            resolved = self._lan_auto_resolve_cast_aoe(
+                aid,
+                aoe,
+                caster=c,
+                spell_slug=spell_slug,
+                spell_id=spell_id,
+                slot_level=slot_level,
+                preset=preset_dict,
+            )
+            if resolved:
+                self._lan.toast(ws_id, f"Casted {aoe['name']} (auto-resolved).")
+            else:
+                self._lan.toast(ws_id, f"Casted {aoe['name']}.")
             return
 
         if typ == "cast_spell":

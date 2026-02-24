@@ -1,0 +1,177 @@
+import unittest
+from unittest import mock
+
+import dnd_initative_tracker as tracker_mod
+
+
+def _make_combatant(cid: int, name: str, hp: int, *, is_pc: bool = False, ally: bool = False):
+    c = tracker_mod.base.Combatant(
+        cid=cid,
+        name=name,
+        hp=hp,
+        speed=30,
+        swim_speed=0,
+        fly_speed=0,
+        burrow_speed=0,
+        climb_speed=0,
+        movement_mode="normal",
+        move_remaining=30,
+        initiative=10,
+        ally=ally,
+        is_pc=is_pc,
+    )
+    c.max_hp = hp
+    c.move_total = 30
+    return c
+
+
+class LanAoeAutoResolutionTests(unittest.TestCase):
+    def setUp(self):
+        self.toasts = []
+        self.logs = []
+        self.app = object.__new__(tracker_mod.InitiativeTracker)
+        self.app._oplog = lambda *args, **kwargs: None
+        self.app._is_admin_token_valid = lambda token: False
+        self.app._summon_can_be_controlled_by = lambda claimed, target: False
+        self.app._is_valid_summon_turn_for_controller = lambda controlling, target, current: True
+        self.app._pc_name_for = lambda cid: "Aelar"
+        self.app._profile_for_player_name = lambda name: {"spellcasting": {"save_dc": 14}}
+        self.app._compute_spell_save_dc = lambda profile: 14
+        self.app._spell_cast_log_message = lambda caster_name, spell_name, slot_level: f"{caster_name} casts {spell_name}"
+        self.app._consume_spell_slot_for_cast = lambda **kwargs: (True, "", kwargs.get("slot_level"))
+        self.app._combatant_can_cast_spell = lambda c, spend: True
+        self.app._use_action = lambda c, log_message=None: True
+        self.app._use_bonus_action = lambda c, log_message=None: True
+        self.app._use_reaction = lambda c, log_message=None: True
+        self.app._resolve_summon_choice = lambda *args, **kwargs: ({}, 1, None)
+        self.app._spawn_summons_from_cast = lambda **kwargs: []
+        self.app._spawn_custom_summons_from_payload = lambda caster_cid, payload: (True, "", [])
+        self.app._normalize_token_color = lambda value: "#ff0000"
+        self.app._normalize_facing_degrees = lambda value: 0.0
+        self.app._retarget_current_after_removal = lambda removed, pre_order=None: None
+        self.app._remove_combatants_with_lan_cleanup = lambda cids: [self.app.combatants.pop(int(cid), None) for cid in cids]
+        self.app._rebuild_table = lambda scroll_to_current=True: None
+        self.app._lan_force_state_broadcast = lambda: None
+        self.app._log = lambda message, cid=None: self.logs.append((cid, message))
+        self.app._queue_concentration_save = lambda c, source: None
+        self.app._condition_is_immune_for_target = lambda target, condition: False
+        self.app._adjust_damage_entries_for_target = lambda target, entries: {"entries": list(entries), "notes": []}
+        self.app._evaluate_spell_formula = tracker_mod.InitiativeTracker._evaluate_spell_formula.__get__(self.app, tracker_mod.InitiativeTracker)
+
+        self.app.in_combat = True
+        self.app.round_num = 1
+        self.app.turn_num = 1
+        self.app.current_cid = 1
+        self.app.start_cid = None
+        self.app._next_stack_id = 1
+        self.app._concentration_save_state = {}
+        self.app._lan_grid_cols = 20
+        self.app._lan_grid_rows = 20
+        self.app._lan_obstacles = set()
+        self.app._lan_rough_terrain = {}
+        self.app._lan_positions = {1: (0, 0), 2: (4, 4), 3: (6, 4)}
+        self.app._lan_aoes = {}
+        self.app._lan_next_aoe_id = 1
+        self.app._map_window = None
+        self.app.combatants = {
+            1: _make_combatant(1, "Aelar", 35, is_pc=True, ally=True),
+            2: _make_combatant(2, "Goblin", 20),
+            3: _make_combatant(3, "Orc", 20),
+        }
+        self.app.combatants[2].saving_throws = {"dex": 0}
+        self.app.combatants[2].ability_mods = {"dex": 0}
+        self.app.combatants[3].saving_throws = {"dex": 0}
+        self.app.combatants[3].ability_mods = {"dex": 0}
+        self.app._display_order = lambda: [self.app.combatants[cid] for cid in [1, 2, 3] if cid in self.app.combatants]
+
+        self.preset = {
+            "id": "frost-burst",
+            "slug": "frost-burst",
+            "name": "Frost Burst",
+            "automation": "full",
+            "tags": ["aoe", "automation_full"],
+            "mechanics": {
+                "automation": "full",
+                "sequence": [
+                    {
+                        "check": {"kind": "saving_throw", "ability": "dexterity", "dc": "spell_save_dc"},
+                        "outcomes": {
+                            "fail": [
+                                {"effect": "damage", "damage_type": "cold", "dice": "2d6"},
+                                {"effect": "condition", "condition": "prone", "duration_turns": 1},
+                            ],
+                            "success": [
+                                {"effect": "damage", "damage_type": "cold", "dice": "2d6", "multiplier": 0.5},
+                            ],
+                        },
+                    }
+                ]
+            },
+        }
+        self.app._find_spell_preset = lambda **kwargs: self.preset
+        self.app._lan = type(
+            "LanStub",
+            (),
+            {
+                "toast": lambda _self, ws_id, message: self.toasts.append((ws_id, message)),
+                "_append_lan_log": lambda *args, **kwargs: None,
+                "_loop": None,
+            },
+        )()
+
+    def test_cast_aoe_auto_resolves_damage_save_and_condition(self):
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 7,
+            "spell_slug": "frost-burst",
+            "slot_level": 3,
+            "payload": {
+                "shape": "sphere",
+                "name": "Frost Burst",
+                "radius_ft": 20,
+                "cx": 5,
+                "cy": 4,
+            },
+        }
+        # target2 fail save 5 vs DC14, damage 2+3=5; target3 pass save 15 vs DC14, damage 4+4=8 then half=4
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 2, 3, 15, 4, 4]):
+            self.app._lan_apply_action(msg)
+
+        self.assertEqual(self.app.combatants[2].hp, 15)
+        self.assertEqual(self.app.combatants[3].hp, 16)
+        self.assertTrue(any(st.ctype == "prone" for st in self.app.combatants[2].condition_stacks))
+        self.assertFalse(any(st.ctype == "prone" for st in self.app.combatants[3].condition_stacks))
+        self.assertEqual(self.app._lan_aoes, {})
+        log_text = "\n".join(entry for _cid, entry in self.logs)
+        self.assertIn("Frost Burst: Goblin save DEX FAIL", log_text)
+        self.assertIn("Frost Burst: Orc save DEX PASS", log_text)
+
+    def test_cast_aoe_non_full_automation_does_not_auto_resolve(self):
+        self.preset["automation"] = "manual"
+        self.preset["tags"] = ["aoe"]
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 8,
+            "spell_slug": "frost-burst",
+            "payload": {
+                "shape": "sphere",
+                "name": "Frost Burst",
+                "radius_ft": 20,
+                "cx": 5,
+                "cy": 4,
+            },
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertEqual(self.app.combatants[2].hp, 20)
+        self.assertEqual(self.app.combatants[3].hp, 20)
+        self.assertEqual(len(self.app._lan_aoes), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()
