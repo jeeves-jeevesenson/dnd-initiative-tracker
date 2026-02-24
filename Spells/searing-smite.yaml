@@ -12,6 +12,7 @@ school: evocation
 tags:
 - damage
 - save
+- smite
 casting_time: Bonus Action, which you take immediately after hitting a target with
   a Melee weapon or an Unarmed Strike
 range: Self
