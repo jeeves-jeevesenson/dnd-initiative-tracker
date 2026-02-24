@@ -4648,6 +4648,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
         # POC helpers: start the LAN server automatically.
         # Start quietly (log on success; avoid popups if deps missing)
+        self.after(0, self._auto_load_quick_save_on_startup)
         if POC_AUTO_START_LAN:
             self.after(250, lambda: self._lan.start(quiet=True))
 
@@ -6057,6 +6058,16 @@ class InitiativeTracker(base.InitiativeTracker):
             self._load_session_from_path(path)
         except Exception as exc:
             messagebox.showerror("Quick Load", f"Failed to quick load session:\n{exc}", parent=self)
+
+    def _auto_load_quick_save_on_startup(self) -> None:
+        path = self._session_quicksave_path()
+        if not path.exists():
+            return
+        try:
+            self._load_session_from_path(path)
+            self._log(f"Quick save auto-loaded: {path}")
+        except Exception as exc:
+            self._log(f"Quick save auto-load failed ({path}): {exc}")
 
     def _reset_map_state(self) -> None:
         """Clear map layout, token placements, overlays, and backgrounds."""
