@@ -8176,6 +8176,84 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  function setControlDisabledState(control, disabled, reason, fallbackTitle = ""){
+    if (!control) return;
+    const isDisabled = !!disabled;
+    control.disabled = isDisabled;
+    control.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+    if (isDisabled){
+      if (reason){
+        control.title = reason;
+      }
+    } else if (fallbackTitle){
+      control.title = fallbackTitle;
+    } else {
+      control.removeAttribute("title");
+    }
+  }
+
+  function unitHasSpellActionForSpend(unit, spend){
+    const spendValue = normalizeLowerValue(spend);
+    if (spendValue === "bonus"){
+      return normalizeActionList(unit?.bonus_actions, "bonus_action").some((entry) => isSpellActionEntry(entry));
+    }
+    if (spendValue === "action"){
+      return normalizeActionList(unit?.actions, "action").some((entry) => isSpellActionEntry(entry));
+    }
+    return false;
+  }
+
+  function updateResourceGatedControls(){
+    const unitCid = activeControlledUnitCid();
+    const controllableTurn = !isMapView && unitCid !== null;
+    const unit = controllableTurn ? getUnitByCid(unitCid) : null;
+    const waitReason = isMapView ? "Map view is read-only." : "Wait for your turn, matey.";
+    if (!unit){
+      const reason = claimedCid == null ? "Claim a character first, matey." : waitReason;
+      setControlDisabledState(attackOverlayToggleBtn, true, reason, "Attack");
+      setControlDisabledState(dashBtn, true, reason, "Dash");
+      setControlDisabledState(castOverlayOpenBtn, true, reason, "Cast Spell");
+      setControlDisabledState(castSpellModalOpenBtn, true, reason, "Cast Spell");
+      return;
+    }
+
+    const actionRemaining = Number(unit.action_remaining || 0);
+    const bonusRemaining = Number(unit.bonus_action_remaining || 0);
+    const attackRemaining = Number(unit.attack_resource_remaining || 0);
+    const spellCastRemaining = Number(unit.spell_cast_remaining || 0);
+
+    const canAttack = actionRemaining > 0 || attackRemaining > 0;
+    setControlDisabledState(
+      attackOverlayToggleBtn,
+      !canAttack,
+      "No actions or attacks left, matey.",
+      "Attack"
+    );
+
+    const actions = normalizeActionList(unit.actions, "action");
+    const bonusActions = normalizeActionList(unit.bonus_actions, "bonus_action");
+    const hasActionDash = actions.some((entry) => normalizeLowerValue(entry?.name) === "dash");
+    const hasBonusDash = bonusActions.some((entry) => normalizeLowerValue(entry?.name) === "dash");
+    const canDash = (hasActionDash && actionRemaining > 0) || (hasBonusDash && bonusRemaining > 0);
+    const dashReason = (!hasActionDash && !hasBonusDash)
+      ? "No Dash option is available for this character."
+      : "No action or bonus action left for Dash.";
+    setControlDisabledState(dashBtn, !canDash, dashReason, "Dash");
+
+    const wildShaped = !!unit.is_wild_shaped;
+    const actionSpellPossible = unitHasSpellActionForSpend(unit, "action") && actionRemaining > 0;
+    const bonusSpellPossible = unitHasSpellActionForSpend(unit, "bonus") && bonusRemaining > 0;
+    const canCastSpell = !wildShaped && spellCastRemaining > 0 && (actionSpellPossible || bonusSpellPossible);
+    let castReason = "No action or bonus action spellcasting option is available.";
+    if (wildShaped){
+      castReason = "Spellcasting is disabled while Wild Shaped.";
+    } else if (spellCastRemaining <= 0){
+      castReason = "You already cast a spell this turn.";
+    }
+    setControlDisabledState(castOverlayOpenBtn, !canCastSpell, castReason, "Cast Spell");
+    setControlDisabledState(castSpellModalOpenBtn, !canCastSpell, castReason, "Cast Spell");
+  }
+
   function defaultAoeCenter(){
     const unit = getClaimedUnit();
     if (unit){
@@ -9624,6 +9702,7 @@ __DAMAGE_TYPE_OPTIONS__
     renderResourcePools();
     updateTurnOrder();
     updateSpellPanelVisibility();
+    updateResourceGatedControls();
     applyMapViewReadOnlyControls();
     updateEndTurnState();
     updateEndTurnReadyVisual(meForHud, myTurn);
@@ -9866,6 +9945,31 @@ __DAMAGE_TYPE_OPTIONS__
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "action-picker-item";
+    const entryUnitCid = activeControlledUnitCid();
+    const entryUnit = entryUnitCid === null ? null : getUnitByCid(entryUnitCid);
+    const actionRemaining = Number(entryUnit?.action_remaining || 0);
+    const bonusRemaining = Number(entryUnit?.bonus_action_remaining || 0);
+    const reactionRemaining = Number(entryUnit?.reaction_remaining || 0);
+    const spellCastRemaining = Number(entryUnit?.spell_cast_remaining || 0);
+    let disabledReason = "";
+    if (entry.spend === "action" && actionRemaining <= 0){
+      disabledReason = "No actions left, matey.";
+    } else if (entry.spend === "bonus" && bonusRemaining <= 0){
+      disabledReason = "No bonus actions left, matey.";
+    } else if (entry.spend === "reaction" && reactionRemaining <= 0){
+      disabledReason = "No reactions left, matey.";
+    }
+    if (!disabledReason && isSpellActionEntry(entry) && (entry.spend === "action" || entry.spend === "bonus") && spellCastRemaining <= 0){
+      disabledReason = "You already cast a spell this turn.";
+    }
+    const isDisabled = !!disabledReason;
+    btn.disabled = isDisabled;
+    btn.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+    if (isDisabled){
+      btn.title = disabledReason;
+    } else {
+      btn.removeAttribute("title");
+    }
     const nameEl = document.createElement("div");
     nameEl.className = "action-picker-name";
     const spendLabel = entry.spend === "bonus" ? "Bonus Action" : (entry.spend === "reaction" ? "Reaction" : "Action");
