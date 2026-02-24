@@ -3234,6 +3234,7 @@ class LanController:
             "move_remaining",
             "move_total",
             "action_remaining",
+            "action_total",
             "attack_resource_remaining",
             "bonus_action_remaining",
             "reaction_remaining",
@@ -5667,6 +5668,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "move_remaining": int(getattr(c, "move_remaining", 0) or 0),
             "move_total": int(getattr(c, "move_total", 0) or 0),
             "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
+            "action_total": int(getattr(c, "action_total", 1) or 1),
             "attack_resource_remaining": int(getattr(c, "attack_resource_remaining", 0) or 0),
             "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
             "reaction_remaining": int(getattr(c, "reaction_remaining", 0) or 0),
@@ -5681,6 +5683,7 @@ class InitiativeTracker(base.InitiativeTracker):
         c.move_remaining = int(snap.get("move_remaining", c.move_remaining))
         c.move_total = int(snap.get("move_total", c.move_total))
         c.action_remaining = int(snap.get("action_remaining", c.action_remaining))
+        c.action_total = int(snap.get("action_total", getattr(c, "action_total", 1)))
         c.attack_resource_remaining = int(snap.get("attack_resource_remaining", getattr(c, "attack_resource_remaining", 0)))
         c.bonus_action_remaining = int(snap.get("bonus_action_remaining", c.bonus_action_remaining))
         c.reaction_remaining = int(snap.get("reaction_remaining", c.reaction_remaining))
@@ -7994,6 +7997,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "move_total": int(getattr(c, "move_total", 0) or 0),
                     "movement_mode": self._movement_mode_label(getattr(c, "movement_mode", "normal")),
                     "action_remaining": int(getattr(c, "action_remaining", 0) or 0),
+                    "action_total": int(getattr(c, "action_total", 1) or 1),
                     "attack_resource_remaining": int(getattr(c, "attack_resource_remaining", 0) or 0),
                     "bonus_action_remaining": int(getattr(c, "bonus_action_remaining", 0) or 0),
                     "reaction_remaining": int(getattr(c, "reaction_remaining", 0) or 0),
@@ -16188,6 +16192,7 @@ class InitiativeTracker(base.InitiativeTracker):
             grant_extra_action = action_key == "action surge"
             if grant_extra_action:
                 c.action_remaining = int(getattr(c, "action_remaining", 0) or 0) + 1
+                c.action_total = int(getattr(c, "action_total", 1) or 1) + 1
                 spend_label = "free action"
             elif spend == "bonus":
                 if not self._use_bonus_action(c):
@@ -17500,6 +17505,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, pool_err or "No Action Surge uses remain, matey.")
                 return
             c.action_remaining = int(getattr(c, "action_remaining", 0) or 0) + 1
+            c.action_total = int(getattr(c, "action_total", 1) or 1) + 1
             self._log(f"{getattr(c, 'name', 'Player')} uses Action Surge and gains 1 action.", cid=cid)
             self._lan.toast(ws_id, "Action Surge used: +1 action.")
             self._rebuild_table(scroll_to_current=True)

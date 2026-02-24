@@ -32,6 +32,7 @@ class LanActionSurgePoolTests(unittest.TestCase):
                     "cid": 1,
                     "name": "John Twilight",
                     "action_remaining": 0,
+                    "action_total": 1,
                 },
             )()
         }
@@ -55,6 +56,7 @@ class LanActionSurgePoolTests(unittest.TestCase):
         )
 
         self.assertEqual(app.combatants[1].action_remaining, 1)
+        self.assertEqual(app.combatants[1].action_total, 2)
         self.assertEqual(consumed, [("John Twilight", "action_surge", 1)])
         self.assertIn((42, "Action Surge used: +1 action."), toasts)
         self.assertTrue(any("uses Action Surge and gains 1 action" in message for _cid, message in logs))

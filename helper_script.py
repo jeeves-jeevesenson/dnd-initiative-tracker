@@ -325,6 +325,7 @@ class Combatant:
     temp_move_bonus: int = 0
     temp_move_turns_remaining: int = 0
     action_remaining: int = 1
+    action_total: int = 1
     attack_resource_remaining: int = 0
     bonus_action_remaining: int = 1
     reaction_remaining: int = 1
@@ -2526,6 +2527,7 @@ class InitiativeTracker(tk.Tk):
         c.extra_bonus_pool = 0
         if int(getattr(c, "haste_remaining_turns", 0) or 0) > 0:
             c.action_remaining += 1
+        c.action_total = int(getattr(c, "action_remaining", 0) or 0)
         self._reset_concentration_prompt_state(c)
 
         # expire star advantage at start of creature's turn
@@ -2930,6 +2932,7 @@ class InitiativeTracker(tk.Tk):
         for c in targets:
             if self.current_cid == c.cid:
                 c.action_remaining += 1
+                c.action_total = int(getattr(c, "action_total", 1) or 1) + 1
                 note = "extra action granted"
             else:
                 c.extra_action_pool = int(getattr(c, "extra_action_pool", 0) or 0) + 1
