@@ -5612,6 +5612,30 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _show_dm_up_alert_dialog(self) -> None:
         parent = self
+        map_parent = None
+        try:
+            mw = getattr(self, "_map_window", None)
+            if mw is not None and mw.winfo_exists():
+                map_parent = mw
+        except Exception:
+            map_parent = None
+
+        if map_parent is not None:
+            parent = map_parent
+            try:
+                if hasattr(parent, "deiconify"):
+                    parent.deiconify()
+            except Exception:
+                pass
+            try:
+                parent.lift()
+            except Exception:
+                pass
+            try:
+                parent.focus_force()
+            except Exception:
+                pass
+
         dialog = tk.Toplevel(parent)
         dialog.title("Turn Tracker")
         dialog.transient(parent)
@@ -5630,10 +5654,27 @@ class InitiativeTracker(base.InitiativeTracker):
         dialog.update_idletasks()
         width = dialog.winfo_reqwidth()
         height = dialog.winfo_reqheight()
-        screen_w = dialog.winfo_screenwidth()
-        screen_h = dialog.winfo_screenheight()
-        xpos = max(0, (screen_w - width) // 2)
-        ypos = max(0, (screen_h - height) // 2)
+
+        xpos = None
+        ypos = None
+        try:
+            parent.update_idletasks()
+            parent_x = int(parent.winfo_rootx())
+            parent_y = int(parent.winfo_rooty())
+            parent_w = int(parent.winfo_width())
+            parent_h = int(parent.winfo_height())
+            if parent_w > 1 and parent_h > 1:
+                xpos = parent_x + max(0, (parent_w - width) // 2)
+                ypos = parent_y + max(0, (parent_h - height) // 2)
+        except Exception:
+            xpos = None
+            ypos = None
+
+        if xpos is None or ypos is None:
+            screen_w = dialog.winfo_screenwidth()
+            screen_h = dialog.winfo_screenheight()
+            xpos = max(0, (screen_w - width) // 2)
+            ypos = max(0, (screen_h - height) // 2)
         dialog.geometry(f"{width}x{height}+{xpos}+{ypos}")
 
         dialog.wm_attributes("-topmost", True)
