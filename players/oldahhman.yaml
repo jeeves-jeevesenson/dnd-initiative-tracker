@@ -11,7 +11,7 @@ leveling:
   level: 10
   classes:
   - name: Monk
-    subclass: Warrior of the Open Hand
+    subclass: Warrior of the Elements
     level: 10
 abilities:
   str: 18
@@ -22,7 +22,9 @@ abilities:
   cha: 13
 proficiency:
   bonus: 4
-  saves: []
+  saves:
+  - STR
+  - DEX
   skills:
     proficient:
     - Athletics
@@ -58,14 +60,60 @@ defenses:
     - id: unarmored
       label: Unarmored
       when: always
-      base_formula: 10 + dex_mod
+      base_formula: 10 + dex_mod + wis_mod
     bonuses: []
   resistances: []
   immunities: []
   vulnerabilities: []
+attacks:
+  weapon_to_hit: 6
+  weapons:
+  - id: unarmed_strike
+    name: Unarmed Strike
+    category: simple_melee
+    weapon_group: Simple Melee
+    proficient: true
+    equipped: true
+    main_hand: true
+    to_hit: 6
+    magic_bonus: 0
+    range: '5'
+    one_handed:
+      damage_formula: 1d8 + str_mod
+      damage_type: bludgeoning
+    two_handed:
+      damage_formula: ''
+      damage_type: ''
+    properties: []
+    effect:
+      on_hit: Martial Arts baseline at Monk 10 uses a d8. Monk rules allow Dexterity instead of Strength for attack/damage rolls; this entry currently uses the best-fit ability score formula for now.
+      save_ability: ''
+      save_dc: 0
 resources:
-  pools: []
-features: []
+  pools:
+  - id: focus_points
+    label: Focus Points
+    current: 10
+    max_formula: monk_level
+    reset: short_rest
+  - id: uncanny_metabolism
+    label: Uncanny Metabolism
+    current: 1
+    max_formula: '1'
+    reset: long_rest
+features:
+- id: monks_focus
+  name: Monk's Focus
+  category: Monk Feature
+  source: PHB2024
+  level: 2
+  description: Focus save DC = 8 + prof + wis_mod. Baseline Focus spenders include Flurry of Blows, Patient Defense, and Step of the Wind.
+- id: warrior_of_the_elements
+  name: Warrior of the Elements
+  category: Monk Subclass Feature
+  source: PHB2024
+  level: 3
+  description: Elemental Attunement, Elemental Burst, and Manipulate Elements (Elementalism known).
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.

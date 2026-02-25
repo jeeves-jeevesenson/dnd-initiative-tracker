@@ -11222,6 +11222,7 @@ class InitiativeTracker(base.InitiativeTracker):
         druid_level = self._druid_level_from_profile(data)
         fighter_level = self._fighter_level_from_profile(data)
         paladin_level = self._class_level_from_profile(data, "paladin")
+        monk_level = self._class_level_from_profile(data, "monk")
         wild_shape_max = self._wild_shape_max_uses_for_level(druid_level)
         second_wind_max = self._second_wind_max_uses_for_level(fighter_level)
         lay_on_hands_max = max(0, int(paladin_level) * 5)
@@ -11296,6 +11297,17 @@ class InitiativeTracker(base.InitiativeTracker):
                     "gain_on_short": 1,
                 }
             )
+        if monk_level >= 2 and "focus_points" not in seen_pool_ids:
+            normalized.append(
+                {
+                    "id": "focus_points",
+                    "label": "Focus Points",
+                    "current": monk_level,
+                    "max": monk_level,
+                    "max_formula": "monk_level",
+                    "reset": "short_rest",
+                }
+            )
         if paladin_level >= 1 and "lay_on_hands" not in seen_pool_ids:
             normalized.append(
                 {
@@ -11334,6 +11346,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "fighter_level": self._fighter_level_from_profile(profile),
             "barbarian_level": self._class_level_from_profile(profile, "barbarian"),
             "rogue_level": self._class_level_from_profile(profile, "rogue"),
+            "monk_level": self._class_level_from_profile(profile, "monk"),
             "wizard_level": self._class_level_from_profile(profile, "wizard"),
             "cleric_level": self._class_level_from_profile(profile, "cleric"),
             "paladin_level": self._class_level_from_profile(profile, "paladin"),
@@ -12796,6 +12809,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "cleric_level": self._class_level_from_profile(profile, "cleric"),
             "fighter_level": self._class_level_from_profile(profile, "fighter"),
             "rogue_level": self._class_level_from_profile(profile, "rogue"),
+            "monk_level": self._class_level_from_profile(profile, "monk"),
         }
         max_level = 9
         try:
