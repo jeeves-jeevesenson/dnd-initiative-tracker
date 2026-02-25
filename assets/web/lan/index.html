@@ -11867,6 +11867,12 @@ __DAMAGE_TYPE_OPTIONS__
     if (pendingAoePlacement){
       if (ev.button !== 0 && ev.pointerType === "mouse") return;
       setPendingAoePlacementCursorFromPointer(p);
+      if (pendingAoePlacement.castConfirmMessage && !window.confirm(pendingAoePlacement.castConfirmMessage)){
+        return;
+      }
+      if (pendingAoePlacement.concentrationConfirmMessage && !window.confirm(pendingAoePlacement.concentrationConfirmMessage)){
+        return;
+      }
       const msg = {...pendingAoePlacement.msg, payload: {...(pendingAoePlacement.msg?.payload || {})}};
       const cursor = pendingAoePlacement.cursor || {col: 0, row: 0};
       msg.payload.cx = Math.round(Number(cursor.col));
@@ -15232,12 +15238,11 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const actionLabel = actionType === "bonus_action" ? "bonus action" : actionType;
       const spellName = normalizeTextValue(castNameInput?.value) || "this spell";
-      if (!confirm(`Cast ${spellName} using your ${actionLabel}?`)){
-        return;
-      }
+      const castConfirmMessage = `Cast ${spellName} using your ${actionLabel}?`;
       const concentrationSpell = normalizeTextValue(unit?.concentration_spell || unit?.concentrationSpell || "");
       const concentrationKey = normalizeLowerValue(concentrationSpell);
       const pendingConcentrationKey = normalizeLowerValue(preset?.slug || spellName);
+      let concentrationConfirmMessage = null;
       if (
         preset?.concentration === true
         && unit?.concentrating
@@ -15249,9 +15254,7 @@ __DAMAGE_TYPE_OPTIONS__
           .filter(Boolean)
           .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
           .join(" ");
-        if (!confirm(`You're concentrating on ${concentrationLabel}. Casting ${spellName} will end it. Continue?`)){
-          return;
-        }
+        concentrationConfirmMessage = `You're concentrating on ${concentrationLabel}. Casting ${spellName} will end it. Continue?`;
       }
       const shape = String(castShapeInput?.value || "").toLowerCase();
       const spellActionTag = resolveSpellActionTag(preset);
@@ -15613,7 +15616,19 @@ __DAMAGE_TYPE_OPTIONS__
       if (aoeSpell){
         const caster = getClaimedUnit();
         const selfRangeCentered = isSelfRangeAoePreset(preset) && isCenteredAoeShape(shape);
+        const confirmCastNow = () => {
+          if (!window.confirm(castConfirmMessage)){
+            return false;
+          }
+          if (concentrationConfirmMessage && !window.confirm(concentrationConfirmMessage)){
+            return false;
+          }
+          return true;
+        };
         if (selfRangeCentered && caster?.pos){
+          if (!confirmCastNow()){
+            return;
+          }
           const casterCol = Number(caster.pos.col);
           const casterRow = Number(caster.pos.row);
           msg.payload = msg.payload || {};
@@ -15644,9 +15659,17 @@ __DAMAGE_TYPE_OPTIONS__
           msg,
           payload: {...payload},
           cursor: {col: Number(payload.cx), row: Number(payload.cy)},
+          castConfirmMessage,
+          concentrationConfirmMessage,
         };
-        localToast("AoE placement: move cursor, click to place.");
+        localToast("AoE placement: move cursor, click to place (you’ll confirm on placement).");
         draw();
+        return;
+      }
+      if (!window.confirm(castConfirmMessage)){
+        return;
+      }
+      if (concentrationConfirmMessage && !window.confirm(concentrationConfirmMessage)){
         return;
       }
       if (isPlanning){
