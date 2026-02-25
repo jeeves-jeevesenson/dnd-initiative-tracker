@@ -79,7 +79,7 @@ attacks:
     magic_bonus: 0
     range: '5'
     one_handed:
-      damage_formula: 1d8 + str_mod
+      damage_formula: 1d8 + dex_mod
       damage_type: bludgeoning
     two_handed:
       damage_formula: ''

@@ -3175,6 +3175,8 @@ __DAMAGE_TYPE_OPTIONS__
       <button class="btn accent" id="monkPatientDefenseFocus" type="button">Patient Defense (Disengage + Dodge) — 1 Focus</button>
       <button class="btn" id="monkStepOfWindFree" type="button">Step of the Wind (Dash) — Bonus Action</button>
       <button class="btn accent" id="monkStepOfWindFocus" type="button">Step of the Wind (Dash + Disengage) — 1 Focus</button>
+      <button class="btn" id="monkMartialArtsBonus" type="button">Martial Arts: Bonus Unarmed Strike — Bonus Action</button>
+      <button class="btn accent" id="monkFlurryOfBlows" type="button">Flurry of Blows — 1 Focus (2 strikes; 3 at Monk 10+)</button>
       <button class="btn" id="monkFocusClose" type="button">Close</button>
     </div>
   </div>
@@ -3894,6 +3896,8 @@ __DAMAGE_TYPE_OPTIONS__
   const monkPatientDefenseFocusBtn = document.getElementById("monkPatientDefenseFocus");
   const monkStepOfWindFreeBtn = document.getElementById("monkStepOfWindFree");
   const monkStepOfWindFocusBtn = document.getElementById("monkStepOfWindFocus");
+  const monkMartialArtsBonusBtn = document.getElementById("monkMartialArtsBonus");
+  const monkFlurryOfBlowsBtn = document.getElementById("monkFlurryOfBlows");
   const monkFocusCloseBtn = document.getElementById("monkFocusClose");
   const layOnHandsOverlay = document.getElementById("layOnHandsOverlay");
   const layOnHandsSummary = document.getElementById("layOnHandsSummary");
@@ -4175,6 +4179,7 @@ __DAMAGE_TYPE_OPTIONS__
   let weaponSelectionCharacterKey = "";
   let pendingAttackResolve = null;
   let pendingActionAttackWeapon = null;
+  let pendingMonkBonusAttackSequence = null;
   let pendingUnleashIncarnation = null;
   let pendingOpportunityAttack = false;
   let pendingCleavePrompt = null;
@@ -5013,6 +5018,24 @@ __DAMAGE_TYPE_OPTIONS__
     return getSelectedMainhandWeapon();
   }
 
+  function getMonkLevelFromProfile(profile){
+    const classes = profile?.leveling?.classes;
+    if (!Array.isArray(classes)) return 0;
+    return classes
+      .filter((entry) => normalizeLowerValue(entry?.name) === "monk")
+      .reduce((sum, entry) => sum + Math.max(0, Number(entry?.level || 0)), 0);
+  }
+
+  function getUnarmedStrikeWeapon(){
+    const weapons = getClaimedWeapons();
+    if (!weapons.length) return null;
+    const byId = weapons.find((entry) => normalizeLowerValue(entry?.id) === "unarmed_strike");
+    if (byId) return {...byId, selected_mode: "one"};
+    const melee = weapons.filter((entry) => isMeleeWeapon(entry));
+    const fallback = getDefaultAttackWeapon(melee.length ? melee : weapons);
+    return fallback ? {...fallback, selected_mode: "one"} : null;
+  }
+
   function getPlayerResourcePools(name){
     if (!name) return [];
     const poolsByPlayer = state?.resource_pools;
@@ -5260,13 +5283,19 @@ __DAMAGE_TYPE_OPTIONS__
   function setMonkFocusOverlayOpen(open){
     setModalOpen(monkFocusOverlay, open);
     if (!open) return;
-    const pools = getPlayerResourcePools(getClaimedPlayerName());
+    const playerName = getClaimedPlayerName();
+    const pools = getPlayerResourcePools(playerName);
     const focusPool = pools.find((entry) => entry.id === "focus_points");
     const current = Math.max(0, Number(focusPool?.current || 0));
     const max = Math.max(0, Number(focusPool?.max || 0));
     if (monkFocusSummary) monkFocusSummary.textContent = focusPool ? `Focus Points: ${current}/${max}` : "No Focus Points pool found.";
+    const monkLevel = getMonkLevelFromProfile(getPlayerProfile(playerName));
+    const flurryStrikes = monkLevel >= 10 ? 3 : 2;
+    if (monkFlurryOfBlowsBtn){
+      monkFlurryOfBlowsBtn.textContent = `Flurry of Blows — 1 Focus (${flurryStrikes} strikes)`;
+    }
     const noFocus = current <= 0;
-    [monkPatientDefenseFocusBtn, monkStepOfWindFocusBtn].forEach((btn) => {
+    [monkPatientDefenseFocusBtn, monkStepOfWindFocusBtn, monkFlurryOfBlowsBtn].forEach((btn) => {
       if (!btn) return;
       btn.disabled = noFocus;
       btn.style.opacity = noFocus ? "0.6" : "";
@@ -7793,6 +7822,21 @@ __DAMAGE_TYPE_OPTIONS__
       draw();
       return;
     }
+    if (type === "attack_request"){
+      const unit = getUnitByCid(msg.cid);
+      if (!unit) return;
+      if (String(msg.attack_spend || "").trim().toLowerCase() === "bonus" && msg.bonus_sequence_start === true){
+        const update = {cid: unit.cid};
+        const current = Number(unit.bonus_action_remaining || 0);
+        update.bonus_action_remaining = Math.max(0, current - 1);
+        applyUnitUpdates([update]);
+        if (msg.consumes_pool && typeof msg.consumes_pool === "object"){
+          mutateResourcePoolCounter(unit, msg.consumes_pool);
+          renderResourcePools();
+        }
+      }
+      return;
+    }
     if (type === "second_wind_use"){
       const unit = getUnitByCid(msg.cid);
       if (!unit) return;
@@ -8323,6 +8367,7 @@ __DAMAGE_TYPE_OPTIONS__
       pendingOpportunityAttack = false;
       pendingActionAttackWeapon = null;
       pendingUnleashIncarnation = null;
+      pendingMonkBonusAttackSequence = null;
     }
     if (attackOverlayToggleBtn){
       attackOverlayToggleBtn.setAttribute("aria-pressed", attackOverlayMode ? "true" : "false");
@@ -11497,6 +11542,9 @@ __DAMAGE_TYPE_OPTIONS__
           }
           if (Number.isFinite(Number(msg.attack_resource_remaining))){
             me.attack_resource_remaining = Number(msg.attack_resource_remaining);
+          }
+          if (Number.isFinite(Number(msg.bonus_action_remaining))){
+            me.bonus_action_remaining = Number(msg.bonus_action_remaining);
           }
           updateHud();
           draw();
@@ -16247,6 +16295,45 @@ __DAMAGE_TYPE_OPTIONS__
   if (monkStepOfWindFocusBtn){
     monkStepOfWindFocusBtn.addEventListener("click", () => sendMonkFocusAction("monk_step_of_wind", "focus"));
   }
+  const startMonkBonusAttackSequence = (sequenceId, totalStrikes, focusCost) => {
+    if (isMapView) return;
+    const cid = activeControlledUnitCid();
+    if (cid === null){
+      localToast("Not yer turn yet, matey.");
+      return;
+    }
+    const weapon = getUnarmedStrikeWeapon();
+    if (!weapon){
+      localToast("No configured unarmed strike found, matey.");
+      return;
+    }
+    const total = Math.max(1, Math.min(10, Number(totalStrikes) || 1));
+    pendingMonkBonusAttackSequence = {
+      id: String(sequenceId || "martial_arts"),
+      totalStrikes: total,
+      remainingStrikes: total,
+      weapon: {...weapon, resolve_prompt: `${sequenceId === "flurry" ? "Flurry of Blows" : "Martial Arts"}: strike 1/${total} — pick damage or leave blank to auto-roll.`},
+      focusCost: Math.max(0, Number(focusCost) || 0),
+      started: false,
+    };
+    pendingActionAttackWeapon = pendingMonkBonusAttackSequence.weapon;
+    setMonkFocusOverlayOpen(false);
+    setAttackOverlayMode(true);
+    localToast("Pick a target for your bonus attack.");
+    draw();
+  };
+  if (monkMartialArtsBonusBtn){
+    monkMartialArtsBonusBtn.addEventListener("click", () => {
+      startMonkBonusAttackSequence("martial_arts", 1, 0);
+    });
+  }
+  if (monkFlurryOfBlowsBtn){
+    monkFlurryOfBlowsBtn.addEventListener("click", () => {
+      const profile = getPlayerProfile(getClaimedPlayerName());
+      const monkLevel = getMonkLevelFromProfile(profile);
+      startMonkBonusAttackSequence("flurry", monkLevel >= 10 ? 3 : 2, 1);
+    });
+  }
   if (layOnHandsCancelBtn){
     layOnHandsCancelBtn.addEventListener("click", () => {
       setLayOnHandsOverlayOpen(false);
@@ -16960,7 +17047,11 @@ __DAMAGE_TYPE_OPTIONS__
         });
         consumeSpellTargetingShot();
       } else {
-        send({
+        const monkSeq = pendingMonkBonusAttackSequence && typeof pendingMonkBonusAttackSequence === "object"
+          ? pendingMonkBonusAttackSequence
+          : null;
+        const isSeqStart = !!(monkSeq && !monkSeq.started);
+        const attackMsg = {
           type: "attack_request",
           cid: actionCid,
           target_cid: Number(pendingAttackResolve.targetCid),
@@ -16980,8 +17071,35 @@ __DAMAGE_TYPE_OPTIONS__
           hit: hit,
           critical,
           damage_entries: damageEntries,
-        });
-        setAttackOverlayMode(false);
+        };
+        if (monkSeq){
+          attackMsg.attack_spend = "bonus";
+          attackMsg.bonus_sequence_id = monkSeq.id;
+          attackMsg.bonus_sequence_total = monkSeq.totalStrikes;
+          attackMsg.bonus_sequence_start = isSeqStart;
+          if (isSeqStart && monkSeq.focusCost > 0){
+            attackMsg.consumes_pool = {id: "focus_points", label: "Focus Points", cost: monkSeq.focusCost};
+            attackMsg.consumes_pool_always = true;
+          }
+        }
+        send(attackMsg);
+        if (monkSeq){
+          monkSeq.started = true;
+          monkSeq.remainingStrikes = Math.max(0, Number(monkSeq.remainingStrikes || 0) - 1);
+          if (monkSeq.remainingStrikes > 0){
+            const nextStrike = monkSeq.totalStrikes - monkSeq.remainingStrikes + 1;
+            const label = monkSeq.id === "flurry" ? "Flurry of Blows" : "Martial Arts";
+            const nextPrompt = `${label}: strike ${nextStrike}/${monkSeq.totalStrikes} — pick damage or leave blank to auto-roll.`;
+            monkSeq.weapon = {...(monkSeq.weapon || {}), resolve_prompt: nextPrompt};
+            pendingActionAttackWeapon = monkSeq.weapon;
+            localToast(`${monkSeq.remainingStrikes} strike${monkSeq.remainingStrikes === 1 ? "" : "s"} remaining.`);
+          } else {
+            pendingMonkBonusAttackSequence = null;
+            setAttackOverlayMode(false);
+          }
+        } else {
+          setAttackOverlayMode(false);
+        }
       }
       setAttackResolveModalOpen(false);
     });

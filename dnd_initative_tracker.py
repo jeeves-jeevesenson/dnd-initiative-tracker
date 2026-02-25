@@ -18209,6 +18209,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "yes",
                 "on",
             )
+            attack_spend = str(msg.get("attack_spend") or msg.get("spend") or "").strip().lower()
             if nick_extra_attack_available:
                 configured_attack_count = min(10, int(configured_attack_count) + 1)
             attack_count = max(
@@ -18239,7 +18240,41 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan.toast(ws_id, "Arr... I dont be seeing no echo, matey")
                     return
             attack_resources = max(0, _parse_int(getattr(resource_c, "attack_resource_remaining", 0), 0) or 0)
-            if not is_cleave_followup:
+            is_bonus_spend_attack = bool(attack_spend == "bonus" and not opportunity_attack and not is_cleave_followup)
+            if is_bonus_spend_attack:
+                bonus_seq_id = str(msg.get("bonus_sequence_id") or "").strip().lower() or "bonus_attack"
+                try:
+                    bonus_sequence_total = int(msg.get("bonus_sequence_total") if msg.get("bonus_sequence_total") is not None else 1)
+                except Exception:
+                    bonus_sequence_total = 1
+                bonus_sequence_total = max(1, min(10, int(bonus_sequence_total)))
+                bonus_sequence_start = bool(msg.get("bonus_sequence_start") is True)
+                active_seq_marker = tuple(getattr(resource_c, "_bonus_attack_seq_turn_marker", ()) or ())
+                active_seq_id = str(getattr(resource_c, "_bonus_attack_seq_id", "") or "").strip().lower()
+                try:
+                    active_seq_remaining = int(getattr(resource_c, "_bonus_attack_seq_remaining", 0) or 0)
+                except Exception:
+                    active_seq_remaining = 0
+                matching_seq = len(active_seq_marker) == len(turn_marker) and active_seq_marker == turn_marker and active_seq_id == bonus_seq_id
+                should_start_sequence = bool(bonus_sequence_start or not matching_seq)
+                if should_start_sequence:
+                    if not self._use_bonus_action(resource_c):
+                        self._lan.toast(ws_id, "No bonus actions left, matey.")
+                        return
+                    setattr(resource_c, "_bonus_attack_seq_turn_marker", turn_marker)
+                    setattr(resource_c, "_bonus_attack_seq_id", bonus_seq_id)
+                    setattr(resource_c, "_bonus_attack_seq_remaining", max(0, int(bonus_sequence_total) - 1))
+                else:
+                    if active_seq_remaining <= 0:
+                        self._lan.toast(ws_id, "No bonus actions left, matey.")
+                        return
+                    next_remaining = max(0, int(active_seq_remaining) - 1)
+                    setattr(resource_c, "_bonus_attack_seq_remaining", int(next_remaining))
+                    if next_remaining <= 0:
+                        setattr(resource_c, "_bonus_attack_seq_turn_marker", ())
+                        setattr(resource_c, "_bonus_attack_seq_id", "")
+                        setattr(resource_c, "_bonus_attack_seq_remaining", 0)
+            elif not is_cleave_followup:
                 if opportunity_attack:
                     if not self._use_reaction(resource_c):
                         self._lan.toast(ws_id, "No reactions left, matey.")
@@ -18556,7 +18591,8 @@ class InitiativeTracker(base.InitiativeTracker):
                         mastery_notes.append("Cleave ready: choose one nearby enemy for a free attack.")
             is_critical = bool(hit and bool(requested_critical))
             if consumes_pool_id and not is_admin:
-                should_consume_pool = (not hit) or (int(total_damage) > 0)
+                consumes_pool_always = bool(msg.get("consumes_pool_always") is True)
+                should_consume_pool = bool(consumes_pool_always or (not hit) or (int(total_damage) > 0))
                 if should_consume_pool:
                     owner_name = self._pc_name_for(int(getattr(resource_c, "cid", cid) or cid))
                     ok_pool, pool_err = self._consume_resource_pool_for_cast(owner_name, consumes_pool_id, consumes_pool_cost)
@@ -18580,6 +18616,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "damage_total": int(total_damage if damage_applied else 0),
                 "damage_entries": list(damage_entries if damage_applied else []),
                 "action_remaining": int(getattr(resource_c, "action_remaining", 0) or 0),
+                "bonus_action_remaining": int(getattr(resource_c, "bonus_action_remaining", 0) or 0),
                 "attack_resource_remaining": int(getattr(resource_c, "attack_resource_remaining", 0) or 0),
                 "mastery_advantage": bool(mastery_vex_advantage),
             }
