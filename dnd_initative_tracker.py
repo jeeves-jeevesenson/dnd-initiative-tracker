@@ -1334,6 +1334,8 @@ class LanController:
         "second_wind_use",
         "action_surge_use",
         "lay_on_hands_use",
+        "monk_patient_defense",
+        "monk_step_of_wind",
     )
 
     def __init__(self, app: "InitiativeTracker") -> None:
@@ -19121,6 +19123,96 @@ class InitiativeTracker(base.InitiativeTracker):
                 cid=int(target.cid),
             )
             self._lan.toast(ws_id, f"Lay on Hands: healed {actual_heal} HP.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "monk_patient_defense":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            if not bool(getattr(c, "is_pc", False)):
+                self._lan.toast(ws_id, "Only player characters can use Monk Focus actions, matey.")
+                return
+            player_name = _resolve_pc_name(cid)
+            profile = self._profile_for_player_name(player_name)
+            if not isinstance(profile, dict):
+                self._lan.toast(ws_id, "No player profile found, matey.")
+                return
+            monk_level = self._class_level_from_profile(profile, "monk")
+            if monk_level < 2:
+                self._lan.toast(ws_id, "Only monks level 2+ can use Patient Defense, matey.")
+                return
+            mode = str(msg.get("mode") or "free").strip().lower()
+            if mode not in ("free", "focus"):
+                mode = "free"
+            if not self._use_bonus_action(c):
+                self._lan.toast(ws_id, "No bonus actions left, matey.")
+                return
+            if mode == "focus":
+                ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "focus_points", 1)
+                if not ok_pool:
+                    self._lan.toast(ws_id, pool_err or "No Focus Points remain, matey.")
+                    return
+                self._log(
+                    f"{c.name} used Patient Defense (Disengage + Dodge) (bonus action, 1 Focus)",
+                    cid=cid,
+                )
+                if monk_level >= 10:
+                    ma_die = 8 if monk_level >= 5 else 6
+                    temp_roll = random.randint(1, ma_die) + random.randint(1, ma_die)
+                    current_temp_hp = int(getattr(c, "temp_hp", 0) or 0)
+                    setattr(c, "temp_hp", max(current_temp_hp, temp_roll))
+                    self._log(
+                        f"{c.name} gained Monk Focus temp HP: {temp_roll} (2d{ma_die}; current temp HP {getattr(c, 'temp_hp', 0)}).",
+                        cid=cid,
+                    )
+                self._lan.toast(ws_id, "Patient Defense used (1 Focus).")
+            else:
+                self._log(f"{c.name} used Patient Defense (Disengage) (bonus action)", cid=cid)
+                self._lan.toast(ws_id, "Patient Defense used.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "monk_step_of_wind":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            if not bool(getattr(c, "is_pc", False)):
+                self._lan.toast(ws_id, "Only player characters can use Monk Focus actions, matey.")
+                return
+            player_name = _resolve_pc_name(cid)
+            profile = self._profile_for_player_name(player_name)
+            if not isinstance(profile, dict):
+                self._lan.toast(ws_id, "No player profile found, matey.")
+                return
+            monk_level = self._class_level_from_profile(profile, "monk")
+            if monk_level < 2:
+                self._lan.toast(ws_id, "Only monks level 2+ can use Step of the Wind, matey.")
+                return
+            mode = str(msg.get("mode") or "free").strip().lower()
+            if mode not in ("free", "focus"):
+                mode = "free"
+            if not self._use_bonus_action(c):
+                self._lan.toast(ws_id, "No bonus actions left, matey.")
+                return
+            if mode == "focus":
+                ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "focus_points", 1)
+                if not ok_pool:
+                    self._lan.toast(ws_id, pool_err or "No Focus Points remain, matey.")
+                    return
+            try:
+                base_speed = int(self._mode_speed(c))
+            except Exception:
+                base_speed = int(getattr(c, "speed", 30) or 30)
+            total = int(getattr(c, "move_total", 0) or 0)
+            rem = int(getattr(c, "move_remaining", 0) or 0)
+            setattr(c, "move_total", total + base_speed)
+            setattr(c, "move_remaining", rem + base_speed)
+            if mode == "focus":
+                self._log(
+                    f"{c.name} used Step of the Wind (Dash + Disengage) (bonus action, 1 Focus)",
+                    cid=cid,
+                )
+            else:
+                self._log(f"{c.name} used Step of the Wind (Dash) (bonus action)", cid=cid)
+            self._log(f"{c.name} jump distance doubled (not automated).", cid=cid)
+            self._lan.toast(ws_id, "Step of the Wind used.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "use_action":
             c = self.combatants.get(cid)
