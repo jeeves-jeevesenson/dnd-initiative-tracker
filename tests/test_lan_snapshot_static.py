@@ -145,6 +145,64 @@ class LanSnapshotStaticTests(unittest.TestCase):
         self.assertEqual(snap["player_profiles"], {"Alice": {"name": "Alice"}})
         self.assertEqual(snap["resource_pools"], {"Alice": [{"id": "wild_shape", "current": 0}]})
 
+    def test_include_static_false_without_hydration_skips_static_builders(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._lan_grid_cols = 10
+        app._lan_grid_rows = 10
+        app._lan_obstacles = set()
+        app._lan_positions = {}
+        app._lan_aoes = {}
+        app._lan_rough_terrain = {}
+        app._lan_next_aoe_id = 1
+        app.combatants = {}
+        app.current_cid = None
+        app.round_num = 1
+        app._display_order = lambda: []
+        app._oplog = lambda *args, **kwargs: None
+        app._player_yaml_refresh_interval_s = 1.0
+        app._lan_resource_pools_last_build = 0.0
+
+        app._spell_presets_payload = lambda: (_ for _ in ()).throw(AssertionError("spell presets should not be called"))
+        app._player_spell_config_payload = lambda: (_ for _ in ()).throw(AssertionError("player spells should not be called"))
+        app._player_profiles_payload = lambda: (_ for _ in ()).throw(AssertionError("player profiles should not be called"))
+        app._player_resource_pools_payload = lambda: (_ for _ in ()).throw(AssertionError("resource pools should not be called"))
+
+        app._lan = type("LanStub", (), {"_cached_snapshot": {}})()
+
+        snap = app._lan_snapshot(include_static=False, hydrate_static=False)
+        self.assertEqual(snap["spell_presets"], [])
+        self.assertEqual(snap["player_spells"], {})
+        self.assertEqual(snap["player_profiles"], {})
+        self.assertEqual(snap["resource_pools"], {})
+
+    def test_include_static_false_reuses_cached_resource_pools_within_refresh_interval(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._lan_grid_cols = 10
+        app._lan_grid_rows = 10
+        app._lan_obstacles = set()
+        app._lan_positions = {}
+        app._lan_aoes = {}
+        app._lan_rough_terrain = {}
+        app._lan_next_aoe_id = 1
+        app.combatants = {}
+        app.current_cid = None
+        app.round_num = 1
+        app._display_order = lambda: []
+        app._oplog = lambda *args, **kwargs: None
+        app._player_yaml_refresh_interval_s = 1.0
+        app._lan_resource_pools_last_build = tracker_mod.time.monotonic()
+
+        app._spell_presets_payload = lambda: []
+        app._player_spell_config_payload = lambda: {}
+        app._player_profiles_payload = lambda: {}
+        app._player_resource_pools_payload = lambda: (_ for _ in ()).throw(AssertionError("resource pools should not be called"))
+
+        cached_resource_pools = {"Alice": [{"id": "wild_shape", "current": 1}]}
+        app._lan = type("LanStub", (), {"_cached_snapshot": {"resource_pools": cached_resource_pools}})()
+
+        snap = app._lan_snapshot(include_static=False)
+        self.assertIs(snap["resource_pools"], cached_resource_pools)
+
     def test_view_only_state_payload_includes_grid_and_terrain(self):
         lan = object.__new__(tracker_mod.LanController)
         lan._cached_snapshot = {
@@ -251,7 +309,7 @@ class LanSnapshotStaticTests(unittest.TestCase):
         call_counts = {"snap": 0}
 
         class AppStub:
-            def _lan_snapshot(self, include_static=False):
+            def _lan_snapshot(self, include_static=False, hydrate_static=True):
                 call_counts["snap"] += 1
                 return {"grid": {}}
 
@@ -315,7 +373,7 @@ class LanSnapshotStaticTests(unittest.TestCase):
         lan._static_data_payload = _fake_static_data_payload
 
         class AppStub:
-            def _lan_snapshot(self, include_static=False):
+            def _lan_snapshot(self, include_static=False, hydrate_static=True):
                 return {
                     "grid": {"cols": 8, "rows": 8},
                     "units": [],
