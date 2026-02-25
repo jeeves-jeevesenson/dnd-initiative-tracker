@@ -55,6 +55,7 @@ class LanAttackRequestTests(unittest.TestCase):
         self.app.combatants[1].exhaustion_level = 0
         self.app.combatants[1].action_remaining = 1
         self.app.combatants[1].reaction_remaining = 1
+        self.app.combatants[1].bonus_action_remaining = 1
         self.app.combatants[1].attack_resource_remaining = 0
         self.app._display_order = lambda: [self.app.combatants[cid] for cid in sorted(self.app.combatants.keys())]
         self.app._retarget_current_after_removal = lambda removed, pre_order=None: None
@@ -383,6 +384,93 @@ class LanAttackRequestTests(unittest.TestCase):
 
         self.assertNotIn("_attack_result", msg)
         self.assertIn((13, "No attacks left, matey."), self.toasts)
+
+    def test_attack_request_bonus_spend_succeeds_without_action_and_does_not_consume_action(self):
+        self.app.combatants[1].action_remaining = 0
+        self.app.combatants[1].attack_resource_remaining = 0
+        self.app.combatants[1].bonus_action_remaining = 1
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 131,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "attack_spend": "bonus",
+            "bonus_sequence_total": 1,
+            "bonus_sequence_start": True,
+            "hit": False,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertNotIn((131, "No attacks left, matey."), self.toasts)
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(self.app.combatants[1].bonus_action_remaining, 0)
+        self.assertEqual(self.app.combatants[1].action_remaining, 0)
+        self.assertEqual(self.app.combatants[1].attack_resource_remaining, 0)
+
+    def test_attack_request_bonus_spend_rejects_when_no_bonus_action(self):
+        self.app.combatants[1].action_remaining = 0
+        self.app.combatants[1].attack_resource_remaining = 0
+        self.app.combatants[1].bonus_action_remaining = 0
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 132,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "attack_spend": "bonus",
+            "bonus_sequence_total": 1,
+            "bonus_sequence_start": True,
+            "hit": False,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertNotIn("_attack_result", msg)
+        self.assertIn((132, "No bonus actions left, matey."), self.toasts)
+
+    def test_attack_request_consumes_pool_always_consumes_even_when_hit_with_zero_damage(self):
+        calls = []
+
+        def consume_pool(_owner_name, pool_id, cost):
+            calls.append((pool_id, cost))
+            return True, ""
+
+        self.app._consume_resource_pool_for_cast = consume_pool
+        self.app._profile_for_player_name = lambda _name: {
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_to_hit": 5,
+                "weapons": [
+                    {
+                        "id": "empty_strike",
+                        "name": "Empty Strike",
+                        "to_hit": 7,
+                        "one_handed": {"damage_formula": "", "damage_type": "bludgeoning"},
+                    },
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 133,
+            "target_cid": 2,
+            "weapon_id": "empty_strike",
+            "hit": True,
+            "consumes_pool": {"id": "focus_points", "cost": 1},
+            "consumes_pool_always": True,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertIsInstance(msg.get("_attack_result"), dict)
+        self.assertEqual(calls, [("focus_points", 1)])
 
     def test_opportunity_attack_can_resolve_out_of_turn_without_spending_action(self):
         self.app.current_cid = 2
