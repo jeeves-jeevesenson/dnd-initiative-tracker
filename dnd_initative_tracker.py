@@ -12956,6 +12956,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "key": action_key or self._action_name_key(name),
                     "to_hit": int(to_hit),
                     "damage_entries": damage_entries,
+                    "raw_desc": desc_text,
                 }
             )
 
@@ -13028,6 +13029,271 @@ class InitiativeTracker(base.InitiativeTracker):
             return 0
         return max(0, int(math.floor(evaluated)))
 
+    def _map_attack_sequence_cache_key(self, attacker: Any) -> str:
+        spec = getattr(attacker, "monster_spec", None)
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        slug = ""
+        if isinstance(raw_data, dict):
+            slug = str(raw_data.get("slug") or raw_data.get("name") or "").strip().lower()
+        if slug:
+            return slug
+        return self._monster_attack_name_key(getattr(attacker, "name", "")) or f"cid:{int(getattr(attacker, 'cid', 0) or 0)}"
+
+    def _build_map_attack_sequence_defaults(
+        self,
+        attacker: Any,
+        attack_options: List[Dict[str, Any]],
+        multiattack_counts: Dict[str, int],
+    ) -> List[Dict[str, Any]]:
+        defaults: List[Dict[str, Any]] = []
+        spec = getattr(attacker, "monster_spec", None)
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        actions = raw_data.get("actions") if isinstance(raw_data, dict) else None
+        if isinstance(actions, list):
+            for raw_action in actions:
+                if not isinstance(raw_action, dict):
+                    continue
+                if self._monster_attack_name_key(raw_action.get("name")) != "multiattack":
+                    continue
+                text = str(raw_action.get("description") or raw_action.get("desc") or "").strip().lower()
+                phrase_matches = list(
+                    re.finditer(
+                        r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b\s+with\b\s+(?:its|his|her)?\s*([^.;]+?)(?=(?:\band\b\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+with\b)|[.;]|$)",
+                        text,
+                    )
+                )
+                for phrase in phrase_matches:
+                    parsed_count = self._monster_attack_count_from_text(phrase.group(1))
+                    if parsed_count <= 0:
+                        continue
+                    segment = str(phrase.group(2) or "").strip()
+                    chosen_option = None
+                    for clause in re.split(r"\bor\b", segment):
+                        for option in attack_options:
+                            if not isinstance(option, dict):
+                                continue
+                            option_key = str(option.get("key") or "")
+                            if not option_key:
+                                continue
+                            tokens = [option_key] + [tok for tok in option_key.split(" ") if tok]
+                            if any(re.search(rf"\b{re.escape(token)}\b", clause) for token in tokens):
+                                chosen_option = option
+                                break
+                        if chosen_option is not None:
+                            break
+                    if chosen_option is not None:
+                        defaults.append(
+                            {
+                                "attack_key": str(chosen_option.get("key") or ""),
+                                "count": int(max(1, min(10, parsed_count))),
+                                "roll_mode": "normal",
+                            }
+                        )
+                break
+        if defaults:
+            return defaults
+        for option in attack_options:
+            if not isinstance(option, dict):
+                continue
+            key = str(option.get("key") or "")
+            if not key:
+                continue
+            parsed_count = int(multiattack_counts.get(key) or 0)
+            if parsed_count > 0:
+                defaults.append({"attack_key": key, "count": int(max(1, min(10, parsed_count))), "roll_mode": "normal"})
+        if defaults:
+            return defaults
+        if attack_options:
+            first = attack_options[0]
+            if isinstance(first, dict):
+                return [{"attack_key": str(first.get("key") or ""), "count": 1, "roll_mode": "normal"}]
+        return []
+
+    def _resolve_map_attack_sequence(
+        self,
+        attacker_cid: int,
+        target_cid: int,
+        sequence_blocks: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        attacker = self.combatants.get(int(attacker_cid))
+        target = self.combatants.get(int(target_cid))
+        if attacker is None or target is None:
+            return {"ok": False, "reason": "invalid_combatant"}
+        normalized_blocks: List[Dict[str, Any]] = []
+        for raw_block in sequence_blocks:
+            if not isinstance(raw_block, dict):
+                continue
+            attack_option = raw_block.get("attack_option") if isinstance(raw_block.get("attack_option"), dict) else {}
+            attack_name = str(raw_block.get("name") or attack_option.get("name") or "Attack").strip() or "Attack"
+            try:
+                to_hit = int(raw_block.get("to_hit") if raw_block.get("to_hit") is not None else attack_option.get("to_hit") or 0)
+            except Exception:
+                to_hit = 0
+            damage_entries = attack_option.get("damage_entries") if isinstance(attack_option.get("damage_entries"), list) else []
+            if raw_block.get("damage_entries") is not None and isinstance(raw_block.get("damage_entries"), list):
+                damage_entries = raw_block.get("damage_entries")
+            if not damage_entries:
+                continue
+            try:
+                count = int(raw_block.get("count") or 1)
+            except Exception:
+                count = 1
+            roll_mode = str(raw_block.get("roll_mode") or "normal").strip().lower()
+            if roll_mode not in {"normal", "advantage", "disadvantage"}:
+                roll_mode = "normal"
+            normalized_blocks.append(
+                {
+                    "attack_key": str(raw_block.get("attack_key") or attack_option.get("key") or self._monster_attack_name_key(attack_name)),
+                    "name": attack_name,
+                    "to_hit": int(to_hit),
+                    "count": int(max(1, min(10, count))),
+                    "roll_mode": roll_mode,
+                    "damage_entries": damage_entries,
+                }
+            )
+        if not normalized_blocks:
+            return {"ok": False, "reason": "no_attacks"}
+        target_name = str(getattr(target, "name", "Target") or "Target")
+        block_results: List[Dict[str, Any]] = []
+        damage_types: List[str] = []
+        total_hits = 0
+        total_crits = 0
+        total_misses = 0
+        target_removed = False
+        for block in normalized_blocks:
+            if int(target_cid) not in self.combatants:
+                target_removed = True
+                break
+            target = self.combatants[int(target_cid)]
+            if int(getattr(target, "hp", 0) or 0) <= 0:
+                target_removed = True
+                break
+            target_name = str(getattr(target, "name", "Target") or "Target")
+            try:
+                target_ac = int(getattr(target, "ac", 10) or 10)
+            except Exception:
+                target_ac = 10
+            block_hits = 0
+            block_crits = 0
+            block_misses = 0
+            for attack_index in range(int(block["count"])):
+                if int(target_cid) not in self.combatants:
+                    target_removed = True
+                    break
+                target = self.combatants[int(target_cid)]
+                if int(getattr(target, "hp", 0) or 0) <= 0:
+                    target_removed = True
+                    break
+                roll_one = random.randint(1, 20)
+                kept_roll = int(roll_one)
+                dice_text = f"d20 {int(roll_one)}"
+                if block["roll_mode"] in {"advantage", "disadvantage"}:
+                    roll_two = random.randint(1, 20)
+                    if block["roll_mode"] == "advantage":
+                        kept_roll = max(int(roll_one), int(roll_two))
+                    else:
+                        kept_roll = min(int(roll_one), int(roll_two))
+                    dice_text = f"d20s {int(roll_one)}/{int(roll_two)} ({block['roll_mode']}, kept {int(kept_roll)})"
+                critical = kept_roll == 20
+                auto_miss = kept_roll == 1
+                total_to_hit = int(kept_roll) + int(block["to_hit"])
+                hit = bool(not auto_miss and (critical or total_to_hit >= int(target_ac)))
+                attack_prefix = f"{attacker.name} {block['name']} attack {attack_index + 1}/{int(block['count'])}"
+                if not hit:
+                    block_misses += 1
+                    nat_note = " (nat 1 auto-miss)" if auto_miss else ""
+                    self._log(
+                        f"{attack_prefix}: misses {target_name}{nat_note} ({dice_text} + {int(block['to_hit'])} = {total_to_hit} vs AC {target_ac}).",
+                        cid=int(target_cid),
+                    )
+                    continue
+                block_hits += 1
+                crit_note = " (CRIT)" if critical else ""
+                if critical:
+                    block_crits += 1
+                self._log(
+                    f"{attack_prefix}: hits {target_name}{crit_note} ({dice_text} + {int(block['to_hit'])} = {total_to_hit} vs AC {target_ac}).",
+                    cid=int(target_cid),
+                )
+            normal_hits = max(0, int(block_hits) - int(block_crits))
+            damage_rolls_normal: List[Dict[str, Any]] = []
+            damage_rolls_crit: List[Dict[str, Any]] = []
+            for template in block["damage_entries"]:
+                if not isinstance(template, dict):
+                    continue
+                formula = str(template.get("formula") or "").strip()
+                dtype = str(template.get("type") or "").strip().lower() or "damage"
+                if not formula:
+                    continue
+                if normal_hits > 0:
+                    damage_rolls_normal.append({"formula": formula, "type": dtype, "count": int(normal_hits)})
+                if int(block_crits) > 0:
+                    damage_rolls_crit.append({"formula": formula, "type": dtype, "count": int(block_crits)})
+                if dtype not in damage_types:
+                    damage_types.append(dtype)
+            block_results.append(
+                {
+                    "attack_key": str(block["attack_key"]),
+                    "attack_name": str(block["name"]),
+                    "count": int(block["count"]),
+                    "roll_mode": str(block["roll_mode"]),
+                    "hits": int(block_hits),
+                    "crit_hits": int(block_crits),
+                    "misses": int(block_misses),
+                    "damage_rolls_normal": damage_rolls_normal,
+                    "damage_rolls_crit": damage_rolls_crit,
+                }
+            )
+            total_hits += int(block_hits)
+            total_crits += int(block_crits)
+            total_misses += int(block_misses)
+            if target_removed:
+                break
+        damage_rolls: List[Dict[str, Any]] = []
+        damage_rolls_crit: List[Dict[str, Any]] = []
+        for block_result in block_results:
+            for entry in block_result.get("damage_rolls_normal") or []:
+                damage_rolls.append(dict(entry))
+            for entry in block_result.get("damage_rolls_crit") or []:
+                damage_rolls_crit.append(dict(entry))
+        if damage_rolls or damage_rolls_crit:
+            normal_summary = ", ".join(
+                f"{int(entry.get('count') or 0)}×({str(entry.get('formula') or '').strip()}) {str(entry.get('type') or 'damage').strip()}"
+                for entry in damage_rolls
+                if int(entry.get("count") or 0) > 0 and str(entry.get("formula") or "").strip()
+            )
+            crit_summary = ", ".join(
+                f"{int(entry.get('count') or 0)}×({str(entry.get('formula') or '').strip()}) {str(entry.get('type') or 'damage').strip()}"
+                for entry in damage_rolls_crit
+                if int(entry.get("count") or 0) > 0 and str(entry.get("formula") or "").strip()
+            )
+            summary_parts: List[str] = []
+            if normal_summary:
+                summary_parts.append(f"normal {normal_summary}")
+            if crit_summary:
+                summary_parts.append(f"crit {crit_summary}")
+            if summary_parts:
+                self._log(
+                    f"{attacker.name}: roll damage manually — {'; '.join(summary_parts)}.",
+                    cid=int(target_cid),
+                )
+        return {
+            "ok": True,
+            "attacker_cid": int(attacker_cid),
+            "target_cid": int(target_cid),
+            "target_name": target_name,
+            "attack_name": "Attack Sequence",
+            "hits": int(total_hits),
+            "crit_hits": int(total_crits),
+            "misses": int(total_misses),
+            "total_damage": 0,
+            "target_removed": bool(target_removed),
+            "damage_rolls": damage_rolls,
+            "damage_rolls_crit": damage_rolls_crit,
+            "damage_types": damage_types,
+            "sequence_blocks": block_results,
+        }
+
     def _resolve_map_attack(
         self,
         attacker_cid: int,
@@ -13035,76 +13301,43 @@ class InitiativeTracker(base.InitiativeTracker):
         attack_option: Dict[str, Any],
         attack_count: int = 1,
     ) -> Dict[str, Any]:
-        attacker = self.combatants.get(int(attacker_cid))
-        target = self.combatants.get(int(target_cid))
-        if attacker is None or target is None:
-            return {"ok": False, "reason": "invalid_combatant"}
         try:
-            target_ac = int(getattr(target, "ac", 10) or 10)
+            count = int(attack_count or 1)
         except Exception:
-            target_ac = 10
-        attack_name = str(attack_option.get("name") or "Attack").strip() or "Attack"
-        to_hit = int(attack_option.get("to_hit") or 0)
-        count = max(1, min(10, int(attack_count or 1)))
-        damage_templates = attack_option.get("damage_entries") if isinstance(attack_option.get("damage_entries"), list) else []
-        hits = 0
-        misses = 0
-        last_target_name = str(getattr(target, "name", "Target") or "Target")
-        for attack_index in range(count):
-            if int(target_cid) not in self.combatants:
-                break
-            target = self.combatants[int(target_cid)]
-            last_target_name = str(getattr(target, "name", "Target") or "Target")
-            try:
-                target_ac = int(getattr(target, "ac", 10) or 10)
-            except Exception:
-                target_ac = 10
-            roll = random.randint(1, 20)
-            critical = roll == 20
-            total_to_hit = int(roll) + int(to_hit)
-            hit = bool(critical or (roll != 1 and total_to_hit >= int(target_ac)))
-            attack_prefix = f"{attacker.name} {attack_name} attack {attack_index + 1}/{count}"
-            if not hit:
-                misses += 1
-                self._log(f"{attack_prefix}: misses {last_target_name} (d20 {roll} + {to_hit} = {total_to_hit} vs AC {target_ac}).", cid=int(target_cid))
-                continue
-            hits += 1
-            crit_note = " (CRIT)" if critical else ""
-            self._log(f"{attack_prefix}: hits {last_target_name}{crit_note} (d20 {roll} + {to_hit} = {total_to_hit} vs AC {target_ac}).", cid=int(target_cid))
-        damage_rolls: List[Dict[str, Any]] = []
-        damage_types: List[str] = []
-        if hits > 0:
-            for template in damage_templates:
-                if not isinstance(template, dict):
-                    continue
-                formula = str(template.get("formula") or "").strip()
-                dtype = str(template.get("type") or "").strip().lower() or "damage"
-                if not formula:
-                    continue
-                damage_rolls.append({"formula": formula, "type": dtype, "count": int(hits)})
-                if dtype not in damage_types:
-                    damage_types.append(dtype)
-        if damage_rolls:
-            roll_summary = ", ".join(
-                f"{int(entry.get('count') or 0)}×({str(entry.get('formula') or '').strip()}) {str(entry.get('type') or 'damage').strip()}"
-                for entry in damage_rolls
-                if int(entry.get("count") or 0) > 0 and str(entry.get("formula") or "").strip()
-            )
-            if roll_summary:
-                self._log(f"{attacker.name} {attack_name}: roll damage manually — {roll_summary}.", cid=int(target_cid))
+            count = 1
+        sequence_result = self._resolve_map_attack_sequence(
+            int(attacker_cid),
+            int(target_cid),
+            [
+                {
+                    "attack_option": attack_option,
+                    "attack_key": str(attack_option.get("key") or self._monster_attack_name_key(attack_option.get("name"))),
+                    "name": str(attack_option.get("name") or "Attack"),
+                    "to_hit": attack_option.get("to_hit"),
+                    "damage_entries": attack_option.get("damage_entries"),
+                    "count": int(max(1, min(10, count))),
+                    "roll_mode": "normal",
+                }
+            ],
+        )
+        if not bool(sequence_result.get("ok")):
+            return sequence_result
         return {
             "ok": True,
             "attacker_cid": int(attacker_cid),
             "target_cid": int(target_cid),
-            "target_name": last_target_name,
-            "attack_name": attack_name,
-            "attack_count": int(count),
-            "hits": int(hits),
-            "misses": int(misses),
+            "target_name": str(sequence_result.get("target_name") or ""),
+            "attack_name": str(attack_option.get("name") or "Attack").strip() or "Attack",
+            "attack_count": int(max(1, min(10, count))),
+            "hits": int(sequence_result.get("hits") or 0),
+            "crit_hits": int(sequence_result.get("crit_hits") or 0),
+            "misses": int(sequence_result.get("misses") or 0),
             "total_damage": 0,
-            "target_removed": False,
-            "damage_rolls": damage_rolls,
-            "damage_types": damage_types,
+            "target_removed": bool(sequence_result.get("target_removed")),
+            "damage_rolls": list(sequence_result.get("damage_rolls") or []) + list(sequence_result.get("damage_rolls_crit") or []),
+            "damage_rolls_crit": list(sequence_result.get("damage_rolls_crit") or []),
+            "damage_types": list(sequence_result.get("damage_types") or []),
+            "sequence_blocks": list(sequence_result.get("sequence_blocks") or []),
         }
 
     def _apply_map_attack_manual_damage(
@@ -13223,12 +13456,24 @@ class InitiativeTracker(base.InitiativeTracker):
         attack_options, multiattack_counts = self._monster_attack_options_for_map(attacker)
         if not attack_options:
             return False
+        option_by_key = {
+            str(entry.get("key") or ""): entry for entry in attack_options if isinstance(entry, dict) and str(entry.get("key") or "")
+        }
+        cache_key = self._map_attack_sequence_cache_key(attacker)
+        sequence_cache = getattr(self, "_map_attack_sequence_cache", None)
+        if not isinstance(sequence_cache, dict):
+            sequence_cache = {}
+            self._map_attack_sequence_cache = sequence_cache
+        cached_blocks = sequence_cache.get(cache_key)
 
         def _open_manual_damage_prompt(result_payload: Dict[str, Any]) -> None:
             if int(result_payload.get("hits") or 0) <= 0:
                 return
             damage_rolls = result_payload.get("damage_rolls") if isinstance(result_payload.get("damage_rolls"), list) else []
-            if not damage_rolls:
+            damage_rolls_crit = (
+                result_payload.get("damage_rolls_crit") if isinstance(result_payload.get("damage_rolls_crit"), list) else []
+            )
+            if not damage_rolls and not damage_rolls_crit:
                 return
             damage_types = result_payload.get("damage_types") if isinstance(result_payload.get("damage_types"), list) else []
             if not damage_types:
@@ -13242,14 +13487,42 @@ class InitiativeTracker(base.InitiativeTracker):
             ttk.Label(body, text=f"Manual damage for {result_payload.get('attack_name') or 'Attack'}").grid(
                 row=0, column=0, columnspan=2, sticky="w"
             )
-            summary = ", ".join(
+            sequence_blocks = result_payload.get("sequence_blocks") if isinstance(result_payload.get("sequence_blocks"), list) else []
+            row = 1
+            for block in sequence_blocks:
+                if not isinstance(block, dict):
+                    continue
+                attack_name = str(block.get("attack_name") or "Attack")
+                roll_mode = str(block.get("roll_mode") or "normal").strip().lower()
+                mode_tag = "" if roll_mode == "normal" else f" [{roll_mode[:3]}]"
+                ttk.Label(
+                    body,
+                    text=(
+                        f"{attack_name}{mode_tag}: {int(block.get('hits') or 0)} hit "
+                        f"({int(block.get('crit_hits') or 0)} crit), {int(block.get('misses') or 0)} miss"
+                    ),
+                ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(4, 0))
+                row += 1
+            ttk.Label(body, text="Crit reminder: double damage dice, not flat modifiers.").grid(
+                row=row, column=0, columnspan=2, sticky="w", pady=(6, 0)
+            )
+            row += 1
+            normal_summary = ", ".join(
                 f"{int(entry.get('count') or 0)}×({str(entry.get('formula') or '').strip()}) {str(entry.get('type') or 'damage').strip()}"
                 for entry in damage_rolls
                 if int(entry.get("count") or 0) > 0 and str(entry.get("formula") or "").strip()
             )
-            if summary:
-                ttk.Label(body, text=f"Roll: {summary}").grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
-            row = 2
+            if normal_summary:
+                ttk.Label(body, text=f"Normal hits: {normal_summary}").grid(row=row, column=0, columnspan=2, sticky="w", pady=(4, 0))
+                row += 1
+            crit_summary = ", ".join(
+                f"{int(entry.get('count') or 0)}×({str(entry.get('formula') or '').strip()}) {str(entry.get('type') or 'damage').strip()}"
+                for entry in damage_rolls_crit
+                if int(entry.get("count") or 0) > 0 and str(entry.get("formula") or "").strip()
+            )
+            if crit_summary:
+                ttk.Label(body, text=f"Crit hits: {crit_summary}").grid(row=row, column=0, columnspan=2, sticky="w", pady=(4, 0))
+                row += 1
             amount_vars: Dict[str, tk.StringVar] = {}
             for dtype in damage_types:
                 label = str(dtype or "damage").strip() or "damage"
@@ -13287,48 +13560,243 @@ class InitiativeTracker(base.InitiativeTracker):
             ttk.Button(btns, text="Apply Damage", command=_apply_damage).pack(side=tk.RIGHT, padx=(0, 8))
 
         dlg = tk.Toplevel(self)
-        dlg.title(f"Attack {target.name}")
+        dlg.title(f"Attack Sequence: {target.name}")
         dlg.transient(dialog_parent if dialog_parent is not None else self)
         dlg.resizable(False, False)
         outer = ttk.Frame(dlg, padding=10)
         outer.pack(fill=tk.BOTH, expand=True)
-        ttk.Label(outer, text=f"{attacker.name} attacks {target.name}").grid(row=0, column=0, columnspan=2, sticky="w")
-        ttk.Label(outer, text="Attack:").grid(row=1, column=0, sticky="w", pady=(8, 0))
-        option_names = [str(entry.get("name") or "Attack") for entry in attack_options]
-        attack_var = tk.StringVar(value=option_names[0] if option_names else "")
-        attack_cb = ttk.Combobox(outer, textvariable=attack_var, values=option_names, state="readonly", width=34)
-        attack_cb.grid(row=1, column=1, sticky="w", pady=(8, 0))
-        ttk.Label(outer, text="Attack count:").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        count_var = tk.StringVar(value="1")
-        count_spin = ttk.Spinbox(outer, from_=1, to=10, textvariable=count_var, width=8)
-        count_spin.grid(row=2, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(outer, text=f"{attacker.name} attacks {target.name}").grid(row=0, column=0, columnspan=3, sticky="w")
+        ttk.Label(outer, text="Available Attacks").grid(row=1, column=0, sticky="w", pady=(8, 2))
+        ttk.Label(outer, text="Attack Sequence").grid(row=1, column=2, sticky="w", pady=(8, 2))
 
-        def _selected_option() -> Dict[str, Any]:
-            selected_name = str(attack_var.get() or "").strip()
-            for option in attack_options:
-                if str(option.get("name") or "") == selected_name:
-                    return option
-            return attack_options[0]
+        available_list = tk.Listbox(outer, height=8, exportselection=False, width=38)
+        available_list.grid(row=2, column=0, sticky="nsew")
+        available_scroll = ttk.Scrollbar(outer, orient=tk.VERTICAL, command=available_list.yview)
+        available_scroll.grid(row=2, column=1, sticky="ns")
+        available_list.configure(yscrollcommand=available_scroll.set)
+        for option in attack_options:
+            available_list.insert(tk.END, str(option.get("name") or "Attack"))
 
-        def _refresh_default_count(*_args: Any) -> None:
-            selected = _selected_option()
+        sequence_list = tk.Listbox(outer, height=8, exportselection=False, width=44)
+        sequence_list.grid(row=2, column=2, sticky="nsew", padx=(8, 0))
+        sequence_scroll = ttk.Scrollbar(outer, orient=tk.VERTICAL, command=sequence_list.yview)
+        sequence_scroll.grid(row=2, column=3, sticky="ns")
+        sequence_list.configure(yscrollcommand=sequence_scroll.set)
+
+        details_var = tk.StringVar(value="")
+        ttk.Label(outer, textvariable=details_var, wraplength=640, justify=tk.LEFT).grid(
+            row=3, column=0, columnspan=4, sticky="w", pady=(6, 0)
+        )
+
+        sequence_blocks: List[Dict[str, Any]] = []
+
+        def _block_summary(block: Dict[str, Any]) -> str:
+            mode = str(block.get("roll_mode") or "normal").strip().lower()
+            mode_tag = "" if mode == "normal" else f" ({'Adv' if mode == 'advantage' else 'Dis'})"
+            return f"{str(block.get('name') or 'Attack')} ×{int(block.get('count') or 1)}{mode_tag}"
+
+        def _refresh_sequence_list(select_index: Optional[int] = None) -> None:
+            sequence_list.delete(0, tk.END)
+            for block in sequence_blocks:
+                sequence_list.insert(tk.END, _block_summary(block))
+            if select_index is None:
+                if sequence_blocks:
+                    sequence_list.selection_set(0)
+            elif sequence_blocks:
+                bounded = max(0, min(int(select_index), len(sequence_blocks) - 1))
+                sequence_list.selection_set(bounded)
+                sequence_list.see(bounded)
+            _refresh_editor()
+
+        def _selected_sequence_index() -> Optional[int]:
+            selection = sequence_list.curselection()
+            if not selection:
+                return None
+            idx = int(selection[0])
+            if idx < 0 or idx >= len(sequence_blocks):
+                return None
+            return idx
+
+        def _add_selected_attack(*_args: Any) -> None:
+            selection = available_list.curselection()
+            if not selection:
+                return
+            idx = int(selection[0])
+            if idx < 0 or idx >= len(attack_options):
+                return
+            selected = attack_options[idx]
             key = str(selected.get("key") or "")
-            count = int(multiattack_counts.get(key) or multiattack_counts.get("__total__") or 1)
-            count_var.set(str(max(1, min(10, count))))
+            suggested = int(multiattack_counts.get(key) or 1)
+            sequence_blocks.append(
+                {
+                    "attack_key": key,
+                    "name": str(selected.get("name") or "Attack"),
+                    "count": int(max(1, min(10, suggested))),
+                    "roll_mode": "normal",
+                    "attack_option": selected,
+                }
+            )
+            _refresh_sequence_list(len(sequence_blocks) - 1)
 
-        attack_var.trace_add("write", _refresh_default_count)
-        _refresh_default_count()
+        def _remove_selected_block() -> None:
+            idx = _selected_sequence_index()
+            if idx is None:
+                return
+            sequence_blocks.pop(idx)
+            _refresh_sequence_list(max(0, idx - 1))
+
+        def _move_selected(delta: int) -> None:
+            idx = _selected_sequence_index()
+            if idx is None:
+                return
+            swap = idx + int(delta)
+            if swap < 0 or swap >= len(sequence_blocks):
+                return
+            sequence_blocks[idx], sequence_blocks[swap] = sequence_blocks[swap], sequence_blocks[idx]
+            _refresh_sequence_list(swap)
+
+        count_var = tk.StringVar(value="1")
+        roll_mode_var = tk.StringVar(value="normal")
+
+        def _refresh_editor(*_args: Any) -> None:
+            idx = _selected_sequence_index()
+            if idx is None:
+                count_var.set("1")
+                roll_mode_var.set("normal")
+                return
+            block = sequence_blocks[idx]
+            count_var.set(str(int(max(1, min(10, int(block.get("count") or 1))))))
+            roll_mode_var.set(str(block.get("roll_mode") or "normal"))
+
+        def _apply_editor(*_args: Any) -> None:
+            idx = _selected_sequence_index()
+            if idx is None:
+                return
+            try:
+                parsed_count = int(str(count_var.get() or "1").strip())
+            except Exception:
+                parsed_count = 1
+            mode = str(roll_mode_var.get() or "normal").strip().lower()
+            if mode not in {"normal", "advantage", "disadvantage"}:
+                mode = "normal"
+            sequence_blocks[idx]["count"] = int(max(1, min(10, parsed_count)))
+            sequence_blocks[idx]["roll_mode"] = mode
+            _refresh_sequence_list(idx)
+
+        editor = ttk.Frame(outer)
+        editor.grid(row=4, column=2, columnspan=2, sticky="w", pady=(8, 0), padx=(8, 0))
+        ttk.Label(editor, text="Count").grid(row=0, column=0, sticky="w")
+        ttk.Spinbox(editor, from_=1, to=10, width=6, textvariable=count_var).grid(row=1, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(editor, text="Roll mode").grid(row=0, column=1, sticky="w", padx=(10, 0))
+        mode_box = ttk.Combobox(editor, values=["normal", "advantage", "disadvantage"], width=14, state="readonly", textvariable=roll_mode_var)
+        mode_box.grid(row=1, column=1, sticky="w", padx=(10, 0), pady=(4, 0))
+        ttk.Button(editor, text="Apply", command=_apply_editor).grid(row=1, column=2, sticky="w", padx=(10, 0), pady=(4, 0))
+
+        controls = ttk.Frame(outer)
+        controls.grid(row=4, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        ttk.Button(controls, text="Add →", command=_add_selected_attack).pack(side=tk.LEFT)
+        ttk.Button(controls, text="Remove", command=_remove_selected_block).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(controls, text="Up", command=lambda: _move_selected(-1)).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(controls, text="Down", command=lambda: _move_selected(1)).pack(side=tk.LEFT, padx=(8, 0))
+
+        def _load_defaults() -> None:
+            sequence_blocks.clear()
+            defaults = self._build_map_attack_sequence_defaults(attacker, attack_options, multiattack_counts)
+            for block in defaults:
+                if not isinstance(block, dict):
+                    continue
+                key = str(block.get("attack_key") or "")
+                option = option_by_key.get(key)
+                if not isinstance(option, dict):
+                    continue
+                sequence_blocks.append(
+                    {
+                        "attack_key": key,
+                        "name": str(option.get("name") or block.get("name") or "Attack"),
+                        "count": int(max(1, min(10, int(block.get("count") or 1)))),
+                        "roll_mode": str(block.get("roll_mode") or "normal").strip().lower(),
+                        "attack_option": option,
+                    }
+                )
+            _refresh_sequence_list(0)
+
+        ttk.Button(controls, text="Load Multiattack Defaults", command=_load_defaults).pack(side=tk.LEFT, padx=(12, 0))
+
+        def _show_available_details(_event: Optional[tk.Event] = None) -> None:
+            idx: Optional[int] = None
+            if _event is not None and isinstance(getattr(_event, "y", None), (int, float)):
+                nearest = int(available_list.nearest(int(_event.y)))
+                if 0 <= nearest < len(attack_options):
+                    idx = nearest
+            if idx is None:
+                selection = available_list.curselection()
+                if selection:
+                    idx = int(selection[0])
+            if idx is None or idx < 0 or idx >= len(attack_options):
+                details_var.set("")
+                return
+            option = attack_options[idx]
+            damage_text = ", ".join(
+                f"{str(entry.get('formula') or '').strip()} {str(entry.get('type') or '').strip()}"
+                for entry in option.get("damage_entries") or []
+                if isinstance(entry, dict) and str(entry.get("formula") or "").strip()
+            )
+            raw_desc = str(option.get("raw_desc") or "").strip()
+            if len(raw_desc) > 180:
+                raw_desc = raw_desc[:177].rstrip() + "..."
+            details_var.set(
+                f"{str(option.get('name') or 'Attack')}: to hit +{int(option.get('to_hit') or 0)}"
+                f"{f' | damage {damage_text}' if damage_text else ''}"
+                f"{f' | {raw_desc}' if raw_desc else ''}"
+            )
+
+        available_list.bind("<<ListboxSelect>>", _show_available_details)
+        available_list.bind("<Motion>", _show_available_details)
+        available_list.bind("<Double-Button-1>", _add_selected_attack)
+        sequence_list.bind("<<ListboxSelect>>", _refresh_editor)
+
+        if isinstance(cached_blocks, list):
+            for raw_block in cached_blocks:
+                if not isinstance(raw_block, dict):
+                    continue
+                key = str(raw_block.get("attack_key") or "")
+                option = option_by_key.get(key)
+                if not isinstance(option, dict):
+                    continue
+                sequence_blocks.append(
+                    {
+                        "attack_key": key,
+                        "name": str(option.get("name") or "Attack"),
+                        "count": int(max(1, min(10, int(raw_block.get("count") or 1)))),
+                        "roll_mode": str(raw_block.get("roll_mode") or "normal").strip().lower(),
+                        "attack_option": option,
+                    }
+                )
+        if not sequence_blocks:
+            _load_defaults()
+        else:
+            _refresh_sequence_list(0)
+        if attack_options:
+            available_list.selection_set(0)
+            _show_available_details()
 
         btns = ttk.Frame(outer)
-        btns.grid(row=3, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btns.grid(row=5, column=0, columnspan=4, sticky="e", pady=(12, 0))
 
         def _resolve_and_close() -> None:
-            selected = _selected_option()
-            try:
-                count = int(str(count_var.get() or "1").strip())
-            except Exception:
-                count = 1
-            result = self._resolve_map_attack(int(attacker_cid), int(target_cid), selected, attack_count=count)
+            if not sequence_blocks:
+                messagebox.showinfo("Attack Sequence", "Add at least one attack block first.", parent=dlg)
+                return
+            result = self._resolve_map_attack_sequence(int(attacker_cid), int(target_cid), list(sequence_blocks))
+            sequence_cache[cache_key] = [
+                {
+                    "attack_key": str(block.get("attack_key") or ""),
+                    "count": int(max(1, min(10, int(block.get("count") or 1)))),
+                    "roll_mode": str(block.get("roll_mode") or "normal").strip().lower(),
+                }
+                for block in sequence_blocks
+                if str(block.get("attack_key") or "")
+            ]
             dlg.destroy()
             if isinstance(result, dict):
                 _open_manual_damage_prompt(result)

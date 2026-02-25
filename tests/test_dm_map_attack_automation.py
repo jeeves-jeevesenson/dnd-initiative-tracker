@@ -163,6 +163,88 @@ class DmMapAttackAutomationTests(unittest.TestCase):
         self.assertEqual(result.get("total_damage"), 15)
         self.assertEqual(self.app.combatants[2].hp, 15)
 
+    def test_resolve_map_attack_sequence_advantage_and_disadvantage_keep_correct_die(self):
+        attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()
+        target = type("Combatant", (), {"cid": 2, "name": "Knight", "ac": 30, "hp": 30})()
+        self.app.combatants = {1: attacker, 2: target}
+        attack_option = {"name": "Claws", "key": "claws", "to_hit": 9, "damage_entries": [{"formula": "1d10 + 5", "type": "slashing"}]}
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[1, 20, 1, 20]):
+            result = self.app._resolve_map_attack_sequence(
+                1,
+                2,
+                [
+                    {"attack_option": attack_option, "attack_key": "claws", "count": 1, "roll_mode": "advantage"},
+                    {"attack_option": attack_option, "attack_key": "claws", "count": 1, "roll_mode": "disadvantage"},
+                ],
+            )
+
+        self.assertTrue(result.get("ok"))
+        self.assertEqual(result.get("hits"), 1)
+        self.assertEqual(result.get("crit_hits"), 1)
+        self.assertEqual(result.get("misses"), 1)
+        blocks = result.get("sequence_blocks") or []
+        self.assertEqual(blocks[0].get("crit_hits"), 1)
+        self.assertEqual(blocks[1].get("misses"), 1)
+        self.assertTrue(any("advantage, kept 20" in message for _cid, message in self.logs))
+        self.assertTrue(any("disadvantage, kept 1" in message for _cid, message in self.logs))
+
+    def test_resolve_map_attack_sequence_keeps_block_order_and_aggregates_damage_templates(self):
+        attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()
+        target = type("Combatant", (), {"cid": 2, "name": "Knight", "ac": 15, "hp": 30})()
+        self.app.combatants = {1: attacker, 2: target}
+        bite = {"name": "Bite", "key": "bite", "to_hit": 9, "damage_entries": [{"formula": "1d8 + 5", "type": "piercing"}]}
+        claws = {"name": "Claws", "key": "claws", "to_hit": 9, "damage_entries": [{"formula": "1d10 + 5", "type": "slashing"}]}
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[10, 6, 1]):
+            result = self.app._resolve_map_attack_sequence(
+                1,
+                2,
+                [
+                    {"attack_option": bite, "attack_key": "bite", "count": 1, "roll_mode": "normal"},
+                    {"attack_option": claws, "attack_key": "claws", "count": 2, "roll_mode": "normal"},
+                ],
+            )
+
+        self.assertTrue(result.get("ok"))
+        blocks = result.get("sequence_blocks") or []
+        self.assertEqual([block.get("attack_name") for block in blocks], ["Bite", "Claws"])
+        self.assertEqual(result.get("hits"), 2)
+        self.assertEqual(result.get("misses"), 1)
+        self.assertEqual(
+            result.get("damage_rolls"),
+            [
+                {"formula": "1d8 + 5", "type": "piercing", "count": 1},
+                {"formula": "1d10 + 5", "type": "slashing", "count": 1},
+            ],
+        )
+
+    def test_resolve_map_attack_sequence_stops_when_target_removed_mid_sequence(self):
+        attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()
+        target = type("Combatant", (), {"cid": 2, "name": "Knight", "ac": 15, "hp": 30})()
+        self.app.combatants = {1: attacker, 2: target}
+        attack_option = {"name": "Claws", "key": "claws", "to_hit": 9, "damage_entries": [{"formula": "1d10 + 5", "type": "slashing"}]}
+
+        def pop_target_on_first_attack(message, cid=None):
+            self.logs.append((cid, message))
+            if "attack 1/1" in message and 2 in self.app.combatants:
+                self.app.combatants.pop(2, None)
+
+        self.app._log = pop_target_on_first_attack
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[10]):
+            result = self.app._resolve_map_attack_sequence(
+                1,
+                2,
+                [
+                    {"attack_option": attack_option, "attack_key": "claws", "count": 1, "roll_mode": "normal"},
+                    {"attack_option": attack_option, "attack_key": "claws", "count": 2, "roll_mode": "normal"},
+                ],
+            )
+
+        self.assertTrue(result.get("ok"))
+        self.assertTrue(result.get("target_removed"))
+        self.assertEqual(len(result.get("sequence_blocks") or []), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
