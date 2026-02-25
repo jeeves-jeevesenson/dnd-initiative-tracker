@@ -137,6 +137,43 @@ class ResourcePoolSpellTests(unittest.TestCase):
         self.assertEqual(unleash["max"], 5)
         self.assertEqual(unleash["current"], 5)
 
+
+    def test_normalize_pool_formula_supports_monk_level_variable(self):
+        profile = {
+            "name": "Old Man",
+            "leveling": {"classes": [{"name": "Monk", "level": 10}]},
+            "resources": {
+                "pools": [
+                    {
+                        "id": "focus_points",
+                        "label": "Focus Points",
+                        "current": 10,
+                        "max_formula": "monk_level",
+                        "reset": "short_rest",
+                    }
+                ]
+            },
+        }
+        pools = self.app._normalize_player_resource_pools(profile)
+        focus = next((entry for entry in pools if entry.get("id") == "focus_points"), None)
+        self.assertIsNotNone(focus)
+        self.assertEqual(focus["max"], 10)
+        self.assertEqual(focus["current"], 10)
+
+    def test_normalize_adds_focus_points_pool_for_level_10_monk(self):
+        profile = {
+            "name": "Old Man",
+            "leveling": {"classes": [{"name": "Monk", "level": 10}]},
+            "resources": {"pools": []},
+        }
+        pools = self.app._normalize_player_resource_pools(profile)
+        focus = next((entry for entry in pools if entry.get("id") == "focus_points"), None)
+        self.assertIsNotNone(focus)
+        self.assertEqual(focus["current"], 10)
+        self.assertEqual(focus["max"], 10)
+        self.assertEqual(focus["max_formula"], "monk_level")
+        self.assertEqual(focus["reset"], "short_rest")
+
     def test_normalize_adds_lay_on_hands_pool_for_level_10_paladin(self):
         profile = {
             "name": "Dorian",
