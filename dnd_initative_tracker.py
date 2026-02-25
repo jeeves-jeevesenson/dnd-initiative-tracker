@@ -2777,7 +2777,7 @@ class LanController:
 
         # Start uvicorn server in a thread (with its own event loop).
         try:
-            self._cached_snapshot = self.app._lan_snapshot()
+            self._cached_snapshot = self.app._lan_snapshot(include_static=False, hydrate_static=False)
             self._cached_pcs = list(
                 self.app._lan_pcs() if hasattr(self.app, "_lan_pcs") else self.app._lan_claimable()
             )
@@ -3095,7 +3095,7 @@ class LanController:
                 now = time.monotonic()
                 if now - self._last_idle_cache_refresh >= self._idle_cache_refresh_interval_s:
                     self._last_idle_cache_refresh = now
-                    self._cached_snapshot = self.app._lan_snapshot(include_static=False)
+                    self._cached_snapshot = self.app._lan_snapshot(include_static=False, hydrate_static=False)
                     try:
                         self._cached_pcs = list(
                             self.app._lan_pcs() if hasattr(self.app, "_lan_pcs") else self.app._lan_claimable()
@@ -4778,6 +4778,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._player_yaml_dir_signature: Optional[Tuple[int, int, Tuple[str, ...]]] = None
         self._player_yaml_last_refresh = 0.0
         self._player_yaml_refresh_interval_s = 1.0
+        self._lan_resource_pools_last_build = 0.0
         self._player_yaml_lock = threading.Lock()
         self._spell_yaml_lock = threading.Lock()
         self._player_yaml_refresh_scheduled = False
@@ -8005,7 +8006,7 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             pass
 
-    def _lan_snapshot(self, include_static: bool = True) -> Dict[str, Any]:
+    def _lan_snapshot(self, include_static: bool = True, hydrate_static: bool = True) -> Dict[str, Any]:
         # Prefer map window live state when available
         mw = None
         try:
@@ -8441,20 +8442,25 @@ class InitiativeTracker(base.InitiativeTracker):
                 "player_profiles": self._player_profiles_payload,
                 "resource_pools": self._player_resource_pools_payload,
             }
+            resource_refresh_interval_s = max(
+                0.25, float(self.__dict__.get("_player_yaml_refresh_interval_s", 1.0) or 1.0)
+            )
+            now = time.monotonic()
+            last_resource_build = float(self.__dict__.get("_lan_resource_pools_last_build", 0.0))
             for key, default in static_defaults.items():
-                if key == "resource_pools":
-                    try:
-                        snap[key] = static_builders[key]()
-                    except Exception:
-                        snap[key] = copy.deepcopy(default)
-                    continue
                 if key in cached_snapshot:
-                    snap[key] = copy.deepcopy(cached_snapshot.get(key))
+                    if key != "resource_pools" or (now - last_resource_build) < resource_refresh_interval_s:
+                        snap[key] = cached_snapshot.get(key)
+                        continue
+                if not hydrate_static:
+                    snap[key] = default
                     continue
                 try:
                     snap[key] = static_builders[key]()
+                    if key == "resource_pools":
+                        self._lan_resource_pools_last_build = now
                 except Exception:
-                    snap[key] = copy.deepcopy(default)
+                    snap[key] = default
         return snap
 
     def _lan_force_state_broadcast(self) -> None:
