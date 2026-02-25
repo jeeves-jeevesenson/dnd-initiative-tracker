@@ -16,6 +16,7 @@ class DmMapAttackAutomationTests(unittest.TestCase):
         self.app._death_flavor_line = lambda attacker, amount, dtype, target: f"{attacker} downs {target} with {amount} {dtype}".strip()
         self.app._lan = None
         self.app.start_cid = None
+        self.app._name_role_memory = {"Death Slaad": "pc", "Knight": "enemy"}
 
     def test_monster_attack_options_parse_slaad_actions_and_multiattack_counts(self):
         attacker = type(
@@ -162,6 +163,51 @@ class DmMapAttackAutomationTests(unittest.TestCase):
         self.assertTrue(result.get("ok"))
         self.assertEqual(result.get("total_damage"), 15)
         self.assertEqual(self.app.combatants[2].hp, 15)
+
+
+    def test_enemy_map_attack_logs_hide_hidden_roll_details(self):
+        attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()
+        target = type("Combatant", (), {"cid": 2, "name": "Knight", "ac": 15, "hp": 30})()
+        self.app.combatants = {1: attacker, 2: target}
+        self.app._name_role_memory = {"Death Slaad": "enemy", "Knight": "pc"}
+
+        attack_option = {
+            "name": "Claws",
+            "to_hit": 9,
+            "damage_entries": [
+                {"formula": "1d10 + 5", "type": "slashing"},
+                {"formula": "2d6", "type": "necrotic"},
+            ],
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[12, 4]):
+            result = self.app._resolve_map_attack(1, 2, attack_option, attack_count=2)
+
+        self.assertTrue(result.get("ok"))
+        self.assertTrue(any("roll damage manually." in message for _cid, message in self.logs))
+        self.assertFalse(any("1d10 + 5" in message for _cid, message in self.logs))
+        self.assertFalse(any("vs AC" in message for _cid, message in self.logs))
+
+    def test_enemy_manual_damage_logs_hide_damage_type_breakdown(self):
+        attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()
+        target = type("Combatant", (), {"cid": 2, "name": "Knight", "ac": 15, "hp": 30})()
+        self.app.combatants = {1: attacker, 2: target}
+        self.app._name_role_memory = {"Death Slaad": "enemy", "Knight": "pc"}
+
+        result = self.app._apply_map_attack_manual_damage(
+            1,
+            2,
+            "Claws",
+            [
+                {"amount": 9, "type": "slashing"},
+                {"amount": 5, "type": "necrotic"},
+            ],
+        )
+
+        self.assertTrue(result.get("ok"))
+        self.assertEqual(result.get("total_damage"), 14)
+        self.assertTrue(any("applies 14 damage to Knight." in message for _cid, message in self.logs))
+        self.assertFalse(any("slashing" in message or "necrotic" in message for _cid, message in self.logs))
 
     def test_resolve_map_attack_sequence_advantage_and_disadvantage_keep_correct_die(self):
         attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()

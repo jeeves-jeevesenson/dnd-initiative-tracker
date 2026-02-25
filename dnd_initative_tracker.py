@@ -13153,6 +13153,8 @@ class InitiativeTracker(base.InitiativeTracker):
             )
         if not normalized_blocks:
             return {"ok": False, "reason": "no_attacks"}
+        attacker_role = str(getattr(self, "_name_role_memory", {}).get(str(getattr(attacker, "name", "")), "enemy") or "enemy")
+        hide_enemy_details = attacker_role == "enemy"
         target_name = str(getattr(target, "name", "Target") or "Target")
         block_results: List[Dict[str, Any]] = []
         damage_types: List[str] = []
@@ -13201,20 +13203,26 @@ class InitiativeTracker(base.InitiativeTracker):
                 attack_prefix = f"{attacker.name} {block['name']} attack {attack_index + 1}/{int(block['count'])}"
                 if not hit:
                     block_misses += 1
-                    nat_note = " (nat 1 auto-miss)" if auto_miss else ""
-                    self._log(
-                        f"{attack_prefix}: misses {target_name}{nat_note} ({dice_text} + {int(block['to_hit'])} = {total_to_hit} vs AC {target_ac}).",
-                        cid=int(target_cid),
-                    )
+                    if hide_enemy_details:
+                        self._log(f"{attacker.name} {block['name']}: misses {target_name}.", cid=int(target_cid))
+                    else:
+                        nat_note = " (nat 1 auto-miss)" if auto_miss else ""
+                        self._log(
+                            f"{attack_prefix}: misses {target_name}{nat_note} ({dice_text} + {int(block['to_hit'])} = {total_to_hit} vs AC {target_ac}).",
+                            cid=int(target_cid),
+                        )
                     continue
                 block_hits += 1
                 crit_note = " (CRIT)" if critical else ""
                 if critical:
                     block_crits += 1
-                self._log(
-                    f"{attack_prefix}: hits {target_name}{crit_note} ({dice_text} + {int(block['to_hit'])} = {total_to_hit} vs AC {target_ac}).",
-                    cid=int(target_cid),
-                )
+                if hide_enemy_details:
+                    self._log(f"{attacker.name} {block['name']}: hits {target_name}{crit_note}.", cid=int(target_cid))
+                else:
+                    self._log(
+                        f"{attack_prefix}: hits {target_name}{crit_note} ({dice_text} + {int(block['to_hit'])} = {total_to_hit} vs AC {target_ac}).",
+                        cid=int(target_cid),
+                    )
             normal_hits = max(0, int(block_hits) - int(block_crits))
             damage_rolls_normal: List[Dict[str, Any]] = []
             damage_rolls_crit: List[Dict[str, Any]] = []
@@ -13273,10 +13281,13 @@ class InitiativeTracker(base.InitiativeTracker):
             if crit_summary:
                 summary_parts.append(f"crit {crit_summary}")
             if summary_parts:
-                self._log(
-                    f"{attacker.name}: roll damage manually — {'; '.join(summary_parts)}.",
-                    cid=int(target_cid),
-                )
+                if hide_enemy_details:
+                    self._log(f"{attacker.name}: roll damage manually.", cid=int(target_cid))
+                else:
+                    self._log(
+                        f"{attacker.name}: roll damage manually — {'; '.join(summary_parts)}.",
+                        cid=int(target_cid),
+                    )
         return {
             "ok": True,
             "attacker_cid": int(attacker_cid),
@@ -13369,13 +13380,18 @@ class InitiativeTracker(base.InitiativeTracker):
         total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in adjusted_entries))
 
         target_name = str(getattr(target, "name", "Target") or "Target")
+        attacker_role = str(getattr(self, "_name_role_memory", {}).get(str(getattr(attacker, "name", "")), "enemy") or "enemy")
+        hide_enemy_details = attacker_role == "enemy"
         if total_damage <= 0:
             if adjustment_notes:
-                note_text = "; ".join(
-                    f"{int(note.get('original') or 0)} {str(note.get('type') or 'damage')}→{int(note.get('applied') or 0)} ({', '.join(note.get('reasons') or [])})"
-                    for note in adjustment_notes
-                )
-                self._log(f"{attacker.name} {attack_name}: damage blocked for {target_name} ({note_text}).", cid=int(target_cid))
+                if hide_enemy_details:
+                    self._log(f"{attacker.name} {attack_name}: no damage dealt to {target_name}.", cid=int(target_cid))
+                else:
+                    note_text = "; ".join(
+                        f"{int(note.get('original') or 0)} {str(note.get('type') or 'damage')}→{int(note.get('applied') or 0)} ({', '.join(note.get('reasons') or [])})"
+                        for note in adjustment_notes
+                    )
+                    self._log(f"{attacker.name} {attack_name}: damage blocked for {target_name} ({note_text}).", cid=int(target_cid))
             else:
                 self._log(f"{attacker.name} {attack_name}: no damage dealt to {target_name}.", cid=int(target_cid))
             return {
@@ -13416,15 +13432,18 @@ class InitiativeTracker(base.InitiativeTracker):
                 pass
             removed_target = True
         else:
-            damage_desc = ", ".join(
-                f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
-                for entry in adjusted_entries
-            )
             attack_label = str(attack_name or "Attack").strip() or "Attack"
-            self._log(
-                f"{attacker.name} {attack_label}: applies {total_damage} damage to {target_name}{f' ({damage_desc})' if damage_desc else ''}.",
-                cid=int(target_cid),
-            )
+            if hide_enemy_details:
+                self._log(f"{attacker.name} {attack_label}: applies {total_damage} damage to {target_name}.", cid=int(target_cid))
+            else:
+                damage_desc = ", ".join(
+                    f"{int(entry.get('amount', 0) or 0)} {str(entry.get('type') or '').strip() or 'damage'}"
+                    for entry in adjusted_entries
+                )
+                self._log(
+                    f"{attacker.name} {attack_label}: applies {total_damage} damage to {target_name}{f' ({damage_desc})' if damage_desc else ''}.",
+                    cid=int(target_cid),
+                )
         try:
             self._rebuild_table(scroll_to_current=True)
         except Exception:
