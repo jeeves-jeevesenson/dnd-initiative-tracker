@@ -2189,6 +2189,17 @@
           <div class="row">
             <label class="chip"><input type="checkbox" id="attackResolveCrit">Critical hit</label>
           </div>
+          <div class="row" id="attackDamageTypeOverrideRow" style="display:none;align-items:center;gap:8px;">
+            <label for="attackDamageTypeOverrideSelect">Unarmed element</label>
+            <select id="attackDamageTypeOverrideSelect">
+              <option value="">Normal</option>
+              <option value="acid">Acid</option>
+              <option value="cold">Cold</option>
+              <option value="fire">Fire</option>
+              <option value="lightning">Lightning</option>
+              <option value="thunder">Thunder</option>
+            </select>
+          </div>
           <div class="damage-type-list" id="attackDamageRows" aria-live="polite"></div>
           <div class="modal-actions" style="justify-content:flex-start;padding:0;">
             <button class="btn" id="attackDamageAdd" type="button">Add damage box</button>
@@ -3177,6 +3188,8 @@ __DAMAGE_TYPE_OPTIONS__
       <button class="btn accent" id="monkStepOfWindFocus" type="button">Step of the Wind (Dash + Disengage) — 1 Focus</button>
       <button class="btn" id="monkMartialArtsBonus" type="button">Martial Arts: Bonus Unarmed Strike — Bonus Action</button>
       <button class="btn accent" id="monkFlurryOfBlows" type="button">Flurry of Blows — 1 Focus (2 strikes; 3 at Monk 10+)</button>
+      <div class="spellbook-status" style="margin-top:6px;">Warrior of the Elements</div>
+      <button class="btn accent" id="monkElementalAttunementToggle" type="button">Elemental Attunement (1 Focus)</button>
       <button class="btn" id="monkFocusClose" type="button">Close</button>
     </div>
   </div>
@@ -3809,6 +3822,8 @@ __DAMAGE_TYPE_OPTIONS__
   const attackResolveHit = document.getElementById("attackResolveHit");
   const attackResolveMiss = document.getElementById("attackResolveMiss");
   const attackResolveCrit = document.getElementById("attackResolveCrit");
+  const attackDamageTypeOverrideRow = document.getElementById("attackDamageTypeOverrideRow");
+  const attackDamageTypeOverrideSelect = document.getElementById("attackDamageTypeOverrideSelect");
   const attackDamageRows = document.getElementById("attackDamageRows");
   const attackDamageAdd = document.getElementById("attackDamageAdd");
   const attackResolveSubmit = document.getElementById("attackResolveSubmit");
@@ -3898,6 +3913,7 @@ __DAMAGE_TYPE_OPTIONS__
   const monkStepOfWindFocusBtn = document.getElementById("monkStepOfWindFocus");
   const monkMartialArtsBonusBtn = document.getElementById("monkMartialArtsBonus");
   const monkFlurryOfBlowsBtn = document.getElementById("monkFlurryOfBlows");
+  const monkElementalAttunementToggleBtn = document.getElementById("monkElementalAttunementToggle");
   const monkFocusCloseBtn = document.getElementById("monkFocusClose");
   const layOnHandsOverlay = document.getElementById("layOnHandsOverlay");
   const layOnHandsSummary = document.getElementById("layOnHandsSummary");
@@ -5026,6 +5042,24 @@ __DAMAGE_TYPE_OPTIONS__
       .reduce((sum, entry) => sum + Math.max(0, Number(entry?.level || 0)), 0);
   }
 
+  function unitHasElementalAttunement(unit){
+    return !!unit && unit.elemental_attunement_active === true;
+  }
+
+  function isUnarmedStrikeWeapon(weapon){
+    const weaponId = normalizeLowerValue(weapon?.id);
+    const weaponName = normalizeLowerValue(weapon?.name);
+    return weaponId === "unarmed_strike" || weaponName === "unarmed strike";
+  }
+
+  function effectiveAttackRangeFeetForWeapon(weapon, unit){
+    const baseRange = parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? 3 : 0);
+    if (isUnarmedStrikeWeapon(weapon) && unitHasElementalAttunement(unit)){
+      return baseRange + 10;
+    }
+    return baseRange;
+  }
+
   function getUnarmedStrikeWeapon(){
     const weapons = getClaimedWeapons();
     if (!weapons.length) return null;
@@ -5295,6 +5329,16 @@ __DAMAGE_TYPE_OPTIONS__
       monkFlurryOfBlowsBtn.textContent = `Flurry of Blows — 1 Focus (${flurryStrikes} strikes)`;
     }
     const noFocus = current <= 0;
+    const me = getClaimedUnit();
+    const attuned = unitHasElementalAttunement(me);
+    if (monkElementalAttunementToggleBtn){
+      monkElementalAttunementToggleBtn.textContent = attuned
+        ? "Elemental Attunement: Active (Deactivate)"
+        : "Elemental Attunement (1 Focus)";
+      monkElementalAttunementToggleBtn.disabled = !attuned && noFocus;
+      monkElementalAttunementToggleBtn.style.opacity = (!attuned && noFocus) ? "0.6" : "";
+      monkElementalAttunementToggleBtn.title = (!attuned && noFocus) ? "No Focus Points remaining." : "";
+    }
     [monkPatientDefenseFocusBtn, monkStepOfWindFocusBtn, monkFlurryOfBlowsBtn].forEach((btn) => {
       if (!btn) return;
       btn.disabled = noFocus;
@@ -6745,6 +6789,7 @@ __DAMAGE_TYPE_OPTIONS__
     "lay_on_hands_use",
     "monk_patient_defense",
     "monk_step_of_wind",
+    "monk_elemental_attunement",
   ]);
 
   function send(msg){
@@ -7767,7 +7812,7 @@ __DAMAGE_TYPE_OPTIONS__
       syncOwnedRotatableAoesWithFacing(unit.cid, facingDeg);
       return;
     }
-    if (["dash", "perform_action", "use_action", "use_bonus_action", "monk_patient_defense", "monk_step_of_wind"].includes(type)){
+    if (["dash", "perform_action", "use_action", "use_bonus_action", "monk_patient_defense", "monk_step_of_wind", "monk_elemental_attunement"].includes(type)){
       const unit = getUnitByCid(msg.cid);
       if (!unit) return;
       const update = {cid: unit.cid};
@@ -7803,6 +7848,14 @@ __DAMAGE_TYPE_OPTIONS__
       const mode = String(msg.mode || "").trim().toLowerCase();
       if (mode === "focus"){
         mutateResourcePoolCounter(unit, {id: "focus_points", cost: 1});
+      }
+      if (type === "monk_elemental_attunement"){
+        if (mode === "activate"){
+          mutateResourcePoolCounter(unit, {id: "focus_points", cost: 1});
+          update.elemental_attunement_active = true;
+        } else if (mode === "deactivate"){
+          update.elemental_attunement_active = false;
+        }
       }
       if (type === "dash" || actionKey === "dash" || type === "monk_step_of_wind"){
         const baseSpeed = planningModeSpeed(unit);
@@ -8461,6 +8514,11 @@ __DAMAGE_TYPE_OPTIONS__
       if (attackResolveHit) attackResolveHit.disabled = false;
       if (attackResolveMiss) attackResolveMiss.disabled = false;
       if (attackResolveCrit) attackResolveCrit.checked = false;
+      if (attackDamageTypeOverrideRow) attackDamageTypeOverrideRow.style.display = "none";
+      if (attackDamageTypeOverrideSelect){
+        attackDamageTypeOverrideSelect.value = "";
+        attackDamageTypeOverrideSelect.disabled = true;
+      }
       pendingAttackResolve = null;
     }
   }
@@ -8542,6 +8600,15 @@ __DAMAGE_TYPE_OPTIONS__
     const hasVexAdvantage = Number.isFinite(Number(target?.vexed_by_cid))
       && Number.isFinite(Number(me?.cid))
       && Number(target.vexed_by_cid) === Number(me.cid);
+    const attunedUnarmed = isUnarmedStrikeWeapon(weapon) && unitHasElementalAttunement(me);
+    if (attackDamageTypeOverrideRow){
+      attackDamageTypeOverrideRow.style.display = attunedUnarmed ? "flex" : "none";
+    }
+    if (attackDamageTypeOverrideSelect){
+      attackDamageTypeOverrideSelect.value = "";
+      attackDamageTypeOverrideSelect.disabled = !attunedUnarmed;
+    }
+
     pendingAttackResolve = {
       targetCid: Number(target?.cid),
       targetName: String(target?.name || "target"),
@@ -8552,6 +8619,7 @@ __DAMAGE_TYPE_OPTIONS__
       masteryAdvantage: hasVexAdvantage,
       opportunityAttack: pendingOpportunityAttack,
       consumesPool: pendingUnleashIncarnation ? {...pendingUnleashIncarnation} : null,
+      elementalOverrideAllowed: attunedUnarmed,
     };
     pendingOpportunityAttack = false;
     const advantageText = hasVexAdvantage ? ' <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>' : "";
@@ -9417,7 +9485,7 @@ __DAMAGE_TYPE_OPTIONS__
           ? layOnHandsRangeFt
           : (Number.isFinite(spellRangeFt)
             ? spellRangeFt
-            : parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? 3 : 0));
+            : effectiveAttackRangeFeetForWeapon(weapon, attackOrigin || me));
         const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
         const radiusCells = Math.max(0, Number(rangeFt) / feetPerSquare);
         const center = gridToScreen(attackOrigin.pos.col, attackOrigin.pos.row);
@@ -12304,7 +12372,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
         const rangeFt = Number.isFinite(Number(pendingSpellTargeting?.rangeFt))
           ? Number(pendingSpellTargeting.rangeFt)
-          : (parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? 3 : 0));
+          : effectiveAttackRangeFeetForWeapon(weapon, overlayOrigin || me);
         const distFt = distanceFeetBetweenCells((overlayOrigin && overlayOrigin.pos) ? overlayOrigin.pos : me.pos, hit.pos);
         if (distFt - rangeFt > 1e-6){
           localToast("Target be out of attack range.");
@@ -16295,6 +16363,17 @@ __DAMAGE_TYPE_OPTIONS__
   if (monkStepOfWindFocusBtn){
     monkStepOfWindFocusBtn.addEventListener("click", () => sendMonkFocusAction("monk_step_of_wind", "focus"));
   }
+  if (monkElementalAttunementToggleBtn){
+    monkElementalAttunementToggleBtn.addEventListener("click", () => {
+      const me = getClaimedUnit();
+      if (!me){
+        localToast("Claim a character first, matey.");
+        return;
+      }
+      const mode = unitHasElementalAttunement(me) ? "deactivate" : "activate";
+      sendMonkFocusAction("monk_elemental_attunement", mode);
+    });
+  }
   const startMonkBonusAttackSequence = (sequenceId, totalStrikes, focusCost) => {
     if (isMapView) return;
     const cid = activeControlledUnitCid();
@@ -17071,6 +17150,9 @@ __DAMAGE_TYPE_OPTIONS__
           hit: hit,
           critical,
           damage_entries: damageEntries,
+          damage_type_override: (pendingAttackResolve.elementalOverrideAllowed && attackDamageTypeOverrideSelect)
+            ? String(attackDamageTypeOverrideSelect.value || "").trim().toLowerCase() || null
+            : null,
         };
         if (monkSeq){
           attackMsg.attack_spend = "bonus";
