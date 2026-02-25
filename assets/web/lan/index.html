@@ -3163,6 +3163,22 @@ __DAMAGE_TYPE_OPTIONS__
     </div>
   </div>
 </div>
+<div class="modal" id="monkFocusOverlay" aria-hidden="true">
+  <div class="card">
+    <h2>Monk Focus</h2>
+    <div class="spellbook-status" id="monkFocusSummary">Focus Points: 0/0</div>
+    <div class="spellbook-status" id="monkFocusRules">
+      Spend Focus Points; reset on Short/Long Rest. Monk Save DC = 8 + prof + wis_mod.
+    </div>
+    <div class="modal-actions" style="margin-top:10px;display:grid;grid-template-columns:1fr;gap:8px;">
+      <button class="btn" id="monkPatientDefenseFree" type="button">Patient Defense (Disengage) — Bonus Action</button>
+      <button class="btn accent" id="monkPatientDefenseFocus" type="button">Patient Defense (Disengage + Dodge) — 1 Focus</button>
+      <button class="btn" id="monkStepOfWindFree" type="button">Step of the Wind (Dash) — Bonus Action</button>
+      <button class="btn accent" id="monkStepOfWindFocus" type="button">Step of the Wind (Dash + Disengage) — 1 Focus</button>
+      <button class="btn" id="monkFocusClose" type="button">Close</button>
+    </div>
+  </div>
+</div>
 <div class="modal" id="layOnHandsOverlay" aria-hidden="true">
   <div class="card">
     <h2>Lay on Hands</h2>
@@ -3872,6 +3888,13 @@ __DAMAGE_TYPE_OPTIONS__
   const secondWindRollInput = document.getElementById("secondWindRollInput");
   const secondWindCancelBtn = document.getElementById("secondWindCancel");
   const secondWindUseBtn = document.getElementById("secondWindUse");
+  const monkFocusOverlay = document.getElementById("monkFocusOverlay");
+  const monkFocusSummary = document.getElementById("monkFocusSummary");
+  const monkPatientDefenseFreeBtn = document.getElementById("monkPatientDefenseFree");
+  const monkPatientDefenseFocusBtn = document.getElementById("monkPatientDefenseFocus");
+  const monkStepOfWindFreeBtn = document.getElementById("monkStepOfWindFree");
+  const monkStepOfWindFocusBtn = document.getElementById("monkStepOfWindFocus");
+  const monkFocusCloseBtn = document.getElementById("monkFocusClose");
   const layOnHandsOverlay = document.getElementById("layOnHandsOverlay");
   const layOnHandsSummary = document.getElementById("layOnHandsSummary");
   const layOnHandsTarget = document.getElementById("layOnHandsTarget");
@@ -5051,6 +5074,18 @@ __DAMAGE_TYPE_OPTIONS__
         chip.title = "Second Wind";
         chip.addEventListener("click", () => setSecondWindOverlayOpen(true));
       }
+      if (pool.id === "focus_points"){
+        chip.style.cursor = "pointer";
+        chip.title = "Monk Focus";
+        chip.addEventListener("click", () => {
+          const cid = activeControlledUnitCid();
+          if (cid === null){
+            localToast("Claim a character first, matey.");
+            return;
+          }
+          setMonkFocusOverlayOpen(true);
+        });
+      }
       if (pool.id === "action_surge"){
         chip.style.cursor = "pointer";
         chip.title = "Use Action Surge";
@@ -5220,6 +5255,23 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     if (secondWindSummary) secondWindSummary.textContent = `Current uses: ${secondWind.current}/${secondWind.max}`;
+  }
+
+  function setMonkFocusOverlayOpen(open){
+    setModalOpen(monkFocusOverlay, open);
+    if (!open) return;
+    const pools = getPlayerResourcePools(getClaimedPlayerName());
+    const focusPool = pools.find((entry) => entry.id === "focus_points");
+    const current = Math.max(0, Number(focusPool?.current || 0));
+    const max = Math.max(0, Number(focusPool?.max || 0));
+    if (monkFocusSummary) monkFocusSummary.textContent = focusPool ? `Focus Points: ${current}/${max}` : "No Focus Points pool found.";
+    const noFocus = current <= 0;
+    [monkPatientDefenseFocusBtn, monkStepOfWindFocusBtn].forEach((btn) => {
+      if (!btn) return;
+      btn.disabled = noFocus;
+      btn.style.opacity = noFocus ? "0.6" : "";
+      btn.title = noFocus ? "No Focus Points remaining." : "";
+    });
   }
 
   function setLayOnHandsOverlayOpen(open){
@@ -6662,6 +6714,8 @@ __DAMAGE_TYPE_OPTIONS__
     "aoe_remove",
     "save_preset",
     "lay_on_hands_use",
+    "monk_patient_defense",
+    "monk_step_of_wind",
   ]);
 
   function send(msg){
@@ -7684,12 +7738,14 @@ __DAMAGE_TYPE_OPTIONS__
       syncOwnedRotatableAoesWithFacing(unit.cid, facingDeg);
       return;
     }
-    if (["dash", "perform_action", "use_action", "use_bonus_action"].includes(type)){
+    if (["dash", "perform_action", "use_action", "use_bonus_action", "monk_patient_defense", "monk_step_of_wind"].includes(type)){
       const unit = getUnitByCid(msg.cid);
       if (!unit) return;
       const update = {cid: unit.cid};
       const spendRaw = String(msg.spend || "").toLowerCase();
-      const spend = spendRaw.includes("bonus") ? "bonus" : (spendRaw === "reaction" ? "reaction" : "action");
+      const spend = (type === "monk_patient_defense" || type === "monk_step_of_wind")
+        ? "bonus"
+        : (spendRaw.includes("bonus") ? "bonus" : (spendRaw === "reaction" ? "reaction" : "action"));
       const useAction = () => {
         const current = Number(unit.action_remaining || 0);
         update.action_remaining = Math.max(0, current - 1);
@@ -7715,7 +7771,11 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const actionName = String(msg.action || msg.name || "");
       const actionKey = normalizeLowerValue(actionName);
-      if (type === "dash" || actionKey === "dash"){
+      const mode = String(msg.mode || "").trim().toLowerCase();
+      if (mode === "focus"){
+        mutateResourcePoolCounter(unit, {id: "focus_points", cost: 1});
+      }
+      if (type === "dash" || actionKey === "dash" || type === "monk_step_of_wind"){
         const baseSpeed = planningModeSpeed(unit);
         const total = Number(unit.move_total || 0);
         const remaining = Number(unit.move_remaining || 0);
@@ -16155,6 +16215,37 @@ __DAMAGE_TYPE_OPTIONS__
       send(msg);
       setSecondWindOverlayOpen(false);
     });
+  }
+  if (monkFocusCloseBtn){
+    monkFocusCloseBtn.addEventListener("click", () => setMonkFocusOverlayOpen(false));
+  }
+  const sendMonkFocusAction = (type, mode) => {
+    if (isMapView) return;
+    const cid = activeControlledUnitCid();
+    if (cid === null){
+      localToast("Claim a character first, matey.");
+      return;
+    }
+    const msg = {type, cid, mode};
+    if (isPlanning){
+      planningMutate(msg);
+      draw();
+      updateHud();
+    }
+    send(msg);
+    setMonkFocusOverlayOpen(false);
+  };
+  if (monkPatientDefenseFreeBtn){
+    monkPatientDefenseFreeBtn.addEventListener("click", () => sendMonkFocusAction("monk_patient_defense", "free"));
+  }
+  if (monkPatientDefenseFocusBtn){
+    monkPatientDefenseFocusBtn.addEventListener("click", () => sendMonkFocusAction("monk_patient_defense", "focus"));
+  }
+  if (monkStepOfWindFreeBtn){
+    monkStepOfWindFreeBtn.addEventListener("click", () => sendMonkFocusAction("monk_step_of_wind", "free"));
+  }
+  if (monkStepOfWindFocusBtn){
+    monkStepOfWindFocusBtn.addEventListener("click", () => sendMonkFocusAction("monk_step_of_wind", "focus"));
   }
   if (layOnHandsCancelBtn){
     layOnHandsCancelBtn.addEventListener("click", () => {
