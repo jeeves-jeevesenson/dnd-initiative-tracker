@@ -1336,6 +1336,7 @@ class LanController:
         "lay_on_hands_use",
         "monk_patient_defense",
         "monk_step_of_wind",
+        "monk_elemental_attunement",
     )
 
     def __init__(self, app: "InitiativeTracker") -> None:
@@ -8006,6 +8007,16 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             pass
 
+    def _is_unarmed_strike_weapon(self, weapon: Any) -> bool:
+        if not isinstance(weapon, dict):
+            return False
+        weapon_id = str(weapon.get("id") or "").strip().lower()
+        weapon_name = str(weapon.get("name") or "").strip().lower()
+        return bool(weapon_id == "unarmed_strike" or weapon_name == "unarmed strike")
+
+    def _elemental_attunement_active(self, combatant: Any) -> bool:
+        return bool(getattr(combatant, "elemental_attunement_active", False))
+
     def _lan_snapshot(self, include_static: bool = True, hydrate_static: bool = True) -> Dict[str, Any]:
         # Prefer map window live state when available
         mw = None
@@ -8347,6 +8358,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "is_spellcaster": bool(getattr(c, "is_spellcaster", False)),
                     "is_wild_shaped": bool(getattr(c, "is_wild_shaped", False)),
                     "wild_shape_form": str(getattr(c, "wild_shape_form_name", "") or "") or None,
+                    "elemental_attunement_active": self._elemental_attunement_active(c),
                     "summoned_by_cid": _normalize_cid_value(getattr(c, "summoned_by_cid", None), "snapshot.summoned_by"),
                     "summon_source_spell": str(getattr(c, "summon_source_spell", "") or "") or None,
                     "summon_group_id": str(getattr(c, "summon_group_id", "") or "") or None,
@@ -18160,6 +18172,15 @@ class InitiativeTracker(base.InitiativeTracker):
             if not selected_weapon:
                 self._lan.toast(ws_id, "Pick one of yer configured weapons first, matey.")
                 return
+            is_unarmed_strike = self._is_unarmed_strike_weapon(selected_weapon)
+            attunement_active = self._elemental_attunement_active(c)
+            allowed_elemental_overrides = {"acid", "cold", "fire", "lightning", "thunder"}
+            damage_type_override = str(msg.get("damage_type_override") or "").strip().lower()
+            override_honored = bool(
+                damage_type_override in allowed_elemental_overrides
+                and attunement_active
+                and is_unarmed_strike
+            )
             setattr(c, "_rage_attack_made_this_turn", True)
             turn_marker = (
                 int(getattr(self, "round_num", 0) or 0),
@@ -18289,6 +18310,30 @@ class InitiativeTracker(base.InitiativeTracker):
                             setattr(resource_c, "_nick_mastery_turn_marker", turn_marker)
                     attack_resources = max(0, int(attack_resources) - 1)
                     setattr(resource_c, "attack_resource_remaining", int(attack_resources))
+            attacker_pos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(cid))
+            target_pos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(target_cid))
+            if isinstance(attacker_pos, tuple) and len(attacker_pos) == 2 and isinstance(target_pos, tuple) and len(target_pos) == 2:
+                feet_per_square = 5.0
+                try:
+                    mw = getattr(self, "_map_window", None)
+                    if mw is not None and hasattr(mw, "winfo_exists") and mw.winfo_exists():
+                        feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+                except Exception:
+                    feet_per_square = 5.0
+                if feet_per_square <= 0:
+                    feet_per_square = 5.0
+                weapon_range = str(selected_weapon.get("range") or selected_weapon.get("normal_range") or selected_weapon.get("reach") or "").strip().lower()
+                range_match = re.search(r"(\d+(?:\.\d+)?)", weapon_range.split("/")[0])
+                range_ft = float(range_match.group(1)) if range_match else 5.0
+                if attunement_active and is_unarmed_strike:
+                    range_ft += 10.0
+                distance_ft = math.hypot(
+                    int(target_pos[0]) - int(attacker_pos[0]),
+                    int(target_pos[1]) - int(attacker_pos[1]),
+                ) * float(feet_per_square)
+                if float(distance_ft) - float(range_ft) > 1e-6:
+                    self._lan.toast(ws_id, "Target be out of attack range.")
+                    return
             to_hit = _parse_int(selected_weapon.get("to_hit"), _parse_int(attacks.get("weapon_to_hit"), 0) or 0) or 0
             magic_bonus = _parse_int(selected_weapon.get("magic_bonus"), _parse_int(selected_weapon.get("item_bonus"), 0) or 0) or 0
             to_hit += int(magic_bonus)
@@ -18364,6 +18409,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 mode_formula = mode_block.get("damage_formula") if isinstance(mode_block, dict) else ""
                 mode_damage = _roll_damage_formula(mode_formula, variables, dice_multiplier=2 if auto_crit else 1)
                 mode_type = str((mode_block or {}).get("damage_type") or "").strip().lower() if isinstance(mode_block, dict) else ""
+                if override_honored:
+                    mode_type = damage_type_override
                 if mode_damage is not None and mode_damage > 0:
                     damage_entries.append({"amount": int(mode_damage), "type": mode_type})
                 if (
@@ -18380,6 +18427,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     mode_block = selected_weapon.get("two_handed")
                 graze_damage = max(0, _weapon_mastery_damage_ability_mod(selected_weapon, profile, variables))
                 mode_type = str((mode_block or {}).get("damage_type") or "").strip().lower() if isinstance(mode_block, dict) else ""
+                if override_honored:
+                    mode_type = damage_type_override
                 if graze_damage > 0:
                     damage_entries.append({"amount": int(graze_damage), "type": mode_type})
                     graze_applied = True
@@ -18473,6 +18522,13 @@ class InitiativeTracker(base.InitiativeTracker):
                             f"{smite_type} damage.",
                             cid=cid,
                         )
+            if override_honored and isinstance(damage_entries, list):
+                for entry in damage_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    raw_type = str(entry.get("type") or "").strip().lower()
+                    if raw_type in ("", "damage", "bludgeoning"):
+                        entry["type"] = damage_type_override
             adjustment = self._adjust_damage_entries_for_target(target, damage_entries)
             damage_entries = list(adjustment.get("entries") or [])
             adjustment_notes = list(adjustment.get("notes") or [])
@@ -18619,6 +18675,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "bonus_action_remaining": int(getattr(resource_c, "bonus_action_remaining", 0) or 0),
                 "attack_resource_remaining": int(getattr(resource_c, "attack_resource_remaining", 0) or 0),
                 "mastery_advantage": bool(mastery_vex_advantage),
+                "damage_type_override": damage_type_override if override_honored else None,
             }
             if mastery_cleave_candidates:
                 result_payload["cleave_candidates"] = list(mastery_cleave_candidates)
@@ -19256,6 +19313,44 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._log(f"{c.name} used Step of the Wind (Dash) (bonus action)", cid=cid)
             self._log(f"{c.name} jump distance doubled (not automated).", cid=cid)
             self._lan.toast(ws_id, "Step of the Wind used.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "monk_elemental_attunement":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            if not bool(getattr(c, "is_pc", False)):
+                self._lan.toast(ws_id, "Only player characters can use Monk Focus actions, matey.")
+                return
+            player_name = _resolve_pc_name(cid)
+            profile = self._profile_for_player_name(player_name)
+            if not isinstance(profile, dict):
+                self._lan.toast(ws_id, "No player profile found, matey.")
+                return
+            monk_level = self._class_level_from_profile(profile, "monk")
+            if monk_level < 3:
+                self._lan.toast(ws_id, "Only monks with Warrior of the Elements can use Elemental Attunement, matey.")
+                return
+            mode = str(msg.get("mode") or "activate").strip().lower()
+            currently_active = self._elemental_attunement_active(c)
+            if mode == "deactivate":
+                if currently_active:
+                    setattr(c, "elemental_attunement_active", False)
+                    self._log(f"{c.name} ended Elemental Attunement.", cid=cid)
+                    self._lan.toast(ws_id, "Elemental Attunement ended.")
+                    self._rebuild_table(scroll_to_current=True)
+                else:
+                    self._lan.toast(ws_id, "Elemental Attunement is not active.")
+                return
+            if currently_active:
+                self._lan.toast(ws_id, "Elemental Attunement is already active.")
+                return
+            ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "focus_points", 1)
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err or "No Focus Points remain, matey.")
+                return
+            setattr(c, "elemental_attunement_active", True)
+            self._log(f"{c.name} activated Elemental Attunement (1 Focus).", cid=cid)
+            self._lan.toast(ws_id, "Elemental Attunement activated.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "use_action":
             c = self.combatants.get(cid)
