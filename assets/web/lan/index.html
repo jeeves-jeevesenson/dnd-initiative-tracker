@@ -125,21 +125,14 @@
     .planning-view #sheetWrap{
       display:none !important;
     }
-    .planning-chat-overlay{
+    .planning-chat-window{
       position:fixed;
-      inset:0;
-      background: rgba(5,7,10,0.72);
-      z-index: 80;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding: 20px;
-      box-sizing:border-box;
-    }
-    .planning-chat-overlay.show{display:flex;}
-    .planning-chat-card{
-      width:min(580px, 100%);
-      max-height:min(80dvh, 720px);
+      right:12px;
+      bottom: calc(var(--bottombar-height) + 12px);
+      width:min(580px, 76vw);
+      height:min(52dvh, 480px);
+      min-width:280px;
+      min-height:220px;
       display:flex;
       flex-direction:column;
       gap:10px;
@@ -147,10 +140,23 @@
       background: var(--panel2);
       border:1px solid rgba(255,255,255,0.14);
       border-radius:14px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+      z-index: 24;
+      overflow:hidden;
+      resize:both;
+      display:none;
+    }
+    .planning-chat-window.show{display:flex;}
+    .planning-chat-window .map-view-log-header{
+      cursor:move;
+      user-select:none;
+      touch-action:none;
+      padding:0 0 8px;
+      border-bottom:1px solid rgba(255,255,255,0.12);
+      margin-bottom:2px;
     }
     .planning-chat-list{
-      min-height:240px;
-      max-height:52dvh;
+      min-height:0;
       overflow:auto;
       border:1px solid rgba(255,255,255,0.12);
       border-radius:10px;
@@ -159,6 +165,7 @@
       display:flex;
       flex-direction:column;
       gap:8px;
+      flex:1;
     }
     .planning-chat-item{font-size:13px; line-height:1.35;}
     .planning-chat-meta{color:var(--muted); font-size:11px; margin-bottom:2px;}
@@ -2113,7 +2120,7 @@
       <button class="btn end-turn-top" id="endTurn">End Turn</button>
       <div class="spacer"></div>
       <button class="btn" id="planningBtn" type="button">Planning Mode</button>
-      <button class="btn hidden" id="planningChatBtn" type="button">Chat</button>
+      <button class="btn" id="planningChatBtn" type="button" aria-pressed="false">Chat</button>
       <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
       <button class="btn" id="helpBtn" type="button" aria-controls="helpModal" aria-expanded="false">Help</button>
       <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
@@ -2145,11 +2152,10 @@
     </div>
   </div>
 
-  <div class="planning-chat-overlay" id="planningChatOverlay" aria-hidden="true">
-    <div class="planning-chat-card" role="dialog" aria-modal="true" aria-labelledby="planningChatTitle">
-      <div class="row" style="justify-content:space-between;align-items:center;">
+  <aside class="planning-chat-window" id="planningChatOverlay" aria-hidden="true" role="dialog" aria-labelledby="planningChatTitle">
+      <div class="map-view-log-header" id="planningChatHeader">
         <strong id="planningChatTitle">Planning Chat</strong>
-        <button class="btn" id="planningChatClose" type="button">Close</button>
+        <button class="btn" id="planningChatClose" type="button">Hide</button>
       </div>
       <div class="hint">Names use IP assignment when available; otherwise sender IP is shown.</div>
       <div class="planning-chat-list" id="planningChatList" aria-live="polite"></div>
@@ -2157,8 +2163,8 @@
         <input class="input" id="planningChatInput" maxlength="500" placeholder="Message" />
         <button class="btn accent" id="planningChatSend" type="submit">Send</button>
       </form>
-    </div>
-  </div>
+      <div class="log-resize-handle" id="planningChatResizeHandle" aria-hidden="true"></div>
+  </aside>
 
   <div class="mapWrap">
     <canvas id="c"></canvas>
@@ -3970,6 +3976,8 @@ __DAMAGE_TYPE_OPTIONS__
   const planningChatList = document.getElementById("planningChatList");
   const planningChatForm = document.getElementById("planningChatForm");
   const planningChatInput = document.getElementById("planningChatInput");
+  const planningChatHeader = document.getElementById("planningChatHeader");
+  const planningChatResizeHandle = document.getElementById("planningChatResizeHandle");
   const spellLibraryBtn = document.getElementById("spellLibraryBtn");
   const spellLibraryOverlay = document.getElementById("spellLibraryOverlay");
   const spellLibraryCloseBtn = document.getElementById("spellLibraryClose");
@@ -4337,6 +4345,7 @@ __DAMAGE_TYPE_OPTIONS__
   const mapViewSettingsKey = "inittracker_map_view_settings";
   const dmUiPrefsKey = "inittracker_dm_ui_prefs";
   const battleLogViewPrefsKey = "inittracker_battle_log_view_prefs";
+  const chatViewPrefsKey = "inittracker_chat_view_prefs";
   const sheetPanelHiddenKey = "inittracker_ui_sheetPanelHidden";
   let dmLogLines = [];
   let battleLogSubscribed = false;
@@ -4365,6 +4374,7 @@ __DAMAGE_TYPE_OPTIONS__
   let lockMyAoes = readToggle(lockMyAoesKey, true);
   let mapViewSettings = null;
   let battleLogViewPrefs = null;
+  let chatViewPrefs = null;
   let connStyle = "full";
   let initiativeStyle = "full";
   let sheetHeight = null;
@@ -4391,7 +4401,9 @@ __DAMAGE_TYPE_OPTIONS__
   }
   applyMapViewSettings(readMapViewSettings());
   battleLogViewPrefs = readBattleLogViewPrefs();
+  chatViewPrefs = readChatViewPrefs();
   applyBattleLogViewPrefs();
+  applyChatViewPrefs();
   if (isMapView){ dmUiPrefs.showLogPanel = dmUiPrefs.showLogPanel === true; dmUiPrefs.showMapPreview = dmUiPrefs.showMapPreview === true; renderDmLogPanel(); refreshMapViewLogPolling(); }
   function applyMapViewReadOnlyControls(){
     if (!isMapView) return;
@@ -4481,6 +4493,7 @@ __DAMAGE_TYPE_OPTIONS__
       applySheetHeight(sheetHeight);
     }
     applyUiConfig();
+    applyChatViewPrefs();
   });
   updateSpellbookViewportHeight();
   window.addEventListener("resize", updateSpellbookViewportHeight);
@@ -4764,6 +4777,83 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+
+  function readChatViewPrefs(){
+    const defaults = {
+      visible: false,
+      width: null,
+      height: null,
+      left: null,
+      top: null,
+    };
+    try {
+      const raw = localStorage.getItem(chatViewPrefsKey);
+      if (!raw) return defaults;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return defaults;
+      return {
+        ...defaults,
+        ...parsed,
+      };
+    } catch (_err){
+      return defaults;
+    }
+  }
+
+  function persistChatViewPrefs(){
+    if (!chatViewPrefs) return;
+    try {
+      localStorage.setItem(chatViewPrefsKey, JSON.stringify(chatViewPrefs));
+    } catch (_err) {}
+  }
+
+  function applyChatViewPrefs(){
+    if (!chatViewPrefs){
+      chatViewPrefs = readChatViewPrefs();
+    }
+    if (!planningChatOverlay) return;
+    if (Number.isFinite(Number(chatViewPrefs.width))){
+      planningChatOverlay.style.width = `${Math.max(280, Number(chatViewPrefs.width))}px`;
+    }
+    if (Number.isFinite(Number(chatViewPrefs.height))){
+      planningChatOverlay.style.height = `${Math.max(220, Number(chatViewPrefs.height))}px`;
+    }
+    if (Number.isFinite(Number(chatViewPrefs.left)) && Number.isFinite(Number(chatViewPrefs.top))){
+      const modalRect = planningChatOverlay.getBoundingClientRect();
+      const topbarHeight = document.querySelector(".topbar")?.getBoundingClientRect().height || 0;
+      const sheetHeight = sheetWrap && !sheetWrap.classList.contains("hidden")
+        ? sheetWrap.getBoundingClientRect().height
+        : 0;
+      const minTop = Math.max(0, topbarHeight + 8);
+      const maxLeft = Math.max(0, window.innerWidth - modalRect.width);
+      const maxTop = Math.max(minTop, window.innerHeight - sheetHeight - modalRect.height - 8);
+      const left = Math.min(maxLeft, Math.max(0, Number(chatViewPrefs.left)));
+      const top = Math.min(maxTop, Math.max(minTop, Number(chatViewPrefs.top)));
+      planningChatOverlay.style.left = `${left}px`;
+      planningChatOverlay.style.top = `${top}px`;
+      planningChatOverlay.style.right = "auto";
+      planningChatOverlay.style.bottom = "auto";
+    } else {
+      const modalRect = planningChatOverlay.getBoundingClientRect();
+      const topbarHeight = document.querySelector(".topbar")?.getBoundingClientRect().height || 0;
+      const sheetHeight = sheetWrap && !sheetWrap.classList.contains("hidden")
+        ? sheetWrap.getBoundingClientRect().height
+        : 0;
+      const minTop = Math.max(0, topbarHeight + 8);
+      const maxTop = Math.max(minTop, window.innerHeight - sheetHeight - modalRect.height - 8);
+      const defaultTop = Math.round(minTop + ((maxTop - minTop) / 2));
+      planningChatOverlay.style.left = "auto";
+      planningChatOverlay.style.top = `${defaultTop}px`;
+      planningChatOverlay.style.right = "12px";
+      planningChatOverlay.style.bottom = "auto";
+    }
+    planningChatOverlay.classList.toggle("show", chatViewPrefs.visible === true);
+    planningChatOverlay.setAttribute("aria-hidden", chatViewPrefs.visible === true ? "false" : "true");
+    planningChatOpen = chatViewPrefs.visible === true;
+    if (planningChatBtn){
+      planningChatBtn.setAttribute("aria-pressed", planningChatOpen ? "true" : "false");
+    }
+  }
   function mapRotateHandleScale(){
     const raw = Number(mapViewSettings?.rotateHandleScale);
     if (!Number.isFinite(raw)) return 1.2;
@@ -6966,7 +7056,6 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function appendPlanningChatMessage(msg){
-    if (!isPlanning) return;
     const text = String(msg?.text || "").trim();
     if (!text) return;
     planningChatMessages.push({
@@ -6984,12 +7073,21 @@ __DAMAGE_TYPE_OPTIONS__
   function setPlanningChatOpen(open){
     planningChatOpen = !!open;
     if (!planningChatOverlay) return;
+    if (!chatViewPrefs){
+      chatViewPrefs = readChatViewPrefs();
+    }
+    chatViewPrefs.visible = planningChatOpen;
     planningChatOverlay.classList.toggle("show", planningChatOpen);
     planningChatOverlay.setAttribute("aria-hidden", planningChatOpen ? "false" : "true");
+    if (planningChatBtn){
+      planningChatBtn.setAttribute("aria-pressed", planningChatOpen ? "true" : "false");
+    }
     if (planningChatOpen){
+      applyChatViewPrefs();
       renderPlanningChat();
       planningChatInput?.focus();
     }
+    persistChatViewPrefs();
   }
 
   const DEFAULT_SPELL_COLOR = "#6aa9ff";
@@ -11675,9 +11773,7 @@ __DAMAGE_TYPE_OPTIONS__
       if (!isMapView){
         send({type:"client_hello", client_id: clientId});
       }
-      if (isPlanning){
-        send({type:"planning_hello"});
-      }
+      send({type:"planning_hello"});
       send({type:"grid_request"});
       send({type:"terrain_request"});
       refreshMapViewLogPolling();
@@ -16465,7 +16561,7 @@ __DAMAGE_TYPE_OPTIONS__
     logHeader.addEventListener("pointermove", (event) => {
       if (!dragState || event.pointerId !== dragState.pointerId) return;
       const left = Math.min(dragState.maxLeft, Math.max(0, event.clientX - dragState.offsetX));
-      const top = Math.min(dragState.maxTop, Math.max(0, event.clientY - dragState.offsetY));
+      const top = Math.min(dragState.maxTop, Math.max(dragState.minTop, event.clientY - dragState.offsetY));
       dragState.left = Math.round(left);
       dragState.top = Math.round(top);
       logModal.style.left = `${dragState.left}px`;
@@ -16506,6 +16602,86 @@ __DAMAGE_TYPE_OPTIONS__
     logResizeHandle.addEventListener("pointerup", endLogResize);
     logResizeHandle.addEventListener("pointercancel", endLogResize);
   }
+  if (planningChatHeader && planningChatOverlay){
+    let dragState = null;
+    const endChatDrag = () => {
+      if (!dragState) return;
+      chatViewPrefs.left = dragState.left;
+      chatViewPrefs.top = dragState.top;
+      persistChatViewPrefs();
+      dragState = null;
+    };
+    planningChatHeader.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("button")) return;
+      const modalRect = planningChatOverlay.getBoundingClientRect();
+      const topbarHeight = document.querySelector(".topbar")?.getBoundingClientRect().height || 0;
+      const sheetHeight = sheetWrap && !sheetWrap.classList.contains("hidden")
+        ? sheetWrap.getBoundingClientRect().height
+        : 0;
+      const minTop = Math.max(0, topbarHeight + 8);
+      const maxLeft = Math.max(0, window.innerWidth - modalRect.width);
+      const maxTop = Math.max(minTop, window.innerHeight - sheetHeight - modalRect.height - 8);
+      dragState = {
+        pointerId: event.pointerId,
+        offsetX: event.clientX - modalRect.left,
+        offsetY: event.clientY - modalRect.top,
+        minTop,
+        maxLeft,
+        maxTop,
+        left: Math.min(maxLeft, Math.max(0, modalRect.left)),
+        top: Math.min(maxTop, Math.max(minTop, modalRect.top)),
+      };
+      planningChatOverlay.style.right = "auto";
+      planningChatOverlay.style.bottom = "auto";
+      planningChatHeader.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+    planningChatHeader.addEventListener("pointermove", (event) => {
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+      const left = Math.min(dragState.maxLeft, Math.max(0, event.clientX - dragState.offsetX));
+      const top = Math.min(dragState.maxTop, Math.max(0, event.clientY - dragState.offsetY));
+      dragState.left = Math.round(left);
+      dragState.top = Math.round(top);
+      planningChatOverlay.style.left = `${dragState.left}px`;
+      planningChatOverlay.style.top = `${dragState.top}px`;
+    });
+    planningChatHeader.addEventListener("pointerup", endChatDrag);
+    planningChatHeader.addEventListener("pointercancel", endChatDrag);
+  }
+  if (planningChatResizeHandle && planningChatOverlay){
+    let resizeState = null;
+    const endChatResize = () => {
+      if (!resizeState) return;
+      persistChatViewPrefs();
+      resizeState = null;
+    };
+    planningChatResizeHandle.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const modalRect = planningChatOverlay.getBoundingClientRect();
+      resizeState = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        width: modalRect.width,
+        height: modalRect.height,
+      };
+      planningChatResizeHandle.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+    planningChatResizeHandle.addEventListener("pointermove", (event) => {
+      if (!resizeState || event.pointerId !== resizeState.pointerId) return;
+      const width = Math.max(280, resizeState.width + (event.clientX - resizeState.startX));
+      const height = Math.max(220, resizeState.height + (event.clientY - resizeState.startY));
+      planningChatOverlay.style.width = `${Math.round(width)}px`;
+      planningChatOverlay.style.height = `${Math.round(height)}px`;
+      chatViewPrefs.width = Math.round(width);
+      chatViewPrefs.height = Math.round(height);
+    });
+    planningChatResizeHandle.addEventListener("pointerup", endChatResize);
+    planningChatResizeHandle.addEventListener("pointercancel", endChatResize);
+  }
   if (configBtn){
     configBtn.addEventListener("click", () => {
       if (!configModal) return;
@@ -16540,23 +16716,14 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
   if (planningChatBtn){
-    planningChatBtn.classList.toggle("hidden", !isPlanning);
     planningChatBtn.addEventListener("click", () => setPlanningChatOpen(!planningChatOpen));
   }
   if (planningChatCloseBtn){
     planningChatCloseBtn.addEventListener("click", () => setPlanningChatOpen(false));
   }
-  if (planningChatOverlay){
-    planningChatOverlay.addEventListener("click", (ev) => {
-      if (ev.target === planningChatOverlay){
-        setPlanningChatOpen(false);
-      }
-    });
-  }
   if (planningChatForm){
     planningChatForm.addEventListener("submit", (ev) => {
       ev.preventDefault();
-      if (!isPlanning) return;
       const text = String(planningChatInput?.value || "").trim();
       if (!text) return;
       send({type:"planning_chat", text});
@@ -16636,6 +16803,16 @@ __DAMAGE_TYPE_OPTIONS__
       persistBattleLogViewPrefs();
     });
     logResizeObserver.observe(logModal);
+  }
+  if (planningChatOverlay && window.ResizeObserver){
+    const chatResizeObserver = new ResizeObserver((entries) => {
+      const box = entries?.[0]?.contentRect;
+      if (!box || !chatViewPrefs?.visible) return;
+      chatViewPrefs.width = Math.round(box.width);
+      chatViewPrefs.height = Math.round(box.height);
+      persistChatViewPrefs();
+    });
+    chatResizeObserver.observe(planningChatOverlay);
   }
   if (presetSaveBtn){
     presetSaveBtn.addEventListener("click", () => {
