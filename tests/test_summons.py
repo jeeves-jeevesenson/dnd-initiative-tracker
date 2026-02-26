@@ -216,22 +216,20 @@ class SummonSpawnTests(unittest.TestCase):
         order = [c.cid for c in h._sorted_combatants()]
         self.assertEqual(order[:3], [201, 100, a])
 
-    def test_rolled_initiative_assigns_distinct_values_and_sorts(self):
+    def test_rolled_mode_still_forces_shared_initiative_and_anchor_order(self):
         h = self._build_harness()
         s1 = h._create_combatant("S1", 10, 30, 1, 0, True)
         s2 = h._create_combatant("S2", 10, 30, 1, 0, True)
         s3 = h._create_combatant("S3", 10, 30, 1, 0, True)
 
-        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[18, 9, 14]):
-            h._apply_summon_initiative(100, [s1, s2, s3], {"initiative": {"mode": "rolled_per_creature"}})
+        h._apply_summon_initiative(100, [s1, s2, s3], {"initiative": {"mode": "rolled_per_creature"}})
 
         initiatives = [h.combatants[s1].initiative, h.combatants[s2].initiative, h.combatants[s3].initiative]
-        self.assertEqual(initiatives, [18, 9, 14])
-        self.assertEqual(len(set(initiatives)), 3)
+        self.assertEqual(initiatives, [15, 15, 15])
+        self.assertTrue(all(getattr(h.combatants[cid], "summon_shared_turn", False) for cid in [s1, s2, s3]))
 
         order = [c.cid for c in h._sorted_combatants()]
-        # caster stays first at 15, then summons by rolled values 18,14,9 are globally sorted among all combatants
-        self.assertEqual(order[:4], [s1, 100, s3, s2])
+        self.assertEqual(order[:4], [100, s1, s2, s3])
 
 
     def test_spawn_applies_side_color_and_positions(self):
@@ -392,17 +390,16 @@ class SummonSpawnTests(unittest.TestCase):
         )
         h._find_monster_spec_by_slug = lambda slug: spec if slug == "owl" else None
 
-        with mock.patch("dnd_initative_tracker.random.randint", return_value=10):
-            spawned = h._spawn_startup_summons_for_pc(
-                100,
-                [
-                    {
-                        "monster": "owl.yaml",
-                        "count": 2,
-                        "overrides": {"HP": 7, "AC": 15, "dex": 18, "name": "Scout Owl"},
-                    }
-                ],
-            )
+        spawned = h._spawn_startup_summons_for_pc(
+            100,
+            [
+                {
+                    "monster": "owl.yaml",
+                    "count": 2,
+                    "overrides": {"HP": 7, "AC": 15, "dex": 18, "name": "Scout Owl"},
+                }
+            ],
+        )
 
         self.assertEqual(len(spawned), 2)
         for cid in spawned:
@@ -413,6 +410,10 @@ class SummonSpawnTests(unittest.TestCase):
             self.assertTrue(getattr(c, "summon_group_id", ""))
             self.assertEqual(c.monster_spec.raw_data.get("ac"), 15)
             self.assertEqual(c.monster_spec.raw_data.get("abilities", {}).get("Dex"), 18)
+            self.assertEqual(c.initiative, h.combatants[100].initiative)
+            self.assertTrue(getattr(c, "summon_shared_turn", False))
+            self.assertEqual(getattr(c, "summon_anchor_after_cid", None), 100)
+            self.assertGreaterEqual(int(getattr(c, "summon_anchor_seq", 0) or 0), 1)
 
         group_id = getattr(h.combatants[spawned[0]], "summon_group_id", "")
         self.assertEqual(h._summon_groups.get(group_id), spawned)

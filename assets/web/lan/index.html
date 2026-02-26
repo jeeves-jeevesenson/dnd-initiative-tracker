@@ -1522,6 +1522,8 @@
     .initiative-compact .turn-order-status{display:none;}
     .label{font-size:12px; color:var(--muted);}
     .value{font-size:14px; font-weight:700;}
+    .me-label{display:flex; flex-direction:column; line-height:1.15;}
+    .me-sub{font-size:11px; font-weight:600; opacity:.72;}
     .chip{font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);}
     .chip input{margin-right:6px;}
     .hp-bar-wrap{
@@ -7388,9 +7390,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (meEl){
       if (claimedCid !== null && claimedCid !== undefined){
         const name = claimedName || getClaimablePcName(claimedCid, lastPcList || []) || `#${claimedCid}`;
-        meEl.textContent = name;
+        setMeLabel({name}, false);
       } else {
-        meEl.textContent = "(unclaimed)";
+        setMeLabel(null, false);
       }
     }
     if (claimedCid !== null && claimedCid !== undefined){
@@ -7813,7 +7815,7 @@ __DAMAGE_TYPE_OPTIONS__
     claimedCid = null;
     selectedClaimCid = null;
     if (meEl){
-      meEl.textContent = "(unclaimed)";
+      setMeLabel(null, false);
     }
     updateEndTurnState();
     updateClaimOverlay();
@@ -9527,9 +9529,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   function canControlSummonUnit(unit){
     if (!unit || claimedCid === null || claimedCid === undefined) return false;
-    if (!cidMatches(unit.summoned_by_cid, claimedCid, "summonControl.owner")) return false;
-    const mode = normalizeTextValue(unit.summon_controller_mode);
-    return mode === "summoner" || !!unit.summon_shared_turn;
+    return cidMatches(unit.summoned_by_cid, claimedCid, "summonControl.owner");
   }
 
   function canSelectControlledUnitCid(cid){
@@ -10186,8 +10186,9 @@ __DAMAGE_TYPE_OPTIONS__
     }
 
     if (attackOverlayMode){
-      const me = getClaimedUnit();
-      const attackOrigin = pendingUnleashIncarnation ? getUnitByCid(pendingUnleashIncarnation.echoCid) : me;
+      const claimed = getClaimedUnit();
+      const controlled = getUnitByCid(activeControlledUnitCid());
+      const attackOrigin = pendingUnleashIncarnation ? getUnitByCid(pendingUnleashIncarnation.echoCid) : (controlled || claimed);
       const weapon = pendingSpellTargeting ? null : (pendingActionAttackWeapon || getSelectedAttackWeapon());
       const spellRangeFt = Number(pendingSpellTargeting?.rangeFt);
       const layOnHandsRangeFt = Number(pendingLayOnHandsTargeting?.rangeFt);
@@ -10196,7 +10197,7 @@ __DAMAGE_TYPE_OPTIONS__
           ? layOnHandsRangeFt
           : (Number.isFinite(spellRangeFt)
             ? spellRangeFt
-            : effectiveAttackRangeFeetForWeapon(weapon, attackOrigin || me));
+            : effectiveAttackRangeFeetForWeapon(weapon, attackOrigin || claimed));
         const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
         const radiusCells = Math.max(0, Number(rangeFt) / feetPerSquare);
         const center = gridToScreen(attackOrigin.pos.col, attackOrigin.pos.row);
@@ -10893,7 +10894,12 @@ __DAMAGE_TYPE_OPTIONS__
       }
     });
     const setSelectedTurnCid = (cid) => {
+      const prev = activeControlledUnitCid();
       selectedTurnCid = cid;
+      const next = activeControlledUnitCid();
+      if (prev !== next && pendingActionAttackWeapon){
+        pendingActionAttackWeapon = null;
+      }
       chipByCid.forEach((chip, key) => {
         chip.classList.toggle("selected", key === cid);
       });
@@ -11026,6 +11032,63 @@ __DAMAGE_TYPE_OPTIONS__
     };
   }
 
+  function weaponFromSummonAction(entry, unit){
+    if (!entry || typeof entry !== "object") return null;
+    if (entry.attack_weapon && typeof entry.attack_weapon === "object"){
+      const base = {
+        ...entry.attack_weapon,
+        id: String(entry.attack_weapon.id || entry.id || entry.name || "").trim(),
+        name: String(entry.attack_weapon.name || entry.name || "Summon Attack").trim(),
+      };
+      if (!base.id) base.id = base.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      return base;
+    }
+    const desc = String(entry.description || "").trim();
+    if (!desc) return null;
+    const marker = /(Melee|Ranged|Melee or Ranged)\s+Weapon Attack:/i;
+    if (!marker.test(desc)) return null;
+    const toHitMatch = desc.match(/Weapon Attack:\s*([+\-]?\d+)\s*to hit/i);
+    const rangeMatch = desc.match(/(?:reach|range)\s*(\d+)\s*ft/i);
+    const damageMatch = desc.match(/Hit:\s*[^.]*?\(([^)]+)\)\s*([A-Za-z]+)\s+damage/i);
+    const lower = normalizeLowerValue(desc);
+    const name = String(entry.name || "Summon Attack").trim() || "Summon Attack";
+    const weapon = {
+      id: String(entry.id || name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      name,
+      category: lower.includes("ranged") ? "ranged_weapon" : "melee_weapon",
+      range: rangeMatch ? `${Math.floor(Number(rangeMatch[1]) || 5)} ft` : (lower.includes("ranged") ? "60 ft" : "5 ft"),
+    };
+    if (toHitMatch){
+      const toHit = Number(toHitMatch[1]);
+      if (Number.isFinite(toHit)) weapon.to_hit = Math.floor(toHit);
+    }
+    if (damageMatch){
+      weapon.one_handed = {
+        damage_formula: String(damageMatch[1] || "").trim(),
+        damage_type: String(damageMatch[2] || "").trim().toLowerCase(),
+      };
+    }
+    return weapon;
+  }
+
+  function summonAttackOptionsForUnit(unit){
+    const actions = normalizeActionList(unit?.actions, "action");
+    return actions.map((entry) => ({
+      weapon: weaponFromSummonAction(entry, unit),
+      entry,
+    })).filter((x) => !!x.weapon);
+  }
+
+  function chooseSummonAttackOption(options){
+    if (!Array.isArray(options) || !options.length) return null;
+    if (options.length === 1) return options[0];
+    const text = options.map((opt, idx) => `${idx + 1}. ${opt.weapon.name}`).join("\n");
+    const raw = window.prompt(`Choose summon attack:\n${text}`, "1");
+    const choice = Number(raw);
+    if (!Number.isFinite(choice) || choice < 1 || choice > options.length) return null;
+    return options[Math.floor(choice) - 1];
+  }
+
   function populateActionSelect(selectEl, options, placeholder){
     if (!selectEl) return;
     const previousValue = selectEl.value;
@@ -11121,12 +11184,37 @@ __DAMAGE_TYPE_OPTIONS__
     return list;
   }
 
+  function setMeLabel(unit, controlling = false){
+    if (!meEl) return;
+    if (!unit){
+      meEl.textContent = "(unclaimed)";
+      return;
+    }
+    const name = String(unit?.name || `#${unit?.cid || "?"}`);
+    if (!controlling){
+      meEl.textContent = name;
+      return;
+    }
+    meEl.innerHTML = "";
+    const wrap = document.createElement("span");
+    wrap.className = "me-label";
+    const title = document.createElement("span");
+    title.textContent = name;
+    const sub = document.createElement("span");
+    sub.className = "me-sub";
+    sub.textContent = "Controlling";
+    wrap.appendChild(title);
+    wrap.appendChild(sub);
+    meEl.appendChild(wrap);
+  }
+
   function updateHud(){
     if (!state){ return; }
     const active = state.active_cid;
     const round = state.round_num;
     turnEl.textContent = (active === null) ? "Turn: (not started)" : `Round ${round}`;
-    const myTurn = claimedCid != null && active !== null && cidMatches(active, claimedCid, "hud.myTurn");
+    const controlledCid = activeControlledUnitCid();
+    const myTurn = controlledCid !== null;
     if (resetTurnBtn){
       resetTurnBtn.disabled = !myTurn;
     }
@@ -11159,10 +11247,13 @@ __DAMAGE_TYPE_OPTIONS__
     let meForHud = null;
     ensureWeaponSelectionCharacterLoaded();
     if (claimedCid && state.units){
-      const me = state.units.find(u => cidMatches(u.cid, claimedCid, "hud.claimedUnit"));
+      const me = controlledCid !== null
+        ? state.units.find(u => cidMatches(u.cid, controlledCid, "hud.controlledUnit"))
+        : null;
+      const claimed = state.units.find(u => cidMatches(u.cid, claimedCid, "hud.claimedUnit"));
       if (me){
         meForHud = me;
-        meEl.textContent = me.name;
+        setMeLabel(me, claimed && !cidMatches(me.cid, claimed.cid, "hud.controlling"));
         const modeLabel = movementModeLabel(me.movement_mode);
         moveEl.textContent = `Move: ${me.move_remaining}/${me.move_total} (${modeLabel})`;
         moveEl.setAttribute("title", "Click to cycle movement mode");
@@ -11204,6 +11295,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
         updatePlayerHpBar(me);
       } else {
+        setMeLabel(claimed || null, false);
         updatePlayerHpBar(null);
         moveEl.removeAttribute("title");
         actionEl.textContent = "Action: —";
@@ -11244,6 +11336,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
     } else {
+      setMeLabel(null, false);
       updatePlayerHpBar(null);
       moveEl.removeAttribute("title");
       actionEl.textContent = "Action: —";
@@ -12273,13 +12366,13 @@ __DAMAGE_TYPE_OPTIONS__
             clearClaimInFlight();
             const claimedName = getClaimablePcName(claimedCid, lastPcList || []) || `#${claimedCid}`;
             if (meEl){
-              meEl.textContent = claimedName;
+              setMeLabel({name: claimedName}, false);
             }
           } else if (!claimInFlight){
             claimedCid = null;
             claimStatus = "unclaimed";
             if (meEl){
-              meEl.textContent = "(unclaimed)";
+              setMeLabel(null, false);
             }
           }
         }
@@ -13201,8 +13294,9 @@ __DAMAGE_TYPE_OPTIONS__
     setTokenTooltip(null);
     if (attackOverlayMode && !isMapView && !pendingSummonPlacement && !dragging && !panning && !aoeDragging){
       const me = getClaimedUnit();
-      const overlayOrigin = pendingUnleashIncarnation ? getUnitByCid(pendingUnleashIncarnation.echoCid) : me;
-      if (!me){
+      const controlledUnit = getUnitByCid(activeControlledUnitCid());
+      const overlayOrigin = pendingUnleashIncarnation ? getUnitByCid(pendingUnleashIncarnation.echoCid) : (controlledUnit || me);
+      if (!me || !overlayOrigin){
         localToast("Claim a character first, matey.");
         return;
       }
@@ -13235,7 +13329,7 @@ __DAMAGE_TYPE_OPTIONS__
           const rangeFt = Number.isFinite(Number(pendingLayOnHandsTargeting?.rangeFt))
             ? Number(pendingLayOnHandsTargeting.rangeFt)
             : 5;
-          const distFt = distanceFeetBetweenCells(me.pos, hit.pos);
+          const distFt = distanceFeetBetweenCells(overlayOrigin.pos, hit.pos);
           if (distFt - rangeFt > 1e-6){
             localToast("Target be out of Lay on Hands range.");
             return;
@@ -13537,7 +13631,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
       send({type:"set_color", cid: pendingCid, color, border_color: borderColor});
-      meEl.textContent = pendingClaim.name;
+      setMeLabel({name: pendingClaim.name}, false);
       closeColorModal();
     });
   }
@@ -18325,7 +18419,40 @@ __DAMAGE_TYPE_OPTIONS__
         clearSpellTargetingSession("Spell targeting cancelled.");
         return;
       }
-      setAttackOverlayMode(!attackOverlayMode);
+      if (attackOverlayMode){
+        setAttackOverlayMode(false);
+        return;
+      }
+      const controlledCid = activeControlledUnitCid();
+      const controlled = controlledCid === null ? null : getUnitByCid(controlledCid);
+      const claimed = getClaimedUnit();
+      const isOwnedSummon = !!controlled && !!claimed
+        && !cidMatches(controlled.cid, claimed.cid, "attack.summon.notClaimed")
+        && cidMatches(controlled.summoned_by_cid, claimed.cid, "attack.summon.owner");
+      const isMounted = normalizeCid(controlled?.mounted_by_cid, "attack.summon.mountedBy") !== null;
+      if (isOwnedSummon && !isMounted){
+        const options = summonAttackOptionsForUnit(controlled);
+        if (!options.length){
+          localToast("This summon has no attack actions.");
+          return;
+        }
+        const selected = chooseSummonAttackOption(options);
+        if (!selected){
+          localToast("No summon attack selected.");
+          return;
+        }
+        pendingActionAttackWeapon = {
+          ...selected.weapon,
+          resolve_prompt: String(selected.entry?.resolve_prompt || `Attack target with ${selected.weapon.name}.`).trim(),
+          attack_count: Number.isFinite(Number(selected.entry?.attack_count))
+            ? Math.max(1, Math.floor(Number(selected.entry.attack_count)))
+            : Number(selected.weapon.attack_count || 1),
+        };
+        setAttackOverlayMode(true);
+        localToast(pendingActionAttackWeapon.resolve_prompt || `Pick a target for ${selected.weapon.name}.`);
+        return;
+      }
+      setAttackOverlayMode(true);
     });
   }
   if (spellTargetSelectionRemoveLastBtn){

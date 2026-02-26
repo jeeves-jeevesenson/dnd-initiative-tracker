@@ -5744,7 +5744,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if combatant is None:
             return False
         summon_owner = _normalize_cid_value(getattr(combatant, "summoned_by_cid", None), "turn.skip.summon.owner")
-        if summon_owner is not None and bool(getattr(combatant, "summon_shared_turn", False)):
+        if summon_owner is not None:
             return True
         mounted_by = _normalize_cid_value(getattr(combatant, "mounted_by_cid", None), "turn.skip.mounted_by")
         return mounted_by is not None and bool(getattr(combatant, "mount_shared_turn", False))
@@ -6098,6 +6098,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _start_turns(self) -> None:
         self._apply_pending_pre_summons()
+        self._normalize_summons_shared_turn_state()
         self._turn_timing_active = True
         self._turn_timing_current_cid = None
         self._turn_timing_start_ts = None
@@ -6251,11 +6252,33 @@ class InitiativeTracker(base.InitiativeTracker):
         dialog.focus_force()
         dialog.after_idle(lambda: dialog.wm_attributes("-topmost", False))
 
-        dialog.grab_set()
         ok_btn.focus_set()
-        dialog.wait_window(dialog)
+        dialog.after(4500, lambda: dialog.destroy() if dialog.winfo_exists() else None)
+
+    def _normalize_summons_shared_turn_state(self) -> None:
+        owners: Dict[int, List[int]] = {}
+        for cid, combatant in list(self.combatants.items()):
+            owner = _normalize_cid_value(getattr(combatant, "summoned_by_cid", None), "summon.normalize.owner")
+            if owner is None:
+                continue
+            owners.setdefault(int(owner), []).append(int(cid))
+        for owner_cid, summon_cids in owners.items():
+            caster = self.combatants.get(int(owner_cid))
+            if caster is None:
+                continue
+            caster_init = int(getattr(caster, "initiative", 0) or 0)
+            for anchor_seq, summon_cid in enumerate(sorted(summon_cids), start=1):
+                summoned = self.combatants.get(int(summon_cid))
+                if summoned is None:
+                    continue
+                summoned.initiative = caster_init
+                setattr(summoned, "summon_shared_turn", True)
+                setattr(summoned, "summon_anchor_after_cid", int(owner_cid))
+                setattr(summoned, "summon_anchor_seq", int(anchor_seq))
+            setattr(caster, "summon_anchor_seq", int(len(summon_cids)))
 
     def _next_turn(self) -> None:
+        self._normalize_summons_shared_turn_state()
         ordered = self._display_order()
         if not ordered:
             return
@@ -15998,12 +16021,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if combatant is None:
             return False
         owner = _normalize_cid_value(getattr(combatant, "summoned_by_cid", None), "summon.owner")
-        if owner != int(claimed_cid):
-            return False
-        mode = str(getattr(combatant, "summon_controller_mode", "") or "").strip().lower()
-        if mode == "summoner":
-            return True
-        return bool(getattr(combatant, "summon_shared_turn", False))
+        return owner == int(claimed_cid)
 
     def _is_valid_summon_turn_for_controller(
         self, controlling_cid: Optional[int], target_cid: Optional[int], current_cid: Optional[int]
@@ -16017,8 +16035,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return False
         owner = _normalize_cid_value(getattr(combatant, "summoned_by_cid", None), "summon.owner")
         return bool(
-            getattr(combatant, "summon_shared_turn", False)
-            and controlling_cid is not None
+            controlling_cid is not None
             and owner == int(controlling_cid)
             and int(current_cid) == int(controlling_cid)
         )
@@ -16118,32 +16135,20 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_force_state_broadcast()
 
     def _apply_summon_initiative(self, caster_cid: int, spawned_cids: List[int], summon_cfg: Dict[str, Any]) -> None:
-        initiative_cfg = summon_cfg.get("initiative") if isinstance(summon_cfg.get("initiative"), dict) else {}
-        mode = str(initiative_cfg.get("mode") or "rolled_per_creature").strip().lower()
         caster = self.combatants.get(caster_cid)
         if caster is None:
             return
-        if mode in ("shared", "shared_with_caster"):
-            caster_init = int(getattr(caster, "initiative", 0) or 0)
-            base_anchor = int(getattr(caster, "summon_anchor_seq", 0) or 0)
-            for offset, scid in enumerate(spawned_cids, start=1):
-                summoned = self.combatants.get(scid)
-                if summoned is None:
-                    continue
-                summoned.initiative = caster_init
-                setattr(summoned, "summon_shared_turn", True)
-                setattr(summoned, "summon_anchor_after_cid", caster_cid)
-                setattr(summoned, "summon_anchor_seq", base_anchor + offset)
-            setattr(caster, "summon_anchor_seq", base_anchor + len(spawned_cids))
-            return
-
-        for scid in spawned_cids:
+        caster_init = int(getattr(caster, "initiative", 0) or 0)
+        base_anchor = int(getattr(caster, "summon_anchor_seq", 0) or 0)
+        for offset, scid in enumerate(spawned_cids, start=1):
             summoned = self.combatants.get(scid)
             if summoned is None:
                 continue
-            dex_mod = int(getattr(summoned, "dex", 0) or 0)
-            summoned.initiative = int(random.randint(1, 20) + dex_mod)
-            setattr(summoned, "summon_shared_turn", False)
+            summoned.initiative = caster_init
+            setattr(summoned, "summon_shared_turn", True)
+            setattr(summoned, "summon_anchor_after_cid", caster_cid)
+            setattr(summoned, "summon_anchor_seq", base_anchor + offset)
+        setattr(caster, "summon_anchor_seq", base_anchor + len(spawned_cids))
 
     def _evaluate_dynamic_formula(self, formula: Any, variables: Dict[str, Any]) -> Any:
         if not isinstance(formula, str):
@@ -16390,7 +16395,6 @@ class InitiativeTracker(base.InitiativeTracker):
             group_id = f"startup:{int(time.time() * 1000)}:{caster_cid}:{entry_idx}:{len(self._summon_groups) + 1}"
             spawned_group: List[int] = []
             for _ in range(quantity):
-                init_roll = int(random.randint(1, 20) + int(summon_spec.init_mod or 0))
                 cid = self._create_combatant(
                     name=self._unique_name(summon_spec.name),
                     hp=int(summon_spec.hp or 1),
@@ -16400,7 +16404,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     burrow_speed=int(summon_spec.burrow_speed or 0),
                     climb_speed=int(summon_spec.climb_speed or 0),
                     movement_mode="Normal",
-                    initiative=init_roll,
+                    initiative=int(getattr(caster, "initiative", 0) or 0),
                     dex=summon_spec.dex,
                     ally=True,
                     is_pc=False,
@@ -16419,6 +16423,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 spawned_group.append(cid)
                 spawned_all.append(cid)
             if spawned_group:
+                self._apply_summon_initiative(int(caster_cid), list(spawned_group), {"initiative": {"mode": "shared_with_caster"}})
                 self._summon_groups[group_id] = list(spawned_group)
                 self._summon_group_meta[group_id] = {
                     "caster_cid": int(caster_cid),
