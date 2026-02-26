@@ -216,6 +216,47 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         log_text = "\n".join(entry for _cid, entry in self.logs)
         self.assertIn("Thunderwave: moved Goblin (push)", log_text)
 
+    def test_cast_aoe_caster_origin_push_falls_back_to_aoe_center_when_caster_not_positioned(self):
+        self.preset["name"] = "Thunderwave"
+        self.preset["mechanics"]["sequence"][0]["check"] = {"kind": "saving_throw", "ability": "constitution", "dc": 14}
+        self.preset["mechanics"]["sequence"][0]["outcomes"] = {
+            "fail": [
+                {"effect": "damage", "damage_type": "thunder", "dice": "2d8"},
+                {"effect": "movement", "kind": "push", "distance_ft": 10, "origin": "caster"},
+            ],
+            "success": [
+                {"effect": "damage", "damage_type": "thunder", "dice": "2d8", "multiplier": 0.5},
+            ],
+        }
+        self.app._lan_positions = {2: (5, 4), 3: (4, 5)}
+        self.app.combatants[2].saving_throws = {"con": 0}
+        self.app.combatants[2].ability_mods = {"con": 0}
+        self.app.combatants[3].saving_throws = {"con": 5}
+        self.app.combatants[3].ability_mods = {"con": 5}
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 23,
+            "spell_slug": "thunderwave",
+            "damage_entries": [{"amount": 12, "type": "thunder"}],
+            "payload": {
+                "shape": "cube",
+                "name": "Thunderwave",
+                "side_ft": 15,
+                "cx": 4,
+                "cy": 4,
+            },
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 15]):
+            self.app._lan_apply_action(msg)
+
+        self.assertEqual(self.app._lan_positions.get(2), (7, 4))
+        self.assertEqual(self.app._lan_positions.get(3), (4, 5))
+        log_text = "\n".join(entry for _cid, entry in self.logs)
+        self.assertIn("Thunderwave: moved Goblin (push)", log_text)
+
     def test_cast_aoe_non_full_automation_does_not_auto_resolve(self):
         self.preset["automation"] = "manual"
         self.preset["tags"] = ["aoe"]
@@ -416,4 +457,3 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
