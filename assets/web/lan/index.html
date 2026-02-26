@@ -636,12 +636,11 @@
     .spell-target-selection-actions{display:flex; gap:6px; justify-content:flex-end;}
     .aimless-aoe-confirm{
       position:fixed;
-      left:max(12px, env(safe-area-inset-left));
-      bottom: max(
-        calc(var(--bottombar-height) + var(--safeInsetBottom) + 14px),
-        calc(env(safe-area-inset-bottom) + 14px)
-      );
-      z-index:120;
+      left:50%;
+      top:calc(var(--topbar-height) + 16px);
+      transform:translateX(-50%);
+      z-index:95;
+      max-width:calc(100vw - 24px);
       display:flex;
       gap:8px;
       padding:8px;
@@ -16888,6 +16887,10 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
       const msg = {type: aoeSpell ? "cast_aoe" : "cast_spell", payload, action_type: actionType};
+      const actionCid = activeControlledUnitCid();
+      if (actionCid !== null){
+        msg.cid = actionCid;
+      }
       const spellTargetConfig = (!aoeSpell && !smiteSpell) ? (inferredTargetConfig || getSpellTargetingConfig(preset, slotLevel)) : null;
       const presetSlug = normalizeTextValue(preset?.slug);
       const presetId = normalizeTextValue(preset?.id);
