@@ -10552,8 +10552,17 @@ class InitiativeTracker(base.InitiativeTracker):
                         if angle is None and caster is not None:
                             angle = getattr(caster, "facing_deg", 0)
                         direction_step = self._lan_direction_step_from_angle(angle)
-                    elif origin == "caster" and source_cid is None:
-                        source_cell = (int(round(float(aoe.get("cx", 0.0)))), int(round(float(aoe.get("cy", 0.0)))))
+                    elif origin == "caster":
+                        fallback_cell = (int(round(float(aoe.get("cx", 0.0)))), int(round(float(aoe.get("cy", 0.0)))))
+                        source_cell = fallback_cell
+                        if source_cid is not None:
+                            try:
+                                _cols, _rows, _obstacles, _rough, live_positions = self._lan_live_map_data()
+                                caster_pos = dict(live_positions or {}).get(int(source_cid))
+                                if isinstance(caster_pos, tuple) and len(caster_pos) == 2:
+                                    source_cell = (int(caster_pos[0]), int(caster_pos[1]))
+                            except Exception:
+                                source_cell = fallback_cell
                     moved = self._lan_apply_forced_movement(
                         source_cid,
                         int(target_cid),
