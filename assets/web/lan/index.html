@@ -5062,8 +5062,10 @@ __DAMAGE_TYPE_OPTIONS__
     return weaponId === "unarmed_strike" || weaponName === "unarmed strike";
   }
 
+  const MELEE_RANGE_BONUS_FEET = 0;
+
   function effectiveAttackRangeFeetForWeapon(weapon, unit){
-    const baseRange = parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? 3 : 0);
+    const baseRange = parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? MELEE_RANGE_BONUS_FEET : 0);
     if (isUnarmedStrikeWeapon(weapon) && unitHasElementalAttunement(unit)){
       return baseRange + 10;
     }
@@ -8410,8 +8412,19 @@ __DAMAGE_TYPE_OPTIONS__
     return `${label} ft`;
   }
 
+  function touchSpellRangeFeet(){
+    const feetPerSquare = Number(state?.grid?.feet_per_square);
+    if (Number.isFinite(feetPerSquare) && feetPerSquare > 0){
+      return feetPerSquare;
+    }
+    return 5;
+  }
+
   function parseSpellRangeFeet(rangeValue){
     const text = String(rangeValue || "").toLowerCase();
+    if (text.includes("touch")){
+      return touchSpellRangeFeet();
+    }
     const match = text.match(/(\d+(?:\.\d+)?)\s*(?:ft|feet)/);
     if (!match) return null;
     const value = Number(match[1]);
@@ -8422,6 +8435,10 @@ __DAMAGE_TYPE_OPTIONS__
     const mechanicsRange = Number(preset?.mechanics?.targeting?.range?.distance_ft);
     if (Number.isFinite(mechanicsRange) && mechanicsRange >= 0){
       return mechanicsRange;
+    }
+    const rangeKind = normalizeLowerValue(preset?.mechanics?.targeting?.range?.kind);
+    if (rangeKind === "touch"){
+      return touchSpellRangeFeet();
     }
     return parseSpellRangeFeet(preset?.range);
   }
@@ -8442,9 +8459,9 @@ __DAMAGE_TYPE_OPTIONS__
 
   function distanceFeetBetweenCells(a, b){
     const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
-    const dx = Number(a?.col || 0) - Number(b?.col || 0);
-    const dy = Number(a?.row || 0) - Number(b?.row || 0);
-    return Math.hypot(dx, dy) * feetPerSquare;
+    const dx = Math.abs(Number(a?.col || 0) - Number(b?.col || 0));
+    const dy = Math.abs(Number(a?.row || 0) - Number(b?.row || 0));
+    return Math.max(dx, dy) * feetPerSquare;
   }
 
   function setAttackOverlayMode(enabled){
@@ -15090,7 +15107,7 @@ __DAMAGE_TYPE_OPTIONS__
       spellSlug: normalizeTextValue(preset?.slug) || null,
       spellId: normalizeTextValue(preset?.id) || null,
       slotLevel: Number.isFinite(Number(slotLevel)) ? Math.floor(Number(slotLevel)) : null,
-      rangeFt: Number.isFinite(Number(config.rangeFt)) ? Number(config.rangeFt) : null,
+      rangeFt: Number.isFinite(config.rangeFt) ? config.rangeFt : null,
       saveType: config.saveType || "",
       saveDc: Number.isFinite(Number(config.saveDc)) ? Number(config.saveDc) : null,
       damageType: String(config.damageType || "").trim().toLowerCase(),
