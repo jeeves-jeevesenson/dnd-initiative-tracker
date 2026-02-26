@@ -22,6 +22,7 @@ A desktop-first D&D 5e combat tracker for Dungeon Masters, with an optional loca
 - [Updating and uninstalling](#updating-and-uninstalling)
 - [Running the tracker](#running-the-tracker)
 - [LAN/mobile client](#lanmobile-client)
+  - [Advanced: HTTPS reverse proxy (Caddy + DNS-01)](#advanced-https-reverse-proxy-caddy--dns-01)
 - [Map mode](#map-mode)
 - [Configuration](#configuration)
 - [YAML data files](#yaml-data-files)
@@ -203,6 +204,240 @@ LAN mode is optional and intended for trusted local networks.
 4. DM can monitor with **LAN → Sessions...**
 
 Default bind settings are in `dnd_initative_tracker.py` (`LanConfig`, default port `8787`).
+
+### Advanced: HTTPS reverse proxy (Caddy + DNS-01)
+
+This section documents a full **advanced LAN HTTPS mode** setup for groups that want players to load the LAN client over HTTPS (for example, `https://dnd.3045.network/`).
+
+Why this exists:
+
+- Browser APIs like web push and service workers require a secure context in many cases.
+- HTTPS avoids mixed-content issues when the page itself is loaded securely.
+- Caddy handles TLS termination and certificate renewal automatically once configured.
+
+Important non-goal / warning:
+
+- Do **not** publish your DM LAN server directly to the public internet.
+- This guide is intended for trusted LAN/VPN environments where your hostname resolves to a private LAN IP.
+- DNS-01 validation needs outbound internet access (Let’s Encrypt + DNS API endpoints), but does **not** require opening inbound WAN ports 80/443.
+
+#### Prerequisites and assumptions
+
+Before starting, this guide assumes all of the following:
+
+- You control DNS for your chosen hostnames and have provider API access.
+  - `dnd.3045.network` is hosted in Cloudflare.
+  - `dnd.iamjeeves.dev` is hosted in Porkbun.
+- The DM machine is already running this app and can run the LAN server locally over HTTP (default `8787`).
+- Caddy will listen on `:443` and reverse proxy to `http://127.0.0.1:8787` (or your chosen LAN port).
+- You can run commands as a user with sudo/root access on Debian/Ubuntu with systemd.
+
+#### 1) DNS records for LAN hostnames (Cloudflare + Porkbun)
+
+Create DNS `A` records that point each hostname at the **private LAN IP** of the DM host.
+
+- Cloudflare zone (`3045.network`):
+  - Name: `dnd`
+  - Type: `A`
+  - Value: `192.168.0.58`
+  - Proxy status: **DNS only** (gray cloud)
+- Porkbun zone (`iamjeeves.dev`):
+  - Name: `dnd`
+  - Type: `A`
+  - Value: `192.168.1.58`
+
+Cloudflare caveat: RFC1918/private IP targets cannot be used with Cloudflare’s orange-cloud reverse proxy mode. Use DNS-only mode for LAN targets.
+
+##### Multi-subnet caution
+
+If clients are on different subnets without routing between them, one single private IP will not be reachable by everyone.
+
+- `dnd.3045.network -> 192.168.0.58` works for clients that can reach `192.168.0.0/24`.
+- `dnd.iamjeeves.dev -> 192.168.1.58` works for clients that can reach `192.168.1.0/24`.
+- If you expect cross-subnet access, ensure routing/firewall policy allows traffic between `192.168.0.0/24` and `192.168.1.0/24`, or have users pick the hostname that matches their subnet.
+
+#### 2) Install/prepare Caddy with DNS provider modules using `xcaddy`
+
+Stock distro Caddy builds often do not include every DNS plugin. Build a custom binary with both required modules.
+
+Install Go + `xcaddy` first:
+
+```bash
+sudo apt update
+sudo apt install -y golang-go caddy
+go version
+```
+
+```bash
+go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+export PATH="$PATH:$(go env GOPATH)/bin"
+xcaddy version
+```
+
+If `xcaddy` fails with `go: command not found`, Go is not installed or not in `PATH`. Fix that first.
+
+Build custom Caddy (Cloudflare + Porkbun DNS modules):
+
+```bash
+mkdir -p ~/build/caddy && cd ~/build/caddy
+xcaddy build \
+  --with github.com/caddy-dns/cloudflare \
+  --with github.com/caddy-dns/porkbun
+```
+
+Replace the system binary safely:
+
+```bash
+sudo systemctl stop caddy
+sudo cp /usr/bin/caddy "/usr/bin/caddy.bak.$(date +%Y%m%d-%H%M%S)"
+sudo install -m 0755 ./caddy /usr/bin/caddy
+sudo /usr/bin/caddy version
+sudo /usr/bin/caddy list-modules | grep -E 'dns.providers.(cloudflare|porkbun)'
+```
+
+Expected module check output should include both:
+
+- `dns.providers.cloudflare`
+- `dns.providers.porkbun`
+
+#### 3) Put DNS API secrets in a root-only environment file (systemd)
+
+Create `/etc/caddy/caddy.env` with API credentials (example placeholders):
+
+```bash
+sudo tee /etc/caddy/caddy.env >/dev/null <<'EOF'
+CF_API_TOKEN=replace_with_cloudflare_dns_edit_token
+PORKBUN_API_KEY=replace_with_porkbun_api_key
+PORKBUN_API_SECRET_KEY=replace_with_porkbun_api_secret
+EOF
+```
+
+Set strict permissions:
+
+```bash
+sudo chown root:root /etc/caddy/caddy.env
+sudo chmod 600 /etc/caddy/caddy.env
+```
+
+Create a systemd drop-in so Caddy receives the env vars:
+
+```bash
+sudo mkdir -p /etc/systemd/system/caddy.service.d
+sudo tee /etc/systemd/system/caddy.service.d/env.conf >/dev/null <<'EOF'
+[Service]
+EnvironmentFile=/etc/caddy/caddy.env
+EOF
+sudo systemctl daemon-reload
+```
+
+Security reminder:
+
+- Never commit secrets to git.
+- Keep `/etc/caddy/caddy.env` readable only by root.
+- For Cloudflare, use a scoped token (DNS edit for the target zone), not a global key.
+
+#### 4) Configure Caddyfile for both HTTPS hostnames
+
+Edit `/etc/caddy/Caddyfile` so each hostname gets DNS-01 using its own provider and proxies to local app HTTP.
+
+```caddyfile
+dnd.3045.network {
+    tls {
+        dns cloudflare {env.CF_API_TOKEN}
+        resolvers 1.1.1.1 1.0.0.1
+    }
+
+    reverse_proxy 127.0.0.1:8787
+}
+
+dnd.iamjeeves.dev {
+    tls {
+        dns porkbun {
+            api_key {env.PORKBUN_API_KEY}
+            api_secret_key {env.PORKBUN_API_SECRET_KEY}
+        }
+        resolvers 1.1.1.1 8.8.8.8
+    }
+
+    reverse_proxy 127.0.0.1:8787
+}
+```
+
+Notes:
+
+- Replace `8787` if your LAN server uses another port.
+- Explicit `resolvers` can help avoid local DNS resolver oddities during TXT validation.
+- Caddy `reverse_proxy` supports WebSockets; if the page is served over HTTPS, browser WebSocket traffic will use `wss://` automatically.
+
+Load/reload Caddy:
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl restart caddy
+```
+
+#### 5) Verification checklist (cert issuance + app reachability)
+
+Watch Caddy status/logs:
+
+```bash
+sudo systemctl status caddy --no-pager
+sudo journalctl -u caddy -f
+```
+
+During first issuance, logs should show DNS-01 challenge attempts (for example, messages about trying to solve challenge `dns-01`) and then successful certificate obtain/install events.
+
+Use `curl` with **GET** (not only HEAD):
+
+```bash
+curl -v https://dnd.3045.network/
+curl -v https://dnd.iamjeeves.dev/
+```
+
+Why not rely only on `curl -I`? `-I` sends a HEAD request, and some app routes may return `405 Method Not Allowed` for HEAD even when normal GET page loads are fine.
+
+Browser checks on a player device:
+
+- Certificate is valid (Let’s Encrypt chain, no warning page).
+- No mixed-content errors in browser devtools console.
+- WebSocket session is connected over `wss://`.
+- `window.isSecureContext === true` in devtools console.
+
+#### 6) Configure the DM app URL settings to match the proxy
+
+After HTTPS proxying works, configure the in-app LAN URL behavior:
+
+1. In DM app menu, open **LAN → URL Mode → HTTP / HTTPS / Both**.
+2. Recommended default: choose **Both** for proxy-safe behavior.
+3. Set HTTPS URL in **LAN → Set HTTPS Public URL…**.
+   - On `192.168.0.x` side, enter `https://dnd.3045.network/`
+   - On `192.168.1.x` side, enter `https://dnd.iamjeeves.dev/`
+4. Share connection details via **LAN → Show LAN URL** or **LAN → Show QR Code**.
+
+Persistence details:
+
+- By default, settings save to `~/Documents/Dnd-Init-Yamls/settings/lan_url.json`.
+- If `INITTRACKER_DATA_DIR` is set, the same relative path is used under that directory: `<INITTRACKER_DATA_DIR>/settings/lan_url.json`.
+
+#### 7) Troubleshooting
+
+- `module not registered: dns.providers.cloudflare` or `dns.providers.porkbun`
+  - You are likely running stock Caddy instead of the custom `xcaddy` build.
+  - Re-check binary replacement and module list:
+    ```bash
+    caddy list-modules | grep -E 'dns.providers.(cloudflare|porkbun)'
+    ```
+- DNS-01 propagation errors/timeouts
+  - Verify token/key permissions and zone access.
+  - Confirm hostname is in the expected DNS zone.
+  - Keep explicit `resolvers` in the `tls` blocks.
+- Clients cannot connect
+  - Confirm domain resolves to the subnet-reachable private IP for that client.
+  - Verify inter-subnet routing/firewall policy if crossing `192.168.0.0/24` and `192.168.1.0/24`.
+  - Verify host firewall allows inbound `443/tcp` from LAN.
+- Upstream mismatch or 502 errors
+  - Confirm DM LAN server is running.
+  - Confirm app LAN port (default `8787`) and match `reverse_proxy 127.0.0.1:<port>`.
 
 ### LAN rules Help viewer (local PDF)
 
