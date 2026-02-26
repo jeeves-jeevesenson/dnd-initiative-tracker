@@ -8991,12 +8991,13 @@ class InitiativeTracker(base.InitiativeTracker):
         direction_step: Optional[Tuple[int, int]] = None,
     ) -> bool:
         try:
-            target = dict(getattr(self, "_lan_positions", {}) or {}).get(int(target_cid))
+            _cols, _rows, _obstacles, _rough, live_positions = self._lan_live_map_data()
+            target = dict(live_positions or {}).get(int(target_cid))
             source = None
             if source_cell is not None:
                 source = (int(source_cell[0]), int(source_cell[1]))
             elif source_cid is not None:
-                source = dict(getattr(self, "_lan_positions", {}) or {}).get(int(source_cid))
+                source = dict(live_positions or {}).get(int(source_cid))
         except Exception:
             return False
         if not (isinstance(target, tuple) and len(target) == 2):
