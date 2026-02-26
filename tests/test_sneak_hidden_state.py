@@ -95,6 +95,49 @@ class SneakHiddenStateTests(unittest.TestCase):
         remaining_sids = {int(st.sid) for st in self.app.combatants[1].condition_stacks}
         self.assertEqual(remaining_sids, {10})
 
+    def test_hidden_movement_reveals_when_path_enters_los_mid_move(self):
+        self.positions[1] = (3, 0)
+        self.positions[2] = (0, 0)
+        self.obstacles = {(0, 1), (1, 0)}
+        self.app.combatants[1].is_hidden = True
+        self.app.combatants[1].hide_stealth_dc = 10
+        self.app.combatants[1].condition_stacks = [tracker_mod.base.ConditionStack(sid=3, ctype="invisible", remaining_turns=None)]
+        self.app.combatants[1].hide_invisible_sid = 3
+
+        result = self.app._sneak_handle_hidden_movement(1, (0, 2), (3, 0))
+
+        self.assertTrue(result.get("ok"))
+        self.assertFalse(result.get("hidden"))
+        self.assertIn("Hero", result.get("spotted_by", []))
+        self.assertFalse(bool(getattr(self.app.combatants[1], "is_hidden", False)))
+
+    def test_hider_stealth_bonus_parses_monster_stealth_with_colon(self):
+        monster = type(
+            "Monster",
+            (),
+            {
+                "name": "Sneak Beast",
+                "ability_mods": {"dex": 1},
+                "monster_spec": type("Spec", (), {"raw_data": {"skills": ["Perception +2", "Stealth: +6"]}})(),
+            },
+        )()
+        self.app._profile_for_player_name = lambda _name: None
+        self.assertEqual(self.app._hider_stealth_bonus(monster), 6)
+
+    def test_normalize_hide_state_clears_hidden_when_invisible_removed(self):
+        enemy = self.app.combatants[1]
+        enemy.is_hidden = True
+        enemy.hide_stealth_dc = 14
+        enemy.hide_invisible_sid = 7
+        enemy.condition_stacks = [tracker_mod.base.ConditionStack(sid=7, ctype="invisible", remaining_turns=None)]
+        enemy.condition_stacks = []
+
+        self.app._normalize_hide_state_after_condition_change(enemy.cid)
+
+        self.assertFalse(bool(getattr(enemy, "is_hidden", False)))
+        self.assertIsNone(getattr(enemy, "hide_stealth_dc", None))
+        self.assertIsNone(getattr(enemy, "hide_invisible_sid", None))
+
 
 if __name__ == "__main__":
     unittest.main()

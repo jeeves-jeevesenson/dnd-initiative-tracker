@@ -8410,10 +8410,39 @@ class InitiativeTracker(base.InitiativeTracker):
         skills = raw_data.get("skills") if isinstance(raw_data, dict) else None
         skill_tokens = skills if isinstance(skills, list) else [skills] if isinstance(skills, str) else []
         for token in skill_tokens:
-            match = re.search(r"stealth\s*([+\-]?\d+)", str(token or ""), flags=re.IGNORECASE)
+            match = re.search(r"stealth[^0-9+\-]*([+\-]?\d+)", str(token or ""), flags=re.IGNORECASE)
             if match:
                 return int(match.group(1))
         return int(self._ability_score_modifier(getattr(hider, "ability_mods", {}) or {}, "dex"))
+
+    def _normalize_hide_state_after_condition_change(self, cid: int) -> None:
+        c = self.combatants.get(int(cid))
+        if c is None or not bool(getattr(c, "is_hidden", False)):
+            return
+        if not self._has_condition(c, "invisible"):
+            self._clear_hide_state(int(cid))
+            return
+        stacks = [st for st in list(getattr(c, "condition_stacks", []) or []) if str(getattr(st, "ctype", "") or "").lower() == "invisible"]
+        if not stacks:
+            self._clear_hide_state(int(cid))
+            return
+        existing_sid = getattr(c, "hide_invisible_sid", None)
+        try:
+            existing_sid_int = int(existing_sid) if existing_sid is not None else None
+        except Exception:
+            existing_sid_int = None
+        stack_sids = {int(getattr(st, "sid", 0) or 0) for st in stacks}
+        if existing_sid_int in stack_sids:
+            return
+        canonical_sid = int(getattr(stacks[0], "sid", 0) or 0)
+        setattr(c, "hide_invisible_sid", canonical_sid)
+        mw = self.__dict__.get("_map_window")
+        try:
+            if mw is not None and mw.winfo_exists() and hasattr(mw, "update_unit_token_colors"):
+                mw.update_unit_token_colors()
+        except Exception:
+            pass
+        self._lan_force_state_broadcast()
 
     def _friendly_observers_with_los(
         self,
@@ -8540,14 +8569,60 @@ class InitiativeTracker(base.InitiativeTracker):
             self.__dict__["_sneak_visibility_checked"] = set()
         checked: set[Tuple[int, int]] = self.__dict__.setdefault("_sneak_visibility_checked", set())
         stealth_dc = int(getattr(hider, "hide_stealth_dc", 0) or 0)
-        for observer, obs_pos in self._friendly_observers_with_los(int(hider_cid), positions=positions, obstacles=obstacles):
+
+        def _bresenham_path(start: Tuple[int, int], end: Tuple[int, int]) -> List[Tuple[int, int]]:
+            x0, y0 = int(start[0]), int(start[1])
+            x1, y1 = int(end[0]), int(end[1])
+            dx = abs(x1 - x0)
+            dy = abs(y1 - y0)
+            sx = 1 if x0 < x1 else -1
+            sy = 1 if y0 < y1 else -1
+            err = dx - dy
+            cells: List[Tuple[int, int]] = []
+            while True:
+                cells.append((x0, y0))
+                if x0 == x1 and y0 == y1:
+                    break
+                e2 = 2 * err
+                if e2 > -dy:
+                    err -= dy
+                    x0 += sx
+                if e2 < dx:
+                    err += dx
+                    y0 += sy
+            return cells
+
+        path_cells = _bresenham_path(tuple(origin), tuple(dest))
+        if len(path_cells) > 121:
+            stride = int(math.ceil((len(path_cells) - 1) / 120.0))
+            sampled = [path_cells[0]] + [path_cells[idx] for idx in range(1, len(path_cells) - 1, max(1, stride))]
+            if sampled[-1] != path_cells[-1]:
+                sampled.append(path_cells[-1])
+            path_cells = sampled
+        walked_cells = path_cells[1:]
+
+        for observer in self.combatants.values():
+            if int(getattr(observer, "cid", -1)) == int(hider_cid):
+                continue
+            role = str(self._name_role_memory.get(str(getattr(observer, "name", "")), "enemy") or "enemy")
+            if role not in ("pc", "ally"):
+                continue
+            if int(getattr(observer, "hp", 0) or 0) <= 0:
+                continue
+            obs_pos = positions.get(int(getattr(observer, "cid", 0) or 0)) if isinstance(positions, dict) else None
+            if not (isinstance(obs_pos, tuple) and len(obs_pos) == 2):
+                continue
             observer_cid = int(getattr(observer, "cid", 0) or 0)
             check_key = (int(hider_cid), observer_cid)
             if check_key in checked:
                 continue
-            entered_los = self._line_of_sight_blocked(obs_pos, tuple(origin), obstacles) and not self._line_of_sight_blocked(
-                obs_pos, tuple(dest), obstacles
-            )
+            blocked_at_origin = self._line_of_sight_blocked(obs_pos, tuple(origin), obstacles)
+            entered_los = not blocked_at_origin
+            if blocked_at_origin:
+                for cell in walked_cells:
+                    if not self._line_of_sight_blocked(obs_pos, cell, obstacles):
+                        entered_los = True
+                        break
             if not entered_los:
                 continue
             checked.add(check_key)
@@ -8903,11 +8978,6 @@ class InitiativeTracker(base.InitiativeTracker):
             pos = positions.get(c.cid, (max(0, cols // 2), max(0, rows // 2)))
             is_invisible = self._has_condition(c, "invisible")
             is_hidden = bool(getattr(c, "is_hidden", False))
-            if is_hidden and not is_invisible:
-                setattr(c, "is_hidden", False)
-                setattr(c, "hide_stealth_dc", None)
-                setattr(c, "hide_invisible_sid", None)
-                is_hidden = False
             marks = self._lan_marks_for(c)
             actions = self._normalize_action_entries(getattr(c, "actions", []), "action")
             bonus_actions = self._normalize_action_entries(getattr(c, "bonus_actions", []), "bonus_action")

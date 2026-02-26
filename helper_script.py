@@ -5530,6 +5530,8 @@ class InitiativeTracker(tk.Tk):
                 st = ConditionStack(sid=self._next_stack_id, ctype=ckey, remaining_turns=remaining)
                 self._next_stack_id += 1
                 c.condition_stacks.append(st)
+                if ckey == "invisible" and hasattr(self, "_normalize_hide_state_after_condition_change"):
+                    self._normalize_hide_state_after_condition_change(int(cid))
                 lab = str(CONDITIONS_META.get(ckey, {}).get("label", ckey))
                 if remaining is None:
                     self._log(f"set condition: {lab} (indef)", cid=cid)
@@ -5725,12 +5727,16 @@ class InitiativeTracker(tk.Tk):
                     return
                 if txt.startswith("[C:"):
                     # remove condition by sid
+                    removed_ctype = None
                     for st in list(c.condition_stacks):
                         if st.sid == sid:
                             lab = str(CONDITIONS_META.get(st.ctype, {}).get("label", st.ctype))
+                            removed_ctype = str(st.ctype or "").lower()
                             c.condition_stacks.remove(st)
                             self._log(f"removed condition: {lab}", cid=cid)
                             break
+                    if removed_ctype == "invisible" and hasattr(self, "_normalize_hide_state_after_condition_change"):
+                        self._normalize_hide_state_after_condition_change(int(cid))
                 refresh_list()
                 self._rebuild_table(scroll_to_current=True)
 
