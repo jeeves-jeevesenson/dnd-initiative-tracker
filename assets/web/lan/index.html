@@ -635,10 +635,13 @@
     .spell-target-selection-entry{display:flex; justify-content:space-between; gap:8px; margin:2px 0;}
     .spell-target-selection-actions{display:flex; gap:6px; justify-content:flex-end;}
     .aimless-aoe-confirm{
-      position:absolute;
-      left:10px;
-      bottom:10px;
-      z-index:9;
+      position:fixed;
+      left:max(12px, env(safe-area-inset-left));
+      bottom: max(
+        calc(var(--bottombar-height) + var(--safeInsetBottom) + 14px),
+        calc(env(safe-area-inset-bottom) + 14px)
+      );
+      z-index:120;
       display:flex;
       gap:8px;
       padding:8px;

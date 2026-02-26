@@ -201,6 +201,43 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[3].hp, 20)
         self.assertEqual(len(self.app._lan_aoes), 1)
 
+    def test_cast_aoe_manual_damage_entries_still_apply_failed_save_pushback(self):
+        self.preset["automation"] = "manual"
+        self.preset["tags"] = ["aoe"]
+        self.preset["mechanics"]["sequence"][0]["outcomes"]["fail"].append(
+            {"effect": "movement", "kind": "push", "distance_ft": 10, "origin": "caster"}
+        )
+        self.app._lan_positions[1] = (0, 4)
+        self.app._lan_positions[2] = (4, 4)
+        self.app._lan_positions[3] = (8, 4)
+        self.app.combatants[2].saving_throws = {"dex": -1}
+        self.app.combatants[2].ability_mods = {"dex": -1}
+        self.app.combatants[3].saving_throws = {"dex": 5}
+        self.app.combatants[3].ability_mods = {"dex": 5}
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 22,
+            "spell_slug": "frost-burst",
+            "damage_entries": [{"amount": 12, "type": "cold"}],
+            "payload": {
+                "shape": "sphere",
+                "name": "Frost Burst",
+                "radius_ft": 20,
+                "cx": 5,
+                "cy": 4,
+            },
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 10]):
+            self.app._lan_apply_action(msg)
+
+        self.assertEqual(self.app.combatants[2].hp, 8)
+        self.assertEqual(self.app.combatants[3].hp, 14)
+        self.assertEqual(self.app._lan_positions.get(2), (6, 4))
+        self.assertEqual(self.app._lan_positions.get(3), (8, 4))
+
     def test_monk_elemental_burst_consumes_focus_and_auto_resolves(self):
         consumed = []
         self.app.combatants[1].action_remaining = 1
@@ -340,5 +377,4 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
 
