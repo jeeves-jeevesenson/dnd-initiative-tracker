@@ -19119,7 +19119,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     except Exception:
                         pass
             spell_mode = str(msg.get("spell_mode") or msg.get("mode") or "attack").strip().lower()
-            if spell_mode not in ("attack", "auto_hit", "save"):
+            if spell_mode not in ("attack", "auto_hit", "save", "effect"):
                 spell_mode = "attack"
             hit = _parse_bool(msg.get("hit"), fallback=spell_mode == "auto_hit")
             critical = _parse_bool(msg.get("critical"), fallback=False)
@@ -19171,6 +19171,32 @@ class InitiativeTracker(base.InitiativeTracker):
                 "spell_mode": spell_mode,
             }
 
+            if spell_mode == "effect":
+                if bool((preset or {}).get("concentration")) and c is not None:
+                    if bool(getattr(c, "concentrating", False)):
+                        self._end_concentration(c)
+                    c.concentrating = True
+                    c.concentration_spell = str((preset or {}).get("slug") or (preset or {}).get("id") or spell_name)
+                    c.concentration_spell_level = int((preset or {}).get("level") or 0) or None
+                    c.concentration_started_turn = (int(self.round_num), int(self.turn_num))
+                    current_targets = list(getattr(c, "concentration_target", []) or [])
+                    if int(target.cid) not in current_targets:
+                        current_targets.append(int(target.cid))
+                    c.concentration_target = current_targets
+                self._log(f"{c.name} targets {result_payload['target_name']} with {spell_name}.", cid=int(target_cid))
+                try:
+                    self._rebuild_table(scroll_to_current=True)
+                except Exception:
+                    pass
+                msg["_spell_target_result"] = dict(result_payload)
+                loop = getattr(self._lan, "_loop", None)
+                if ws_id is not None and loop:
+                    try:
+                        asyncio.run_coroutine_threadsafe(self._lan._send_async(ws_id, result_payload), loop)
+                    except Exception:
+                        pass
+                return
+
             if spell_mode == "save" and save_type and save_dc > 0 and roll_save:
                 save_roll = random.randint(1, 20)
                 save_mod = _save_mod_for_target(target, save_type)
@@ -19202,7 +19228,8 @@ class InitiativeTracker(base.InitiativeTracker):
                             pass
                     self._lan.toast(ws_id, "Target passed the save.")
                     return
-                if not damage_entries:
+                damage_intent = bool(damage_entries) or bool(damage_dice_text) or bool(msg.get("prompt_for_damage"))
+                if not damage_entries and damage_intent:
                     result_payload["needs_damage_prompt"] = True
                     msg["_spell_target_result"] = dict(result_payload)
                     loop = getattr(self._lan, "_loop", None)

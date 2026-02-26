@@ -81,6 +81,8 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "save_type": "wis",
             "save_dc": 13,
             "roll_save": True,
+            "damage_dice": "1d12",
+            "damage_type": "necrotic",
         }
 
         with mock.patch("dnd_initative_tracker.random.randint", return_value=15):
@@ -105,6 +107,8 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "save_type": "wis",
             "save_dc": 16,
             "roll_save": True,
+            "damage_dice": "1d12",
+            "damage_type": "necrotic",
         }
 
         with mock.patch("dnd_initative_tracker.random.randint", return_value=4):
@@ -276,6 +280,59 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         incapacitated = [st for st in target.condition_stacks if getattr(st, "ctype", "") == "incapacitated"]
         self.assertEqual(len(incapacitated), 1)
         self.assertEqual(incapacitated[0].remaining_turns, 1)
+
+    def test_spell_target_request_save_fail_without_damage_intent_has_no_prompt(self):
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 17,
+            "target_cid": 2,
+            "spell_name": "Hold Person",
+            "spell_mode": "save",
+            "save_type": "wis",
+            "save_dc": 16,
+            "roll_save": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=3):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertFalse(result.get("save_result", {}).get("passed"))
+        self.assertFalse(result.get("needs_damage_prompt", False))
+        self.assertEqual(result.get("damage_total"), 0)
+
+    def test_spell_target_request_effect_mode_logs_without_hp_change(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "bless",
+            "id": "bless",
+            "name": "Bless",
+            "level": 1,
+            "concentration": True,
+        }
+        start_hp = self.app.combatants[3].hp
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 18,
+            "target_cid": 3,
+            "spell_name": "Bless",
+            "spell_slug": "bless",
+            "spell_mode": "effect",
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("ok"))
+        self.assertEqual(result.get("spell_mode"), "effect")
+        self.assertEqual(self.app.combatants[3].hp, start_hp)
+        self.assertTrue(any("targets Borin with Bless" in message for _, message in self.logs))
+        self.assertFalse(any("hits" in message.lower() or "misses" in message.lower() for _, message in self.logs))
 
 
 if __name__ == "__main__":

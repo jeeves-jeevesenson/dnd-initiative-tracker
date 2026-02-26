@@ -102,12 +102,24 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('if (kind === "spell_attack") return "attack";', self.html)
         self.assertIn('const aoeSpell = spellActionTag === "aoe";', self.html)
         self.assertIn('const smiteSpell = hasSpellTag(preset, "smite");', self.html)
-        self.assertIn('if (!customSummon && !summonSpell && !smiteSpell && !spellActionTag){', self.html)
+        self.assertIn('if (!customSummon && !summonSpell && !smiteSpell && !spellActionTag && !inferredTargetConfig){', self.html)
         self.assertIn('localToast("No tag found for that spell, matey.");', self.html)
         self.assertIn('message: "Spell cast blocked: missing spell action tag",', self.html)
-        self.assertIn('const spellTargetConfig = (!aoeSpell && !smiteSpell) ? getSpellTargetingConfig(preset, slotLevel) : null;', self.html)
+        self.assertIn('const spellTargetConfig = (!aoeSpell && !smiteSpell) ? (inferredTargetConfig || getSpellTargetingConfig(preset, slotLevel)) : null;', self.html)
         self.assertIn('type: "spell_target_request",', self.html)
         self.assertIn('} else if (msg.type === "spell_target_result"){', self.html)
+
+    def test_multi_target_selection_queue_wiring_is_present(self):
+        self.assertIn('let pendingSpellTargetSelection = null;', self.html)
+        self.assertIn('function processNextSpellTarget()', self.html)
+        self.assertIn('id="spellTargetSelectionUi"', self.html)
+        self.assertIn('id="spellTargetSelectionCounter"', self.html)
+        self.assertIn('id="spellTargetSelectionConfirm"', self.html)
+        self.assertIn('spell_mode: "effect"', self.html)
+        self.assertIn('targetSide: ["friendly", "enemy", "any"].includes', self.html)
+        self.assertIn('const shouldBufferSelection = !!(spellTargetConfig && Number(spellTargetConfig.maxTargets || 1) > 1);', self.html)
+        self.assertIn('pendingSpellTargeting.queue = selected.slice();', self.html)
+
 
     def test_cast_submit_warns_before_replacing_existing_concentration(self):
         self.assertIn("const concentrationSpell = normalizeTextValue(unit?.concentration_spell || unit?.concentrationSpell || \"\");", self.html)

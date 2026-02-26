@@ -616,6 +616,24 @@
       overflow:auto;
       pointer-events:auto;
     }
+    .spell-target-selection-ui{
+      position:absolute;
+      left:10px;
+      top:10px;
+      z-index:9;
+      width:min(260px, 40vw);
+      padding:8px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.18);
+      background:rgba(15,19,32,0.84);
+      box-shadow:0 6px 18px rgba(0,0,0,0.28);
+      font-size:12px;
+    }
+    .spell-target-selection-ui.hidden{display:none;}
+    .spell-target-selection-counter{font-weight:700; margin-bottom:6px;}
+    .spell-target-selection-list{max-height:120px; overflow:auto; margin-bottom:6px;}
+    .spell-target-selection-entry{display:flex; justify-content:space-between; gap:8px; margin:2px 0;}
+    .spell-target-selection-actions{display:flex; gap:6px; justify-content:flex-end;}
 
     .sheet-wrap{
       position:sticky; bottom:0; z-index:20;
@@ -2189,6 +2207,15 @@
       <div class="section">
         <div class="section-label enemy">Enemies</div>
         <ul id="aoeTargetPreviewEnemies"></ul>
+      </div>
+    </div>
+    <div class="spell-target-selection-ui hidden" id="spellTargetSelectionUi" aria-live="polite" aria-hidden="true">
+      <div class="spell-target-selection-counter" id="spellTargetSelectionCounter">0/0</div>
+      <div class="spell-target-selection-list" id="spellTargetSelectionList"></div>
+      <div class="spell-target-selection-actions">
+        <button class="btn" id="spellTargetSelectionRemoveLast" type="button">Remove last</button>
+        <button class="btn" id="spellTargetSelectionCancel" type="button">Cancel</button>
+        <button class="btn accent" id="spellTargetSelectionConfirm" type="button">✓ Confirm</button>
       </div>
     </div>
     <div class="map-tooltip" id="tokenTooltip" role="tooltip" aria-hidden="true"></div>
@@ -4204,6 +4231,12 @@ __DAMAGE_TYPE_OPTIONS__
   const aoeTargetPreview = document.getElementById("aoeTargetPreview");
   const aoeTargetPreviewAllies = document.getElementById("aoeTargetPreviewAllies");
   const aoeTargetPreviewEnemies = document.getElementById("aoeTargetPreviewEnemies");
+  const spellTargetSelectionUi = document.getElementById("spellTargetSelectionUi");
+  const spellTargetSelectionCounter = document.getElementById("spellTargetSelectionCounter");
+  const spellTargetSelectionList = document.getElementById("spellTargetSelectionList");
+  const spellTargetSelectionRemoveLastBtn = document.getElementById("spellTargetSelectionRemoveLast");
+  const spellTargetSelectionCancelBtn = document.getElementById("spellTargetSelectionCancel");
+  const spellTargetSelectionConfirmBtn = document.getElementById("spellTargetSelectionConfirm");
   const clientInitPayload = {
     timestamp: new Date().toISOString(),
     userAgent: navigator.userAgent,
@@ -4362,6 +4395,7 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingOpportunityAttack = false;
   let pendingCleavePrompt = null;
   let pendingSpellTargeting = null;
+  let pendingSpellTargetSelection = null;
   let pendingLayOnHandsTargeting = null;
   let pendingLayOnHandsResolve = null;
   let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
@@ -11224,13 +11258,29 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const me = getClaimedUnit();
     const isFriendlyTarget = !!me && (cidMatches(target.cid, me.cid, "spellTargeting.self") || isFriendlyToMe(target, me));
-    const targetSide = normalizeLowerValue(pendingSpellTargeting.targetSide || "enemy");
+    const targetSide = normalizeLowerValue((pendingSpellTargetSelection?.targetSide || pendingSpellTargeting.targetSide || "any"));
     if (targetSide === "friendly" && !isFriendlyTarget){
       localToast("Pick a friendly target, matey.");
       return;
     }
-    if (targetSide !== "friendly" && isFriendlyTarget){
+    if (targetSide === "enemy" && isFriendlyTarget){
       localToast("Pick an enemy target, matey.");
+      return;
+    }
+    if (pendingSpellTargetSelection){
+      const selection = pendingSpellTargetSelection;
+      const selected = Array.isArray(selection.selectedTargets) ? selection.selectedTargets : [];
+      if (selected.length >= selection.maxTargets){
+        localToast("Target list already full.");
+        return;
+      }
+      if (pendingSpellTargeting.requireUniqueTargets && selected.includes(Number(target.cid))){
+        localToast("That spell needs unique targets, matey.");
+        return;
+      }
+      selected.push(Number(target.cid));
+      selection.selectedTargets = selected;
+      renderSpellTargetSelectionUi();
       return;
     }
     if (pendingSpellTargeting.mode === "save"){
@@ -11246,6 +11296,20 @@ __DAMAGE_TYPE_OPTIONS__
         save_dc: Number.isFinite(Number(pendingSpellTargeting.saveDc)) ? Number(pendingSpellTargeting.saveDc) : null,
         roll_save: true,
       });
+      return;
+    }
+    if (pendingSpellTargeting.mode === "effect"){
+      send({
+        type: "spell_target_request",
+        cid: activeControlledUnitCid(),
+        target_cid: Number(target.cid),
+        spell_name: pendingSpellTargeting.spellName,
+        spell_slug: pendingSpellTargeting.spellSlug || null,
+        spell_id: pendingSpellTargeting.spellId || null,
+        spell_mode: "effect",
+      });
+      consumeSpellTargetingShot();
+      processNextSpellTarget();
       return;
     }
     const autoHit = pendingSpellTargeting.mode === "auto_hit";
@@ -11273,6 +11337,7 @@ __DAMAGE_TYPE_OPTIONS__
         damage_type: String(pendingSpellTargeting.damageType || "").trim().toLowerCase() || null,
       });
       consumeSpellTargetingShot();
+      processNextSpellTarget();
       return;
     }
     pendingAttackResolve = {
@@ -11309,6 +11374,7 @@ __DAMAGE_TYPE_OPTIONS__
     syncAttackResolveDamageVisibility();
     setAttackResolveModalOpen(true);
   }
+
 
   function openWarCasterModal(){
     if (!playerHasWarCasterFeat()){
@@ -12245,12 +12311,15 @@ __DAMAGE_TYPE_OPTIONS__
             syncAttackResolveDamageVisibility();
             setAttackResolveModalOpen(true);
           }
-        } else if (msg.save_result && msg.save_result.passed && pendingSpellTargeting){
+        } else if (pendingSpellTargeting){
           pendingSpellTargeting.remainingShots = Math.max(0, Number(pendingSpellTargeting.remainingShots || 0) - 1);
-          if (pendingSpellTargeting.remainingShots <= 0){
+          if (pendingSpellTargeting.remainingShots <= 0 && !(pendingSpellTargeting.queue && pendingSpellTargeting.queue.length)){
             clearSpellTargetingSession("");
           } else {
-            localToast(`${pendingSpellTargeting.remainingShots} target${pendingSpellTargeting.remainingShots === 1 ? "" : "s"} remaining.`);
+            processNextSpellTarget();
+            if (!(pendingSpellTargeting?.queue && pendingSpellTargeting.queue.length)){
+              localToast(`${pendingSpellTargeting.remainingShots} target${pendingSpellTargeting.remainingShots === 1 ? "" : "s"} remaining.`);
+            }
           }
         }
       } else if (msg.type === "grid_update"){
@@ -12981,7 +13050,7 @@ __DAMAGE_TYPE_OPTIONS__
             localToast("Pick a friendly target, matey.");
             return;
           }
-          if (targetSide !== "friendly" && isFriendlyTarget){
+          if (targetSide === "enemy" && isFriendlyTarget){
             localToast("Pick an enemy target, matey.");
             return;
           }
@@ -13019,56 +13088,7 @@ __DAMAGE_TYPE_OPTIONS__
           openAttackResolveModal(hit, weapon);
           return;
         }
-        if (pendingSpellTargeting.mode === "save"){
-          const request = {
-            type: "spell_target_request",
-            cid: activeControlledUnitCid(),
-            target_cid: Number(hit.cid),
-            spell_name: pendingSpellTargeting.spellName,
-            spell_slug: pendingSpellTargeting.spellSlug || null,
-            spell_id: pendingSpellTargeting.spellId || null,
-            spell_mode: "save",
-            save_type: pendingSpellTargeting.saveType || null,
-            save_dc: Number.isFinite(Number(pendingSpellTargeting.saveDc)) ? Number(pendingSpellTargeting.saveDc) : null,
-            roll_save: true,
-          };
-          send(request);
-          return;
-        }
-        const autoHit = pendingSpellTargeting.mode === "auto_hit";
-        pendingAttackResolve = {
-          mode: "spell",
-          targetCid: Number(hit.cid),
-          targetName: String(hit.name || "target"),
-          spellName: pendingSpellTargeting.spellName,
-          spellSlug: pendingSpellTargeting.spellSlug || null,
-          spellId: pendingSpellTargeting.spellId || null,
-          spellMode: pendingSpellTargeting.mode,
-          saveType: pendingSpellTargeting.saveType || "",
-          saveDc: pendingSpellTargeting.saveDc,
-          forceHit: autoHit,
-          rollSave: false,
-          damageDice: pendingSpellTargeting.damageDice || "",
-          damageType: pendingSpellTargeting.damageType || "",
-        };
-        if (attackResolveBody){
-          const details = [
-            pendingSpellTargeting.damageDice ? `Damage: ${pendingSpellTargeting.damageDice}${pendingSpellTargeting.damageType ? ` ${pendingSpellTargeting.damageType}` : ""}.` : "",
-            pendingSpellTargeting.description ? pendingSpellTargeting.description : "",
-          ].filter(Boolean).join(" ");
-          attackResolveBody.textContent = `Resolve ${pendingSpellTargeting.spellName} on ${pendingAttackResolve.targetName}.`
-            + (details ? ` ${details}` : "");
-        }
-        if (attackDamageRows){
-          attackDamageRows.textContent = "";
-          addAttackDamageRow("", pendingSpellTargeting.damageType || "");
-        }
-        if (attackResolveHit) attackResolveHit.checked = autoHit;
-        if (attackResolveMiss) attackResolveMiss.checked = !autoHit;
-        if (attackResolveHit) attackResolveHit.disabled = autoHit;
-        if (attackResolveMiss) attackResolveMiss.disabled = autoHit;
-        syncAttackResolveDamageVisibility();
-        setAttackResolveModalOpen(true);
+        runSpellTargetingAgainstTarget(hit);
         return;
       }
     }
@@ -15754,6 +15774,8 @@ __DAMAGE_TYPE_OPTIONS__
   let castBaseDefaultDamage = null;
   function clearSpellTargetingSession(showToastMessage = ""){
     pendingSpellTargeting = null;
+    pendingSpellTargetSelection = null;
+    renderSpellTargetSelectionUi();
     if (attackOverlayMode){
       setAttackOverlayMode(false);
     }
@@ -15768,9 +15790,64 @@ __DAMAGE_TYPE_OPTIONS__
     pendingSpellTargeting.remainingShots = Math.max(0, Number(pendingSpellTargeting.remainingShots || 0) - 1);
     if (pendingSpellTargeting.remainingShots <= 0){
       clearSpellTargetingSession("");
-    } else {
+    } else if (!(pendingSpellTargeting.queue && pendingSpellTargeting.queue.length)) {
       localToast(`${pendingSpellTargeting.remainingShots} target${pendingSpellTargeting.remainingShots === 1 ? "" : "s"} remaining.`);
     }
+  }
+  function getSpellTargetingDescriptionText(preset){
+    const primary = normalizeTextValue(preset?.description);
+    if (primary) return primary;
+    return normalizeTextValue(preset?.import?.raw?.description) || "";
+  }
+  function inferSpellTargetingFromDescription(preset, mode, slotLevel){
+    const description = getSpellTargetingDescriptionText(preset);
+    const lower = description.toLowerCase();
+    const inferred = {
+      baseCount: 1,
+      addPerSlotAbove: 0,
+      baseSlotLevel: Math.max(0, Math.floor(Number(preset?.level || 0))),
+      targetSide: "any",
+      description,
+      cantripDynamicCount: null,
+    };
+    const upcast = lower.match(/additional[^.]*for each spell slot level above\s+(\d+)/i);
+    if (upcast){
+      inferred.addPerSlotAbove = 1;
+      inferred.baseSlotLevel = Math.max(0, Number(upcast[1]));
+    }
+    const upTo = lower.match(/(?:choose\s+)?up to\s+(\d+)\s+creatures?/i);
+    if (upTo){
+      inferred.baseCount = Math.max(1, Number(upTo[1]));
+    } else if (/choose\s+(?:an|a)/i.test(lower)){
+      inferred.baseCount = 1;
+    }
+    const dartsRays = lower.match(/you create\s+(\d+)\s+(?:darts?|rays?)/i);
+    if (dartsRays){
+      inferred.baseCount = Math.max(inferred.baseCount, Number(dartsRays[1]));
+    }
+    if (/willing creature/i.test(lower)){
+      inferred.targetSide = "friendly";
+    } else if (/(enemy|hostile|creature you can see that is not willing|of your choice that you can see)/i.test(lower)){
+      inferred.targetSide = "enemy";
+    }
+    const ebPattern = /two\s+beams?\s+at\s+level\s+5[^.]*three\s+at\s+level\s+11[^.]*four\s+at\s+level\s+17/i;
+    if (ebPattern.test(lower)){
+      inferred.cantripDynamicCount = () => {
+        const playerName = getClaimedPlayerName();
+        const profile = getPlayerProfile(playerName);
+        const level = getPlayerLevel(profile);
+        if (level >= 17) return 4;
+        if (level >= 11) return 3;
+        if (level >= 5) return 2;
+        return 1;
+      };
+    }
+    const selectedSlot = Number.isFinite(Number(slotLevel)) ? Math.floor(Number(slotLevel)) : inferred.baseSlotLevel;
+    const count = inferred.cantripDynamicCount
+      ? inferred.cantripDynamicCount()
+      : Math.max(1, inferred.baseCount + Math.max(0, selectedSlot - inferred.baseSlotLevel) * inferred.addPerSlotAbove);
+    inferred.projectileCount = Math.max(1, Number(count) || 1);
+    return inferred;
   }
   function getSpellTargetingConfig(preset, slotLevel){
     if (!preset || isAoePreset(preset) || isSummonPreset(preset)){
@@ -15778,27 +15855,39 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const uiConfig = preset?.mechanics?.ui?.spell_targeting;
     const modeRaw = normalizeLowerValue(uiConfig?.mode);
-    const mode = modeRaw || resolveSpellActionTag(preset);
-    if (!mode) return null;
+    const resolvedMode = resolveSpellActionTag(preset);
+    const mode = modeRaw || resolvedMode || "effect";
+    if (!["attack", "auto_hit", "save", "effect"].includes(mode)) return null;
+
+    const inferred = inferSpellTargetingFromDescription(preset, mode, slotLevel);
     const baseCount = Number(uiConfig?.projectiles_base);
     const addPerSlot = Number(uiConfig?.add_per_slot_above);
     const baseSlotLevel = Number.isFinite(Number(uiConfig?.base_slot_level))
       ? Math.floor(Number(uiConfig.base_slot_level))
-      : Math.max(0, Math.floor(Number(preset?.level || 0)));
+      : inferred.baseSlotLevel;
     const selectedSlot = Number.isFinite(Number(slotLevel)) ? Math.floor(Number(slotLevel)) : baseSlotLevel;
-    const countBase = Number.isFinite(baseCount) && baseCount > 0 ? Math.floor(baseCount) : 1;
-    const countAdd = Number.isFinite(addPerSlot) ? Math.floor(addPerSlot) : 0;
-    const projectileCount = Math.max(1, countBase + Math.max(0, selectedSlot - baseSlotLevel) * countAdd);
+    const countBase = Number.isFinite(baseCount) && baseCount > 0 ? Math.floor(baseCount) : inferred.baseCount;
+    const countAdd = Number.isFinite(addPerSlot) ? Math.floor(addPerSlot) : inferred.addPerSlotAbove;
+    const projectileCount = inferred.cantripDynamicCount && !Number.isFinite(baseCount)
+      ? inferred.projectileCount
+      : Math.max(1, countBase + Math.max(0, selectedSlot - baseSlotLevel) * countAdd);
     const damageTypes = Array.from(castDamageTypes);
     const fallbackType = String((Array.isArray(preset?.damage_types) ? preset.damage_types[0] : "") || "").trim().toLowerCase();
     if (!damageTypes.length && fallbackType){
       damageTypes.push(fallbackType);
     }
-    const description = normalizeTextValue(preset?.description) || "";
+    const description = inferred.description || normalizeTextValue(preset?.description) || "";
     const targetSideRaw = normalizeLowerValue(uiConfig?.target_side);
-    const targetSide = targetSideRaw === "friendly" ? "friendly" : "enemy";
+    const targetSide = ["friendly", "enemy", "any"].includes(targetSideRaw) ? targetSideRaw : inferred.targetSide;
     const overlayColor = normalizeHexColor(uiConfig?.overlay_color || "");
     const skipResolveAttack = hasSpellTag(preset, "skip_resolve_attack");
+    const allowDuplicateTargetsExplicit = (typeof uiConfig?.allow_duplicate_targets === "boolean") ? uiConfig.allow_duplicate_targets : null;
+    const requireUniqueTargetsExplicit = (typeof uiConfig?.require_unique_targets === "boolean") ? uiConfig.require_unique_targets : null;
+    const allowDuplicateTargetsDefault = mode === "attack" || mode === "auto_hit";
+    const allowDuplicateTargets = requireUniqueTargetsExplicit === true
+      ? false
+      : (allowDuplicateTargetsExplicit === null ? allowDuplicateTargetsDefault : allowDuplicateTargetsExplicit);
+    const requireUniqueTargets = allowDuplicateTargets ? false : true;
     return {
       mode,
       rangeFt: parseSpellTargetRangeFeet(preset),
@@ -15809,12 +15898,73 @@ __DAMAGE_TYPE_OPTIONS__
       damageDiceWhenWounded: String(uiConfig?.damage_dice_when_wounded || "").trim(),
       description,
       projectileCount,
+      maxTargets: projectileCount,
       targetSide,
       overlayColor,
       skipResolveAttack,
+      allowDuplicateTargets,
+      requireUniqueTargets,
     };
   }
-  function startSpellTargetingSession(config, preset, slotLevel){
+  function renderSpellTargetSelectionUi(){
+    if (!spellTargetSelectionUi) return;
+    const active = !!pendingSpellTargetSelection;
+    spellTargetSelectionUi.classList.toggle("hidden", !active);
+    spellTargetSelectionUi.setAttribute("aria-hidden", active ? "false" : "true");
+    if (!active) return;
+    const selected = Array.isArray(pendingSpellTargetSelection.selectedTargets) ? pendingSpellTargetSelection.selectedTargets : [];
+    const max = Math.max(1, Number(pendingSpellTargetSelection.maxTargets || 1));
+    if (spellTargetSelectionCounter){
+      spellTargetSelectionCounter.textContent = `${selected.length}/${max}`;
+    }
+    if (spellTargetSelectionList){
+      spellTargetSelectionList.textContent = "";
+      selected.forEach((cid, idx) => {
+        const unit = getUnitByCid(cid);
+        const row = document.createElement("div");
+        row.className = "spell-target-selection-entry";
+        const name = document.createElement("span");
+        name.textContent = `${idx + 1}. ${unit?.name || `#${cid}`}`;
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "btn";
+        removeBtn.textContent = "×";
+        removeBtn.addEventListener("click", () => {
+          if (!pendingSpellTargetSelection) return;
+          pendingSpellTargetSelection.selectedTargets.splice(idx, 1);
+          renderSpellTargetSelectionUi();
+        });
+        row.appendChild(name);
+        row.appendChild(removeBtn);
+        spellTargetSelectionList.appendChild(row);
+      });
+    }
+    if (spellTargetSelectionConfirmBtn){
+      spellTargetSelectionConfirmBtn.disabled = selected.length < 1;
+    }
+    if (spellTargetSelectionRemoveLastBtn){
+      spellTargetSelectionRemoveLastBtn.disabled = selected.length < 1;
+    }
+  }
+  function processNextSpellTarget(){
+    if (!pendingSpellTargeting) return;
+    const queue = Array.isArray(pendingSpellTargeting.queue) ? pendingSpellTargeting.queue : [];
+    if (!queue.length){
+      if (!pendingSpellTargeting.remainingShots || pendingSpellTargeting.remainingShots <= 0){
+        clearSpellTargetingSession("");
+      }
+      return;
+    }
+    const nextCid = Number(queue.shift());
+    const target = getUnitByCid(nextCid);
+    if (!target){
+      consumeSpellTargetingShot();
+      processNextSpellTarget();
+      return;
+    }
+    runSpellTargetingAgainstTarget(target);
+  }
+  function startSpellTargetingSession(config, preset, slotLevel, castMsg = null){
     if (!config) return;
     pendingSpellTargeting = {
       mode: config.mode,
@@ -15830,11 +15980,33 @@ __DAMAGE_TYPE_OPTIONS__
       damageDiceWhenWounded: String(config.damageDiceWhenWounded || "").trim(),
       description: String(config.description || "").trim(),
       remainingShots: Math.max(1, Number(config.projectileCount || 1)),
-      targetSide: String(config.targetSide || "enemy").toLowerCase() === "friendly" ? "friendly" : "enemy",
+      targetSide: ["friendly", "enemy", "any"].includes(String(config.targetSide || "any").toLowerCase()) ? String(config.targetSide || "any").toLowerCase() : "any",
       overlayColor: normalizeHexColor(config.overlayColor || "") || null,
       skipResolveAttack: config.skipResolveAttack === true,
+      allowDuplicateTargets: config.allowDuplicateTargets === true,
+      requireUniqueTargets: config.requireUniqueTargets !== false,
+      maxTargets: Math.max(1, Number(config.maxTargets || config.projectileCount || 1)),
+      queue: [],
     };
+    const needsSelection = pendingSpellTargeting.maxTargets > 1;
     setCastOverlayOpen(false);
+    if (needsSelection){
+      pendingSpellTargetSelection = {
+        spellName: pendingSpellTargeting.spellName,
+        mode: pendingSpellTargeting.mode,
+        maxTargets: pendingSpellTargeting.maxTargets,
+        selectedTargets: [],
+        targetSide: pendingSpellTargeting.targetSide,
+        rangeFt: pendingSpellTargeting.rangeFt,
+        castMsg,
+      };
+      setAttackOverlayMode(true);
+      renderSpellTargetSelectionUi();
+      localToast(`Select targets (${0}/${pendingSpellTargetSelection.maxTargets}) for ${pendingSpellTargeting.spellName}.`);
+      return;
+    }
+    pendingSpellTargetSelection = null;
+    renderSpellTargetSelectionUi();
     setAttackOverlayMode(true);
     const shotLabel = pendingSpellTargeting.remainingShots > 1
       ? ` (${pendingSpellTargeting.remainingShots} targets)`
@@ -16259,7 +16431,9 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const customSummon = Boolean(preset?.isCustomSummon);
       const smiteSpell = hasSpellTag(preset, "smite");
-      if (!customSummon && !summonSpell && !smiteSpell && !spellActionTag){
+      const provisionalSlotLevel = Number.isFinite(Number(castSlotLevelInput?.value)) ? Math.floor(Number(castSlotLevelInput.value)) : null;
+      const inferredTargetConfig = (!aoeSpell && !smiteSpell) ? getSpellTargetingConfig(preset, provisionalSlotLevel) : null;
+      if (!customSummon && !summonSpell && !smiteSpell && !spellActionTag && !inferredTargetConfig){
         localToast("No tag found for that spell, matey.");
         reportSpellTagMissing(preset, {source: "cast_form_submit"});
         return;
@@ -16602,7 +16776,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       }
       const msg = {type: aoeSpell ? "cast_aoe" : "cast_spell", payload, action_type: actionType};
-      const spellTargetConfig = (!aoeSpell && !smiteSpell) ? getSpellTargetingConfig(preset, slotLevel) : null;
+      const spellTargetConfig = (!aoeSpell && !smiteSpell) ? (inferredTargetConfig || getSpellTargetingConfig(preset, slotLevel)) : null;
       const presetSlug = normalizeTextValue(preset?.slug);
       const presetId = normalizeTextValue(preset?.id);
       if (presetSlug){
@@ -16743,6 +16917,17 @@ __DAMAGE_TYPE_OPTIONS__
       if (!isPlanning && concentrationConfirmMessage && !window.confirm(concentrationConfirmMessage)){
         return;
       }
+      const shouldBufferSelection = !!(spellTargetConfig && Number(spellTargetConfig.maxTargets || 1) > 1);
+      if (shouldBufferSelection){
+        if (castSpellModal?.classList.contains("show")){
+          hideCastSpellModal();
+        }
+        if (castOverlay?.classList.contains("show")){
+          setCastOverlayOpen(false);
+        }
+        startSpellTargetingSession(spellTargetConfig, preset, slotLevel, msg);
+        return;
+      }
       if (isPlanning){
         planningMutate(msg);
         draw();
@@ -16756,7 +16941,7 @@ __DAMAGE_TYPE_OPTIONS__
         setCastOverlayOpen(false);
       }
       if (spellTargetConfig){
-        startSpellTargetingSession(spellTargetConfig, preset, slotLevel);
+        startSpellTargetingSession(spellTargetConfig, preset, slotLevel, null);
       }
     });
   }
@@ -17946,6 +18131,50 @@ __DAMAGE_TYPE_OPTIONS__
       setAttackOverlayMode(!attackOverlayMode);
     });
   }
+  if (spellTargetSelectionRemoveLastBtn){
+    spellTargetSelectionRemoveLastBtn.addEventListener("click", () => {
+      if (!pendingSpellTargetSelection) return;
+      pendingSpellTargetSelection.selectedTargets.pop();
+      renderSpellTargetSelectionUi();
+    });
+  }
+  if (spellTargetSelectionCancelBtn){
+    spellTargetSelectionCancelBtn.addEventListener("click", () => {
+      clearSpellTargetingSession("Spell targeting cancelled.");
+    });
+  }
+  if (spellTargetSelectionConfirmBtn){
+    spellTargetSelectionConfirmBtn.addEventListener("click", () => {
+      if (!pendingSpellTargetSelection || !pendingSpellTargeting){
+        return;
+      }
+      const selected = pendingSpellTargetSelection.selectedTargets || [];
+      if (!selected.length){
+        localToast("Pick at least one target first.");
+        return;
+      }
+      const castMsg = pendingSpellTargetSelection.castMsg;
+      const castConfirmMessage = castMsg ? `Cast ${pendingSpellTargeting.spellName}?` : null;
+      if (castConfirmMessage && !window.confirm(castConfirmMessage)){
+        return;
+      }
+      const unit = getClaimedUnit();
+      const concentrationSpell = normalizeTextValue(unit?.concentration_spell || unit?.concentrationSpell || "");
+      if (castMsg && unit?.concentrating && concentrationSpell){
+        if (!window.confirm(`You're concentrating on ${concentrationSpell}. Casting ${pendingSpellTargeting.spellName} will end it. Continue?`)){
+          return;
+        }
+      }
+      if (castMsg){
+        send(castMsg);
+      }
+      pendingSpellTargeting.queue = selected.slice();
+      pendingSpellTargeting.remainingShots = selected.length;
+      pendingSpellTargetSelection = null;
+      renderSpellTargetSelectionUi();
+      processNextSpellTarget();
+    });
+  }
   if (mainhandWeaponSelectEl){
     mainhandWeaponSelectEl.addEventListener("change", (event) => {
       selectedMainhandWeaponValue = String(event.target.value || "").trim();
@@ -18210,6 +18439,7 @@ __DAMAGE_TYPE_OPTIONS__
           damage_type: String(pendingAttackResolve.damageType || "").trim().toLowerCase() || null,
         });
         consumeSpellTargetingShot();
+        processNextSpellTarget();
       } else {
         const monkSeq = pendingMonkBonusAttackSequence && typeof pendingMonkBonusAttackSequence === "object"
           ? pendingMonkBonusAttackSequence
