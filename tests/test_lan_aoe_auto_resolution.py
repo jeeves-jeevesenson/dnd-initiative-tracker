@@ -150,6 +150,33 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         self.assertIn("Goblin save DEX FAIL (5 vs DC 14) -> 5 Cold damage", log_text)
         self.assertIn("Orc save DEX PASS (15 vs DC 14) -> 4 Cold damage", log_text)
 
+
+    def test_cast_aoe_manual_damage_override_uses_entries_and_save_multiplier(self):
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 21,
+            "spell_slug": "frost-burst",
+            "slot_level": 4,
+            "damage_entries": [{"amount": 13, "type": "cold"}],
+            "payload": {
+                "shape": "sphere",
+                "name": "Frost Burst",
+                "radius_ft": 20,
+                "cx": 5,
+                "cy": 4,
+            },
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 15]):
+            self.app._lan_apply_action(msg)
+
+        self.assertEqual(self.app.combatants[2].hp, 7)
+        self.assertEqual(self.app.combatants[3].hp, 14)
+        log_text = "\n".join(entry for _cid, entry in self.logs)
+        self.assertIn("Goblin save DEX FAIL (5 vs DC 14) -> 13 Cold damage", log_text)
+        self.assertIn("Orc save DEX PASS (15 vs DC 14) -> 6 Cold damage", log_text)
+
     def test_cast_aoe_non_full_automation_does_not_auto_resolve(self):
         self.preset["automation"] = "manual"
         self.preset["tags"] = ["aoe"]

@@ -9819,6 +9819,7 @@ class InitiativeTracker(base.InitiativeTracker):
         spell_id: str,
         slot_level: Optional[int],
         preset: Optional[Dict[str, Any]],
+        manual_damage_entries: Optional[List[Dict[str, Any]]] = None,
     ) -> bool:
         if not isinstance(aoe, dict) or not isinstance(preset, dict):
             return False
@@ -9912,6 +9913,26 @@ class InitiativeTracker(base.InitiativeTracker):
             if total is None:
                 return None
             return max(0, int(math.floor(total)))
+
+        manual_damage_map: Dict[str, int] = {}
+        if isinstance(manual_damage_entries, list):
+            for entry in manual_damage_entries:
+                if not isinstance(entry, dict):
+                    continue
+                try:
+                    amount = int(entry.get("amount"))
+                except Exception:
+                    continue
+                if amount <= 0:
+                    continue
+                raw_type = str(entry.get("type") or "").strip().lower()
+                if not raw_type:
+                    continue
+                canonical = self._canonical_damage_type(raw_type)
+                key = canonical or raw_type
+                if not key:
+                    continue
+                manual_damage_map[key] = max(manual_damage_map.get(key, 0), int(amount))
 
         def _scaled_damage(effect: Dict[str, Any]) -> int:
             base_expr = effect.get("dice")
@@ -10007,8 +10028,24 @@ class InitiativeTracker(base.InitiativeTracker):
                     continue
                 effect_name = str(effect.get("effect") or "").strip().lower()
                 if effect_name == "damage":
-                    amount = _scaled_damage(effect)
                     dtype = str(effect.get("damage_type") or effect.get("type") or aoe.get("damage_type") or "").strip().lower() or "untyped"
+                    canonical_dtype = self._canonical_damage_type(dtype)
+                    amount = None
+                    if manual_damage_map:
+                        lookup_keys = [key for key in [canonical_dtype, dtype] if key]
+                        for key in lookup_keys:
+                            if key in manual_damage_map:
+                                amount = int(manual_damage_map.get(key) or 0)
+                                break
+                    if amount is None:
+                        amount = _scaled_damage(effect)
+                    else:
+                        mult = effect.get("multiplier")
+                        try:
+                            if mult is not None:
+                                amount = int(math.floor(float(amount) * float(mult)))
+                        except Exception:
+                            pass
                     if amount > 0:
                         damage_entries.append({"amount": int(amount), "type": dtype})
                 elif effect_name == "condition" and not passed:
@@ -17074,6 +17111,27 @@ class InitiativeTracker(base.InitiativeTracker):
             spell_slug = str(msg.get("spell_slug") or payload.get("spell_slug") or "").strip()
             spell_id = str(msg.get("spell_id") or payload.get("spell_id") or "").strip()
             summon_choice = msg.get("summon_choice") if msg.get("summon_choice") not in (None, "") else payload.get("summon_choice")
+            manual_damage_entries: List[Dict[str, Any]] = []
+            raw_damage_entries = msg.get("damage_entries")
+            if isinstance(raw_damage_entries, list):
+                for entry in raw_damage_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    amount_raw = entry.get("amount")
+                    if isinstance(amount_raw, bool):
+                        continue
+                    if isinstance(amount_raw, float) and not math.isfinite(amount_raw):
+                        continue
+                    try:
+                        amount = int(amount_raw)
+                    except Exception:
+                        continue
+                    if amount <= 0:
+                        continue
+                    dtype = str(entry.get("type") or "").strip().lower()
+                    if not dtype:
+                        continue
+                    manual_damage_entries.append({"amount": int(amount), "type": dtype})
             c = self.combatants.get(cid) if cid is not None else None
             if shape == "summon":
                 if cid is None:
@@ -17562,6 +17620,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 spell_id=spell_id,
                 slot_level=slot_level,
                 preset=preset_dict,
+                manual_damage_entries=manual_damage_entries,
             )
             if resolved:
                 self._lan.toast(ws_id, f"Casted {aoe['name']} (auto-resolved).")
