@@ -1,0 +1,11 @@
+id: bahamuts_rebuking_claw
+name: Bahamut's Rebuking Claw
+requires_attunement: true
+grants:
+  spells:
+    casts:
+      - spell: polymorph
+        action_type: reaction
+        consumes:
+          pool: bahamuts_rebuking_claw
+          cost: 1

@@ -2068,6 +2068,12 @@
       flex-wrap: wrap;
       gap: 6px;
     }
+    .resource-pool-entry{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      align-items:flex-start;
+    }
     .resource-pool-chip{
       background: #19293b;
       border: 1px solid #335172;
@@ -2078,6 +2084,24 @@
     }
     .resource-pool-chip.is-empty{
       opacity: .45;
+    }
+    .resource-pool-spells{
+      display:flex;
+      flex-wrap:wrap;
+      gap:4px;
+    }
+    .resource-pool-cast-btn{
+      font-size:11px;
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(106,169,255,0.45);
+      background: rgba(106,169,255,0.2);
+      color: var(--text);
+      cursor:pointer;
+    }
+    .resource-pool-cast-btn:disabled{
+      opacity:0.45;
+      cursor:not-allowed;
     }
     .turn-order-status{
       margin-top: 6px;
@@ -4298,6 +4322,7 @@ __DAMAGE_TYPE_OPTIONS__
   let castSpellModalPreviousFocus = null;
   let castSpellModalSelection = "";
   let pendingSpellActionType = null;
+  let forcedPoolCastContext = null;
   let pendingSummonPlacement = null;
   let pendingAoePlacement = null;
   let aoeAimGuide = null; // {start,end,blocked,outOfRange,invalid,distFt,rangeFt,facingDeg,casterCid}
@@ -5402,10 +5427,72 @@ __DAMAGE_TYPE_OPTIONS__
     return block.filter((entry) => entry && typeof entry === "object");
   }
 
+  function getPoolGrantedSpellsByPool(name){
+    const entries = getPoolGrantedSpellEntries(name);
+    const grouped = new Map();
+    entries.forEach((entry) => {
+      const consumes = entry.consumes_pool && typeof entry.consumes_pool === "object" ? entry.consumes_pool : {};
+      const poolId = normalizeTextValue(consumes.id || consumes.pool);
+      const spellSlug = normalizeTextValue(entry.spell || entry.slug || entry.id);
+      if (!poolId || !spellSlug) return;
+      const costRaw = Number(consumes.cost ?? 1);
+      const cost = Number.isFinite(costRaw) ? Math.max(1, Math.floor(costRaw)) : 1;
+      const actionType = normalizeSpellActionType(entry.action_type || entry.actionType || "action");
+      const preset = spellPresetBySlug.get(getSpellKey(spellSlug))
+        || cachedSpellPresets.find((candidate) => getSpellKey(getPresetSlug(candidate)) === getSpellKey(spellSlug));
+      const spellName = normalizeTextValue(preset?.name || spellSlug);
+      const key = getSpellKey(poolId);
+      if (!grouped.has(key)){
+        grouped.set(key, []);
+      }
+      grouped.get(key).push({
+        spellSlug,
+        spellName,
+        actionType,
+        preset,
+        consumesPool: {id: poolId, cost},
+      });
+    });
+    return grouped;
+  }
+
+  function clearForcedPoolCastContext(){
+    forcedPoolCastContext = null;
+  }
+
+  function beginForcedPoolCast(entry){
+    if (!entry?.preset){
+      localToast("Could not find that spell preset, matey.");
+      return;
+    }
+    if (!isPlanning && !claimedCid){
+      localToast("Claim a character first, matey.");
+      return;
+    }
+    if (!state){
+      localToast("Map not ready yet, matey.");
+      return;
+    }
+    forcedPoolCastContext = {
+      preset: entry.preset,
+      consumesPool: {id: entry.consumesPool.id, cost: entry.consumesPool.cost},
+      actionType: entry.actionType,
+    };
+    pendingSpellActionType = entry.actionType;
+    applySpellPreset(entry.preset);
+    if (castPresetInput){
+      castPresetInput.value = "";
+    }
+    setCastOverlayOpen(true);
+    localToast(`Pool cast ready: ${entry.spellName}.`);
+  }
+
   function renderResourcePools(){
     if (!resourcePoolsListEl) return;
     const playerName = getClaimedPlayerName();
     const pools = getPlayerResourcePools(playerName);
+    const poolGrantedByPool = getPoolGrantedSpellsByPool(playerName);
+    const isCastBlocked = (!isPlanning && !claimedCid) || !state;
     resourcePoolsListEl.textContent = "";
     if (!pools.length){
       if (resourcePoolsPanelEl){
@@ -5417,6 +5504,8 @@ __DAMAGE_TYPE_OPTIONS__
       resourcePoolsPanelEl.style.display = "block";
     }
     pools.forEach((pool) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "resource-pool-entry";
       const chip = document.createElement("span");
       chip.className = `resource-pool-chip ${pool.current <= 0 ? "is-empty" : ""}`;
       chip.textContent = `${pool.label || pool.id} ${pool.current}/${pool.max}`;
@@ -5536,7 +5625,25 @@ __DAMAGE_TYPE_OPTIONS__
           localToast("Select an enemy within echo range for Unleash Incarnation.");
         });
       }
-      resourcePoolsListEl.appendChild(chip);
+      wrapper.appendChild(chip);
+      const spellEntries = poolGrantedByPool.get(getSpellKey(pool.id)) || [];
+      if (spellEntries.length){
+        const buttonsRow = document.createElement("div");
+        buttonsRow.className = "resource-pool-spells";
+        spellEntries.forEach((entry) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "resource-pool-cast-btn";
+          const actionLabel = entry.actionType === "bonus_action" ? "bonus action" : entry.actionType;
+          btn.textContent = `Cast: ${entry.spellName} (${actionLabel})`;
+          const hasPool = Number(pool.current || 0) >= Number(entry.consumesPool.cost || 1);
+          btn.disabled = isCastBlocked || !hasPool;
+          btn.addEventListener("click", () => beginForcedPoolCast(entry));
+          buttonsRow.appendChild(btn);
+        });
+        wrapper.appendChild(buttonsRow);
+      }
+      resourcePoolsListEl.appendChild(wrapper);
     });
   }
 
@@ -13684,24 +13791,7 @@ __DAMAGE_TYPE_OPTIONS__
   const getPreparedSpellFilterSet = () => {
     if (!claimedCid) return null;
     const list = loadPreparedSpellFilterList();
-    const baseSet = list ? new Set(list.map(getSpellKey)) : new Set();
-    const name = getClaimedPlayerName();
-    const poolEntries = getPoolGrantedSpellEntries(name);
-    const pools = new Map(getPlayerResourcePools(name).map((entry) => [getSpellKey(entry.id), entry]));
-    poolEntries.forEach((entry) => {
-      const slug = normalizeTextValue(entry.spell || entry.slug || entry.id);
-      if (!slug) return;
-      const consumes = entry.consumes_pool && typeof entry.consumes_pool === "object" ? entry.consumes_pool : {};
-      const poolId = normalizeTextValue(consumes.id || consumes.pool);
-      const costRaw = Number(consumes.cost ?? 1);
-      const cost = Number.isFinite(costRaw) ? Math.max(1, Math.floor(costRaw)) : 1;
-      const pool = pools.get(getSpellKey(poolId));
-      const current = Number(pool?.current ?? 0);
-      if (!poolId || current >= cost){
-        baseSet.add(getSpellKey(slug));
-      }
-    });
-    return baseSet;
+    return list ? new Set(list.map(getSpellKey)) : new Set();
   };
   const filterPresetsByKnownList = (presets, knownSpellSet) => {
     if (!knownSpellSet) return presets;
@@ -13770,6 +13860,9 @@ __DAMAGE_TYPE_OPTIONS__
     }
   };
   function getSelectedSpellPreset(){
+    if (forcedPoolCastContext?.preset){
+      return forcedPoolCastContext.preset;
+    }
     const name = normalizeTextValue(castPresetInput?.value);
     if (!name) return null;
     if (name === CUSTOM_SUMMON_PRESET_NAME){
@@ -15205,18 +15298,7 @@ __DAMAGE_TYPE_OPTIONS__
         if (!name) return;
         const opt = document.createElement("option");
         opt.value = name;
-        const playerName = getClaimedPlayerName();
-        const poolEntry = getPoolGrantedSpellEntries(playerName).find((entry) => getSpellKey(entry.spell || entry.slug || entry.id) === getSpellKey(getPresetSlug(preset)));
-        if (poolEntry){
-          const consumes = poolEntry.consumes_pool && typeof poolEntry.consumes_pool === "object" ? poolEntry.consumes_pool : {};
-          const label = normalizeTextValue(consumes.label || consumes.id || consumes.pool || "Pool");
-          const cost = Number.isFinite(Number(consumes.cost)) ? Math.max(1, Math.floor(Number(consumes.cost))) : 1;
-          const pool = getPlayerResourcePools(getClaimedPlayerName()).find((entry) => getSpellKey(entry.id) === getSpellKey(consumes.id || consumes.pool));
-          const freeText = pool && Number(pool.current) >= cost ? `free (${label} -${cost})` : `pool empty (${label})`;
-          opt.textContent = `${name} • ${freeText}`;
-        } else {
-          opt.textContent = name;
-        }
+        opt.textContent = name;
         optgroup.appendChild(opt);
       });
       if (optgroup.children.length){
@@ -16286,23 +16368,18 @@ __DAMAGE_TYPE_OPTIONS__
 
   function validateCastSlotSelection(preset, showToast = false){
     const playerName = getClaimedPlayerName();
-    const presetSlug = normalizeTextValue(getPresetSlug(preset));
-    const poolEntry = getPoolGrantedSpellEntries(playerName).find((entry) => getSpellKey(entry.spell || entry.slug || entry.id) === getSpellKey(presetSlug));
-    if (poolEntry){
-      const consumes = poolEntry.consumes_pool && typeof poolEntry.consumes_pool === "object" ? poolEntry.consumes_pool : {};
-      const poolId = normalizeTextValue(consumes.id || consumes.pool);
-      const cost = Number.isFinite(Number(consumes.cost)) ? Math.max(1, Math.floor(Number(consumes.cost))) : 1;
+    if (forcedPoolCastContext?.consumesPool){
+      const poolId = normalizeTextValue(forcedPoolCastContext.consumesPool.id);
+      const cost = Number.isFinite(Number(forcedPoolCastContext.consumesPool.cost))
+        ? Math.max(1, Math.floor(Number(forcedPoolCastContext.consumesPool.cost)))
+        : 1;
       const pool = getPlayerResourcePools(playerName).find((entry) => getSpellKey(entry.id) === getSpellKey(poolId));
-      if (pool && Number(pool.current) >= cost){
-        return {ok: true, slotLevel: null, consumesPool: {id: poolId, cost}};
-      }
-      const preparedSet = getPreparedSpellFilterSet();
-      const inPreparedList = preparedSet instanceof Set && preparedSet.has(getSpellKey(presetSlug));
-      if (!inPreparedList){
+      if (!pool || Number(pool.current) < cost){
         const msg = "That resource pool be exhausted, matey.";
         if (showToast) localToast(msg);
         return {ok: false, reason: msg};
       }
+      return {ok: true, slotLevel: null, consumesPool: {id: poolId, cost}};
     }
     const baseLevel = Number.isFinite(Number(preset?.level)) ? Math.max(0, Math.floor(Number(preset.level))) : 0;
     const rawLevel = Number(castSlotLevelInput?.value);
@@ -16488,20 +16565,27 @@ __DAMAGE_TYPE_OPTIONS__
   if (castForm){
     castForm.addEventListener("submit", (ev) => {
       ev.preventDefault();
+      try {
+      const clearForcedContext = () => clearForcedPoolCastContext();
       if (!isPlanning && !claimedCid){
         localToast("Claim a character first, matey.");
+        clearForcedContext();
         return;
       }
       if (!state){
         localToast("Map not ready yet, matey.");
+        clearForcedContext();
         return;
       }
       const preset = getSelectedSpellPreset();
       const spellActionType = getSpellActionType(preset);
-      const actionType = pendingSpellActionType || spellActionType;
-      if (pendingSpellActionType && pendingSpellActionType !== spellActionType){
+      const forcedActionType = normalizeSpellActionType(forcedPoolCastContext?.actionType || "");
+      const actionType = pendingSpellActionType || forcedActionType || spellActionType;
+      if (pendingSpellActionType && pendingSpellActionType !== spellActionType && !forcedPoolCastContext){
         const expectedLabel = spellActionType === "bonus_action" ? "bonus action" : spellActionType;
         localToast(`That spell uses a ${expectedLabel}.`);
+        clearForcedContext();
+        pendingSpellActionType = null;
         return;
       }
       pendingSpellActionType = null;
@@ -16510,6 +16594,7 @@ __DAMAGE_TYPE_OPTIONS__
         const actionCheck = canSpendSpellAction(unit, actionType);
         if (!actionCheck.ok){
           localToast(actionCheck.reason || "You can't cast right now.");
+          clearForcedContext();
           return;
         }
       }
@@ -16539,6 +16624,7 @@ __DAMAGE_TYPE_OPTIONS__
       const summonSpell = isSummonPreset(preset);
       if (isPlanning && !aoeSpell){
         localToast("Planning mode: only AoE preview is supported right now.");
+        clearForcedContext();
         return;
       }
       const customSummon = Boolean(preset?.isCustomSummon);
@@ -16548,20 +16634,24 @@ __DAMAGE_TYPE_OPTIONS__
       if (!customSummon && !summonSpell && !smiteSpell && !spellActionTag && !inferredTargetConfig){
         localToast("No tag found for that spell, matey.");
         reportSpellTagMissing(preset, {source: "cast_form_submit"});
+        clearForcedContext();
         return;
       }
       if (aoeSpell && !shape){
         localToast("Pick a spell shape first, matey.");
+        clearForcedContext();
         return;
       }
       const slotCheck = validateCastSlotSelection(preset, true);
       if (!slotCheck.ok){
+        clearForcedContext();
         return;
       }
       const slotLevel = Number.isFinite(slotCheck.slotLevel) ? Math.floor(Number(slotCheck.slotLevel)) : null;
       if (summonSpell && !customSummon){
         const summonValidation = validateSummonForm(preset, true);
         if (!summonValidation.ok){
+          clearForcedContext();
           return;
         }
         const choices = getSummonChoices(preset);
@@ -16584,6 +16674,7 @@ __DAMAGE_TYPE_OPTIONS__
         const caster = getClaimedUnit();
         if (!caster || !caster.pos){
           localToast("Could not find caster position, matey.");
+          clearForcedContext();
           return;
         }
         pendingSummonPlacement = {
@@ -16603,6 +16694,7 @@ __DAMAGE_TYPE_OPTIONS__
         rebuildSummonValidCells();
         updateSummonPlacementBanner();
         localToast("Summon placement started. Choose valid highlighted squares.");
+        clearForcedContext();
         return;
       }
       if (customSummon){
@@ -16648,6 +16740,7 @@ __DAMAGE_TYPE_OPTIONS__
         const caster = getClaimedUnit();
         if (!caster || !caster.pos){
           localToast("Could not find caster position, matey.");
+          clearForcedContext();
           return;
         }
         pendingSummonPlacement = {
@@ -17040,6 +17133,9 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (spellTargetConfig){
         startSpellTargetingSession(spellTargetConfig, preset, slotLevel, null);
+      }
+      } finally {
+        clearForcedPoolCastContext();
       }
     });
   }

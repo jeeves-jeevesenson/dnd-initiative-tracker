@@ -50,6 +50,79 @@ class ResourcePoolSpellTests(unittest.TestCase):
         self.assertEqual(spells, [])
         self.assertTrue(any("unknown consumes.pool" in msg for _level, msg in self.warnings))
 
+    def test_pool_granted_spells_include_attuned_equipped_magic_item_grants(self):
+        self.app._magic_items_registry_payload = lambda: {
+            "bahamuts_rebuking_claw": {
+                "id": "bahamuts_rebuking_claw",
+                "name": "Bahamut's Rebuking Claw",
+                "requires_attunement": True,
+                "grants": {
+                    "spells": {
+                        "casts": [
+                            {
+                                "spell": "polymorph",
+                                "action_type": "reaction",
+                                "consumes": {"pool": "bahamuts_rebuking_claw", "cost": 1},
+                            }
+                        ]
+                    }
+                },
+            }
+        }
+        profile = {
+            "name": "Throat Goat",
+            "resources": {
+                "pools": [
+                    {
+                        "id": "bahamuts_rebuking_claw",
+                        "label": "Bahamut's Rebuking Claw",
+                        "current": 1,
+                        "max_formula": "1",
+                        "reset": "long_rest",
+                    }
+                ]
+            },
+            "features": [],
+            "magic_items": {
+                "attunement_slots": 3,
+                "equipped": ["bahamuts_rebuking_claw"],
+                "attuned": ["bahamuts_rebuking_claw"],
+            },
+        }
+        spells = self.app._player_pool_granted_spells(profile)
+        self.assertEqual(len(spells), 1)
+        self.assertEqual(spells[0]["spell"], "polymorph")
+        self.assertEqual(spells[0]["action_type"], "reaction")
+
+    def test_attunement_required_magic_item_not_attuned_does_not_grant_spell(self):
+        self.app._magic_items_registry_payload = lambda: {
+            "bahamuts_rebuking_claw": {
+                "id": "bahamuts_rebuking_claw",
+                "requires_attunement": True,
+                "grants": {
+                    "spells": {
+                        "casts": [
+                            {
+                                "spell": "polymorph",
+                                "consumes": {"pool": "bahamuts_rebuking_claw", "cost": 1},
+                            }
+                        ]
+                    }
+                },
+            }
+        }
+        profile = {
+            "name": "Throat Goat",
+            "resources": {"pools": [{"id": "bahamuts_rebuking_claw", "current": 1, "max_formula": "1", "reset": "long_rest"}]},
+            "magic_items": {
+                "attunement_slots": 3,
+                "equipped": ["bahamuts_rebuking_claw"],
+                "attuned": [],
+            },
+        }
+        spells = self.app._player_pool_granted_spells(profile)
+        self.assertEqual(spells, [])
+
     def test_consume_pool_reduces_current(self):
         path = Path("players/test.yaml")
         self.app._load_player_yaml_cache = lambda: None
