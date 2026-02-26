@@ -307,6 +307,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertFalse(result.get("save_result", {}).get("passed"))
         self.assertFalse(result.get("needs_damage_prompt", False))
+        self.assertTrue(result.get("hit"))
         self.assertEqual(result.get("damage_total"), 0)
 
     def test_spell_target_request_effect_mode_logs_without_hp_change(self):
@@ -318,6 +319,27 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "concentration": True,
         }
         start_hp = self.app.combatants[3].hp
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 18,
+            "target_cid": 3,
+            "spell_name": "Bless",
+            "spell_slug": "bless",
+            "spell_mode": "effect",
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("ok"))
+        self.assertEqual(result.get("spell_mode"), "effect")
+        self.assertEqual(self.app.combatants[3].hp, start_hp)
+        self.assertTrue(any("targets Borin with Bless" in message for _, message in self.logs))
+        self.assertFalse(any("hits" in message.lower() or "misses" in message.lower() for _, message in self.logs))
+
     def test_spell_target_request_applies_movement_from_hit_outcome(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "thorn-whip",
@@ -341,12 +363,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "type": "spell_target_request",
             "cid": 1,
             "_claimed_cid": 1,
-            "_ws_id": 18,
-            "target_cid": 3,
-            "spell_name": "Bless",
-            "spell_slug": "bless",
-            "spell_mode": "effect",
-            "_ws_id": 17,
+            "_ws_id": 19,
             "target_cid": 2,
             "spell_name": "Thorn Whip",
             "spell_slug": "thorn-whip",
@@ -354,17 +371,14 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "hit": True,
         }
 
-        self.app._lan_apply_action(msg)
+        with mock.patch.object(self.app, "_lan_apply_forced_movement", return_value=True) as movement_mock:
+            self.app._lan_apply_action(msg)
 
         result = msg.get("_spell_target_result")
         self.assertIsInstance(result, dict)
         self.assertTrue(result.get("ok"))
-        self.assertEqual(result.get("spell_mode"), "effect")
-        self.assertEqual(self.app.combatants[3].hp, start_hp)
-        self.assertTrue(any("targets Borin with Bless" in message for _, message in self.logs))
-        self.assertFalse(any("hits" in message.lower() or "misses" in message.lower() for _, message in self.logs))
-
-        self.assertEqual(self.app._lan_positions.get(2), (4, 4))
+        self.assertEqual(result.get("spell_mode"), "attack")
+        movement_mock.assert_called_once_with(1, 2, "pull", 10.0, source_cell=None, direction_step=None)
 
 if __name__ == "__main__":
     unittest.main()
