@@ -8937,20 +8937,35 @@ __DAMAGE_TYPE_OPTIONS__
     addDamageRow(attackDamageRows, initialAmount, initialType);
   }
 
+  function parseManualDamageAmount(rawValue){
+    const text = String(rawValue ?? "").trim();
+    if (!text) return {status: "blank", value: null};
+    if (!/^\+?\d+$/.test(text)) return {status: "invalid", value: null};
+    const parsed = Number(text);
+    if (!Number.isSafeInteger(parsed) || parsed < 0) return {status: "invalid", value: null};
+    if (parsed === 0) return {status: "zero", value: null};
+    return {status: "ok", value: parsed};
+  }
+
   function collectDamageEntriesFromRows(container){
     const entries = [];
-    if (!container) return entries;
+    let invalidCount = 0;
+    if (!container) return {entries, invalidCount};
     Array.from(container.querySelectorAll(".damage-type-controls")).forEach((row) => {
       const amountInput = row.querySelector("input");
       const typeSelect = row.querySelector("select");
-      const amount = Number(String(amountInput?.value || "").trim());
-      if (!Number.isFinite(amount) || amount <= 0) return;
+      const parsedAmount = parseManualDamageAmount(amountInput?.value);
+      if (parsedAmount.status === "invalid"){
+        invalidCount += 1;
+        return;
+      }
+      if (parsedAmount.status !== "ok") return;
       entries.push({
-        amount: Math.floor(amount),
+        amount: parsedAmount.value,
         type: String(typeSelect?.value || "").trim().toLowerCase(),
       });
     });
-    return entries;
+    return {entries, invalidCount};
   }
 
   function syncAttackResolveDamageVisibility(){
@@ -18475,7 +18490,10 @@ __DAMAGE_TYPE_OPTIONS__
   if (spellResolveSubmit){
     spellResolveSubmit.addEventListener("click", () => {
       const pending = pendingSpellResolve;
-      const damageEntries = collectDamageEntriesFromRows(spellResolveDamageRows);
+      const {entries: damageEntries, invalidCount} = collectDamageEntriesFromRows(spellResolveDamageRows);
+      if (invalidCount > 0){
+        localToast("Invalid manual damage ignored; auto-roll used.");
+      }
       setSpellResolveModalOpen(false);
       if (pending && typeof pending.onConfirm === "function"){
         pending.onConfirm(damageEntries);
@@ -18493,7 +18511,11 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const hit = !(attackResolveMiss && attackResolveMiss.checked);
       const critical = hit && !!(attackResolveCrit && attackResolveCrit.checked);
-      const damageEntries = hit ? collectDamageEntriesFromRows(attackDamageRows) : [];
+      const damageParseResult = hit ? collectDamageEntriesFromRows(attackDamageRows) : {entries: [], invalidCount: 0};
+      const damageEntries = damageParseResult.entries;
+      if (hit && damageParseResult.invalidCount > 0){
+        localToast("Invalid manual damage ignored; auto-roll used.");
+      }
       const actionCid = pendingAttackResolve.opportunityAttack ? normalizeCid(claimedCid, "attackResolve.opportunityCid") : activeControlledUnitCid();
       if (actionCid === null){
         localToast("Not yer turn yet, matey.");
