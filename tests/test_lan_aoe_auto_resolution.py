@@ -249,8 +249,8 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         with mock.patch("dnd_initative_tracker.random.randint", side_effect=[2, 1, 1, 1, 2, 1, 1, 1]):
             self.app._lan_apply_action(msg)
 
-        self.assertEqual(self.app._lan_positions.get(2), (6, 6))
-        self.assertEqual(self.app._lan_positions.get(3), (8, 6))
+        self.assertEqual(self.app._lan_positions.get(2), (2, 4))
+        self.assertEqual(self.app._lan_positions.get(3), (8, 4))
 
     def test_evasion_reduces_dex_save_aoe_damage_for_monk_target(self):
         self.app.combatants[2].is_pc = True
@@ -279,6 +279,36 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
             self.app._lan_apply_action(msg)
         self.assertEqual(self.app.combatants[2].hp, 16)
 
+    def test_forced_movement_updates_map_window_token_position(self):
+        class MapWindowStub:
+            def __init__(self):
+                self.cols = 20
+                self.rows = 20
+                self.obstacles = set()
+                self.rough_terrain = {}
+                self.unit_tokens = {2: {"col": 4, "row": 4}}
+                self.feet_per_square = 5
+
+            def winfo_exists(self):
+                return True
+
+            def _grid_to_pixel(self, col, row):
+                return int(col) * 10, int(row) * 10
+
+            def _place_unit_at_pixel(self, cid, x, y):
+                self.unit_tokens[int(cid)] = {"col": int(round(x / 10)), "row": int(round(y / 10))}
+
+        self.app._map_window = MapWindowStub()
+        self.app._lan_positions[1] = (0, 4)
+        self.app._lan_positions[2] = (4, 4)
+
+        moved = self.app._lan_apply_forced_movement(1, 2, "push", 10)
+
+        self.assertTrue(moved)
+        self.assertEqual(self.app._lan_positions.get(2), (6, 4))
+        self.assertEqual(self.app._map_window.unit_tokens.get(2), {"col": 6, "row": 4})
 
 if __name__ == "__main__":
     unittest.main()
+
+

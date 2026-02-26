@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: thunderwave
 name: Thunderwave
-color: "#87CEEB"
+color: '#87CEEB'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 1
@@ -72,6 +72,10 @@ mechanics:
           kind: slot_level
           base_slot: 1
           add_per_slot_above: 1d8
+      - effect: movement
+        kind: push
+        distance_ft: 10
+        origin: caster
       success:
       - effect: damage
         damage_type: thunder
