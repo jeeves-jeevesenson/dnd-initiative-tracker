@@ -223,5 +223,26 @@ inventory:
     gp: 5400
     sp: 0
     cp: 0
-  items: []
+  items:
+  - name: Inazuma
+    quantity: 1
+    description: ''
+  - name: Gauntlets
+    quantity: 1
+    description: Attuned.
+magic_items:
+  attunement_slots: 3
+  equipped:
+  - inazuma
+  - gauntlets
+  attuned:
+  - inazuma
+  - gauntlets
+  items:
+  - id: inazuma
+    equipped: true
+    attuned: true
+  - id: gauntlets
+    equipped: true
+    attuned: true
 notes: {}

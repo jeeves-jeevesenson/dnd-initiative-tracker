@@ -183,4 +183,9 @@ inventory:
     sp: 0
     cp: 0
   items: []
+magic_items:
+  attunement_slots: 3
+  equipped: []
+  attuned: []
+  items: []
 notes: {}

@@ -64,6 +64,11 @@ resources:
     current: 1
     max_formula: '1'
     reset: long_rest
+  - id: wand_of_sparking_lightning_bolt
+    label: Wand of Sparking (Lightning Bolt)
+    current: 1
+    max_formula: '1'
+    reset: long_rest
 features:
 - id: arcane_recovery
   name: Arcane Recovery
@@ -247,5 +252,18 @@ inventory:
     gp: 3008
     sp: 0
     cp: 0
-  items: []
+  items:
+  - name: Wand of Sparking
+    quantity: 1
+    description: Grants shocking grasp and 1 free cast of lightning bolt per long rest.
+magic_items:
+  attunement_slots: 3
+  equipped:
+  - wand_of_sparking
+  attuned:
+  - wand_of_sparking
+  items:
+  - id: wand_of_sparking
+    equipped: true
+    attuned: true
 notes: {}

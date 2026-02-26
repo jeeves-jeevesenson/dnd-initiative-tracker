@@ -382,6 +382,19 @@ inventory:
     gp: 0
     sp: 0
     cp: 0
-  items: []
+  items:
+  - name: Big Ass Axe +1
+    quantity: 1
+    description: ''
+magic_items:
+  attunement_slots: 3
+  equipped:
+  - big_ass_axe_plus_1
+  attuned:
+  - big_ass_axe_plus_1
+  items:
+  - id: big_ass_axe_plus_1
+    equipped: true
+    attuned: true
 
 notes: {}
