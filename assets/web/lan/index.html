@@ -4242,7 +4242,8 @@ __DAMAGE_TYPE_OPTIONS__
   const battleLogViewPrefsKey = "inittracker_battle_log_view_prefs";
   const sheetPanelHiddenKey = "inittracker_ui_sheetPanelHidden";
   let dmLogLines = [];
-  let mapViewLogPollTimer = null;
+  let battleLogSubscribed = false;
+  const DM_LOG_LINES_MAX = 3000;
   let dmHighlightUntil = new Map();
   let dmUiPrefs = {showMapPreview:false, showLogPanel:false, autoScroll:true, filters:{attack:true,damage:true,save:true,heal:true,spell:true}};
   try { dmUiPrefs = {...dmUiPrefs, ...(JSON.parse(localStorage.getItem(dmUiPrefsKey)||"{}")||{})}; } catch(_) {}
@@ -7385,6 +7386,13 @@ __DAMAGE_TYPE_OPTIONS__
     send({type:"log_request"});
   }
 
+  function trimDmLogLines(){
+    if (!Array.isArray(dmLogLines)) dmLogLines = [];
+    if (dmLogLines.length > DM_LOG_LINES_MAX){
+      dmLogLines = dmLogLines.slice(-DM_LOG_LINES_MAX);
+    }
+  }
+
   function invalidateMovementRangeCache(){
     movementRangeCacheKey = "";
     movementRangeCostMap = null;
@@ -9368,18 +9376,19 @@ __DAMAGE_TYPE_OPTIONS__
     if (atBottom) mapViewLogList.scrollTop = mapViewLogList.scrollHeight;
   }
   function refreshMapViewLogPolling(){
-    if (mapViewLogPollTimer){
-      clearInterval(mapViewLogPollTimer);
-      mapViewLogPollTimer = null;
+    const shouldSubscribe = isMapView || battleLogViewPrefs?.visible === true;
+    const canSend = ws && ws.readyState === WebSocket.OPEN;
+    if (!canSend){
+      battleLogSubscribed = false;
+      return;
     }
-    const shouldPoll = isMapView || battleLogViewPrefs?.visible === true;
-    if (!shouldPoll) return;
-    requestBattleLog();
-    mapViewLogPollTimer = setInterval(()=>{
-      if (ws && ws.readyState === WebSocket.OPEN && (isMapView || battleLogViewPrefs?.visible === true)){
-        send({type:"log_request"});
-      }
-    }, 2500);
+    if (shouldSubscribe && !battleLogSubscribed){
+      battleLogSubscribed = true;
+      send({type:"log_subscribe", limit: 200});
+    } else if (!shouldSubscribe && battleLogSubscribed){
+      battleLogSubscribed = false;
+      send({type:"log_unsubscribe"});
+    }
   }
   function renderDmLogPanel(){
     const isAdmin = isAdminClient();
@@ -11360,6 +11369,7 @@ __DAMAGE_TYPE_OPTIONS__
       refreshMapViewLogPolling();
     });
     ws.addEventListener("close", (ev) => {
+      battleLogSubscribed = false;
       const wasReconnect = reconnecting;
       reconnecting = false;
       const serverError = ev && ev.code === 1011;
@@ -11635,12 +11645,24 @@ __DAMAGE_TYPE_OPTIONS__
         }
       } else if (msg.type === "battle_log"){
         const lines = Array.isArray(msg.lines) ? msg.lines : [];
-        renderBattleLogOverlay(lines);
         dmLogLines = lines;
+        trimDmLogLines();
+        renderBattleLogOverlay(dmLogLines);
         const units = state?.units || [];
         const now = Date.now();
-        lines.slice(-4).forEach((line)=>{ const text=String(line||""); const unit=units.find(u=>text.includes(u.name)); if (unit){ dmHighlightUntil.set(String(unit.cid), now+2200); }});
+        dmLogLines.slice(-4).forEach((line)=>{ const text=String(line||""); const unit=units.find(u=>text.includes(u.name)); if (unit){ dmHighlightUntil.set(String(unit.cid), now+2200); }});
         renderDmLogPanel();
+      } else if (msg.type === "battle_log_append"){
+        const lines = Array.isArray(msg.lines) ? msg.lines : [];
+        if (lines.length){
+          dmLogLines = dmLogLines.concat(lines);
+          trimDmLogLines();
+          renderBattleLogOverlay(dmLogLines);
+          const units = state?.units || [];
+          const now = Date.now();
+          lines.slice(-4).forEach((line)=>{ const text=String(line||""); const unit=units.find(u=>text.includes(u.name)); if (unit){ dmHighlightUntil.set(String(unit.cid), now+2200); }});
+          renderDmLogPanel();
+        }
       } else if (msg.type === "attack_result"){
         const me = getClaimedUnit();
         if (me && cidMatches(msg.attacker_cid, me.cid, "attackResult.attacker")){

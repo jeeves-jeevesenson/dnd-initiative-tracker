@@ -1369,6 +1369,14 @@ class LanController:
         self._ws_claim_revs: Dict[int, int] = {}  # fallback revision tracking for ws sessions without client_id
         self._host_presets: Dict[str, Dict[str, Any]] = self._load_host_presets()
         self._cid_push_subscriptions: Dict[int, List[Dict[str, Any]]] = {}
+        self._battle_log_subscribers: set[int] = set()
+        self._battle_log_limit_default: int = 200
+        self._battle_log_follow_offset: int = 0
+        self._battle_log_follow_partial: bytes = b""
+        self._battle_log_follow_inode: Optional[Tuple[int, int]] = None
+        self._battle_log_follow_size: int = 0
+        self._battle_log_follow_last_check: float = 0.0
+        self._battle_log_follow_interval_s: float = 0.35
         self._client_error_logger = _make_client_error_logger()
         self._client_log_lock = threading.Lock()
         self._client_log_state: Dict[str, Tuple[float, int]] = {}
@@ -2618,10 +2626,30 @@ class LanController:
                                 self._terrain_pending.pop(ws_id, None)
                     elif typ == "log_request":
                         try:
-                            lines = self.app._lan_battle_log_lines()
+                            req_limit = int(msg.get("limit") or self._battle_log_limit_default)
+                        except Exception:
+                            req_limit = self._battle_log_limit_default
+                        try:
+                            lines = self.app._lan_battle_log_lines(limit=req_limit)
                         except Exception:
                             lines = []
                         await ws.send_text(self._json_dumps({"type": "battle_log", "lines": lines}))
+                    elif typ == "log_subscribe":
+                        try:
+                            req_limit = int(msg.get("limit") or self._battle_log_limit_default)
+                        except Exception:
+                            req_limit = self._battle_log_limit_default
+                        req_limit = max(1, min(req_limit, 5000))
+                        with self._clients_lock:
+                            self._battle_log_subscribers.add(ws_id)
+                        try:
+                            lines = self.app._lan_battle_log_lines(limit=req_limit)
+                        except Exception:
+                            lines = []
+                        await ws.send_text(self._json_dumps({"type": "battle_log", "lines": lines}))
+                    elif typ == "log_unsubscribe":
+                        with self._clients_lock:
+                            self._battle_log_subscribers.discard(ws_id)
                     elif typ == "claim":
                         client_id = self._normalize_client_id(msg.get("client_id"))
                         if not client_id:
@@ -2762,6 +2790,7 @@ class LanController:
                     self._client_hosts.pop(ws_id, None)
                     self._ws_claim_revs.pop(ws_id, None)
                     self._view_only_clients.discard(ws_id)
+                    self._battle_log_subscribers.discard(ws_id)
                     client_id = self._client_ids.pop(ws_id, None)
                     if client_id:
                         ws_set = self._client_id_to_ws.get(client_id)
@@ -3090,6 +3119,10 @@ class LanController:
 
             with self._clients_lock:
                 has_live_clients = bool(self._clients)
+                has_battle_log_subscribers = bool(self._battle_log_subscribers)
+
+            if has_battle_log_subscribers:
+                self._poll_battle_log_updates()
 
             # Keep idle polling cheap for the DM UI: when no clients are connected and no
             # actions are queued, avoid rebuilding/broadcasting snapshots every 120ms.
@@ -3241,6 +3274,114 @@ class LanController:
             # 3) continue polling
             if should_schedule_next and self._polling:
                 self.app.after(next_tick_ms, self._tick)
+
+    def _poll_battle_log_updates(self) -> None:
+        now = time.monotonic()
+        if now - self._battle_log_follow_last_check < self._battle_log_follow_interval_s:
+            return
+        self._battle_log_follow_last_check = now
+        path = self.app._history_file_path()
+        try:
+            st = path.stat()
+        except Exception:
+            return
+        inode = (int(getattr(st, "st_dev", 0)), int(getattr(st, "st_ino", 0)))
+        size = int(getattr(st, "st_size", 0))
+        if self._battle_log_follow_inode is None:
+            self._battle_log_follow_inode = inode
+            self._battle_log_follow_offset = size
+            self._battle_log_follow_size = size
+            self._battle_log_follow_partial = b""
+            return
+        rotated = inode != self._battle_log_follow_inode
+        truncated = size < self._battle_log_follow_offset
+        if rotated or truncated:
+            self._battle_log_follow_inode = inode
+            self._battle_log_follow_offset = size
+            self._battle_log_follow_size = size
+            self._battle_log_follow_partial = b""
+            self._broadcast_battle_log_snapshot()
+            return
+        if size <= self._battle_log_follow_offset:
+            self._battle_log_follow_size = size
+            return
+        start = self._battle_log_follow_offset
+        try:
+            with path.open("rb") as fh:
+                fh.seek(start)
+                chunk = fh.read(max(0, size - start))
+        except Exception:
+            return
+        self._battle_log_follow_offset = size
+        self._battle_log_follow_size = size
+        if not chunk and not self._battle_log_follow_partial:
+            return
+        data = self._battle_log_follow_partial + chunk
+        raw_lines = data.splitlines(keepends=True)
+        complete: List[bytes] = []
+        trailing_partial = b""
+        for raw_line in raw_lines:
+            if raw_line.endswith((b"\n", b"\r")):
+                complete.append(raw_line)
+            else:
+                trailing_partial = raw_line
+        self._battle_log_follow_partial = trailing_partial
+        if not complete:
+            return
+        try:
+            lines = [line.decode("utf-8", errors="ignore").rstrip("\r\n") for line in complete]
+
+        except Exception:
+            return
+        if lines:
+            self._broadcast_battle_log_append(lines)
+
+    def _broadcast_battle_log_snapshot(self, limit: Optional[int] = None) -> None:
+        if limit is None:
+            limit = self._battle_log_limit_default
+        try:
+            lines = self.app._lan_battle_log_lines(limit=int(limit))
+        except Exception:
+            lines = []
+        self._broadcast_battle_log_payload({"type": "battle_log", "lines": lines})
+
+    def _broadcast_battle_log_append(self, lines: List[str]) -> None:
+        if not lines:
+            return
+        self._broadcast_battle_log_payload({"type": "battle_log_append", "lines": lines})
+
+    def _broadcast_battle_log_payload(self, payload: Dict[str, Any]) -> None:
+        if not self._loop:
+            return
+        coro = self._broadcast_battle_log_payload_async(payload)
+        try:
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
+        except Exception as exc:
+            self._log_lan_exception("LAN battle log payload scheduling failed", exc)
+
+    async def _broadcast_battle_log_payload_async(self, payload: Dict[str, Any]) -> None:
+        try:
+            text = self._json_dumps(payload)
+        except Exception as exc:
+            self._log_lan_exception("LAN battle log payload serialization failed", exc)
+            return
+        to_drop: List[int] = []
+        with self._clients_lock:
+            subscriber_ids = list(self._battle_log_subscribers)
+            items = [(ws_id, self._clients.get(ws_id)) for ws_id in subscriber_ids]
+        for ws_id, ws in items:
+            if ws is None:
+                to_drop.append(ws_id)
+                continue
+            try:
+                await ws.send_text(text)
+            except Exception as exc:
+                to_drop.append(ws_id)
+                self._log_lan_exception(f"LAN battle log send failed ws_id={ws_id}", exc)
+        if to_drop:
+            with self._clients_lock:
+                for ws_id in to_drop:
+                    self._battle_log_subscribers.discard(ws_id)
 
     @staticmethod
     def _unit_lookup(units: Any) -> Dict[int, Dict[str, Any]]:
@@ -5331,11 +5472,39 @@ class InitiativeTracker(base.InitiativeTracker):
         try:
             if not path.exists():
                 return []
-            lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
         except Exception:
             return []
-        if limit > 0:
-            return lines[-limit:]
+        if limit <= 0:
+            try:
+                return path.read_text(encoding="utf-8", errors="ignore").splitlines()
+            except Exception:
+                return []
+        max_lines = max(1, int(limit))
+        chunk_size = 8192
+        try:
+            with path.open("rb") as fh:
+                fh.seek(0, os.SEEK_END)
+                file_size = fh.tell()
+                if file_size <= 0:
+                    return []
+                blocks: List[bytes] = []
+                bytes_remaining = file_size
+                newline_count = 0
+                while bytes_remaining > 0 and newline_count <= max_lines:
+                    read_size = min(chunk_size, bytes_remaining)
+                    bytes_remaining -= read_size
+                    fh.seek(bytes_remaining)
+                    block = fh.read(read_size)
+                    if not block:
+                        break
+                    blocks.append(block)
+                    newline_count += block.count(b"\n")
+                data = b"".join(reversed(blocks))
+            lines = data.decode("utf-8", errors="ignore").splitlines()
+        except Exception:
+            return []
+        if len(lines) > max_lines:
+            return lines[-max_lines:]
         return lines
 
     def _resolve_spells_dir(self) -> Optional[Path]:
