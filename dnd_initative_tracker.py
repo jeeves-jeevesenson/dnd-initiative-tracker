@@ -1393,6 +1393,7 @@ class LanController:
         self._clients_meta: Dict[int, Dict[str, Any]] = {}  # id(websocket) -> {host,port,ua,connected_at}
         self._client_hosts: Dict[int, str] = {}  # id(websocket) -> host
         self._view_only_clients: set[int] = set()
+        self._planning_chat_clients: set[int] = set()
         self._claims: Dict[int, int] = {}   # id(websocket) -> cid
         self._cid_to_ws: Dict[int, set[int]] = {}  # cid -> {id(websocket), ...}
         self._cid_to_host: Dict[int, set[str]] = {}  # cid -> {host, ...}
@@ -2790,6 +2791,32 @@ class LanController:
                                 "you": self._build_you_payload(ws_id),
                             },
                         )
+                    elif typ == "planning_hello":
+                        with self._clients_lock:
+                            self._planning_chat_clients.add(ws_id)
+                    elif typ == "planning_chat":
+                        with self._clients_lock:
+                            if ws_id not in self._planning_chat_clients:
+                                continue
+                        text = str(msg.get("text") or "").strip()
+                        if not text:
+                            continue
+                        if len(text) > 500:
+                            text = text[:500]
+                        display_name = self._assigned_character_name_for_host(host)
+                        if not display_name or str(display_name).startswith("cid:"):
+                            display_name = str(host or "?")
+                        payload = {
+                            "type": "planning_chat",
+                            "ts": datetime.utcnow().isoformat() + "Z",
+                            "host": str(host or "?"),
+                            "name": str(display_name),
+                            "text": text,
+                        }
+                        with self._clients_lock:
+                            targets = list(self._planning_chat_clients)
+                        for target_ws_id in targets:
+                            await self._send_async(target_ws_id, payload)
                     elif typ in self._ACTION_MESSAGE_TYPES:
                         # enqueue for Tk thread
                         with self._clients_lock:
@@ -2826,6 +2853,7 @@ class LanController:
                     self._client_hosts.pop(ws_id, None)
                     self._ws_claim_revs.pop(ws_id, None)
                     self._view_only_clients.discard(ws_id)
+                    self._planning_chat_clients.discard(ws_id)
                     self._battle_log_subscribers.discard(ws_id)
                     client_id = self._client_ids.pop(ws_id, None)
                     if client_id:

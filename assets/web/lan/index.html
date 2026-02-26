@@ -119,6 +119,51 @@
     .map-view .mapWrap{
       flex:1 1 auto;
     }
+    .planning-view #endTurn,
+    .planning-view #initiativeBarWrap,
+    .planning-view #endTurnSheet,
+    .planning-view #sheetWrap{
+      display:none !important;
+    }
+    .planning-chat-overlay{
+      position:fixed;
+      inset:0;
+      background: rgba(5,7,10,0.72);
+      z-index: 80;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 20px;
+      box-sizing:border-box;
+    }
+    .planning-chat-overlay.show{display:flex;}
+    .planning-chat-card{
+      width:min(580px, 100%);
+      max-height:min(80dvh, 720px);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      padding:14px;
+      background: var(--panel2);
+      border:1px solid rgba(255,255,255,0.14);
+      border-radius:14px;
+    }
+    .planning-chat-list{
+      min-height:240px;
+      max-height:52dvh;
+      overflow:auto;
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:10px;
+      padding:8px;
+      background: rgba(0,0,0,0.2);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .planning-chat-item{font-size:13px; line-height:1.35;}
+    .planning-chat-meta{color:var(--muted); font-size:11px; margin-bottom:2px;}
+    .planning-chat-compose{display:flex; gap:8px;}
+    .planning-chat-compose input{flex:1 1 auto;}
     .topbar-main-row,
     .topbar-initiative-row{
       display:flex;
@@ -2068,6 +2113,7 @@
       <button class="btn end-turn-top" id="endTurn">End Turn</button>
       <div class="spacer"></div>
       <button class="btn" id="planningBtn" type="button">Planning Mode</button>
+      <button class="btn hidden" id="planningChatBtn" type="button">Chat</button>
       <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
       <button class="btn" id="helpBtn" type="button" aria-controls="helpModal" aria-expanded="false">Help</button>
       <button class="btn" id="configBtn" aria-controls="configModal" aria-expanded="false">Config</button>
@@ -2096,6 +2142,21 @@
       <div class="topbar-initiative-row">
         <div class="turn-order-status" id="mapViewTurnOrderStatus"></div>
       </div>
+    </div>
+  </div>
+
+  <div class="planning-chat-overlay" id="planningChatOverlay" aria-hidden="true">
+    <div class="planning-chat-card" role="dialog" aria-modal="true" aria-labelledby="planningChatTitle">
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <strong id="planningChatTitle">Planning Chat</strong>
+        <button class="btn" id="planningChatClose" type="button">Close</button>
+      </div>
+      <div class="hint">Names use IP assignment when available; otherwise sender IP is shown.</div>
+      <div class="planning-chat-list" id="planningChatList" aria-live="polite"></div>
+      <form class="planning-chat-compose" id="planningChatForm">
+        <input class="input" id="planningChatInput" maxlength="500" placeholder="Message" />
+        <button class="btn accent" id="planningChatSend" type="submit">Send</button>
+      </form>
     </div>
   </div>
 
@@ -3903,6 +3964,12 @@ __DAMAGE_TYPE_OPTIONS__
   const castPresetInput = document.getElementById("castPreset");
   const castManualEntryBadge = document.getElementById("castManualEntryBadge");
   const planningBtn = document.getElementById("planningBtn");
+  const planningChatBtn = document.getElementById("planningChatBtn");
+  const planningChatOverlay = document.getElementById("planningChatOverlay");
+  const planningChatCloseBtn = document.getElementById("planningChatClose");
+  const planningChatList = document.getElementById("planningChatList");
+  const planningChatForm = document.getElementById("planningChatForm");
+  const planningChatInput = document.getElementById("planningChatInput");
   const spellLibraryBtn = document.getElementById("spellLibraryBtn");
   const spellLibraryOverlay = document.getElementById("spellLibraryOverlay");
   const spellLibraryCloseBtn = document.getElementById("spellLibraryClose");
@@ -4145,6 +4212,9 @@ __DAMAGE_TYPE_OPTIONS__
   let ws = null;
   let state = null;
   let planningSnapshotLocked = false;
+  let planningChatOpen = false;
+  let planningChatMessages = [];
+  const planningChatMaxMessages = 200;
   let reconnectTimer = null;
   let reconnecting = false;
   let claimedCid = null;
@@ -4291,7 +4361,7 @@ __DAMAGE_TYPE_OPTIONS__
   let showResetTurn = readToggle(uiToggleKeys.resetTurn, true);
   let hideSpellMenu = readToggle(uiToggleKeys.hideSpellMenu, false);
   let menusLocked = readToggle(uiToggleKeys.lockMenus, false);
-  let sheetPanelHidden = readToggle(sheetPanelHiddenKey, false);
+  let sheetPanelHidden = isPlanning ? true : readToggle(sheetPanelHiddenKey, false);
   let lockMyAoes = readToggle(lockMyAoesKey, true);
   let mapViewSettings = null;
   let battleLogViewPrefs = null;
@@ -6858,7 +6928,10 @@ __DAMAGE_TYPE_OPTIONS__
   ]);
 
   function send(msg){
-    if (isPlanning) return;
+    if (isPlanning){
+      const typ = String(msg?.type || "");
+      if (typ !== "planning_hello" && typ !== "planning_chat") return;
+    }
     if (isMapView && msg && mapViewBlockedTypes.has(msg.type)){
       return;
     }
@@ -6869,6 +6942,54 @@ __DAMAGE_TYPE_OPTIONS__
   function localToast(text){
     if (!noteEl) return;
     noteEl.textContent = text || "…";
+  }
+
+  function renderPlanningChat(){
+    if (!planningChatList) return;
+    planningChatList.textContent = "";
+    planningChatMessages.forEach((entry) => {
+      const item = document.createElement("div");
+      item.className = "planning-chat-item";
+      const meta = document.createElement("div");
+      meta.className = "planning-chat-meta";
+      const who = String(entry?.name || entry?.host || "Unknown");
+      const host = String(entry?.host || "?");
+      const ts = String(entry?.ts || "");
+      meta.textContent = `${who} (${host}) ${ts}`.trim();
+      const body = document.createElement("div");
+      body.textContent = String(entry?.text || "");
+      item.appendChild(meta);
+      item.appendChild(body);
+      planningChatList.appendChild(item);
+    });
+    planningChatList.scrollTop = planningChatList.scrollHeight;
+  }
+
+  function appendPlanningChatMessage(msg){
+    if (!isPlanning) return;
+    const text = String(msg?.text || "").trim();
+    if (!text) return;
+    planningChatMessages.push({
+      ts: String(msg?.ts || ""),
+      host: String(msg?.host || ""),
+      name: String(msg?.name || ""),
+      text,
+    });
+    if (planningChatMessages.length > planningChatMaxMessages){
+      planningChatMessages = planningChatMessages.slice(-planningChatMaxMessages);
+    }
+    renderPlanningChat();
+  }
+
+  function setPlanningChatOpen(open){
+    planningChatOpen = !!open;
+    if (!planningChatOverlay) return;
+    planningChatOverlay.classList.toggle("show", planningChatOpen);
+    planningChatOverlay.setAttribute("aria-hidden", planningChatOpen ? "false" : "true");
+    if (planningChatOpen){
+      renderPlanningChat();
+      planningChatInput?.focus();
+    }
   }
 
   const DEFAULT_SPELL_COLOR = "#6aa9ff";
@@ -7023,7 +7144,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function showNoOwnedPcToast(pcs){
-    if (isMapView) return;
+    if (isMapView || isPlanning) return;
     if (shownNoOwnedToast) return;
     if (claimStatus !== "unclaimed") return;
     if (claimedCid) return;
@@ -7315,7 +7436,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   function updateClaimOverlay(){
     if (!claimModal) return;
-    if (isMapView){
+    if (isMapView || isPlanning){
       claimModal.classList.remove("show");
       claimModal.setAttribute("aria-hidden", "true");
       return;
@@ -9004,6 +9125,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   function canInteractWithAoe(aoe){
     if (!aoe) return false;
+    if (isPlanning) return true;
     if (isMapView) return isAdminClient();
     if (isAdminClient()) return true;
     if (!claimedCid) return false;
@@ -9171,6 +9293,13 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function updateResourceGatedControls(){
+    if (isPlanning){
+      setControlDisabledState(attackOverlayToggleBtn, true, "Planning mode keeps combat actions disabled.", "Attack");
+      setControlDisabledState(dashBtn, true, "Planning mode keeps combat actions disabled.", "Dash");
+      setControlDisabledState(castOverlayOpenBtn, false, "", "Cast Spell");
+      setControlDisabledState(castSpellModalOpenBtn, false, "", "Cast Spell");
+      return;
+    }
     const unitCid = activeControlledUnitCid();
     const controllableTurn = !isMapView && unitCid !== null;
     const unit = controllableTurn ? getUnitByCid(unitCid) : null;
@@ -11546,6 +11675,9 @@ __DAMAGE_TYPE_OPTIONS__
       if (!isMapView){
         send({type:"client_hello", client_id: clientId});
       }
+      if (isPlanning){
+        send({type:"planning_hello"});
+      }
       send({type:"grid_request"});
       send({type:"terrain_request"});
       refreshMapViewLogPolling();
@@ -11570,6 +11702,10 @@ __DAMAGE_TYPE_OPTIONS__
       let msg = null;
       try { msg = JSON.parse(ev.data); } catch(e){ return; }
       if (isPlanning && planningSnapshotLocked && planningFreezeTypes.has(msg.type)){
+        return;
+      }
+      if (msg.type === "planning_chat") {
+        appendPlanningChatMessage(msg);
         return;
       }
       if (msg.type === "static_data"){
@@ -12269,6 +12405,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   function allowAoeDrag(ev){
     if (isMapView) return false;
+    if (isPlanning) return true;
     if (isAdminClient()) return true;
     if (!claimedCid) return false;
     if (lockMyAoes) return false;
@@ -12310,21 +12447,21 @@ __DAMAGE_TYPE_OPTIONS__
       setPendingAoePlacementCursorFromPointer(p);
       const aimGuide = computeAoePlacementAimGuide();
       aoeAimGuide = aimGuide;
-      if (aimGuide?.blocked){
+      if (!isPlanning && aimGuide?.blocked){
         localToast("No line of sight to that point.");
         draw();
         return;
       }
-      if (aimGuide?.outOfRange){
+      if (!isPlanning && aimGuide?.outOfRange){
         const rangeLabel = Number.isFinite(Number(aimGuide.rangeFt)) ? formatFeet(aimGuide.rangeFt) : "spell range";
         localToast(`Out of range (${rangeLabel} max).`);
         draw();
         return;
       }
-      if (pendingAoePlacement.castConfirmMessage && !window.confirm(pendingAoePlacement.castConfirmMessage)){
+      if (!isPlanning && pendingAoePlacement.castConfirmMessage && !window.confirm(pendingAoePlacement.castConfirmMessage)){
         return;
       }
-      if (pendingAoePlacement.concentrationConfirmMessage && !window.confirm(pendingAoePlacement.concentrationConfirmMessage)){
+      if (!isPlanning && pendingAoePlacement.concentrationConfirmMessage && !window.confirm(pendingAoePlacement.concentrationConfirmMessage)){
         return;
       }
       const msg = {...pendingAoePlacement.msg, payload: {...(pendingAoePlacement.msg?.payload || {})}};
@@ -12353,7 +12490,7 @@ __DAMAGE_TYPE_OPTIONS__
         clearPendingAoePlacement(false);
         draw();
       };
-      if (castAutomationIsEnabled()){
+      if (isPlanning || castAutomationIsEnabled()){
         submitAoe();
       } else {
         const resolveContext = pendingAoePlacement.resolveContext || {};
@@ -12398,10 +12535,12 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const rotateHit = hitTestRotateHandle(p);
     if (rotateHit){
-      const rotationCid = normalizeCid(activeControlledUnitCid(), "rotate.hit.controlledCid");
-      if (rotationCid === null || !cidMatches(rotateHit.cid, rotationCid, "rotate.hitCid")){
-        send({type:"toast", text:"Arrr, that token ain’t yers."});
-        return;
+      if (!isPlanning){
+        const rotationCid = normalizeCid(activeControlledUnitCid(), "rotate.hit.controlledCid");
+        if (rotationCid === null || !cidMatches(rotateHit.cid, rotationCid, "rotate.hitCid")){
+          localToast("Arrr, that token ain’t yers.");
+          return;
+        }
       }
       rotatingToken = {cid: Number(rotateHit.cid)};
       const {x, y} = gridToScreen(rotateHit.pos.col, rotateHit.pos.row);
@@ -12411,19 +12550,19 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const hit = hitTestToken(p);
     if (hit){
-      // only drag own token
       const controlledCid = activeControlledUnitCid();
       const mountMoveCid = getMountMovementCid();
       const canDragMount = mountMoveCid !== null && cidMatches(hit.cid, mountMoveCid, "dragToken.mountCid");
       const canDragSelf = controlledCid !== null && cidMatches(hit.cid, controlledCid, "dragToken.hitCid");
-      if (!claimedCid || (!canDragSelf && !canDragMount)){
-        send({type:"toast", text:"Arrr, that token ain’t yers."});
-        return;
-      }
-      // only on your (or controlled summon's shared) turn
-      if (controlledCid === null){
-        send({type:"toast", text:"Not yer turn yet, matey."});
-        return;
+      if (!isPlanning){
+        if (!claimedCid || (!canDragSelf && !canDragMount)){
+          localToast("Arrr, that token ain’t yers.");
+          return;
+        }
+        if (controlledCid === null){
+          localToast("Not yer turn yet, matey.");
+          return;
+        }
       }
       const mountUnitForDrag = mountMoveCid !== null ? getUnitByCid(mountMoveCid) : null;
       // When mounted, dragging either the rider or mount should move the mount token.
@@ -15711,7 +15850,7 @@ __DAMAGE_TYPE_OPTIONS__
   if (castForm){
     castForm.addEventListener("submit", (ev) => {
       ev.preventDefault();
-      if (!claimedCid){
+      if (!isPlanning && !claimedCid){
         localToast("Claim a character first, matey.");
         return;
       }
@@ -15729,10 +15868,12 @@ __DAMAGE_TYPE_OPTIONS__
       }
       pendingSpellActionType = null;
       const unit = getClaimedUnit();
-      const actionCheck = canSpendSpellAction(unit, actionType);
-      if (!actionCheck.ok){
-        localToast(actionCheck.reason || "You can't cast right now.");
-        return;
+      if (!isPlanning){
+        const actionCheck = canSpendSpellAction(unit, actionType);
+        if (!actionCheck.ok){
+          localToast(actionCheck.reason || "You can't cast right now.");
+          return;
+        }
       }
       const actionLabel = actionType === "bonus_action" ? "bonus action" : actionType;
       const spellName = normalizeTextValue(castNameInput?.value) || "this spell";
@@ -15758,6 +15899,10 @@ __DAMAGE_TYPE_OPTIONS__
       const spellActionTag = resolveSpellActionTag(preset);
       const aoeSpell = spellActionTag === "aoe";
       const summonSpell = isSummonPreset(preset);
+      if (isPlanning && !aoeSpell){
+        localToast("Planning mode: only AoE preview is supported right now.");
+        return;
+      }
       const customSummon = Boolean(preset?.isCustomSummon);
       const smiteSpell = hasSpellTag(preset, "smite");
       if (!customSummon && !summonSpell && !smiteSpell && !spellActionTag){
@@ -16008,7 +16153,7 @@ __DAMAGE_TYPE_OPTIONS__
           const end = {col: Number(center.cx), row: Number(center.cy)};
           const blocked = isLineOfSightBlocked(start, end);
           setLosPreview(start, end, blocked);
-          if (blocked){
+          if (!isPlanning && blocked){
             localToast("No line of sight to spell center.");
             return;
           }
@@ -16125,10 +16270,10 @@ __DAMAGE_TYPE_OPTIONS__
         const caster = getClaimedUnit();
         const selfRangeCentered = isSelfRangeAoePreset(preset) && isCenteredAoeShape(shape);
         const confirmCastNow = () => {
-          if (!window.confirm(castConfirmMessage)){
+          if (!isPlanning && !window.confirm(castConfirmMessage)){
             return false;
           }
-          if (concentrationConfirmMessage && !window.confirm(concentrationConfirmMessage)){
+          if (!isPlanning && concentrationConfirmMessage && !window.confirm(concentrationConfirmMessage)){
             return false;
           }
           return true;
@@ -16167,7 +16312,7 @@ __DAMAGE_TYPE_OPTIONS__
               setCastOverlayOpen(false);
             }
           };
-          if (castAutomationIsEnabled()){
+          if (isPlanning || castAutomationIsEnabled()){
             sendCenteredAoe();
           } else {
             openSpellResolveModal(resolveContext, (damageEntries) => sendCenteredAoe(damageEntries));
@@ -16187,9 +16332,9 @@ __DAMAGE_TYPE_OPTIONS__
           casterPos: caster?.pos ? toGridPoint(caster.pos) : null,
           casterCid: Number(caster?.cid),
           rangeFt: parseSpellTargetRangeFeet(preset),
-          castConfirmMessage,
-          concentrationConfirmMessage,
-          resolveContext: {
+          castConfirmMessage: isPlanning ? null : castConfirmMessage,
+          concentrationConfirmMessage: isPlanning ? null : concentrationConfirmMessage,
+          resolveContext: isPlanning ? null : {
             spellName: payload.name || appearanceName || castName || preset?.name || "Spell",
             slotLevel,
             baseLevel: Number.isFinite(Number(preset?.level)) ? Math.floor(Number(preset.level)) : null,
@@ -16202,10 +16347,10 @@ __DAMAGE_TYPE_OPTIONS__
         draw();
         return;
       }
-      if (!window.confirm(castConfirmMessage)){
+      if (!isPlanning && !window.confirm(castConfirmMessage)){
         return;
       }
-      if (concentrationConfirmMessage && !window.confirm(concentrationConfirmMessage)){
+      if (!isPlanning && concentrationConfirmMessage && !window.confirm(concentrationConfirmMessage)){
         return;
       }
       if (isPlanning){
@@ -16393,6 +16538,30 @@ __DAMAGE_TYPE_OPTIONS__
         window.open(planningUrl.toString(), "_blank", "noopener,noreferrer");
       });
     }
+  }
+  if (planningChatBtn){
+    planningChatBtn.classList.toggle("hidden", !isPlanning);
+    planningChatBtn.addEventListener("click", () => setPlanningChatOpen(!planningChatOpen));
+  }
+  if (planningChatCloseBtn){
+    planningChatCloseBtn.addEventListener("click", () => setPlanningChatOpen(false));
+  }
+  if (planningChatOverlay){
+    planningChatOverlay.addEventListener("click", (ev) => {
+      if (ev.target === planningChatOverlay){
+        setPlanningChatOpen(false);
+      }
+    });
+  }
+  if (planningChatForm){
+    planningChatForm.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      if (!isPlanning) return;
+      const text = String(planningChatInput?.value || "").trim();
+      if (!text) return;
+      send({type:"planning_chat", text});
+      if (planningChatInput) planningChatInput.value = "";
+    });
   }
   if (configCloseBtn){
     configCloseBtn.addEventListener("click", () => {
@@ -17624,7 +17793,7 @@ __DAMAGE_TYPE_OPTIONS__
   if (dismissSummonsBtn){
     dismissSummonsBtn.addEventListener("click", () => {
       if (isMapView) return;
-      if (!claimedCid){
+      if (!isPlanning && !claimedCid){
         localToast("Claim a character first, matey.");
         return;
       }
@@ -17646,7 +17815,7 @@ __DAMAGE_TYPE_OPTIONS__
   if (moveEl){
     moveEl.addEventListener("click", () => {
       if (isMapView) return;
-      if (!claimedCid){
+      if (!isPlanning && !claimedCid){
         localToast("Claim a character first, matey.");
         return;
       }
