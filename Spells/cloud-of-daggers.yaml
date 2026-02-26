@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: cloud-of-daggers
 name: Cloud of Daggers
-color: "#3FA7FF"
+color: '#3FA7FF'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024"
+  book: Player´s Handbook 2024
   page: null
   srd: false
 level: 2
@@ -12,6 +12,7 @@ school: conjuration
 tags:
 - damage
 - aoe
+- automation_full
 casting_time: Action
 range: 60 feet
 components: V, S, M (a sliver of glass)
@@ -43,7 +44,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   targeting:
     origin: point_within_range
     range:
@@ -55,10 +56,31 @@ mechanics:
     target_selection:
       mode: area
       friendly_fire: true
-  sequence: []
-  scaling: null
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: none
+    outcomes:
+      fail:
+      - effect: damage
+        damage_type: slashing
+        dice: 4d4
+        scaling: &id001
+          kind: slot_level
+          base_slot: 2
+          add_per_slot_above: 2d4
+  scaling: *id001
   ui:
     template_preview: true
   notes:
-  - Creatures in the cube take 4d4 slashing damage (on entry/turn end); damage applies once per turn.
+  - Creatures in the cube take 4d4 slashing damage (on entry/turn end); damage applies
+    once per turn.
   - Manual upcast: damage increases by 2d4 per slot level above 2.
+  aoe_behavior:
+    persistent_default: true
+    over_time_default: true
+    trigger_mode: enter_or_end
+    pinned_default: false
+    move_per_turn_ft: 30
+    move_action_type: magic_action

@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: insect-plague
 name: Insect Plague
-color: "#32CD32"
+color: '#32CD32'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 5
@@ -83,3 +83,9 @@ mechanics:
   ui:
     template_preview: true
   notes: []
+  aoe_behavior:
+    persistent_default: true
+    over_time_default: true
+    trigger_mode: enter_or_end
+    pinned_default: true
+    move_action_type: none

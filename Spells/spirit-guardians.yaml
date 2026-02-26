@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: spirit-guardians
 name: Spirit Guardians
-color: "#FFFFE0"
+color: '#FFFFE0'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 3
@@ -13,6 +13,7 @@ tags:
 - damage
 - aoe
 - save
+- automation_full
 casting_time: Action
 range: Self
 components: V, S, M (a prayer scroll)
@@ -45,7 +46,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   targeting:
     origin: self
     range:
@@ -82,5 +83,12 @@ mechanics:
   ui:
     template_preview: false
   notes:
-  - Damage triggers when the aura enters a creature's space or it enters/ends its turn there (once per turn).
+  - Damage triggers when the aura enters a creature's space or it enters/ends its
+    turn there (once per turn).
   - Creatures not chosen have Speed halved; swap radiant to necrotic for evil casters.
+  aoe_behavior:
+    persistent_default: true
+    over_time_default: true
+    trigger_mode: enter_or_end
+    pinned_default: false
+    move_action_type: free
