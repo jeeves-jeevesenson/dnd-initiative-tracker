@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: moonbeam
 name: Moonbeam
-color: "#FFFFE0"
+color: '#FFFFE0'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 2
@@ -86,3 +86,10 @@ mechanics:
   ui:
     template_preview: true
   notes: []
+  aoe_behavior:
+    persistent_default: true
+    over_time_default: true
+    trigger_mode: enter_or_end
+    pinned_default: false
+    move_per_turn_ft: 60
+    move_action_type: bonus_action

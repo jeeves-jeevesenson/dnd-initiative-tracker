@@ -6162,10 +6162,35 @@ class InitiativeTracker(base.InitiativeTracker):
             self._show_dm_up_alert_dialog()
 
         self._enter_turn_with_auto_skip(starting=False)
+        current_turn_cid = _normalize_cid_value(getattr(self, "current_cid", None), "next_turn.current_cid")
+        if current_turn_cid is not None:
+            for _aid, aoe in list((getattr(self, "_lan_aoes", {}) or {}).items()):
+                if not isinstance(aoe, dict):
+                    continue
+                owner_cid = _normalize_cid_value(aoe.get("owner_cid"), "next_turn.aoe.owner_cid")
+                if owner_cid != int(current_turn_cid):
+                    continue
+                try:
+                    move_limit = float(aoe.get("move_per_turn_ft"))
+                except Exception:
+                    continue
+                if move_limit > 0:
+                    aoe["move_remaining_ft"] = float(move_limit)
         self._rebuild_table(scroll_to_current=True)
 
     def _end_turn_cleanup(self, cid: Optional[int], skip_decrement_types: Optional[set[str]] = None) -> None:
         super()._end_turn_cleanup(cid, skip_decrement_types=skip_decrement_types)
+        ending_cid = _normalize_cid_value(cid, "end_turn_cleanup.cid")
+        if ending_cid is not None:
+            for aid, aoe in list((getattr(self, "_lan_aoes", {}) or {}).items()):
+                if not isinstance(aoe, dict) or not bool(aoe.get("over_time")):
+                    continue
+                trigger = str(aoe.get("trigger_on_start_or_enter") or "").strip().lower()
+                if trigger not in ("end", "enter_or_end"):
+                    continue
+                included = self._lan_compute_included_units_for_aoe(aoe)
+                if int(ending_cid) in {int(x) for x in included}:
+                    self._lan_apply_aoe_trigger_to_targets(int(aid), aoe, target_cids=[int(ending_cid)])
         if cid is None or cid not in self.combatants:
             return
         c = self.combatants[cid]
@@ -8888,6 +8913,7 @@ class InitiativeTracker(base.InitiativeTracker):
         cols, rows, obstacles, _rough, _positions = self._lan_live_map_data()
         col, row = tc, tr
         moved = False
+        origin_cell = (int(tc), int(tr))
         for _ in range(int(steps)):
             nc, nr = col + int(step_x), row + int(step_y)
             if nc < 0 or nr < 0 or nc >= int(cols) or nr >= int(rows) or (nc, nr) in (obstacles or set()):
@@ -8896,6 +8922,8 @@ class InitiativeTracker(base.InitiativeTracker):
             moved = True
         if moved:
             self._lan_positions[int(target_cid)] = (int(col), int(row))
+            self._lan_sync_fixed_to_caster_aoes(int(target_cid))
+            self._lan_handle_aoe_enter_triggers_for_moved_unit(int(target_cid), origin_cell, (int(col), int(row)))
             self._enforce_johns_echo_tether(int(target_cid))
         return moved
 
@@ -9035,6 +9063,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "persistent",
                     "anchor_cid",
                     "fixed_to_caster",
+                    "move_action_type",
                 ):
                     if d.get(extra_key) not in (None, ""):
                         payload[extra_key] = d.get(extra_key)
@@ -9809,6 +9838,116 @@ class InitiativeTracker(base.InitiativeTracker):
         included.sort(key=lambda item: order_idx.get(int(item), 10**9))
         return included
 
+    def _lan_current_turn_key(self) -> Tuple[int, int, Optional[int]]:
+        round_num = int(getattr(self, "round_num", 0) or 0)
+        turn_num = int(getattr(self, "turn_num", 0) or 0)
+        current_cid = _normalize_cid_value(getattr(self, "current_cid", None), "aoe.current_cid")
+        return (round_num, turn_num, current_cid)
+
+    def _lan_apply_aoe_trigger_to_targets(
+        self,
+        aid: int,
+        aoe: Dict[str, Any],
+        *,
+        target_cids: List[int],
+        turn_key: Optional[Tuple[int, int, Optional[int]]] = None,
+    ) -> bool:
+        if not isinstance(aoe, dict) or not target_cids:
+            return False
+        if not bool(aoe.get("over_time")):
+            return False
+        dedupe_map = self.__dict__.get("_lan_aoe_last_applied_turn")
+        if not isinstance(dedupe_map, dict):
+            dedupe_map = {}
+            self._lan_aoe_last_applied_turn = dedupe_map
+        resolved_turn_key = turn_key if turn_key is not None else self._lan_current_turn_key()
+        filtered_targets: List[int] = []
+        for target_cid in target_cids:
+            key = (int(aid), int(target_cid))
+            if dedupe_map.get(key) == resolved_turn_key:
+                continue
+            filtered_targets.append(int(target_cid))
+        if not filtered_targets:
+            return False
+        spell_slug = str(aoe.get("spell_slug") or "").strip()
+        spell_id = str(aoe.get("spell_id") or "").strip()
+        preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_id)
+        if not isinstance(preset, dict):
+            return False
+        owner_cid = _normalize_cid_value(aoe.get("owner_cid"), "aoe.owner_cid")
+        caster = self.combatants.get(owner_cid) if owner_cid in self.combatants else None
+        try:
+            slot_level = int(aoe.get("slot_level"))
+        except Exception:
+            slot_level = None
+        resolved = self._lan_auto_resolve_cast_aoe(
+            aid,
+            aoe,
+            caster=caster,
+            spell_slug=spell_slug,
+            spell_id=spell_id,
+            slot_level=slot_level,
+            preset=preset,
+            included_override=filtered_targets,
+            remove_on_empty=False,
+            remove_after_resolve=False,
+        )
+        if not resolved:
+            return False
+        for target_cid in filtered_targets:
+            dedupe_map[(int(aid), int(target_cid))] = resolved_turn_key
+        return True
+
+    def _lan_handle_aoe_enter_triggers_for_moved_unit(self, cid: int, origin_cell: Tuple[int, int], new_cell: Tuple[int, int]) -> None:
+        if tuple(origin_cell) == tuple(new_cell):
+            return
+        turn_key = self._lan_current_turn_key()
+        for aid, aoe in list((getattr(self, "_lan_aoes", {}) or {}).items()):
+            if not isinstance(aoe, dict) or not bool(aoe.get("over_time")):
+                continue
+            trigger = str(aoe.get("trigger_on_start_or_enter") or "").strip().lower()
+            if trigger not in ("enter", "start_or_enter", "enter_or_end"):
+                continue
+            original_positions = dict(getattr(self, "_lan_positions", {}) or {})
+            was_inside = False
+            is_inside = False
+            try:
+                self._lan_positions[int(cid)] = (int(origin_cell[0]), int(origin_cell[1]))
+                was_inside = int(cid) in self._lan_compute_included_units_for_aoe(aoe)
+                self._lan_positions[int(cid)] = (int(new_cell[0]), int(new_cell[1]))
+                is_inside = int(cid) in self._lan_compute_included_units_for_aoe(aoe)
+            finally:
+                self._lan_positions = original_positions
+            if (not was_inside) and is_inside:
+                self._lan_apply_aoe_trigger_to_targets(int(aid), aoe, target_cids=[int(cid)], turn_key=turn_key)
+
+    def _lan_handle_aoe_enter_triggers_for_aoe_move(self, aid: int, aoe: Dict[str, Any], before_included: List[int]) -> None:
+        if not isinstance(aoe, dict) or not bool(aoe.get("over_time")):
+            return
+        trigger = str(aoe.get("trigger_on_start_or_enter") or "").strip().lower()
+        if trigger not in ("enter", "start_or_enter", "enter_or_end"):
+            return
+        after_included = set(self._lan_compute_included_units_for_aoe(aoe))
+        before_set = {int(cid) for cid in before_included}
+        entered = sorted(int(cid) for cid in after_included if int(cid) not in before_set)
+        if entered:
+            self._lan_apply_aoe_trigger_to_targets(int(aid), aoe, target_cids=entered)
+
+    def _lan_sync_fixed_to_caster_aoes(self, moved_cid: int) -> None:
+        current_pos = dict(getattr(self, "_lan_positions", {}) or {}).get(int(moved_cid))
+        if not (isinstance(current_pos, tuple) and len(current_pos) == 2):
+            return
+        for aid, aoe in list((getattr(self, "_lan_aoes", {}) or {}).items()):
+            if not isinstance(aoe, dict) or not bool(aoe.get("fixed_to_caster")):
+                continue
+            anchor_cid = _normalize_cid_value(aoe.get("anchor_cid"), "aoe.anchor_cid")
+            if anchor_cid != int(moved_cid):
+                continue
+            before = self._lan_compute_included_units_for_aoe(aoe)
+            aoe["cx"] = float(current_pos[0])
+            aoe["cy"] = float(current_pos[1])
+            self._lan_handle_aoe_enter_triggers_for_aoe_move(int(aid), aoe, before)
+
     def _lan_auto_resolve_cast_aoe(
         self,
         aid: int,
@@ -9820,6 +9959,9 @@ class InitiativeTracker(base.InitiativeTracker):
         slot_level: Optional[int],
         preset: Optional[Dict[str, Any]],
         manual_damage_entries: Optional[List[Dict[str, Any]]] = None,
+        included_override: Optional[List[int]] = None,
+        remove_on_empty: bool = True,
+        remove_after_resolve: bool = True,
     ) -> bool:
         if not isinstance(aoe, dict) or not isinstance(preset, dict):
             return False
@@ -9830,11 +9972,13 @@ class InitiativeTracker(base.InitiativeTracker):
         mechanics = preset.get("mechanics") if isinstance(preset.get("mechanics"), dict) else {}
         sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
         step = None
+        check_kind = ""
         for candidate in sequence:
             if not isinstance(candidate, dict):
                 continue
             check = candidate.get("check") if isinstance(candidate.get("check"), dict) else {}
-            if str(check.get("kind") or "").strip().lower() != "saving_throw":
+            check_kind = str(check.get("kind") or "").strip().lower()
+            if check_kind not in ("saving_throw", "none", "auto"):
                 continue
             outcomes = candidate.get("outcomes") if isinstance(candidate.get("outcomes"), dict) else {}
             has_supported = False
@@ -9845,7 +9989,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not isinstance(effect, dict):
                         continue
                     effect_name = str(effect.get("effect") or "").strip().lower()
-                    if effect_name in ("damage", "condition"):
+                    if effect_name in ("damage", "condition", "forced_movement"):
                         has_supported = True
                         break
                 if has_supported:
@@ -9857,7 +10001,8 @@ class InitiativeTracker(base.InitiativeTracker):
             return False
         check = step.get("check") if isinstance(step.get("check"), dict) else {}
         ability = str(check.get("ability") or aoe.get("save_type") or "").strip().lower()[:3]
-        if ability not in ("str", "dex", "con", "int", "wis", "cha"):
+        requires_save = check_kind == "saving_throw"
+        if requires_save and ability not in ("str", "dex", "con", "int", "wis", "cha"):
             return False
         dc = None
         if aoe.get("dc") is not None:
@@ -9883,12 +10028,12 @@ class InitiativeTracker(base.InitiativeTracker):
                             dc = int(explicit)
                         except Exception:
                             dc = self._compute_spell_save_dc(profile)
-        if dc is None or dc <= 0:
+        if requires_save and (dc is None or dc <= 0):
             return False
         outcomes = step.get("outcomes") if isinstance(step.get("outcomes"), dict) else {}
-        included = self._lan_compute_included_units_for_aoe(aoe)
+        included = list(included_override) if isinstance(included_override, list) else self._lan_compute_included_units_for_aoe(aoe)
         if not included:
-            if aoe.get("pinned") is not True and not aoe.get("persistent") and not aoe.get("over_time"):
+            if remove_on_empty and aoe.get("pinned") is not True and not aoe.get("persistent") and not aoe.get("over_time"):
                 self._lan_remove_aoe_by_id(aid)
             return True
         spell_name = str(preset.get("name") or aoe.get("name") or "AoE")
@@ -10000,15 +10145,21 @@ class InitiativeTracker(base.InitiativeTracker):
                 continue
             saves = getattr(target, "saving_throws", None)
             mods = getattr(target, "ability_mods", None)
-            if isinstance(saves, dict) and saves.get(ability) is not None:
-                save_mod = int(saves.get(ability) or 0)
-            elif isinstance(mods, dict) and mods.get(ability) is not None:
-                save_mod = int(mods.get(ability) or 0)
+            if requires_save:
+                if isinstance(saves, dict) and saves.get(ability) is not None:
+                    save_mod = int(saves.get(ability) or 0)
+                elif isinstance(mods, dict) and mods.get(ability) is not None:
+                    save_mod = int(mods.get(ability) or 0)
+                else:
+                    save_mod = 0
+                roll = int(random.randint(1, 20))
+                total = int(roll + save_mod)
+                passed = bool(roll != 1 and total >= int(dc))
             else:
                 save_mod = 0
-            roll = int(random.randint(1, 20))
-            total = int(roll + save_mod)
-            passed = bool(roll != 1 and total >= int(dc))
+                roll = None
+                total = 0
+                passed = False
             outcome_key = "success" if passed else "fail"
             bucket = outcomes.get(outcome_key)
             if not isinstance(bucket, list):
@@ -10094,7 +10245,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 except Exception:
                     target_monk_level = 0
             has_evasion = bool(
-                int(target_monk_level) >= 7
+                requires_save
+                and int(target_monk_level) >= 7
                 and ability == "dex"
                 and not self._has_condition(target, "incapacitated")
             )
@@ -10131,10 +10283,15 @@ class InitiativeTracker(base.InitiativeTracker):
                     if moved:
                         forced_move_notes.append(str(forced.get("mode") or "push"))
             after = int(getattr(target, "hp", 0) or 0)
-            status = "PASS" if passed else "FAIL"
-            self._log(
-                f"{spell_name}: {target.name} save {ability.upper()} {status} ({total} vs DC {dc}) -> {total_damage}{damage_type_label} damage{adjustment_note}"
-            )
+            if requires_save:
+                status = "PASS" if passed else "FAIL"
+                self._log(
+                    f"{spell_name}: {target.name} save {ability.upper()} {status} ({total} vs DC {dc}) -> {total_damage}{damage_type_label} damage{adjustment_note}"
+                )
+            else:
+                self._log(
+                    f"{spell_name}: {target.name} auto -> {total_damage}{damage_type_label} damage{adjustment_note}"
+                )
             if forced_move_notes:
                 self._log(
                     f"{spell_name}: moved {target.name} ({', '.join(forced_move_notes)})",
@@ -10158,7 +10315,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._retarget_current_after_removal(removed, pre_order=pre_order)
         self._rebuild_table(scroll_to_current=True)
         self._lan_force_state_broadcast()
-        if aoe.get("pinned") is not True and not aoe.get("persistent") and not aoe.get("over_time"):
+        if remove_after_resolve and aoe.get("pinned") is not True and not aoe.get("persistent") and not aoe.get("over_time"):
             self._lan_remove_aoe_by_id(aid)
         return True
 
@@ -17259,12 +17416,17 @@ class InitiativeTracker(base.InitiativeTracker):
             def parse_trigger(value: Any) -> Optional[str]:
                 if not isinstance(value, str):
                     return None
-                raw = value.strip().lower()
-                if raw in ("start", "enter"):
-                    return raw
-                if raw in ("start_or_enter", "start-or-enter", "start/enter"):
-                    return "start_or_enter"
-                return None
+                raw = value.strip().lower().replace("-", "_").replace("/", "_")
+                while "__" in raw:
+                    raw = raw.replace("__", "_")
+                aliases = {
+                    "start": "start",
+                    "enter": "enter",
+                    "end": "end",
+                    "start_or_enter": "start_or_enter",
+                    "enter_or_end": "enter_or_end",
+                }
+                return aliases.get(raw)
 
             def parse_default_damage(value: Any) -> Optional[str]:
                 if value in (None, ""):
@@ -17308,6 +17470,9 @@ class InitiativeTracker(base.InitiativeTracker):
             if move_per_turn_ft is not None and move_per_turn_ft <= 0:
                 move_per_turn_ft = None
             trigger_on_start_or_enter = parse_trigger(payload.get("trigger_on_start_or_enter"))
+            move_action_type = str(payload.get("move_action_type") or "").strip().lower()
+            if move_action_type not in ("bonus_action", "magic_action", "action", "free", "none"):
+                move_action_type = ""
             persistent = parse_bool(payload.get("persistent"))
             pinned_default = parse_bool(payload.get("pinned_default"))
             spell_level = None
@@ -17442,6 +17607,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 "owner_ws_id": owner_ws_id,
                 "duration_turns": duration_turns_val,
                 "remaining_turns": duration_turns_val if (duration_turns_val or 0) > 0 else None,
+                "spell_slug": spell_slug,
+                "spell_id": spell_id,
+                "slot_level": slot_level,
             }
             if concentration_flag is True:
                 aoe["concentration_bound"] = True
@@ -17458,6 +17626,8 @@ class InitiativeTracker(base.InitiativeTracker):
             if move_per_turn_ft is not None:
                 aoe["move_per_turn_ft"] = move_per_turn_ft
                 aoe["move_remaining_ft"] = move_per_turn_ft
+            if move_action_type:
+                aoe["move_action_type"] = move_action_type
             if dc_val is not None:
                 aoe["dc"] = int(dc_val)
             if save_type:
@@ -18037,6 +18207,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     return
             move_per_turn_ft = d.get("move_per_turn_ft")
             move_remaining_ft = d.get("move_remaining_ft")
+            move_action_type = str(d.get("move_action_type") or "").strip().lower()
             if not is_admin:
                 current_cid = _normalize_cid_value(
                     getattr(self, "current_cid", None), "aoe_move.current_cid", log_fn=log_warning
@@ -18055,6 +18226,36 @@ class InitiativeTracker(base.InitiativeTracker):
                     _send_aoe_move_ack(False, reason_code=decision)
                     self._lan.toast(ws_id, "Not yer turn yet, matey.")
                     return
+                owner_combatant = self.combatants.get(int(owner_cid)) if owner_cid in self.combatants else None
+                if move_action_type == "none":
+                    decision = "reject_move_action_none"
+                    _log_aoe_move(decision)
+                    _send_aoe_move_ack(False, reason_code=decision)
+                    self._lan.toast(ws_id, "That spell cannot be moved.")
+                    return
+                if move_action_type in ("bonus_action", "action", "magic_action"):
+                    if owner_combatant is None:
+                        decision = "reject_missing_owner_combatant"
+                        _log_aoe_move(decision)
+                        _send_aoe_move_ack(False, reason_code=decision)
+                        return
+                    if move_action_type == "bonus_action":
+                        if int(getattr(owner_combatant, "bonus_action_remaining", 0) or 0) <= 0:
+                            decision = "reject_no_bonus_action"
+                            _log_aoe_move(decision)
+                            _send_aoe_move_ack(False, reason_code=decision)
+                            self._lan.toast(ws_id, "No bonus action left to move that spell.")
+                            return
+                        owner_combatant.bonus_action_remaining = 0
+                    else:
+                        # magic_action maps to consuming the standard action resource.
+                        if int(getattr(owner_combatant, "action_remaining", 0) or 0) <= 0:
+                            decision = "reject_no_action"
+                            _log_aoe_move(decision)
+                            _send_aoe_move_ack(False, reason_code=decision)
+                            self._lan.toast(ws_id, "No action left to move that spell.")
+                            return
+                        owner_combatant.action_remaining = 0
                 move_limit = None
                 if move_per_turn_ft not in (None, ""):
                     try:
@@ -18122,6 +18323,7 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 cols = 0
                 rows = 0
+            before_included = self._lan_compute_included_units_for_aoe(d)
             d["cx"] = float(cx)
             d["cy"] = float(cy)
             kind = str(d.get("kind") or "")
@@ -18151,6 +18353,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan_aoes = store
             except Exception:
                 pass
+            self._lan_handle_aoe_enter_triggers_for_aoe_move(int(aid), d, before_included)
+            self._rebuild_table(scroll_to_current=True)
             if facing_synced:
                 try:
                     self._lan_force_state_broadcast()
@@ -20810,6 +21014,8 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_positions[cid] = (col, row)
         if rider_cid is not None:
             self._lan_positions[int(rider_cid)] = (col, row)
+        self._lan_sync_fixed_to_caster_aoes(int(cid))
+        self._lan_handle_aoe_enter_triggers_for_moved_unit(int(cid), origin_cell, (int(col), int(row)))
 
         # Update live map window token if open
         mw = getattr(self, "_map_window", None)

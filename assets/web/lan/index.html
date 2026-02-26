@@ -15254,6 +15254,8 @@ __DAMAGE_TYPE_OPTIONS__
   let castTriggerOnStartOrEnter = null;
   let castPersistent = null;
   let castPinnedDefault = null;
+  let castMoveActionType = null;
+  let castHazardBehavior = null;
   let castUpcastConfig = null;
   let castBaseDice = null;
   let castBaseDefaultDamage = null;
@@ -15468,31 +15470,51 @@ __DAMAGE_TYPE_OPTIONS__
     } else {
       castDurationTurns = null;
     }
-    if (typeof preset.over_time === "boolean"){
+    const aoeBehavior = preset?.mechanics?.aoe_behavior && typeof preset.mechanics.aoe_behavior === "object"
+      ? preset.mechanics.aoe_behavior
+      : null;
+    castHazardBehavior = aoeBehavior;
+    if (typeof aoeBehavior?.over_time_default === "boolean"){
+      castOverTime = aoeBehavior.over_time_default;
+    } else if (typeof preset.over_time === "boolean"){
       castOverTime = preset.over_time;
     } else {
       castOverTime = null;
     }
-    const movePerTurn = Number(preset.move_per_turn_ft);
-    if (Number.isFinite(movePerTurn)){
-      castMovePerTurnFt = movePerTurn;
+    const movePerTurnBehavior = Number(aoeBehavior?.move_per_turn_ft);
+    const movePerTurnTop = Number(preset.move_per_turn_ft);
+    if (Number.isFinite(movePerTurnBehavior)){
+      castMovePerTurnFt = movePerTurnBehavior;
+    } else if (Number.isFinite(movePerTurnTop)){
+      castMovePerTurnFt = movePerTurnTop;
     } else {
       castMovePerTurnFt = null;
     }
-    if (preset.trigger_on_start_or_enter){
+    if (aoeBehavior?.trigger_mode){
+      castTriggerOnStartOrEnter = String(aoeBehavior.trigger_mode || "").toLowerCase();
+    } else if (preset.trigger_on_start_or_enter){
       castTriggerOnStartOrEnter = String(preset.trigger_on_start_or_enter || "").toLowerCase();
     } else {
       castTriggerOnStartOrEnter = null;
     }
-    if (typeof preset.persistent === "boolean"){
+    if (typeof aoeBehavior?.persistent_default === "boolean"){
+      castPersistent = aoeBehavior.persistent_default;
+    } else if (typeof preset.persistent === "boolean"){
       castPersistent = preset.persistent;
     } else {
       castPersistent = null;
     }
-    if (typeof preset.pinned_default === "boolean"){
+    if (typeof aoeBehavior?.pinned_default === "boolean"){
+      castPinnedDefault = aoeBehavior.pinned_default;
+    } else if (typeof preset.pinned_default === "boolean"){
       castPinnedDefault = preset.pinned_default;
     } else {
       castPinnedDefault = null;
+    }
+    if (aoeBehavior?.move_action_type){
+      castMoveActionType = String(aoeBehavior.move_action_type || "").toLowerCase();
+    } else {
+      castMoveActionType = null;
     }
     castUpcastConfig = normalizeUpcastConfig(preset.upcast);
     if (castSlotLevelInput){
@@ -15574,6 +15596,8 @@ __DAMAGE_TYPE_OPTIONS__
         castTriggerOnStartOrEnter = null;
         castPersistent = null;
         castPinnedDefault = null;
+        castMoveActionType = null;
+        castHazardBehavior = null;
         castUpcastConfig = null;
         castBaseDice = null;
         castBaseDefaultDamage = null;
@@ -16017,20 +16041,30 @@ __DAMAGE_TYPE_OPTIONS__
       if (Number.isFinite(Number(castDurationTurns)) && Number(castDurationTurns) >= 0){
         payload.duration_turns = Number(castDurationTurns);
       }
-      if (typeof castOverTime === "boolean"){
+      const hazardPreset = !!(castHazardBehavior && typeof castHazardBehavior === "object");
+      if (hazardPreset){
+        payload.persistent = true;
+        if (castAutomationIsEnabled()){
+          payload.over_time = true;
+          payload.trigger_on_start_or_enter = "enter_or_end";
+        }
+      } else if (typeof castOverTime === "boolean"){
         payload.over_time = castOverTime;
       }
       if (Number.isFinite(Number(castMovePerTurnFt)) && Number(castMovePerTurnFt) >= 0){
         payload.move_per_turn_ft = Number(castMovePerTurnFt);
       }
-      if (castTriggerOnStartOrEnter){
+      if (!hazardPreset && castTriggerOnStartOrEnter){
         payload.trigger_on_start_or_enter = castTriggerOnStartOrEnter;
       }
-      if (typeof castPersistent === "boolean"){
+      if (!hazardPreset && typeof castPersistent === "boolean"){
         payload.persistent = castPersistent;
       }
       if (typeof castPinnedDefault === "boolean"){
         payload.pinned_default = castPinnedDefault;
+      }
+      if (castMoveActionType){
+        payload.move_action_type = castMoveActionType;
       }
       if (aoeSpell && shape === "circle"){
         payload.radius_ft = radiusFt;

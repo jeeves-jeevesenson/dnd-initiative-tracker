@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: wall-of-fire
 name: Wall of Fire
-color: "#FF0000"
+color: '#FF0000'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 4
@@ -12,6 +12,7 @@ school: evocation
 tags:
 - aoe
 - save
+- automation_full
 casting_time: Action
 range: 120 feet
 components: V, S, M (a piece of charcoal)
@@ -46,7 +47,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   targeting:
     origin: point_within_range
     range:
@@ -86,5 +87,13 @@ mechanics:
   ui:
     template_preview: false
   notes:
-  - Alternate form: ringed wall up to 20 feet in diameter, 20 feet high, and 1 foot thick.
-  - One side deals ongoing fire damage to creatures that enter or end their turn within 10 feet of it.
+  - Alternate form: ringed wall up to 20 feet in diameter, 20 feet high, and 1 foot
+      thick.
+  - One side deals ongoing fire damage to creatures that enter or end their turn within
+    10 feet of it.
+  aoe_behavior:
+    persistent_default: true
+    over_time_default: true
+    trigger_mode: enter_or_end
+    pinned_default: true
+    move_action_type: none
