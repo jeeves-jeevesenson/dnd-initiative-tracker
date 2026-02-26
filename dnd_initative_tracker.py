@@ -10572,6 +10572,28 @@ class InitiativeTracker(base.InitiativeTracker):
 
             targeting = mechanics.get("targeting") if isinstance(mechanics.get("targeting"), dict) else {}
             range_data = targeting.get("range") if isinstance(targeting.get("range"), dict) else {}
+            range_kind = str(range_data.get("kind") or "").strip().lower() if isinstance(range_data, dict) else ""
+            if range_kind == "distance" and range_data.get("distance_ft") in (None, ""):
+                range_from_text: Optional[float] = None
+                if spell_range not in (None, ""):
+                    range_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:ft|feet)", str(spell_range), flags=re.IGNORECASE)
+                    if range_match:
+                        try:
+                            parsed_range = float(range_match.group(1))
+                        except Exception:
+                            parsed_range = None
+                        if parsed_range is not None and math.isfinite(parsed_range) and parsed_range >= 0:
+                            range_from_text = parsed_range
+                if range_from_text is not None:
+                    mechanics = copy.deepcopy(mechanics)
+                    targeting = mechanics.get("targeting") if isinstance(mechanics.get("targeting"), dict) else {}
+                    targeting = copy.deepcopy(targeting)
+                    range_data = targeting.get("range") if isinstance(targeting.get("range"), dict) else {}
+                    range_data = copy.deepcopy(range_data)
+                    range_data["distance_ft"] = range_from_text
+                    targeting["range"] = range_data
+                    mechanics["targeting"] = targeting
+                    preset["mechanics"] = mechanics
             area = targeting.get("area") if isinstance(targeting.get("area"), dict) else {}
             shape_raw = str(area.get("shape") or "").strip().lower()
             shape_map = {
@@ -17353,6 +17375,11 @@ class InitiativeTracker(base.InitiativeTracker):
             preset_dict = preset if isinstance(preset, dict) else {}
             centered_shapes = {"circle", "sphere", "cylinder", "square", "cube"}
             preset_mechanics = preset_dict.get("mechanics") if isinstance(preset_dict.get("mechanics"), dict) else {}
+            preset_aoe_behavior = (
+                preset_mechanics.get("aoe_behavior")
+                if isinstance(preset_mechanics.get("aoe_behavior"), dict)
+                else {}
+            )
             preset_targeting = preset_mechanics.get("targeting") if isinstance(preset_mechanics.get("targeting"), dict) else {}
             preset_range_data = preset_targeting.get("range") if isinstance(preset_targeting.get("range"), dict) else {}
             range_text = str(preset_dict.get("range") or "").strip().lower()
@@ -17503,6 +17530,23 @@ class InitiativeTracker(base.InitiativeTracker):
                 move_action_type = ""
             persistent = parse_bool(payload.get("persistent"))
             pinned_default = parse_bool(payload.get("pinned_default"))
+
+            if "over_time" not in payload and over_time is None:
+                over_time = parse_bool(preset_aoe_behavior.get("over_time_default"))
+            if "persistent" not in payload and persistent is None:
+                persistent = parse_bool(preset_aoe_behavior.get("persistent_default"))
+            if "trigger_on_start_or_enter" not in payload and trigger_on_start_or_enter is None:
+                trigger_on_start_or_enter = parse_trigger(preset_aoe_behavior.get("trigger_on_start_or_enter"))
+            if "move_per_turn_ft" not in payload and move_per_turn_ft is None:
+                move_per_turn_ft = parse_nonnegative_float(preset_aoe_behavior.get("move_per_turn_ft"))
+                if move_per_turn_ft is not None and move_per_turn_ft <= 0:
+                    move_per_turn_ft = None
+            if "pinned_default" not in payload and pinned_default is None:
+                pinned_default = parse_bool(preset_aoe_behavior.get("pinned_default"))
+            if "move_action_type" not in payload and not move_action_type:
+                move_action_type = str(preset_aoe_behavior.get("move_action_type") or "").strip().lower()
+                if move_action_type not in ("bonus_action", "magic_action", "action", "free", "none"):
+                    move_action_type = ""
             spell_level = None
             try:
                 spell_level = int(payload.get("level"))
