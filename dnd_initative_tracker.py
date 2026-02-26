@@ -10429,6 +10429,8 @@ class InitiativeTracker(base.InitiativeTracker):
                         if angle is None and caster is not None:
                             angle = getattr(caster, "facing_deg", 0)
                         direction_step = self._lan_direction_step_from_angle(angle)
+                    elif origin == "caster" and source_cid is None:
+                        source_cell = (int(round(float(aoe.get("cx", 0.0)))), int(round(float(aoe.get("cy", 0.0)))))
                     moved = self._lan_apply_forced_movement(
                         source_cid,
                         int(target_cid),
