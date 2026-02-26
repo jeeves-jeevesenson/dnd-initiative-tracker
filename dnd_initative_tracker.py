@@ -8959,13 +8959,49 @@ class InitiativeTracker(base.InitiativeTracker):
                 return {"ok": True, "hidden": False, "spotted_by": [observer_name]}
         return {"ok": True, "hidden": True, "spotted_by": []}
 
-    def _lan_apply_forced_movement(self, source_cid: int, target_cid: int, mode: str, distance_ft: float) -> bool:
+    def _lan_set_token_position(self, target_cid: int, col: int, row: int) -> None:
+        self._lan_positions[int(target_cid)] = (int(col), int(row))
+        mw = getattr(self, "_map_window", None)
         try:
-            source = dict(getattr(self, "_lan_positions", {}) or {}).get(int(source_cid))
+            if mw is not None and mw.winfo_exists():
+                x, y = mw._grid_to_pixel(int(col), int(row))
+                mw._place_unit_at_pixel(int(target_cid), x, y)
+        except Exception:
+            pass
+
+    def _lan_direction_step_from_angle(self, angle_deg: Any) -> Tuple[int, int]:
+        try:
+            facing = float(self._normalize_facing_degrees(angle_deg))
+        except Exception:
+            facing = 0.0
+        step_x = int(round(math.sin(math.radians(facing))))
+        step_y = int(round(-math.cos(math.radians(facing))))
+        if step_x == 0 and step_y == 0:
+            step_y = -1
+        return int(step_x), int(step_y)
+
+    def _lan_apply_forced_movement(
+        self,
+        source_cid: Optional[int],
+        target_cid: int,
+        mode: str,
+        distance_ft: float,
+        *,
+        source_cell: Optional[Tuple[int, int]] = None,
+        direction_step: Optional[Tuple[int, int]] = None,
+    ) -> bool:
+        try:
             target = dict(getattr(self, "_lan_positions", {}) or {}).get(int(target_cid))
+            source = None
+            if source_cell is not None:
+                source = (int(source_cell[0]), int(source_cell[1]))
+            elif source_cid is not None:
+                source = dict(getattr(self, "_lan_positions", {}) or {}).get(int(source_cid))
         except Exception:
             return False
-        if not (isinstance(source, tuple) and len(source) == 2 and isinstance(target, tuple) and len(target) == 2):
+        if not (isinstance(target, tuple) and len(target) == 2):
+            return False
+        if direction_step is None and not (isinstance(source, tuple) and len(source) == 2):
             return False
         try:
             feet_per_square = 5.0
@@ -8981,23 +9017,32 @@ class InitiativeTracker(base.InitiativeTracker):
             steps = 0
         if steps <= 0:
             return False
-        sc, sr = int(source[0]), int(source[1])
         tc, tr = int(target[0]), int(target[1])
-        vec_x = float(tc - sc)
-        vec_y = float(tr - sr)
-        if str(mode or "").strip().lower() == "pull":
-            vec_x *= -1.0
-            vec_y *= -1.0
-        dist = math.hypot(vec_x, vec_y)
-        if dist <= 1e-6:
+        mode_key = str(mode or "").strip().lower()
+        if mode_key not in ("push", "pull"):
             return False
-        step_x = int(round(vec_x / dist))
-        step_y = int(round(vec_y / dist))
+        if isinstance(direction_step, tuple) and len(direction_step) == 2:
+            step_x = int(direction_step[0])
+            step_y = int(direction_step[1])
+        else:
+            sc, sr = int(source[0]), int(source[1])
+            vec_x = float(tc - sc)
+            vec_y = float(tr - sr)
+            dist = math.hypot(vec_x, vec_y)
+            if dist <= 1e-6:
+                return False
+            step_x = int(round(vec_x / dist))
+            step_y = int(round(vec_y / dist))
+            if step_x == 0 and step_y == 0:
+                if abs(vec_x) >= abs(vec_y):
+                    step_x = 1 if vec_x > 0 else -1
+                else:
+                    step_y = 1 if vec_y > 0 else -1
+        if mode_key == "pull":
+            step_x *= -1
+            step_y *= -1
         if step_x == 0 and step_y == 0:
-            if abs(vec_x) >= abs(vec_y):
-                step_x = 1 if vec_x > 0 else -1
-            else:
-                step_y = 1 if vec_y > 0 else -1
+            return False
         cols, rows, obstacles, _rough, _positions = self._lan_live_map_data()
         col, row = tc, tr
         moved = False
@@ -9009,7 +9054,7 @@ class InitiativeTracker(base.InitiativeTracker):
             col, row = int(nc), int(nr)
             moved = True
         if moved:
-            self._lan_positions[int(target_cid)] = (int(col), int(row))
+            self._lan_set_token_position(int(target_cid), int(col), int(row))
             self._lan_sync_fixed_to_caster_aoes(int(target_cid))
             self._lan_handle_aoe_enter_triggers_for_moved_unit(int(target_cid), origin_cell, (int(col), int(row)))
             self._enforce_johns_echo_tether(int(target_cid))
@@ -10077,7 +10122,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not isinstance(effect, dict):
                         continue
                     effect_name = str(effect.get("effect") or "").strip().lower()
-                    if effect_name in ("damage", "condition", "forced_movement"):
+                    if effect_name in ("damage", "condition", "forced_movement", "movement"):
                         has_supported = True
                         break
                 if has_supported:
@@ -10311,8 +10356,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._next_stack_id = next_sid + 1
                     target.condition_stacks.append(base.ConditionStack(sid=next_sid, ctype=condition_key, remaining_turns=remaining_turns))
                     applied_conditions.append(condition_key)
-                elif effect_name == "forced_movement":
-                    mode = str(effect.get("mode") or effect.get("direction") or "").strip().lower()
+                elif effect_name in ("forced_movement", "movement"):
+                    mode = str(effect.get("kind") or effect.get("mode") or effect.get("direction") or "").strip().lower()
                     if mode not in ("push", "pull"):
                         continue
                     try:
@@ -10321,7 +10366,14 @@ class InitiativeTracker(base.InitiativeTracker):
                         distance_ft = 10.0
                     if distance_ft <= 0:
                         continue
-                    forced_moves.append({"mode": mode, "distance_ft": float(distance_ft)})
+                    origin = str(effect.get("origin") or "caster").strip().lower()
+                    forced_moves.append({
+                        "mode": mode,
+                        "distance_ft": float(distance_ft),
+                        "origin": origin,
+                        "angle_deg": effect.get("angle_deg"),
+                        "direction": effect.get("direction"),
+                    })
 
             target_monk_level = 0
             if bool(getattr(target, "is_pc", False)):
@@ -10360,13 +10412,29 @@ class InitiativeTracker(base.InitiativeTracker):
                 target.hp = max(0, before - int(total_damage))
                 self._queue_concentration_save(target, "aoe")
             forced_move_notes: List[str] = []
-            if caster is not None and forced_moves:
+            if forced_moves:
                 for forced in forced_moves:
+                    origin = str(forced.get("origin") or "caster").strip().lower()
+                    source_cid = int(caster.cid) if caster is not None else None
+                    source_cell = None
+                    direction_step = None
+                    if origin == "aoe_center":
+                        source_cell = (int(round(float(aoe.get("cx", 0.0)))), int(round(float(aoe.get("cy", 0.0)))))
+                        source_cid = None
+                    elif origin == "aoe_direction":
+                        angle = forced.get("angle_deg")
+                        if angle is None:
+                            angle = aoe.get("angle_deg")
+                        if angle is None and caster is not None:
+                            angle = getattr(caster, "facing_deg", 0)
+                        direction_step = self._lan_direction_step_from_angle(angle)
                     moved = self._lan_apply_forced_movement(
-                        int(caster.cid),
+                        source_cid,
                         int(target_cid),
                         str(forced.get("mode") or "push"),
                         float(forced.get("distance_ft") or 10.0),
+                        source_cell=source_cell,
+                        direction_step=direction_step,
                     )
                     if moved:
                         forced_move_notes.append(str(forced.get("mode") or "push"))
@@ -12113,6 +12181,8 @@ class InitiativeTracker(base.InitiativeTracker):
             weapon["properties"] = list(item.get("properties") or [])
         if "mastery" not in weapon and item.get("mastery") not in (None, ""):
             weapon["mastery"] = item.get("mastery")
+        if "riders" not in weapon and isinstance(item.get("riders"), list):
+            weapon["riders"] = copy.deepcopy(item.get("riders") or [])
 
         if "magic_bonus" not in weapon and "item_bonus" not in weapon and "attack_bonus" in item:
             weapon["magic_bonus"] = item.get("attack_bonus")
@@ -17025,14 +17095,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return f"echo:{int(caster_cid)}"
 
         def _set_token_position(target_cid: int, col: int, row: int) -> None:
-            self._lan_positions[int(target_cid)] = (int(col), int(row))
-            mw = getattr(self, "_map_window", None)
-            try:
-                if mw is not None and mw.winfo_exists():
-                    x, y = mw._grid_to_pixel(int(col), int(row))
-                    mw._place_unit_at_pixel(int(target_cid), x, y)
-            except Exception:
-                pass
+            self._lan_set_token_position(int(target_cid), int(col), int(row))
 
         # Basic sanity: claimed cid must match the action cid (if provided)
         cid = _normalize_cid_value(msg.get("cid"), "lan_action.cid", log_fn=log_warning)
@@ -17176,6 +17239,41 @@ class InitiativeTracker(base.InitiativeTracker):
                             c.hp = int(updated[key])
                         except Exception:
                             pass
+            forced_moves_applied: List[str] = []
+            if isinstance(resolved_bucket, list):
+                for effect in resolved_bucket:
+                    effect_name = str(effect.get("effect") or "").strip().lower()
+                    if effect_name not in ("movement", "forced_movement"):
+                        continue
+                    mode = str(effect.get("kind") or effect.get("mode") or effect.get("direction") or "").strip().lower()
+                    if mode not in ("push", "pull"):
+                        continue
+                    try:
+                        distance_ft = float(effect.get("distance_ft") or 0)
+                    except Exception:
+                        distance_ft = 0.0
+                    if distance_ft <= 0:
+                        continue
+                    origin = str(effect.get("origin") or "caster").strip().lower()
+                    source_cid = int(cid)
+                    source_cell = None
+                    direction_step = None
+                    if origin == "aoe_direction":
+                        direction_step = self._lan_direction_step_from_angle(effect.get("angle_deg", getattr(c, "facing_deg", 0)))
+                        source_cid = None
+                    moved = self._lan_apply_forced_movement(
+                        source_cid,
+                        int(target_cid),
+                        mode,
+                        float(distance_ft),
+                        source_cell=source_cell,
+                        direction_step=direction_step,
+                    )
+                    if moved:
+                        forced_moves_applied.append(f"{mode} {int(distance_ft)}ft")
+            if forced_moves_applied:
+                self._log(f"{spell_name} moves {result_payload['target_name']}: {', '.join(forced_moves_applied)}.", cid=int(target_cid))
+
             try:
                 self._rebuild_table(scroll_to_current=True)
             except Exception:
@@ -19196,6 +19294,20 @@ class InitiativeTracker(base.InitiativeTracker):
                     except Exception:
                         pass
                 return
+            mechanics = preset.get("mechanics") if isinstance(preset, dict) and isinstance(preset.get("mechanics"), dict) else {}
+            sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
+            resolved_bucket: List[Dict[str, Any]] = []
+            def _bucket_for_outcome(outcomes: Dict[str, Any], passed: bool, key_hint: str) -> List[Dict[str, Any]]:
+                keys = [key_hint] if key_hint else []
+                if passed:
+                    keys.extend(["success", "pass", "saved", "save"])
+                else:
+                    keys.extend(list(FAIL_OUTCOME_LABELS))
+                for key in keys:
+                    bucket = outcomes.get(key)
+                    if isinstance(bucket, list):
+                        return [entry for entry in bucket if isinstance(entry, dict)]
+                return []
 
             if spell_mode == "save" and save_type and save_dc > 0 and roll_save:
                 save_roll = random.randint(1, 20)
@@ -19216,6 +19328,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     f"({'PASS' if save_passed else 'FAIL'}).",
                     cid=int(target_cid),
                 )
+                seq_step = next((step for step in sequence if isinstance(step, dict)), None)
+                if isinstance(seq_step, dict):
+                    outcomes = seq_step.get("outcomes") if isinstance(seq_step.get("outcomes"), dict) else {}
+                    resolved_bucket = _bucket_for_outcome(outcomes, bool(save_passed), "")
                 if save_passed:
                     result_payload["hit"] = False
                     result_payload["damage_total"] = 0
@@ -19240,6 +19356,16 @@ class InitiativeTracker(base.InitiativeTracker):
                             pass
                     self._lan.toast(ws_id, "Target failed the save.")
                     return
+
+            if not resolved_bucket and sequence:
+                seq_step = next((step for step in sequence if isinstance(step, dict)), None)
+                if isinstance(seq_step, dict):
+                    outcomes = seq_step.get("outcomes") if isinstance(seq_step.get("outcomes"), dict) else {}
+                    if spell_mode == "save":
+                        passed = bool((result_payload.get("save_result") or {}).get("passed"))
+                        resolved_bucket = _bucket_for_outcome(outcomes, passed, "")
+                    else:
+                        resolved_bucket = _bucket_for_outcome(outcomes, False, "hit" if hit else "miss")
 
             adjustment = self._adjust_damage_entries_for_target(target, damage_entries)
             damage_entries = list(adjustment.get("entries") or [])
@@ -19322,6 +19448,41 @@ class InitiativeTracker(base.InitiativeTracker):
                     )
             else:
                 self._log(f"{c.name} misses {result_payload['target_name']} with {spell_name}.", cid=int(target_cid))
+
+            forced_moves_applied: List[str] = []
+            if isinstance(resolved_bucket, list):
+                for effect in resolved_bucket:
+                    effect_name = str(effect.get("effect") or "").strip().lower()
+                    if effect_name not in ("movement", "forced_movement"):
+                        continue
+                    mode = str(effect.get("kind") or effect.get("mode") or effect.get("direction") or "").strip().lower()
+                    if mode not in ("push", "pull"):
+                        continue
+                    try:
+                        distance_ft = float(effect.get("distance_ft") or 0)
+                    except Exception:
+                        distance_ft = 0.0
+                    if distance_ft <= 0:
+                        continue
+                    origin = str(effect.get("origin") or "caster").strip().lower()
+                    source_cid = int(cid)
+                    source_cell = None
+                    direction_step = None
+                    if origin == "aoe_direction":
+                        direction_step = self._lan_direction_step_from_angle(effect.get("angle_deg", getattr(c, "facing_deg", 0)))
+                        source_cid = None
+                    moved = self._lan_apply_forced_movement(
+                        source_cid,
+                        int(target_cid),
+                        mode,
+                        float(distance_ft),
+                        source_cell=source_cell,
+                        direction_step=direction_step,
+                    )
+                    if moved:
+                        forced_moves_applied.append(f"{mode} {int(distance_ft)}ft")
+            if forced_moves_applied:
+                self._log(f"{spell_name} moves {result_payload['target_name']}: {', '.join(forced_moves_applied)}.", cid=int(target_cid))
 
             try:
                 self._rebuild_table(scroll_to_current=True)
@@ -19530,20 +19691,6 @@ class InitiativeTracker(base.InitiativeTracker):
                 attacker_role = str(self.__dict__.get("_name_role_memory", {}).get(str(getattr(attacker_obj, "name", "")), "enemy") or "enemy")
                 target_role = str(self.__dict__.get("_name_role_memory", {}).get(str(getattr(target_obj, "name", "")), "enemy") or "enemy")
                 return bool(attacker_role in ("pc", "ally") and target_role not in ("pc", "ally"))
-            def _push_destination(origin: Tuple[int, int], facing_deg: Any, steps: int) -> Tuple[int, int]:
-                cols, rows, obstacles, _rough, _positions = self._lan_live_map_data()
-                facing = float(self._normalize_facing_degrees(facing_deg))
-                dx = int(round(math.sin(math.radians(facing))))
-                dy = int(round(-math.cos(math.radians(facing))))
-                if dx == 0 and dy == 0:
-                    dy = -1
-                col, row = int(origin[0]), int(origin[1])
-                for _ in range(max(0, int(steps))):
-                    nc, nr = col + dx, row + dy
-                    if nc < 0 or nr < 0 or nc >= cols or nr >= rows or (nc, nr) in obstacles:
-                        break
-                    col, row = nc, nr
-                return int(col), int(row)
             target_cid = _normalize_cid_value(msg.get("target_cid"), "attack_request.target_cid", log_fn=log_warning)
             target = self.combatants.get(int(target_cid)) if target_cid is not None else None
             if target is None:
@@ -19983,6 +20130,16 @@ class InitiativeTracker(base.InitiativeTracker):
                     raw_type = str(entry.get("type") or "").strip().lower()
                     if raw_type in ("", "damage", "bludgeoning"):
                         entry["type"] = damage_type_override
+            if not resolved_bucket and sequence:
+                seq_step = next((step for step in sequence if isinstance(step, dict)), None)
+                if isinstance(seq_step, dict):
+                    outcomes = seq_step.get("outcomes") if isinstance(seq_step.get("outcomes"), dict) else {}
+                    if spell_mode == "save":
+                        passed = bool((result_payload.get("save_result") or {}).get("passed"))
+                        resolved_bucket = _bucket_for_outcome(outcomes, passed, "")
+                    else:
+                        resolved_bucket = _bucket_for_outcome(outcomes, False, "hit" if hit else "miss")
+
             adjustment = self._adjust_damage_entries_for_target(target, damage_entries)
             damage_entries = list(adjustment.get("entries") or [])
             adjustment_notes = list(adjustment.get("notes") or [])
@@ -20087,6 +20244,45 @@ class InitiativeTracker(base.InitiativeTracker):
                             self._lan.play_ko(int(cid))
                         except Exception:
                             pass
+            if hit and isinstance(selected_weapon.get("riders"), list):
+                for rider in selected_weapon.get("riders"):
+                    if not isinstance(rider, dict):
+                        continue
+                    if str(rider.get("trigger") or "").strip().lower() != "on_hit":
+                        continue
+                    rider_effect = str(rider.get("effect") or "").strip().lower()
+                    if rider_effect not in ("push", "pull"):
+                        continue
+                    save_ability = str(rider.get("save_ability") or "").strip().lower()[:3]
+                    raw_dc = rider.get("save_dc")
+                    rider_dc = 0
+                    if isinstance(raw_dc, str) and raw_dc.strip().lower() == "wielder_spell_save_dc":
+                        rider_dc = int(self._compute_spell_save_dc(profile)) if isinstance(profile, dict) else 0
+                    else:
+                        try:
+                            rider_dc = int(raw_dc)
+                        except Exception:
+                            rider_dc = 0
+                    try:
+                        distance_ft = float(rider.get("distance_feet") or rider.get("distance_ft") or 0)
+                    except Exception:
+                        distance_ft = 0.0
+                    if rider_dc <= 0 or save_ability not in ("str","dex","con","int","wis","cha") or distance_ft <= 0:
+                        continue
+                    rider_roll = int(random.randint(1, 20))
+                    rider_mod = int(_save_mod_for_target(target, save_ability))
+                    rider_total = int(rider_roll + rider_mod)
+                    rider_passed = bool(rider_roll != 1 and rider_total >= int(rider_dc))
+                    moved = False
+                    if not rider_passed:
+                        moved = bool(self._lan_apply_forced_movement(int(cid), int(target_cid), rider_effect, float(distance_ft)))
+                    self._log(
+                        f"{result_payload['weapon_name']} rider {rider_effect}: {result_payload['target_name']} {save_ability.upper()} "
+                        f"{int(rider_roll)}+{int(rider_mod)}={int(rider_total)} vs DC {int(rider_dc)} "
+                        f"({'PASS' if rider_passed else 'FAIL'}){' moved' if moved else ''}.",
+                        cid=int(target_cid),
+                    )
+
             if weapon_mastery_enabled and hit:
                 if _weapon_has_property(selected_weapon, "cleave"):
                     mastery_notes.append("Cleave: ye can make a second attack against another nearby target.")
@@ -20111,10 +20307,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 if _weapon_has_property(selected_weapon, "push"):
                     origin = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(target_cid))
                     if isinstance(origin, tuple) and len(origin) == 2:
-                        pushed = _push_destination((int(origin[0]), int(origin[1])), getattr(c, "facing_deg", 0), 2)
-                        self._lan_positions[int(target_cid)] = (int(pushed[0]), int(pushed[1]))
-                        self._enforce_johns_echo_tether(int(target_cid))
-                        mastery_notes.append("Push applied: target moved up to 10 ft.")
+                        moved = self._lan_apply_forced_movement(int(cid), int(target_cid), "push", 10.0)
+                        if moved:
+                            mastery_notes.append("Push applied: target moved up to 10 ft.")
                 if _weapon_has_property(selected_weapon, "topple"):
                     topple_dc = _mastery_save_dc(selected_weapon, profile, variables)
                     topple_roll = random.randint(1, 20)
@@ -20369,11 +20564,7 @@ class InitiativeTracker(base.InitiativeTracker):
                             if bool((smite_save_cfg or {}).get("apply_prone")) and _set_prone_if_needed(target):
                                 self._log(f"{c.name} knocks {result_payload['target_name']} prone.", cid=int(target_cid))
                             if bool((smite_save_cfg or {}).get("push_10ft")):
-                                origin = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(target_cid))
-                                if isinstance(origin, tuple) and len(origin) == 2:
-                                    pushed = _push_destination((int(origin[0]), int(origin[1])), getattr(c, "facing_deg", 0), 2)
-                                    self._lan_positions[int(target_cid)] = (int(pushed[0]), int(pushed[1]))
-                                    self._enforce_johns_echo_tether(int(target_cid))
+                                self._lan_apply_forced_movement(int(cid), int(target_cid), "push", 10.0)
                             smite_condition = str((smite_save_cfg or {}).get("condition") or "").strip().lower()
                             if smite_condition:
                                 duration_turns = (smite_save_cfg or {}).get("duration_turns")
@@ -20977,7 +21168,7 @@ class InitiativeTracker(base.InitiativeTracker):
             }
             fail_effects: List[Dict[str, Any]] = [{"effect": "damage", "damage_type": str(damage_type), "dice": f"3d{int(martial_die)}"}]
             if movement_mode:
-                fail_effects.append({"effect": "forced_movement", "mode": str(movement_mode), "distance_ft": 10})
+                fail_effects.append({"effect": "forced_movement", "mode": str(movement_mode), "distance_ft": 10, "origin": "aoe_center"})
             preset = {
                 "name": "Elemental Burst",
                 "automation": "full",

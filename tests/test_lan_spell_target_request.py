@@ -47,6 +47,11 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.app.start_cid = None
         self.app.current_cid = 1
         self.app._map_window = None
+        self.app._lan_grid_cols = 20
+        self.app._lan_grid_rows = 20
+        self.app._lan_obstacles = set()
+        self.app._lan_rough_terrain = {}
+        self.app._lan_positions = {1: (4, 4), 2: (6, 4), 3: (8, 4)}
         self.app.combatants = {
             1: _make_combatant(1, "Aelar", ac=16, hp=25, ally=True, is_pc=True),
             2: _make_combatant(2, "Goblin", ac=15, hp=20),
@@ -313,6 +318,25 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "concentration": True,
         }
         start_hp = self.app.combatants[3].hp
+    def test_spell_target_request_applies_movement_from_hit_outcome(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "thorn-whip",
+            "id": "thorn-whip",
+            "name": "Thorn Whip",
+            "mechanics": {
+                "sequence": [
+                    {
+                        "check": {"kind": "spell_attack", "attack_type": "melee"},
+                        "outcomes": {
+                            "hit": [
+                                {"effect": "movement", "kind": "pull", "distance_ft": 10, "origin": "caster"}
+                            ],
+                            "miss": [],
+                        },
+                    }
+                ]
+            },
+        }
         msg = {
             "type": "spell_target_request",
             "cid": 1,
@@ -322,6 +346,12 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "spell_name": "Bless",
             "spell_slug": "bless",
             "spell_mode": "effect",
+            "_ws_id": 17,
+            "target_cid": 2,
+            "spell_name": "Thorn Whip",
+            "spell_slug": "thorn-whip",
+            "spell_mode": "attack",
+            "hit": True,
         }
 
         self.app._lan_apply_action(msg)
@@ -334,6 +364,9 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertTrue(any("targets Borin with Bless" in message for _, message in self.logs))
         self.assertFalse(any("hits" in message.lower() or "misses" in message.lower() for _, message in self.logs))
 
+        self.assertEqual(self.app._lan_positions.get(2), (4, 4))
 
 if __name__ == "__main__":
     unittest.main()
+
+
