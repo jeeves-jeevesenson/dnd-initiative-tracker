@@ -3283,6 +3283,33 @@ __DAMAGE_TYPE_OPTIONS__
     </div>
   </div>
 </div>
+<div class="modal" id="elementalBurstConfigOverlay" aria-hidden="true">
+  <div class="card">
+    <h2>Elemental Burst</h2>
+    <div class="wildshape-pool-row" style="margin-top:8px;">
+      <label for="elementalBurstDamageType">Damage type</label>
+      <select id="elementalBurstDamageType">
+        <option value="acid">Acid</option>
+        <option value="cold">Cold</option>
+        <option value="fire" selected>Fire</option>
+        <option value="lightning">Lightning</option>
+        <option value="thunder">Thunder</option>
+      </select>
+    </div>
+    <div class="wildshape-pool-row" style="margin-top:8px;">
+      <label for="elementalBurstMovementMode">Movement rider</label>
+      <select id="elementalBurstMovementMode">
+        <option value="none" selected>None</option>
+        <option value="push">Push</option>
+        <option value="pull">Pull</option>
+      </select>
+    </div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="elementalBurstConfigCancel" type="button">Cancel</button>
+      <button class="btn accent" id="elementalBurstConfigContinue" type="button">Start Placement</button>
+    </div>
+  </div>
+</div>
 <div class="modal" id="layOnHandsOverlay" aria-hidden="true">
   <div class="card">
     <h2>Lay on Hands</h2>
@@ -4022,6 +4049,11 @@ __DAMAGE_TYPE_OPTIONS__
   const monkElementalBurstBtn = document.getElementById("monkElementalBurst");
   const monkUncannyMetabolismBtn = document.getElementById("monkUncannyMetabolism");
   const monkFocusCloseBtn = document.getElementById("monkFocusClose");
+  const elementalBurstConfigOverlay = document.getElementById("elementalBurstConfigOverlay");
+  const elementalBurstDamageTypeInput = document.getElementById("elementalBurstDamageType");
+  const elementalBurstMovementModeInput = document.getElementById("elementalBurstMovementMode");
+  const elementalBurstConfigCancelBtn = document.getElementById("elementalBurstConfigCancel");
+  const elementalBurstConfigContinueBtn = document.getElementById("elementalBurstConfigContinue");
   const layOnHandsOverlay = document.getElementById("layOnHandsOverlay");
   const layOnHandsSummary = document.getElementById("layOnHandsSummary");
   const layOnHandsTarget = document.getElementById("layOnHandsTarget");
@@ -5511,6 +5543,13 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     if (secondWindSummary) secondWindSummary.textContent = `Current uses: ${secondWind.current}/${secondWind.max}`;
+  }
+
+  function setElementalBurstConfigOverlayOpen(open){
+    setModalOpen(elementalBurstConfigOverlay, open);
+    if (!open) return;
+    if (elementalBurstDamageTypeInput) elementalBurstDamageTypeInput.value = "fire";
+    if (elementalBurstMovementModeInput) elementalBurstMovementModeInput.value = "none";
   }
 
   function setMonkFocusOverlayOpen(open){
@@ -9083,7 +9122,9 @@ __DAMAGE_TYPE_OPTIONS__
     const end = toGridPoint(cursor);
     const blocked = isLineOfSightBlocked(start, end);
     const distFt = distanceFeetBetweenCells(start, end);
-    const rangeFt = Number(pendingAoePlacement.rangeFt);
+    const rawRangeFt = pendingAoePlacement.rangeFt;
+    const hasRangeValue = rawRangeFt !== null && rawRangeFt !== undefined && String(rawRangeFt).trim() !== "";
+    const rangeFt = hasRangeValue ? Number(rawRangeFt) : NaN;
     const hasFiniteRange = Number.isFinite(rangeFt);
     const outOfRange = hasFiniteRange ? distFt > rangeFt + 1e-6 : false;
     const facingDeg = normalizeFacingDeg((Math.atan2(end.row - start.row, end.col - start.col) * 180) / Math.PI);
@@ -11301,6 +11342,7 @@ __DAMAGE_TYPE_OPTIONS__
     btn.addEventListener("click", () => {
       hideActionPicker();
       const actionName = normalizeLowerValue(entry?.name);
+      const normalizedActionKey = String(entry?.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
       const actionCid = activeControlledUnitCid();
       const activeUnit = actionCid === null ? null : getUnitByCid(actionCid);
       const claimedUnit = getClaimedUnit();
@@ -11380,6 +11422,36 @@ __DAMAGE_TYPE_OPTIONS__
         applySpellPreset(preset);
         pendingSpellActionType = "reaction";
         setCastOverlayOpen(true);
+        return;
+      }
+      if (normalizedActionKey === "patient defense disengage"){
+        sendMonkFocusAction("monk_patient_defense", "free");
+        return;
+      }
+      if (normalizedActionKey === "patient defense disengage dodge"){
+        sendMonkFocusAction("monk_patient_defense", "focus");
+        return;
+      }
+      if (normalizedActionKey === "step of the wind dash"){
+        sendMonkFocusAction("monk_step_of_wind", "free");
+        return;
+      }
+      if (normalizedActionKey === "step of the wind dash disengage"){
+        sendMonkFocusAction("monk_step_of_wind", "focus");
+        return;
+      }
+      if (normalizedActionKey === "martial arts bonus unarmed strike"){
+        startMonkBonusAttackSequence("martial_arts", 1, 0);
+        return;
+      }
+      if (normalizedActionKey === "flurry of blows"){
+        const profile = getPlayerProfile(getClaimedPlayerName());
+        const monkLevel = getMonkLevelFromProfile(profile);
+        startMonkBonusAttackSequence("flurry", monkLevel >= 10 ? 3 : 2, 1);
+        return;
+      }
+      if (normalizedActionKey === "uncanny metabolism"){
+        sendMonkFocusAction("monk_uncanny_metabolism", "");
         return;
       }
       if (isSpellActionEntry(entry)){
@@ -17088,19 +17160,33 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Claim a character first, matey.");
         return;
       }
-      const dtypeRaw = window.prompt("Elemental Burst damage type (acid/cold/fire/lightning/thunder)", "fire");
-      const damageType = String(dtypeRaw || "").trim().toLowerCase();
+      setElementalBurstConfigOverlayOpen(true);
+    });
+  }
+  if (elementalBurstConfigCancelBtn){
+    elementalBurstConfigCancelBtn.addEventListener("click", () => setElementalBurstConfigOverlayOpen(false));
+  }
+  if (elementalBurstConfigContinueBtn){
+    elementalBurstConfigContinueBtn.addEventListener("click", () => {
+      if (isMapView) return;
+      const caster = getClaimedUnit();
+      if (!caster){
+        localToast("Claim a character first, matey.");
+        setElementalBurstConfigOverlayOpen(false);
+        return;
+      }
+      const damageType = normalizeLowerValue(elementalBurstDamageTypeInput?.value);
       if (!["acid", "cold", "fire", "lightning", "thunder"].includes(damageType)){
         localToast("Pick a valid Elemental Burst damage type.");
         return;
       }
-      const riderRaw = window.prompt("Optional movement rider on failed save (none/push/pull)", "none");
-      const movementMode = String(riderRaw || "").trim().toLowerCase();
+      const movementModeRaw = normalizeLowerValue(elementalBurstMovementModeInput?.value);
+      const movementMode = movementModeRaw === "push" || movementModeRaw === "pull" ? movementModeRaw : null;
       const msg = {
         type: "monk_elemental_burst",
         cid: Number(caster.cid),
         damage_type: damageType,
-        movement_mode: (movementMode === "push" || movementMode === "pull") ? movementMode : null,
+        movement_mode: movementMode,
         payload: {
           shape: "sphere",
           name: "Elemental Burst",
@@ -17110,6 +17196,7 @@ __DAMAGE_TYPE_OPTIONS__
           damage_type: damageType,
         },
       };
+      setElementalBurstConfigOverlayOpen(false);
       setMonkFocusOverlayOpen(false);
       pendingAoePlacement = {
         msg,
@@ -17117,7 +17204,7 @@ __DAMAGE_TYPE_OPTIONS__
         cursor: {col: Number(msg.payload.cx), row: Number(msg.payload.cy)},
         casterPos: toGridPoint(caster.pos),
         casterCid: Number(caster.cid),
-        rangeFt: null,
+        rangeFt: 120,
         castConfirmMessage: "Cast Elemental Burst (2 Focus + 1 Action)?",
         concentrationConfirmMessage: null,
       };
