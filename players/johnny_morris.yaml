@@ -94,6 +94,11 @@ resources:
     current: 1
     max_formula: '1'
     reset: long_rest
+  - id: nature_speaker_necklace_speak_with_plants
+    label: Nature Speaker Necklace (Speak with Plants)
+    current: 1
+    max_formula: '1'
+    reset: long_rest
 features:
 - id: war_caster
   name: War Caster
@@ -456,4 +461,25 @@ inventory:
   - name: Spine thornwhip 3D6
     quantity: 1
     description: ''
+  - name: Matteh
+    quantity: 1
+    description: +1 to spell save DC while wielded.
+  - name: Nature Speaker Necklace
+    quantity: 1
+    description: Lets you cast speak with plants once per long rest.
+magic_items:
+  attunement_slots: 3
+  equipped:
+  - matteh
+  - nature_speaker_necklace
+  attuned:
+  - matteh
+  - nature_speaker_necklace
+  items:
+  - id: matteh
+    equipped: true
+    attuned: true
+  - id: nature_speaker_necklace
+    equipped: true
+    attuned: true
 notes: {}

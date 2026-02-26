@@ -437,5 +437,18 @@ inventory:
     gp: 9652
     sp: 0
     cp: 0
-  items: []
+  items:
+  - name: Evil Eye
+    quantity: 1
+    description: Cursed attunement item. Cannot be removed.
+magic_items:
+  attunement_slots: 3
+  equipped:
+  - evil_eye
+  attuned:
+  - evil_eye
+  items:
+  - id: evil_eye
+    equipped: true
+    attuned: true
 notes: {}

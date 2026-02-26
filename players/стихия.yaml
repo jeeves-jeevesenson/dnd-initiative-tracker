@@ -441,5 +441,34 @@ inventory:
     gp: 9652
     sp: 0
     cp: 0
-  items: []
+  items:
+  - name: Bardiche (+2)
+    quantity: 1
+    description: ''
+  - name: гром
+    quantity: 1
+    description: Grants lightning resistance while worn and attuned.
+  - name: Gauntlets of Lesser Hill Giant Strength
+    quantity: 1
+    description: Sets Strength to 17 while worn and attuned.
+magic_items:
+  attunement_slots: 3
+  equipped:
+  - bardiche_plus_2
+  - grom
+  - gauntlets_of_lesser_hill_giant_strength
+  attuned:
+  - bardiche_plus_2
+  - grom
+  - gauntlets_of_lesser_hill_giant_strength
+  items:
+  - id: bardiche_plus_2
+    equipped: true
+    attuned: true
+  - id: grom
+    equipped: true
+    attuned: true
+  - id: gauntlets_of_lesser_hill_giant_strength
+    equipped: true
+    attuned: true
 notes: {}

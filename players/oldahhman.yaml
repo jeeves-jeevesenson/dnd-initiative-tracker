@@ -257,5 +257,10 @@ inventory:
   - name: Dagger
     quantity: 1
     description: 1d4
+magic_items:
+  attunement_slots: 3
+  equipped: []
+  attuned: []
+  items: []
 notes:
   note_1: ''
