@@ -168,9 +168,26 @@ reactions:
     once per round.
   type: reaction
 bonus_actions:
-- name: Bonus Action
-  description: You can take a bonus action only when a feature, spell, or ability
-    says you can.
+- name: Patient Defense (Disengage)
+  description: Take Disengage as a free bonus action.
+  type: bonus_action
+- name: Patient Defense (Disengage + Dodge)
+  description: Spend 1 Focus to Disengage and Dodge as a bonus action.
+  type: bonus_action
+- name: Step of the Wind (Dash)
+  description: Take Dash as a free bonus action.
+  type: bonus_action
+- name: Step of the Wind (Dash + Disengage)
+  description: Spend 1 Focus to Dash and Disengage as a bonus action.
+  type: bonus_action
+- name: "Martial Arts: Bonus Unarmed Strike"
+  description: Make 1 unarmed strike as a bonus action.
+  type: bonus_action
+- name: Flurry of Blows
+  description: Spend 1 Focus to make 2 unarmed strikes (3 at Monk level 10+).
+  type: bonus_action
+- name: Uncanny Metabolism
+  description: Regain Focus through Uncanny Metabolism (bonus action, 1/Long Rest).
   type: bonus_action
 spellcasting:
   enabled: false
