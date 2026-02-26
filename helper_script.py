@@ -6311,6 +6311,7 @@ class BattleMapWindow(tk.Toplevel):
         ttk.Button(dm_btn_row, text="Prev Turn", command=self._dm_prev_turn).grid(row=0, column=1, sticky="ew", padx=(6, 0))
         ttk.Button(dm_btn_row, text="Next Turn", command=self._dm_next_turn).grid(row=1, column=0, sticky="ew", pady=(6, 0))
         ttk.Button(dm_btn_row, text="Stand Up", command=self._dm_stand_up_target).grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=(6, 0))
+        ttk.Button(dm_btn_row, text="Sneak", command=self._dm_sneak_target).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         dm_btn_row.columnconfigure(0, weight=1)
         dm_btn_row.columnconfigure(1, weight=1)
         mode_row = ttk.Frame(dm_ctrl)
@@ -6946,6 +6947,27 @@ class BattleMapWindow(tk.Toplevel):
         self._sync_units_movement_mode()
         self._update_move_highlight()
 
+    def _dm_sneak_target(self) -> None:
+        cid = self._dm_action_target_cid()
+        if cid is None:
+            return
+        sneak_fn = getattr(self.app, "_sneak_attempt_hide", None)
+        if not callable(sneak_fn):
+            return
+        result = sneak_fn(
+            int(cid),
+            prompt_when_seen=lambda seen: messagebox.askyesno(
+                "Sneak",
+                f"Seen by: {', '.join(seen)}.\nAttempt to hide anyway?",
+                parent=self,
+            ),
+        )
+        if not isinstance(result, dict):
+            return
+        reason = str(result.get("reason") or "").strip()
+        if not bool(result.get("ok")) and reason:
+            messagebox.showinfo("Sneak", reason, parent=self)
+
     def _clear_obstacles(self) -> None:
         self.obstacles.clear()
         self._redraw_all()
@@ -7532,6 +7554,17 @@ class BattleMapWindow(tk.Toplevel):
             return token_color, self._darken_color(token_color)
         return self._role_token_colors(c)
 
+    def _apply_unit_visibility_style(self, cid: int) -> None:
+        tok = self.unit_tokens.get(cid)
+        c = self.app.combatants.get(cid)
+        if not tok or not c:
+            return
+        hidden = bool(getattr(c, "is_hidden", False))
+        try:
+            self.canvas.itemconfigure(int(tok["oval"]), stipple=("gray50" if hidden else ""))
+        except Exception:
+            pass
+
     def update_unit_token_colors(self) -> None:
         for cid, tok in self.unit_tokens.items():
             c = self.app.combatants.get(cid)
@@ -7544,6 +7577,7 @@ class BattleMapWindow(tk.Toplevel):
                     self.canvas.itemconfigure(int(tok["facing"]), fill=outline)
             except Exception:
                 pass
+            self._apply_unit_visibility_style(cid)
 
     def _create_unit_token(self, cid: int, col: int, row: int) -> None:
         c = self.app.combatants[cid]
@@ -7607,6 +7641,7 @@ class BattleMapWindow(tk.Toplevel):
         }
 
         # Re-evaluate grouping + labels now that a token exists
+        self._apply_unit_visibility_style(cid)
         self._update_groups()
         self._apply_active_highlight()
         self._update_move_highlight()
@@ -10171,6 +10206,13 @@ class BattleMapWindow(tk.Toplevel):
                     pass
                 else:
                     self._sync_mount_pair_position(cid, col, row)
+                    if origin and (col, row) != origin:
+                        move_hook = getattr(self.app, "_sneak_handle_hidden_movement", None)
+                        if callable(move_hook):
+                            try:
+                                move_hook(cid, origin, (col, row))
+                            except Exception:
+                                pass
 
         if self._drag_kind in ("unit", "aoe"):
             self._update_groups()
