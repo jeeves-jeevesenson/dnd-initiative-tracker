@@ -6847,7 +6847,19 @@ __DAMAGE_TYPE_OPTIONS__
     castBtn.type = "button";
     castBtn.className = "btn success cast-preview-cast-btn";
     castBtn.textContent = "Cast";
-    castBtn.addEventListener("click", () => castSubmitBtn?.click());
+    castBtn.addEventListener("click", () => {
+      if (!castForm) return;
+      if (!castForm.checkValidity()){
+        castForm.reportValidity();
+        localToast("Cast form invalid; check wall dimensions/range.");
+        return;
+      }
+      try {
+        castForm.requestSubmit();
+      } catch (_err){
+        castSubmitBtn?.click();
+      }
+    });
     actions.appendChild(castBtn);
     castSpellPreview.appendChild(actions);
   }
@@ -8689,18 +8701,22 @@ __DAMAGE_TYPE_OPTIONS__
 
   function parseSpellTargetRangeFeet(preset){
     const rangeKind = normalizeLowerValue(preset?.mechanics?.targeting?.range?.kind);
-    const mechanicsRange = Number(preset?.mechanics?.targeting?.range?.distance_ft);
+    const rawMechanicsRange = preset?.mechanics?.targeting?.range?.distance_ft;
+    const mechanicsRange = (rawMechanicsRange === null || rawMechanicsRange === undefined)
+      ? null
+      : Number(rawMechanicsRange);
+    const parsedTextRange = parseSpellRangeFeet(preset?.range);
     const baseRangeFt = Number.isFinite(mechanicsRange) && mechanicsRange >= 0
       ? mechanicsRange
-      : (rangeKind === "touch" ? touchSpellRangeFeet() : parseSpellRangeFeet(preset?.range));
+      : parsedTextRange;
     if (!Number.isFinite(baseRangeFt)){
-      return baseRangeFt;
+      return null;
     }
     const rangeText = normalizeLowerValue(preset?.range);
     const isMeleeTargetingRange = rangeKind === "touch"
       || rangeKind === "melee"
       || rangeText.includes("touch")
-      || baseRangeFt <= touchSpellRangeFeet();
+      || (Number.isFinite(baseRangeFt) && baseRangeFt <= touchSpellRangeFeet());
     return isMeleeTargetingRange ? baseRangeFt + MELEE_RANGE_FUDGE_FT : baseRangeFt;
   }
 
@@ -14918,6 +14934,8 @@ __DAMAGE_TYPE_OPTIONS__
       JSON.stringify(p.upcast || {}),
       JSON.stringify(p.scaling || {}),
       JSON.stringify(p.summon || {}),
+      JSON.stringify(p.mechanics?.aoe_behavior || {}),
+      JSON.stringify(p.mechanics?.targeting?.range || {}),
       String(p.isAoE || ""),
       String(p.isSummon || ""),
     ]));
@@ -16421,26 +16439,62 @@ __DAMAGE_TYPE_OPTIONS__
         if (castOverlay?.classList.contains("show")){
           setCastOverlayOpen(false);
         }
-        pendingAoePlacement = {
-          msg,
-          payload: {...payload},
-          cursor: {col: Number(payload.cx), row: Number(payload.cy)},
-          casterPos: caster?.pos ? toGridPoint(caster.pos) : null,
-          casterCid: Number(caster?.cid),
-          rangeFt: parseSpellTargetRangeFeet(preset),
-          castConfirmMessage: isPlanning ? null : castConfirmMessage,
-          concentrationConfirmMessage: isPlanning ? null : concentrationConfirmMessage,
-          resolveContext: isPlanning ? null : {
-            spellName: payload.name || appearanceName || castName || preset?.name || "Spell",
-            slotLevel,
-            baseLevel: Number.isFinite(Number(preset?.level)) ? Math.floor(Number(preset.level)) : null,
-            dice: payload.dice || "",
-            damageTypes,
-          },
-        };
-        refreshAoePlacementAimGuide();
-        localToast("AoE placement: move cursor, click to place (you’ll confirm on placement).");
-        draw();
+        try {
+          let placementRangeFt = parseSpellTargetRangeFeet(preset);
+          if (!Number.isFinite(placementRangeFt)){
+            const promptValue = window.prompt("Spell range is unknown. Enter range in feet:", "30");
+            if (promptValue === null){
+              localToast("AoE cast cancelled: range is required.");
+              return;
+            }
+            const parsedPromptRange = Number(promptValue);
+            if (!Number.isFinite(parsedPromptRange) || parsedPromptRange < 0){
+              localToast("Invalid spell range. Enter a number in feet.");
+              return;
+            }
+            placementRangeFt = parsedPromptRange;
+          }
+          pendingAoePlacement = {
+            msg,
+            payload: {...payload},
+            cursor: {col: Number(payload.cx), row: Number(payload.cy)},
+            casterPos: caster?.pos ? toGridPoint(caster.pos) : null,
+            casterCid: Number(caster?.cid),
+            rangeFt: placementRangeFt,
+            castConfirmMessage: isPlanning ? null : castConfirmMessage,
+            concentrationConfirmMessage: isPlanning ? null : concentrationConfirmMessage,
+            resolveContext: isPlanning ? null : {
+              spellName: payload.name || appearanceName || castName || preset?.name || "Spell",
+              slotLevel,
+              baseLevel: Number.isFinite(Number(preset?.level)) ? Math.floor(Number(preset.level)) : null,
+              dice: payload.dice || "",
+              damageTypes,
+            },
+          };
+          refreshAoePlacementAimGuide();
+          localToast("AoE placement: move cursor, click to place (you’ll confirm on placement).");
+          draw();
+        } catch (err) {
+          const details = {
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            url: location.href,
+            message: "AoE placement initialization failed",
+            level: "error",
+            spell_name: spellName,
+            spell_slug: presetSlug || "",
+            stack: err?.stack ? String(err.stack) : String(err || ""),
+          };
+          try {
+            fetch("/api/client-log", {
+              method: "POST",
+              headers: {"Content-Type": "application/json"},
+              body: JSON.stringify(details),
+            }).catch(() => {});
+          } catch (_logErr) {}
+          console.error("AoE placement initialization failed", err);
+          localToast("Cast failed while starting AoE placement.");
+        }
         return;
       }
       if (!isPlanning && !window.confirm(castConfirmMessage)){

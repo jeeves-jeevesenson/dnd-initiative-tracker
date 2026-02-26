@@ -149,7 +149,7 @@ class LanCastModalRegressionTests(unittest.TestCase):
     def test_aoe_cast_uses_cursor_follow_placement_mode(self):
         self.assertIn('let pendingAoePlacement = null;', self.html)
         self.assertIn('pendingAoePlacement = {', self.html)
-        self.assertIn('localToast("AoE placement: move cursor, click to place.");', self.html)
+        self.assertIn('localToast("AoE placement: move cursor, click to place (you’ll confirm on placement).");', self.html)
         self.assertIn('if (pendingAoePlacement){', self.html)
         self.assertIn('const previewAoe = getPendingAoePlacementPreview();', self.html)
         self.assertIn('renderAoeOverlay(previewAoe, {preview: true});', self.html)
@@ -172,6 +172,15 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('setLayOnHandsOverlayOpen(true);', self.html)
         self.assertIn('const msg = {type:"lay_on_hands_use", cid: claimedCid, target_cid: pendingLayOnHandsResolve.targetCid, amount};', self.html)
         self.assertIn('normalizeHexColor(pendingLayOnHandsTargeting ? "#4caf50"', self.html)
+
+
+    def test_spell_preset_signature_includes_mechanics_fields(self):
+        self.assertIn('JSON.stringify(p.mechanics?.aoe_behavior || {})', self.html)
+        self.assertIn('JSON.stringify(p.mechanics?.targeting?.range || {})', self.html)
+
+    def test_cast_preview_submit_surfaces_invalid_form(self):
+        self.assertIn('castForm.requestSubmit();', self.html)
+        self.assertIn('localToast("Cast form invalid; check wall dimensions/range.");', self.html)
 
 
 if __name__ == "__main__":
