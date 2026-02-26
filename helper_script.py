@@ -6958,7 +6958,7 @@ class BattleMapWindow(tk.Toplevel):
             int(cid),
             prompt_when_seen=lambda seen: messagebox.askyesno(
                 "Sneak",
-                f"Seen by: {', '.join(seen)}.\nAttempt to hide anyway?",
+                f"Seen by: {', '.join(seen)}.\n(RAW Hide requires out of LoS.) Override?",
                 parent=self,
             ),
         )
@@ -7559,7 +7559,7 @@ class BattleMapWindow(tk.Toplevel):
         c = self.app.combatants.get(cid)
         if not tok or not c:
             return
-        hidden = bool(getattr(c, "is_hidden", False))
+        hidden = bool(getattr(c, "is_hidden", False) or self.app._has_condition(c, "invisible"))
         try:
             self.canvas.itemconfigure(int(tok["oval"]), stipple=("gray50" if hidden else ""))
         except Exception:

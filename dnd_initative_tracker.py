@@ -8254,6 +8254,61 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_force_state_broadcast()
         return True
 
+    def _hide_apply_invisible_stack(self, c: Any) -> Optional[int]:
+        stacks = list(getattr(c, "condition_stacks", []) or [])
+        existing_sid = getattr(c, "hide_invisible_sid", None)
+        if existing_sid is not None:
+            try:
+                existing_sid = int(existing_sid)
+            except Exception:
+                existing_sid = None
+        if existing_sid is not None:
+            for st in stacks:
+                if int(getattr(st, "sid", 0) or 0) == int(existing_sid) and str(getattr(st, "ctype", "") or "").lower() == "invisible":
+                    return int(existing_sid)
+        next_sid = int(self.__dict__.get("_next_stack_id", 1) or 1)
+        self.__dict__["_next_stack_id"] = int(next_sid) + 1
+        stacks.append(base.ConditionStack(sid=int(next_sid), ctype="invisible", remaining_turns=None))
+        setattr(c, "condition_stacks", stacks)
+        setattr(c, "hide_invisible_sid", int(next_sid))
+        return int(next_sid)
+
+    def _clear_hide_state(self, cid: int, *, reason: str = "") -> bool:
+        c = self.combatants.get(int(cid))
+        if c is None:
+            return False
+        changed = False
+        hide_sid = getattr(c, "hide_invisible_sid", None)
+        if hide_sid is not None:
+            try:
+                hide_sid_int = int(hide_sid)
+            except Exception:
+                hide_sid_int = None
+            if hide_sid_int is not None:
+                stacks = list(getattr(c, "condition_stacks", []) or [])
+                kept = [st for st in stacks if int(getattr(st, "sid", 0) or 0) != hide_sid_int]
+                if len(kept) != len(stacks):
+                    setattr(c, "condition_stacks", kept)
+                    changed = True
+        if getattr(c, "hide_invisible_sid", None) is not None:
+            setattr(c, "hide_invisible_sid", None)
+            changed = True
+        if getattr(c, "hide_stealth_dc", None) is not None:
+            setattr(c, "hide_stealth_dc", None)
+            changed = True
+        if bool(getattr(c, "is_hidden", False)):
+            self._set_hidden_state(int(cid), False, reason=reason)
+            return True
+        if changed:
+            mw = self.__dict__.get("_map_window")
+            try:
+                if mw is not None and mw.winfo_exists() and hasattr(mw, "update_unit_token_colors"):
+                    mw.update_unit_token_colors()
+            except Exception:
+                pass
+            self._lan_force_state_broadcast()
+        return changed
+
     @staticmethod
     def _line_of_sight_blocked(
         start: Tuple[int, int], end: Tuple[int, int], obstacles: set[Tuple[int, int]]
@@ -8412,35 +8467,55 @@ class InitiativeTracker(base.InitiativeTracker):
         if seen and callable(prompt_when_seen):
             try:
                 if not bool(prompt_when_seen(list(seen_names))):
+                    self._log(f"{hider.name} was seen by {', '.join(seen_names)} and could not hide.", cid=int(hider_cid))
                     return {"ok": False, "reason": "Sneak cancelled.", "seen_by": seen_names}
             except Exception:
                 pass
-        if not seen:
-            self._set_hidden_state(int(hider_cid), True, reason=f"{hider.name} slips out of sight.")
-            return {"ok": True, "hidden": True, "seen_by": []}
+        # Low-hanging fruit only: LoS is the current gate. Cover/obscurement checks can be added later.
         stealth_bonus = self._hider_stealth_bonus(hider)
         roll = random.randint(1, 20)
         total = int(roll + stealth_bonus)
-        spotted_by: List[str] = []
-        for observer, _obs_pos in seen:
-            if total < self._observer_passive_perception(observer):
-                spotted_by.append(str(getattr(observer, "name", "Observer")))
-        if spotted_by:
-            self._set_hidden_state(int(hider_cid), False, reason=f"{hider.name} fails to hide ({', '.join(spotted_by)} spot them).")
+        if total < 15:
+            self._clear_hide_state(int(hider_cid))
+            self._log(
+                f"{hider.name} fails to hide (DC 15): roll {int(roll)} + {int(stealth_bonus)} = {int(total)}.",
+                cid=int(hider_cid),
+            )
             return {
                 "ok": True,
                 "hidden": False,
                 "roll": int(roll),
                 "stealth_bonus": int(stealth_bonus),
+                "total": int(total),
+                "seen_by": seen_names,
+            }
+        setattr(hider, "hide_stealth_dc", int(total))
+        hide_sid = self._hide_apply_invisible_stack(hider)
+        self._set_hidden_state(int(hider_cid), True, reason=f"{hider.name} hides ({total} Stealth vs DC 15).")
+        spotted_by: List[str] = []
+        for observer, _obs_pos in seen:
+            if self._observer_passive_perception(observer) >= int(total):
+                spotted_by.append(str(getattr(observer, "name", "Observer")))
+        if spotted_by:
+            self._clear_hide_state(int(hider_cid), reason=f"{hider.name} is immediately found by {', '.join(spotted_by)}.")
+            return {
+                "ok": True,
+                "hidden": False,
+                "roll": int(roll),
+                "stealth_bonus": int(stealth_bonus),
+                "total": int(total),
+                "stealth_dc": int(total),
                 "spotted_by": spotted_by,
                 "seen_by": seen_names,
             }
-        self._set_hidden_state(int(hider_cid), True, reason=f"{hider.name} hides ({total} Stealth).")
         return {
             "ok": True,
             "hidden": True,
             "roll": int(roll),
             "stealth_bonus": int(stealth_bonus),
+            "total": int(total),
+            "stealth_dc": int(total),
+            "hide_invisible_sid": hide_sid,
             "seen_by": seen_names,
         }
 
@@ -8464,8 +8539,7 @@ class InitiativeTracker(base.InitiativeTracker):
             self.__dict__["_sneak_visibility_turn_marker"] = turn_marker
             self.__dict__["_sneak_visibility_checked"] = set()
         checked: set[Tuple[int, int]] = self.__dict__.setdefault("_sneak_visibility_checked", set())
-        spotted_by: List[str] = []
-        stealth_bonus = self._hider_stealth_bonus(hider)
+        stealth_dc = int(getattr(hider, "hide_stealth_dc", 0) or 0)
         for observer, obs_pos in self._friendly_observers_with_los(int(hider_cid), positions=positions, obstacles=obstacles):
             observer_cid = int(getattr(observer, "cid", 0) or 0)
             check_key = (int(hider_cid), observer_cid)
@@ -8477,12 +8551,10 @@ class InitiativeTracker(base.InitiativeTracker):
             if not entered_los:
                 continue
             checked.add(check_key)
-            roll = random.randint(1, 20)
-            if int(roll + stealth_bonus) < self._observer_passive_perception(observer):
-                spotted_by.append(str(getattr(observer, "name", "Observer")))
-        if spotted_by:
-            self._set_hidden_state(int(hider_cid), False, reason=f"{hider.name} is spotted while moving by {', '.join(spotted_by)}.")
-            return {"ok": True, "hidden": False, "spotted_by": spotted_by}
+            observer_name = str(getattr(observer, "name", "Observer"))
+            if self._observer_passive_perception(observer) >= int(stealth_dc):
+                self._clear_hide_state(int(hider_cid), reason=f"{hider.name} is spotted while moving by {observer_name}.")
+                return {"ok": True, "hidden": False, "spotted_by": [observer_name]}
         return {"ok": True, "hidden": True, "spotted_by": []}
 
     def _lan_apply_forced_movement(self, source_cid: int, target_cid: int, mode: str, distance_ft: float) -> bool:
@@ -8829,6 +8901,13 @@ class InitiativeTracker(base.InitiativeTracker):
         for c in sorted(self.combatants.values(), key=lambda x: int(x.cid)):
             role = self._name_role_memory.get(str(c.name), "enemy")
             pos = positions.get(c.cid, (max(0, cols // 2), max(0, rows // 2)))
+            is_invisible = self._has_condition(c, "invisible")
+            is_hidden = bool(getattr(c, "is_hidden", False))
+            if is_hidden and not is_invisible:
+                setattr(c, "is_hidden", False)
+                setattr(c, "hide_stealth_dc", None)
+                setattr(c, "hide_invisible_sid", None)
+                is_hidden = False
             marks = self._lan_marks_for(c)
             actions = self._normalize_action_entries(getattr(c, "actions", []), "action")
             bonus_actions = self._normalize_action_entries(getattr(c, "bonus_actions", []), "bonus_action")
@@ -8890,7 +8969,9 @@ class InitiativeTracker(base.InitiativeTracker):
                     "concentration_spell": str(getattr(c, "concentration_spell", "") or "") or None,
                     "smite_charge": self._json_safe(getattr(c, "pending_smite_charge", None)),
                     "is_mount": bool(getattr(c, "is_mount", False)),
-                    "is_hidden": bool(getattr(c, "is_hidden", False)),
+                    "is_hidden": bool(is_hidden),
+                    "is_invisible": bool(is_invisible),
+                    "is_unseen": bool(is_hidden or is_invisible),
                     "rider_cid": _normalize_cid_value(getattr(c, "rider_cid", None), "snapshot.rider_cid"),
                     "mounted_by_cid": _normalize_cid_value(getattr(c, "mounted_by_cid", None), "snapshot.mounted_by"),
                     "mount_shared_turn": bool(getattr(c, "mount_shared_turn", False)),
@@ -13772,7 +13853,7 @@ class InitiativeTracker(base.InitiativeTracker):
         target = self.combatants.get(int(target_cid))
         if attacker is None or target is None:
             return {"ok": False, "reason": "invalid_combatant"}
-        self._set_hidden_state(int(attacker_cid), False, reason=f"{attacker.name} attacks and reveals themself.")
+        self._clear_hide_state(int(attacker_cid), reason=f"{attacker.name} attacks and reveals themself.")
         normalized_blocks: List[Dict[str, Any]] = []
         for raw_block in sequence_blocks:
             if not isinstance(raw_block, dict):
@@ -18519,7 +18600,7 @@ class InitiativeTracker(base.InitiativeTracker):
             c = self.combatants.get(cid)
             if not c:
                 return
-            self._set_hidden_state(int(cid), False, reason=f"{c.name} attacks and reveals themself.")
+            self._clear_hide_state(int(cid), reason=f"{c.name} attacks and reveals themself.")
             resource_c = c
             try:
                 summoned_by_cid = int(getattr(c, "summoned_by_cid", 0) or 0)

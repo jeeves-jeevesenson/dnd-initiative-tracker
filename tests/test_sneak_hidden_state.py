@@ -16,8 +16,8 @@ class SneakHiddenStateTests(unittest.TestCase):
         self.app.current_cid = 1
         self.app._name_role_memory = {"Goblin": "enemy", "Hero": "pc"}
 
-        enemy = type("C", (), {"cid": 1, "name": "Goblin", "hp": 7, "ability_mods": {"dex": 2}})()
-        hero = type("C", (), {"cid": 2, "name": "Hero", "hp": 12, "ability_mods": {"wis": 1}})()
+        enemy = type("C", (), {"cid": 1, "name": "Goblin", "hp": 7, "ability_mods": {"dex": 2}, "condition_stacks": []})()
+        hero = type("C", (), {"cid": 2, "name": "Hero", "hp": 12, "ability_mods": {"wis": 1}, "condition_stacks": []})()
         self.app.combatants = {1: enemy, 2: hero}
         self.positions = {1: (0, 0), 2: (3, 0)}
         self.obstacles = set()
@@ -29,42 +29,54 @@ class SneakHiddenStateTests(unittest.TestCase):
         self.assertFalse(result.get("ok"))
         self.assertIn("active enemy", result.get("reason", ""))
 
-    def test_sneak_attempt_hide_with_no_los_sets_hidden(self):
+    def test_sneak_attempt_hide_fails_dc15_when_not_seen(self):
         self.obstacles.add((1, 0))
-
-        result = self.app._sneak_attempt_hide(1)
-
-        self.assertTrue(result.get("ok"))
-        self.assertTrue(result.get("hidden"))
-        self.assertTrue(self.app.combatants[1].is_hidden)
-
-    def test_sneak_attempt_hide_seen_rolls_vs_passive_perception(self):
-        with mock.patch("dnd_initative_tracker.random.randint", return_value=2):
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=5):
             result = self.app._sneak_attempt_hide(1)
 
         self.assertTrue(result.get("ok"))
         self.assertFalse(result.get("hidden"))
         self.assertFalse(getattr(self.app.combatants[1], "is_hidden", False))
-        self.assertIn("Hero", result.get("spotted_by", []))
+        self.assertEqual(result.get("total"), 5)
 
-    def test_hidden_movement_checks_each_observer_once_per_turn(self):
+    def test_sneak_attempt_hide_success_sets_hidden_stealth_dc_and_invisible(self):
+        self.obstacles.add((1, 0))
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=15):
+            result = self.app._sneak_attempt_hide(1)
+        self.assertTrue(result.get("ok"))
+        self.assertTrue(result.get("hidden"))
+        self.assertTrue(self.app.combatants[1].is_hidden)
+        self.assertEqual(getattr(self.app.combatants[1], "hide_stealth_dc", None), 15)
+        self.assertTrue(self.app._has_condition(self.app.combatants[1], "invisible"))
+
+    def test_hidden_movement_uses_passive_perception_vs_stored_stealth_dc(self):
         self.app.combatants[1].is_hidden = True
+        self.app.combatants[1].hide_stealth_dc = 12
+        self.app.combatants[1].condition_stacks = [tracker_mod.base.ConditionStack(sid=1, ctype="invisible", remaining_turns=None)]
+        self.app.combatants[1].hide_invisible_sid = 1
         self.obstacles.add((1, 0))
         self.positions[1] = (2, 0)
 
-        with mock.patch("dnd_initative_tracker.random.randint", return_value=20) as mocked_roll:
-            first = self.app._sneak_handle_hidden_movement(1, (0, 0), (2, 0))
-            second = self.app._sneak_handle_hidden_movement(1, (0, 0), (2, 0))
-
+        first = self.app._sneak_handle_hidden_movement(1, (0, 0), (2, 0))
         self.assertTrue(first.get("ok"))
         self.assertTrue(first.get("hidden"))
+        self.app.turn_num = 2
+        self.app.combatants[1].is_hidden = True
+        self.app.combatants[1].hide_stealth_dc = 10
+        second = self.app._sneak_handle_hidden_movement(1, (0, 0), (2, 0))
         self.assertTrue(second.get("ok"))
-        self.assertTrue(second.get("hidden"))
-        self.assertEqual(mocked_roll.call_count, 1)
+        self.assertFalse(second.get("hidden"))
+        self.assertIn("Hero", second.get("spotted_by", []))
 
-    def test_hidden_enemy_reveals_on_map_attack(self):
+    def test_hidden_enemy_reveals_on_map_attack_only_removes_hide_invisible(self):
         self.app._name_role_memory = {"Goblin": "enemy", "Hero": "pc"}
         self.app.combatants[1].is_hidden = True
+        self.app.combatants[1].hide_stealth_dc = 17
+        self.app.combatants[1].hide_invisible_sid = 11
+        self.app.combatants[1].condition_stacks = [
+            tracker_mod.base.ConditionStack(sid=10, ctype="invisible", remaining_turns=None),
+            tracker_mod.base.ConditionStack(sid=11, ctype="invisible", remaining_turns=None),
+        ]
         self.app.combatants[2].ac = 10
         self.app.combatants[2].hp = 10
 
@@ -78,6 +90,10 @@ class SneakHiddenStateTests(unittest.TestCase):
 
         self.assertTrue(result.get("ok"))
         self.assertFalse(self.app.combatants[1].is_hidden)
+        self.assertIsNone(getattr(self.app.combatants[1], "hide_stealth_dc", None))
+        self.assertIsNone(getattr(self.app.combatants[1], "hide_invisible_sid", None))
+        remaining_sids = {int(st.sid) for st in self.app.combatants[1].condition_stacks}
+        self.assertEqual(remaining_sids, {10})
 
 
 if __name__ == "__main__":
