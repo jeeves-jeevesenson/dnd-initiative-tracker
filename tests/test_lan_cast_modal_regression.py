@@ -167,7 +167,7 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('renderAoeOverlay(previewAoe, {preview: true});', self.html)
         self.assertIn('msg.payload.cx = Math.round(Number(cursor.col));', self.html)
         self.assertIn('msg.payload.cy = Math.round(Number(cursor.row));', self.html)
-        self.assertIn('if (pendingAoePlacement){\n      setPendingAoePlacementCursorFromPointer(p);\n      draw();', self.html)
+        self.assertIn('if (pendingAoePlacement){\n      if (pendingAoePlacement?.mode !== "aimless_self_centered"){\n        setPendingAoePlacementCursorFromPointer(p);\n      }\n      draw();', self.html)
         self.assertIn('if (pendingAoePlacement){\n        clearPendingAoePlacement();\n        localToast("AoE placement cancelled.");', self.html)
 
     def test_aoe_target_preview_panel_is_present_and_updates_during_preview(self):
@@ -177,6 +177,14 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('function updateAoeTargetPreviewPanel(previewAoe)', self.html)
         self.assertIn('updateAoeTargetPreviewPanel(previewAoe);', self.html)
         self.assertIn('hideAoeTargetPreviewPanel();', self.html)
+
+    def test_aimless_self_range_aoe_confirm_ui_and_mode_gating_are_present(self):
+        self.assertIn('id="aimlessAoeConfirm"', self.html)
+        self.assertIn('id="aimlessAoeConfirmBtn"', self.html)
+        self.assertIn('id="aimlessAoeCancelBtn"', self.html)
+        self.assertIn('mode: "aimless_self_centered"', self.html)
+        self.assertIn('pendingAoePlacement?.mode === "aimless_self_centered"', self.html)
+        self.assertIn('function isAimlessSelfCenteredAoePlacement()', self.html)
 
     def test_lay_on_hands_targeting_overlay_and_modal_are_wired(self):
         self.assertIn('id="layOnHandsOverlay"', self.html)

@@ -634,6 +634,20 @@
     .spell-target-selection-list{max-height:120px; overflow:auto; margin-bottom:6px;}
     .spell-target-selection-entry{display:flex; justify-content:space-between; gap:8px; margin:2px 0;}
     .spell-target-selection-actions{display:flex; gap:6px; justify-content:flex-end;}
+    .aimless-aoe-confirm{
+      position:absolute;
+      left:10px;
+      bottom:10px;
+      z-index:9;
+      display:flex;
+      gap:8px;
+      padding:8px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.18);
+      background:rgba(15,19,32,0.84);
+      box-shadow:0 6px 18px rgba(0,0,0,0.28);
+    }
+    .aimless-aoe-confirm.hidden{display:none;}
 
     .sheet-wrap{
       position:sticky; bottom:0; z-index:20;
@@ -2217,6 +2231,10 @@
         <button class="btn" id="spellTargetSelectionCancel" type="button">Cancel</button>
         <button class="btn accent" id="spellTargetSelectionConfirm" type="button">✓ Confirm</button>
       </div>
+    </div>
+    <div class="aimless-aoe-confirm hidden" id="aimlessAoeConfirm" aria-live="polite" aria-hidden="true">
+      <button class="btn" id="aimlessAoeCancelBtn" type="button">Cancel</button>
+      <button class="btn success" id="aimlessAoeConfirmBtn" type="button">Confirm</button>
     </div>
     <div class="map-tooltip" id="tokenTooltip" role="tooltip" aria-hidden="true"></div>
     <div class="effects-overlay hidden" id="effectsOverlay" aria-live="polite">
@@ -4237,6 +4255,9 @@ __DAMAGE_TYPE_OPTIONS__
   const spellTargetSelectionRemoveLastBtn = document.getElementById("spellTargetSelectionRemoveLast");
   const spellTargetSelectionCancelBtn = document.getElementById("spellTargetSelectionCancel");
   const spellTargetSelectionConfirmBtn = document.getElementById("spellTargetSelectionConfirm");
+  const aimlessAoeConfirm = document.getElementById("aimlessAoeConfirm");
+  const aimlessAoeConfirmBtn = document.getElementById("aimlessAoeConfirmBtn");
+  const aimlessAoeCancelBtn = document.getElementById("aimlessAoeCancelBtn");
   const clientInitPayload = {
     timestamp: new Date().toISOString(),
     userAgent: navigator.userAgent,
@@ -9176,15 +9197,42 @@ __DAMAGE_TYPE_OPTIONS__
     pendingAoePlacement = null;
     aoeAimGuide = null;
     hideAoeTargetPreviewPanel();
+    renderAimlessAoeConfirm();
     if (shouldRedraw){
       draw();
     }
   }
 
+  
+  function isAimlessSelfCenteredAoePlacement(){
+    return pendingAoePlacement?.mode === "aimless_self_centered";
+  }
+
+  function getPendingAoeCasterPos(){
+    if (!pendingAoePlacement) return null;
+    const casterCid = Number(pendingAoePlacement.casterCid);
+    if (!Number.isFinite(casterCid)) return pendingAoePlacement?.casterPos ? toGridPoint(pendingAoePlacement.casterPos) : null;
+    const caster = getUnitByCid(casterCid);
+    if (caster?.pos){
+      return toGridPoint(caster.pos);
+    }
+    return pendingAoePlacement?.casterPos ? toGridPoint(pendingAoePlacement.casterPos) : null;
+  }
+
+  function renderAimlessAoeConfirm(){
+    if (!aimlessAoeConfirm) return;
+    const active = isAimlessSelfCenteredAoePlacement();
+    aimlessAoeConfirm.classList.toggle("hidden", !active);
+    aimlessAoeConfirm.setAttribute("aria-hidden", active ? "false" : "true");
+  }
+
   function computeAoePlacementAimGuide(){
-    if (!pendingAoePlacement?.casterPos) return null;
-    const start = toGridPoint(pendingAoePlacement.casterPos);
-    const cursor = pendingAoePlacement.cursor || {col: Number(pendingAoePlacement.payload?.cx || 0), row: Number(pendingAoePlacement.payload?.cy || 0)};
+    const casterPos = getPendingAoeCasterPos();
+    if (!casterPos) return null;
+    const start = toGridPoint(casterPos);
+    const cursor = isAimlessSelfCenteredAoePlacement()
+      ? (getPendingAoeCasterPos() || {col: Number(pendingAoePlacement.payload?.cx || 0), row: Number(pendingAoePlacement.payload?.cy || 0)})
+      : (pendingAoePlacement.cursor || {col: Number(pendingAoePlacement.payload?.cx || 0), row: Number(pendingAoePlacement.payload?.cy || 0)});
     const end = toGridPoint(cursor);
     const blocked = isLineOfSightBlocked(start, end);
     const distFt = distanceFeetBetweenCells(start, end);
@@ -9220,7 +9268,9 @@ __DAMAGE_TYPE_OPTIONS__
 
   function getPendingAoePlacementPreview(){
     if (!pendingAoePlacement) return null;
-    const cursor = pendingAoePlacement.cursor || {col: Number(pendingAoePlacement.payload?.cx || 0), row: Number(pendingAoePlacement.payload?.cy || 0)};
+    const cursor = isAimlessSelfCenteredAoePlacement()
+      ? (getPendingAoeCasterPos() || {col: Number(pendingAoePlacement.payload?.cx || 0), row: Number(pendingAoePlacement.payload?.cy || 0)})
+      : (pendingAoePlacement.cursor || {col: Number(pendingAoePlacement.payload?.cx || 0), row: Number(pendingAoePlacement.payload?.cy || 0)});
     const previewPayload = {
       ...pendingAoePlacement.payload,
       cx: Number(cursor.col),
@@ -10117,6 +10167,7 @@ __DAMAGE_TYPE_OPTIONS__
     } else {
       hideAoeTargetPreviewPanel();
     }
+    renderAimlessAoeConfirm();
 
     if (aoeAimGuide){
       const start = gridToScreen(aoeAimGuide.start.col, aoeAimGuide.start.row);
@@ -12712,6 +12763,9 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     if (pendingAoePlacement){
+      if (pendingAoePlacement?.mode === "aimless_self_centered"){
+        return;
+      }
       if (ev.button !== 0 && ev.pointerType === "mouse") return;
       setPendingAoePlacementCursorFromPointer(p);
       const aimGuide = computeAoePlacementAimGuide();
@@ -12908,7 +12962,9 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     if (pendingAoePlacement){
-      setPendingAoePlacementCursorFromPointer(p);
+      if (pendingAoePlacement?.mode !== "aimless_self_centered"){
+        setPendingAoePlacementCursorFromPointer(p);
+      }
       draw();
       setTokenTooltip(null);
       return;
@@ -16367,9 +16423,51 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
-  if (castAddDamageTypeBtn){
-    castAddDamageTypeBtn.addEventListener("click", () => {
-      addCastDamageType(castDamageTypeInput?.value || "");
+  if (aimlessAoeCancelBtn){
+    aimlessAoeCancelBtn.addEventListener("click", () => {
+      if (!isAimlessSelfCenteredAoePlacement()) return;
+      clearPendingAoePlacement();
+      localToast("AoE cast cancelled.");
+    });
+  }
+
+  if (aimlessAoeConfirmBtn){
+    aimlessAoeConfirmBtn.addEventListener("click", () => {
+      if (!isAimlessSelfCenteredAoePlacement()) return;
+      if (!isPlanning && pendingAoePlacement.castConfirmMessage && !window.confirm(pendingAoePlacement.castConfirmMessage)){
+        return;
+      }
+      if (!isPlanning && pendingAoePlacement.concentrationConfirmMessage && !window.confirm(pendingAoePlacement.concentrationConfirmMessage)){
+        return;
+      }
+      const msg = {...pendingAoePlacement.msg, payload: {...(pendingAoePlacement.msg?.payload || {})}};
+      const casterPos = getPendingAoeCasterPos();
+      if (!casterPos){
+        localToast("Could not find caster position, matey.");
+        return;
+      }
+      msg.payload.cx = Math.round(Number(casterPos.col));
+      msg.payload.cy = Math.round(Number(casterPos.row));
+      msg.payload.fixed_to_caster = true;
+      const submitAoe = (damageEntries = []) => {
+        if (Array.isArray(damageEntries) && damageEntries.length){
+          msg.damage_entries = damageEntries;
+        }
+        if (isPlanning){
+          planningMutate(msg);
+          draw();
+          updateHud();
+        }
+        send(msg);
+        clearPendingAoePlacement(false);
+        draw();
+      };
+      if (isPlanning || castAutomationIsEnabled()){
+        submitAoe();
+      } else {
+        const resolveContext = pendingAoePlacement.resolveContext || {};
+        openSpellResolveModal(resolveContext, (damageEntries) => submitAoe(damageEntries));
+      }
     });
   }
 
@@ -16797,54 +16895,40 @@ __DAMAGE_TYPE_OPTIONS__
       if (aoeSpell){
         const caster = getClaimedUnit();
         const selfRangeCentered = isSelfRangeAoePreset(preset) && isCenteredAoeShape(shape);
-        const confirmCastNow = () => {
-          if (!isPlanning && !window.confirm(castConfirmMessage)){
-            return false;
-          }
-          if (!isPlanning && concentrationConfirmMessage && !window.confirm(concentrationConfirmMessage)){
-            return false;
-          }
-          return true;
-        };
         if (selfRangeCentered && caster?.pos){
-          if (!confirmCastNow()){
-            return;
+          if (castSpellModal?.classList.contains("show")){
+            hideCastSpellModal();
           }
+          if (castOverlay?.classList.contains("show")){
+            setCastOverlayOpen(false);
+          }
+          msg.payload = msg.payload || {};
           const casterCol = Number(caster.pos.col);
           const casterRow = Number(caster.pos.row);
-          msg.payload = msg.payload || {};
           msg.payload.cx = casterCol;
           msg.payload.cy = casterRow;
           msg.payload.fixed_to_caster = true;
-          const resolveContext = {
-            spellName: payload.name || appearanceName || castName || preset?.name || "Spell",
-            slotLevel,
-            baseLevel: Number.isFinite(Number(preset?.level)) ? Math.floor(Number(preset.level)) : null,
-            dice: payload.dice || "",
-            damageTypes,
+          pendingAoePlacement = {
+            mode: "aimless_self_centered",
+            msg,
+            payload: {...payload, cx: casterCol, cy: casterRow, fixed_to_caster: true},
+            cursor: {col: casterCol, row: casterRow},
+            casterPos: toGridPoint(caster.pos),
+            casterCid: Number(caster?.cid),
+            castConfirmMessage: isPlanning ? null : castConfirmMessage,
+            concentrationConfirmMessage: isPlanning ? null : concentrationConfirmMessage,
+            resolveContext: isPlanning ? null : {
+              spellName: payload.name || appearanceName || castName || preset?.name || "Spell",
+              slotLevel,
+              baseLevel: Number.isFinite(Number(preset?.level)) ? Math.floor(Number(preset.level)) : null,
+              dice: payload.dice || "",
+              damageTypes,
+            },
           };
-          const sendCenteredAoe = (damageEntries = []) => {
-            if (Array.isArray(damageEntries) && damageEntries.length){
-              msg.damage_entries = damageEntries;
-            }
-            if (isPlanning){
-              planningMutate(msg);
-              draw();
-              updateHud();
-            }
-            send(msg);
-            if (castSpellModal?.classList.contains("show")){
-              hideCastSpellModal();
-            }
-            if (castOverlay?.classList.contains("show")){
-              setCastOverlayOpen(false);
-            }
-          };
-          if (isPlanning || castAutomationIsEnabled()){
-            sendCenteredAoe();
-          } else {
-            openSpellResolveModal(resolveContext, (damageEntries) => sendCenteredAoe(damageEntries));
-          }
+          refreshAoePlacementAimGuide();
+          renderAimlessAoeConfirm();
+          localToast("AoE preview active: reposition your token, then Confirm.");
+          draw();
           return;
         }
         if (castSpellModal?.classList.contains("show")){
