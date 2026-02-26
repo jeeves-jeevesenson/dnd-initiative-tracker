@@ -1205,6 +1205,85 @@ class LanAttackRequestTests(unittest.TestCase):
         candidates = result.get("cleave_candidates", [])
         self.assertTrue(any(int(entry.get("cid")) == 3 for entry in candidates))
 
+    def test_attack_request_stunning_strike_consumes_focus_and_applies_stunned(self):
+        consumed = []
+        self.app._consume_resource_pool_for_cast = lambda player_name, pool_id, cost: (
+            consumed.append((player_name, pool_id, cost)) or True,
+            "",
+        )
+        self.app._profile_for_player_name = lambda name: {
+            "abilities": {"wis": 16},
+            "proficiency": {"bonus": 4},
+            "leveling": {"classes": [{"name": "Monk", "level": 10}]},
+            "attacks": {
+                "weapon_to_hit": 6,
+                "weapons": [
+                    {
+                        "id": "unarmed_strike",
+                        "name": "Unarmed Strike",
+                        "to_hit": 6,
+                        "range": "5 ft",
+                        "category": "simple_melee",
+                        "one_handed": {"damage_formula": "1d8 + 4", "damage_type": "bludgeoning"},
+                    }
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 71,
+            "target_cid": 2,
+            "weapon_id": "unarmed_strike",
+            "hit": True,
+            "damage_entries": [{"amount": 1, "type": "bludgeoning"}],
+            "stunning_strike": True,
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=2):
+            self.app._lan_apply_action(msg)
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        stun = result.get("stunning_strike") or {}
+        self.assertTrue(stun.get("applied"))
+        self.assertEqual(consumed, [("Aelar", "focus_points", 1)])
+        self.assertTrue(any(getattr(st, "ctype", "") == "stunned" for st in self.app.combatants[2].condition_stacks))
+
+    def test_attack_request_deflect_attacks_reduces_damage_for_monk_target(self):
+        self.app.combatants[2].is_pc = True
+        self.app.combatants[2].name = "Monk Ally"
+        self.app.combatants[2].reaction_remaining = 1
+        self.app.combatants[2].ability_mods = {"dex": 3}
+        self.app._pc_name_for = lambda cid: "Aelar" if int(cid) == 1 else "Monk Ally"
+        self.app._profile_for_player_name = lambda name: (
+            {
+                "leveling": {"classes": [{"name": "Monk", "level": 5}]},
+                "attacks": {"weapon_to_hit": 0, "weapons": []},
+            }
+            if str(name) == "Monk Ally"
+            else {
+                "leveling": {"classes": [{"name": "Fighter", "level": 10}]},
+                "attacks": {"weapon_to_hit": 5, "weapons": [{"id": "longsword", "name": "Longsword", "to_hit": 7}]},
+            }
+        )
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 72,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [{"amount": 10, "type": "slashing"}],
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=6):
+            self.app._lan_apply_action(msg)
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("damage_total"), 0)
+        self.assertEqual(self.app.combatants[2].hp, 20)
+        self.assertEqual(self.app.combatants[2].reaction_remaining, 0)
+
     def test_attack_request_applies_once_per_turn_feature_rider_once(self):
         self.app._profile_for_player_name = lambda name: {
             "leveling": {"classes": [{"name": "Rogue", "level": 10, "attacks_per_action": 1}]},

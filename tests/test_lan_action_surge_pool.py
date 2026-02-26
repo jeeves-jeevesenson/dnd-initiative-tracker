@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 import dnd_initative_tracker as tracker_mod
 
@@ -172,6 +173,77 @@ class LanActionSurgePoolTests(unittest.TestCase):
         self.assertEqual(consumed, [("Dorian", "lay_on_hands", 25)])
         self.assertIn((42, "Lay on Hands: healed 25 HP."), toasts)
         self.assertTrue(any("uses Lay on Hands on Ally" in message for _cid, message in logs))
+
+    def test_monk_uncanny_metabolism_refills_focus_and_heals(self):
+        toasts = []
+        logs = []
+        consumed = []
+        focused = []
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._oplog = lambda *args, **kwargs: None
+        app._is_admin_token_valid = lambda token: False
+        app._summon_can_be_controlled_by = lambda claimed, target: False
+        app._is_valid_summon_turn_for_controller = lambda controlling, target, current: True
+        app._pc_name_for = lambda cid: "Old Man"
+        app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Monk", "level": 10}]},
+            "resources": {"pools": [{"id": "focus_points", "current": 2, "max": 10}]},
+        }
+        app._consume_resource_pool_for_cast = lambda player_name, pool_id, cost: (
+            consumed.append((player_name, pool_id, cost)) or True,
+            "",
+        )
+        app._set_player_resource_pool_current = lambda player_name, pool_id, current: (
+            focused.append((player_name, pool_id, current)) or True,
+            "",
+        )
+        app._log = lambda message, cid=None: logs.append((cid, message))
+        app._rebuild_table = lambda scroll_to_current=True: None
+        app._use_bonus_action = lambda c: True
+        app.in_combat = True
+        app.current_cid = 1
+        app.round_num = 1
+        app.turn_num = 1
+        app.start_cid = None
+        app.combatants = {
+            1: type(
+                "C",
+                (),
+                {
+                    "cid": 1,
+                    "name": "Old Man",
+                    "is_pc": True,
+                    "hp": 20,
+                    "max_hp": 40,
+                    "bonus_action_remaining": 1,
+                },
+            )()
+        }
+        app._lan = type(
+            "LanStub",
+            (),
+            {
+                "toast": lambda _self, ws_id, message: toasts.append((ws_id, message)),
+                "_append_lan_log": lambda *args, **kwargs: None,
+                "_loop": None,
+            },
+        )()
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=6):
+            app._lan_apply_action(
+                {
+                    "type": "monk_uncanny_metabolism",
+                    "cid": 1,
+                    "_claimed_cid": 1,
+                    "_ws_id": 42,
+                }
+            )
+
+        self.assertEqual(consumed, [("Old Man", "uncanny_metabolism", 1)])
+        self.assertEqual(focused, [("Old Man", "focus_points", 10)])
+        self.assertEqual(app.combatants[1].hp, 26)
+        self.assertIn((42, "Uncanny Metabolism used."), toasts)
+        self.assertTrue(any("used Uncanny Metabolism" in message for _cid, message in logs))
 
 
 if __name__ == "__main__":
