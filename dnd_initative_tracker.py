@@ -16354,6 +16354,97 @@ class InitiativeTracker(base.InitiativeTracker):
             raw_data=raw_data,
         )
 
+    def _summon_actions_from_spec(self, spec: Optional[MonsterSpec]) -> List[Dict[str, Any]]:
+        raw_data = getattr(spec, "raw_data", None)
+        if not isinstance(raw_data, dict):
+            return []
+        actions = self._normalize_action_entries(raw_data.get("actions"), "action")
+
+        raw_attacks = raw_data.get("attacks")
+        attack_entries: List[Any] = []
+        if isinstance(raw_attacks, list):
+            attack_entries = list(raw_attacks)
+        elif isinstance(raw_attacks, dict):
+            attack_entries = list(raw_attacks.values())
+        for raw_attack in attack_entries:
+            if not isinstance(raw_attack, dict):
+                continue
+            name = str(raw_attack.get("name") or raw_attack.get("title") or raw_attack.get("id") or "").strip()
+            if not name:
+                continue
+            description = str(raw_attack.get("description") or raw_attack.get("desc") or raw_attack.get("text") or "").strip()
+            action_entry: Dict[str, Any] = {"name": name, "description": description, "type": "action"}
+            attack_weapon = raw_attack.get("attack_weapon")
+            if isinstance(attack_weapon, dict):
+                attack_payload = copy.deepcopy(attack_weapon)
+            else:
+                attack_payload = {
+                    "id": str(raw_attack.get("id") or name).strip().lower(),
+                    "name": name,
+                }
+                to_hit = self._monster_int_from_value(
+                    raw_attack.get("to_hit")
+                    if raw_attack.get("to_hit") is not None
+                    else raw_attack.get("attack_bonus")
+                )
+                if to_hit is not None:
+                    attack_payload["to_hit"] = int(to_hit)
+                damage_formula = str(
+                    raw_attack.get("damage_formula")
+                    or raw_attack.get("damage_dice")
+                    or raw_attack.get("dice")
+                    or ""
+                ).strip()
+                damage_type = str(raw_attack.get("damage_type") or raw_attack.get("type") or "").strip().lower()
+                if damage_formula and damage_type:
+                    attack_payload["one_handed"] = {
+                        "damage_formula": damage_formula,
+                        "damage_type": damage_type,
+                    }
+            action_entry["attack_overlay_mode"] = "attack_request"
+            action_entry["attack_weapon"] = attack_payload
+            action_entry["resolve_prompt"] = f"Attack target with {name}."
+            actions.append(action_entry)
+
+        for entry in actions:
+            if not isinstance(entry, dict) or isinstance(entry.get("attack_weapon"), dict):
+                continue
+            desc_text = str(entry.get("description") or "").strip()
+            lowered = desc_text.lower()
+            if "hit" not in lowered:
+                continue
+            to_hit_match = re.search(r"(?:weapon attack|attack roll)\s*:\s*([+\-]?\d+)", desc_text, flags=re.IGNORECASE)
+            range_match = re.search(r"(?:reach|range)\s*(\d+)\s*ft", desc_text, flags=re.IGNORECASE)
+            damage_match = re.search(
+                r"hit\s*:\s*[^.]*?\(([^)]+)\)\s*([a-zA-Z]+)\s+damage",
+                desc_text,
+                flags=re.IGNORECASE,
+            )
+            if to_hit_match is None and damage_match is None:
+                continue
+            weapon_name = str(entry.get("name") or "").strip() or "Summon Attack"
+            weapon_payload: Dict[str, Any] = {
+                "id": re.sub(r"[^a-z0-9]+", "-", weapon_name.lower()).strip("-") or "summon-attack",
+                "name": weapon_name,
+                "category": "ranged_weapon" if "ranged" in lowered else "melee_weapon",
+                "range": f"{int(range_match.group(1))} ft" if range_match else ("60 ft" if "ranged" in lowered else "5 ft"),
+            }
+            if to_hit_match:
+                try:
+                    weapon_payload["to_hit"] = int(to_hit_match.group(1))
+                except Exception:
+                    pass
+            if damage_match:
+                weapon_payload["one_handed"] = {
+                    "damage_formula": str(damage_match.group(1)).strip(),
+                    "damage_type": str(damage_match.group(2)).strip().lower(),
+                }
+            entry["attack_overlay_mode"] = "attack_request"
+            entry["attack_weapon"] = weapon_payload
+            entry["resolve_prompt"] = str(entry.get("resolve_prompt") or f"Attack target with {weapon_payload['name']}.").strip()
+
+        return self._normalize_action_entries(actions, "action")
+
     def _spawn_startup_summons_for_pc(self, caster_cid: int, summon_entries: List[Dict[str, Any]]) -> List[int]:
         caster = self.combatants.get(int(caster_cid))
         if caster is None:
@@ -16411,6 +16502,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     is_spellcaster=None,
                     saving_throws=dict(summon_spec.saving_throws or {}),
                     ability_mods=dict(summon_spec.ability_mods or {}),
+                    actions=self._summon_actions_from_spec(summon_spec),
                     monster_spec=summon_spec,
                 )
                 summoned = self.combatants.get(cid)
@@ -16599,6 +16691,7 @@ class InitiativeTracker(base.InitiativeTracker):
             is_spellcaster=None,
             saving_throws=dict(mod_spec.saving_throws or {}),
             ability_mods=dict(mod_spec.ability_mods or {}),
+            actions=self._summon_actions_from_spec(mod_spec),
             monster_spec=mod_spec,
         )
         summoned = self.combatants.get(cid)
@@ -16726,6 +16819,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 is_spellcaster=None,
                 saving_throws=dict(spec.saving_throws or {}),
                 ability_mods=dict(spec.ability_mods or {}),
+                actions=self._summon_actions_from_spec(spec),
                 monster_spec=spec,
             )
             summoned = self.combatants.get(cid)
@@ -17000,6 +17094,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 is_spellcaster=None,
                 saving_throws=dict(spec.saving_throws or {}),
                 ability_mods=dict(spec.ability_mods or {}),
+                actions=self._summon_actions_from_spec(spec),
                 monster_spec=spec,
             )
             summoned = self.combatants.get(cid)
@@ -17520,6 +17615,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     is_spellcaster=None,
                     saving_throws=dict(spec.saving_throws or {}),
                     ability_mods=dict(spec.ability_mods or {}),
+                    actions=self._summon_actions_from_spec(spec),
                     monster_spec=spec,
                 )
                 echo = self.combatants.get(int(echo_cid))
@@ -21828,7 +21924,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if not is_legacy:
                 for key in (
                     "name", "size", "type", "alignment", "initiative", "challenge_rating", "ac", "hp", "speed",
-                    "traits", "actions", "legendary_actions", "description", "habitat", "treasure", "levels_allowed",
+                    "traits", "actions", "attacks", "reactions", "legendary_actions", "description", "habitat", "treasure", "levels_allowed",
                     "variants", "damage_type_by_variant", "bonus_actions",
                     "skills", "senses",
                     "damage_vulnerabilities", "damage_resistances", "damage_immunities", "condition_immunities",
@@ -22027,6 +22123,8 @@ class InitiativeTracker(base.InitiativeTracker):
             "speed",
             "traits",
             "actions",
+            "attacks",
+            "reactions",
             "legendary_actions",
             "description",
             "habitat",

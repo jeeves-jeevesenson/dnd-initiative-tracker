@@ -81,6 +81,8 @@ class SummonHarness:
     _spawn_mount = tracker_mod.InitiativeTracker._spawn_mount
     _spawn_summons_from_cast = tracker_mod.InitiativeTracker._spawn_summons_from_cast
     _spawn_startup_summons_for_pc = tracker_mod.InitiativeTracker._spawn_startup_summons_for_pc
+    _summon_actions_from_spec = tracker_mod.InitiativeTracker._summon_actions_from_spec
+    _normalize_action_entries = staticmethod(tracker_mod.InitiativeTracker._normalize_action_entries)
     _normalize_startup_summon_entries = tracker_mod.InitiativeTracker._normalize_startup_summon_entries
     _monster_int_from_value = tracker_mod.InitiativeTracker._monster_int_from_value
     _sorted_combatants = tracker_mod.InitiativeTracker._sorted_combatants
@@ -294,6 +296,70 @@ class SummonSpawnTests(unittest.TestCase):
         )
         self.assertIsNone(slug)
         self.assertEqual(qty, 1)
+
+    def test_spawn_uses_monster_yaml_actions_and_attacks_for_controlled_summons(self):
+        h = self._build_harness()
+        preset = {
+            "slug": "summon-construct",
+            "id": "summon-construct",
+            "concentration": True,
+            "summon": {
+                "choices": [{"name": "Construct Spirit", "monster_slug": "construct-spirit"}],
+                "count": {"kind": "fixed", "min": 1, "max": 1},
+                "initiative": {"mode": "shared"},
+            },
+        }
+        spec = tracker_mod.MonsterSpec(
+            filename="construct-spirit.yaml",
+            name="Construct Spirit",
+            mtype="construct",
+            cr=1,
+            hp=40,
+            speed=30,
+            swim_speed=0,
+            fly_speed=0,
+            burrow_speed=0,
+            climb_speed=0,
+            dex=2,
+            init_mod=2,
+            saving_throws={},
+            ability_mods={},
+            raw_data={
+                "actions": [
+                    {
+                        "name": "Slam",
+                        "description": "Melee Attack Roll: +8, reach 5 ft. Hit: 9 (1d8 + 5) force damage.",
+                    }
+                ],
+                "attacks": [
+                    {
+                        "name": "Radiant Bolt",
+                        "to_hit": 7,
+                        "damage_formula": "2d6 + 4",
+                        "damage_type": "radiant",
+                    }
+                ],
+            },
+        )
+        h._find_spell_preset = lambda spell_slug, spell_id: preset
+        h._find_monster_spec_by_slug = lambda slug: spec
+
+        spawned = h._spawn_summons_from_cast(
+            caster_cid=100,
+            spell_slug="summon-construct",
+            spell_id="",
+            slot_level=4,
+            summon_choice="construct-spirit",
+        )
+        self.assertEqual(len(spawned), 1)
+        summon_actions = h.combatants[spawned[0]].actions
+        self.assertGreaterEqual(len(summon_actions), 2)
+        by_name = {str(entry.get("name")): entry for entry in summon_actions if isinstance(entry, dict)}
+        self.assertIn("Slam", by_name)
+        self.assertIn("Radiant Bolt", by_name)
+        self.assertIsInstance(by_name["Slam"].get("attack_weapon"), dict)
+        self.assertEqual(by_name["Slam"]["attack_weapon"].get("to_hit"), 8)
+        self.assertEqual(by_name["Radiant Bolt"]["attack_weapon"].get("to_hit"), 7)
 
     def test_mount_spawn_evaluates_formula_and_variant(self):
         h = self._build_harness()
