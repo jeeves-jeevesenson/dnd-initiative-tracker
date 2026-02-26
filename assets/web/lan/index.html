@@ -84,6 +84,7 @@
       gap:8px;
     }
     .map-view .topbar-main-row #planningBtn,
+    .map-view .topbar-main-row #planningAoeBtn,
     .map-view .topbar-main-row #spellLibraryBtn,
     .map-view .topbar-main-row #helpBtn,
     .map-view .topbar-main-row #configBtn,
@@ -1159,7 +1160,7 @@
       gap:8px;
       flex-wrap:wrap;
     }
-    .spell-library-controls input,
+    .spell-library-controls input[type="search"],
     .spell-library-controls select{
       background: rgba(15,19,32,0.75);
       border: 1px solid rgba(255,255,255,0.15);
@@ -1167,6 +1168,13 @@
       padding: 6px 10px;
       border-radius: 8px;
       font-size: 12px;
+    }
+    #spellLibraryAoeOnlyWrap{
+      display:none;
+      align-items:center;
+      gap:6px;
+      font-size:12px;
+      color:var(--muted);
     }
     .spell-library-body{
       padding: 12px 14px calc(14px + var(--safeInsetBottom)) 14px;
@@ -2120,6 +2128,7 @@
       <button class="btn end-turn-top" id="endTurn">End Turn</button>
       <div class="spacer"></div>
       <button class="btn" id="planningBtn" type="button">Planning Mode</button>
+      <button class="btn" id="planningAoeBtn" type="button">Place AoE</button>
       <button class="btn" id="planningChatBtn" type="button" aria-pressed="false">Chat</button>
       <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
       <button class="btn" id="helpBtn" type="button" aria-controls="helpModal" aria-expanded="false">Help</button>
@@ -3195,6 +3204,10 @@ __DAMAGE_TYPE_OPTIONS__
         <option value="alpha" selected>Name</option>
         <option value="level">Level</option>
       </select>
+      <label id="spellLibraryAoeOnlyWrap" title="Planning Mode only">
+        <input id="spellLibraryAoeOnly" type="checkbox" />
+        AoE only
+      </label>
     </div>
   </div>
   <div class="spell-library-body">
@@ -3997,6 +4010,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castPresetInput = document.getElementById("castPreset");
   const castManualEntryBadge = document.getElementById("castManualEntryBadge");
   const planningBtn = document.getElementById("planningBtn");
+  const planningAoeBtn = document.getElementById("planningAoeBtn");
   const planningChatBtn = document.getElementById("planningChatBtn");
   const planningChatOverlay = document.getElementById("planningChatOverlay");
   const planningChatCloseBtn = document.getElementById("planningChatClose");
@@ -4010,6 +4024,8 @@ __DAMAGE_TYPE_OPTIONS__
   const spellLibraryCloseBtn = document.getElementById("spellLibraryClose");
   const spellLibrarySearchInput = document.getElementById("spellLibrarySearch");
   const spellLibrarySortSelect = document.getElementById("spellLibrarySort");
+  const spellLibraryAoeOnlyWrap = document.getElementById("spellLibraryAoeOnlyWrap");
+  const spellLibraryAoeOnlyInput = document.getElementById("spellLibraryAoeOnly");
   const spellLibraryStatus = document.getElementById("spellLibraryStatus");
   const spellLibraryList = document.getElementById("spellLibraryList");
   const spellbookOpenBtn = document.getElementById("spellbookOpen");
@@ -13731,6 +13747,7 @@ __DAMAGE_TYPE_OPTIONS__
   let spellLibraryLoadError = "";
   let spellLibrarySearchTerm = "";
   let spellLibrarySortMode = "alpha";
+  let spellLibraryAoeOnly = false;
   let spellLibraryPreviousFocus = null;
   let spellbookMode = "known";
   let spellbookSearchTerm = "";
@@ -13936,6 +13953,129 @@ __DAMAGE_TYPE_OPTIONS__
     return record;
   }
 
+  function getSpellLibraryAreaShape(record){
+    const shape = normalizeLowerValue(record?.data?.mechanics?.targeting?.area?.shape);
+    return AOE_SHAPES.has(shape) ? shape : "";
+  }
+
+  function isSpellLibraryAoeRecord(record){
+    return Boolean(getSpellLibraryAreaShape(record));
+  }
+
+  function startPlanningAoePreview(record){
+    if (!isPlanning){
+      return;
+    }
+    if (!state){
+      localToast("Map not ready yet, matey.");
+      return;
+    }
+    const shape = getSpellLibraryAreaShape(record);
+    const area = record?.data?.mechanics?.targeting?.area || null;
+    if (!shape || !area){
+      localToast("Unsupported AoE shape for this spell.");
+      return;
+    }
+    const parsePositive = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) && num > 0 ? num : null;
+    };
+    const payload = {
+      shape,
+      name: normalizeTextValue(record?.name) || normalizeTextValue(record?.id) || "Spell",
+      color: resolveSpellColor(record?.color || ""),
+    };
+    const radiusFt = parsePositive(area.radius_ft);
+    const heightFt = parsePositive(area.height_ft);
+    const sideFt = parsePositive(area.side_ft);
+    const lengthFt = parsePositive(area.length_ft);
+    const widthFt = parsePositive(area.width_ft);
+    const thicknessFt = parsePositive(area.thickness_ft);
+    const angleDeg = parsePositive(area.angle_deg);
+    if (shape === "circle" || shape === "sphere" || shape === "cylinder"){
+      if (radiusFt === null){
+        localToast("Spell is missing AoE radius.");
+        return;
+      }
+      payload.radius_ft = radiusFt;
+      if ((shape === "sphere" || shape === "cylinder") && heightFt !== null){
+        payload.height_ft = heightFt;
+      }
+    } else if (shape === "square" || shape === "cube"){
+      if (sideFt === null){
+        localToast("Spell is missing AoE side length.");
+        return;
+      }
+      payload.side_ft = sideFt;
+    } else if (shape === "cone"){
+      if (lengthFt === null){
+        localToast("Spell is missing cone length.");
+        return;
+      }
+      payload.length_ft = lengthFt;
+      payload.angle_deg = angleDeg !== null ? angleDeg : 90;
+      payload.orient = normalizeLowerValue(area.orient) === "horizontal" ? "horizontal" : "vertical";
+    } else if (shape === "line"){
+      if (lengthFt === null || widthFt === null){
+        localToast("Spell is missing line dimensions.");
+        return;
+      }
+      payload.length_ft = lengthFt;
+      payload.width_ft = widthFt;
+      payload.orient = normalizeLowerValue(area.orient) === "horizontal" ? "horizontal" : "vertical";
+      if (angleDeg !== null){
+        payload.angle_deg = angleDeg;
+      }
+    } else if (shape === "wall"){
+      if (lengthFt === null){
+        localToast("Spell is missing wall length.");
+        return;
+      }
+      const wallWidth = widthFt !== null ? widthFt : thicknessFt;
+      if (wallWidth === null && heightFt === null){
+        localToast("Spell is missing wall dimensions.");
+        return;
+      }
+      payload.length_ft = lengthFt;
+      if (wallWidth !== null){
+        payload.width_ft = wallWidth;
+      }
+      if (thicknessFt !== null){
+        payload.thickness_ft = thicknessFt;
+      }
+      if (heightFt !== null){
+        payload.height_ft = heightFt;
+      }
+      payload.orient = normalizeLowerValue(area.orient) === "horizontal" ? "horizontal" : "vertical";
+      if (angleDeg !== null){
+        payload.angle_deg = angleDeg;
+      }
+    } else {
+      localToast("Unsupported AoE shape for this spell.");
+      return;
+    }
+    const center = defaultAoeCenter();
+    payload.cx = center.cx;
+    payload.cy = center.cy;
+    const caster = getClaimedUnit();
+    const msg = {type: "cast_aoe", payload, action_type: null};
+    pendingAoePlacement = {
+      msg,
+      payload: {...payload},
+      cursor: {col: Number(payload.cx), row: Number(payload.cy)},
+      casterPos: caster?.pos ? toGridPoint(caster.pos) : null,
+      casterCid: Number(caster?.cid),
+      rangeFt: null,
+      castConfirmMessage: null,
+      concentrationConfirmMessage: null,
+      resolveContext: null,
+    };
+    refreshAoePlacementAimGuide();
+    openSpellLibraryOverlay(false);
+    localToast("AoE preview: move cursor, click to place. ESC cancels.");
+    draw();
+  }
+
   async function loadSpellLibrary(){
     if (spellLibraryLoadPromise) return spellLibraryLoadPromise;
     spellLibraryLoadPromise = (async () => {
@@ -13983,6 +14123,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (!spellLibraryList) return;
     const query = spellLibrarySearchTerm.trim().toLowerCase();
     let records = spellLibraryRecords;
+    if (isPlanning && spellLibraryAoeOnly){
+      records = records.filter((record) => isSpellLibraryAoeRecord(record));
+    }
     if (query){
       records = records.filter((record) => record.searchText.includes(query));
     }
@@ -14020,6 +14163,19 @@ __DAMAGE_TYPE_OPTIONS__
       meta.textContent = formatSpellLibraryLevel(record.level);
       summary.appendChild(title);
       summary.appendChild(meta);
+      const isAoeRecord = isSpellLibraryAoeRecord(record);
+      if (isPlanning && isAoeRecord){
+        const previewBtn = document.createElement("button");
+        previewBtn.className = "btn";
+        previewBtn.type = "button";
+        previewBtn.textContent = "Preview AoE";
+        previewBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          startPlanningAoePreview(record);
+        });
+        summary.appendChild(previewBtn);
+      }
       details.appendChild(summary);
 
       const body = document.createElement("div");
@@ -14120,21 +14276,33 @@ __DAMAGE_TYPE_OPTIONS__
     spellLibraryList.appendChild(fragment);
   }
 
-  function openSpellLibraryOverlay(open){
+  function openSpellLibraryOverlay(open, options = {}){
     if (!spellLibraryOverlay) return;
+    const planningAoeFlow = options.mode === "planning_aoe";
     spellLibraryOverlay.classList.toggle("show", open);
     spellLibraryOverlay.setAttribute("aria-hidden", open ? "false" : "true");
     if (open){
+      if (isPlanning && planningAoeFlow){
+        spellLibraryAoeOnly = true;
+      }
       spellLibraryPreviousFocus = document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
       if (spellLibrarySearchInput) spellLibrarySearchInput.value = spellLibrarySearchTerm;
       if (spellLibrarySortSelect) spellLibrarySortSelect.value = spellLibrarySortMode;
+      if (spellLibraryAoeOnlyInput){
+        spellLibraryAoeOnlyInput.checked = isPlanning && spellLibraryAoeOnly;
+      }
+      if (spellLibraryAoeOnlyWrap){
+        spellLibraryAoeOnlyWrap.style.display = isPlanning ? "inline-flex" : "none";
+      }
       loadSpellLibrary().then(() => renderSpellLibrary());
       if (spellLibrarySearchInput) spellLibrarySearchInput.focus();
-    } else if (spellLibraryPreviousFocus){
-      spellLibraryPreviousFocus.focus();
-      spellLibraryPreviousFocus = null;
+    } else {
+      if (spellLibraryPreviousFocus){
+        spellLibraryPreviousFocus.focus();
+        spellLibraryPreviousFocus = null;
+      }
     }
   }
 
@@ -16841,6 +17009,17 @@ __DAMAGE_TYPE_OPTIONS__
       });
     }
   }
+  if (planningAoeBtn){
+    planningAoeBtn.classList.toggle("hidden", !isPlanning);
+    planningAoeBtn.disabled = !isPlanning;
+    planningAoeBtn.setAttribute("aria-disabled", !isPlanning ? "true" : "false");
+    if (isPlanning){
+      planningAoeBtn.addEventListener("click", () => {
+        spellLibrarySearchTerm = "";
+        openSpellLibraryOverlay(true, {mode: "planning_aoe"});
+      });
+    }
+  }
   if (planningChatBtn){
     planningChatBtn.addEventListener("click", () => setPlanningChatOpen(!planningChatOpen));
   }
@@ -17044,7 +17223,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (spellLibraryBtn){
     spellLibraryBtn.addEventListener("click", () => {
-      openSpellLibraryOverlay(true);
+      openSpellLibraryOverlay(true, {mode: "browse"});
     });
   }
   if (spellLibraryCloseBtn){
@@ -17061,6 +17240,12 @@ __DAMAGE_TYPE_OPTIONS__
   if (spellLibrarySortSelect){
     spellLibrarySortSelect.addEventListener("change", (event) => {
       spellLibrarySortMode = String(event.target.value || "alpha");
+      renderSpellLibrary();
+    });
+  }
+  if (spellLibraryAoeOnlyInput){
+    spellLibraryAoeOnlyInput.addEventListener("change", (event) => {
+      spellLibraryAoeOnly = !!event.target.checked;
       renderSpellLibrary();
     });
   }
