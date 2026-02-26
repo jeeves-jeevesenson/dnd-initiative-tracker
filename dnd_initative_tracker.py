@@ -8627,7 +8627,14 @@ class InitiativeTracker(base.InitiativeTracker):
                 continue
             checked.add(check_key)
             observer_name = str(getattr(observer, "name", "Observer"))
-            if self._observer_passive_perception(observer) >= int(stealth_dc):
+            observer_pp = int(self._observer_passive_perception(observer))
+            stays_hidden = observer_pp < int(stealth_dc)
+            self._log(
+                f"Auto spot check while moving: {observer_name} passive {observer_pp} vs {hider.name} stealth {int(stealth_dc)} "+
+                f"({'hidden' if stays_hidden else 'spotted'}).",
+                cid=int(hider_cid),
+            )
+            if not stays_hidden:
                 self._clear_hide_state(int(hider_cid), reason=f"{hider.name} is spotted while moving by {observer_name}.")
                 return {"ok": True, "hidden": False, "spotted_by": [observer_name]}
         return {"ok": True, "hidden": True, "spotted_by": []}
