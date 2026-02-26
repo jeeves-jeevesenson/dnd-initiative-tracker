@@ -219,6 +219,31 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(result.get("damage_entries"), [{"amount": 8, "type": "cold"}])
         self.assertEqual(result.get("damage_total"), 8)
         self.assertEqual(self.app.combatants[2].hp, 12)
+
+    def test_spell_target_request_invalid_manual_damage_falls_back_to_auto_roll(self):
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 17,
+            "target_cid": 2,
+            "spell_name": "Ray of Frost",
+            "spell_mode": "attack",
+            "hit": True,
+            "damage_entries": [{"amount": "10f", "type": "cold"}],
+            "damage_dice": "2d6+1",
+            "damage_type": "cold",
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[2, 5]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("damage_entries"), [{"amount": 8, "type": "cold"}])
+        self.assertEqual(result.get("damage_total"), 8)
+        self.assertEqual(self.app.combatants[2].hp, 12)
+
     def test_haste_spell_target_request_applies_buffs_and_concentration(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "haste",
@@ -382,5 +407,4 @@ class LanSpellTargetRequestTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
 

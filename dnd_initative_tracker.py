@@ -19153,6 +19153,26 @@ class InitiativeTracker(base.InitiativeTracker):
                 except Exception:
                     return fallback
 
+            def _parse_non_negative_manual_damage(value: Any) -> Optional[int]:
+                if isinstance(value, bool):
+                    return None
+                if isinstance(value, int):
+                    return value if value >= 0 else None
+                if isinstance(value, float):
+                    if not value.is_integer():
+                        return None
+                    return int(value) if value >= 0 else None
+                if isinstance(value, str):
+                    text = value.strip()
+                    if not text or not re.fullmatch(r"\+?\d+", text):
+                        return None
+                    try:
+                        parsed = int(text)
+                    except Exception:
+                        return None
+                    return parsed if parsed >= 0 else None
+                return None
+
             def _parse_bool(value: Any, fallback: bool = False) -> bool:
                 if isinstance(value, bool):
                     return value
@@ -19231,10 +19251,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 for entry in raw_damage_entries:
                     if not isinstance(entry, dict):
                         continue
-                    amount = _parse_int(entry.get("amount"), None)
+                    amount = _parse_non_negative_manual_damage(entry.get("amount"))
                     if amount is None:
                         continue
-                    amount = max(0, int(amount))
+                    amount = int(amount)
                     if amount <= 0:
                         continue
                     dtype = str(entry.get("type") or "").strip().lower()
@@ -19529,6 +19549,26 @@ class InitiativeTracker(base.InitiativeTracker):
                     return int(value)
                 except Exception:
                     return fallback
+
+            def _parse_non_negative_manual_damage(value: Any) -> Optional[int]:
+                if isinstance(value, bool):
+                    return None
+                if isinstance(value, int):
+                    return value if value >= 0 else None
+                if isinstance(value, float):
+                    if not value.is_integer():
+                        return None
+                    return int(value) if value >= 0 else None
+                if isinstance(value, str):
+                    text = value.strip()
+                    if not text or not re.fullmatch(r"\+?\d+", text):
+                        return None
+                    try:
+                        parsed = int(text)
+                    except Exception:
+                        return None
+                    return parsed if parsed >= 0 else None
+                return None
             def _parse_bool(value: Any) -> Optional[bool]:
                 if isinstance(value, bool):
                     return value
@@ -19945,10 +19985,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 for entry in raw_damage_entries:
                     if not isinstance(entry, dict):
                         continue
-                    amount = _parse_int(entry.get("amount"), None)
+                    amount = _parse_non_negative_manual_damage(entry.get("amount"))
                     if amount is None:
                         continue
-                    amount = max(0, int(amount))
+                    amount = int(amount)
                     if amount <= 0:
                         continue
                     dtype = str(entry.get("type") or "").strip().lower()
