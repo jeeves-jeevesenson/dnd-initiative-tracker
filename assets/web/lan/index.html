@@ -4120,6 +4120,7 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingSpellActionType = null;
   let pendingSummonPlacement = null;
   let pendingAoePlacement = null;
+  let aoeAimGuide = null; // {start,end,blocked,outOfRange,invalid,distFt,rangeFt,facingDeg,casterCid}
   let pendingSpellResolve = null;
   const castAutomationStorageKey = "inittracker_cast_automation_enabled";
   let castAutomationEnabled = localStorage.getItem(castAutomationStorageKey) !== "0";
@@ -8849,16 +8850,46 @@ __DAMAGE_TYPE_OPTIONS__
 
   function clearPendingAoePlacement(shouldRedraw = true){
     pendingAoePlacement = null;
+    aoeAimGuide = null;
     hideAoeTargetPreviewPanel();
     if (shouldRedraw){
       draw();
     }
   }
 
+  function computeAoePlacementAimGuide(){
+    if (!pendingAoePlacement?.casterPos) return null;
+    const start = toGridPoint(pendingAoePlacement.casterPos);
+    const cursor = pendingAoePlacement.cursor || {col: Number(pendingAoePlacement.payload?.cx || 0), row: Number(pendingAoePlacement.payload?.cy || 0)};
+    const end = toGridPoint(cursor);
+    const blocked = isLineOfSightBlocked(start, end);
+    const distFt = distanceFeetBetweenCells(start, end);
+    const rangeFt = Number(pendingAoePlacement.rangeFt);
+    const hasFiniteRange = Number.isFinite(rangeFt);
+    const outOfRange = hasFiniteRange ? distFt > rangeFt + 1e-6 : false;
+    const facingDeg = normalizeFacingDeg((Math.atan2(end.row - start.row, end.col - start.col) * 180) / Math.PI);
+    return {
+      start,
+      end,
+      blocked,
+      outOfRange,
+      invalid: blocked || outOfRange,
+      distFt,
+      rangeFt: hasFiniteRange ? rangeFt : null,
+      facingDeg,
+      casterCid: Number(pendingAoePlacement.casterCid),
+    };
+  }
+
+  function refreshAoePlacementAimGuide(){
+    aoeAimGuide = computeAoePlacementAimGuide();
+  }
+
   function setPendingAoePlacementCursorFromPointer(pointer){
     if (!pendingAoePlacement || !pointer) return;
     const gridPos = screenToGridFloat(pointer.x, pointer.y);
     pendingAoePlacement.cursor = {col: Number(gridPos.col), row: Number(gridPos.row)};
+    refreshAoePlacementAimGuide();
   }
 
   function getPendingAoePlacementPreview(){
@@ -9751,6 +9782,33 @@ __DAMAGE_TYPE_OPTIONS__
       updateAoeTargetPreviewPanel(previewAoe);
     } else {
       hideAoeTargetPreviewPanel();
+    }
+
+    if (aoeAimGuide){
+      const start = gridToScreen(aoeAimGuide.start.col, aoeAimGuide.start.row);
+      const end = gridToScreen(aoeAimGuide.end.col, aoeAimGuide.end.row);
+      const invalid = !!aoeAimGuide.invalid;
+      ctx.save();
+      ctx.lineWidth = 3;
+      ctx.setLineDash([7, 5]);
+      ctx.strokeStyle = invalid ? "rgba(255,91,91,0.98)" : "rgba(123,233,173,0.96)";
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+      if (invalid){
+        const xSize = Math.max(12, zoom * 0.22);
+        ctx.setLineDash([]);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "rgba(255,64,64,0.98)";
+        ctx.beginPath();
+        ctx.moveTo(end.x - xSize, end.y - xSize);
+        ctx.lineTo(end.x + xSize, end.y + xSize);
+        ctx.moveTo(end.x + xSize, end.y - xSize);
+        ctx.lineTo(end.x - xSize, end.y + xSize);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
 
     // measurement line
@@ -11932,6 +11990,9 @@ __DAMAGE_TYPE_OPTIONS__
     if (rotatingToken && Number(rotatingToken.cid) === Number(unit?.cid) && Number.isFinite(Number(rotatePreviewDeg))){
       return normalizeFacingDeg(rotatePreviewDeg);
     }
+    if (aoeAimGuide && Number(aoeAimGuide.casterCid) === Number(unit?.cid) && Number.isFinite(Number(aoeAimGuide.facingDeg))){
+      return normalizeFacingDeg(aoeAimGuide.facingDeg);
+    }
     return normalizeFacingDeg(unit?.facing_deg);
   }
 
@@ -12247,6 +12308,19 @@ __DAMAGE_TYPE_OPTIONS__
     if (pendingAoePlacement){
       if (ev.button !== 0 && ev.pointerType === "mouse") return;
       setPendingAoePlacementCursorFromPointer(p);
+      const aimGuide = computeAoePlacementAimGuide();
+      aoeAimGuide = aimGuide;
+      if (aimGuide?.blocked){
+        localToast("No line of sight to that point.");
+        draw();
+        return;
+      }
+      if (aimGuide?.outOfRange){
+        const rangeLabel = Number.isFinite(Number(aimGuide.rangeFt)) ? formatFeet(aimGuide.rangeFt) : "spell range";
+        localToast(`Out of range (${rangeLabel} max).`);
+        draw();
+        return;
+      }
       if (pendingAoePlacement.castConfirmMessage && !window.confirm(pendingAoePlacement.castConfirmMessage)){
         return;
       }
@@ -12260,6 +12334,15 @@ __DAMAGE_TYPE_OPTIONS__
       const submitAoe = (damageEntries = []) => {
         if (Array.isArray(damageEntries) && damageEntries.length){
           msg.damage_entries = damageEntries;
+        }
+        const finalFacingDeg = Number(aimGuide?.facingDeg);
+        const casterCid = Number(pendingAoePlacement?.casterCid);
+        if (Number.isFinite(casterCid) && Number.isFinite(finalFacingDeg)){
+          const casterUnit = getUnitByCid(casterCid);
+          const currentFacing = normalizeFacingDeg(casterUnit?.facing_deg);
+          if (Math.abs(currentFacing - normalizeFacingDeg(finalFacingDeg)) > 0.5){
+            send({type:"set_facing", cid: casterCid, facing_deg: normalizeFacingDeg(finalFacingDeg)});
+          }
         }
         if (isPlanning){
           planningMutate(msg);
@@ -16067,6 +16150,9 @@ __DAMAGE_TYPE_OPTIONS__
           msg,
           payload: {...payload},
           cursor: {col: Number(payload.cx), row: Number(payload.cy)},
+          casterPos: caster?.pos ? toGridPoint(caster.pos) : null,
+          casterCid: Number(caster?.cid),
+          rangeFt: parseSpellTargetRangeFeet(preset),
           castConfirmMessage,
           concentrationConfirmMessage,
           resolveContext: {
@@ -16077,6 +16163,7 @@ __DAMAGE_TYPE_OPTIONS__
             damageTypes,
           },
         };
+        refreshAoePlacementAimGuide();
         localToast("AoE placement: move cursor, click to place (you’ll confirm on placement).");
         draw();
         return;
@@ -16648,9 +16735,13 @@ __DAMAGE_TYPE_OPTIONS__
         msg,
         payload: {...(msg.payload || {})},
         cursor: {col: Number(msg.payload.cx), row: Number(msg.payload.cy)},
+        casterPos: toGridPoint(caster.pos),
+        casterCid: Number(caster.cid),
+        rangeFt: null,
         castConfirmMessage: "Cast Elemental Burst (2 Focus + 1 Action)?",
         concentrationConfirmMessage: null,
       };
+      refreshAoePlacementAimGuide();
       localToast("Elemental Burst placement: move cursor, click to place, then confirm.");
       draw();
     });
