@@ -2215,6 +2215,23 @@
       </div>
     </div>
 
+    <div class="modal" id="spellResolveModal" aria-hidden="true">
+      <div class="card">
+        <h2>Resolve Spell (AoE)</h2>
+        <div class="hint" id="spellResolveBody">Enter table-rolled damage totals by type, or leave blank to let the system auto-roll.</div>
+        <div class="modal-body">
+          <div class="damage-type-list" id="spellResolveDamageRows" aria-live="polite"></div>
+          <div class="modal-actions" style="justify-content:flex-start;padding:0;">
+            <button class="btn" id="spellResolveAddDamage" type="button">Add damage box</button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn accent" id="spellResolveSubmit" type="button">Confirm</button>
+          <button class="btn" id="spellResolveCancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal" id="cleavePromptModal" aria-hidden="true">
       <div class="card card-scroll">
         <h2>Cleave Attack</h2>
@@ -3835,6 +3852,12 @@ __DAMAGE_TYPE_OPTIONS__
   const attackDamageAdd = document.getElementById("attackDamageAdd");
   const attackResolveSubmit = document.getElementById("attackResolveSubmit");
   const attackResolveCancel = document.getElementById("attackResolveCancel");
+  const spellResolveModal = document.getElementById("spellResolveModal");
+  const spellResolveBody = document.getElementById("spellResolveBody");
+  const spellResolveDamageRows = document.getElementById("spellResolveDamageRows");
+  const spellResolveAddDamage = document.getElementById("spellResolveAddDamage");
+  const spellResolveSubmit = document.getElementById("spellResolveSubmit");
+  const spellResolveCancel = document.getElementById("spellResolveCancel");
   const cleavePromptModal = document.getElementById("cleavePromptModal");
   const cleavePromptBody = document.getElementById("cleavePromptBody");
   const cleavePromptList = document.getElementById("cleavePromptList");
@@ -4097,6 +4120,9 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingSpellActionType = null;
   let pendingSummonPlacement = null;
   let pendingAoePlacement = null;
+  let pendingSpellResolve = null;
+  const castAutomationStorageKey = "inittracker_cast_automation_enabled";
+  let castAutomationEnabled = localStorage.getItem(castAutomationStorageKey) !== "0";
   let summonValidCells = new Set();
   let aoeTargetPreviewSignature = "";
   const preparedSpellDefaults = {
@@ -6592,6 +6618,16 @@ __DAMAGE_TYPE_OPTIONS__
     };
     const slot = mkNumber(castSlotLevelInput?.value || "", 0, () => { castSlotLevelInput.value = slot.value; castSlotLevelInput.dispatchEvent(new Event("input", {bubbles:true})); renderCastSpellPreview(); });
     addField("Slot Level", slot);
+    const automationBtn = document.createElement("button");
+    automationBtn.type = "button";
+    const automationOn = castAutomationIsEnabled();
+    automationBtn.className = `btn ${automationOn ? "success" : "danger"}`;
+    automationBtn.textContent = automationOn ? "ON" : "OFF";
+    automationBtn.addEventListener("click", () => {
+      setCastAutomationEnabled(!castAutomationIsEnabled());
+      renderCastSpellPreview();
+    });
+    addField("Automation", automationBtn);
     const isSummon = isSummonPreset(preset || (selected === CUSTOM_SUMMON_PRESET_NAME ? CUSTOM_SUMMON_PRESET : null));
     const isAoe = isAoePreset(preset);
     if (isSummon){
@@ -8497,8 +8533,8 @@ __DAMAGE_TYPE_OPTIONS__
     return options;
   }
 
-  function addAttackDamageRow(initialAmount = "", initialType = ""){
-    if (!attackDamageRows) return;
+  function addDamageRow(container, initialAmount = "", initialType = ""){
+    if (!container) return;
     const row = document.createElement("div");
     row.className = "damage-type-controls";
     const amountInput = document.createElement("input");
@@ -8548,7 +8584,27 @@ __DAMAGE_TYPE_OPTIONS__
     row.appendChild(amountInput);
     row.appendChild(typeSelect);
     row.appendChild(removeBtn);
-    attackDamageRows.appendChild(row);
+    container.appendChild(row);
+  }
+
+  function addAttackDamageRow(initialAmount = "", initialType = ""){
+    addDamageRow(attackDamageRows, initialAmount, initialType);
+  }
+
+  function collectDamageEntriesFromRows(container){
+    const entries = [];
+    if (!container) return entries;
+    Array.from(container.querySelectorAll(".damage-type-controls")).forEach((row) => {
+      const amountInput = row.querySelector("input");
+      const typeSelect = row.querySelector("select");
+      const amount = Number(String(amountInput?.value || "").trim());
+      if (!Number.isFinite(amount) || amount <= 0) return;
+      entries.push({
+        amount: Math.floor(amount),
+        type: String(typeSelect?.value || "").trim().toLowerCase(),
+      });
+    });
+    return entries;
   }
 
   function syncAttackResolveDamageVisibility(){
@@ -8578,6 +8634,52 @@ __DAMAGE_TYPE_OPTIONS__
       }
       pendingAttackResolve = null;
     }
+  }
+
+  function castAutomationIsEnabled(){
+    return castAutomationEnabled !== false;
+  }
+
+  function setCastAutomationEnabled(enabled){
+    castAutomationEnabled = !!enabled;
+    localStorage.setItem(castAutomationStorageKey, castAutomationEnabled ? "1" : "0");
+  }
+
+  function setSpellResolveModalOpen(open){
+    if (!spellResolveModal) return;
+    spellResolveModal.classList.toggle("show", !!open);
+    spellResolveModal.setAttribute("aria-hidden", open ? "false" : "true");
+    if (!open){
+      pendingSpellResolve = null;
+    }
+  }
+
+  function openSpellResolveModal(context, onConfirm){
+    if (!spellResolveBody || !spellResolveDamageRows){
+      if (typeof onConfirm === "function") onConfirm([]);
+      return;
+    }
+    const spellName = String(context?.spellName || "Spell").trim() || "Spell";
+    const slotLevel = Number.isFinite(Number(context?.slotLevel)) ? Math.floor(Number(context.slotLevel)) : null;
+    const baseLevel = Number.isFinite(Number(context?.baseLevel)) ? Math.floor(Number(context.baseLevel)) : null;
+    const dice = String(context?.dice || "").trim();
+    const upcast = (slotLevel !== null && baseLevel !== null && slotLevel > baseLevel)
+      ? ` Upcast: base level ${baseLevel}, cast at level ${slotLevel}.`
+      : "";
+    const slotText = slotLevel !== null ? ` (slot ${slotLevel})` : "";
+    const diceText = dice ? ` Final dice: ${dice}.` : "";
+    spellResolveBody.textContent = `Resolve ${spellName}${slotText}.${upcast}${diceText} Enter table-rolled damage totals by type, or leave blank to auto-roll.`;
+    spellResolveDamageRows.textContent = "";
+    const suggestedTypes = Array.isArray(context?.damageTypes) ? context.damageTypes : [];
+    if (suggestedTypes.length){
+      suggestedTypes.forEach((dtype) => addDamageRow(spellResolveDamageRows, "", dtype));
+    } else {
+      addDamageRow(spellResolveDamageRows);
+    }
+    pendingSpellResolve = {
+      onConfirm: typeof onConfirm === "function" ? onConfirm : null,
+    };
+    setSpellResolveModalOpen(true);
   }
 
   function setCleavePromptOpen(open){
@@ -12155,14 +12257,25 @@ __DAMAGE_TYPE_OPTIONS__
       const cursor = pendingAoePlacement.cursor || {col: 0, row: 0};
       msg.payload.cx = Math.round(Number(cursor.col));
       msg.payload.cy = Math.round(Number(cursor.row));
-      if (isPlanning){
-        planningMutate(msg);
+      const submitAoe = (damageEntries = []) => {
+        if (Array.isArray(damageEntries) && damageEntries.length){
+          msg.damage_entries = damageEntries;
+        }
+        if (isPlanning){
+          planningMutate(msg);
+          draw();
+          updateHud();
+        }
+        send(msg);
+        clearPendingAoePlacement(false);
         draw();
-        updateHud();
+      };
+      if (castAutomationIsEnabled()){
+        submitAoe();
+      } else {
+        const resolveContext = pendingAoePlacement.resolveContext || {};
+        openSpellResolveModal(resolveContext, (damageEntries) => submitAoe(damageEntries));
       }
-      send(msg);
-      clearPendingAoePlacement(false);
-      draw();
       return;
     }
 
@@ -15913,17 +16026,34 @@ __DAMAGE_TYPE_OPTIONS__
           msg.payload.cx = casterCol;
           msg.payload.cy = casterRow;
           msg.payload.fixed_to_caster = true;
-          if (isPlanning){
-            planningMutate(msg);
-            draw();
-            updateHud();
-          }
-          send(msg);
-          if (castSpellModal?.classList.contains("show")){
-            hideCastSpellModal();
-          }
-          if (castOverlay?.classList.contains("show")){
-            setCastOverlayOpen(false);
+          const resolveContext = {
+            spellName: payload.name || appearanceName || castName || preset?.name || "Spell",
+            slotLevel,
+            baseLevel: Number.isFinite(Number(preset?.level)) ? Math.floor(Number(preset.level)) : null,
+            dice: payload.dice || "",
+            damageTypes,
+          };
+          const sendCenteredAoe = (damageEntries = []) => {
+            if (Array.isArray(damageEntries) && damageEntries.length){
+              msg.damage_entries = damageEntries;
+            }
+            if (isPlanning){
+              planningMutate(msg);
+              draw();
+              updateHud();
+            }
+            send(msg);
+            if (castSpellModal?.classList.contains("show")){
+              hideCastSpellModal();
+            }
+            if (castOverlay?.classList.contains("show")){
+              setCastOverlayOpen(false);
+            }
+          };
+          if (castAutomationIsEnabled()){
+            sendCenteredAoe();
+          } else {
+            openSpellResolveModal(resolveContext, (damageEntries) => sendCenteredAoe(damageEntries));
           }
           return;
         }
@@ -15939,6 +16069,13 @@ __DAMAGE_TYPE_OPTIONS__
           cursor: {col: Number(payload.cx), row: Number(payload.cy)},
           castConfirmMessage,
           concentrationConfirmMessage,
+          resolveContext: {
+            spellName: payload.name || appearanceName || castName || preset?.name || "Spell",
+            slotLevel,
+            baseLevel: Number.isFinite(Number(preset?.level)) ? Math.floor(Number(preset.level)) : null,
+            dice: payload.dice || "",
+            damageTypes,
+          },
         };
         localToast("AoE placement: move cursor, click to place (you’ll confirm on placement).");
         draw();
@@ -17223,6 +17360,22 @@ __DAMAGE_TYPE_OPTIONS__
   if (attackResolveCancel){
     attackResolveCancel.addEventListener("click", () => setAttackResolveModalOpen(false));
   }
+  if (spellResolveAddDamage){
+    spellResolveAddDamage.addEventListener("click", () => addDamageRow(spellResolveDamageRows));
+  }
+  if (spellResolveCancel){
+    spellResolveCancel.addEventListener("click", () => setSpellResolveModalOpen(false));
+  }
+  if (spellResolveSubmit){
+    spellResolveSubmit.addEventListener("click", () => {
+      const pending = pendingSpellResolve;
+      const damageEntries = collectDamageEntriesFromRows(spellResolveDamageRows);
+      setSpellResolveModalOpen(false);
+      if (pending && typeof pending.onConfirm === "function"){
+        pending.onConfirm(damageEntries);
+      }
+    });
+  }
   if (cleavePromptCancel){
     cleavePromptCancel.addEventListener("click", () => setCleavePromptOpen(false));
   }
@@ -17234,19 +17387,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const hit = !(attackResolveMiss && attackResolveMiss.checked);
       const critical = hit && !!(attackResolveCrit && attackResolveCrit.checked);
-      const damageEntries = [];
-      if (hit && attackDamageRows){
-        Array.from(attackDamageRows.querySelectorAll(".damage-type-controls")).forEach((row) => {
-          const amountInput = row.querySelector("input");
-          const typeSelect = row.querySelector("select");
-          const amount = Number(String(amountInput?.value || "").trim());
-          if (!Number.isFinite(amount) || amount <= 0) return;
-          damageEntries.push({
-            amount: Math.floor(amount),
-            type: String(typeSelect?.value || "").trim().toLowerCase(),
-          });
-        });
-      }
+      const damageEntries = hit ? collectDamageEntriesFromRows(attackDamageRows) : [];
       const actionCid = pendingAttackResolve.opportunityAttack ? normalizeCid(claimedCid, "attackResolve.opportunityCid") : activeControlledUnitCid();
       if (actionCid === null){
         localToast("Not yer turn yet, matey.");
