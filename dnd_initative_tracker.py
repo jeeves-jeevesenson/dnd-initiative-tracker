@@ -6390,6 +6390,8 @@ class InitiativeTracker(base.InitiativeTracker):
             menubar.add_cascade(label="LAN", menu=lan)
 
             session_menu = tk.Menu(menubar, tearoff=0)
+            session_menu.add_command(label="New Session", command=self._new_session)
+            session_menu.add_separator()
             session_menu.add_command(label="Save Session…", command=self._save_session_dialog)
             session_menu.add_command(label="Load Session…", command=self._load_session_dialog)
             session_menu.add_separator()
@@ -7753,6 +7755,64 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _has_meaningful_session_state(self) -> bool:
         return bool(getattr(self, "combatants", {}))
+
+    def _new_session(self) -> None:
+        self._new_session_apply_blank_state(confirm=True)
+
+    def _new_session_apply_blank_state(self, confirm: bool = True) -> bool:
+        meaningful_state = self._has_meaningful_session_state()
+        if confirm and meaningful_state:
+            if not getattr(self, "_session_has_saved", False):
+                quick_save = messagebox.askyesnocancel(
+                    "New Session",
+                    "This session appears unsaved. Quick Save before starting a new blank session?",
+                    parent=self,
+                )
+                if quick_save is None:
+                    return False
+                if quick_save:
+                    self._quick_save_session()
+            if not messagebox.askyesno(
+                "New Session",
+                "Start a new blank session?\n\nThis clears combat, map state, and battle log.",
+                parent=self,
+            ):
+                return False
+
+        existing_cids = list(getattr(self, "combatants", {}).keys())
+        self._remove_combatants_with_lan_cleanup(existing_cids)
+        self.combatants = {}
+
+        self._next_id = 1
+        self._next_stack_id = 1
+        self.current_cid = None
+        self.start_cid = None
+        self.round_num = 1
+        self.turn_num = 0
+        self.in_combat = False
+
+        self._turn_snapshots = {}
+        self._name_role_memory = {}
+        self._summon_groups = {}
+        self._summon_group_meta = {}
+        self._pending_pre_summons = {}
+        self._pending_mount_requests = {}
+        self._pending_echo_tether_confirms = {}
+        self._concentration_save_state = {}
+        self._session_has_saved = False
+
+        self._reset_map_state()
+
+        history_path = self._history_file_path()
+        history_path.parent.mkdir(parents=True, exist_ok=True)
+        history_path.write_text("", encoding="utf-8")
+        self._load_history_into_log()
+
+        self._update_turn_ui()
+        self._rebuild_table(scroll_to_current=True)
+        self._lan_force_state_broadcast()
+        self._log("New blank session started.")
+        return True
 
     def _offer_update_and_run_if_confirmed(self, message: str) -> None:
         result = messagebox.askyesno(

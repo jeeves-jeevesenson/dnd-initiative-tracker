@@ -234,6 +234,93 @@ class SessionSaveLoadTests(unittest.TestCase):
             self.assertIn("Second", log_text)
 
 
+
+    def test_new_session_apply_blank_state_clears_combat_map_and_log(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            history_path = Path(tmpdir) / "battle.log"
+            history_path.write_text("line one\nline two\n", encoding="utf-8")
+            app = self._make_app(history_path)
+
+            app.combatants = {
+                1: types.SimpleNamespace(cid=1, name="Alice"),
+                2: types.SimpleNamespace(cid=2, name="Goblin"),
+            }
+            app._next_id = 9
+            app._next_stack_id = 4
+            app.current_cid = 2
+            app.start_cid = 1
+            app.round_num = 5
+            app.turn_num = 7
+            app.in_combat = True
+            app._turn_snapshots = {1: {"move_remaining": 10}}
+            app._name_role_memory = {"Alice": "pc"}
+            app._summon_groups = {"group": [2]}
+            app._summon_group_meta = {"group": {"name": "Summons"}}
+            app._pending_pre_summons = {1: {"spell": "summon"}}
+            app._pending_mount_requests = {"mount": {"cid": 1}}
+            app._concentration_save_state = {1: {"dc": 10}}
+            app._session_has_saved = True
+
+            app._lan_positions = {1: (2, 3)}
+            app._lan_obstacles = {(1, 1)}
+            app._lan_rough_terrain = {(4, 4): {"color": "#fff"}}
+            app._lan_aoes = {10: {"owner_cid": 1}}
+            app._session_bg_images = [{"bid": 1, "path": "bg.png"}]
+            app._session_next_bg_id = 3
+
+            removed_cids = []
+            def _remove(cids):
+                removed_cids.extend(list(cids))
+                for cid in list(cids):
+                    app.combatants.pop(int(cid), None)
+            app._remove_combatants_with_lan_cleanup = _remove
+
+            reset_calls = []
+            original_reset = tracker_mod.InitiativeTracker._reset_map_state
+            def _reset():
+                reset_calls.append(True)
+                original_reset(app)
+            app._reset_map_state = _reset
+
+            history_reload_calls = []
+            app._load_history_into_log = lambda max_lines=2000: history_reload_calls.append(max_lines)
+
+            broadcasts = []
+            app._lan_force_state_broadcast = lambda: broadcasts.append(True)
+
+            result = app._new_session_apply_blank_state(confirm=False)
+
+            self.assertTrue(result)
+            self.assertEqual(sorted(removed_cids), [1, 2])
+            self.assertEqual(app.combatants, {})
+            self.assertEqual(app._next_id, 1)
+            self.assertEqual(app._next_stack_id, 1)
+            self.assertIsNone(app.current_cid)
+            self.assertIsNone(app.start_cid)
+            self.assertEqual(app.round_num, 1)
+            self.assertEqual(app.turn_num, 0)
+            self.assertFalse(app.in_combat)
+            self.assertEqual(app._turn_snapshots, {})
+            self.assertEqual(app._name_role_memory, {})
+            self.assertEqual(app._summon_groups, {})
+            self.assertEqual(app._summon_group_meta, {})
+            self.assertEqual(app._pending_pre_summons, {})
+            self.assertEqual(app._pending_mount_requests, {})
+            self.assertEqual(app._concentration_save_state, {})
+            self.assertFalse(app._session_has_saved)
+
+            self.assertEqual(reset_calls, [True])
+            self.assertEqual(app._lan_positions, {})
+            self.assertEqual(app._lan_obstacles, set())
+            self.assertEqual(app._lan_rough_terrain, {})
+            self.assertEqual(app._lan_aoes, {})
+            self.assertEqual(app._session_bg_images, [])
+            self.assertEqual(app._session_next_bg_id, 1)
+
+            self.assertEqual(history_path.read_text(encoding="utf-8"), "")
+            self.assertEqual(history_reload_calls, [2000])
+            self.assertEqual(len(broadcasts), 2)
+
     def test_auto_load_quick_save_on_startup_loads_existing_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             app = self._make_app(Path(tmpdir) / "battle.log")
