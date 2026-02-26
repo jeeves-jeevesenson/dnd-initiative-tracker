@@ -109,6 +109,30 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('type: "spell_target_request",', self.html)
         self.assertIn('} else if (msg.type === "spell_target_result"){', self.html)
 
+
+    def test_eldritch_blast_inference_regex_includes_beam_scaling_tokens(self):
+        self.assertIn(
+            'const ebPattern = /two\\s+beams?\\s+at\\s+level\\s+5[^.]*three\\s+beams?\\s+at\\s+level\\s+11[^.]*four\\s+beams?\\s+at\\s+level\\s+17/i;',
+            self.html,
+        )
+
+    def test_multi_target_queue_does_not_double_advance_after_spell_request_send(self):
+        self.assertNotIn(
+            'spell_mode: "effect",\n      });\n      consumeSpellTargetingShot();\n      processNextSpellTarget();',
+            self.html,
+        )
+        self.assertNotIn(
+            'damage_type: String(pendingSpellTargeting.damageType || "").trim().toLowerCase() || null,\n      });\n      consumeSpellTargetingShot();\n      processNextSpellTarget();',
+            self.html,
+        )
+        self.assertNotIn(
+            'damage_type: String(pendingAttackResolve.damageType || "").trim().toLowerCase() || null,\n        });\n        consumeSpellTargetingShot();\n        processNextSpellTarget();',
+            self.html,
+        )
+
+    def test_spell_inference_contains_no_backspace_control_characters(self):
+        self.assertNotIn("\x08", self.html)
+
     def test_multi_target_selection_queue_wiring_is_present(self):
         self.assertIn('let pendingSpellTargetSelection = null;', self.html)
         self.assertIn('function processNextSpellTarget()', self.html)

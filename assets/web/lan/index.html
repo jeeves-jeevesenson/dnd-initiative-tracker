@@ -11359,8 +11359,6 @@ __DAMAGE_TYPE_OPTIONS__
         spell_id: pendingSpellTargeting.spellId || null,
         spell_mode: "effect",
       });
-      consumeSpellTargetingShot();
-      processNextSpellTarget();
       return;
     }
     const autoHit = pendingSpellTargeting.mode === "auto_hit";
@@ -11387,8 +11385,6 @@ __DAMAGE_TYPE_OPTIONS__
         damage_dice: String(pendingSpellTargeting.damageDice || "").trim() || null,
         damage_type: String(pendingSpellTargeting.damageType || "").trim().toLowerCase() || null,
       });
-      consumeSpellTargetingShot();
-      processNextSpellTarget();
       return;
     }
     pendingAttackResolve = {
@@ -15874,7 +15870,7 @@ __DAMAGE_TYPE_OPTIONS__
     const upTo = lower.match(/(?:choose\s+)?up to\s+(\d+)\s+creatures?/i);
     if (upTo){
       inferred.baseCount = Math.max(1, Number(upTo[1]));
-    } else if (/choose\s+(?:an|a)/i.test(lower)){
+    } else if (/\bchoose\s+(?:an|a)\b/i.test(lower)){
       inferred.baseCount = 1;
     }
     const dartsRays = lower.match(/you create\s+(\d+)\s+(?:darts?|rays?)/i);
@@ -15886,7 +15882,7 @@ __DAMAGE_TYPE_OPTIONS__
     } else if (/(enemy|hostile|creature you can see that is not willing|of your choice that you can see)/i.test(lower)){
       inferred.targetSide = "enemy";
     }
-    const ebPattern = /two\s+beams?\s+at\s+level\s+5[^.]*three\s+at\s+level\s+11[^.]*four\s+at\s+level\s+17/i;
+    const ebPattern = /two\s+beams?\s+at\s+level\s+5[^.]*three\s+beams?\s+at\s+level\s+11[^.]*four\s+beams?\s+at\s+level\s+17/i;
     if (ebPattern.test(lower)){
       inferred.cantripDynamicCount = () => {
         const playerName = getClaimedPlayerName();
@@ -18522,8 +18518,6 @@ __DAMAGE_TYPE_OPTIONS__
           damage_dice: String(pendingAttackResolve.damageDice || "").trim() || null,
           damage_type: String(pendingAttackResolve.damageType || "").trim().toLowerCase() || null,
         });
-        consumeSpellTargetingShot();
-        processNextSpellTarget();
       } else {
         const monkSeq = pendingMonkBonusAttackSequence && typeof pendingMonkBonusAttackSequence === "object"
           ? pendingMonkBonusAttackSequence

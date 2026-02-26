@@ -19357,6 +19357,8 @@ class InitiativeTracker(base.InitiativeTracker):
                             pass
                     self._lan.toast(ws_id, "Target failed the save.")
                     return
+                if not damage_intent:
+                    hit = True
 
             if not resolved_bucket and sequence:
                 seq_step = next((step for step in sequence if isinstance(step, dict)), None)
