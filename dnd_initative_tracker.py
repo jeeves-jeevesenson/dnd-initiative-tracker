@@ -41,7 +41,7 @@ from collections import deque
 import sys
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, scrolledtext, ttk
+from tkinter import filedialog, messagebox, scrolledtext, simpledialog, ttk
 
 # Monster YAML loader (PyYAML)
 try:
@@ -108,6 +108,31 @@ def _app_data_dir() -> Path:
     return _app_base_dir()
 
 
+def _normalize_public_url(raw_value: Any, *, required_scheme: Optional[str] = None) -> Optional[str]:
+    text = str(raw_value or "").strip()
+    if not text:
+        return None
+    parsed = urllib.parse.urlparse(text)
+    if not parsed.scheme:
+        return None
+    scheme = parsed.scheme.lower()
+    if required_scheme and scheme != required_scheme:
+        return None
+    if scheme not in {"http", "https"}:
+        return None
+    if not parsed.netloc:
+        return None
+    normalized = urllib.parse.urlunparse((scheme, parsed.netloc, parsed.path or "/", "", parsed.query, parsed.fragment))
+    if not normalized.endswith("/"):
+        normalized += "/"
+    return normalized
+
+
+def _normalize_lan_url_mode(raw_mode: Any) -> str:
+    mode = str(raw_mode or "http").strip().lower()
+    if mode in {"http", "https", "both"}:
+        return mode
+    return "http"
 
 
 def _rules_pdf_default_path() -> Path:
@@ -1159,6 +1184,7 @@ class LanConfig:
         if self._parse_env_flag(env_yaml_host_assignments):
             self.yaml_host_assignments_enabled = True
 
+
     @staticmethod
     def _parse_env_flag(value: Optional[str]) -> bool:
         if not value:
@@ -1298,6 +1324,13 @@ class PlayerProfile:
         }
 
 
+@dataclass
+class LanUrlSettings:
+    url_mode: str = "http"
+    public_https_url: Optional[str] = None
+    public_http_url: Optional[str] = None
+
+
 class LanController:
     """Runs a FastAPI+WebSocket server in a background thread and bridges actions into the Tk thread."""
     _ACTION_MESSAGE_TYPES = (
@@ -1346,6 +1379,7 @@ class LanController:
             raise TypeError("LanController requires an InitiativeTracker app instance.")
         self._tracker = app
         self.cfg = LanConfig()
+        self.url_settings = LanUrlSettings()
         self._server_thread: Optional[threading.Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._uvicorn_server = None
@@ -1922,7 +1956,8 @@ class LanController:
             push_key = self.cfg.vapid_public_key
             push_key_value = json.dumps(push_key) if push_key else "undefined"
             html = HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value)
-            html = html.replace("__LAN_BASE_URL__", json.dumps(self._best_lan_url()))
+            base_url = self.html_injected_base_url()
+            html = html.replace("__LAN_BASE_URL__", "undefined" if base_url is None else json.dumps(base_url))
             return HTMLResponse(html)
 
         @self._fastapi_app.get("/planning")
@@ -1930,7 +1965,8 @@ class LanController:
             push_key = self.cfg.vapid_public_key
             push_key_value = json.dumps(push_key) if push_key else "undefined"
             html = HTML_INDEX.replace("__PUSH_PUBLIC_KEY__", push_key_value)
-            html = html.replace("__LAN_BASE_URL__", json.dumps(self._best_lan_url()))
+            base_url = self.html_injected_base_url()
+            html = html.replace("__LAN_BASE_URL__", "undefined" if base_url is None else json.dumps(base_url))
             return HTMLResponse(html)
 
         @self._fastapi_app.get("/new_character")
@@ -4300,8 +4336,44 @@ class LanController:
     def is_running(self) -> bool:
         return bool(self._server_thread and self._server_thread.is_alive())
 
-    def _best_lan_url(self) -> str:
+    def _computed_http_url(self) -> str:
         return f"http://{self._display_host()}:{self.cfg.port}/"
+
+    def published_urls(self) -> Dict[str, str]:
+        settings = getattr(self, "url_settings", None)
+        mode = _normalize_lan_url_mode(getattr(settings, "url_mode", "http"))
+        configured_http = _normalize_public_url(getattr(settings, "public_http_url", None), required_scheme="http")
+        configured_https = _normalize_public_url(getattr(settings, "public_https_url", None), required_scheme="https")
+        http_url = configured_http or self._computed_http_url()
+        urls: Dict[str, str] = {}
+        if mode in {"http", "both"}:
+            urls["http"] = http_url
+        if mode in {"https", "both"} and configured_https:
+            urls["https"] = configured_https
+        return urls
+
+    def preferred_url(self) -> Optional[str]:
+        settings = getattr(self, "url_settings", None)
+        mode = _normalize_lan_url_mode(getattr(settings, "url_mode", "http"))
+        urls = self.published_urls()
+        if mode == "https":
+            return urls.get("https")
+        if mode == "both":
+            return urls.get("https") or urls.get("http")
+        return urls.get("http")
+
+    def html_injected_base_url(self) -> Optional[str]:
+        settings = getattr(self, "url_settings", None)
+        mode = _normalize_lan_url_mode(getattr(settings, "url_mode", "http"))
+        if mode == "both":
+            return None
+        if mode == "https":
+            return _normalize_public_url(getattr(settings, "public_https_url", None), required_scheme="https")
+        urls = self.published_urls()
+        return urls.get("http")
+
+    def _best_lan_url(self) -> str:
+        return self.preferred_url() or self._computed_http_url()
 
     def _cached_snapshot_payload(self) -> Dict[str, Any]:
         snap = dict(self._cached_snapshot)
@@ -4896,6 +4968,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._ops_logger = _make_ops_logger()
 
         self._lan = LanController(self)
+        self._load_lan_url_settings()
         self._install_lan_menu()
 
         # Monster library (YAML files in ./Monsters)
@@ -6240,6 +6313,18 @@ class InitiativeTracker(base.InitiativeTracker):
             lan.add_command(label="Start LAN Server", command=self._lan.start)
             lan.add_command(label="Stop LAN Server", command=self._lan.stop)
             lan.add_separator()
+            self._lan_url_mode_var = tk.StringVar(value=_normalize_lan_url_mode(getattr(getattr(self._lan, "url_settings", None), "url_mode", "http")))
+            url_mode_menu = tk.Menu(lan, tearoff=0)
+            for label, mode in (("HTTP", "http"), ("HTTPS", "https"), ("Both", "both")):
+                url_mode_menu.add_radiobutton(
+                    label=label,
+                    value=mode,
+                    variable=self._lan_url_mode_var,
+                    command=lambda selected=mode: self._set_lan_url_mode(selected),
+                )
+            lan.add_cascade(label="URL Mode", menu=url_mode_menu)
+            lan.add_command(label="Set HTTPS Public URL…", command=self._prompt_set_lan_https_public_url)
+            lan.add_separator()
             lan.add_command(label="Show LAN URL", command=self._show_lan_url)
             lan.add_command(label="Show QR Code", command=self._show_lan_qr)
             lan.add_separator()
@@ -6271,6 +6356,64 @@ class InitiativeTracker(base.InitiativeTracker):
             self.config(menu=menubar)
         except Exception:
             pass
+
+    def _lan_url_settings_path(self) -> Path:
+        return _app_data_dir() / "settings" / "lan_url.json"
+
+    def _load_lan_url_settings(self) -> None:
+        path = self._lan_url_settings_path()
+        try:
+            if not path.exists():
+                return
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                return
+        except Exception:
+            return
+        settings = getattr(self._lan, "url_settings", LanUrlSettings())
+        settings.url_mode = _normalize_lan_url_mode(payload.get("url_mode", settings.url_mode))
+        settings.public_http_url = _normalize_public_url(payload.get("public_http_url"), required_scheme="http")
+        settings.public_https_url = _normalize_public_url(payload.get("public_https_url"), required_scheme="https")
+        self._lan.url_settings = settings
+
+    def _save_lan_url_settings(self) -> None:
+        settings = getattr(self._lan, "url_settings", LanUrlSettings())
+        payload = {
+            "url_mode": _normalize_lan_url_mode(getattr(settings, "url_mode", "http")),
+            "public_http_url": _normalize_public_url(getattr(settings, "public_http_url", None), required_scheme="http"),
+            "public_https_url": _normalize_public_url(getattr(settings, "public_https_url", None), required_scheme="https"),
+        }
+        path = self._lan_url_settings_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        except Exception:
+            pass
+
+    def _set_lan_url_mode(self, mode: str) -> None:
+        settings = getattr(self._lan, "url_settings", LanUrlSettings())
+        settings.url_mode = _normalize_lan_url_mode(mode)
+        self._lan.url_settings = settings
+        self._save_lan_url_settings()
+
+    def _prompt_set_lan_https_public_url(self) -> None:
+        current = _normalize_public_url(getattr(getattr(self._lan, "url_settings", None), "public_https_url", None), required_scheme="https")
+        raw = simpledialog.askstring(
+            "Set HTTPS Public URL",
+            "Enter the HTTPS public URL (blank to clear):",
+            initialvalue=current or "",
+            parent=self,
+        )
+        if raw is None:
+            return
+        normalized = _normalize_public_url(raw, required_scheme="https")
+        if str(raw).strip() and not normalized:
+            messagebox.showerror("Set HTTPS Public URL", "Please enter a valid HTTPS URL, e.g. https://dnd.example.local/")
+            return
+        settings = getattr(self._lan, "url_settings", LanUrlSettings())
+        settings.public_https_url = normalized
+        self._lan.url_settings = settings
+        self._save_lan_url_settings()
 
     def _session_saves_dir(self) -> Path:
         path = _app_data_dir() / "sessions"
@@ -7090,36 +7233,58 @@ class InitiativeTracker(base.InitiativeTracker):
             self._lan.start()
             if not self._lan.is_running():
                 return
-        url = self._lan._best_lan_url()
+        settings = getattr(self._lan, "url_settings", LanUrlSettings())
+        mode = _normalize_lan_url_mode(getattr(settings, "url_mode", "http"))
+        urls = self._lan.published_urls()
+        if mode == "https" and not urls.get("https"):
+            messagebox.showwarning(
+                "LAN URL",
+                "HTTPS mode is enabled but no HTTPS public URL is configured.\nUse LAN → Set HTTPS Public URL…",
+                parent=self,
+            )
+            return
+
         win = tk.Toplevel(self)
         win.title("LAN URL")
-        win.geometry("420x180")
+        win.geometry("500x240")
         win.transient(self)
 
         frm = tk.Frame(win)
         frm.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
         tk.Label(frm, text="Open this on yer LAN devices:", justify="left", anchor="w").pack(fill=tk.X)
-        tk.Label(frm, text=url, wraplength=380, justify="left", anchor="w").pack(fill=tk.X, pady=(8, 12))
 
-        btns = tk.Frame(frm)
-        btns.pack(fill=tk.X)
+        def _add_url_row(label: str, url: str) -> None:
+            row = tk.Frame(frm)
+            row.pack(fill=tk.X, pady=(8, 4))
+            tk.Label(row, text=f"{label}:", width=8, anchor="w").pack(side=tk.LEFT)
+            tk.Label(row, text=url, wraplength=320, justify="left", anchor="w").pack(side=tk.LEFT, fill=tk.X, expand=True)
+            def _copy() -> None:
+                try:
+                    self.clipboard_clear()
+                    self.clipboard_append(url)
+                except Exception:
+                    pass
+            tk.Button(row, text="Copy", command=_copy).pack(side=tk.RIGHT)
 
-        def copy_url() -> None:
-            try:
-                self.clipboard_clear()
-                self.clipboard_append(url)
-            except Exception:
-                pass
+        if mode == "both":
+            http_url = urls.get("http")
+            https_url = urls.get("https")
+            if https_url:
+                _add_url_row("HTTPS", https_url)
+            if http_url:
+                _add_url_row("HTTP", http_url)
+        else:
+            preferred = self._lan.preferred_url()
+            if preferred:
+                _add_url_row(mode.upper(), preferred)
 
-        tk.Button(btns, text="Copy URL", command=copy_url).pack(side=tk.LEFT)
-        tk.Button(btns, text="Close", command=win.destroy).pack(side=tk.RIGHT)
+        tk.Button(frm, text="Close", command=win.destroy).pack(anchor="e", pady=(12, 0))
 
     def _show_lan_qr(self) -> None:
         if not self._lan.is_running():
             self._lan.start()
             if not self._lan.is_running():
                 return
-        url = self._lan._best_lan_url()
         try:
             import qrcode  # type: ignore
         except Exception as e:
@@ -7134,37 +7299,79 @@ class InitiativeTracker(base.InitiativeTracker):
             )
             return
 
-        # Build QR image
-        qr = qrcode.QRCode(border=2, box_size=10)
-        qr.add_data(url)
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white")
-        try:
-            img = img.convert("RGB")
-        except Exception:
-            pass
+        settings = getattr(self._lan, "url_settings", LanUrlSettings())
+        mode = _normalize_lan_url_mode(getattr(settings, "url_mode", "http"))
+        urls = self._lan.published_urls()
+        if mode == "https" and not urls.get("https"):
+            messagebox.showwarning(
+                "QR Code",
+                "HTTPS mode is enabled but no HTTPS public URL is configured.\nUse LAN → Set HTTPS Public URL…",
+                parent=self,
+            )
+            return
 
-        # Scale to a comfortable size for phones
-        size = 360
-        try:
-            img = img.resize((size, size), Image.NEAREST)
-        except Exception:
-            pass
+        candidates: List[Tuple[str, str]] = []
+        if mode == "both":
+            if urls.get("https"):
+                candidates.append(("HTTPS", urls["https"]))
+            if urls.get("http"):
+                candidates.append(("HTTP", urls["http"]))
+        else:
+            preferred = self._lan.preferred_url()
+            if preferred:
+                candidates.append((mode.upper(), preferred))
+        if not candidates:
+            messagebox.showwarning("QR Code", "No LAN URL is available to encode.", parent=self)
+            return
+
+        selected = candidates[0][1]
+
+        def _make_photo(url: str):
+            qr = qrcode.QRCode(border=2, box_size=10)
+            qr.add_data(url)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            try:
+                img = img.convert("RGB")
+            except Exception:
+                pass
+            try:
+                img = img.resize((360, 360), Image.NEAREST)
+            except Exception:
+                pass
+            return ImageTk.PhotoImage(img)
 
         win = tk.Toplevel(self)
         win.title("LAN QR Code")
-        win.geometry("420x520")
+        win.geometry("460x590")
         win.transient(self)
 
         frm = tk.Frame(win)
         frm.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
 
-        photo = ImageTk.PhotoImage(img)
-        lbl = tk.Label(frm, image=photo)
-        lbl.image = photo  # keep alive
-        lbl.pack(pady=(0, 10))
+        qr_label = tk.Label(frm)
+        qr_label.pack(pady=(0, 10))
+        url_label = tk.Label(frm, text=selected, wraplength=420, justify="center")
+        url_label.pack(pady=(0, 8))
 
-        tk.Label(frm, text=url, wraplength=380, justify="center").pack(pady=(0, 8))
+        selected_var = tk.StringVar(value=selected)
+
+        def _refresh() -> None:
+            photo = _make_photo(selected_var.get())
+            qr_label.configure(image=photo)
+            qr_label.image = photo
+            url_label.configure(text=selected_var.get())
+
+        if len(candidates) > 1:
+            chooser = tk.Frame(frm)
+            chooser.pack(pady=(0, 8))
+            tk.Label(chooser, text="QR URL:").pack(side=tk.LEFT)
+            options = [entry[1] for entry in candidates]
+            menu = ttk.Combobox(chooser, values=options, textvariable=selected_var, state="readonly", width=42)
+            menu.pack(side=tk.LEFT, padx=(8, 0))
+            menu.bind("<<ComboboxSelected>>", lambda _e: _refresh())
+
+        _refresh()
 
         btns = tk.Frame(frm)
         btns.pack()
@@ -7172,7 +7379,7 @@ class InitiativeTracker(base.InitiativeTracker):
         def copy_url():
             try:
                 self.clipboard_clear()
-                self.clipboard_append(url)
+                self.clipboard_append(selected_var.get())
             except Exception:
                 pass
 
