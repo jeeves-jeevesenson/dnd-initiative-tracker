@@ -8337,7 +8337,7 @@ class InitiativeTracker(base.InitiativeTracker):
         return False
 
     def _observer_passive_perception(self, observer: Any) -> int:
-        fallback = 10 + int(self._ability_score_modifier(getattr(observer, "ability_mods", {}) or {}, "wis"))
+        fallback = 10 + int(self._combatant_ability_modifier(observer, "wis"))
         profile = self._profile_for_player_name(getattr(observer, "name", ""))
         if isinstance(profile, dict):
             vitals = profile.get("vitals") if isinstance(profile.get("vitals"), dict) else {}
@@ -8410,10 +8410,10 @@ class InitiativeTracker(base.InitiativeTracker):
         skills = raw_data.get("skills") if isinstance(raw_data, dict) else None
         skill_tokens = skills if isinstance(skills, list) else [skills] if isinstance(skills, str) else []
         for token in skill_tokens:
-            match = re.search(r"stealth[^0-9+\-]*([+\-]?\d+)", str(token or ""), flags=re.IGNORECASE)
+            match = re.search(r"\bstealth\b\s*[:\-]?\s*([+\-]?\d+)", str(token or ""), flags=re.IGNORECASE)
             if match:
                 return int(match.group(1))
-        return int(self._ability_score_modifier(getattr(hider, "ability_mods", {}) or {}, "dex"))
+        return int(self._combatant_ability_modifier(hider, "dex"))
 
     def _normalize_hide_state_after_condition_change(self, cid: int) -> None:
         c = self.combatants.get(int(cid))
@@ -11695,6 +11695,44 @@ class InitiativeTracker(base.InitiativeTracker):
                     continue
                 if math.isfinite(mod_value):
                     return int(math.floor(mod_value))
+        return 0
+
+    @staticmethod
+    def _modifier_from_map(modifiers: Any, key: Optional[str]) -> Optional[int]:
+        if not key or not isinstance(modifiers, dict):
+            return None
+        normalized_key = str(key).strip().lower()
+        if not normalized_key:
+            return None
+        value = None
+        for raw_key, raw_value in modifiers.items():
+            if str(raw_key).strip().lower() == normalized_key:
+                value = raw_value
+                break
+        if value is None:
+            return None
+        try:
+            modifier_value = float(value)
+        except Exception:
+            return None
+        if not math.isfinite(modifier_value):
+            return None
+        return int(math.floor(modifier_value))
+
+    def _combatant_ability_modifier(self, combatant: Any, ability: Optional[str]) -> int:
+        direct_mod = self._modifier_from_map(getattr(combatant, "ability_mods", None), ability)
+        if direct_mod is not None:
+            return int(direct_mod)
+
+        spec = getattr(combatant, "monster_spec", None)
+        spec_mod = self._modifier_from_map(getattr(spec, "ability_mods", None) if spec is not None else None, ability)
+        if spec_mod is not None:
+            return int(spec_mod)
+
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        abilities = raw_data.get("abilities") if isinstance(raw_data, dict) and isinstance(raw_data.get("abilities"), dict) else None
+        if isinstance(abilities, dict):
+            return int(self._ability_score_modifier(abilities, ability))
         return 0
 
     def _evaluate_spell_formula(self, formula: Any, variables: Dict[str, Any]) -> Optional[float]:
@@ -20780,6 +20818,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "name", "size", "type", "alignment", "initiative", "challenge_rating", "ac", "hp", "speed",
                     "traits", "actions", "legendary_actions", "description", "habitat", "treasure", "levels_allowed",
                     "variants", "damage_type_by_variant", "bonus_actions",
+                    "skills", "senses",
                     "damage_vulnerabilities", "damage_resistances", "damage_immunities", "condition_immunities",
                     "vulnerabilities", "resistances", "immunities",
                 ):
@@ -20984,6 +21023,8 @@ class InitiativeTracker(base.InitiativeTracker):
             "variants",
             "damage_type_by_variant",
             "bonus_actions",
+            "skills",
+            "senses",
             "damage_vulnerabilities",
             "damage_resistances",
             "damage_immunities",
