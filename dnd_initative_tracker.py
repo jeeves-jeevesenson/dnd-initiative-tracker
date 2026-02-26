@@ -1292,6 +1292,7 @@ class PlayerProfile:
     resources: Dict[str, Any] = field(default_factory=dict)
     spellcasting: Dict[str, Any] = field(default_factory=dict)
     inventory: Dict[str, Any] = field(default_factory=dict)
+    magic_items: Dict[str, Any] = field(default_factory=dict)
     features: List[Dict[str, Any]] = field(default_factory=list)
     feature_state: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     feature_effects: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
@@ -1312,6 +1313,7 @@ class PlayerProfile:
             "resources": dict(self.resources),
             "spellcasting": dict(self.spellcasting),
             "inventory": dict(self.inventory),
+            "magic_items": dict(self.magic_items),
             "features": [dict(entry) for entry in self.features if isinstance(entry, dict)],
             "feature_state": {str(key): dict(value) for key, value in self.feature_state.items() if isinstance(value, dict)},
             "feature_effects": {
@@ -5524,6 +5526,116 @@ class InitiativeTracker(base.InitiativeTracker):
         self._items_registry_cache = registry
         self._items_dir_signature = signature
         return registry
+
+    def _magic_items_registry_payload(self) -> Dict[str, Dict[str, Any]]:
+        cached = self.__dict__.get("_magic_items_registry_cache")
+        cached_signature = self.__dict__.get("_magic_items_dir_signature")
+        items_dir = self._resolve_items_dir()
+        if items_dir is None:
+            self._magic_items_registry_cache = {}
+            self._magic_items_dir_signature = None
+            return {}
+
+        magic_dir = items_dir / "Magic_Items"
+        files = sorted(list(magic_dir.glob("*.yaml")) + list(magic_dir.glob("*.yml"))) if magic_dir.is_dir() else []
+        signature = (
+            _directory_signature(magic_dir, files) if magic_dir.is_dir() else (0, 0, tuple()),
+            _files_signature(files),
+        )
+        if isinstance(cached, dict) and signature == cached_signature:
+            return cached
+
+        payload: Dict[str, Dict[str, Any]] = {}
+        for path in files:
+            try:
+                parsed = yaml.safe_load(path.read_text(encoding="utf-8")) if yaml is not None else None
+            except Exception as exc:
+                self._oplog(f"Magic item YAML parse failed for {path}: {exc}", level="warning")
+                continue
+            if not isinstance(parsed, dict):
+                continue
+            item_id = str(parsed.get("id") or "").strip().lower()
+            if not item_id:
+                continue
+            payload[item_id] = dict(parsed)
+
+        self._magic_items_registry_cache = payload
+        self._magic_items_dir_signature = signature
+        return payload
+
+    def _active_magic_item_features(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
+        magic_items = profile.get("magic_items") if isinstance(profile.get("magic_items"), dict) else {}
+        if not magic_items:
+            return []
+        registry = self._magic_items_registry_payload()
+        if not registry:
+            return []
+
+        try:
+            attunement_slots = max(0, int(magic_items.get("attunement_slots", 3)))
+        except Exception:
+            attunement_slots = 3
+
+        declared_items = magic_items.get("items") if isinstance(magic_items.get("items"), list) else []
+        equipped_ids: set[str] = set()
+        attuned_ids: List[str] = []
+        for value in magic_items.get("equipped") if isinstance(magic_items.get("equipped"), list) else []:
+            item_id = str(value or "").strip().lower()
+            if item_id:
+                equipped_ids.add(item_id)
+        for value in magic_items.get("attuned") if isinstance(magic_items.get("attuned"), list) else []:
+            item_id = str(value or "").strip().lower()
+            if item_id and item_id not in attuned_ids:
+                attuned_ids.append(item_id)
+
+        for entry in declared_items:
+            if not isinstance(entry, dict):
+                continue
+            item_id = str(entry.get("id") or "").strip().lower()
+            if not item_id:
+                continue
+            if entry.get("equipped") is True:
+                equipped_ids.add(item_id)
+            if entry.get("attuned") is True and item_id not in attuned_ids:
+                attuned_ids.append(item_id)
+
+        if len(attuned_ids) > attunement_slots:
+            attuned_ids = attuned_ids[:attunement_slots]
+        attuned_set = set(attuned_ids)
+
+        active_features: List[Dict[str, Any]] = []
+        player_name = str(profile.get("name") or "unknown").strip() or "unknown"
+        for item_id in equipped_ids:
+            item = registry.get(item_id)
+            if not isinstance(item, dict):
+                self._oplog(
+                    f"Player YAML {player_name}: equipped magic item '{item_id}' not found in Items/Magic_Items.",
+                    level="warning",
+                )
+                continue
+            requires_attunement = bool(item.get("requires_attunement") is True)
+            if requires_attunement and item_id not in attuned_set:
+                continue
+            grants = item.get("grants") if isinstance(item.get("grants"), dict) else {}
+            if not grants:
+                continue
+            feature_name = str(item.get("name") or item_id).strip() or item_id
+            active_features.append(
+                {
+                    "id": f"magic_item:{item_id}",
+                    "name": feature_name,
+                    "source": "magic_item",
+                    "magic_item_id": item_id,
+                    "grants": copy.deepcopy(grants),
+                }
+            )
+        return active_features
+
+    def _all_active_features(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
+        base_features = profile.get("features") if isinstance(profile.get("features"), list) else []
+        merged: List[Dict[str, Any]] = [dict(entry) for entry in base_features if isinstance(entry, dict)]
+        merged.extend(self._active_magic_item_features(profile))
+        return merged
 
     def _load_spell_index_entries(self) -> Dict[str, Any]:
         if self._spell_index_loaded:
@@ -11863,6 +11975,7 @@ class InitiativeTracker(base.InitiativeTracker):
         resources = self._normalize_player_section(data.get("resources"))
         spellcasting = self._normalize_player_section(data.get("spellcasting"))
         inventory = self._normalize_player_section(data.get("inventory"))
+        magic_items = self._normalize_player_section(data.get("magic_items"))
 
         def normalize_vital_int(value: Any, fallback: int = 0) -> int:
             try:
@@ -12133,6 +12246,7 @@ class InitiativeTracker(base.InitiativeTracker):
             resources=resources,
             spellcasting=spellcasting,
             inventory=inventory,
+            magic_items=magic_items,
             features=feature_runtime.get("features", []),
             feature_state=feature_runtime.get("feature_state", {}),
             feature_effects=feature_runtime.get("feature_effects", {}),
@@ -12752,8 +12866,7 @@ class InitiativeTracker(base.InitiativeTracker):
         return max(0, int(math.floor(result)))
 
     def _feature_runtime_from_profile(self, profile: Dict[str, Any]) -> Dict[str, Any]:
-        features_raw = profile.get("features")
-        features = features_raw if isinstance(features_raw, list) else []
+        features = self._all_active_features(profile)
         compiled_actions: Dict[str, List[Dict[str, Any]]] = {"actions": [], "bonus_actions": [], "reactions": []}
         feature_state: Dict[str, Dict[str, Any]] = {}
         effects: Dict[str, List[Dict[str, Any]]] = {"modifiers": [], "damage_riders": []}
@@ -12874,7 +12987,7 @@ class InitiativeTracker(base.InitiativeTracker):
     def _player_pool_granted_spells(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
         pools = self._normalize_player_resource_pools(profile)
         pool_by_id = {str(pool.get("id") or "").strip().lower(): pool for pool in pools if isinstance(pool, dict)}
-        features = profile.get("features") if isinstance(profile.get("features"), list) else []
+        features = self._all_active_features(profile)
         granted: List[Dict[str, Any]] = []
         seen: set[Tuple[str, str, int]] = set()
         player_name = str(profile.get("name") or "").strip() or "unknown"

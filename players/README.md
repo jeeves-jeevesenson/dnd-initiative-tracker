@@ -869,6 +869,53 @@ inventory:
 
 ---
 
+### Magic Items Section
+
+Attunable/equippable magic item configuration for player YAMLs.
+
+```yaml
+magic_items:
+  attunement_slots: 3
+  equipped:
+    - bahamuts_rebuking_claw
+  attuned:
+    - bahamuts_rebuking_claw
+  items:
+    - id: bahamuts_rebuking_claw
+      equipped: true
+      attuned: true
+```
+
+**Field Descriptions:**
+
+- **attunement_slots**: Maximum number of items this character may attune to (default `3`)
+- **equipped**: Item IDs currently equipped
+- **attuned**: Item IDs currently attuned
+- **items**: Optional per-item state overrides
+  - **id**: Magic item ID (must match YAML in `Items/Magic_Items`)
+  - **equipped**: Whether the item is equipped
+  - **attuned**: Whether the item is attuned
+
+**Magic item YAML format (`Items/Magic_Items/*.yaml`)**
+
+```yaml
+id: bahamuts_rebuking_claw
+name: Bahamut's Rebuking Claw
+requires_attunement: true
+grants:
+  spells:
+    casts:
+      - spell: polymorph
+        action_type: reaction
+        consumes:
+          pool: bahamuts_rebuking_claw
+          cost: 1
+```
+
+If `requires_attunement: true`, the item must be in the player's `attuned` list and within attunement slot capacity to grant effects.
+
+---
+
 ### Notes Section
 
 Freeform notes storage:

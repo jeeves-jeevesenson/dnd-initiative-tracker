@@ -120,6 +120,11 @@ resources:
     current: 1
     max_formula: '1'
     reset: long_rest
+  - id: bahamuts_rebuking_claw
+    label: Bahamut's Rebuking Claw
+    current: 1
+    max_formula: '1'
+    reset: long_rest
 features: []
 actions:
 - name: Attack
@@ -299,4 +304,14 @@ inventory:
   - name: Sword of Wounding
     quantity: 1
     description: ''
+magic_items:
+  attunement_slots: 3
+  equipped:
+  - bahamuts_rebuking_claw
+  attuned:
+  - bahamuts_rebuking_claw
+  items:
+  - id: bahamuts_rebuking_claw
+    equipped: true
+    attuned: true
 notes: {}
