@@ -174,6 +174,84 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[3].hp, 20)
         self.assertEqual(len(self.app._lan_aoes), 1)
 
+    def test_monk_elemental_burst_consumes_focus_and_auto_resolves(self):
+        consumed = []
+        self.app.combatants[1].action_remaining = 1
+        self.app._consume_resource_pool_for_cast = (
+            lambda player_name, pool_id, cost: (consumed.append((player_name, pool_id, cost)) or True, "")
+        )
+        self.app._use_action = lambda c, log_message=None: True
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Monk", "level": 10}]},
+            "abilities": {"wis": 14},
+            "proficiency": {"bonus": 4},
+        }
+        msg = {
+            "type": "monk_elemental_burst",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 18,
+            "damage_type": "fire",
+            "payload": {"cx": 5, "cy": 4},
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 2, 3, 4, 16, 6, 6, 6]):
+            self.app._lan_apply_action(msg)
+
+        self.assertEqual(consumed, [("Aelar", "focus_points", 2)])
+        self.assertEqual(self.app.combatants[2].hp, 11)
+        self.assertEqual(self.app.combatants[3].hp, 11)
+        self.assertIn((18, "Elemental Burst cast."), self.toasts)
+
+    def test_monk_elemental_burst_pushes_targets_on_failed_save(self):
+        self.app._consume_resource_pool_for_cast = lambda *_args, **_kwargs: (True, "")
+        self.app._use_action = lambda c, log_message=None: True
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Monk", "level": 10}]},
+            "abilities": {"wis": 14},
+            "proficiency": {"bonus": 4},
+        }
+        msg = {
+            "type": "monk_elemental_burst",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 19,
+            "damage_type": "thunder",
+            "movement_mode": "push",
+            "payload": {"cx": 5, "cy": 4},
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[2, 1, 1, 1, 2, 1, 1, 1]):
+            self.app._lan_apply_action(msg)
+
+        self.assertEqual(self.app._lan_positions.get(2), (6, 6))
+        self.assertEqual(self.app._lan_positions.get(3), (8, 6))
+
+    def test_evasion_reduces_dex_save_aoe_damage_for_monk_target(self):
+        self.app.combatants[2].is_pc = True
+        self.app.combatants[2].name = "Monk Ally"
+        self.app._pc_name_for = lambda cid: "Aelar" if int(cid) == 1 else "Monk Ally"
+        self.app._profile_for_player_name = lambda name: (
+            {"leveling": {"classes": [{"name": "Monk", "level": 7}]}, "spellcasting": {"save_dc": 14}}
+            if str(name) == "Monk Ally"
+            else {"spellcasting": {"save_dc": 14}}
+        )
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 20,
+            "spell_slug": "frost-burst",
+            "payload": {
+                "shape": "sphere",
+                "name": "Frost Burst",
+                "radius_ft": 20,
+                "cx": 4,
+                "cy": 4,
+            },
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 4, 4, 15, 4, 4]):
+            self.app._lan_apply_action(msg)
+        self.assertEqual(self.app.combatants[2].hp, 16)
+
 
 if __name__ == "__main__":
     unittest.main()

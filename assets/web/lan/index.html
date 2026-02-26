@@ -2189,6 +2189,9 @@
           <div class="row">
             <label class="chip"><input type="checkbox" id="attackResolveCrit">Critical hit</label>
           </div>
+          <div class="row" id="attackStunningStrikeRow" style="display:none;align-items:center;gap:8px;">
+            <label class="chip"><input type="checkbox" id="attackStunningStrike">Stunning Strike (1 Focus)</label>
+          </div>
           <div class="row" id="attackDamageTypeOverrideRow" style="display:none;align-items:center;gap:8px;">
             <label for="attackDamageTypeOverrideSelect">Unarmed element</label>
             <select id="attackDamageTypeOverrideSelect">
@@ -3190,6 +3193,8 @@ __DAMAGE_TYPE_OPTIONS__
       <button class="btn accent" id="monkFlurryOfBlows" type="button">Flurry of Blows — 1 Focus (2 strikes; 3 at Monk 10+)</button>
       <div class="spellbook-status" style="margin-top:6px;">Warrior of the Elements</div>
       <button class="btn accent" id="monkElementalAttunementToggle" type="button">Elemental Attunement (1 Focus)</button>
+      <button class="btn accent" id="monkElementalBurst" type="button">Elemental Burst (20-ft sphere, 120 ft) — 2 Focus (Magic Action)</button>
+      <button class="btn accent" id="monkUncannyMetabolism" type="button">Uncanny Metabolism — Bonus Action (1/Long Rest)</button>
       <button class="btn" id="monkFocusClose" type="button">Close</button>
     </div>
   </div>
@@ -3822,6 +3827,8 @@ __DAMAGE_TYPE_OPTIONS__
   const attackResolveHit = document.getElementById("attackResolveHit");
   const attackResolveMiss = document.getElementById("attackResolveMiss");
   const attackResolveCrit = document.getElementById("attackResolveCrit");
+  const attackStunningStrikeRow = document.getElementById("attackStunningStrikeRow");
+  const attackStunningStrike = document.getElementById("attackStunningStrike");
   const attackDamageTypeOverrideRow = document.getElementById("attackDamageTypeOverrideRow");
   const attackDamageTypeOverrideSelect = document.getElementById("attackDamageTypeOverrideSelect");
   const attackDamageRows = document.getElementById("attackDamageRows");
@@ -3914,6 +3921,8 @@ __DAMAGE_TYPE_OPTIONS__
   const monkMartialArtsBonusBtn = document.getElementById("monkMartialArtsBonus");
   const monkFlurryOfBlowsBtn = document.getElementById("monkFlurryOfBlows");
   const monkElementalAttunementToggleBtn = document.getElementById("monkElementalAttunementToggle");
+  const monkElementalBurstBtn = document.getElementById("monkElementalBurst");
+  const monkUncannyMetabolismBtn = document.getElementById("monkUncannyMetabolism");
   const monkFocusCloseBtn = document.getElementById("monkFocusClose");
   const layOnHandsOverlay = document.getElementById("layOnHandsOverlay");
   const layOnHandsSummary = document.getElementById("layOnHandsSummary");
@@ -5325,6 +5334,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (monkFocusSummary) monkFocusSummary.textContent = focusPool ? `Focus Points: ${current}/${max}` : "No Focus Points pool found.";
     const monkLevel = getMonkLevelFromProfile(getPlayerProfile(playerName));
     const flurryStrikes = monkLevel >= 10 ? 3 : 2;
+    const uncannyPool = pools.find((entry) => entry.id === "uncanny_metabolism");
     if (monkFlurryOfBlowsBtn){
       monkFlurryOfBlowsBtn.textContent = `Flurry of Blows — 1 Focus (${flurryStrikes} strikes)`;
     }
@@ -5345,6 +5355,19 @@ __DAMAGE_TYPE_OPTIONS__
       btn.style.opacity = noFocus ? "0.6" : "";
       btn.title = noFocus ? "No Focus Points remaining." : "";
     });
+    if (monkElementalBurstBtn){
+      const noBurstFocus = current < 2;
+      monkElementalBurstBtn.disabled = noBurstFocus;
+      monkElementalBurstBtn.style.opacity = noBurstFocus ? "0.6" : "";
+      monkElementalBurstBtn.title = noBurstFocus ? "Need 2 Focus Points." : "";
+    }
+    if (monkUncannyMetabolismBtn){
+      const uncannyCurrent = Math.max(0, Number(uncannyPool?.current || 0));
+      const noUse = uncannyCurrent <= 0;
+      monkUncannyMetabolismBtn.disabled = noUse;
+      monkUncannyMetabolismBtn.style.opacity = noUse ? "0.6" : "";
+      monkUncannyMetabolismBtn.title = noUse ? "No Uncanny Metabolism uses left." : "";
+    }
   }
 
   function setLayOnHandsOverlayOpen(open){
@@ -6790,6 +6813,8 @@ __DAMAGE_TYPE_OPTIONS__
     "monk_patient_defense",
     "monk_step_of_wind",
     "monk_elemental_attunement",
+    "monk_elemental_burst",
+    "monk_uncanny_metabolism",
   ]);
 
   function send(msg){
@@ -8514,6 +8539,8 @@ __DAMAGE_TYPE_OPTIONS__
       if (attackResolveHit) attackResolveHit.disabled = false;
       if (attackResolveMiss) attackResolveMiss.disabled = false;
       if (attackResolveCrit) attackResolveCrit.checked = false;
+      if (attackStunningStrike) attackStunningStrike.checked = false;
+      if (attackStunningStrikeRow) attackStunningStrikeRow.style.display = "none";
       if (attackDamageTypeOverrideRow) attackDamageTypeOverrideRow.style.display = "none";
       if (attackDamageTypeOverrideSelect){
         attackDamageTypeOverrideSelect.value = "";
@@ -8601,6 +8628,17 @@ __DAMAGE_TYPE_OPTIONS__
       && Number.isFinite(Number(me?.cid))
       && Number(target.vexed_by_cid) === Number(me.cid);
     const attunedUnarmed = isUnarmedStrikeWeapon(weapon) && unitHasElementalAttunement(me);
+    const profile = getPlayerProfile(getClaimedPlayerName());
+    const monkLevel = getMonkLevelFromProfile(profile);
+    const focusPool = getPlayerResourcePools(getClaimedPlayerName()).find((entry) => entry.id === "focus_points");
+    const canUseStunningStrike = monkLevel >= 5 && Number(focusPool?.current || 0) > 0;
+    if (attackStunningStrikeRow){
+      attackStunningStrikeRow.style.display = canUseStunningStrike ? "flex" : "none";
+    }
+    if (attackStunningStrike){
+      attackStunningStrike.checked = false;
+      attackStunningStrike.disabled = !canUseStunningStrike;
+    }
     if (attackDamageTypeOverrideRow){
       attackDamageTypeOverrideRow.style.display = attunedUnarmed ? "flex" : "none";
     }
@@ -8620,6 +8658,7 @@ __DAMAGE_TYPE_OPTIONS__
       opportunityAttack: pendingOpportunityAttack,
       consumesPool: pendingUnleashIncarnation ? {...pendingUnleashIncarnation} : null,
       elementalOverrideAllowed: attunedUnarmed,
+      stunningStrikeAllowed: canUseStunningStrike,
     };
     pendingOpportunityAttack = false;
     const advantageText = hasVexAdvantage ? ' <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>' : "";
@@ -16374,6 +16413,51 @@ __DAMAGE_TYPE_OPTIONS__
       sendMonkFocusAction("monk_elemental_attunement", mode);
     });
   }
+  if (monkElementalBurstBtn){
+    monkElementalBurstBtn.addEventListener("click", () => {
+      if (isMapView) return;
+      const caster = getClaimedUnit();
+      if (!caster){
+        localToast("Claim a character first, matey.");
+        return;
+      }
+      const dtypeRaw = window.prompt("Elemental Burst damage type (acid/cold/fire/lightning/thunder)", "fire");
+      const damageType = String(dtypeRaw || "").trim().toLowerCase();
+      if (!["acid", "cold", "fire", "lightning", "thunder"].includes(damageType)){
+        localToast("Pick a valid Elemental Burst damage type.");
+        return;
+      }
+      const riderRaw = window.prompt("Optional movement rider on failed save (none/push/pull)", "none");
+      const movementMode = String(riderRaw || "").trim().toLowerCase();
+      const msg = {
+        type: "monk_elemental_burst",
+        cid: Number(caster.cid),
+        damage_type: damageType,
+        movement_mode: (movementMode === "push" || movementMode === "pull") ? movementMode : null,
+        payload: {
+          shape: "sphere",
+          name: "Elemental Burst",
+          radius_ft: 20,
+          cx: Number(caster.pos?.col ?? 0),
+          cy: Number(caster.pos?.row ?? 0),
+          damage_type: damageType,
+        },
+      };
+      setMonkFocusOverlayOpen(false);
+      pendingAoePlacement = {
+        msg,
+        payload: {...(msg.payload || {})},
+        cursor: {col: Number(msg.payload.cx), row: Number(msg.payload.cy)},
+        castConfirmMessage: "Cast Elemental Burst (2 Focus + 1 Action)?",
+        concentrationConfirmMessage: null,
+      };
+      localToast("Elemental Burst placement: move cursor, click to place, then confirm.");
+      draw();
+    });
+  }
+  if (monkUncannyMetabolismBtn){
+    monkUncannyMetabolismBtn.addEventListener("click", () => sendMonkFocusAction("monk_uncanny_metabolism", ""));
+  }
   const startMonkBonusAttackSequence = (sequenceId, totalStrikes, focusCost) => {
     if (isMapView) return;
     const cid = activeControlledUnitCid();
@@ -17153,6 +17237,7 @@ __DAMAGE_TYPE_OPTIONS__
           damage_type_override: (pendingAttackResolve.elementalOverrideAllowed && attackDamageTypeOverrideSelect)
             ? String(attackDamageTypeOverrideSelect.value || "").trim().toLowerCase() || null
             : null,
+          stunning_strike: !!(hit && pendingAttackResolve.stunningStrikeAllowed && attackStunningStrike?.checked),
         };
         if (monkSeq){
           attackMsg.attack_spend = "bonus";

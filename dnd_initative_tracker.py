@@ -1337,6 +1337,8 @@ class LanController:
         "monk_patient_defense",
         "monk_step_of_wind",
         "monk_elemental_attunement",
+        "monk_elemental_burst",
+        "monk_uncanny_metabolism",
     )
 
     def __init__(self, app: "InitiativeTracker") -> None:
@@ -5379,6 +5381,24 @@ class InitiativeTracker(base.InitiativeTracker):
         setattr(c, "_rage_attack_made_this_turn", False)
         setattr(c, "_rage_took_damage_this_turn", False)
         self._run_combatant_turn_hooks(c, "start_turn")
+        try:
+            if bool(getattr(c, "is_pc", False)):
+                player_name = self._pc_name_for(int(getattr(c, "cid", 0) or 0))
+                profile = self._profile_for_player_name(player_name)
+                monk_level = self._class_level_from_profile(profile, "monk") if isinstance(profile, dict) else 0
+                if int(monk_level) >= 10:
+                    removable = {"charmed", "frightened", "poisoned"}
+                    stacks = list(getattr(c, "condition_stacks", []) or [])
+                    active = {str(getattr(st, "ctype", "")).strip().lower() for st in stacks}
+                    if removable.intersection(active):
+                        ok_pool, _pool_err = self._consume_resource_pool_for_cast(player_name, "focus_points", 1)
+                        if ok_pool:
+                            c.condition_stacks = [
+                                st for st in stacks if str(getattr(st, "ctype", "")).strip().lower() not in removable
+                            ]
+                            self._log(f"{getattr(c, 'name', 'Monk')} used Self-Restoration (1 Focus).", cid=int(getattr(c, "cid", 0)))
+        except Exception:
+            pass
         if getattr(c, "cid", None) in self.combatants:
             riders = list(getattr(c, "start_turn_damage_riders", []) or [])
             if riders:
@@ -8017,6 +8037,83 @@ class InitiativeTracker(base.InitiativeTracker):
     def _elemental_attunement_active(self, combatant: Any) -> bool:
         return bool(getattr(combatant, "elemental_attunement_active", False))
 
+    def _monk_martial_arts_die(self, monk_level: int) -> int:
+        level = max(0, int(monk_level or 0))
+        if level >= 17:
+            return 12
+        if level >= 11:
+            return 10
+        if level >= 5:
+            return 8
+        return 6
+
+    def _monk_save_dc_for_profile(self, profile: Dict[str, Any]) -> int:
+        prof_block = profile.get("proficiency") if isinstance(profile.get("proficiency"), dict) else {}
+        abilities = profile.get("abilities") if isinstance(profile.get("abilities"), dict) else {}
+        try:
+            prof = int(prof_block.get("bonus"))
+        except Exception:
+            prof = 2
+        try:
+            wis_score = int(abilities.get("wis"))
+        except Exception:
+            wis_score = 10
+        wis_mod = math.floor((int(wis_score) - 10) / 2)
+        return int(8 + max(0, int(prof)) + int(wis_mod))
+
+    def _lan_apply_forced_movement(self, source_cid: int, target_cid: int, mode: str, distance_ft: float) -> bool:
+        try:
+            source = dict(getattr(self, "_lan_positions", {}) or {}).get(int(source_cid))
+            target = dict(getattr(self, "_lan_positions", {}) or {}).get(int(target_cid))
+        except Exception:
+            return False
+        if not (isinstance(source, tuple) and len(source) == 2 and isinstance(target, tuple) and len(target) == 2):
+            return False
+        try:
+            feet_per_square = 5.0
+            mw = getattr(self, "_map_window", None)
+            if mw is not None and hasattr(mw, "winfo_exists") and mw.winfo_exists():
+                feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+        except Exception:
+            feet_per_square = 5.0
+        feet_per_square = max(1.0, float(feet_per_square))
+        try:
+            steps = int(math.ceil(max(0.0, float(distance_ft or 0.0)) / feet_per_square))
+        except Exception:
+            steps = 0
+        if steps <= 0:
+            return False
+        sc, sr = int(source[0]), int(source[1])
+        tc, tr = int(target[0]), int(target[1])
+        vec_x = float(tc - sc)
+        vec_y = float(tr - sr)
+        if str(mode or "").strip().lower() == "pull":
+            vec_x *= -1.0
+            vec_y *= -1.0
+        dist = math.hypot(vec_x, vec_y)
+        if dist <= 1e-6:
+            return False
+        step_x = int(round(vec_x / dist))
+        step_y = int(round(vec_y / dist))
+        if step_x == 0 and step_y == 0:
+            if abs(vec_x) >= abs(vec_y):
+                step_x = 1 if vec_x > 0 else -1
+            else:
+                step_y = 1 if vec_y > 0 else -1
+        cols, rows, obstacles, _rough, _positions = self._lan_live_map_data()
+        col, row = tc, tr
+        moved = False
+        for _ in range(int(steps)):
+            nc, nr = col + int(step_x), row + int(step_y)
+            if nc < 0 or nr < 0 or nc >= int(cols) or nr >= int(rows) or (nc, nr) in (obstacles or set()):
+                break
+            col, row = int(nc), int(nr)
+            moved = True
+        if moved:
+            self._lan_positions[int(target_cid)] = (int(col), int(row))
+            self._enforce_johns_echo_tether(int(target_cid))
+        return moved
+
     def _lan_snapshot(self, include_static: bool = True, hydrate_static: bool = True) -> Dict[str, Any]:
         # Prefer map window live state when available
         mw = None
@@ -9114,6 +9211,7 @@ class InitiativeTracker(base.InitiativeTracker):
             damage_entries: List[Dict[str, Any]] = []
             blocked_conditions: List[str] = []
             applied_conditions: List[str] = []
+            forced_moves: List[Dict[str, Any]] = []
             for effect in bucket if isinstance(bucket, list) else []:
                 if not isinstance(effect, dict):
                     continue
@@ -9147,6 +9245,43 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._next_stack_id = next_sid + 1
                     target.condition_stacks.append(base.ConditionStack(sid=next_sid, ctype=condition_key, remaining_turns=remaining_turns))
                     applied_conditions.append(condition_key)
+                elif effect_name == "forced_movement":
+                    mode = str(effect.get("mode") or effect.get("direction") or "").strip().lower()
+                    if mode not in ("push", "pull"):
+                        continue
+                    try:
+                        distance_ft = float(effect.get("distance_ft"))
+                    except Exception:
+                        distance_ft = 10.0
+                    if distance_ft <= 0:
+                        continue
+                    forced_moves.append({"mode": mode, "distance_ft": float(distance_ft)})
+
+            target_monk_level = 0
+            if bool(getattr(target, "is_pc", False)):
+                try:
+                    target_player_name = self._pc_name_for(int(getattr(target, "cid", 0) or 0))
+                    target_profile = self._profile_for_player_name(target_player_name)
+                    if isinstance(target_profile, dict):
+                        target_monk_level = self._class_level_from_profile(target_profile, "monk")
+                except Exception:
+                    target_monk_level = 0
+            has_evasion = bool(
+                int(target_monk_level) >= 7
+                and ability == "dex"
+                and not self._has_condition(target, "incapacitated")
+            )
+            if has_evasion and damage_entries:
+                if passed:
+                    damage_entries = []
+                else:
+                    for entry in damage_entries:
+                        if not isinstance(entry, dict):
+                            continue
+                        try:
+                            entry["amount"] = int(math.floor(max(0, int(entry.get("amount") or 0)) * 0.5))
+                        except Exception:
+                            continue
 
             adjustment = self._adjust_damage_entries_for_target(target, damage_entries) if damage_entries else {"entries": [], "notes": []}
             adjusted_entries = list((adjustment or {}).get("entries") or [])
@@ -9157,11 +9292,27 @@ class InitiativeTracker(base.InitiativeTracker):
             if total_damage > 0:
                 target.hp = max(0, before - int(total_damage))
                 self._queue_concentration_save(target, "aoe")
+            forced_move_notes: List[str] = []
+            if caster is not None and forced_moves:
+                for forced in forced_moves:
+                    moved = self._lan_apply_forced_movement(
+                        int(caster.cid),
+                        int(target_cid),
+                        str(forced.get("mode") or "push"),
+                        float(forced.get("distance_ft") or 10.0),
+                    )
+                    if moved:
+                        forced_move_notes.append(str(forced.get("mode") or "push"))
             after = int(getattr(target, "hp", 0) or 0)
             status = "PASS" if passed else "FAIL"
             self._log(
                 f"{spell_name}: {target.name} save {ability.upper()} {status} ({total} vs DC {dc}) -> {total_damage}{damage_type_label} damage{adjustment_note}"
             )
+            if forced_move_notes:
+                self._log(
+                    f"{spell_name}: moved {target.name} ({', '.join(forced_move_notes)})",
+                    cid=int(target_cid),
+                )
             for cond in applied_conditions:
                 self._log(f"set condition: {cond}", cid=int(target_cid))
             for cond in blocked_conditions:
@@ -11794,6 +11945,49 @@ class InitiativeTracker(base.InitiativeTracker):
         if current_value < spend_cost:
             return False, "That resource pool be exhausted, matey."
         target_entry["current"] = current_value - spend_cost
+        resources = dict(resources)
+        resources["pools"] = pools
+        raw = dict(raw)
+        raw["resources"] = resources
+        try:
+            self._store_character_yaml(player_path, raw)
+        except Exception:
+            return False, "Could not update resource pools, matey."
+        return True, ""
+
+    def _set_player_resource_pool_current(self, caster_name: str, pool_id: Any, new_current: Any) -> Tuple[bool, str]:
+        player_name = str(caster_name or "").strip()
+        target_pool = str(pool_id or "").strip()
+        if not player_name or not target_pool:
+            return False, "That spell pool be invalid, matey."
+        try:
+            current_value = max(0, int(new_current))
+        except Exception:
+            current_value = 0
+        self._load_player_yaml_cache()
+        player_key = self._normalize_character_lookup_key(player_name)
+        player_path = self._player_yaml_name_map.get(player_key)
+        raw = self._player_yaml_cache_by_path.get(player_path) if player_path else None
+        if not isinstance(raw, dict):
+            return False, "No resource pools set up for that caster, matey."
+        resources = raw.get("resources") if isinstance(raw.get("resources"), dict) else {}
+        pools = resources.get("pools") if isinstance(resources.get("pools"), list) else []
+        target_entry = None
+        for entry in pools:
+            if not isinstance(entry, dict):
+                continue
+            if str(entry.get("id") or "").strip().lower() == target_pool.lower():
+                target_entry = entry
+                break
+        if target_entry is None:
+            return False, "That spell pool could not be found, matey."
+        try:
+            max_value = int(target_entry.get("max", current_value))
+        except Exception:
+            max_value = current_value
+        if max_value > 0:
+            current_value = min(current_value, max_value)
+        target_entry["current"] = int(current_value)
         resources = dict(resources)
         resources["pools"] = pools
         raw = dict(raw)
@@ -18174,6 +18368,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             is_unarmed_strike = self._is_unarmed_strike_weapon(selected_weapon)
             attunement_active = self._elemental_attunement_active(c)
+            monk_level = self._class_level_from_profile(profile, "monk") if isinstance(profile, dict) else 0
+            empowered_strikes_active = bool(is_unarmed_strike and int(monk_level) >= 6)
             allowed_elemental_overrides = {"acid", "cold", "fire", "lightning", "thunder"}
             damage_type_override = str(msg.get("damage_type_override") or "").strip().lower()
             override_honored = bool(
@@ -18412,7 +18608,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 if override_honored:
                     mode_type = damage_type_override
                 if mode_damage is not None and mode_damage > 0:
-                    damage_entries.append({"amount": int(mode_damage), "type": mode_type})
+                    entry_payload: Dict[str, Any] = {"amount": int(mode_damage), "type": mode_type}
+                    if empowered_strikes_active and mode_type in ("bludgeoning", "piercing", "slashing"):
+                        entry_payload["magical"] = True
+                    damage_entries.append(entry_payload)
                 if (
                     mode_damage is not None
                     and mode_damage > 0
@@ -18430,7 +18629,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 if override_honored:
                     mode_type = damage_type_override
                 if graze_damage > 0:
-                    damage_entries.append({"amount": int(graze_damage), "type": mode_type})
+                    entry_payload = {"amount": int(graze_damage), "type": mode_type}
+                    if empowered_strikes_active and mode_type in ("bludgeoning", "piercing", "slashing"):
+                        entry_payload["magical"] = True
+                    damage_entries.append(entry_payload)
                     graze_applied = True
                     mastery_notes.append(f"Graze deals {int(graze_damage)} damage on the miss.")
             damage_riders = []
@@ -18534,6 +18736,59 @@ class InitiativeTracker(base.InitiativeTracker):
             adjustment_notes = list(adjustment.get("notes") or [])
             total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
             damage_applied = bool(hit or graze_applied)
+            deflect_attacks_result: Optional[Dict[str, Any]] = None
+            if damage_applied and total_damage > 0:
+                target_monk_level = 0
+                target_profile = None
+                if bool(getattr(target, "is_pc", False)):
+                    try:
+                        target_player_name = self._pc_name_for(int(getattr(target, "cid", 0) or 0))
+                        target_profile = self._profile_for_player_name(target_player_name)
+                        if isinstance(target_profile, dict):
+                            target_monk_level = self._class_level_from_profile(target_profile, "monk")
+                    except Exception:
+                        target_monk_level = 0
+                if int(target_monk_level) >= 3 and int(getattr(target, "reaction_remaining", 0) or 0) > 0:
+                    dex_mod = 0
+                    mods = getattr(target, "ability_mods", None)
+                    if isinstance(mods, dict):
+                        try:
+                            dex_mod = int(mods.get("dex") or 0)
+                        except Exception:
+                            dex_mod = 0
+                    if dex_mod == 0 and isinstance(target_profile, dict):
+                        abilities = target_profile.get("abilities") if isinstance(target_profile.get("abilities"), dict) else {}
+                        try:
+                            dex_score = int(abilities.get("dex"))
+                            dex_mod = math.floor((int(dex_score) - 10) / 2)
+                        except Exception:
+                            dex_mod = 0
+                    if self._use_reaction(target):
+                        reduction = int(random.randint(1, 10) + max(0, int(dex_mod)) + int(target_monk_level))
+                        prevented = min(int(total_damage), max(0, int(reduction)))
+                        if int(total_damage) > 0:
+                            remaining_reduce = int(prevented)
+                            reduced_entries: List[Dict[str, Any]] = []
+                            for entry in damage_entries:
+                                if not isinstance(entry, dict):
+                                    continue
+                                amount = int(entry.get("amount", 0) or 0)
+                                if amount <= 0:
+                                    continue
+                                cut = min(amount, max(0, int(remaining_reduce)))
+                                new_amount = max(0, amount - cut)
+                                remaining_reduce = max(0, int(remaining_reduce) - cut)
+                                if new_amount > 0:
+                                    new_entry = dict(entry)
+                                    new_entry["amount"] = int(new_amount)
+                                    reduced_entries.append(new_entry)
+                            damage_entries = reduced_entries
+                            total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
+                        deflect_attacks_result = {
+                            "reduction_roll_total": int(reduction),
+                            "prevented_damage": int(prevented),
+                            "remaining_damage": int(total_damage),
+                        }
             mastery_cleave_candidates: List[Dict[str, Any]] = []
             mastery_vex_advantage = bool(
                 hit
@@ -18645,6 +18900,51 @@ class InitiativeTracker(base.InitiativeTracker):
                                 mastery_cleave_candidates.append({"cid": ecid, "name": str(getattr(enemy, "name", "Enemy") or "Enemy")})
                     if mastery_cleave_candidates:
                         mastery_notes.append("Cleave ready: choose one nearby enemy for a free attack.")
+            stunning_strike_result: Optional[Dict[str, Any]] = None
+            wants_stunning_strike = bool(_parse_bool(msg.get("stunning_strike")))
+            if (
+                hit
+                and wants_stunning_strike
+                and int(monk_level) >= 5
+                and is_melee_attack
+                and not is_admin
+            ):
+                owner_name = self._pc_name_for(int(getattr(resource_c, "cid", cid) or cid))
+                ok_pool, pool_err = self._consume_resource_pool_for_cast(owner_name, "focus_points", 1)
+                if ok_pool:
+                    stun_dc = self._monk_save_dc_for_profile(profile) if isinstance(profile, dict) else 8
+                    save_roll = int(random.randint(1, 20))
+                    save_mod = int(_save_mod_for_target(target, "con"))
+                    save_total = int(save_roll + save_mod)
+                    save_passed = bool(save_roll != 1 and save_total >= int(stun_dc))
+                    applied = False
+                    if not save_passed and not self._condition_is_immune_for_target(target, "stunned"):
+                        stacks = getattr(target, "condition_stacks", None)
+                        if not isinstance(stacks, list):
+                            stacks = []
+                            setattr(target, "condition_stacks", stacks)
+                        stacks = [st for st in stacks if getattr(st, "ctype", None) != "stunned"]
+                        setattr(target, "condition_stacks", stacks)
+                        next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                        setattr(self, "_next_stack_id", int(next_sid) + 1)
+                        stacks.append(base.ConditionStack(sid=int(next_sid), ctype="stunned", remaining_turns=1))
+                        applied = True
+                    stunning_strike_result = {
+                        "dc": int(stun_dc),
+                        "roll": int(save_roll),
+                        "modifier": int(save_mod),
+                        "total": int(save_total),
+                        "passed": bool(save_passed),
+                        "applied": bool(applied),
+                    }
+                    self._log(
+                        f"{c.name} uses Stunning Strike: {target.name} CON save DC {int(stun_dc)} "
+                        f"({int(save_roll)} + {int(save_mod)} = {int(save_total)}) "
+                        f"{'PASS' if save_passed else 'FAIL'}.",
+                        cid=int(target_cid),
+                    )
+                else:
+                    self._lan.toast(ws_id, pool_err or "No Focus Points remain, matey.")
             is_critical = bool(hit and bool(requested_critical))
             if consumes_pool_id and not is_admin:
                 consumes_pool_always = bool(msg.get("consumes_pool_always") is True)
@@ -18683,6 +18983,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 result_payload["weapon_property_notes"] = list(mastery_notes)
             if isinstance(smite_result, dict):
                 result_payload["smite"] = dict(smite_result)
+            if isinstance(deflect_attacks_result, dict):
+                result_payload["deflect_attacks"] = dict(deflect_attacks_result)
+            if isinstance(stunning_strike_result, dict):
+                result_payload["stunning_strike"] = dict(stunning_strike_result)
             save_ability = str(effect_block.get("save_ability") or "").strip().lower()
             save_dc = _parse_int(effect_block.get("save_dc"), 0) or 0
             if hit and save_ability and save_dc > 0:
@@ -19351,6 +19655,156 @@ class InitiativeTracker(base.InitiativeTracker):
             setattr(c, "elemental_attunement_active", True)
             self._log(f"{c.name} activated Elemental Attunement (1 Focus).", cid=cid)
             self._lan.toast(ws_id, "Elemental Attunement activated.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "monk_elemental_burst":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            if not bool(getattr(c, "is_pc", False)):
+                self._lan.toast(ws_id, "Only player characters can use Monk Focus actions, matey.")
+                return
+            player_name = _resolve_pc_name(cid)
+            profile = self._profile_for_player_name(player_name)
+            if not isinstance(profile, dict):
+                self._lan.toast(ws_id, "No player profile found, matey.")
+                return
+            monk_level = self._class_level_from_profile(profile, "monk")
+            if monk_level < 3:
+                self._lan.toast(ws_id, "Only monks with Warrior of the Elements can use Elemental Burst, matey.")
+                return
+            payload = msg.get("payload") if isinstance(msg.get("payload"), dict) else {}
+            damage_type = str(msg.get("damage_type") or payload.get("damage_type") or "").strip().lower()
+            if damage_type not in {"acid", "cold", "fire", "lightning", "thunder"}:
+                self._lan.toast(ws_id, "Pick a valid Elemental Burst damage type, matey.")
+                return
+            if int(getattr(c, "action_remaining", 0) or 0) <= 0:
+                self._lan.toast(ws_id, "No actions left, matey.")
+                return
+            ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "focus_points", 2)
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err or "Need 2 Focus Points for Elemental Burst, matey.")
+                return
+            if not self._use_action(c):
+                self._lan.toast(ws_id, "No actions left, matey.")
+                return
+            movement_mode = str(msg.get("movement_mode") or payload.get("movement_mode") or "").strip().lower()
+            if movement_mode not in ("push", "pull"):
+                movement_mode = ""
+            martial_die = self._monk_martial_arts_die(monk_level)
+            save_dc = self._monk_save_dc_for_profile(profile)
+            cols, rows, _obstacles, _rough, positions = self._lan_live_map_data()
+            try:
+                cx = float(payload.get("cx"))
+                cy = float(payload.get("cy"))
+            except Exception:
+                origin = positions.get(int(cid))
+                if isinstance(origin, tuple) and len(origin) == 2:
+                    cx, cy = float(origin[0]), float(origin[1])
+                else:
+                    cx = max(0.0, (int(cols) - 1) / 2.0) if int(cols) > 0 else 0.0
+                    cy = max(0.0, (int(rows) - 1) / 2.0) if int(rows) > 0 else 0.0
+            try:
+                feet_per_square = 5.0
+                mw = getattr(self, "_map_window", None)
+                if mw is not None and hasattr(mw, "winfo_exists") and mw.winfo_exists():
+                    feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+            except Exception:
+                feet_per_square = 5.0
+            feet_per_square = max(1.0, float(feet_per_square))
+            aoe = {
+                "kind": "sphere",
+                "name": "Elemental Burst",
+                "cx": float(cx),
+                "cy": float(cy),
+                "radius_ft": 20.0,
+                "radius_sq": max(0.5, float(20.0 / feet_per_square)),
+                "dc": int(save_dc),
+                "save_type": "dex",
+                "damage_type": str(damage_type),
+                "half_on_pass": True,
+            }
+            fail_effects: List[Dict[str, Any]] = [{"effect": "damage", "damage_type": str(damage_type), "dice": f"3d{int(martial_die)}"}]
+            if movement_mode:
+                fail_effects.append({"effect": "forced_movement", "mode": str(movement_mode), "distance_ft": 10})
+            preset = {
+                "name": "Elemental Burst",
+                "automation": "full",
+                "tags": ["aoe", "automation_full"],
+                "mechanics": {
+                    "automation": "full",
+                    "sequence": [
+                        {
+                            "check": {"kind": "saving_throw", "ability": "dex", "dc": int(save_dc)},
+                            "outcomes": {
+                                "fail": fail_effects,
+                                "success": [{"effect": "damage", "damage_type": str(damage_type), "dice": f"3d{int(martial_die)}", "multiplier": 0.5}],
+                            },
+                        }
+                    ],
+                },
+            }
+            resolved = self._lan_auto_resolve_cast_aoe(
+                0,
+                aoe,
+                caster=c,
+                spell_slug="monk-elemental-burst",
+                spell_id="monk-elemental-burst",
+                slot_level=None,
+                preset=preset,
+            )
+            if resolved:
+                rider_text = f", {movement_mode} 10 ft on failed save" if movement_mode else ""
+                self._log(
+                    f"{c.name} used Elemental Burst ({damage_type.title()}, 3d{int(martial_die)}, DC {int(save_dc)}{rider_text}) "
+                    f"(Magic Action, 2 Focus).",
+                    cid=cid,
+                )
+                self._lan.toast(ws_id, "Elemental Burst cast.")
+            else:
+                self._lan.toast(ws_id, "Elemental Burst failed to resolve, matey.")
+            self._rebuild_table(scroll_to_current=True)
+        elif typ == "monk_uncanny_metabolism":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            if not bool(getattr(c, "is_pc", False)):
+                self._lan.toast(ws_id, "Only player characters can use Monk Focus actions, matey.")
+                return
+            player_name = _resolve_pc_name(cid)
+            profile = self._profile_for_player_name(player_name)
+            if not isinstance(profile, dict):
+                self._lan.toast(ws_id, "No player profile found, matey.")
+                return
+            monk_level = self._class_level_from_profile(profile, "monk")
+            if monk_level < 2:
+                self._lan.toast(ws_id, "Only monks can use Uncanny Metabolism, matey.")
+                return
+            if not self._use_bonus_action(c):
+                self._lan.toast(ws_id, "No bonus actions left, matey.")
+                return
+            ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "uncanny_metabolism", 1)
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err or "Uncanny Metabolism is spent, matey.")
+                return
+            pools = self._normalize_player_resource_pools(profile)
+            focus_pool = next((entry for entry in pools if str(entry.get("id") or "").strip().lower() == "focus_points"), None)
+            focus_max = 0
+            try:
+                focus_max = max(0, int((focus_pool or {}).get("max", 0) or 0))
+            except Exception:
+                focus_max = 0
+            if focus_max > 0:
+                self._set_player_resource_pool_current(player_name, "focus_points", focus_max)
+            martial_die = self._monk_martial_arts_die(monk_level)
+            heal_amount = int(random.randint(1, int(martial_die)))
+            hp_now = int(getattr(c, "hp", 0) or 0)
+            hp_max = int(getattr(c, "max_hp", hp_now) or hp_now)
+            setattr(c, "hp", max(0, min(hp_max, hp_now + int(heal_amount))))
+            self._log(
+                f"{c.name} used Uncanny Metabolism: restored Focus and healed {int(heal_amount)} HP.",
+                cid=cid,
+            )
+            self._lan.toast(ws_id, "Uncanny Metabolism used.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "use_action":
             c = self.combatants.get(cid)
