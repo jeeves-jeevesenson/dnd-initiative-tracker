@@ -6209,7 +6209,7 @@ class InitiativeTracker(base.InitiativeTracker):
         col = int(snap.get("col", 0))
         row = int(snap.get("row", 0))
         self._lan_positions[cid] = (col, row)
-        mw = getattr(self, "_map_window", None)
+        mw = self.__dict__.get("_map_window")
         try:
             if mw is not None and mw.winfo_exists():
                 tok = getattr(mw, "unit_tokens", {}).get(cid)
@@ -6351,7 +6351,7 @@ class InitiativeTracker(base.InitiativeTracker):
         }
 
     def _session_snapshot_payload(self, label: Optional[str] = None) -> Dict[str, Any]:
-        mw = getattr(self, "_map_window", None)
+        mw = self.__dict__.get("_map_window")
         map_open = False
         try:
             map_open = bool(mw is not None and mw.winfo_exists())
@@ -8230,6 +8230,261 @@ class InitiativeTracker(base.InitiativeTracker):
         wis_mod = math.floor((int(wis_score) - 10) / 2)
         return int(8 + max(0, int(prof)) + int(wis_mod))
 
+    def _set_hidden_state(self, cid: int, hidden: bool, *, reason: str = "") -> bool:
+        c = self.combatants.get(int(cid))
+        if c is None:
+            return False
+        prev = bool(getattr(c, "is_hidden", False))
+        next_state = bool(hidden)
+        setattr(c, "is_hidden", next_state)
+        if prev == next_state:
+            return False
+        if reason:
+            try:
+                self._log(reason, cid=int(cid))
+            except Exception:
+                pass
+        mw = self.__dict__.get("_map_window")
+        try:
+            if mw is not None and mw.winfo_exists():
+                if hasattr(mw, "update_unit_token_colors"):
+                    mw.update_unit_token_colors()
+        except Exception:
+            pass
+        self._lan_force_state_broadcast()
+        return True
+
+    @staticmethod
+    def _line_of_sight_blocked(
+        start: Tuple[int, int], end: Tuple[int, int], obstacles: set[Tuple[int, int]]
+    ) -> bool:
+        x0, y0 = int(start[0]), int(start[1])
+        x1, y1 = int(end[0]), int(end[1])
+        dx = abs(x1 - x0)
+        dy = abs(y1 - y0)
+        sx = 1 if x0 < x1 else -1
+        sy = 1 if y0 < y1 else -1
+        err = dx - dy
+        first = True
+        while True:
+            if not first and (x0, y0) in obstacles:
+                return True
+            if x0 == x1 and y0 == y1:
+                break
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x0 += sx
+            if e2 < dx:
+                err += dx
+                y0 += sy
+            first = False
+        return False
+
+    def _observer_passive_perception(self, observer: Any) -> int:
+        fallback = 10 + int(self._ability_score_modifier(getattr(observer, "ability_mods", {}) or {}, "wis"))
+        profile = self._profile_for_player_name(getattr(observer, "name", ""))
+        if isinstance(profile, dict):
+            vitals = profile.get("vitals") if isinstance(profile.get("vitals"), dict) else {}
+            passive_block = vitals.get("passive_perception") if isinstance(vitals.get("passive_perception"), dict) else {}
+            try:
+                value = int(passive_block.get("value"))
+            except Exception:
+                value = None
+            if value is not None:
+                return value
+            formula = passive_block.get("formula")
+            proficiency = profile.get("proficiency") if isinstance(profile.get("proficiency"), dict) else {}
+            leveling = profile.get("leveling") if isinstance(profile.get("leveling"), dict) else {}
+            level_value = self._coerce_level_value(leveling)
+            if level_value > 0:
+                prof_bonus = self._proficiency_bonus_for_level(level_value)
+            else:
+                try:
+                    prof_bonus = int(proficiency.get("bonus"))
+                except Exception:
+                    prof_bonus = 0
+            abilities = profile.get("abilities") if isinstance(profile.get("abilities"), dict) else {}
+            variables = {
+                "prof": prof_bonus,
+                "str_mod": self._ability_score_modifier(abilities, "str"),
+                "dex_mod": self._ability_score_modifier(abilities, "dex"),
+                "con_mod": self._ability_score_modifier(abilities, "con"),
+                "int_mod": self._ability_score_modifier(abilities, "int"),
+                "wis_mod": self._ability_score_modifier(abilities, "wis"),
+                "cha_mod": self._ability_score_modifier(abilities, "cha"),
+            }
+            evaluated = self._evaluate_spell_formula(formula, variables)
+            if evaluated is not None:
+                return int(math.floor(evaluated))
+            return int(10 + variables["wis_mod"])
+        spec = getattr(observer, "monster_spec", None)
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        senses = raw_data.get("senses") if isinstance(raw_data, dict) else None
+        sense_tokens = senses if isinstance(senses, list) else [senses] if isinstance(senses, str) else []
+        for token in sense_tokens:
+            match = re.search(r"passive perception\s+(\d+)", str(token or ""), flags=re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return int(fallback)
+
+    def _hider_stealth_bonus(self, hider: Any) -> int:
+        profile = self._profile_for_player_name(getattr(hider, "name", ""))
+        if isinstance(profile, dict):
+            abilities = profile.get("abilities") if isinstance(profile.get("abilities"), dict) else {}
+            dex_mod = self._ability_score_modifier(abilities, "dex")
+            proficiency = profile.get("proficiency") if isinstance(profile.get("proficiency"), dict) else {}
+            level_value = self._coerce_level_value(profile.get("leveling") if isinstance(profile.get("leveling"), dict) else {})
+            if level_value > 0:
+                prof_bonus = self._proficiency_bonus_for_level(level_value)
+            else:
+                try:
+                    prof_bonus = int(proficiency.get("bonus"))
+                except Exception:
+                    prof_bonus = 0
+            skills = proficiency.get("skills") if isinstance(proficiency.get("skills"), dict) else {}
+            proficient = [str(v).strip().lower() for v in (skills.get("proficient") or [])] if isinstance(skills.get("proficient"), list) else []
+            expertise = [str(v).strip().lower() for v in (skills.get("expertise") or [])] if isinstance(skills.get("expertise"), list) else []
+            if "stealth" in expertise:
+                return int(dex_mod + (2 * max(0, int(prof_bonus))))
+            if "stealth" in proficient:
+                return int(dex_mod + max(0, int(prof_bonus)))
+            return int(dex_mod)
+        spec = getattr(hider, "monster_spec", None)
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        skills = raw_data.get("skills") if isinstance(raw_data, dict) else None
+        skill_tokens = skills if isinstance(skills, list) else [skills] if isinstance(skills, str) else []
+        for token in skill_tokens:
+            match = re.search(r"stealth\s*([+\-]?\d+)", str(token or ""), flags=re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return int(self._ability_score_modifier(getattr(hider, "ability_mods", {}) or {}, "dex"))
+
+    def _friendly_observers_with_los(
+        self,
+        hider_cid: int,
+        *,
+        positions: Optional[Dict[int, Tuple[int, int]]] = None,
+        obstacles: Optional[set[Tuple[int, int]]] = None,
+    ) -> List[Tuple[Any, Tuple[int, int]]]:
+        if positions is None or obstacles is None:
+            _cols, _rows, live_obstacles, _rough, live_positions = self._lan_live_map_data()
+            if positions is None:
+                positions = live_positions
+            if obstacles is None:
+                obstacles = live_obstacles
+        hider_pos = positions.get(int(hider_cid)) if isinstance(positions, dict) else None
+        if not (isinstance(hider_pos, tuple) and len(hider_pos) == 2):
+            return []
+        seen: List[Tuple[Any, Tuple[int, int]]] = []
+        for observer in self.combatants.values():
+            if int(getattr(observer, "cid", -1)) == int(hider_cid):
+                continue
+            role = str(self._name_role_memory.get(str(getattr(observer, "name", "")), "enemy") or "enemy")
+            if role not in ("pc", "ally"):
+                continue
+            if int(getattr(observer, "hp", 0) or 0) <= 0:
+                continue
+            obs_pos = positions.get(int(observer.cid)) if isinstance(positions, dict) else None
+            if not (isinstance(obs_pos, tuple) and len(obs_pos) == 2):
+                continue
+            if not self._line_of_sight_blocked((int(obs_pos[0]), int(obs_pos[1])), (int(hider_pos[0]), int(hider_pos[1])), obstacles or set()):
+                seen.append((observer, (int(obs_pos[0]), int(obs_pos[1]))))
+        return seen
+
+    def _sneak_attempt_hide(
+        self,
+        hider_cid: int,
+        *,
+        prompt_when_seen: Optional[Callable[[List[str]], bool]] = None,
+    ) -> Dict[str, Any]:
+        hider = self.combatants.get(int(hider_cid))
+        if hider is None:
+            return {"ok": False, "reason": "No such combatant."}
+        role = str(self._name_role_memory.get(str(getattr(hider, "name", "")), "enemy") or "enemy")
+        if role != "enemy":
+            return {"ok": False, "reason": "Only enemies can sneak from this control."}
+        if int(getattr(self, "current_cid", -1) or -1) != int(hider_cid):
+            return {"ok": False, "reason": "Only the active enemy can sneak."}
+        _cols, _rows, obstacles, _rough, positions = self._lan_live_map_data()
+        seen = self._friendly_observers_with_los(int(hider_cid), positions=positions, obstacles=obstacles)
+        seen_names = [str(getattr(observer, "name", "Observer")) for observer, _pos in seen]
+        if seen and callable(prompt_when_seen):
+            try:
+                if not bool(prompt_when_seen(list(seen_names))):
+                    return {"ok": False, "reason": "Sneak cancelled.", "seen_by": seen_names}
+            except Exception:
+                pass
+        if not seen:
+            self._set_hidden_state(int(hider_cid), True, reason=f"{hider.name} slips out of sight.")
+            return {"ok": True, "hidden": True, "seen_by": []}
+        stealth_bonus = self._hider_stealth_bonus(hider)
+        roll = random.randint(1, 20)
+        total = int(roll + stealth_bonus)
+        spotted_by: List[str] = []
+        for observer, _obs_pos in seen:
+            if total < self._observer_passive_perception(observer):
+                spotted_by.append(str(getattr(observer, "name", "Observer")))
+        if spotted_by:
+            self._set_hidden_state(int(hider_cid), False, reason=f"{hider.name} fails to hide ({', '.join(spotted_by)} spot them).")
+            return {
+                "ok": True,
+                "hidden": False,
+                "roll": int(roll),
+                "stealth_bonus": int(stealth_bonus),
+                "spotted_by": spotted_by,
+                "seen_by": seen_names,
+            }
+        self._set_hidden_state(int(hider_cid), True, reason=f"{hider.name} hides ({total} Stealth).")
+        return {
+            "ok": True,
+            "hidden": True,
+            "roll": int(roll),
+            "stealth_bonus": int(stealth_bonus),
+            "seen_by": seen_names,
+        }
+
+    def _sneak_handle_hidden_movement(
+        self,
+        hider_cid: int,
+        origin: Tuple[int, int],
+        dest: Tuple[int, int],
+    ) -> Dict[str, Any]:
+        hider = self.combatants.get(int(hider_cid))
+        if hider is None or not bool(getattr(hider, "is_hidden", False)):
+            return {"ok": False, "reason": "not_hidden"}
+        role = str(self._name_role_memory.get(str(getattr(hider, "name", "")), "enemy") or "enemy")
+        if role != "enemy":
+            return {"ok": False, "reason": "not_enemy"}
+        if tuple(origin) == tuple(dest):
+            return {"ok": True, "checked": []}
+        _cols, _rows, obstacles, _rough, positions = self._lan_live_map_data()
+        turn_marker = (int(getattr(self, "round_num", 0) or 0), int(getattr(self, "turn_num", 0) or 0), int(hider_cid))
+        if turn_marker != tuple(self.__dict__.get("_sneak_visibility_turn_marker", ())):
+            self.__dict__["_sneak_visibility_turn_marker"] = turn_marker
+            self.__dict__["_sneak_visibility_checked"] = set()
+        checked: set[Tuple[int, int]] = self.__dict__.setdefault("_sneak_visibility_checked", set())
+        spotted_by: List[str] = []
+        stealth_bonus = self._hider_stealth_bonus(hider)
+        for observer, obs_pos in self._friendly_observers_with_los(int(hider_cid), positions=positions, obstacles=obstacles):
+            observer_cid = int(getattr(observer, "cid", 0) or 0)
+            check_key = (int(hider_cid), observer_cid)
+            if check_key in checked:
+                continue
+            entered_los = self._line_of_sight_blocked(obs_pos, tuple(origin), obstacles) and not self._line_of_sight_blocked(
+                obs_pos, tuple(dest), obstacles
+            )
+            if not entered_los:
+                continue
+            checked.add(check_key)
+            roll = random.randint(1, 20)
+            if int(roll + stealth_bonus) < self._observer_passive_perception(observer):
+                spotted_by.append(str(getattr(observer, "name", "Observer")))
+        if spotted_by:
+            self._set_hidden_state(int(hider_cid), False, reason=f"{hider.name} is spotted while moving by {', '.join(spotted_by)}.")
+            return {"ok": True, "hidden": False, "spotted_by": spotted_by}
+        return {"ok": True, "hidden": True, "spotted_by": []}
+
     def _lan_apply_forced_movement(self, source_cid: int, target_cid: int, mode: str, distance_ft: float) -> bool:
         try:
             source = dict(getattr(self, "_lan_positions", {}) or {}).get(int(source_cid))
@@ -8635,6 +8890,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "concentration_spell": str(getattr(c, "concentration_spell", "") or "") or None,
                     "smite_charge": self._json_safe(getattr(c, "pending_smite_charge", None)),
                     "is_mount": bool(getattr(c, "is_mount", False)),
+                    "is_hidden": bool(getattr(c, "is_hidden", False)),
                     "rider_cid": _normalize_cid_value(getattr(c, "rider_cid", None), "snapshot.rider_cid"),
                     "mounted_by_cid": _normalize_cid_value(getattr(c, "mounted_by_cid", None), "snapshot.mounted_by"),
                     "mount_shared_turn": bool(getattr(c, "mount_shared_turn", False)),
@@ -13516,6 +13772,7 @@ class InitiativeTracker(base.InitiativeTracker):
         target = self.combatants.get(int(target_cid))
         if attacker is None or target is None:
             return {"ok": False, "reason": "invalid_combatant"}
+        self._set_hidden_state(int(attacker_cid), False, reason=f"{attacker.name} attacks and reveals themself.")
         normalized_blocks: List[Dict[str, Any]] = []
         for raw_block in sequence_blocks:
             if not isinstance(raw_block, dict):
@@ -18262,6 +18519,7 @@ class InitiativeTracker(base.InitiativeTracker):
             c = self.combatants.get(cid)
             if not c:
                 return
+            self._set_hidden_state(int(cid), False, reason=f"{c.name} attacks and reveals themself.")
             resource_c = c
             try:
                 summoned_by_cid = int(getattr(c, "summoned_by_cid", 0) or 0)
@@ -20086,6 +20344,7 @@ class InitiativeTracker(base.InitiativeTracker):
             setattr(movement_owner, "move_remaining", max(0, max_ft - cost))
         except Exception:
             pass
+        origin_cell = tuple(origin)
         self._lan_positions[cid] = (col, row)
         if rider_cid is not None:
             self._lan_positions[int(rider_cid)] = (col, row)
@@ -20099,6 +20358,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 mw._place_unit_at_pixel(cid, x, y)
                 if rider_cid is not None:
                     mw._place_unit_at_pixel(int(rider_cid), x, y)
+        except Exception:
+            pass
+
+        try:
+            self._sneak_handle_hidden_movement(int(cid), origin_cell, (int(col), int(row)))
         except Exception:
             pass
 

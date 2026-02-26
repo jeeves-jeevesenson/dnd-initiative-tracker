@@ -9703,7 +9703,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
 
     // tokens
-    const tokens = sortedTokensForRender(state.units || []);
+    const tokens = sortedTokensForRender((state.units || []).filter((unit) => !isMapHiddenEnemy(unit)));
     // group labels by cell
     const cellMap = new Map();
     tokens.forEach(u => {
@@ -11833,6 +11833,10 @@ __DAMAGE_TYPE_OPTIONS__
     return normalizeFacingDeg(unit?.facing_deg);
   }
 
+  function isMapHiddenEnemy(unit){
+    return !!(unit && unit.role === "enemy" && unit.is_hidden);
+  }
+
   function tokenRotateHandle(unit){
     if (!unit || !unit.pos) return null;
     const isCurrentlyRotating = rotatingToken && Number(rotatingToken.cid) === Number(unit?.cid);
@@ -11912,6 +11916,7 @@ __DAMAGE_TYPE_OPTIONS__
     const hits = [];
     for (let i = 0; i < state.units.length; i++){
       const u = state.units[i];
+      if (isMapHiddenEnemy(u)) continue;
       const {x,y} = gridToScreen(u.pos.col,u.pos.row);
       const r = Math.max(12, zoom*0.45);
       const dx = p.x - x, dy = p.y - y;
