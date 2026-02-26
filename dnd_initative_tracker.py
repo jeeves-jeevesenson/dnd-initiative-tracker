@@ -10101,7 +10101,18 @@ class InitiativeTracker(base.InitiativeTracker):
             return False
         automation = str(preset.get("automation") or "").strip().lower()
         tags = {str(tag).strip().lower() for tag in (preset.get("tags") or []) if str(tag).strip()}
-        if automation != "full" and "automation_full" not in tags:
+        allow_manual_damage_resolution = False
+        if isinstance(manual_damage_entries, list):
+            for entry in manual_damage_entries:
+                if not isinstance(entry, dict):
+                    continue
+                try:
+                    if int(entry.get("amount") or 0) > 0:
+                        allow_manual_damage_resolution = True
+                        break
+                except Exception:
+                    continue
+        if automation != "full" and "automation_full" not in tags and not allow_manual_damage_resolution:
             return False
         mechanics = preset.get("mechanics") if isinstance(preset.get("mechanics"), dict) else {}
         sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
