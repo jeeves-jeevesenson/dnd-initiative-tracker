@@ -340,7 +340,7 @@ inventory:
     description: Cursed and cannot be unattuned.
   - name: The Crown of Twilight
     quantity: 1
-    description: Grants resistance to radiant damage while attuned.
+    description: Grants resistance to radiant damage while attuned. As you study the crown, you notice a little inscription on the inside of the gold. It reads King of Nothing.
 magic_items:
   attunement_slots: 3
   equipped:
