@@ -124,6 +124,39 @@ class SneakHiddenStateTests(unittest.TestCase):
         self.app._profile_for_player_name = lambda _name: None
         self.assertEqual(self.app._hider_stealth_bonus(monster), 6)
 
+    def test_hider_stealth_bonus_parses_abominable_yeti_skill_from_spec(self):
+        self.app._profile_for_player_name = lambda _name: None
+        if tracker_mod.yaml is None:
+            self.skipTest("PyYAML not available")
+        with open("Monsters/abominable-yeti.yaml", "r", encoding="utf-8") as handle:
+            parsed = tracker_mod.yaml.safe_load(handle)
+        self.assertIsInstance(parsed, dict)
+        raw_data = {
+            "skills": parsed.get("skills"),
+            "senses": parsed.get("senses"),
+        }
+        spec = type("Spec", (), {"raw_data": raw_data, "ability_mods": {}})()
+        monster = type("Monster", (), {"name": "Abominable Yeti", "ability_mods": {}, "monster_spec": spec})()
+        self.assertEqual(self.app._hider_stealth_bonus(monster), 8)
+
+    def test_observer_passive_perception_parses_from_monster_senses(self):
+        self.app._profile_for_player_name = lambda _name: None
+        observer = type(
+            "Monster",
+            (),
+            {
+                "name": "Watcher",
+                "ability_mods": {"wis": 0},
+                "monster_spec": type("Spec", (), {"raw_data": {"senses": "Blindsight 30 ft., Passive Perception 19"}})(),
+            },
+        )()
+        self.assertEqual(self.app._observer_passive_perception(observer), 19)
+
+    def test_hider_stealth_bonus_fallback_treats_ability_mods_as_modifiers(self):
+        self.app._profile_for_player_name = lambda _name: None
+        monster = type("Monster", (), {"name": "Fallback", "ability_mods": {"Dex": 0}, "monster_spec": None})()
+        self.assertEqual(self.app._hider_stealth_bonus(monster), 0)
+
     def test_normalize_hide_state_clears_hidden_when_invisible_removed(self):
         enemy = self.app.combatants[1]
         enemy.is_hidden = True
