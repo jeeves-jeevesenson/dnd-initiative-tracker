@@ -5062,10 +5062,10 @@ __DAMAGE_TYPE_OPTIONS__
     return weaponId === "unarmed_strike" || weaponName === "unarmed strike";
   }
 
-  const MELEE_RANGE_FUDGE_FT = 3;
+  const MELEE_RANGE_BONUS_FEET = 0;
 
   function effectiveAttackRangeFeetForWeapon(weapon, unit){
-    const baseRange = parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? MELEE_RANGE_FUDGE_FT : 0);
+    const baseRange = parseWeaponRangeFeet(weapon) + (isMeleeWeapon(weapon) ? MELEE_RANGE_BONUS_FEET : 0);
     if (isUnarmedStrikeWeapon(weapon) && unitHasElementalAttunement(unit)){
       return baseRange + 10;
     }
@@ -8432,20 +8432,15 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function parseSpellTargetRangeFeet(preset){
-    const rangeKind = normalizeLowerValue(preset?.mechanics?.targeting?.range?.kind);
     const mechanicsRange = Number(preset?.mechanics?.targeting?.range?.distance_ft);
-    const baseRangeFt = Number.isFinite(mechanicsRange) && mechanicsRange >= 0
-      ? mechanicsRange
-      : (rangeKind === "touch" ? touchSpellRangeFeet() : parseSpellRangeFeet(preset?.range));
-    if (!Number.isFinite(baseRangeFt)){
-      return baseRangeFt;
+    if (Number.isFinite(mechanicsRange) && mechanicsRange >= 0){
+      return mechanicsRange;
     }
-    const rangeText = normalizeLowerValue(preset?.range);
-    const isMeleeTargetingRange = rangeKind === "touch"
-      || rangeKind === "melee"
-      || rangeText.includes("touch")
-      || baseRangeFt <= touchSpellRangeFeet();
-    return isMeleeTargetingRange ? baseRangeFt + MELEE_RANGE_FUDGE_FT : baseRangeFt;
+    const rangeKind = normalizeLowerValue(preset?.mechanics?.targeting?.range?.kind);
+    if (rangeKind === "touch"){
+      return touchSpellRangeFeet();
+    }
+    return parseSpellRangeFeet(preset?.range);
   }
 
   function isSelfRangeAoePreset(preset){
