@@ -127,6 +127,7 @@ resources:
     reset: long_rest
 features:
 - name: Beguiling Magic
+  description: "Free rider after casting an Enchantment or Illusion spell with a spell slot (including Pact Magic slots). Arm for 20s, then pick a creature within 60 ft to save vs your spell DC (WIS) or become Charmed/Frightened for up to 1 minute with end-of-turn saves. 1/LR; if spent, restore by spending 1 Bardic Inspiration (no action)."
   grants:
     always_prepared_spells:
     - charm-person
@@ -220,14 +221,6 @@ bonus_actions:
   type: bonus_action
   uses:
     pool: bardic_inspiration
-    cost: 1
-- name: Beguiling Magic
-  description: 'After casting an Enchantment or Illusion spell with a slot, force
-    one creature within 60 feet to make a WIS save vs your spell DC or become Charmed
-    or Frightened for up to 1 minute (repeat save at end of turns).'
-  type: bonus_action
-  uses:
-    pool: beguiling_magic
     cost: 1
 - name: Mantle of Majesty
   description: 'Cast Command without a spell slot and gain a 1-minute aura of unearthly

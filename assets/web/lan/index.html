@@ -3382,6 +3382,70 @@ __DAMAGE_TYPE_OPTIONS__
     </div>
   </div>
 </div>
+
+<div class="modal" id="beguilingMagicModal" aria-hidden="true">
+  <div class="card">
+    <h2 id="beguilingMagicTitle">Use Beguiling Magic</h2>
+    <div class="wildshape-pool-row" style="margin-top:8px;">
+      <label for="beguilingMagicCondition">Condition</label>
+      <select id="beguilingMagicCondition">
+        <option value="charmed">Charmed</option>
+        <option value="frightened">Frightened</option>
+      </select>
+    </div>
+    <div class="spellbook-status" id="beguilingMagicStatus" style="margin-top:8px;"></div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="beguilingMagicCancel" type="button">Cancel</button>
+      <button class="btn accent" id="beguilingMagicConfirm" type="button">Select Target</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="commandOptionModal" aria-hidden="true">
+  <div class="card">
+    <h2 id="commandOptionTitle">Choose Command Word</h2>
+    <div class="wildshape-pool-row" style="margin-top:8px;">
+      <label for="commandOptionSelect">Command option</label>
+      <select id="commandOptionSelect">
+        <option value="approach">Approach</option>
+        <option value="drop">Drop</option>
+        <option value="flee">Flee</option>
+        <option value="grovel">Grovel</option>
+        <option value="halt">Halt</option>
+      </select>
+    </div>
+    <div class="spellbook-status" id="commandOptionStatus" style="margin-top:8px;"></div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="commandOptionCancel" type="button">Cancel</button>
+      <button class="btn accent" id="commandOptionConfirm" type="button">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="bardicDiceConfirmModal" aria-hidden="true">
+  <div class="card">
+    <h2 id="bardicDiceConfirmTitle">Spend Bardic Dice?</h2>
+    <div class="spellbook-status" id="bardicDiceConfirmStatus">Are you sure ye want to expend yer Bardic Inspiration die?</div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="bardicDiceConfirmCancel" type="button">Cancel</button>
+      <button class="btn accent" id="bardicDiceConfirmYes" type="button">Yes</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="mantleResolveModal" aria-hidden="true">
+  <div class="card">
+    <h2>Mantle of Inspiration</h2>
+    <div class="spellbook-status" id="mantleResolveSummary"></div>
+    <div class="wildshape-pool-row" style="margin-top:8px;">
+      <label for="mantleResolveDieInput">Bardic die roll (optional)</label>
+      <input id="mantleResolveDieInput" type="number" min="1" step="1" placeholder="Auto-roll if blank" />
+    </div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="mantleResolveCancel" type="button">Cancel</button>
+      <button class="btn accent" id="mantleResolveUse" type="button">Apply</button>
+    </div>
+  </div>
+</div>
 <div class="modal" id="elementalBurstConfigOverlay" aria-hidden="true">
   <div class="card">
     <h2>Elemental Burst</h2>
@@ -4147,6 +4211,25 @@ __DAMAGE_TYPE_OPTIONS__
   const resourcePoolDetailActions = document.getElementById("resourcePoolDetailActions");
   const resourcePoolDetailSpells = document.getElementById("resourcePoolDetailSpells");
   const resourcePoolDetailCloseBtn = document.getElementById("resourcePoolDetailClose");
+  const beguilingMagicModal = document.getElementById("beguilingMagicModal");
+  const beguilingMagicConditionInput = document.getElementById("beguilingMagicCondition");
+  const beguilingMagicStatus = document.getElementById("beguilingMagicStatus");
+  const beguilingMagicCancelBtn = document.getElementById("beguilingMagicCancel");
+  const beguilingMagicConfirmBtn = document.getElementById("beguilingMagicConfirm");
+  const commandOptionModal = document.getElementById("commandOptionModal");
+  const commandOptionSelect = document.getElementById("commandOptionSelect");
+  const commandOptionStatus = document.getElementById("commandOptionStatus");
+  const commandOptionCancelBtn = document.getElementById("commandOptionCancel");
+  const commandOptionConfirmBtn = document.getElementById("commandOptionConfirm");
+  const bardicDiceConfirmModal = document.getElementById("bardicDiceConfirmModal");
+  const bardicDiceConfirmStatus = document.getElementById("bardicDiceConfirmStatus");
+  const bardicDiceConfirmCancelBtn = document.getElementById("bardicDiceConfirmCancel");
+  const bardicDiceConfirmYesBtn = document.getElementById("bardicDiceConfirmYes");
+  const mantleResolveModal = document.getElementById("mantleResolveModal");
+  const mantleResolveSummary = document.getElementById("mantleResolveSummary");
+  const mantleResolveDieInput = document.getElementById("mantleResolveDieInput");
+  const mantleResolveCancelBtn = document.getElementById("mantleResolveCancel");
+  const mantleResolveUseBtn = document.getElementById("mantleResolveUse");
   const monkPatientDefenseFreeBtn = document.getElementById("monkPatientDefenseFree");
   const monkPatientDefenseFocusBtn = document.getElementById("monkPatientDefenseFocus");
   const monkStepOfWindFreeBtn = document.getElementById("monkStepOfWindFree");
@@ -4467,6 +4550,11 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingSpellTargetSelection = null;
   let pendingLayOnHandsTargeting = null;
   let pendingLayOnHandsResolve = null;
+  let pendingBeguilingMagic = null;
+  let pendingCommandResolution = null;
+  let pendingBardicInspirationTargeting = null;
+  let pendingBardicDiceUse = null;
+  let pendingMantleOfInspiration = null;
   let losPreview = null; // {start:{col,row}, end:{col,row}, blocked, expiresAt}
   const LOS_PREVIEW_MS = 900;
   const sheetHeightKey = "inittracker_sheetHeight";
@@ -5440,6 +5528,12 @@ __DAMAGE_TYPE_OPTIONS__
     }).filter((entry) => entry.id);
   }
 
+  function getResourcePoolById(name, poolId){
+    const pools = getPlayerResourcePools(name);
+    const key = normalizeLowerValue(poolId);
+    return pools.find((entry) => normalizeLowerValue(entry?.id) === key) || null;
+  }
+
   function getPoolGrantedSpellEntries(name){
     const cfg = state?.player_spells?.[name];
     const block = cfg?.spellcasting?.pool_granted_spells ?? cfg?.pool_granted_spells;
@@ -5594,6 +5688,30 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (resourcePoolDetailActions){
       resourcePoolDetailActions.textContent = "";
+      if (normalizeLowerValue(pool.id) === "beguiling_magic"){
+        const windowS = getClaimedBeguilingMagicWindowSeconds();
+        const biPool = getResourcePoolById(playerName, "bardic_inspiration");
+        const useBtn = document.createElement("button");
+        useBtn.type = "button";
+        useBtn.className = "btn accent";
+        useBtn.textContent = windowS > 0 ? `Use Beguiling Magic (${formatShortDuration(windowS)})` : "Use Beguiling Magic";
+        useBtn.disabled = windowS <= 0;
+        useBtn.addEventListener("click", () => {
+          setResourcePoolDetailOverlayOpen(false);
+          beginBeguilingMagicFlow(true);
+        });
+        resourcePoolDetailActions.appendChild(useBtn);
+        if (Number(pool.current || 0) <= 0 && Number(biPool?.current || 0) > 0){
+          const restoreBtn = document.createElement("button");
+          restoreBtn.type = "button";
+          restoreBtn.className = "btn";
+          restoreBtn.textContent = "Restore Beguiling Magic (spend 1 Bardic Inspiration)";
+          restoreBtn.addEventListener("click", () => {
+            send({type: "beguiling_magic_restore", cid: activeControlledUnitCid()});
+          });
+          resourcePoolDetailActions.appendChild(restoreBtn);
+        }
+      }
       const actions = unit ? normalizeActionList(unit.actions, "action") : [];
       const bonusActions = unit ? normalizeActionList(unit.bonus_actions, "bonus_action") : [];
       const reactions = unit ? normalizeActionList(unit.reactions, "reaction") : [];
@@ -5662,7 +5780,19 @@ __DAMAGE_TYPE_OPTIONS__
       wrapper.className = "resource-pool-entry";
       const chip = document.createElement("span");
       chip.className = `resource-pool-chip ${pool.current <= 0 ? "is-empty" : ""}`;
-      chip.textContent = `${pool.label || pool.id} ${pool.current}/${pool.max}`;
+      if (normalizeLowerValue(pool.id) === "beguiling_magic"){
+        const windowS = getClaimedBeguilingMagicWindowSeconds();
+        const timerText = windowS > 0 ? ` (${formatShortDuration(windowS)})` : "";
+        chip.textContent = `${pool.label || pool.id}${timerText} ${pool.current}/${pool.max}`;
+      } else if (normalizeLowerValue(pool.id).startsWith("temp_bardic_dice_")){
+        const dieSides = Number(pool?.die_sides || 0);
+        const dieLabel = Number.isFinite(dieSides) && dieSides > 0 ? `d${Math.floor(dieSides)}` : "die";
+        const timeLeft = Number(pool?.time_left_s || 0);
+        const timerText = Number.isFinite(timeLeft) && timeLeft > 0 ? ` (${formatShortDuration(timeLeft)})` : "";
+        chip.textContent = `${pool.label || "Bardic Dice"} ${dieLabel}${timerText}`;
+      } else {
+        chip.textContent = `${pool.label || pool.id} ${pool.current}/${pool.max}`;
+      }
       if (pool.id === "wild_shape"){
         chip.style.cursor = "pointer";
         chip.title = "Wild Shape actions";
@@ -5778,6 +5908,11 @@ __DAMAGE_TYPE_OPTIONS__
           setAttackOverlayMode(true);
           localToast("Select an enemy within echo range for Unleash Incarnation.");
         });
+      }
+      if (normalizeLowerValue(pool.id).startsWith("temp_bardic_dice_")){
+        chip.style.cursor = "pointer";
+        chip.title = "Spend Bardic Inspiration die";
+        chip.addEventListener("click", () => setBardicDiceConfirmModalOpen(true, pool));
       }
       const specializedPools = new Set(["wild_shape", "focus_points", "lay_on_hands", "second_wind", "action_surge", "unleash_incarnation"]);
       if (!specializedPools.has(pool.id)){
@@ -9049,6 +9184,166 @@ __DAMAGE_TYPE_OPTIONS__
     return `${label} ft`;
   }
 
+
+  function getClaimedBeguilingMagicWindowSeconds(){
+    const unit = getClaimedUnit();
+    const value = Number(unit?.beguiling_magic_window_s || 0);
+    return Number.isFinite(value) ? Math.max(0, value) : 0;
+  }
+
+  function formatShortDuration(seconds){
+    const total = Math.max(0, Math.ceil(Number(seconds) || 0));
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${mins}:${String(secs).padStart(2, "0")}`;
+  }
+
+  function setBeguilingMagicModalOpen(open){
+    setModalOpen(beguilingMagicModal, open);
+    if (!open) return;
+    const windowS = getClaimedBeguilingMagicWindowSeconds();
+    if (beguilingMagicStatus){
+      beguilingMagicStatus.textContent = windowS > 0
+        ? `Window remaining: ${formatShortDuration(windowS)}`
+        : "Beguiling Magic is not armed.";
+    }
+  }
+
+  function beginBeguilingMagicFlow(fromPool = false){
+    const me = getClaimedUnit();
+    if (!me){
+      localToast("Claim a character first, matey.");
+      return;
+    }
+    const windowS = getClaimedBeguilingMagicWindowSeconds();
+    if (windowS <= 0){
+      localToast("Beguiling Magic is not armed.");
+      return;
+    }
+    pendingBeguilingMagic = {fromPool: !!fromPool, condition: "charmed"};
+    if (beguilingMagicConditionInput){
+      beguilingMagicConditionInput.value = "charmed";
+    }
+    setBeguilingMagicModalOpen(true);
+  }
+
+  function isCommandSpellTargeting(){
+    const slug = normalizeLowerValue(pendingSpellTargeting?.spellSlug || pendingSpellTargeting?.spellId || pendingSpellTargeting?.spellName);
+    return slug === "command";
+  }
+
+  function setCommandOptionModalOpen(open){
+    setModalOpen(commandOptionModal, open);
+    if (!open) return;
+    if (commandOptionSelect && !String(commandOptionSelect.value || "").trim()){
+      commandOptionSelect.value = "approach";
+    }
+    if (commandOptionStatus){
+      const count = Array.isArray(pendingCommandResolution?.targetCids) ? pendingCommandResolution.targetCids.length : 0;
+      commandOptionStatus.textContent = count > 0
+        ? `Applies to ${count} target${count === 1 ? "" : "s"}.`
+        : "Select a command option.";
+    }
+  }
+
+  function queueCommandResolution(targetCids, castMsg = null){
+    if (!pendingSpellTargeting || !isCommandSpellTargeting()){
+      return false;
+    }
+    const ids = Array.isArray(targetCids)
+      ? Array.from(new Set(targetCids.map((cid) => Number(cid)).filter((cid) => Number.isFinite(cid))))
+      : [];
+    if (!ids.length){
+      localToast("Pick at least one target first.");
+      return true;
+    }
+    pendingCommandResolution = {
+      targetCids: ids,
+      castMsg,
+      spellName: String(pendingSpellTargeting.spellName || "Command"),
+      slotLevel: Number.isFinite(Number(pendingSpellTargeting.slotLevel))
+        ? Math.max(1, Math.floor(Number(pendingSpellTargeting.slotLevel)))
+        : 1,
+      spellSlug: pendingSpellTargeting.spellSlug || "command",
+      spellId: pendingSpellTargeting.spellId || "command",
+    };
+    setCommandOptionModalOpen(true);
+    return true;
+  }
+
+  function setBardicDiceConfirmModalOpen(open, pool = null){
+    setModalOpen(bardicDiceConfirmModal, open);
+    if (!open){
+      pendingBardicDiceUse = null;
+      return;
+    }
+    pendingBardicDiceUse = pool || null;
+    const dieSides = Number(pool?.die_sides || 0);
+    const label = Number.isFinite(dieSides) && dieSides > 0 ? `d${Math.floor(dieSides)}` : "die";
+    if (bardicDiceConfirmStatus){
+      bardicDiceConfirmStatus.textContent = `Are ye sure ye want to expend yer Bardic Inspiration ${label}?`;
+    }
+  }
+
+  function startBardicInspirationGrantTargeting(entry){
+    const me = getClaimedUnit();
+    if (!me){
+      localToast("Claim a character first, matey.");
+      return;
+    }
+    if (Number(me?.bonus_action_remaining || 0) <= 0){
+      localToast("No bonus actions left, matey.");
+      return;
+    }
+    pendingBardicInspirationTargeting = {
+      actionName: String(entry?.name || "Bardic Inspiration"),
+      rangeFt: 60,
+    };
+    setAttackOverlayMode(true);
+    localToast("Bardic Inspiration ready. Select one creature within 60 ft.");
+  }
+
+  function mantleMaxTargetsForClaimedUnit(){
+    const me = getClaimedUnit();
+    const chaMod = Number(me?.ability_mods?.cha);
+    if (Number.isFinite(chaMod)) return Math.max(1, Math.floor(chaMod));
+    return 1;
+  }
+
+  function setMantleResolveModalOpen(open){
+    setModalOpen(mantleResolveModal, open);
+    if (!open) return;
+    const selected = Array.isArray(pendingMantleOfInspiration?.targetCids) ? pendingMantleOfInspiration.targetCids : [];
+    if (mantleResolveSummary){
+      mantleResolveSummary.textContent = `Selected targets: ${selected.length}. Enter a die roll or leave blank to auto-roll.`;
+    }
+    if (mantleResolveDieInput){
+      mantleResolveDieInput.value = "";
+      mantleResolveDieInput.focus();
+    }
+  }
+
+  function startMantleOfInspirationTargeting(entry){
+    const me = getClaimedUnit();
+    if (!me){
+      localToast("Claim a character first, matey.");
+      return;
+    }
+    if (Number(me?.bonus_action_remaining || 0) <= 0){
+      localToast("No bonus actions left, matey.");
+      return;
+    }
+    pendingMantleOfInspiration = {
+      actionName: String(entry?.name || "Mantle of Inspiration"),
+      rangeFt: 60,
+      maxTargets: mantleMaxTargetsForClaimedUnit(),
+      targetCids: [],
+    };
+    setAttackOverlayMode(true);
+    renderSpellTargetSelectionUi();
+    localToast(`Select targets (0/${pendingMantleOfInspiration.maxTargets}) for Mantle of Inspiration.`);
+  }
+
   function touchSpellRangeFeet(){
     const feetPerSquare = Number(state?.grid?.feet_per_square);
     if (Number.isFinite(feetPerSquare) && feetPerSquare > 0){
@@ -9117,6 +9412,9 @@ __DAMAGE_TYPE_OPTIONS__
       pendingActionAttackWeapon = null;
       pendingUnleashIncarnation = null;
       pendingMonkBonusAttackSequence = null;
+      pendingBeguilingMagic = null;
+      pendingCommandResolution = null;
+      pendingBardicInspirationTargeting = null;
     }
     if (attackOverlayToggleBtn){
       attackOverlayToggleBtn.setAttribute("aria-pressed", attackOverlayMode ? "true" : "false");
@@ -10337,19 +10635,30 @@ __DAMAGE_TYPE_OPTIONS__
       const claimed = getClaimedUnit();
       const controlled = getUnitByCid(activeControlledUnitCid());
       const attackOrigin = pendingUnleashIncarnation ? getUnitByCid(pendingUnleashIncarnation.echoCid) : (controlled || claimed);
-      const weapon = pendingSpellTargeting ? null : (pendingActionAttackWeapon || getSelectedAttackWeapon());
+      const weapon = (pendingSpellTargeting || pendingBeguilingMagic) ? null : (pendingActionAttackWeapon || getSelectedAttackWeapon());
       const spellRangeFt = Number(pendingSpellTargeting?.rangeFt);
       const layOnHandsRangeFt = Number(pendingLayOnHandsTargeting?.rangeFt);
-      if (attackOrigin && attackOrigin.pos && (weapon || Number.isFinite(spellRangeFt) || Number.isFinite(layOnHandsRangeFt))){
+      const bardicInspirationRangeFt = Number(pendingBardicInspirationTargeting?.rangeFt);
+      const beguilingRangeFt = pendingBeguilingMagic ? 60 : NaN;
+      const mantleRangeFt = Number(pendingMantleOfInspiration?.rangeFt);
+      if (attackOrigin && attackOrigin.pos && (weapon || Number.isFinite(spellRangeFt) || Number.isFinite(layOnHandsRangeFt) || Number.isFinite(bardicInspirationRangeFt) || Number.isFinite(beguilingRangeFt) || Number.isFinite(mantleRangeFt))){
         const rangeFt = Number.isFinite(layOnHandsRangeFt)
           ? layOnHandsRangeFt
-          : (Number.isFinite(spellRangeFt)
-            ? spellRangeFt
-            : effectiveAttackRangeFeetForWeapon(weapon, attackOrigin || claimed));
+          : (Number.isFinite(bardicInspirationRangeFt)
+            ? bardicInspirationRangeFt
+            : (Number.isFinite(spellRangeFt)
+              ? spellRangeFt
+              : (Number.isFinite(beguilingRangeFt)
+                ? beguilingRangeFt
+                : (Number.isFinite(mantleRangeFt)
+                  ? mantleRangeFt
+                  : effectiveAttackRangeFeetForWeapon(weapon, attackOrigin || claimed)))));
         const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
         const radiusCells = Math.max(0, Number(rangeFt) / feetPerSquare);
         const center = gridToScreen(attackOrigin.pos.col, attackOrigin.pos.row);
-        const overlayColor = normalizeHexColor(pendingLayOnHandsTargeting ? "#4caf50" : (pendingSpellTargeting?.overlayColor || ""));
+        const overlayColor = normalizeHexColor(
+          (pendingLayOnHandsTargeting || pendingBardicInspirationTargeting || pendingMantleOfInspiration) ? "#4caf50" : (pendingBeguilingMagic ? "#b388ff" : (pendingSpellTargeting?.overlayColor || ""))
+        );
         ctx.save();
         ctx.fillStyle = overlayColor ? rgbaFromHex(overlayColor, 0.15) : "rgba(255,78,78,0.15)";
         ctx.strokeStyle = overlayColor ? rgbaFromHex(overlayColor, 0.72) : "rgba(255,78,78,0.72)";
@@ -11670,17 +11979,20 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function runSpellTargetingAgainstTarget(target){
-    if (!target || !pendingSpellTargeting){
+    if (!target){
       return;
     }
     const me = getClaimedUnit();
     const isFriendlyTarget = !!me && (cidMatches(target.cid, me.cid, "spellTargeting.self") || isFriendlyToMe(target, me));
-    const targetSide = normalizeLowerValue((pendingSpellTargetSelection?.targetSide || pendingSpellTargeting.targetSide || "any"));
-    if (targetSide === "friendly" && !isFriendlyTarget){
+    if (!pendingMantleOfInspiration && !pendingSpellTargeting){
+      return;
+    }
+    const targetSide = normalizeLowerValue((pendingSpellTargetSelection?.targetSide || pendingSpellTargeting?.targetSide || "any"));
+    if (!pendingMantleOfInspiration && targetSide === "friendly" && !isFriendlyTarget){
       localToast("Pick a friendly target, matey.");
       return;
     }
-    if (targetSide === "enemy" && isFriendlyTarget){
+    if (!pendingMantleOfInspiration && targetSide === "enemy" && isFriendlyTarget){
       localToast("Pick an enemy target, matey.");
       return;
     }
@@ -11698,6 +12010,29 @@ __DAMAGE_TYPE_OPTIONS__
       selected.push(Number(target.cid));
       selection.selectedTargets = selected;
       renderSpellTargetSelectionUi();
+      return;
+    }
+    if (pendingMantleOfInspiration){
+      const selected = Array.isArray(pendingMantleOfInspiration.targetCids) ? pendingMantleOfInspiration.targetCids : [];
+      if (cidMatches(target.cid, me.cid, "mantle.self")){
+        localToast("Mantle of Inspiration targets other creatures only.");
+        return;
+      }
+      if (selected.length >= Number(pendingMantleOfInspiration.maxTargets || 1)){
+        localToast("Target list already full.");
+        return;
+      }
+      if (selected.includes(Number(target.cid))){
+        localToast("That target be selected already.");
+        return;
+      }
+      selected.push(Number(target.cid));
+      pendingMantleOfInspiration.targetCids = selected;
+      renderSpellTargetSelectionUi();
+      return;
+    }
+    if (isCommandSpellTargeting()){
+      queueCommandResolution([Number(target.cid)], null);
       return;
     }
     if (pendingSpellTargeting.mode === "save"){
@@ -11816,7 +12151,14 @@ __DAMAGE_TYPE_OPTIONS__
     const bonusRemaining = Number(entryUnit?.bonus_action_remaining || 0);
     const reactionRemaining = Number(entryUnit?.reaction_remaining || 0);
     const spellCastRemaining = Number(entryUnit?.spell_cast_remaining || 0);
+    const isBeguilingMagicEntry = entry.kind === "beguiling_magic";
     let disabledReason = "";
+    if (isBeguilingMagicEntry){
+      const windowS = getClaimedBeguilingMagicWindowSeconds();
+      if (windowS <= 0){
+        disabledReason = "Beguiling Magic window expired.";
+      }
+    }
     if (entry.spend === "action" && actionRemaining <= 0){
       disabledReason = "No actions left, matey.";
     } else if (entry.spend === "bonus" && bonusRemaining <= 0){
@@ -11894,6 +12236,10 @@ __DAMAGE_TYPE_OPTIONS__
         openWarCasterModal();
         return;
       }
+      if (entry.kind === "beguiling_magic"){
+        beginBeguilingMagicFlow(false);
+        return;
+      }
       if (entry.spend === "reaction" && actionName === "opportunity attack"){
         const unit = getClaimedUnit();
         if (Number(unit?.reaction_remaining || 0) <= 0){
@@ -11937,6 +12283,14 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (normalizedActionKey === "patient defense disengage"){
         sendMonkFocusAction("monk_patient_defense", "free");
+        return;
+      }
+      if (entry.spend === "bonus" && normalizedActionKey === "bardic inspiration"){
+        startBardicInspirationGrantTargeting(entry);
+        return;
+      }
+      if (entry.spend === "bonus" && normalizedActionKey === "mantle of inspiration"){
+        startMantleOfInspirationTargeting(entry);
         return;
       }
       if (normalizedActionKey === "patient defense disengage dodge"){
@@ -12036,6 +12390,15 @@ __DAMAGE_TYPE_OPTIONS__
     } else if (mode === "bonus"){
       actionPickerTitle.textContent = "Choose a Bonus Action";
       bonusActions.forEach((entry) => items.push({...entry, spend: "bonus"}));
+      const windowS = getClaimedBeguilingMagicWindowSeconds();
+      if (windowS > 0){
+        items.push({
+          name: `Beguiling Magic (${formatShortDuration(windowS)})`,
+          description: "Free rider after an eligible spell; choose Charmed or Frightened, then select a target within 60 ft.",
+          spend: "free",
+          kind: "beguiling_magic",
+        });
+      }
     } else if (mode === "reaction"){
       actionPickerTitle.textContent = "Choose a Reaction";
       reactions.forEach((entry) => items.push({...entry, spend: "reaction"}));
@@ -12606,6 +12969,21 @@ __DAMAGE_TYPE_OPTIONS__
         applyServerClaim(null, null, msg.claim_rev);
         refreshTurnAlertStatus();
         updateHud();
+      } else if (msg.type === "command_result"){
+        const results = Array.isArray(msg.results) ? msg.results : [];
+        const applied = results.filter((entry) => entry && entry.applied).map((entry) => String(entry.target_name || `#${entry.target_cid}`));
+        if (applied.length){
+          localToast(`Command ${String(msg.command_option || "")} applied to ${applied.join(", ")}.`);
+        } else {
+          localToast("Command resolved.");
+        }
+        scheduleUiFlush({hud:true, draw:true, mount:true});
+      } else if (msg.type === "bardic_inspiration_use_result"){
+        const roll = Number(msg.roll || 0);
+        if (Number.isFinite(roll) && roll > 0){
+          localToast(`Bardic Inspiration die rolled ${Math.floor(roll)}.`);
+        }
+        scheduleUiFlush({hud:true, draw:true, mount:true});
       } else if (msg.type === "toast"){
         localToast(msg.text || "…");
       } else if (msg.type === "mount_prompt"){
@@ -13457,9 +13835,12 @@ __DAMAGE_TYPE_OPTIONS__
       const hit = hitTestToken(p);
       const selectingSpellTarget = !!pendingSpellTargeting;
       const selectingLayOnHandsTarget = !!pendingLayOnHandsTargeting;
-      if (hit && (selectingSpellTarget || selectingLayOnHandsTarget || !cidMatches(hit.cid, me.cid, "attackOverlay.target"))){
+      const selectingBardicInspirationTarget = !!pendingBardicInspirationTargeting;
+      const selectingBeguilingMagicTarget = !!pendingBeguilingMagic;
+      const selectingMantleTarget = !!pendingMantleOfInspiration;
+      if (hit && (selectingSpellTarget || selectingLayOnHandsTarget || selectingBardicInspirationTarget || selectingBeguilingMagicTarget || selectingMantleTarget || !cidMatches(hit.cid, me.cid, "attackOverlay.target"))){
         const isFriendlyTarget = cidMatches(hit.cid, me.cid, "attackOverlay.selfTarget") || isFriendlyToMe(hit, me);
-        if (!pendingSpellTargeting && !pendingLayOnHandsTargeting && isFriendlyTarget){
+        if (!pendingSpellTargeting && !pendingLayOnHandsTargeting && !pendingBardicInspirationTargeting && !pendingBeguilingMagic && !pendingMantleOfInspiration && isFriendlyTarget){
           localToast("Pick an enemy target, matey.");
           return;
         }
@@ -13488,6 +13869,62 @@ __DAMAGE_TYPE_OPTIONS__
             targetName: String(hit.name || "target"),
           };
           setLayOnHandsOverlayOpen(true);
+          return;
+        }
+        if (pendingBardicInspirationTargeting){
+          if (cidMatches(hit.cid, me.cid, "bardicInspiration.self")){
+            localToast("Choose another creature for Bardic Inspiration.");
+            return;
+          }
+          const rangeFt = Number.isFinite(Number(pendingBardicInspirationTargeting?.rangeFt))
+            ? Number(pendingBardicInspirationTargeting.rangeFt)
+            : 60;
+          const distFt = distanceFeetBetweenCells(overlayOrigin.pos, hit.pos);
+          if (distFt - rangeFt > 1e-6){
+            localToast("Target be out of Bardic Inspiration range.");
+            return;
+          }
+          send({
+            type: "bardic_inspiration_grant",
+            cid: activeControlledUnitCid(),
+            target_cid: Number(hit.cid),
+          });
+          setAttackOverlayMode(false);
+          localToast(`Bardic Inspiration sent to ${String(hit.name || "target")}.`);
+          return;
+        }
+        if (pendingBeguilingMagic){
+          const distFt = distanceFeetBetweenCells(overlayOrigin.pos, hit.pos);
+          if (distFt - 60 > 1e-6){
+            localToast("Target be out of Beguiling Magic range.");
+            return;
+          }
+          const condition = normalizeLowerValue(pendingBeguilingMagic.condition || "charmed") || "charmed";
+          send({
+            type: "beguiling_magic_use",
+            cid: activeControlledUnitCid(),
+            target_cid: Number(hit.cid),
+            condition,
+            restore_with_bi: !!pendingBeguilingMagic.fromPool,
+          });
+          setAttackOverlayMode(false);
+          localToast("Beguiling Magic sent.");
+          return;
+        }
+        if (pendingMantleOfInspiration){
+          if (cidMatches(hit.cid, me.cid, "mantle.self.block")){
+            localToast("Mantle of Inspiration targets other creatures only.");
+            return;
+          }
+          const rangeFt = Number.isFinite(Number(pendingMantleOfInspiration?.rangeFt))
+            ? Number(pendingMantleOfInspiration.rangeFt)
+            : 60;
+          const distFt = distanceFeetBetweenCells(overlayOrigin.pos, hit.pos);
+          if (distFt - rangeFt > 1e-6){
+            localToast("Target be out of Mantle of Inspiration range.");
+            return;
+          }
+          runSpellTargetingAgainstTarget(hit);
           return;
         }
         const weapon = pendingSpellTargeting ? null : (pendingActionAttackWeapon || getSelectedAttackWeapon());
@@ -16169,6 +16606,10 @@ __DAMAGE_TYPE_OPTIONS__
   function clearSpellTargetingSession(showToastMessage = ""){
     pendingSpellTargeting = null;
     pendingSpellTargetSelection = null;
+    pendingCommandResolution = null;
+    pendingMantleOfInspiration = null;
+    setMantleResolveModalOpen(false);
+    setCommandOptionModalOpen(false);
     renderSpellTargetSelectionUi();
     if (attackOverlayMode){
       setAttackOverlayMode(false);
@@ -16262,9 +16703,13 @@ __DAMAGE_TYPE_OPTIONS__
     const selectedSlot = Number.isFinite(Number(slotLevel)) ? Math.floor(Number(slotLevel)) : baseSlotLevel;
     const countBase = Number.isFinite(baseCount) && baseCount > 0 ? Math.floor(baseCount) : inferred.baseCount;
     const countAdd = Number.isFinite(addPerSlot) ? Math.floor(addPerSlot) : inferred.addPerSlotAbove;
-    const projectileCount = inferred.cantripDynamicCount && !Number.isFinite(baseCount)
+    let projectileCount = inferred.cantripDynamicCount && !Number.isFinite(baseCount)
       ? inferred.projectileCount
       : Math.max(1, countBase + Math.max(0, selectedSlot - baseSlotLevel) * countAdd);
+    const presetSlug = normalizeLowerValue(getPresetSlug(preset));
+    if (presetSlug === "command"){
+      projectileCount = Math.max(1, 1 + Math.max(0, selectedSlot - 1));
+    }
     const damageTypes = Array.from(castDamageTypes);
     const fallbackType = String((Array.isArray(preset?.damage_types) ? preset.damage_types[0] : "") || "").trim().toLowerCase();
     if (!damageTypes.length && fallbackType){
@@ -16285,7 +16730,7 @@ __DAMAGE_TYPE_OPTIONS__
     return {
       mode,
       rangeFt: parseSpellTargetRangeFeet(preset),
-      saveType: normalizeLowerValue(preset?.save_type),
+      saveType: normalizeLowerValue(preset?.save_type) || (presetSlug === "command" ? "wis" : ""),
       saveDc: Number.isFinite(Number(castDcValueInput?.value)) ? Math.floor(Number(castDcValueInput.value)) : null,
       damageType: damageTypes[0] || "",
       damageDice: String(castDiceInput?.value || castDefaultDamageInput?.value || "").trim(),
@@ -16302,12 +16747,16 @@ __DAMAGE_TYPE_OPTIONS__
   }
   function renderSpellTargetSelectionUi(){
     if (!spellTargetSelectionUi) return;
-    const active = !!pendingSpellTargetSelection;
+    const active = !!(pendingSpellTargetSelection || pendingMantleOfInspiration);
     spellTargetSelectionUi.classList.toggle("hidden", !active);
     spellTargetSelectionUi.setAttribute("aria-hidden", active ? "false" : "true");
     if (!active) return;
-    const selected = Array.isArray(pendingSpellTargetSelection.selectedTargets) ? pendingSpellTargetSelection.selectedTargets : [];
-    const max = Math.max(1, Number(pendingSpellTargetSelection.maxTargets || 1));
+    const selected = pendingSpellTargetSelection
+      ? (Array.isArray(pendingSpellTargetSelection.selectedTargets) ? pendingSpellTargetSelection.selectedTargets : [])
+      : (Array.isArray(pendingMantleOfInspiration?.targetCids) ? pendingMantleOfInspiration.targetCids : []);
+    const max = pendingSpellTargetSelection
+      ? Math.max(1, Number(pendingSpellTargetSelection.maxTargets || 1))
+      : Math.max(1, Number(pendingMantleOfInspiration?.maxTargets || 1));
     if (spellTargetSelectionCounter){
       spellTargetSelectionCounter.textContent = `${selected.length}/${max}`;
     }
@@ -17980,6 +18429,65 @@ __DAMAGE_TYPE_OPTIONS__
   if (resourcePoolDetailCloseBtn){
     resourcePoolDetailCloseBtn.addEventListener("click", () => setResourcePoolDetailOverlayOpen(false));
   }
+  if (beguilingMagicCancelBtn){
+    beguilingMagicCancelBtn.addEventListener("click", () => {
+      setBeguilingMagicModalOpen(false);
+      pendingBeguilingMagic = null;
+    });
+  }
+  if (beguilingMagicConfirmBtn){
+    beguilingMagicConfirmBtn.addEventListener("click", () => {
+      if (!pendingBeguilingMagic){
+        pendingBeguilingMagic = {fromPool: false, condition: "charmed"};
+      }
+      pendingBeguilingMagic.condition = normalizeLowerValue(beguilingMagicConditionInput?.value || "charmed") || "charmed";
+      setBeguilingMagicModalOpen(false);
+      setAttackOverlayMode(true);
+      localToast("Beguiling Magic ready. Select a target within 60 ft.");
+    });
+  }
+  if (commandOptionCancelBtn){
+    commandOptionCancelBtn.addEventListener("click", () => {
+      clearSpellTargetingSession("Command selection cancelled.");
+    });
+  }
+  if (commandOptionConfirmBtn){
+    commandOptionConfirmBtn.addEventListener("click", () => {
+      if (!pendingCommandResolution || !pendingSpellTargeting){
+        setCommandOptionModalOpen(false);
+        return;
+      }
+      const option = normalizeLowerValue(commandOptionSelect?.value || "approach") || "approach";
+      const allowed = ["approach", "drop", "flee", "grovel", "halt"];
+      if (!allowed.includes(option)){
+        localToast("Pick a valid command option.");
+        return;
+      }
+      if (pendingCommandResolution.castMsg){
+        send(pendingCommandResolution.castMsg);
+      }
+      send({
+        type: "command_resolve",
+        cid: activeControlledUnitCid(),
+        target_cids: pendingCommandResolution.targetCids.slice(),
+        command_option: option,
+        slot_level: Number(pendingCommandResolution.slotLevel || 1),
+        spell_slug: pendingCommandResolution.spellSlug || "command",
+        spell_id: pendingCommandResolution.spellId || "command",
+      });
+      setCommandOptionModalOpen(false);
+      clearSpellTargetingSession("Command sent.");
+    });
+  }
+  if (bardicDiceConfirmCancelBtn){
+    bardicDiceConfirmCancelBtn.addEventListener("click", () => setBardicDiceConfirmModalOpen(false, null));
+  }
+  if (bardicDiceConfirmYesBtn){
+    bardicDiceConfirmYesBtn.addEventListener("click", () => {
+      send({type: "bardic_inspiration_use", cid: activeControlledUnitCid()});
+      setBardicDiceConfirmModalOpen(false, null);
+    });
+  }
   const sendMonkFocusAction = (type, mode) => {
     if (isMapView) return;
     const cid = activeControlledUnitCid();
@@ -18122,6 +18630,41 @@ __DAMAGE_TYPE_OPTIONS__
       startMonkBonusAttackSequence("flurry", monkLevel >= 10 ? 3 : 2, 1);
     });
   }
+  if (mantleResolveCancelBtn){
+    mantleResolveCancelBtn.addEventListener("click", () => {
+      setMantleResolveModalOpen(false);
+    });
+  }
+  if (mantleResolveUseBtn){
+    mantleResolveUseBtn.addEventListener("click", () => {
+      if (!pendingMantleOfInspiration){
+        localToast("Pick Mantle targets first.");
+        return;
+      }
+      const targetCids = Array.isArray(pendingMantleOfInspiration.targetCids)
+        ? pendingMantleOfInspiration.targetCids.slice()
+        : [];
+      if (!targetCids.length){
+        localToast("Pick at least one target first.");
+        return;
+      }
+      const parsed = Number(mantleResolveDieInput?.value ?? "");
+      const dieOverride = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+      send({
+        type: "mantle_of_inspiration",
+        cid: activeControlledUnitCid(),
+        target_cids: targetCids,
+        die_override: dieOverride,
+      });
+      setMantleResolveModalOpen(false);
+      pendingMantleOfInspiration = null;
+      renderSpellTargetSelectionUi();
+      if (attackOverlayMode){
+        setAttackOverlayMode(false);
+      }
+    });
+  }
+
   if (layOnHandsCancelBtn){
     layOnHandsCancelBtn.addEventListener("click", () => {
       setLayOnHandsOverlayOpen(false);
@@ -18568,7 +19111,9 @@ __DAMAGE_TYPE_OPTIONS__
   if (attackOverlayToggleBtn){
     attackOverlayToggleBtn.addEventListener("click", () => {
       if (pendingSpellTargeting && attackOverlayMode){
-        clearSpellTargetingSession("Spell targeting cancelled.");
+        pendingMantleOfInspiration = null;
+      setMantleResolveModalOpen(false);
+      clearSpellTargetingSession("Targeting cancelled.");
         return;
       }
       if (attackOverlayMode){
@@ -18609,8 +19154,13 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (spellTargetSelectionRemoveLastBtn){
     spellTargetSelectionRemoveLastBtn.addEventListener("click", () => {
-      if (!pendingSpellTargetSelection) return;
-      pendingSpellTargetSelection.selectedTargets.pop();
+      if (pendingSpellTargetSelection){
+        pendingSpellTargetSelection.selectedTargets.pop();
+      } else if (pendingMantleOfInspiration){
+        pendingMantleOfInspiration.targetCids.pop();
+      } else {
+        return;
+      }
       renderSpellTargetSelectionUi();
     });
   }
@@ -18621,6 +19171,15 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (spellTargetSelectionConfirmBtn){
     spellTargetSelectionConfirmBtn.addEventListener("click", () => {
+      if (pendingMantleOfInspiration){
+        const selectedMantle = Array.isArray(pendingMantleOfInspiration.targetCids) ? pendingMantleOfInspiration.targetCids : [];
+        if (!selectedMantle.length){
+          localToast("Pick at least one target first.");
+          return;
+        }
+        setMantleResolveModalOpen(true);
+        return;
+      }
       if (!pendingSpellTargetSelection || !pendingSpellTargeting){
         return;
       }
@@ -18640,6 +19199,12 @@ __DAMAGE_TYPE_OPTIONS__
         if (!window.confirm(`You're concentrating on ${concentrationSpell}. Casting ${pendingSpellTargeting.spellName} will end it. Continue?`)){
           return;
         }
+      }
+      if (isCommandSpellTargeting()){
+        pendingSpellTargetSelection = null;
+        renderSpellTargetSelectionUi();
+        queueCommandResolution(selected.slice(), castMsg || null);
+        return;
       }
       if (castMsg){
         send(castMsg);
@@ -19115,6 +19680,11 @@ __DAMAGE_TYPE_OPTIONS__
     toggleDmMapPreviewInput.checked = dmUiPrefs.showMapPreview === true;
     toggleDmMapPreviewInput.addEventListener('change', ()=>{ dmUiPrefs.showMapPreview = toggleDmMapPreviewInput.checked; saveDmUiPrefs(); renderDmLogPanel(); renderDmPreview(); });
   }
+
+  setInterval(() => {
+    if (!state || !claimedCid) return;
+    renderResourcePools();
+  }, 1000);
 
   connect();
 })();

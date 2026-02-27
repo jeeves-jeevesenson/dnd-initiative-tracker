@@ -9510,6 +9510,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     }
                 )
 
+            beguiling_magic_window_s = self._beguiling_magic_window_remaining(c)
             units.append(
                 {
                     "cid": c.cid,
@@ -9567,6 +9568,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
                     "marks": marks,
                     "effects": effect_icons,
+                    "beguiling_magic_window_s": float(beguiling_magic_window_s),
                 }
             )
 
@@ -13116,7 +13118,88 @@ class InitiativeTracker(base.InitiativeTracker):
             if not isinstance(data, dict):
                 continue
             payload[name] = self._normalize_player_resource_pools(data)
+        self._augment_resource_pools_with_temporary_conditions(payload)
         return payload
+
+    def _bardic_inspiration_die_sides(self, profile: Dict[str, Any]) -> int:
+        bard_level = max(0, int(self._class_level_from_profile(profile if isinstance(profile, dict) else {}, "bard") or 0))
+        if bard_level >= 15:
+            return 12
+        if bard_level >= 10:
+            return 10
+        if bard_level >= 5:
+            return 8
+        return 6
+
+    def _mantle_of_inspiration_max_targets(self, caster: Any, profile: Optional[Dict[str, Any]] = None) -> int:
+        cha_mod = self._combatant_ability_modifier(caster, "cha") if caster is not None else 0
+        if cha_mod == 0 and isinstance(profile, dict):
+            abilities = profile.get("abilities") if isinstance(profile.get("abilities"), dict) else {}
+            cha_mod = self._ability_score_modifier(abilities if isinstance(abilities, dict) else {}, "cha")
+        return max(1, int(cha_mod))
+
+    def _combatant_for_player_name(self, player_name: str) -> Optional[Any]:
+        target_key = self._normalize_character_lookup_key(player_name)
+        if not target_key:
+            return None
+        for combatant in list(getattr(self, "combatants", {}).values()):
+            cid = _normalize_cid_value(getattr(combatant, "cid", None), "inspired.combatant.cid")
+            if cid is None:
+                continue
+            candidate_name = str(self._pc_name_for(int(cid)) or "").strip()
+            if self._normalize_character_lookup_key(candidate_name) == target_key:
+                return combatant
+        return None
+
+    def _inspired_state_for(self, combatant: Any, *, prune_expired: bool = True) -> Optional[Dict[str, Any]]:
+        if combatant is None:
+            return None
+        state = getattr(combatant, "_inspired_state", None)
+        if not isinstance(state, dict):
+            return None
+        try:
+            expires_at = float(state.get("expires_at") or 0.0)
+        except Exception:
+            expires_at = 0.0
+        is_expired = expires_at > 0 and time.monotonic() >= expires_at
+        if is_expired and prune_expired:
+            self._remove_condition_type(combatant, "inspired")
+            setattr(combatant, "_inspired_state", None)
+            return None
+        if is_expired:
+            return None
+        return dict(state)
+
+    def _augment_resource_pools_with_temporary_conditions(self, payload: Dict[str, List[Dict[str, Any]]]) -> None:
+        if not isinstance(payload, dict):
+            return
+        for player_name, pools in list(payload.items()):
+            if not isinstance(pools, list):
+                continue
+            combatant = self._combatant_for_player_name(str(player_name or ""))
+            state = self._inspired_state_for(combatant, prune_expired=True)
+            if not isinstance(state, dict):
+                continue
+            try:
+                die_sides = max(1, int(state.get("die_sides") or 0))
+            except Exception:
+                die_sides = 0
+            if die_sides <= 0:
+                continue
+            expires_at = float(state.get("expires_at") or 0.0)
+            time_left = max(0.0, expires_at - time.monotonic()) if expires_at > 0 else 0.0
+            source_cid = _normalize_cid_value(state.get("source_cid"), "inspired.source_cid")
+            temp_pool = {
+                "id": f"temp_bardic_dice_{int(source_cid) if source_cid is not None else 'unknown'}",
+                "label": "Bardic Dice",
+                "current": 1,
+                "max": 1,
+                "temporary": True,
+                "die_sides": int(die_sides),
+                "time_left_s": float(time_left),
+                "source_cid": int(source_cid) if source_cid is not None else None,
+            }
+            pools.append(temp_pool)
 
     def _load_player_yaml_cache(self, force_refresh: bool = False) -> None:
         if not force_refresh:
@@ -14360,6 +14443,43 @@ class InitiativeTracker(base.InitiativeTracker):
         hooks.append(dict(hook))
         setattr(c, "_feature_turn_hooks", hooks)
 
+    @staticmethod
+    def _beguiling_magic_window_remaining(c: Any) -> float:
+        if c is None:
+            return 0.0
+        try:
+            expires_at = float(getattr(c, "_beguiling_magic_window_until", 0.0) or 0.0)
+        except Exception:
+            return 0.0
+        return max(0.0, expires_at - time.monotonic())
+
+    def _arm_beguiling_magic_window(self, c: Any, duration_s: float = 20.0) -> None:
+        if c is None:
+            return
+        try:
+            duration = max(0.0, float(duration_s))
+        except Exception:
+            duration = 20.0
+        setattr(c, "_beguiling_magic_window_until", float(time.monotonic()) + duration)
+
+    @staticmethod
+    def _command_condition_key(option: Any) -> str:
+        key = str(option or "").strip().lower()
+        if not key:
+            return ""
+        if key.startswith("command_"):
+            key = key[len("command_"):]
+        if key not in {"approach", "drop", "flee", "grovel", "halt"}:
+            return ""
+        return f"command_{key}"
+
+    @staticmethod
+    def _command_option_from_condition(condition: Any) -> str:
+        key = str(condition or "").strip().lower()
+        if key.startswith("command_"):
+            key = key[len("command_"):]
+        return key if key in {"approach", "drop", "flee", "grovel", "halt"} else ""
+
     def _run_combatant_turn_hooks(self, c: Any, when: str) -> None:
         if c is None:
             return
@@ -14383,6 +14503,102 @@ class InitiativeTracker(base.InitiativeTracker):
                     setattr(c, "rage_active", False)
                     self._remove_condition_type(c, "rage")
                     self._log(f"{c.name}'s Rage ends.", cid=getattr(c, "cid", None))
+                    continue
+                retained.append(dict(hook))
+                continue
+            if hook_type == "command_effect":
+                condition_key = str(hook.get("condition") or "").strip().lower()
+                command_option = self._command_option_from_condition(condition_key)
+                if not command_option:
+                    continue
+                if not self._has_condition(c, condition_key):
+                    continue
+                source_name = str(hook.get("source") or "Command").strip() or "Command"
+                source_cid = _normalize_cid_value(hook.get("source_cid"), "command_effect.source_cid")
+                source_name = str(hook.get("source_name") or source_name).strip() or source_name
+                if command_option == "grovel":
+                    if not self._condition_is_immune_for_target(c, "prone") and not self._has_condition(c, "prone"):
+                        stacks = list(getattr(c, "condition_stacks", []) or [])
+                        next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                        setattr(self, "_next_stack_id", int(next_sid) + 1)
+                        stacks.append(base.ConditionStack(sid=int(next_sid), ctype="prone", remaining_turns=None))
+                        setattr(c, "condition_stacks", stacks)
+                    self._log(f"{c.name} obeys Command: Grovel, falls prone, and loses their turn.", cid=getattr(c, "cid", None))
+                    setattr(c, "move_remaining", 0)
+                    setattr(c, "action_remaining", 0)
+                    setattr(c, "bonus_action_remaining", 0)
+                    setattr(c, "attack_resource_remaining", 0)
+                    setattr(c, "spell_cast_remaining", 0)
+                elif command_option == "halt":
+                    self._log(f"{c.name} obeys Command: Halt and cannot move or take actions this turn.", cid=getattr(c, "cid", None))
+                    setattr(c, "move_remaining", 0)
+                    setattr(c, "action_remaining", 0)
+                    setattr(c, "bonus_action_remaining", 0)
+                    setattr(c, "attack_resource_remaining", 0)
+                    setattr(c, "spell_cast_remaining", 0)
+                elif command_option == "drop":
+                    self._log(f"{c.name} obeys Command: Drop and releases what they are holding.", cid=getattr(c, "cid", None))
+                elif command_option == "approach":
+                    source_text = source_name or (f"CID {int(source_cid)}" if source_cid is not None else "the caster")
+                    self._log(
+                        f"{c.name} obeys Command: Approach and must move toward {source_text} by the shortest route, ending within 5 feet if able.",
+                        cid=getattr(c, "cid", None),
+                    )
+                elif command_option == "flee":
+                    source_text = source_name or (f"CID {int(source_cid)}" if source_cid is not None else "the caster")
+                    self._log(
+                        f"{c.name} obeys Command: Flee and must move away from {source_text} by the fastest means available.",
+                        cid=getattr(c, "cid", None),
+                    )
+                self._remove_condition_type(c, condition_key)
+                self._log(f"Command effect ends on {c.name}: {command_option.title()}.", cid=getattr(c, "cid", None))
+                continue
+            if hook_type == "save_ends_condition":
+                ability_value = str(hook.get("ability") or "").strip().lower()
+                ability_key = {
+                    "strength": "str",
+                    "dexterity": "dex",
+                    "constitution": "con",
+                    "intelligence": "int",
+                    "wisdom": "wis",
+                    "charisma": "cha",
+                }.get(ability_value, ability_value)
+                condition_key = self._canonical_condition_key(hook.get("condition"))
+                if not condition_key or not self._has_condition(c, condition_key):
+                    continue
+                try:
+                    dc = int(hook.get("dc") or 0)
+                except Exception:
+                    dc = 0
+                if dc <= 0:
+                    retained.append(dict(hook))
+                    continue
+                save_mod = 0
+                saves = getattr(c, "saving_throws", None)
+                if isinstance(saves, dict):
+                    try:
+                        save_mod = int(saves.get(ability_key, 0) or 0)
+                    except Exception:
+                        save_mod = 0
+                if save_mod == 0:
+                    mods = getattr(c, "ability_mods", None)
+                    if isinstance(mods, dict):
+                        try:
+                            save_mod = int(mods.get(ability_key, 0) or 0)
+                        except Exception:
+                            save_mod = 0
+                save_roll = int(random.randint(1, 20))
+                save_total = int(save_roll) + int(save_mod)
+                passed = bool(save_roll != 1 and save_total >= int(dc))
+                source = str(hook.get("source") or "Effect").strip() or "Effect"
+                self._log(
+                    f"{c.name} rolls {ability_key.upper()} save vs {source} (DC {dc}): "
+                    f"{save_roll} + {save_mod} = {save_total} ({'PASS' if passed else 'FAIL'}).",
+                    cid=getattr(c, "cid", None),
+                )
+                if passed:
+                    self._remove_condition_type(c, condition_key)
+                    self._log(f"{c.name} is no longer {condition_key} ({source}).", cid=getattr(c, "cid", None))
                     continue
                 retained.append(dict(hook))
                 continue
@@ -17573,7 +17789,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "yes",
             "on",
         )
-        if not is_admin and typ not in ("cast_aoe", "cast_spell", "aoe_move", "aoe_remove", "dismiss_summons"):
+        if not is_admin and typ not in ("cast_aoe", "cast_spell", "aoe_move", "aoe_remove", "dismiss_summons", "beguiling_magic_use", "beguiling_magic_restore", "bardic_inspiration_grant", "bardic_inspiration_use", "mantle_of_inspiration"):
             if in_combat:
                 if typ == "attack_request" and opportunity_attack_requested:
                     pass
@@ -17855,6 +18071,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not ok_slot:
                         self._lan.toast(ws_id, slot_err)
                         return
+                    beguiling_magic_slot_equivalent_used = True
                 if spend != "reaction" and int(getattr(c, "spell_cast_remaining", 0) or 0) <= 0:
                     self._lan.toast(ws_id, "Already cast a spell this turn, matey.")
                     return
@@ -18413,6 +18630,8 @@ class InitiativeTracker(base.InitiativeTracker):
                                 self._lan.toast(ws_id, "That square be out of spell range, matey.")
                                 return
             c = self.combatants.get(cid) if cid is not None else None
+            beguiling_magic_slot_equivalent_used = False
+            preset_school = str(preset.get("school") or "").strip().lower()
             if c is not None and not is_admin:
                 player_name = _resolve_pc_name(cid)
                 consumes_pool = payload.get("consumes_pool") if isinstance(payload.get("consumes_pool"), dict) else {}
@@ -18443,6 +18662,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not ok_pool:
                         self._lan.toast(ws_id, pool_err)
                         return
+                    if str(pool_id or "").strip().lower() == "pact_magic_slots":
+                        beguiling_magic_slot_equivalent_used = True
                 else:
                     ok_slot, slot_err, _spent_level = self._consume_spell_slot_for_cast(
                         caster_name=player_name,
@@ -18452,6 +18673,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not ok_slot:
                         self._lan.toast(ws_id, slot_err)
                         return
+                    beguiling_magic_slot_equivalent_used = True
                 if spend != "reaction" and int(getattr(c, "spell_cast_remaining", 0) or 0) <= 0:
                     self._lan.toast(ws_id, "Already cast a spell this turn, matey.")
                     return
@@ -18528,6 +18750,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     c.concentration_spell = str(preset.get("slug") or preset.get("id") or "")
                     c.concentration_target = list(spawned_cids)
             if c is not None:
+                if beguiling_magic_slot_equivalent_used and preset_school in {"enchantment", "illusion"}:
+                    self._arm_beguiling_magic_window(c, duration_s=20.0)
                 smite_slug = self._smite_slug_from_preset(preset)
                 if smite_slug and smite_slug in _SMITE_SPELL_CONFIG:
                     setattr(
@@ -18541,6 +18765,548 @@ class InitiativeTracker(base.InitiativeTracker):
                     )
             self._lan_force_state_broadcast()
             self._lan.toast(ws_id, f"Casted {preset.get('name') or 'spell'}.")
+            return
+
+        elif typ == "command_resolve":
+            caster = self.combatants.get(cid) if cid is not None else None
+            if caster is None:
+                return
+            player_name = _resolve_pc_name(cid)
+            profile = self._profile_for_player_name(player_name)
+            dc = self._compute_spell_save_dc(profile if isinstance(profile, dict) else {})
+            if dc is None:
+                dc = 8
+            command_option_raw = str(msg.get("command_option") or msg.get("option") or "").strip().lower()
+            command_condition = self._command_condition_key(command_option_raw)
+            command_option = self._command_option_from_condition(command_condition)
+            if not command_option:
+                self._lan.toast(ws_id, "Pick a valid Command option, matey.")
+                return
+            target_ids_raw = msg.get("target_cids")
+            if not isinstance(target_ids_raw, list):
+                single_target = _normalize_cid_value(msg.get("target_cid"), "command_resolve.target")
+                target_ids_raw = [single_target] if single_target is not None else []
+            target_ids: List[int] = []
+            for raw in target_ids_raw:
+                normalized = _normalize_cid_value(raw, "command_resolve.target_entry")
+                if normalized is None:
+                    continue
+                if int(normalized) == int(caster.cid):
+                    continue
+                if int(normalized) not in target_ids:
+                    target_ids.append(int(normalized))
+            if not target_ids:
+                self._lan.toast(ws_id, "Pick at least one valid Command target, matey.")
+                return
+            try:
+                slot_level = int(msg.get("slot_level")) if msg.get("slot_level") is not None else 1
+            except Exception:
+                slot_level = 1
+            slot_level = max(1, int(slot_level))
+            max_targets = max(1, 1 + max(0, int(slot_level) - 1))
+            if len(target_ids) > max_targets:
+                self._lan.toast(ws_id, f"Command at level {slot_level} allows only {max_targets} target(s).")
+                return
+            _cols, _rows, _obstacles, _rough, positions = self._lan_live_map_data()
+            caster_pos = positions.get(int(caster.cid)) or self._lan_current_position(int(caster.cid))
+            if caster_pos is None:
+                self._lan.toast(ws_id, "Could not resolve caster position for Command.")
+                return
+            feet_per_square = 5.0
+            try:
+                mw = getattr(self, "_map_window", None)
+                if mw is not None and mw.winfo_exists():
+                    feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+            except Exception:
+                feet_per_square = 5.0
+            feet_per_square = max(1.0, float(feet_per_square))
+            self._log(
+                f"{caster.name} casts Command at level {slot_level}. Chosen option: {command_option.title()} (targets: {', '.join(str(cid_value) for cid_value in target_ids)}).",
+                cid=int(caster.cid),
+            )
+            results: List[Dict[str, Any]] = []
+            for target_cid in target_ids:
+                target = self.combatants.get(int(target_cid))
+                if target is None:
+                    results.append({"target_cid": int(target_cid), "ok": False, "reason": "missing_target"})
+                    continue
+                target_pos = positions.get(int(target.cid)) or self._lan_current_position(int(target.cid))
+                if target_pos is None:
+                    results.append({"target_cid": int(target.cid), "ok": False, "reason": "missing_position"})
+                    continue
+                dist_ft = math.hypot(float(caster_pos[0]) - float(target_pos[0]), float(caster_pos[1]) - float(target_pos[1])) * feet_per_square
+                if dist_ft - 60.0 > 1e-6:
+                    results.append({"target_cid": int(target.cid), "ok": False, "reason": "out_of_range"})
+                    self._log(f"Command target out of range: {target.name} ({int(round(dist_ft))} ft).", cid=int(target.cid))
+                    continue
+                target_saves = getattr(target, "saving_throws", None)
+                save_mod = 0
+                if isinstance(target_saves, dict):
+                    try:
+                        save_mod = int(target_saves.get("wis", 0) or 0)
+                    except Exception:
+                        save_mod = 0
+                if save_mod == 0:
+                    target_mods = getattr(target, "ability_mods", None)
+                    if isinstance(target_mods, dict):
+                        try:
+                            save_mod = int(target_mods.get("wis", 0) or 0)
+                        except Exception:
+                            save_mod = 0
+                save_roll = int(random.randint(1, 20))
+                save_total = int(save_roll) + int(save_mod)
+                passed = bool(save_roll != 1 and save_total >= int(dc))
+                self._log(
+                    f"{target.name} WIS save vs Command (DC {int(dc)}): {save_roll} + {save_mod} = {save_total} ({'PASS' if passed else 'FAIL'}).",
+                    cid=int(target.cid),
+                )
+                if passed:
+                    results.append(
+                        {
+                            "target_cid": int(target.cid),
+                            "target_name": str(target.name),
+                            "ok": True,
+                            "save": {"roll": int(save_roll), "modifier": int(save_mod), "total": int(save_total), "passed": True},
+                            "applied": False,
+                        }
+                    )
+                    continue
+                stacks = list(getattr(target, "condition_stacks", []) or [])
+                refreshed = False
+                for st in stacks:
+                    if getattr(st, "ctype", None) == command_condition:
+                        st.remaining_turns = 1
+                        refreshed = True
+                        break
+                if not refreshed:
+                    next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                    setattr(self, "_next_stack_id", int(next_sid) + 1)
+                    stacks.append(base.ConditionStack(sid=int(next_sid), ctype=command_condition, remaining_turns=1))
+                setattr(target, "condition_stacks", stacks)
+                hook_list = []
+                for hook in list(getattr(target, "_feature_turn_hooks", []) or []):
+                    if not isinstance(hook, dict):
+                        continue
+                    if str(hook.get("type") or "").strip().lower() == "command_effect":
+                        if str(hook.get("condition") or "").strip().lower().startswith("command_"):
+                            continue
+                    hook_list.append(dict(hook))
+                setattr(target, "_feature_turn_hooks", hook_list)
+                self._register_combatant_turn_hook(
+                    target,
+                    {
+                        "type": "command_effect",
+                        "when": "start_turn",
+                        "condition": command_condition,
+                        "command": command_option,
+                        "source": "Command",
+                        "source_cid": int(caster.cid),
+                        "source_name": str(caster.name),
+                    },
+                )
+                self._log(
+                    f"{target.name} fails and is affected by Command: {command_option.title()} until their next turn.",
+                    cid=int(target.cid),
+                )
+                results.append(
+                    {
+                        "target_cid": int(target.cid),
+                        "target_name": str(target.name),
+                        "ok": True,
+                        "save": {"roll": int(save_roll), "modifier": int(save_mod), "total": int(save_total), "passed": False},
+                        "applied": True,
+                        "condition": command_condition,
+                    }
+                )
+            msg["_command_result"] = {
+                "type": "command_result",
+                "caster_cid": int(caster.cid),
+                "command_option": command_option,
+                "slot_level": int(slot_level),
+                "dc": int(dc),
+                "results": results,
+            }
+            loop = getattr(self._lan, "_loop", None)
+            if ws_id is not None and loop:
+                try:
+                    asyncio.run_coroutine_threadsafe(self._lan._send_async(ws_id, msg["_command_result"]), loop)
+                except Exception:
+                    pass
+            affected = [entry.get("target_name") for entry in results if entry.get("applied")]
+            if affected:
+                self._lan.toast(ws_id, f"Command: {command_option.title()} applied to {', '.join(str(v) for v in affected)}.")
+            else:
+                self._lan.toast(ws_id, "Command resolved; no targets failed.")
+            self._lan_force_state_broadcast()
+            return
+
+        elif typ == "bardic_inspiration_grant":
+            caster = self.combatants.get(cid) if cid is not None else None
+            if caster is None:
+                return
+            target_cid = _normalize_cid_value(msg.get("target_cid"), "bardic_inspiration_grant.target")
+            target = self.combatants.get(int(target_cid)) if target_cid is not None else None
+            if target is None:
+                self._lan.toast(ws_id, "Pick a valid target, matey.")
+                return
+            if int(target.cid) == int(caster.cid):
+                self._lan.toast(ws_id, "Pick another creature, matey.")
+                return
+            _cols, _rows, _obstacles, _rough, positions = self._lan_live_map_data()
+            caster_pos = positions.get(int(caster.cid)) or self._lan_current_position(int(caster.cid))
+            target_pos = positions.get(int(target.cid)) or self._lan_current_position(int(target.cid))
+            if caster_pos is None or target_pos is None:
+                self._lan.toast(ws_id, "Could not resolve positions for Bardic Inspiration.")
+                return
+            feet_per_square = 5.0
+            try:
+                mw = getattr(self, "_map_window", None)
+                if mw is not None and mw.winfo_exists():
+                    feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+            except Exception:
+                feet_per_square = 5.0
+            feet_per_square = max(1.0, float(feet_per_square))
+            dist_ft = math.hypot(float(caster_pos[0]) - float(target_pos[0]), float(caster_pos[1]) - float(target_pos[1])) * feet_per_square
+            if dist_ft - 60.0 > 1e-6:
+                self._lan.toast(ws_id, "Target be out of Bardic Inspiration range.")
+                return
+            if not is_admin and not self._use_bonus_action(caster):
+                self._lan.toast(ws_id, "No bonus actions left, matey.")
+                return
+            player_name = _resolve_pc_name(cid)
+            if not player_name:
+                self._lan.toast(ws_id, "Could not resolve caster profile.")
+                return
+            ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "bardic_inspiration", 1)
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err or "No Bardic Inspiration left, matey.")
+                return
+            profile = self._profile_for_player_name(player_name)
+            die_sides = int(self._bardic_inspiration_die_sides(profile if isinstance(profile, dict) else {}))
+            prior = self._inspired_state_for(target, prune_expired=True)
+            if isinstance(prior, dict):
+                self._log(f"{target.name}'s previous Bardic Inspiration is replaced.", cid=int(target.cid))
+            self._remove_condition_type(target, "inspired")
+            stacks = list(getattr(target, "condition_stacks", []) or [])
+            next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+            setattr(self, "_next_stack_id", int(next_sid) + 1)
+            stacks.append(base.ConditionStack(sid=int(next_sid), ctype="inspired", remaining_turns=None))
+            setattr(target, "condition_stacks", stacks)
+            expires_at = float(time.monotonic()) + 3600.0
+            setattr(
+                target,
+                "_inspired_state",
+                {
+                    "source_cid": int(caster.cid),
+                    "die_sides": int(die_sides),
+                    "granted_at": float(time.monotonic()),
+                    "expires_at": float(expires_at),
+                    "label": "Bardic Inspiration",
+                },
+            )
+            self._log(
+                f"{caster.name} grants Bardic Inspiration (d{die_sides}) to {target.name} (expires in 1h).",
+                cid=int(target.cid),
+            )
+            self._lan.toast(ws_id, f"Bardic Inspiration granted to {target.name}.")
+            self._lan_force_state_broadcast()
+            return
+
+        elif typ == "bardic_inspiration_use":
+            target = self.combatants.get(cid) if cid is not None else None
+            if target is None:
+                return
+            inspired_state = self._inspired_state_for(target, prune_expired=True)
+            if not isinstance(inspired_state, dict):
+                self._lan.toast(ws_id, "No Bardic Dice available, matey.")
+                return
+            try:
+                die_sides = max(1, int(inspired_state.get("die_sides") or 0))
+            except Exception:
+                die_sides = 0
+            if die_sides <= 0:
+                self._lan.toast(ws_id, "No Bardic Dice available, matey.")
+                return
+            roll = int(random.randint(1, int(die_sides)))
+            self._remove_condition_type(target, "inspired")
+            setattr(target, "_inspired_state", None)
+            self._log(f"{target.name} expends Bardic Inspiration (d{die_sides}) → rolled {roll}.", cid=int(target.cid))
+            self._lan.toast(ws_id, f"Bardic Inspiration spent: rolled {roll}.")
+            msg["_bardic_inspiration_use_result"] = {
+                "type": "bardic_inspiration_use_result",
+                "target_cid": int(target.cid),
+                "die_sides": int(die_sides),
+                "roll": int(roll),
+            }
+            loop = getattr(self._lan, "_loop", None)
+            if ws_id is not None and loop:
+                try:
+                    asyncio.run_coroutine_threadsafe(self._lan._send_async(ws_id, msg["_bardic_inspiration_use_result"]), loop)
+                except Exception:
+                    pass
+            self._lan_force_state_broadcast()
+            return
+
+        elif typ == "mantle_of_inspiration":
+            caster = self.combatants.get(cid) if cid is not None else None
+            if caster is None:
+                return
+            raw_targets = msg.get("target_cids")
+            target_ids: List[int] = []
+            if isinstance(raw_targets, list):
+                for raw in raw_targets:
+                    normalized = _normalize_cid_value(raw, "mantle_of_inspiration.target")
+                    if normalized is None:
+                        continue
+                    if int(normalized) not in target_ids:
+                        target_ids.append(int(normalized))
+            if not target_ids:
+                self._lan.toast(ws_id, "Pick at least one valid target, matey.")
+                return
+            if int(caster.cid) in target_ids:
+                self._lan.toast(ws_id, "Mantle of Inspiration targets other creatures only.")
+                return
+            player_name = _resolve_pc_name(cid)
+            if not player_name:
+                self._lan.toast(ws_id, "Could not resolve caster profile.")
+                return
+            profile = self._profile_for_player_name(player_name)
+            max_targets = int(self._mantle_of_inspiration_max_targets(caster, profile if isinstance(profile, dict) else None))
+            if len(target_ids) > max_targets:
+                self._lan.toast(ws_id, f"Too many targets for Mantle of Inspiration (max {max_targets}).")
+                return
+            _cols, _rows, _obstacles, _rough, positions = self._lan_live_map_data()
+            caster_pos = positions.get(int(caster.cid)) or self._lan_current_position(int(caster.cid))
+            if caster_pos is None:
+                self._lan.toast(ws_id, "Could not resolve caster position for Mantle of Inspiration.")
+                return
+            feet_per_square = 5.0
+            try:
+                mw = getattr(self, "_map_window", None)
+                if mw is not None and mw.winfo_exists():
+                    feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+            except Exception:
+                feet_per_square = 5.0
+            feet_per_square = max(1.0, float(feet_per_square))
+            targets: List[Any] = []
+            for target_cid in target_ids:
+                target = self.combatants.get(int(target_cid))
+                if target is None:
+                    continue
+                if int(getattr(target, "hp", 0) or 0) <= 0:
+                    continue
+                target_pos = positions.get(int(target.cid)) or self._lan_current_position(int(target.cid))
+                if target_pos is None:
+                    continue
+                dist_ft = math.hypot(float(caster_pos[0]) - float(target_pos[0]), float(caster_pos[1]) - float(target_pos[1])) * feet_per_square
+                if dist_ft - 60.0 > 1e-6:
+                    self._lan.toast(ws_id, f"{target.name} be out of Mantle of Inspiration range.")
+                    return
+                targets.append(target)
+            if not targets:
+                self._lan.toast(ws_id, "No valid Mantle of Inspiration targets, matey.")
+                return
+            if not is_admin and not self._use_bonus_action(caster):
+                self._lan.toast(ws_id, "No bonus actions left, matey.")
+                return
+            ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "bardic_inspiration", 1)
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err or "No Bardic Inspiration left, matey.")
+                return
+            die_sides = int(self._bardic_inspiration_die_sides(profile if isinstance(profile, dict) else {}))
+            try:
+                die_override = int(msg.get("die_override"))
+            except Exception:
+                die_override = None
+            if die_override is not None and die_override > 0:
+                die_roll = max(1, min(int(die_sides), int(die_override)))
+                rolled_text = f"manual {die_roll}"
+            else:
+                die_roll = int(random.randint(1, int(max(1, die_sides))))
+                rolled_text = str(die_roll)
+            temp_hp_value = max(0, int(die_roll) * 2)
+            self._log(
+                f"{caster.name} uses Mantle of Inspiration (BI d{die_sides} → rolled {rolled_text}; temp HP = {temp_hp_value}).",
+                cid=int(caster.cid),
+            )
+            for target in targets:
+                current_temp_hp = int(getattr(target, "temp_hp", 0) or 0)
+                applied = max(current_temp_hp, temp_hp_value)
+                setattr(target, "temp_hp", int(applied))
+                self._log(f"{target.name} temp HP set to {int(applied)}.", cid=int(target.cid))
+                self._log(
+                    f"{target.name} may use Reaction to move up to Speed without OA this round.",
+                    cid=int(target.cid),
+                )
+            self._lan.toast(ws_id, f"Mantle of Inspiration applied to {len(targets)} target(s): {temp_hp_value} temp HP.")
+            self._lan_force_state_broadcast()
+            self._rebuild_table(scroll_to_current=True)
+            return
+
+        elif typ == "beguiling_magic_restore":
+            caster = self.combatants.get(cid) if cid is not None else None
+            if caster is None:
+                return
+            player_name = _resolve_pc_name(cid)
+            profile = self._profile_for_player_name(player_name)
+            pools = self._normalize_player_resource_pools(profile if isinstance(profile, dict) else {})
+            beguiling_pool = next((entry for entry in pools if str(entry.get("id") or "").strip().lower() == "beguiling_magic"), None)
+            bardic_pool = next((entry for entry in pools if str(entry.get("id") or "").strip().lower() == "bardic_inspiration"), None)
+            beguiling_current = int((beguiling_pool or {}).get("current") or 0)
+            beguiling_max = int((beguiling_pool or {}).get("max") or 0)
+            bardic_current = int((bardic_pool or {}).get("current") or 0)
+            if beguiling_max <= 0:
+                self._lan.toast(ws_id, "No Beguiling Magic pool found, matey.")
+                return
+            if beguiling_current > 0:
+                self._lan.toast(ws_id, "Beguiling Magic already restored.")
+                return
+            if bardic_current <= 0:
+                self._lan.toast(ws_id, "No Bardic Inspiration left, matey.")
+                return
+            ok_bi, bi_err = self._consume_resource_pool_for_cast(player_name, "bardic_inspiration", 1)
+            if not ok_bi:
+                self._lan.toast(ws_id, bi_err or "No Bardic Inspiration left, matey.")
+                return
+            ok_set, set_err = self._set_player_resource_pool_current(player_name, "beguiling_magic", 1)
+            if not ok_set:
+                self._lan.toast(ws_id, set_err or "Could not restore Beguiling Magic, matey.")
+                return
+            self._log(f"{caster.name} restores Beguiling Magic by spending Bardic Inspiration.", cid=cid)
+            self._lan.toast(ws_id, "Beguiling Magic restored.")
+            self._lan_force_state_broadcast()
+            return
+
+        elif typ == "beguiling_magic_use":
+            caster = self.combatants.get(cid) if cid is not None else None
+            if caster is None:
+                return
+            window_remaining = self._beguiling_magic_window_remaining(caster)
+            if window_remaining <= 0:
+                self._lan.toast(ws_id, "Beguiling Magic is not armed.")
+                return
+            target_cid = _normalize_cid_value(msg.get("target_cid"), "beguiling_magic_use.target")
+            target = self.combatants.get(int(target_cid)) if target_cid is not None else None
+            if target is None:
+                self._lan.toast(ws_id, "Pick a valid target, matey.")
+                return
+            if int(target.cid) == int(caster.cid):
+                self._lan.toast(ws_id, "Pick another creature, matey.")
+                return
+            condition = self._canonical_condition_key(msg.get("condition"))
+            if condition not in ("charmed", "frightened"):
+                self._lan.toast(ws_id, "Pick Charmed or Frightened, matey.")
+                return
+            _cols, _rows, _obstacles, _rough, positions = self._lan_live_map_data()
+            caster_pos = positions.get(int(caster.cid)) or self._lan_current_position(int(caster.cid))
+            target_pos = positions.get(int(target.cid)) or self._lan_current_position(int(target.cid))
+            if caster_pos is None or target_pos is None:
+                self._lan.toast(ws_id, "Could not resolve positions for Beguiling Magic.")
+                return
+            feet_per_square = 5.0
+            try:
+                mw = getattr(self, "_map_window", None)
+                if mw is not None and mw.winfo_exists():
+                    feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+            except Exception:
+                feet_per_square = 5.0
+            feet_per_square = max(1.0, float(feet_per_square))
+            dist_ft = math.hypot(float(caster_pos[0]) - float(target_pos[0]), float(caster_pos[1]) - float(target_pos[1])) * feet_per_square
+            if dist_ft - 60.0 > 1e-6:
+                self._lan.toast(ws_id, "Target be out of Beguiling Magic range.")
+                return
+
+            player_name = _resolve_pc_name(cid)
+            profile = self._profile_for_player_name(player_name)
+            pools = self._normalize_player_resource_pools(profile if isinstance(profile, dict) else {})
+            beguiling_pool = next((entry for entry in pools if str(entry.get("id") or "").strip().lower() == "beguiling_magic"), None)
+            beguiling_current = int((beguiling_pool or {}).get("current") or 0)
+            restore_with_bi = bool(msg.get("restore_with_bi"))
+            spent_from_bi = False
+            if beguiling_current > 0:
+                ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "beguiling_magic", 1)
+                if not ok_pool:
+                    self._lan.toast(ws_id, pool_err or "Beguiling Magic unavailable.")
+                    return
+            else:
+                if not restore_with_bi:
+                    self._lan.toast(ws_id, "Beguiling Magic is spent. Restore with Bardic Inspiration first.")
+                    return
+                ok_bi, bi_err = self._consume_resource_pool_for_cast(player_name, "bardic_inspiration", 1)
+                if not ok_bi:
+                    self._lan.toast(ws_id, bi_err or "No Bardic Inspiration left, matey.")
+                    return
+                spent_from_bi = True
+
+            setattr(caster, "_beguiling_magic_window_until", 0.0)
+            dc = self._compute_spell_save_dc(profile if isinstance(profile, dict) else {})
+            if dc is None:
+                dc = 8
+            save_mod = 0
+            target_saves = getattr(target, "saving_throws", None)
+            if isinstance(target_saves, dict):
+                try:
+                    save_mod = int(target_saves.get("wis", 0) or 0)
+                except Exception:
+                    save_mod = 0
+            if save_mod == 0:
+                target_mods = getattr(target, "ability_mods", None)
+                if isinstance(target_mods, dict):
+                    try:
+                        save_mod = int(target_mods.get("wis", 0) or 0)
+                    except Exception:
+                        save_mod = 0
+            save_roll = int(random.randint(1, 20))
+            save_total = int(save_roll) + int(save_mod)
+            passed = bool(save_roll != 1 and save_total >= int(dc))
+            self._log(
+                f"{caster.name} uses Beguiling Magic on {target.name} ({condition}). "
+                f"WIS save DC {int(dc)}: {save_roll} + {save_mod} = {save_total} ({'PASS' if passed else 'FAIL'}).",
+                cid=int(target.cid),
+            )
+            if not passed:
+                if not self._condition_is_immune_for_target(target, condition):
+                    stacks = list(getattr(target, "condition_stacks", []) or [])
+                    refreshed = False
+                    for st in stacks:
+                        if getattr(st, "ctype", None) == condition:
+                            st.remaining_turns = 6
+                            refreshed = True
+                            break
+                    if not refreshed:
+                        next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                        setattr(self, "_next_stack_id", int(next_sid) + 1)
+                        stacks.append(base.ConditionStack(sid=int(next_sid), ctype=condition, remaining_turns=6))
+                    setattr(target, "condition_stacks", stacks)
+                    hook_list = []
+                    for hook in list(getattr(target, "_feature_turn_hooks", []) or []):
+                        if not isinstance(hook, dict):
+                            continue
+                        if str(hook.get("type") or "").strip().lower() == "save_ends_condition" and str(hook.get("condition") or "").strip().lower() == condition and str(hook.get("source") or "").strip().lower() == "beguiling magic":
+                            continue
+                        hook_list.append(dict(hook))
+                    setattr(target, "_feature_turn_hooks", hook_list)
+                    self._register_combatant_turn_hook(
+                        target,
+                        {
+                            "type": "save_ends_condition",
+                            "when": "end_turn",
+                            "condition": condition,
+                            "ability": "wisdom",
+                            "dc": int(dc),
+                            "source": "Beguiling Magic",
+                        },
+                    )
+                    self._log(f"{target.name} is {condition} by Beguiling Magic (up to 1 minute).", cid=int(target.cid))
+                    self._lan.toast(ws_id, f"Beguiling Magic: {target.name} is {condition}.")
+                else:
+                    self._log(f"{target.name} is immune to {condition}; Beguiling Magic had no condition effect.", cid=int(target.cid))
+                    self._lan.toast(ws_id, "Beguiling Magic used, but target is immune.")
+            else:
+                self._lan.toast(ws_id, f"Beguiling Magic: {target.name} resists.")
+            if spent_from_bi:
+                self._log(f"{caster.name} spends Bardic Inspiration to power a Beguiling Magic use.", cid=cid)
+            self._lan_force_state_broadcast()
             return
 
         elif typ == "dismiss_summons":

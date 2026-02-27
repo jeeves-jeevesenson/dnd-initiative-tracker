@@ -182,6 +182,10 @@ Use the spell slug as the filename:
 | `source` | map | Book/page metadata (optional) |
 | `level` | int | 0 = cantrip |
 | `school` | string | e.g., evocation |
+
+> Note: `school` is used by feature automation hooks. For example, Beguiling Magic arms only when casting Enchantment or Illusion spells with spell slots.
+
+> Command automation note: `command` uses a custom post-target flow (choose Approach/Drop/Flee/Grovel/Halt), then resolves WIS saves server-side and applies condition-driven next-turn effects. Upcast target count is enforced client- and server-side as `1 + (slot level - 1)`.
 | `tags` | list[string] | Optional classifier tags |
 | `casting_time` | string | Display text |
 | `range` | string | Display text |
