@@ -3517,6 +3517,19 @@ __DAMAGE_TYPE_OPTIONS__
     <div class="spellbook-status" id="wildShapeStatus"></div>
   </div>
 </div>
+<div class="modal" id="polymorphFormOverlay" aria-hidden="true">
+  <div class="card">
+    <h2>Choose Polymorph Form</h2>
+    <div class="wildshape-pool-row" style="margin-top:8px;">
+      <label for="polymorphFormSearch">Search beast forms</label>
+      <input id="polymorphFormSearch" type="search" placeholder="Wolf, brown bear..." />
+    </div>
+    <div class="spellbook-list" id="polymorphFormList" style="margin-top:8px; max-height: 280px;"></div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="polymorphFormCancel" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
 <div class="turn-modal" id="turnModal" aria-hidden="true">
   <div class="turn-card" role="dialog" aria-live="assertive">
     <h2>It’s your turn!</h2>
@@ -4385,6 +4398,10 @@ __DAMAGE_TYPE_OPTIONS__
   const spellTargetSelectionRemoveLastBtn = document.getElementById("spellTargetSelectionRemoveLast");
   const spellTargetSelectionCancelBtn = document.getElementById("spellTargetSelectionCancel");
   const spellTargetSelectionConfirmBtn = document.getElementById("spellTargetSelectionConfirm");
+  const polymorphFormOverlay = document.getElementById("polymorphFormOverlay");
+  const polymorphFormSearchInput = document.getElementById("polymorphFormSearch");
+  const polymorphFormList = document.getElementById("polymorphFormList");
+  const polymorphFormCancelBtn = document.getElementById("polymorphFormCancel");
   const aimlessAoeConfirm = document.getElementById("aimlessAoeConfirm");
   const aimlessAoeConfirmBtn = document.getElementById("aimlessAoeConfirmBtn");
   const aimlessAoeCancelBtn = document.getElementById("aimlessAoeCancelBtn");
@@ -4548,6 +4565,7 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingCleavePrompt = null;
   let pendingSpellTargeting = null;
   let pendingSpellTargetSelection = null;
+  let pendingPolymorphSelection = null;
   let pendingLayOnHandsTargeting = null;
   let pendingLayOnHandsResolve = null;
   let pendingBeguilingMagic = null;
@@ -9243,6 +9261,11 @@ __DAMAGE_TYPE_OPTIONS__
     return slug === "command";
   }
 
+  function isPolymorphSpellTargeting(){
+    const slug = normalizeLowerValue(pendingSpellTargeting?.spellSlug || pendingSpellTargeting?.spellId || pendingSpellTargeting?.spellName);
+    return slug === "polymorph";
+  }
+
   function setCommandOptionModalOpen(open){
     setModalOpen(commandOptionModal, open);
     if (!open) return;
@@ -10697,8 +10720,8 @@ __DAMAGE_TYPE_OPTIONS__
         const feetPerSquare = Math.max(1, Number(state.grid.feet_per_square || 5));
         const radiusCells = Math.max(0, Number(rangeFt) / feetPerSquare);
         const center = gridToScreen(attackOrigin.pos.col, attackOrigin.pos.row);
-        const overlayColor = normalizeHexColor(
-          (pendingLayOnHandsTargeting || pendingBardicInspirationTargeting || pendingMantleOfInspiration) ? "#4caf50" : (pendingBeguilingMagic ? "#b388ff" : (pendingSpellTargeting?.overlayColor || ""))
+        const overlayColor = normalizeHexColor(pendingLayOnHandsTargeting ? "#4caf50"
+          : ((pendingBardicInspirationTargeting || pendingMantleOfInspiration) ? "#4caf50" : (pendingBeguilingMagic ? "#b388ff" : (pendingSpellTargeting?.overlayColor || "")))
         );
         ctx.save();
         ctx.fillStyle = overlayColor ? rgbaFromHex(overlayColor, 0.15) : "rgba(255,78,78,0.15)";
@@ -12091,9 +12114,28 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     if (pendingSpellTargeting.mode === "save"){
+      const actionCid = activeControlledUnitCid();
+      if (actionCid === null){
+        localToast("Not yer turn yet, matey.");
+        return;
+      }
+      if (isPolymorphSpellTargeting()){
+        pendingPolymorphSelection = {
+          cid: actionCid,
+          targetCid: Number(target.cid),
+          spellName: pendingSpellTargeting.spellName,
+          spellSlug: pendingSpellTargeting.spellSlug || null,
+          spellId: pendingSpellTargeting.spellId || null,
+          saveType: pendingSpellTargeting.saveType || "wis",
+          saveDc: pendingSpellTargeting.saveDc,
+        };
+        setPolymorphFormOverlayOpen(true);
+        localToast("Pick a beast form before resolving Polymorph.");
+        return;
+      }
       send({
         type: "spell_target_request",
-        cid: activeControlledUnitCid(),
+        cid: actionCid,
         target_cid: Number(target.cid),
         spell_name: pendingSpellTargeting.spellName,
         spell_slug: pendingSpellTargeting.spellSlug || null,
@@ -13115,7 +13157,23 @@ __DAMAGE_TYPE_OPTIONS__
           openCleavePrompt(msg);
         }
       } else if (msg.type === "spell_target_result"){
-        if (msg.needs_damage_prompt){
+        if (msg.needs_polymorph_form){
+          const target = getUnitByCid(msg.target_cid);
+          const actionCid = activeControlledUnitCid();
+          if (pendingSpellTargeting && target && actionCid !== null){
+            pendingPolymorphSelection = {
+              cid: actionCid,
+              targetCid: Number(msg.target_cid),
+              spellName: pendingSpellTargeting.spellName,
+              spellSlug: pendingSpellTargeting.spellSlug || null,
+              spellId: pendingSpellTargeting.spellId || null,
+              saveType: pendingSpellTargeting.saveType || "wis",
+              saveDc: pendingSpellTargeting.saveDc,
+            };
+            setPolymorphFormOverlayOpen(true);
+            localToast("Choose a beast form to continue Polymorph.");
+          }
+        } else if (msg.needs_damage_prompt){
           const target = getUnitByCid(msg.target_cid);
           if (pendingSpellTargeting && target){
             const wounded = Number(target.hp || 0) < Number(target.max_hp || target.hp || 0);
@@ -16650,11 +16708,70 @@ __DAMAGE_TYPE_OPTIONS__
   let castUpcastConfig = null;
   let castBaseDice = null;
   let castBaseDefaultDamage = null;
+  function setPolymorphFormOverlayOpen(open){
+    setModalOpen(polymorphFormOverlay, open);
+    if (!open){
+      return;
+    }
+    renderPolymorphFormList();
+  }
+  function availablePolymorphForms(){
+    const forms = Array.isArray(state?.beast_forms) ? state.beast_forms : [];
+    return forms.filter((entry) => entry && String(entry.id || "").trim());
+  }
+  function renderPolymorphFormList(){
+    if (!polymorphFormList) return;
+    const query = String(polymorphFormSearchInput?.value || "").trim().toLowerCase();
+    const forms = availablePolymorphForms().filter((entry) => {
+      if (!query) return true;
+      const id = String(entry?.id || "").toLowerCase();
+      const name = String(entry?.name || "").toLowerCase();
+      return id.includes(query) || name.includes(query);
+    });
+    polymorphFormList.textContent = "";
+    if (!forms.length){
+      const empty = document.createElement("div");
+      empty.className = "spellbook-item";
+      empty.textContent = "No beast forms available.";
+      polymorphFormList.appendChild(empty);
+      return;
+    }
+    forms.forEach((entry) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "spellbook-item";
+      btn.textContent = `${entry?.name || entry?.id} · CR ${entry?.challenge_rating ?? 0} · HP ${entry?.hp ?? 0}`;
+      btn.addEventListener("click", () => {
+        if (!pendingPolymorphSelection){
+          setPolymorphFormOverlayOpen(false);
+          return;
+        }
+        send({
+          type: "spell_target_request",
+          cid: pendingPolymorphSelection.cid,
+          target_cid: pendingPolymorphSelection.targetCid,
+          spell_name: pendingPolymorphSelection.spellName,
+          spell_slug: pendingPolymorphSelection.spellSlug || null,
+          spell_id: pendingPolymorphSelection.spellId || null,
+          spell_mode: "save",
+          save_type: pendingPolymorphSelection.saveType || "wis",
+          save_dc: Number.isFinite(Number(pendingPolymorphSelection.saveDc)) ? Number(pendingPolymorphSelection.saveDc) : null,
+          roll_save: true,
+          polymorph_form_id: String(entry?.id || "").trim().toLowerCase(),
+        });
+        pendingPolymorphSelection = null;
+        setPolymorphFormOverlayOpen(false);
+      });
+      polymorphFormList.appendChild(btn);
+    });
+  }
   function clearSpellTargetingSession(showToastMessage = ""){
     pendingSpellTargeting = null;
     pendingSpellTargetSelection = null;
+    pendingPolymorphSelection = null;
     pendingCommandResolution = null;
     pendingMantleOfInspiration = null;
+    setPolymorphFormOverlayOpen(false);
     setMantleResolveModalOpen(false);
     setCommandOptionModalOpen(false);
     renderSpellTargetSelectionUi();
@@ -19197,6 +19314,17 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       setAttackOverlayMode(true);
+    });
+  }
+  if (polymorphFormSearchInput){
+    polymorphFormSearchInput.addEventListener("input", () => {
+      renderPolymorphFormList();
+    });
+  }
+  if (polymorphFormCancelBtn){
+    polymorphFormCancelBtn.addEventListener("click", () => {
+      pendingPolymorphSelection = null;
+      clearSpellTargetingSession("Polymorph cancelled.");
     });
   }
   if (spellTargetSelectionRemoveLastBtn){

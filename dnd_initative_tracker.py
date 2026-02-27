@@ -9630,6 +9630,7 @@ class InitiativeTracker(base.InitiativeTracker):
             snap["player_spells"] = self._player_spell_config_payload()
             snap["player_profiles"] = self._player_profiles_payload()
             snap["resource_pools"] = self._player_resource_pools_payload()
+            snap["beast_forms"] = self._load_beast_forms()
         else:
             cached_snapshot = getattr(getattr(self, "_lan", None), "_cached_snapshot", {})
             if not isinstance(cached_snapshot, dict):
@@ -9640,12 +9641,14 @@ class InitiativeTracker(base.InitiativeTracker):
                 "player_spells": {},
                 "player_profiles": {},
                 "resource_pools": {},
+                "beast_forms": [],
             }
             static_builders = {
                 "spell_presets": self._spell_presets_payload,
                 "player_spells": self._player_spell_config_payload,
                 "player_profiles": self._player_profiles_payload,
                 "resource_pools": self._player_resource_pools_payload,
+                "beast_forms": self._load_beast_forms,
             }
             resource_refresh_interval_s = max(
                 0.25, float(self.__dict__.get("_player_yaml_refresh_interval_s", 1.0) or 1.0)
@@ -20266,6 +20269,7 @@ class InitiativeTracker(base.InitiativeTracker):
             preset_slug = str((preset or {}).get("slug") or "").strip().lower()
             preset_id = str((preset or {}).get("id") or "").strip().lower()
             is_haste = preset_slug == "haste" or preset_id == "haste"
+            is_polymorph = preset_slug == "polymorph" or preset_id == "polymorph"
             haste_duration_turns = 10
             haste_ac_bonus = 2
             if is_haste and isinstance(preset, dict):
@@ -20414,6 +20418,63 @@ class InitiativeTracker(base.InitiativeTracker):
                         except Exception:
                             pass
                     self._lan.toast(ws_id, "Target passed the save.")
+                    return
+                if is_polymorph:
+                    selected_form_id = str(msg.get("polymorph_form_id") or "").strip().lower()
+                    available_forms = self._load_beast_forms()
+                    alias_lookup = self._wild_shape_alias_lookup(available_forms)
+                    resolved_form_id = alias_lookup.get(self._wild_shape_identifier_key(selected_form_id))
+                    if not resolved_form_id:
+                        result_payload["needs_polymorph_form"] = True
+                        result_payload["beast_forms"] = list(available_forms)
+                        msg["_spell_target_result"] = dict(result_payload)
+                        loop = getattr(self._lan, "_loop", None)
+                        if ws_id is not None and loop:
+                            try:
+                                asyncio.run_coroutine_threadsafe(self._lan._send_async(ws_id, result_payload), loop)
+                            except Exception:
+                                pass
+                        self._lan.toast(ws_id, "Pick a beast form for Polymorph, matey.")
+                        return
+                    form_by_id = {
+                        self._wild_shape_identifier_key(entry.get("id")): entry
+                        for entry in available_forms
+                        if isinstance(entry, dict)
+                    }
+                    form = form_by_id.get(resolved_form_id)
+                    if not isinstance(form, dict):
+                        self._lan.toast(ws_id, "That beast form be unavailable, matey.")
+                        return
+                    previous_temp_hp = int(getattr(target, "temp_hp", 0) or 0)
+                    set_temp_hp = max(previous_temp_hp, int(form.get("hp") or 0))
+                    setattr(target, "temp_hp", set_temp_hp)
+                    setattr(target, "is_wild_shaped", False)
+                    setattr(target, "wild_shape_form_id", str(form.get("id") or ""))
+                    setattr(target, "wild_shape_form_name", str(form.get("name") or "") or "Beast")
+                    result_payload["polymorph_form"] = {
+                        "id": str(form.get("id") or ""),
+                        "name": str(form.get("name") or "") or "Beast",
+                        "temp_hp": int(form.get("hp") or 0),
+                    }
+                    result_payload["hit"] = True
+                    result_payload["damage_total"] = 0
+                    self._log(
+                        f"{c.name} polymorphs {result_payload['target_name']} into {result_payload['polymorph_form']['name']} "
+                        f"({int(form.get('hp') or 0)} temp HP).",
+                        cid=int(target_cid),
+                    )
+                    msg["_spell_target_result"] = dict(result_payload)
+                    loop = getattr(self._lan, "_loop", None)
+                    if ws_id is not None and loop:
+                        try:
+                            asyncio.run_coroutine_threadsafe(self._lan._send_async(ws_id, result_payload), loop)
+                        except Exception:
+                            pass
+                    self._lan.toast(ws_id, "Polymorph applied.")
+                    try:
+                        self._rebuild_table(scroll_to_current=True)
+                    except Exception:
+                        pass
                     return
                 damage_intent = bool(damage_entries) or bool(damage_dice_text) or bool(msg.get("prompt_for_damage"))
                 if not damage_entries and damage_intent:

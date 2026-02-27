@@ -244,6 +244,68 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(result.get("damage_total"), 8)
         self.assertEqual(self.app.combatants[2].hp, 12)
 
+    def test_polymorph_save_fail_requires_form_selection(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "polymorph",
+            "id": "polymorph",
+            "name": "Polymorph",
+        }
+        self.app._wild_shape_beast_cache = [
+            {"id": "wolf", "name": "Wolf", "hp": 11, "challenge_rating": 0.25}
+        ]
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 20,
+            "target_cid": 2,
+            "spell_name": "Polymorph",
+            "spell_slug": "polymorph",
+            "spell_mode": "save",
+            "save_type": "wis",
+            "save_dc": 16,
+            "roll_save": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=2):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertTrue(result.get("needs_polymorph_form"))
+        self.assertEqual(result.get("beast_forms"), self.app._wild_shape_beast_cache)
+
+    def test_polymorph_save_fail_applies_selected_form_temp_hp(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "polymorph",
+            "id": "polymorph",
+            "name": "Polymorph",
+        }
+        self.app._wild_shape_beast_cache = [
+            {"id": "wolf", "name": "Wolf", "hp": 11, "challenge_rating": 0.25}
+        ]
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 21,
+            "target_cid": 2,
+            "spell_name": "Polymorph",
+            "spell_slug": "polymorph",
+            "spell_mode": "save",
+            "save_type": "wis",
+            "save_dc": 16,
+            "roll_save": True,
+            "polymorph_form_id": "wolf",
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=2):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertEqual(result.get("polymorph_form", {}).get("id"), "wolf")
+        self.assertEqual(self.app.combatants[2].temp_hp, 11)
+        self.assertEqual(getattr(self.app.combatants[2], "wild_shape_form_name", ""), "Wolf")
+
     def test_haste_spell_target_request_applies_buffs_and_concentration(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "haste",
