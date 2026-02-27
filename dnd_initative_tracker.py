@@ -12646,6 +12646,24 @@ class InitiativeTracker(base.InitiativeTracker):
                     bonus_total += bonus_value
         return max(base_values) + bonus_total
 
+
+    def _feature_always_prepared_spell_slugs(self, profile: Dict[str, Any]) -> List[str]:
+        features = self._all_active_features(profile)
+        slugs: List[str] = []
+        seen: set[str] = set()
+        for feature in features:
+            if not isinstance(feature, dict):
+                continue
+            grants = feature.get("grants") if isinstance(feature.get("grants"), dict) else {}
+            raw_list = grants.get("always_prepared_spells") if isinstance(grants.get("always_prepared_spells"), list) else []
+            for slug in self._normalize_spell_slug_list(raw_list):
+                key = slug.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                slugs.append(slug)
+        return slugs
+
     def _normalize_player_spell_config(
         self,
         data: Dict[str, Any],
@@ -12696,9 +12714,10 @@ class InitiativeTracker(base.InitiativeTracker):
         prepared_spells = source.get("prepared_spells")
         prepared_names: List[str] = []
         prepared_formula = ""
+        prepared_free: List[str] = []
         if isinstance(prepared_spells, dict):
             prepared_names = self._normalize_spell_slug_list(prepared_spells.get("prepared"))
-            prepared_payload["prepared"] = prepared_names
+            prepared_free = self._normalize_spell_slug_list(prepared_spells.get("free"))
             max_formula = prepared_spells.get("max_formula")
             if isinstance(max_formula, str) and max_formula.strip():
                 prepared_payload["max_formula"] = max_formula.strip()
@@ -12713,8 +12732,26 @@ class InitiativeTracker(base.InitiativeTracker):
                 prepared_payload["max_prepared"] = normalize_limit(
                     prepared_spells.get("max_prepared"), 0
                 )
+        always_prepared = self._feature_always_prepared_spell_slugs(data)
+        if always_prepared:
+            prepared_seen = {item.lower() for item in prepared_names}
+            for slug in always_prepared:
+                if slug.lower() not in prepared_seen:
+                    prepared_names.append(slug)
+                    prepared_seen.add(slug.lower())
+            free_seen = {item.lower() for item in prepared_free}
+            for slug in always_prepared:
+                if slug.lower() not in free_seen:
+                    prepared_free.append(slug)
+                    free_seen.add(slug.lower())
+        if prepared_names:
+            prepared_payload["prepared"] = prepared_names
         elif include_missing_prepared:
             prepared_payload["prepared"] = []
+        prepared_set = {item.lower() for item in prepared_names}
+        prepared_free = [item for item in prepared_free if item.lower() in prepared_set]
+        if prepared_free:
+            prepared_payload["free"] = prepared_free
         payload = {
             "known_cantrips": known_cantrips,
             "known_spells": known_spells,
@@ -14073,9 +14110,20 @@ class InitiativeTracker(base.InitiativeTracker):
         prepared_spells = spellcasting.get("prepared_spells")
         if not isinstance(prepared_spells, dict):
             prepared_spells = {}
+        always_prepared = self._feature_always_prepared_spell_slugs(existing)
+        prepared_seen = {item.lower() for item in prepared_list}
+        for slug in always_prepared:
+            if slug.lower() not in prepared_seen:
+                prepared_list.append(slug)
+                prepared_seen.add(slug.lower())
         prepared_spells["prepared"] = prepared_list
         prepared_set = {item.lower() for item in prepared_list}
         prepared_free = [item for item in normalize_slug_list(prepared_spells.get("free")) if item.lower() in prepared_set]
+        free_seen = {item.lower() for item in prepared_free}
+        for slug in always_prepared:
+            if slug.lower() not in free_seen:
+                prepared_free.append(slug)
+                free_seen.add(slug.lower())
         if prepared_free:
             prepared_spells["free"] = prepared_free
         else:
