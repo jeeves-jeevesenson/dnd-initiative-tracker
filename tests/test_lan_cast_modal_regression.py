@@ -223,6 +223,12 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('const msg = {type:"lay_on_hands_use", cid: claimedCid, target_cid: pendingLayOnHandsResolve.targetCid, amount};', self.html)
         self.assertIn('normalizeHexColor(pendingLayOnHandsTargeting ? "#4caf50"', self.html)
 
+    def test_resource_pool_actions_route_bardic_and_mantle_to_targeting_flow(self):
+        self.assertIn('if (entry?.spend === "bonus" && normalizedActionKey.startsWith("bardic inspiration")){', self.html)
+        self.assertIn('startBardicInspirationGrantTargeting({...entry, sourceCid: actionCid});', self.html)
+        self.assertIn('if (entry?.spend === "bonus" && normalizedActionKey.startsWith("mantle of inspiration")){', self.html)
+        self.assertIn('startMantleOfInspirationTargeting({...entry, sourceCid: actionCid});', self.html)
+
 
     def test_spell_preset_signature_includes_mechanics_fields(self):
         self.assertIn('JSON.stringify(p.mechanics?.aoe_behavior || {})', self.html)
