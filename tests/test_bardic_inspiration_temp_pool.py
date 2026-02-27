@@ -153,6 +153,22 @@ class BardicInspirationTempPoolTests(unittest.TestCase):
         self.assertIsNone(getattr(target, "_inspired_state", None))
         self.assertTrue(any("out of Bardic Inspiration range" in message for _, message in self.toasts))
 
+    def test_bardic_inspiration_grant_allows_self_target(self):
+        msg = {
+            "type": "bardic_inspiration_grant",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 12,
+            "target_cid": 1,
+        }
+        self.app._lan_apply_action(msg)
+        target = self.app.combatants[1]
+        self.assertTrue(any(getattr(st, "ctype", "") == "inspired" for st in target.condition_stacks))
+        inspired = getattr(target, "_inspired_state", None)
+        self.assertIsInstance(inspired, dict)
+        self.assertEqual(int(inspired.get("source_cid", 0)), 1)
+        self.assertEqual(self.pool_values["throat goat"]["bardic_inspiration"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

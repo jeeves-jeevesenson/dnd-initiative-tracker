@@ -124,6 +124,19 @@ class MantleOfInspirationTests(unittest.TestCase):
             self.app._lan_apply_action(msg)
         self.assertEqual(int(getattr(self.app.combatants[2], "temp_hp", 0)), 10)
 
+    def test_mantle_of_inspiration_allows_self_target(self):
+        msg = {
+            "type": "mantle_of_inspiration",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 13,
+            "target_cids": [1],
+            "die_override": 4,
+        }
+        self.app._lan_apply_action(msg)
+        self.assertEqual(self.pool_values["throat goat"]["bardic_inspiration"], 1)
+        self.assertEqual(int(getattr(self.app.combatants[1], "temp_hp", 0)), 8)
+
 
 if __name__ == "__main__":
     unittest.main()
