@@ -17795,7 +17795,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "yes",
             "on",
         )
-        if not is_admin and typ not in ("cast_aoe", "cast_spell", "aoe_move", "aoe_remove", "dismiss_summons", "beguiling_magic_use", "beguiling_magic_restore", "bardic_inspiration_grant", "bardic_inspiration_use", "mantle_of_inspiration"):
+        if not is_admin and typ not in ("cast_aoe", "cast_spell", "aoe_move", "aoe_remove", "dismiss_summons", "beguiling_magic_use", "beguiling_magic_restore", "command_resolve", "bardic_inspiration_grant", "bardic_inspiration_use", "mantle_of_inspiration"):
             if in_combat:
                 if typ == "attack_request" and opportunity_attack_requested:
                     pass
