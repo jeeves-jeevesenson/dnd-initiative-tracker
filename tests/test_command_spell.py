@@ -133,6 +133,26 @@ class CommandSpellTests(unittest.TestCase):
         self.assertEqual(int(target.bonus_action_remaining), 0)
         self.assertEqual(int(target.move_remaining), 0)
 
+    def test_command_resolve_not_blocked_by_turn_gate(self):
+        self.app.current_cid = 2
+        self.app._is_valid_summon_turn_for_controller = lambda controlling, target, current: False
+        msg = {
+            "type": "command_resolve",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 9,
+            "target_cids": [2],
+            "command_option": "halt",
+            "slot_level": 1,
+            "spell_slug": "command",
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=3):
+            self.app._lan_apply_action(msg)
+
+        target = self.app.combatants[2]
+        self.assertTrue(any(getattr(st, "ctype", "") == "command_halt" for st in target.condition_stacks))
+        self.assertNotIn((9, "Not yer turn yet, matey."), self.toasts)
+
 
 if __name__ == "__main__":
     unittest.main()
