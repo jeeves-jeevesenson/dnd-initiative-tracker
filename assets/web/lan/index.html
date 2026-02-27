@@ -12285,11 +12285,11 @@ __DAMAGE_TYPE_OPTIONS__
         sendMonkFocusAction("monk_patient_defense", "free");
         return;
       }
-      if (entry.spend === "bonus" && normalizedActionKey === "bardic inspiration"){
+      if (entry.spend === "bonus" && normalizedActionKey.startsWith("bardic inspiration")){
         startBardicInspirationGrantTargeting(entry);
         return;
       }
-      if (entry.spend === "bonus" && normalizedActionKey === "mantle of inspiration"){
+      if (entry.spend === "bonus" && normalizedActionKey.startsWith("mantle of inspiration")){
         startMantleOfInspirationTargeting(entry);
         return;
       }
