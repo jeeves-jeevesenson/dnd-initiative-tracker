@@ -20291,14 +20291,23 @@ class InitiativeTracker(base.InitiativeTracker):
                             haste_ac_bonus = parsed_bonus
                     except Exception:
                         pass
-            spell_mode = str(msg.get("spell_mode") or msg.get("mode") or "attack").strip().lower()
+            requested_spell_mode = str(msg.get("spell_mode") or msg.get("mode") or "attack").strip().lower()
+            spell_mode = requested_spell_mode
             if spell_mode not in ("attack", "auto_hit", "save", "effect"):
                 spell_mode = "attack"
+            inferred_spell_mode = self._infer_spell_targeting_mode(preset)
+            if spell_mode == "attack" and inferred_spell_mode in ("save", "auto_hit", "effect"):
+                spell_mode = inferred_spell_mode
             hit = _parse_bool(msg.get("hit"), fallback=spell_mode == "auto_hit")
             critical = _parse_bool(msg.get("critical"), fallback=False)
             save_type = str(msg.get("save_type") or "").strip().lower()
+            if spell_mode == "save" and not save_type:
+                save_type = self._infer_spell_save_ability(preset)
             save_dc = max(0, _parse_int(msg.get("save_dc"), 0) or 0)
-            roll_save = _parse_bool(msg.get("roll_save"), fallback=spell_mode == "save")
+            raw_roll_save = msg.get("roll_save")
+            roll_save = _parse_bool(raw_roll_save, fallback=spell_mode == "save")
+            if spell_mode == "save" and requested_spell_mode == "attack" and raw_roll_save is None:
+                roll_save = True
             damage_entries: List[Dict[str, Any]] = []
             raw_damage_entries = msg.get("damage_entries")
             if isinstance(raw_damage_entries, list):
@@ -20398,9 +20407,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "passed": bool(save_passed),
                 }
                 self._log(
-                    f"{target.name} makes a {save_type.upper()} save vs {spell_name} "
-                    f"(DC {int(save_dc)}): {int(save_roll)} + {int(save_mod)} = {int(save_total)} "
-                    f"({'PASS' if save_passed else 'FAIL'}).",
+                    f"{target.name} {'succeeds' if save_passed else 'fails'} their save against {spell_name}.",
                     cid=int(target_cid),
                 )
                 seq_step = next((step for step in sequence if isinstance(step, dict)), None)
@@ -20451,11 +20458,27 @@ class InitiativeTracker(base.InitiativeTracker):
                     setattr(target, "is_wild_shaped", False)
                     setattr(target, "wild_shape_form_id", str(form.get("id") or ""))
                     setattr(target, "wild_shape_form_name", str(form.get("name") or "") or "Beast")
+                    duration_turns = self._spell_duration_to_turns(preset)
+                    setattr(target, "polymorph_source_cid", int(c.cid))
+                    setattr(target, "polymorph_remaining_turns", int(duration_turns) if duration_turns is not None else None)
+                    setattr(target, "polymorph_duration_turns", int(duration_turns) if duration_turns is not None else None)
+                    if bool(getattr(c, "concentrating", False)):
+                        self._end_concentration(c)
+                    c.concentrating = True
+                    c.concentration_spell = "polymorph"
+                    c.concentration_spell_level = int((preset or {}).get("level") or 0) or None
+                    c.concentration_started_turn = (int(self.round_num), int(self.turn_num))
+                    current_targets = list(getattr(c, "concentration_target", []) or [])
+                    if int(target.cid) not in current_targets:
+                        current_targets.append(int(target.cid))
+                    c.concentration_target = current_targets
                     result_payload["polymorph_form"] = {
                         "id": str(form.get("id") or ""),
                         "name": str(form.get("name") or "") or "Beast",
                         "temp_hp": int(form.get("hp") or 0),
                     }
+                    if duration_turns is not None:
+                        result_payload["polymorph_duration_turns"] = int(duration_turns)
                     result_payload["hit"] = True
                     result_payload["damage_total"] = 0
                     self._log(
@@ -20531,9 +20554,9 @@ class InitiativeTracker(base.InitiativeTracker):
 
             if hit and total_damage > 0:
                 before_hp = _parse_int(getattr(target, "hp", None), None)
+                damage_state = self._apply_damage_to_target_with_temp_hp(target, int(total_damage))
                 if before_hp is not None:
-                    after_hp = max(0, int(before_hp) - int(total_damage))
-                    setattr(target, "hp", int(after_hp))
+                    after_hp = int(damage_state.get("hp_after", before_hp))
                     if int(before_hp) > 0 and int(after_hp) <= 0:
                         pre_order: List[int] = []
                         try:
@@ -22462,9 +22485,160 @@ class InitiativeTracker(base.InitiativeTracker):
                 for combatant in self.combatants.values():
                     setattr(combatant, "wild_resurgence_turn_used", False)
                 self._next_turn()
+                self._tick_polymorph_durations()
                 self._lan.toast(ws_id, "Turn ended.")
             except Exception as exc:
                 self._oplog(f"LAN end turn failed: {exc}", level="warning")
+
+    def _infer_spell_targeting_mode(self, preset: Any) -> str:
+        if not isinstance(preset, dict):
+            return ""
+        ui_cfg = ((preset.get("mechanics") or {}).get("ui") or {}).get("spell_targeting")
+        if isinstance(ui_cfg, dict):
+            mode = str(ui_cfg.get("mode") or "").strip().lower()
+            if mode in ("attack", "auto_hit", "save", "effect"):
+                return mode
+        tags = {str(tag or "").strip().lower() for tag in list(preset.get("tags") or [])}
+        if "attack" in tags or "spell_attack_target" in tags:
+            return "attack"
+        if "save" in tags or "spell_save_target" in tags:
+            return "save"
+        if "auto_hit" in tags or "spell_auto_hit_target" in tags:
+            return "auto_hit"
+        sequence = ((preset.get("mechanics") or {}).get("sequence") or []) if isinstance((preset.get("mechanics") or {}), dict) else []
+        if isinstance(sequence, list):
+            for step in sequence:
+                if not isinstance(step, dict):
+                    continue
+                check = step.get("check") if isinstance(step.get("check"), dict) else {}
+                kind = str(check.get("kind") or "").strip().lower()
+                if kind == "saving_throw":
+                    return "save"
+                if kind == "spell_attack":
+                    return "attack"
+        return ""
+
+    def _infer_spell_save_ability(self, preset: Any) -> str:
+        if not isinstance(preset, dict):
+            return ""
+        direct = str(preset.get("save_type") or "").strip().lower()
+        if direct:
+            return direct
+        sequence = ((preset.get("mechanics") or {}).get("sequence") or []) if isinstance((preset.get("mechanics") or {}), dict) else []
+        if isinstance(sequence, list):
+            for step in sequence:
+                if not isinstance(step, dict):
+                    continue
+                check = step.get("check") if isinstance(step.get("check"), dict) else {}
+                ability = str(check.get("ability") or check.get("save_ability") or "").strip().lower()
+                if ability:
+                    return ability
+        desc_sources = [
+            str(preset.get("description") or ""),
+            str(((preset.get("import") or {}).get("raw") or {}).get("description") or ""),
+            str(((preset.get("text") or {}).get("rules") or "")),
+        ]
+        merged = " ".join(part for part in desc_sources if part).lower()
+        match = re.search(r"\b(strength|dexterity|constitution|intelligence|wisdom|charisma)\b\s+saving\s+throw", merged)
+        if not match:
+            return ""
+        ability_map = {
+            "strength": "str",
+            "dexterity": "dex",
+            "constitution": "con",
+            "intelligence": "int",
+            "wisdom": "wis",
+            "charisma": "cha",
+        }
+        return ability_map.get(match.group(1), "")
+
+    def _spell_duration_to_turns(self, preset: Any) -> Optional[int]:
+        if not isinstance(preset, dict):
+            return None
+        raw = str(preset.get("duration") or "").strip().lower()
+        if not raw:
+            return None
+        total_turns = 0
+        for amount_text, unit in re.findall(r"(\d+)\s*(hour|hours|minute|minutes|round|rounds|turn|turns)", raw):
+            try:
+                amount = int(amount_text)
+            except Exception:
+                continue
+            if amount <= 0:
+                continue
+            if unit.startswith("hour"):
+                total_turns += amount * 600
+            elif unit.startswith("minute"):
+                total_turns += amount * 10
+            else:
+                total_turns += amount
+        return total_turns or None
+
+    def _clear_polymorph_effect(self, target: Any, *, reason: str = "") -> bool:
+        if target is None:
+            return False
+        form_name = str(getattr(target, "wild_shape_form_name", "") or "").strip()
+        active = bool(form_name and int(getattr(target, "polymorph_source_cid", 0) or 0) > 0)
+        if not active:
+            return False
+        setattr(target, "wild_shape_form_id", "")
+        setattr(target, "wild_shape_form_name", "")
+        setattr(target, "polymorph_source_cid", None)
+        setattr(target, "polymorph_remaining_turns", None)
+        setattr(target, "polymorph_duration_turns", None)
+        setattr(target, "temp_hp", 0)
+        if reason:
+            self._log(f"{target.name} returns to normal form ({reason}).", cid=int(target.cid))
+        return True
+
+    def _apply_damage_to_target_with_temp_hp(self, target: Any, raw_damage: int) -> Dict[str, int]:
+        damage = max(0, int(raw_damage or 0))
+        temp_before = max(0, int(getattr(target, "temp_hp", 0) or 0))
+        hp_before = max(0, int(getattr(target, "hp", 0) or 0))
+        absorbed = min(temp_before, damage)
+        temp_after = max(0, temp_before - absorbed)
+        hp_damage = max(0, damage - absorbed)
+        hp_after = max(0, hp_before - hp_damage)
+        setattr(target, "temp_hp", int(temp_after))
+        setattr(target, "hp", int(hp_after))
+        if temp_before > 0 and temp_after <= 0 and int(getattr(target, "polymorph_source_cid", 0) or 0) > 0:
+            self._clear_polymorph_effect(target, reason="Polymorph temporary HP depleted")
+        return {"temp_absorbed": absorbed, "hp_after": hp_after, "hp_damage": hp_damage}
+
+    def _tick_polymorph_durations(self) -> None:
+        for target in list(self.combatants.values()):
+            remaining = getattr(target, "polymorph_remaining_turns", None)
+            if remaining is None:
+                continue
+            try:
+                turns_left = int(remaining)
+            except Exception:
+                continue
+            if turns_left <= 0:
+                continue
+            turns_left -= 1
+            setattr(target, "polymorph_remaining_turns", int(turns_left))
+            if turns_left > 0:
+                continue
+            source_cid = int(getattr(target, "polymorph_source_cid", 0) or 0)
+            self._clear_polymorph_effect(target, reason="Polymorph duration expired")
+            caster = self.combatants.get(source_cid)
+            if caster is not None and bool(getattr(caster, "concentrating", False)) and str(getattr(caster, "concentration_spell", "") or "").strip().lower() == "polymorph":
+                self._end_concentration(caster)
+
+    def _end_concentration(self, c: base.Combatant) -> None:
+        spell_key = str(getattr(c, "concentration_spell", "") or "").strip().lower()
+        targets = list(getattr(c, "concentration_target", []) or [])
+        super()._end_concentration(c)
+        if spell_key != "polymorph":
+            return
+        for target_cid in targets:
+            target = self.combatants.get(int(target_cid))
+            if target is None:
+                continue
+            if int(getattr(target, "polymorph_source_cid", 0) or 0) != int(c.cid):
+                continue
+            self._clear_polymorph_effect(target, reason="concentration ended")
 
     def _lan_try_move(self, cid: int, col: int, row: int) -> Tuple[bool, str, int]:
         # Boundaries
