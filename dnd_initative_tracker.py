@@ -18955,9 +18955,6 @@ class InitiativeTracker(base.InitiativeTracker):
             if target is None:
                 self._lan.toast(ws_id, "Pick a valid target, matey.")
                 return
-            if int(target.cid) == int(caster.cid):
-                self._lan.toast(ws_id, "Pick another creature, matey.")
-                return
             _cols, _rows, _obstacles, _rough, positions = self._lan_live_map_data()
             caster_pos = positions.get(int(caster.cid)) or self._lan_current_position(int(caster.cid))
             target_pos = positions.get(int(target.cid)) or self._lan_current_position(int(target.cid))
@@ -19068,9 +19065,6 @@ class InitiativeTracker(base.InitiativeTracker):
                         target_ids.append(int(normalized))
             if not target_ids:
                 self._lan.toast(ws_id, "Pick at least one valid target, matey.")
-                return
-            if int(caster.cid) in target_ids:
-                self._lan.toast(ws_id, "Mantle of Inspiration targets other creatures only.")
                 return
             player_name = _resolve_pc_name(cid)
             if not player_name:
