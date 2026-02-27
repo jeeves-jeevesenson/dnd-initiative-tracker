@@ -9303,9 +9303,8 @@ __DAMAGE_TYPE_OPTIONS__
     localToast("Bardic Inspiration ready. Select one creature within 60 ft.");
   }
 
-  function mantleMaxTargetsForClaimedUnit(){
-    const me = getClaimedUnit();
-    const chaMod = Number(me?.ability_mods?.cha);
+  function mantleMaxTargetsForUnit(unit){
+    const chaMod = Number(unit?.ability_mods?.cha);
     if (Number.isFinite(chaMod)) return Math.max(1, Math.floor(chaMod));
     return 1;
   }
@@ -9324,9 +9323,10 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function startMantleOfInspirationTargeting(entry){
-    const me = getClaimedUnit();
-    if (!me){
-      localToast("Claim a character first, matey.");
+    const actingCid = normalizeCid(entry?.sourceCid, "mantle.start.sourceCid") ?? activeControlledUnitCid();
+    const me = actingCid === null ? null : getUnitByCid(actingCid);
+    if (actingCid === null || !me){
+      localToast("Wait for yer turn before using Mantle of Inspiration.");
       return;
     }
     if (Number(me?.bonus_action_remaining || 0) <= 0){
@@ -9335,8 +9335,9 @@ __DAMAGE_TYPE_OPTIONS__
     }
     pendingMantleOfInspiration = {
       actionName: String(entry?.name || "Mantle of Inspiration"),
+      casterCid: actingCid,
       rangeFt: 60,
-      maxTargets: mantleMaxTargetsForClaimedUnit(),
+      maxTargets: mantleMaxTargetsForUnit(me),
       targetCids: [],
     };
     setAttackOverlayMode(true);
@@ -12014,9 +12015,27 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (pendingMantleOfInspiration){
       const selected = Array.isArray(pendingMantleOfInspiration.targetCids) ? pendingMantleOfInspiration.targetCids : [];
-      if (cidMatches(target.cid, me.cid, "mantle.self")){
+      const mantleCasterCid = normalizeCid(pendingMantleOfInspiration.casterCid, "mantle.targeting.casterCid") ?? activeControlledUnitCid();
+      const mantleCaster = mantleCasterCid === null ? null : getUnitByCid(mantleCasterCid);
+      if (!mantleCaster){
+        localToast("Could not find Mantle caster, matey.");
+        return;
+      }
+      if (!isFriendlyToMe(target, mantleCaster)){
+        localToast("Mantle of Inspiration only targets friendly creatures.");
+        return;
+      }
+      if (cidMatches(target.cid, mantleCaster.cid, "mantle.self")){
         localToast("Mantle of Inspiration targets other creatures only.");
         return;
+      }
+      const mantleRangeFt = Number(pendingMantleOfInspiration.rangeFt || 0);
+      if (Number.isFinite(mantleRangeFt) && mantleRangeFt > 0 && target.pos && mantleCaster.pos){
+        const distanceFt = distanceFeetBetweenCells(mantleCaster.pos, target.pos);
+        if (distanceFt > mantleRangeFt){
+          localToast(`That target is out of range (${Math.round(distanceFt)} ft > ${Math.round(mantleRangeFt)} ft).`);
+          return;
+        }
       }
       if (selected.length >= Number(pendingMantleOfInspiration.maxTargets || 1)){
         localToast("Target list already full.");
@@ -12141,12 +12160,12 @@ __DAMAGE_TYPE_OPTIONS__
     setWarCasterModalOpen(true);
   }
 
-  function buildActionPickerItem(entry){
+  function buildActionPickerItem(entry, sourceUnit = null){
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "action-picker-item";
-    const entryUnitCid = activeControlledUnitCid();
-    const entryUnit = entryUnitCid === null ? null : getUnitByCid(entryUnitCid);
+    const entryUnitCid = normalizeCid(entry?.sourceCid, "actionPicker.entry.sourceCid") ?? activeControlledUnitCid();
+    const entryUnit = sourceUnit || (entryUnitCid === null ? null : getUnitByCid(entryUnitCid));
     const actionRemaining = Number(entryUnit?.action_remaining || 0);
     const bonusRemaining = Number(entryUnit?.bonus_action_remaining || 0);
     const reactionRemaining = Number(entryUnit?.reaction_remaining || 0);
@@ -12431,7 +12450,7 @@ __DAMAGE_TYPE_OPTIONS__
       actionPickerList.appendChild(empty);
     } else {
       items.forEach((entry) => {
-        actionPickerList.appendChild(buildActionPickerItem(entry));
+        actionPickerList.appendChild(buildActionPickerItem({...entry, sourceCid: unitCid}, unit));
       });
     }
     showActionPicker();
