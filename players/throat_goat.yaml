@@ -125,7 +125,23 @@ resources:
     current: 1
     max_formula: '1'
     reset: long_rest
-features: []
+features:
+- name: Beguiling Magic
+  grants:
+    always_prepared_spells:
+    - charm-person
+    - mirror-image
+- name: Mantle of Majesty
+  grants:
+    always_prepared_spells:
+    - command
+    spells:
+      casts:
+      - spell: command
+        action_type: bonus_action
+        consumes:
+          pool: mantle_of_majesty
+          cost: 1
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
@@ -180,10 +196,6 @@ reactions:
 - name: Opportunity Attack
   description: When a hostile creature you can see moves out of your reach, you can
     use your reaction to make one melee attack against it.
-  type: reaction
-- name: Reaction
-  description: You can take a reaction when a trigger occurs. A reaction is only available
-    once per round.
   type: reaction
 - name: Countercharm
   description: 'When you or a creature within 30 feet fails a save against Charmed

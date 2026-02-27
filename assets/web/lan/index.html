@@ -3369,6 +3369,19 @@ __DAMAGE_TYPE_OPTIONS__
     </div>
   </div>
 </div>
+<div class="modal" id="resourcePoolDetailOverlay" aria-hidden="true">
+  <div class="card">
+    <h2 id="resourcePoolDetailTitle">Resource Pool Details</h2>
+    <div class="spellbook-status" id="resourcePoolDetailSummary"></div>
+    <div class="spellbook-status" style="margin-top:8px;">Actions that use this pool</div>
+    <div class="modal-actions" id="resourcePoolDetailActions" style="margin-top:8px;display:grid;grid-template-columns:1fr;gap:8px;"></div>
+    <div class="spellbook-status" style="margin-top:8px;">Spells that use this pool</div>
+    <div class="modal-actions" id="resourcePoolDetailSpells" style="margin-top:8px;display:grid;grid-template-columns:1fr;gap:8px;"></div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="resourcePoolDetailClose" type="button">Close</button>
+    </div>
+  </div>
+</div>
 <div class="modal" id="elementalBurstConfigOverlay" aria-hidden="true">
   <div class="card">
     <h2>Elemental Burst</h2>
@@ -4128,6 +4141,12 @@ __DAMAGE_TYPE_OPTIONS__
   const secondWindUseBtn = document.getElementById("secondWindUse");
   const monkFocusOverlay = document.getElementById("monkFocusOverlay");
   const monkFocusSummary = document.getElementById("monkFocusSummary");
+  const resourcePoolDetailOverlay = document.getElementById("resourcePoolDetailOverlay");
+  const resourcePoolDetailTitle = document.getElementById("resourcePoolDetailTitle");
+  const resourcePoolDetailSummary = document.getElementById("resourcePoolDetailSummary");
+  const resourcePoolDetailActions = document.getElementById("resourcePoolDetailActions");
+  const resourcePoolDetailSpells = document.getElementById("resourcePoolDetailSpells");
+  const resourcePoolDetailCloseBtn = document.getElementById("resourcePoolDetailClose");
   const monkPatientDefenseFreeBtn = document.getElementById("monkPatientDefenseFree");
   const monkPatientDefenseFocusBtn = document.getElementById("monkPatientDefenseFocus");
   const monkStepOfWindFreeBtn = document.getElementById("monkStepOfWindFree");
@@ -5488,12 +5507,146 @@ __DAMAGE_TYPE_OPTIONS__
     localToast(`Pool cast ready: ${entry.spellName}.`);
   }
 
+  function performResourcePoolAction(entry){
+    const actionCid = activeControlledUnitCid();
+    const activeUnit = getUnitByCid(actionCid);
+    if (actionCid === null || !activeUnit) return;
+    const msg = {
+      type: "perform_action",
+      cid: actionCid,
+      spend: entry.spend,
+      action: entry.name,
+    };
+    if (isPlanning){
+      planningMutate(msg);
+      draw();
+      updateHud();
+    }
+    send(msg);
+    setResourcePoolDetailOverlayOpen(false);
+  }
+
+  function castResourcePoolSpell(entry, pool){
+    if (!entry?.preset){
+      localToast("Could not find that spell preset, matey.");
+      return;
+    }
+    const unit = getClaimedUnit();
+    if (!unit){
+      localToast("Claim a character first, matey.");
+      return;
+    }
+    const poolCurrent = Number(pool?.current || 0);
+    const poolCost = Number(entry?.consumesPool?.cost || 1);
+    if (poolCurrent < poolCost){
+      localToast("That resource pool be exhausted, matey.");
+      return;
+    }
+    if (!isPlanning){
+      const actionCheck = canSpendSpellAction(unit, entry.actionType);
+      if (!actionCheck.ok){
+        localToast(actionCheck.reason || "You can't cast right now.");
+        return;
+      }
+    }
+    const payload = {
+      action_type: entry.actionType,
+      name: normalizeTextValue(entry.preset?.name) || entry.spellName || "Spell",
+      consumes_pool: {id: entry.consumesPool.id, cost: poolCost},
+    };
+    const msg = {
+      type: "cast_spell",
+      payload,
+      action_type: entry.actionType,
+      spell_slug: normalizeTextValue(getPresetSlug(entry.preset)) || null,
+      spell_id: normalizeTextValue(entry.preset?.id) || null,
+      consumes_pool_id: entry.consumesPool.id,
+      consumes_pool_cost: poolCost,
+    };
+    if (isPlanning){
+      planningMutate(msg);
+      draw();
+      updateHud();
+    }
+    send(msg);
+    const config = getSpellTargetingConfig(entry.preset, null);
+    if (config){
+      startSpellTargetingSession(config, entry.preset, null, null);
+    }
+    setResourcePoolDetailOverlayOpen(false);
+  }
+
+  function setResourcePoolDetailOverlayOpen(open, pool = null){
+    setModalOpen(resourcePoolDetailOverlay, open);
+    if (!open) return;
+    if (!pool){
+      if (resourcePoolDetailTitle) resourcePoolDetailTitle.textContent = "Resource Pool Details";
+      if (resourcePoolDetailSummary) resourcePoolDetailSummary.textContent = "No pool selected.";
+      return;
+    }
+    const playerName = getClaimedPlayerName();
+    const unit = getClaimedUnit();
+    if (resourcePoolDetailTitle){
+      resourcePoolDetailTitle.textContent = pool.label || pool.id || "Resource Pool";
+    }
+    if (resourcePoolDetailSummary){
+      resourcePoolDetailSummary.textContent = `Current uses: ${pool.current}/${pool.max}`;
+    }
+    if (resourcePoolDetailActions){
+      resourcePoolDetailActions.textContent = "";
+      const actions = unit ? normalizeActionList(unit.actions, "action") : [];
+      const bonusActions = unit ? normalizeActionList(unit.bonus_actions, "bonus_action") : [];
+      const reactions = unit ? normalizeActionList(unit.reactions, "reaction") : [];
+      const all = [
+        ...actions.map((entry) => ({...entry, spend: "action"})),
+        ...bonusActions.map((entry) => ({...entry, spend: "bonus"})),
+        ...reactions.map((entry) => ({...entry, spend: "reaction"})),
+      ].filter((entry) => normalizeLowerValue(entry?.uses?.pool) === normalizeLowerValue(pool.id));
+      if (!all.length){
+        const empty = document.createElement("div");
+        empty.className = "action-picker-meta";
+        empty.textContent = "No actions use this pool.";
+        resourcePoolDetailActions.appendChild(empty);
+      } else {
+        all.forEach((entry) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn";
+          const spendLabel = entry.spend === "bonus" ? "Bonus Action" : (entry.spend === "reaction" ? "Reaction" : "Action");
+          btn.textContent = `${entry.name} (${spendLabel})`;
+          btn.addEventListener("click", () => performResourcePoolAction(entry));
+          resourcePoolDetailActions.appendChild(btn);
+        });
+      }
+    }
+    if (resourcePoolDetailSpells){
+      resourcePoolDetailSpells.textContent = "";
+      const byPool = getPoolGrantedSpellsByPool(playerName);
+      const entries = byPool.get(getSpellKey(pool.id)) || [];
+      if (!entries.length){
+        const empty = document.createElement("div");
+        empty.className = "action-picker-meta";
+        empty.textContent = "No pool-granted spells.";
+        resourcePoolDetailSpells.appendChild(empty);
+      } else {
+        entries.forEach((entry) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn accent";
+          const actionLabel = entry.actionType === "bonus_action" ? "bonus action" : entry.actionType;
+          btn.textContent = `Cast ${entry.spellName} (${actionLabel})`;
+          btn.disabled = Number(pool.current || 0) < Number(entry.consumesPool?.cost || 1);
+          btn.addEventListener("click", () => castResourcePoolSpell(entry, pool));
+          resourcePoolDetailSpells.appendChild(btn);
+        });
+      }
+    }
+  }
+
   function renderResourcePools(){
     if (!resourcePoolsListEl) return;
     const playerName = getClaimedPlayerName();
     const pools = getPlayerResourcePools(playerName);
-    const poolGrantedByPool = getPoolGrantedSpellsByPool(playerName);
-    const isCastBlocked = (!isPlanning && !claimedCid) || !state;
     resourcePoolsListEl.textContent = "";
     if (!pools.length){
       if (resourcePoolsPanelEl){
@@ -5626,24 +5779,19 @@ __DAMAGE_TYPE_OPTIONS__
           localToast("Select an enemy within echo range for Unleash Incarnation.");
         });
       }
-      wrapper.appendChild(chip);
-      const spellEntries = poolGrantedByPool.get(getSpellKey(pool.id)) || [];
-      if (spellEntries.length){
-        const buttonsRow = document.createElement("div");
-        buttonsRow.className = "resource-pool-spells";
-        spellEntries.forEach((entry) => {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "resource-pool-cast-btn";
-          const actionLabel = entry.actionType === "bonus_action" ? "bonus action" : entry.actionType;
-          btn.textContent = `Cast: ${entry.spellName} (${actionLabel})`;
-          const hasPool = Number(pool.current || 0) >= Number(entry.consumesPool.cost || 1);
-          btn.disabled = isCastBlocked || !hasPool;
-          btn.addEventListener("click", () => beginForcedPoolCast(entry));
-          buttonsRow.appendChild(btn);
+      const specializedPools = new Set(["wild_shape", "focus_points", "lay_on_hands", "second_wind", "action_surge", "unleash_incarnation"]);
+      if (!specializedPools.has(pool.id)){
+        chip.style.cursor = "pointer";
+        chip.title = "Resource pool details";
+        chip.addEventListener("click", () => {
+          if (!state){
+            localToast("Map not ready yet, matey.");
+            return;
+          }
+          setResourcePoolDetailOverlayOpen(true, pool);
         });
-        wrapper.appendChild(buttonsRow);
       }
+      wrapper.appendChild(chip);
       resourcePoolsListEl.appendChild(wrapper);
     });
   }
@@ -10950,6 +11098,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (entry.attack_count != null) normalized.attack_count = Number(entry.attack_count);
     if (entry.resolve_prompt != null) normalized.resolve_prompt = String(entry.resolve_prompt);
     if (entry.attack_weapon && typeof entry.attack_weapon === "object") normalized.attack_weapon = {...entry.attack_weapon};
+    if (entry.uses && typeof entry.uses === "object") normalized.uses = {...entry.uses};
     return normalized;
   }
 
@@ -17827,6 +17976,9 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (monkFocusCloseBtn){
     monkFocusCloseBtn.addEventListener("click", () => setMonkFocusOverlayOpen(false));
+  }
+  if (resourcePoolDetailCloseBtn){
+    resourcePoolDetailCloseBtn.addEventListener("click", () => setResourcePoolDetailOverlayOpen(false));
   }
   const sendMonkFocusAction = (type, mode) => {
     if (isMapView) return;
