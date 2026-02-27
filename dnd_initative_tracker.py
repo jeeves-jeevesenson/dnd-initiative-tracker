@@ -20304,6 +20304,16 @@ class InitiativeTracker(base.InitiativeTracker):
             if spell_mode == "save" and not save_type:
                 save_type = self._infer_spell_save_ability(preset)
             save_dc = max(0, _parse_int(msg.get("save_dc"), 0) or 0)
+            if spell_mode == "save" and save_dc <= 0:
+                try:
+                    player_name = self._pc_name_for(int(cid))
+                except Exception:
+                    player_name = ""
+                profile = self._profile_for_player_name(player_name)
+                if isinstance(profile, dict):
+                    computed_dc = self._compute_spell_save_dc(profile)
+                    if computed_dc is not None and int(computed_dc) > 0:
+                        save_dc = int(computed_dc)
             raw_roll_save = msg.get("roll_save")
             roll_save = _parse_bool(raw_roll_save, fallback=spell_mode == "save")
             if spell_mode == "save" and requested_spell_mode == "attack" and raw_roll_save is None:

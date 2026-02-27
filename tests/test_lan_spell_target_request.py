@@ -398,6 +398,41 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(result.get("save_result", {}).get("ability"), "wis")
         self.assertFalse(result.get("save_result", {}).get("passed"))
 
+    def test_save_tagged_spell_coercion_uses_caster_spell_dc_when_missing(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "hold-person",
+            "id": "hold-person",
+            "name": "Hold Person",
+            "tags": ["save"],
+            "import": {"raw": {"description": "The target must succeed on a Wisdom saving throw."}},
+        }
+        self.app._pc_name_for = lambda cid: "Aelar"
+        self.app._profile_for_player_name = lambda name: {
+            "spellcasting": {"save_dc_formula": "8 + prof + wis_mod", "casting_ability": "wis"},
+            "abilities": {"wis": 18},
+            "leveling": {"level": 5},
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 26,
+            "target_cid": 2,
+            "spell_name": "Hold Person",
+            "spell_slug": "hold-person",
+            "spell_mode": "attack",
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=2):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertEqual(result.get("spell_mode"), "save")
+        self.assertEqual(result.get("save_result", {}).get("dc"), 15)
+        self.assertFalse(result.get("save_result", {}).get("passed"))
+        self.assertFalse(any("misses" in message.lower() for _, message in self.logs))
+        self.assertTrue(any("fails their save against Hold Person" in message for _, message in self.logs))
+
     def test_polymorph_temp_hp_depletion_reverts_form(self):
         target = self.app.combatants[2]
         target.hp = 20
@@ -577,4 +612,3 @@ class LanSpellTargetRequestTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
