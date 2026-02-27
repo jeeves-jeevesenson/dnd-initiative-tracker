@@ -100,6 +100,32 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertTrue(result.get("save_result", {}).get("passed"))
         self.assertEqual(self.app.combatants[2].hp, 20)
 
+
+    def test_save_spell_log_uses_pass_fail_without_roll_details(self):
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 24,
+            "target_cid": 2,
+            "spell_name": "Toll the Dead",
+            "spell_mode": "save",
+            "save_type": "wis",
+            "save_dc": 13,
+            "roll_save": True,
+            "damage_dice": "1d12",
+            "damage_type": "necrotic",
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=15):
+            self.app._lan_apply_action(msg)
+
+        save_logs = [entry for _cid, entry in self.logs if "save against Toll the Dead" in entry]
+        self.assertTrue(save_logs)
+        self.assertTrue(any("succeeds their save" in entry for entry in save_logs))
+        self.assertTrue(all("DC" not in entry for entry in save_logs))
+        self.assertTrue(all("+" not in entry for entry in save_logs))
+
     def test_spell_target_request_save_fail_requests_damage_prompt(self):
         msg = {
             "type": "spell_target_request",
@@ -306,6 +332,88 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[2].temp_hp, 11)
         self.assertEqual(getattr(self.app.combatants[2], "wild_shape_form_name", ""), "Wolf")
 
+
+    def test_polymorph_defaults_to_save_mode_and_wisdom(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "polymorph",
+            "id": "polymorph",
+            "name": "Polymorph",
+            "tags": ["save"],
+            "duration": "Concentration, up to 1 hour",
+            "level": 4,
+            "import": {"raw": {"description": "The target must succeed on a Wisdom saving throw."}},
+        }
+        self.app._wild_shape_beast_cache = [
+            {"id": "wolf", "name": "Wolf", "hp": 11, "challenge_rating": 0.25}
+        ]
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 22,
+            "target_cid": 2,
+            "spell_name": "Polymorph",
+            "spell_slug": "polymorph",
+            "spell_mode": "attack",
+            "save_dc": 16,
+            "polymorph_form_id": "wolf",
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=2):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertEqual(result.get("spell_mode"), "save")
+        self.assertFalse(result.get("save_result", {}).get("passed"))
+        self.assertEqual(result.get("save_result", {}).get("ability"), "wis")
+        self.assertEqual(result.get("polymorph_duration_turns"), 600)
+        self.assertEqual(getattr(self.app.combatants[1], "concentration_spell", ""), "polymorph")
+
+
+    def test_save_tagged_spell_coerces_attack_payload_to_save(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "hold-person",
+            "id": "hold-person",
+            "name": "Hold Person",
+            "tags": ["save"],
+            "import": {"raw": {"description": "A humanoid must make a Wisdom saving throw."}},
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 23,
+            "target_cid": 2,
+            "spell_name": "Hold Person",
+            "spell_slug": "hold-person",
+            "spell_mode": "attack",
+            "save_dc": 16,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=2):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertEqual(result.get("spell_mode"), "save")
+        self.assertEqual(result.get("save_result", {}).get("ability"), "wis")
+        self.assertFalse(result.get("save_result", {}).get("passed"))
+
+    def test_polymorph_temp_hp_depletion_reverts_form(self):
+        target = self.app.combatants[2]
+        target.hp = 20
+        target.temp_hp = 5
+        target.wild_shape_form_id = "wolf"
+        target.wild_shape_form_name = "Wolf"
+        target.polymorph_source_cid = 1
+        target.polymorph_remaining_turns = 10
+
+        state = self.app._apply_damage_to_target_with_temp_hp(target, 7)
+
+        self.assertEqual(state.get("temp_absorbed"), 5)
+        self.assertEqual(target.hp, 18)
+        self.assertEqual(target.temp_hp, 0)
+        self.assertEqual(getattr(target, "wild_shape_form_name", ""), "")
+        self.assertIsNone(getattr(target, "polymorph_source_cid", None))
     def test_haste_spell_target_request_applies_buffs_and_concentration(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "haste",
