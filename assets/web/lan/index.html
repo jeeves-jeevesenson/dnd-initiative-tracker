@@ -5605,6 +5605,17 @@ __DAMAGE_TYPE_OPTIONS__
     const actionCid = activeControlledUnitCid();
     const activeUnit = getUnitByCid(actionCid);
     if (actionCid === null || !activeUnit) return;
+    const normalizedActionKey = String(entry?.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (entry?.spend === "bonus" && normalizedActionKey.startsWith("bardic inspiration")){
+      setResourcePoolDetailOverlayOpen(false);
+      startBardicInspirationGrantTargeting({...entry, sourceCid: actionCid});
+      return;
+    }
+    if (entry?.spend === "bonus" && normalizedActionKey.startsWith("mantle of inspiration")){
+      setResourcePoolDetailOverlayOpen(false);
+      startMantleOfInspirationTargeting({...entry, sourceCid: actionCid});
+      return;
+    }
     const msg = {
       type: "perform_action",
       cid: actionCid,
