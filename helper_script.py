@@ -199,6 +199,7 @@ def _seed_user_items_dir() -> Path:
 CONDITIONS_META: Dict[str, Dict[str, object]] = {
     "blinded": {"label": "Blinded", "icon": "🙈", "skip": False, "immobile": False},
     "charmed": {"label": "Charmed", "icon": "💖", "skip": False, "immobile": False},
+    "inspired": {"label": "Inspired", "icon": "🎵", "skip": False, "immobile": False},
     "deafened": {"label": "Deafened", "icon": "🔇", "skip": False, "immobile": False},
     "exhaustion": {"label": "Exhaustion", "icon": "🥱", "skip": False, "immobile": False},  # tracked as level
     "frightened": {"label": "Frightened", "icon": "😱", "skip": False, "immobile": False},
