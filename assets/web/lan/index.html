@@ -9314,8 +9314,37 @@ __DAMAGE_TYPE_OPTIONS__
     localToast("Bardic Inspiration ready. Select one creature within 60 ft.");
   }
 
+  function getUnitAbilityModifier(unit, key){
+    const abilityKey = normalizeAbilityKey(key);
+    if (!abilityKey) return 0;
+    const modSources = [
+      unit?.ability_mods,
+      unit?.attrs?.ability_mods,
+      unit?.raw_data?.ability_mods,
+      unit?.attrs?.raw_data?.ability_mods,
+    ];
+    for (const source of modSources){
+      if (!source || typeof source !== "object") continue;
+      const direct = Number(source[abilityKey] ?? source[abilityKey.toUpperCase()] ?? source[`${abilityKey}_mod`]);
+      if (Number.isFinite(direct)) return Math.floor(direct);
+    }
+    const scoreSources = [
+      unit?.abilities,
+      unit?.attrs?.abilities,
+      unit?.raw_data?.abilities,
+      unit?.attrs?.raw_data?.abilities,
+    ];
+    for (const source of scoreSources){
+      if (!source || typeof source !== "object") continue;
+      const score = Number(source[abilityKey] ?? source[abilityKey.toUpperCase()] ?? source[`${abilityKey}_score`]);
+      if (Number.isFinite(score)) return Math.floor((score - 10) / 2);
+    }
+    const profile = getPlayerProfile(unit?.name);
+    return getAbilityModifier(profile, abilityKey);
+  }
+
   function mantleMaxTargetsForUnit(unit){
-    const chaMod = Number(unit?.ability_mods?.cha);
+    const chaMod = getUnitAbilityModifier(unit, "cha");
     if (Number.isFinite(chaMod)) return Math.max(1, Math.floor(chaMod));
     return 1;
   }
@@ -12036,10 +12065,6 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Mantle of Inspiration only targets friendly creatures.");
         return;
       }
-      if (cidMatches(target.cid, mantleCaster.cid, "mantle.self")){
-        localToast("Mantle of Inspiration targets other creatures only.");
-        return;
-      }
       const mantleRangeFt = Number(pendingMantleOfInspiration.rangeFt || 0);
       if (Number.isFinite(mantleRangeFt) && mantleRangeFt > 0 && target.pos && mantleCaster.pos){
         const distanceFt = distanceFeetBetweenCells(mantleCaster.pos, target.pos);
@@ -13902,10 +13927,6 @@ __DAMAGE_TYPE_OPTIONS__
           return;
         }
         if (pendingBardicInspirationTargeting){
-          if (cidMatches(hit.cid, me.cid, "bardicInspiration.self")){
-            localToast("Choose another creature for Bardic Inspiration.");
-            return;
-          }
           const rangeFt = Number.isFinite(Number(pendingBardicInspirationTargeting?.rangeFt))
             ? Number(pendingBardicInspirationTargeting.rangeFt)
             : 60;
@@ -13942,10 +13963,6 @@ __DAMAGE_TYPE_OPTIONS__
           return;
         }
         if (pendingMantleOfInspiration){
-          if (cidMatches(hit.cid, me.cid, "mantle.self.block")){
-            localToast("Mantle of Inspiration targets other creatures only.");
-            return;
-          }
           const rangeFt = Number.isFinite(Number(pendingMantleOfInspiration?.rangeFt))
             ? Number(pendingMantleOfInspiration.rangeFt)
             : 60;

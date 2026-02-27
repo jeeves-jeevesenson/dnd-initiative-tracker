@@ -229,6 +229,15 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('if (entry?.spend === "bonus" && normalizedActionKey.startsWith("mantle of inspiration")){', self.html)
         self.assertIn('startMantleOfInspirationTargeting({...entry, sourceCid: actionCid});', self.html)
 
+    def test_mantle_target_cap_uses_computed_charisma_modifier_and_allows_self_targeting(self):
+        self.assertIn('function getUnitAbilityModifier(unit, key){', self.html)
+        self.assertIn('const score = Number(source[abilityKey] ?? source[abilityKey.toUpperCase()] ?? source[`${abilityKey}_score`]);', self.html)
+        self.assertIn('return getAbilityModifier(profile, abilityKey);', self.html)
+        self.assertIn('const chaMod = getUnitAbilityModifier(unit, "cha");', self.html)
+        self.assertNotIn('Mantle of Inspiration targets other creatures only.', self.html)
+        self.assertNotIn('Choose another creature for Bardic Inspiration.', self.html)
+
+
 
     def test_spell_preset_signature_includes_mechanics_fields(self):
         self.assertIn('JSON.stringify(p.mechanics?.aoe_behavior || {})', self.html)
