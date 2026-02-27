@@ -131,12 +131,14 @@ class LanSnapshotStaticTests(unittest.TestCase):
         app._player_spell_config_payload = lambda: (_ for _ in ()).throw(AssertionError("player spells should not be called"))
         app._player_profiles_payload = lambda: (_ for _ in ()).throw(AssertionError("player profiles should not be called"))
         app._player_resource_pools_payload = lambda: {"Alice": [{"id": "wild_shape", "current": 0}]}
+        app._load_beast_forms = lambda: (_ for _ in ()).throw(AssertionError("beast forms should not be called"))
 
         app._lan = type("LanStub", (), {"_cached_snapshot": {
             "spell_presets": [{"name": "cached"}],
             "player_spells": {"Alice": {"spells": []}},
             "player_profiles": {"Alice": {"name": "Alice"}},
             "resource_pools": {"Alice": [{"id": "wild_shape", "current": 1}]},
+            "beast_forms": [{"id": "wolf"}],
         }})()
 
         snap = app._lan_snapshot(include_static=False)
@@ -144,6 +146,7 @@ class LanSnapshotStaticTests(unittest.TestCase):
         self.assertEqual(snap["player_spells"], {"Alice": {"spells": []}})
         self.assertEqual(snap["player_profiles"], {"Alice": {"name": "Alice"}})
         self.assertEqual(snap["resource_pools"], {"Alice": [{"id": "wild_shape", "current": 0}]})
+        self.assertEqual(snap["beast_forms"], [{"id": "wolf"}])
 
     def test_include_static_false_without_hydration_skips_static_builders(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
@@ -166,6 +169,7 @@ class LanSnapshotStaticTests(unittest.TestCase):
         app._player_spell_config_payload = lambda: (_ for _ in ()).throw(AssertionError("player spells should not be called"))
         app._player_profiles_payload = lambda: (_ for _ in ()).throw(AssertionError("player profiles should not be called"))
         app._player_resource_pools_payload = lambda: (_ for _ in ()).throw(AssertionError("resource pools should not be called"))
+        app._load_beast_forms = lambda: (_ for _ in ()).throw(AssertionError("beast forms should not be called"))
 
         app._lan = type("LanStub", (), {"_cached_snapshot": {}})()
 
@@ -174,6 +178,7 @@ class LanSnapshotStaticTests(unittest.TestCase):
         self.assertEqual(snap["player_spells"], {})
         self.assertEqual(snap["player_profiles"], {})
         self.assertEqual(snap["resource_pools"], {})
+        self.assertEqual(snap["beast_forms"], [])
 
     def test_include_static_false_reuses_cached_resource_pools_within_refresh_interval(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
@@ -196,6 +201,7 @@ class LanSnapshotStaticTests(unittest.TestCase):
         app._player_spell_config_payload = lambda: {}
         app._player_profiles_payload = lambda: {}
         app._player_resource_pools_payload = lambda: (_ for _ in ()).throw(AssertionError("resource pools should not be called"))
+        app._load_beast_forms = lambda: []
 
         cached_resource_pools = {"Alice": [{"id": "wild_shape", "current": 1}]}
         app._lan = type("LanStub", (), {"_cached_snapshot": {"resource_pools": cached_resource_pools}})()
@@ -303,6 +309,7 @@ class LanSnapshotStaticTests(unittest.TestCase):
         lan._last_idle_cache_refresh = 0.0
         lan._cached_snapshot = {}
         lan._cached_pcs = []
+        lan._battle_log_subscribers = set()
         lan._log_lan_exception = lambda *args, **kwargs: None
 
         scheduled = []
@@ -339,6 +346,7 @@ class LanSnapshotStaticTests(unittest.TestCase):
         lan._last_idle_cache_refresh = 0.0
         lan._cached_snapshot = {"grid": {"cols": 8, "rows": 8}, "units": [], "obstacles": []}
         lan._cached_pcs = []
+        lan._battle_log_subscribers = set()
         lan._log_lan_exception = lambda *args, **kwargs: None
         lan._move_debug_log = lambda *args, **kwargs: None
         lan._broadcast_grid_update = lambda *_args, **_kwargs: None
