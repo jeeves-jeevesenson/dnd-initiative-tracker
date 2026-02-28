@@ -16990,6 +16990,48 @@ __DAMAGE_TYPE_OPTIONS__
     return {dice, defaultDamage};
   };
 
+  const scaleDiceForCharacterLevel = (diceText, preset) => {
+    const raw = String(diceText || "").trim().toLowerCase();
+    if (!raw) return "";
+    const scaling = preset?.scaling;
+    if (!scaling || scaling.kind !== "character_level") return raw;
+    const match = raw.match(/^(\d+)d(\d+)(\s*[+\-]\s*\d+)?$/);
+    if (!match) return raw;
+    const baseCount = Number(match[1]);
+    const sides = Number(match[2]);
+    const modifier = String(match[3] || "").replace(/\s+/g, "");
+    const playerName = getClaimedPlayerName();
+    const profile = getPlayerProfile(playerName);
+    const level = getPlayerLevel(profile);
+    const thresholds = scaling && typeof scaling.thresholds === "object" ? scaling.thresholds : {};
+    const parsedThresholds = [];
+    Object.entries(thresholds).forEach(([threshold, addData]) => {
+      const thresholdLevel = Number(threshold);
+      if (!Number.isFinite(thresholdLevel) || level < thresholdLevel) return;
+      const addExpr = String(addData?.add || "").trim().toLowerCase();
+      const addMatch = addExpr.match(/^(\d+)d(\d+)$/);
+      if (!addMatch) return;
+      if (Number(addMatch[2]) !== sides) return;
+      parsedThresholds.push({level: thresholdLevel, count: Number(addMatch[1])});
+    });
+    if (!parsedThresholds.length) return raw;
+    parsedThresholds.sort((a, b) => a.level - b.level);
+    let treatThresholdsAsTotals = false;
+    if (parsedThresholds[0].count > baseCount){
+      treatThresholdsAsTotals = parsedThresholds.every((entry, idx) => idx === 0 || entry.count >= parsedThresholds[idx - 1].count);
+    }
+    let totalCount = Number.isFinite(baseCount) ? baseCount : 0;
+    parsedThresholds.forEach((entry) => {
+      if (treatThresholdsAsTotals){
+        totalCount = entry.count;
+      } else {
+        totalCount += entry.count;
+      }
+    });
+    if (!Number.isFinite(totalCount) || totalCount <= 0) return raw;
+    return `${Math.floor(totalCount)}d${Math.floor(sides)}${modifier}`;
+  };
+
   const castDamageTypes = new Set();
   let castDurationTurns = null;
   let castOverTime = null;
@@ -17185,13 +17227,17 @@ __DAMAGE_TYPE_OPTIONS__
       ? false
       : (allowDuplicateTargetsExplicit === null ? allowDuplicateTargetsDefault : allowDuplicateTargetsExplicit);
     const requireUniqueTargets = allowDuplicateTargets ? false : true;
+    const scaledDamageDice = scaleDiceForCharacterLevel(
+      String(castDiceInput?.value || castDefaultDamageInput?.value || "").trim(),
+      preset,
+    );
     return {
       mode,
       rangeFt: parseSpellTargetRangeFeet(preset),
       saveType: normalizeLowerValue(preset?.save_type) || (presetSlug === "command" ? "wis" : ""),
       saveDc: Number.isFinite(Number(castDcValueInput?.value)) ? Math.floor(Number(castDcValueInput.value)) : null,
       damageType: damageTypes[0] || "",
-      damageDice: String(castDiceInput?.value || castDefaultDamageInput?.value || "").trim(),
+      damageDice: scaledDamageDice,
       damageDiceWhenWounded: String(uiConfig?.damage_dice_when_wounded || "").trim(),
       description,
       projectileCount,

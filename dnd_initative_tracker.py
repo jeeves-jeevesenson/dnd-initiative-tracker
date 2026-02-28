@@ -16171,6 +16171,71 @@ class InitiativeTracker(base.InitiativeTracker):
             return None
         return f"{int(total_count)}d{int(sides)}"
 
+    @staticmethod
+    def _scale_damage_dice_for_character_level(
+        damage_dice: str,
+        scaling: Optional[Dict[str, Any]],
+        character_level: int,
+        treat_thresholds_as_totals: bool = False,
+    ) -> str:
+        raw_dice = str(damage_dice or "").strip().lower()
+        if not raw_dice:
+            return ""
+        if not isinstance(scaling, dict) or scaling.get("kind") != "character_level":
+            return raw_dice
+        match = re.fullmatch(r"(\d+)d(\d+)(\s*[+\-]\s*\d+)?", raw_dice)
+        if not match:
+            return raw_dice
+        base_count = int(match.group(1))
+        sides = int(match.group(2))
+        modifier = str(match.group(3) or "").replace(" ", "")
+        thresholds = scaling.get("thresholds") if isinstance(scaling.get("thresholds"), dict) else {}
+        parsed_thresholds: List[Tuple[int, int]] = []
+        for threshold, add_data in thresholds.items():
+            try:
+                threshold_level = int(str(threshold).strip())
+            except Exception:
+                continue
+            if not isinstance(add_data, dict):
+                continue
+            add_expr = str(add_data.get("add") or "").strip().lower()
+            add_match = re.fullmatch(r"(\d+)d(\d+)", add_expr)
+            if not add_match or int(add_match.group(2)) != sides:
+                continue
+            parsed_thresholds.append((threshold_level, int(add_match.group(1))))
+        if not parsed_thresholds:
+            return raw_dice
+        parsed_thresholds.sort(key=lambda item: item[0])
+
+        if not treat_thresholds_as_totals and parsed_thresholds:
+            first_count = int(parsed_thresholds[0][1])
+            if first_count > base_count:
+                threshold_counts = [int(count) for _level, count in parsed_thresholds]
+                non_decreasing = all(
+                    threshold_counts[idx] >= threshold_counts[idx - 1]
+                    for idx in range(1, len(threshold_counts))
+                )
+                if non_decreasing:
+                    treat_thresholds_as_totals = True
+
+        if treat_thresholds_as_totals:
+            total_count = base_count
+            for threshold_level, threshold_count in parsed_thresholds:
+                if int(character_level or 0) >= threshold_level:
+                    total_count = int(threshold_count)
+            if total_count <= 0:
+                return raw_dice
+            return f"{int(total_count)}d{int(sides)}{modifier}"
+
+        total_count = base_count
+        for threshold_level, add_count in parsed_thresholds:
+            if int(character_level or 0) < threshold_level:
+                continue
+            total_count += int(add_count)
+        if total_count <= 0:
+            return raw_dice
+        return f"{int(total_count)}d{int(sides)}{modifier}"
+
     def _find_spell_preset(self, spell_slug: Any, spell_id: Any) -> Optional[Dict[str, Any]]:
         by_slug, by_id = self._spell_preset_lookup()
         slug = str(spell_slug or "").strip().lower()
@@ -20610,6 +20675,20 @@ class InitiativeTracker(base.InitiativeTracker):
                     damage_entries.append({"amount": amount, "type": dtype})
 
             damage_dice_text = str(msg.get("damage_dice") or "").strip().lower()
+            if damage_dice_text and isinstance(preset, dict):
+                try:
+                    player_name = self._pc_name_for(int(cid))
+                except Exception:
+                    player_name = ""
+                profile = self._profile_for_player_name(player_name)
+                leveling = profile.get("leveling") if isinstance(profile, dict) and isinstance(profile.get("leveling"), dict) else {}
+                character_level = self._coerce_level_value(leveling)
+                scaling = preset.get("scaling") if isinstance(preset.get("scaling"), dict) else None
+                damage_dice_text = self._scale_damage_dice_for_character_level(
+                    damage_dice_text,
+                    scaling,
+                    character_level,
+                )
             damage_type_hint = str(msg.get("damage_type") or "").strip().lower() or "damage"
             auto_spell_damage = bool(hit and not damage_entries and damage_dice_text)
             if auto_spell_damage:
