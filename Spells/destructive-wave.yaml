@@ -50,7 +50,7 @@ mechanics:
       radius_ft: 30
     target_selection:
       mode: area
-      friendly_fire: true
+      friendly_fire: false
   sequence:
   - id: effect
     name: Effect
@@ -66,6 +66,8 @@ mechanics:
       - effect: damage
         damage_type: radiant
         dice: 5d6
+      - effect: condition
+        condition: prone
       success:
       - effect: damage
         damage_type: thunder
@@ -79,4 +81,4 @@ mechanics:
   ui:
     template_preview: true
   notes:
-  - "Defaulted the second damage type to radiant; swap to necrotic manually if needed. On a failed save the target is also prone."
+  - "Defaulted the second damage type to radiant; swap to necrotic manually if needed."
