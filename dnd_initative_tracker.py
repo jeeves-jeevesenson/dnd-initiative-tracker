@@ -22854,29 +22854,44 @@ class InitiativeTracker(base.InitiativeTracker):
             if target is None:
                 self._lan.toast(ws_id, "Pick a valid target, matey.")
                 return
+            cure_poisoned = bool(msg.get("cure_poisoned") is True)
             try:
                 heal_amount = int(msg.get("amount", 0))
             except Exception:
                 heal_amount = 0
+            if cure_poisoned:
+                heal_amount = 5
             if heal_amount <= 0:
                 self._lan.toast(ws_id, "Healing amount must be at least 1, matey.")
+                return
+            if bool(getattr(self, "in_combat", False)) and int(getattr(c, "bonus_action_remaining", 0) or 0) <= 0:
+                self._lan.toast(ws_id, "No bonus actions left, matey.")
                 return
             ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "lay_on_hands", heal_amount)
             if not ok_pool:
                 self._lan.toast(ws_id, pool_err or "No Lay on Hands points remain, matey.")
                 return
-            cur_hp = int(getattr(target, "hp", 0) or 0)
-            max_hp = int(getattr(target, "max_hp", cur_hp) or cur_hp)
-            actual_heal = max(0, min(heal_amount, max_hp - cur_hp))
-            setattr(target, "hp", max(0, min(max_hp, cur_hp + heal_amount)))
-            if bool(getattr(self, "in_combat", False)) and int(getattr(c, "action_remaining", 0) or 0) > 0:
-                self._use_action(c)
-            self._log(
-                f"{getattr(c, 'name', 'Player')} uses Lay on Hands on {getattr(target, 'name', 'Target')} "
-                f"for {actual_heal} HP ({heal_amount} points spent).",
-                cid=int(target.cid),
-            )
-            self._lan.toast(ws_id, f"Lay on Hands: healed {actual_heal} HP.")
+            if bool(getattr(self, "in_combat", False)):
+                self._use_bonus_action(c)
+            if cure_poisoned:
+                self._remove_condition_type(target, "poisoned")
+                self._log(
+                    f"{getattr(c, 'name', 'Player')} uses Lay on Hands on {getattr(target, 'name', 'Target')} "
+                    f"to remove Poisoned (5 points spent).",
+                    cid=int(target.cid),
+                )
+                self._lan.toast(ws_id, "Lay on Hands: removed Poisoned.")
+            else:
+                cur_hp = int(getattr(target, "hp", 0) or 0)
+                max_hp = int(getattr(target, "max_hp", cur_hp) or cur_hp)
+                actual_heal = max(0, min(heal_amount, max_hp - cur_hp))
+                setattr(target, "hp", max(0, min(max_hp, cur_hp + heal_amount)))
+                self._log(
+                    f"{getattr(c, 'name', 'Player')} uses Lay on Hands on {getattr(target, 'name', 'Target')} "
+                    f"for {actual_heal} HP ({heal_amount} points spent).",
+                    cid=int(target.cid),
+                )
+                self._lan.toast(ws_id, f"Lay on Hands: healed {actual_heal} HP.")
             self._rebuild_table(scroll_to_current=True)
         elif typ == "monk_patient_defense":
             c = self.combatants.get(cid)
