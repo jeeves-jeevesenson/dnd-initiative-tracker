@@ -1667,6 +1667,27 @@
 
     .rules-help-layout{display:grid; grid-template-columns:minmax(220px, 32%) 1fr; gap:10px; min-height:68vh; max-height:calc(100dvh - 170px);}
     .cast-modal-layout{display:grid; grid-template-columns:minmax(240px, 34%) 1fr; gap:10px; min-height:62vh; max-height:calc(100dvh - 180px);}
+    #castSpellModal{
+      align-items:flex-start;
+      overflow:auto;
+    }
+    #castSpellModal .panel{
+      width:min(1200px,96vw);
+      margin:auto;
+      background: var(--panel);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:14px;
+      padding:14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      max-height: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - var(--modalTopOffset) - var(--modalBottomOffset) - 24px);
+    }
+    #castSpellModal .cast-modal-layout{
+      min-height:0;
+      overflow:auto;
+    }
     .cast-modal-left,
     .cast-modal-right{min-height:0; overflow:auto; border:1px solid rgba(255,255,255,0.1); border-radius:12px; background:rgba(10,14,22,0.55); padding:10px;}
     .cast-modal-search{margin-bottom:10px;}
@@ -3179,7 +3200,7 @@ __DAMAGE_TYPE_OPTIONS__
 </div>
 
 <div class="modal" id="castSpellModal" aria-hidden="true">
-  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="castSpellModalTitle" style="width:min(1200px,96vw)">
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="castSpellModalTitle">
     <h2 id="castSpellModalTitle">Cast Spell</h2>
     <div class="modal-actions" style="margin-top:0;">
       <button class="btn" id="castSpellModalBack" type="button">Back</button>
