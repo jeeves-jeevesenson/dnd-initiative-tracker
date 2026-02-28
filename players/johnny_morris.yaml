@@ -99,6 +99,11 @@ resources:
     current: 1
     max_formula: '1'
     reset: long_rest
+  - id: wand_of_fireballs_fireball_cast
+    label: Wand of Fireballs (Fireball)
+    current: 1
+    max_formula: '1'
+    reset: long_rest
 features:
 - id: war_caster
   name: War Caster
@@ -382,6 +387,7 @@ spellcasting:
     - shillelagh
     - thorn-whip
     - produce-flame
+    - fire-bolt
     - shocking-grasp
     - starry-wisp
   known_spells:
@@ -472,14 +478,19 @@ magic_items:
   equipped:
   - matteh
   - nature_speaker_necklace
+  - wand_of_fireballs
   attuned:
   - matteh
   - nature_speaker_necklace
+  - wand_of_fireballs
   items:
   - id: matteh
     equipped: true
     attuned: true
   - id: nature_speaker_necklace
+    equipped: true
+    attuned: true
+  - id: wand_of_fireballs
     equipped: true
     attuned: true
 notes: {}
