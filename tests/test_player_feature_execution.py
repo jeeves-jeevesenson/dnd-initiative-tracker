@@ -94,6 +94,30 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
         )
         self.assertEqual((compiled_bonus.get("uses") or {}).get("pool"), "points")
 
+    def test_attuned_magic_item_actions_compile_even_when_slots_overfilled(self):
+        app = self._new_app()
+        tyrs_circlet = yaml.safe_load(Path("Items/Magic_Items/tyrs_circlet.yaml").read_text(encoding="utf-8"))
+        app._magic_items_registry_payload = lambda: {"tyrs_circlet": tyrs_circlet}
+        normalized = app._normalize_player_profile(
+            {
+                "name": "Dorian",
+                "resources": {"actions": [], "bonus_actions": [], "reactions": []},
+                "magic_items": {
+                    "attunement_slots": 3,
+                    "equipped": ["item_a", "item_b", "item_c", "tyrs_circlet"],
+                    "attuned": ["item_a", "item_b", "item_c", "tyrs_circlet"],
+                },
+            },
+            "dorian",
+        )
+        resources = normalized.get("resources") or {}
+        compiled_bonus = next(
+            entry
+            for entry in (resources.get("bonus_actions") or [])
+            if isinstance(entry, dict) and str(entry.get("name") or "") == "Activate Blessed by Tyr"
+        )
+        self.assertEqual((compiled_bonus.get("uses") or {}).get("pool"), "tyrs_circlet_blessing")
+
     def test_recover_spell_slots_handler_respects_budget_and_caps(self):
         app = self._new_app()
         saved = {}

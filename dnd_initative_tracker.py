@@ -5613,12 +5613,19 @@ class InitiativeTracker(base.InitiativeTracker):
             if entry.get("attuned") is True and item_id not in attuned_ids:
                 attuned_ids.append(item_id)
 
+        player_name = str(profile.get("name") or "unknown").strip() or "unknown"
         if len(attuned_ids) > attunement_slots:
-            attuned_ids = attuned_ids[:attunement_slots]
+            self._oplog(
+                (
+                    f"Player YAML {player_name}: {len(attuned_ids)} magic items are marked attuned "
+                    f"but only {attunement_slots} attunement slot(s) are configured; treating all explicitly "
+                    "attuned items as active."
+                ),
+                level="warning",
+            )
         attuned_set = set(attuned_ids)
 
         active_features: List[Dict[str, Any]] = []
-        player_name = str(profile.get("name") or "unknown").strip() or "unknown"
         for item_id in equipped_ids:
             item = registry.get(item_id)
             if not isinstance(item, dict):
