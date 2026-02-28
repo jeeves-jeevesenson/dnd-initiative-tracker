@@ -5065,6 +5065,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._reaction_prefs_by_cid: Dict[int, Dict[str, str]] = {}
         self._pending_reaction_offers: Dict[str, Dict[str, Any]] = {}
         self._pending_shield_resolutions: Dict[str, Dict[str, Any]] = {}
+        self._pending_hellish_rebuke_resolutions: Dict[str, Dict[str, Any]] = {}
         self._session_has_saved = False
 
         # POC helpers: start the LAN server automatically.
@@ -16698,7 +16699,7 @@ class InitiativeTracker(base.InitiativeTracker):
         normalized: Dict[str, str] = {}
         for key, value in prefs.items():
             kind = str(key or "").strip().lower()
-            if kind not in ("opportunity_attack", "war_caster", "shield"):
+            if kind not in ("opportunity_attack", "war_caster", "shield", "hellish_rebuke"):
                 continue
             mode = str(value or "").strip().lower()
             if mode not in ("off", "ask", "auto"):
@@ -16826,6 +16827,8 @@ class InitiativeTracker(base.InitiativeTracker):
             self._pending_reaction_offers.pop(str(req_id), None)
             if isinstance(getattr(self, "_pending_shield_resolutions", None), dict):
                 self._pending_shield_resolutions.pop(str(req_id), None)
+            if isinstance(getattr(self, "_pending_hellish_rebuke_resolutions", None), dict):
+                self._pending_hellish_rebuke_resolutions.pop(str(req_id), None)
 
     def _build_oa_reaction_choices(self, reactor: Any, include_war_caster: bool = True) -> List[Dict[str, Any]]:
         if reactor is None:
@@ -16916,6 +16919,83 @@ class InitiativeTracker(base.InitiativeTracker):
         if has_pool_cast:
             return True, "pool"
         return False, "no_resource"
+
+    def _can_offer_hellish_rebuke_reaction(self, target: Any) -> Tuple[bool, str]:
+        if target is None:
+            return False, "missing_target"
+        if int(getattr(target, "reaction_remaining", 0) or 0) <= 0:
+            return False, "no_reaction"
+        player_name = self._pc_name_for(int(getattr(target, "cid", 0) or 0))
+        profile = self._profile_for_player_name(player_name)
+        normalized = self._normalize_player_spell_config(profile if isinstance(profile, dict) else {}, include_missing_prepared=False)
+        prepared = [str(x or "").strip().lower() for x in list(normalized.get("prepared_list") or [])]
+        has_prepared = "hellish-rebuke" in prepared
+        has_slot = False
+        try:
+            _pn, slots = self._resolve_spell_slot_profile(player_name)
+            for lvl in range(1, 10):
+                if int((slots.get(str(lvl), {}) or {}).get("current", 0) or 0) > 0:
+                    has_slot = True
+                    break
+        except Exception:
+            has_slot = False
+        if has_prepared and has_slot:
+            return True, "spell_slot"
+        return False, "no_resource"
+
+    def _maybe_offer_hellish_rebuke(self, victim_cid: int, attacker_cid: Optional[int], damage_total: int) -> Optional[str]:
+        if int(damage_total or 0) <= 0:
+            return None
+        attacker_cid = _normalize_cid_value(attacker_cid, "hellish_rebuke.attacker")
+        if attacker_cid is None:
+            return None
+        if int(attacker_cid) == int(victim_cid):
+            return None
+        victim = self.combatants.get(int(victim_cid))
+        attacker = self.combatants.get(int(attacker_cid))
+        if victim is None or attacker is None:
+            return None
+        mode = self._reaction_mode_for(int(victim_cid), "hellish_rebuke", default="ask")
+        if mode == "off":
+            return None
+        can_offer, _reason = self._can_offer_hellish_rebuke_reaction(victim)
+        if not can_offer:
+            return None
+        positions = dict(getattr(self, "_lan_positions", {}) or {})
+        victim_pos = positions.get(int(victim_cid)) or self._lan_current_position(int(victim_cid))
+        attacker_pos = positions.get(int(attacker_cid)) or self._lan_current_position(int(attacker_cid))
+        if victim_pos is None or attacker_pos is None:
+            return None
+        dist_ft = math.hypot(float(victim_pos[0]) - float(attacker_pos[0]), float(victim_pos[1]) - float(attacker_pos[1])) * self._lan_feet_per_square()
+        if dist_ft - 60.0 > 1e-6:
+            return None
+        ws_targets = self._find_ws_for_cid(int(victim_cid))
+        choices = [
+            {"kind": "cast_hellish_rebuke", "label": "Hellish Rebuke", "mode": mode},
+            {"kind": "decline", "label": "No", "mode": "ask"},
+            {"kind": "never", "label": "No (don't ask again)", "mode": "ask"},
+        ]
+        req_id = self._create_reaction_offer(
+            int(victim_cid),
+            "hellish_rebuke",
+            int(attacker_cid),
+            int(attacker_cid),
+            choices,
+            ws_targets,
+            extra_payload={
+                "prompt": f"You took damage from {getattr(attacker, 'name', 'an attacker')}. React with Hellish Rebuke?",
+            },
+        )
+        if req_id:
+            self._pending_hellish_rebuke_resolutions[str(req_id)] = {
+                "victim_cid": int(victim_cid),
+                "attacker_cid": int(attacker_cid),
+                "spell_id": "hellish-rebuke",
+                "max_range_ft": 60,
+                "status": "offered",
+            }
+            self._oplog(f"reaction_offer:hellish_rebuke pending request_id={req_id} victim={int(victim_cid)} attacker={int(attacker_cid)} dist_ft={dist_ft:.1f}", level="info")
+        return req_id
 
     def _consume_shield_cast(self, target: Any) -> Tuple[bool, str]:
         if target is None:
@@ -20615,6 +20695,50 @@ class InitiativeTracker(base.InitiativeTracker):
                     )
                     self._lan_apply_action(resume_msg)
                 return
+            if str(offer.get("trigger") or "").strip().lower() == "hellish_rebuke":
+                pending = (getattr(self, "_pending_hellish_rebuke_resolutions", {}) or {}).get(request_id)
+                self._pending_reaction_offers.pop(request_id, None)
+                if not isinstance(pending, dict):
+                    self._lan.toast(ws_id, "That Hellish Rebuke offer expired, matey.")
+                    return
+                reactor_cid = _normalize_cid_value(offer.get("reactor_cid"), "reaction_response.hellish_rebuke.reactor")
+                reactor = self.combatants.get(int(reactor_cid)) if reactor_cid is not None else None
+                if reactor is None:
+                    return
+                if choice in ("never", "hellish_rebuke_never"):
+                    self._set_reaction_prefs(int(reactor_cid), {"hellish_rebuke": "off"})
+                    return
+                if choice in ("", "decline", "ignore", "hellish_rebuke_no"):
+                    return
+                if choice not in ("cast_hellish_rebuke", "hellish_rebuke", "hellish_rebuke_yes"):
+                    return
+                if not self._use_reaction(reactor):
+                    self._lan.toast(ws_id, "No reactions left for Hellish Rebuke, matey.")
+                    return
+                attacker_cid = _normalize_cid_value(pending.get("attacker_cid"), "reaction_response.hellish_rebuke.attacker")
+                if attacker_cid is None or int(attacker_cid) not in self.combatants:
+                    self._lan.toast(ws_id, "The attacker is gone; Hellish Rebuke fizzles.")
+                    return
+                pending["status"] = "accepted"
+                pending["reaction_spent"] = True
+                self._oplog(f"reaction_offer:hellish_rebuke accepted request_id={request_id} reactor={int(reactor_cid)} attacker={int(attacker_cid)}", level="info")
+                loop = getattr(self._lan, "_loop", None)
+                if ws_id is not None and loop:
+                    try:
+                        asyncio.run_coroutine_threadsafe(self._lan._send_async(int(ws_id), {
+                            "type": "hellish_rebuke_resolve_start",
+                            "request_id": str(request_id),
+                            "caster_cid": int(reactor_cid),
+                            "attacker_cid": int(attacker_cid),
+                            "target_cid": int(attacker_cid),
+                            "spell_id": "hellish-rebuke",
+                            "spell_slug": "hellish-rebuke",
+                            "action_type": "reaction",
+                            "max_range_ft": 60,
+                        }), loop)
+                    except Exception:
+                        pass
+                return
             if choice in ("", "decline", "ignore"):
                 self._pending_reaction_offers.pop(request_id, None)
                 return
@@ -21718,6 +21842,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     f"{' (CRIT)' if result_payload.get('critical') else ''}.",
                     cid=int(target_cid),
                 )
+                try:
+                    self._maybe_offer_hellish_rebuke(int(target_cid), int(cid), int(total_damage))
+                except Exception as exc:
+                    self._oplog(f"hellish_rebuke offer failed attacker={int(cid)} victim={int(target_cid)} ({exc})", level="warning")
             elif hit:
                 if haste_applied:
                     self._log(
@@ -21785,6 +21913,89 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "Spell hits.")
             else:
                 self._lan.toast(ws_id, "Spell resolved.")
+        elif typ == "hellish_rebuke_resolve":
+            request_id = str(msg.get("request_id") or "").strip()
+            pending = (getattr(self, "_pending_hellish_rebuke_resolutions", {}) or {}).pop(request_id, None)
+            self._pending_reaction_offers.pop(request_id, None)
+            if not isinstance(pending, dict):
+                self._lan.toast(ws_id, "That Hellish Rebuke resolve expired, matey.")
+                return
+            caster_cid = _normalize_cid_value(pending.get("victim_cid"), "hellish_rebuke_resolve.caster")
+            attacker_cid = _normalize_cid_value(msg.get("target_cid") if msg.get("target_cid") is not None else pending.get("attacker_cid"), "hellish_rebuke_resolve.attacker")
+            caster = self.combatants.get(int(caster_cid)) if caster_cid is not None else None
+            target = self.combatants.get(int(attacker_cid)) if attacker_cid is not None else None
+            if caster is None or target is None:
+                self._lan.toast(ws_id, "Hellish Rebuke target is no longer valid.")
+                return
+            try:
+                slot_level = int(msg.get("slot_level")) if msg.get("slot_level") is not None else 1
+            except Exception:
+                slot_level = 1
+            slot_level = max(1, int(slot_level))
+            player_name = self._pc_name_for(int(caster.cid))
+            ok_slot, slot_err, _spent_level = self._consume_spell_slot_for_cast(player_name, slot_level, 1)
+            if not ok_slot:
+                self._lan.toast(ws_id, slot_err or "Could not spend spell slot for Hellish Rebuke.")
+                return
+            _cols, _rows, _obs, _rough, positions = self._lan_live_map_data()
+            caster_pos = positions.get(int(caster.cid)) or self._lan_current_position(int(caster.cid))
+            target_pos = positions.get(int(target.cid)) or self._lan_current_position(int(target.cid))
+            if caster_pos is None or target_pos is None:
+                self._lan.toast(ws_id, "Could not resolve positions for Hellish Rebuke.")
+                return
+            dist_ft = math.hypot(float(caster_pos[0]) - float(target_pos[0]), float(caster_pos[1]) - float(target_pos[1])) * self._lan_feet_per_square()
+            if dist_ft - 60.0 > 1e-6:
+                self._lan.toast(ws_id, "Target be out of Hellish Rebuke range.")
+                return
+            profile = self._profile_for_player_name(player_name)
+            dc = self._compute_spell_save_dc(profile if isinstance(profile, dict) else {})
+            if dc is None:
+                dc = 8
+            save_mod = 0
+            target_saves = getattr(target, "saving_throws", None)
+            if isinstance(target_saves, dict):
+                try:
+                    save_mod = int(target_saves.get("dex", 0) or 0)
+                except Exception:
+                    save_mod = 0
+            if save_mod == 0:
+                mods = getattr(target, "ability_mods", None)
+                if isinstance(mods, dict):
+                    try:
+                        save_mod = int(mods.get("dex", 0) or 0)
+                    except Exception:
+                        save_mod = 0
+            save_roll = int(random.randint(1, 20))
+            save_total = int(save_roll) + int(save_mod)
+            save_passed = bool(save_roll != 1 and save_total >= int(dc))
+            dice_count = max(0, 2 + max(0, int(slot_level) - 1))
+            rolled = sum(random.randint(1, 10) for _ in range(int(dice_count))) if dice_count > 0 else 0
+            total_damage = int(math.floor(rolled / 2.0)) if save_passed else int(rolled)
+            if total_damage > 0:
+                self._apply_damage_to_target_with_temp_hp(target, int(total_damage))
+            self._log(f"{caster.name} casts Hellish Rebuke on {target.name} (slot {int(slot_level)}).", cid=int(caster.cid))
+            self._log(f"{target.name} makes a DEX save vs DC {int(dc)}: {int(save_roll)} + {int(save_mod)} = {int(save_total)} ({'PASS' if save_passed else 'FAIL'}).", cid=int(target.cid))
+            self._log(f"Hellish Rebuke deals {int(total_damage)} fire damage to {target.name}.", cid=int(target.cid))
+            result_payload = {
+                "type": "hellish_rebuke_result",
+                "ok": True,
+                "request_id": str(request_id),
+                "caster_cid": int(caster.cid),
+                "target_cid": int(target.cid),
+                "slot_level": int(slot_level),
+                "save": {"ability": "dex", "dc": int(dc), "roll": int(save_roll), "modifier": int(save_mod), "total": int(save_total), "passed": bool(save_passed)},
+                "damage_total": int(total_damage),
+                "damage_type": "fire",
+            }
+            loop = getattr(self._lan, "_loop", None)
+            if ws_id is not None and loop:
+                try:
+                    asyncio.run_coroutine_threadsafe(self._lan._send_async(int(ws_id), result_payload), loop)
+                except Exception:
+                    pass
+            self._lan_force_state_broadcast()
+            return
+
         elif typ == "attack_request":
             c = self.combatants.get(cid)
             if not c:
@@ -22930,6 +23141,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     f"{' (CRIT)' if is_critical else ''}.",
                     cid=cid,
                 )
+                try:
+                    self._maybe_offer_hellish_rebuke(int(target_cid), int(cid), int(total_damage))
+                except Exception as exc:
+                    self._oplog(f"hellish_rebuke offer failed attacker={int(cid)} victim={int(target_cid)} ({exc})", level="warning")
                 if hit and save_ability and save_dc > 0:
                     save_roll = random.randint(1, 20)
                     save_mod = _save_mod_for_target(target, save_ability)

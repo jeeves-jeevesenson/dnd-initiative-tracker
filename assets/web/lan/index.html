@@ -14126,6 +14126,8 @@ __DAMAGE_TYPE_OPTIONS__
           if (msg.trigger === "shield"){
             const attackName = String(msg.prompt_attack || "attack").trim() || "attack";
             reactionOfferBody.textContent = `You are being targeted with ${attackName}. React with Shield?`;
+          } else if (msg.trigger === "hellish_rebuke"){
+            reactionOfferBody.textContent = String(msg.prompt || `You took damage from ${srcName}. React with Hellish Rebuke?`);
           } else if (msg.trigger === "leave_reach"){
             reactionOfferBody.textContent = `${srcName} is leaving your reach.`;
           } else if (msg.trigger === "sentinel_disengage"){
@@ -14185,6 +14187,8 @@ __DAMAGE_TYPE_OPTIONS__
                   populateWarCasterModal();
                   if (warCasterTargetSelect){ warCasterTargetSelect.value = String(msg.target_cid); }
                   setWarCasterModalOpen(true);
+                } else if (String(choice.kind||"") === "never"){
+                  setReactionPref(claimedCid, "hellish_rebuke", "off");
                 }
                 if (reactionOfferModal){ reactionOfferModal.classList.remove("show"); reactionOfferModal.setAttribute("aria-hidden", "true"); }
               });
@@ -14199,6 +14203,34 @@ __DAMAGE_TYPE_OPTIONS__
             if (button) button.click();
           }, 120);
         }
+      } else if (msg.type === "hellish_rebuke_resolve_start"){
+        const actionCid = activeControlledUnitCid();
+        if (actionCid === null){
+          localToast("Claim the damaged creature to resolve Hellish Rebuke.");
+          return;
+        }
+        const target = getUnitByCid(msg.target_cid);
+        const targetName = target?.name || "target";
+        openSpellResolveModal({
+          spellName: "Hellish Rebuke",
+          slotLevel: 1,
+          baseLevel: 1,
+          dice: "2d10",
+          damageTypes: ["fire"],
+          resolveKind: "damage",
+          extraHint: `Target defaults to ${targetName}. Enter a slot level and optional manual damage.`
+        }, (damageEntries) => {
+          const slotInput = window.prompt("Hellish Rebuke slot level (1-9)", "1");
+          const slotLevel = Number.isFinite(Number(slotInput)) ? Math.max(1, Math.min(9, Math.floor(Number(slotInput)))) : 1;
+          send({
+            type: "hellish_rebuke_resolve",
+            cid: actionCid,
+            request_id: String(msg.request_id || ""),
+            target_cid: Number(msg.target_cid),
+            slot_level: slotLevel,
+            damage_entries: damageEntries,
+          });
+        });
       } else if (msg.type === "attack_result"){
         const me = getClaimedUnit();
         if (me && cidMatches(msg.attacker_cid, me.cid, "attackResult.attacker")){
