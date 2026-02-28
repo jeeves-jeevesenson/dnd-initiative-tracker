@@ -19314,11 +19314,53 @@ __DAMAGE_TYPE_OPTIONS__
     if (connPopoverEl.contains(event.target) || connEl.contains(event.target)) return;
     closeConnPopover();
   });
+
+  function cancelEscapeInteractionState(){
+    if (pendingAoePlacement){
+      clearPendingAoePlacement();
+      localToast("AoE placement cancelled.");
+      return true;
+    }
+    if (pendingSummonPlacement){
+      clearSummonPlacementState();
+      draw();
+      localToast("Summon placement cancelled.");
+      return true;
+    }
+    if (pendingSpellTargeting || pendingSpellTargetSelection || pendingPolymorphSelection || pendingMantleOfInspiration || pendingCommandResolution){
+      clearSpellTargetingSession("Spell targeting cancelled.");
+      return true;
+    }
+    if (pendingAttackResolve){
+      setAttackResolveModalOpen(false);
+      localToast("Attack cancelled.");
+      return true;
+    }
+    const hasAttackTargetingContext = attackOverlayMode
+      || pendingLayOnHandsTargeting
+      || pendingLayOnHandsResolve
+      || pendingBardicInspirationTargeting
+      || pendingBeguilingMagic
+      || pendingActionAttackWeapon
+      || pendingUnleashIncarnation
+      || pendingMonkBonusAttackSequence
+      || pendingOpportunityAttack
+      || pendingReactionRequestId;
+    if (hasAttackTargetingContext){
+      pendingLayOnHandsTargeting = null;
+      pendingLayOnHandsResolve = null;
+      pendingBardicInspirationTargeting = null;
+      setLayOnHandsOverlayOpen(false);
+      setAttackOverlayMode(false);
+      localToast("Targeting cancelled.");
+      return true;
+    }
+    return false;
+  }
+
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape"){
-      if (pendingAoePlacement){
-        clearPendingAoePlacement();
-        localToast("AoE placement cancelled.");
+      if (cancelEscapeInteractionState()){
         return;
       }
       if (spellbookConfirmModal?.classList.contains("show")){
