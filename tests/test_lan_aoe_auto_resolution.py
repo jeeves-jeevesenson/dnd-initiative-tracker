@@ -73,6 +73,11 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         self.app._lan_aoes = {}
         self.app._lan_next_aoe_id = 1
         self.app._map_window = None
+        self.app._name_role_memory = {
+            "Aelar": "pc",
+            "Goblin": "enemy",
+            "Orc": "enemy",
+        }
         self.app.combatants = {
             1: _make_combatant(1, "Aelar", 35, is_pc=True, ally=True),
             2: _make_combatant(2, "Goblin", 20),
@@ -454,6 +459,40 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         self.assertTrue(moved)
         self.assertEqual(self.app._lan_positions.get(2), (6, 4))
         self.assertEqual(self.app._map_window.unit_tokens.get(2), {"col": 6, "row": 4})
+    def test_cast_aoe_targeting_excludes_friendlies_when_friendly_fire_disabled(self):
+        self.app.combatants[4] = _make_combatant(4, "Companion", 20, ally=True)
+        self.app.combatants[4].saving_throws = {"dex": -1}
+        self.app.combatants[4].ability_mods = {"dex": -1}
+        self.app._name_role_memory["Companion"] = "ally"
+
+        self.preset["mechanics"]["targeting"] = {
+            "target_selection": {
+                "mode": "area",
+                "friendly_fire": False,
+            }
+        }
+
+        aoe = {"name": "Frost Burst", "damage_type": "cold", "dc": 14}
+        caster = self.app.combatants[1]
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 4, 3]):
+            resolved = self.app._lan_auto_resolve_cast_aoe(
+                1,
+                aoe,
+                caster=caster,
+                spell_slug="frost-burst",
+                spell_id="frost-burst",
+                slot_level=3,
+                preset=self.preset,
+                included_override=[2, 4],
+                remove_on_empty=False,
+                remove_after_resolve=False,
+            )
+
+        self.assertTrue(resolved)
+        self.assertEqual(self.app.combatants[2].hp, 13)
+        self.assertEqual(self.app.combatants[4].hp, 20)
+
+
 
 if __name__ == "__main__":
     unittest.main()

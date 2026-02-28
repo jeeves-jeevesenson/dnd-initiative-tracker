@@ -10343,6 +10343,22 @@ class InitiativeTracker(base.InitiativeTracker):
             return False
         outcomes = step.get("outcomes") if isinstance(step.get("outcomes"), dict) else {}
         included = list(included_override) if isinstance(included_override, list) else self._lan_compute_included_units_for_aoe(aoe)
+        targeting = mechanics.get("targeting") if isinstance(mechanics.get("targeting"), dict) else {}
+        target_selection = targeting.get("target_selection") if isinstance(targeting.get("target_selection"), dict) else {}
+        target_mode = str(target_selection.get("mode") or "").strip().lower()
+        friendly_fire_setting = target_selection.get("friendly_fire")
+        if (
+            caster is not None
+            and target_mode in ("", "area")
+            and isinstance(friendly_fire_setting, bool)
+            and friendly_fire_setting is False
+        ):
+            caster_friendly = self._lan_is_friendly_unit(int(caster.cid))
+            included = [
+                int(target_cid)
+                for target_cid in included
+                if self._lan_is_friendly_unit(int(target_cid)) != caster_friendly
+            ]
         if not included:
             if remove_on_empty and aoe.get("pinned") is not True and not aoe.get("persistent") and not aoe.get("over_time"):
                 self._lan_remove_aoe_by_id(aid)
