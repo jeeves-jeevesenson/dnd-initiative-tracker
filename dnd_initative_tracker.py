@@ -6499,6 +6499,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     mw._update_included_for_selected()
         except Exception:
             pass
+        self._normalize_concentration_state()
         self._update_turn_ui()
         return True
 
@@ -7034,6 +7035,7 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             pass
 
+        self._normalize_concentration_state()
         self._update_turn_ui()
         self._rebuild_table(scroll_to_current=True)
         self._lan_force_state_broadcast()
@@ -18758,13 +18760,13 @@ class InitiativeTracker(base.InitiativeTracker):
                 store[int(aid)] = aoe
                 self._lan_aoes = store
             if concentration_flag is True and c is not None:
-                c.concentrating = True
-                c.concentration_spell_level = spell_level
-                c.concentration_started_turn = (int(self.round_num), int(self.turn_num))
-                aoe_ids = list(getattr(c, "concentration_aoe_ids", []) or [])
-                if aid not in aoe_ids:
-                    aoe_ids.append(aid)
-                c.concentration_aoe_ids = aoe_ids
+                spell_key = self._canonical_concentration_spell_key(preset_dict, fallback=spell_slug or spell_id or name)
+                self._start_concentration(
+                    c,
+                    spell_key,
+                    spell_level=spell_level,
+                    aoe_ids=[int(aid)],
+                )
             spawned_cids: List[int] = []
             if summon_cfg and cid is not None:
                 spawned_cids = self._spawn_summons_from_cast(
@@ -18990,9 +18992,12 @@ class InitiativeTracker(base.InitiativeTracker):
                         self._lan.toast(ws_id, "Summoning failed, matey.")
                         return
                     if bool(preset.get("concentration")):
-                        c.concentrating = True
-                        c.concentration_spell = str(preset.get("slug") or preset.get("id") or "")
-                        c.concentration_target = list(spawned_cids)
+                        self._start_concentration(
+                            c,
+                            self._canonical_concentration_spell_key(preset, fallback=spell_slug or spell_id),
+                            spell_level=slot_level,
+                            targets=[int(x) for x in spawned_cids],
+                        )
                 self._rebuild_table(scroll_to_current=True)
             elif summon_cfg and cid is not None:
                 spawned_cids = self._spawn_summons_from_cast(
@@ -19009,9 +19014,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan.toast(ws_id, "Summoning failed, matey.")
                     return
                 if bool(preset.get("concentration")) and c is not None:
-                    c.concentrating = True
-                    c.concentration_spell = str(preset.get("slug") or preset.get("id") or "")
-                    c.concentration_target = list(spawned_cids)
+                    self._start_concentration(
+                        c,
+                        self._canonical_concentration_spell_key(preset, fallback=spell_slug or spell_id),
+                        spell_level=slot_level,
+                        targets=[int(x) for x in spawned_cids],
+                    )
             if c is not None:
                 if beguiling_magic_slot_equivalent_used and preset_school in {"enchantment", "illusion"}:
                     self._arm_beguiling_magic_window(c, duration_s=20.0)
@@ -19961,6 +19969,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 aoe_ids = list(getattr(caster, "concentration_aoe_ids", []) or [])
                 if aid in aoe_ids:
                     caster.concentration_aoe_ids = [entry for entry in aoe_ids if entry != aid]
+                if bool(d.get("concentration_bound")) and aid in aoe_ids:
+                    self._end_concentration(caster)
             return
 
         if typ == "mount_request":
@@ -20720,16 +20730,15 @@ class InitiativeTracker(base.InitiativeTracker):
 
             if spell_mode == "effect":
                 if bool((preset or {}).get("concentration")) and c is not None:
-                    if bool(getattr(c, "concentrating", False)):
-                        self._end_concentration(c)
-                    c.concentrating = True
-                    c.concentration_spell = str((preset or {}).get("slug") or (preset or {}).get("id") or spell_name)
-                    c.concentration_spell_level = int((preset or {}).get("level") or 0) or None
-                    c.concentration_started_turn = (int(self.round_num), int(self.turn_num))
                     current_targets = list(getattr(c, "concentration_target", []) or [])
                     if int(target.cid) not in current_targets:
                         current_targets.append(int(target.cid))
-                    c.concentration_target = current_targets
+                    self._start_concentration(
+                        c,
+                        self._canonical_concentration_spell_key(preset, fallback=spell_name),
+                        spell_level=int((preset or {}).get("level") or 0) or None,
+                        targets=current_targets,
+                    )
                 self._log(f"{c.name} targets {result_payload['target_name']} with {spell_name}.", cid=int(target_cid))
                 try:
                     self._rebuild_table(scroll_to_current=True)
@@ -20822,16 +20831,15 @@ class InitiativeTracker(base.InitiativeTracker):
                     setattr(target, "polymorph_source_cid", int(c.cid))
                     setattr(target, "polymorph_remaining_turns", int(duration_turns) if duration_turns is not None else None)
                     setattr(target, "polymorph_duration_turns", int(duration_turns) if duration_turns is not None else None)
-                    if bool(getattr(c, "concentrating", False)):
-                        self._end_concentration(c)
-                    c.concentrating = True
-                    c.concentration_spell = "polymorph"
-                    c.concentration_spell_level = int((preset or {}).get("level") or 0) or None
-                    c.concentration_started_turn = (int(self.round_num), int(self.turn_num))
                     current_targets = list(getattr(c, "concentration_target", []) or [])
                     if int(target.cid) not in current_targets:
                         current_targets.append(int(target.cid))
-                    c.concentration_target = current_targets
+                    self._start_concentration(
+                        c,
+                        "polymorph",
+                        spell_level=int((preset or {}).get("level") or 0) or None,
+                        targets=current_targets,
+                    )
                     result_payload["polymorph_form"] = {
                         "id": str(form.get("id") or ""),
                         "name": str(form.get("name") or "") or "Beast",
@@ -20904,16 +20912,15 @@ class InitiativeTracker(base.InitiativeTracker):
             result_payload["damage_total"] = int(total_damage if hit else 0)
             haste_applied = False
             if hit and is_haste and c is not None:
-                if bool(getattr(c, "concentrating", False)):
-                    self._end_concentration(c)
-                c.concentrating = True
-                c.concentration_spell = "haste"
-                c.concentration_spell_level = int((preset or {}).get("level") or 0) or None
-                c.concentration_started_turn = (int(self.round_num), int(self.turn_num))
                 current_targets = list(getattr(c, "concentration_target", []) or [])
                 if int(target.cid) not in current_targets:
                     current_targets.append(int(target.cid))
-                c.concentration_target = current_targets
+                self._start_concentration(
+                    c,
+                    "haste",
+                    spell_level=int((preset or {}).get("level") or 0) or None,
+                    targets=current_targets,
+                )
                 haste_applied = bool(
                     self._apply_haste_effect(c, target, duration_turns=haste_duration_turns, ac_bonus=haste_ac_bonus)
                 )
@@ -23107,6 +23114,39 @@ class InitiativeTracker(base.InitiativeTracker):
         setattr(target, "temp_hp", int(form.get("hp") or 0))
         setattr(target, "is_spellcaster", False)
 
+
+    def _canonical_concentration_spell_key(self, preset: Optional[Dict[str, Any]] = None, fallback: Any = "") -> str:
+        if isinstance(preset, dict):
+            for key in ("slug", "id", "name"):
+                value = str(preset.get(key) or "").strip()
+                if value:
+                    return value
+        value = str(fallback or "").strip()
+        return value
+
+    def _normalize_concentration_state(self) -> None:
+        for caster in list(getattr(self, "combatants", {}).values()):
+            if caster is None:
+                continue
+            concentrating = bool(getattr(caster, "concentrating", False))
+            spell = str(getattr(caster, "concentration_spell", "") or "").strip()
+            if spell and not concentrating:
+                caster.concentrating = True
+                continue
+            if concentrating and not spell:
+                inferred_spell = ""
+                for aid in list(getattr(caster, "concentration_aoe_ids", []) or []):
+                    aoe = (getattr(self, "_lan_aoes", {}) or {}).get(int(aid))
+                    if not isinstance(aoe, dict):
+                        continue
+                    inferred_spell = str(aoe.get("spell_slug") or aoe.get("spell_id") or aoe.get("name") or "").strip()
+                    if inferred_spell:
+                        break
+                if inferred_spell:
+                    caster.concentration_spell = inferred_spell
+                else:
+                    self._end_concentration(caster)
+
     def _clear_polymorph_effect(self, target: Any, *, reason: str = "") -> bool:
         if target is None:
             return False
@@ -23129,6 +23169,7 @@ class InitiativeTracker(base.InitiativeTracker):
             mode_speed = int(self._mode_speed(target) or 0)
             setattr(target, "move_total", mode_speed)
             setattr(target, "move_remaining", mode_speed)
+        source_cid = int(getattr(target, "polymorph_source_cid", 0) or 0)
         setattr(target, "polymorph_base", None)
         setattr(target, "wild_shape_form_id", "")
         setattr(target, "wild_shape_form_name", "")
@@ -23138,6 +23179,11 @@ class InitiativeTracker(base.InitiativeTracker):
         setattr(target, "temp_hp", 0)
         if reason:
             self._log(f"{target.name} returns to normal form ({reason}).", cid=int(target.cid))
+        caster = self.combatants.get(int(source_cid)) if source_cid > 0 else None
+        if caster is not None:
+            caster_spell = str(getattr(caster, "concentration_spell", "") or "").strip().lower()
+            if bool(getattr(caster, "concentrating", False)) and caster_spell == "polymorph":
+                self._end_concentration(caster)
         return True
 
     def _maybe_end_polymorph_from_temp_hp(self, target: Any, *, temp_before: int, temp_after: int, reason: str = "") -> None:
@@ -23209,15 +23255,30 @@ class InitiativeTracker(base.InitiativeTracker):
         spell_key = str(getattr(c, "concentration_spell", "") or "").strip().lower()
         targets = list(getattr(c, "concentration_target", []) or [])
         super()._end_concentration(c)
-        if spell_key != "polymorph":
+        if spell_key == "polymorph":
+            for target_cid in targets:
+                target = self.combatants.get(int(target_cid))
+                if target is None:
+                    continue
+                if int(getattr(target, "polymorph_source_cid", 0) or 0) != int(c.cid):
+                    continue
+                self._clear_polymorph_effect(target, reason="concentration ended")
+        if not spell_key:
             return
-        for target_cid in targets:
-            target = self.combatants.get(int(target_cid))
-            if target is None:
+        candidate_group_ids = {str(getattr(self.combatants.get(int(tid)), "summon_group_id", "") or "").strip() for tid in targets}
+        candidate_group_ids = {gid for gid in candidate_group_ids if gid}
+        for group_id in list(candidate_group_ids):
+            meta = self._summon_group_meta.get(group_id) if isinstance(getattr(self, "_summon_group_meta", None), dict) else None
+            if not isinstance(meta, dict):
                 continue
-            if int(getattr(target, "polymorph_source_cid", 0) or 0) != int(c.cid):
+            if int(meta.get("caster_cid") or -1) != int(c.cid):
                 continue
-            self._clear_polymorph_effect(target, reason="concentration ended")
+            if not bool(meta.get("concentration")):
+                continue
+            meta_spell = str(meta.get("spell") or "").strip().lower()
+            if meta_spell != spell_key:
+                continue
+            self._dismiss_summon_group(group_id)
 
     def _lan_try_move(self, cid: int, col: int, row: int) -> Tuple[bool, str, int]:
         # Boundaries
