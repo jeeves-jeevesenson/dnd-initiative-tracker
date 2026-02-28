@@ -270,6 +270,123 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(result.get("damage_total"), 8)
         self.assertEqual(self.app.combatants[2].hp, 12)
 
+    def test_spell_target_request_scales_cantrip_damage_dice_from_character_level(self):
+        self.app._profile_for_player_name = lambda _name: {"leveling": {"level": 5}}
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "shocking-grasp",
+            "id": "shocking-grasp",
+            "name": "Shocking Grasp",
+            "scaling": {
+                "kind": "character_level",
+                "thresholds": {
+                    "5": {"add": "1d8"},
+                    "11": {"add": "1d8"},
+                    "17": {"add": "1d8"},
+                },
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 30,
+            "target_cid": 2,
+            "spell_name": "Shocking Grasp",
+            "spell_slug": "shocking-grasp",
+            "spell_mode": "attack",
+            "hit": True,
+            "critical": False,
+            "damage_entries": [],
+            "damage_dice": "1d8",
+            "damage_type": "lightning",
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[3, 4]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("damage_entries"), [{"amount": 7, "type": "lightning"}])
+        self.assertEqual(result.get("damage_total"), 7)
+        self.assertEqual(self.app.combatants[2].hp, 13)
+
+    def test_spell_target_request_scales_cantrip_damage_dice_for_critical(self):
+        self.app._profile_for_player_name = lambda _name: {"leveling": {"level": 17}}
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "shocking-grasp",
+            "id": "shocking-grasp",
+            "name": "Shocking Grasp",
+            "scaling": {
+                "kind": "character_level",
+                "thresholds": {
+                    "5": {"add": "1d8"},
+                    "11": {"add": "1d8"},
+                    "17": {"add": "1d8"},
+                },
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 31,
+            "target_cid": 2,
+            "spell_name": "Shocking Grasp",
+            "spell_slug": "shocking-grasp",
+            "spell_mode": "attack",
+            "hit": True,
+            "critical": True,
+            "damage_entries": [],
+            "damage_dice": "1d8",
+            "damage_type": "lightning",
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("damage_entries"), [{"amount": 32, "type": "lightning"}])
+        self.assertEqual(result.get("damage_total"), 32)
+
+    def test_spell_target_request_scales_cantrip_damage_when_thresholds_use_totals(self):
+        self.app._profile_for_player_name = lambda _name: {"leveling": {"level": 11}}
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "acid-splash",
+            "id": "acid-splash",
+            "name": "Acid Splash",
+            "scaling": {
+                "kind": "character_level",
+                "thresholds": {
+                    "5": {"add": "2d6"},
+                    "11": {"add": "3d6"},
+                    "17": {"add": "4d6"},
+                },
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 32,
+            "target_cid": 2,
+            "spell_name": "Acid Splash",
+            "spell_slug": "acid-splash",
+            "spell_mode": "attack",
+            "hit": True,
+            "critical": False,
+            "damage_entries": [],
+            "damage_dice": "1d6",
+            "damage_type": "acid",
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[2, 2, 2]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("damage_entries"), [{"amount": 6, "type": "acid"}])
+        self.assertEqual(result.get("damage_total"), 6)
+
     def test_polymorph_save_fail_requires_form_selection(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "polymorph",
