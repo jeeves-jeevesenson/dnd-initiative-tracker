@@ -12775,6 +12775,7 @@ __DAMAGE_TYPE_OPTIONS__
       return prefs[key];
     }
     if (key === "opportunity_attack") return "auto";
+    if (key === "shield") return "ask";
     return "ask";
   }
 
@@ -12785,6 +12786,7 @@ __DAMAGE_TYPE_OPTIONS__
     const payload = {
       opportunity_attack: String(prefs.opportunity_attack || "auto"),
       war_caster: String(prefs.war_caster || "ask"),
+      shield: String(prefs.shield || "ask"),
     };
     send({type:"reaction_prefs_update", cid: claimedCid, prefs: payload});
   }
@@ -14121,7 +14123,10 @@ __DAMAGE_TYPE_OPTIONS__
           const trg = getUnitByCid(msg.target_cid);
           const srcName = src?.name || `#${msg.source_cid}`;
           const trgName = trg?.name || `#${msg.target_cid}`;
-          if (msg.trigger === "leave_reach"){
+          if (msg.trigger === "shield"){
+            const attackName = String(msg.prompt_attack || "attack").trim() || "attack";
+            reactionOfferBody.textContent = `You are being targeted with ${attackName}. React with Shield?`;
+          } else if (msg.trigger === "leave_reach"){
             reactionOfferBody.textContent = `${srcName} is leaving your reach.`;
           } else if (msg.trigger === "sentinel_disengage"){
             reactionOfferBody.textContent = `${srcName} disengaged within Sentinel range.`;
@@ -14131,30 +14136,61 @@ __DAMAGE_TYPE_OPTIONS__
         }
         if (reactionOfferList){
           reactionOfferList.textContent = "";
-          const choices = Array.isArray(msg.choices) ? msg.choices : [];
-          choices.forEach((choice)=>{
-            const btn = document.createElement("button");
-            btn.className = "btn action-picker-item";
-            btn.type = "button";
-            btn.textContent = String(choice.label || choice.kind || "Reaction");
-            btn.addEventListener("click", ()=>{
-              send({type:"reaction_response", cid: claimedCid, request_id: pendingReactionRequestId, choice: String(choice.kind || "")});
-              if (String(choice.kind||"") === "opportunity_attack"){
-                const target = getUnitByCid(msg.target_cid);
-                const weapon = getPrimaryMeleeAttackWeapon(getClaimedUnit());
-                if (target && weapon){
-                  pendingOpportunityAttack = true;
-                  openAttackResolveModal(target, weapon);
-                }
-              } else if (String(choice.kind||"") === "war_caster"){
-                populateWarCasterModal();
-                if (warCasterTargetSelect){ warCasterTargetSelect.value = String(msg.target_cid); }
-                setWarCasterModalOpen(true);
-              }
+          if (msg.trigger === "shield"){
+            const yesBtn = document.createElement("button");
+            yesBtn.className = "btn action-picker-item";
+            yesBtn.type = "button";
+            yesBtn.textContent = "Yes";
+            yesBtn.addEventListener("click", ()=>{
+              send({type:"reaction_response", cid: claimedCid, request_id: pendingReactionRequestId, choice:"shield_yes"});
               if (reactionOfferModal){ reactionOfferModal.classList.remove("show"); reactionOfferModal.setAttribute("aria-hidden", "true"); }
             });
-            reactionOfferList.appendChild(btn);
-          });
+            const noBtn = document.createElement("button");
+            noBtn.className = "btn action-picker-item";
+            noBtn.type = "button";
+            noBtn.textContent = "No";
+            noBtn.addEventListener("click", ()=>{
+              send({type:"reaction_response", cid: claimedCid, request_id: pendingReactionRequestId, choice:"shield_no"});
+              if (reactionOfferModal){ reactionOfferModal.classList.remove("show"); reactionOfferModal.setAttribute("aria-hidden", "true"); }
+            });
+            const neverBtn = document.createElement("button");
+            neverBtn.className = "btn action-picker-item";
+            neverBtn.type = "button";
+            neverBtn.textContent = "No (don't ask me again)";
+            neverBtn.addEventListener("click", ()=>{
+              setReactionPref(claimedCid, "shield", "off");
+              send({type:"reaction_response", cid: claimedCid, request_id: pendingReactionRequestId, choice:"shield_never"});
+              if (reactionOfferModal){ reactionOfferModal.classList.remove("show"); reactionOfferModal.setAttribute("aria-hidden", "true"); }
+            });
+            reactionOfferList.appendChild(yesBtn);
+            reactionOfferList.appendChild(noBtn);
+            reactionOfferList.appendChild(neverBtn);
+          } else {
+            const choices = Array.isArray(msg.choices) ? msg.choices : [];
+            choices.forEach((choice)=>{
+              const btn = document.createElement("button");
+              btn.className = "btn action-picker-item";
+              btn.type = "button";
+              btn.textContent = String(choice.label || choice.kind || "Reaction");
+              btn.addEventListener("click", ()=>{
+                send({type:"reaction_response", cid: claimedCid, request_id: pendingReactionRequestId, choice: String(choice.kind || "")});
+                if (String(choice.kind||"") === "opportunity_attack"){
+                  const target = getUnitByCid(msg.target_cid);
+                  const weapon = getPrimaryMeleeAttackWeapon(getClaimedUnit());
+                  if (target && weapon){
+                    pendingOpportunityAttack = true;
+                    openAttackResolveModal(target, weapon);
+                  }
+                } else if (String(choice.kind||"") === "war_caster"){
+                  populateWarCasterModal();
+                  if (warCasterTargetSelect){ warCasterTargetSelect.value = String(msg.target_cid); }
+                  setWarCasterModalOpen(true);
+                }
+                if (reactionOfferModal){ reactionOfferModal.classList.remove("show"); reactionOfferModal.setAttribute("aria-hidden", "true"); }
+              });
+              reactionOfferList.appendChild(btn);
+            });
+          }
         }
         if (reactionOfferModal){ reactionOfferModal.classList.add("show"); reactionOfferModal.setAttribute("aria-hidden", "false"); }
         if (msg.mode === "auto" && msg.auto_choice){

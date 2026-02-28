@@ -5064,6 +5064,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._pending_echo_tether_confirms: Dict[str, Dict[str, Any]] = {}
         self._reaction_prefs_by_cid: Dict[int, Dict[str, str]] = {}
         self._pending_reaction_offers: Dict[str, Dict[str, Any]] = {}
+        self._pending_shield_resolutions: Dict[str, Dict[str, Any]] = {}
         self._session_has_saved = False
 
         # POC helpers: start the LAN server automatically.
@@ -5783,6 +5784,7 @@ class InitiativeTracker(base.InitiativeTracker):
         skip, msg, dec_skip = super()._process_start_of_turn(c)
         setattr(c, "_rage_attack_made_this_turn", False)
         setattr(c, "_rage_took_damage_this_turn", False)
+        self._shield_effect_expire_if_turn_start(_normalize_cid_value(getattr(c, "cid", None), "shield.turn_start.cid"))
         self._run_combatant_turn_hooks(c, "start_turn")
         try:
             if bool(getattr(c, "is_pc", False)):
@@ -6863,6 +6865,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "pending_mount_requests": self._json_safe(getattr(self, "_pending_mount_requests", {})),
                 "reaction_prefs_by_cid": self._json_safe(getattr(self, "_reaction_prefs_by_cid", {})),
                 "pending_reaction_offers": self._json_safe(getattr(self, "_pending_reaction_offers", {})),
+                "pending_shield_resolutions": self._json_safe(getattr(self, "_pending_shield_resolutions", {})),
                 "concentration_save_state": self._json_safe(getattr(self, "_concentration_save_state", {})),
             },
             "map": {
@@ -7037,6 +7040,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._pending_mount_requests = dict(combat.get("pending_mount_requests") if isinstance(combat.get("pending_mount_requests"), dict) else {})
         self._reaction_prefs_by_cid = {int(k): dict(v) for k, v in (combat.get("reaction_prefs_by_cid") or {}).items() if isinstance(v, dict)} if isinstance(combat.get("reaction_prefs_by_cid"), dict) else {}
         self._pending_reaction_offers = dict(combat.get("pending_reaction_offers") if isinstance(combat.get("pending_reaction_offers"), dict) else {})
+        self._pending_shield_resolutions = dict(combat.get("pending_shield_resolutions") if isinstance(combat.get("pending_shield_resolutions"), dict) else {})
         self._concentration_save_state = dict(combat.get("concentration_save_state") if isinstance(combat.get("concentration_save_state"), dict) else {})
 
         grid = map_state.get("grid") if isinstance(map_state.get("grid"), dict) else {}
@@ -8042,6 +8046,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._pending_echo_tether_confirms = {}
         self._reaction_prefs_by_cid = {}
         self._pending_reaction_offers = {}
+        self._pending_shield_resolutions = {}
         self._concentration_save_state = {}
         self._session_has_saved = False
 
@@ -16693,7 +16698,7 @@ class InitiativeTracker(base.InitiativeTracker):
         normalized: Dict[str, str] = {}
         for key, value in prefs.items():
             kind = str(key or "").strip().lower()
-            if kind not in ("opportunity_attack", "war_caster"):
+            if kind not in ("opportunity_attack", "war_caster", "shield"):
                 continue
             mode = str(value or "").strip().lower()
             if mode not in ("off", "ask", "auto"):
@@ -16745,6 +16750,7 @@ class InitiativeTracker(base.InitiativeTracker):
         target_cid: int,
         allowed_choices: List[Dict[str, Any]],
         ws_ids: List[int],
+        extra_payload: Optional[Dict[str, Any]] = None,
     ) -> Optional[str]:
         resolved_ws_ids: List[int] = []
         for ws_id in ws_ids or []:
@@ -16776,6 +16782,8 @@ class InitiativeTracker(base.InitiativeTracker):
             "choices": [{"kind": c.get("kind"), "label": c.get("label")} for c in allowed_choices],
             "mode": "ask" if ask_choices else "auto",
         }
+        if isinstance(extra_payload, dict):
+            payload.update({k: v for k, v in extra_payload.items() if k not in ("type", "request_id")})
         if not ask_choices and len(auto_choices) == 1:
             payload["auto_choice"] = auto_choices[0].get("kind")
         expires_at = float(time.time() + 12.0)
@@ -16816,6 +16824,8 @@ class InitiativeTracker(base.InitiativeTracker):
             if exp <= 0 or exp > now:
                 continue
             self._pending_reaction_offers.pop(str(req_id), None)
+            if isinstance(getattr(self, "_pending_shield_resolutions", None), dict):
+                self._pending_shield_resolutions.pop(str(req_id), None)
 
     def _build_oa_reaction_choices(self, reactor: Any, include_war_caster: bool = True) -> List[Dict[str, Any]]:
         if reactor is None:
@@ -16857,6 +16867,85 @@ class InitiativeTracker(base.InitiativeTracker):
                 return list(self._lan._cid_to_ws.get(int(cid), set()))
         except Exception:
             return []
+
+    def _shield_is_active(self, target: Any) -> bool:
+        return bool(getattr(target, "_shield_reaction_active", False))
+
+    def _shield_effect_start(self, target: Any) -> None:
+        setattr(target, "_shield_reaction_active", True)
+
+    def _shield_effect_expire_if_turn_start(self, cid: Optional[int]) -> None:
+        if cid is None:
+            return
+        target = self.combatants.get(int(cid))
+        if target is None:
+            return
+        if not bool(getattr(target, "_shield_reaction_active", False)):
+            return
+        setattr(target, "_shield_reaction_active", False)
+        self._log(f"{getattr(target, 'name', 'Target')}\'s Shield fades.", cid=int(cid))
+
+    def _shield_ac_bonus_for_target(self, target: Any) -> int:
+        return 5 if self._shield_is_active(target) else 0
+
+    def _can_offer_shield_reaction(self, target: Any) -> Tuple[bool, str]:
+        if target is None:
+            return False, "missing_target"
+        if int(getattr(target, "reaction_remaining", 0) or 0) <= 0:
+            return False, "no_reaction"
+        if self._shield_is_active(target):
+            return False, "already_active"
+        player_name = self._pc_name_for(int(getattr(target, "cid", 0) or 0))
+        profile = self._profile_for_player_name(player_name)
+        normalized = self._normalize_player_spell_config(profile if isinstance(profile, dict) else {}, include_missing_prepared=False)
+        prepared = [str(x or "").strip().lower() for x in list(normalized.get("prepared_list") or [])]
+        has_prepared = "shield" in prepared
+        has_slot = False
+        try:
+            _pn, slots = self._resolve_spell_slot_profile(player_name)
+            for lvl in range(1, 10):
+                if int((slots.get(str(lvl), {}) or {}).get("current", 0) or 0) > 0:
+                    has_slot = True
+                    break
+        except Exception:
+            has_slot = False
+        pool_grants = normalized.get("pool_granted_spells") if isinstance(normalized.get("pool_granted_spells"), list) else []
+        has_pool_cast = any(str((entry or {}).get("spell") or "").strip().lower() == "shield" for entry in pool_grants)
+        if has_prepared and has_slot:
+            return True, "spell_slot"
+        if has_pool_cast:
+            return True, "pool"
+        return False, "no_resource"
+
+    def _consume_shield_cast(self, target: Any) -> Tuple[bool, str]:
+        if target is None:
+            return False, "No target, matey."
+        player_name = self._pc_name_for(int(getattr(target, "cid", 0) or 0))
+        profile = self._profile_for_player_name(player_name)
+        normalized = self._normalize_player_spell_config(profile if isinstance(profile, dict) else {}, include_missing_prepared=False)
+        prepared = [str(x or "").strip().lower() for x in list(normalized.get("prepared_list") or [])]
+        if "shield" in prepared:
+            ok_slot, slot_err, _spent_level = self._consume_spell_slot_for_cast(player_name, 1, 1)
+            if ok_slot:
+                return True, ""
+            return False, slot_err or "Could not spend spell slot for Shield, matey."
+        pool_grants = normalized.get("pool_granted_spells") if isinstance(normalized.get("pool_granted_spells"), list) else []
+        for entry in pool_grants:
+            if str((entry or {}).get("spell") or "").strip().lower() != "shield":
+                continue
+            consumes = entry.get("consumes_pool") if isinstance(entry.get("consumes_pool"), dict) else {}
+            pool_id = str(consumes.get("id") or "").strip()
+            if not pool_id:
+                continue
+            try:
+                pool_cost = int(consumes.get("cost", 1))
+            except Exception:
+                pool_cost = 1
+            ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, pool_id, max(1, pool_cost))
+            if ok_pool:
+                return True, ""
+            return False, pool_err or "Could not spend Shield resource, matey."
+        return False, "Shield is not available to cast, matey."
 
     def _lan_reaction_debug_enabled(self) -> bool:
         raw = str(os.environ.get("LAN_REACTION_DEBUG", "") or "").strip().lower()
@@ -20492,11 +20581,45 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             if int(offer.get("reactor_cid") or -1) != int(cid or -1):
                 return
-            if str(msg.get("choice") or "").strip().lower() in ("", "decline", "ignore"):
+            choice = str(msg.get("choice") or "").strip().lower()
+            if str(offer.get("trigger") or "").strip().lower() == "shield":
+                pending = (getattr(self, "_pending_shield_resolutions", {}) or {}).pop(request_id, None)
+                self._pending_reaction_offers.pop(request_id, None)
+                if not isinstance(pending, dict):
+                    self._lan.toast(ws_id, "That Shield offer expired, matey.")
+                    return
+                reactor_cid = _normalize_cid_value(offer.get("reactor_cid"), "reaction_response.shield.reactor")
+                reactor = self.combatants.get(int(reactor_cid)) if reactor_cid is not None else None
+                if reactor is None:
+                    return
+                if choice in ("shield_never", "never"):
+                    self._set_reaction_prefs(int(reactor_cid), {"shield": "off"})
+                if choice in ("shield_yes", "shield_cast", "shield"):
+                    if not self._use_reaction(reactor):
+                        self._lan.toast(ws_id, "No reactions left for Shield, matey.")
+                        choice = "shield_no"
+                    else:
+                        ok_cast, err_cast = self._consume_shield_cast(reactor)
+                        if not ok_cast:
+                            self._lan.toast(ws_id, err_cast or "Could not cast Shield, matey.")
+                            choice = "shield_no"
+                        else:
+                            self._shield_effect_start(reactor)
+                            self._log(f"{getattr(reactor, 'name', 'Target')} casts Shield.", cid=int(getattr(reactor, 'cid', 0) or 0))
+                resume_msg = dict(pending.get("msg") or {})
+                if isinstance(resume_msg, dict):
+                    resume_msg["_shield_resolution_done"] = True
+                    self._oplog(
+                        f"reaction_offer:shield resolved request_id={request_id} choice={choice}",
+                        level="info",
+                    )
+                    self._lan_apply_action(resume_msg)
+                return
+            if choice in ("", "decline", "ignore"):
                 self._pending_reaction_offers.pop(request_id, None)
                 return
             offer["status"] = "accepted"
-            offer["accepted_choice"] = str(msg.get("choice") or "").strip().lower()
+            offer["accepted_choice"] = choice
             return
 
         if typ == "dismount":
@@ -21015,6 +21138,32 @@ class InitiativeTracker(base.InitiativeTracker):
             sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
             preset_slug = str((preset or {}).get("slug") or "").strip().lower()
             preset_id = str((preset or {}).get("id") or "").strip().lower()
+            is_magic_missile = preset_slug in ("magic-missile", "magic_missile") or preset_id in ("magic-missile", "magic_missile")
+            if is_magic_missile and not bool(msg.get("_shield_resolution_done")):
+                shield_mode = self._reaction_mode_for(int(target_cid), "shield", default="ask")
+                can_shield, _shield_reason = self._can_offer_shield_reaction(target)
+                if shield_mode != "off" and can_shield:
+                    choices = [{"kind": "shield_yes", "label": "Yes", "mode": shield_mode}]
+                    ws_targets = self._find_ws_for_cid(int(target_cid))
+                    req_id = self._create_reaction_offer(
+                        int(target_cid),
+                        "shield",
+                        int(cid),
+                        int(target_cid),
+                        choices,
+                        ws_targets,
+                        extra_payload={"prompt_attack": str(spell_name or "Magic Missile")},
+                    )
+                    if req_id:
+                        self._pending_shield_resolutions[str(req_id)] = {"msg": dict(msg)}
+                        self._oplog(
+                            f"reaction_offer:shield pending request_id={req_id} magic_missile caster={int(cid)} target={int(target_cid)}",
+                            level="info",
+                        )
+                        caster_ws_targets = self._find_ws_for_cid(int(cid))
+                        for caster_ws in caster_ws_targets:
+                            self._lan.toast(int(caster_ws), "Waiting for Shield response…")
+                        return
             is_haste = preset_slug == "haste" or preset_id == "haste"
             is_polymorph = preset_slug == "polymorph" or preset_id == "polymorph"
             is_phantasmal_killer = preset_slug == "phantasmal-killer" or preset_id == "phantasmal-killer"
@@ -21462,6 +21611,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 dtype = str(effect.get("damage_type") or effect.get("type") or damage_type_hint or "damage").strip().lower() or "damage"
                 damage_entries.append({"amount": int(amount), "type": dtype})
 
+            if is_magic_missile and self._shield_is_active(target):
+                damage_entries = []
+                self._log(f"Shield negates Magic Missile damage on {getattr(target, 'name', 'Target')}.", cid=int(target_cid))
             adjustment = self._adjust_damage_entries_for_target(target, damage_entries)
             damage_entries = list(adjustment.get("entries") or [])
             adjustment_notes = list(adjustment.get("notes") or [])
@@ -22125,7 +22277,36 @@ class InitiativeTracker(base.InitiativeTracker):
             roll_total = int(attack_roll) if attack_roll is not None else 0
             total_to_hit = int(roll_total) + int(to_hit)
             target_ac = _parse_int(getattr(target, "ac", None), 10) or 10
+            target_ac += int(self._shield_ac_bonus_for_target(target))
             hit = bool(requested_hit) if requested_hit is not None else bool(total_to_hit >= int(target_ac))
+            if hit and not bool(msg.get("_shield_resolution_done")):
+                shield_mode = self._reaction_mode_for(int(target_cid), "shield", default="ask")
+                can_shield, _shield_reason = self._can_offer_shield_reaction(target)
+                if shield_mode != "off" and can_shield:
+                    if attack_roll is None:
+                        self._lan.toast(ws_id, "Shield automation requires the attack roll value, matey.")
+                        return
+                    choices = [{"kind": "shield_yes", "label": "Yes", "mode": shield_mode}]
+                    ws_targets = self._find_ws_for_cid(int(target_cid))
+                    req_id = self._create_reaction_offer(
+                        int(target_cid),
+                        "shield",
+                        int(cid),
+                        int(target_cid),
+                        choices,
+                        ws_targets,
+                        extra_payload={"prompt_attack": str(selected_weapon.get("name") or "Attack")},
+                    )
+                    if req_id:
+                        self._pending_shield_resolutions[str(req_id)] = {"msg": dict(msg)}
+                        self._oplog(
+                            f"reaction_offer:shield pending request_id={req_id} attacker={int(cid)} target={int(target_cid)}",
+                            level="info",
+                        )
+                        attacker_ws_targets = self._find_ws_for_cid(int(cid))
+                        for attacker_ws in attacker_ws_targets:
+                            self._lan.toast(int(attacker_ws), "Waiting for Shield response…")
+                        return
             damage_entries: List[Dict[str, Any]] = []
             raw_damage_entries = msg.get("damage_entries")
             if isinstance(raw_damage_entries, list):
