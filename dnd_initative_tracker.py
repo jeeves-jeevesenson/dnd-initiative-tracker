@@ -6374,6 +6374,76 @@ class InitiativeTracker(base.InitiativeTracker):
         setattr(c, "disengage_active", False)
         setattr(c, "speed_zero_until_turn_end", False)
         self._run_combatant_turn_hooks(c, "end_turn")
+        save_riders = list(getattr(c, "end_turn_save_riders", []) or [])
+        if save_riders:
+            remaining_save_riders: List[Dict[str, Any]] = []
+            cleared_groups: set[str] = set()
+            for rider in save_riders:
+                if not isinstance(rider, dict):
+                    continue
+                save_ability = str(rider.get("save_ability") or "").strip().lower()
+                try:
+                    save_dc = int(rider.get("save_dc"))
+                except Exception:
+                    save_dc = 0
+                if not save_ability or save_dc <= 0:
+                    continue
+                save_roll = random.randint(1, 20)
+                save_mod = 0
+                saves = getattr(c, "saving_throws", None)
+                if isinstance(saves, dict):
+                    try:
+                        save_mod = int(saves.get(save_ability) or 0)
+                    except Exception:
+                        save_mod = 0
+                if save_mod == 0:
+                    mods = getattr(c, "ability_mods", None)
+                    if isinstance(mods, dict):
+                        try:
+                            save_mod = int(mods.get(save_ability) or 0)
+                        except Exception:
+                            save_mod = 0
+                save_total = int(save_roll) + int(save_mod)
+                save_passed = bool(save_roll != 1 and save_total >= int(save_dc))
+                self._log(
+                    f"{c.name} {'succeeds' if save_passed else 'fails'} their {save_ability.upper()} save against {str(rider.get('source') or 'an effect')}.",
+                    cid=cid,
+                )
+                clear_group = str(rider.get("clear_group") or "").strip().lower()
+                condition = str(rider.get("condition") or "").strip().lower()
+                if save_passed:
+                    if clear_group:
+                        cleared_groups.add(clear_group)
+                    if condition:
+                        stacks = list(getattr(c, "condition_stacks", []) or [])
+                        stacks = [st for st in stacks if str(getattr(st, "ctype", "") or "").strip().lower() != condition]
+                        setattr(c, "condition_stacks", stacks)
+                    continue
+                damage_dice = str(rider.get("on_fail_damage_dice") or "").strip().lower()
+                damage_match = re.fullmatch(r"(\d*)d(\d+)", damage_dice)
+                if damage_match:
+                    damage_count = int(damage_match.group(1) or 1)
+                    damage_sides = int(damage_match.group(2))
+                    if damage_count > 0 and damage_sides > 0:
+                        amount = sum(random.randint(1, damage_sides) for _ in range(damage_count))
+                        dtype = str(rider.get("on_fail_damage_type") or "damage").strip() or "damage"
+                        adjusted = self._adjust_damage_entries_for_target(c, [{"amount": int(amount), "type": str(dtype).lower()}])
+                        applied_entries = list(adjusted.get("entries") or [])
+                        applied_amount = int(sum(int(entry.get("amount", 0) or 0) for entry in applied_entries))
+                        if applied_amount > 0:
+                            self._apply_damage_to_target_with_temp_hp(c, int(applied_amount))
+                            self._log(
+                                f"{c.name} takes {int(applied_amount)} {dtype} damage from {str(rider.get('source') or 'an effect')}.",
+                                cid=cid,
+                            )
+                remaining_save_riders.append(dict(rider))
+            if cleared_groups:
+                remaining_save_riders = [
+                    rider
+                    for rider in remaining_save_riders
+                    if str(rider.get("clear_group") or "").strip().lower() not in cleared_groups
+                ]
+            setattr(c, "end_turn_save_riders", remaining_save_riders)
         riders = list(getattr(c, "end_turn_damage_riders", []) or [])
         if not riders:
             return
@@ -20706,6 +20776,7 @@ class InitiativeTracker(base.InitiativeTracker):
             preset_id = str((preset or {}).get("id") or "").strip().lower()
             is_haste = preset_slug == "haste" or preset_id == "haste"
             is_polymorph = preset_slug == "polymorph" or preset_id == "polymorph"
+            is_phantasmal_killer = preset_slug == "phantasmal-killer" or preset_id == "phantasmal-killer"
             haste_duration_turns = 10
             haste_ac_bonus = 2
             if is_haste and isinstance(preset, dict):
@@ -20740,6 +20811,9 @@ class InitiativeTracker(base.InitiativeTracker):
             if spell_mode == "save" and not save_type:
                 save_type = self._infer_spell_save_ability(preset)
             save_dc = max(0, _parse_int(msg.get("save_dc"), 0) or 0)
+            slot_level = _parse_int(msg.get("slot_level"), None)
+            if slot_level is None and isinstance(preset, dict):
+                slot_level = _parse_int(preset.get("level"), None)
             if spell_mode == "save" and save_dc <= 0:
                 try:
                     player_name = self._pc_name_for(int(cid))
@@ -20859,6 +20933,40 @@ class InitiativeTracker(base.InitiativeTracker):
                         return [entry for entry in bucket if isinstance(entry, dict)]
                 return []
 
+            def _roll_scaled_effect_damage(effect: Dict[str, Any]) -> int:
+                if not isinstance(effect, dict):
+                    return 0
+                dice_text = str(effect.get("dice") or "").strip().lower()
+                match = re.fullmatch(r"\s*(\d+)d(\d+)\s*([+\-]\s*\d+)?\s*", dice_text)
+                if not match:
+                    return 0
+                dice_count = max(0, int(match.group(1)))
+                dice_sides = max(0, int(match.group(2)))
+                mod_text = str(match.group(3) or "").replace(" ", "")
+                flat_mod = _parse_int(mod_text, 0) or 0
+                total = 0
+                if dice_count > 0 and dice_sides > 0:
+                    total = sum(random.randint(1, int(dice_sides)) for _ in range(int(dice_count))) + int(flat_mod)
+                else:
+                    total = int(flat_mod)
+                scaling = effect.get("scaling") if isinstance(effect.get("scaling"), dict) else mechanics.get("scaling") if isinstance(mechanics.get("scaling"), dict) else None
+                if isinstance(scaling, dict) and scaling.get("kind") == "slot_level" and slot_level is not None:
+                    base_slot = _parse_int(scaling.get("base_slot"), None)
+                    add_expr = str(scaling.get("add_per_slot_above") or "").strip().lower()
+                    add_match = re.fullmatch(r"\s*(\d+)d(\d+)\s*", add_expr)
+                    if base_slot is not None and add_match and int(slot_level) > int(base_slot):
+                        add_count = int(add_match.group(1))
+                        add_sides = int(add_match.group(2))
+                        for _ in range(int(slot_level) - int(base_slot)):
+                            total += sum(random.randint(1, int(add_sides)) for _ in range(int(add_count)))
+                try:
+                    mult = effect.get("multiplier")
+                    if mult is not None:
+                        total = int(math.floor(float(total) * float(mult)))
+                except Exception:
+                    pass
+                return max(0, int(total))
+
             if spell_mode == "save" and save_type and save_dc > 0 and roll_save:
                 save_roll = random.randint(1, 20)
                 save_mod = _save_mod_for_target(target, save_type)
@@ -20880,7 +20988,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 if isinstance(seq_step, dict):
                     outcomes = seq_step.get("outcomes") if isinstance(seq_step.get("outcomes"), dict) else {}
                     resolved_bucket = _bucket_for_outcome(outcomes, bool(save_passed), "")
-                if save_passed:
+                has_automated_save_damage = any(
+                    str(effect.get("effect") or "").strip().lower() == "damage"
+                    for effect in resolved_bucket
+                    if isinstance(effect, dict)
+                )
+                if save_passed and not has_automated_save_damage:
                     result_payload["hit"] = False
                     result_payload["damage_total"] = 0
                     msg["_spell_target_result"] = dict(result_payload)
@@ -20992,6 +21105,17 @@ class InitiativeTracker(base.InitiativeTracker):
                     else:
                         resolved_bucket = _bucket_for_outcome(outcomes, False, "hit" if hit else "miss")
 
+            for effect in resolved_bucket:
+                if not isinstance(effect, dict):
+                    continue
+                if str(effect.get("effect") or "").strip().lower() != "damage":
+                    continue
+                amount = _roll_scaled_effect_damage(effect)
+                if amount <= 0:
+                    continue
+                dtype = str(effect.get("damage_type") or effect.get("type") or damage_type_hint or "damage").strip().lower() or "damage"
+                damage_entries.append({"amount": int(amount), "type": dtype})
+
             adjustment = self._adjust_damage_entries_for_target(target, damage_entries)
             damage_entries = list(adjustment.get("entries") or [])
             adjustment_notes = list(adjustment.get("notes") or [])
@@ -21003,6 +21127,44 @@ class InitiativeTracker(base.InitiativeTracker):
             result_payload["damage_entries"] = list(damage_entries if hit else [])
             result_payload["damage_total"] = int(total_damage if hit else 0)
             haste_applied = False
+            if hit and is_phantasmal_killer and c is not None:
+                current_targets = list(getattr(c, "concentration_target", []) or [])
+                if int(target.cid) not in current_targets:
+                    current_targets.append(int(target.cid))
+                self._start_concentration(
+                    c,
+                    "phantasmal-killer",
+                    spell_level=int((preset or {}).get("level") or 0) or None,
+                    targets=current_targets,
+                )
+                pk_group = f"phantasmal_killer_{int(c.cid)}_{int(target.cid)}"
+                pk_slot_level = int(slot_level or 4)
+                pk_dice_count = max(1, 4 + max(0, int(pk_slot_level) - 4))
+                pk_rider_dice = f"{int(pk_dice_count)}d10"
+                if not self._condition_is_immune_for_target(target, "frightened"):
+                    stacks = list(getattr(target, "condition_stacks", []) or [])
+                    if not any(str(getattr(st, "ctype", "") or "").strip().lower() == "frightened" for st in stacks):
+                        next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                        setattr(self, "_next_stack_id", int(next_sid) + 1)
+                        stacks.append(base.ConditionStack(sid=int(next_sid), ctype="frightened", remaining_turns=None))
+                        setattr(target, "condition_stacks", stacks)
+                end_turn_save_riders = [
+                    rider for rider in list(getattr(target, "end_turn_save_riders", []) or [])
+                    if str((rider or {}).get("clear_group") or "").strip().lower() != pk_group
+                ]
+                end_turn_save_riders.append(
+                    {
+                        "clear_group": pk_group,
+                        "save_ability": "wis",
+                        "save_dc": int(save_dc),
+                        "condition": "frightened",
+                        "on_fail_damage_dice": pk_rider_dice,
+                        "on_fail_damage_type": "psychic",
+                        "source": spell_name,
+                    }
+                )
+                setattr(target, "end_turn_save_riders", end_turn_save_riders)
+
             if hit and is_haste and c is not None:
                 current_targets = list(getattr(c, "concentration_target", []) or [])
                 if int(target.cid) not in current_targets:
@@ -21809,6 +21971,17 @@ class InitiativeTracker(base.InitiativeTracker):
                         resolved_bucket = _bucket_for_outcome(outcomes, passed, "")
                     else:
                         resolved_bucket = _bucket_for_outcome(outcomes, False, "hit" if hit else "miss")
+
+            for effect in resolved_bucket:
+                if not isinstance(effect, dict):
+                    continue
+                if str(effect.get("effect") or "").strip().lower() != "damage":
+                    continue
+                amount = _roll_scaled_effect_damage(effect)
+                if amount <= 0:
+                    continue
+                dtype = str(effect.get("damage_type") or effect.get("type") or damage_type_hint or "damage").strip().lower() or "damage"
+                damage_entries.append({"amount": int(amount), "type": dtype})
 
             adjustment = self._adjust_damage_entries_for_target(target, damage_entries)
             damage_entries = list(adjustment.get("entries") or [])
@@ -23362,6 +23535,20 @@ class InitiativeTracker(base.InitiativeTracker):
                 if int(getattr(target, "polymorph_source_cid", 0) or 0) != int(c.cid):
                     continue
                 self._clear_polymorph_effect(target, reason="concentration ended")
+        if spell_key == "phantasmal-killer":
+            for target_cid in targets:
+                target = self.combatants.get(int(target_cid))
+                if target is None:
+                    continue
+                group = f"phantasmal_killer_{int(c.cid)}_{int(target_cid)}"
+                end_turn_save_riders = [
+                    rider for rider in list(getattr(target, "end_turn_save_riders", []) or [])
+                    if str((rider or {}).get("clear_group") or "").strip().lower() != group
+                ]
+                setattr(target, "end_turn_save_riders", end_turn_save_riders)
+                stacks = list(getattr(target, "condition_stacks", []) or [])
+                stacks = [st for st in stacks if str(getattr(st, "ctype", "") or "").strip().lower() != "frightened"]
+                setattr(target, "condition_stacks", stacks)
         if not spell_key:
             return
         candidate_group_ids = {str(getattr(self.combatants.get(int(tid)), "summon_group_id", "") or "").strip() for tid in targets}
