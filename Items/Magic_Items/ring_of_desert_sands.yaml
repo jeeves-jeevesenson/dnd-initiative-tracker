@@ -1,0 +1,7 @@
+id: ring_of_desert_sands
+name: The Ring of Desert Sands
+requires_attunement: false
+grants:
+  defenses:
+    damage_resistances:
+      - cold
