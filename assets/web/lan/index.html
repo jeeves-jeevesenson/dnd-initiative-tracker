@@ -2718,6 +2718,12 @@
                 <label class="config-toggle"><input type="checkbox" id="toggleDmMapPreview" />Show</label>
               </div>
             </div>
+            <div class="config-item">
+              <div class="config-item-title">Reaction threat debug overlay</div>
+              <div class="config-controls">
+                <label class="config-toggle"><input type="checkbox" id="toggleReactionDebugOverlay" />Show</label>
+              </div>
+            </div>
           </div>
         </details>
         <details class="config-section">
@@ -4210,6 +4216,7 @@ __DAMAGE_TYPE_OPTIONS__
   const hotkeyUseActionInput = document.getElementById("hotkeyUseAction");
   const toggleDmLogPanelInput = document.getElementById("toggleDmLogPanel");
   const toggleDmMapPreviewInput = document.getElementById("toggleDmMapPreview");
+  const toggleReactionDebugOverlayInput = document.getElementById("toggleReactionDebugOverlay");
   const hotkeyUseBonusActionInput = document.getElementById("hotkeyUseBonusAction");
   const hotkeyDashInput = document.getElementById("hotkeyDash");
   const hotkeyStandUpInput = document.getElementById("hotkeyStandUp");
@@ -4768,6 +4775,7 @@ __DAMAGE_TYPE_OPTIONS__
   const LOS_PREVIEW_MS = 900;
   const sheetHeightKey = "inittracker_sheetHeight";
   const lockMyAoesKey = "inittracker_lock_my_aoes";
+  const reactionDebugOverlayKey = "inittracker_reaction_debug_overlay";
   const uiToggleKeys = {
     topbarTitle: "inittracker_ui_topbarTitle",
     connIndicator: "inittracker_ui_connIndicator",
@@ -4820,6 +4828,7 @@ __DAMAGE_TYPE_OPTIONS__
   let menusLocked = readToggle(uiToggleKeys.lockMenus, false);
   let sheetPanelHidden = isPlanning ? true : readToggle(sheetPanelHiddenKey, false);
   let lockMyAoes = readToggle(lockMyAoesKey, true);
+  let showReactionDebugOverlay = readToggle(reactionDebugOverlayKey, false);
   let mapViewSettings = null;
   let battleLogViewPrefs = null;
   let chatViewPrefs = null;
@@ -7376,6 +7385,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (toggleResetTurn) toggleResetTurn.checked = showResetTurn;
     if (toggleSpellMenu) toggleSpellMenu.checked = hideSpellMenu;
     if (toggleLockMenus) toggleLockMenus.checked = menusLocked;
+    if (toggleReactionDebugOverlayInput) toggleReactionDebugOverlayInput.checked = showReactionDebugOverlay;
     if (sheetWrap){
       sheetWrap.classList.toggle("hidden", sheetPanelHidden);
     }
@@ -11446,6 +11456,28 @@ __DAMAGE_TYPE_OPTIONS__
           }
         }
       }
+    }
+
+    if (showReactionDebugOverlay && state?.reaction_debug?.enabled && Array.isArray(state?.reaction_debug?.threats)){
+      const threatByCell = new Map();
+      state.reaction_debug.threats.forEach((threat) => {
+        if (!threat || !Array.isArray(threat.cells)) return;
+        threat.cells.forEach((cell) => {
+          const col = Number(cell?.col);
+          const row = Number(cell?.row);
+          if (!Number.isFinite(col) || !Number.isFinite(row)) return;
+          const key = `${Math.trunc(col)},${Math.trunc(row)}`;
+          threatByCell.set(key, (threatByCell.get(key) || 0) + 1);
+        });
+      });
+      threatByCell.forEach((count, key) => {
+        const [col, row] = key.split(",").map(Number);
+        const x = panX + col * zoom;
+        const y = panY + row * zoom;
+        const alpha = Math.min(0.24, 0.08 + (Number(count || 0) * 0.03));
+        ctx.fillStyle = `rgba(255, 195, 0, ${alpha})`;
+        ctx.fillRect(x + 1, y + 1, zoom - 2, zoom - 2);
+      });
     }
 
     if (attackOverlayMode){
@@ -20532,6 +20564,13 @@ __DAMAGE_TYPE_OPTIONS__
       menusLocked = !!event.target.checked;
       persistToggle(uiToggleKeys.lockMenus, menusLocked);
       applyUiConfig();
+    });
+  }
+  if (toggleReactionDebugOverlayInput){
+    toggleReactionDebugOverlayInput.addEventListener("change", (event) => {
+      showReactionDebugOverlay = !!event.target.checked;
+      writeToggle(reactionDebugOverlayKey, showReactionDebugOverlay);
+      render();
     });
   }
   Object.entries(hotkeyConfig).forEach(([action, config]) => {
