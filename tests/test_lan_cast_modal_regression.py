@@ -167,6 +167,8 @@ class LanCastModalRegressionTests(unittest.TestCase):
     def test_reaction_button_and_war_caster_modal_are_wired(self):
         self.assertIn('id="useReaction"', self.html)
         self.assertIn('openActionPicker("reaction");', self.html)
+        self.assertIn('function reactionControlledUnitCid()', self.html)
+        self.assertIn('const unitCid = mode === "reaction" ? reactionControlledUnitCid() : activeControlledUnitCid();', self.html)
         self.assertIn('id="warCasterModal"', self.html)
         self.assertIn('id="warCasterSpellSelect"', self.html)
         self.assertIn('id="warCasterTargetSelect"', self.html)

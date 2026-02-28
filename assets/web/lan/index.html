@@ -10113,6 +10113,17 @@ __DAMAGE_TYPE_OPTIONS__
     return null;
   }
 
+  function reactionControlledUnitCid(){
+    if (claimedCid === null || claimedCid === undefined){
+      return null;
+    }
+    const selectedCid = normalizeCid(selectedTurnCid, "reactionControlled.selectedCid");
+    if (selectedCid !== null && canSelectControlledUnitCid(selectedCid)){
+      return selectedCid;
+    }
+    return normalizeCid(claimedCid, "reactionControlled.claimedCid");
+  }
+
   function isUnitConcentrationLinked(unit){
     if (!unit) return false;
     if (unit.concentrating === true) return true;
@@ -11787,8 +11798,12 @@ __DAMAGE_TYPE_OPTIONS__
     let meForHud = null;
     ensureWeaponSelectionCharacterLoaded();
     if (claimedCid && state.units){
+      const reactionCid = reactionControlledUnitCid();
       const me = controlledCid !== null
         ? state.units.find(u => cidMatches(u.cid, controlledCid, "hud.controlledUnit"))
+        : null;
+      const reactionUnit = reactionCid !== null
+        ? state.units.find(u => cidMatches(u.cid, reactionCid, "hud.reactionUnit"))
         : null;
       const claimed = state.units.find(u => cidMatches(u.cid, claimedCid, "hud.claimedUnit"));
       if (me){
@@ -11803,14 +11818,15 @@ __DAMAGE_TYPE_OPTIONS__
         }
         bonusActionEl.textContent = `Bonus Action: ${me.bonus_action_remaining ?? 0}`;
         if (reactionEl){
-          reactionEl.textContent = `Reaction: ${me.reaction_remaining ?? 0}`;
+          const reactionOwner = reactionUnit || me;
+          reactionEl.textContent = `Reaction: ${reactionOwner.reaction_remaining ?? 0}`;
         }
         if (useActionBtn){
           useActionBtn.disabled = Number(me.action_remaining || 0) <= 0;
         }
         useBonusActionBtn.disabled = Number(me.bonus_action_remaining || 0) <= 0;
         if (useReactionBtn){
-          useReactionBtn.disabled = Number(me.reaction_remaining || 0) <= 0;
+          useReactionBtn.disabled = Number((reactionUnit || me).reaction_remaining || 0) <= 0;
         }
         populateActionSelect(actionSelectEl, me.actions, "None/Custom");
         populateActionSelect(bonusActionSelectEl, me.bonus_actions, "None/Custom");
@@ -11844,14 +11860,14 @@ __DAMAGE_TYPE_OPTIONS__
         }
         bonusActionEl.textContent = "Bonus Action: —";
         if (reactionEl){
-          reactionEl.textContent = "Reaction: —";
+          reactionEl.textContent = `Reaction: ${reactionUnit?.reaction_remaining ?? "—"}`;
         }
         if (useActionBtn){
           useActionBtn.disabled = true;
         }
         useBonusActionBtn.disabled = true;
         if (useReactionBtn){
-          useReactionBtn.disabled = true;
+          useReactionBtn.disabled = !reactionUnit || Number(reactionUnit.reaction_remaining || 0) <= 0;
         }
         populateActionSelect(actionSelectEl, [], "None/Custom");
         populateActionSelect(bonusActionSelectEl, [], "None/Custom");
@@ -12376,7 +12392,10 @@ __DAMAGE_TYPE_OPTIONS__
       const actionName = normalizeLowerValue(entry?.name);
       const normalizedActionKey = String(entry?.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
       const actionCid = activeControlledUnitCid();
+      const reactionCid = normalizeCid(entry?.sourceCid, "actionPicker.reaction.sourceCid") ?? reactionControlledUnitCid();
+      const performCid = entry.spend === "reaction" ? reactionCid : actionCid;
       const activeUnit = actionCid === null ? null : getUnitByCid(actionCid);
+      const performUnit = performCid === null ? null : getUnitByCid(performCid);
       const claimedUnit = getClaimedUnit();
       const claimedName = normalizeLowerValue(claimedUnit?.name);
       const isJohnTwilight = claimedName === "john twilight" || claimedName.startsWith("john twilight (");
@@ -12532,10 +12551,10 @@ __DAMAGE_TYPE_OPTIONS__
         send({type:"wild_shape_revert", cid: claimedCid});
         return;
       }
-      if (actionCid === null || !activeUnit) return;
+      if (performCid === null || !performUnit) return;
       const msg = {
         type: "perform_action",
-        cid: actionCid,
+        cid: performCid,
         spend: entry.spend,
         action: entry.name,
       };
@@ -12550,7 +12569,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function openActionPicker(mode){
-    const unitCid = activeControlledUnitCid();
+    const unitCid = mode === "reaction" ? reactionControlledUnitCid() : activeControlledUnitCid();
     const unit = unitCid === null ? null : getUnitByCid(unitCid);
     if (!unit || unitCid === null){
       localToast("Claim a character first, matey.");
