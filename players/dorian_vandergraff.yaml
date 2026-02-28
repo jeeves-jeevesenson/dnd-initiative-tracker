@@ -59,7 +59,8 @@ defenses:
       when: always
       base_formula: '20'
     bonuses: []
-  resistances: []
+  resistances:
+  - cold
   immunities: []
   vulnerabilities: []
 attacks:
@@ -239,12 +240,17 @@ inventory:
   - name: Boots of Haste
     quantity: 1
     description: Attuned.
+  - name: The Ring of Desert Sands
+    quantity: 1
+    description: Wondrous ring. While equipped, grants resistance to cold damage.
+      Does not require attunement.
 magic_items:
   attunement_slots: 3
   equipped:
   - inazuma
   - gauntlets
   - boots_of_haste
+  - ring_of_desert_sands
   attuned:
   - inazuma
   - gauntlets
@@ -259,4 +265,7 @@ magic_items:
   - id: boots_of_haste
     equipped: true
     attuned: true
+  - id: ring_of_desert_sands
+    equipped: true
+    attuned: false
 notes: {}
