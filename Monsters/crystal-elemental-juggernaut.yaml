@@ -1,0 +1,50 @@
+name: Crystal Elemental Juggernaut
+size: Huge
+type: Elemental
+alignment: Neutral
+initiative: '+1'
+ac: '18'
+hp: 189
+speed:
+  Normal: 40 ft.
+challenge_rating: 11
+abilities:
+  Str: 25
+  Dex: 12
+  Con: 24
+  Int: 8
+  Wis: 13
+  Cha: 13
+senses: Darkvision 60 ft., Passive Perception 11
+languages:
+- Terran
+description: ''
+habitat: Planar (Elemental Plane of Earth)
+traits:
+- name: Charge Generation
+  desc: If the elemental takes bludgeoning, piercing, or slashing damage, it deals an extra 4 ({@damage 1d8}) lightning damage on its first Slam attack before the end of its next turn. If it takes force damage, the extra damage is increased to 9 ({@damage 2d8}).
+- name: Crystal Intrusion
+  desc: At the start of the elemental's turn, crystal shards erupt from the ground under all creatures within 15 feet of it. Each target must make a {@dc 19} Dexterity saving throw, taking 9 ({@damage 2d8}) piercing damage on a failed save or half as much damage on a successful one. The area is difficult terrain and recedes back into the ground at the start of the elemental's next turn as new crystals erupt.
+- name: Radiant Lensing
+  desc: If the elemental takes radiant damage, the energy is amplified and released in a 90-foot line. Creatures in the line must make a {@dc 19} Dexterity saving throw, taking radiant damage equal to three times the damage taken by the elemental on a failed save, or half as much damage on a successful one.
+actions:
+- name: Multiattack
+  desc: The elemental makes two Slam attacks.
+- name: Slam
+  desc: '{@atk mw} {@hit 11} to hit, reach 10 ft., one target. {@h}23 ({@damage 3d10 + 7}) bludgeoning damage.'
+- name: Psychic Detonation {@recharge 4}
+  desc: The elemental triggers an explosion at a point it can see within 120 feet, creating a 5-foot-radius sphere. Each creature in that area must make a {@dc 19} Strength saving throw, taking 22 ({@damage 4d10}) force damage and falling {@condition prone} on a failed save, or half as much damage with no additional effect on a successful one.
+- name: Psychic Lash {@recharge 4}
+  desc: The elemental targets one creature it can see within 30 feet. The target must make a {@dc 19} Strength saving throw. On a failed save, the elemental chooses to pull the target toward itself or push it away up to 30 feet. The target takes 3 ({@damage 1d6}) bludgeoning damage for every 10 feet moved this way. If the target is thrown into another creature, that creature must make a {@dc 19} Dexterity saving throw. On a failed save, the second creature takes the same bludgeoning damage as the first and both creatures fall {@condition prone}. On a successful save, the second creature takes no damage, and the first creature continues on its original trajectory.
+legendary_actions: []
+damage_resistances:
+- Bludgeoning, Piercing, and Slashing from Nonmagical Attacks that Aren't Adamantine
+damage_immunities:
+- Cold
+- Poison
+condition_immunities:
+- Exhaustion
+- Paralyzed
+- Petrified
+- Poisoned
+- Unconscious
