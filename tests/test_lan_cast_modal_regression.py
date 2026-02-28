@@ -219,6 +219,11 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('function isAimlessSelfCenteredAoePlacement()', self.html)
 
 
+    def test_pool_granted_aoe_spells_enter_aim_mode_before_spending(self):
+        self.assertIn('const spellActionTag = resolveSpellActionTag(entry.preset);', self.html)
+        self.assertIn('if (spellActionTag === "aoe"){', self.html)
+        self.assertIn('beginForcedPoolCast(entry);', self.html)
+
     def test_wand_of_fireballs_pool_spell_uses_confirmation_modal(self):
         self.assertIn('id="poolSpellConfirmModal"', self.html)
         self.assertIn('id="poolSpellConfirmCast"', self.html)
