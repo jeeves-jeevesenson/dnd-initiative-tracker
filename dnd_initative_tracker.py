@@ -9818,6 +9818,40 @@ class InitiativeTracker(base.InitiativeTracker):
         owner_role = str(self._name_role_memory.get(str(getattr(owner, "name", "")), "enemy") or "enemy")
         return owner_role in ("pc", "ally")
 
+    def _profile_has_feature_id(self, profile: Dict[str, Any], feature_id: str) -> bool:
+        if not isinstance(profile, dict):
+            return False
+        target = str(feature_id or "").strip().lower()
+        if not target:
+            return False
+        features = profile.get("features") if isinstance(profile.get("features"), list) else []
+        for feature in features:
+            if not isinstance(feature, dict):
+                continue
+            if str(feature.get("id") or "").strip().lower() == target:
+                return True
+        return False
+
+    def _lan_sculpt_spells_context(self, caster: Optional[base.Combatant], preset: Optional[Dict[str, Any]]) -> Tuple[bool, int]:
+        if caster is None or not bool(getattr(caster, "is_pc", False)):
+            return False, 1
+        preset_dict = preset if isinstance(preset, dict) else {}
+        if str(preset_dict.get("school") or "").strip().lower() != "evocation":
+            return False, 1
+        try:
+            player_name = self._pc_name_for(int(getattr(caster, "cid", 0) or 0))
+            profile = self._profile_for_player_name(player_name)
+        except Exception:
+            return False, 1
+        if not self._profile_has_feature_id(profile if isinstance(profile, dict) else {}, "sculpt_spells"):
+            return False, 1
+        try:
+            spell_level = int(preset_dict.get("level"))
+        except Exception:
+            spell_level = 0
+        spell_level = max(0, int(spell_level))
+        return True, max(1, 1 + spell_level)
+
     def _lan_active_aura_contexts(
         self,
         positions: Optional[Dict[int, Tuple[int, int]]] = None,
@@ -10421,6 +10455,36 @@ class InitiativeTracker(base.InitiativeTracker):
             return False
         outcomes = step.get("outcomes") if isinstance(step.get("outcomes"), dict) else {}
         included = list(included_override) if isinstance(included_override, list) else self._lan_compute_included_units_for_aoe(aoe)
+        sculpt_enabled, sculpt_max_protected = self._lan_sculpt_spells_context(caster, preset)
+        sculpted_targets: set[int] = set()
+        if sculpt_enabled and caster is not None:
+            caster_cid = int(getattr(caster, "cid", 0) or 0)
+            caster_friendly = self._lan_is_friendly_unit(caster_cid)
+            included_set = {int(target_cid) for target_cid in included}
+            sculpted_targets.add(caster_cid)
+            selected_order: List[int] = []
+            seen_selected: set[int] = set()
+            raw_selected = aoe.get("sculpted_cids")
+            if isinstance(raw_selected, list):
+                for entry in raw_selected:
+                    if isinstance(entry, bool):
+                        continue
+                    try:
+                        selected_cid = int(entry)
+                    except Exception:
+                        continue
+                    if selected_cid in seen_selected or selected_cid == caster_cid:
+                        continue
+                    if selected_cid not in included_set:
+                        continue
+                    if self._lan_is_friendly_unit(selected_cid) != caster_friendly:
+                        continue
+                    seen_selected.add(selected_cid)
+                    selected_order.append(selected_cid)
+                    if len(selected_order) >= int(sculpt_max_protected):
+                        break
+            sculpted_targets.update(selected_order)
+            aoe["sculpted_cids"] = selected_order
         targeting = mechanics.get("targeting") if isinstance(mechanics.get("targeting"), dict) else {}
         target_selection = targeting.get("target_selection") if isinstance(targeting.get("target_selection"), dict) else {}
         target_mode = str(target_selection.get("mode") or "").strip().lower()
@@ -10553,6 +10617,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 continue
             saves = getattr(target, "saving_throws", None)
             mods = getattr(target, "ability_mods", None)
+            sculpt_auto_success = int(target_cid) in sculpted_targets
             if requires_save:
                 if isinstance(saves, dict) and saves.get(ability) is not None:
                     save_mod = int(saves.get(ability) or 0)
@@ -10560,14 +10625,22 @@ class InitiativeTracker(base.InitiativeTracker):
                     save_mod = int(mods.get(ability) or 0)
                 else:
                     save_mod = 0
-                roll = int(random.randint(1, 20))
-                total = int(roll + save_mod)
-                passed = bool(roll != 1 and total >= int(dc))
+                if sculpt_auto_success:
+                    roll = None
+                    total = int(dc or 0)
+                    passed = True
+                    self._log(f"{spell_name}: {target.name} SCULPT (auto-success)", cid=int(target_cid))
+                else:
+                    roll = int(random.randint(1, 20))
+                    total = int(roll + save_mod)
+                    passed = bool(roll != 1 and total >= int(dc))
             else:
                 save_mod = 0
                 roll = None
                 total = 0
-                passed = False
+                passed = bool(sculpt_auto_success)
+                if sculpt_auto_success:
+                    self._log(f"{spell_name}: {target.name} SCULPT (auto-success)", cid=int(target_cid))
             outcome_key = "success" if passed else "fail"
             bucket = outcomes.get(outcome_key)
             if not isinstance(bucket, list):
@@ -10605,6 +10678,15 @@ class InitiativeTracker(base.InitiativeTracker):
                                 amount = int(math.floor(float(amount) * float(mult)))
                         except Exception:
                             pass
+                    if sculpt_auto_success and outcome_key == "success":
+                        mult = effect.get("multiplier")
+                        try:
+                            mult_num = float(mult) if mult is not None else None
+                        except Exception:
+                            mult_num = None
+                        if mult_num is not None and 0 < mult_num < 1:
+                            amount = 0
+                            self._log(f"{spell_name}: {target.name} SCULPT 0 damage (success bucket)", cid=int(target_cid))
                     if amount > 0:
                         damage_entries.append({"amount": int(amount), "type": dtype})
                 elif effect_name == "condition" and not passed:
@@ -18320,6 +18402,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
         if typ == "cast_aoe":
             payload = msg.get("payload") or {}
+            raw_sculpted_cids = payload.get("sculpted_cids")
             shape = str(payload.get("shape") or payload.get("kind") or "").strip().lower()
             if shape not in ("circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall", "summon"):
                 self._lan.toast(ws_id, "Pick a valid spell shape, matey.")
@@ -18907,6 +18990,32 @@ class InitiativeTracker(base.InitiativeTracker):
                     rad = math.radians(float(aoe.get("angle_deg") or 0.0))
                     aoe["cx"] = float(anchor_ax + math.cos(rad) * half_len)
                     aoe["cy"] = float(anchor_ay + math.sin(rad) * half_len)
+            sculpt_enabled, sculpt_max_protected = self._lan_sculpt_spells_context(c, preset_dict)
+            if sculpt_enabled and c is not None:
+                caster_cid = int(getattr(c, "cid", 0) or 0)
+                caster_friendly = self._lan_is_friendly_unit(caster_cid)
+                included_targets = {int(target_cid) for target_cid in self._lan_compute_included_units_for_aoe(aoe)}
+                selected: List[int] = []
+                seen_selected: set[int] = set()
+                if isinstance(raw_sculpted_cids, list):
+                    for entry in raw_sculpted_cids:
+                        if isinstance(entry, bool):
+                            continue
+                        try:
+                            selected_cid = int(entry)
+                        except Exception:
+                            continue
+                        if selected_cid in seen_selected or selected_cid == caster_cid:
+                            continue
+                        if selected_cid not in included_targets:
+                            continue
+                        if self._lan_is_friendly_unit(selected_cid) != caster_friendly:
+                            continue
+                        seen_selected.add(selected_cid)
+                        selected.append(selected_cid)
+                        if len(selected) >= int(sculpt_max_protected):
+                            break
+                aoe["sculpted_cids"] = selected
             if map_ready:
                 mw.aoes[aid] = aoe
                 try:

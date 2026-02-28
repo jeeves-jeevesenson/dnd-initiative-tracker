@@ -87,6 +87,13 @@ features:
     recover_spell_slots:
       max_combined_level_formula: ceil(wizard_level / 2)
       max_slot_level: 5
+- id: sculpt_spells
+  name: Sculpt Spells
+  level: 2
+  source: Wizard (Evoker)
+  description: When you cast an Evocation spell that affects allies, you can protect up
+    to 1 + the spell level creatures from the effect; protected creatures automatically
+    succeed and take no damage on successful-save damage effects.
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
