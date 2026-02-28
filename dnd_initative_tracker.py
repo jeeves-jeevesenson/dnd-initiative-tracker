@@ -21384,10 +21384,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 range_ft = float(range_match.group(1)) if range_match else 5.0
                 if attunement_active and is_unarmed_strike:
                     range_ft += 10.0
-                distance_ft = math.hypot(
-                    int(target_pos[0]) - int(attacker_pos[0]),
-                    int(target_pos[1]) - int(attacker_pos[1]),
-                ) * float(feet_per_square)
+                # Grid movement/range in this tracker treats diagonal adjacency as 5 ft,
+                # so use Chebyshev distance (max axis delta) instead of Euclidean.
+                dx = abs(int(target_pos[0]) - int(attacker_pos[0]))
+                dy = abs(int(target_pos[1]) - int(attacker_pos[1]))
+                distance_ft = max(dx, dy) * float(feet_per_square)
                 if float(distance_ft) - float(range_ft) > 1e-6:
                     self._lan.toast(ws_id, "Target be out of attack range.")
                     return
