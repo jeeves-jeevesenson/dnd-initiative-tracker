@@ -1,0 +1,11 @@
+id: boots_of_haste
+name: Boots of Haste
+requires_attunement: true
+grants:
+  spells:
+    casts:
+      - spell: haste
+        action_type: action
+        consumes:
+          pool: boots_of_haste
+          cost: 1

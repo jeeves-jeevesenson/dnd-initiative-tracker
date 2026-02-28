@@ -92,6 +92,12 @@ resources:
     max: 50
     max_formula: paladin_level * 5
     reset: long_rest
+  - id: boots_of_haste
+    label: Boots of Haste
+    current: 1
+    max: 1
+    max_formula: '1'
+    reset: long_rest
 features:
 - id: aura_of_protection_2024
   name: Aura of Protection
@@ -230,19 +236,27 @@ inventory:
   - name: Gauntlets
     quantity: 1
     description: Attuned.
+  - name: Boots of Haste
+    quantity: 1
+    description: Attuned.
 magic_items:
   attunement_slots: 3
   equipped:
   - inazuma
   - gauntlets
+  - boots_of_haste
   attuned:
   - inazuma
   - gauntlets
+  - boots_of_haste
   items:
   - id: inazuma
     equipped: true
     attuned: true
   - id: gauntlets
+    equipped: true
+    attuned: true
+  - id: boots_of_haste
     equipped: true
     attuned: true
 notes: {}
