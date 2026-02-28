@@ -2768,6 +2768,10 @@ class InitiativeTracker(tk.Tk):
         active = int(getattr(target, "haste_remaining_turns", 0) or 0) > 0 or int(getattr(target, "haste_ac_bonus", 0) or 0) > 0
         if not active:
             return False
+        try:
+            source_cid = int(getattr(target, "haste_source_cid", 0) or 0)
+        except Exception:
+            source_cid = 0
         old_eff = self._effective_speed(target)
         ac_bonus = max(0, int(getattr(target, "haste_ac_bonus", 0) or 0))
         if ac_bonus > 0:
@@ -2792,7 +2796,42 @@ class InitiativeTracker(tk.Tk):
             self._ensure_condition_stack(target, "incapacitated", 1)
             if reason:
                 self._log(f"{target.name} is lethargic after Haste ({reason}).", cid=target.cid)
+        if reason != "concentration broken" and source_cid > 0:
+            caster = self.combatants.get(int(source_cid)) if isinstance(getattr(self, "combatants", None), dict) else None
+            if caster is not None:
+                caster_spell = str(getattr(caster, "concentration_spell", "") or "").strip().lower()
+                if bool(getattr(caster, "concentrating", False)) and caster_spell == "haste":
+                    self._end_concentration(caster)
         return True
+
+    def _start_concentration(
+        self,
+        caster: Combatant,
+        spell_key: str,
+        spell_level: Optional[int] = None,
+        *,
+        targets: Optional[List[int]] = None,
+        aoe_ids: Optional[List[int]] = None,
+    ) -> None:
+        if caster is None:
+            return
+        if bool(getattr(caster, "concentrating", False)):
+            self._end_concentration(caster)
+        normalized_key = str(spell_key or "").strip()
+        if not normalized_key:
+            normalized_key = "unknown"
+        level_val: Optional[int]
+        try:
+            parsed = int(spell_level) if spell_level is not None else None
+            level_val = parsed if parsed is None or parsed >= 0 else None
+        except Exception:
+            level_val = None
+        caster.concentrating = True
+        caster.concentration_spell = normalized_key
+        caster.concentration_spell_level = level_val
+        caster.concentration_started_turn = (int(self.round_num), int(self.turn_num))
+        caster.concentration_target = list(targets or [])
+        caster.concentration_aoe_ids = list(aoe_ids or [])
 
     def _end_concentration(self, c: Combatant) -> None:
         if not getattr(c, "concentrating", False):
@@ -2802,6 +2841,7 @@ class InitiativeTracker(tk.Tk):
         c.concentration_spell = ""
         c.concentration_spell_level = None
         c.concentration_started_turn = None
+        c.concentration_target = []
         aoe_ids = list(getattr(c, "concentration_aoe_ids", []) or [])
         c.concentration_aoe_ids = []
         state_map = getattr(self, "_concentration_save_state", {})
@@ -9200,19 +9240,14 @@ class BattleMapWindow(tk.Toplevel):
         if preset.get("concentration") is True:
             if app and owner_cid in getattr(app, "combatants", {}):
                 caster = app.combatants[owner_cid]
-                caster.concentrating = True
                 try:
                     spell_level = int(preset.get("level"))
                 except Exception:
                     spell_level = None
                 if spell_level is not None and spell_level < 0:
                     spell_level = None
-                caster.concentration_spell_level = spell_level
-                caster.concentration_started_turn = (int(app.round_num), int(app.turn_num))
-                aoe_ids = list(getattr(caster, "concentration_aoe_ids", []) or [])
-                if aid not in aoe_ids:
-                    aoe_ids.append(aid)
-                caster.concentration_aoe_ids = aoe_ids
+                spell_key = str(preset.get("slug") or preset.get("id") or preset.get("name") or "").strip() or "unknown"
+                app._start_concentration(caster, spell_key, spell_level=spell_level, aoe_ids=[int(aid)])
 
     def _refresh_aoe_list(self, select: Optional[int] = None) -> None:
         self.aoe_list.delete(0, tk.END)
@@ -9565,6 +9600,7 @@ class BattleMapWindow(tk.Toplevel):
             return
         d = self.aoes.pop(aid)
         app = getattr(self, "app", None)
+        should_break_concentration = bool(d.get("concentration_bound"))
         if app is not None:
             lan_store = getattr(app, "_lan_aoes", None)
             if isinstance(lan_store, dict):
@@ -9575,6 +9611,8 @@ class BattleMapWindow(tk.Toplevel):
                 aoe_ids = list(getattr(caster, "concentration_aoe_ids", []) or [])
                 if aid in aoe_ids:
                     caster.concentration_aoe_ids = [entry for entry in aoe_ids if entry != aid]
+                if should_break_concentration and aid in aoe_ids:
+                    app._end_concentration(caster)
         try:
             self.canvas.delete(int(d["shape"]))
             self.canvas.delete(int(d["label"]))
