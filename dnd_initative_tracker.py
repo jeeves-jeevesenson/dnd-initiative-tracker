@@ -16752,10 +16752,16 @@ class InitiativeTracker(base.InitiativeTracker):
             "expires_at": expires_at,
         }
         loop = getattr(self._lan, "_loop", None)
-        if loop:
+        send_async = getattr(self._lan, "_send_async", None)
+        if callable(send_async):
             for ws_id in ws_ids:
                 try:
-                    asyncio.run_coroutine_threadsafe(self._lan._send_async(int(ws_id), payload), loop)
+                    maybe_coro = send_async(int(ws_id), payload)
+                    if asyncio.iscoroutine(maybe_coro):
+                        if loop:
+                            asyncio.run_coroutine_threadsafe(maybe_coro, loop)
+                        else:
+                            asyncio.run(maybe_coro)
                 except Exception:
                     pass
         return str(payload["request_id"])
