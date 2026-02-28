@@ -99,6 +99,12 @@ resources:
     max: 1
     max_formula: '1'
     reset: long_rest
+  - id: tyrs_circlet_blessing
+    label: Blessed by Tyr
+    current: 1
+    max: 1
+    max_formula: '1'
+    reset: long_rest
 features:
 - id: aura_of_protection_2024
   name: Aura of Protection
@@ -251,10 +257,12 @@ magic_items:
   - gauntlets
   - boots_of_haste
   - ring_of_desert_sands
+  - tyrs_circlet
   attuned:
   - inazuma
   - gauntlets
   - boots_of_haste
+  - tyrs_circlet
   items:
   - id: inazuma
     equipped: true
@@ -268,4 +276,7 @@ magic_items:
   - id: ring_of_desert_sands
     equipped: true
     attuned: false
+  - id: tyrs_circlet
+    equipped: true
+    attuned: true
 notes: {}

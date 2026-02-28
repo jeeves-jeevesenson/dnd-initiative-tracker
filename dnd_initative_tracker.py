@@ -9566,6 +9566,8 @@ class InitiativeTracker(base.InitiativeTracker):
 
         active_auras = self._lan_active_aura_contexts(positions=positions, feet_per_square=feet_per_square)
         for idx, aura in enumerate(active_auras):
+            if not bool(aura.get("visible", True)):
+                continue
             source_cid = aura.get("source_cid")
             source_pos = positions.get(int(source_cid)) if source_cid is not None else None
             if not (isinstance(source_pos, tuple) and len(source_pos) == 2):
@@ -9959,6 +9961,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         "color": str(aura.get("color") or "#fcebc4"),
                         "name": str(aura.get("name") or "Aura"),
                         "aura_id": str(aura.get("id") or effect_id or "aura").strip().lower(),
+                        "visible": bool(aura.get("visible", True)),
                         "effect": {
                             "id": effect_id,
                             "name": effect_name,

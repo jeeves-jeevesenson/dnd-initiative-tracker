@@ -55,6 +55,55 @@ class LanHiddenTokensSnapshotTests(unittest.TestCase):
         self.assertFalse(by_cid[2]["is_invisible"])
         self.assertFalse(by_cid[2]["is_unseen"])
 
+    def test_lan_snapshot_hides_logic_only_auras_from_map_overlays(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._lan_grid_cols = 10
+        app._lan_grid_rows = 10
+        app._lan_obstacles = set()
+        app._lan_positions = {1: (1, 1), 2: (2, 2)}
+        app._lan_aoes = {}
+        app._lan_rough_terrain = {}
+        app._lan_next_aoe_id = 1
+        app.current_cid = None
+        app.round_num = 1
+        app._display_order = lambda: []
+        app._oplog = lambda *args, **kwargs: None
+        app._name_role_memory = {"Dorian": "pc", "Goblin": "enemy"}
+        app._lan_marks_for = lambda _c: []
+        app._normalize_action_entries = lambda _entries, _kind: []
+        app._token_color_payload = lambda _c: None
+        app._token_border_color_payload = lambda _c: None
+        app._has_condition = lambda _c, _name: False
+        app._lan_seed_missing_positions = lambda positions, *_args: positions
+        app._spell_presets_payload = lambda: []
+        app._player_spell_config_payload = lambda: {}
+        app._player_profiles_payload = lambda: {}
+        app._player_resource_pools_payload = lambda: {}
+        app._lan_active_aura_contexts = lambda **_kwargs: [
+            {
+                "source_cid": 1,
+                "affected": {1, 2},
+                "visible": False,
+                "effect": {
+                    "id": "blessed_by_tyr",
+                    "name": "Blessed by Tyr",
+                    "icon": "⚖️",
+                    "description": "Logic-only aura",
+                },
+            }
+        ]
+        app._lan = type("LanStub", (), {"_cached_snapshot": {}})()
+
+        dorian = type("C", (), {"cid": 1, "name": "Dorian", "hp": 40, "condition_stacks": []})()
+        goblin = type("C", (), {"cid": 2, "name": "Goblin", "hp": 8, "condition_stacks": []})()
+        app.combatants = {1: dorian, 2: goblin}
+
+        snap = app._lan_snapshot(include_static=False)
+        self.assertEqual(snap["aoes"], [])
+        by_cid = {int(unit["cid"]): unit for unit in snap["units"]}
+        self.assertEqual(by_cid[1]["effects"][0]["id"], "blessed_by_tyr")
+        self.assertEqual(by_cid[2]["effects"][0]["id"], "blessed_by_tyr")
+
 
 if __name__ == "__main__":
     unittest.main()
