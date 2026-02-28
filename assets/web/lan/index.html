@@ -10589,7 +10589,9 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     eligibleAllies.sort((a, b) => String(a.name).localeCompare(String(b.name)));
-    const spellLevelRaw = Number(preset?.level);
+    const slotLevelRaw = Number(msg?.slot_level ?? msg?.payload?.slot_level);
+    const presetLevelRaw = Number(preset?.level);
+    const spellLevelRaw = Number.isFinite(slotLevelRaw) ? slotLevelRaw : presetLevelRaw;
     const spellLevel = Number.isFinite(spellLevelRaw) ? Math.max(0, Math.floor(spellLevelRaw)) : 0;
     const sculptLimit = Math.max(1, 1 + spellLevel);
     const requiredSacrifices = Math.max(0, eligibleAllies.length - sculptLimit);
