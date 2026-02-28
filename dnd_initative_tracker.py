@@ -24,6 +24,7 @@ import importlib.util
 import importlib
 import threading
 import time
+import uuid
 import logging
 import shutil
 import re
@@ -1355,6 +1356,8 @@ class LanController:
         "reset_player_characters",
         "mount_request",
         "mount_response",
+        "reaction_prefs_update",
+        "reaction_response",
         "echo_tether_response",
         "dismount",
         "initiative_roll",
@@ -5058,6 +5061,8 @@ class InitiativeTracker(base.InitiativeTracker):
         self._pending_pre_summons: Dict[int, Dict[str, Any]] = {}
         self._pending_mount_requests: Dict[str, Dict[str, Any]] = {}
         self._pending_echo_tether_confirms: Dict[str, Dict[str, Any]] = {}
+        self._reaction_prefs_by_cid: Dict[int, Dict[str, str]] = {}
+        self._pending_reaction_offers: Dict[str, Dict[str, Any]] = {}
         self._session_has_saved = False
 
         # POC helpers: start the LAN server automatically.
@@ -6335,7 +6340,7 @@ class InitiativeTracker(base.InitiativeTracker):
         self._enter_turn_with_auto_skip(starting=False)
         current_turn_cid = _normalize_cid_value(getattr(self, "current_cid", None), "next_turn.current_cid")
         if current_turn_cid is not None:
-            for _aid, aoe in list((getattr(self, "_lan_aoes", {}) or {}).items()):
+            for _aid, aoe in list((self.__dict__.get("_lan_aoes", {}) or {}).items()):
                 if not isinstance(aoe, dict):
                     continue
                 owner_cid = _normalize_cid_value(aoe.get("owner_cid"), "next_turn.aoe.owner_cid")
@@ -6353,7 +6358,7 @@ class InitiativeTracker(base.InitiativeTracker):
         super()._end_turn_cleanup(cid, skip_decrement_types=skip_decrement_types)
         ending_cid = _normalize_cid_value(cid, "end_turn_cleanup.cid")
         if ending_cid is not None:
-            for aid, aoe in list((getattr(self, "_lan_aoes", {}) or {}).items()):
+            for aid, aoe in list((self.__dict__.get("_lan_aoes", {}) or {}).items()):
                 if not isinstance(aoe, dict) or not bool(aoe.get("over_time")):
                     continue
                 trigger = str(aoe.get("trigger_on_start_or_enter") or "").strip().lower()
@@ -6365,6 +6370,8 @@ class InitiativeTracker(base.InitiativeTracker):
         if cid is None or cid not in self.combatants:
             return
         c = self.combatants[cid]
+        setattr(c, "disengage_active", False)
+        setattr(c, "speed_zero_until_turn_end", False)
         self._run_combatant_turn_hooks(c, "end_turn")
         riders = list(getattr(c, "end_turn_damage_riders", []) or [])
         if not riders:
@@ -6706,7 +6713,7 @@ class InitiativeTracker(base.InitiativeTracker):
         positions = dict(self.__dict__.get("_lan_positions", {}) or {})
         obstacles = set(getattr(self, "_lan_obstacles", set()) or set())
         rough_terrain = dict(getattr(self, "_lan_rough_terrain", {}) or {})
-        aoes = dict(getattr(self, "_lan_aoes", {}) or {})
+        aoes = dict(self.__dict__.get("_lan_aoes", {}) or {})
         next_aoe_id = int(getattr(self, "_lan_next_aoe_id", 1) or 1)
         bg_images = list(getattr(self, "_session_bg_images", []) or [])
         next_bg_id = int(getattr(self, "_session_next_bg_id", 1) or 1)
@@ -6767,6 +6774,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 "summon_group_meta": self._json_safe(getattr(self, "_summon_group_meta", {})),
                 "pending_pre_summons": self._json_safe(getattr(self, "_pending_pre_summons", {})),
                 "pending_mount_requests": self._json_safe(getattr(self, "_pending_mount_requests", {})),
+                "reaction_prefs_by_cid": self._json_safe(getattr(self, "_reaction_prefs_by_cid", {})),
+                "pending_reaction_offers": self._json_safe(getattr(self, "_pending_reaction_offers", {})),
                 "concentration_save_state": self._json_safe(getattr(self, "_concentration_save_state", {})),
             },
             "map": {
@@ -6939,6 +6948,8 @@ class InitiativeTracker(base.InitiativeTracker):
         self._summon_group_meta = dict(combat.get("summon_group_meta") if isinstance(combat.get("summon_group_meta"), dict) else {})
         self._pending_pre_summons = dict(combat.get("pending_pre_summons") if isinstance(combat.get("pending_pre_summons"), dict) else {})
         self._pending_mount_requests = dict(combat.get("pending_mount_requests") if isinstance(combat.get("pending_mount_requests"), dict) else {})
+        self._reaction_prefs_by_cid = {int(k): dict(v) for k, v in (combat.get("reaction_prefs_by_cid") or {}).items() if isinstance(v, dict)} if isinstance(combat.get("reaction_prefs_by_cid"), dict) else {}
+        self._pending_reaction_offers = dict(combat.get("pending_reaction_offers") if isinstance(combat.get("pending_reaction_offers"), dict) else {})
         self._concentration_save_state = dict(combat.get("concentration_save_state") if isinstance(combat.get("concentration_save_state"), dict) else {})
 
         grid = map_state.get("grid") if isinstance(map_state.get("grid"), dict) else {}
@@ -7146,7 +7157,7 @@ class InitiativeTracker(base.InitiativeTracker):
             self._lan_grid_rows = int(mw.rows)
             mw.obstacles = set(getattr(self, "_lan_obstacles", set()) or set())
             mw.rough_terrain = dict(getattr(self, "_lan_rough_terrain", {}) or {})
-            mw.aoes = {int(k): dict(v) for k, v in dict(getattr(self, "_lan_aoes", {}) or {}).items()}
+            mw.aoes = {int(k): dict(v) for k, v in dict(self.__dict__.get("_lan_aoes", {}) or {}).items()}
             mw._next_aoe_id = int(getattr(self, "_lan_next_aoe_id", 1) or 1)
             mw._next_bg_id = int(getattr(self, "_session_next_bg_id", 1) or 1)
             mw._redraw_all()
@@ -7941,6 +7952,8 @@ class InitiativeTracker(base.InitiativeTracker):
         self._pending_pre_summons = {}
         self._pending_mount_requests = {}
         self._pending_echo_tether_confirms = {}
+        self._reaction_prefs_by_cid = {}
+        self._pending_reaction_offers = {}
         self._concentration_save_state = {}
         self._session_has_saved = False
 
@@ -9220,7 +9233,7 @@ class InitiativeTracker(base.InitiativeTracker):
         positions = dict(self._lan_positions)
         map_ready = mw is not None
         aoes: List[Dict[str, Any]] = []
-        aoe_source: Dict[int, Dict[str, Any]] = dict(getattr(self, "_lan_aoes", {}) or {})
+        aoe_source: Dict[int, Dict[str, Any]] = dict(self.__dict__.get("_lan_aoes", {}) or {})
         rough_terrain: Dict[Tuple[int, int], object] = dict(getattr(self, "_lan_rough_terrain", {}) or {})
         map_batching = False
 
@@ -10184,7 +10197,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if tuple(origin_cell) == tuple(new_cell):
             return
         turn_key = self._lan_current_turn_key()
-        for aid, aoe in list((getattr(self, "_lan_aoes", {}) or {}).items()):
+        for aid, aoe in list((self.__dict__.get("_lan_aoes", {}) or {}).items()):
             if not isinstance(aoe, dict) or not bool(aoe.get("over_time")):
                 continue
             trigger = str(aoe.get("trigger_on_start_or_enter") or "").strip().lower()
@@ -10219,7 +10232,7 @@ class InitiativeTracker(base.InitiativeTracker):
         current_pos = dict(getattr(self, "_lan_positions", {}) or {}).get(int(moved_cid))
         if not (isinstance(current_pos, tuple) and len(current_pos) == 2):
             return
-        for aid, aoe in list((getattr(self, "_lan_aoes", {}) or {}).items()):
+        for aid, aoe in list((self.__dict__.get("_lan_aoes", {}) or {}).items()):
             if not isinstance(aoe, dict) or not bool(aoe.get("fixed_to_caster")):
                 continue
             anchor_cid = _normalize_cid_value(aoe.get("anchor_cid"), "aoe.anchor_cid")
@@ -10663,7 +10676,7 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 pass
         else:
-            store = dict(getattr(self, "_lan_aoes", {}) or {})
+            store = dict(self.__dict__.get("_lan_aoes", {}) or {})
             store.pop(int(aid), None)
             self._lan_aoes = store
 
@@ -16373,6 +16386,158 @@ class InitiativeTracker(base.InitiativeTracker):
     def _mount_cost(self, rider: Any) -> int:
         return max(0, int(getattr(rider, "speed", 0) or 0) // 2)
 
+    def _lan_feet_per_square(self) -> float:
+        feet_per_square = 5.0
+        try:
+            mw = getattr(self, "_map_window", None)
+            if mw is not None and mw.winfo_exists():
+                feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+        except Exception:
+            pass
+        return max(1.0, float(feet_per_square or 5.0))
+
+    def _reaction_mode_for(self, cid: int, kind_key: str, default: str = "ask") -> str:
+        prefs = self._reaction_prefs_by_cid.get(int(cid), {}) if isinstance(getattr(self, "_reaction_prefs_by_cid", None), dict) else {}
+        raw = str((prefs or {}).get(str(kind_key), default) or default).strip().lower()
+        return raw if raw in ("off", "ask", "auto") else default
+
+    def _set_reaction_prefs(self, cid: int, prefs: Dict[str, Any]) -> None:
+        if not isinstance(prefs, dict):
+            return
+        normalized: Dict[str, str] = {}
+        for key, value in prefs.items():
+            kind = str(key or "").strip().lower()
+            if kind not in ("opportunity_attack", "war_caster"):
+                continue
+            mode = str(value or "").strip().lower()
+            if mode not in ("off", "ask", "auto"):
+                continue
+            normalized[kind] = mode
+        if not normalized:
+            return
+        existing = dict(self._reaction_prefs_by_cid.get(int(cid), {}) or {})
+        existing.update(normalized)
+        self._reaction_prefs_by_cid[int(cid)] = existing
+
+    def _unit_has_sentinel_feat(self, unit: Any) -> bool:
+        if unit is None:
+            return False
+        pname = self._pc_name_for(int(getattr(unit, "cid", 0) or 0))
+        profile = self._profile_for_player_name(pname)
+        features = profile.get("features") if isinstance(profile, dict) else []
+        if not isinstance(features, list):
+            return False
+        for feature in features:
+            if isinstance(feature, str) and str(feature).strip().lower() == "sentinel":
+                return True
+            if isinstance(feature, dict):
+                name = str(feature.get("name") or "").strip().lower()
+                fid = str(feature.get("id") or "").strip().lower()
+                if name == "sentinel" or fid == "sentinel":
+                    return True
+        return False
+
+    def _has_reaction_named(self, unit: Any, name_key: str) -> bool:
+        if unit is None:
+            return False
+        reactions = getattr(unit, "reactions", [])
+        if not isinstance(reactions, list):
+            return False
+        target = str(name_key or "").strip().lower()
+        for entry in reactions:
+            if not isinstance(entry, dict):
+                continue
+            if self._action_name_key(entry.get("name")) == target:
+                return True
+        return False
+
+    def _create_reaction_offer(
+        self,
+        reactor_cid: int,
+        trigger: str,
+        source_cid: int,
+        target_cid: int,
+        allowed_choices: List[Dict[str, Any]],
+        ws_ids: List[int],
+    ) -> Optional[str]:
+        if not allowed_choices or not ws_ids:
+            return None
+        ask_choices = [c for c in allowed_choices if str(c.get("mode") or "ask") == "ask"]
+        auto_choices = [c for c in allowed_choices if str(c.get("mode") or "ask") == "auto"]
+        payload: Dict[str, Any] = {
+            "type": "reaction_offer",
+            "request_id": uuid.uuid4().hex,
+            "reactor_cid": int(reactor_cid),
+            "trigger": str(trigger),
+            "source_cid": int(source_cid),
+            "target_cid": int(target_cid),
+            "choices": [{"kind": c.get("kind"), "label": c.get("label")} for c in allowed_choices],
+            "mode": "ask" if ask_choices else "auto",
+        }
+        if not ask_choices and len(auto_choices) == 1:
+            payload["auto_choice"] = auto_choices[0].get("kind")
+        expires_at = float(time.time() + 12.0)
+        self._pending_reaction_offers[str(payload["request_id"])] = {
+            "reactor_cid": int(reactor_cid),
+            "trigger": str(trigger),
+            "source_cid": int(source_cid),
+            "target_cid": int(target_cid),
+            "choices": [dict(c) for c in allowed_choices],
+            "status": "offered",
+            "expires_at": expires_at,
+        }
+        loop = getattr(self._lan, "_loop", None)
+        if loop:
+            for ws_id in ws_ids:
+                try:
+                    asyncio.run_coroutine_threadsafe(self._lan._send_async(int(ws_id), payload), loop)
+                except Exception:
+                    pass
+        return str(payload["request_id"])
+
+    def _expire_reaction_offers(self) -> None:
+        now = time.time()
+        for req_id, offer in list((getattr(self, "_pending_reaction_offers", {}) or {}).items()):
+            try:
+                exp = float((offer or {}).get("expires_at") or 0.0)
+            except Exception:
+                exp = 0.0
+            if exp <= 0 or exp > now:
+                continue
+            self._pending_reaction_offers.pop(str(req_id), None)
+
+    def _build_oa_reaction_choices(self, reactor: Any, include_war_caster: bool = True) -> List[Dict[str, Any]]:
+        if reactor is None:
+            return []
+        if int(getattr(reactor, "reaction_remaining", 0) or 0) <= 0:
+            return []
+        choices: List[Dict[str, Any]] = []
+        if self._has_reaction_named(reactor, "opportunity attack"):
+            mode = self._reaction_mode_for(int(reactor.cid), "opportunity_attack", default="auto")
+            if mode != "off":
+                choices.append({"kind": "opportunity_attack", "label": "Opportunity Attack", "mode": mode})
+        if include_war_caster:
+            mode = self._reaction_mode_for(int(reactor.cid), "war_caster", default="ask")
+            if mode != "off":
+                pname = self._pc_name_for(int(getattr(reactor, "cid", 0) or 0))
+                profile = self._profile_for_player_name(pname)
+                features = profile.get("features") if isinstance(profile, dict) else []
+                has_wc = False
+                if isinstance(features, list):
+                    for feature in features:
+                        if isinstance(feature, str) and feature.strip().lower() == "war caster":
+                            has_wc = True
+                            break
+                        if isinstance(feature, dict):
+                            nm = str(feature.get("name") or "").strip().lower()
+                            fid = str(feature.get("id") or "").strip().lower()
+                            if nm == "war caster" or fid == "war caster":
+                                has_wc = True
+                                break
+                if has_wc:
+                    choices.append({"kind": "war_caster", "label": "War Caster", "mode": mode})
+        return choices
+
     def _find_ws_for_cid(self, cid: Optional[int]) -> List[int]:
         if cid is None:
             return []
@@ -19423,10 +19588,10 @@ class InitiativeTracker(base.InitiativeTracker):
             spread_deg = _to_float(to.get("spread_deg"))
             mw = getattr(self, "_map_window", None)
             map_ready = mw is not None and mw.winfo_exists()
-            aoe_store = getattr(mw, "aoes", {}) if map_ready else (getattr(self, "_lan_aoes", {}) or {})
+            aoe_store = getattr(mw, "aoes", {}) if map_ready else (self.__dict__.get("_lan_aoes", {}) or {})
             d = (aoe_store or {}).get(aid)
             if not d and map_ready:
-                d = (getattr(self, "_lan_aoes", {}) or {}).get(aid)
+                d = (self.__dict__.get("_lan_aoes", {}) or {}).get(aid)
                 if d:
                     mw_aoes = getattr(mw, "aoes", None)
                     if mw_aoes is None:
@@ -19669,10 +19834,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             mw = getattr(self, "_map_window", None)
             map_ready = mw is not None and mw.winfo_exists()
-            aoe_store = getattr(mw, "aoes", {}) if map_ready else (getattr(self, "_lan_aoes", {}) or {})
+            aoe_store = getattr(mw, "aoes", {}) if map_ready else (self.__dict__.get("_lan_aoes", {}) or {})
             d = (aoe_store or {}).get(aid)
             if not d and map_ready:
-                d = (getattr(self, "_lan_aoes", {}) or {}).get(aid)
+                d = (self.__dict__.get("_lan_aoes", {}) or {}).get(aid)
             if not d:
                 return
             if bool(d.get("pinned")) and not is_admin:
@@ -19821,6 +19986,29 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             self._enforce_johns_echo_tether(int(target_cid))
             self._lan.toast(ws_id, f"Moved ({cost} ft).")
+            return
+
+        if typ == "reaction_prefs_update":
+            if cid is None:
+                return
+            prefs = msg.get("prefs") if isinstance(msg.get("prefs"), dict) else {}
+            self._set_reaction_prefs(int(cid), prefs)
+            return
+
+        if typ == "reaction_response":
+            request_id = str(msg.get("request_id") or "").strip()
+            if not request_id:
+                return
+            offer = self._pending_reaction_offers.get(request_id)
+            if not isinstance(offer, dict):
+                return
+            if int(offer.get("reactor_cid") or -1) != int(cid or -1):
+                return
+            if str(msg.get("choice") or "").strip().lower() in ("", "decline", "ignore"):
+                self._pending_reaction_offers.pop(request_id, None)
+                return
+            offer["status"] = "accepted"
+            offer["accepted_choice"] = str(msg.get("choice") or "").strip().lower()
             return
 
         if typ == "dismount":
@@ -19984,6 +20172,38 @@ class InitiativeTracker(base.InitiativeTracker):
                 )
                 if breaks_echo_tether:
                     self._enforce_johns_echo_tether(int(cid))
+                self._expire_reaction_offers()
+                mover = self.combatants.get(int(cid))
+                if mover is not None and isinstance(before_pos, tuple) and isinstance(after_pos, tuple):
+                    fps = self._lan_feet_per_square()
+                    mover_friendly = self._lan_is_friendly_unit(int(cid))
+                    for other_cid, other in list(self.combatants.items()):
+                        try:
+                            ocid = int(other_cid)
+                        except Exception:
+                            continue
+                        if ocid == int(cid):
+                            continue
+                        if self._lan_is_friendly_unit(int(ocid)) == mover_friendly:
+                            continue
+                        if int(getattr(other, "reaction_remaining", 0) or 0) <= 0:
+                            continue
+                        reactor_pos = positions_after.get(int(ocid))
+                        if not (isinstance(reactor_pos, tuple) and len(reactor_pos) == 2):
+                            continue
+                        start_dist = max(abs(int(before_pos[0]) - int(reactor_pos[0])), abs(int(before_pos[1]) - int(reactor_pos[1])))
+                        end_dist = max(abs(int(after_pos[0]) - int(reactor_pos[0])), abs(int(after_pos[1]) - int(reactor_pos[1])))
+                        start_ft = float(start_dist) * fps
+                        end_ft = float(end_dist) * fps
+                        if not (start_ft <= fps + 1e-6 and end_ft > fps + 1e-6):
+                            continue
+                        if bool(getattr(mover, "disengage_active", False)):
+                            continue
+                        choices = self._build_oa_reaction_choices(other, include_war_caster=True)
+                        if not choices:
+                            continue
+                        ws_targets = self._find_ws_for_cid(int(ocid))
+                        self._create_reaction_offer(int(ocid), "leave_reach", int(cid), int(cid), choices, ws_targets)
                 self._lan.toast(ws_id, f"Moved ({cost} ft).")
         elif typ == "cycle_movement_mode":
             c = self.combatants.get(cid)
@@ -20027,6 +20247,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 base_speed = int(self._mode_speed(c))
             except Exception:
                 base_speed = int(getattr(c, "speed", 30) or 30)
+            if bool(getattr(c, "speed_zero_until_turn_end", False)):
+                self._lan.toast(ws_id, "Yer speed is 0 until turn end.")
+                return
             try:
                 # Match map dash logic: add 30 to both numerator/denominator
                 total = int(getattr(c, "move_total", 0) or 0)
@@ -20170,6 +20393,35 @@ class InitiativeTracker(base.InitiativeTracker):
                             {"type": "rage_upkeep", "when": "end_turn", "source": "rage"},
                         )
                 action_effect = str(action_entry.get("effect") or "").strip().lower()
+                if action_key == "disengage":
+                    setattr(c, "disengage_active", True)
+                    fps = self._lan_feet_per_square()
+                    mover_pos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(cid))
+                    if isinstance(mover_pos, tuple) and len(mover_pos) == 2:
+                        for other_cid, other in list(self.combatants.items()):
+                            try:
+                                ocid = int(other_cid)
+                            except Exception:
+                                continue
+                            if ocid == int(cid):
+                                continue
+                            if self._lan_is_friendly_unit(ocid) == self._lan_is_friendly_unit(int(cid)):
+                                continue
+                            if not self._unit_has_sentinel_feat(other):
+                                continue
+                            if int(getattr(other, "reaction_remaining", 0) or 0) <= 0:
+                                continue
+                            opos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(ocid)
+                            if not (isinstance(opos, tuple) and len(opos) == 2):
+                                continue
+                            dist_ft = max(abs(int(mover_pos[0]) - int(opos[0])), abs(int(mover_pos[1]) - int(opos[1]))) * fps
+                            if dist_ft - 8.0 > 1e-6:
+                                continue
+                            choices = self._build_oa_reaction_choices(other, include_war_caster=False)
+                            if not choices:
+                                continue
+                            ws_targets = self._find_ws_for_cid(ocid)
+                            self._create_reaction_offer(ocid, "sentinel_disengage", int(cid), int(cid), choices, ws_targets)
                 if action_effect in ("recover_spell_slots", "recover_spell_slot") or action_key in ("arcane recovery", "natural recovery (recover spell slots)"):
                     recover_cfg: Dict[str, Any] = {}
                     if action_effect in ("recover_spell_slots", "recover_spell_slot"):
@@ -20524,6 +20776,14 @@ class InitiativeTracker(base.InitiativeTracker):
                 if not damage_intent:
                     hit = True
 
+            resolved_bucket = locals().get("resolved_bucket", [])
+            sequence = locals().get("sequence", [])
+            spell_mode = locals().get("spell_mode", "")
+            result_payload = locals().get("result_payload", {}) if isinstance(locals().get("result_payload", {}), dict) else {}
+            resolved_bucket = locals().get("resolved_bucket", [])
+            sequence = locals().get("sequence", [])
+            spell_mode = locals().get("spell_mode", "")
+            result_payload = locals().get("result_payload", {}) if isinstance(locals().get("result_payload", {}), dict) else {}
             if not resolved_bucket and sequence:
                 seq_step = next((step for step in sequence if isinstance(step, dict)), None)
                 if isinstance(seq_step, dict):
@@ -21012,6 +21272,19 @@ class InitiativeTracker(base.InitiativeTracker):
                 "yes",
                 "on",
             )
+            reaction_request_id = str(msg.get("reaction_request_id") or "").strip()
+            if reaction_request_id:
+                self._expire_reaction_offers()
+                offer = self._pending_reaction_offers.get(reaction_request_id)
+                if not isinstance(offer, dict):
+                    self._lan.toast(ws_id, "That reaction request expired, matey.")
+                    return
+                if int(offer.get("reactor_cid") or -1) != int(cid):
+                    self._lan.toast(ws_id, "That reaction request be for someone else.")
+                    return
+                if int(offer.get("target_cid") or -1) != int(target_cid):
+                    self._lan.toast(ws_id, "Reaction target mismatch.")
+                    return
             attack_spend = str(msg.get("attack_spend") or msg.get("spend") or "").strip().lower()
             if nick_extra_attack_available:
                 configured_attack_count = min(10, int(configured_attack_count) + 1)
@@ -21082,6 +21355,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not self._use_reaction(resource_c):
                         self._lan.toast(ws_id, "No reactions left, matey.")
                         return
+                    if reaction_request_id:
+                        self._pending_reaction_offers.pop(reaction_request_id, None)
                 elif not is_unleash_incarnation_attack:
                     if attack_resources <= 0:
                         if not self._use_action(resource_c):
@@ -21317,6 +21592,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     raw_type = str(entry.get("type") or "").strip().lower()
                     if raw_type in ("", "damage", "bludgeoning"):
                         entry["type"] = damage_type_override
+            resolved_bucket = locals().get("resolved_bucket", [])
+            sequence = locals().get("sequence", [])
+            spell_mode = locals().get("spell_mode", "")
+            result_payload = locals().get("result_payload", {}) if isinstance(locals().get("result_payload", {}), dict) else {}
             if not resolved_bucket and sequence:
                 seq_step = next((step for step in sequence if isinstance(step, dict)), None)
                 if isinstance(seq_step, dict):
@@ -21431,6 +21710,42 @@ class InitiativeTracker(base.InitiativeTracker):
                             self._lan.play_ko(int(cid))
                         except Exception:
                             pass
+            if hit and opportunity_attack and self._unit_has_sentinel_feat(resource_c):
+                setattr(target, "move_remaining", 0)
+                setattr(target, "speed_zero_until_turn_end", True)
+
+            if hit:
+                fps = self._lan_feet_per_square()
+                attacker_pos2 = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(cid))
+                target_friendly = self._lan_is_friendly_unit(int(target_cid))
+                if isinstance(attacker_pos2, tuple) and len(attacker_pos2) == 2:
+                    for other_cid, other in list(self.combatants.items()):
+                        try:
+                            ocid = int(other_cid)
+                        except Exception:
+                            continue
+                        if ocid in (int(cid), int(target_cid)):
+                            continue
+                        if self._lan_is_friendly_unit(ocid) == self._lan_is_friendly_unit(int(cid)):
+                            continue
+                        if not self._unit_has_sentinel_feat(other):
+                            continue
+                        if int(getattr(other, "reaction_remaining", 0) or 0) <= 0:
+                            continue
+                        if target_friendly == self._lan_is_friendly_unit(ocid):
+                            continue
+                        opos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(ocid)
+                        if not (isinstance(opos, tuple) and len(opos) == 2):
+                            continue
+                        dist_ft = max(abs(int(attacker_pos2[0]) - int(opos[0])), abs(int(attacker_pos2[1]) - int(opos[1]))) * fps
+                        if dist_ft - 8.0 > 1e-6:
+                            continue
+                        choices = self._build_oa_reaction_choices(other, include_war_caster=False)
+                        if not choices:
+                            continue
+                        ws_targets = self._find_ws_for_cid(ocid)
+                        self._create_reaction_offer(ocid, "sentinel_hit_other", int(cid), int(cid), choices, ws_targets)
+
             if hit and isinstance(selected_weapon.get("riders"), list):
                 for rider in selected_weapon.get("riders"):
                     if not isinstance(rider, dict):
@@ -22185,6 +22500,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 if not ok_pool:
                     self._lan.toast(ws_id, pool_err or "No Focus Points remain, matey.")
                     return
+                setattr(c, "disengage_active", True)
                 self._log(
                     f"{c.name} used Patient Defense (Disengage + Dodge) (bonus action, 1 Focus)",
                     cid=cid,
@@ -22200,6 +22516,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     )
                 self._lan.toast(ws_id, "Patient Defense used (1 Focus).")
             else:
+                setattr(c, "disengage_active", True)
                 self._log(f"{c.name} used Patient Defense (Disengage) (bonus action)", cid=cid)
                 self._lan.toast(ws_id, "Patient Defense used.")
             self._rebuild_table(scroll_to_current=True)
@@ -22816,6 +23133,8 @@ class InitiativeTracker(base.InitiativeTracker):
             return (False, "No such unit.", 0)
         if _normalize_cid_value(getattr(c, "rider_cid", None), "move.rider_cid") is not None:
             return (False, "Rider movement uses the mount, matey.", 0)
+        if bool(getattr(c, "speed_zero_until_turn_end", False)):
+            return (False, "Yer speed is 0 until turn end.", 0)
 
         origin = positions.get(cid)
         if origin is None:

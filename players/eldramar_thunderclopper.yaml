@@ -70,6 +70,11 @@ resources:
     max_formula: '1'
     reset: long_rest
 features:
+- id: war_caster
+  name: War Caster
+  category: Feat
+  source: PHB2024
+  description: Somatic components while hands are occupied; Advantage on Constitution saving throws to maintain concentration; when a hostile creature leaves your reach, you can use your Reaction to cast an eligible single-target spell with a casting time of 1 action.
 - id: arcane_recovery
   name: Arcane Recovery
   level: 1

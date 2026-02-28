@@ -103,8 +103,8 @@ features:
 - id: war_caster
   name: War Caster
   category: Feat
-  source: PHB
-  description: Somatic components with occupied hands; concentration advantage; reaction spell on opportunity attack.
+  source: PHB2024
+  description: Somatic components while hands are occupied; Advantage on Constitution saving throws to maintain concentration; when a hostile creature leaves your reach, you can use your Reaction to cast an eligible single-target spell with a casting time of 1 action.
 - id: druidic
   name: Druidic
   category: Druid Feature

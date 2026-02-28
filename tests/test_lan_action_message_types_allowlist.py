@@ -12,6 +12,8 @@ class LanActionMessageTypesAllowlistTests(unittest.TestCase):
             "bardic_inspiration_grant",
             "bardic_inspiration_use",
             "mantle_of_inspiration",
+            "reaction_prefs_update",
+            "reaction_response",
         }
         action_types = set(tracker_mod.LanController._ACTION_MESSAGE_TYPES)
         self.assertTrue(required_types.issubset(action_types))
