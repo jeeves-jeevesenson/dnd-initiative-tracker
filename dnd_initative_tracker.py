@@ -9732,6 +9732,13 @@ class InitiativeTracker(base.InitiativeTracker):
             "turn_order": turn_order,
             "auras_enabled": bool(self.__dict__.get("_lan_auras_enabled", True)),
         }
+        if self._lan_reaction_debug_enabled():
+            snap["reaction_debug"] = self._lan_reaction_debug_payload(
+                positions=positions,
+                cols=int(cols),
+                rows=int(rows),
+                feet_per_square=float(feet_per_square),
+            )
         if include_static:
             snap["spell_presets"] = self._spell_presets_payload()
             snap["player_spells"] = self._player_spell_config_payload()
@@ -16739,7 +16746,23 @@ class InitiativeTracker(base.InitiativeTracker):
         allowed_choices: List[Dict[str, Any]],
         ws_ids: List[int],
     ) -> Optional[str]:
-        if not allowed_choices or not ws_ids:
+        resolved_ws_ids: List[int] = []
+        for ws_id in ws_ids or []:
+            try:
+                resolved_ws_ids.append(int(ws_id))
+            except Exception:
+                continue
+        self._oplog(
+            "reaction_offer:create "
+            f"trigger={str(trigger)} reactor_cid={int(reactor_cid)} source_cid={int(source_cid)} "
+            f"target_cid={int(target_cid)} ws_ids={resolved_ws_ids}",
+            level="info",
+        )
+        if not allowed_choices:
+            self._oplog("reaction_offer:create skipped (no allowed choices)", level="warning")
+            return None
+        if not resolved_ws_ids:
+            self._oplog("reaction_offer:create skipped (no websocket targets)", level="warning")
             return None
         ask_choices = [c for c in allowed_choices if str(c.get("mode") or "ask") == "ask"]
         auto_choices = [c for c in allowed_choices if str(c.get("mode") or "ask") == "auto"]
@@ -16768,16 +16791,19 @@ class InitiativeTracker(base.InitiativeTracker):
         loop = getattr(self._lan, "_loop", None)
         send_async = getattr(self._lan, "_send_async", None)
         if callable(send_async):
-            for ws_id in ws_ids:
+            for ws_id in resolved_ws_ids:
                 try:
                     maybe_coro = send_async(int(ws_id), payload)
                     if asyncio.iscoroutine(maybe_coro):
-                        if loop:
+                        if isinstance(loop, asyncio.AbstractEventLoop) and loop.is_running():
                             asyncio.run_coroutine_threadsafe(maybe_coro, loop)
                         else:
                             asyncio.run(maybe_coro)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self._oplog(
+                        f"reaction_offer:send failed ws_id={int(ws_id)} trigger={str(trigger)} ({exc})",
+                        level="warning",
+                    )
         return str(payload["request_id"])
 
     def _expire_reaction_offers(self) -> None:
@@ -16798,7 +16824,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return []
         choices: List[Dict[str, Any]] = []
         if self._has_reaction_named(reactor, "opportunity attack"):
-            mode = self._reaction_mode_for(int(reactor.cid), "opportunity_attack", default="auto")
+            mode = self._reaction_mode_for(int(reactor.cid), "opportunity_attack", default="ask")
             if mode != "off":
                 choices.append({"kind": "opportunity_attack", "label": "Opportunity Attack", "mode": mode})
         if include_war_caster:
@@ -16831,6 +16857,55 @@ class InitiativeTracker(base.InitiativeTracker):
                 return list(self._lan._cid_to_ws.get(int(cid), set()))
         except Exception:
             return []
+
+    def _lan_reaction_debug_enabled(self) -> bool:
+        raw = str(os.environ.get("LAN_REACTION_DEBUG", "") or "").strip().lower()
+        return raw in ("1", "true", "yes", "on")
+
+    def _lan_reaction_debug_payload(
+        self,
+        positions: Dict[int, Tuple[int, int]],
+        cols: int,
+        rows: int,
+        feet_per_square: float,
+    ) -> Dict[str, Any]:
+        reach_sq = max(1, int(math.ceil(5.0 / max(1.0, float(feet_per_square)))))
+        threats: List[Dict[str, Any]] = []
+        for c in sorted(self.combatants.values(), key=lambda x: int(getattr(x, "cid", 0) or 0)):
+            cid = int(getattr(c, "cid", 0) or 0)
+            pos = positions.get(cid)
+            if not (isinstance(pos, tuple) and len(pos) == 2):
+                continue
+            has_oa = self._has_reaction_named(c, "opportunity attack")
+            has_sentinel = self._unit_has_sentinel_feat(c)
+            if not has_oa and not has_sentinel:
+                continue
+            cells: List[Dict[str, int]] = []
+            for dc in range(-reach_sq, reach_sq + 1):
+                for dr in range(-reach_sq, reach_sq + 1):
+                    if dc == 0 and dr == 0:
+                        continue
+                    col = int(pos[0]) + int(dc)
+                    row = int(pos[1]) + int(dr)
+                    if col < 0 or row < 0 or col >= int(cols) or row >= int(rows):
+                        continue
+                    cells.append({"col": int(col), "row": int(row)})
+            threats.append(
+                {
+                    "cid": int(cid),
+                    "name": str(getattr(c, "name", "") or f"CID {cid}"),
+                    "source": {"col": int(pos[0]), "row": int(pos[1])},
+                    "reach_sq": int(reach_sq),
+                    "has_oa": bool(has_oa),
+                    "has_sentinel": bool(has_sentinel),
+                    "cells": cells,
+                }
+            )
+        return {
+            "enabled": True,
+            "feet_per_square": float(feet_per_square),
+            "threats": threats,
+        }
 
     def _accept_mount(self, rider_cid: int, mount_cid: int, ws_id: Optional[int], auto: bool = False) -> None:
         rider = self.combatants.get(int(rider_cid))
@@ -22381,7 +22456,6 @@ class InitiativeTracker(base.InitiativeTracker):
             if hit:
                 fps = self._lan_feet_per_square()
                 attacker_pos2 = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(cid))
-                target_friendly = self._lan_is_friendly_unit(int(target_cid))
                 if isinstance(attacker_pos2, tuple) and len(attacker_pos2) == 2:
                     for other_cid, other in list(self.combatants.items()):
                         try:
@@ -22395,8 +22469,6 @@ class InitiativeTracker(base.InitiativeTracker):
                         if not self._unit_has_sentinel_feat(other):
                             continue
                         if int(getattr(other, "reaction_remaining", 0) or 0) <= 0:
-                            continue
-                        if target_friendly == self._lan_is_friendly_unit(ocid):
                             continue
                         opos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(ocid)
                         if not (isinstance(opos, tuple) and len(opos) == 2):

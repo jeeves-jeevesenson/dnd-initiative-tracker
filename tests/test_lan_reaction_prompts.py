@@ -63,6 +63,26 @@ class LanReactionPromptTests(unittest.TestCase):
         self.app._lan_apply_action({"type": "perform_action", "cid": 2, "_claimed_cid": 2, "_ws_id": 55, "spend": "action", "action": "Disengage"})
         self.assertTrue(any(payload.get("trigger") == "sentinel_disengage" for _ws, payload in self.sent if isinstance(payload, dict)))
 
+
+    def test_attack_triggers_sentinel_hit_other_offer(self):
+        self.app._name_role_memory["Victim"] = "pc"
+        self.app._lan_positions[3] = (7, 5)
+        self.app._lan_apply_action(
+            {
+                "type": "attack_request",
+                "cid": 2,
+                "_claimed_cid": 2,
+                "_ws_id": 77,
+                "target_cid": 3,
+                "weapon_id": "sword",
+                "hit": True,
+            }
+        )
+        sentinel_offers = [
+            payload for _ws, payload in self.sent if isinstance(payload, dict) and payload.get("trigger") == "sentinel_hit_other"
+        ]
+        self.assertTrue(sentinel_offers)
+
     def test_sentinel_oa_hit_halts_target(self):
         req_id = "abc"
         self.app._pending_reaction_offers[req_id] = {"reactor_cid": 1, "target_cid": 2, "expires_at": 9999999999}
