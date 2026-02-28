@@ -18464,7 +18464,10 @@ class InitiativeTracker(base.InitiativeTracker):
             if "persistent" not in payload and persistent is None:
                 persistent = parse_bool(preset_aoe_behavior.get("persistent_default"))
             if "trigger_on_start_or_enter" not in payload and trigger_on_start_or_enter is None:
-                trigger_on_start_or_enter = parse_trigger(preset_aoe_behavior.get("trigger_on_start_or_enter"))
+                trigger_on_start_or_enter = parse_trigger(
+                    preset_aoe_behavior.get("trigger_on_start_or_enter")
+                    or preset_aoe_behavior.get("trigger_mode")
+                )
             if "move_per_turn_ft" not in payload and move_per_turn_ft is None:
                 move_per_turn_ft = parse_nonnegative_float(preset_aoe_behavior.get("move_per_turn_ft"))
                 if move_per_turn_ft is not None and move_per_turn_ft <= 0:
