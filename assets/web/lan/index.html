@@ -2381,6 +2381,15 @@
               <option value="thunder">Thunder</option>
             </select>
           </div>
+          <div class="row" id="attackTacticalMasterRow" style="display:none;align-items:center;gap:8px;">
+            <label for="attackTacticalMasterSelect">Tactical Master</label>
+            <select id="attackTacticalMasterSelect">
+              <option value="">Use weapon default mastery</option>
+              <option value="push">Push</option>
+              <option value="sap">Sap</option>
+              <option value="slow">Slow</option>
+            </select>
+          </div>
           <div class="damage-type-list" id="attackDamageRows" aria-live="polite"></div>
           <div class="modal-actions" style="justify-content:flex-start;padding:0;">
             <button class="btn" id="attackDamageAdd" type="button">Add damage box</button>
@@ -4197,6 +4206,8 @@ __DAMAGE_TYPE_OPTIONS__
   const attackStunningStrike = document.getElementById("attackStunningStrike");
   const attackDamageTypeOverrideRow = document.getElementById("attackDamageTypeOverrideRow");
   const attackDamageTypeOverrideSelect = document.getElementById("attackDamageTypeOverrideSelect");
+  const attackTacticalMasterRow = document.getElementById("attackTacticalMasterRow");
+  const attackTacticalMasterSelect = document.getElementById("attackTacticalMasterSelect");
   const attackDamageRows = document.getElementById("attackDamageRows");
   const attackDamageAdd = document.getElementById("attackDamageAdd");
   const attackResolveSubmit = document.getElementById("attackResolveSubmit");
@@ -10133,6 +10144,17 @@ __DAMAGE_TYPE_OPTIONS__
       attackDamageTypeOverrideSelect.value = "";
       attackDamageTypeOverrideSelect.disabled = !attunedUnarmed;
     }
+    const claimedName = normalizeLowerValue(getClaimedPlayerName());
+    const isJohnTwilight = claimedName === "john twilight";
+    const fighterLevel = getClassLevelFromProfile(profile, "fighter");
+    const tacticalMasterAllowed = !!(isJohnTwilight && fighterLevel >= 9);
+    if (attackTacticalMasterRow){
+      attackTacticalMasterRow.style.display = tacticalMasterAllowed ? "flex" : "none";
+    }
+    if (attackTacticalMasterSelect){
+      attackTacticalMasterSelect.value = "";
+      attackTacticalMasterSelect.disabled = !tacticalMasterAllowed;
+    }
 
     pendingAttackResolve = {
       targetCid: Number(target?.cid),
@@ -10147,6 +10169,7 @@ __DAMAGE_TYPE_OPTIONS__
       consumesPool: pendingUnleashIncarnation ? {...pendingUnleashIncarnation} : null,
       elementalOverrideAllowed: attunedUnarmed,
       stunningStrikeAllowed: canUseStunningStrike,
+      tacticalMasterAllowed,
     };
     pendingOpportunityAttack = false;
     const advantageText = hasVexAdvantage ? ' <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>' : "";
@@ -20462,6 +20485,9 @@ __DAMAGE_TYPE_OPTIONS__
             ? String(attackDamageTypeOverrideSelect.value || "").trim().toLowerCase() || null
             : null,
           stunning_strike: !!(hit && pendingAttackResolve.stunningStrikeAllowed && attackStunningStrike?.checked),
+          tactical_master_property: (pendingAttackResolve.tacticalMasterAllowed && attackTacticalMasterSelect)
+            ? String(attackTacticalMasterSelect.value || "").trim().toLowerCase() || null
+            : null,
         };
         if (monkSeq){
           attackMsg.attack_spend = "bonus";
