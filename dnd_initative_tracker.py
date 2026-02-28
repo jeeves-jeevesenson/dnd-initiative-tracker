@@ -17209,7 +17209,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 quantity = 1
             if quantity <= 0:
                 continue
-            overrides = entry.get("overrides") if isinstance(entry.get("overrides"), dict) else {}
+            overrides = dict(entry.get("overrides")) if isinstance(entry.get("overrides"), dict) else {}
+            color_override = self._normalize_token_color(overrides.pop("color", None) or overrides.pop("token_color", None))
+            border_override = self._normalize_token_color(
+                overrides.pop("border_color", None) or overrides.pop("token_border_color", None)
+            )
             summon_spec = self._apply_startup_summon_overrides(spec, dict(overrides))
             group_id = f"startup:{int(time.time() * 1000)}:{caster_cid}:{entry_idx}:{len(self._summon_groups) + 1}"
             spawned_group: List[int] = []
@@ -17240,6 +17244,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 setattr(summoned, "summon_source_spell", source_spell)
                 setattr(summoned, "summon_group_id", group_id)
                 setattr(summoned, "summon_controller_mode", "summoner")
+                if color_override:
+                    setattr(summoned, "token_color", color_override)
+                if border_override:
+                    setattr(summoned, "token_border_color", border_override)
                 spawned_group.append(cid)
                 spawned_all.append(cid)
             if spawned_group:

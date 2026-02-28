@@ -1,7 +1,11 @@
 format_version: 2
 name: Eldramar
 player: Eldramar
-summon-on-start: owl.yaml
+summon_on_start:
+- monster: owl.yaml
+  overrides:
+    token_color: '#ceae84'
+    token_border_color: '#c9c4ad'
 identity:
   pronouns: null
   ancestry: null
