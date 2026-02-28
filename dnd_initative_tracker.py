@@ -18344,8 +18344,38 @@ class InitiativeTracker(base.InitiativeTracker):
                     preset_level = None
                 if slot_level is None and preset_level is not None and preset_level > 0:
                     slot_level = preset_level
-                if slot_level is not None:
-                    player_name = _resolve_pc_name(cid)
+                player_name = _resolve_pc_name(cid)
+                consumes_pool = payload.get("consumes_pool") if isinstance(payload.get("consumes_pool"), dict) else {}
+                pool_id = str(
+                    msg.get("consumes_pool_id")
+                    or payload.get("consumes_pool_id")
+                    or consumes_pool.get("id")
+                    or consumes_pool.get("pool")
+                    or ""
+                ).strip()
+                try:
+                    pool_cost = int(
+                        msg.get("consumes_pool_cost")
+                        if msg.get("consumes_pool_cost") is not None
+                        else payload.get("consumes_pool_cost")
+                        if payload.get("consumes_pool_cost") is not None
+                        else consumes_pool.get("cost", 1)
+                    )
+                except Exception:
+                    pool_cost = 1
+                pool_cost = max(1, pool_cost)
+                if pool_id:
+                    ok_pool, pool_err = self._consume_resource_pool_for_cast(
+                        caster_name=player_name,
+                        pool_id=pool_id,
+                        cost=pool_cost,
+                    )
+                    if not ok_pool:
+                        self._lan.toast(ws_id, pool_err)
+                        return
+                    if str(pool_id or "").strip().lower() == "pact_magic_slots":
+                        beguiling_magic_slot_equivalent_used = True
+                elif slot_level is not None:
                     ok_slot, slot_err, _spent_level = self._consume_spell_slot_for_cast(
                         caster_name=player_name,
                         slot_level=slot_level,

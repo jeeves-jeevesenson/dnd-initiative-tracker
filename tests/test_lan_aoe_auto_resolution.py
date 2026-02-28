@@ -315,13 +315,44 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
             },
         }
 
-        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 10]):
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[10] * 20):
             self.app._lan_apply_action(msg)
 
         self.assertEqual(self.app.combatants[2].hp, 8)
         self.assertEqual(self.app.combatants[3].hp, 14)
         self.assertEqual(self.app._lan_positions.get(2), (6, 4))
         self.assertEqual(self.app._lan_positions.get(3), (8, 4))
+
+
+    def test_cast_aoe_consumes_resource_pool_when_payload_declares_pool_cost(self):
+        consumed = []
+        spent_slots = []
+        self.app._consume_resource_pool_for_cast = (
+            lambda caster_name, pool_id, cost: (consumed.append((caster_name, pool_id, cost)) or True, "")
+        )
+        self.app._consume_spell_slot_for_cast = lambda **kwargs: (spent_slots.append(kwargs) or (True, "", kwargs.get("slot_level")))
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 27,
+            "spell_slug": "fireball",
+            "slot_level": 3,
+            "payload": {
+                "shape": "sphere",
+                "name": "Fireball",
+                "radius_ft": 20,
+                "cx": 5,
+                "cy": 4,
+                "consumes_pool": {"id": "wand_of_fireballs_fireball_cast", "cost": 1},
+            },
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[10] * 20):
+            self.app._lan_apply_action(msg)
+
+        self.assertEqual(consumed, [("Aelar", "wand_of_fireballs_fireball_cast", 1)])
+        self.assertEqual(spent_slots, [])
 
     def test_monk_elemental_burst_consumes_focus_and_auto_resolves(self):
         consumed = []
