@@ -1666,8 +1666,9 @@
     .modal-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
 
     .rules-help-layout{display:grid; grid-template-columns:minmax(220px, 32%) 1fr; gap:10px; min-height:68vh; max-height:calc(100dvh - 170px);}
-    .cast-modal-layout{display:grid; grid-template-columns:minmax(240px, 34%) 1fr; gap:10px; min-height:62vh; max-height:calc(100dvh - 180px);}
+    .cast-modal-layout{display:grid; grid-template-columns:minmax(240px, 34%) 1fr; gap:10px; min-height:74vh; max-height:calc(100dvh - 180px);}
     #castSpellModal{
+      --castModalAvailableHeight: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - var(--modalTopOffset) - var(--modalBottomOffset) - 24px);
       align-items:flex-start;
       overflow:auto;
     }
@@ -1682,15 +1683,19 @@
       display:flex;
       flex-direction:column;
       overflow:hidden;
-      max-height: calc(100dvh - var(--safeInsetTop) - var(--safeInsetBottom) - var(--modalTopOffset) - var(--modalBottomOffset) - 24px);
+      height: var(--castModalAvailableHeight);
+      max-height: var(--castModalAvailableHeight);
     }
     #castSpellModal .cast-modal-layout{
+      flex:1 1 auto;
       min-height:0;
       overflow:auto;
     }
     .cast-modal-left,
     .cast-modal-right{min-height:0; overflow:auto; border:1px solid rgba(255,255,255,0.1); border-radius:12px; background:rgba(10,14,22,0.55); padding:10px;}
-    .cast-modal-search{margin-bottom:10px;}
+    .cast-modal-controls{display:grid; grid-template-columns:1fr minmax(120px,auto); gap:10px; align-items:end; margin-bottom:10px;}
+    .cast-modal-search{margin-bottom:0;}
+    .cast-modal-sort{margin-bottom:0;}
     .cast-modal-list{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
     .cast-modal-list .btn{justify-content:flex-start; text-align:left; width:100%;}
     .cast-modal-list .btn.active{border-color:var(--accent); box-shadow:0 0 0 1px rgba(106,169,255,0.35) inset;}
@@ -1718,7 +1723,7 @@
     @media (max-width: 1600px){ .rules-help-layout{min-height:64vh; max-height:calc(100dvh - 150px);} }
     @media (max-width: 1200px){ .rules-help-layout{min-height:60vh; max-height:calc(100dvh - 130px);} }
     @media (max-width: 900px){ .rules-help-layout{grid-template-columns:1fr; min-height:56vh; max-height:none;} .rules-help-frame{min-height:360px;} }
-    @media (max-width: 900px){ .cast-modal-layout{grid-template-columns:1fr; min-height:56vh; max-height:none;} }
+    @media (max-width: 900px){ .cast-modal-layout{grid-template-columns:1fr; min-height:56vh; max-height:none;} .cast-modal-controls{grid-template-columns:1fr;} }
     .modal-actions .btn{flex:1; min-width:120px;}
     .pool-spell-confirm-card{max-width:420px;border:1px solid rgba(255,255,255,.12);box-shadow:0 14px 36px rgba(0,0,0,.38);}
     .action-picker-list{
@@ -3209,9 +3214,18 @@ __DAMAGE_TYPE_OPTIONS__
     </div>
     <div class="cast-modal-layout">
       <div class="cast-modal-left">
-        <div class="form-field cast-modal-search">
-          <label for="castSpellModalSearch">Search</label>
-          <input id="castSpellModalSearch" type="search" placeholder="Search spells" />
+        <div class="cast-modal-controls">
+          <div class="form-field cast-modal-search">
+            <label for="castSpellModalSearch">Search</label>
+            <input id="castSpellModalSearch" type="search" placeholder="Search spells" />
+          </div>
+          <div class="form-field cast-modal-sort">
+            <label for="castSpellModalSort">Sort</label>
+            <select id="castSpellModalSort">
+              <option value="alpha" selected>Name</option>
+              <option value="level">Level</option>
+            </select>
+          </div>
         </div>
         <details open>
           <summary id="castSpellPresetSummary">Spells &amp; Presets (None)</summary>
@@ -4207,6 +4221,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castSpellModalManageSpellsBtn = document.getElementById("castSpellModalManageSpells");
   const castSpellModalCloseBtn = document.getElementById("castSpellModalClose");
   const castSpellModalSearchInput = document.getElementById("castSpellModalSearch");
+  const castSpellModalSortInput = document.getElementById("castSpellModalSort");
   const castSpellPresetList = document.getElementById("castSpellPresetList");
   const castSpellPresetSummary = document.getElementById("castSpellPresetSummary");
   const castSpellPreview = document.getElementById("castSpellPreview");
@@ -7452,8 +7467,19 @@ __DAMAGE_TYPE_OPTIONS__
     const search = normalizeLowerValue(castSpellModalSearchInput?.value || "");
     castSpellPresetList.textContent = "";
     const preparedSet = getPreparedSpellFilterSet();
+    const sortMode = normalizeLowerValue(castSpellModalSortInput?.value || "alpha");
     const presets = filterPresetsByKnownList(cachedSpellPresets.slice(), preparedSet)
-      .filter((preset) => !search || normalizeLowerValue(preset?.name).includes(search));
+      .filter((preset) => !search || normalizeLowerValue(preset?.name).includes(search))
+      .sort((a, b) => {
+        if (sortMode === "level"){
+          const aLevel = getPresetLevelNumber(a);
+          const bLevel = getPresetLevelNumber(b);
+          const aRank = Number.isFinite(aLevel) ? aLevel : 99;
+          const bRank = Number.isFinite(bLevel) ? bLevel : 99;
+          if (aRank !== bRank) return aRank - bRank;
+        }
+        return normalizeTextValue(a?.name).localeCompare(normalizeTextValue(b?.name));
+      });
     const entries = [
       {label: "None", value: ""},
       {label: "Custom", value: "__custom__"},
@@ -7691,6 +7717,9 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (castSpellModalSearchInput){
     castSpellModalSearchInput.addEventListener("input", renderCastSpellModalPresetList);
+  }
+  if (castSpellModalSortInput){
+    castSpellModalSortInput.addEventListener("change", renderCastSpellModalPresetList);
   }
   if (helpSearchInput){
     helpSearchInput.addEventListener("input", () => renderRulesToc());
