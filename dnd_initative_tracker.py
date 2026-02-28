@@ -9832,7 +9832,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 return True
         return False
 
-    def _lan_sculpt_spells_context(self, caster: Optional[base.Combatant], preset: Optional[Dict[str, Any]]) -> Tuple[bool, int]:
+    def _lan_sculpt_spells_context(
+        self,
+        caster: Optional[base.Combatant],
+        preset: Optional[Dict[str, Any]],
+        slot_level: Optional[int] = None,
+    ) -> Tuple[bool, int]:
         if caster is None or not bool(getattr(caster, "is_pc", False)):
             return False, 1
         preset_dict = preset if isinstance(preset, dict) else {}
@@ -9846,7 +9851,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if not self._profile_has_feature_id(profile if isinstance(profile, dict) else {}, "sculpt_spells"):
             return False, 1
         try:
-            spell_level = int(preset_dict.get("level"))
+            spell_level = int(slot_level) if slot_level is not None else int(preset_dict.get("level"))
         except Exception:
             spell_level = 0
         spell_level = max(0, int(spell_level))
@@ -10455,7 +10460,7 @@ class InitiativeTracker(base.InitiativeTracker):
             return False
         outcomes = step.get("outcomes") if isinstance(step.get("outcomes"), dict) else {}
         included = list(included_override) if isinstance(included_override, list) else self._lan_compute_included_units_for_aoe(aoe)
-        sculpt_enabled, sculpt_max_protected = self._lan_sculpt_spells_context(caster, preset)
+        sculpt_enabled, sculpt_max_protected = self._lan_sculpt_spells_context(caster, preset, slot_level=slot_level)
         sculpted_targets: set[int] = set()
         if sculpt_enabled and caster is not None:
             caster_cid = int(getattr(caster, "cid", 0) or 0)
@@ -18998,7 +19003,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     rad = math.radians(float(aoe.get("angle_deg") or 0.0))
                     aoe["cx"] = float(anchor_ax + math.cos(rad) * half_len)
                     aoe["cy"] = float(anchor_ay + math.sin(rad) * half_len)
-            sculpt_enabled, sculpt_max_protected = self._lan_sculpt_spells_context(c, preset_dict)
+            sculpt_enabled, sculpt_max_protected = self._lan_sculpt_spells_context(c, preset_dict, slot_level=slot_level)
             if sculpt_enabled and c is not None:
                 caster_cid = int(getattr(c, "cid", 0) or 0)
                 caster_friendly = self._lan_is_friendly_unit(caster_cid)

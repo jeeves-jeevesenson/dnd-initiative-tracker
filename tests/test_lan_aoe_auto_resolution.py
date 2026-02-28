@@ -653,6 +653,62 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         self.assertTrue(resolved)
         self.assertEqual(self.app.combatants[4].hp, 15)
 
+    def test_sculpt_spells_context_uses_slot_level_when_upcast(self):
+        self.app._profile_for_player_name = lambda name: {
+            "spellcasting": {"save_dc": 14},
+            "features": [{"id": "sculpt_spells"}],
+        }
+        self.preset["school"] = "evocation"
+        self.preset["level"] = 3
+
+        enabled, max_protected = self.app._lan_sculpt_spells_context(
+            self.app.combatants[1],
+            self.preset,
+            slot_level=5,
+        )
+
+        self.assertTrue(enabled)
+        self.assertEqual(max_protected, 6)
+
+    def test_cast_aoe_sculpt_limit_uses_slot_level_not_base_preset_level(self):
+        for cid in range(4, 11):
+            name = f"Companion {cid}"
+            self.app.combatants[cid] = _make_combatant(cid, name, 20, ally=True)
+            self.app.combatants[cid].saving_throws = {"dex": 0}
+            self.app.combatants[cid].ability_mods = {"dex": 0}
+            self.app._lan_positions[cid] = (5 + (cid - 4), 4)
+            self.app._name_role_memory[name] = "ally"
+        self.app._profile_for_player_name = lambda name: {
+            "spellcasting": {"save_dc": 14},
+            "features": [{"id": "sculpt_spells"}],
+        }
+        self.preset["automation"] = "manual"
+        self.preset["tags"] = ["aoe"]
+        self.preset["school"] = "evocation"
+        self.preset["level"] = 0
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 41,
+            "spell_slug": "frost-burst",
+            "slot_level": 5,
+            "payload": {
+                "shape": "sphere",
+                "name": "Frost Burst",
+                "radius_ft": 40,
+                "cx": 8,
+                "cy": 4,
+                "sculpted_cids": list(range(4, 11)),
+            },
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertEqual(len(self.app._lan_aoes), 1)
+        aoe = next(iter(self.app._lan_aoes.values()))
+        self.assertEqual(aoe.get("sculpted_cids"), [4, 5, 6, 7, 8, 9])
+
 
 
 if __name__ == "__main__":
