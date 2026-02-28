@@ -6755,6 +6755,13 @@ __DAMAGE_TYPE_OPTIONS__
     return null;
   }
 
+  function getPlayerSpellcastingAbilityKey(name){
+    const profile = getPlayerProfile(name);
+    const spellcasting = profile?.spellcasting;
+    if (!spellcasting || typeof spellcasting !== "object") return "";
+    return normalizeAbilityKey(spellcasting.casting_ability || "");
+  }
+
   function applyDefaultSpellSaveDc(){
     if (!castDcValueInput) return;
     if (String(castDcValueInput.value || "").trim()){
@@ -10148,12 +10155,16 @@ __DAMAGE_TYPE_OPTIONS__
     const slotLevel = Number.isFinite(Number(context?.slotLevel)) ? Math.floor(Number(context.slotLevel)) : null;
     const baseLevel = Number.isFinite(Number(context?.baseLevel)) ? Math.floor(Number(context.baseLevel)) : null;
     const dice = String(context?.dice || "").trim();
+    const resolveKind = normalizeLowerValue(context?.resolveKind || "damage") || "damage";
+    const amountLabel = resolveKind === "healing" ? "healing" : "damage";
+    const extraHint = String(context?.extraHint || "").trim();
     const upcast = (slotLevel !== null && baseLevel !== null && slotLevel > baseLevel)
       ? ` Upcast: base level ${baseLevel}, cast at level ${slotLevel}.`
       : "";
     const slotText = slotLevel !== null ? ` (slot ${slotLevel})` : "";
     const diceText = dice ? ` Final dice: ${dice}.` : "";
-    spellResolveBody.textContent = `Resolve ${spellName}${slotText}.${upcast}${diceText} Enter table-rolled damage totals by type, or leave blank to auto-roll.`;
+    spellResolveBody.textContent = `Resolve ${spellName}${slotText}.${upcast}${diceText} Enter table-rolled ${amountLabel} totals by type, or leave blank to auto-roll.`
+      + (extraHint ? ` ${extraHint}` : "");
     spellResolveDamageRows.textContent = "";
     const suggestedTypes = Array.isArray(context?.damageTypes) ? context.damageTypes : [];
     if (suggestedTypes.length){
@@ -12856,6 +12867,41 @@ __DAMAGE_TYPE_OPTIONS__
       queueCommandResolution([Number(target.cid)], null);
       return;
     }
+    if (pendingSpellTargeting.isHealingSpell){
+      const actionCid = activeControlledUnitCid();
+      if (actionCid === null){
+        localToast("Not yer turn yet, matey.");
+        return;
+      }
+      const playerName = getClaimedPlayerName();
+      const profile = getPlayerProfile(playerName);
+      const abilityKey = getPlayerSpellcastingAbilityKey(playerName);
+      const abilityMod = abilityKey ? getAbilityModifier(profile, abilityKey) : 0;
+      const abilityLabel = abilityKey ? `${abilityKey.toUpperCase()} mod` : "spellcasting ability mod";
+      openSpellResolveModal({
+        spellName: pendingSpellTargeting.spellName,
+        slotLevel: pendingSpellTargeting.slotLevel,
+        baseLevel: Number.isFinite(Number(castUpcastConfig?.base_level)) ? Math.floor(Number(castUpcastConfig.base_level)) : null,
+        dice: pendingSpellTargeting.damageDice || "",
+        damageTypes: ["healing"],
+        resolveKind: "healing",
+        extraHint: `Add ${abilityLabel} (${abilityMod}). Ability modifiers follow (Ability Score - 10) / 2, rounded down.`,
+      }, (healingEntries) => {
+        send({
+          type: "spell_target_request",
+          cid: actionCid,
+          target_cid: Number(target.cid),
+          spell_name: pendingSpellTargeting.spellName,
+          spell_slug: pendingSpellTargeting.spellSlug || null,
+          spell_id: pendingSpellTargeting.spellId || null,
+          spell_mode: "effect",
+          healing_entries: healingEntries,
+          healing_dice: String(pendingSpellTargeting.damageDice || "").trim() || null,
+          prompt_for_healing: true,
+        });
+      });
+      return;
+    }
     if (pendingSpellTargeting.mode === "save"){
       const actionCid = activeControlledUnitCid();
       if (actionCid === null){
@@ -14057,6 +14103,38 @@ __DAMAGE_TYPE_OPTIONS__
             };
             setPolymorphFormOverlayOpen(true);
             localToast("Choose a beast form to continue Polymorph.");
+          }
+        } else if (msg.needs_healing_prompt){
+          const target = getUnitByCid(msg.target_cid);
+          if (pendingSpellTargeting && target){
+            const playerName = getClaimedPlayerName();
+            const profile = getPlayerProfile(playerName);
+            const abilityKey = getPlayerSpellcastingAbilityKey(playerName);
+            const abilityMod = abilityKey ? getAbilityModifier(profile, abilityKey) : 0;
+            const abilityLabel = abilityKey ? `${abilityKey.toUpperCase()} mod` : "spellcasting ability mod";
+            openSpellResolveModal({
+              spellName: pendingSpellTargeting.spellName,
+              slotLevel: pendingSpellTargeting.slotLevel,
+              baseLevel: Number.isFinite(Number(castUpcastConfig?.base_level)) ? Math.floor(Number(castUpcastConfig.base_level)) : null,
+              dice: pendingSpellTargeting.damageDice || "",
+              damageTypes: ["healing"],
+              resolveKind: "healing",
+              extraHint: `Add ${abilityLabel} (${abilityMod}). Ability modifiers follow (Ability Score - 10) / 2, rounded down.`,
+            }, (healingEntries) => {
+              const actionCid = activeControlledUnitCid();
+              if (actionCid === null) return;
+              send({
+                type: "spell_target_request",
+                cid: actionCid,
+                target_cid: Number(msg.target_cid),
+                spell_name: pendingSpellTargeting.spellName,
+                spell_slug: pendingSpellTargeting.spellSlug || null,
+                spell_id: pendingSpellTargeting.spellId || null,
+                spell_mode: "effect",
+                healing_entries: healingEntries,
+                healing_dice: String(pendingSpellTargeting.damageDice || "").trim() || null,
+              });
+            });
           }
         } else if (msg.needs_damage_prompt){
           const target = getUnitByCid(msg.target_cid);
@@ -17850,7 +17928,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (/willing creature/i.test(lower)){
       inferred.targetSide = "friendly";
-    } else if (/(enemy|hostile|creature you can see that is not willing|of your choice that you can see)/i.test(lower)){
+    } else if (/(enemy|hostile|creature you can see that is not willing)/i.test(lower)){
       inferred.targetSide = "enemy";
     }
     const ebPattern = /two\s+beams?\s+at\s+level\s+5[^.]*three\s+beams?\s+at\s+level\s+11[^.]*four\s+beams?\s+at\s+level\s+17/i;
@@ -17905,8 +17983,17 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const description = inferred.description || normalizeTextValue(preset?.description) || "";
     const targetSideRaw = normalizeLowerValue(uiConfig?.target_side);
-    const targetSide = ["friendly", "enemy", "any"].includes(targetSideRaw) ? targetSideRaw : inferred.targetSide;
-    const overlayColor = normalizeHexColor(uiConfig?.overlay_color || "");
+    const hasHealingEffect = Array.isArray(preset?.mechanics?.sequence)
+      && preset.mechanics.sequence.some((step) => {
+        const outcomes = step?.outcomes;
+        if (!outcomes || typeof outcomes !== "object") return false;
+        return Object.values(outcomes).some((bucket) => Array.isArray(bucket) && bucket.some((effect) => normalizeLowerValue(effect?.effect) === "healing"));
+      });
+    const isHealingSpell = hasHealingEffect || hasSpellTag(preset, "heal") || hasSpellTag(preset, "healing");
+    const targetSide = isHealingSpell
+      ? "friendly"
+      : (["friendly", "enemy", "any"].includes(targetSideRaw) ? targetSideRaw : inferred.targetSide);
+    const overlayColor = normalizeHexColor(uiConfig?.overlay_color || "") || (isHealingSpell ? "#4caf50" : "");
     const skipResolveAttack = hasSpellTag(preset, "skip_resolve_attack");
     const allowDuplicateTargetsExplicit = (typeof uiConfig?.allow_duplicate_targets === "boolean") ? uiConfig.allow_duplicate_targets : null;
     const requireUniqueTargetsExplicit = (typeof uiConfig?.require_unique_targets === "boolean") ? uiConfig.require_unique_targets : null;
@@ -17935,6 +18022,7 @@ __DAMAGE_TYPE_OPTIONS__
       skipResolveAttack,
       allowDuplicateTargets,
       requireUniqueTargets,
+      isHealingSpell,
     };
   }
   function renderSpellTargetSelectionUi(){
@@ -18021,6 +18109,7 @@ __DAMAGE_TYPE_OPTIONS__
       allowDuplicateTargets: config.allowDuplicateTargets === true,
       requireUniqueTargets: config.requireUniqueTargets !== false,
       maxTargets: Math.max(1, Number(config.maxTargets || config.projectileCount || 1)),
+      isHealingSpell: config.isHealingSpell === true,
       queue: [],
     };
     const needsSelection = pendingSpellTargeting.maxTargets > 1;

@@ -20894,6 +20894,8 @@ class InitiativeTracker(base.InitiativeTracker):
 
             spell_name = str(msg.get("spell_name") or msg.get("name") or "Spell").strip() or "Spell"
             preset = self._find_spell_preset(msg.get("spell_slug"), msg.get("spell_id"))
+            mechanics = preset.get("mechanics") if isinstance(preset, dict) and isinstance(preset.get("mechanics"), dict) else {}
+            sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
             preset_slug = str((preset or {}).get("slug") or "").strip().lower()
             preset_id = str((preset or {}).get("id") or "").strip().lower()
             is_haste = preset_slug == "haste" or preset_id == "haste"
@@ -20950,6 +20952,57 @@ class InitiativeTracker(base.InitiativeTracker):
             roll_save = _parse_bool(raw_roll_save, fallback=spell_mode == "save")
             if spell_mode == "save" and requested_spell_mode == "attack" and raw_roll_save is None:
                 roll_save = True
+            healing_entries: List[Dict[str, Any]] = []
+            raw_healing_entries = msg.get("healing_entries")
+            if isinstance(raw_healing_entries, list):
+                for entry in raw_healing_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    amount = _parse_non_negative_manual_damage(entry.get("amount"))
+                    if amount is None:
+                        continue
+                    amount = int(amount)
+                    if amount <= 0:
+                        continue
+                    healing_entries.append({"amount": amount, "type": "healing"})
+            healing_dice_text = str(msg.get("healing_dice") or "").strip().lower()
+            if not healing_dice_text and isinstance(preset, dict):
+                for step in sequence:
+                    if not isinstance(step, dict):
+                        continue
+                    outcomes = step.get("outcomes") if isinstance(step.get("outcomes"), dict) else {}
+                    found = False
+                    for bucket in outcomes.values():
+                        if not isinstance(bucket, list):
+                            continue
+                        for effect in bucket:
+                            if not isinstance(effect, dict):
+                                continue
+                            if str(effect.get("effect") or "").strip().lower() != "healing":
+                                continue
+                            healing_dice_text = str(effect.get("dice") or "").strip().lower()
+                            found = bool(healing_dice_text)
+                            if found:
+                                break
+                        if found:
+                            break
+                    if found:
+                        break
+            auto_spell_healing = bool(not healing_entries and healing_dice_text and not bool(msg.get("prompt_for_healing")))
+            if auto_spell_healing:
+                dice_match = re.fullmatch(r"\s*(\d+)d(\d+)\s*([+\-]\s*\d+)?\s*", healing_dice_text)
+                if dice_match:
+                    dice_count = max(0, int(dice_match.group(1)))
+                    dice_sides = max(0, int(dice_match.group(2)))
+                    mod_text = str(dice_match.group(3) or "").replace(" ", "")
+                    flat_mod = _parse_int(mod_text, 0) or 0
+                    amount = 0
+                    if dice_count > 0 and dice_sides > 0:
+                        amount = sum(random.randint(1, int(dice_sides)) for _ in range(int(dice_count))) + int(flat_mod)
+                    else:
+                        amount = int(flat_mod)
+                    if amount > 0:
+                        healing_entries.append({"amount": int(amount), "type": "healing"})
             damage_entries: List[Dict[str, Any]] = []
             raw_damage_entries = msg.get("damage_entries")
             if isinstance(raw_damage_entries, list):
@@ -21016,6 +21069,62 @@ class InitiativeTracker(base.InitiativeTracker):
                 "spell_mode": spell_mode,
             }
 
+            has_healing_effect = any(
+                isinstance(effect, dict)
+                and str(effect.get("effect") or "").strip().lower() == "healing"
+                for step in sequence
+                if isinstance(step, dict)
+                for bucket in [(step.get("outcomes") if isinstance(step.get("outcomes"), dict) else {}).values()]
+                for effects in bucket
+                if isinstance(effects, list)
+                for effect in effects
+            )
+            if has_healing_effect:
+                healing_intent = bool(healing_entries) or bool(healing_dice_text) or bool(msg.get("prompt_for_healing"))
+                if not healing_entries and healing_intent:
+                    result_payload["needs_healing_prompt"] = True
+                    msg["_spell_target_result"] = dict(result_payload)
+                    loop = getattr(self._lan, "_loop", None)
+                    if ws_id is not None and loop:
+                        try:
+                            asyncio.run_coroutine_threadsafe(self._lan._send_async(ws_id, result_payload), loop)
+                        except Exception:
+                            pass
+                    self._lan.toast(ws_id, "Enter healing to resolve the spell.")
+                    return
+                total_healing = int(sum(int(entry.get("amount", 0) or 0) for entry in healing_entries))
+                applied_healing = 0
+                if total_healing > 0:
+                    before_hp = _parse_int(getattr(target, "hp", None), 0) or 0
+                    max_hp = _parse_int(getattr(target, "max_hp", None), before_hp) or before_hp
+                    if max_hp < 0:
+                        max_hp = 0
+                    after_hp = max(0, min(int(max_hp), int(before_hp) + int(total_healing)))
+                    applied_healing = max(0, int(after_hp) - int(before_hp))
+                    setattr(target, "hp", int(after_hp))
+                result_payload["hit"] = True
+                result_payload["critical"] = False
+                result_payload["healing_entries"] = list(healing_entries)
+                result_payload["healing_total"] = int(total_healing)
+                result_payload["healing_applied"] = int(applied_healing)
+                self._log(
+                    f"{c.name} heals {result_payload['target_name']} for {int(applied_healing)} HP with {spell_name}.",
+                    cid=int(target_cid),
+                )
+                try:
+                    self._rebuild_table(scroll_to_current=True)
+                except Exception:
+                    pass
+                msg["_spell_target_result"] = dict(result_payload)
+                loop = getattr(self._lan, "_loop", None)
+                if ws_id is not None and loop:
+                    try:
+                        asyncio.run_coroutine_threadsafe(self._lan._send_async(ws_id, result_payload), loop)
+                    except Exception:
+                        pass
+                self._lan.toast(ws_id, "Healing resolved.")
+                return
+
             if spell_mode == "effect":
                 if bool((preset or {}).get("concentration")) and c is not None:
                     current_targets = list(getattr(c, "concentration_target", []) or [])
@@ -21040,8 +21149,6 @@ class InitiativeTracker(base.InitiativeTracker):
                     except Exception:
                         pass
                 return
-            mechanics = preset.get("mechanics") if isinstance(preset, dict) and isinstance(preset.get("mechanics"), dict) else {}
-            sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
             resolved_bucket: List[Dict[str, Any]] = []
             def _bucket_for_outcome(outcomes: Dict[str, Any], passed: bool, key_hint: str) -> List[Dict[str, Any]]:
                 keys = [key_hint] if key_hint else []

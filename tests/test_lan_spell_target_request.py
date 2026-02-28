@@ -1011,6 +1011,80 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(result.get("damage_total"), 8)
         self.assertEqual(self.app.combatants[2].hp, 12)
 
+    def test_healing_spell_requests_manual_healing_when_not_provided(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "healing-word",
+            "id": "healing-word",
+            "name": "Healing Word",
+            "mechanics": {
+                "sequence": [
+                    {
+                        "outcomes": {
+                            "hit": [{"effect": "healing", "dice": "2d4"}],
+                            "miss": [],
+                        }
+                    }
+                ]
+            },
+        }
+        self.app.combatants[3].hp = 10
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 27,
+            "target_cid": 3,
+            "spell_name": "Healing Word",
+            "spell_slug": "healing-word",
+            "spell_mode": "effect",
+            "prompt_for_healing": True,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("needs_healing_prompt"))
+        self.assertEqual(self.app.combatants[3].hp, 10)
+
+    def test_healing_spell_applies_healing_without_exceeding_max_hp(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "healing-word",
+            "id": "healing-word",
+            "name": "Healing Word",
+            "mechanics": {
+                "sequence": [
+                    {
+                        "outcomes": {
+                            "hit": [{"effect": "healing", "dice": "2d4"}],
+                            "miss": [],
+                        }
+                    }
+                ]
+            },
+        }
+        self.app.combatants[3].hp = 19
+        self.app.combatants[3].max_hp = 22
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 28,
+            "target_cid": 3,
+            "spell_name": "Healing Word",
+            "spell_slug": "healing-word",
+            "spell_mode": "effect",
+            "healing_entries": [{"amount": 8, "type": "healing"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("healing_total"), 8)
+        self.assertEqual(result.get("healing_applied"), 3)
+        self.assertEqual(self.app.combatants[3].hp, 22)
+
 
 if __name__ == "__main__":
     unittest.main()
