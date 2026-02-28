@@ -10359,6 +10359,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 for target_cid in included
                 if self._lan_is_friendly_unit(int(target_cid)) != caster_friendly
             ]
+        if caster is not None:
+            caster_cid = int(getattr(caster, "cid", 0) or 0)
+            included = [int(target_cid) for target_cid in included if int(target_cid) != caster_cid]
         if not included:
             if remove_on_empty and aoe.get("pinned") is not True and not aoe.get("persistent") and not aoe.get("over_time"):
                 self._lan_remove_aoe_by_id(aid)
