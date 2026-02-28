@@ -12856,19 +12856,35 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
-  function maybeNotifyTurnStart(){
+  async function maybeNotifyTurnStart(){
     if (!("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
+    const title = "It's your turn!";
+    const body = "Act now in Initiative Tracker.";
+    const options = {
+      body,
+      tag: "turn-alert",
+      renotify: true,
+      data: { url: "/" },
+      requireInteraction: true,
+    };
     try {
-      const title = "It's your turn!";
-      const body = 'Act now in Initiative Tracker.';
-      const notification = new Notification(title, {body, tag: 'turn-alert', renotify: true});
+      const registration = swRegistration || ("serviceWorker" in navigator ? await navigator.serviceWorker.ready : null);
+      if (registration && typeof registration.showNotification === "function"){
+        await registration.showNotification(title, options);
+        return;
+      }
+    } catch (err){
+      console.warn("Service-worker turn notification failed; falling back to page notification.", err);
+    }
+    try {
+      const notification = new Notification(title, options);
       notification.onclick = () => {
         window.focus();
         notification.close();
       };
     } catch (err){
-      console.warn('Turn notification failed.', err);
+      console.warn("Turn notification failed.", err);
     }
   }
 
