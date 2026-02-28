@@ -5795,6 +5795,36 @@ __DAMAGE_TYPE_OPTIONS__
     localToast(`Pool cast ready: ${entry.spellName}.`);
   }
 
+  function beginForcedPoolAimingCast(entry){
+    if (!entry?.preset){
+      localToast("Could not find that spell preset, matey.");
+      return false;
+    }
+    if (!castForm){
+      beginForcedPoolCast(entry);
+      return true;
+    }
+    forcedPoolCastContext = {
+      preset: entry.preset,
+      consumesPool: {id: entry.consumesPool.id, cost: entry.consumesPool.cost},
+      actionType: entry.actionType,
+    };
+    pendingSpellActionType = entry.actionType;
+    applySpellPreset(entry.preset);
+    if (castPresetInput){
+      castPresetInput.value = "";
+    }
+    if (castOverlay?.classList.contains("show")){
+      setCastOverlayOpen(false);
+    }
+    try {
+      castForm.requestSubmit();
+    } catch (_err){
+      castSubmitBtn?.click();
+    }
+    return true;
+  }
+
   function performResourcePoolAction(entry){
     const actionCid = activeControlledUnitCid();
     const activeUnit = getUnitByCid(actionCid);
@@ -5878,7 +5908,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const spellActionTag = resolveSpellActionTag(entry.preset);
     if (spellActionTag === "aoe"){
-      beginForcedPoolCast(entry);
+      beginForcedPoolAimingCast(entry);
       setResourcePoolDetailOverlayOpen(false);
       return;
     }
