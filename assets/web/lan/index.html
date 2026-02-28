@@ -3324,6 +3324,7 @@ __DAMAGE_TYPE_OPTIONS__
       </div>
       <div class="spellbook-column spellbook-actions">
         <button class="btn" id="spellbookAdd" type="button">Add →</button>
+        <button class="btn" id="spellbookAddFree" type="button">Add Free →</button>
         <button class="btn" id="spellbookRemove" type="button">← Remove</button>
       </div>
       <div class="spellbook-column">
@@ -4444,6 +4445,7 @@ __DAMAGE_TYPE_OPTIONS__
   const spellbookLeftList = document.getElementById("spellbookLeftList");
   const spellbookRightList = document.getElementById("spellbookRightList");
   const spellbookAddBtn = document.getElementById("spellbookAdd");
+  const spellbookAddFreeBtn = document.getElementById("spellbookAddFree");
   const spellbookRemoveBtn = document.getElementById("spellbookRemove");
   const spellbookStatus = document.getElementById("spellbookStatus");
   const spellbookConfirmModal = document.getElementById("spellbookConfirmModal");
@@ -16371,17 +16373,30 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function applySpellbookAdd(){
+    applySpellbookAddWithMode(false);
+  }
+
+  function applySpellbookAddFree(){
+    applySpellbookAddWithMode(true);
+  }
+
+  function applySpellbookAddWithMode(addAsFree){
     if (!spellbookLeftSelection.size) return;
     const additions = Array.from(spellbookLeftSelection);
     if (spellbookMode === "prepared"){
       additions.forEach((slug) => {
         if (pendingPreparedSet.has(slug)) return;
-        const nextCount = Array.from(pendingPreparedSet).filter((item) => !pendingPreparedFreeSet.has(item)).length + 1;
+        const nextCount = addAsFree
+          ? Array.from(pendingPreparedSet).filter((item) => !pendingPreparedFreeSet.has(item)).length
+          : Array.from(pendingPreparedSet).filter((item) => !pendingPreparedFreeSet.has(item)).length + 1;
         if (Number.isFinite(spellbookPreparedLimit) && nextCount > spellbookPreparedLimit){
           localToast(`Prepared spells limited to ${spellbookPreparedLimit}.`);
           return;
         }
         pendingPreparedSet.add(slug);
+        if (addAsFree){
+          pendingPreparedFreeSet.add(slug);
+        }
       });
     } else {
       additions.forEach((slug) => {
@@ -16397,12 +16412,17 @@ __DAMAGE_TYPE_OPTIONS__
           if (!spellbookKnownEnabled){
             return;
           }
-          const nextCount = Array.from(pendingKnownSet).filter((item) => !pendingKnownFreeSet.has(item)).length + 1;
+          const nextCount = addAsFree
+            ? Array.from(pendingKnownSet).filter((item) => !pendingKnownFreeSet.has(item)).length
+            : Array.from(pendingKnownSet).filter((item) => !pendingKnownFreeSet.has(item)).length + 1;
           if (Number.isFinite(spellbookKnownLimit) && nextCount > spellbookKnownLimit){
             localToast(`Known spells limited to ${spellbookKnownLimit}.`);
             return;
           }
           pendingKnownSet.add(slug);
+          if (addAsFree){
+            pendingKnownFreeSet.add(slug);
+          }
         }
       });
     }
@@ -16459,7 +16479,9 @@ __DAMAGE_TYPE_OPTIONS__
     const payload = {
       known_enabled: spellbookKnownEnabled,
       known_list: Array.from(pendingKnownSet),
+      known_free_list: Array.from(pendingKnownFreeSet),
       prepared_list: Array.from(pendingPreparedSet),
+      prepared_free_list: Array.from(pendingPreparedFreeSet),
       cantrips_list: Array.from(pendingCantripsSet),
     };
     try {
@@ -19996,6 +20018,11 @@ __DAMAGE_TYPE_OPTIONS__
   if (spellbookAddBtn){
     spellbookAddBtn.addEventListener("click", () => {
       applySpellbookAdd();
+    });
+  }
+  if (spellbookAddFreeBtn){
+    spellbookAddFreeBtn.addEventListener("click", () => {
+      applySpellbookAddFree();
     });
   }
   if (spellbookRemoveBtn){
