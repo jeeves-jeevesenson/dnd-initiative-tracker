@@ -524,6 +524,30 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(target.temp_hp, 0)
         self.assertEqual(getattr(target, "wild_shape_form_name", ""), "")
         self.assertIsNone(getattr(target, "polymorph_source_cid", None))
+
+    def test_damage_consumes_temp_hp_before_main_hp_when_fully_absorbed(self):
+        target = self.app.combatants[2]
+        target.hp = 10
+        target.temp_hp = 6
+
+        state = self.app._apply_damage_to_target_with_temp_hp(target, 6)
+
+        self.assertEqual(state.get("temp_absorbed"), 6)
+        self.assertEqual(state.get("hp_damage"), 0)
+        self.assertEqual(target.hp, 10)
+        self.assertEqual(target.temp_hp, 0)
+
+    def test_damage_overflow_spills_from_temp_hp_into_main_hp(self):
+        target = self.app.combatants[2]
+        target.hp = 10
+        target.temp_hp = 10
+
+        state = self.app._apply_damage_to_target_with_temp_hp(target, 15)
+
+        self.assertEqual(state.get("temp_absorbed"), 10)
+        self.assertEqual(state.get("hp_damage"), 5)
+        self.assertEqual(target.hp, 5)
+        self.assertEqual(target.temp_hp, 0)
     def test_haste_spell_target_request_applies_buffs_and_concentration(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "haste",

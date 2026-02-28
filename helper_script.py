@@ -2589,14 +2589,15 @@ class InitiativeTracker(tk.Tk):
                             pass
 
             if total_dmg > 0:
-                old_hp = c.hp
-                c.hp = max(0, int(c.hp) - int(total_dmg))
+                old_hp = int(c.hp)
+                damage_state = self._apply_damage_to_combatant(c, int(total_dmg))
+                new_hp = int(damage_state.get("hp_after", old_hp))
                 msgs.append(f"DoT {total_dmg} ({', '.join(details)})")
-                if int(c.hp) < int(old_hp):
+                if new_hp < old_hp:
                     self._queue_concentration_save(c, "dot")
 
                 # auto-remove ONLY if they were >0 and this drop made them 0
-                if old_hp > 0 and c.hp == 0:
+                if old_hp > 0 and new_hp == 0:
                     pre_order = [x.cid for x in self._display_order()]
                     dead_id = c.cid
                     self.combatants.pop(dead_id, None)
@@ -3711,6 +3712,18 @@ class InitiativeTracker(tk.Tk):
             return True
         c.hp = max(0, int(c.hp) + int(amount))
         return True
+
+    def _apply_damage_to_combatant(self, c: Any, amount: int) -> Dict[str, int]:
+        damage = max(0, int(amount or 0))
+        temp_before = max(0, int(getattr(c, "temp_hp", 0) or 0))
+        hp_before = max(0, int(getattr(c, "hp", 0) or 0))
+        temp_absorbed = min(temp_before, damage)
+        temp_after = max(0, temp_before - temp_absorbed)
+        hp_damage = max(0, damage - temp_absorbed)
+        hp_after = max(0, hp_before - hp_damage)
+        setattr(c, "temp_hp", int(temp_after))
+        setattr(c, "hp", int(hp_after))
+        return {"temp_absorbed": int(temp_absorbed), "hp_damage": int(hp_damage), "hp_after": int(hp_after)}
 
     def _set_ac(self, cid: int, new_ac: int) -> None:
         if cid in self.combatants:
@@ -5173,12 +5186,13 @@ class InitiativeTracker(tk.Tk):
                         self._log(f"Damage to {target_name} was blocked — immune.{adjustment_note}")
 
                 old_hp = int(c.hp)
-                c.hp = max(0, old_hp - int(total_applied))
-                if total_applied > 0 and int(c.hp) < old_hp:
+                damage_state = self._apply_damage_to_combatant(c, int(total_applied))
+                new_hp = int(damage_state.get("hp_after", old_hp))
+                if total_applied > 0 and new_hp < old_hp:
                     self._queue_concentration_save(c, "damage")
 
                 # If they died from above 0 -> 0, log flavor and remove
-                if old_hp > 0 and int(c.hp) == 0:
+                if old_hp > 0 and new_hp == 0:
                     dtype_flavor = str(adjusted_entries[0].get("type") or "") if len(adjusted_entries) == 1 else ""
                     flavor = self._death_flavor_line(attacker_name, total_applied, dtype_flavor, target_name) + crit_suffix
                     self._log(flavor)
@@ -11003,8 +11017,10 @@ class BattleMapWindow(tk.Toplevel):
                         self.app._log(f"Damage to {c.name} was blocked — immune.{adjustment_note}")
                 elif total_damage > 0:
                     damage_dealt = True
-                    c.hp = max(0, before - int(total_damage))
-                after = int(getattr(c, "hp", 0))
+                    damage_state = self._apply_damage_to_combatant(c, int(total_damage))
+                    after = int(damage_state.get("hp_after", before))
+                else:
+                    after = int(getattr(c, "hp", 0))
                 if not is_immune and total_damage > 0 and after < before:
                     self.app._queue_concentration_save(c, "aoe")
 

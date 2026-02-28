@@ -5818,8 +5818,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     except Exception:
                         before_hp_int = None
                     if before_hp_int is not None and applied_amount > 0:
-                        after_hp = max(0, before_hp_int - int(applied_amount))
-                        setattr(c, "hp", int(after_hp))
+                        damage_state = self._apply_damage_to_target_with_temp_hp(c, int(applied_amount))
+                        after_hp = int(damage_state.get("hp_after", before_hp_int))
                         rider_msgs.append(f"takes {int(applied_amount)} {dtype} from {source}")
                     elif before_hp_int is not None:
                         after_hp = before_hp_int
@@ -6393,8 +6393,8 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 before_hp_int = None
             if before_hp_int is not None and applied_amount > 0:
-                after_hp = max(0, before_hp_int - int(applied_amount))
-                setattr(c, "hp", int(after_hp))
+                damage_state = self._apply_damage_to_target_with_temp_hp(c, int(applied_amount))
+                after_hp = int(damage_state.get("hp_after", before_hp_int))
                 self._log(
                     f"{c.name} takes {int(applied_amount)} {dtype} damage from {source} at end of turn.",
                     cid=cid,
@@ -10569,8 +10569,11 @@ class InitiativeTracker(base.InitiativeTracker):
             total_damage = sum(int(entry.get("amount") or 0) for entry in adjusted_entries if isinstance(entry, dict))
             before = int(getattr(target, "hp", 0) or 0)
             if total_damage > 0:
-                target.hp = max(0, before - int(total_damage))
+                damage_state = self._apply_damage_to_target_with_temp_hp(target, int(total_damage))
+                after = int(damage_state.get("hp_after", before))
                 self._queue_concentration_save(target, "aoe")
+            else:
+                after = int(getattr(target, "hp", 0) or 0)
             forced_move_notes: List[str] = []
             if forced_moves:
                 for forced in forced_moves:
@@ -10609,7 +10612,6 @@ class InitiativeTracker(base.InitiativeTracker):
                     )
                     if moved:
                         forced_move_notes.append(str(forced.get("mode") or "push"))
-            after = int(getattr(target, "hp", 0) or 0)
             if requires_save:
                 status = "PASS" if passed else "FAIL"
                 self._log(
@@ -15270,11 +15272,12 @@ class InitiativeTracker(base.InitiativeTracker):
             }
 
         old_hp = int(getattr(target, "hp", 0) or 0)
-        target.hp = max(0, old_hp - int(total_damage))
-        if int(target.hp) < old_hp:
+        damage_state = self._apply_damage_to_target_with_temp_hp(target, int(total_damage))
+        new_hp = int(damage_state.get("hp_after", old_hp))
+        if new_hp < old_hp:
             self._queue_concentration_save(target, "damage")
         removed_target = False
-        if old_hp > 0 and int(target.hp) == 0:
+        if old_hp > 0 and new_hp == 0:
             dtype_flavor = str((adjusted_entries[0].get("type") if adjusted_entries else "") or "")
             self._log(self._death_flavor_line(attacker.name, total_damage, dtype_flavor, target_name), cid=int(target_cid))
             lan = getattr(self, "_lan", None)
@@ -21396,8 +21399,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 setattr(target, "_rage_took_damage_this_turn", True)
                 before_hp = _parse_int(getattr(target, "hp", None), None)
                 if before_hp is not None:
-                    after_hp = max(0, int(before_hp) - int(total_damage))
-                    setattr(target, "hp", int(after_hp))
+                    damage_state = self._apply_damage_to_target_with_temp_hp(target, int(total_damage))
+                    after_hp = int(damage_state.get("hp_after", before_hp))
                     if int(before_hp) > 0 and int(after_hp) <= 0:
                         pre_order: List[int] = []
                         try:
