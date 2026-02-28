@@ -12,6 +12,7 @@ school: conjuration
 tags:
 - save
 - aoe
+- damage
 - automation_full
 casting_time: Action
 range: 60 feet
@@ -83,4 +84,14 @@ mechanics:
     - Wolves
     - Serpents
     - Birds
-  notes: []
+  notes:
+  - You have advantage on Strength saving throws while within 5 feet of the pack.
+  - A creature saves only once per turn when the pack enters its space, it enters
+    the pack's hazard area, or it ends its turn there.
+  aoe_behavior:
+    persistent_default: true
+    over_time_default: true
+    trigger_mode: enter_or_end
+    pinned_default: false
+    move_per_turn_ft: 30
+    move_action_type: free
