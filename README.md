@@ -470,6 +470,25 @@ For iOS web push support:
 - Add web app to Home Screen
 - Enable notifications in iOS settings
 
+### Browser push notifications (turn alerts)
+
+The LAN web client can send turn alerts via browser push notifications, including when the tab is in the background.
+
+Requirements:
+
+- Run the LAN client from a secure context (`https://`), or from loopback/local development as supported by the browser.
+- Configure VAPID keys on the DM host:
+  - `INITTRACKER_VAPID_PUBLIC_KEY`
+  - `INITTRACKER_VAPID_PRIVATE_KEY`
+  - Optional: `INITTRACKER_VAPID_SUBJECT` (defaults to `mailto:dm@example.com`)
+- Ensure dependencies are installed from `requirements.txt` (includes `pywebpush`).
+
+Player setup:
+
+- Join LAN client and claim a character.
+- Open **Settings → Notifications → Enable**.
+- On iOS/iPadOS, install to Home Screen before enabling notifications.
+
 ## Map mode
 
 Map mode provides a grid-based battle area with turn-aware movement.
