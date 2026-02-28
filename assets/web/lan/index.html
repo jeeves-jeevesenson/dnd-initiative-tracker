@@ -3718,6 +3718,13 @@ __DAMAGE_TYPE_OPTIONS__
     return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
   }
 
+  function isiOSLike(){
+    const ua = String(navigator.userAgent || "").toLowerCase();
+    const platform = String(navigator.platform || "").toLowerCase();
+    const touchMac = platform === "macintel" && navigator.maxTouchPoints > 1;
+    return /iphone|ipad|ipod/.test(ua) || /iphone|ipad|ipod/.test(platform) || touchMac;
+  }
+
   function getTurnAlertIdentity(){
     const playerId = normalizeCid(claimedCid, "turnAlert.playerId");
     const claimedUnit = getClaimedUnit();
@@ -3790,8 +3797,12 @@ __DAMAGE_TYPE_OPTIONS__
 
   async function refreshTurnAlertStatus(){
     if (!turnAlertStatus) return;
-    if (!isStandaloneDisplay()){
-      setTurnAlertStatus("Not installed.");
+    if (!window.isSecureContext){
+      setTurnAlertStatus("HTTPS required.");
+      return;
+    }
+    if (isiOSLike() && !isStandaloneDisplay()){
+      setTurnAlertStatus("Install to Home Screen (iOS).");
       return;
     }
     if (!("Notification" in window)){
@@ -3824,8 +3835,11 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   async function ensurePushSubscribed({vapidPublicKey, playerId}){
-    if (!isStandaloneDisplay()){
-      throw new Error("Not installed.");
+    if (!window.isSecureContext){
+      throw new Error("HTTPS is required for push notifications.");
+    }
+    if (isiOSLike() && !isStandaloneDisplay()){
+      throw new Error("On iOS, install this app to your Home Screen first.");
     }
     if (!vapidPublicKey){
       throw new Error("Missing push public key.");
