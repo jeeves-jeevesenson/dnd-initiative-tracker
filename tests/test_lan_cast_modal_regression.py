@@ -191,8 +191,8 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('if (pendingAoePlacement){', self.html)
         self.assertIn('const previewAoe = getPendingAoePlacementPreview();', self.html)
         self.assertIn('renderAoeOverlay(previewAoe, {preview: true});', self.html)
-        self.assertIn('msg.payload.cx = Math.round(Number(cursor.col));', self.html)
-        self.assertIn('msg.payload.cy = Math.round(Number(cursor.row));', self.html)
+        self.assertIn('msg.payload.cx = Number(cursor.col);', self.html)
+        self.assertIn('msg.payload.cy = Number(cursor.row);', self.html)
         self.assertIn('if (pendingAoePlacement){\n      if (pendingAoePlacement?.mode !== "aimless_self_centered"){\n        setPendingAoePlacementCursorFromPointer(p);\n      }\n      draw();', self.html)
         self.assertIn('if (pendingAoePlacement){\n        clearPendingAoePlacement();\n        localToast("AoE placement cancelled.");', self.html)
 
