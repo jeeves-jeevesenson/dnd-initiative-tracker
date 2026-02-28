@@ -331,6 +331,81 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(result.get("polymorph_form", {}).get("id"), "wolf")
         self.assertEqual(self.app.combatants[2].temp_hp, 11)
         self.assertEqual(getattr(self.app.combatants[2], "wild_shape_form_name", ""), "Wolf")
+        self.assertEqual(self.app.combatants[2].name, "Wolf")
+        self.assertFalse(bool(getattr(self.app.combatants[2], "is_spellcaster", False)))
+
+
+    def test_polymorph_replaces_stats_and_reverts_when_temp_hp_depleted(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "polymorph",
+            "id": "polymorph",
+            "name": "Polymorph",
+        }
+        self.app._wild_shape_beast_cache = [
+            {
+                "id": "wolf",
+                "name": "Wolf",
+                "hp": 11,
+                "challenge_rating": 0.25,
+                "speed": {"walk": 40, "swim": 0, "fly": 0, "climb": 0},
+                "abilities": {"str": 12, "dex": 15, "con": 12, "int": 3, "wis": 12, "cha": 6},
+                "saving_throws": {"dex": 4, "wis": 2},
+                "actions": [
+                    {
+                        "name": "Bite",
+                        "description": "Melee Attack Roll: +4, reach 5 ft. Hit: 7 (2d4 + 2) piercing damage.",
+                    }
+                ],
+            }
+        ]
+        target = self.app.combatants[2]
+        target.name = "Black Bear 1"
+        target.is_spellcaster = True
+        target.str = 18
+        target.dex = 10
+        target.con = 16
+        target.int = 7
+        target.wis = 8
+        target.cha = 9
+        target.speed = 30
+        target.saving_throws = {"wis": 1}
+        target.ability_mods = {"str": 4, "dex": 0, "con": 3, "int": -2, "wis": -1, "cha": -1}
+        target.monster_slug = "black-bear"
+
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 31,
+            "target_cid": 2,
+            "spell_name": "Polymorph",
+            "spell_slug": "polymorph",
+            "spell_mode": "save",
+            "save_type": "wis",
+            "save_dc": 16,
+            "roll_save": True,
+            "polymorph_form_id": "wolf",
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=2):
+            self.app._lan_apply_action(msg)
+
+        self.assertEqual(target.name, "Wolf")
+        self.assertEqual(target.speed, 40)
+        self.assertEqual(target.str, 12)
+        self.assertEqual(target.int, 3)
+        self.assertEqual(target.ability_mods.get("int"), -4)
+        self.assertEqual(target.saving_throws.get("dex"), 4)
+        self.assertEqual(target.monster_slug, "wolf")
+
+        self.app._apply_damage_to_target_with_temp_hp(target, 11)
+
+        self.assertEqual(target.name, "Black Bear 1")
+        self.assertEqual(target.speed, 30)
+        self.assertEqual(target.str, 18)
+        self.assertEqual(target.int, 7)
+        self.assertEqual(target.saving_throws.get("wis"), 1)
+        self.assertEqual(target.monster_slug, "black-bear")
 
 
     def test_polymorph_defaults_to_save_mode_and_wisdom(self):

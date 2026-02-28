@@ -4878,6 +4878,7 @@ class InitiativeTracker(base.InitiativeTracker):
                             "wis": ability_value(raw_abilities, "Wis"),
                             "cha": ability_value(raw_abilities, "Cha"),
                         },
+                        "saving_throws": dict(raw.get("saving_throws") if isinstance(raw.get("saving_throws"), dict) else {}),
                         "actions": list(raw.get("actions") if isinstance(raw.get("actions"), list) else []),
                     }
                 )
@@ -4921,6 +4922,7 @@ class InitiativeTracker(base.InitiativeTracker):
                                 "wis": ability_value(abilities, "Wis"),
                                 "cha": ability_value(abilities, "Cha"),
                             },
+                            "saving_throws": dict(raw.get("saving_throws") if isinstance(raw.get("saving_throws"), dict) else {}),
                             "actions": list(raw.get("actions") if isinstance(raw.get("actions"), list) else []),
                         }
                     )
@@ -20462,12 +20464,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     if not isinstance(form, dict):
                         self._lan.toast(ws_id, "That beast form be unavailable, matey.")
                         return
-                    previous_temp_hp = int(getattr(target, "temp_hp", 0) or 0)
-                    set_temp_hp = max(previous_temp_hp, int(form.get("hp") or 0))
-                    setattr(target, "temp_hp", set_temp_hp)
-                    setattr(target, "is_wild_shaped", False)
-                    setattr(target, "wild_shape_form_id", str(form.get("id") or ""))
-                    setattr(target, "wild_shape_form_name", str(form.get("name") or "") or "Beast")
+                    self._apply_polymorph_form(target, form)
                     duration_turns = self._spell_duration_to_turns(preset)
                     setattr(target, "polymorph_source_cid", int(c.cid))
                     setattr(target, "polymorph_remaining_turns", int(duration_turns) if duration_turns is not None else None)
@@ -22584,6 +22581,113 @@ class InitiativeTracker(base.InitiativeTracker):
                 total_turns += amount
         return total_turns or None
 
+    def _apply_polymorph_form(self, target: Any, form: Dict[str, Any]) -> None:
+        if target is None or not isinstance(form, dict):
+            return
+        if not isinstance(getattr(target, "polymorph_base", None), dict):
+            setattr(
+                target,
+                "polymorph_base",
+                {
+                    "name": str(getattr(target, "name", "") or ""),
+                    "speed": int(getattr(target, "speed", 0) or 0),
+                    "swim_speed": int(getattr(target, "swim_speed", 0) or 0),
+                    "fly_speed": int(getattr(target, "fly_speed", 0) or 0),
+                    "climb_speed": int(getattr(target, "climb_speed", 0) or 0),
+                    "burrow_speed": int(getattr(target, "burrow_speed", 0) or 0),
+                    "movement_mode": str(getattr(target, "movement_mode", "Normal") or "Normal"),
+                    "str": int(getattr(target, "str", 10) or 10),
+                    "dex": int(getattr(target, "dex", 10) or 10),
+                    "con": int(getattr(target, "con", 10) or 10),
+                    "int": int(getattr(target, "int", 10) or 10),
+                    "wis": int(getattr(target, "wis", 10) or 10),
+                    "cha": int(getattr(target, "cha", 10) or 10),
+                    "is_spellcaster": bool(getattr(target, "is_spellcaster", False)),
+                    "ability_mods": copy.deepcopy(getattr(target, "ability_mods", {})),
+                    "saving_throws": copy.deepcopy(getattr(target, "saving_throws", {})),
+                    "actions": copy.deepcopy(getattr(target, "actions", [])),
+                    "monster_slug": str(getattr(target, "monster_slug", "") or ""),
+                },
+            )
+
+        speed = form.get("speed") if isinstance(form.get("speed"), dict) else {}
+        setattr(target, "is_wild_shaped", False)
+        setattr(target, "wild_shape_form_id", str(form.get("id") or ""))
+        setattr(target, "wild_shape_form_name", str(form.get("name") or "") or "Beast")
+        setattr(target, "name", str(form.get("name") or "") or str(getattr(target, "name", "") or ""))
+        setattr(target, "monster_slug", str(form.get("id") or "") or None)
+        setattr(target, "speed", int(speed.get("walk") or 0))
+        setattr(target, "swim_speed", int(speed.get("swim") or 0))
+        setattr(target, "fly_speed", int(speed.get("fly") or 0))
+        setattr(target, "climb_speed", int(speed.get("climb") or 0))
+        setattr(target, "movement_mode", "Fly" if int(speed.get("fly") or 0) > 0 else ("Swim" if int(speed.get("swim") or 0) > 0 else "Normal"))
+
+        abilities = form.get("abilities") if isinstance(form.get("abilities"), dict) else {}
+        ability_mods = dict(getattr(target, "ability_mods", {}) if isinstance(getattr(target, "ability_mods", None), dict) else {})
+        for key in ("str", "dex", "con", "int", "wis", "cha"):
+            score = int(abilities.get(key) or getattr(target, key, 10) or 10)
+            setattr(target, key, score)
+            ability_mods[key] = (int(score) - 10) // 2
+        setattr(target, "ability_mods", ability_mods)
+
+        raw_saves = form.get("saving_throws") if isinstance(form.get("saving_throws"), dict) else {}
+        saves: Dict[str, int] = {}
+        for key, value in raw_saves.items():
+            save_key = str(key or "").strip().lower()
+            if save_key not in {"str", "dex", "con", "int", "wis", "cha"}:
+                continue
+            try:
+                saves[save_key] = int(value)
+            except Exception:
+                continue
+        setattr(target, "saving_throws", saves)
+
+        raw_form_actions = form.get("actions") if isinstance(form.get("actions"), list) else []
+        beast_actions = self._normalize_action_entries(raw_form_actions, "action")
+        for entry in beast_actions:
+            if not isinstance(entry, dict):
+                continue
+            desc_text = str(entry.get("description") or "").strip()
+            lowered = desc_text.lower()
+            if "attack roll" not in lowered or "hit" not in lowered:
+                continue
+            to_hit_match = re.search(r"attack roll\s*:\s*([+\-]?\d+)", desc_text, flags=re.IGNORECASE)
+            range_match = re.search(r"(?:reach|range)\s*(\d+)\s*ft", desc_text, flags=re.IGNORECASE)
+            damage_match = re.search(
+                r"hit\s*:\s*[^.]*?\(([^)]+)\)\s*([a-zA-Z]+)\s+damage",
+                desc_text,
+                flags=re.IGNORECASE,
+            )
+            weapon_name = str(entry.get("name") or "").strip()
+            weapon_id = str(entry.get("id") or "").strip() or re.sub(r"[^a-z0-9]+", "-", weapon_name.lower()).strip("-")
+            weapon_payload: Dict[str, Any] = {
+                "id": weapon_id or "polymorph-attack",
+                "name": weapon_name or "Attack",
+                "category": "ranged_weapon" if "ranged attack roll" in lowered else "melee_weapon",
+                "range": f"{int(range_match.group(1))} ft" if range_match else ("60 ft" if "ranged attack roll" in lowered else "5 ft"),
+            }
+            if to_hit_match:
+                try:
+                    weapon_payload["to_hit"] = int(to_hit_match.group(1))
+                except Exception:
+                    pass
+            if damage_match:
+                weapon_payload["one_handed"] = {
+                    "damage_formula": str(damage_match.group(1)).strip(),
+                    "damage_type": str(damage_match.group(2)).strip().lower(),
+                }
+            entry["attack_overlay_mode"] = "attack_request"
+            entry["attack_weapon"] = weapon_payload
+            entry["resolve_prompt"] = f"Attack target with {weapon_payload['name']}."
+        if beast_actions:
+            setattr(target, "actions", beast_actions)
+
+        mode_speed = int(self._mode_speed(target) or 0)
+        setattr(target, "move_total", mode_speed)
+        setattr(target, "move_remaining", mode_speed)
+        setattr(target, "temp_hp", int(form.get("hp") or 0))
+        setattr(target, "is_spellcaster", False)
+
     def _clear_polymorph_effect(self, target: Any, *, reason: str = "") -> bool:
         if target is None:
             return False
@@ -22591,6 +22695,22 @@ class InitiativeTracker(base.InitiativeTracker):
         active = bool(form_name and int(getattr(target, "polymorph_source_cid", 0) or 0) > 0)
         if not active:
             return False
+        base_snapshot = getattr(target, "polymorph_base", None)
+        if isinstance(base_snapshot, dict):
+            for key in (
+                "name", "speed", "swim_speed", "fly_speed", "climb_speed", "burrow_speed", "movement_mode",
+                "str", "dex", "con", "int", "wis", "cha", "is_spellcaster",
+            ):
+                if key in base_snapshot:
+                    setattr(target, key, base_snapshot[key])
+            setattr(target, "ability_mods", copy.deepcopy(base_snapshot.get("ability_mods") if isinstance(base_snapshot.get("ability_mods"), dict) else {}))
+            setattr(target, "saving_throws", copy.deepcopy(base_snapshot.get("saving_throws") if isinstance(base_snapshot.get("saving_throws"), dict) else {}))
+            setattr(target, "actions", copy.deepcopy(base_snapshot.get("actions") if isinstance(base_snapshot.get("actions"), list) else []))
+            setattr(target, "monster_slug", str(base_snapshot.get("monster_slug") or "") or None)
+            mode_speed = int(self._mode_speed(target) or 0)
+            setattr(target, "move_total", mode_speed)
+            setattr(target, "move_remaining", mode_speed)
+        setattr(target, "polymorph_base", None)
         setattr(target, "wild_shape_form_id", "")
         setattr(target, "wild_shape_form_name", "")
         setattr(target, "polymorph_source_cid", None)
