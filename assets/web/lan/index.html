@@ -1408,6 +1408,7 @@
     .spellbook-item.locked{
       border-color: rgba(255,180,90,0.3);
       background: rgba(255,180,90,0.12);
+      cursor: default;
     }
     .wildshape-menu-actions{
       display:flex;
@@ -3232,6 +3233,8 @@ __DAMAGE_TYPE_OPTIONS__
       </div>
       <div class="spellbook-column">
         <div class="spellbook-column-title" id="spellbookRightTitle">Known Spells</div>
+        <div class="spellbook-column-title hidden" id="spellbookFreePreparedTitle">Free Prepared</div>
+        <div class="spellbook-list hidden" id="spellbookFreePreparedList"></div>
         <div class="spellbook-list" id="spellbookRightList"></div>
       </div>
     </div>
@@ -4302,6 +4305,8 @@ __DAMAGE_TYPE_OPTIONS__
   const spellbookSortSelect = document.getElementById("spellbookSort");
   const spellbookLeftTitle = document.getElementById("spellbookLeftTitle");
   const spellbookRightTitle = document.getElementById("spellbookRightTitle");
+  const spellbookFreePreparedTitle = document.getElementById("spellbookFreePreparedTitle");
+  const spellbookFreePreparedList = document.getElementById("spellbookFreePreparedList");
   const spellbookLeftList = document.getElementById("spellbookLeftList");
   const spellbookRightList = document.getElementById("spellbookRightList");
   const spellbookAddBtn = document.getElementById("spellbookAdd");
@@ -15526,8 +15531,9 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
-  function renderSpellbookList(listEl, slugs, selectionSet, emptyLabel){
+  function renderSpellbookList(listEl, slugs, selectionSet, emptyLabel, options = {}){
     if (!listEl) return;
+    const {locked = false} = options;
     listEl.textContent = "";
     if (!slugs.length){
       const empty = document.createElement("div");
@@ -15545,6 +15551,10 @@ __DAMAGE_TYPE_OPTIONS__
       const item = document.createElement("button");
       item.type = "button";
       item.className = "spellbook-item";
+      if (locked){
+        item.classList.add("locked");
+        item.setAttribute("aria-disabled", "true");
+      }
       if (selectionSet.has(slug)){
         item.classList.add("selected");
         item.style.borderColor = displayColor;
@@ -15553,10 +15563,12 @@ __DAMAGE_TYPE_OPTIONS__
           item.style.background = highlight;
         }
       }
-      item.addEventListener("click", () => {
-        toggleSpellbookSelection(slug, selectionSet);
-        renderSpellbook();
-      });
+      if (!locked){
+        item.addEventListener("click", () => {
+          toggleSpellbookSelection(slug, selectionSet);
+          renderSpellbook();
+        });
+      }
       const nameWrap = document.createElement("span");
       nameWrap.className = "spellbook-item-name";
       const colorDot = document.createElement("span");
@@ -15604,10 +15616,18 @@ __DAMAGE_TYPE_OPTIONS__
       spellbookTabPrepared.classList.toggle("accent", spellbookMode === "prepared");
     }
     const eligibleSlugs = getEligibleSpellSlugs(profile);
+    const freePreparedSlugs = spellbookMode === "prepared"
+      ? Array.from(pendingPreparedFreeSet)
+      : [];
+    const freePreparedSet = new Set(freePreparedSlugs.map(getSpellKey));
+    const paidPreparedSlugs = spellbookMode === "prepared"
+      ? Array.from(pendingPreparedSet).filter((slug) => !freePreparedSet.has(getSpellKey(slug)))
+      : [];
     const rightSlugs = spellbookMode === "prepared"
-      ? Array.from(pendingPreparedSet)
+      ? paidPreparedSlugs
       : Array.from(new Set([...pendingKnownSet, ...pendingCantripsSet]));
-    const rightSet = new Set(rightSlugs.map(getSpellKey));
+    const rightSet = new Set((spellbookMode === "prepared" ? [...rightSlugs, ...freePreparedSlugs] : rightSlugs).map(getSpellKey));
+    const emptyLabel = spellbookSearchTerm.trim() ? "No spells match that search." : "No spells available.";
     let leftSlugs = [];
     if (spellbookMode === "known"){
       leftSlugs = eligibleSlugs.filter((slug) => !rightSet.has(getSpellKey(slug)));
@@ -15623,8 +15643,26 @@ __DAMAGE_TYPE_OPTIONS__
         if (spellbookLeftTitle) spellbookLeftTitle.textContent = "Eligible Spells";
       }
       if (spellbookRightTitle) spellbookRightTitle.textContent = "Prepared Spells";
+      const filteredFreePrepared = filterSpellbookSlugs(freePreparedSlugs);
+      const sortedFreePrepared = sortSpellbookSlugs(filteredFreePrepared);
+      if (spellbookFreePreparedTitle){
+        spellbookFreePreparedTitle.classList.toggle("hidden", !sortedFreePrepared.length);
+      }
+      if (spellbookFreePreparedList){
+        spellbookFreePreparedList.classList.toggle("hidden", !sortedFreePrepared.length);
+      }
+      renderSpellbookList(
+        spellbookFreePreparedList,
+        sortedFreePrepared,
+        new Set(),
+        emptyLabel,
+        {locked: true},
+      );
     }
-    const emptyLabel = spellbookSearchTerm.trim() ? "No spells match that search." : "No spells available.";
+    if (spellbookMode !== "prepared"){
+      if (spellbookFreePreparedTitle) spellbookFreePreparedTitle.classList.add("hidden");
+      if (spellbookFreePreparedList) spellbookFreePreparedList.classList.add("hidden");
+    }
     const filteredLeft = filterSpellbookSlugs(leftSlugs);
     const filteredRight = filterSpellbookSlugs(rightSlugs);
     renderSpellbookList(spellbookLeftList, sortSpellbookSlugs(filteredLeft), spellbookLeftSelection, emptyLabel);
@@ -15743,8 +15781,8 @@ __DAMAGE_TYPE_OPTIONS__
     const removals = Array.from(spellbookRightSelection);
     if (spellbookMode === "prepared"){
       removals.forEach((slug) => {
+        if (pendingPreparedFreeSet.has(slug)) return;
         pendingPreparedSet.delete(slug);
-        pendingPreparedFreeSet.delete(slug);
       });
     } else {
       removals.forEach((slug) => {

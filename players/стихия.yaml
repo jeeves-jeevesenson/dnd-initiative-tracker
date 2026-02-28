@@ -239,6 +239,19 @@ features:
   source: PHB2014
   level: 1
   description: Martial weapons and heavy armor training.
+- id: tempest_domain_spells
+  name: Tempest Domain Spells
+  category: Cleric Subclass Feature
+  source: PHB2014
+  level: 1
+  grants:
+    always_prepared_spells:
+    - fog-cloud
+    - thunderwave
+    - gust-of-wind
+    - shatter
+    - call-lightning
+    - sleet-storm
 - id: wrath_of_the_storm
   name: Wrath of the Storm
   category: Cleric Subclass Feature
