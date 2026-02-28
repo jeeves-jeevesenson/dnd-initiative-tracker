@@ -5825,6 +5825,12 @@ __DAMAGE_TYPE_OPTIONS__
       queuePoolSpellCastConfirmation(entry, pool);
       return;
     }
+    const spellActionTag = resolveSpellActionTag(entry.preset);
+    if (spellActionTag === "aoe"){
+      beginForcedPoolCast(entry);
+      setResourcePoolDetailOverlayOpen(false);
+      return;
+    }
     const payload = {
       action_type: entry.actionType,
       name: normalizeTextValue(entry.preset?.name) || entry.spellName || "Spell",
