@@ -20449,6 +20449,7 @@ __DAMAGE_TYPE_OPTIONS__
             : null,
           hit: hit,
           critical,
+          attack_origin_cid: pendingUnleashIncarnation ? Number(pendingUnleashIncarnation.echoCid) : Number(actionCid),
           damage_entries: damageEntries,
           damage_type_override: (pendingAttackResolve.elementalOverrideAllowed && attackDamageTypeOverrideSelect)
             ? String(attackDamageTypeOverrideSelect.value || "").trim().toLowerCase() || null
