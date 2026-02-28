@@ -406,20 +406,20 @@ spellcasting:
     - lightning-bolt
   spell_slots:
     '1':
-      max: 4
-      current: 4
+      max: 0
+      current: 0
     '2':
-      max: 3
-      current: 3
+      max: 0
+      current: 0
     '3':
-      max: 3
-      current: 3
+      max: 0
+      current: 0
     '4':
-      max: 3
-      current: 3
+      max: 0
+      current: 0
     '5':
-      max: 2
-      current: 2
+      max: 0
+      current: 0
     '6':
       max: 0
       current: 0
