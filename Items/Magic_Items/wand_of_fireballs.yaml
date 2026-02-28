@@ -1,0 +1,11 @@
+id: wand_of_fireballs
+name: Wand of Fireballs
+requires_attunement: true
+grants:
+  spells:
+    casts:
+      - spell: fireball
+        action_type: action
+        consumes:
+          pool: wand_of_fireballs_fireball_cast
+          cost: 1

@@ -150,13 +150,19 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
     def test_real_johnny_yaml_compiles_feature_actions_and_effects(self):
         app = self._new_app()
         data = yaml.safe_load(
-            Path("/home/runner/work/dnd-initiative-tracker/dnd-initiative-tracker/players/johnny_morris.yaml").read_text(encoding="utf-8")
+            Path("players/johnny_morris.yaml").read_text(encoding="utf-8")
         )
         normalized = app._normalize_player_profile(data, "johnny_morris")
         resources = normalized.get("resources") or {}
         action_names = {str(entry.get("name") or "") for entry in (resources.get("actions") or []) if isinstance(entry, dict)}
         self.assertIn("Wild Companion", action_names)
         self.assertIn("Natural Recovery (Recover Spell Slots)", action_names)
+        pools = {str(entry.get("id") or "") for entry in (resources.get("pools") or []) if isinstance(entry, dict)}
+        self.assertIn("wand_of_fireballs_fireball_cast", pools)
+        cantrips = (((normalized.get("spellcasting") or {}).get("cantrips") or {}).get("known") or [])
+        self.assertIn("fire-bolt", cantrips)
+        pool_spells = app._player_pool_granted_spells(normalized)
+        self.assertTrue(any(str(entry.get("spell") or "") == "fireball" and str((entry.get("consumes_pool") or {}).get("id") or "") == "wand_of_fireballs_fireball_cast" for entry in pool_spells))
         effects = normalized.get("feature_effects") or {}
         rider_ids = {str(entry.get("id") or "") for entry in (effects.get("damage_riders") or []) if isinstance(entry, dict)}
         self.assertIn("elemental_fury_primal_strike", rider_ids)

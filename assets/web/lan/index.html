@@ -1699,6 +1699,7 @@
     @media (max-width: 900px){ .rules-help-layout{grid-template-columns:1fr; min-height:56vh; max-height:none;} .rules-help-frame{min-height:360px;} }
     @media (max-width: 900px){ .cast-modal-layout{grid-template-columns:1fr; min-height:56vh; max-height:none;} }
     .modal-actions .btn{flex:1; min-width:120px;}
+    .pool-spell-confirm-card{max-width:420px;border:1px solid rgba(255,255,255,.12);box-shadow:0 14px 36px rgba(0,0,0,.38);}
     .action-picker-list{
       display:flex;
       flex-direction:column;
@@ -3396,6 +3397,16 @@ __DAMAGE_TYPE_OPTIONS__
     </div>
   </div>
 </div>
+<div class="modal" id="poolSpellConfirmModal" aria-hidden="true">
+  <div class="card pool-spell-confirm-card">
+    <h2 id="poolSpellConfirmTitle">Confirm Cast</h2>
+    <div class="spellbook-status" id="poolSpellConfirmMessage">Are you sure?</div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="poolSpellConfirmCancel" type="button">Cancel</button>
+      <button class="btn accent" id="poolSpellConfirmCast" type="button">Cast</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal" id="beguilingMagicModal" aria-hidden="true">
   <div class="card">
@@ -4244,6 +4255,11 @@ __DAMAGE_TYPE_OPTIONS__
   const resourcePoolDetailActions = document.getElementById("resourcePoolDetailActions");
   const resourcePoolDetailSpells = document.getElementById("resourcePoolDetailSpells");
   const resourcePoolDetailCloseBtn = document.getElementById("resourcePoolDetailClose");
+  const poolSpellConfirmModal = document.getElementById("poolSpellConfirmModal");
+  const poolSpellConfirmTitle = document.getElementById("poolSpellConfirmTitle");
+  const poolSpellConfirmMessage = document.getElementById("poolSpellConfirmMessage");
+  const poolSpellConfirmCancelBtn = document.getElementById("poolSpellConfirmCancel");
+  const poolSpellConfirmCastBtn = document.getElementById("poolSpellConfirmCast");
   const beguilingMagicModal = document.getElementById("beguilingMagicModal");
   const beguilingMagicConditionInput = document.getElementById("beguilingMagicCondition");
   const beguilingMagicStatus = document.getElementById("beguilingMagicStatus");
@@ -4595,6 +4611,7 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingLayOnHandsTargeting = null;
   let pendingLayOnHandsResolve = null;
   let pendingBeguilingMagic = null;
+  let pendingPoolSpellConfirm = null;
   let pendingCommandResolution = null;
   let pendingBardicInspirationTargeting = null;
   let pendingBardicDiceUse = null;
@@ -5757,7 +5774,31 @@ __DAMAGE_TYPE_OPTIONS__
     setResourcePoolDetailOverlayOpen(false);
   }
 
-  function castResourcePoolSpell(entry, pool){
+  function setPoolSpellConfirmModalOpen(open){
+    setModalOpen(poolSpellConfirmModal, open);
+    if (!open){
+      pendingPoolSpellConfirm = null;
+    }
+  }
+
+  function requiresPoolSpellConfirmation(entry){
+    const poolId = normalizeLowerValue(entry?.consumesPool?.id);
+    const spellSlug = normalizeLowerValue(entry?.spellSlug);
+    return poolId === "wand_of_fireballs_fireball_cast" && spellSlug === "fireball";
+  }
+
+  function queuePoolSpellCastConfirmation(entry, pool){
+    if (poolSpellConfirmTitle){
+      poolSpellConfirmTitle.textContent = `Cast ${entry?.spellName || "Spell"}?`;
+    }
+    if (poolSpellConfirmMessage){
+      poolSpellConfirmMessage.textContent = "Spend your Wand of Fireballs charge to cast Fireball at level 3?";
+    }
+    pendingPoolSpellConfirm = {entry, pool};
+    setPoolSpellConfirmModalOpen(true);
+  }
+
+  function castResourcePoolSpell(entry, pool, skipConfirm = false){
     if (!entry?.preset){
       localToast("Could not find that spell preset, matey.");
       return;
@@ -5779,6 +5820,10 @@ __DAMAGE_TYPE_OPTIONS__
         localToast(actionCheck.reason || "You can't cast right now.");
         return;
       }
+    }
+    if (requiresPoolSpellConfirmation(entry) && !skipConfirm){
+      queuePoolSpellCastConfirmation(entry, pool);
+      return;
     }
     const payload = {
       action_type: entry.actionType,
@@ -18889,6 +18934,20 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (resourcePoolDetailCloseBtn){
     resourcePoolDetailCloseBtn.addEventListener("click", () => setResourcePoolDetailOverlayOpen(false));
+  }
+  if (poolSpellConfirmCancelBtn){
+    poolSpellConfirmCancelBtn.addEventListener("click", () => setPoolSpellConfirmModalOpen(false));
+  }
+  if (poolSpellConfirmCastBtn){
+    poolSpellConfirmCastBtn.addEventListener("click", () => {
+      if (!pendingPoolSpellConfirm){
+        setPoolSpellConfirmModalOpen(false);
+        return;
+      }
+      const pending = {...pendingPoolSpellConfirm};
+      setPoolSpellConfirmModalOpen(false);
+      castResourcePoolSpell(pending.entry, pending.pool, true);
+    });
   }
   if (beguilingMagicCancelBtn){
     beguilingMagicCancelBtn.addEventListener("click", () => {

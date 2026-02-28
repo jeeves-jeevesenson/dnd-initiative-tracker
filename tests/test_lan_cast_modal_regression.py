@@ -196,7 +196,7 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('msg.payload.cx = Number(cursor.col);', self.html)
         self.assertIn('msg.payload.cy = Number(cursor.row);', self.html)
         self.assertIn('if (pendingAoePlacement){\n      if (pendingAoePlacement?.mode !== "aimless_self_centered"){\n        setPendingAoePlacementCursorFromPointer(p);\n      }\n      draw();', self.html)
-        self.assertIn('if (pendingAoePlacement){\n        clearPendingAoePlacement();\n        localToast("AoE placement cancelled.");', self.html)
+        self.assertIn('if (pendingAoePlacement){\n      clearPendingAoePlacement();\n      localToast("AoE placement cancelled.");', self.html)
 
     def test_aoe_target_preview_panel_is_present_and_updates_during_preview(self):
         self.assertIn('id="aoeTargetPreview"', self.html)
@@ -217,6 +217,14 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('mode: "aimless_self_centered"', self.html)
         self.assertIn('pendingAoePlacement?.mode === "aimless_self_centered"', self.html)
         self.assertIn('function isAimlessSelfCenteredAoePlacement()', self.html)
+
+
+    def test_wand_of_fireballs_pool_spell_uses_confirmation_modal(self):
+        self.assertIn('id="poolSpellConfirmModal"', self.html)
+        self.assertIn('id="poolSpellConfirmCast"', self.html)
+        self.assertIn('function requiresPoolSpellConfirmation(entry)', self.html)
+        self.assertIn('poolId === "wand_of_fireballs_fireball_cast" && spellSlug === "fireball"', self.html)
+        self.assertIn('queuePoolSpellCastConfirmation(entry, pool);', self.html)
 
     def test_lay_on_hands_targeting_overlay_and_modal_are_wired(self):
         self.assertIn('id="layOnHandsOverlay"', self.html)
