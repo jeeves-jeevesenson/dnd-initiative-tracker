@@ -1535,6 +1535,7 @@
     }
     .hp-bar-wrap.show{display:flex;}
     .hp-bar-track{
+      position:relative;
       flex:1;
       min-width:120px;
       height:10px;
@@ -1543,6 +1544,8 @@
       overflow:hidden;
     }
     .hp-bar-fill{
+      position:relative;
+      z-index:1;
       height:100%;
       width:0%;
       background:#38c172;
@@ -1550,6 +1553,21 @@
     }
     .hp-bar-fill.mid{background:#f2c94c;}
     .hp-bar-fill.low{background:#ff5b5b;}
+    .hp-bar-temp-fill{
+      position:absolute;
+      z-index:2;
+      top:0;
+      left:0;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(78, 178, 255, 0.9), rgba(45, 129, 255, 0.9));
+      box-shadow:0 0 8px rgba(87, 192, 255, 0.75);
+      opacity:0;
+      transition:left 120ms ease-out, width 120ms ease-out, opacity 120ms ease-out;
+      pointer-events:none;
+    }
+    .hp-bar-temp-fill.show{opacity:1;}
     .hp-bar-label{font-size:12px; color:var(--muted);}
     .turn-order{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
     .turn-chip{
@@ -2912,7 +2930,10 @@
         <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
       </div>
       <div class="row hp-bar-wrap" id="playerHpBarWrap" aria-live="polite">
-        <div class="hp-bar-track"><div class="hp-bar-fill" id="playerHpBarFill"></div></div>
+        <div class="hp-bar-track">
+          <div class="hp-bar-fill" id="playerHpBarFill"></div>
+          <div class="hp-bar-temp-fill" id="playerHpBarTempFill" aria-hidden="true"></div>
+        </div>
         <div class="hp-bar-label" id="playerHpBarLabel">HP —</div>
       </div>
       <fieldset class="turn-alerts-panel" id="turnAlertsPanel">
@@ -4077,6 +4098,7 @@ __DAMAGE_TYPE_OPTIONS__
   const turnEl = document.getElementById("turn");
   const playerHpBarWrap = document.getElementById("playerHpBarWrap");
   const playerHpBarFill = document.getElementById("playerHpBarFill");
+  const playerHpBarTempFill = document.getElementById("playerHpBarTempFill");
   const playerHpBarLabel = document.getElementById("playerHpBarLabel");
   const spellSlotMonitorEl = document.getElementById("spellSlotMonitor");
   const resourcePoolsPanelEl = document.getElementById("resourcePoolsPanel");
@@ -11970,7 +11992,14 @@ __DAMAGE_TYPE_OPTIONS__
       label += ` · controlled by #${unit.summoned_by_cid}`;
     }
     if ((role === "pc" || role === "ally") && Number.isFinite(Number(unit.hp))){
-      label += ` ${Number(unit.hp)} HP`;
+      const hp = Math.round(Number(unit.hp));
+      const maxHpRaw = Number(unit.max_hp);
+      const maxHp = Number.isFinite(maxHpRaw) && maxHpRaw > 0 ? Math.round(maxHpRaw) : hp;
+      const tempHp = Math.max(0, Math.round(Number(unit.temp_hp || 0)));
+      label += ` ${hp}/${maxHp} HP`;
+      if (tempHp > 0){
+        label += ` · ${tempHp} Temp HP`;
+      }
     }
     return label;
   }
@@ -12479,24 +12508,34 @@ __DAMAGE_TYPE_OPTIONS__
       dismissSummonsBtn.classList.toggle("hidden", !hasOwnedSummons);
     }
     const updatePlayerHpBar = (unit) => {
-      if (!playerHpBarWrap || !playerHpBarFill || !playerHpBarLabel){
+      if (!playerHpBarWrap || !playerHpBarFill || !playerHpBarTempFill || !playerHpBarLabel){
         return;
       }
       const hp = Number(unit?.hp ?? NaN);
       const maxHpRaw = Number(unit?.max_hp ?? NaN);
+      const tempHp = Math.max(0, Number(unit?.temp_hp ?? 0));
       const maxHp = Number.isFinite(maxHpRaw) && maxHpRaw > 0
         ? maxHpRaw
         : (Number.isFinite(hp) && hp > 0 ? hp : 0);
       if (!Number.isFinite(hp) || maxHp <= 0){
         playerHpBarWrap.classList.remove("show");
+        playerHpBarTempFill.classList.remove("show");
         return;
       }
       const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+      const tempPct = Math.max(0, Math.min(100, (tempHp / maxHp) * 100));
+      const shieldWidth = Math.min(tempPct, pct);
+      const shieldLeft = Math.max(0, pct - shieldWidth);
       playerHpBarWrap.classList.add("show");
       playerHpBarFill.style.width = `${pct}%`;
       playerHpBarFill.classList.toggle("mid", pct <= 50 && pct > 20);
       playerHpBarFill.classList.toggle("low", pct <= 20);
-      playerHpBarLabel.textContent = `HP ${Math.round(hp)}/${Math.round(maxHp)}`;
+      playerHpBarTempFill.style.width = `${shieldWidth}%`;
+      playerHpBarTempFill.style.left = `${shieldLeft}%`;
+      playerHpBarTempFill.classList.toggle("show", shieldWidth > 0);
+      playerHpBarLabel.textContent = tempHp > 0
+        ? `HP ${Math.round(hp)}/${Math.round(maxHp)} · ${Math.round(tempHp)} Temp HP`
+        : `HP ${Math.round(hp)}/${Math.round(maxHp)}`;
     };
     let meForHud = null;
     ensureWeaponSelectionCharacterLoaded();
