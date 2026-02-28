@@ -21478,11 +21478,17 @@ class InitiativeTracker(base.InitiativeTracker):
             consumes_pool_key = consumes_pool_id.strip().lower()
             is_unleash_incarnation_attack = consumes_pool_key == "unleash_incarnation"
             if is_unleash_incarnation_attack:
-                echo_cid, _echo = _find_echo_for_caster(int(profile_cid))
+                echo_cid, _echo = self._find_echo_for_caster(int(profile_cid))
                 if echo_cid is None:
                     self._lan.toast(ws_id, "Arr... I dont be seeing no echo, matey")
                     return
-            attacker_pos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(cid))
+            attack_origin_cid = int(cid)
+            requested_origin_cid = _normalize_cid_value(msg.get("attack_origin_cid"), "attack_request.attack_origin_cid", log_fn=log_warning)
+            if requested_origin_cid is not None and int(requested_origin_cid) == int(cid):
+                attack_origin_cid = int(requested_origin_cid)
+            elif is_unleash_incarnation_attack and echo_cid is not None:
+                attack_origin_cid = int(echo_cid)
+            attacker_pos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(attack_origin_cid))
             target_pos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(target_cid))
             if isinstance(attacker_pos, tuple) and len(attacker_pos) == 2 and isinstance(target_pos, tuple) and len(target_pos) == 2:
                 feet_per_square = 5.0
@@ -22076,6 +22082,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 "type": "attack_result",
                 "ok": True,
                 "attacker_cid": int(cid),
+                "attack_origin_cid": int(attack_origin_cid),
                 "target_cid": int(target_cid),
                 "target_name": str(getattr(target, "name", "Target") or "Target"),
                 "weapon_id": str(selected_weapon.get("id") or "").strip(),

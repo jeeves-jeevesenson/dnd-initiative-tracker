@@ -391,6 +391,61 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[3].attack_resource_remaining, 0)
         self.assertEqual(result.get("attack_resource_remaining"), 1)
 
+    def test_unleash_incarnation_attack_uses_echo_position_for_range(self):
+        self.app.combatants[1].action_remaining = 1
+        self.app.combatants[1].attack_resource_remaining = 0
+        self.app.combatants[3] = type(
+            "C",
+            (),
+            {
+                "cid": 3,
+                "name": "Johns Echo",
+                "ac": 14,
+                "hp": 1,
+                "condition_stacks": [],
+                "exhaustion_level": 0,
+                "summoned_by_cid": 1,
+                "summon_source_spell": "echo_knight",
+                "summon_shared_turn": True,
+            },
+        )()
+        self.app._lan_positions = {1: (0, 0), 3: (8, 8), 2: (9, 8)}
+        self.app._pc_name_for = lambda cid: "John Twilight" if int(cid) == 1 else "Unknown"
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Fighter", "level": 5, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_to_hit": 5,
+                "weapons": [
+                    {"id": "longsword", "name": "Longsword", "to_hit": 7, "range": "5 ft"},
+                ],
+            },
+            "resource_pools": [
+                {"id": "unleash_incarnation", "name": "Unleash Incarnation", "max": 3, "current": 3},
+            ],
+        }
+        self.app._consume_resource_pool_for_cast = lambda owner_name, pool_id, cost: (True, "")
+
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 54,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [{"amount": 4, "type": "slashing"}],
+            "consumes_pool": {"id": "unleash_incarnation", "cost": 1},
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("hit"))
+        self.assertEqual(result.get("attack_origin_cid"), 3)
+        self.assertNotIn((54, "Target be out of attack range."), self.toasts)
+
+
     def test_attack_request_auto_spends_action_when_no_attack_resource(self):
         msg = {
             "type": "attack_request",
