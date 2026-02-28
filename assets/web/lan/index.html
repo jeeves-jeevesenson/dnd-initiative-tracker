@@ -10312,7 +10312,7 @@ __DAMAGE_TYPE_OPTIONS__
     const hasRange = Number.isFinite(Number(pendingSummonPlacement.maxRangeFt));
     const rangeLabel = hasRange ? `${Math.round(Number(pendingSummonPlacement.maxRangeFt))} ft` : "any range";
     const placementLabel = pendingSummonPlacement.mode === "echo_summon" ? "Johns Echo" : "a summon";
-    summonPlacementBanner.textContent = `You're placing ${placementLabel}. Click up to ${remaining} square(s) within ${rangeLabel} of your caster to choose spawn locations.`;
+    summonPlacementBanner.textContent = `You're placing ${placementLabel}. Hold Shift and click up to ${remaining} square(s) within ${rangeLabel} of your caster to choose spawn locations.`;
     summonPlacementBanner.classList.remove("hidden");
   }
 
@@ -12793,6 +12793,7 @@ __DAMAGE_TYPE_OPTIONS__
         };
         rebuildSummonValidCells();
         updateSummonPlacementBanner();
+        draw();
         localToast("Echo placement started. Choose a valid highlighted square.");
         return;
       }
@@ -14644,6 +14645,10 @@ __DAMAGE_TYPE_OPTIONS__
       }
     }
     if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){
+      if (!ev.shiftKey){
+        localToast("Hold Shift while clicking to place summons.");
+        return;
+      }
       const g = screenToGrid(p.x, p.y);
       if (!gridReady()){
         localToast("Map not ready yet, matey.");
@@ -18233,6 +18238,7 @@ __DAMAGE_TYPE_OPTIONS__
         };
         rebuildSummonValidCells();
         updateSummonPlacementBanner();
+        draw();
         localToast("Summon placement started. Choose valid highlighted squares.");
         clearForcedContext();
         return;
@@ -18300,6 +18306,7 @@ __DAMAGE_TYPE_OPTIONS__
         };
         rebuildSummonValidCells();
         updateSummonPlacementBanner();
+        draw();
         localToast("Custom summon placement started. Choose valid highlighted squares.");
         return;
       }
