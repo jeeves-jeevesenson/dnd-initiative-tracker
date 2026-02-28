@@ -7920,7 +7920,7 @@ __DAMAGE_TYPE_OPTIONS__
     "move",
     "dash",
     "cycle_movement_mode",
-    "perform_action",
+    "perform_custom_action",
     "end_turn",
     "use_action",
     "use_bonus_action",
@@ -10830,6 +10830,13 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function activeControlledUnitCid(){
+    if (isMapView && isAdminClient()){
+      const selectedCid = normalizeCid(selectedTurnCid, "activeControlled.mapViewSelectedCid");
+      if (selectedCid !== null){
+        return selectedCid;
+      }
+      return normalizeCid(state?.active_cid, "activeControlled.mapViewActiveCid");
+    }
     if (claimedCid === null || claimedCid === undefined){
       return null;
     }
@@ -10848,6 +10855,13 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function reactionControlledUnitCid(){
+    if (isMapView && isAdminClient()){
+      const selectedCid = normalizeCid(selectedTurnCid, "reactionControlled.mapViewSelectedCid");
+      if (selectedCid !== null){
+        return selectedCid;
+      }
+      return normalizeCid(state?.active_cid, "reactionControlled.mapViewActiveCid");
+    }
     if (claimedCid === null || claimedCid === undefined){
       return null;
     }
@@ -13200,6 +13214,29 @@ __DAMAGE_TYPE_OPTIONS__
     }
     btn.addEventListener("click", () => {
       hideActionPicker();
+      if (entry.kind === "custom_action"){
+        const performCid = entry.spend === "reaction" ? reactionControlledUnitCid() : activeControlledUnitCid();
+        if (performCid === null){
+          localToast("Pick a token first, matey.");
+          return;
+        }
+        const spendType = entry.spend === "bonus" ? "bonus" : (entry.spend === "reaction" ? "reaction" : "action");
+        const actionLabel = window.prompt(`Name this ${spendType} (for log + tracking):`, "Custom Action");
+        const trimmedName = String(actionLabel || "").trim();
+        if (!trimmedName){
+          localToast("Custom action cancelled.");
+          return;
+        }
+        const noteLabel = window.prompt("Optional note (damage, DC, rider effects):", "") || "";
+        send({
+          type: "perform_custom_action",
+          cid: performCid,
+          spend: spendType,
+          action: trimmedName,
+          note: String(noteLabel || "").trim(),
+        });
+        return;
+      }
       const actionName = normalizeLowerValue(entry?.name);
       const normalizedActionKey = String(entry?.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
       const actionCid = activeControlledUnitCid();
@@ -13415,9 +13452,21 @@ __DAMAGE_TYPE_OPTIONS__
     if (mode === "action"){
       actionPickerTitle.textContent = "Choose an Action";
       actions.forEach((entry) => items.push({...entry, spend: "action"}));
+      items.push({
+        name: "Custom Action…",
+        description: "Type any action name (and optional note), then spend 1 action.",
+        spend: "action",
+        kind: "custom_action",
+      });
     } else if (mode === "bonus"){
       actionPickerTitle.textContent = "Choose a Bonus Action";
       bonusActions.forEach((entry) => items.push({...entry, spend: "bonus"}));
+      items.push({
+        name: "Custom Bonus Action…",
+        description: "Type any bonus action name (and optional note), then spend 1 bonus action.",
+        spend: "bonus",
+        kind: "custom_action",
+      });
       const layOnHandsPool = getPlayerResourcePools(getClaimedPlayerName()).find((entry) => normalizeLowerValue(entry?.id) === "lay_on_hands");
       if (layOnHandsPool){
         items.push({
@@ -13439,6 +13488,13 @@ __DAMAGE_TYPE_OPTIONS__
     } else if (mode === "reaction"){
       actionPickerTitle.textContent = "Reaction Manager";
       reactions.forEach((entry) => items.push({...entry, spend: "reaction", kindKey: normalizeLowerValue(entry.name) === "opportunity attack" ? "opportunity_attack" : normalizeLowerValue(entry.name).replace(/\s+/g, "_")}));
+      items.push({
+        name: "Custom Reaction…",
+        description: "Type any reaction name (and optional note), then spend 1 reaction.",
+        spend: "reaction",
+        kind: "custom_action",
+        kindKey: "custom_reaction",
+      });
       getPreparedReactionSpellEntries().forEach((entry) => items.push({...entry, kindKey:"reaction_spell"}));
       if (playerHasWarCasterFeat()){
         items.push({
@@ -20797,20 +20853,17 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (useActionBtn){
     useActionBtn.addEventListener("click", () => {
-      if (isMapView) return;
-      if (!claimedCid) return;
+      if (!isMapView && !claimedCid) return;
       openActionPicker("action");
     });
   }
   useBonusActionBtn.addEventListener("click", () => {
-    if (isMapView) return;
-    if (!claimedCid) return;
+    if (!isMapView && !claimedCid) return;
     openActionPicker("bonus");
   });
   if (useReactionBtn){
     useReactionBtn.addEventListener("click", () => {
-      if (isMapView) return;
-      if (!claimedCid) return;
+      if (!isMapView && !claimedCid) return;
       sendReactionPrefsUpdate();
       openActionPicker("reaction");
     });
