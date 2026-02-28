@@ -70,6 +70,28 @@ class LanAttackRequestTests(unittest.TestCase):
             },
         )()
 
+
+    def test_attack_request_allows_diagonal_adjacent_melee_target(self):
+        self.app._lan_positions = {1: (5, 5), 2: (6, 6)}
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 60,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [{"amount": 3, "type": "slashing"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("hit"))
+        self.assertEqual(self.app.combatants[2].hp, 17)
+        self.assertNotIn((60, "Target be out of attack range."), self.toasts)
+
     def test_attack_request_returns_hit_result_without_exposing_target_ac(self):
         msg = {
             "type": "attack_request",
