@@ -13204,7 +13204,12 @@ class InitiativeTracker(base.InitiativeTracker):
                             level="warning",
                         )
                         continue
-                    bucket = _activation_bucket(action_entry.get("activation"), "actions")
+                    activation_value = action_entry.get("activation")
+                    if activation_value in (None, ""):
+                        activation_value = action_entry.get("type")
+                    if activation_value in (None, ""):
+                        activation_value = action_entry.get("action_type")
+                    bucket = _activation_bucket(activation_value, "actions")
                     payload = {
                         "id": str(action_entry.get("id") or "").strip(),
                         "name": action_name,
@@ -13218,6 +13223,8 @@ class InitiativeTracker(base.InitiativeTracker):
                         if key in action_entry:
                             payload[key] = copy.deepcopy(action_entry.get(key))
                     consumes = action_entry.get("consumes") if isinstance(action_entry.get("consumes"), dict) else {}
+                    if not consumes and isinstance(action_entry.get("uses"), dict):
+                        consumes = action_entry.get("uses")
                     pool_id = str(consumes.get("pool") or consumes.get("id") or "").strip()
                     if pool_id:
                         try:

@@ -60,6 +60,40 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
         self.assertTrue(any(str(entry.get("id") or "") == "mod_1" for entry in (effects.get("modifiers") or [])))
         self.assertTrue(any(str(entry.get("id") or "") == "rider_1" for entry in (effects.get("damage_riders") or [])))
 
+
+    def test_grants_actions_support_type_and_uses_fields(self):
+        app = self._new_app()
+        normalized = app._normalize_player_profile(
+            {
+                "name": "Tester",
+                "resources": {"actions": [], "bonus_actions": [], "reactions": []},
+                "features": [
+                    {
+                        "id": "feature_type_uses",
+                        "name": "Feature Type Uses",
+                        "grants": {
+                            "actions": [
+                                {
+                                    "id": "feature_bonus_action",
+                                    "name": "Feature Bonus Action",
+                                    "type": "bonus_action",
+                                    "uses": {"pool": "points", "cost": 1},
+                                }
+                            ]
+                        },
+                    }
+                ],
+            },
+            "tester",
+        )
+        resources = normalized.get("resources") or {}
+        compiled_bonus = next(
+            entry
+            for entry in (resources.get("bonus_actions") or [])
+            if isinstance(entry, dict) and str(entry.get("name") or "") == "Feature Bonus Action"
+        )
+        self.assertEqual((compiled_bonus.get("uses") or {}).get("pool"), "points")
+
     def test_recover_spell_slots_handler_respects_budget_and_caps(self):
         app = self._new_app()
         saved = {}
