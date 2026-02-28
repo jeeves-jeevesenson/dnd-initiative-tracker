@@ -51,6 +51,7 @@ D&D Initiative Tracker is built for running combat quickly at the table while ke
 - Join from phone/tablet/laptop browser on local network
 - Claim and control assigned character during their turn
 - See turn prompts, movement/action counters, and character state
+- Equip main-hand/off-hand items from the LAN Inventory button (including shield off-hand +2 AC and fist/unarmed strikes)
 - Use map interactions when permitted by DM controls
 
 ## Architecture at a glance

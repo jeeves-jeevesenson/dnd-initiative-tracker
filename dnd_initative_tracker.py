@@ -1345,6 +1345,7 @@ class LanController:
         "use_action",
         "use_bonus_action",
         "set_color",
+        "equipment_update",
         "reset_turn",
         "cast_aoe",
         "cast_spell",
@@ -17899,6 +17900,24 @@ class InitiativeTracker(base.InitiativeTracker):
             else:
                 enabled = bool(enabled_raw)
             self._lan_auras_enabled = bool(enabled)
+            self._lan_force_state_broadcast()
+            return
+
+        if typ == "equipment_update":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            shield_equipped = msg.get("shield_equipped") is True
+            had_shield = bool(getattr(c, "_offhand_shield_equipped", False))
+            try:
+                current_ac = int(getattr(c, "ac", 10))
+            except Exception:
+                current_ac = 10
+            if shield_equipped and not had_shield:
+                setattr(c, "ac", current_ac + 2)
+            elif had_shield and not shield_equipped:
+                setattr(c, "ac", current_ac - 2)
+            setattr(c, "_offhand_shield_equipped", bool(shield_equipped))
             self._lan_force_state_broadcast()
             return
 
