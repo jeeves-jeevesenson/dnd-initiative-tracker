@@ -189,7 +189,8 @@ class LanCastModalRegressionTests(unittest.TestCase):
     def test_aoe_cast_uses_cursor_follow_placement_mode(self):
         self.assertIn('let pendingAoePlacement = null;', self.html)
         self.assertIn('pendingAoePlacement = {', self.html)
-        self.assertIn('localToast("AoE placement: move cursor, click to place (you’ll confirm on placement).");', self.html)
+        self.assertIn('"AoE placement: move cursor, click to place (you’ll confirm on placement)."', self.html)
+        self.assertIn('"Directional AoE: aim with cursor and click to cast."', self.html)
         self.assertIn('if (pendingAoePlacement){', self.html)
         self.assertIn('const previewAoe = getPendingAoePlacementPreview();', self.html)
         self.assertIn('renderAoeOverlay(previewAoe, {preview: true});', self.html)

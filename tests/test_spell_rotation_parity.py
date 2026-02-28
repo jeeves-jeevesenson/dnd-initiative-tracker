@@ -49,6 +49,56 @@ class SpellRotationParityTests(unittest.TestCase):
         self.assertIn('const casterFacingDeg = normalizeFacingDeg(getClaimedUnit()?.facing_deg);', html)
         self.assertIn('const angleDeg = angleDegInput !== null ? angleDegInput : casterFacingDeg;', html)
 
+    def test_directional_self_range_mode_activates_for_self_range_line(self):
+        html = Path("assets/web/lan/index.html").read_text(encoding="utf-8")
+        self.assertIn('function isDirectionalSelfRangeAoePlacement(preset, shape)', html)
+        self.assertIn('function isSelfRangeAoePreset(preset)', html)
+        self.assertIn('const directionalSelfRange = isDirectionalSelfRangeAoePlacement(preset, shape);', html)
+        self.assertIn('mode: directionalSelfRange ? "directional_self_range" : null,', html)
+
+    def test_directional_self_range_skips_range_prompt(self):
+        html = Path("assets/web/lan/index.html").read_text(encoding="utf-8")
+        self.assertIn('let placementRangeFt = directionalSelfRange ? null : parseSpellTargetRangeFeet(preset);', html)
+        self.assertIn('if (!directionalSelfRange && !Number.isFinite(placementRangeFt)){', html)
+
+    def test_directional_self_range_applies_anchor_and_heading(self):
+        html = Path("assets/web/lan/index.html").read_text(encoding="utf-8")
+        self.assertIn('function applyDirectionalSelfRangePlacement()', html)
+        self.assertIn('function directionalPlacementAnchor(casterPos, cursorPos, headingDeg)', html)
+        self.assertIn('payload.ax = anchor.ax;', html)
+        self.assertIn('payload.ay = anchor.ay;', html)
+        self.assertIn('payload.cx = anchor.ax + anchor.vx * halfLen;', html)
+
+    def test_directional_self_range_cast_sends_anchor_fields(self):
+        html = Path("assets/web/lan/index.html").read_text(encoding="utf-8")
+        self.assertIn('if (isDirectionalSelfRangePlacementActive()){', html)
+        self.assertIn('msg.payload.ax = Number(placementPayload.ax);', html)
+        self.assertIn('msg.payload.ay = Number(placementPayload.ay);', html)
+
+    def test_server_accepts_directional_anchor_for_line_cone(self):
+        py = Path("dnd_initative_tracker.py").read_text(encoding="utf-8")
+        self.assertIn('if payload_ax is not None and payload_ay is not None and shape in ("line", "wall", "cone"):', py)
+        self.assertIn('max_anchor_offset = 0.6001', py)
+
+    def test_cube_square_placement_uses_zero_default_angle(self):
+        html = Path("assets/web/lan/index.html").read_text(encoding="utf-8")
+        self.assertIn('payload.angle_deg = angleDegInput !== null ? angleDegInput : 0;', html)
+
+    def test_cube_square_placement_wheel_rotation_is_present(self):
+        html = Path("assets/web/lan/index.html").read_text(encoding="utf-8")
+        self.assertIn('function isPlacementSquareOrCube()', html)
+        self.assertIn('isPlacementSquareOrCube()', html)
+        self.assertIn('pendingAoePlacement.payload.angle_deg = normalizeFacingDeg(base + step);', html)
+
+    def test_server_facing_sync_gates_on_fixed_to_caster(self):
+        py = Path("dnd_initative_tracker.py").read_text(encoding="utf-8")
+        self.assertIn("if aoe.get(\"fixed_to_caster\") is not True:", py)
+        self.assertIn("continue", py)
+
+    def test_lan_facing_sync_gates_on_fixed_to_caster(self):
+        html = Path("assets/web/lan/index.html").read_text(encoding="utf-8")
+        self.assertIn('|| aoe.fixed_to_caster !== true', html)
+
 
 if __name__ == "__main__":
     unittest.main()
