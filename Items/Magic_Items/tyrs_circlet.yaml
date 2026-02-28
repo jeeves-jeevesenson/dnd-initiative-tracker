@@ -1,0 +1,40 @@
+id: tyrs_circlet
+name: Tyr's Circlet
+requires_attunement: true
+grants:
+  pools:
+    - id: tyrs_circlet_blessing
+      label: Blessed by Tyr
+      current: 1
+      max: 1
+      max_formula: '1'
+      reset: long_rest
+  actions:
+    - name: Activate Blessed by Tyr
+      type: bonus_action
+      description: Activate Tyr's Blessing for up to 1 minute.
+      uses:
+        pool: tyrs_circlet_blessing
+        cost: 1
+  aura:
+    id: tyrs_blessing_aura
+    name: Tyr's Blessing Aura
+    radius_ft: 10
+    color: '#ddddff'
+    visible: false
+    effect:
+      id: tyrs_blessing
+      name: Blessed by Tyr
+      icon: ⚖️
+      description_template: '{source_name} is blessed by Tyr.'
+  modifiers:
+    - id: tyrs_blessing_attack_advantage
+      target: attack
+      mode: advantage
+      when: blessed_by_tyr_active and nearby_enemies >= 2
+      source: Tyr's Circlet
+    - id: tyrs_curse_attack_disadvantage
+      target: attack
+      mode: disadvantage
+      when: cursed_by_tyr_active
+      source: Tyr's Circlet
