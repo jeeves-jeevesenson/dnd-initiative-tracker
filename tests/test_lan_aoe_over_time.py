@@ -217,6 +217,46 @@ class LanAoeOverTimeTests(unittest.TestCase):
         self.assertTrue(aoe.get("over_time"))
         self.assertEqual(aoe.get("trigger_on_start_or_enter"), "enter_or_end")
 
+    def test_cast_aoe_accepts_trigger_mode_alias_in_hazard_defaults(self):
+        hazard_preset = {
+            **self.preset,
+            "mechanics": {
+                **self.preset.get("mechanics", {}),
+                "aoe_behavior": {
+                    "persistent_default": True,
+                    "over_time_default": True,
+                    "trigger_mode": "enter_or_end",
+                },
+            },
+        }
+        self.app._find_spell_preset = lambda spell_slug="", spell_id="": hazard_preset
+        self.app._is_admin_token_valid = lambda token: token == "admin"
+        self.app._lan_auto_resolve_cast_aoe = lambda *args, **kwargs: True
+
+        msg = {
+            "type": "cast_aoe",
+            "_ws_id": 7,
+            "_claimed_cid": 1,
+            "cid": 1,
+            "admin_token": "admin",
+            "spell_slug": "moonbeam",
+            "spell_id": "moonbeam",
+            "payload": {
+                "shape": "sphere",
+                "radius_ft": 10,
+                "cx": 0,
+                "cy": 0,
+                "name": "Moonbeam",
+            },
+        }
+
+        tracker_mod.InitiativeTracker._lan_apply_action(self.app, msg)
+        self.assertTrue(self.app._lan_aoes)
+        aoe = next(iter(self.app._lan_aoes.values()))
+        self.assertTrue(aoe.get("persistent"))
+        self.assertTrue(aoe.get("over_time"))
+        self.assertEqual(aoe.get("trigger_on_start_or_enter"), "enter_or_end")
+
     def test_cloud_of_daggers_no_save_auto_damage(self):
         aoe = self._base_aoe()
         aoe.update({"spell_slug": "cloud-of-daggers", "spell_id": "cloud-of-daggers", "save_type": "", "dc": None})
