@@ -1725,6 +1725,42 @@
     @media (max-width: 900px){ .rules-help-layout{grid-template-columns:1fr; min-height:56vh; max-height:none;} .rules-help-frame{min-height:360px;} }
     @media (max-width: 900px){ .cast-modal-layout{grid-template-columns:1fr; min-height:56vh; max-height:none;} .cast-modal-controls{grid-template-columns:1fr;} }
     .modal-actions .btn{flex:1; min-width:120px;}
+    .sculpt-list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:8px;
+      max-height:40vh;
+      overflow:auto;
+    }
+    .sculpt-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:10px;
+      padding:8px 10px;
+      background:rgba(10,14,22,0.45);
+    }
+    .sculpt-row label{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      width:100%;
+      cursor:pointer;
+    }
+    .sculpt-row-name{font-weight:600;}
+    .sacrifice-btn{
+      background:transparent;
+      color:var(--text);
+      border:1px solid rgba(255,255,255,0.28);
+    }
+    .sacrifice-btn:hover{
+      background:#b00020;
+      color:#fff;
+      border-color:#b00020;
+    }
     .pool-spell-confirm-card{max-width:420px;border:1px solid rgba(255,255,255,.12);box-shadow:0 14px 36px rgba(0,0,0,.38);}
     .action-picker-list{
       display:flex;
@@ -2415,6 +2451,20 @@
         <div class="modal-actions">
           <button class="btn accent" id="spellResolveSubmit" type="button">Confirm</button>
           <button class="btn" id="spellResolveCancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="sculptSelectModal" aria-hidden="true">
+      <div class="card">
+        <h2>Choose Sacrifice(s)</h2>
+        <div class="hint" id="sculptSelectBody">Pick allies to protect with Sculpt Spells.</div>
+        <div class="modal-body">
+          <div class="sculpt-list" id="sculptSelectList" aria-live="polite"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn accent" id="sculptSelectConfirm" type="button">Confirm</button>
+          <button class="btn" id="sculptSelectCancel" type="button">Cancel</button>
         </div>
       </div>
     </div>
@@ -4218,6 +4268,11 @@ __DAMAGE_TYPE_OPTIONS__
   const spellResolveAddDamage = document.getElementById("spellResolveAddDamage");
   const spellResolveSubmit = document.getElementById("spellResolveSubmit");
   const spellResolveCancel = document.getElementById("spellResolveCancel");
+  const sculptSelectModal = document.getElementById("sculptSelectModal");
+  const sculptSelectBody = document.getElementById("sculptSelectBody");
+  const sculptSelectList = document.getElementById("sculptSelectList");
+  const sculptSelectConfirm = document.getElementById("sculptSelectConfirm");
+  const sculptSelectCancel = document.getElementById("sculptSelectCancel");
   const cleavePromptModal = document.getElementById("cleavePromptModal");
   const cleavePromptBody = document.getElementById("cleavePromptBody");
   const cleavePromptList = document.getElementById("cleavePromptList");
@@ -4548,6 +4603,7 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingAoePlacement = null;
   let aoeAimGuide = null; // {start,end,blocked,outOfRange,invalid,distFt,rangeFt,facingDeg,casterCid}
   let pendingSpellResolve = null;
+  let pendingSculptSelect = null;
   const castAutomationStorageKey = "inittracker_cast_automation_enabled";
   let castAutomationEnabled = localStorage.getItem(castAutomationStorageKey) !== "0";
   let summonValidCells = new Set();
@@ -10088,6 +10144,71 @@ __DAMAGE_TYPE_OPTIONS__
     setSpellResolveModalOpen(true);
   }
 
+  function setSculptSelectModalOpen(open){
+    if (!sculptSelectModal) return;
+    sculptSelectModal.classList.toggle("show", !!open);
+    sculptSelectModal.setAttribute("aria-hidden", open ? "false" : "true");
+    if (!open){
+      pendingSculptSelect = null;
+      if (sculptSelectList){
+        sculptSelectList.textContent = "";
+      }
+    }
+  }
+
+  function updateSculptSelectionSummary(){
+    if (!sculptSelectBody || !sculptSelectConfirm || !pendingSculptSelect) return;
+    const selectedCount = pendingSculptSelect.selected.size;
+    const maxSelections = Math.max(1, Number(pendingSculptSelect.maxSelections || 1));
+    const allyLabel = maxSelections === 1 ? "ally" : "allies";
+    sculptSelectBody.textContent = `Select up to ${maxSelections} ${allyLabel} to protect (${selectedCount}/${maxSelections} selected).`;
+    sculptSelectConfirm.disabled = selectedCount > maxSelections;
+  }
+
+  function openSculptSelectModal(allies, maxSelections, onConfirm){
+    if (!sculptSelectList || !Array.isArray(allies) || typeof onConfirm !== "function"){
+      if (typeof onConfirm === "function"){
+        onConfirm([]);
+      }
+      return;
+    }
+    pendingSculptSelect = {
+      allies: allies.slice(),
+      maxSelections: Math.max(1, Number(maxSelections || 1)),
+      selected: new Set(),
+      onConfirm,
+    };
+    sculptSelectList.textContent = "";
+    pendingSculptSelect.allies.forEach((ally) => {
+      const row = document.createElement("div");
+      row.className = "sculpt-row";
+      const label = document.createElement("label");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = String(Number(ally?.cid || 0));
+      checkbox.addEventListener("change", () => {
+        if (!pendingSculptSelect) return;
+        const cid = Number(checkbox.value);
+        if (!Number.isFinite(cid)) return;
+        if (checkbox.checked){
+          pendingSculptSelect.selected.add(cid);
+        } else {
+          pendingSculptSelect.selected.delete(cid);
+        }
+        updateSculptSelectionSummary();
+      });
+      const name = document.createElement("span");
+      name.className = "sculpt-row-name";
+      name.textContent = String(ally?.name || `#${ally?.cid ?? "?"}`);
+      label.appendChild(checkbox);
+      label.appendChild(name);
+      row.appendChild(label);
+      sculptSelectList.appendChild(row);
+    });
+    updateSculptSelectionSummary();
+    setSculptSelectModalOpen(true);
+  }
+
   function setCleavePromptOpen(open){
     if (!cleavePromptModal) return;
     cleavePromptModal.classList.toggle("show", !!open);
@@ -10360,6 +10481,88 @@ __DAMAGE_TYPE_OPTIONS__
       cy: Number(cursor.row),
     };
     return buildPlanningAoe(previewPayload);
+  }
+
+  function profileHasFeatureId(profile, featureId){
+    const target = normalizeLowerValue(featureId);
+    if (!profile || typeof profile !== "object" || !target) return false;
+    const features = Array.isArray(profile.features) ? profile.features : [];
+    return features.some((feature) => (
+      feature
+      && typeof feature === "object"
+      && normalizeLowerValue(feature.id) === target
+    ));
+  }
+
+  function getSpellPresetForAoeMessage(msg){
+    const slug = normalizeTextValue(msg?.spell_slug || msg?.payload?.spell_slug);
+    const spellId = normalizeTextValue(msg?.spell_id || msg?.payload?.spell_id);
+    const bySlug = slug ? spellPresetBySlug.get(getSpellKey(slug)) : null;
+    if (bySlug) return bySlug;
+    if (spellId){
+      const byId = cachedSpellPresets.find((preset) => getSpellKey(preset?.id) === getSpellKey(spellId));
+      if (byId) return byId;
+    }
+    if (slug){
+      return cachedSpellPresets.find((preset) => getSpellKey(getPresetSlug(preset)) === getSpellKey(slug)) || null;
+    }
+    return null;
+  }
+
+  function maybeRunSculptSelectionForPendingAoe(msg, onContinue){
+    if (typeof onContinue !== "function"){
+      return;
+    }
+    if (isPlanning || !pendingAoePlacement){
+      onContinue();
+      return;
+    }
+    const profile = getPlayerProfile(getClaimedPlayerName());
+    if (!profileHasFeatureId(profile, "sculpt_spells")){
+      onContinue();
+      return;
+    }
+    const preset = getSpellPresetForAoeMessage(msg);
+    if (normalizeLowerValue(preset?.school) !== "evocation"){
+      onContinue();
+      return;
+    }
+    const casterCid = Number(pendingAoePlacement?.casterCid);
+    const casterUnit = Number.isFinite(casterCid) ? getUnitByCid(casterCid) : null;
+    const casterCell = casterUnit?.pos ? toGridPoint(casterUnit.pos) : getPendingAoeCasterPos();
+    const preview = getPendingAoePlacementPreview();
+    if (!casterCell || !preview || !Array.isArray(state?.units)){
+      onContinue();
+      return;
+    }
+    const casterIsAlly = isAoeAllyUnit(casterUnit);
+    const eligibleAllies = [];
+    state.units.forEach((unit) => {
+      if (!unit?.pos) return;
+      const unitCid = Number(unit.cid);
+      if (!Number.isFinite(unitCid) || unitCid === casterCid) return;
+      if (isAoeAllyUnit(unit) !== casterIsAlly) return;
+      const unitCell = toGridPoint(unit.pos);
+      if (!aoeContainsGridPoint(preview, unitCell)) return;
+      if (isLineOfSightBlocked(casterCell, unitCell)) return;
+      eligibleAllies.push({
+        cid: Number(unitCid),
+        name: String(unit.name || `#${unitCid}`),
+      });
+    });
+    if (!eligibleAllies.length){
+      onContinue();
+      return;
+    }
+    eligibleAllies.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    const spellLevelRaw = Number(preset?.level);
+    const spellLevel = Number.isFinite(spellLevelRaw) ? Math.max(0, Math.floor(spellLevelRaw)) : 0;
+    const maxSelections = Math.max(1, 1 + spellLevel);
+    openSculptSelectModal(eligibleAllies, maxSelections, (selectedCids) => {
+      msg.payload = msg.payload && typeof msg.payload === "object" ? msg.payload : {};
+      msg.payload.sculpted_cids = Array.isArray(selectedCids) ? selectedCids : [];
+      onContinue();
+    });
   }
 
   function updateSummonPlacementBanner(){
@@ -14320,12 +14523,14 @@ __DAMAGE_TYPE_OPTIONS__
         clearPendingAoePlacement(false);
         draw();
       };
-      if (isPlanning || castAutomationIsEnabled()){
-        submitAoe();
-      } else {
-        const resolveContext = pendingAoePlacement.resolveContext || {};
-        openSpellResolveModal(resolveContext, (damageEntries) => submitAoe(damageEntries));
-      }
+      maybeRunSculptSelectionForPendingAoe(msg, () => {
+        if (isPlanning || castAutomationIsEnabled()){
+          submitAoe();
+        } else {
+          const resolveContext = pendingAoePlacement.resolveContext || {};
+          openSpellResolveModal(resolveContext, (damageEntries) => submitAoe(damageEntries));
+        }
+      });
       return;
     }
 
@@ -18161,12 +18366,14 @@ __DAMAGE_TYPE_OPTIONS__
         clearPendingAoePlacement(false);
         draw();
       };
-      if (isPlanning || castAutomationIsEnabled()){
-        submitAoe();
-      } else {
-        const resolveContext = pendingAoePlacement.resolveContext || {};
-        openSpellResolveModal(resolveContext, (damageEntries) => submitAoe(damageEntries));
-      }
+      maybeRunSculptSelectionForPendingAoe(msg, () => {
+        if (isPlanning || castAutomationIsEnabled()){
+          submitAoe();
+        } else {
+          const resolveContext = pendingAoePlacement.resolveContext || {};
+          openSpellResolveModal(resolveContext, (damageEntries) => submitAoe(damageEntries));
+        }
+      });
     });
   }
 
@@ -20452,6 +20659,29 @@ __DAMAGE_TYPE_OPTIONS__
       setSpellResolveModalOpen(false);
       if (pending && typeof pending.onConfirm === "function"){
         pending.onConfirm(damageEntries);
+      }
+    });
+  }
+  if (sculptSelectCancel){
+    sculptSelectCancel.addEventListener("click", () => setSculptSelectModalOpen(false));
+  }
+  if (sculptSelectConfirm){
+    sculptSelectConfirm.addEventListener("click", () => {
+      if (!pendingSculptSelect){
+        setSculptSelectModalOpen(false);
+        return;
+      }
+      const selected = Array.from(pendingSculptSelect.selected.values())
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value));
+      if (selected.length > Number(pendingSculptSelect.maxSelections || 1)){
+        localToast("Too many allies selected for Sculpt Spells.");
+        return;
+      }
+      const onConfirm = pendingSculptSelect.onConfirm;
+      setSculptSelectModalOpen(false);
+      if (typeof onConfirm === "function"){
+        onConfirm(selected);
       }
     });
   }

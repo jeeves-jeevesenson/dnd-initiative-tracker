@@ -551,6 +551,108 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[2].hp, 13)
         self.assertEqual(self.app.combatants[4].hp, 20)
 
+    def test_cast_aoe_validates_sculpted_cids_to_same_side_included_targets(self):
+        self.app.combatants[4] = _make_combatant(4, "Companion", 20, ally=True)
+        self.app.combatants[4].saving_throws = {"dex": 0}
+        self.app.combatants[4].ability_mods = {"dex": 0}
+        self.app._lan_positions[4] = (5, 4)
+        self.app._name_role_memory["Companion"] = "ally"
+        self.app._profile_for_player_name = lambda name: {
+            "spellcasting": {"save_dc": 14},
+            "features": [{"id": "sculpt_spells"}],
+        }
+        self.preset["automation"] = "manual"
+        self.preset["tags"] = ["aoe"]
+        self.preset["school"] = "evocation"
+        self.preset["level"] = 0
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 41,
+            "spell_slug": "frost-burst",
+            "payload": {
+                "shape": "sphere",
+                "name": "Frost Burst",
+                "radius_ft": 20,
+                "cx": 5,
+                "cy": 4,
+                "sculpted_cids": [4, 4, 2, 1, True, "bad"],
+            },
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertEqual(len(self.app._lan_aoes), 1)
+        aoe = next(iter(self.app._lan_aoes.values()))
+        self.assertEqual(aoe.get("sculpted_cids"), [4])
+
+    def test_sculpted_targets_auto_succeed_and_take_zero_on_half_damage_bucket(self):
+        self.app.combatants[4] = _make_combatant(4, "Companion", 20, ally=True)
+        self.app.combatants[4].saving_throws = {"dex": 0}
+        self.app.combatants[4].ability_mods = {"dex": 0}
+        self.app._name_role_memory["Companion"] = "ally"
+        self.app._profile_for_player_name = lambda name: {
+            "spellcasting": {"save_dc": 14},
+            "features": [{"id": "sculpt_spells"}],
+        }
+        self.preset["school"] = "evocation"
+        self.preset["level"] = 3
+        aoe = {"name": "Frost Burst", "damage_type": "cold", "dc": 14, "sculpted_cids": [4]}
+        caster = self.app.combatants[1]
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 2, 3]):
+            resolved = self.app._lan_auto_resolve_cast_aoe(
+                1,
+                aoe,
+                caster=caster,
+                spell_slug="frost-burst",
+                spell_id="frost-burst",
+                slot_level=3,
+                preset=self.preset,
+                included_override=[2, 4],
+                remove_on_empty=False,
+                remove_after_resolve=False,
+            )
+
+        self.assertTrue(resolved)
+        self.assertEqual(self.app.combatants[2].hp, 15)
+        self.assertEqual(self.app.combatants[4].hp, 20)
+        log_text = "\n".join(entry for _cid, entry in self.logs)
+        self.assertIn("Companion SCULPT (auto-success)", log_text)
+        self.assertIn("Companion SCULPT 0 damage", log_text)
+
+    def test_sculpt_requires_feature_id_not_feature_name(self):
+        self.app.combatants[4] = _make_combatant(4, "Companion", 20, ally=True)
+        self.app.combatants[4].saving_throws = {"dex": 0}
+        self.app.combatants[4].ability_mods = {"dex": 0}
+        self.app._name_role_memory["Companion"] = "ally"
+        self.app._profile_for_player_name = lambda name: {
+            "spellcasting": {"save_dc": 14},
+            "features": [{"name": "Sculpt Spells"}],
+        }
+        self.preset["school"] = "evocation"
+        self.preset["level"] = 3
+        aoe = {"name": "Frost Burst", "damage_type": "cold", "dc": 14, "sculpted_cids": [4]}
+        caster = self.app.combatants[1]
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 2, 3]):
+            resolved = self.app._lan_auto_resolve_cast_aoe(
+                1,
+                aoe,
+                caster=caster,
+                spell_slug="frost-burst",
+                spell_id="frost-burst",
+                slot_level=3,
+                preset=self.preset,
+                included_override=[4],
+                remove_on_empty=False,
+                remove_after_resolve=False,
+            )
+
+        self.assertTrue(resolved)
+        self.assertEqual(self.app.combatants[4].hp, 15)
+
 
 
 if __name__ == "__main__":
