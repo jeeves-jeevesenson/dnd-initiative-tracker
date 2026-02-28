@@ -20721,6 +20721,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     damage_entries.append({"amount": amount, "type": dtype})
 
             damage_dice_text = str(msg.get("damage_dice") or "").strip().lower()
+            if not damage_dice_text and isinstance(preset, dict):
+                damage_dice_text = str(preset.get("dice") or "").strip().lower()
             if damage_dice_text and isinstance(preset, dict):
                 try:
                     player_name = self._pc_name_for(int(cid))
@@ -20735,7 +20737,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     scaling,
                     character_level,
                 )
-            damage_type_hint = str(msg.get("damage_type") or "").strip().lower() or "damage"
+            damage_type_hint = str(msg.get("damage_type") or "").strip().lower()
+            if not damage_type_hint and isinstance(preset, dict):
+                preset_damage_types = preset.get("damage_types") if isinstance(preset.get("damage_types"), list) else []
+                if preset_damage_types:
+                    damage_type_hint = str(preset_damage_types[0] or "").strip().lower()
+            damage_type_hint = damage_type_hint or "damage"
             auto_spell_damage = bool(hit and not damage_entries and damage_dice_text)
             if auto_spell_damage:
                 dice_match = re.fullmatch(r"\s*(\d+)d(\d+)\s*([+\-]\s*\d+)?\s*", damage_dice_text)
