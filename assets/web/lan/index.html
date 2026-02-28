@@ -13776,8 +13776,8 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const msg = {...pendingAoePlacement.msg, payload: {...(pendingAoePlacement.msg?.payload || {})}};
       const cursor = pendingAoePlacement.cursor || {col: 0, row: 0};
-      msg.payload.cx = Math.round(Number(cursor.col));
-      msg.payload.cy = Math.round(Number(cursor.row));
+      msg.payload.cx = Number(cursor.col);
+      msg.payload.cy = Number(cursor.row);
       const submitAoe = (damageEntries = []) => {
         if (Array.isArray(damageEntries) && damageEntries.length){
           msg.damage_entries = damageEntries;
@@ -14259,8 +14259,8 @@ __DAMAGE_TYPE_OPTIONS__
     if (aoeDragging){
       const gridPos = screenToGridFloat(p.x, p.y);
       const preview = aoeDragPreview || {};
-      let targetCol = Math.round(gridPos.col - aoeDragging.offsetCol);
-      let targetRow = Math.round(gridPos.row - aoeDragging.offsetRow);
+      let targetCol = Number(gridPos.col - aoeDragging.offsetCol);
+      let targetRow = Number(gridPos.row - aoeDragging.offsetRow);
       const toPayload = {};
       if (aoeDragging.isRotating && Number.isFinite(Number(preview?.angle_deg))){
         if (Number.isFinite(Number(preview?.cx))) targetCol = Number(preview.cx);
