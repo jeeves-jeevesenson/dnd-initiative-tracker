@@ -18659,16 +18659,18 @@ __DAMAGE_TYPE_OPTIONS__
       const target = event.target instanceof Element ? event.target : null;
       if (target?.closest("button")) return;
       const modalRect = logModal.getBoundingClientRect();
+      const minTop = 0;
       const maxLeft = Math.max(0, window.innerWidth - modalRect.width);
-      const maxTop = Math.max(0, window.innerHeight - modalRect.height);
+      const maxTop = Math.max(minTop, window.innerHeight - modalRect.height);
       dragState = {
         pointerId: event.pointerId,
         offsetX: event.clientX - modalRect.left,
         offsetY: event.clientY - modalRect.top,
+        minTop,
         maxLeft,
         maxTop,
         left: Math.min(maxLeft, Math.max(0, modalRect.left)),
-        top: Math.min(maxTop, Math.max(0, modalRect.top)),
+        top: Math.min(maxTop, Math.max(minTop, modalRect.top)),
       };
       logModal.style.right = "auto";
       logModal.style.bottom = "auto";
@@ -18677,6 +18679,9 @@ __DAMAGE_TYPE_OPTIONS__
     });
     logHeader.addEventListener("pointermove", (event) => {
       if (!dragState || event.pointerId !== dragState.pointerId) return;
+      const modalRect = logModal.getBoundingClientRect();
+      dragState.maxLeft = Math.max(0, window.innerWidth - modalRect.width);
+      dragState.maxTop = Math.max(dragState.minTop, window.innerHeight - modalRect.height);
       const left = Math.min(dragState.maxLeft, Math.max(0, event.clientX - dragState.offsetX));
       const top = Math.min(dragState.maxTop, Math.max(dragState.minTop, event.clientY - dragState.offsetY));
       dragState.left = Math.round(left);
@@ -18686,6 +18691,7 @@ __DAMAGE_TYPE_OPTIONS__
     });
     logHeader.addEventListener("pointerup", endLogDrag);
     logHeader.addEventListener("pointercancel", endLogDrag);
+    logHeader.addEventListener("lostpointercapture", endLogDrag);
   }
   if (logResizeHandle && logModal){
     let resizeState = null;
