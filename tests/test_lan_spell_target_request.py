@@ -408,6 +408,43 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(target.monster_slug, "black-bear")
 
 
+
+
+    def test_polymorph_reverts_when_temp_hp_is_manually_set_to_zero(self):
+        target = self.app.combatants[2]
+        target.name = "Black Bear 1"
+        target.temp_hp = 11
+        target.polymorph_source_cid = 1
+        target.wild_shape_form_name = "Wolf"
+        target.wild_shape_form_id = "wolf"
+        target.polymorph_base = {
+            "name": "Black Bear 1",
+            "speed": 30,
+            "swim_speed": 0,
+            "fly_speed": 0,
+            "climb_speed": 0,
+            "burrow_speed": 0,
+            "movement_mode": "Normal",
+            "str": 18,
+            "dex": 10,
+            "con": 16,
+            "int": 7,
+            "wis": 8,
+            "cha": 9,
+            "is_spellcaster": True,
+            "ability_mods": {"str": 4},
+            "saving_throws": {"wis": 1},
+            "actions": [],
+            "monster_slug": "black-bear",
+        }
+
+        self.app._set_temp_hp(2, 0)
+
+        self.assertEqual(target.name, "Black Bear 1")
+        self.assertEqual(target.temp_hp, 0)
+        self.assertEqual(getattr(target, "wild_shape_form_name", ""), "")
+        self.assertIsNone(getattr(target, "polymorph_source_cid", None))
+
     def test_polymorph_defaults_to_save_mode_and_wisdom(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "polymorph",

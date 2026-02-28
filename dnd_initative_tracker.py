@@ -22724,6 +22724,34 @@ class InitiativeTracker(base.InitiativeTracker):
             self._log(f"{target.name} returns to normal form ({reason}).", cid=int(target.cid))
         return True
 
+    def _maybe_end_polymorph_from_temp_hp(self, target: Any, *, temp_before: int, temp_after: int, reason: str = "") -> None:
+        if int(temp_before) <= 0 or int(temp_after) > 0:
+            return
+        if int(getattr(target, "polymorph_source_cid", 0) or 0) <= 0:
+            return
+        self._clear_polymorph_effect(target, reason=reason or "Polymorph temporary HP depleted")
+
+    def _set_temp_hp(self, cid: int, new_temp_hp: int) -> None:
+        c = self.combatants.get(int(cid))
+        if c is None:
+            return
+        temp_before = max(0, int(getattr(c, "temp_hp", 0) or 0))
+        temp_after = max(0, int(new_temp_hp))
+        setattr(c, "temp_hp", int(temp_after))
+        self._maybe_end_polymorph_from_temp_hp(c, temp_before=temp_before, temp_after=temp_after)
+
+    def _apply_heal_to_combatant(self, cid: int, amount: int, *, is_temp_hp: bool = False) -> bool:
+        if not is_temp_hp:
+            return super()._apply_heal_to_combatant(cid, amount, is_temp_hp=is_temp_hp)
+        c = self.combatants.get(int(cid))
+        if c is None:
+            return False
+        temp_before = max(0, int(getattr(c, "temp_hp", 0) or 0))
+        temp_after = max(0, int(amount))
+        setattr(c, "temp_hp", int(temp_after))
+        self._maybe_end_polymorph_from_temp_hp(c, temp_before=temp_before, temp_after=temp_after)
+        return True
+
     def _apply_damage_to_target_with_temp_hp(self, target: Any, raw_damage: int) -> Dict[str, int]:
         damage = max(0, int(raw_damage or 0))
         temp_before = max(0, int(getattr(target, "temp_hp", 0) or 0))
@@ -22734,8 +22762,7 @@ class InitiativeTracker(base.InitiativeTracker):
         hp_after = max(0, hp_before - hp_damage)
         setattr(target, "temp_hp", int(temp_after))
         setattr(target, "hp", int(hp_after))
-        if temp_before > 0 and temp_after <= 0 and int(getattr(target, "polymorph_source_cid", 0) or 0) > 0:
-            self._clear_polymorph_effect(target, reason="Polymorph temporary HP depleted")
+        self._maybe_end_polymorph_from_temp_hp(target, temp_before=temp_before, temp_after=temp_after)
         return {"temp_absorbed": absorbed, "hp_after": hp_after, "hp_damage": hp_damage}
 
     def _tick_polymorph_durations(self) -> None:
