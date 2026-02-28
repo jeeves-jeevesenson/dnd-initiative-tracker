@@ -4590,6 +4590,7 @@ __DAMAGE_TYPE_OPTIONS__
   let lastActiveCid = null;
   let lastTurnRound = null;
   let turnAlertPrimed = false;
+  const turnNotificationAutoCloseMs = 5000;
   let endTurnReadyVisualActive = false;
   let selectedTurnCid = null;
   let pendingMountRequestId = null;
@@ -13106,12 +13107,18 @@ __DAMAGE_TYPE_OPTIONS__
       tag: "turn-alert",
       renotify: true,
       data: { url: "/" },
-      requireInteraction: true,
     };
     try {
       const registration = swRegistration || ("serviceWorker" in navigator ? await navigator.serviceWorker.ready : null);
       if (registration && typeof registration.showNotification === "function"){
         await registration.showNotification(title, options);
+        window.setTimeout(() => {
+          registration.getNotifications({ tag: "turn-alert" }).then((notifs) => {
+            notifs.forEach((entry) => entry.close());
+          }).catch((err) => {
+            console.debug("Turn notification auto-close failed.", err);
+          });
+        }, turnNotificationAutoCloseMs);
         return;
       }
     } catch (err){
@@ -13123,6 +13130,9 @@ __DAMAGE_TYPE_OPTIONS__
         window.focus();
         notification.close();
       };
+      window.setTimeout(() => {
+        notification.close();
+      }, turnNotificationAutoCloseMs);
     } catch (err){
       console.warn("Turn notification failed.", err);
     }

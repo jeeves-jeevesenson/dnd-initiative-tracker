@@ -157,6 +157,12 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn("const roundRaw = state.round_num;", self.html)
         self.assertIn("const lastRound = Number.isFinite(Number(lastTurnRound)) ? Number(lastTurnRound) : lastTurnRound;", self.html)
 
+    def test_turn_notifications_auto_close_without_manual_dismiss(self):
+        self.assertIn("const turnNotificationAutoCloseMs = 5000;", self.html)
+        self.assertIn("registration.getNotifications({ tag: \"turn-alert\" })", self.html)
+        self.assertIn("notification.close();", self.html)
+        self.assertNotIn("requireInteraction: true", self.html)
+
     def test_automated_spell_fields_can_hide_while_damage_type_defaults(self):
         self.assertIn("const updateCastAutomationFields = (preset) => {", self.html)
         self.assertIn("const fullyAutomated = automationLevel === \"full\";", self.html)
