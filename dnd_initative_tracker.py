@@ -10629,7 +10629,6 @@ class InitiativeTracker(base.InitiativeTracker):
                     roll = None
                     total = int(dc or 0)
                     passed = True
-                    self._log(f"{spell_name}: {target.name} SCULPT (auto-success)", cid=int(target_cid))
                 else:
                     roll = int(random.randint(1, 20))
                     total = int(roll + save_mod)
@@ -10639,8 +10638,6 @@ class InitiativeTracker(base.InitiativeTracker):
                 roll = None
                 total = 0
                 passed = bool(sculpt_auto_success)
-                if sculpt_auto_success:
-                    self._log(f"{spell_name}: {target.name} SCULPT (auto-success)", cid=int(target_cid))
             outcome_key = "success" if passed else "fail"
             bucket = outcomes.get(outcome_key)
             if not isinstance(bucket, list):
@@ -10686,7 +10683,6 @@ class InitiativeTracker(base.InitiativeTracker):
                             mult_num = None
                         if mult_num is not None and 0 < mult_num < 1:
                             amount = 0
-                            self._log(f"{spell_name}: {target.name} SCULPT 0 damage (success bucket)", cid=int(target_cid))
                     if amount > 0:
                         damage_entries.append({"amount": int(amount), "type": dtype})
                 elif effect_name == "condition" and not passed:
@@ -10763,6 +10759,11 @@ class InitiativeTracker(base.InitiativeTracker):
             adjusted_entries = list((adjustment or {}).get("entries") or [])
             adjustment_note = _adjustment_note(list((adjustment or {}).get("notes") or []))
             damage_type_label = _damage_type_label(damage_entries)
+            if sculpt_auto_success and not damage_type_label:
+                fallback_type = str(aoe.get("damage_type") or "").strip().lower()
+                canonical_fallback = self._canonical_damage_type(fallback_type)
+                if canonical_fallback:
+                    damage_type_label = f" {canonical_fallback.title()}"
             total_damage = sum(int(entry.get("amount") or 0) for entry in adjusted_entries if isinstance(entry, dict))
             before = int(getattr(target, "hp", 0) or 0)
             if total_damage > 0:
@@ -10809,7 +10810,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     )
                     if moved:
                         forced_move_notes.append(str(forced.get("mode") or "push"))
-            if requires_save:
+            if sculpt_auto_success:
+                self._log(
+                    f"{spell_name}: {target.name} SCULPT (auto) -> {total_damage}{damage_type_label} damage{adjustment_note}",
+                    cid=int(target_cid),
+                )
+            elif requires_save:
                 status = "PASS" if passed else "FAIL"
                 self._log(
                     f"{spell_name}: {target.name} save {ability.upper()} {status} ({total} vs DC {dc}) -> {total_damage}{damage_type_label} damage{adjustment_note}"

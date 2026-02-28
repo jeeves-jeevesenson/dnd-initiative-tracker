@@ -1743,23 +1743,22 @@
       padding:8px 10px;
       background:rgba(10,14,22,0.45);
     }
-    .sculpt-row label{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      width:100%;
-      cursor:pointer;
-    }
     .sculpt-row-name{font-weight:600;}
     .sacrifice-btn{
       background:transparent;
       color:var(--text);
       border:1px solid rgba(255,255,255,0.28);
     }
-    .sacrifice-btn:hover{
+    .sacrifice-btn:hover,
+    .sacrifice-btn:focus-visible,
+    .sacrifice-btn.is-selected{
       background:#b00020;
       color:#fff;
       border-color:#b00020;
+    }
+    .sacrifice-btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
     }
     .pool-spell-confirm-card{max-width:420px;border:1px solid rgba(255,255,255,.12);box-shadow:0 14px 36px rgba(0,0,0,.38);}
     .action-picker-list{
@@ -10182,13 +10181,21 @@ __DAMAGE_TYPE_OPTIONS__
   function updateSculptSelectionSummary(){
     if (!sculptSelectBody || !sculptSelectConfirm || !pendingSculptSelect) return;
     const selectedCount = pendingSculptSelect.selected.size;
-    const maxSelections = Math.max(1, Number(pendingSculptSelect.maxSelections || 1));
-    const allyLabel = maxSelections === 1 ? "ally" : "allies";
-    sculptSelectBody.textContent = `Select up to ${maxSelections} ${allyLabel} to protect (${selectedCount}/${maxSelections} selected).`;
-    sculptSelectConfirm.disabled = selectedCount > maxSelections;
+    const requiredSelections = Math.max(1, Number(pendingSculptSelect.requiredSelections || 1));
+    const allyLabel = requiredSelections === 1 ? "ally" : "allies";
+    sculptSelectBody.textContent = `Select exactly ${requiredSelections} ${allyLabel} to sacrifice (${selectedCount}/${requiredSelections} selected).`;
+    sculptSelectConfirm.disabled = selectedCount !== requiredSelections;
+    const capReached = selectedCount >= requiredSelections;
+    pendingSculptSelect.buttons.forEach((btn, cid) => {
+      const selected = pendingSculptSelect.selected.has(cid);
+      btn.classList.toggle("is-selected", selected);
+      btn.textContent = selected ? "Sacrificed." : "Sacrifice";
+      btn.setAttribute("aria-pressed", selected ? "true" : "false");
+      btn.disabled = !selected && capReached;
+    });
   }
 
-  function openSculptSelectModal(allies, maxSelections, onConfirm){
+  function openSculptSelectModal(allies, requiredSelections, onConfirm){
     if (!sculptSelectList || !Array.isArray(allies) || typeof onConfirm !== "function"){
       if (typeof onConfirm === "function"){
         onConfirm([]);
@@ -10197,35 +10204,39 @@ __DAMAGE_TYPE_OPTIONS__
     }
     pendingSculptSelect = {
       allies: allies.slice(),
-      maxSelections: Math.max(1, Number(maxSelections || 1)),
+      requiredSelections: Math.max(1, Number(requiredSelections || 1)),
       selected: new Set(),
+      buttons: new Map(),
       onConfirm,
     };
     sculptSelectList.textContent = "";
     pendingSculptSelect.allies.forEach((ally) => {
       const row = document.createElement("div");
       row.className = "sculpt-row";
-      const label = document.createElement("label");
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.value = String(Number(ally?.cid || 0));
-      checkbox.addEventListener("change", () => {
+      const name = document.createElement("span");
+      const button = document.createElement("button");
+      const cid = Number(ally?.cid || 0);
+      name.className = "sculpt-row-name";
+      name.textContent = String(ally?.name || `#${ally?.cid ?? "?"}`);
+      button.type = "button";
+      button.className = "btn sacrifice-btn";
+      button.textContent = "Sacrifice";
+      button.setAttribute("aria-pressed", "false");
+      button.value = String(cid);
+      button.addEventListener("click", () => {
         if (!pendingSculptSelect) return;
-        const cid = Number(checkbox.value);
         if (!Number.isFinite(cid)) return;
-        if (checkbox.checked){
-          pendingSculptSelect.selected.add(cid);
-        } else {
+        if (pendingSculptSelect.selected.has(cid)){
           pendingSculptSelect.selected.delete(cid);
+        } else {
+          if (pendingSculptSelect.selected.size >= pendingSculptSelect.requiredSelections) return;
+          pendingSculptSelect.selected.add(cid);
         }
         updateSculptSelectionSummary();
       });
-      const name = document.createElement("span");
-      name.className = "sculpt-row-name";
-      name.textContent = String(ally?.name || `#${ally?.cid ?? "?"}`);
-      label.appendChild(checkbox);
-      label.appendChild(name);
-      row.appendChild(label);
+      row.appendChild(name);
+      row.appendChild(button);
+      pendingSculptSelect.buttons.set(cid, button);
       sculptSelectList.appendChild(row);
     });
     updateSculptSelectionSummary();
@@ -10580,10 +10591,23 @@ __DAMAGE_TYPE_OPTIONS__
     eligibleAllies.sort((a, b) => String(a.name).localeCompare(String(b.name)));
     const spellLevelRaw = Number(preset?.level);
     const spellLevel = Number.isFinite(spellLevelRaw) ? Math.max(0, Math.floor(spellLevelRaw)) : 0;
-    const maxSelections = Math.max(1, 1 + spellLevel);
-    openSculptSelectModal(eligibleAllies, maxSelections, (selectedCids) => {
+    const sculptLimit = Math.max(1, 1 + spellLevel);
+    const requiredSacrifices = Math.max(0, eligibleAllies.length - sculptLimit);
+    if (requiredSacrifices <= 0){
       msg.payload = msg.payload && typeof msg.payload === "object" ? msg.payload : {};
-      msg.payload.sculpted_cids = Array.isArray(selectedCids) ? selectedCids : [];
+      msg.payload.sculpted_cids = eligibleAllies.map((ally) => Number(ally.cid)).filter((cid) => Number.isFinite(cid));
+      onContinue();
+      return;
+    }
+    openSculptSelectModal(eligibleAllies, requiredSacrifices, (sacrificedCids) => {
+      const sacrificedSet = new Set((Array.isArray(sacrificedCids) ? sacrificedCids : [])
+        .map((cid) => Number(cid))
+        .filter((cid) => Number.isFinite(cid)));
+      const protectedCids = eligibleAllies
+        .map((ally) => Number(ally.cid))
+        .filter((cid) => Number.isFinite(cid) && !sacrificedSet.has(cid));
+      msg.payload = msg.payload && typeof msg.payload === "object" ? msg.payload : {};
+      msg.payload.sculpted_cids = protectedCids;
       onContinue();
     });
   }
@@ -20771,8 +20795,8 @@ __DAMAGE_TYPE_OPTIONS__
       const selected = Array.from(pendingSculptSelect.selected.values())
         .map((value) => Number(value))
         .filter((value) => Number.isFinite(value));
-      if (selected.length > Number(pendingSculptSelect.maxSelections || 1)){
-        localToast("Too many allies selected for Sculpt Spells.");
+      if (selected.length !== Number(pendingSculptSelect.requiredSelections || 1)){
+        localToast("Select the exact number of sacrifices for Sculpt Spells.");
         return;
       }
       const onConfirm = pendingSculptSelect.onConfirm;

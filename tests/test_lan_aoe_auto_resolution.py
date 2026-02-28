@@ -619,8 +619,8 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[2].hp, 15)
         self.assertEqual(self.app.combatants[4].hp, 20)
         log_text = "\n".join(entry for _cid, entry in self.logs)
-        self.assertIn("Companion SCULPT (auto-success)", log_text)
-        self.assertIn("Companion SCULPT 0 damage", log_text)
+        self.assertIn("Companion SCULPT (auto) -> 0 Cold damage", log_text)
+        self.assertNotIn("Companion SCULPT (auto-success)", log_text)
 
     def test_sculpt_requires_feature_id_not_feature_name(self):
         self.app.combatants[4] = _make_combatant(4, "Companion", 20, ally=True)
