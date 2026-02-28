@@ -10167,7 +10167,9 @@ __DAMAGE_TYPE_OPTIONS__
 
   function openSculptSelectModal(allies, maxSelections, onConfirm){
     if (!sculptSelectList || !Array.isArray(allies) || typeof onConfirm !== "function"){
-      onConfirm([]);
+      if (typeof onConfirm === "function"){
+        onConfirm([]);
+      }
       return;
     }
     pendingSculptSelect = {
