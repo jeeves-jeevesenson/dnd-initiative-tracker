@@ -3322,6 +3322,7 @@ __DAMAGE_TYPE_OPTIONS__
     <div class="spell-library-title">Spellbook</div>
     <div class="spell-library-spacer"></div>
     <div class="spell-library-controls">
+      <button class="btn" id="spellLibraryManageSpells" type="button">Manage Spells</button>
       <input id="spellLibrarySearch" type="search" placeholder="Search spells..." />
       <select id="spellLibrarySort">
         <option value="alpha" selected>Name</option>
@@ -4266,6 +4267,7 @@ __DAMAGE_TYPE_OPTIONS__
   const spellLibraryBtn = document.getElementById("spellLibraryBtn");
   const spellLibraryOverlay = document.getElementById("spellLibraryOverlay");
   const spellLibraryCloseBtn = document.getElementById("spellLibraryClose");
+  const spellLibraryManageSpellsBtn = document.getElementById("spellLibraryManageSpells");
   const spellLibrarySearchInput = document.getElementById("spellLibrarySearch");
   const spellLibrarySortSelect = document.getElementById("spellLibrarySort");
   const spellLibraryAoeOnlyWrap = document.getElementById("spellLibraryAoeOnlyWrap");
@@ -19157,6 +19159,12 @@ __DAMAGE_TYPE_OPTIONS__
   if (spellLibraryCloseBtn){
     spellLibraryCloseBtn.addEventListener("click", () => {
       openSpellLibraryOverlay(false);
+    });
+  }
+  if (spellLibraryManageSpellsBtn){
+    spellLibraryManageSpellsBtn.addEventListener("click", () => {
+      openSpellLibraryOverlay(false);
+      openSpellbookOverlay(true);
     });
   }
   if (spellLibrarySearchInput){
