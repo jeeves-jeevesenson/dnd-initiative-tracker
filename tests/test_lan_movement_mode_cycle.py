@@ -69,18 +69,23 @@ class LanMovementModeCycleTests(unittest.TestCase):
 
     def test_set_facing_syncs_owned_rotatable_aoe_angle(self):
         self.app._lan_aoes = {
-            7: {"aid": 7, "kind": "line", "owner_cid": 1, "angle_deg": 0, "length_sq": 4, "ax": 5, "ay": 5, "cx": 7, "cy": 5},
+            7: {"aid": 7, "kind": "line", "owner_cid": 1, "angle_deg": 0, "length_sq": 4, "ax": 5, "ay": 5, "cx": 7, "cy": 5, "fixed_to_caster": True},
             8: {"aid": 8, "kind": "circle", "owner_cid": 1, "radius_sq": 2, "cx": 5, "cy": 5},
+            9: {"aid": 9, "kind": "line", "owner_cid": 1, "angle_deg": 45, "length_sq": 4, "ax": 5, "ay": 5, "cx": 7, "cy": 5},
         }
         msg = {"type": "set_facing", "cid": 1, "_claimed_cid": 1, "_ws_id": 9, "facing_deg": 180}
 
         self.app._lan_apply_action(dict(msg))
 
+        # AoE 7 has fixed_to_caster=True, so it should rotate with caster facing
         self.assertEqual(self.app._lan_aoes[7].get("angle_deg"), 180.0)
         # anchor(5,5) with length_sq=4 means half-length=2 squares; at 180° center shifts to (3,5)
         self.assertAlmostEqual(float(self.app._lan_aoes[7].get("cx")), 3.0)
         self.assertAlmostEqual(float(self.app._lan_aoes[7].get("cy")), 5.0)
+        # AoE 8 is a circle (not rotatable), angle should be unaffected
         self.assertIsNone(self.app._lan_aoes[8].get("angle_deg"))
+        # AoE 9 has no fixed_to_caster flag, so it should NOT rotate with caster facing
+        self.assertEqual(self.app._lan_aoes[9].get("angle_deg"), 45)
 
     def test_set_facing_rejects_non_claimed_target(self):
         self.app.combatants[2] = type("C", (), {"cid": 2, "name": "Summon"})()

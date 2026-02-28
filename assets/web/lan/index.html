@@ -18356,7 +18356,7 @@ __DAMAGE_TYPE_OPTIONS__
         }
       } else if (aoeSpell && (shape === "square" || shape === "cube")){
         payload.side_ft = sideFt;
-        payload.angle_deg = angleDeg !== null ? angleDeg : 0;
+        payload.angle_deg = angleDegInput !== null ? angleDegInput : 0;
       } else if (aoeSpell && shape === "line"){
         payload.length_ft = lengthFt;
         payload.width_ft = widthFt;
@@ -18474,7 +18474,9 @@ __DAMAGE_TYPE_OPTIONS__
             casterPos: caster?.pos ? toGridPoint(caster.pos) : null,
             casterCid: Number(caster?.cid),
             rangeFt: placementRangeFt,
-            headingDeg: Number.isFinite(Number(payload.angle_deg)) ? Number(payload.angle_deg) : 0,
+            headingDeg: (directionalSelfRange && String(shape).toLowerCase() === "cone")
+              ? normalizeFacingDeg(caster?.facing_deg ?? 0)
+              : (Number.isFinite(Number(payload.angle_deg)) ? Number(payload.angle_deg) : 0),
             coneSpreadDeg: directionalSelfRange && String(shape).toLowerCase() === "cone" && Number.isFinite(Number(payload.angle_deg))
               ? Number(payload.angle_deg)
               : null,
