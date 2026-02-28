@@ -8547,6 +8547,8 @@ class InitiativeTracker(base.InitiativeTracker):
             kind = str(aoe.get("kind") or "").strip().lower()
             if not self._is_rotatable_aoe_kind(kind):
                 continue
+            if aoe.get("fixed_to_caster") is not True:
+                continue
             aoe["angle_deg"] = float(facing)
             if kind in ("line", "wall"):
                 try:
@@ -18371,6 +18373,7 @@ class InitiativeTracker(base.InitiativeTracker):
             thickness_ft = parse_positive_float(payload.get("thickness_ft"))
             height_ft = parse_positive_float(payload.get("height_ft"))
             angle_deg = parse_nonnegative_float(payload.get("angle_deg"))
+            spread_deg = parse_nonnegative_float(payload.get("spread_deg"))
             caster_facing_deg = (
                 float(self._normalize_facing_degrees(getattr(c, "facing_deg", 0)))
                 if c is not None
@@ -18493,6 +18496,22 @@ class InitiativeTracker(base.InitiativeTracker):
             if anchor_ax is None or anchor_ay is None:
                 anchor_ax = float(cx)
                 anchor_ay = float(cy)
+            if cid in positions:
+                caster_anchor_x = float(positions[cid][0])
+                caster_anchor_y = float(positions[cid][1])
+                payload_ax = parse_nonnegative_float(payload.get("ax"))
+                payload_ay = parse_nonnegative_float(payload.get("ay"))
+                if payload_ax is not None and payload_ay is not None and shape in ("line", "wall", "cone"):
+                    dx_anchor = float(payload_ax) - caster_anchor_x
+                    dy_anchor = float(payload_ay) - caster_anchor_y
+                    dist_anchor = math.hypot(dx_anchor, dy_anchor)
+                    max_anchor_offset = 0.6001
+                    if dist_anchor > max_anchor_offset and dist_anchor > 1e-9:
+                        scale = max_anchor_offset / dist_anchor
+                        payload_ax = caster_anchor_x + dx_anchor * scale
+                        payload_ay = caster_anchor_y + dy_anchor * scale
+                    anchor_ax = float(payload_ax)
+                    anchor_ay = float(payload_ay)
             if force_fixed_to_caster and cid is not None:
                 anchor_cid = cid
                 cx = float(anchor_ax)
@@ -18603,7 +18622,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     aoe["side_ft"] = float(side_ft)
                 else:
                     aoe["side_sq"] = float(size)
-                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else float(caster_facing_deg)
+                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else 0.0
             elif shape == "cube":
                 if side_ft is None and size is None:
                     self._lan.toast(ws_id, "Pick a valid spell side length, matey.")
@@ -18613,12 +18632,15 @@ class InitiativeTracker(base.InitiativeTracker):
                     aoe["side_ft"] = float(side_ft)
                 else:
                     aoe["side_sq"] = float(size)
-                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else float(caster_facing_deg)
+                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else 0.0
             elif shape == "cone":
                 if length_ft is None and size is None:
                     self._lan.toast(ws_id, "Pick a valid spell length, matey.")
                     return
-                if angle_deg is None or angle_deg <= 0:
+                cone_spread = float(spread_deg) if spread_deg is not None else None
+                if cone_spread is None:
+                    cone_spread = float(angle_deg) if angle_deg is not None else None
+                if cone_spread is None or cone_spread <= 0:
                     self._lan.toast(ws_id, "Pick a valid spell cone angle, matey.")
                     return
                 if length_ft is not None:
@@ -18626,10 +18648,16 @@ class InitiativeTracker(base.InitiativeTracker):
                     aoe["length_ft"] = float(length_ft)
                 else:
                     aoe["length_sq"] = float(size)
-                aoe["angle_deg"] = float(angle_deg)
+                if spread_deg is not None:
+                    aoe["spread_deg"] = float(cone_spread)
+                    aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else float(caster_facing_deg)
+                else:
+                    aoe["angle_deg"] = float(cone_spread)
                 aoe["orient"] = str(payload.get("orient") or "vertical")
                 aoe["ax"] = float(anchor_ax)
                 aoe["ay"] = float(anchor_ay)
+                aoe["cx"] = float(anchor_ax)
+                aoe["cy"] = float(anchor_ay)
             elif shape == "wall":
                 if length_ft is None and size is None:
                     self._lan.toast(ws_id, "Pick a valid spell length, matey.")
@@ -18652,7 +18680,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._lan.toast(ws_id, "Pick a valid wall thickness and height, matey.")
                     return
                 aoe["orient"] = str(payload.get("orient") or "vertical")
-                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else float(caster_facing_deg)
+                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else 0.0
                 aoe["ax"] = float(anchor_ax)
                 aoe["ay"] = float(anchor_ay)
             else:
@@ -18671,9 +18699,17 @@ class InitiativeTracker(base.InitiativeTracker):
                     width = parse_positive_float(payload.get("width")) or 1.0
                     aoe["width_sq"] = max(1.0, float(width))
                 aoe["orient"] = str(payload.get("orient") or "vertical")
-                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else float(caster_facing_deg)
+                aoe["angle_deg"] = float(angle_deg) if angle_deg is not None else 0.0
                 aoe["ax"] = float(anchor_ax)
                 aoe["ay"] = float(anchor_ay)
+                try:
+                    half_len = float(aoe.get("length_sq") or 0.0) / 2.0
+                except Exception:
+                    half_len = 0.0
+                if half_len > 0:
+                    rad = math.radians(float(aoe.get("angle_deg") or 0.0))
+                    aoe["cx"] = float(anchor_ax + math.cos(rad) * half_len)
+                    aoe["cy"] = float(anchor_ay + math.sin(rad) * half_len)
             if map_ready:
                 mw.aoes[aid] = aoe
                 try:

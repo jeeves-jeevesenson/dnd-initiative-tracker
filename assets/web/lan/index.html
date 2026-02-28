@@ -8644,6 +8644,20 @@ __DAMAGE_TYPE_OPTIONS__
       if (Number.isFinite(angleDeg)){
         aoe.angle_deg = angleDeg;
       }
+      if (payload.spread_deg !== undefined && payload.spread_deg !== null){
+        const spreadDeg = Number(payload.spread_deg);
+        if (Number.isFinite(spreadDeg)){
+          aoe.spread_deg = spreadDeg;
+        }
+      }
+      if (payload.ax !== undefined && payload.ax !== null && payload.ay !== undefined && payload.ay !== null){
+        const ax = Number(payload.ax);
+        const ay = Number(payload.ay);
+        if (Number.isFinite(ax) && Number.isFinite(ay)){
+          aoe.ax = ax;
+          aoe.ay = ay;
+        }
+      }
       aoe.orient = String(payload.orient || "vertical");
     } else if (shape === "wall"){
       if (Number.isFinite(lengthFt)){
@@ -8666,6 +8680,14 @@ __DAMAGE_TYPE_OPTIONS__
       if (Number.isFinite(angleDeg)){
         aoe.angle_deg = angleDeg;
       }
+      if (payload.ax !== undefined && payload.ax !== null && payload.ay !== undefined && payload.ay !== null){
+        const ax = Number(payload.ax);
+        const ay = Number(payload.ay);
+        if (Number.isFinite(ax) && Number.isFinite(ay)){
+          aoe.ax = ax;
+          aoe.ay = ay;
+        }
+      }
       aoe.orient = String(payload.orient || "vertical");
     } else if (shape === "line"){
       if (Number.isFinite(lengthFt)){
@@ -8680,6 +8702,14 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (Number.isFinite(angleDeg)){
         aoe.angle_deg = angleDeg;
+      }
+      if (payload.ax !== undefined && payload.ax !== null && payload.ay !== undefined && payload.ay !== null){
+        const ax = Number(payload.ax);
+        const ay = Number(payload.ay);
+        if (Number.isFinite(ax) && Number.isFinite(ay)){
+          aoe.ax = ax;
+          aoe.ay = ay;
+        }
       }
       aoe.orient = String(payload.orient || "vertical");
     }
@@ -9615,6 +9645,91 @@ __DAMAGE_TYPE_OPTIONS__
     return kind === "circle" || kind === "sphere" || kind === "cylinder" || kind === "square" || kind === "cube";
   }
 
+  function isDirectionalSelfRangeAoePlacement(preset, shape){
+    const kind = String(shape || "").toLowerCase();
+    return isSelfRangeAoePreset(preset) && (kind === "line" || kind === "cone");
+  }
+
+  function isDirectionalSelfRangePlacementActive(){
+    return pendingAoePlacement?.mode === "directional_self_range";
+  }
+
+  function isPlacementSquareOrCube(){
+    const kind = String(pendingAoePlacement?.payload?.shape || pendingAoePlacement?.payload?.kind || "").toLowerCase();
+    return kind === "square" || kind === "cube";
+  }
+
+  function normalizePlacementHeadingDeg(angleDeg){
+    if (!Number.isFinite(Number(angleDeg))) return 0;
+    return normalizeFacingDeg(Number(angleDeg));
+  }
+
+  function directionalPlacementAnchor(casterPos, cursorPos, headingDeg){
+    const cx = Number(casterPos?.col || 0);
+    const cy = Number(casterPos?.row || 0);
+    let heading = Number.isFinite(Number(headingDeg)) ? Number(headingDeg) : 0;
+    const dx = Number(cursorPos?.col || 0) - cx;
+    const dy = Number(cursorPos?.row || 0) - cy;
+    if (Math.hypot(dx, dy) < 1e-6){
+      const rad = (heading * Math.PI) / 180;
+      const radius = 0.5001;
+      return {
+        headingDeg: heading,
+        vx: Math.cos(rad),
+        vy: Math.sin(rad),
+        ax: cx + Math.cos(rad) * radius,
+        ay: cy + Math.sin(rad) * radius,
+      };
+    }
+    heading = normalizePlacementHeadingDeg((Math.atan2(dy, dx) * 180) / Math.PI);
+    const rad = (heading * Math.PI) / 180;
+    const ux = Math.cos(rad);
+    const uy = Math.sin(rad);
+    const scale = 0.5001 / Math.max(Math.abs(ux), Math.abs(uy), 1e-6);
+    return {
+      headingDeg: heading,
+      vx: ux,
+      vy: uy,
+      ax: cx + ux * scale,
+      ay: cy + uy * scale,
+    };
+  }
+
+  function applyDirectionalSelfRangePlacement(){
+    if (!pendingAoePlacement || !isDirectionalSelfRangePlacementActive()) return;
+    const casterPos = getPendingAoeCasterPos();
+    if (!casterPos) return;
+    const cursor = pendingAoePlacement.cursor || casterPos;
+    const currentHeading = Number(pendingAoePlacement.headingDeg);
+    const anchor = directionalPlacementAnchor(casterPos, cursor, currentHeading);
+    const payload = pendingAoePlacement.payload || {};
+    const kind = String(payload.shape || payload.kind || "").toLowerCase();
+    pendingAoePlacement.headingDeg = anchor.headingDeg;
+    payload.angle_deg = anchor.headingDeg;
+    payload.ax = anchor.ax;
+    payload.ay = anchor.ay;
+    if (kind === "line"){
+      const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
+      const lineLengthSq = Number.isFinite(Number(payload.length_ft))
+        ? Math.max(1, Number(payload.length_ft) / feetPerSquare)
+        : Math.max(1, Number(payload.length_sq || 0));
+      const halfLen = lineLengthSq / 2;
+      payload.cx = anchor.ax + anchor.vx * halfLen;
+      payload.cy = anchor.ay + anchor.vy * halfLen;
+    } else {
+      payload.cx = anchor.ax;
+      payload.cy = anchor.ay;
+      if (
+        Number.isFinite(Number(pendingAoePlacement.coneSpreadDeg))
+        && !Number.isFinite(Number(payload.spread_deg))
+      ){
+        payload.spread_deg = Number(pendingAoePlacement.coneSpreadDeg);
+      }
+    }
+    pendingAoePlacement.payload = payload;
+    pendingAoePlacement.cursor = {col: Number(cursor.col), row: Number(cursor.row)};
+  }
+
   function distanceFeetBetweenCells(a, b){
     const feetPerSquare = Math.max(1, Number(state?.grid?.feet_per_square || 5));
     const dx = Math.abs(Number(a?.col || 0) - Number(b?.col || 0));
@@ -10032,7 +10147,10 @@ __DAMAGE_TYPE_OPTIONS__
     const rangeFt = hasRangeValue ? Number(rawRangeFt) : NaN;
     const hasFiniteRange = Number.isFinite(rangeFt);
     const outOfRange = hasFiniteRange ? distFt > rangeFt + 1e-6 : false;
-    const facingDeg = normalizeFacingDeg((Math.atan2(end.row - start.row, end.col - start.col) * 180) / Math.PI);
+    const directionalHeading = Number(pendingAoePlacement?.headingDeg);
+    const facingDeg = isDirectionalSelfRangePlacementActive() && Number.isFinite(directionalHeading)
+      ? normalizeFacingDeg(directionalHeading)
+      : normalizeFacingDeg((Math.atan2(end.row - start.row, end.col - start.col) * 180) / Math.PI);
     return {
       start,
       end,
@@ -10054,11 +10172,18 @@ __DAMAGE_TYPE_OPTIONS__
     if (!pendingAoePlacement || !pointer) return;
     const gridPos = screenToGridFloat(pointer.x, pointer.y);
     pendingAoePlacement.cursor = {col: Number(gridPos.col), row: Number(gridPos.row)};
+    if (isDirectionalSelfRangePlacementActive()){
+      applyDirectionalSelfRangePlacement();
+    }
     refreshAoePlacementAimGuide();
   }
 
   function getPendingAoePlacementPreview(){
     if (!pendingAoePlacement) return null;
+    if (isDirectionalSelfRangePlacementActive()){
+      applyDirectionalSelfRangePlacement();
+      return buildPlanningAoe({...pendingAoePlacement.payload});
+    }
     const cursor = isAimlessSelfCenteredAoePlacement()
       ? (getPendingAoeCasterPos() || {col: Number(pendingAoePlacement.payload?.cx || 0), row: Number(pendingAoePlacement.payload?.cy || 0)})
       : (pendingAoePlacement.cursor || {col: Number(pendingAoePlacement.payload?.cx || 0), row: Number(pendingAoePlacement.payload?.cy || 0)});
@@ -13675,7 +13800,12 @@ __DAMAGE_TYPE_OPTIONS__
     if (!Number.isFinite(ownerCid)) return;
     const facing = normalizeFacingDeg(facingDeg);
     state.aoes = state.aoes.map((aoe) => {
-      if (!aoe || Number(aoe.owner_cid) !== ownerCid || !isRotatableAoeKind(aoe.kind)){
+      if (
+        !aoe
+        || Number(aoe.owner_cid) !== ownerCid
+        || !isRotatableAoeKind(aoe.kind)
+        || aoe.fixed_to_caster !== true
+      ){
         return aoe;
       }
       const next = {...aoe, angle_deg: facing};
@@ -13927,6 +14057,9 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (ev.button !== 0 && ev.pointerType === "mouse") return;
       setPendingAoePlacementCursorFromPointer(p);
+      if (isDirectionalSelfRangePlacementActive()){
+        applyDirectionalSelfRangePlacement();
+      }
       const aimGuide = computeAoePlacementAimGuide();
       aoeAimGuide = aimGuide;
       if (!isPlanning && aimGuide?.blocked){
@@ -13947,9 +14080,23 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       const msg = {...pendingAoePlacement.msg, payload: {...(pendingAoePlacement.msg?.payload || {})}};
-      const cursor = pendingAoePlacement.cursor || {col: 0, row: 0};
-      msg.payload.cx = Number(cursor.col);
-      msg.payload.cy = Number(cursor.row);
+      const placementPayload = pendingAoePlacement.payload || {};
+      if (isDirectionalSelfRangePlacementActive()){
+        msg.payload.cx = Number(placementPayload.cx);
+        msg.payload.cy = Number(placementPayload.cy);
+        msg.payload.ax = Number(placementPayload.ax);
+        msg.payload.ay = Number(placementPayload.ay);
+        if (Number.isFinite(Number(placementPayload.angle_deg))){
+          msg.payload.angle_deg = Number(placementPayload.angle_deg);
+        }
+        if (Number.isFinite(Number(placementPayload.spread_deg))){
+          msg.payload.spread_deg = Number(placementPayload.spread_deg);
+        }
+      } else {
+        const cursor = pendingAoePlacement.cursor || {col: 0, row: 0};
+        msg.payload.cx = Number(cursor.col);
+        msg.payload.cy = Number(cursor.row);
+      }
       const submitAoe = (damageEntries = []) => {
         if (Array.isArray(damageEntries) && damageEntries.length){
           msg.damage_entries = damageEntries;
@@ -14518,6 +14665,22 @@ __DAMAGE_TYPE_OPTIONS__
   canvas.addEventListener("wheel", (ev) => {
     if (enforceLoginGate()) return;
     if (pinchState) return;
+    if (
+      pendingAoePlacement
+      && isPlacementSquareOrCube()
+      && !isDirectionalSelfRangePlacementActive()
+    ){
+      ev.preventDefault();
+      const delta = ev.deltaY || 0;
+      const step = delta > 0 ? 15 : -15;
+      const base = Number.isFinite(Number(pendingAoePlacement?.payload?.angle_deg))
+        ? Number(pendingAoePlacement.payload.angle_deg)
+        : 0;
+      pendingAoePlacement.payload.angle_deg = normalizeFacingDeg(base + step);
+      refreshAoePlacementAimGuide();
+      draw();
+      return;
+    }
     ev.preventDefault();
     const p = pointerPos(ev);
     const delta = ev.deltaY || 0;
@@ -18147,13 +18310,12 @@ __DAMAGE_TYPE_OPTIONS__
         }
       } else if (aoeSpell && (shape === "square" || shape === "cube")){
         payload.side_ft = sideFt;
+        payload.angle_deg = angleDeg !== null ? angleDeg : 0;
       } else if (aoeSpell && shape === "line"){
         payload.length_ft = lengthFt;
         payload.width_ft = widthFt;
         payload.orient = orient;
-        if (angleDeg !== null){
-          payload.angle_deg = angleDeg;
-        }
+        payload.angle_deg = angleDeg !== null ? angleDeg : 0;
       } else if (aoeSpell && shape === "cone"){
         payload.length_ft = lengthFt;
         payload.angle_deg = angleDeg !== null ? angleDeg : 90;
@@ -18199,6 +18361,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
       if (aoeSpell){
         const caster = getClaimedUnit();
+        const directionalSelfRange = isDirectionalSelfRangeAoePlacement(preset, shape);
         const selfRangeCentered = isSelfRangeAoePreset(preset) && isCenteredAoeShape(shape);
         if (selfRangeCentered && caster?.pos){
           if (castSpellModal?.classList.contains("show")){
@@ -18243,8 +18406,8 @@ __DAMAGE_TYPE_OPTIONS__
           setCastOverlayOpen(false);
         }
         try {
-          let placementRangeFt = parseSpellTargetRangeFeet(preset);
-          if (!Number.isFinite(placementRangeFt)){
+          let placementRangeFt = directionalSelfRange ? null : parseSpellTargetRangeFeet(preset);
+          if (!directionalSelfRange && !Number.isFinite(placementRangeFt)){
             const promptValue = window.prompt("Spell range is unknown. Enter range in feet:", "30");
             if (promptValue === null){
               localToast("AoE cast cancelled: range is required.");
@@ -18258,14 +18421,19 @@ __DAMAGE_TYPE_OPTIONS__
             placementRangeFt = parsedPromptRange;
           }
           pendingAoePlacement = {
+            mode: directionalSelfRange ? "directional_self_range" : null,
             msg,
             payload: {...payload},
             cursor: {col: Number(payload.cx), row: Number(payload.cy)},
             casterPos: caster?.pos ? toGridPoint(caster.pos) : null,
             casterCid: Number(caster?.cid),
             rangeFt: placementRangeFt,
-            castConfirmMessage: isPlanning ? null : castConfirmMessage,
-            concentrationConfirmMessage: isPlanning ? null : concentrationConfirmMessage,
+            headingDeg: Number.isFinite(Number(payload.angle_deg)) ? Number(payload.angle_deg) : 0,
+            coneSpreadDeg: directionalSelfRange && String(shape).toLowerCase() === "cone" && Number.isFinite(Number(payload.angle_deg))
+              ? Number(payload.angle_deg)
+              : null,
+            castConfirmMessage: (isPlanning || directionalSelfRange) ? null : castConfirmMessage,
+            concentrationConfirmMessage: (isPlanning || directionalSelfRange) ? null : concentrationConfirmMessage,
             resolveContext: isPlanning ? null : {
               spellName: payload.name || appearanceName || castName || preset?.name || "Spell",
               slotLevel,
@@ -18274,8 +18442,13 @@ __DAMAGE_TYPE_OPTIONS__
               damageTypes,
             },
           };
+          if (directionalSelfRange){
+            applyDirectionalSelfRangePlacement();
+          }
           refreshAoePlacementAimGuide();
-          localToast("AoE placement: move cursor, click to place (you’ll confirm on placement).");
+          localToast(directionalSelfRange
+            ? "Directional AoE: aim with cursor and click to cast."
+            : "AoE placement: move cursor, click to place (you’ll confirm on placement).");
           draw();
         } catch (err) {
           const details = {
