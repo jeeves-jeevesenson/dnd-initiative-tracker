@@ -1,0 +1,6 @@
+id: wand_of_sparking
+name: Wand of Sparking
+requires_attunement: true
+grants:
+  always_prepared_spells:
+    - shocking-grasp
