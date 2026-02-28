@@ -5796,6 +5796,14 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             pass
         if getattr(c, "cid", None) in self.combatants:
+            slow_next_turn_penalty = max(0, int(getattr(c, "_slow_next_turn_penalty", 0) or 0))
+            if slow_next_turn_penalty > 0:
+                move_total = max(0, int(getattr(c, "move_total", 0) or 0) - slow_next_turn_penalty)
+                move_remaining = max(0, int(getattr(c, "move_remaining", 0) or 0) - slow_next_turn_penalty)
+                setattr(c, "move_total", move_total)
+                setattr(c, "move_remaining", move_remaining)
+                setattr(c, "_slow_next_turn_penalty", 0)
+                msg = "; ".join(filter(None, [msg, f"Slow: speed reduced by {slow_next_turn_penalty} ft this turn."]))
             riders = list(getattr(c, "start_turn_damage_riders", []) or [])
             if riders:
                 save_groups: Dict[str, Dict[str, Any]] = {}
@@ -22199,11 +22207,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 if "sap" in effective_masteries and _ensure_condition(target, "sapped"):
                     mastery_notes.append("Sap applied: target is Sapped.")
                 if "slow" in effective_masteries:
-                    move_rem = max(0, _parse_int(getattr(target, "move_remaining", 0), 0) or 0)
-                    move_total = max(0, _parse_int(getattr(target, "move_total", move_rem), move_rem) or move_rem)
-                    setattr(target, "move_remaining", max(0, int(move_rem) - 10))
-                    setattr(target, "move_total", max(0, int(move_total) - 10))
-                    mastery_notes.append("Slow applied: target movement reduced by 10 ft.")
+                    existing_slow_penalty = max(0, _parse_int(getattr(target, "_slow_next_turn_penalty", 0), 0) or 0)
+                    setattr(target, "_slow_next_turn_penalty", max(existing_slow_penalty, 10))
+                    mastery_notes.append("Slow applied: target speed reduced by 10 ft on its next turn.")
                 if "push" in effective_masteries:
                     origin = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(target_cid))
                     if isinstance(origin, tuple) and len(origin) == 2:
