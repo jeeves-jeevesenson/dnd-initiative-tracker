@@ -1,6 +1,11 @@
 format_version: 2
 name: стихия
 player: стихия
+summon_on_start:
+- monster: raven.yaml
+  overrides:
+    token_color: '#050b20'
+    token_border_color: '#09172f'
 identity:
   pronouns: bird/birb
   ancestry: Kenku

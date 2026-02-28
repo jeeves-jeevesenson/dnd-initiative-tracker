@@ -462,7 +462,14 @@ class SummonSpawnTests(unittest.TestCase):
                 {
                     "monster": "owl.yaml",
                     "count": 2,
-                    "overrides": {"HP": 7, "AC": 15, "dex": 18, "name": "Scout Owl"},
+                    "overrides": {
+                        "HP": 7,
+                        "AC": 15,
+                        "dex": 18,
+                        "name": "Scout Owl",
+                        "token_color": "#112233",
+                        "token_border_color": "#445566",
+                    },
                 }
             ],
         )
@@ -480,6 +487,8 @@ class SummonSpawnTests(unittest.TestCase):
             self.assertTrue(getattr(c, "summon_shared_turn", False))
             self.assertEqual(getattr(c, "summon_anchor_after_cid", None), 100)
             self.assertGreaterEqual(int(getattr(c, "summon_anchor_seq", 0) or 0), 1)
+            self.assertEqual(getattr(c, "token_color", None), "#112233")
+            self.assertEqual(getattr(c, "token_border_color", None), "#445566")
 
         group_id = getattr(h.combatants[spawned[0]], "summon_group_id", "")
         self.assertEqual(h._summon_groups.get(group_id), spawned)
