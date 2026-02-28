@@ -21596,6 +21596,22 @@ class InitiativeTracker(base.InitiativeTracker):
                 weapon_mastery_enabled = _parse_bool(attacks.get("weapon_mastery") if isinstance(attacks, dict) else None)
             if weapon_mastery_enabled is None:
                 weapon_mastery_enabled = False
+            tactical_master_property = str(msg.get("tactical_master_property") or "").strip().lower()
+            tactical_master_choices = {"push", "sap", "slow"}
+            fighter_level = self._class_level_from_profile(profile, "fighter") if isinstance(profile, dict) else 0
+            tactical_master_enabled = bool(
+                tactical_master_property in tactical_master_choices
+                and str(player_name or "").strip().lower() == "john twilight"
+                and int(fighter_level) >= 9
+            )
+            effective_masteries = {
+                mastery
+                for mastery in ("cleave", "push", "sap", "slow", "topple", "vex", "graze", "nick")
+                if _weapon_has_property(selected_weapon, mastery)
+            }
+            if tactical_master_enabled:
+                effective_masteries = {entry for entry in effective_masteries if entry not in {"push", "sap", "slow", "topple", "vex", "cleave", "graze"}}
+                effective_masteries.add(tactical_master_property)
             nick_turn_marker = tuple(getattr(resource_c, "_nick_mastery_turn_marker", ()) or ())
             nick_already_used_this_turn = bool(
                 len(nick_turn_marker) == len(turn_marker) and nick_turn_marker == turn_marker
@@ -21850,7 +21866,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 ):
                     damage_entries.append({"amount": int(magic_bonus), "type": mode_type or "damage"})
                 damage_entries.extend(_parse_effect_damage_entries(effect_block.get("on_hit"), variables, dice_multiplier=2 if auto_crit else 1))
-            if weapon_mastery_enabled and _weapon_has_property(selected_weapon, "graze") and not hit:
+            if weapon_mastery_enabled and ("graze" in effective_masteries) and not hit:
                 mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
                 if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
                     mode_block = selected_weapon.get("two_handed")
@@ -22048,7 +22064,7 @@ class InitiativeTracker(base.InitiativeTracker):
             mastery_vex_advantage = bool(
                 hit
                 and weapon_mastery_enabled
-                and _weapon_has_property(selected_weapon, "vex")
+                and ("vex" in effective_masteries)
                 and _parse_int(getattr(target, "_vexed_by_cid", None), None) == int(profile_cid)
             )
             if mastery_vex_advantage:
@@ -22166,33 +22182,35 @@ class InitiativeTracker(base.InitiativeTracker):
                     )
 
             if weapon_mastery_enabled and hit:
-                if _weapon_has_property(selected_weapon, "cleave"):
+                if tactical_master_enabled:
+                    mastery_notes.append(f"Tactical Master: replacing weapon mastery with {tactical_master_property.title()} for this attack.")
+                if "cleave" in effective_masteries:
                     mastery_notes.append("Cleave: ye can make a second attack against another nearby target.")
-                if _weapon_has_property(selected_weapon, "push"):
+                if "push" in effective_masteries:
                     mastery_notes.append("Push: move that Large-or-smaller target up to 10 ft away.")
-                if _weapon_has_property(selected_weapon, "sap"):
+                if "sap" in effective_masteries:
                     mastery_notes.append("Sap: target has disadvantage on its next attack roll.")
-                if _weapon_has_property(selected_weapon, "slow"):
+                if "slow" in effective_masteries:
                     mastery_notes.append("Slow: target speed is reduced by 10 ft until start of yer next turn.")
-                if _weapon_has_property(selected_weapon, "topple"):
+                if "topple" in effective_masteries:
                     mastery_notes.append("Topple: have target make a Constitution save or fall prone.")
-                if _weapon_has_property(selected_weapon, "vex"):
+                if "vex" in effective_masteries:
                     mastery_notes.append("Vex: gain advantage on yer next attack against this target.")
-                if _weapon_has_property(selected_weapon, "sap") and _ensure_condition(target, "sapped"):
+                if "sap" in effective_masteries and _ensure_condition(target, "sapped"):
                     mastery_notes.append("Sap applied: target is Sapped.")
-                if _weapon_has_property(selected_weapon, "slow"):
+                if "slow" in effective_masteries:
                     move_rem = max(0, _parse_int(getattr(target, "move_remaining", 0), 0) or 0)
                     move_total = max(0, _parse_int(getattr(target, "move_total", move_rem), move_rem) or move_rem)
                     setattr(target, "move_remaining", max(0, int(move_rem) - 10))
                     setattr(target, "move_total", max(0, int(move_total) - 10))
                     mastery_notes.append("Slow applied: target movement reduced by 10 ft.")
-                if _weapon_has_property(selected_weapon, "push"):
+                if "push" in effective_masteries:
                     origin = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(target_cid))
                     if isinstance(origin, tuple) and len(origin) == 2:
                         moved = self._lan_apply_forced_movement(int(cid), int(target_cid), "push", 10.0)
                         if moved:
                             mastery_notes.append("Push applied: target moved up to 10 ft.")
-                if _weapon_has_property(selected_weapon, "topple"):
+                if "topple" in effective_masteries:
                     topple_dc = _mastery_save_dc(selected_weapon, profile, variables)
                     topple_roll = random.randint(1, 20)
                     topple_mod = _save_mod_for_target(target, "con")
@@ -22200,12 +22218,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     topple_passed = bool(topple_roll != 1 and topple_total >= int(topple_dc))
                     if not topple_passed and _set_prone_if_needed(target):
                         mastery_notes.append("Topple applied: target is Prone.")
-                if _weapon_has_property(selected_weapon, "vex"):
+                if "vex" in effective_masteries:
                     _ensure_condition(target, "vexed")
                     setattr(target, "_vexed_by_cid", int(profile_cid))
                     mastery_notes.append("Vex applied: next attack by ye has advantage.")
                 if (
-                    _weapon_has_property(selected_weapon, "cleave")
+                    "cleave" in effective_masteries
                     and not is_cleave_followup
                     and total_damage > 0
                 ):

@@ -75,6 +75,7 @@ defenses:
   vulnerabilities: []
 attacks:
   weapon_to_hit: 11
+  weapon_mastery_enabled: true
   weapons:
   - id: hellfire_battleaxe_plus_2
     name: Hellfire Battleaxe (+2)
@@ -88,6 +89,7 @@ attacks:
     two_handed:
       damage_formula: ''
       damage_type: ''
+    mastery: topple
     effect:
       on_hit: "1d6 hellfire damage. Apply Hellfire Stack condition (max 1 stack per target per turn). Topple mastery rider: target makes a CON save (DC 17) or is knocked prone."
       save_ability: con
