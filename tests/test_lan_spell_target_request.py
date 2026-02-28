@@ -310,6 +310,48 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(result.get("damage_total"), 7)
         self.assertEqual(self.app.combatants[2].hp, 13)
 
+    def test_spell_target_request_uses_preset_dice_when_damage_dice_blank(self):
+        self.app._profile_for_player_name = lambda _name: {"leveling": {"level": 5}}
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "shocking-grasp",
+            "id": "shocking-grasp",
+            "name": "Shocking Grasp",
+            "dice": "1d8",
+            "damage_types": ["lightning"],
+            "scaling": {
+                "kind": "character_level",
+                "thresholds": {
+                    "5": {"add": "1d8"},
+                    "11": {"add": "1d8"},
+                    "17": {"add": "1d8"},
+                },
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 33,
+            "target_cid": 2,
+            "spell_name": "Shocking Grasp",
+            "spell_slug": "shocking-grasp",
+            "spell_mode": "attack",
+            "hit": True,
+            "critical": False,
+            "damage_entries": [],
+            "damage_dice": "",
+            "damage_type": "",
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[3, 4]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("damage_entries"), [{"amount": 7, "type": "lightning"}])
+        self.assertEqual(result.get("damage_total"), 7)
+        self.assertEqual(self.app.combatants[2].hp, 13)
+
     def test_spell_target_request_scales_cantrip_damage_dice_for_critical(self):
         self.app._profile_for_player_name = lambda _name: {"leveling": {"level": 17}}
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
