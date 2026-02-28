@@ -21482,6 +21482,31 @@ class InitiativeTracker(base.InitiativeTracker):
                 if echo_cid is None:
                     self._lan.toast(ws_id, "Arr... I dont be seeing no echo, matey")
                     return
+            attacker_pos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(cid))
+            target_pos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(target_cid))
+            if isinstance(attacker_pos, tuple) and len(attacker_pos) == 2 and isinstance(target_pos, tuple) and len(target_pos) == 2:
+                feet_per_square = 5.0
+                try:
+                    mw = getattr(self, "_map_window", None)
+                    if mw is not None and hasattr(mw, "winfo_exists") and mw.winfo_exists():
+                        feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
+                except Exception:
+                    feet_per_square = 5.0
+                if feet_per_square <= 0:
+                    feet_per_square = 5.0
+                weapon_range = str(selected_weapon.get("range") or selected_weapon.get("normal_range") or selected_weapon.get("reach") or "").strip().lower()
+                range_match = re.search(r"(\d+(?:\.\d+)?)", weapon_range.split("/")[0])
+                range_ft = float(range_match.group(1)) if range_match else 5.0
+                if attunement_active and is_unarmed_strike:
+                    range_ft += 10.0
+                # Grid movement/range in this tracker treats diagonal adjacency as 5 ft,
+                # so use Chebyshev distance (max axis delta) instead of Euclidean.
+                dx = abs(int(target_pos[0]) - int(attacker_pos[0]))
+                dy = abs(int(target_pos[1]) - int(attacker_pos[1]))
+                distance_ft = max(dx, dy) * float(feet_per_square)
+                if float(distance_ft) - float(range_ft) > 1e-6:
+                    self._lan.toast(ws_id, "Target be out of attack range.")
+                    return
             attack_resources = max(0, _parse_int(getattr(resource_c, "attack_resource_remaining", 0), 0) or 0)
             is_bonus_spend_attack = bool(attack_spend == "bonus" and not opportunity_attack and not is_cleave_followup)
             if is_bonus_spend_attack:
@@ -21534,31 +21559,6 @@ class InitiativeTracker(base.InitiativeTracker):
                             setattr(resource_c, "_nick_mastery_turn_marker", turn_marker)
                     attack_resources = max(0, int(attack_resources) - 1)
                     setattr(resource_c, "attack_resource_remaining", int(attack_resources))
-            attacker_pos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(cid))
-            target_pos = dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(target_cid))
-            if isinstance(attacker_pos, tuple) and len(attacker_pos) == 2 and isinstance(target_pos, tuple) and len(target_pos) == 2:
-                feet_per_square = 5.0
-                try:
-                    mw = getattr(self, "_map_window", None)
-                    if mw is not None and hasattr(mw, "winfo_exists") and mw.winfo_exists():
-                        feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
-                except Exception:
-                    feet_per_square = 5.0
-                if feet_per_square <= 0:
-                    feet_per_square = 5.0
-                weapon_range = str(selected_weapon.get("range") or selected_weapon.get("normal_range") or selected_weapon.get("reach") or "").strip().lower()
-                range_match = re.search(r"(\d+(?:\.\d+)?)", weapon_range.split("/")[0])
-                range_ft = float(range_match.group(1)) if range_match else 5.0
-                if attunement_active and is_unarmed_strike:
-                    range_ft += 10.0
-                # Grid movement/range in this tracker treats diagonal adjacency as 5 ft,
-                # so use Chebyshev distance (max axis delta) instead of Euclidean.
-                dx = abs(int(target_pos[0]) - int(attacker_pos[0]))
-                dy = abs(int(target_pos[1]) - int(attacker_pos[1]))
-                distance_ft = max(dx, dy) * float(feet_per_square)
-                if float(distance_ft) - float(range_ft) > 1e-6:
-                    self._lan.toast(ws_id, "Target be out of attack range.")
-                    return
             to_hit = _parse_int(selected_weapon.get("to_hit"), _parse_int(attacks.get("weapon_to_hit"), 0) or 0) or 0
             magic_bonus = _parse_int(selected_weapon.get("magic_bonus"), _parse_int(selected_weapon.get("item_bonus"), 0) or 0) or 0
             to_hit += int(magic_bonus)
