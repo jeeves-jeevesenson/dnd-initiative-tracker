@@ -2643,7 +2643,7 @@ class InitiativeTracker(tk.Tk):
                     if c.cid not in included:
                         continue
                     try:
-                        mw._open_aoe_damage(aid=aid, included_override=[c.cid])
+                        mw._open_aoe_damage(aid=aid, included_override=[c.cid], auto_roll_saves=True)
                     except Exception:
                         pass
 
@@ -10367,7 +10367,13 @@ class BattleMapWindow(tk.Toplevel):
             except Exception:
                 btn.config(state=tk.DISABLED)
 
-    def _open_aoe_damage(self, aid: Optional[int] = None, included_override: Optional[List[int]] = None) -> None:
+    def _open_aoe_damage(
+        self,
+        aid: Optional[int] = None,
+        included_override: Optional[List[int]] = None,
+        *,
+        auto_roll_saves: bool = False,
+    ) -> None:
         """AoE save roller + manual damage apply to all units inside the selected AoE."""
         if aid is None:
             aid = self._selected_aoe
@@ -10395,6 +10401,8 @@ class BattleMapWindow(tk.Toplevel):
         # --- Controls ---
         controls = ttk.Frame(outer)
         controls.pack(fill=tk.X, expand=False)
+
+        auto_hint_var = tk.StringVar(value="")
 
         # Attacker list
         attacker_names = [""]
@@ -10513,6 +10521,17 @@ class BattleMapWindow(tk.Toplevel):
             save_choice = str(aoe_meta.get("save_type") or "").strip().upper()
             if save_choice in save_types:
                 save_var.set(save_choice)
+        if auto_roll_saves:
+            auto_hint_parts: List[str] = ["Saving throws are auto-rolled for this trigger."]
+            default_hint = str(aoe_meta.get("default_damage") or "").strip()
+            default_dtype_hint = str(aoe_meta.get("damage_type") or "").strip().lower()
+            if default_hint:
+                if default_dtype_hint:
+                    auto_hint_parts.append(f"Roll {default_hint} {default_dtype_hint}.")
+                else:
+                    auto_hint_parts.append(f"Roll {default_hint}.")
+            auto_hint_parts.append("Leave damage blank to auto-roll.")
+            auto_hint_var.set(" ".join(auto_hint_parts))
         if aoe_meta.get("half_on_pass") is not None:
             half_on_pass.set(bool(aoe_meta.get("half_on_pass")))
         if aoe_meta.get("condition_on_fail") is not None:
@@ -10544,6 +10563,15 @@ class BattleMapWindow(tk.Toplevel):
                     half_cb.state(["disabled"])
                 except Exception:
                     half_cb.config(state=tk.DISABLED)
+
+        if auto_roll_saves:
+            ttk.Label(controls, textvariable=auto_hint_var, wraplength=980, justify=tk.LEFT).grid(
+                row=4,
+                column=0,
+                columnspan=6,
+                sticky="w",
+                pady=(8, 0),
+            )
 
         components_frame = ttk.LabelFrame(outer, text="Damage components")
         components_frame.pack(fill=tk.X, pady=(12, 0))
@@ -10792,7 +10820,15 @@ class BattleMapWindow(tk.Toplevel):
         # Buttons
         btns = ttk.Frame(outer)
         btns.pack(fill=tk.X, pady=(12, 0))
-        ttk.Button(btns, text="Roll", command=roll_all).pack(side=tk.LEFT)
+        roll_btn = ttk.Button(btns, text="Roll", command=roll_all)
+        roll_btn.pack(side=tk.LEFT)
+
+        if auto_roll_saves:
+            roll_all()
+            try:
+                roll_btn.state(["disabled"])
+            except Exception:
+                roll_btn.config(state=tk.DISABLED)
 
         def apply_damage() -> None:
             if not rolls:
@@ -10857,6 +10893,19 @@ class BattleMapWindow(tk.Toplevel):
                     )
                     return
                 components.append((max(0, amount_val), dtype))
+
+            auto_components_used = False
+            if not components:
+                default_amount_text = str(aoe_meta.get("default_damage") or "").strip()
+                default_type_text = str(aoe_meta.get("damage_type") or "").strip().lower() or "damage"
+                if default_amount_text:
+                    try:
+                        auto_amount_val = _parse_damage_amount(default_amount_text)
+                    except Exception:
+                        auto_amount_val = 0
+                    if auto_amount_val > 0:
+                        components.append((int(auto_amount_val), default_type_text))
+                        auto_components_used = True
 
             if not components:
                 messagebox.showerror("AoE Damage", "Enter at least one damage component.", parent=dlg)
@@ -11038,20 +11087,20 @@ class BattleMapWindow(tk.Toplevel):
                     if total_damage == 0:
                         if use_att:
                             self.app._log(
-                                f"{dname}: {attacker} hits {c.name} (save {save_name} {tot}) — no damage{nat1_note}{adjustment_note}"
+                                f"{dname}: {attacker} hits {c.name} (save {save_name} {tot}) — no damage{nat1_note}{(' (auto damage)' if auto_components_used else '')}{adjustment_note}"
                             )
                         else:
-                            self.app._log(f"{dname}: {c.name} avoids AoE damage (save {save_name} {tot}){nat1_note}{adjustment_note}")
+                            self.app._log(f"{dname}: {c.name} avoids AoE damage (save {save_name} {tot}){nat1_note}{(' (auto damage)' if auto_components_used else '')}{adjustment_note}")
                     else:
                         half_note = " (half on pass per component)" if (passed and half_on_pass.get()) else ""
                         dead_note = " (Dead)" if (died and use_att) else ""
                         if use_att:
                             self.app._log(
-                                f"{dname}: {attacker} hits {c.name} for {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note}){adjustment_note}{dead_note}"
+                                f"{dname}: {attacker} hits {c.name} for {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note}){(' (auto damage)' if auto_components_used else '')}{adjustment_note}{dead_note}"
                             )
                         else:
                             self.app._log(
-                                f"{dname}: {c.name} takes {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note}){adjustment_note}"
+                                f"{dname}: {c.name} takes {component_desc} damage (save {save_name} {tot} {'pass' if passed else 'fail'}{half_note}){(' (auto damage)' if auto_components_used else '')}{adjustment_note}"
                             )
 
                 if died and use_att and not is_immune:
