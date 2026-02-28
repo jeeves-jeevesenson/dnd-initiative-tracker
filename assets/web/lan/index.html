@@ -9889,10 +9889,9 @@ __DAMAGE_TYPE_OPTIONS__
     const row = document.createElement("div");
     row.className = "damage-type-controls";
     const amountInput = document.createElement("input");
-    amountInput.type = "number";
-    amountInput.min = "0";
-    amountInput.step = "1";
-    amountInput.placeholder = "Damage";
+    amountInput.type = "text";
+    amountInput.inputMode = "numeric";
+    amountInput.placeholder = "Damage (e.g. 8+2*3)";
     amountInput.value = String(initialAmount || "");
     const typeSelect = document.createElement("select");
     const placeholderOption = document.createElement("option");
@@ -9945,11 +9944,52 @@ __DAMAGE_TYPE_OPTIONS__
   function parseManualDamageAmount(rawValue){
     const text = String(rawValue ?? "").trim();
     if (!text) return {status: "blank", value: null};
-    if (!/^\+?\d+$/.test(text)) return {status: "invalid", value: null};
-    const parsed = Number(text);
+    const parsed = evaluateDamageExpression(text);
+    if (parsed === null) return {status: "invalid", value: null};
     if (!Number.isSafeInteger(parsed) || parsed < 0) return {status: "invalid", value: null};
     if (parsed === 0) return {status: "zero", value: null};
     return {status: "ok", value: parsed};
+  }
+
+  function evaluateDamageExpression(expression){
+    let expr = String(expression || "").replace(/\s+/g, "");
+    if (!expr) return null;
+    if (expr.startsWith("+")) expr = expr.slice(1);
+    if (!expr) return null;
+    if (!/^[\d+\-*]+$/.test(expr)) return null;
+    if (/^[+\-*]|[+\-*]$/.test(expr)) return null;
+    if (/[+\-*]{2,}/.test(expr)) return null;
+    const parts = expr.split(/([+\-])/);
+    if (!parts.length || parts.some((part) => part === "")) return null;
+    const evaluateProduct = (term) => {
+      const factors = String(term || "").split("*");
+      if (!factors.length) return null;
+      let result = 1;
+      for (const factor of factors){
+        if (!/^\d+$/.test(factor)) return null;
+        const value = Number(factor);
+        if (!Number.isSafeInteger(value)) return null;
+        result *= value;
+        if (!Number.isSafeInteger(result)) return null;
+      }
+      return result;
+    };
+    let total = evaluateProduct(parts[0]);
+    if (total === null) return null;
+    for (let i = 1; i < parts.length; i += 2){
+      const operator = parts[i];
+      const rhs = evaluateProduct(parts[i + 1]);
+      if (rhs === null) return null;
+      if (operator === "+"){
+        total += rhs;
+      } else if (operator === "-"){
+        total -= rhs;
+      } else {
+        return null;
+      }
+      if (!Number.isSafeInteger(total)) return null;
+    }
+    return total;
   }
 
   function collectDamageEntriesFromRows(container){
