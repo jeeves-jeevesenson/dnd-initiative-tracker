@@ -13214,6 +13214,12 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     uiFlushQueued = true;
+    if (document.visibilityState === "hidden"){
+      window.setTimeout(() => {
+        flushUiUpdates();
+      }, 0);
+      return;
+    }
     requestAnimationFrame(flushUiUpdates);
   }
 
@@ -13229,6 +13235,13 @@ __DAMAGE_TYPE_OPTIONS__
     uiNeedsMount = false;
     uiNeedsTurnAlert = false;
     uiNeedsAutoCenter = false;
+    const isHidden = document.visibilityState === "hidden";
+    if (isHidden){
+      if (needsTurnAlert){
+        maybeShowTurnAlert();
+      }
+      return;
+    }
     if (needsHud){
       updateHud();
     }
@@ -19020,61 +19033,47 @@ __DAMAGE_TYPE_OPTIONS__
       unlockTurnAudio();
     });
   }
+  async function enableTurnAlertsFromUi(){
+    const identity = getTurnAlertIdentity();
+    if (!identity?.playerId){
+      const message = "Claim a character first.";
+      setNotificationStatus(message);
+      setTurnAlertStatus(message);
+      throw new Error(message);
+    }
+    let alreadySubscribed = false;
+    if ("serviceWorker" in navigator){
+      swRegistration = swRegistration || await navigator.serviceWorker.ready;
+      const existing = await swRegistration.pushManager.getSubscription();
+      if (existing){
+        alreadySubscribed = true;
+        await syncTurnAlertSubscription(existing, identity);
+      }
+    }
+    await ensurePushSubscribed({
+      vapidPublicKey: pushPublicKey,
+      playerId: identity.playerId,
+    });
+    return {alreadySubscribed};
+  }
+
   if (enableNotificationsBtn){
     enableNotificationsBtn.addEventListener("click", async () => {
-      if (!("Notification" in window)){
-        setNotificationStatus("Notifications are not supported.");
-        return;
-      }
       try {
-        if (!swRegistration){
-          swRegistration = await navigator.serviceWorker.ready;
-        }
+        const {alreadySubscribed} = await enableTurnAlertsFromUi();
+        setNotificationStatus(alreadySubscribed ? "Notifications already enabled." : "Notifications enabled.");
       } catch (err){
-        console.warn("Service worker not ready.", err);
-        setNotificationStatus("Service worker not ready.");
-        return;
-      }
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted"){
-        setNotificationStatus("Notifications blocked.");
-        return;
-      }
-      if (!("PushManager" in window)){
-        setNotificationStatus("Push is not supported.");
-        return;
-      }
-      try {
-        const existing = await swRegistration.pushManager.getSubscription();
-        if (existing){
-          setNotificationStatus("Notifications already enabled.");
-          return;
-        }
-        if (!pushPublicKey){
-          setNotificationStatus("Missing push public key.");
-          return;
-        }
-        const subscription = await swRegistration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(pushPublicKey),
-        });
-        console.log("Push subscription:", JSON.stringify(subscription));
-        setNotificationStatus("Notifications enabled.");
-      } catch (err){
+        const message = err?.message ? String(err.message) : "Failed to enable notifications.";
         console.warn("Push subscription failed.", err);
-        setNotificationStatus("Failed to enable notifications.");
+        setNotificationStatus(message);
       }
     });
   }
   if (enableTurnAlertsBtn){
     enableTurnAlertsBtn.addEventListener("click", async () => {
       try {
-        const identity = getTurnAlertIdentity();
-        await ensurePushSubscribed({
-          vapidPublicKey: pushPublicKey,
-          playerId: identity.playerId,
-        });
-        localToast("Turn alerts enabled.");
+        const {alreadySubscribed} = await enableTurnAlertsFromUi();
+        localToast(alreadySubscribed ? "Turn alerts already enabled." : "Turn alerts enabled.");
       } catch (err){
         const message = err?.message ? String(err.message) : "Failed to enable alerts.";
         setTurnAlertStatus(message);

@@ -472,9 +472,12 @@ For iOS web push support:
 
 ### Browser push notifications (turn alerts)
 
-The LAN web client can send turn alerts via browser push notifications, including when the tab is in the background.
+Turn alerts now have two delivery paths:
 
-Requirements:
+- **Foreground/hidden-tab alerts (no push required):** if the LAN tab is open but hidden/inactive, turn checks still run and can fire a local browser notification.
+- **True background alerts (Web Push):** if the browser supports push and the player is subscribed, the DM host can send push notifications even when the page is not active.
+
+Requirements for Web Push:
 
 - Run the LAN client from a secure context (`https://`), or from loopback/local development as supported by the browser.
 - Configure VAPID keys on the DM host:
@@ -486,7 +489,8 @@ Requirements:
 Player setup:
 
 - Join LAN client and claim a character.
-- Open **Settings → Notifications → Enable**.
+- Open **Settings → Notifications → Enable** (this grants permission and syncs the push subscription to the DM host).
+- **Enable Turn Alerts** uses the same subscription/sync path.
 - On iOS/iPadOS, install to Home Screen before enabling notifications.
 
 ## Map mode
