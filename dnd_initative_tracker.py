@@ -22752,6 +22752,9 @@ class InitiativeTracker(base.InitiativeTracker):
         self._maybe_end_polymorph_from_temp_hp(c, temp_before=temp_before, temp_after=temp_after)
         return True
 
+    def _apply_damage_to_combatant(self, c: Any, amount: int) -> Dict[str, int]:
+        return self._apply_damage_to_target_with_temp_hp(c, amount)
+
     def _apply_damage_to_target_with_temp_hp(self, target: Any, raw_damage: int) -> Dict[str, int]:
         damage = max(0, int(raw_damage or 0))
         temp_before = max(0, int(getattr(target, "temp_hp", 0) or 0))

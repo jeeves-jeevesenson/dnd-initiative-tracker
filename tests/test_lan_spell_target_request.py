@@ -545,6 +545,23 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertFalse(any("misses" in message.lower() for _, message in self.logs))
         self.assertTrue(any("fails their save against Hold Person" in message for _, message in self.logs))
 
+    def test_polymorph_temp_hp_depletion_reverts_form_via_legacy_damage_helper(self):
+        target = self.app.combatants[2]
+        target.hp = 20
+        target.temp_hp = 5
+        target.wild_shape_form_id = "wolf"
+        target.wild_shape_form_name = "Wolf"
+        target.polymorph_source_cid = 1
+        target.polymorph_remaining_turns = 10
+
+        state = self.app._apply_damage_to_combatant(target, 7)
+
+        self.assertEqual(state.get("temp_absorbed"), 5)
+        self.assertEqual(target.hp, 18)
+        self.assertEqual(target.temp_hp, 0)
+        self.assertEqual(getattr(target, "wild_shape_form_name", ""), "")
+        self.assertIsNone(getattr(target, "polymorph_source_cid", None))
+
     def test_polymorph_temp_hp_depletion_reverts_form(self):
         target = self.app.combatants[2]
         target.hp = 20
