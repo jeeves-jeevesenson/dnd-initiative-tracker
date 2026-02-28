@@ -396,6 +396,8 @@ spellcasting:
   prepared_spells:
     max_formula: '19'
     prepared:
+    - misty-step
+    - shocking-grasp
     - sleep
     - cure-wounds
     - speak-with-animals
@@ -414,6 +416,13 @@ spellcasting:
     - blight
     - tree-stride
     - insect-plague
+    free:
+    - misty-step
+    - shocking-grasp
+    - sleep
+    - lightning-bolt
+    - freedom-of-movement
+    - tree-stride
   spell_slots:
     '1':
       max: 4
