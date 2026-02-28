@@ -43,7 +43,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: true
   targeting:
     origin: creature_within_range
@@ -68,6 +68,12 @@ mechanics:
           kind: slot_level
           base_slot: 4
           add_per_slot_above: 1d10
+      success:
+      - effect: damage
+        damage_type: psychic
+        dice: 4d10
+        multiplier: 0.5
+        scaling: *id001
   scaling: *id001
   ui:
     template_preview: false

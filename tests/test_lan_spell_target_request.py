@@ -922,5 +922,95 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(result.get("spell_mode"), "attack")
         movement_mock.assert_called_once_with(1, 2, "pull", 10.0, source_cell=None, direction_step=None)
 
+    def test_phantasmal_killer_failed_save_applies_damage_and_end_turn_rider(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "phantasmal-killer",
+            "id": "phantasmal-killer",
+            "name": "Phantasmal Killer",
+            "level": 4,
+            "concentration": True,
+            "mechanics": {
+                "sequence": [
+                    {
+                        "check": {"kind": "saving_throw", "ability": "wisdom", "dc": "spell_save_dc"},
+                        "outcomes": {
+                            "fail": [{"effect": "damage", "damage_type": "psychic", "dice": "4d10"}],
+                            "success": [{"effect": "damage", "damage_type": "psychic", "dice": "4d10", "multiplier": 0.5}],
+                        },
+                    }
+                ]
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 25,
+            "target_cid": 2,
+            "spell_name": "Phantasmal Killer",
+            "spell_slug": "phantasmal-killer",
+            "spell_mode": "save",
+            "save_type": "wis",
+            "save_dc": 17,
+            "roll_save": True,
+            "slot_level": 4,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[2, 4, 4, 4, 4]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("hit"))
+        self.assertEqual(result.get("damage_total"), 16)
+        self.assertTrue(any(getattr(st, "ctype", "") == "frightened" for st in self.app.combatants[2].condition_stacks))
+        self.assertTrue(getattr(self.app.combatants[1], "concentrating", False))
+        self.assertEqual(getattr(self.app.combatants[1], "concentration_spell", ""), "phantasmal-killer")
+        riders = list(getattr(self.app.combatants[2], "end_turn_save_riders", []) or [])
+        self.assertTrue(any(str(r.get("on_fail_damage_dice")) == "4d10" for r in riders if isinstance(r, dict)))
+
+    def test_phantasmal_killer_successful_save_deals_half_damage(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "phantasmal-killer",
+            "id": "phantasmal-killer",
+            "name": "Phantasmal Killer",
+            "level": 4,
+            "mechanics": {
+                "sequence": [
+                    {
+                        "check": {"kind": "saving_throw", "ability": "wisdom", "dc": "spell_save_dc"},
+                        "outcomes": {
+                            "fail": [{"effect": "damage", "damage_type": "psychic", "dice": "4d10"}],
+                            "success": [{"effect": "damage", "damage_type": "psychic", "dice": "4d10", "multiplier": 0.5}],
+                        },
+                    }
+                ]
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 26,
+            "target_cid": 2,
+            "spell_name": "Phantasmal Killer",
+            "spell_slug": "phantasmal-killer",
+            "spell_mode": "save",
+            "save_type": "wis",
+            "save_dc": 13,
+            "roll_save": True,
+            "slot_level": 4,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[12, 4, 4, 4, 4]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("save_result", {}).get("passed"))
+        self.assertEqual(result.get("damage_total"), 8)
+        self.assertEqual(self.app.combatants[2].hp, 12)
+
+
 if __name__ == "__main__":
     unittest.main()
