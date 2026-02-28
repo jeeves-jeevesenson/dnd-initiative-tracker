@@ -58,6 +58,41 @@ defenses:
   resistances: []
   immunities: []
   vulnerabilities: []
+attacks:
+  weapon_to_hit: 4
+  weapons:
+  - id: unarmed_strike
+    name: Unarmed Strike
+    equipped: true
+    proficient: true
+    to_hit: 4
+    range: '5'
+    properties: []
+    one_handed:
+      damage_formula: 1 + str_mod
+      damage_type: bludgeoning
+    two_handed: {}
+    effect:
+      on_hit: ''
+      save_ability: ''
+      save_dc: 0
+  - id: dagger
+    name: Dagger
+    equipped: false
+    proficient: true
+    to_hit: 4
+    range: 20/60
+    properties:
+    - finesse
+    - light
+    one_handed:
+      damage_formula: 1d4 + max(str_mod, dex_mod)
+      damage_type: piercing
+    two_handed: {}
+    effect:
+      on_hit: ''
+      save_ability: ''
+      save_dc: 0
 resources:
   pools: []
 features: []
@@ -182,7 +217,10 @@ inventory:
     gp: 0
     sp: 0
     cp: 0
-  items: []
+  items:
+  - id: shield
+    name: Shield
+    category: shield
 magic_items:
   attunement_slots: 3
   equipped: []

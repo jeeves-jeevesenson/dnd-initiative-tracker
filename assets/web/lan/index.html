@@ -2188,6 +2188,7 @@
       <button class="btn end-turn-top" id="endTurn">End Turn</button>
       <div class="spacer"></div>
       <button class="btn" id="planningBtn" type="button">Planning Mode</button>
+      <button class="btn" id="inventoryBtn" type="button" aria-pressed="false">Inventory</button>
       <button class="btn" id="planningAoeBtn" type="button">Place AoE</button>
       <button class="btn" id="planningChatBtn" type="button" aria-pressed="false">Chat</button>
       <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
@@ -2800,7 +2801,7 @@
           <button class="btn hidden" id="dismountBtn">Dismount</button>
         </div>
       </div>
-      <div class="row">
+      <div class="row hidden" id="inventoryRow">
         <div class="form-field">
           <label for="mainhandWeaponSelect">Mainhand</label>
           <select id="mainhandWeaponSelect">
@@ -4187,6 +4188,8 @@ __DAMAGE_TYPE_OPTIONS__
   const castPresetInput = document.getElementById("castPreset");
   const castManualEntryBadge = document.getElementById("castManualEntryBadge");
   const planningBtn = document.getElementById("planningBtn");
+  const inventoryBtn = document.getElementById("inventoryBtn");
+  const inventoryRow = document.getElementById("inventoryRow");
   const planningAoeBtn = document.getElementById("planningAoeBtn");
   const planningChatBtn = document.getElementById("planningChatBtn");
   const planningChatOverlay = document.getElementById("planningChatOverlay");
@@ -4571,6 +4574,8 @@ __DAMAGE_TYPE_OPTIONS__
   let selectedOffhandWeaponValue = "";
   let cachedOffhandWeaponValue = "";
   let weaponSelectionCharacterKey = "";
+  let equipmentSyncStateKey = "";
+  let inventoryPanelOpen = false;
   let pendingAttackResolve = null;
   let pendingActionAttackWeapon = null;
   let pendingMonkBonusAttackSequence = null;
@@ -5249,10 +5254,31 @@ __DAMAGE_TYPE_OPTIONS__
   function getClaimedWeapons(){
     const profile = getPlayerProfile(getClaimedPlayerName());
     const attacks = profile?.attacks;
-    if (!attacks || typeof attacks !== "object" || !Array.isArray(attacks.weapons)){
+    const weapons = Array.isArray(attacks?.weapons)
+      ? attacks.weapons.filter((entry) => entry && typeof entry === "object")
+      : [];
+    const hasUnarmed = weapons.some((entry) => normalizeLowerValue(entry?.id) === "unarmed_strike");
+    if (!hasUnarmed){
+      weapons.push({
+        id: "unarmed_strike",
+        name: "Fist (Unarmed Strike)",
+        range: "5",
+        one_handed: {damage_formula: "1 + str_mod", damage_type: "bludgeoning"},
+        two_handed: {},
+        effect: {},
+        properties: [],
+      });
+    }
+    return weapons;
+  }
+
+  function getClaimedInventoryItems(){
+    const profile = getPlayerProfile(getClaimedPlayerName());
+    const inventory = profile?.inventory;
+    if (!inventory || typeof inventory !== "object" || !Array.isArray(inventory.items)){
       return [];
     }
-    return attacks.weapons.filter((entry) => entry && typeof entry === "object");
+    return inventory.items.filter((entry) => entry && typeof entry === "object");
   }
 
   function getWeaponSelectionCharacterKey(){
@@ -5302,6 +5328,7 @@ __DAMAGE_TYPE_OPTIONS__
     const key = getWeaponSelectionCharacterKey();
     if (key === weaponSelectionCharacterKey) return;
     weaponSelectionCharacterKey = key;
+    equipmentSyncStateKey = "";
     loadWeaponSelectionsForClaimedCharacter();
   }
 
@@ -5322,6 +5349,17 @@ __DAMAGE_TYPE_OPTIONS__
   function isWeaponTwoHandedOnly(weapon){
     const properties = getWeaponPropertySet(weapon);
     return properties.has("two_handed") && !properties.has("versatile");
+  }
+
+  function isWeaponLight(weapon){
+    return getWeaponPropertySet(weapon).has("light");
+  }
+
+  function isShieldItem(item){
+    const category = normalizeLowerValue(item?.category || item?.type || item?.slot || item?.armor_type);
+    if (category.includes("shield")) return true;
+    const name = normalizeLowerValue(item?.name || item?.id);
+    return name.includes("shield");
   }
 
   function buildMainhandOptions(weapons){
@@ -5351,9 +5389,47 @@ __DAMAGE_TYPE_OPTIONS__
       const name = String(weapon?.name || weapon?.id || "Weapon").trim() || "Weapon";
       if (!id) return;
       if (isWeaponTwoHandedOnly(weapon)) return;
-      options.push({value: `${id}|one`, weapon, mode: "one", label: `${name} (One Handed)`});
+      if (isWeaponLight(weapon)){
+        options.push({value: `${id}|one`, weapon, mode: "one", label: `${name} (One Handed)`});
+      }
+    });
+    const inventoryItems = getClaimedInventoryItems();
+    inventoryItems.forEach((item) => {
+      if (!isShieldItem(item)) return;
+      const itemId = String(item?.id || item?.name || "shield").trim();
+      if (!itemId) return;
+      const itemName = String(item?.name || "Shield").trim() || "Shield";
+      options.push({value: `${itemId}|shield`, item, mode: "shield", label: `${itemName} (+2 AC)`, offhand_kind: "shield"});
     });
     return options;
+  }
+
+  function getSelectedOffhandOption(){
+    const selectedValue = String(selectedOffhandWeaponValue || "").trim();
+    if (!selectedValue) return null;
+    const offhandOptions = buildOffhandOptions(getClaimedWeapons());
+    return offhandOptions.find((entry) => entry.value === selectedValue) || null;
+  }
+
+  function sendEquipmentUpdate(){
+    if (claimedCid === null || claimedCid === undefined){
+      equipmentSyncStateKey = "";
+      return;
+    }
+    const selectedMainhand = getSelectedMainhandWeapon();
+    const selectedOffhand = getSelectedOffhandOption();
+    const payload = {
+      type: "equipment_update",
+      cid: claimedCid,
+      mainhand_weapon_id: String(selectedMainhand?.id || "").trim(),
+      offhand_item_id: String(selectedOffhand?.weapon?.id || selectedOffhand?.item?.id || "").trim(),
+      offhand_kind: String(selectedOffhand?.offhand_kind || "").trim(),
+      shield_equipped: selectedOffhand?.offhand_kind === "shield",
+    };
+    const nextKey = JSON.stringify([payload.mainhand_weapon_id, payload.offhand_item_id, payload.offhand_kind, payload.shield_equipped]);
+    if (nextKey === equipmentSyncStateKey) return;
+    equipmentSyncStateKey = nextKey;
+    send(payload);
   }
 
   function getDefaultMainhandValue(weapons, mainhandOptions){
@@ -5440,6 +5516,17 @@ __DAMAGE_TYPE_OPTIONS__
       selectedOffhandWeaponValue = "";
     }
     saveCurrentWeaponSelections();
+    sendEquipmentUpdate();
+  }
+
+  function setInventoryPanelOpen(open){
+    inventoryPanelOpen = !!open;
+    if (inventoryRow){
+      inventoryRow.classList.toggle("hidden", !inventoryPanelOpen);
+    }
+    if (inventoryBtn){
+      inventoryBtn.setAttribute("aria-pressed", inventoryPanelOpen ? "true" : "false");
+    }
   }
 
   function isWeaponEquipped(weapon){
@@ -18399,6 +18486,9 @@ __DAMAGE_TYPE_OPTIONS__
         window.open(planningUrl.toString(), "_blank", "noopener,noreferrer");
       });
     }
+  }
+  if (inventoryBtn){
+    inventoryBtn.addEventListener("click", () => setInventoryPanelOpen(!inventoryPanelOpen));
   }
   if (planningAoeBtn){
     planningAoeBtn.classList.toggle("hidden", !isPlanning);
