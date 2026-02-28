@@ -3602,6 +3602,10 @@ __DAMAGE_TYPE_OPTIONS__
       <label for="layOnHandsAmountInput">HP to heal</label>
       <input id="layOnHandsAmountInput" type="number" min="1" step="1" placeholder="1+" />
     </div>
+    <label class="chip spellbook-toggle" style="margin-top:8px; display:inline-flex; align-items:center; gap:8px;">
+      <input type="checkbox" id="layOnHandsCurePoisonToggle" />
+      Spend 5 points to remove Poisoned (no healing)
+    </label>
     <div class="modal-actions" style="margin-top:10px;">
       <button class="btn" id="layOnHandsCancel" type="button">Cancel</button>
       <button class="btn accent" id="layOnHandsUse" type="button">Heal</button>
@@ -4418,6 +4422,7 @@ __DAMAGE_TYPE_OPTIONS__
   const layOnHandsAmountInput = document.getElementById("layOnHandsAmountInput");
   const layOnHandsCancelBtn = document.getElementById("layOnHandsCancel");
   const layOnHandsUseBtn = document.getElementById("layOnHandsUse");
+  const layOnHandsCurePoisonToggle = document.getElementById("layOnHandsCurePoisonToggle");
   const wildShapeOverlay = document.getElementById("wildShapeOverlay");
   const wildShapeBackBtn = document.getElementById("wildShapeBack");
   const wildShapeSaveBtn = document.getElementById("wildShapeSave");
@@ -6415,10 +6420,21 @@ __DAMAGE_TYPE_OPTIONS__
         ? `Target: ${pendingLayOnHandsResolve.targetName}`
         : "Target: none selected";
     }
+    const curePoisonCost = 5;
     if (layOnHandsAmountInput){
+      const curePoison = !!layOnHandsCurePoisonToggle?.checked;
+      layOnHandsAmountInput.disabled = curePoison;
       layOnHandsAmountInput.min = "1";
       layOnHandsAmountInput.max = String(current);
-      layOnHandsAmountInput.value = current > 0 ? "1" : "0";
+      layOnHandsAmountInput.value = curePoison ? "0" : (current > 0 ? "1" : "0");
+    }
+    if (layOnHandsCurePoisonToggle){
+      layOnHandsCurePoisonToggle.checked = false;
+      layOnHandsCurePoisonToggle.disabled = current < curePoisonCost;
+      layOnHandsCurePoisonToggle.title = current < curePoisonCost ? `Need ${curePoisonCost} Lay on Hands points.` : "";
+    }
+    if (layOnHandsUseBtn){
+      layOnHandsUseBtn.textContent = "Heal";
     }
   }
 
@@ -9106,14 +9122,19 @@ __DAMAGE_TYPE_OPTIONS__
       const unit = getUnitByCid(msg.cid);
       const target = getUnitByCid(msg.target_cid);
       const amount = Math.max(0, Number(msg.amount || 0));
+      const curePoisoned = msg.cure_poisoned === true;
       if (!unit || !target || amount <= 0) return;
       mutateResourcePoolCounter(unit, {id: "lay_on_hands", cost: amount});
-      const targetHp = Number(target.hp || 0);
-      const targetMaxHp = Number(target.max_hp || targetHp);
-      applyUnitUpdates([
-        {cid: unit.cid, action_remaining: Math.max(0, Number(unit.action_remaining || 0) - 1)},
-        {cid: target.cid, hp: Math.max(0, Math.min(targetMaxHp, targetHp + amount))},
-      ]);
+      const updates = [{cid: unit.cid, bonus_action_remaining: Math.max(0, Number(unit.bonus_action_remaining || 0) - 1)}];
+      if (!curePoisoned){
+        const targetHp = Number(target.hp || 0);
+        const targetMaxHp = Number(target.max_hp || targetHp);
+        updates.push({cid: target.cid, hp: Math.max(0, Math.min(targetMaxHp, targetHp + amount))});
+      }
+      applyUnitUpdates(updates);
+      if (curePoisoned && Array.isArray(target?.condition_stacks)){
+        target.condition_stacks = target.condition_stacks.filter((st) => normalizeLowerValue(st?.ctype || "") !== "poisoned");
+      }
       renderResourcePools();
       return;
     }
@@ -13082,6 +13103,24 @@ __DAMAGE_TYPE_OPTIONS__
         beginBeguilingMagicFlow(false);
         return;
       }
+      if (entry.kind === "lay_on_hands"){
+        const me = getClaimedUnit();
+        if (!me || !me.pos){
+          localToast("Claim a character first, matey.");
+          return;
+        }
+        pendingLayOnHandsTargeting = {
+          poolCurrent: Number(getPlayerResourcePools(getClaimedPlayerName()).find((pool) => normalizeLowerValue(pool?.id) === "lay_on_hands")?.current || 0),
+          poolMax: Number(getPlayerResourcePools(getClaimedPlayerName()).find((pool) => normalizeLowerValue(pool?.id) === "lay_on_hands")?.max || 0),
+          rangeFt: 5,
+        };
+        pendingLayOnHandsResolve = null;
+        setLayOnHandsOverlayOpen(false);
+        setAttackOverlayMode(true);
+        localToast("Select a creature within 5 ft for Lay on Hands.");
+        draw();
+        return;
+      }
       if (entry.spend === "reaction" && actionName === "opportunity attack"){
         const unit = getClaimedUnit();
         if (Number(unit?.reaction_remaining || 0) <= 0){
@@ -13232,6 +13271,15 @@ __DAMAGE_TYPE_OPTIONS__
     } else if (mode === "bonus"){
       actionPickerTitle.textContent = "Choose a Bonus Action";
       bonusActions.forEach((entry) => items.push({...entry, spend: "bonus"}));
+      const layOnHandsPool = getPlayerResourcePools(getClaimedPlayerName()).find((entry) => normalizeLowerValue(entry?.id) === "lay_on_hands");
+      if (layOnHandsPool){
+        items.push({
+          name: "Lay on Hands",
+          description: "Select a creature within 5 ft, then heal HP or spend 5 points to remove Poisoned.",
+          spend: "bonus",
+          kind: "lay_on_hands",
+        });
+      }
       const windowS = getClaimedBeguilingMagicWindowSeconds();
       if (windowS > 0){
         items.push({
@@ -19828,6 +19876,22 @@ __DAMAGE_TYPE_OPTIONS__
       }
     });
   }
+  if (layOnHandsCurePoisonToggle){
+    layOnHandsCurePoisonToggle.addEventListener("change", () => {
+      const curePoison = !!layOnHandsCurePoisonToggle.checked;
+      if (layOnHandsAmountInput){
+        layOnHandsAmountInput.disabled = curePoison;
+        if (curePoison){
+          layOnHandsAmountInput.value = "0";
+        } else if (Number(layOnHandsAmountInput.value || 0) <= 0){
+          layOnHandsAmountInput.value = "1";
+        }
+      }
+      if (layOnHandsUseBtn){
+        layOnHandsUseBtn.textContent = curePoison ? "Cure Poisoned" : "Heal";
+      }
+    });
+  }
   if (layOnHandsUseBtn){
     layOnHandsUseBtn.addEventListener("click", () => {
       if (!claimedCid) return;
@@ -19838,8 +19902,14 @@ __DAMAGE_TYPE_OPTIONS__
       const pools = getPlayerResourcePools(getClaimedPlayerName());
       const pool = pools.find((entry) => entry.id === "lay_on_hands");
       const available = Math.max(0, Number(pool?.current || 0));
-      const amount = Math.floor(Number(layOnHandsAmountInput?.value ?? ""));
-      if (!Number.isFinite(amount) || amount <= 0){
+      const curePoison = !!layOnHandsCurePoisonToggle?.checked;
+      const amount = curePoison ? 5 : Math.floor(Number(layOnHandsAmountInput?.value ?? ""));
+      if (curePoison){
+        if (available < 5){
+          localToast("Need at least 5 Lay on Hands points to remove Poisoned.");
+          return;
+        }
+      } else if (!Number.isFinite(amount) || amount <= 0){
         localToast("Enter a valid Lay on Hands healing amount.");
         return;
       }
@@ -19847,7 +19917,7 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Not enough Lay on Hands points remaining.");
         return;
       }
-      const msg = {type:"lay_on_hands_use", cid: claimedCid, target_cid: pendingLayOnHandsResolve.targetCid, amount};
+      const msg = {type:"lay_on_hands_use", cid: claimedCid, target_cid: pendingLayOnHandsResolve.targetCid, amount, cure_poisoned: curePoison};
       if (isPlanning){
         planningMutate(msg);
         draw();
