@@ -14374,7 +14374,9 @@ class InitiativeTracker(base.InitiativeTracker):
             known_enabled = known_enabled.strip().lower() not in ("false", "0", "no", "off")
         known_enabled = bool(known_enabled)
         known_list = normalize_slug_list(payload.get("known_list"))
+        known_free_list = normalize_slug_list(payload.get("known_free_list"))
         prepared_list = normalize_slug_list(payload.get("prepared_list"))
+        prepared_free_list = normalize_slug_list(payload.get("prepared_free_list"))
         cantrips_list = normalize_slug_list(payload.get("cantrips_list"))
 
         self._load_player_yaml_cache()
@@ -14411,7 +14413,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 prepared_seen.add(slug.lower())
         prepared_spells["prepared"] = prepared_list
         prepared_set = {item.lower() for item in prepared_list}
-        prepared_free = [item for item in normalize_slug_list(prepared_spells.get("free")) if item.lower() in prepared_set]
+        prepared_free = [item for item in prepared_free_list if item.lower() in prepared_set]
         free_seen = {item.lower() for item in prepared_free}
         for slug in always_prepared:
             if slug.lower() not in free_seen:
@@ -14431,7 +14433,7 @@ class InitiativeTracker(base.InitiativeTracker):
         else:
             known_spells.pop("known", None)
         known_set = {item.lower() for item in known_list}
-        known_free = [item for item in normalize_slug_list(known_spells.get("free")) if item.lower() in known_set]
+        known_free = [item for item in known_free_list if item.lower() in known_set]
         if known_free:
             known_spells["free"] = known_free
         else:
