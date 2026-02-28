@@ -1547,6 +1547,11 @@ The `/new_character` and `/edit_character` web forms now use a tabbed layout to 
 - **Actions**: actions, reactions, bonus actions.
 - **Spellcasting**: spellcasting fields with a large enabled/disabled toggle button.
 - **War Caster (reaction casting)**: add a feat entry named `War Caster` in the **Feats** tab (or `features[]` in YAML). The LAN reaction picker will then show a War Caster flow that only lists prepared spells eligible for War Caster use (action cast time, non-AoE, single-target targeting config) and lets the player pick an enemy target (defaults to the current active enemy when available).
+- **Reaction Manager (LAN)**: the **Reactions** button opens a reaction manager where each reaction can be set to `Off`, `Ask`, or `Auto`, and each listed reaction can still be triggered manually with **Use now**. Preferences are stored in browser localStorage per claimed character and synced to the server so prompt suppression is honored server-side.
+- **Sentinel feat (2024)**: add a feature in `features[]` with `name: Sentinel` or `id: Sentinel` (case-insensitive). This enables Sentinel Guardian reaction prompts in LAN on:
+  - a nearby hostile creature using **Disengage** (within 8 ft),
+  - a nearby hostile creature hitting someone other than the Sentinel (within 8 ft).
+- **Sentinel Halt**: when a Sentinel opportunity attack hits, the target's speed is reduced to 0 for the rest of that target's current turn.
 
 ### Auto-calculated behavior
 

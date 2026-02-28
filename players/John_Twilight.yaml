@@ -120,6 +120,11 @@ resources:
     max_formula: '1'
     reset: short_rest
 features:
+- id: sentinel
+  name: Sentinel
+  category: Feat
+  source: PHB2024
+  description: When a hostile creature moves out of your reach, you can make an opportunity attack; on hit, the target speed becomes 0 for the rest of the turn. You can also make this reaction against nearby creatures that Disengage or attack someone other than you.
 - id: automation_review
   name: Existing Automation Review
   category: Tracker Notes

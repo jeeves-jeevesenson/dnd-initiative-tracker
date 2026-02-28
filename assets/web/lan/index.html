@@ -2431,6 +2431,16 @@
         </div>
       </div>
     </div>
+    <div class="modal" id="reactionOfferModal" aria-hidden="true">
+      <div class="card card-scroll">
+        <h2>Reaction</h2>
+        <div class="hint" id="reactionOfferBody">A reaction is available.</div>
+        <div class="action-picker-list" id="reactionOfferList"></div>
+        <div class="modal-actions">
+          <button class="btn" id="reactionOfferDecline" type="button">Ignore</button>
+        </div>
+      </div>
+    </div>
     <div class="modal" id="warCasterModal" aria-hidden="true">
       <div class="card">
         <h2>War Caster Reaction</h2>
@@ -3976,6 +3986,10 @@ __DAMAGE_TYPE_OPTIONS__
   const actionPickerList = document.getElementById("actionPickerList");
   const actionPickerCancelBtn = document.getElementById("actionPickerCancel");
   const warCasterModal = document.getElementById("warCasterModal");
+  const reactionOfferModal = document.getElementById("reactionOfferModal");
+  const reactionOfferBody = document.getElementById("reactionOfferBody");
+  const reactionOfferList = document.getElementById("reactionOfferList");
+  const reactionOfferDecline = document.getElementById("reactionOfferDecline");
   const warCasterSpellSelect = document.getElementById("warCasterSpellSelect");
   const warCasterTargetSelect = document.getElementById("warCasterTargetSelect");
   const warCasterCastBtn = document.getElementById("warCasterCast");
@@ -4562,6 +4576,8 @@ __DAMAGE_TYPE_OPTIONS__
   let pendingMonkBonusAttackSequence = null;
   let pendingUnleashIncarnation = null;
   let pendingOpportunityAttack = false;
+  let pendingReactionRequestId = "";
+  let pendingReactionOffer = null;
   let pendingCleavePrompt = null;
   let pendingSpellTargeting = null;
   let pendingSpellTargetSelection = null;
@@ -9473,6 +9489,7 @@ __DAMAGE_TYPE_OPTIONS__
     attackOverlayMode = !!enabled;
     if (!attackOverlayMode){
       pendingOpportunityAttack = false;
+    pendingReactionRequestId = "";
       pendingActionAttackWeapon = null;
       pendingUnleashIncarnation = null;
       pendingMonkBonusAttackSequence = null;
@@ -9770,6 +9787,7 @@ __DAMAGE_TYPE_OPTIONS__
       attackCount: Number.isFinite(Number(weapon?.attack_count)) ? Math.max(1, Math.floor(Number(weapon.attack_count))) : null,
       masteryAdvantage: hasVexAdvantage,
       opportunityAttack: pendingOpportunityAttack,
+      reaction_request_id: pendingReactionRequestId || undefined,
       consumesPool: pendingUnleashIncarnation ? {...pendingUnleashIncarnation} : null,
       elementalOverrideAllowed: attunedUnarmed,
       stunningStrikeAllowed: canUseStunningStrike,
@@ -11938,6 +11956,49 @@ __DAMAGE_TYPE_OPTIONS__
     warCasterModal.setAttribute("aria-hidden", open ? "false" : "true");
   }
 
+  function reactionPrefsStorageKey(cid){
+    const claimed = String(cid ?? claimedCid ?? "").trim();
+    return `lanReactionPrefs:${claimed}`;
+  }
+
+  function getReactionPrefs(cid){
+    const key = reactionPrefsStorageKey(cid);
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) || "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch(_e){
+      return {};
+    }
+  }
+
+  function setReactionPref(cid, kind, mode){
+    const prefs = getReactionPrefs(cid);
+    prefs[String(kind)] = String(mode);
+    localStorage.setItem(reactionPrefsStorageKey(cid), JSON.stringify(prefs));
+    sendReactionPrefsUpdate();
+  }
+
+  function reactionModeForEntry(entry, cid){
+    const key = entry?.kindKey || "";
+    const prefs = getReactionPrefs(cid);
+    if (prefs && typeof prefs[key] === "string"){
+      return prefs[key];
+    }
+    if (key === "opportunity_attack") return "auto";
+    return "ask";
+  }
+
+  function sendReactionPrefsUpdate(){
+    const unit = getClaimedUnit();
+    if (!unit || claimedCid === null) return;
+    const prefs = getReactionPrefs(claimedCid);
+    const payload = {
+      opportunity_attack: String(prefs.opportunity_attack || "auto"),
+      war_caster: String(prefs.war_caster || "ask"),
+    };
+    send({type:"reaction_prefs_update", cid: claimedCid, prefs: payload});
+  }
+
   function playerHasWarCasterFeat(){
     const profile = getPlayerProfile(getClaimedPlayerName());
     if (!profile || typeof profile !== "object"){
@@ -12289,6 +12350,27 @@ __DAMAGE_TYPE_OPTIONS__
       descEl.textContent = entry.description;
       btn.appendChild(descEl);
     }
+    if (entry.spend === "reaction"){
+      const prefWrap = document.createElement("div");
+      prefWrap.className = "action-picker-meta";
+      const currentMode = reactionModeForEntry(entry, entryUnitCid);
+      const select = document.createElement("select");
+      ["off", "ask", "auto"].forEach((mode) => {
+        const opt = document.createElement("option");
+        opt.value = mode;
+        opt.textContent = mode.toUpperCase();
+        if (mode === currentMode) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.addEventListener("change", (ev) => {
+        if (entry.kindKey){
+          setReactionPref(entryUnitCid, entry.kindKey, String(ev.target.value || "ask"));
+        }
+      });
+      prefWrap.textContent = "Mode: ";
+      prefWrap.appendChild(select);
+      btn.appendChild(prefWrap);
+    }
     btn.addEventListener("click", () => {
       hideActionPicker();
       const actionName = normalizeLowerValue(entry?.name);
@@ -12497,15 +12579,16 @@ __DAMAGE_TYPE_OPTIONS__
         });
       }
     } else if (mode === "reaction"){
-      actionPickerTitle.textContent = "Choose a Reaction";
-      reactions.forEach((entry) => items.push({...entry, spend: "reaction"}));
-      getPreparedReactionSpellEntries().forEach((entry) => items.push(entry));
+      actionPickerTitle.textContent = "Reaction Manager";
+      reactions.forEach((entry) => items.push({...entry, spend: "reaction", kindKey: normalizeLowerValue(entry.name) === "opportunity attack" ? "opportunity_attack" : normalizeLowerValue(entry.name).replace(/\s+/g, "_")}));
+      getPreparedReactionSpellEntries().forEach((entry) => items.push({...entry, kindKey:"reaction_spell"}));
       if (playerHasWarCasterFeat()){
         items.push({
           name: "War Caster Spell",
           description: "Cast a qualifying action spell as a reaction against a single enemy target.",
           spend: "reaction",
           kind: "war_caster",
+          kindKey: "war_caster",
         });
       }
     } else {
@@ -12960,6 +13043,7 @@ __DAMAGE_TYPE_OPTIONS__
         // Use server-authoritative claim state from "you" field
         if (msg.you && "claimed_cid" in msg.you){
           applyServerClaim(msg.you.claimed_cid, msg.you.claimed_name, msg.you.claim_rev);
+          sendReactionPrefsUpdate();
         } else {
           // Fallback to old logic if "you" field not present (backwards compatibility)
           const claimsMap = (state && typeof state.claims === "object" && state.claims) ? state.claims : {};
@@ -13134,6 +13218,56 @@ __DAMAGE_TYPE_OPTIONS__
           const now = Date.now();
           lines.slice(-4).forEach((line)=>{ const text=String(line||""); const unit=units.find(u=>text.includes(u.name)); if (unit){ dmHighlightUntil.set(String(unit.cid), now+2200); }});
           renderDmLogPanel();
+        }
+      } else if (msg.type === "reaction_offer"){
+        pendingReactionOffer = msg;
+        pendingReactionRequestId = String(msg.request_id || "");
+        if (reactionOfferBody){
+          const src = getUnitByCid(msg.source_cid);
+          const trg = getUnitByCid(msg.target_cid);
+          const srcName = src?.name || `#${msg.source_cid}`;
+          const trgName = trg?.name || `#${msg.target_cid}`;
+          if (msg.trigger === "leave_reach"){
+            reactionOfferBody.textContent = `${srcName} is leaving your reach.`;
+          } else if (msg.trigger === "sentinel_disengage"){
+            reactionOfferBody.textContent = `${srcName} disengaged within Sentinel range.`;
+          } else {
+            reactionOfferBody.textContent = `${srcName} hit ${trgName} within Sentinel range.`;
+          }
+        }
+        if (reactionOfferList){
+          reactionOfferList.textContent = "";
+          const choices = Array.isArray(msg.choices) ? msg.choices : [];
+          choices.forEach((choice)=>{
+            const btn = document.createElement("button");
+            btn.className = "btn action-picker-item";
+            btn.type = "button";
+            btn.textContent = String(choice.label || choice.kind || "Reaction");
+            btn.addEventListener("click", ()=>{
+              send({type:"reaction_response", cid: claimedCid, request_id: pendingReactionRequestId, choice: String(choice.kind || "")});
+              if (String(choice.kind||"") === "opportunity_attack"){
+                const target = getUnitByCid(msg.target_cid);
+                const weapon = getPrimaryMeleeAttackWeapon(getClaimedUnit());
+                if (target && weapon){
+                  pendingOpportunityAttack = true;
+                  openAttackResolveModal(target, weapon);
+                }
+              } else if (String(choice.kind||"") === "war_caster"){
+                populateWarCasterModal();
+                if (warCasterTargetSelect){ warCasterTargetSelect.value = String(msg.target_cid); }
+                setWarCasterModalOpen(true);
+              }
+              if (reactionOfferModal){ reactionOfferModal.classList.remove("show"); reactionOfferModal.setAttribute("aria-hidden", "true"); }
+            });
+            reactionOfferList.appendChild(btn);
+          });
+        }
+        if (reactionOfferModal){ reactionOfferModal.classList.add("show"); reactionOfferModal.setAttribute("aria-hidden", "false"); }
+        if (msg.mode === "auto" && msg.auto_choice){
+          setTimeout(()=>{
+            const button = reactionOfferList?.querySelector("button");
+            if (button) button.click();
+          }, 120);
         }
       } else if (msg.type === "attack_result"){
         const me = getClaimedUnit();
@@ -19422,11 +19556,20 @@ __DAMAGE_TYPE_OPTIONS__
     useReactionBtn.addEventListener("click", () => {
       if (isMapView) return;
       if (!claimedCid) return;
+      sendReactionPrefsUpdate();
       openActionPicker("reaction");
+    });
+  }
+  if (reactionOfferDecline){
+    reactionOfferDecline.addEventListener("click", () => {
+      send({type:"reaction_response", cid: claimedCid, request_id: pendingReactionRequestId, choice:"decline"});
+      pendingReactionRequestId = "";
+      if (reactionOfferModal){ reactionOfferModal.classList.remove("show"); reactionOfferModal.setAttribute("aria-hidden", "true"); }
     });
   }
   if (warCasterCancelBtn){
     warCasterCancelBtn.addEventListener("click", () => {
+      pendingReactionRequestId = "";
       setWarCasterModalOpen(false);
     });
   }
@@ -19462,6 +19605,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const msg = {
         type: "cast_spell",
+        reaction_request_id: pendingReactionRequestId || undefined,
         payload,
         action_type: "reaction",
         spell_slug: normalizeTextValue(getPresetSlug(preset)) || null,
