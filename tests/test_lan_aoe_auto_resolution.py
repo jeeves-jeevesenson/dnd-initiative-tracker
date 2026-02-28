@@ -135,7 +135,7 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
             "payload": {
                 "shape": "sphere",
                 "name": "Frost Burst",
-                "radius_ft": 20,
+                "radius_ft": 40,
                 "cx": 5,
                 "cy": 4,
             },
@@ -156,6 +156,34 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         self.assertIn("Orc save DEX PASS (15 vs DC 14) -> 4 Cold damage", log_text)
 
 
+
+    def test_cast_aoe_does_not_hit_caster(self):
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 31,
+            "spell_slug": "frost-burst",
+            "slot_level": 3,
+            "payload": {
+                "shape": "sphere",
+                "name": "Frost Burst",
+                "radius_ft": 20,
+                "cx": 3,
+                "cy": 2,
+            },
+        }
+        # Goblin fails and Orc passes; caster is excluded from own AoE.
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 2, 3, 15, 4, 4]):
+            self.app._lan_apply_action(msg)
+
+        self.assertEqual(self.app.combatants[1].hp, 35)
+        self.assertEqual(self.app.combatants[2].hp, 15)
+        self.assertEqual(self.app.combatants[3].hp, 16)
+        log_text = "\n".join(entry for _cid, entry in self.logs)
+        self.assertNotIn("Frost Burst: Aelar save", log_text)
+        self.assertIn("Frost Burst: Goblin save DEX FAIL", log_text)
+        self.assertIn("Frost Burst: Orc save DEX PASS", log_text)
     def test_cast_aoe_manual_damage_override_uses_entries_and_save_multiplier(self):
         msg = {
             "type": "cast_aoe",
