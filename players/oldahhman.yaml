@@ -13,6 +13,7 @@ leveling:
   - name: Monk
     subclass: Warrior of the Elements
     level: 10
+    attacks_per_action: 2
 abilities:
   str: 18
   dex: 14
