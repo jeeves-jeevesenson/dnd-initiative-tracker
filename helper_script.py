@@ -6372,7 +6372,8 @@ class BattleMapWindow(tk.Toplevel):
         ttk.Button(dm_btn_row, text="Prev Turn", command=self._dm_prev_turn).grid(row=0, column=1, sticky="ew", padx=(6, 0))
         ttk.Button(dm_btn_row, text="Next Turn", command=self._dm_next_turn).grid(row=1, column=0, sticky="ew", pady=(6, 0))
         ttk.Button(dm_btn_row, text="Stand Up", command=self._dm_stand_up_target).grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=(6, 0))
-        ttk.Button(dm_btn_row, text="Sneak", command=self._dm_sneak_target).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        ttk.Button(dm_btn_row, text="Action…", command=self._dm_open_action_picker_target).grid(row=2, column=0, sticky="ew", pady=(6, 0))
+        ttk.Button(dm_btn_row, text="Sneak", command=self._dm_sneak_target).grid(row=2, column=1, sticky="ew", padx=(6, 0), pady=(6, 0))
         dm_btn_row.columnconfigure(0, weight=1)
         dm_btn_row.columnconfigure(1, weight=1)
         mode_row = ttk.Frame(dm_ctrl)
@@ -7028,6 +7029,136 @@ class BattleMapWindow(tk.Toplevel):
         reason = str(result.get("reason") or "").strip()
         if not bool(result.get("ok")) and reason:
             messagebox.showinfo("Sneak", reason, parent=self)
+
+
+    def _dm_action_entries_for(self, combatant: Combatant) -> List[Dict[str, str]]:
+        entries: List[Dict[str, str]] = []
+
+        def _append_from(raw: Any, spend: str) -> None:
+            if not isinstance(raw, list):
+                return
+            for action in raw:
+                if not isinstance(action, dict):
+                    continue
+                name = str(action.get("name") or "").strip()
+                if not name:
+                    continue
+                desc = str(action.get("description") or "").strip()
+                entries.append({"name": name, "description": desc, "spend": spend, "kind": "sheet"})
+
+        _append_from(getattr(combatant, "actions", []), "action")
+        _append_from(getattr(combatant, "bonus_actions", []), "bonus")
+        _append_from(getattr(combatant, "reactions", []), "reaction")
+        entries.extend(
+            [
+                {"name": "Custom Action…", "description": "Spend 1 action and log a custom ability.", "spend": "action", "kind": "custom"},
+                {"name": "Custom Bonus Action…", "description": "Spend 1 bonus action and log a custom ability.", "spend": "bonus", "kind": "custom"},
+                {"name": "Custom Reaction…", "description": "Spend 1 reaction and log a custom ability.", "spend": "reaction", "kind": "custom"},
+            ]
+        )
+        return entries
+
+    def _dm_open_action_picker_target(self) -> None:
+        cid = self._dm_action_target_cid()
+        if cid is None:
+            messagebox.showinfo("Action Picker", "Select a unit token first.", parent=self)
+            return
+        combatant = self.app.combatants.get(cid)
+        if not combatant:
+            return
+
+        entries = self._dm_action_entries_for(combatant)
+        if not entries:
+            messagebox.showinfo("Action Picker", f"{combatant.name} has no listed actions.", parent=self)
+            return
+
+        dlg = tk.Toplevel(self)
+        dlg.title(f"Action Picker — {combatant.name}")
+        dlg.transient(self)
+
+        frm = ttk.Frame(dlg, padding=10)
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        listbox = tk.Listbox(frm, exportselection=False, height=14, width=48)
+        listbox.grid(row=0, column=0, sticky="nsew")
+        sb = ttk.Scrollbar(frm, orient=tk.VERTICAL, command=listbox.yview)
+        sb.grid(row=0, column=1, sticky="ns")
+        listbox.configure(yscrollcommand=sb.set)
+        info_var = tk.StringVar(value="")
+        ttk.Label(frm, textvariable=info_var, wraplength=420, justify="left").grid(row=1, column=0, columnspan=2, sticky="we", pady=(8, 0))
+
+        frm.rowconfigure(0, weight=1)
+        frm.columnconfigure(0, weight=1)
+
+        def _spend_label(raw: str) -> str:
+            return "Bonus Action" if raw == "bonus" else ("Reaction" if raw == "reaction" else "Action")
+
+        for entry in entries:
+            listbox.insert(tk.END, f"{entry['name']} ({_spend_label(entry['spend'])})")
+
+        def _current_entry() -> Optional[Dict[str, str]]:
+            sel = listbox.curselection()
+            if not sel:
+                return None
+            idx = int(sel[0])
+            if idx < 0 or idx >= len(entries):
+                return None
+            return entries[idx]
+
+        def _refresh_info(_evt: Optional[tk.Event] = None) -> None:
+            entry = _current_entry()
+            info_var.set(str(entry.get("description") or "") if entry else "")
+
+        def _perform_selected() -> None:
+            entry = _current_entry()
+            if not entry:
+                return
+            action_name = str(entry.get("name") or "Action")
+            note = ""
+            if str(entry.get("kind") or "") == "custom":
+                typed_name = simpledialog.askstring("Custom Action", "Action name:", parent=dlg)
+                typed_name = str(typed_name or "").strip()
+                if not typed_name:
+                    return
+                note = str(simpledialog.askstring("Custom Action", "Optional note:", parent=dlg) or "").strip()
+                action_name = typed_name
+
+            spend = str(entry.get("spend") or "action")
+            if spend == "bonus":
+                ok = bool(self.app._use_bonus_action(combatant, log_message=f"{combatant.name} used {action_name} (bonus action)"))
+                spend_label = "bonus action"
+            elif spend == "reaction":
+                ok = bool(self.app._use_reaction(combatant, log_message=f"{combatant.name} used {action_name} (reaction)"))
+                spend_label = "reaction"
+            else:
+                ok = bool(self.app._use_action(combatant, log_message=f"{combatant.name} used {action_name} (action)"))
+                spend_label = "action"
+            if not ok:
+                messagebox.showinfo("Action Picker", f"No {spend_label}s remaining for {combatant.name}.", parent=dlg)
+                return
+            if note:
+                self.app._log(f"{combatant.name}: {note}", cid=combatant.cid)
+            try:
+                self.app.start_last_var.set(f"{combatant.name}: {action_name} ({spend_label})")
+            except Exception:
+                pass
+            try:
+                self.app._rebuild_table(scroll_to_current=True)
+            except Exception:
+                pass
+            self._update_move_highlight()
+            dlg.destroy()
+
+        btn_row = ttk.Frame(frm)
+        btn_row.grid(row=2, column=0, columnspan=2, sticky="e", pady=(10, 0))
+        ttk.Button(btn_row, text="Use Selected", command=_perform_selected).pack(side=tk.LEFT)
+        ttk.Button(btn_row, text="Close", command=dlg.destroy).pack(side=tk.LEFT, padx=(8, 0))
+
+        listbox.bind("<<ListboxSelect>>", _refresh_info)
+        listbox.bind("<Double-Button-1>", lambda _e: _perform_selected())
+        if entries:
+            listbox.selection_set(0)
+            _refresh_info()
 
     def _clear_obstacles(self) -> None:
         self.obstacles.clear()

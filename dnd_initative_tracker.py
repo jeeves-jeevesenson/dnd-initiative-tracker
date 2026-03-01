@@ -1341,7 +1341,6 @@ class LanController:
         "set_facing",
         "dash",
         "perform_action",
-        "perform_custom_action",
         "end_turn",
         "use_action",
         "use_bonus_action",
@@ -20997,40 +20996,6 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._rebuild_table(scroll_to_current=True)
             except Exception:
                 pass
-        elif typ == "perform_custom_action":
-            c = self.combatants.get(cid)
-            if not c:
-                return
-            spend_raw = str(msg.get("spend") or "action").lower()
-            if spend_raw in ("bonus", "bonus_action"):
-                spend = "bonus"
-            elif spend_raw == "reaction":
-                spend = "reaction"
-            else:
-                spend = "action"
-            action_name = str(msg.get("action") or msg.get("name") or "Custom Action").strip() or "Custom Action"
-            note = str(msg.get("note") or "").strip()
-            if spend == "bonus":
-                if not self._use_bonus_action(c):
-                    self._lan.toast(ws_id, "No bonus actions left, matey.")
-                    return
-                spend_label = "bonus action"
-            elif spend == "reaction":
-                if not self._use_reaction(c):
-                    self._lan.toast(ws_id, "No reactions left, matey.")
-                    return
-                spend_label = "reaction"
-            else:
-                if not self._use_action(c):
-                    self._lan.toast(ws_id, "No actions left, matey.")
-                    return
-                spend_label = "action"
-            log_line = f"{c.name} used custom action: {action_name} ({spend_label})"
-            if note:
-                log_line += f" — {note}"
-            self._log(log_line, cid=cid)
-            self._lan.toast(ws_id, f"Used {action_name} ({spend_label}).")
-            self._rebuild_table(scroll_to_current=True)
         elif typ == "perform_action":
             c = self.combatants.get(cid)
             if not c:
