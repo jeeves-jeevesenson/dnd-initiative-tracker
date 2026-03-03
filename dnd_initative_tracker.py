@@ -22859,6 +22859,22 @@ class InitiativeTracker(base.InitiativeTracker):
             if not selected_weapon:
                 self._lan.toast(ws_id, "Pick one of yer configured weapons first, matey.")
                 return
+            inline_weapon = msg.get("weapon") if isinstance(msg.get("weapon"), dict) else {}
+            selected_mode = str(selected_weapon.get("selected_mode") or "").strip().lower()
+            inline_selected_mode = str(inline_weapon.get("selected_mode") or "").strip().lower()
+            if inline_selected_mode in ("one", "two"):
+                selected_mode = inline_selected_mode
+            selected_mode = "two" if selected_mode == "two" else "one"
+            def _selected_weapon_mode_block(entry: Any) -> Dict[str, Any]:
+                one_handed = entry.get("one_handed") if isinstance(entry.get("one_handed"), dict) else {}
+                two_handed = entry.get("two_handed") if isinstance(entry.get("two_handed"), dict) else {}
+                if selected_mode == "two" and str(two_handed.get("damage_formula") or "").strip():
+                    return two_handed
+                if str(one_handed.get("damage_formula") or "").strip():
+                    return one_handed
+                if str(two_handed.get("damage_formula") or "").strip():
+                    return two_handed
+                return one_handed or two_handed
             is_unarmed_strike = self._is_unarmed_strike_weapon(selected_weapon)
             attunement_active = self._elemental_attunement_active(c)
             monk_level = self._class_level_from_profile(profile, "monk") if isinstance(profile, dict) else 0
@@ -23163,9 +23179,7 @@ class InitiativeTracker(base.InitiativeTracker):
             variables = _damage_formula_variables(profile)
             graze_applied = False
             if auto_roll:
-                mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
-                if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
-                    mode_block = selected_weapon.get("two_handed")
+                mode_block = _selected_weapon_mode_block(selected_weapon)
                 mode_formula = mode_block.get("damage_formula") if isinstance(mode_block, dict) else ""
                 mode_damage = _roll_damage_formula(mode_formula, variables, dice_multiplier=2 if auto_crit else 1)
                 mode_type = str((mode_block or {}).get("damage_type") or "").strip().lower() if isinstance(mode_block, dict) else ""
@@ -23185,9 +23199,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     damage_entries.append({"amount": int(magic_bonus), "type": mode_type or "damage"})
                 damage_entries.extend(_parse_effect_damage_entries(effect_block.get("on_hit"), variables, dice_multiplier=2 if auto_crit else 1))
             if weapon_mastery_enabled and ("graze" in effective_masteries) and not hit:
-                mode_block = selected_weapon.get("one_handed") if isinstance(selected_weapon.get("one_handed"), dict) else {}
-                if not str(mode_block.get("damage_formula") or "").strip() and isinstance(selected_weapon.get("two_handed"), dict):
-                    mode_block = selected_weapon.get("two_handed")
+                mode_block = _selected_weapon_mode_block(selected_weapon)
                 graze_damage = max(0, _weapon_mastery_damage_ability_mod(selected_weapon, profile, variables))
                 mode_type = str((mode_block or {}).get("damage_type") or "").strip().lower() if isinstance(mode_block, dict) else ""
                 if override_honored:

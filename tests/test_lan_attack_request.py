@@ -265,6 +265,40 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertEqual(result.get("attack_count"), 2)
 
+    def test_attack_request_prefers_two_handed_formula_when_selected_mode_is_two(self):
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_to_hit": 5,
+                "weapons": [
+                    {
+                        "id": "versatile_blade",
+                        "name": "Versatile Blade",
+                        "to_hit": 5,
+                        "one_handed": {"damage_formula": "1d8", "damage_type": "slashing"},
+                        "two_handed": {"damage_formula": "1d10", "damage_type": "slashing"},
+                    },
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 77,
+            "target_cid": 2,
+            "weapon_id": "versatile_blade",
+            "hit": True,
+            "weapon": {"id": "versatile_blade", "selected_mode": "two"},
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=lambda _lo, hi: hi):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("damage_total"), 10)
+
     def test_wild_shape_attack_count_grants_matching_attack_resources(self):
         self.app.combatants[1].is_wild_shaped = True
         self.app.combatants[1].action_remaining = 1
