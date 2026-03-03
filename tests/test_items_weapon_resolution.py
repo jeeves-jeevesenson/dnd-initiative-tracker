@@ -244,6 +244,28 @@ class ItemsWeaponResolutionTests(unittest.TestCase):
         self.assertEqual(weapon["properties"], ["two_handed", "heavy_weapon"])
         self.assertEqual(weapon["selected_mode"], "two")
 
+    def test_normalize_player_weapon_preserves_equipped_and_hand_flags(self):
+        player = {
+            "name": "Test",
+            "attacks": {
+                "weapons": [
+                    {
+                        "id": "shortsword",
+                        "equipped": False,
+                        "main_hand": "true",
+                        "off_hand": 0,
+                    }
+                ]
+            },
+        }
+        with mock.patch.object(tracker_mod.InitiativeTracker, "_items_registry_payload", return_value={"weapons": {}, "armors": {}}):
+            normalized = self.app._normalize_player_profile(player, "Test")
+
+        weapon = normalized["attacks"]["weapons"][0]
+        self.assertFalse(weapon["equipped"])
+        self.assertTrue(weapon["main_hand"])
+        self.assertFalse(weapon["off_hand"])
+
 
 
 if __name__ == "__main__":

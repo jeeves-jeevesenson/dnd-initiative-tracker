@@ -33,6 +33,7 @@ class LanAttackRequestTests(unittest.TestCase):
         self.app.current_cid = 1
         self.app._map_window = None
         self.app._name_role_memory = {"Aelar": "pc", "Goblin": "enemy"}
+        self.app._reaction_prefs_by_cid = {}
         self.app._lan_positions = {1: (5, 5), 2: (5, 4)}
         self.app._lan_live_map_data = lambda: (20, 20, set(), {}, dict(self.app._lan_positions))
         self.app.combatants = {
@@ -217,6 +218,35 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(result.get("weapon_name"), "Battleaxe")
         self.assertEqual(result.get("to_hit"), 8)
         self.assertNotIn((22, "Pick one of yer configured weapons first, matey."), self.toasts)
+
+    def test_attack_request_defaults_to_main_hand_weapon_when_equipped_flag_missing(self):
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_to_hit": 5,
+                "weapons": [
+                    {"id": "shortbow", "name": "Shortbow", "to_hit": 6},
+                    {"id": "battleaxe", "name": "Battleaxe", "to_hit": 8, "main_hand": True},
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 23,
+            "target_cid": 2,
+            "attack_roll": 10,
+            "attack_count": 1,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("weapon_name"), "Battleaxe")
+        self.assertEqual(result.get("to_hit"), 8)
+        self.assertNotIn((23, "Pick one of yer configured weapons first, matey."), self.toasts)
 
     def test_attack_request_defaults_attack_count_from_class_configuration(self):
         msg = {

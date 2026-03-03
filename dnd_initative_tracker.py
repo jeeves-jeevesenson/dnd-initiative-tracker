@@ -12544,6 +12544,15 @@ class InitiativeTracker(base.InitiativeTracker):
             except Exception:
                 return None
 
+        def normalize_attack_bool(value: Any, fallback: bool = False) -> bool:
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, (int, float)):
+                return bool(value)
+            if isinstance(value, str):
+                return value.strip().lower() in ("1", "true", "yes", "on")
+            return fallback
+
         for key in ("melee_attack_mod", "ranged_attack_mod", "weapon_to_hit"):
             if key in attacks:
                 normalized_value = normalize_attack_int(attacks.get(key))
@@ -12588,6 +12597,18 @@ class InitiativeTracker(base.InitiativeTracker):
                 weapon["properties"] = normalized_properties
                 selected_mode = str(weapon.get("selected_mode") or player_weapon_entry.get("selected_mode") or "").strip().lower()
                 weapon["selected_mode"] = "two" if selected_mode == "two" else "one"
+                weapon["equipped"] = normalize_attack_bool(
+                    player_weapon_entry.get("equipped"),
+                    normalize_attack_bool(weapon.get("equipped")),
+                )
+                weapon["main_hand"] = normalize_attack_bool(
+                    player_weapon_entry.get("main_hand"),
+                    normalize_attack_bool(weapon.get("main_hand")),
+                )
+                weapon["off_hand"] = normalize_attack_bool(
+                    player_weapon_entry.get("off_hand"),
+                    normalize_attack_bool(weapon.get("off_hand")),
+                )
                 weapon["mastery"] = str(weapon.get("mastery") or "").strip().lower()
                 weapon["one_handed"] = {
                     "damage_formula": str(one_handed.get("damage_formula") or "").strip(),
@@ -22678,13 +22699,18 @@ class InitiativeTracker(base.InitiativeTracker):
             weapons = attacks.get("weapons") if isinstance(attacks, dict) else []
             selected_weapon: Dict[str, Any] = {}
             def _weapon_equipped_flag(entry: Dict[str, Any]) -> bool:
-                raw = entry.get("equipped")
-                if isinstance(raw, bool):
-                    return raw
-                if isinstance(raw, (int, float)):
-                    return bool(raw)
-                if isinstance(raw, str):
-                    return raw.strip().lower() in ("1", "true", "yes", "on")
+                for key in ("equipped", "main_hand", "off_hand"):
+                    raw = entry.get(key)
+                    if isinstance(raw, bool):
+                        if raw:
+                            return True
+                        continue
+                    if isinstance(raw, (int, float)):
+                        if bool(raw):
+                            return True
+                        continue
+                    if isinstance(raw, str) and raw.strip().lower() in ("1", "true", "yes", "on"):
+                        return True
                 return False
             if isinstance(weapons, list):
                 target_weapon_id = weapon_id.lower()
