@@ -6291,12 +6291,18 @@ __DAMAGE_TYPE_OPTIONS__
     return getSelectedMainhandWeapon();
   }
 
-  function getMonkLevelFromProfile(profile){
+  function getClassLevelFromProfile(profile, className){
     const classes = profile?.leveling?.classes;
     if (!Array.isArray(classes)) return 0;
+    const classKey = normalizeLowerValue(className);
+    if (!classKey) return 0;
     return classes
-      .filter((entry) => normalizeLowerValue(entry?.name) === "monk")
+      .filter((entry) => normalizeLowerValue(entry?.name) === classKey)
       .reduce((sum, entry) => sum + Math.max(0, Number(entry?.level || 0)), 0);
+  }
+
+  function getMonkLevelFromProfile(profile){
+    return getClassLevelFromProfile(profile, "monk");
   }
 
   function unitHasElementalAttunement(unit){
