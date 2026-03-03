@@ -18838,6 +18838,7 @@ class InitiativeTracker(base.InitiativeTracker):
             self._log(f"{getattr(c, 'name', 'Player')} manual override: {', '.join(updates)}.", cid=cid)
             self._lan.toast(ws_id, "Manual override applied.")
             self._rebuild_table(scroll_to_current=True)
+            self._lan_force_state_broadcast()
             return
 
         if typ == "manual_override_spell_slot":
@@ -18881,6 +18882,7 @@ class InitiativeTracker(base.InitiativeTracker):
             )
             self._lan.toast(ws_id, f"Level {slot_level} spell slots updated.")
             self._rebuild_table(scroll_to_current=True)
+            self._lan_force_state_broadcast()
             return
 
         if typ == "manual_override_resource_pool":
@@ -18917,6 +18919,7 @@ class InitiativeTracker(base.InitiativeTracker):
             )
             self._lan.toast(ws_id, f"{pool_label} updated.")
             self._rebuild_table(scroll_to_current=True)
+            self._lan_force_state_broadcast()
             return
 
         # Only allow controlling on your turn (POC)

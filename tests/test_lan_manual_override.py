@@ -14,6 +14,8 @@ class LanManualOverrideTests(unittest.TestCase):
         app._log = lambda message, cid=None: app._log_messages.append((cid, message))
         app._rebuild_calls = 0
         app._rebuild_table = lambda scroll_to_current=True: setattr(app, "_rebuild_calls", app._rebuild_calls + 1)
+        app._broadcast_calls = 0
+        app._lan_force_state_broadcast = lambda: setattr(app, "_broadcast_calls", app._broadcast_calls + 1)
         app.in_combat = True
         app.current_cid = 1
         app.round_num = 1
@@ -44,6 +46,7 @@ class LanManualOverrideTests(unittest.TestCase):
         self.assertEqual(app.combatants[1].hp, 20)
         self.assertEqual(app.combatants[1].temp_hp, 0)
         self.assertEqual(app._rebuild_calls, 1)
+        self.assertEqual(app._broadcast_calls, 1)
         self.assertTrue(any("manual override" in message for _cid, message in app._log_messages))
         self.assertIn((15, "Manual override applied."), app._lan_toasts)
 
@@ -66,6 +69,7 @@ class LanManualOverrideTests(unittest.TestCase):
         self.assertEqual(saved_payloads[0][0], "Alyra")
         self.assertEqual(saved_payloads[0][1]["1"]["current"], 3)
         self.assertEqual(app._rebuild_calls, 1)
+        self.assertEqual(app._broadcast_calls, 1)
         self.assertIn((16, "Level 1 spell slots updated."), app._lan_toasts)
 
     def test_manual_override_resource_pool_updates_and_logs(self):
@@ -89,6 +93,7 @@ class LanManualOverrideTests(unittest.TestCase):
 
         self.assertEqual(set_calls, [("Alyra", "focus_points", 1)])
         self.assertEqual(app._rebuild_calls, 1)
+        self.assertEqual(app._broadcast_calls, 1)
         self.assertTrue(any("Focus Points 2->1 (-1)" in message for _cid, message in app._log_messages))
         self.assertIn((17, "Focus Points updated."), app._lan_toasts)
 
