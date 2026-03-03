@@ -2309,6 +2309,32 @@
       opacity:0.45;
       cursor:not-allowed;
     }
+    .manual-override-grid{
+      margin-top:10px;
+      display:grid;
+      gap:10px;
+    }
+    .manual-override-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+    .manual-override-list{
+      display:grid;
+      gap:8px;
+    }
+    .manual-override-item{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .manual-override-item .label{
+      font-size:12px;
+      color:var(--muted);
+    }
     .turn-order-status{
       margin-top: 6px;
       font-size: 12px;
@@ -2394,6 +2420,7 @@
       <div class="spacer"></div>
       <button class="btn" id="planningBtn" type="button">Planning Mode</button>
       <button class="btn" id="inventoryBtn" type="button" aria-pressed="false" aria-controls="inventoryModal" aria-expanded="false">Inventory</button>
+      <button class="btn" id="manualOverrideBtn" type="button">Manual Override</button>
       <button class="btn" id="planningAoeBtn" type="button">Place AoE</button>
       <button class="btn" id="planningChatBtn" type="button" aria-pressed="false">Chat</button>
       <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
@@ -3706,6 +3733,30 @@ __DAMAGE_TYPE_OPTIONS__
     </div>
   </div>
 </div>
+<div class="modal" id="manualOverrideModal" aria-hidden="true">
+  <div class="card">
+    <h2>Manual Override</h2>
+    <div class="spellbook-status" id="manualOverrideStatus">Adjust HP, temp HP, spell slots, and resource pools.</div>
+    <div class="manual-override-grid">
+      <div class="manual-override-row">
+        <label for="manualOverrideAmount">Amount</label>
+        <input id="manualOverrideAmount" type="number" min="1" step="1" value="1" style="max-width:120px;" />
+      </div>
+      <div class="manual-override-row" id="manualOverrideHpControls"></div>
+      <div>
+        <div class="spellbook-status">Spell Slots</div>
+        <div class="manual-override-list" id="manualOverrideSpellSlots"></div>
+      </div>
+      <div>
+        <div class="spellbook-status">Resource Pools</div>
+        <div class="manual-override-list" id="manualOverridePools"></div>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn" id="manualOverrideClose" type="button">Close</button>
+    </div>
+  </div>
+</div>
 <div class="modal" id="poolSpellConfirmModal" aria-hidden="true">
   <div class="card pool-spell-confirm-card">
     <h2 id="poolSpellConfirmTitle">Confirm Cast</h2>
@@ -4550,6 +4601,7 @@ __DAMAGE_TYPE_OPTIONS__
   const castManualEntryBadge = document.getElementById("castManualEntryBadge");
   const planningBtn = document.getElementById("planningBtn");
   const inventoryBtn = document.getElementById("inventoryBtn");
+  const manualOverrideBtn = document.getElementById("manualOverrideBtn");
   const inventoryModal = document.getElementById("inventoryModal");
   const inventoryCloseBtn = document.getElementById("inventoryCloseBtn");
   const inventoryRow = document.getElementById("inventoryRow");
@@ -4605,6 +4657,13 @@ __DAMAGE_TYPE_OPTIONS__
   const resourcePoolDetailActions = document.getElementById("resourcePoolDetailActions");
   const resourcePoolDetailSpells = document.getElementById("resourcePoolDetailSpells");
   const resourcePoolDetailCloseBtn = document.getElementById("resourcePoolDetailClose");
+  const manualOverrideModal = document.getElementById("manualOverrideModal");
+  const manualOverrideStatus = document.getElementById("manualOverrideStatus");
+  const manualOverrideAmountInput = document.getElementById("manualOverrideAmount");
+  const manualOverrideHpControls = document.getElementById("manualOverrideHpControls");
+  const manualOverrideSpellSlots = document.getElementById("manualOverrideSpellSlots");
+  const manualOverridePools = document.getElementById("manualOverridePools");
+  const manualOverrideCloseBtn = document.getElementById("manualOverrideClose");
   const poolSpellConfirmModal = document.getElementById("poolSpellConfirmModal");
   const poolSpellConfirmTitle = document.getElementById("poolSpellConfirmTitle");
   const poolSpellConfirmMessage = document.getElementById("poolSpellConfirmMessage");
@@ -7061,6 +7120,139 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
 
+  function manualOverrideAmount(){
+    const raw = Number(manualOverrideAmountInput?.value || 1);
+    const amount = Number.isFinite(raw) ? Math.floor(raw) : 1;
+    return Math.max(1, amount);
+  }
+
+  function setManualOverrideModalOpen(open){
+    setModalOpen(manualOverrideModal, open);
+    if (!open) return;
+    renderManualOverridePanel();
+  }
+
+  function renderManualOverridePanel(){
+    if (!manualOverrideStatus || !manualOverrideHpControls || !manualOverrideSpellSlots || !manualOverridePools){
+      return;
+    }
+    const unit = getClaimedUnit();
+    if (!unit){
+      manualOverrideStatus.textContent = "Claim a character first, matey.";
+      manualOverrideHpControls.textContent = "";
+      manualOverrideSpellSlots.textContent = "";
+      manualOverridePools.textContent = "";
+      return;
+    }
+    const amount = manualOverrideAmount();
+    const hp = Number(unit?.hp || 0);
+    const maxHp = Number(unit?.max_hp || unit?.hp || 0);
+    const tempHp = Number(unit?.temp_hp || 0);
+    manualOverrideStatus.textContent = `HP ${hp}/${maxHp} · Temp HP ${tempHp}`;
+    const claimedCid = activeControlledUnitCid();
+    const sendOverride = (payload) => {
+      if (claimedCid === null){
+        localToast("Claim a character first, matey.");
+        return;
+      }
+      send({...payload, cid: claimedCid});
+    };
+    manualOverrideHpControls.textContent = "";
+    [
+      {label: `HP -${amount}`, hp_delta: -amount},
+      {label: `HP +${amount}`, hp_delta: amount},
+      {label: `Temp HP -${amount}`, temp_hp_delta: -amount},
+      {label: `Temp HP +${amount}`, temp_hp_delta: amount},
+    ].forEach((entry) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn";
+      btn.textContent = entry.label;
+      btn.addEventListener("click", () => sendOverride({
+        type: "manual_override_hp",
+        hp_delta: Number(entry.hp_delta || 0),
+        temp_hp_delta: Number(entry.temp_hp_delta || 0),
+      }));
+      manualOverrideHpControls.appendChild(btn);
+    });
+
+    manualOverrideSpellSlots.textContent = "";
+    const playerName = getClaimedPlayerName();
+    const profile = getPlayerProfile(playerName);
+    const slots = getSpellSlotLevels(profile).filter((entry) => entry.max > 0);
+    if (!slots.length){
+      const empty = document.createElement("div");
+      empty.className = "label";
+      empty.textContent = "No spell slots.";
+      manualOverrideSpellSlots.appendChild(empty);
+    } else {
+      slots.forEach((entry) => {
+        const row = document.createElement("div");
+        row.className = "manual-override-item";
+        const label = document.createElement("span");
+        label.className = "label";
+        label.textContent = `Level ${entry.level}: ${entry.current}/${entry.max}`;
+        const controls = document.createElement("div");
+        controls.className = "manual-override-row";
+        const dec = document.createElement("button");
+        dec.type = "button";
+        dec.className = "btn";
+        dec.textContent = `-${amount}`;
+        dec.disabled = entry.current <= 0;
+        dec.addEventListener("click", () => sendOverride({type: "manual_override_spell_slot", slot_level: entry.level, delta: -amount}));
+        const inc = document.createElement("button");
+        inc.type = "button";
+        inc.className = "btn";
+        inc.textContent = `+${amount}`;
+        inc.disabled = entry.current >= entry.max;
+        inc.addEventListener("click", () => sendOverride({type: "manual_override_spell_slot", slot_level: entry.level, delta: amount}));
+        controls.appendChild(dec);
+        controls.appendChild(inc);
+        row.appendChild(label);
+        row.appendChild(controls);
+        manualOverrideSpellSlots.appendChild(row);
+      });
+    }
+
+    manualOverridePools.textContent = "";
+    const pools = getPlayerResourcePools(playerName).filter((pool) => Number(pool?.max || 0) > 0);
+    if (!pools.length){
+      const empty = document.createElement("div");
+      empty.className = "label";
+      empty.textContent = "No resource pools.";
+      manualOverridePools.appendChild(empty);
+    } else {
+      pools.forEach((pool) => {
+        const current = Number(pool.current || 0);
+        const max = Number(pool.max || 0);
+        const row = document.createElement("div");
+        row.className = "manual-override-item";
+        const label = document.createElement("span");
+        label.className = "label";
+        label.textContent = `${pool.label || pool.id}: ${current}/${max}`;
+        const controls = document.createElement("div");
+        controls.className = "manual-override-row";
+        const dec = document.createElement("button");
+        dec.type = "button";
+        dec.className = "btn";
+        dec.textContent = `-${amount}`;
+        dec.disabled = current <= 0;
+        dec.addEventListener("click", () => sendOverride({type: "manual_override_resource_pool", pool_id: pool.id, delta: -amount}));
+        const inc = document.createElement("button");
+        inc.type = "button";
+        inc.className = "btn";
+        inc.textContent = `+${amount}`;
+        inc.disabled = current >= max;
+        inc.addEventListener("click", () => sendOverride({type: "manual_override_resource_pool", pool_id: pool.id, delta: amount}));
+        controls.appendChild(dec);
+        controls.appendChild(inc);
+        row.appendChild(label);
+        row.appendChild(controls);
+        manualOverridePools.appendChild(row);
+      });
+    }
+  }
+
   function normalizePreparedSpellList(list){
     if (!Array.isArray(list)) return [];
     return list.map(normalizeTextValue).filter(Boolean);
@@ -8371,6 +8563,9 @@ __DAMAGE_TYPE_OPTIONS__
     "aoe_remove",
     "save_preset",
     "lay_on_hands_use",
+    "manual_override_hp",
+    "manual_override_spell_slot",
+    "manual_override_resource_pool",
     "monk_patient_defense",
     "monk_step_of_wind",
     "monk_elemental_attunement",
@@ -13316,6 +13511,9 @@ __DAMAGE_TYPE_OPTIONS__
     }
     renderSpellSlotMonitor();
     renderResourcePools();
+    if (manualOverrideModal?.classList.contains("show")){
+      renderManualOverridePanel();
+    }
     updateTurnOrder();
     updateSpellPanelVisibility();
     updateResourceGatedControls();
@@ -20261,6 +20459,9 @@ __DAMAGE_TYPE_OPTIONS__
       refreshInventorySlotSelectors();
     });
   }
+  if (manualOverrideBtn){
+    manualOverrideBtn.addEventListener("click", () => setManualOverrideModalOpen(true));
+  }
   if (inventoryCloseBtn){
     inventoryCloseBtn.addEventListener("click", () => {
       setInventoryPanelOpen(false);
@@ -20610,6 +20811,17 @@ __DAMAGE_TYPE_OPTIONS__
   }
   if (resourcePoolDetailCloseBtn){
     resourcePoolDetailCloseBtn.addEventListener("click", () => setResourcePoolDetailOverlayOpen(false));
+  }
+  if (manualOverrideCloseBtn){
+    manualOverrideCloseBtn.addEventListener("click", () => setManualOverrideModalOpen(false));
+  }
+  if (manualOverrideAmountInput){
+    manualOverrideAmountInput.addEventListener("change", () => {
+      if (manualOverrideAmountInput.value === "" || Number(manualOverrideAmountInput.value) < 1){
+        manualOverrideAmountInput.value = "1";
+      }
+      renderManualOverridePanel();
+    });
   }
   if (poolSpellConfirmCancelBtn){
     poolSpellConfirmCancelBtn.addEventListener("click", () => setPoolSpellConfirmModalOpen(false));

@@ -14,6 +14,9 @@ class LanActionMessageTypesAllowlistTests(unittest.TestCase):
             "mantle_of_inspiration",
             "reaction_prefs_update",
             "reaction_response",
+            "manual_override_hp",
+            "manual_override_spell_slot",
+            "manual_override_resource_pool",
         }
         action_types = set(tracker_mod.LanController._ACTION_MESSAGE_TYPES)
         self.assertTrue(required_types.issubset(action_types))

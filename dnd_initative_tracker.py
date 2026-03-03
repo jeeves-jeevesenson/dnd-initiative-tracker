@@ -1386,6 +1386,9 @@ class LanController:
         "monk_elemental_attunement",
         "monk_elemental_burst",
         "monk_uncanny_metabolism",
+        "manual_override_hp",
+        "manual_override_spell_slot",
+        "manual_override_resource_pool",
     )
 
     def __init__(self, app: "InitiativeTracker") -> None:
@@ -18796,6 +18799,119 @@ class InitiativeTracker(base.InitiativeTracker):
                 pass
             self._lan_force_state_broadcast()
             self._lan.toast(ws_id, "Player characters reset.")
+            return
+
+        if typ == "manual_override_hp":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            try:
+                hp_delta = int(msg.get("hp_delta") or 0)
+            except Exception:
+                hp_delta = 0
+            try:
+                temp_hp_delta = int(msg.get("temp_hp_delta") or 0)
+            except Exception:
+                temp_hp_delta = 0
+            if hp_delta == 0 and temp_hp_delta == 0:
+                self._lan.toast(ws_id, "Pick a non-zero override amount, matey.")
+                return
+            old_hp = int(getattr(c, "hp", 0) or 0)
+            max_hp = int(getattr(c, "max_hp", old_hp) or old_hp)
+            old_temp_hp = int(getattr(c, "temp_hp", 0) or 0)
+            new_hp = max(0, old_hp + hp_delta)
+            if max_hp > 0:
+                new_hp = min(new_hp, max_hp)
+            new_temp_hp = max(0, old_temp_hp + temp_hp_delta)
+            setattr(c, "hp", int(new_hp))
+            setattr(c, "temp_hp", int(new_temp_hp))
+            updates: List[str] = []
+            if hp_delta != 0:
+                updates.append(f"HP {old_hp}->{new_hp} ({hp_delta:+d})")
+            if temp_hp_delta != 0:
+                updates.append(f"Temp HP {old_temp_hp}->{new_temp_hp} ({temp_hp_delta:+d})")
+            self._log(f"{getattr(c, 'name', 'Player')} manual override: {', '.join(updates)}.", cid=cid)
+            self._lan.toast(ws_id, "Manual override applied.")
+            self._rebuild_table(scroll_to_current=True)
+            return
+
+        if typ == "manual_override_spell_slot":
+            player_name = self._pc_name_for(int(cid))
+            try:
+                slot_level = int(msg.get("slot_level"))
+                slot_delta = int(msg.get("delta"))
+            except Exception:
+                self._lan.toast(ws_id, "Pick a valid slot level and amount, matey.")
+                return
+            if slot_level < 1 or slot_level > 9 or slot_delta == 0:
+                self._lan.toast(ws_id, "Pick a valid slot level and amount, matey.")
+                return
+            try:
+                _resolved_name, slots = self._resolve_spell_slot_profile(player_name)
+            except Exception as exc:
+                self._lan.toast(ws_id, str(exc) or "No spell slots set up for that caster, matey.")
+                return
+            entry = slots.get(str(slot_level))
+            if not isinstance(entry, dict):
+                self._lan.toast(ws_id, "No spell slots at that level, matey.")
+                return
+            old_current = int(entry.get("current", 0) or 0)
+            max_current = int(entry.get("max", 0) or 0)
+            if max_current <= 0:
+                self._lan.toast(ws_id, "No spell slots at that level, matey.")
+                return
+            new_current = max(0, min(max_current, old_current + slot_delta))
+            entry["current"] = int(new_current)
+            slots[str(slot_level)] = entry
+            try:
+                self._save_player_spell_slots(player_name, slots)
+            except Exception:
+                self._lan.toast(ws_id, "Could not update spell slots, matey.")
+                return
+            c = self.combatants.get(cid)
+            actor_name = getattr(c, "name", player_name or "Player")
+            self._log(
+                f"{actor_name} manual override: level {slot_level} spell slots {old_current}->{new_current} ({slot_delta:+d}).",
+                cid=cid,
+            )
+            self._lan.toast(ws_id, f"Level {slot_level} spell slots updated.")
+            self._rebuild_table(scroll_to_current=True)
+            return
+
+        if typ == "manual_override_resource_pool":
+            player_name = self._pc_name_for(int(cid))
+            pool_id = str(msg.get("pool_id") or "").strip()
+            try:
+                pool_delta = int(msg.get("delta"))
+            except Exception:
+                pool_delta = 0
+            if not pool_id or pool_delta == 0:
+                self._lan.toast(ws_id, "Pick a valid pool and amount, matey.")
+                return
+            profile = self._profile_for_player_name(player_name)
+            pools = self._normalize_player_resource_pools(profile if isinstance(profile, dict) else {})
+            pool = next((entry for entry in pools if str(entry.get("id") or "").strip().lower() == pool_id.lower()), None)
+            if not isinstance(pool, dict):
+                self._lan.toast(ws_id, "That resource pool could not be found, matey.")
+                return
+            old_current = int(pool.get("current", 0) or 0)
+            max_current = int(pool.get("max", 0) or 0)
+            new_current = max(0, old_current + pool_delta)
+            if max_current > 0:
+                new_current = min(new_current, max_current)
+            ok_pool, pool_err = self._set_player_resource_pool_current(player_name, pool_id, int(new_current))
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err or "Could not update resource pools, matey.")
+                return
+            c = self.combatants.get(cid)
+            actor_name = getattr(c, "name", player_name or "Player")
+            pool_label = str(pool.get("label") or pool_id)
+            self._log(
+                f"{actor_name} manual override: {pool_label} {old_current}->{new_current} ({pool_delta:+d}).",
+                cid=cid,
+            )
+            self._lan.toast(ws_id, f"{pool_label} updated.")
+            self._rebuild_table(scroll_to_current=True)
             return
 
         # Only allow controlling on your turn (POC)
