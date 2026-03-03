@@ -32,6 +32,8 @@ class LanInventoryUiTests(unittest.TestCase):
 
         self.assertIn("function isInventoryItemEquipped(item, equippedSet)", source)
         self.assertIn("Array.isArray(inventory?.equipped)", source)
+        self.assertIn("const magicItems = profile?.magic_items;", source)
+        self.assertIn("Array.isArray(magicItems?.equipped)", source)
         self.assertIn("const equippedDefaults = getEquippedInventoryDefaultsBySlot();", source)
 
     def test_inventory_slot_matching_supports_explicit_tags_and_common_armor_names(self):

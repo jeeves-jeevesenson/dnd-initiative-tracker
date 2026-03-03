@@ -5841,7 +5841,12 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const id = normalizeCharacterLookupKey(item.id);
     const name = normalizeCharacterLookupKey(item.name);
-    return (id && equippedSet.has(id)) || (name && equippedSet.has(name));
+    const idSlug = characterSlugify(item.id);
+    const nameSlug = characterSlugify(item.name);
+    return (id && equippedSet.has(id))
+      || (name && equippedSet.has(name))
+      || (idSlug && equippedSet.has(idSlug))
+      || (nameSlug && equippedSet.has(nameSlug));
   }
 
   function getEquippedInventoryDefaultsBySlot(){
@@ -5854,12 +5859,30 @@ __DAMAGE_TYPE_OPTIONS__
       amulet: [],
       ring: [],
     };
+    const profile = getPlayerProfile(getClaimedPlayerName());
     const inventory = getClaimedInventory();
-    const equippedSet = new Set(
-      Array.isArray(inventory?.equipped)
-        ? inventory.equipped.map((entry) => normalizeCharacterLookupKey(entry)).filter(Boolean)
-        : []
-    );
+    const equippedSet = new Set();
+    const addLookupVariants = (entry) => {
+      const normalized = normalizeCharacterLookupKey(entry);
+      const slug = characterSlugify(entry);
+      if (normalized) equippedSet.add(normalized);
+      if (slug) equippedSet.add(slug);
+    };
+    if (Array.isArray(inventory?.equipped)){
+      inventory.equipped.forEach((entry) => addLookupVariants(entry));
+    }
+    const magicItems = profile?.magic_items;
+    if (Array.isArray(magicItems?.equipped)){
+      magicItems.equipped.forEach((entry) => addLookupVariants(entry));
+    }
+    if (Array.isArray(magicItems?.items)){
+      magicItems.items.forEach((entry) => {
+        if (!entry || typeof entry !== "object") return;
+        if (!isInventoryItemEquipped(entry, equippedSet)) return;
+        addLookupVariants(entry.id);
+        addLookupVariants(entry.name);
+      });
+    }
     getClaimedInventoryItems().forEach((item) => {
       if (!isInventoryItemEquipped(item, equippedSet)) return;
       const value = getInventoryItemValue(item);
