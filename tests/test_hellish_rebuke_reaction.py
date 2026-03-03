@@ -140,6 +140,16 @@ class HellishRebukeReactionTests(unittest.TestCase):
             self.app._lan_apply_action({"type": "hellish_rebuke_resolve", "cid": 1, "_claimed_cid": 1, "_ws_id": 101, "request_id": req_id, "slot_level": 1, "target_cid": 2})
         self.assertNotIn(2, self.app.combatants)
 
+    def test_hellish_rebuke_resolution_allowed_even_when_not_reactor_turn(self):
+        self.app._lan_apply_action(self._attack_msg(7))
+        offer = [payload for _ws, payload in self.sent if isinstance(payload, dict) and payload.get("trigger") == "hellish_rebuke"][-1]
+        req_id = offer["request_id"]
+        self.app._is_valid_summon_turn_for_controller = lambda controlling, target, current: False
+        self.app._lan_apply_action({"type": "reaction_response", "cid": 1, "_claimed_cid": 1, "_ws_id": 101, "request_id": req_id, "choice": "cast_hellish_rebuke"})
+        self.app._lan_apply_action({"type": "hellish_rebuke_resolve", "cid": 1, "_claimed_cid": 1, "_ws_id": 101, "request_id": req_id, "slot_level": 1, "target_cid": 2})
+        results = [payload for _ws, payload in self.sent if isinstance(payload, dict) and payload.get("type") == "hellish_rebuke_result"]
+        self.assertTrue(results)
+
 
 if __name__ == "__main__":
     unittest.main()
