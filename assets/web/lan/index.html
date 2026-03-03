@@ -15485,8 +15485,8 @@ __DAMAGE_TYPE_OPTIONS__
     unit.facing_deg = normalizeFacingDeg(angleDeg);
   }
 
-  function hitTestToken(p){
-    if (!state || !state.units) return null;
+  function hitTestTokens(p){
+    if (!state || !state.units) return [];
     const hits = [];
     for (let i = 0; i < state.units.length; i++){
       const u = state.units[i];
@@ -15498,6 +15498,11 @@ __DAMAGE_TYPE_OPTIONS__
         hits.push(u);
       }
     }
+    return hits;
+  }
+
+  function hitTestToken(p){
+    const hits = hitTestTokens(p);
     if (!hits.length) return null;
     const activeCid = normalizeCid(state?.active_cid, "hitTest.active");
     if (activeCid !== null){
@@ -16052,13 +16057,23 @@ __DAMAGE_TYPE_OPTIONS__
         setAttackOverlayMode(false);
         return;
       }
-      const hit = hitTestToken(p);
+      const hitCandidates = hitTestTokens(p);
+      let hit = hitCandidates.length ? hitTestToken(p) : null;
       const selectingSpellTarget = !!pendingSpellTargeting;
       const selectingLayOnHandsTarget = !!pendingLayOnHandsTargeting;
       const selectingBardicInspirationTarget = !!pendingBardicInspirationTargeting;
       const selectingBeguilingMagicTarget = !!pendingBeguilingMagic;
       const selectingMantleTarget = !!pendingMantleOfInspiration;
       if (hit && (selectingSpellTarget || selectingLayOnHandsTarget || selectingBardicInspirationTarget || selectingBeguilingMagicTarget || selectingMantleTarget || !cidMatches(hit.cid, me.cid, "attackOverlay.target"))){
+        if (!selectingSpellTarget && !selectingLayOnHandsTarget && !selectingBardicInspirationTarget && !selectingBeguilingMagicTarget && !selectingMantleTarget){
+          const preferredEnemy = sortedTokensForRender(hitCandidates).reverse().find((entry) => (
+            !cidMatches(entry.cid, me.cid, "attackOverlay.enemyFallback.self")
+            && !isFriendlyToMe(entry, me)
+          ));
+          if (preferredEnemy){
+            hit = preferredEnemy;
+          }
+        }
         const isFriendlyTarget = cidMatches(hit.cid, me.cid, "attackOverlay.selfTarget") || isFriendlyToMe(hit, me);
         if (!pendingSpellTargeting && !pendingLayOnHandsTargeting && !pendingBardicInspirationTargeting && !pendingBeguilingMagic && !pendingMantleOfInspiration && isFriendlyTarget){
           localToast("Pick an enemy target, matey.");
