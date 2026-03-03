@@ -10961,6 +10961,22 @@ class InitiativeTracker(base.InitiativeTracker):
                     damage_type_label = f" {canonical_fallback.title()}"
             total_damage = sum(int(entry.get("amount") or 0) for entry in adjusted_entries if isinstance(entry, dict))
             before = int(getattr(target, "hp", 0) or 0)
+            if total_damage > 0 and getattr(self, "_lan", None) is not None and hasattr(self._lan, "_broadcast_payload"):
+                try:
+                    self._lan._broadcast_payload({
+                        "type": "spell_target_result",
+                        "ok": True,
+                        "attacker_cid": int(caster.cid) if caster is not None else None,
+                        "target_cid": int(target_cid),
+                        "target_name": str(getattr(target, "name", "Target") or "Target"),
+                        "spell_name": spell_name,
+                        "spell_mode": "save" if requires_save else "effect",
+                        "hit": True,
+                        "damage_entries": list(adjusted_entries),
+                        "damage_total": int(total_damage),
+                    })
+                except Exception:
+                    pass
             if total_damage > 0:
                 damage_state = self._apply_damage_to_target_with_temp_hp(target, int(total_damage))
                 after = int(damage_state.get("hp_after", before))

@@ -29,6 +29,7 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
     def setUp(self):
         self.toasts = []
         self.logs = []
+        self.broadcast_payloads = []
         self.app = object.__new__(tracker_mod.InitiativeTracker)
         self.app._oplog = lambda *args, **kwargs: None
         self.app._is_admin_token_valid = lambda token: False
@@ -120,6 +121,7 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
             {
                 "toast": lambda _self, ws_id, message: self.toasts.append((ws_id, message)),
                 "_append_lan_log": lambda *args, **kwargs: None,
+                "_broadcast_payload": lambda _self, payload: self.broadcast_payloads.append(payload),
                 "_loop": None,
             },
         )()
@@ -154,6 +156,34 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         self.assertIn("Frost Burst: Orc save DEX PASS", log_text)
         self.assertIn("Goblin save DEX FAIL (5 vs DC 14) -> 5 Cold damage", log_text)
         self.assertIn("Orc save DEX PASS (15 vs DC 14) -> 4 Cold damage", log_text)
+
+    def test_cast_aoe_broadcasts_spell_target_results_for_damage_popups(self):
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 7,
+            "spell_slug": "frost-burst",
+            "slot_level": 3,
+            "payload": {
+                "shape": "sphere",
+                "name": "Frost Burst",
+                "radius_ft": 40,
+                "cx": 5,
+                "cy": 4,
+            },
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 2, 3, 15, 4, 4]):
+            self.app._lan_apply_action(msg)
+
+        popup_payloads = [
+            payload
+            for payload in self.broadcast_payloads
+            if payload.get("type") == "spell_target_result" and int(payload.get("damage_total") or 0) > 0
+        ]
+        self.assertEqual(len(popup_payloads), 2)
+        self.assertEqual([payload.get("target_cid") for payload in popup_payloads], [2, 3])
+        self.assertEqual([payload.get("damage_total") for payload in popup_payloads], [5, 4])
 
 
 
