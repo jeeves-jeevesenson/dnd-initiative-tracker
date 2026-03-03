@@ -4988,6 +4988,9 @@ __DAMAGE_TYPE_OPTIONS__
   let battleLogSubscribed = false;
   const DM_LOG_LINES_MAX = 3000;
   let dmHighlightUntil = new Map();
+  let damagePopups = [];
+  let damagePopupRafId = 0;
+  const DAMAGE_POPUP_DURATION_MS = 1400;
   let dmUiPrefs = {showMapPreview:false, showLogPanel:false, autoScroll:true, filters:{attack:true,damage:true,save:true,heal:true,spell:true}};
   try { dmUiPrefs = {...dmUiPrefs, ...(JSON.parse(localStorage.getItem(dmUiPrefsKey)||"{}")||{})}; } catch(_) {}
 
@@ -11671,6 +11674,62 @@ __DAMAGE_TYPE_OPTIONS__
     slashing: "#888888",
     hellfire: "#A00000",
   };
+  function damagePopupColorForType(rawType){
+    const key = String(rawType || "physical").trim().toLowerCase();
+    return damageTypeColorByName[key] || damageTypeColorByName.physical;
+  }
+  function queueDamagePopup(targetCid, amount, damageType){
+    const parsedTarget = Number(targetCid);
+    const parsedAmount = Math.floor(Number(amount));
+    if (!Number.isFinite(parsedTarget) || !Number.isFinite(parsedAmount) || parsedAmount <= 0){
+      return;
+    }
+    damagePopups.push({
+      targetCid: parsedTarget,
+      amount: parsedAmount,
+      damageType: String(damageType || "physical").trim().toLowerCase() || "physical",
+      createdAt: Date.now(),
+      expiresAt: Date.now() + DAMAGE_POPUP_DURATION_MS,
+    });
+    if (damagePopups.length > 24){
+      damagePopups = damagePopups.slice(-24);
+    }
+    if (!damagePopupRafId){
+      const tick = () => {
+        damagePopupRafId = 0;
+        const now = Date.now();
+        damagePopups = damagePopups.filter((entry) => Number(entry.expiresAt || 0) > now);
+        if (!damagePopups.length){
+          return;
+        }
+        scheduleUiFlush({draw:true});
+        damagePopupRafId = requestAnimationFrame(tick);
+      };
+      damagePopupRafId = requestAnimationFrame(tick);
+    }
+    scheduleUiFlush({draw:true});
+  }
+  function queueDamagePopupsFromResult(msg){
+    if (!msg || !Number.isFinite(Number(msg.target_cid))){
+      return;
+    }
+    const entries = Array.isArray(msg.damage_entries) ? msg.damage_entries : [];
+    let added = false;
+    entries.forEach((entry) => {
+      const amount = Math.floor(Number(entry?.amount || 0));
+      if (!Number.isFinite(amount) || amount <= 0){
+        return;
+      }
+      queueDamagePopup(Number(msg.target_cid), amount, String(entry?.type || "physical"));
+      added = true;
+    });
+    if (!added){
+      const total = Math.floor(Number(msg.damage_total || 0));
+      if (Number.isFinite(total) && total > 0){
+        queueDamagePopup(Number(msg.target_cid), total, String(msg.damage_type || msg.damage_type_override || "physical"));
+      }
+    }
+  }
   function decorateDamageTypes(message){
     const html = escapeHtml(String(message || ""));
     const typeKeys = Object.keys(damageTypeColorByName).sort((a, b) => b.length - a.length);
@@ -12238,6 +12297,60 @@ __DAMAGE_TYPE_OPTIONS__
         labelBoxes.push(box);
       }
     });
+
+    const now = Date.now();
+    damagePopups = damagePopups.filter((entry) => Number(entry.expiresAt || 0) > now);
+    if (damagePopups.length){
+      const popupBoxes = [];
+      const popupFontSize = Math.max(13, Math.floor(zoom * 0.4));
+      const popupStep = Math.max(8, Math.floor(popupFontSize * 0.95));
+      const popupBaseOffset = Math.max(zoom * 1.02, popupFontSize + 10);
+      const popupPad = 3;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.font = `800 ${popupFontSize}px system-ui`;
+      damagePopups.forEach((entry) => {
+        const unit = getUnitByCid(entry.targetCid);
+        if (!unit || !unit.pos){
+          return;
+        }
+        const duration = Math.max(1, Number(entry.expiresAt || 0) - Number(entry.createdAt || 0));
+        const progress = Math.max(0, Math.min(1, (now - Number(entry.createdAt || 0)) / duration));
+        const alpha = Math.max(0.25, 1 - progress);
+        const risePx = progress * Math.max(12, zoom * 0.55);
+        const {x, y} = gridToScreen(unit.pos.col, unit.pos.row);
+        const text = `-${Math.max(0, Number(entry.amount || 0))}`;
+        const width = ctx.measureText(text).width;
+        let placedY = y - popupBaseOffset - risePx;
+        let box = null;
+        for (let i = 0; i < 10; i += 1){
+          const candidate = {
+            x1: x - width / 2 - popupPad,
+            x2: x + width / 2 + popupPad,
+            y1: placedY - popupFontSize - popupPad,
+            y2: placedY + popupPad,
+          };
+          if (!labelBoxes.some((b) => overlaps(b, candidate)) && !popupBoxes.some((b) => overlaps(b, candidate))){
+            box = candidate;
+            break;
+          }
+          placedY -= popupStep;
+        }
+        if (!box){
+          box = {
+            x1: x - width / 2 - popupPad,
+            x2: x + width / 2 + popupPad,
+            y1: placedY - popupFontSize - popupPad,
+            y2: placedY + popupPad,
+          };
+        }
+        popupBoxes.push(box);
+        ctx.fillStyle = `rgba(0,0,0,${Math.min(0.85, 0.6 + (alpha * 0.25))})`;
+        ctx.fillText(text, x + 1, placedY + 1);
+        ctx.fillStyle = rgbaFromHex(damagePopupColorForType(entry.damageType), alpha);
+        ctx.fillText(text, x, placedY);
+      });
+    }
 
   }
 
@@ -14730,6 +14843,7 @@ __DAMAGE_TYPE_OPTIONS__
           });
         });
       } else if (msg.type === "attack_result"){
+        queueDamagePopupsFromResult(msg);
         const me = getClaimedUnit();
         if (me && cidMatches(msg.attacker_cid, me.cid, "attackResult.attacker")){
           if (Number.isFinite(Number(msg.action_remaining))){
@@ -14751,6 +14865,7 @@ __DAMAGE_TYPE_OPTIONS__
           openCleavePrompt(msg);
         }
       } else if (msg.type === "spell_target_result"){
+        queueDamagePopupsFromResult(msg);
         if (msg.needs_polymorph_form){
           const target = getUnitByCid(msg.target_cid);
           const actionCid = activeControlledUnitCid();
