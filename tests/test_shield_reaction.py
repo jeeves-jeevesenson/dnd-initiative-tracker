@@ -159,6 +159,18 @@ class ShieldReactionTests(unittest.TestCase):
         self.assertEqual(self.pool_spend_calls, [("Eldramar", "lone_gunslingers_poncho_shield", 1)])
         self.assertTrue(bool(getattr(self.app.combatants[1], "_shield_reaction_active", False)))
 
+    def test_shield_response_allowed_even_when_not_reactor_turn(self):
+        self.app._lan_apply_action(self._attack_msg(11))
+        offers = [payload for _ws, payload in self.sent if isinstance(payload, dict) and payload.get("trigger") == "shield"]
+        req_id = offers[-1]["request_id"]
+        self.app._is_valid_summon_turn_for_controller = (
+            lambda controlling, target, current: int(target or -1) == int(self.app.current_cid or -2)
+        )
+        self.app._lan_apply_action({"type": "reaction_response", "cid": 1, "_claimed_cid": 1, "_ws_id": 101, "request_id": req_id, "choice": "shield_yes"})
+        attack_results = [payload for _ws, payload in self.sent if isinstance(payload, dict) and payload.get("type") == "attack_result"]
+        self.assertTrue(attack_results)
+        self.assertFalse(bool(attack_results[-1].get("hit")))
+
 
 if __name__ == "__main__":
     unittest.main()
