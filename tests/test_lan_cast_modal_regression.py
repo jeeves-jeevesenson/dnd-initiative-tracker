@@ -160,6 +160,9 @@ class LanCastModalRegressionTests(unittest.TestCase):
     def test_turn_notifications_auto_close_without_manual_dismiss(self):
         self.assertIn("const turnNotificationAutoCloseMs = 5000;", self.html)
         self.assertIn("registration.getNotifications({ tag: \"turn-alert\" })", self.html)
+        self.assertIn("async function maybeNotifyTurnUpcoming(activeName){", self.html)
+        self.assertIn("registration.getNotifications({ tag: \"turn-up-next-alert\" })", self.html)
+        self.assertIn("maybeNotifyTurnUpcoming(activeName);", self.html)
         self.assertIn("notification.close();", self.html)
         self.assertNotIn("requireInteraction: true", self.html)
 

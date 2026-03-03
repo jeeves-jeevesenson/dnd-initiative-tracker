@@ -13741,6 +13741,48 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
 
+  async function maybeNotifyTurnUpcoming(activeName){
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    const currentName = String(activeName || "").trim() || "The current combatant";
+    const title = "You're up next!";
+    const body = `${currentName}'s turn is active. Get ready.`;
+    const options = {
+      body,
+      tag: "turn-up-next-alert",
+      renotify: true,
+      data: { url: "/" },
+    };
+    try {
+      const registration = swRegistration || ("serviceWorker" in navigator ? await navigator.serviceWorker.ready : null);
+      if (registration && typeof registration.showNotification === "function"){
+        await registration.showNotification(title, options);
+        window.setTimeout(() => {
+          registration.getNotifications({ tag: "turn-up-next-alert" }).then((notifs) => {
+            notifs.forEach((entry) => entry.close());
+          }).catch((err) => {
+            console.debug("Up-next notification auto-close failed.", err);
+          });
+        }, turnNotificationAutoCloseMs);
+        return;
+      }
+    } catch (err){
+      console.warn("Service-worker up-next notification failed; falling back to page notification.", err);
+    }
+    try {
+      const notification = new Notification(title, options);
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+      window.setTimeout(() => {
+        notification.close();
+      }, turnNotificationAutoCloseMs);
+    } catch (err){
+      console.warn("Up-next notification failed.", err);
+    }
+  }
+
   async function maybeRequestNotificationPermission(){
     if (notificationPermissionAsked) return;
     notificationPermissionAsked = true;
@@ -13779,14 +13821,24 @@ __DAMAGE_TYPE_OPTIONS__
   function maybeShowTurnAlert(){
     if (!state || !claimedCid) return;
     const activeCid = state.active_cid;
+    const turnOrder = Array.isArray(state.turn_order) ? state.turn_order : [];
     const roundRaw = state.round_num;
     const round = Number.isFinite(Number(roundRaw)) ? Number(roundRaw) : roundRaw;
     const activeCidValue = normalizeCid(activeCid, "turnAlert.activeCid");
+    const claimedCidValue = normalizeCid(claimedCid, "turnAlert.claimedCid");
     const lastActiveCidValue = normalizeCid(lastActiveCid, "turnAlert.lastActiveCid");
     const lastRound = Number.isFinite(Number(lastTurnRound)) ? Number(lastTurnRound) : lastTurnRound;
+    const activeIndex = activeCidValue === null
+      ? -1
+      : turnOrder.findIndex((cid) => cidMatches(cid, activeCidValue, "turnAlert.activeIndex"));
+    const nextTurnCidValue = activeIndex >= 0
+      ? normalizeCid(turnOrder[(activeIndex + 1) % turnOrder.length], "turnAlert.nextCid")
+      : null;
     const controlledCid = normalizeCid(activeControlledUnitCid(), "turnAlert.controlledCid");
     const isNowMyTurn = activeCidValue !== null && controlledCid !== null
       && cidMatches(activeCidValue, controlledCid, "turnAlert.myTurn");
+    const isMyTurnNext = claimedCidValue !== null && nextTurnCidValue !== null
+      && cidMatches(claimedCidValue, nextTurnCidValue, "turnAlert.myTurnNext");
     const activeChanged = activeCidValue !== lastActiveCidValue;
     const roundChanged = round !== lastRound;
     if (!turnAlertPrimed){
@@ -13797,6 +13849,10 @@ __DAMAGE_TYPE_OPTIONS__
     }
     if (isNowMyTurn && (activeChanged || roundChanged)){
       showTurnModal();
+    } else if (isMyTurnNext && (activeChanged || roundChanged)){
+      const activeUnitName = String(getUnitByCid(activeCidValue)?.name || "").trim();
+      const activeName = activeUnitName || (activeCidValue !== null ? `#${activeCidValue}` : "Current combatant");
+      maybeNotifyTurnUpcoming(activeName);
     }
     lastActiveCid = activeCid;
     lastTurnRound = round;
