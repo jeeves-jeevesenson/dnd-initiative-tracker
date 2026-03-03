@@ -58,6 +58,21 @@ class PlayerYamlValidityTests(unittest.TestCase):
         self.assertIn("CHA", saves)
         self.assertNotIn("CHR", saves)
 
+    def test_stikhiya_default_equipment_items(self):
+        data = self._load("players/стихия.yaml")
+        weapons = ((data.get("attacks") or {}).get("weapons") or [])
+        bardiche = next((entry for entry in weapons if (entry or {}).get("id") == "bardiche_plus_2"), {})
+        self.assertTrue(bardiche.get("equipped"))
+        self.assertTrue(bardiche.get("main_hand"))
+
+        inventory_items = ((data.get("inventory") or {}).get("items") or [])
+        by_name = {str((entry or {}).get("name") or ""): (entry or {}) for entry in inventory_items if isinstance(entry, dict)}
+        self.assertEqual(by_name.get("гром", {}).get("slot"), "head")
+        self.assertTrue(by_name.get("гром", {}).get("equipped"))
+        self.assertEqual(by_name.get("Gauntlets of Lesser Hill Giant Strength", {}).get("slot"), "gloves")
+        self.assertTrue(by_name.get("Gauntlets of Lesser Hill Giant Strength", {}).get("equipped"))
+        self.assertEqual(by_name.get("Bane Platemail +1", {}).get("slot"), "armour")
+        self.assertTrue(by_name.get("Bane Platemail +1", {}).get("equipped"))
     def test_malagrou_defaults_to_two_handed_axe_mode(self):
         data = self._load("players/malagrou.yaml")
         weapons = (((data.get("attacks") or {}).get("weapons")) or [])
