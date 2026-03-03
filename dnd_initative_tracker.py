@@ -15609,12 +15609,22 @@ class InitiativeTracker(base.InitiativeTracker):
                         f"{attacker.name}: roll damage manually — {'; '.join(summary_parts)}.",
                         cid=int(target_cid),
                     )
+        attack_label = "Attack Sequence"
+        distinct_attack_names: List[str] = []
+        for block_result in block_results:
+            if int(block_result.get("hits") or 0) <= 0:
+                continue
+            block_name = str(block_result.get("attack_name") or "").strip()
+            if block_name and block_name not in distinct_attack_names:
+                distinct_attack_names.append(block_name)
+        if len(distinct_attack_names) == 1:
+            attack_label = distinct_attack_names[0]
         return {
             "ok": True,
             "attacker_cid": int(attacker_cid),
             "target_cid": int(target_cid),
             "target_name": target_name,
-            "attack_name": "Attack Sequence",
+            "attack_name": attack_label,
             "hits": int(total_hits),
             "crit_hits": int(total_crits),
             "misses": int(total_misses),

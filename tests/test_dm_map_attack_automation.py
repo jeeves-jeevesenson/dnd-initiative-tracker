@@ -284,6 +284,7 @@ class DmMapAttackAutomationTests(unittest.TestCase):
             )
 
         self.assertTrue(result.get("ok"))
+        self.assertEqual(result.get("attack_name"), "Elemental Claws")
         self.assertCountEqual(
             result.get("damage_rolls"),
             [
