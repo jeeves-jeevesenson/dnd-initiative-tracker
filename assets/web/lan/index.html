@@ -1518,6 +1518,114 @@
     .form-actions{margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;}
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
     .row + .row{margin-top:10px;}
+    .inventory-layout{
+      width:100%;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+      align-items:start;
+    }
+    .inventory-left-pane,
+    .inventory-right-pane{
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:12px;
+      background: rgba(255,255,255,0.04);
+      padding:10px;
+    }
+    .inventory-paper-doll{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .inventory-paper-doll-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .inventory-paper-doll h4{
+      margin:0;
+      font-size:12px;
+      letter-spacing:0.4px;
+      text-transform:uppercase;
+      color:#f5e3b2;
+    }
+    .inventory-paper-doll-icon{
+      width:42px;
+      height:42px;
+      border-radius:50%;
+      border:1px solid rgba(255,255,255,0.16);
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), rgba(255,255,255,0.03));
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:22px;
+    }
+    .inventory-slot-grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap:8px;
+    }
+    .inventory-slot-grid .form-field label{
+      font-size:10px;
+      text-transform:uppercase;
+      letter-spacing:0.35px;
+    }
+    .inventory-items-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      margin-bottom:8px;
+    }
+    .inventory-items-head h4{
+      margin:0;
+      font-size:12px;
+      letter-spacing:0.4px;
+      text-transform:uppercase;
+      color:#f5e3b2;
+    }
+    .inventory-items-count{
+      font-size:11px;
+      color:var(--muted);
+    }
+    .inventory-items-list{
+      list-style:none;
+      margin:0;
+      padding:0;
+      max-height:180px;
+      overflow:auto;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .inventory-item-entry{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:6px 8px;
+      border:1px solid rgba(255,255,255,0.1);
+      border-radius:8px;
+      background: rgba(9,12,20,0.5);
+      font-size:12px;
+    }
+    .inventory-item-entry .meta{
+      color:var(--muted);
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:0.3px;
+    }
+    .inventory-items-empty{
+      color:var(--muted);
+      font-size:12px;
+      padding:8px 2px;
+    }
+    @media (min-width: 980px){
+      .inventory-layout{
+        grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+      }
+    }
     .sheet-actions{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
     .initiative-compact .turn-order{max-height: 60px; overflow:auto;}
     .initiative-compact .turn-order-status{display:none;}
@@ -2269,7 +2377,7 @@
       <button class="btn end-turn-top" id="endTurn">End Turn</button>
       <div class="spacer"></div>
       <button class="btn" id="planningBtn" type="button">Planning Mode</button>
-      <button class="btn" id="inventoryBtn" type="button" aria-pressed="false">Inventory</button>
+      <button class="btn" id="inventoryBtn" type="button" aria-pressed="true">Inventory</button>
       <button class="btn" id="planningAoeBtn" type="button">Place AoE</button>
       <button class="btn" id="planningChatBtn" type="button" aria-pressed="false">Chat</button>
       <button class="btn" id="spellLibraryBtn" type="button">Spellbook</button>
@@ -2911,18 +3019,71 @@
           <button class="btn hidden" id="dismountBtn">Dismount</button>
         </div>
       </div>
-      <div class="row hidden" id="inventoryRow">
-        <div class="form-field">
-          <label for="mainhandWeaponSelect">Mainhand</label>
-          <select id="mainhandWeaponSelect">
-            <option value="">Auto (first configured)</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label for="offhandWeaponSelect">Offhand</label>
-          <select id="offhandWeaponSelect">
-            <option value="">None</option>
-          </select>
+      <div class="row" id="inventoryRow">
+        <div class="inventory-layout">
+          <div class="inventory-left-pane">
+            <div class="inventory-paper-doll">
+              <div class="inventory-paper-doll-top">
+                <h4>Equipment</h4>
+                <div class="inventory-paper-doll-icon" aria-hidden="true">🛡️</div>
+              </div>
+              <div class="inventory-slot-grid">
+                <div class="form-field">
+                  <label for="inventoryHeadSelect">Head</label>
+                  <select id="inventoryHeadSelect"><option value="">None</option></select>
+                </div>
+                <div class="form-field">
+                  <label for="inventoryCloakSelect">Cloak</label>
+                  <select id="inventoryCloakSelect"><option value="">None</option></select>
+                </div>
+                <div class="form-field">
+                  <label for="inventoryArmourSelect">Armour</label>
+                  <select id="inventoryArmourSelect"><option value="">None</option></select>
+                </div>
+                <div class="form-field">
+                  <label for="inventoryGlovesSelect">Gloves</label>
+                  <select id="inventoryGlovesSelect"><option value="">None</option></select>
+                </div>
+                <div class="form-field">
+                  <label for="inventoryBootsSelect">Boots</label>
+                  <select id="inventoryBootsSelect"><option value="">None</option></select>
+                </div>
+                <div class="form-field">
+                  <label for="inventoryAmuletSelect">Amulet</label>
+                  <select id="inventoryAmuletSelect"><option value="">None</option></select>
+                </div>
+                <div class="form-field">
+                  <label for="inventoryRingOneSelect">Ring 1</label>
+                  <select id="inventoryRingOneSelect"><option value="">None</option></select>
+                </div>
+                <div class="form-field">
+                  <label for="inventoryRingTwoSelect">Ring 2</label>
+                  <select id="inventoryRingTwoSelect"><option value="">None</option></select>
+                </div>
+                <div class="form-field">
+                  <label for="mainhandWeaponSelect">Main Hand</label>
+                  <select id="mainhandWeaponSelect">
+                    <option value="">Auto (first configured)</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label for="offhandWeaponSelect">Off-Hand</label>
+                  <select id="offhandWeaponSelect">
+                    <option value="">None</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="inventory-right-pane">
+            <div class="inventory-items-head">
+              <h4>Backpack</h4>
+              <div class="inventory-items-count" id="inventoryItemsCount">0 items</div>
+            </div>
+            <ul class="inventory-items-list" id="inventoryItemsList">
+              <li class="inventory-items-empty">No items in inventory.</li>
+            </ul>
+          </div>
         </div>
       </div>
       <div class="row">
@@ -4260,6 +4421,16 @@ __DAMAGE_TYPE_OPTIONS__
   const bonusActionSelectEl = document.getElementById("bonusActionSelect");
   const mainhandWeaponSelectEl = document.getElementById("mainhandWeaponSelect");
   const offhandWeaponSelectEl = document.getElementById("offhandWeaponSelect");
+  const inventoryHeadSelectEl = document.getElementById("inventoryHeadSelect");
+  const inventoryCloakSelectEl = document.getElementById("inventoryCloakSelect");
+  const inventoryArmourSelectEl = document.getElementById("inventoryArmourSelect");
+  const inventoryGlovesSelectEl = document.getElementById("inventoryGlovesSelect");
+  const inventoryBootsSelectEl = document.getElementById("inventoryBootsSelect");
+  const inventoryAmuletSelectEl = document.getElementById("inventoryAmuletSelect");
+  const inventoryRingOneSelectEl = document.getElementById("inventoryRingOneSelect");
+  const inventoryRingTwoSelectEl = document.getElementById("inventoryRingTwoSelect");
+  const inventoryItemsCountEl = document.getElementById("inventoryItemsCount");
+  const inventoryItemsListEl = document.getElementById("inventoryItemsList");
   const resetTurnBtn = document.getElementById("resetTurn");
   const standUpBtn = document.getElementById("standUp");
   const dismissSummonsBtn = document.getElementById("dismissSummons");
@@ -4751,7 +4922,17 @@ __DAMAGE_TYPE_OPTIONS__
   let cachedOffhandWeaponValue = "";
   let weaponSelectionCharacterKey = "";
   let equipmentSyncStateKey = "";
-  let inventoryPanelOpen = false;
+  let inventoryPanelOpen = true;
+  let inventoryLoadoutSelections = {
+    head: "",
+    cloak: "",
+    armour: "",
+    gloves: "",
+    boots: "",
+    amulet: "",
+    ring_one: "",
+    ring_two: "",
+  };
   let pendingAttackResolve = null;
   let pendingActionAttackWeapon = null;
   let pendingMonkBonusAttackSequence = null;
@@ -5403,6 +5584,42 @@ __DAMAGE_TYPE_OPTIONS__
     return withoutDupe || text;
   }
 
+  const inventorySlotSelectEls = {
+    head: inventoryHeadSelectEl,
+    cloak: inventoryCloakSelectEl,
+    armour: inventoryArmourSelectEl,
+    gloves: inventoryGlovesSelectEl,
+    boots: inventoryBootsSelectEl,
+    amulet: inventoryAmuletSelectEl,
+    ring_one: inventoryRingOneSelectEl,
+    ring_two: inventoryRingTwoSelectEl,
+  };
+
+  const inventorySlotMatchers = {
+    head: ["head", "helmet", "helm", "circlet", "hat", "hood"],
+    cloak: ["cloak", "cape"],
+    armour: ["armour", "armor", "robe", "clothing", "padded", "plate", "mail", "breastplate", "cuirass", "leather", "hide", "scale"],
+    gloves: ["glove", "gauntlet", "bracer"],
+    boots: ["boot", "shoe", "footwear", "greaves"],
+    amulet: ["amulet", "necklace", "pendant"],
+    ring: ["ring"],
+  };
+
+  function normalizeInventorySlotTag(value){
+    const normalized = normalizeLowerValue(value).replace(/[\s-]+/g, "_");
+    if (!normalized) return "";
+    if (["head", "helmet", "helm", "circlet", "hat", "hood"].includes(normalized)) return "head";
+    if (["cloak", "cape"].includes(normalized)) return "cloak";
+    if (["armor", "armour", "chest", "body", "torso"].includes(normalized)) return "armour";
+    if (["gloves", "glove", "gauntlets", "gauntlet", "bracers", "bracer", "hands"].includes(normalized)) return "gloves";
+    if (["boots", "boot", "footwear", "feet", "shoes", "shoe", "greaves"].includes(normalized)) return "boots";
+    if (["amulet", "necklace", "pendant", "neck"].includes(normalized)) return "amulet";
+    if (normalized.startsWith("ring")) return "ring";
+    if (["main_hand", "mainhand", "primary_hand", "weapon_main"].includes(normalized)) return "main_hand";
+    if (["off_hand", "offhand", "secondary_hand", "weapon_off"].includes(normalized)) return "off_hand";
+    return "";
+  }
+
   function getPlayerProfile(name){
     if (!name) return null;
     const profiles = state?.player_profiles;
@@ -5460,6 +5677,121 @@ __DAMAGE_TYPE_OPTIONS__
     return inventory.items.filter((entry) => entry && typeof entry === "object");
   }
 
+  function getInventoryItemValue(item){
+    return String(item?.id || item?.name || "").trim();
+  }
+
+  function getInventoryItemLabel(item){
+    const name = String(item?.name || item?.id || "Item").trim() || "Item";
+    const quantity = Number(item?.quantity ?? item?.count ?? item?.qty ?? 0);
+    return quantity > 1 ? `${name} ×${Math.floor(quantity)}` : name;
+  }
+
+  function getInventoryItemMeta(item){
+    return String(item?.slot || item?.category || item?.type || item?.armor_type || "").trim();
+  }
+
+  function getInventoryItemMatchedSlots(item){
+    const explicitSlots = [
+      item?.slot,
+      item?.slot_id,
+      item?.equip_slot,
+      item?.equipped_slot,
+      item?.slotId,
+    ].map((entry) => normalizeInventorySlotTag(entry)).filter(Boolean);
+    if (explicitSlots.length){
+      return Array.from(new Set(explicitSlots));
+    }
+    const haystack = [
+      item?.slot,
+      item?.category,
+      item?.type,
+      item?.armor_type,
+      item?.name,
+      item?.id,
+    ].map((entry) => normalizeLowerValue(entry)).filter(Boolean).join(" ");
+    const matches = [];
+    Object.entries(inventorySlotMatchers).forEach(([slot, terms]) => {
+      if (!Array.isArray(terms) || !terms.length) return;
+      if (terms.some((term) => haystack.includes(term))){
+        matches.push(slot);
+      }
+    });
+    return Array.from(new Set(matches));
+  }
+
+  function buildInventorySlotOptions(slotKey){
+    const options = [];
+    getClaimedInventoryItems().forEach((item) => {
+      const matchedSlots = getInventoryItemMatchedSlots(item);
+      const acceptsRing = slotKey === "ring_one" || slotKey === "ring_two";
+      const slotMatch = acceptsRing ? matchedSlots.includes("ring") : matchedSlots.includes(slotKey);
+      if (!slotMatch) return;
+      const value = getInventoryItemValue(item);
+      if (!value) return;
+      options.push({
+        value,
+        label: getInventoryItemLabel(item),
+      });
+    });
+    const seen = new Set();
+    return options.filter((entry) => {
+      const key = entry.value;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function renderInventoryItemList(){
+    if (!inventoryItemsListEl || !inventoryItemsCountEl) return;
+    const items = getClaimedInventoryItems();
+    inventoryItemsCountEl.textContent = `${items.length} item${items.length === 1 ? "" : "s"}`;
+    inventoryItemsListEl.textContent = "";
+    if (!items.length){
+      const empty = document.createElement("li");
+      empty.className = "inventory-items-empty";
+      empty.textContent = "No items in inventory.";
+      inventoryItemsListEl.appendChild(empty);
+      return;
+    }
+    items.forEach((item) => {
+      const row = document.createElement("li");
+      row.className = "inventory-item-entry";
+      const name = document.createElement("span");
+      name.textContent = getInventoryItemLabel(item);
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      meta.textContent = getInventoryItemMeta(item) || "gear";
+      row.append(name, meta);
+      inventoryItemsListEl.appendChild(row);
+    });
+  }
+
+  function refreshInventorySlotSelectors(){
+    const disabled = claimedCid === null || claimedCid === undefined;
+    Object.entries(inventorySlotSelectEls).forEach(([slotKey, selectEl]) => {
+      if (!selectEl) return;
+      const current = String(inventoryLoadoutSelections[slotKey] || selectEl.value || "").trim();
+      const options = buildInventorySlotOptions(slotKey);
+      selectEl.textContent = "";
+      const noneOption = document.createElement("option");
+      noneOption.value = "";
+      noneOption.textContent = "None";
+      selectEl.appendChild(noneOption);
+      options.forEach((entry) => {
+        const option = document.createElement("option");
+        option.value = entry.value;
+        option.textContent = entry.label;
+        selectEl.appendChild(option);
+      });
+      selectEl.value = options.some((entry) => entry.value === current) ? current : "";
+      selectEl.disabled = disabled;
+      inventoryLoadoutSelections[slotKey] = selectEl.value;
+    });
+    renderInventoryItemList();
+  }
+
   function getWeaponSelectionCharacterKey(){
     const claimedName = getClaimedPlayerName();
     const stripped = stripCombatNameSuffix(claimedName || "");
@@ -5508,6 +5840,16 @@ __DAMAGE_TYPE_OPTIONS__
     if (key === weaponSelectionCharacterKey) return;
     weaponSelectionCharacterKey = key;
     equipmentSyncStateKey = "";
+    inventoryLoadoutSelections = {
+      head: "",
+      cloak: "",
+      armour: "",
+      gloves: "",
+      boots: "",
+      amulet: "",
+      ring_one: "",
+      ring_two: "",
+    };
     loadWeaponSelectionsForClaimedCharacter();
   }
 
@@ -5696,6 +6038,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     saveCurrentWeaponSelections();
     sendEquipmentUpdate();
+    refreshInventorySlotSelectors();
   }
 
   function setInventoryPanelOpen(open){
@@ -19707,7 +20050,10 @@ __DAMAGE_TYPE_OPTIONS__
     }
   }
   if (inventoryBtn){
-    inventoryBtn.addEventListener("click", () => setInventoryPanelOpen(!inventoryPanelOpen));
+    inventoryBtn.addEventListener("click", () => {
+      setInventoryPanelOpen(true);
+      refreshInventorySlotSelectors();
+    });
   }
   if (planningAoeBtn){
     planningAoeBtn.classList.toggle("hidden", !isPlanning);
@@ -20950,6 +21296,13 @@ __DAMAGE_TYPE_OPTIONS__
       draw();
     });
   }
+  Object.entries(inventorySlotSelectEls).forEach(([slotKey, selectEl]) => {
+    if (!selectEl) return;
+    selectEl.addEventListener("change", (event) => {
+      inventoryLoadoutSelections[slotKey] = String(event.target.value || "").trim();
+      draw();
+    });
+  });
   if (useActionBtn){
     useActionBtn.addEventListener("click", () => {
       if (!isMapView && !claimedCid) return;
