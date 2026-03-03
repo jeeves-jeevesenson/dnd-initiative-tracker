@@ -1376,6 +1376,7 @@ class LanController:
         "action_surge_use",
         "beguiling_magic_use",
         "beguiling_magic_restore",
+        "star_advantage_use",
         "command_resolve",
         "bardic_inspiration_grant",
         "bardic_inspiration_use",
@@ -9849,6 +9850,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "can_be_mounted": bool(getattr(c, "can_be_mounted", False)),
                     "facing_deg": int(self._normalize_facing_degrees(getattr(c, "facing_deg", 0))),
                     "vexed_by_cid": _normalize_cid_value(getattr(c, "_vexed_by_cid", None), "snapshot.vexed_by"),
+                    "has_star_advantage": self._has_condition(c, "star_advantage"),
                     "summon_variant": str(getattr(c, "summon_variant", "") or "") or None,
                     "slot_level": getattr(c, "summon_slot_level", None),
                     "pos": {"col": int(pos[0]), "row": int(pos[1])},
@@ -22026,6 +22028,10 @@ class InitiativeTracker(base.InitiativeTracker):
             total_damage = int(sum(int(entry.get("amount", 0) or 0) for entry in damage_entries))
             if spell_mode == "auto_hit":
                 hit = True
+            pending_star_advantage = getattr(c, "pending_star_advantage_charge", None)
+            star_advantage_attempted = bool(spell_mode == "attack" and isinstance(pending_star_advantage, dict))
+            if star_advantage_attempted:
+                setattr(c, "pending_star_advantage_charge", None)
             result_payload["hit"] = bool(hit)
             result_payload["critical"] = bool(hit and critical)
             result_payload["damage_entries"] = list(damage_entries if hit else [])
@@ -22128,6 +22134,19 @@ class InitiativeTracker(base.InitiativeTracker):
                     self._maybe_offer_hellish_rebuke(int(target_cid), int(cid), int(total_damage))
                 except Exception as exc:
                     self._oplog(f"hellish_rebuke offer failed attacker={int(cid)} victim={int(target_cid)} ({exc})", level="warning")
+                if star_advantage_attempted and int(target_cid) in self.combatants and int(getattr(target, "hp", 0) or 0) > 0:
+                    if self._condition_is_immune_for_target(target, "star_advantage"):
+                        self._log(f"{c.name}'s Star Advantage can't affect {target.name} (immune).", cid=int(target_cid))
+                    elif not self._lan_is_friendly_unit(int(target_cid)) or self._lan_is_friendly_unit(int(target_cid)) != self._lan_is_friendly_unit(int(cid)):
+                        stacks = list(getattr(target, "condition_stacks", []) or [])
+                        if not any(str(getattr(st, "ctype", "") or "").strip().lower() == "star_advantage" for st in stacks):
+                            next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                            setattr(self, "_next_stack_id", int(next_sid) + 1)
+                            stacks.append(base.ConditionStack(sid=int(next_sid), ctype="star_advantage", remaining_turns=None))
+                            setattr(target, "condition_stacks", stacks)
+                            self._log(f"{c.name} expends Star Advantage and marks {target.name}.", cid=int(target_cid))
+                        else:
+                            self._log(f"{c.name} expends Star Advantage and refreshes {target.name}.", cid=int(target_cid))
             elif hit:
                 if haste_applied:
                     self._log(
@@ -22140,8 +22159,23 @@ class InitiativeTracker(base.InitiativeTracker):
                         f"{' (CRIT)' if result_payload.get('critical') else ''}.",
                         cid=int(target_cid),
                     )
+                if star_advantage_attempted and int(target_cid) in self.combatants and int(getattr(target, "hp", 0) or 0) > 0:
+                    if self._condition_is_immune_for_target(target, "star_advantage"):
+                        self._log(f"{c.name}'s Star Advantage can't affect {target.name} (immune).", cid=int(target_cid))
+                    elif not self._lan_is_friendly_unit(int(target_cid)) or self._lan_is_friendly_unit(int(target_cid)) != self._lan_is_friendly_unit(int(cid)):
+                        stacks = list(getattr(target, "condition_stacks", []) or [])
+                        if not any(str(getattr(st, "ctype", "") or "").strip().lower() == "star_advantage" for st in stacks):
+                            next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                            setattr(self, "_next_stack_id", int(next_sid) + 1)
+                            stacks.append(base.ConditionStack(sid=int(next_sid), ctype="star_advantage", remaining_turns=None))
+                            setattr(target, "condition_stacks", stacks)
+                            self._log(f"{c.name} expends Star Advantage and marks {target.name}.", cid=int(target_cid))
+                        else:
+                            self._log(f"{c.name} expends Star Advantage and refreshes {target.name}.", cid=int(target_cid))
             else:
                 self._log(f"{c.name} misses {result_payload['target_name']} with {spell_name}.", cid=int(target_cid))
+                if star_advantage_attempted:
+                    self._log(f"{c.name} expends Star Advantage on a miss.", cid=cid)
 
             forced_moves_applied: List[str] = []
             if isinstance(resolved_bucket, list):
@@ -22800,6 +22834,10 @@ class InitiativeTracker(base.InitiativeTracker):
                         for attacker_ws in attacker_ws_targets:
                             self._lan.toast(int(attacker_ws), "Waiting for Shield response…")
                         return
+            pending_star_advantage = getattr(c, "pending_star_advantage_charge", None)
+            star_advantage_attempted = isinstance(pending_star_advantage, dict)
+            if star_advantage_attempted:
+                setattr(c, "pending_star_advantage_charge", None)
             damage_entries: List[Dict[str, Any]] = []
             raw_damage_entries = msg.get("damage_entries")
             if isinstance(raw_damage_entries, list):
@@ -23123,6 +23161,13 @@ class InitiativeTracker(base.InitiativeTracker):
                             self._lan.play_ko(int(cid))
                         except Exception:
                             pass
+            if star_advantage_attempted and hit and int(target_cid) in self.combatants and int(getattr(target, "hp", 0) or 0) > 0:
+                if self._condition_is_immune_for_target(target, "star_advantage"):
+                    self._log(f"{c.name}'s Star Advantage can't affect {target.name} (immune).", cid=int(target_cid))
+                elif _ensure_condition(target, "star_advantage"):
+                    self._log(f"{c.name} expends Star Advantage and marks {target.name}.", cid=int(target_cid))
+                else:
+                    self._log(f"{c.name} expends Star Advantage and refreshes {target.name}.", cid=int(target_cid))
             if hit and opportunity_attack and self._unit_has_sentinel_feat(resource_c):
                 setattr(target, "move_remaining", 0)
                 setattr(target, "speed_zero_until_turn_end", True)
@@ -23259,6 +23304,8 @@ class InitiativeTracker(base.InitiativeTracker):
                                 mastery_cleave_candidates.append({"cid": ecid, "name": str(getattr(enemy, "name", "Enemy") or "Enemy")})
                     if mastery_cleave_candidates:
                         mastery_notes.append("Cleave ready: choose one nearby enemy for a free attack.")
+            if star_advantage_attempted and not hit:
+                self._log(f"{c.name} expends Star Advantage on a miss.", cid=cid)
             stunning_strike_result: Optional[Dict[str, Any]] = None
             wants_stunning_strike = bool(_parse_bool(msg.get("stunning_strike")))
             if (
@@ -23846,6 +23893,25 @@ class InitiativeTracker(base.InitiativeTracker):
             self._log(f"{getattr(c, 'name', 'Player')} uses Action Surge and gains 1 action.", cid=cid)
             self._lan.toast(ws_id, "Action Surge used: +1 action.")
             self._rebuild_table(scroll_to_current=True)
+        elif typ == "star_advantage_use":
+            c = self.combatants.get(cid)
+            if not c:
+                return
+            player_name = self._pc_name_for(int(cid))
+            ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, "star_advantage", 1)
+            if not ok_pool:
+                self._lan.toast(ws_id, pool_err or "No Star Advantage charges remain, matey.")
+                return
+            setattr(
+                c,
+                "pending_star_advantage_charge",
+                {
+                    "name": "Star Advantage",
+                    "source": "Melvin's Magic Hat",
+                },
+            )
+            self._log(f"{getattr(c, 'name', 'Player')} readies Star Advantage.", cid=cid)
+            self._lan.toast(ws_id, "Star Advantage readied.")
         elif typ == "lay_on_hands_use":
             c = self.combatants.get(cid)
             if not c:
@@ -24551,6 +24617,8 @@ class InitiativeTracker(base.InitiativeTracker):
         hp_after = max(0, hp_before - hp_damage)
         setattr(target, "temp_hp", int(temp_after))
         setattr(target, "hp", int(hp_after))
+        if damage > 0:
+            self._remove_condition_type(target, "star_advantage")
         self._maybe_end_polymorph_from_temp_hp(target, temp_before=temp_before, temp_after=temp_after)
         return {"temp_absorbed": absorbed, "hp_after": hp_after, "hp_damage": hp_damage}
 

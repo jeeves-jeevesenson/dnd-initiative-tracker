@@ -6654,6 +6654,31 @@ __DAMAGE_TYPE_OPTIONS__
           send(msg);
         });
       }
+      if (pool.id === "star_advantage"){
+        chip.style.cursor = "pointer";
+        chip.title = "Use Star Advantage";
+        chip.addEventListener("click", () => {
+          const cid = activeControlledUnitCid();
+          if (cid === null){
+            localToast("Claim a character first, matey.");
+            return;
+          }
+          if (pool.current <= 0){
+            localToast("That resource pool be exhausted, matey.");
+            return;
+          }
+          if (!window.confirm(`Use Star Advantage? (${pool.current}/${pool.max} remaining uses)`)){
+            return;
+          }
+          const msg = {type: "star_advantage_use", cid};
+          if (isPlanning){
+            planningMutate(msg);
+            draw();
+            updateHud();
+          }
+          send(msg);
+        });
+      }
       if (pool.id === "lay_on_hands"){
         chip.style.cursor = "pointer";
         chip.title = "Lay on Hands";
@@ -6726,7 +6751,7 @@ __DAMAGE_TYPE_OPTIONS__
         chip.title = "Spend Bardic Inspiration die";
         chip.addEventListener("click", () => setBardicDiceConfirmModalOpen(true, pool));
       }
-      const specializedPools = new Set(["wild_shape", "focus_points", "lay_on_hands", "second_wind", "action_surge", "unleash_incarnation"]);
+      const specializedPools = new Set(["wild_shape", "focus_points", "lay_on_hands", "second_wind", "action_surge", "unleash_incarnation", "star_advantage"]);
       if (!specializedPools.has(pool.id)){
         chip.style.cursor = "pointer";
         chip.title = "Resource pool details";
@@ -10800,6 +10825,7 @@ __DAMAGE_TYPE_OPTIONS__
     const hasVexAdvantage = Number.isFinite(Number(target?.vexed_by_cid))
       && Number.isFinite(Number(me?.cid))
       && Number(target.vexed_by_cid) === Number(me.cid);
+    const hasStarAdvantage = target?.has_star_advantage === true || normalizeLowerValue(target?.marks).includes("star advantage");
     const attunedUnarmed = isUnarmedStrikeWeapon(weapon) && unitHasElementalAttunement(me);
     const profile = getPlayerProfile(getClaimedPlayerName());
     const monkLevel = getMonkLevelFromProfile(profile);
@@ -10847,7 +10873,9 @@ __DAMAGE_TYPE_OPTIONS__
       tacticalMasterAllowed,
     };
     pendingOpportunityAttack = false;
-    const advantageText = hasVexAdvantage ? ' <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>' : "";
+    const advantageText = hasVexAdvantage
+      ? ' <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>'
+      : (hasStarAdvantage ? ' <span class="mastery-advantage-text">Star Advantage: ye have advantage on this attack.</span>' : "");
     const resolvePrompt = String(weapon?.resolve_prompt || "").trim();
     attackResolveBody.innerHTML = `${resolvePrompt || `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`}`
       + (hintParts.length ? ` ${hintParts.join(" ")}` : "")

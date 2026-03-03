@@ -1,0 +1,9 @@
+id: melvins_magic_hat
+name: Melvins Magic Hat
+requires_attunement: true
+grants:
+  pools:
+    - id: star_advantage
+      label: Star Advantage
+      max_formula: int_mod
+      reset: long_rest

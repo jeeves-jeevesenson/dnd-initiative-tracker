@@ -1652,6 +1652,49 @@ class LanAttackRequestTests(unittest.TestCase):
             )
         )
 
+    def test_star_advantage_use_consumes_pool_and_arms_next_attack(self):
+        consumed = []
+        self.app._consume_resource_pool_for_cast = lambda player_name, pool_id, cost: (
+            consumed.append((player_name, pool_id, cost)) or True,
+            "",
+        )
+        self.app._lan_apply_action({"type": "star_advantage_use", "cid": 1, "_claimed_cid": 1, "_ws_id": 90})
+        self.assertEqual(consumed, [("Aelar", "star_advantage", 1)])
+        self.assertEqual((getattr(self.app.combatants[1], "pending_star_advantage_charge", {}) or {}).get("name"), "Star Advantage")
+        self.assertIn((90, "Star Advantage readied."), self.toasts)
+
+    def test_star_advantage_attack_miss_spends_charge_without_condition(self):
+        self.app.combatants[1].pending_star_advantage_charge = {"name": "Star Advantage"}
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 91,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": False,
+        }
+        self.app._lan_apply_action(msg)
+        self.assertIsNone(getattr(self.app.combatants[1], "pending_star_advantage_charge", None))
+        self.assertFalse(any(getattr(st, "ctype", "") == "star_advantage" for st in self.app.combatants[2].condition_stacks))
+        self.assertTrue(any("expends Star Advantage on a miss" in message for _, message in self.logs))
+
+    def test_star_advantage_condition_clears_when_target_takes_damage(self):
+        self.app.combatants[2].condition_stacks = [tracker_mod.base.ConditionStack(sid=777, ctype="star_advantage", remaining_turns=None)]
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 92,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "_shield_resolution_done": True,
+            "damage_entries": [{"amount": 3, "type": "slashing"}],
+        }
+        self.app._lan_apply_action(msg)
+        self.assertFalse(any(getattr(st, "ctype", "") == "star_advantage" for st in self.app.combatants[2].condition_stacks))
+
 
 if __name__ == "__main__":
     unittest.main()

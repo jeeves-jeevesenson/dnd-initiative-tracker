@@ -1085,6 +1085,24 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(result.get("healing_applied"), 3)
         self.assertEqual(self.app.combatants[3].hp, 22)
 
+    def test_star_advantage_spell_attack_miss_spends_charge(self):
+        self.app.combatants[1].pending_star_advantage_charge = {"name": "Star Advantage"}
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 29,
+            "target_cid": 2,
+            "spell_name": "Fire Bolt",
+            "spell_mode": "attack",
+            "hit": False,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertIsNone(getattr(self.app.combatants[1], "pending_star_advantage_charge", None))
+        self.assertTrue(any("expends Star Advantage on a miss" in message for _, message in self.logs))
+
 
 if __name__ == "__main__":
     unittest.main()

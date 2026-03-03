@@ -12,6 +12,7 @@ class LanActionMessageTypesAllowlistTests(unittest.TestCase):
             "bardic_inspiration_grant",
             "bardic_inspiration_use",
             "mantle_of_inspiration",
+            "star_advantage_use",
             "reaction_prefs_update",
             "reaction_response",
         }
