@@ -5560,12 +5560,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 prior_source = sources["weapons"].get(item_id)
                 if prior_source and prior_source != "magic-item":
                     self._oplog(
-                        f"Duplicate weapon id '{item_id}' in {path.name}; keeping Items/Weapons definition.",
+                        f"Duplicate weapon id '{item_id}' in {path.name}; preferring Magic_Items definition.",
                         level="warning",
                     )
-                else:
-                    registry["weapons"][item_id] = dict(parsed)
-                    sources["weapons"][item_id] = "magic-item"
+                registry["weapons"][item_id] = dict(parsed)
+                sources["weapons"][item_id] = "magic-item"
             if item_type == "armor":
                 ac_data = parsed.get("ac")
                 if isinstance(ac_data, dict) and any(k in ac_data for k in ("base_formula", "value", "ac", "formula")):

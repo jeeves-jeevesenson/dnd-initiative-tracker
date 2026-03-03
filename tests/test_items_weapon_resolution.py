@@ -88,7 +88,7 @@ class ItemsWeaponResolutionTests(unittest.TestCase):
             self.assertIn("inazuma", registry["weapons"])
             self.assertEqual(registry["weapons"]["inazuma"]["name"], "Inazuma")
 
-    def test_items_registry_prefers_weapons_directory_over_magic_items_on_duplicate_id(self):
+    def test_items_registry_prefers_magic_items_over_weapons_directory_on_duplicate_id(self):
         with tempfile.TemporaryDirectory() as tmp:
             items_dir = Path(tmp) / "Items"
             weapons_dir = items_dir / "Weapons"
@@ -109,8 +109,8 @@ class ItemsWeaponResolutionTests(unittest.TestCase):
             with mock.patch.object(self.app, "_resolve_items_dir", return_value=items_dir):
                 registry = self.app._items_registry_payload()
 
-            self.assertEqual(registry["weapons"]["inazuma"]["name"], "Inazuma Weapon Dir")
-            self.assertEqual(registry["weapons"]["inazuma"]["damage"]["one_handed"]["formula"], "1d8")
+            self.assertEqual(registry["weapons"]["inazuma"]["name"], "Inazuma Magic Dir")
+            self.assertEqual(registry["weapons"]["inazuma"]["damage"]["one_handed"]["formula"], "2d6")
 
     def test_normalize_player_weapon_resolves_item_fields_fill_missing_only(self):
         registry = {
