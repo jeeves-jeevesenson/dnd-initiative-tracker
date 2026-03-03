@@ -21306,9 +21306,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 if reactor is None:
                     return
                 if choice in ("never", "hellish_rebuke_never"):
+                    self._pending_hellish_rebuke_resolutions.pop(request_id, None)
                     self._set_reaction_prefs(int(reactor_cid), {"hellish_rebuke": "off"})
                     return
                 if choice in ("", "decline", "ignore", "hellish_rebuke_no"):
+                    self._pending_hellish_rebuke_resolutions.pop(request_id, None)
                     return
                 if choice not in ("cast_hellish_rebuke", "hellish_rebuke", "hellish_rebuke_yes"):
                     return
@@ -22603,11 +22605,44 @@ class InitiativeTracker(base.InitiativeTracker):
             dice_count = max(0, 2 + max(0, int(slot_level) - 1))
             rolled = sum(random.randint(1, 10) for _ in range(int(dice_count))) if dice_count > 0 else 0
             total_damage = int(math.floor(rolled / 2.0)) if save_passed else int(rolled)
+            before_hp = int(getattr(target, "hp", 0) or 0)
             if total_damage > 0:
-                self._apply_damage_to_target_with_temp_hp(target, int(total_damage))
+                damage_state = self._apply_damage_to_target_with_temp_hp(target, int(total_damage))
+                after_hp = int(damage_state.get("hp_after", before_hp))
+            else:
+                after_hp = before_hp
             self._log(f"{caster.name} casts Hellish Rebuke on {target.name} (slot {int(slot_level)}).", cid=int(caster.cid))
             self._log(f"{target.name} makes a DEX save vs DC {int(dc)}: {int(save_roll)} + {int(save_mod)} = {int(save_total)} ({'PASS' if save_passed else 'FAIL'}).", cid=int(target.cid))
             self._log(f"Hellish Rebuke deals {int(total_damage)} fire damage to {target.name}.", cid=int(target.cid))
+            if int(before_hp) > 0 and int(after_hp) <= 0:
+                pre_order: List[int] = []
+                try:
+                    pre_order = [x.cid for x in self._display_order()]
+                except Exception as exc:
+                    self._oplog(f"hellish_rebuke_resolve: failed to snapshot turn order before KO cleanup ({exc})", level="warning")
+                    pre_order = []
+                removed_target = False
+                try:
+                    self._remove_combatants_with_lan_cleanup([int(target.cid)])
+                    removed_target = int(target.cid) not in self.combatants
+                except Exception as exc:
+                    self._oplog(f"hellish_rebuke_resolve: LAN cleanup remove failed for cid={int(target.cid)} ({exc})", level="warning")
+                    removed_target = self.combatants.pop(int(target.cid), None) is not None
+                if removed_target:
+                    if getattr(self, "start_cid", None) == int(target.cid):
+                        self.start_cid = None
+                    try:
+                        self._retarget_current_after_removal([int(target.cid)], pre_order=pre_order)
+                    except Exception as exc:
+                        self._oplog(
+                            f"hellish_rebuke_resolve: failed to retarget after removing cid={int(target.cid)} ({exc})",
+                            level="warning",
+                        )
+                    self._log(f"{target.name} dropped to 0 -> removed", cid=int(target.cid))
+                try:
+                    self._lan.play_ko(int(caster.cid))
+                except Exception:
+                    pass
             result_payload = {
                 "type": "hellish_rebuke_result",
                 "ok": True,
@@ -22631,6 +22666,21 @@ class InitiativeTracker(base.InitiativeTracker):
         elif typ == "attack_request":
             c = self.combatants.get(cid)
             if not c:
+                return
+            self._expire_reaction_offers()
+            for pending_req in list((self.__dict__.get("_pending_hellish_rebuke_resolutions", {}) or {}).values()):
+                if not isinstance(pending_req, dict):
+                    continue
+                pending_status = str(pending_req.get("status") or "").strip().lower()
+                if pending_status not in ("offered", "accepted"):
+                    continue
+                pending_attacker = _normalize_cid_value(
+                    pending_req.get("attacker_cid"),
+                    "attack_request.pending_hellish_rebuke.attacker",
+                )
+                if pending_attacker is None or int(pending_attacker) != int(cid):
+                    continue
+                self._lan.toast(ws_id, "Hold fast — waiting on a reaction to resolve.")
                 return
             self._clear_hide_state(int(cid), reason=f"{c.name} attacks and reveals themself.")
             resource_c = c

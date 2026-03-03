@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 import dnd_initative_tracker as tracker_mod
 
@@ -116,6 +117,28 @@ class HellishRebukeReactionTests(unittest.TestCase):
         self.app._lan_apply_action(self._attack_msg(7))
         offers = [payload for _ws, payload in self.sent if isinstance(payload, dict) and payload.get("trigger") == "hellish_rebuke"]
         self.assertFalse(offers)
+
+    def test_pending_hellish_rebuke_blocks_followup_attack_request(self):
+        self.app._pending_hellish_rebuke_resolutions["req-1"] = {
+            "victim_cid": 1,
+            "attacker_cid": 2,
+            "status": "offered",
+        }
+        before_hp = int(getattr(self.app.combatants[1], "hp", 0) or 0)
+        self.app._lan_apply_action(self._attack_msg(7))
+        self.assertIn((77, "Hold fast — waiting on a reaction to resolve."), self.toasts)
+        self.assertEqual(int(getattr(self.app.combatants[1], "hp", 0) or 0), before_hp)
+
+    def test_hellish_rebuke_can_remove_attacker_before_followup_hits(self):
+        self.app._remove_combatants_with_lan_cleanup = lambda cids: [self.app.combatants.pop(int(cid), None) for cid in cids]
+        self.app.combatants[2].hp = 3
+        self.app._lan_apply_action(self._attack_msg(7))
+        offer = [payload for _ws, payload in self.sent if isinstance(payload, dict) and payload.get("trigger") == "hellish_rebuke"][-1]
+        req_id = offer["request_id"]
+        self.app._lan_apply_action({"type": "reaction_response", "cid": 1, "_claimed_cid": 1, "_ws_id": 101, "request_id": req_id, "choice": "cast_hellish_rebuke"})
+        with mock.patch.object(tracker_mod.random, "randint", return_value=10):
+            self.app._lan_apply_action({"type": "hellish_rebuke_resolve", "cid": 1, "_claimed_cid": 1, "_ws_id": 101, "request_id": req_id, "slot_level": 1, "target_cid": 2})
+        self.assertNotIn(2, self.app.combatants)
 
 
 if __name__ == "__main__":
