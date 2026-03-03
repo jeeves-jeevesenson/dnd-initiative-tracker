@@ -467,6 +467,14 @@ class WildShapeTests(unittest.TestCase):
         normalized = self.app._normalize_player_profile(payload, "Leaf")
         self.assertEqual(normalized.get("prepared_wild_shapes"), ["wolf", "brown-bear", "reef-shark"])
 
+    def test_normalize_profile_preserves_controlled_pc(self):
+        payload = {
+            "name": "Leaf",
+            "controlled_pc": " Fred ",
+        }
+        normalized = self.app._normalize_player_profile(payload, "Leaf")
+        self.assertEqual(normalized.get("controlled_pc"), "Fred")
+
     def test_normalize_profile_preserves_attack_weapon_presets(self):
         payload = {
             "name": "Leaf",

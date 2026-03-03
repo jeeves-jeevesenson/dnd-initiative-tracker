@@ -1299,6 +1299,7 @@ class PlayerProfile:
     feature_effects: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
     prepared_wild_shapes: List[str] = field(default_factory=list)
     summon_on_start: List[Dict[str, Any]] = field(default_factory=list)
+    controlled_pc: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -1324,6 +1325,7 @@ class PlayerProfile:
             },
             "prepared_wild_shapes": list(self.prepared_wild_shapes),
             "summon_on_start": [dict(entry) for entry in self.summon_on_start if isinstance(entry, dict)],
+            "controlled_pc": self.controlled_pc,
         }
 
 
@@ -12649,6 +12651,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 summon_on_start_raw = data.get(key)
                 break
         summon_on_start = self._normalize_startup_summon_entries(summon_on_start_raw, name)
+        controlled_pc = normalize_name(data.get("controlled_pc") or data.get("controlled-pc"))
         feature_runtime = self._feature_runtime_from_profile(data)
         feature_actions = feature_runtime.get("compiled_actions") if isinstance(feature_runtime.get("compiled_actions"), dict) else {}
 
@@ -12699,6 +12702,7 @@ class InitiativeTracker(base.InitiativeTracker):
             feature_effects=feature_runtime.get("feature_effects", {}),
             prepared_wild_shapes=prepared_wild_shapes,
             summon_on_start=summon_on_start,
+            controlled_pc=controlled_pc,
         )
         return profile.to_dict()
 
@@ -16814,7 +16818,49 @@ class InitiativeTracker(base.InitiativeTracker):
         if combatant is None:
             return False
         owner = _normalize_cid_value(getattr(combatant, "summoned_by_cid", None), "summon.owner")
-        return owner == int(claimed_cid)
+        if owner == int(claimed_cid):
+            return True
+        return self._configured_pc_can_be_controlled_by(claimed_cid, target_cid)
+
+    def _configured_pc_can_be_controlled_by(self, claimed_cid: Optional[int], target_cid: Optional[int]) -> bool:
+        if claimed_cid is None or target_cid is None:
+            return False
+        if int(claimed_cid) == int(target_cid):
+            return False
+        claimed_combatant = self.combatants.get(int(claimed_cid))
+        target_combatant = self.combatants.get(int(target_cid))
+        if claimed_combatant is None or target_combatant is None:
+            return False
+        role_memory = self.__dict__.get("_name_role_memory", {})
+        if not isinstance(role_memory, dict):
+            role_memory = {}
+        role = role_memory.get(str(getattr(target_combatant, "name", "")), "enemy")
+        if not bool(getattr(target_combatant, "is_pc", False)) and role != "pc":
+            return False
+        claimed_name = str(getattr(claimed_combatant, "name", "")).strip()
+        target_name = str(getattr(target_combatant, "name", "")).strip()
+        if not claimed_name or not target_name:
+            return False
+        try:
+            profile = self._profile_for_player_name(claimed_name)
+        except Exception:
+            profile = None
+        if not isinstance(profile, dict):
+            return False
+        configured_name = str(profile.get("controlled_pc") or "").strip()
+        if not configured_name:
+            return False
+        try:
+            configured_path = self._find_player_profile_path(configured_name)
+            target_path = self._find_player_profile_path(target_name)
+        except Exception:
+            configured_path = None
+            target_path = None
+        if isinstance(configured_path, Path) and configured_path == target_path:
+            return True
+        configured_key = self._normalize_character_lookup_key(self._strip_combat_name_suffix(configured_name))
+        target_key = self._normalize_character_lookup_key(self._strip_combat_name_suffix(target_name))
+        return bool(configured_key and target_key and configured_key == target_key)
 
     def _is_valid_summon_turn_for_controller(
         self, controlling_cid: Optional[int], target_cid: Optional[int], current_cid: Optional[int]

@@ -76,6 +76,7 @@ ip: "192.168.1.100"       # Optional: Player's IP address for LAN features
 summon_on_start:          # Optional: Auto-spawn summons when this PC is added to combat
   - monster: owl.yaml
     count: 1
+controlled_pc: "Fred"     # Optional: Additional PC this character can control on that PC's turn in LAN UI
 prepared_wild_shapes:      # Optional: Druid-only prepared wild shape beast IDs
   - wolf
   - brown-bear
@@ -89,6 +90,7 @@ prepared_wild_shapes:      # Optional: Druid-only prepared wild shape beast IDs
 - **campaign**: Optional campaign name or identifier. Useful for organizing characters across multiple campaigns.
 - **ip**: IP address for the player's device when using LAN/mobile client features. Can be manually set or auto-detected.
 - **summon_on_start** (alias: `summon-on-start`, `summons_on_start`, `summons-on-start`): Optional startup summons. Supports shorthand string, a single mapping, or a list of entries. Each entry uses `monster`, optional `count`, and optional overrides.
+- **controlled_pc** (alias: `controlled-pc`): Optional PC name that this claimed player can also control on that PC’s turn in the LAN client.
 - **prepared_wild_shapes**: Optional list of beast IDs (for Druid level 2+) used by LAN Wild Shape management. Legacy `learned_wild_shapes` is still read for backward compatibility, but new saves use `prepared_wild_shapes`.
 
 Startup summon examples:

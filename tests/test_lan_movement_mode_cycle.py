@@ -108,6 +108,19 @@ class LanMovementModeCycleTests(unittest.TestCase):
         self.assertEqual(getattr(self.app.combatants[2], "facing_deg", None), 180)
         self.assertEqual(self.broadcast_calls, 1)
 
+    def test_set_facing_allows_configured_controlled_pc_target(self):
+        self.app.combatants[2] = type("C", (), {"cid": 2, "name": "Fred", "is_pc": True})()
+        self.app._configured_pc_can_be_controlled_by = lambda claimed, target: claimed == 1 and target == 2
+        self.app._summon_can_be_controlled_by = tracker_mod.InitiativeTracker._summon_can_be_controlled_by.__get__(
+            self.app, tracker_mod.InitiativeTracker
+        )
+        msg = {"type": "set_facing", "cid": 2, "_claimed_cid": 1, "_ws_id": 9, "facing_deg": 180}
+
+        self.app._lan_apply_action(dict(msg))
+
+        self.assertEqual(getattr(self.app.combatants[2], "facing_deg", None), 180)
+        self.assertEqual(self.broadcast_calls, 1)
+
     def test_set_facing_syncs_map_window_token_facing(self):
         layout_calls = []
 

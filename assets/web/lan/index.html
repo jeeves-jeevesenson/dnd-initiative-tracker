@@ -3832,7 +3832,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   function getTurnAlertIdentity(){
     const playerId = normalizeCid(claimedCid, "turnAlert.playerId");
-    const claimedUnit = getClaimedUnit();
+    const claimedUnit = getBaseClaimedUnit();
     const playerName = claimedUnit?.name ? String(claimedUnit.name) : "";
     return {
       playerId,
@@ -10777,9 +10777,41 @@ __DAMAGE_TYPE_OPTIONS__
     return true;
   }
 
-  function getClaimedUnit(){
+  function getBaseClaimedUnit(){
     if (!state || !state.units || claimedCid === null) return null;
     return state.units.find(u => cidMatches(u.cid, claimedCid, "claimedUnit")) || null;
+  }
+
+  function getConfiguredControlledPcCid(){
+    const baseClaimed = getBaseClaimedUnit();
+    const claimedName = String(baseClaimed?.name || "").trim();
+    if (!claimedName || !state || !Array.isArray(state.units)) return null;
+    const profile = getPlayerProfile(claimedName);
+    const configuredName = String(profile?.controlled_pc || "").trim();
+    if (!configuredName) return null;
+    const configuredLookup = normalizeCharacterLookupKey(stripCombatNameSuffix(configuredName));
+    if (!configuredLookup) return null;
+    const matched = state.units.find((unit) => {
+      const unitName = String(unit?.name || "").trim();
+      if (!unitName) return false;
+      return normalizeCharacterLookupKey(stripCombatNameSuffix(unitName)) === configuredLookup;
+    });
+    return normalizeCid(matched?.cid, "controlledPc.cid");
+  }
+
+  function canControlConfiguredPcUnit(unit){
+    if (!unit) return false;
+    const unitCid = normalizeCid(unit.cid, "controlledPc.unitCid");
+    const controlledCid = getConfiguredControlledPcCid();
+    return unitCid !== null && controlledCid !== null && cidMatches(unitCid, controlledCid, "controlledPc.match");
+  }
+
+  function getClaimedUnit(){
+    const controlledCid = normalizeCid(activeControlledUnitCid(), "claimedUnit.activeControlledCid");
+    if (controlledCid !== null){
+      return getUnitByCid(controlledCid);
+    }
+    return getBaseClaimedUnit();
   }
 
   function getUnitByCid(cid){
@@ -10794,11 +10826,15 @@ __DAMAGE_TYPE_OPTIONS__
     return cidMatches(unit.summoned_by_cid, claimedCid, "summonControl.owner");
   }
 
+  function canControlCompanionUnit(unit){
+    return canControlSummonUnit(unit) || canControlConfiguredPcUnit(unit);
+  }
+
   function canSelectControlledUnitCid(cid){
     const cidValue = normalizeCid(cid, "controlledSelect.cid");
     if (cidValue === null || claimedCid === null || claimedCid === undefined) return false;
     if (cidMatches(cidValue, claimedCid, "controlledSelect.claimedMatch")) return true;
-    return canControlSummonUnit(getUnitByCid(cidValue));
+    return canControlCompanionUnit(getUnitByCid(cidValue));
   }
 
   function unitControllableThisTurn(cid){
@@ -10848,7 +10884,7 @@ __DAMAGE_TYPE_OPTIONS__
       return claimedCid;
     }
     const activeCid = normalizeCid(state?.active_cid, "activeControlled.activeCid");
-    if (activeCid !== null && canControlSummonUnit(getUnitByCid(activeCid))){
+    if (activeCid !== null && canControlCompanionUnit(getUnitByCid(activeCid))){
       return activeCid;
     }
     return null;
@@ -10868,6 +10904,10 @@ __DAMAGE_TYPE_OPTIONS__
     const selectedCid = normalizeCid(selectedTurnCid, "reactionControlled.selectedCid");
     if (selectedCid !== null && canSelectControlledUnitCid(selectedCid)){
       return selectedCid;
+    }
+    const activeCid = normalizeCid(activeControlledUnitCid(), "reactionControlled.activeCid");
+    if (activeCid !== null){
+      return activeCid;
     }
     return normalizeCid(claimedCid, "reactionControlled.claimedCid");
   }
@@ -12237,12 +12277,13 @@ __DAMAGE_TYPE_OPTIONS__
       const activeOrderCid = activeIndex >= 0 ? normalizeCid(order[activeIndex], "turnOrder.activeDisplayCid") : null;
       const activeUnit = activeOrderCid !== null ? unitsByCid.get(activeOrderCid) : null;
       const roundLabel = Number.isFinite(Number(state?.round_num)) ? `Round ${state.round_num}` : "";
-      const isClaimedTurn = claimedCid !== null && activeOrderCid !== null && claimedCid === activeOrderCid;
-      const activeLabel = isClaimedTurn
+      const controlledCid = normalizeCid(activeControlledUnitCid(), "turnOrder.controlledCid");
+      const isControlledTurn = controlledCid !== null && activeOrderCid !== null && controlledCid === activeOrderCid;
+      const activeLabel = isControlledTurn
         ? "Your turn"
         : activeUnit?.name ? `${activeUnit.name}'s turn` : "Turn: —";
       let statusText = roundLabel ? `${activeLabel} · ${roundLabel}` : activeLabel;
-      if (claimedIndex >= 0 && claimedUnit && !isMapView && !isClaimedTurn){
+      if (claimedIndex >= 0 && claimedUnit && !isMapView && !isControlledTurn){
         statusText = `${statusText} · You are #${claimedIndex + 1}: ${claimedUnit.name}`;
       }
       activeTurnOrderStatusEl.textContent = statusText;
@@ -13743,7 +13784,9 @@ __DAMAGE_TYPE_OPTIONS__
     const activeCidValue = normalizeCid(activeCid, "turnAlert.activeCid");
     const lastActiveCidValue = normalizeCid(lastActiveCid, "turnAlert.lastActiveCid");
     const lastRound = Number.isFinite(Number(lastTurnRound)) ? Number(lastTurnRound) : lastTurnRound;
-    const isNowMyTurn = activeCidValue !== null && activeCidValue === claimedCid;
+    const controlledCid = normalizeCid(activeControlledUnitCid(), "turnAlert.controlledCid");
+    const isNowMyTurn = activeCidValue !== null && controlledCid !== null
+      && cidMatches(activeCidValue, controlledCid, "turnAlert.myTurn");
     const activeChanged = activeCidValue !== lastActiveCidValue;
     const roundChanged = round !== lastRound;
     if (!turnAlertPrimed){
