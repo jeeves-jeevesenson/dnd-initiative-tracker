@@ -10394,7 +10394,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 dy = float(pos[1]) - cy
                 rx = dx * cos_a - dy * sin_a
                 ry = dx * sin_a + dy * cos_a
-                if abs(rx) <= (length_sq / 2.0) + token_half and abs(ry) <= (width_sq / 2.0) + token_half:
+                if abs(rx) <= (length_sq / 2.0) + token_half and abs(ry) <= (width_sq / 2.0):
                     included.append(int(cid))
         elif kind == "cone":
             length_sq = float(aoe.get("length_sq") or 0.0)

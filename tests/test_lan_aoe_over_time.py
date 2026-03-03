@@ -161,6 +161,12 @@ class LanAoeOverTimeTests(unittest.TestCase):
             self.app._lan_handle_aoe_enter_triggers_for_aoe_move(1, aoe, before)
         self.assertLess(self.app.combatants[2].hp, 30)
 
+    def test_line_aoe_excludes_adjacent_lane_tokens(self):
+        self.app._lan_positions = {1: (0, 0), 2: (1, 0), 3: (1, 1)}
+        aoe = {"kind": "line", "cx": 5.0, "cy": 0.0, "length_sq": 12.0, "width_sq": 1.0, "angle_deg": 0.0}
+        included = self.app._lan_compute_included_units_for_aoe(aoe)
+        self.assertEqual(included, [1, 2])
+
     def test_move_remaining_resets_on_owner_turn(self):
         aoe = self._base_aoe()
         aoe["move_remaining_ft"] = 5

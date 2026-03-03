@@ -11377,7 +11377,7 @@ class BattleMapWindow(tk.Toplevel):
                 rx = dx * cos_a - dy * sin_a
                 ry = dx * sin_a + dy * cos_a
                 token_half = self.cell / 2.0
-                if abs(rx) <= length_px / 2.0 + token_half and abs(ry) <= width_px / 2.0 + token_half:
+                if abs(rx) <= length_px / 2.0 + token_half and abs(ry) <= width_px / 2.0:
                     included.append(cid)
         elif kind == "cone":
             length_px = float(d.get("length_sq") or 0.0) * self.cell
