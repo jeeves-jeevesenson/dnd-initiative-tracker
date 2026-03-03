@@ -9,6 +9,7 @@ class ShieldReactionTests(unittest.TestCase):
         self.toasts = []
         self.logs = []
         self.slot_spend_calls = []
+        self.pool_spend_calls = []
         self.app = object.__new__(tracker_mod.InitiativeTracker)
         self.app._oplog = lambda *args, **kwargs: None
         self.app._is_admin_token_valid = lambda token: False
@@ -34,7 +35,9 @@ class ShieldReactionTests(unittest.TestCase):
         self.app._pc_name_for = lambda cid: {1: "Eldramar", 2: "Enemy"}.get(int(cid), "PC")
         self.app._resolve_spell_slot_profile = lambda caster_name: (caster_name, {"1": {"current": 2}})
         self.app._consume_spell_slot_for_cast = lambda caster_name, slot_level, minimum_level: self.slot_spend_calls.append((caster_name, slot_level, minimum_level)) or (True, "", 1)
-        self.app._consume_resource_pool_for_cast = lambda *args, **kwargs: (False, "")
+        self.app._consume_resource_pool_for_cast = (
+            lambda caster_name, pool_id, cost: self.pool_spend_calls.append((caster_name, pool_id, cost)) or (False, "")
+        )
         self.app._use_action = lambda c, **kwargs: True
         self.app._use_bonus_action = lambda c, **kwargs: True
         self.app._use_reaction = lambda c, **kwargs: setattr(c, "reaction_remaining", max(0, int(getattr(c, "reaction_remaining", 0)) - 1)) or True
@@ -117,6 +120,44 @@ class ShieldReactionTests(unittest.TestCase):
         req_id = offers[-1]["request_id"]
         self.app._lan_apply_action({"type": "reaction_response", "cid": 1, "_claimed_cid": 1, "_ws_id": 101, "request_id": req_id, "choice": "shield_never"})
         self.assertEqual(self.app._reaction_mode_for(1, "shield", default="ask"), "off")
+
+    def test_shield_not_offered_when_plus_five_still_hit(self):
+        self.app._lan_apply_action(self._attack_msg(20))  # total 25 vs AC 12
+        offers = [payload for _ws, payload in self.sent if isinstance(payload, dict) and payload.get("type") == "reaction_offer" and payload.get("trigger") == "shield"]
+        self.assertEqual(offers, [])
+
+    def test_shield_uses_pool_when_slots_unavailable(self):
+        self.app._resolve_spell_slot_profile = lambda caster_name: (caster_name, {"1": {"current": 0}})
+        self.app._consume_spell_slot_for_cast = (
+            lambda caster_name, slot_level, minimum_level: self.slot_spend_calls.append((caster_name, slot_level, minimum_level))
+            or (False, "No spell slots left for that level, matey.", None)
+        )
+        self.app._normalize_player_spell_config = lambda profile, include_missing_prepared=False: {
+            "prepared_list": ["shield"],
+            "pool_granted_spells": [
+                {
+                    "spell": "shield",
+                    "consumes_pool": {"id": "lone_gunslingers_poncho_shield", "cost": 1},
+                    "action_type": "reaction",
+                }
+            ],
+        }
+        self.app._normalize_player_resource_pools = lambda profile: [
+            {"id": "lone_gunslingers_poncho_shield", "current": 3, "max": 3}
+        ]
+        self.app._consume_resource_pool_for_cast = (
+            lambda caster_name, pool_id, cost: self.pool_spend_calls.append((caster_name, pool_id, cost)) or (True, "")
+        )
+
+        self.app._lan_apply_action(self._attack_msg(11))
+        offers = [payload for _ws, payload in self.sent if isinstance(payload, dict) and payload.get("type") == "reaction_offer" and payload.get("trigger") == "shield"]
+        self.assertTrue(offers)
+        req_id = offers[-1]["request_id"]
+        self.app._lan_apply_action({"type": "reaction_response", "cid": 1, "_claimed_cid": 1, "_ws_id": 101, "request_id": req_id, "choice": "shield_yes"})
+
+        self.assertEqual(self.slot_spend_calls, [("Eldramar", 1, 1)])
+        self.assertEqual(self.pool_spend_calls, [("Eldramar", "lone_gunslingers_poncho_shield", 1)])
+        self.assertTrue(bool(getattr(self.app.combatants[1], "_shield_reaction_active", False)))
 
 
 if __name__ == "__main__":

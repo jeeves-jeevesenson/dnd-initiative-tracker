@@ -17372,7 +17372,26 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             has_slot = False
         pool_grants = normalized.get("pool_granted_spells") if isinstance(normalized.get("pool_granted_spells"), list) else []
-        has_pool_cast = any(str((entry or {}).get("spell") or "").strip().lower() == "shield" for entry in pool_grants)
+        pool_state = {
+            str(entry.get("id") or "").strip().lower(): int(entry.get("current", 0) or 0)
+            for entry in self._normalize_player_resource_pools(profile if isinstance(profile, dict) else {})
+            if isinstance(entry, dict)
+        }
+        has_pool_cast = False
+        for entry in pool_grants:
+            if str((entry or {}).get("spell") or "").strip().lower() != "shield":
+                continue
+            consumes = entry.get("consumes_pool") if isinstance(entry.get("consumes_pool"), dict) else {}
+            pool_id = str(consumes.get("id") or "").strip().lower()
+            if not pool_id:
+                continue
+            try:
+                pool_cost = int(consumes.get("cost", 1))
+            except Exception:
+                pool_cost = 1
+            if int(pool_state.get(pool_id, 0) or 0) >= max(1, int(pool_cost)):
+                has_pool_cast = True
+                break
         if has_prepared and has_slot:
             return True, "spell_slot"
         if has_pool_cast:
@@ -17463,12 +17482,14 @@ class InitiativeTracker(base.InitiativeTracker):
         profile = self._profile_for_player_name(player_name)
         normalized = self._normalize_player_spell_config(profile if isinstance(profile, dict) else {}, include_missing_prepared=False)
         prepared = [str(x or "").strip().lower() for x in list(normalized.get("prepared_list") or [])]
+        slot_error = ""
         if "shield" in prepared:
             ok_slot, slot_err, _spent_level = self._consume_spell_slot_for_cast(player_name, 1, 1)
             if ok_slot:
                 return True, ""
-            return False, slot_err or "Could not spend spell slot for Shield, matey."
+            slot_error = slot_err or "Could not spend spell slot for Shield, matey."
         pool_grants = normalized.get("pool_granted_spells") if isinstance(normalized.get("pool_granted_spells"), list) else []
+        pool_error = ""
         for entry in pool_grants:
             if str((entry or {}).get("spell") or "").strip().lower() != "shield":
                 continue
@@ -17483,7 +17504,11 @@ class InitiativeTracker(base.InitiativeTracker):
             ok_pool, pool_err = self._consume_resource_pool_for_cast(player_name, pool_id, max(1, pool_cost))
             if ok_pool:
                 return True, ""
-            return False, pool_err or "Could not spend Shield resource, matey."
+            pool_error = pool_err or "Could not spend Shield resource, matey."
+        if pool_error:
+            return False, pool_error
+        if slot_error:
+            return False, slot_error
         return False, "Shield is not available to cast, matey."
 
     def _lan_reaction_debug_enabled(self) -> bool:
@@ -23121,7 +23146,8 @@ class InitiativeTracker(base.InitiativeTracker):
             if hit and not bool(msg.get("_shield_resolution_done")):
                 shield_mode = self._reaction_mode_for(int(target_cid), "shield", default="ask")
                 can_shield, _shield_reason = self._can_offer_shield_reaction(target)
-                if shield_mode != "off" and can_shield:
+                shield_can_change_result = int(total_to_hit) < int(target_ac) + 5
+                if shield_mode != "off" and can_shield and shield_can_change_result:
                     if attack_roll is None:
                         self._lan.toast(ws_id, "Shield automation requires the attack roll value, matey.")
                         return
