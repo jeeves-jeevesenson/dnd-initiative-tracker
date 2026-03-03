@@ -2643,7 +2643,8 @@ class InitiativeTracker(tk.Tk):
                     if c.cid not in included:
                         continue
                     try:
-                        mw._open_aoe_damage(aid=aid, included_override=[c.cid], auto_roll_saves=True)
+                        if hasattr(self, "_lan_apply_aoe_trigger_to_targets"):
+                            self._lan_apply_aoe_trigger_to_targets(int(aid), d, target_cids=[int(c.cid)])
                     except Exception:
                         pass
 

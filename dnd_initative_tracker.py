@@ -10505,10 +10505,125 @@ class InitiativeTracker(base.InitiativeTracker):
             remove_after_resolve=False,
         )
         if not resolved:
+            prompted = self._lan_prompt_manual_aoe_damage(
+                aoe,
+                target_cids=filtered_targets,
+                caster=caster,
+                spell_slug=spell_slug,
+                spell_id=spell_id,
+                preset=preset,
+            )
+            if prompted:
+                for target_cid in filtered_targets:
+                    dedupe_map[(int(aid), int(target_cid))] = resolved_turn_key
+                return True
             return False
         for target_cid in filtered_targets:
             dedupe_map[(int(aid), int(target_cid))] = resolved_turn_key
         return True
+
+    def _lan_prompt_manual_aoe_damage(
+        self,
+        aoe: Dict[str, Any],
+        *,
+        target_cids: List[int],
+        caster: Optional[base.Combatant],
+        spell_slug: str,
+        spell_id: str,
+        preset: Optional[Dict[str, Any]],
+    ) -> bool:
+        if caster is None or not isinstance(preset, dict):
+            return False
+        tags = {str(tag).strip().lower() for tag in (preset.get("tags") or []) if str(tag).strip()}
+        automation = str(preset.get("automation") or "").strip().lower()
+        if automation == "full" or "automation_full" in tags:
+            return False
+        mechanics = preset.get("mechanics") if isinstance(preset.get("mechanics"), dict) else {}
+        sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
+        step = next((candidate for candidate in sequence if isinstance(candidate, dict)), None)
+        check = step.get("check") if isinstance(step, dict) and isinstance(step.get("check"), dict) else {}
+        outcomes = step.get("outcomes") if isinstance(step, dict) and isinstance(step.get("outcomes"), dict) else {}
+        ability = str(check.get("ability") or aoe.get("save_type") or "").strip().lower()[:3]
+        dc = 0
+        try:
+            dc = int(aoe.get("dc"))
+        except Exception:
+            dc = 0
+        if dc <= 0:
+            raw_dc = check.get("dc")
+            if isinstance(raw_dc, (int, float)):
+                dc = int(raw_dc)
+            elif isinstance(raw_dc, str):
+                raw_dc_str = raw_dc.strip().lower()
+                if raw_dc_str.isdigit():
+                    dc = int(raw_dc_str)
+                elif raw_dc_str == "spell_save_dc":
+                    try:
+                        player_name = self._pc_name_for(int(caster.cid))
+                    except Exception:
+                        player_name = str(getattr(caster, "name", "") or "")
+                    profile = self._profile_for_player_name(player_name)
+                    if isinstance(profile, dict):
+                        explicit_dc = (profile.get("spellcasting") or {}).get("save_dc") if isinstance(profile.get("spellcasting"), dict) else None
+                        try:
+                            dc = int(explicit_dc)
+                        except Exception:
+                            dc = int(self._compute_spell_save_dc(profile) or 0)
+        damage_effect = None
+        for key in ("fail", "failed", "failure", "success", "pass", "saved", "save"):
+            bucket = outcomes.get(key)
+            if not isinstance(bucket, list):
+                continue
+            for effect in bucket:
+                if isinstance(effect, dict) and str(effect.get("effect") or "").strip().lower() == "damage":
+                    damage_effect = effect
+                    break
+            if isinstance(damage_effect, dict):
+                break
+        damage_dice = str((damage_effect or {}).get("dice") or aoe.get("default_damage") or aoe.get("dice") or "").strip().lower()
+        damage_type = str((damage_effect or {}).get("damage_type") or (damage_effect or {}).get("type") or aoe.get("damage_type") or "").strip().lower()
+        spell_name = str(preset.get("name") or aoe.get("name") or "AoE").strip() or "AoE"
+        loop = getattr(getattr(self, "_lan", None), "_loop", None)
+        if loop is None:
+            return False
+        ws_targets = self._find_ws_for_cid(int(caster.cid))
+        if not ws_targets:
+            return False
+        prompted = False
+        for target_cid in target_cids:
+            target = self.combatants.get(int(target_cid))
+            if target is None:
+                continue
+            payload = {
+                "type": "spell_target_result",
+                "ok": True,
+                "attacker_cid": int(caster.cid),
+                "target_cid": int(target_cid),
+                "target_name": str(getattr(target, "name", "Target") or "Target"),
+                "spell_name": spell_name,
+                "spell_slug": spell_slug or None,
+                "spell_id": spell_id or None,
+                "spell_mode": "save" if ability in ("str", "dex", "con", "int", "wis", "cha") and int(dc) > 0 else "effect",
+                "save_type": ability if ability in ("str", "dex", "con", "int", "wis", "cha") else None,
+                "save_dc": int(dc) if int(dc) > 0 else None,
+                "roll_save": True,
+                "needs_damage_prompt": True,
+                "damage_dice": damage_dice or None,
+                "damage_type": damage_type or None,
+                "aoe_manual_prompt": True,
+            }
+            for ws_id in ws_targets:
+                try:
+                    asyncio.run_coroutine_threadsafe(self._lan._send_async(int(ws_id), payload), loop)
+                    prompted = True
+                except Exception:
+                    continue
+            if prompted:
+                self._lan.toast(
+                    int(ws_targets[0]),
+                    f"Resolve {spell_name} damage for {str(getattr(target, 'name', 'target') or 'target')}.",
+                )
+        return prompted
 
     def _lan_handle_aoe_enter_triggers_for_moved_unit(self, cid: int, origin_cell: Tuple[int, int], new_cell: Tuple[int, int]) -> None:
         if tuple(origin_cell) == tuple(new_cell):

@@ -270,6 +270,19 @@ class LanAoeOverTimeTests(unittest.TestCase):
             self.app._lan_apply_aoe_trigger_to_targets(1, aoe, target_cids=[2])
         self.assertEqual(self.app.combatants[2].hp, 22)
 
+    def test_over_time_manual_aoe_prompts_caster_instead_of_dm_popup(self):
+        aoe = self._base_aoe()
+        manual_preset = dict(self.preset)
+        manual_preset["automation"] = "manual"
+        manual_preset["tags"] = ["aoe"]
+        self.app._find_spell_preset = lambda spell_slug="", spell_id="": manual_preset
+        prompt_mock = mock.Mock(return_value=True)
+        self.app._lan_prompt_manual_aoe_damage = prompt_mock
+        applied = self.app._lan_apply_aoe_trigger_to_targets(1, aoe, target_cids=[2], turn_key=(1, 1, 2))
+        self.assertTrue(applied)
+        prompt_mock.assert_called_once()
+        self.assertEqual(self.app.combatants[2].hp, 30)
+
 
 if __name__ == "__main__":
     unittest.main()

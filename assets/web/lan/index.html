@@ -15261,37 +15261,49 @@ __DAMAGE_TYPE_OPTIONS__
           }
         } else if (msg.needs_damage_prompt){
           const target = getUnitByCid(msg.target_cid);
-          if (pendingSpellTargeting && target){
+          const promptSpell = pendingSpellTargeting ? pendingSpellTargeting : {
+            spellName: String(msg.spell_name || "Spell"),
+            spellSlug: msg.spell_slug || null,
+            spellId: msg.spell_id || null,
+            saveType: String(msg.save_type || "").toLowerCase(),
+            saveDc: Number.isFinite(Number(msg.save_dc)) ? Number(msg.save_dc) : null,
+            damageDice: String(msg.damage_dice || "").trim(),
+            damageType: String(msg.damage_type || "").trim().toLowerCase(),
+            description: "",
+            mode: String(msg.spell_mode || "save"),
+          };
+          if (promptSpell && target){
             const wounded = Number(target.hp || 0) < Number(target.max_hp || target.hp || 0);
-            const damageDice = wounded && pendingSpellTargeting.damageDiceWhenWounded
-              ? pendingSpellTargeting.damageDiceWhenWounded
-              : pendingSpellTargeting.damageDice;
+            const damageDice = wounded && promptSpell.damageDiceWhenWounded
+              ? promptSpell.damageDiceWhenWounded
+              : promptSpell.damageDice;
             pendingAttackResolve = {
               mode: "spell",
               targetCid: Number(msg.target_cid),
               targetName: String(msg.target_name || target.name || "target"),
-              spellName: pendingSpellTargeting.spellName,
-              spellSlug: pendingSpellTargeting.spellSlug || null,
-              spellId: pendingSpellTargeting.spellId || null,
+              spellName: promptSpell.spellName,
+              spellSlug: promptSpell.spellSlug || null,
+              spellId: promptSpell.spellId || null,
               spellMode: "save",
-              saveType: pendingSpellTargeting.saveType || "",
-              saveDc: pendingSpellTargeting.saveDc,
+              saveType: promptSpell.saveType || "",
+              saveDc: promptSpell.saveDc,
               forceHit: true,
-              rollSave: false,
+              rollSave: pendingSpellTargeting ? false : (msg.roll_save !== false),
               damageDice: damageDice || "",
-              damageType: pendingSpellTargeting.damageType || "",
+              damageType: promptSpell.damageType || "",
+              allowOutOfTurn: !!msg.aoe_manual_prompt,
             };
             if (attackResolveBody){
               const details = [
-                damageDice ? `Damage: ${damageDice}${pendingSpellTargeting.damageType ? ` ${pendingSpellTargeting.damageType}` : ""}.` : "",
-                pendingSpellTargeting.description ? pendingSpellTargeting.description : "",
+                damageDice ? `Damage: ${damageDice}${promptSpell.damageType ? ` ${promptSpell.damageType}` : ""}.` : "",
+                promptSpell.description ? promptSpell.description : "",
               ].filter(Boolean).join(" ");
-              attackResolveBody.textContent = `Target failed save. Resolve ${pendingSpellTargeting.spellName} on ${pendingAttackResolve.targetName}.`
+              attackResolveBody.textContent = `Target save resolves automatically. Resolve ${promptSpell.spellName} on ${pendingAttackResolve.targetName}.`
                 + (details ? ` ${details}` : "");
             }
             if (attackDamageRows){
               attackDamageRows.textContent = "";
-              addAttackDamageRow("", pendingSpellTargeting.damageType || "");
+              addAttackDamageRow("", promptSpell.damageType || "");
             }
             if (attackResolveHit) attackResolveHit.checked = true;
             if (attackResolveMiss) attackResolveMiss.checked = false;
@@ -22065,7 +22077,10 @@ __DAMAGE_TYPE_OPTIONS__
       if (hit && damageParseResult.invalidCount > 0){
         localToast("Invalid manual damage ignored; auto-roll used.");
       }
-      const actionCid = pendingAttackResolve.opportunityAttack ? normalizeCid(claimedCid, "attackResolve.opportunityCid") : activeControlledUnitCid();
+      let actionCid = pendingAttackResolve.opportunityAttack ? normalizeCid(claimedCid, "attackResolve.opportunityCid") : activeControlledUnitCid();
+      if (actionCid === null && pendingAttackResolve.mode === "spell" && pendingAttackResolve.allowOutOfTurn){
+        actionCid = normalizeCid(claimedCid, "attackResolve.spellPromptCid");
+      }
       if (actionCid === null){
         localToast("Not yer turn yet, matey.");
         setAttackResolveModalOpen(false);
