@@ -366,6 +366,7 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
             Path("players/johnny_morris.yaml").read_text(encoding="utf-8")
         )
         normalized = app._normalize_player_profile(data, "johnny_morris")
+        self.assertEqual(normalized.get("name"), "Johnny Morris")
         resources = normalized.get("resources") or {}
         action_names = {str(entry.get("name") or "") for entry in (resources.get("actions") or []) if isinstance(entry, dict)}
         self.assertIn("Wild Companion", action_names)
