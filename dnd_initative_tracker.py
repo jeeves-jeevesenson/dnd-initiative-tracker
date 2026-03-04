@@ -2824,11 +2824,13 @@ class LanController:
                         display_name = self._assigned_character_name_for_host(host)
                         if not display_name or str(display_name).startswith("cid:"):
                             display_name = str(host or "?")
+                        avatar_key = self._planning_chat_avatar_key_for_name(display_name)
                         payload = {
                             "type": "planning_chat",
                             "ts": datetime.utcnow().isoformat() + "Z",
                             "host": str(host or "?"),
                             "name": str(display_name),
+                            "avatar_key": avatar_key,
                             "text": text,
                         }
                         with self._clients_lock:
@@ -4594,6 +4596,22 @@ class LanController:
             if name and not str(name).startswith("cid:"):
                 return str(name)
         return None
+
+    def _planning_chat_avatar_key_for_name(self, player_name: Any) -> str:
+        raw_name = str(player_name or "").strip()
+        if not raw_name:
+            return ""
+        try:
+            profile_path = self.app._find_player_profile_path(raw_name)
+        except Exception:
+            return ""
+        if not isinstance(profile_path, Path):
+            return ""
+        stem = str(profile_path.stem).strip()
+        if not stem:
+            return ""
+        safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", stem).strip("-._")
+        return safe_stem or ""
 
     def _planning_snapshot_payload(self, viewer_cid: Optional[int], is_admin: bool = False) -> Dict[str, Any]:
         snap = copy.deepcopy(self.app._lan_snapshot())

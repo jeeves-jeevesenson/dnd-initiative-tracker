@@ -1,5 +1,6 @@
 import threading
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
 import dnd_initative_tracker as tracker_mod
@@ -29,6 +30,18 @@ class PlanningChatNameResolutionTests(unittest.TestCase):
         lan._cid_to_host = {12: {"10.0.0.33"}}
 
         self.assertIsNone(lan._assigned_character_name_for_host("10.0.0.33"))
+
+    def test_planning_chat_avatar_key_uses_yaml_stem(self):
+        lan = self._build_controller()
+        lan.app._find_player_profile_path = lambda _name: Path("/tmp/players/john-twilight.yaml")
+
+        self.assertEqual(lan._planning_chat_avatar_key_for_name("John Twilight"), "john-twilight")
+
+    def test_planning_chat_avatar_key_empty_without_profile_path(self):
+        lan = self._build_controller()
+        lan.app._find_player_profile_path = lambda _name: None
+
+        self.assertEqual(lan._planning_chat_avatar_key_for_name("Unknown"), "")
 
 
 if __name__ == "__main__":

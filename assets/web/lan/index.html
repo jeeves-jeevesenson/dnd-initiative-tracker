@@ -168,7 +168,37 @@
       gap:8px;
       flex:1;
     }
-    .planning-chat-item{font-size:13px; line-height:1.35;}
+    .planning-chat-item{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      font-size:13px;
+      line-height:1.35;
+    }
+    .planning-chat-avatar{
+      width:40px;
+      aspect-ratio:1 / 1;
+      border-radius:999px;
+      object-fit:cover;
+      object-position:center;
+      background:rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,0.16);
+      flex:0 0 auto;
+    }
+    .planning-chat-avatar-fallback{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:700;
+      color:var(--text);
+      font-size:12px;
+      text-transform:uppercase;
+      background:rgba(255,255,255,0.10);
+    }
+    .planning-chat-content{
+      min-width:0;
+      flex:1 1 auto;
+    }
     .planning-chat-meta{color:var(--muted); font-size:11px; margin-bottom:2px;}
     .planning-chat-compose{display:flex; gap:8px;}
     .planning-chat-compose input{flex:1 1 auto;}
@@ -8709,22 +8739,67 @@ __DAMAGE_TYPE_OPTIONS__
     noteEl.textContent = text || "…";
   }
 
+  function planningChatInitials(name){
+    const text = String(name || "").trim();
+    if (!text) return "?";
+    const parts = text.split(/[\s_-]+/).filter(Boolean);
+    if (!parts.length) return text.slice(0, 1).toUpperCase();
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0].slice(0, 1)}${parts[1].slice(0, 1)}`.toUpperCase();
+  }
+
+  function planningChatAvatarKey(raw){
+    const value = String(raw || "").trim().toLowerCase();
+    if (!value) return "";
+    const withoutExt = value.endsWith(".png") ? value.slice(0, -4) : value;
+    return withoutExt.replace(/[^a-z0-9._-]+/g, "-").replace(/^[-._]+|[-._]+$/g, "");
+  }
+
+  function planningChatAvatarUrl(entry){
+    const key = planningChatAvatarKey(entry?.avatar_key) || planningChatAvatarKey(entry?.name);
+    if (!key) return "";
+    return `/assets/profile_pictures/${encodeURIComponent(key)}.png`;
+  }
+
+  function buildPlanningChatAvatar(who, entry){
+    const fallback = document.createElement("div");
+    fallback.className = "planning-chat-avatar planning-chat-avatar-fallback";
+    fallback.textContent = planningChatInitials(who);
+    const avatarUrl = planningChatAvatarUrl(entry);
+    if (!avatarUrl){
+      return fallback;
+    }
+    const img = document.createElement("img");
+    img.className = "planning-chat-avatar";
+    img.alt = `${who} profile picture`;
+    img.loading = "lazy";
+    img.src = avatarUrl;
+    img.addEventListener("error", () => {
+      img.replaceWith(fallback);
+    }, {once:true});
+    return img;
+  }
+
   function renderPlanningChat(){
     if (!planningChatList) return;
     planningChatList.textContent = "";
     planningChatMessages.forEach((entry) => {
       const item = document.createElement("div");
       item.className = "planning-chat-item";
-      const meta = document.createElement("div");
-      meta.className = "planning-chat-meta";
       const who = String(entry?.name || entry?.host || "Unknown");
       const host = String(entry?.host || "?");
       const ts = String(entry?.ts || "");
+      item.appendChild(buildPlanningChatAvatar(who, entry));
+      const content = document.createElement("div");
+      content.className = "planning-chat-content";
+      const meta = document.createElement("div");
+      meta.className = "planning-chat-meta";
       meta.textContent = `${who} (${host}) ${ts}`.trim();
       const body = document.createElement("div");
       body.textContent = String(entry?.text || "");
-      item.appendChild(meta);
-      item.appendChild(body);
+      content.appendChild(meta);
+      content.appendChild(body);
+      item.appendChild(content);
       planningChatList.appendChild(item);
     });
     planningChatList.scrollTop = planningChatList.scrollHeight;
@@ -8737,6 +8812,7 @@ __DAMAGE_TYPE_OPTIONS__
       ts: String(msg?.ts || ""),
       host: String(msg?.host || ""),
       name: String(msg?.name || ""),
+      avatar_key: String(msg?.avatar_key || ""),
       text,
     });
     if (planningChatMessages.length > planningChatMaxMessages){
