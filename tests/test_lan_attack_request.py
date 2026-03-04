@@ -115,6 +115,33 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[1].attack_resource_remaining, 0)
         self.assertIn((61, "Target be out of attack range."), self.toasts)
 
+    def test_attack_request_melee_uses_overlay_fudge_on_non_default_grid(self):
+        self.app._pending_reaction_offers = {}
+        self.app._pending_shield_resolutions = {}
+        self.app._map_window = type(
+            "MapWindowStub",
+            (),
+            {"winfo_exists": lambda _self: True, "feet_per_square": 8},
+        )()
+        self.app._lan_positions = {1: (5, 5), 2: (6, 5)}
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 62,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [{"amount": 3, "type": "slashing"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("hit"))
+        self.assertNotIn((62, "Target be out of attack range."), self.toasts)
+
     def test_attack_request_returns_hit_result_without_exposing_target_ac(self):
         msg = {
             "type": "attack_request",

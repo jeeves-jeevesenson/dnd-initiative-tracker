@@ -23123,6 +23123,17 @@ class InitiativeTracker(base.InitiativeTracker):
                 weapon_range = str(selected_weapon.get("range") or selected_weapon.get("normal_range") or selected_weapon.get("reach") or "").strip().lower()
                 range_match = re.search(r"(\d+(?:\.\d+)?)", weapon_range.split("/")[0])
                 range_ft = float(range_match.group(1)) if range_match else 5.0
+                weapon_category = str(selected_weapon.get("category") or selected_weapon.get("weapon_group") or "").strip().lower()
+                is_melee_weapon = "melee" in weapon_category
+                if not is_melee_weapon:
+                    if "/" in weapon_range:
+                        is_melee_weapon = False
+                    elif weapon_range:
+                        is_melee_weapon = range_ft <= 10.0
+                    else:
+                        is_melee_weapon = True
+                if is_melee_weapon:
+                    range_ft += 3.0
                 if attunement_active and is_unarmed_strike:
                     range_ft += 10.0
                 # Grid movement/range in this tracker treats diagonal adjacency as 5 ft,
