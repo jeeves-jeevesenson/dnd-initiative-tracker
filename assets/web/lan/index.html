@@ -3531,8 +3531,8 @@ __DAMAGE_TYPE_OPTIONS__
           <div class="form-field cast-modal-sort">
             <label for="castSpellModalSort">Sort</label>
             <select id="castSpellModalSort">
-              <option value="alpha" selected>Name</option>
-              <option value="level">Level</option>
+              <option value="alpha">Name</option>
+              <option value="level" selected>Level</option>
             </select>
           </div>
         </div>
@@ -8336,7 +8336,7 @@ __DAMAGE_TYPE_OPTIONS__
     const search = normalizeLowerValue(castSpellModalSearchInput?.value || "");
     castSpellPresetList.textContent = "";
     const preparedSet = getPreparedSpellFilterSet();
-    const sortMode = normalizeLowerValue(castSpellModalSortInput?.value || "alpha");
+    const sortMode = normalizeLowerValue(castSpellModalSortInput?.value || "level");
     const presets = filterPresetsByKnownList(cachedSpellPresets.slice(), preparedSet)
       .filter((preset) => !search || normalizeLowerValue(preset?.name).includes(search))
       .sort((a, b) => {
@@ -8350,16 +8350,40 @@ __DAMAGE_TYPE_OPTIONS__
         return normalizeTextValue(a?.name).localeCompare(normalizeTextValue(b?.name));
       });
     const entries = [
-      {label: "None", value: ""},
-      {label: "Custom", value: "__custom__"},
-      {label: CUSTOM_SUMMON_PRESET_NAME, value: CUSTOM_SUMMON_PRESET_NAME},
-      ...presets.map((preset) => ({label: normalizeTextValue(preset.name), value: normalizeTextValue(preset.name)})),
+      {label: "None", value: "", preset: null},
+      {label: "Custom", value: "__custom__", preset: null},
+      {label: CUSTOM_SUMMON_PRESET_NAME, value: CUSTOM_SUMMON_PRESET_NAME, preset: null},
+      ...presets.map((preset) => ({
+        label: normalizeTextValue(preset.name),
+        value: normalizeTextValue(preset.name),
+        preset,
+      })),
     ];
     entries.forEach((entry) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "btn" + (castSpellModalSelection === entry.value ? " active" : "");
-      btn.textContent = entry.label || "Unnamed";
+      btn.className = "btn spellbook-item" + (castSpellModalSelection === entry.value ? " active" : "");
+      if (entry.preset){
+        const nameWrap = document.createElement("span");
+        nameWrap.className = "spellbook-item-name";
+        const colorDot = document.createElement("span");
+        colorDot.className = "spellbook-color-dot";
+        colorDot.style.background = resolveSpellColor(entry.preset?.color);
+        nameWrap.appendChild(colorDot);
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = entry.label || "Unnamed";
+        nameWrap.appendChild(nameSpan);
+        btn.appendChild(nameWrap);
+        const level = getPresetLevelNumber(entry.preset);
+        const romanLevel = formatSpellLevelRoman(level);
+        const meta = document.createElement("small");
+        meta.textContent = Number.isFinite(level)
+          ? (level === 0 ? "Cantrip" : `Lv ${romanLevel || level}`)
+          : "Level ?";
+        btn.appendChild(meta);
+      } else {
+        btn.textContent = entry.label || "Unnamed";
+      }
       btn.addEventListener("click", () => selectCastSpellModalPreset(entry.value));
       castSpellPresetList.appendChild(btn);
     });
@@ -16576,6 +16600,12 @@ __DAMAGE_TYPE_OPTIONS__
     if (num === 0) return "Cantrip";
     const suffix = num === 1 ? "st" : num === 2 ? "nd" : num === 3 ? "rd" : "th";
     return `${num}${suffix}`;
+  };
+  const formatSpellLevelRoman = (level) => {
+    const num = Number(level);
+    if (!Number.isFinite(num) || num <= 0) return "";
+    const numerals = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
+    return numerals[num] || String(num);
   };
   const formatListGroupLabel = (value) => String(value || "")
     .replace(/_/g, " ")
