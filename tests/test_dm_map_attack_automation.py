@@ -1,4 +1,7 @@
 import unittest
+import json
+import os
+import tempfile
 from unittest import mock
 
 import dnd_initative_tracker as tracker_mod
@@ -82,6 +85,103 @@ class DmMapAttackAutomationTests(unittest.TestCase):
         )()
 
         self.assertEqual(self.app._monster_multiattack_description_for_map(attacker), "The dragon makes three attacks.")
+
+    def test_monster_attack_options_hydrate_from_persistent_cache(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = f"{tmpdir}/logs"
+            with mock.patch.dict("os.environ", {"INITTRACKER_DATA_DIR": tmpdir}, clear=False):
+                os.makedirs(cache_dir, exist_ok=True)
+                cache_path = f"{cache_dir}/monster_action_fallback_cache.json"
+                payload = {
+                    "version": 1,
+                    "entries": {
+                        "lizardfolk-sovereign": {
+                            "name": "Lizardfolk Sovereign",
+                            "sections": {
+                                "actions": [
+                                    {
+                                        "name": "Trident",
+                                        "desc": "Melee Attack Roll: +6, reach 5 ft. Hit: 8 (1d8 + 4) piercing damage.",
+                                    }
+                                ]
+                            },
+                            "updated_at": "2026-01-01T00:00:00Z",
+                        }
+                    },
+                }
+                with open(cache_path, "w", encoding="utf-8") as fh:
+                    json.dump(payload, fh)
+
+                attacker = type(
+                    "Combatant",
+                    (),
+                    {
+                        "monster_spec": type(
+                            "Spec",
+                            (),
+                            {
+                                "name": "Lizardfolk Sovereign",
+                                "filename": "lizardfolk-sovereign.yaml",
+                                "raw_data": {"name": "Lizardfolk Sovereign", "actions": []},
+                            },
+                        )()
+                    },
+                )()
+
+                options, _counts = self.app._monster_attack_options_for_map(attacker)
+
+        self.assertGreaterEqual(len(options), 1)
+        self.assertEqual(options[0]["to_hit"], 6)
+        self.assertEqual(options[0]["damage_entries"], [{"formula": "1d8 + 4", "type": "piercing"}])
+        self.assertTrue(attacker.monster_spec.raw_data["actions"])
+
+    def test_monster_attack_options_hydrate_from_local_5etools_and_write_cache(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_dir = f"{tmpdir}/monster_sources/5etools"
+            with mock.patch.dict("os.environ", {"INITTRACKER_DATA_DIR": tmpdir}, clear=False):
+                os.makedirs(source_dir, exist_ok=True)
+                fixture_path = f"{source_dir}/bestiary.json"
+                fixture = {
+                    "monster": [
+                        {
+                            "name": "Lizardfolk Sovereign",
+                            "action": [
+                                {
+                                    "name": "Mace",
+                                    "entries": ["Melee Attack Roll: +5, reach 5 ft. Hit: 7 (1d6 + 4) bludgeoning damage."],
+                                }
+                            ],
+                        }
+                    ]
+                }
+                with open(fixture_path, "w", encoding="utf-8") as fh:
+                    json.dump(fixture, fh)
+
+                attacker = type(
+                    "Combatant",
+                    (),
+                    {
+                        "monster_spec": type(
+                            "Spec",
+                            (),
+                            {
+                                "name": "Lizardfolk Sovereign",
+                                "filename": "lizardfolk-sovereign.yaml",
+                                "raw_data": {"name": "Lizardfolk Sovereign", "actions": []},
+                            },
+                        )()
+                    },
+                )()
+
+                options, _counts = self.app._monster_attack_options_for_map(attacker)
+                cache_path = f"{tmpdir}/logs/monster_action_fallback_cache.json"
+                with open(cache_path, "r", encoding="utf-8") as fh:
+                    cached_payload = json.load(fh)
+
+        self.assertGreaterEqual(len(options), 1)
+        self.assertEqual(options[0]["to_hit"], 5)
+        sections = cached_payload.get("entries", {}).get("lizardfolk-sovereign", {}).get("sections", {})
+        self.assertTrue(isinstance(sections.get("actions"), list) and sections.get("actions"))
 
     def test_resolve_map_attack_rolls_to_hit_and_reports_manual_damage_rolls(self):
         attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()

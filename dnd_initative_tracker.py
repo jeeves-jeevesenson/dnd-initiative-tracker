@@ -804,6 +804,23 @@ def _ensure_logs_dir() -> Path:
     return logs
 
 
+@lru_cache(maxsize=1)
+def _load_backfill_helpers_module() -> Optional[Any]:
+    module_path = _app_base_dir() / "scripts" / "backfill_monster_sections.py"
+    try:
+        if not module_path.exists():
+            return None
+        spec = importlib.util.spec_from_file_location("init_tracker_backfill_helpers", module_path)
+        if spec is None or spec.loader is None:
+            return None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    except Exception:
+        return None
+
+
 def _archive_startup_logs() -> None:
     """Move existing .log files in logs/ into logs/old logs/<timestamp>/."""
     try:
@@ -15569,15 +15586,211 @@ class InitiativeTracker(base.InitiativeTracker):
                 normalized.append(token)
         return normalized or [text]
 
-    def _monster_attack_options_for_map(self, attacker: Any) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
-        spec = getattr(attacker, "monster_spec", None)
+    @staticmethod
+    def _monster_fallback_name_key(value: Any) -> str:
+        return re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower()).strip("-")
+
+    def _monster_fallback_lookup_keys(self, spec: Optional[MonsterSpec]) -> List[str]:
+        keys: List[str] = []
+        slug = self._monster_fallback_name_key(self._monster_slug_from_spec(spec))
+        if slug:
+            keys.append(slug)
         raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        name = ""
+        if isinstance(raw_data, dict):
+            name = str(raw_data.get("name") or "").strip()
+        if not name:
+            name = str(getattr(spec, "name", "") or "").strip()
+        name_key = self._monster_fallback_name_key(name)
+        if name_key and name_key not in keys:
+            keys.append(name_key)
+        return keys
+
+    def _monster_action_fallback_cache_path(self) -> Path:
+        return _ensure_logs_dir() / "monster_action_fallback_cache.json"
+
+    def _load_monster_action_fallback_cache(self) -> Dict[str, Any]:
+        cache = self.__dict__.get("_monster_action_fallback_cache")
+        if isinstance(cache, dict):
+            return cache
+        cache = {"version": 1, "entries": {}}
+        path = self._monster_action_fallback_cache_path()
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                entries = payload.get("entries")
+                if isinstance(entries, dict):
+                    cache["entries"] = entries
+        except Exception:
+            pass
+        self.__dict__["_monster_action_fallback_cache"] = cache
+        return cache
+
+    def _write_monster_action_fallback_cache(self) -> None:
+        cache = self._load_monster_action_fallback_cache()
+        path = self._monster_action_fallback_cache_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as exc:
+            logger.warning("monster fallback cache write failed: %s", exc)
+
+    def _store_monster_action_fallback_cache_entry(
+        self,
+        lookup_keys: List[str],
+        display_name: str,
+        sections: Dict[str, List[Dict[str, str]]],
+    ) -> None:
+        cache = self._load_monster_action_fallback_cache()
+        entries = cache.get("entries")
+        if not isinstance(entries, dict):
+            entries = {}
+            cache["entries"] = entries
+        payload = {
+            "name": display_name,
+            "sections": sections,
+            "updated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        }
+        changed = False
+        for key in lookup_keys:
+            if not key:
+                continue
+            if entries.get(key) != payload:
+                entries[key] = copy.deepcopy(payload)
+                changed = True
+        if changed:
+            self._write_monster_action_fallback_cache()
+
+    def _monster_sections_from_fallback_cache(self, lookup_keys: List[str]) -> Dict[str, List[Dict[str, str]]]:
+        cache = self._load_monster_action_fallback_cache()
+        entries = cache.get("entries")
+        if not isinstance(entries, dict):
+            return {}
+        for key in lookup_keys:
+            record = entries.get(key)
+            if not isinstance(record, dict):
+                continue
+            sections = record.get("sections")
+            if isinstance(sections, dict):
+                return sections
+        return {}
+
+    def _load_local_5etools_monster_lookup(self) -> Dict[str, Dict[str, Any]]:
+        lookup = self.__dict__.get("_local_5etools_monster_lookup")
+        if isinstance(lookup, dict):
+            return lookup
+        lookup = {}
+        helper_module = _load_backfill_helpers_module()
+        build_lookup = getattr(helper_module, "build_5etools_lookup", None) if helper_module is not None else None
+        if callable(build_lookup):
+            source_dir = _app_data_dir() / "monster_sources" / "5etools"
+            try:
+                for path in sorted(source_dir.glob("*.json")):
+                    try:
+                        payload = json.loads(path.read_text(encoding="utf-8"))
+                    except Exception:
+                        continue
+                    partial = build_lookup(payload)
+                    if not isinstance(partial, dict):
+                        continue
+                    for key, value in partial.items():
+                        normalized = self._monster_fallback_name_key(key)
+                        if normalized and normalized not in lookup and isinstance(value, dict):
+                            lookup[normalized] = value
+            except Exception:
+                pass
+        self.__dict__["_local_5etools_monster_lookup"] = lookup
+        return lookup
+
+    def _monster_sections_from_local_5etools(self, lookup_keys: List[str]) -> Dict[str, List[Dict[str, str]]]:
+        helper_module = _load_backfill_helpers_module()
+        extract_sections = getattr(helper_module, "extract_sections_from_5etools_monster", None) if helper_module is not None else None
+        if not callable(extract_sections):
+            return {}
+        lookup = self._load_local_5etools_monster_lookup()
+        for key in lookup_keys:
+            monster = lookup.get(key)
+            if not isinstance(monster, dict):
+                continue
+            try:
+                sections = extract_sections(monster)
+            except Exception:
+                continue
+            if isinstance(sections, dict):
+                return sections
+        return {}
+
+    def _monster_sections_from_aidedd(self, lookup_keys: List[str]) -> Dict[str, List[Dict[str, str]]]:
+        enabled = str(os.getenv("INITTRACKER_ENABLE_MONSTER_ACTION_ONLINE") or "").strip().lower()
+        if enabled not in {"1", "true", "yes", "on"}:
+            return {}
+        helper_module = _load_backfill_helpers_module()
+        fetch_html = getattr(helper_module, "_fetch_aidedd_html", None) if helper_module is not None else None
+        extract_sections = getattr(helper_module, "extract_sections_from_aidedd_html", None) if helper_module is not None else None
+        if not callable(fetch_html) or not callable(extract_sections):
+            return {}
+        for key in lookup_keys:
+            if not key:
+                continue
+            try:
+                raw_html = fetch_html(key)
+                sections = extract_sections(raw_html)
+            except Exception:
+                continue
+            if isinstance(sections, dict):
+                return sections
+        return {}
+
+    def _apply_hydrated_monster_sections(self, raw_data: Dict[str, Any], sections: Dict[str, List[Dict[str, str]]]) -> bool:
+        changed = False
+        for key in ("traits", "actions", "bonus_actions", "reactions", "legendary_actions"):
+            incoming = sections.get(key)
+            if not isinstance(incoming, list) or not incoming:
+                continue
+            current = raw_data.get(key)
+            if isinstance(current, list) and current:
+                continue
+            raw_data[key] = copy.deepcopy(incoming)
+            changed = True
+        return changed
+
+    def _hydrate_monster_sections_from_fallback(self, spec: Optional[MonsterSpec]) -> bool:
+        if spec is None:
+            return False
+        raw_data = getattr(spec, "raw_data", None)
         if not isinstance(raw_data, dict):
-            return [], {}
+            return False
         actions = raw_data.get("actions")
+        if isinstance(actions, list) and actions:
+            existing_options, _ = self._parse_monster_attack_options(actions)
+            if existing_options:
+                return False
+        lookup_keys = self._monster_fallback_lookup_keys(spec)
+        if not lookup_keys:
+            return False
+        display_name = str(raw_data.get("name") or getattr(spec, "name", "") or "").strip()
+        sections = self._monster_sections_from_fallback_cache(lookup_keys)
+        if not sections:
+            sections = self._monster_sections_from_local_5etools(lookup_keys)
+        if not sections:
+            sections = self._monster_sections_from_aidedd(lookup_keys)
+        if not sections:
+            return False
+        changed = self._apply_hydrated_monster_sections(raw_data, sections)
+        if not changed:
+            return False
+        cached_sections: Dict[str, List[Dict[str, str]]] = {}
+        for key in ("traits", "actions", "bonus_actions", "reactions", "legendary_actions"):
+            value = raw_data.get(key)
+            if isinstance(value, list) and value:
+                cached_sections[key] = copy.deepcopy(value)
+        if cached_sections:
+            self._store_monster_action_fallback_cache_entry(lookup_keys, display_name, cached_sections)
+        return True
+
+    def _parse_monster_attack_options(self, actions: Any) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
         if not isinstance(actions, list):
             return [], {}
-
         options: List[Dict[str, Any]] = []
         for raw_action in actions:
             if not isinstance(raw_action, dict):
@@ -15682,6 +15895,18 @@ class InitiativeTracker(base.InitiativeTracker):
                     multiattack_counts[key] = int(min(token_counts))
             break
         return options, multiattack_counts
+
+    def _monster_attack_options_for_map(self, attacker: Any) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+        spec = getattr(attacker, "monster_spec", None)
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        if not isinstance(raw_data, dict):
+            return [], {}
+        options, multiattack_counts = self._parse_monster_attack_options(raw_data.get("actions"))
+        if options:
+            return options, multiattack_counts
+        if not self._hydrate_monster_sections_from_fallback(spec):
+            return [], {}
+        return self._parse_monster_attack_options(raw_data.get("actions"))
 
     def _monster_multiattack_description_for_map(self, attacker: Any) -> str:
         spec = getattr(attacker, "monster_spec", None)
@@ -26420,6 +26645,10 @@ class InitiativeTracker(base.InitiativeTracker):
             ).grid(row=0, column=0, sticky="w")
             return
 
+        try:
+            self._hydrate_monster_sections_from_fallback(spec)
+        except Exception:
+            pass
         raw = spec.raw_data or {}
         slug = self._monster_slug_from_spec(spec)
         image_path = self._resolve_local_monster_image_path(slug)
