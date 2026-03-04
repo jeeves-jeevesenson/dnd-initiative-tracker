@@ -1472,6 +1472,7 @@ class LanController:
         self._client_hosts: Dict[int, str] = {}  # id(websocket) -> host
         self._view_only_clients: set[int] = set()
         self._planning_chat_clients: set[int] = set()
+        self._planning_chat_history: deque = deque(maxlen=200)
         self._claims: Dict[int, int] = {}   # id(websocket) -> cid
         self._cid_to_ws: Dict[int, set[int]] = {}  # cid -> {id(websocket), ...}
         self._cid_to_host: Dict[int, set[str]] = {}  # cid -> {host, ...}
@@ -2873,6 +2874,8 @@ class LanController:
                     elif typ == "planning_hello":
                         with self._clients_lock:
                             self._planning_chat_clients.add(ws_id)
+                        for chat_entry in self._planning_chat_history_snapshot():
+                            await self._send_async(ws_id, chat_entry)
                     elif typ == "planning_chat":
                         with self._clients_lock:
                             if ws_id not in self._planning_chat_clients:
@@ -2894,6 +2897,7 @@ class LanController:
                             "avatar_key": avatar_key,
                             "text": text,
                         }
+                        self._planning_chat_record(payload)
                         with self._clients_lock:
                             targets = list(self._planning_chat_clients)
                         for target_ws_id in targets:
@@ -4673,6 +4677,34 @@ class LanController:
             return ""
         safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", stem).strip("-._")
         return safe_stem or ""
+
+    def _planning_chat_record(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        text = str(payload.get("text") or "").strip()
+        if not text:
+            return
+        entry = {
+            "type": "planning_chat",
+            "ts": str(payload.get("ts") or ""),
+            "host": str(payload.get("host") or "?"),
+            "name": str(payload.get("name") or ""),
+            "avatar_key": str(payload.get("avatar_key") or ""),
+            "text": text,
+        }
+        with self._clients_lock:
+            history = getattr(self, "_planning_chat_history", None)
+            if not isinstance(history, deque):
+                history = deque(maxlen=200)
+                self._planning_chat_history = history
+            history.append(entry)
+
+    def _planning_chat_history_snapshot(self) -> List[Dict[str, Any]]:
+        with self._clients_lock:
+            history = getattr(self, "_planning_chat_history", None)
+            if not isinstance(history, deque):
+                return []
+            return [copy.deepcopy(entry) for entry in history if isinstance(entry, dict)]
 
     def _planning_snapshot_payload(self, viewer_cid: Optional[int], is_admin: bool = False) -> Dict[str, Any]:
         snap = copy.deepcopy(self.app._lan_snapshot())

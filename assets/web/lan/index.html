@@ -2510,8 +2510,8 @@
       </div>
       <div class="hint">Names use IP assignment when available; otherwise sender IP is shown.</div>
       <div class="planning-chat-list" id="planningChatList" aria-live="polite"></div>
-      <form class="planning-chat-compose" id="planningChatForm">
-        <input class="input" id="planningChatInput" maxlength="500" placeholder="Message" />
+      <form class="planning-chat-compose" id="planningChatForm" autocomplete="off">
+        <input class="input" id="planningChatInput" maxlength="500" placeholder="Message" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
         <button class="btn accent" id="planningChatSend" type="submit">Send</button>
       </form>
       <div class="log-resize-handle" id="planningChatResizeHandle" aria-hidden="true"></div>
