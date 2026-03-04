@@ -233,6 +233,7 @@ def _load_spell_source_page_map() -> Dict[str, int]:
 
 def _seed_user_players_dir() -> None:
     _seed_user_items_dir()
+    _sync_profile_picture_cache()
     user_dir = _app_data_dir() / "players"
     base_dir = _app_base_dir() / "players"
     if not base_dir.exists():
@@ -251,6 +252,65 @@ def _seed_user_players_dir() -> None:
                 shutil.copy2(path, dest)
     except Exception:
         pass
+
+
+def _profile_picture_source_dir() -> Path:
+    return _app_data_dir() / "profile_pictures" / "source"
+
+
+def _profile_picture_cache_dir() -> Path:
+    return _app_base_dir() / "assets" / "profile_pictures"
+
+
+def _sync_profile_picture_cache() -> None:
+    source_dir = _profile_picture_source_dir()
+    cache_dir = _profile_picture_cache_dir()
+    try:
+        source_dir.mkdir(parents=True, exist_ok=True)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return
+
+    try:
+        source_files = [path for path in source_dir.iterdir() if path.is_file()]
+    except Exception:
+        source_files = []
+    if not source_files:
+        try:
+            for cached in cache_dir.glob("*.png"):
+                migrated = source_dir / cached.name
+                if not migrated.exists():
+                    shutil.copy2(cached, migrated)
+        except Exception:
+            pass
+        try:
+            source_files = [path for path in source_dir.iterdir() if path.is_file()]
+        except Exception:
+            source_files = []
+
+    for source_path in source_files:
+        source_suffix = source_path.suffix.lower()
+        if source_suffix not in {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}:
+            continue
+        target_path = cache_dir / f"{source_path.stem}.png"
+        try:
+            needs_update = (not target_path.exists()) or (source_path.stat().st_mtime > target_path.stat().st_mtime)
+        except Exception:
+            needs_update = True
+        if not needs_update:
+            continue
+        try:
+            if Image is not None:
+                with Image.open(source_path) as raw:
+                    resized = raw.convert("RGBA")
+                    resampling = getattr(Image, "Resampling", None)
+                    resample_filter = resampling.LANCZOS if resampling is not None else Image.LANCZOS
+                    resized.thumbnail((256, 256), resample_filter)
+                    resized.save(target_path, format="PNG")
+            elif source_suffix == ".png":
+                shutil.copy2(source_path, target_path)
+        except Exception:
+            continue
 
 
 def _bundled_spells_dir() -> Optional[Path]:

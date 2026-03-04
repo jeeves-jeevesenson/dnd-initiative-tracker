@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import base64
 from pathlib import Path
 from unittest import mock
 
@@ -68,6 +69,38 @@ class LocalYamlStorageTests(unittest.TestCase):
         self.assertTrue((self.data_dir / "Items" / "Armor").exists())
         self.assertEqual(custom_weapon.read_text(encoding="utf-8"), "id: custom-halberd\n")
         self.assertTrue((self.data_dir / "Items" / "Armor" / "chainmail.yaml").exists())
+
+    def test_sync_profile_picture_cache_migrates_existing_asset_png(self):
+        assets_dir = self.base_dir / "assets" / "profile_pictures"
+        assets_dir.mkdir(parents=True, exist_ok=True)
+        tiny_png = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5xJ7sAAAAASUVORK5CYII="
+        )
+        cached = assets_dir / "hero.png"
+        cached.write_bytes(tiny_png)
+
+        with mock.patch.dict("os.environ", {"INITTRACKER_DATA_DIR": str(self.data_dir)}, clear=False):
+            with mock.patch.object(tracker_mod, "_app_base_dir", return_value=self.base_dir):
+                tracker_mod._sync_profile_picture_cache()
+
+        source = self.data_dir / "profile_pictures" / "source" / "hero.png"
+        self.assertTrue(source.exists())
+        self.assertTrue(cached.exists())
+
+    def test_sync_profile_picture_cache_renders_png_from_user_source(self):
+        source_dir = self.data_dir / "profile_pictures" / "source"
+        source_dir.mkdir(parents=True, exist_ok=True)
+        tiny_png = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5xJ7sAAAAASUVORK5CYII="
+        )
+        (source_dir / "mage.png").write_bytes(tiny_png)
+
+        with mock.patch.dict("os.environ", {"INITTRACKER_DATA_DIR": str(self.data_dir)}, clear=False):
+            with mock.patch.object(tracker_mod, "_app_base_dir", return_value=self.base_dir):
+                tracker_mod._sync_profile_picture_cache()
+
+        rendered = self.base_dir / "assets" / "profile_pictures" / "mage.png"
+        self.assertTrue(rendered.exists())
 
 
 if __name__ == "__main__":
