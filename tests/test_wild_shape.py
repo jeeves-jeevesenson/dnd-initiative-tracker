@@ -418,6 +418,54 @@ class WildShapeTests(unittest.TestCase):
         c = self.app.combatants[1]
         self.assertEqual(self.app._name_role_memory.get(str(c.name), "enemy"), "pc")
 
+    def test_apply_wild_shape_preserves_existing_initiative_tiebreak_order(self):
+        self.app.combatants = {
+            1: type("C", (), {"cid": 1, "name": "Eldramar", "initiative": 15, "nat20": False, "dex": 16})(),
+            2: type("C", (), {
+                "cid": 2,
+                "name": "Johnny Morris",
+                "initiative": 15,
+                "nat20": False,
+                "speed": 30,
+                "swim_speed": 0,
+                "fly_speed": 0,
+                "climb_speed": 0,
+                "burrow_speed": 0,
+                "movement_mode": "Normal",
+                "dex": 14,
+                "con": 12,
+                "str": 10,
+                "temp_hp": 0,
+                "actions": [],
+                "bonus_actions": [],
+                "is_spellcaster": True,
+            })(),
+            3: type("C", (), {"cid": 3, "name": "Vicnor", "initiative": 15, "nat20": False, "dex": 8})(),
+        }
+        self.app._pc_name_for = lambda _cid: "Johnny Morris"
+        self.app._load_player_yaml_cache = lambda force_refresh=False: None
+        self.app._player_yaml_data_by_name = {"Johnny Morris": self._profile(8)}
+        self.app._set_wild_shape_pool_current = lambda _name, value: (True, "", value)
+        self.app._wild_shape_beast_cache = [
+            {
+                "id": "brown-bear",
+                "name": "Brown Bear",
+                "challenge_rating": 1.0,
+                "size": "Large",
+                "ac": 11,
+                "speed": {"walk": 40, "swim": 0, "fly": 0, "climb": 30},
+                "abilities": {"str": 17, "dex": 20, "con": 15, "int": 2, "wis": 13, "cha": 7},
+                "actions": [],
+            }
+        ]
+
+        before = [c.cid for c in self.app._sorted_combatants()]
+        ok, err = self.app._apply_wild_shape(2, "brown-bear")
+        self.assertTrue(ok, err)
+        after = [c.cid for c in self.app._sorted_combatants()]
+        self.assertEqual(before, [1, 2, 3])
+        self.assertEqual(after, [1, 2, 3])
+
     def test_wild_resurgence_slot_exchange(self):
         self.app._resolve_spell_slot_profile = lambda _name: (
             "Alice",

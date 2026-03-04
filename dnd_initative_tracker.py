@@ -16566,6 +16566,8 @@ class InitiativeTracker(base.InitiativeTracker):
         setattr(c, "wild_shape_pool_current", int(new_cur if new_cur is not None else 0))
         setattr(c, "wild_resurgence_turn_used", False)
         setattr(c, "wild_resurgence_slot_used", bool(getattr(c, "wild_resurgence_slot_used", False)))
+        if getattr(c, "initiative_tiebreak_dex", None) is None:
+            setattr(c, "initiative_tiebreak_dex", int(base_snapshot.get("dex", 0) or 0))
 
         speed = form.get("speed") if isinstance(form.get("speed"), dict) else {}
         setattr(c, "speed", int(speed.get("walk") or 0))
@@ -16713,7 +16715,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 anchor = self.combatants[anchor_after]
                 init_key = -int(getattr(anchor, "initiative", 0) or 0)
                 nat_key = -(1 if getattr(anchor, "nat20", False) else 0)
-                dex_key = -(int(getattr(anchor, "dex", 0) or 0))
+                dex_value = getattr(anchor, "initiative_tiebreak_dex", getattr(anchor, "dex", 0))
+                dex_key = -(int(dex_value or 0))
                 anchor_name = str(getattr(anchor, "name", "")).lower()
                 return (
                     init_key,
@@ -16723,10 +16726,11 @@ class InitiativeTracker(base.InitiativeTracker):
                     f"{anchor_name}\x00{anchor_seq:06d}",
                     str(getattr(c, "name", "")).lower(),
                 )
+            dex_value = getattr(c, "initiative_tiebreak_dex", getattr(c, "dex", 0))
             return (
                 -int(getattr(c, "initiative", 0) or 0),
                 -(1 if getattr(c, "nat20", False) else 0),
-                -(int(getattr(c, "dex", 0) or 0)),
+                -(int(dex_value or 0)),
                 0,
                 str(getattr(c, "name", "")).lower(),
                 "",
