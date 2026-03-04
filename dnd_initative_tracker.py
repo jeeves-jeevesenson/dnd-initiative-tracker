@@ -1971,6 +1971,7 @@ class LanController:
         self._fastapi_app = FastAPI()
         # Used to bust LAN-client caches for JS/CSS without needing a rebuild.
         app_version = str(APP_VERSION)
+        _sync_profile_picture_cache()
         assets_dir = Path(__file__).parent / "assets"
         monster_images_dir = Path(__file__).parent / "Monsters" / "Images"
         monster_images_dir.mkdir(parents=True, exist_ok=True)
