@@ -7175,8 +7175,19 @@ __DAMAGE_TYPE_OPTIONS__
   function renderSpellSlotMonitor(){
     if (!spellSlotMonitorEl) return;
     const playerName = getClaimedPlayerName();
-    const isThroatGoat = String(playerName || "").trim().toLowerCase() === "throat goat";
     const profile = getPlayerProfile(playerName);
+    const lowerName = String(playerName || "").trim().toLowerCase();
+    let pactLevel = Number(profile?.spellcasting?.pact_magic_slots?.level);
+    let pactCount = Number(profile?.spellcasting?.pact_magic_slots?.count);
+    if (!Number.isFinite(pactLevel) || pactLevel < 1 || pactLevel > 9 || !Number.isFinite(pactCount) || pactCount < 1){
+      if (lowerName === "throat goat"){
+        pactLevel = 4;
+        pactCount = 2;
+      } else {
+        pactLevel = 0;
+        pactCount = 0;
+      }
+    }
     const levels = getSpellSlotLevels(profile).filter((entry) => entry.max > 0);
     spellSlotMonitorEl.textContent = "";
     if (!levels.length){
@@ -7195,7 +7206,7 @@ __DAMAGE_TYPE_OPTIONS__
       for (let i = 0; i < entry.max; i += 1){
         const square = document.createElement("span");
         const stateClass = i < entry.current ? "is-active" : "is-spent";
-        const pactClass = isThroatGoat && entry.level === 4 && i < 2 ? " is-pact" : "";
+        const pactClass = entry.level === pactLevel && i < pactCount ? " is-pact" : "";
         square.className = `spell-slot-square ${stateClass}${pactClass}`;
         squaresWrap.appendChild(square);
       }

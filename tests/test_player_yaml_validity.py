@@ -51,6 +51,12 @@ class PlayerYamlValidityTests(unittest.TestCase):
         languages = ((data.get("proficiency") or {}).get("languages") or [])
         self.assertNotIn("Theives Cant", languages)
         self.assertIn("Thieves Cant", languages)
+        spellcasting = data.get("spellcasting") or {}
+        self.assertEqual((spellcasting.get("pact_magic_slots") or {}).get("level"), 1)
+        self.assertEqual((spellcasting.get("pact_magic_slots") or {}).get("count"), 1)
+        self.assertEqual(((spellcasting.get("spell_slots") or {}).get("1") or {}).get("max"), 1)
+        self.assertEqual(((spellcasting.get("cantrips") or {}).get("known") or []), ["eldritch-blast", "mage-hand"])
+        self.assertEqual(((spellcasting.get("prepared_spells") or {}).get("prepared") or []), ["hex", "armor-of-agathys"])
 
     def test_stikhiya_save_abbreviation_uses_cha(self):
         data = self._load("players/стихия.yaml")

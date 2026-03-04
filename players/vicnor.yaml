@@ -12,7 +12,10 @@ leveling:
   classes:
   - name: Rogue
     subclass: Swashbuckler
-    level: 10
+    level: 9
+  - name: Warlock
+    subclass: ''
+    level: 1
 abilities:
   str: 6
   dex: 20
@@ -139,7 +142,8 @@ resources:
   - id: sneak_attack_dice
     name: Sneak Attack Dice
     current: 5
-    max_formula: "1 if rogue_level < 3 else 2 if rogue_level < 5 else 3 if rogue_level < 7 else 4 if rogue_level < 9 else 5"
+    max_formula: 1 if rogue_level < 3 else 2 if rogue_level < 5 else 3 if rogue_level
+      < 7 else 4 if rogue_level < 9 else 5
     reset: turn
   - id: steady_aim
     name: Steady Aim
@@ -301,6 +305,19 @@ features:
       - regards_you_as_friendly_acquaintance
       ends_if:
       - you_or_allies_harm_target
+- id: eldritch_invocations
+  name: Eldritch Invocations
+  level: 1
+  source: Warlock
+  description: Warlock 1 feature. Vicnor gains 1 Eldritch Invocation. Specific choice
+    not set in this YAML yet.
+- id: pact_magic
+  name: Pact Magic
+  level: 1
+  source: Warlock
+  description: Warlock 1 feature. Charisma-based spellcasting; 2 cantrips, 2 prepared
+    level 1 Warlock spells, and 1 level 1 Pact Magic slot that refreshes on a Short
+    or Long Rest.
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
@@ -351,63 +368,38 @@ reactions:
     use your reaction to make one melee attack against it.
   type: reaction
 bonus_actions:
-- name: "Cunning Action: Dash"
+- name: 'Cunning Action: Dash'
   description: Bonus Action. You take the Dash action.
   type: bonus_action
-- name: "Cunning Action: Disengage"
+- name: 'Cunning Action: Disengage'
   description: Bonus Action. You take the Disengage action.
   type: bonus_action
-- name: "Cunning Action: Hide"
+- name: 'Cunning Action: Hide'
   description: Bonus Action. You take the Hide action.
   type: bonus_action
 spellcasting:
   enabled: true
   spell_yaml_paths:
   - ./Spells
-  casting_ability: wis
-  save_dc_formula: 8 + prof + casting_mod + 1
-  spell_attack_formula: prof + casting_mod + 1
+  casting_ability: cha
+  save_dc_formula: 8 + prof + casting_mod
+  spell_attack_formula: prof + casting_mod
   cantrips:
-    max: 5
+    max: 2
     known:
-    - toll-the-dead
-    - sacred-flame
-    - spare-the-dying
-    - guidance
-    - mending
+    - eldritch-blast
+    - mage-hand
   known_spells:
     max: 0
   prepared_spells:
-    max_formula: '25'
+    max_formula: '2'
     prepared:
-    - thunderwave
-    - healing-word
-    - create-or-destroy-water
-    - guiding-bolt
-    - fog-cloud
-    - cure-wounds
-    - inflict-wounds
-    - gust-of-wind
-    - shatter
-    - prayer-of-healing
-    - lesser-restoration
-    - find-traps
-    - call-lightning
-    - sleet-storm
-    - revivify
-    - dispel-magic
-    - bestow-curse
-    - control-water
-    - ice-storm
-    - destructive-wave
-    - insect-plague
-    - flame-strike
-    - dispel-evil-and-good
-    - lightning-bolt
+    - hex
+    - armor-of-agathys
   spell_slots:
     '1':
-      max: 0
-      current: 0
+      max: 1
+      current: 1
     '2':
       max: 0
       current: 0
@@ -432,6 +424,9 @@ spellcasting:
     '9':
       max: 0
       current: 0
+  pact_magic_slots:
+    level: 1
+    count: 1
 inventory:
   currency:
     gp: 9652
