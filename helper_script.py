@@ -642,6 +642,7 @@ class InitiativeTracker(tk.Tk):
         left_controls.grid(row=0, column=0, sticky="w")
 
         ttk.Button(left_controls, text="Bulk Add…", command=self._open_bulk_dialog).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(left_controls, text="Random Enemies…", command=self._open_random_enemy_dialog).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(left_controls, text="Remove Selected", command=self._remove_selected).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(left_controls, text="Damage…", command=self._open_damage_tool).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(left_controls, text="Heal…", command=self._open_heal_tool).pack(side=tk.LEFT, padx=(0, 8))
@@ -4406,6 +4407,143 @@ class InitiativeTracker(tk.Tk):
         if spec.cr is None:
             return "?"
         return str(int(spec.cr)) if float(spec.cr).is_integer() else str(spec.cr)
+
+    def _monster_spec_cr_value(self, spec: Optional[MonsterSpec]) -> float:
+        if spec is None:
+            return 0.0
+        raw = None
+        if isinstance(spec.raw_data, dict):
+            raw = spec.raw_data.get("challenge_rating")
+        try:
+            if isinstance(raw, (int, float)):
+                return max(0.0, float(raw))
+            if isinstance(raw, str) and raw.strip():
+                parsed = self._parse_fractional_cr(raw)
+                if parsed is not None:
+                    return max(0.0, float(parsed))
+                return max(0.0, float(raw.strip()))
+        except Exception:
+            pass
+        try:
+            return max(0.0, float(spec.cr or 0.0))
+        except Exception:
+            return 0.0
+
+    def _random_monster_specs_for_encounter(self, max_individual_cr: float, total_cr: float) -> List[MonsterSpec]:
+        max_individual_cr = float(max_individual_cr or 0.0)
+        total_cr = float(total_cr or 0.0)
+        if max_individual_cr <= 0 or total_cr <= 0:
+            return []
+        eligible: List[Tuple[MonsterSpec, float]] = []
+        for spec in self._monster_specs:
+            cr_value = self._monster_spec_cr_value(spec)
+            if cr_value <= 0:
+                continue
+            if cr_value <= max_individual_cr:
+                eligible.append((spec, cr_value))
+        if not eligible:
+            return []
+        min_cr = min(cr for _, cr in eligible)
+        picks: List[MonsterSpec] = []
+        remaining = total_cr
+        for _ in range(2000):
+            if remaining + 1e-9 < min_cr:
+                break
+            choices = [(spec, cr) for spec, cr in eligible if cr <= remaining + 1e-9]
+            if not choices:
+                break
+            chosen_spec, chosen_cr = random.choice(choices)
+            picks.append(chosen_spec)
+            remaining -= chosen_cr
+        return picks
+
+    def _open_random_enemy_dialog(self) -> None:
+        dlg = tk.Toplevel(self)
+        dlg.title("Random Enemies")
+        dlg.transient(self)
+        dlg.resizable(False, False)
+
+        frame = ttk.Frame(dlg, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        max_cr_var = tk.StringVar(value="1")
+        total_cr_var = tk.StringVar(value="5")
+        ttk.Label(frame, text="Max CR per creature").grid(row=0, column=0, sticky="w")
+        ttk.Entry(frame, textvariable=max_cr_var, width=12).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        ttk.Label(frame, text="Encounter total CR").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(frame, textvariable=total_cr_var, width=12).grid(row=1, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
+
+        ttk.Label(frame, text="Adds random monsters up to the CR cap until total CR is reached.").grid(
+            row=2, column=0, columnspan=2, sticky="w", pady=(8, 0)
+        )
+
+        def on_add_random() -> None:
+            try:
+                max_cr = float(max_cr_var.get().strip())
+                total_cr = float(total_cr_var.get().strip())
+            except ValueError:
+                messagebox.showerror("Input error", "CR values must be numbers.", parent=dlg)
+                return
+            if max_cr <= 0 or total_cr <= 0:
+                messagebox.showerror("Input error", "CR values must be greater than 0.", parent=dlg)
+                return
+            picks = self._random_monster_specs_for_encounter(max_cr, total_cr)
+            if not picks:
+                messagebox.showerror(
+                    "No monsters found",
+                    "No monsters match those CR values. Try raising Max CR per creature.",
+                    parent=dlg,
+                )
+                return
+
+            per_name_total: Dict[str, int] = {}
+            for spec in picks:
+                per_name_total[spec.name] = per_name_total.get(spec.name, 0) + 1
+
+            per_name_seen: Dict[str, int] = {}
+            achieved_cr = 0.0
+            for spec in picks:
+                detailed_spec = self._load_monster_details(spec.name) or spec
+                achieved_cr += self._monster_spec_cr_value(detailed_spec)
+                per_name_seen[spec.name] = per_name_seen.get(spec.name, 0) + 1
+                idx = per_name_seen[spec.name]
+                name = spec.name if per_name_total[spec.name] == 1 else f"{spec.name} {idx}"
+                dex_mod = detailed_spec.init_mod
+                if dex_mod is None and detailed_spec.dex is not None:
+                    try:
+                        dex_mod = (int(detailed_spec.dex) - 10) // 2
+                    except Exception:
+                        dex_mod = 0
+                if dex_mod is None:
+                    dex_mod = 0
+                roll = random.randint(1, 20)
+                cid = self._create_combatant(
+                    name=name,
+                    hp=int(detailed_spec.hp or 1),
+                    speed=int(detailed_spec.speed or 30),
+                    swim_speed=int(detailed_spec.swim_speed or 0),
+                    movement_mode=MOVEMENT_MODE_LABELS["normal"],
+                    initiative=int(roll + int(dex_mod)),
+                    dex=int(dex_mod),
+                    ally=False,
+                    saving_throws=dict(detailed_spec.saving_throws or {}),
+                    ability_mods=dict(detailed_spec.ability_mods or {}),
+                    monster_spec=detailed_spec,
+                )
+                c = self.combatants[cid]
+                c.roll = roll
+                c.nat20 = (roll == 20)
+
+            self._rebuild_table(scroll_to_current=True)
+            self._log(
+                f"Random enemies added: {len(picks)} creatures, total CR {achieved_cr:.2f} (target {float(total_cr):.2f}, max per creature {float(max_cr):.2f})."
+            )
+            dlg.destroy()
+
+        btns = ttk.Frame(frame)
+        btns.grid(row=3, column=0, columnspan=2, sticky="e", pady=(10, 0))
+        ttk.Button(btns, text="Add Random Enemies", command=on_add_random).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.LEFT)
 
     def _open_dm_reference_library(self, from_window: Optional[tk.Misc] = None) -> None:
         """Open the creature reference library while map mode is active."""
