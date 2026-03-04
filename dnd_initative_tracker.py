@@ -15661,6 +15661,23 @@ class InitiativeTracker(base.InitiativeTracker):
             break
         return options, multiattack_counts
 
+    def _monster_multiattack_description_for_map(self, attacker: Any) -> str:
+        spec = getattr(attacker, "monster_spec", None)
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        actions = raw_data.get("actions") if isinstance(raw_data, dict) else None
+        if not isinstance(actions, list):
+            return ""
+        for raw_action in actions:
+            if not isinstance(raw_action, dict):
+                continue
+            if self._monster_attack_name_key(raw_action.get("name")) != "multiattack":
+                continue
+            desc_text = str(raw_action.get("description") or raw_action.get("desc") or "").strip()
+            if desc_text:
+                return desc_text
+            break
+        return ""
+
     def _roll_monster_attack_formula(self, formula: Any, critical: bool = False) -> int:
         raw = str(formula or "").strip().lower()
         if not raw:
@@ -16145,6 +16162,12 @@ class InitiativeTracker(base.InitiativeTracker):
         attack_options, multiattack_counts = self._monster_attack_options_for_map(attacker)
         if not attack_options:
             return False
+        multiattack_desc = self._monster_multiattack_description_for_map(attacker)
+        multiattack_info = (
+            f"Multiattack: {multiattack_desc}"
+            if multiattack_desc
+            else "Multiattack: No description found. Use the selected attack details below."
+        )
         option_by_key = {
             str(entry.get("key") or ""): entry for entry in attack_options if isinstance(entry, dict) and str(entry.get("key") or "")
         }
@@ -16272,7 +16295,7 @@ class InitiativeTracker(base.InitiativeTracker):
         sequence_scroll.grid(row=2, column=3, sticky="ns")
         sequence_list.configure(yscrollcommand=sequence_scroll.set)
 
-        details_var = tk.StringVar(value="")
+        details_var = tk.StringVar(value=multiattack_info)
         ttk.Label(outer, textvariable=details_var, wraplength=640, justify=tk.LEFT).grid(
             row=3, column=0, columnspan=4, sticky="w", pady=(6, 0)
         )
@@ -16422,7 +16445,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 if selection:
                     idx = int(selection[0])
             if idx is None or idx < 0 or idx >= len(attack_options):
-                details_var.set("")
+                details_var.set(multiattack_info)
                 return
             option = attack_options[idx]
             damage_text = ", ".join(
@@ -16433,11 +16456,12 @@ class InitiativeTracker(base.InitiativeTracker):
             raw_desc = str(option.get("raw_desc") or "").strip()
             if len(raw_desc) > 180:
                 raw_desc = raw_desc[:177].rstrip() + "..."
-            details_var.set(
+            attack_detail = (
                 f"{str(option.get('name') or 'Attack')}: to hit +{int(option.get('to_hit') or 0)}"
                 f"{f' | damage {damage_text}' if damage_text else ''}"
                 f"{f' | {raw_desc}' if raw_desc else ''}"
             )
+            details_var.set(f"{multiattack_info}\n{attack_detail}" if multiattack_info else attack_detail)
 
         available_list.bind("<<ListboxSelect>>", _show_available_details)
         available_list.bind("<Motion>", _show_available_details)

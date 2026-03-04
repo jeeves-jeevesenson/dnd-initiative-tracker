@@ -68,6 +68,21 @@ class DmMapAttackAutomationTests(unittest.TestCase):
         self.assertEqual(counts.get("claws"), 2)
         self.assertEqual(counts.get("greatsword"), 2)
 
+    def test_monster_multiattack_description_for_map_returns_desc(self):
+        attacker = type(
+            "Combatant",
+            (),
+            {
+                "monster_spec": type(
+                    "Spec",
+                    (),
+                    {"raw_data": {"actions": [{"name": "Multiattack", "desc": "The dragon makes three attacks."}]}},
+                )()
+            },
+        )()
+
+        self.assertEqual(self.app._monster_multiattack_description_for_map(attacker), "The dragon makes three attacks.")
+
     def test_resolve_map_attack_rolls_to_hit_and_reports_manual_damage_rolls(self):
         attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()
         target = type("Combatant", (), {"cid": 2, "name": "Knight", "ac": 15, "hp": 30})()
