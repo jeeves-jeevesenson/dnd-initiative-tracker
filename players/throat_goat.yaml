@@ -110,11 +110,6 @@ resources:
     current: 1
     max_formula: '1'
     reset: long_rest
-  - id: pact_magic_slots
-    label: Pact Magic Slots (Level 1)
-    current: 2
-    max_formula: '2'
-    reset: short_rest
   - id: magical_cunning
     label: Magical Cunning
     current: 1
