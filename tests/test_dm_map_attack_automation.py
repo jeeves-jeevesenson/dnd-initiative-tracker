@@ -7,6 +7,20 @@ from unittest import mock
 import dnd_initative_tracker as tracker_mod
 
 
+class _MockHttpResponse:
+    def __init__(self, payload: bytes):
+        self._payload = payload
+
+    def read(self) -> bytes:
+        return self._payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
 class DmMapAttackAutomationTests(unittest.TestCase):
     def setUp(self):
         self.logs = []
@@ -204,7 +218,7 @@ class DmMapAttackAutomationTests(unittest.TestCase):
                         )()
                     },
                 )()
-                with mock.patch(
+                with mock.patch.object(self.app, "_download_default_5etools_packs", return_value=False), mock.patch(
                     "dnd_initative_tracker._load_backfill_helpers_module",
                     return_value=type(
                         "Helpers",
@@ -255,7 +269,7 @@ class DmMapAttackAutomationTests(unittest.TestCase):
                         )()
                     },
                 )()
-                with mock.patch(
+                with mock.patch.object(self.app, "_download_default_5etools_packs", return_value=False), mock.patch(
                     "dnd_initative_tracker._load_backfill_helpers_module",
                     return_value=type(
                         "Helpers",
@@ -435,6 +449,110 @@ class DmMapAttackAutomationTests(unittest.TestCase):
         self.assertEqual(options, [])
         self.assertEqual(counts, {})
         fetch_mock.assert_not_called()
+
+
+    def test_monster_attack_options_bootstrap_downloads_5etools_and_writes_cache(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with mock.patch.dict("os.environ", {"INITTRACKER_DATA_DIR": tmpdir}, clear=False), mock.patch(
+                "dnd_initative_tracker.FALLBACK_5ETOOLS_MIN_BYTES", 1
+            ):
+                attacker = type(
+                    "Combatant",
+                    (),
+                    {
+                        "monster_spec": type(
+                            "Spec",
+                            (),
+                            {
+                                "name": "Lizardfolk Sovereign",
+                                "filename": "lizardfolk-sovereign.yaml",
+                                "raw_data": {"name": "Lizardfolk Sovereign", "actions": []},
+                            },
+                        )()
+                    },
+                )()
+
+                pack_payload = json.dumps(
+                    {
+                        "monster": [
+                            {
+                                "name": "Lizardfolk Sovereign",
+                                "action": [
+                                    {"name": "Trident", "entries": ["Melee Attack Roll: +6, reach 5 ft. Hit: 8 (1d8 + 4) piercing damage."]}
+                                ],
+                            }
+                        ]
+                    }
+                ).encode("utf-8")
+                requested_urls = []
+
+                def _mock_urlopen(request, timeout=0):
+                    requested_urls.append(getattr(request, "full_url", ""))
+                    return _MockHttpResponse(pack_payload)
+
+                with mock.patch("dnd_initative_tracker.urllib.request.urlopen", side_effect=_mock_urlopen):
+                    options, _counts = self.app._monster_attack_options_for_map(attacker)
+
+                cache_path = f"{tmpdir}/logs/monster_action_fallback_cache.json"
+                with open(cache_path, "r", encoding="utf-8") as fh:
+                    cached_payload = json.load(fh)
+                downloaded_exists = (
+                    os.path.isfile(f"{tmpdir}/monster_sources/5etools/bestiary-xmm.json")
+                    or os.path.isfile(f"{tmpdir}/monster_sources/5etools/bestiary-mm.json")
+                )
+
+        self.assertGreaterEqual(len(options), 1)
+        self.assertEqual(options[0]["to_hit"], 6)
+        self.assertGreaterEqual(len(requested_urls), 1)
+        self.assertTrue(downloaded_exists)
+        sections = cached_payload.get("entries", {}).get("lizardfolk-sovereign", {}).get("sections", {})
+        self.assertTrue(isinstance(sections.get("actions"), list) and sections.get("actions"))
+
+    def test_monster_attack_options_bootstrap_respects_online_disable(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with mock.patch.dict(
+                "os.environ",
+                {"INITTRACKER_DATA_DIR": tmpdir, "INITTRACKER_DISABLE_MONSTER_ACTION_ONLINE": "true"},
+                clear=False,
+            ):
+                attacker = type(
+                    "Combatant",
+                    (),
+                    {
+                        "monster_spec": type(
+                            "Spec",
+                            (),
+                            {
+                                "name": "Lizardfolk Sovereign",
+                                "filename": "lizardfolk-sovereign.yaml",
+                                "raw_data": {"name": "Lizardfolk Sovereign", "actions": []},
+                            },
+                        )()
+                    },
+                )()
+
+                with mock.patch("dnd_initative_tracker.urllib.request.urlopen") as urlopen_mock:
+                    options, counts = self.app._monster_attack_options_for_map(attacker)
+
+        self.assertEqual(options, [])
+        self.assertEqual(counts, {})
+        urlopen_mock.assert_not_called()
+
+    def test_apply_hydrated_sections_replaces_non_parseable_actions_only(self):
+        raw_data = {
+            "traits": [{"name": "Existing Trait", "desc": "Keep me."}],
+            "actions": [{"name": "Mace", "desc": "Weapon attack with no numbers."}],
+        }
+        hydrated = {
+            "traits": [{"name": "Hydrated Trait", "desc": "Should not overwrite existing trait."}],
+            "actions": [{"name": "Trident", "desc": "Melee Attack Roll: +6, reach 5 ft. Hit: 8 (1d8 + 4) piercing damage."}],
+        }
+
+        changed = self.app._apply_hydrated_monster_sections(raw_data, hydrated)
+
+        self.assertTrue(changed)
+        self.assertEqual(raw_data["traits"][0]["name"], "Existing Trait")
+        self.assertEqual(raw_data["actions"][0]["name"], "Trident")
 
     def test_resolve_map_attack_rolls_to_hit_and_reports_manual_damage_rolls(self):
         attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()

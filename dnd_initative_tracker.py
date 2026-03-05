@@ -34,6 +34,8 @@ import hmac
 import secrets
 import traceback
 import urllib.parse
+import urllib.request
+import urllib.error
 from datetime import datetime
 from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
@@ -77,6 +79,11 @@ except Exception as e:  # pragma: no cover
 FAIL_OUTCOME_LABELS = {"fail", "failed", "failure", "failed_save", "fail_save"}
 USER_YAML_DIRNAME = "Dnd-Init-Yamls"
 SESSION_SNAPSHOT_SCHEMA_VERSION = 1
+FALLBACK_5ETOOLS_PACKS: Tuple[Tuple[str, str], ...] = (
+    ("bestiary-xmm.json", "https://5e.tools/data/bestiary/bestiary-xmm.json"),
+    ("bestiary-mm.json", "https://5e.tools/data/bestiary/bestiary-mm.json"),
+)
+FALLBACK_5ETOOLS_MIN_BYTES = 100 * 1024
 
 
 def _app_base_dir() -> Path:
@@ -15695,30 +15702,85 @@ class InitiativeTracker(base.InitiativeTracker):
             return sections
         return {}
 
+    def _5etools_pack_refresh_due(self, path: Path, ttl_days: int = 30) -> bool:
+        try:
+            if not path.exists() or not path.is_file() or path.stat().st_size < FALLBACK_5ETOOLS_MIN_BYTES:
+                return True
+            age_seconds = time.time() - path.stat().st_mtime
+            return age_seconds > float(ttl_days * 24 * 60 * 60)
+        except Exception:
+            return True
+
+    def _download_default_5etools_packs(self, source_dir: Path) -> bool:
+        disabled = str(os.getenv("INITTRACKER_DISABLE_MONSTER_ACTION_ONLINE") or "").strip().lower()
+        if disabled in {"1", "true", "yes", "on"}:
+            self._monster_fallback_log("monster fallback 5etools pack bootstrap disabled via INITTRACKER_DISABLE_MONSTER_ACTION_ONLINE")
+            return False
+        refreshed = False
+        source_dir.mkdir(parents=True, exist_ok=True)
+        for filename, url in FALLBACK_5ETOOLS_PACKS:
+            destination = source_dir / filename
+            if not self._5etools_pack_refresh_due(destination):
+                continue
+            self._monster_fallback_log("monster fallback 5etools pack download attempt url=%s path=%s", url, destination)
+            request = urllib.request.Request(url, headers={"User-Agent": "dnd-init-tracker-runtime-fallback/1.0"})
+            try:
+                with urllib.request.urlopen(request, timeout=5.0) as response:
+                    payload = response.read()
+                if len(payload) < FALLBACK_5ETOOLS_MIN_BYTES:
+                    self._monster_fallback_log(
+                        "monster fallback 5etools pack download rejected path=%s reason=payload-too-small bytes=%s",
+                        destination,
+                        len(payload),
+                    )
+                    continue
+                destination.write_bytes(payload)
+                refreshed = True
+                self._monster_fallback_log(
+                    "monster fallback 5etools pack download success path=%s bytes=%s",
+                    destination,
+                    len(payload),
+                )
+            except Exception as exc:
+                self._monster_fallback_log("monster fallback 5etools pack download failed url=%s reason=%s", url, exc)
+        return refreshed
+
+    def _build_local_5etools_monster_lookup(self, source_dir: Path, build_lookup: Any) -> Dict[str, Dict[str, Any]]:
+        lookup: Dict[str, Dict[str, Any]] = {}
+        try:
+            for path in sorted(source_dir.glob("*.json")):
+                try:
+                    payload = json.loads(path.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                partial = build_lookup(payload)
+                if not isinstance(partial, dict):
+                    continue
+                for key, value in partial.items():
+                    normalized = self._monster_fallback_name_key(key)
+                    if normalized and normalized not in lookup and isinstance(value, dict):
+                        lookup[normalized] = value
+        except Exception:
+            return {}
+        return lookup
+
     def _load_local_5etools_monster_lookup(self) -> Dict[str, Dict[str, Any]]:
         lookup = self.__dict__.get("_local_5etools_monster_lookup")
         if isinstance(lookup, dict):
             return lookup
-        lookup = {}
         helper_module = _load_backfill_helpers_module()
         build_lookup = getattr(helper_module, "build_5etools_lookup", None) if helper_module is not None else None
-        if callable(build_lookup):
-            source_dir = self._ensure_monster_sources_5etools_dir()
-            try:
-                for path in sorted(source_dir.glob("*.json")):
-                    try:
-                        payload = json.loads(path.read_text(encoding="utf-8"))
-                    except Exception:
-                        continue
-                    partial = build_lookup(payload)
-                    if not isinstance(partial, dict):
-                        continue
-                    for key, value in partial.items():
-                        normalized = self._monster_fallback_name_key(key)
-                        if normalized and normalized not in lookup and isinstance(value, dict):
-                            lookup[normalized] = value
-            except Exception:
-                pass
+        if not callable(build_lookup):
+            self.__dict__["_local_5etools_monster_lookup"] = {}
+            return {}
+        source_dir = self._ensure_monster_sources_5etools_dir()
+        lookup = self._build_local_5etools_monster_lookup(source_dir, build_lookup)
+        if not lookup:
+            refreshed = self._download_default_5etools_packs(source_dir)
+            if refreshed:
+                self.__dict__.pop("_local_5etools_monster_lookup", None)
+                lookup = self._build_local_5etools_monster_lookup(source_dir, build_lookup)
+                self._monster_fallback_log("monster fallback 5etools lookup rebuilt after download entries=%s", len(lookup))
         self.__dict__["_local_5etools_monster_lookup"] = lookup
         return lookup
 
@@ -15736,8 +15798,14 @@ class InitiativeTracker(base.InitiativeTracker):
                 sections = extract_sections(monster)
             except Exception:
                 continue
-            if isinstance(sections, dict):
+            if not isinstance(sections, dict):
+                continue
+            valid, reason = self._validate_hydrated_monster_sections(sections)
+            if valid:
+                self._monster_fallback_log("monster fallback local 5etools match key=%s validation=%s", key, reason)
                 return sections
+            self._monster_fallback_log("monster fallback local 5etools reject key=%s reason=%s", key, reason)
+        self._monster_fallback_log("monster fallback local 5etools no-key-match for keys=%s", lookup_keys)
         return {}
 
     def _monster_sections_from_aidedd(self, lookup_keys: List[str]) -> Dict[str, List[Dict[str, str]]]:
@@ -15827,7 +15895,12 @@ class InitiativeTracker(base.InitiativeTracker):
             if not isinstance(incoming, list) or not incoming:
                 continue
             current = raw_data.get(key)
-            if isinstance(current, list) and current:
+            if key == "actions":
+                if isinstance(current, list) and current:
+                    existing_options, _ = self._parse_monster_attack_options(current)
+                    if existing_options:
+                        continue
+            elif isinstance(current, list) and current:
                 continue
             raw_data[key] = copy.deepcopy(incoming)
             changed = True
