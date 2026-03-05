@@ -15609,6 +15609,21 @@ class InitiativeTracker(base.InitiativeTracker):
     def _monster_action_fallback_cache_path(self) -> Path:
         return _ensure_logs_dir() / "monster_action_fallback_cache.json"
 
+    def _monster_fallback_log(self, message: str, *args: Any) -> None:
+        try:
+            lg = getattr(self, "_ops_logger", None) or _make_ops_logger()
+            lg.info(message, *args)
+        except Exception:
+            pass
+
+    def _ensure_monster_sources_5etools_dir(self) -> Path:
+        path = _app_data_dir() / "monster_sources" / "5etools"
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        return path
+
     def _load_monster_action_fallback_cache(self) -> Dict[str, Any]:
         cache = self.__dict__.get("_monster_action_fallback_cache")
         if isinstance(cache, dict):
@@ -15683,7 +15698,7 @@ class InitiativeTracker(base.InitiativeTracker):
         helper_module = _load_backfill_helpers_module()
         build_lookup = getattr(helper_module, "build_5etools_lookup", None) if helper_module is not None else None
         if callable(build_lookup):
-            source_dir = _app_data_dir() / "monster_sources" / "5etools"
+            source_dir = self._ensure_monster_sources_5etools_dir()
             try:
                 for path in sorted(source_dir.glob("*.json")):
                     try:
@@ -15721,8 +15736,13 @@ class InitiativeTracker(base.InitiativeTracker):
         return {}
 
     def _monster_sections_from_aidedd(self, lookup_keys: List[str]) -> Dict[str, List[Dict[str, str]]]:
+        disabled = str(os.getenv("INITTRACKER_DISABLE_MONSTER_ACTION_ONLINE") or "").strip().lower()
+        if disabled in {"1", "true", "yes", "on"}:
+            self._monster_fallback_log("monster fallback online fetch disabled via INITTRACKER_DISABLE_MONSTER_ACTION_ONLINE")
+            return {}
         enabled = str(os.getenv("INITTRACKER_ENABLE_MONSTER_ACTION_ONLINE") or "").strip().lower()
-        if enabled not in {"1", "true", "yes", "on"}:
+        if enabled in {"0", "false", "no", "off"}:
+            self._monster_fallback_log("monster fallback online fetch skipped due to INITTRACKER_ENABLE_MONSTER_ACTION_ONLINE=%s", enabled)
             return {}
         helper_module = _load_backfill_helpers_module()
         fetch_html = getattr(helper_module, "_fetch_aidedd_html", None) if helper_module is not None else None
@@ -15733,9 +15753,10 @@ class InitiativeTracker(base.InitiativeTracker):
             if not key:
                 continue
             try:
-                raw_html = fetch_html(key)
+                raw_html = fetch_html(key, timeout=3.0)
                 sections = extract_sections(raw_html)
-            except Exception:
+            except Exception as exc:
+                self._monster_fallback_log("monster fallback online fetch failed for key=%s: %s", key, exc)
                 continue
             if isinstance(sections, dict):
                 return sections
@@ -15768,15 +15789,28 @@ class InitiativeTracker(base.InitiativeTracker):
         lookup_keys = self._monster_fallback_lookup_keys(spec)
         if not lookup_keys:
             return False
+        self._ensure_monster_sources_5etools_dir()
         display_name = str(raw_data.get("name") or getattr(spec, "name", "") or "").strip()
+        self._monster_fallback_log("monster fallback hydration lookup keys for %s: %s", display_name or "<unknown>", lookup_keys)
         sections = self._monster_sections_from_fallback_cache(lookup_keys)
+        provider = "cache"
         if not sections:
+            self._monster_fallback_log("monster fallback cache miss for keys=%s", lookup_keys)
             sections = self._monster_sections_from_local_5etools(lookup_keys)
+            provider = "local_5etools"
+        else:
+            self._monster_fallback_log("monster fallback cache hit for keys=%s", lookup_keys)
         if not sections:
+            self._monster_fallback_log("monster fallback local 5etools miss for keys=%s", lookup_keys)
             sections = self._monster_sections_from_aidedd(lookup_keys)
+            provider = "online_aidedd"
+        else:
+            self._monster_fallback_log("monster fallback local 5etools hit for keys=%s", lookup_keys)
         if not sections:
+            self._monster_fallback_log("monster fallback hydration unavailable for %s; proceeding with manual UI", display_name or lookup_keys[0])
             return False
         changed = self._apply_hydrated_monster_sections(raw_data, sections)
+        self._monster_fallback_log("monster fallback provider=%s applied=%s for %s", provider, changed, display_name or lookup_keys[0])
         if not changed:
             return False
         cached_sections: Dict[str, List[Dict[str, str]]] = {}
@@ -15786,6 +15820,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 cached_sections[key] = copy.deepcopy(value)
         if cached_sections:
             self._store_monster_action_fallback_cache_entry(lookup_keys, display_name, cached_sections)
+            self._monster_fallback_log("monster fallback cache write-through complete for keys=%s", lookup_keys)
+        parsed_options, _parsed_counts = self._parse_monster_attack_options(raw_data.get("actions"))
+        self._monster_fallback_log("monster fallback parse outcome for %s: %d attack options", display_name or lookup_keys[0], len(parsed_options))
         return True
 
     def _parse_monster_attack_options(self, actions: Any) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
@@ -15906,7 +15943,10 @@ class InitiativeTracker(base.InitiativeTracker):
             return options, multiattack_counts
         if not self._hydrate_monster_sections_from_fallback(spec):
             return [], {}
-        return self._parse_monster_attack_options(raw_data.get("actions"))
+        refreshed_raw_data = getattr(spec, "raw_data", None)
+        if not isinstance(refreshed_raw_data, dict):
+            return [], {}
+        return self._parse_monster_attack_options(refreshed_raw_data.get("actions"))
 
     def _monster_multiattack_description_for_map(self, attacker: Any) -> str:
         spec = getattr(attacker, "monster_spec", None)

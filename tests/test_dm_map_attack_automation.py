@@ -177,11 +177,147 @@ class DmMapAttackAutomationTests(unittest.TestCase):
                 cache_path = f"{tmpdir}/logs/monster_action_fallback_cache.json"
                 with open(cache_path, "r", encoding="utf-8") as fh:
                     cached_payload = json.load(fh)
+                source_dir_exists = os.path.isdir(f"{tmpdir}/monster_sources/5etools")
 
         self.assertGreaterEqual(len(options), 1)
         self.assertEqual(options[0]["to_hit"], 5)
         sections = cached_payload.get("entries", {}).get("lizardfolk-sovereign", {}).get("sections", {})
         self.assertTrue(isinstance(sections.get("actions"), list) and sections.get("actions"))
+        self.assertTrue(source_dir_exists)
+
+
+    def test_monster_attack_options_hydrate_online_by_default_and_write_cache(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with mock.patch.dict("os.environ", {"INITTRACKER_DATA_DIR": tmpdir}, clear=False):
+                attacker = type(
+                    "Combatant",
+                    (),
+                    {
+                        "monster_spec": type(
+                            "Spec",
+                            (),
+                            {
+                                "name": "Lizardfolk Sovereign",
+                                "filename": "lizardfolk-sovereign.yaml",
+                                "raw_data": {"name": "Lizardfolk Sovereign", "actions": []},
+                            },
+                        )()
+                    },
+                )()
+                with mock.patch(
+                    "dnd_initative_tracker._load_backfill_helpers_module",
+                    return_value=type(
+                        "Helpers",
+                        (),
+                        {
+                            "build_5etools_lookup": staticmethod(lambda _payload: {}),
+                            "extract_sections_from_5etools_monster": staticmethod(lambda _monster: {}),
+                            "_fetch_aidedd_html": staticmethod(lambda slug, timeout=15.0: f"html:{slug}:{timeout}"),
+                            "extract_sections_from_aidedd_html": staticmethod(
+                                lambda _html: {
+                                    "actions": [
+                                        {
+                                            "name": "Trident",
+                                            "desc": "Melee Attack Roll: +6, reach 5 ft. Hit: 8 (1d8 + 4) piercing damage.",
+                                        }
+                                    ]
+                                }
+                            ),
+                        },
+                    )(),
+                ):
+                    options, _counts = self.app._monster_attack_options_for_map(attacker)
+
+                cache_path = f"{tmpdir}/logs/monster_action_fallback_cache.json"
+                with open(cache_path, "r", encoding="utf-8") as fh:
+                    cached_payload = json.load(fh)
+
+        self.assertGreaterEqual(len(options), 1)
+        self.assertEqual(options[0]["to_hit"], 6)
+        sections = cached_payload.get("entries", {}).get("lizardfolk-sovereign", {}).get("sections", {})
+        self.assertTrue(isinstance(sections.get("actions"), list) and sections.get("actions"))
+
+    def test_monster_attack_options_online_failure_falls_back_cleanly(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with mock.patch.dict("os.environ", {"INITTRACKER_DATA_DIR": tmpdir}, clear=False):
+                attacker = type(
+                    "Combatant",
+                    (),
+                    {
+                        "monster_spec": type(
+                            "Spec",
+                            (),
+                            {
+                                "name": "Lizardfolk Sovereign",
+                                "filename": "lizardfolk-sovereign.yaml",
+                                "raw_data": {"name": "Lizardfolk Sovereign", "actions": []},
+                            },
+                        )()
+                    },
+                )()
+                with mock.patch(
+                    "dnd_initative_tracker._load_backfill_helpers_module",
+                    return_value=type(
+                        "Helpers",
+                        (),
+                        {
+                            "build_5etools_lookup": staticmethod(lambda _payload: {}),
+                            "extract_sections_from_5etools_monster": staticmethod(lambda _monster: {}),
+                            "_fetch_aidedd_html": staticmethod(
+                                lambda _slug, timeout=15.0: (_ for _ in ()).throw(TimeoutError("timed out"))
+                            ),
+                            "extract_sections_from_aidedd_html": staticmethod(lambda _html: {}),
+                        },
+                    )(),
+                ):
+                    options, counts = self.app._monster_attack_options_for_map(attacker)
+                source_dir_exists = os.path.isdir(f"{tmpdir}/monster_sources/5etools")
+
+        self.assertEqual(options, [])
+        self.assertEqual(counts, {})
+        self.assertTrue(source_dir_exists)
+
+    def test_monster_attack_options_online_opt_out_disables_fetch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with mock.patch.dict(
+                "os.environ",
+                {"INITTRACKER_DATA_DIR": tmpdir, "INITTRACKER_DISABLE_MONSTER_ACTION_ONLINE": "true"},
+                clear=False,
+            ):
+                attacker = type(
+                    "Combatant",
+                    (),
+                    {
+                        "monster_spec": type(
+                            "Spec",
+                            (),
+                            {
+                                "name": "Lizardfolk Sovereign",
+                                "filename": "lizardfolk-sovereign.yaml",
+                                "raw_data": {"name": "Lizardfolk Sovereign", "actions": []},
+                            },
+                        )()
+                    },
+                )()
+                fetch_mock = mock.Mock(return_value="html")
+                with mock.patch(
+                    "dnd_initative_tracker._load_backfill_helpers_module",
+                    return_value=type(
+                        "Helpers",
+                        (),
+                        {
+                            "build_5etools_lookup": staticmethod(lambda _payload: {}),
+                            "extract_sections_from_5etools_monster": staticmethod(lambda _monster: {}),
+                            "_fetch_aidedd_html": staticmethod(fetch_mock),
+                            "extract_sections_from_aidedd_html": staticmethod(lambda _html: {}),
+                        },
+                    )(),
+                ):
+                    options, counts = self.app._monster_attack_options_for_map(attacker)
+
+        self.assertEqual(options, [])
+        self.assertEqual(counts, {})
+        fetch_mock.assert_not_called()
 
     def test_resolve_map_attack_rolls_to_hit_and_reports_manual_damage_rolls(self):
         attacker = type("Combatant", (), {"cid": 1, "name": "Death Slaad"})()
