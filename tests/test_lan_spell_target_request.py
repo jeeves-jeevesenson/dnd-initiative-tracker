@@ -1124,6 +1124,107 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(list(getattr(target, "on_damage_save_riders", []) or []), [])
         self.assertEqual(list(getattr(target, "end_turn_save_riders", []) or []), [])
 
+    def test_hold_person_failed_save_applies_paralyzed_and_end_turn_save_rider(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "hold-person",
+            "id": "hold-person",
+            "name": "Hold Person",
+            "level": 2,
+            "concentration": True,
+            "mechanics": {
+                "sequence": [
+                    {
+                        "check": {"kind": "saving_throw", "ability": "wisdom", "dc": "spell_save_dc"},
+                        "outcomes": {
+                            "fail": [
+                                {"effect": "condition", "condition": "paralyzed", "duration_turns": 0},
+                            ],
+                            "success": [],
+                        },
+                    }
+                ]
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 30,
+            "target_cid": 2,
+            "spell_name": "Hold Person",
+            "spell_slug": "hold-person",
+            "spell_mode": "save",
+            "save_type": "wis",
+            "save_dc": 15,
+            "roll_save": True,
+            "slot_level": 2,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=3):
+            self.app._lan_apply_action(msg)
+
+        target = self.app.combatants[2]
+        caster = self.app.combatants[1]
+        self.assertTrue(any(getattr(st, "ctype", "") == "paralyzed" for st in target.condition_stacks))
+        self.assertTrue(getattr(caster, "concentrating", False))
+        self.assertEqual(getattr(caster, "concentration_spell", ""), "hold-person")
+        self.assertIn(2, list(getattr(caster, "concentration_target", []) or []))
+        self.assertTrue(
+            any(
+                str(r.get("clear_group") or "").strip().lower() == "hold_person_1_2"
+                and str(r.get("condition") or "").strip().lower() == "paralyzed"
+                and int(r.get("save_dc") or 0) == 15
+                for r in list(getattr(target, "end_turn_save_riders", []) or [])
+                if isinstance(r, dict)
+            )
+        )
+
+    def test_hold_person_end_turn_save_success_removes_paralyzed_after_skip(self):
+        target = self.app.combatants[2]
+        target.saving_throws = {"wis": 1}
+        target.ability_mods = {"wis": 1}
+        target.condition_stacks = [tracker_mod.base.ConditionStack(sid=1, ctype="paralyzed", remaining_turns=None)]
+        target.end_turn_save_riders = [
+            {
+                "clear_group": "hold_person_1_2",
+                "save_ability": "wis",
+                "save_dc": 15,
+                "condition": "paralyzed",
+                "source": "Hold Person",
+            }
+        ]
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=14):
+            skip, _msg, _dec = self.app._process_start_of_turn(target)
+            self.assertTrue(skip)
+            self.assertTrue(any(getattr(st, "ctype", "") == "paralyzed" for st in target.condition_stacks))
+            self.app._end_turn_cleanup(2)
+
+        self.assertFalse(any(getattr(st, "ctype", "") == "paralyzed" for st in target.condition_stacks))
+        self.assertEqual(list(getattr(target, "end_turn_save_riders", []) or []), [])
+
+    def test_hold_person_concentration_end_clears_paralyzed_and_rider(self):
+        caster = self.app.combatants[1]
+        target = self.app.combatants[2]
+        caster.concentrating = True
+        caster.concentration_spell = "hold-person"
+        caster.concentration_target = [2]
+        target.condition_stacks = [tracker_mod.base.ConditionStack(sid=1, ctype="paralyzed", remaining_turns=None)]
+        target.end_turn_save_riders = [
+            {
+                "clear_group": "hold_person_1_2",
+                "save_ability": "wis",
+                "save_dc": 15,
+                "condition": "paralyzed",
+                "source": "Hold Person",
+            }
+        ]
+
+        self.app._end_concentration(caster)
+
+        self.assertFalse(any(getattr(st, "ctype", "") == "paralyzed" for st in target.condition_stacks))
+        self.assertEqual(list(getattr(target, "end_turn_save_riders", []) or []), [])
+
     def test_heat_metal_applies_start_turn_damage_rider_and_concentration(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "heat-metal",

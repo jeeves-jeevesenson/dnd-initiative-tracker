@@ -43,7 +43,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: true
   targeting:
     origin: creature_within_range
@@ -51,7 +51,7 @@ mechanics:
       kind: distance
       distance_ft: 60
     target_selection:
-      mode: single
+      mode: multiple
   sequence:
   - id: effect
     name: Effect
@@ -67,4 +67,10 @@ mechanics:
   scaling: null
   ui:
     template_preview: false
+    spell_targeting:
+      mode: save
+      projectiles_base: 1
+      add_per_slot_above: 1
+      base_slot_level: 2
+      target_side: enemy
   notes: []
