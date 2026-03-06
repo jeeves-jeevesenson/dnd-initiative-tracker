@@ -157,16 +157,16 @@
       margin-bottom:2px;
     }
     .planning-chat-list{
-      --planning-chat-avatar-size:44px;
+      --planning-chat-avatar-size:55px;
       min-height:0;
       overflow:auto;
       border:1px solid rgba(255,255,255,0.12);
       border-radius:10px;
-      padding:8px;
+      padding:10px;
       background: rgba(0,0,0,0.2);
       display:flex;
       flex-direction:column;
-      gap:8px;
+      gap:10px;
       flex:1;
     }
     .planning-chat-item{
@@ -202,13 +202,67 @@
     }
     .planning-chat-item-grouped{
       padding-left:calc(var(--planning-chat-avatar-size) + 10px);
-      margin-top:-2px;
+      margin-top:-4px;
+    }
+    .planning-chat-item-grouped .planning-chat-sender{display:none;}
+    .planning-chat-item-grouped .planning-chat-meta{justify-content:flex-end;}
+    .planning-chat-bubble{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+      outline:none;
+    }
+    .planning-chat-bubble:hover,
+    .planning-chat-bubble:focus,
+    .planning-chat-bubble:focus-within{
+      border-color:rgba(158,206,255,0.55);
+      background: rgba(255,255,255,0.08);
+    }
+    .planning-chat-meta{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      color:var(--muted);
+      font-size:11px;
+      line-height:1.2;
+    }
+    .planning-chat-sender{
+      font-size:11px;
+      font-weight:600;
+      color:var(--text);
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .planning-chat-time{
+      font-variant-numeric:tabular-nums;
+      flex:0 0 auto;
     }
     .planning-chat-body{
       white-space:pre-wrap;
       word-break:break-word;
     }
-    .planning-chat-meta{color:var(--muted); font-size:11px; margin-bottom:2px;}
+    .planning-chat-detail{
+      display:none;
+      color:var(--muted);
+      font-size:10px;
+      line-height:1.25;
+      word-break:break-word;
+      border-top:1px solid rgba(255,255,255,0.08);
+      margin-top:2px;
+      padding-top:4px;
+    }
+    .planning-chat-bubble:hover .planning-chat-detail,
+    .planning-chat-bubble:focus .planning-chat-detail,
+    .planning-chat-bubble:focus-within .planning-chat-detail{
+      display:block;
+    }
     .planning-chat-compose{display:flex; gap:8px;}
     .planning-chat-compose input{flex:1 1 auto;}
     .topbar-main-row,
@@ -2505,10 +2559,9 @@
 
   <aside class="planning-chat-window" id="planningChatOverlay" aria-hidden="true" role="dialog" aria-labelledby="planningChatTitle">
       <div class="map-view-log-header" id="planningChatHeader">
-        <strong id="planningChatTitle">Planning Chat</strong>
+        <strong id="planningChatTitle">Chat</strong>
         <button class="btn" id="planningChatClose" type="button">Hide</button>
       </div>
-      <div class="hint">Names use IP assignment when available; otherwise sender IP is shown.</div>
       <div class="planning-chat-list" id="planningChatList" aria-live="polite"></div>
       <form class="planning-chat-compose" id="planningChatForm" autocomplete="off">
         <input class="input" id="planningChatInput" maxlength="500" placeholder="Message" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
@@ -8791,6 +8844,27 @@ __DAMAGE_TYPE_OPTIONS__
     return img;
   }
 
+
+  function formatPlanningChatCompactTime(rawTs){
+    const value = String(rawTs || "").trim();
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    try {
+      return parsed.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+    } catch (_err){
+      return value;
+    }
+  }
+
+  function formatPlanningChatDetail(entry, who, host){
+    const parsed = new Date(String(entry?.ts || "").trim());
+    const detailedTs = Number.isNaN(parsed.getTime())
+      ? String(entry?.ts || "")
+      : parsed.toLocaleString([], {dateStyle:"medium", timeStyle:"medium"});
+    return `${who} (${host}) • ${detailedTs}`.trim();
+  }
+
   function renderPlanningChat(){
     if (!planningChatList) return;
     planningChatList.textContent = "";
@@ -8799,25 +8873,48 @@ __DAMAGE_TYPE_OPTIONS__
       const item = document.createElement("div");
       const who = String(entry?.name || entry?.host || "Unknown");
       const host = String(entry?.host || "?");
-      const ts = String(entry?.ts || "");
       const senderKey = `${who}\u0000${host}\u0000${planningChatAvatarKey(entry?.avatar_key)}`;
       const groupedWithPrevious = senderKey && senderKey === previousSenderKey;
       item.className = groupedWithPrevious ? "planning-chat-item planning-chat-item-grouped" : "planning-chat-item";
       if (!groupedWithPrevious){
         item.appendChild(buildPlanningChatAvatar(who, entry));
       }
+
       const content = document.createElement("div");
       content.className = "planning-chat-content";
+
+      const bubble = document.createElement("div");
+      bubble.className = "planning-chat-bubble";
+      bubble.tabIndex = 0;
+
+      const meta = document.createElement("div");
+      meta.className = "planning-chat-meta";
+
+      const sender = document.createElement("span");
+      sender.className = "planning-chat-sender";
+      sender.textContent = groupedWithPrevious ? "" : who;
+
+      const time = document.createElement("span");
+      time.className = "planning-chat-time";
+      time.textContent = formatPlanningChatCompactTime(entry?.ts);
+
+      meta.appendChild(sender);
+      meta.appendChild(time);
+
       const body = document.createElement("div");
       body.className = "planning-chat-body";
       body.textContent = String(entry?.text || "");
-      if (!groupedWithPrevious){
-        const meta = document.createElement("div");
-        meta.className = "planning-chat-meta";
-        meta.textContent = `${who} (${host}) ${ts}`.trim();
-        content.appendChild(meta);
-      }
-      content.appendChild(body);
+
+      const detail = document.createElement("div");
+      detail.className = "planning-chat-detail";
+      detail.textContent = formatPlanningChatDetail(entry, who, host);
+
+      bubble.title = detail.textContent;
+      bubble.appendChild(meta);
+      bubble.appendChild(body);
+      bubble.appendChild(detail);
+
+      content.appendChild(bubble);
       item.appendChild(content);
       planningChatList.appendChild(item);
       previousSenderKey = senderKey;
