@@ -38,7 +38,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: true
   targeting:
     origin: target_creature

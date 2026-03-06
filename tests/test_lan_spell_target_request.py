@@ -1748,5 +1748,58 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(self.app._combatant_save_roll_mode(target, "dex"), "normal")
 
 
+    def test_yaml_shield_of_faith_applies_ac_modifier_and_cleans_up_on_concentration_end(self):
+        preset = self._load_spell_preset("shield-of-faith")
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 46,
+            "target_cid": 3,
+            "spell_name": "Shield of Faith",
+            "spell_slug": "shield-of-faith",
+            "spell_mode": "effect",
+            "slot_level": 1,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        caster = self.app.combatants[1]
+        target = self.app.combatants[3]
+        self.assertTrue(getattr(caster, "concentrating", False))
+        self.assertEqual(getattr(caster, "concentration_spell", ""), "shield-of-faith")
+        self.assertEqual(self.app._combatant_ac_modifier(target), 2)
+
+        self.app._end_concentration(caster)
+        self.assertEqual(self.app._combatant_ac_modifier(target), 0)
+
+    def test_yaml_greater_invisibility_applies_and_clears_invisible_condition(self):
+        preset = self._load_spell_preset("greater-invisibility")
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 47,
+            "target_cid": 3,
+            "spell_name": "Greater Invisibility",
+            "spell_slug": "greater-invisibility",
+            "spell_mode": "effect",
+            "slot_level": 4,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        caster = self.app.combatants[1]
+        target = self.app.combatants[3]
+        self.assertTrue(self.app._has_condition(target, "invisible"))
+        self.assertEqual(getattr(caster, "concentration_spell", ""), "greater-invisibility")
+
+        self.app._end_concentration(caster)
+        self.assertFalse(self.app._has_condition(target, "invisible"))
+
+
+
 if __name__ == "__main__":
     unittest.main()

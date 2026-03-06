@@ -1,278 +1,277 @@
 schema: dnd55.spell_tag_review.v1
-levels_included: [0, 1, 2, 3, 4, 5]
-category_tags: [attack, save, auto_hit, aoe, summon, heal, damage, condition, utility]
+levels_included:
+- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+category_tags:
+- attack
+- save
+- auto_hit
+- aoe
+- summon
+- heal
+- damage
+- condition
+- utility
 automation_tag: automation_full
 not_fully_automated_spell_ids:
-  - aid
-  - alarm
-  - alter-self
-  - animal-friendship
-  - animal-messenger
-  - animate-dead
-  - animate-objects
-  - antilife-shell
-  - arcane-eye
-  - arcane-lock
-  - arcane-vigor
-  - armor-of-agathys
-  - augury
-  - aura-of-life
-  - aura-of-purity
-  - aura-of-vitality
-  - awaken
-  - bane
-  - banishing-smite
-  - banishment
-  - barkskin
-  - beacon-of-hope
-  - beast-sense
-  - bestow-curse
-  - bigby-s-hand
-  - blade-ward
-  - bless
-  - blight
-  - blinding-smite
-  - blindness-deafness
-  - blink
-  - blur
-  - call-lightning
-  - calm-emotions
-  - charm-monster
-  - charm-person
-  - chill-touch
-  - chromatic-orb
-  - circle-of-power
-  - clairvoyance
-  - cloud-of-daggers
-  - color-spray
-  - command
-  - commune-with-nature
-  - commune
-  - compelled-duel
-  - comprehend-languages
-  - compulsion
-  - confusion
-  - conjure-elemental
-  - conjure-minor-elementals
-  - conjure-woodland-beings
-  - contact-other-plane
-  - contagion
-  - continual-flame
-  - control-water
-  - cordon-of-arrows
-  - counterspell
-  - create-food-and-water
-  - create-or-destroy-water
-  - creation
-  - crown-of-madness
-  - crusader-s-mantle
-  - cure-wounds
-  - dancing-lights
-  - darkness
-  - darkvision
-  - daylight
-  - death-ward
-  - detect-evil-and-good
-  - detect-magic
-  - detect-poison-and-disease
-  - detect-thoughts
-  - dimension-door
-  - disguise-self
-  - dispel-evil-and-good
-  - dispel-magic
-  - dissonant-whispers
-  - divination
-  - divine-favor
-  - divine-smite
-  - dominate-beast
-  - dominate-person
-  - dragon-s-breath
-  - dream
-  - druidcraft
-  - eldritch-blast
-  - elemental-weapon
-  - elementalism
-  - enhance-ability
-  - enlarge-reduce
-  - ensnaring-strike
-  - entangle
-  - enthrall
-  - evard-s-black-tentacles
-  - expeditious-retreat
-  - fabricate
-  - faerie-fire
-  - false-life
-  - fear
-  - feather-fall
-  - feign-death
-  - find-familiar
-  - find-steed
-  - find-traps
-  - fire-shield
-  - flame-blade
-  - flaming-sphere
-  - fly
-  - fog-cloud
-  - fount-of-moonlight
-  - freedom-of-movement
-  - friends
-  - gaseous-form
-  - geas
-  - gentle-repose
-  - giant-insect
-  - glyph-of-warding
-  - goodberry
-  - grasping-vine
-  - grease
-  - greater-invisibility
-  - greater-restoration
-  - guardian-of-faith
-  - guidance
-  - guiding-bolt
-  - gust-of-wind
-  - hail-of-thorns
-  - hallow
-  - hallucinatory-terrain
-  - haste
-  - healing-word
-  - heat-metal
-  - hellish-rebuke
-  - heroism
-  - hex
-  - hold-monster
-  - hold-person
-  - hunter-s-mark
-  - hypnotic-pattern
-  - ice-knife
-  - identify
-  - illusory-script
-  - inflict-wounds
-  - invisibility
-  - jump
-  - knock
-  - legend-lore
-  - leomund-s-secret-chest
-  - leomund-s-tiny-hut
-  - lesser-restoration
-  - levitate
-  - light
-  - lightning-arrow
-  - locate-animals-or-plants
-  - locate-creature
-  - locate-object
-  - longstrider
-  - mage-armor
-  - mage-hand
-  - magic-circle
-  - magic-mouth
-  - magic-weapon
-  - major-image
-  - mass-cure-wounds
-  - mass-healing-word
-  - meld-into-stone
-  - melf-s-acid-arrow
-  - mending
-  - message
-  - mind-sliver
-  - mind-spike
-  - minor-illusion
-  - mirror-image
-  - mislead
-  - misty-step
-  - modify-memory
-  - mordenkainen-s-faithful-hound
-  - mordenkainen-s-private-sanctum
-  - nondetection
-  - nystul-s-magic-aura
-  - otiluke-s-resilient-sphere
-  - pass-without-trace
-  - passwall
-  - phantasmal-killer
-  - phantom-steed
-  - planar-binding
-  - plant-growth
-  - poison-spray
-  - polymorph
-  - prayer-of-healing
-  - prestidigitation
-  - produce-flame
-  - protection-from-energy
-  - protection-from-evil-and-good
-  - protection-from-poison
-  - purify-food-and-drink
-  - raise-dead
-  - rary-s-telepathic-bond
-  - ray-of-enfeeblement
-  - ray-of-frost
-  - ray-of-sickness
-  - reincarnate
-  - remove-curse
-  - resistance
-  - revivify
-  - rope-trick
-  - sacred-flame
-  - sanctuary
-  - scrying
-  - searing-smite
-  - see-invisibility
-  - seeming
-  - sending
-  - shield-of-faith
-  - shield
-  - shillelagh
-  - shining-smite
-  - shocking-grasp
-  - silence
-  - silent-image
-  - sleep
-  - sleet-storm
-  - slow
-  - sorcerous-burst
-  - spare-the-dying
-  - speak-with-animals
-  - speak-with-dead
-  - speak-with-plants
-  - spider-climb
-  - spike-growth
-  - spirit-guardians
-  - spiritual-weapon
-  - staggering-smite
-  - starry-wisp
-  - steel-wind-strike
-  - stinking-cloud
-  - stone-shape
-  - stoneskin
-  - suggestion
-  - summon-aberration
-  - summon-beast
-  - summon-celestial
-  - summon-construct
-  - summon-dragon
-  - summon-elemental
-  - summon-fey
-  - summon-undead
-  - swift-quiver
-  - tasha-s-hideous-laughter
-  - telekinesis
-  - teleportation-circle
-  - tenser-s-floating-disk
-  - thaumaturgy
-  - thorn-whip
-  - thunderous-smite
-  - tongues
-  - tree-stride
-  - true-strike
-  - unseen-servant
-  - vampiric-touch
-  - vicious-mockery
-  - wall-of-fire
-  - wall-of-force
-  - wall-of-stone
-  - warding-bond
-  - water-breathing
-  - water-walk
-  - wind-wall
-  - witch-bolt
-  - wrathful-smite
-  - yolande-s-regal-presence
-  - zone-of-truth
+- aid
+- alarm
+- alter-self
+- animal-friendship
+- animal-messenger
+- animate-dead
+- animate-objects
+- antilife-shell
+- arcane-eye
+- arcane-lock
+- arcane-vigor
+- armor-of-agathys
+- augury
+- aura-of-life
+- aura-of-purity
+- aura-of-vitality
+- awaken
+- bane
+- banishing-smite
+- banishment
+- barkskin
+- beacon-of-hope
+- beast-sense
+- bestow-curse
+- bigby-s-hand
+- blade-ward
+- bless
+- blight
+- blinding-smite
+- blindness-deafness
+- blink
+- blur
+- call-lightning
+- calm-emotions
+- charm-monster
+- charm-person
+- chromatic-orb
+- circle-of-power
+- clairvoyance
+- color-spray
+- command
+- commune
+- commune-with-nature
+- compelled-duel
+- comprehend-languages
+- compulsion
+- confusion
+- conjure-elemental
+- conjure-minor-elementals
+- conjure-woodland-beings
+- contact-other-plane
+- contagion
+- continual-flame
+- control-water
+- cordon-of-arrows
+- counterspell
+- create-food-and-water
+- create-or-destroy-water
+- creation
+- crown-of-madness
+- crusader-s-mantle
+- cure-wounds
+- dancing-lights
+- darkness
+- darkvision
+- daylight
+- death-ward
+- detect-evil-and-good
+- detect-magic
+- detect-poison-and-disease
+- detect-thoughts
+- dimension-door
+- disguise-self
+- dispel-evil-and-good
+- dispel-magic
+- dissonant-whispers
+- divination
+- divine-favor
+- divine-smite
+- dominate-beast
+- dominate-person
+- dragon-s-breath
+- dream
+- druidcraft
+- eldritch-blast
+- elemental-weapon
+- elementalism
+- enhance-ability
+- enlarge-reduce
+- entangle
+- enthrall
+- evard-s-black-tentacles
+- expeditious-retreat
+- fabricate
+- faerie-fire
+- false-life
+- fear
+- feather-fall
+- feign-death
+- find-familiar
+- find-steed
+- find-traps
+- fire-shield
+- flame-blade
+- fly
+- fog-cloud
+- fount-of-moonlight
+- freedom-of-movement
+- friends
+- gaseous-form
+- geas
+- gentle-repose
+- giant-insect
+- glyph-of-warding
+- goodberry
+- grasping-vine
+- grease
+- greater-restoration
+- guardian-of-faith
+- guidance
+- gust-of-wind
+- hail-of-thorns
+- hallow
+- hallucinatory-terrain
+- healing-word
+- heat-metal
+- hellish-rebuke
+- heroism
+- hex
+- hold-monster
+- hunter-s-mark
+- hypnotic-pattern
+- ice-knife
+- identify
+- illusory-script
+- inflict-wounds
+- invisibility
+- jump
+- knock
+- legend-lore
+- leomund-s-secret-chest
+- leomund-s-tiny-hut
+- lesser-restoration
+- levitate
+- light
+- lightning-arrow
+- locate-animals-or-plants
+- locate-creature
+- locate-object
+- mage-armor
+- mage-hand
+- magic-circle
+- magic-mouth
+- magic-weapon
+- major-image
+- mass-cure-wounds
+- mass-healing-word
+- meld-into-stone
+- melf-s-acid-arrow
+- mending
+- message
+- mind-sliver
+- mind-spike
+- minor-illusion
+- mirror-image
+- mislead
+- misty-step
+- modify-memory
+- mordenkainen-s-faithful-hound
+- mordenkainen-s-private-sanctum
+- nondetection
+- nystul-s-magic-aura
+- otiluke-s-resilient-sphere
+- pass-without-trace
+- passwall
+- phantom-steed
+- planar-binding
+- plant-growth
+- poison-spray
+- polymorph
+- prayer-of-healing
+- prestidigitation
+- produce-flame
+- protection-from-evil-and-good
+- protection-from-poison
+- purify-food-and-drink
+- raise-dead
+- rary-s-telepathic-bond
+- ray-of-enfeeblement
+- ray-of-sickness
+- reincarnate
+- remove-curse
+- resistance
+- revivify
+- rope-trick
+- sanctuary
+- scrying
+- searing-smite
+- see-invisibility
+- seeming
+- sending
+- shield
+- shillelagh
+- shining-smite
+- shocking-grasp
+- silence
+- silent-image
+- sleep
+- sleet-storm
+- slow
+- sorcerous-burst
+- spare-the-dying
+- speak-with-animals
+- speak-with-dead
+- speak-with-plants
+- spider-climb
+- spike-growth
+- spiritual-weapon
+- staggering-smite
+- starry-wisp
+- steel-wind-strike
+- stinking-cloud
+- stone-shape
+- stoneskin
+- suggestion
+- summon-aberration
+- summon-beast
+- summon-celestial
+- summon-construct
+- summon-dragon
+- summon-elemental
+- summon-fey
+- summon-undead
+- swift-quiver
+- tasha-s-hideous-laughter
+- telekinesis
+- teleportation-circle
+- tenser-s-floating-disk
+- thaumaturgy
+- thorn-whip
+- thunderous-smite
+- tongues
+- tree-stride
+- true-strike
+- unseen-servant
+- vampiric-touch
+- vicious-mockery
+- wall-of-force
+- wall-of-stone
+- warding-bond
+- water-breathing
+- water-walk
+- wind-wall
+- witch-bolt
+- wrathful-smite
+- yolande-s-regal-presence
+- zone-of-truth

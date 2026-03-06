@@ -1,0 +1,383 @@
+# Spell automation audit (levels 0–6)
+
+## Audit rubric
+- **supported_full_now**: YAML behavior is fully covered by existing generic spell resolution + ongoing-effect primitives.
+- **supported_but_honestly_partial**: core sequence resolves, but at least one important clause is still missing/manual.
+- **needs_new_engine_feature**: depends on unsupported system slices (teleport/summon/persistent templates/reaction-heavy flows/etc.).
+- **needs_spell_specific_logic**: requires dedicated per-spell hooks beyond current generic primitives.
+
+## Coverage snapshot
+- Level 0–6 spells audited: **339**
+- Marked full now: **50**
+- Remaining non-full: **289**
+
+## Newly promoted to full in this pass
+- `longstrider` (level 1)
+- `shield-of-faith` (level 1)
+- `haste` (level 3)
+- `protection-from-energy` (level 3)
+- `greater-invisibility` (level 4)
+
+## Remaining non-full spells by category
+
+### supported_but_honestly_partial (44)
+- `eldritch-blast` (L0): core effect resolves, but at least one important clause remains manual
+- `guidance` (L0): core effect resolves, but at least one important clause remains manual
+- `mage-hand` (L0): core effect resolves, but at least one important clause remains manual
+- `mending` (L0): core effect resolves, but at least one important clause remains manual
+- `message` (L0): core effect resolves, but at least one important clause remains manual
+- `shillelagh` (L0): core effect resolves, but at least one important clause remains manual
+- `shocking-grasp` (L0): opportunity-attack lockout rider is not encoded in ongoing primitives
+- `spare-the-dying` (L0): core effect resolves, but at least one important clause remains manual
+- `vicious-mockery` (L0): core effect resolves, but at least one important clause remains manual
+- `charm-person` (L1): missing hostility/friendly-state clause automation
+- `command` (L1): core effect resolves, but at least one important clause remains manual
+- `comprehend-languages` (L1): core effect resolves, but at least one important clause remains manual
+- `cure-wounds` (L1): healing omits spellcasting ability modifier
+- `divine-smite` (L1): core effect resolves, but at least one important clause remains manual
+- `healing-word` (L1): healing omits spellcasting ability modifier
+- `hellish-rebuke` (L1): core effect resolves, but at least one important clause remains manual
+- `identify` (L1): core effect resolves, but at least one important clause remains manual
+- `inflict-wounds` (L1): core effect resolves, but at least one important clause remains manual
+- `protection-from-evil-and-good` (L1): core effect resolves, but at least one important clause remains manual
+- `ray-of-sickness` (L1): core effect resolves, but at least one important clause remains manual
+- `shield` (L1): core effect resolves, but at least one important clause remains manual
+- `speak-with-animals` (L1): core effect resolves, but at least one important clause remains manual
+- `tasha-s-hideous-laughter` (L1): core effect resolves, but at least one important clause remains manual
+- `blindness-deafness` (L2): core effect resolves, but at least one important clause remains manual
+- `blur` (L2): blindsight/truesight immunity exceptions are not modeled
+- `enhance-ability` (L2): core effect resolves, but at least one important clause remains manual
+- `heat-metal` (L2): core effect resolves, but at least one important clause remains manual
+- `knock` (L2): core effect resolves, but at least one important clause remains manual
+- `lesser-restoration` (L2): core effect resolves, but at least one important clause remains manual
+- `locate-object` (L2): core effect resolves, but at least one important clause remains manual
+- `mirror-image` (L2): core effect resolves, but at least one important clause remains manual
+- `prayer-of-healing` (L2): core effect resolves, but at least one important clause remains manual
+- `blinding-smite` (L3): core effect resolves, but at least one important clause remains manual
+- `dispel-magic` (L3): core effect resolves, but at least one important clause remains manual
+- `remove-curse` (L3): core effect resolves, but at least one important clause remains manual
+- `speak-with-dead` (L3): core effect resolves, but at least one important clause remains manual
+- `water-walk` (L3): core effect resolves, but at least one important clause remains manual
+- `banishment` (L4): core effect resolves, but at least one important clause remains manual
+- `blight` (L4): core effect resolves, but at least one important clause remains manual
+- `freedom-of-movement` (L4): core effect resolves, but at least one important clause remains manual
+- `dispel-evil-and-good` (L5): core effect resolves, but at least one important clause remains manual
+- `geas` (L5): core effect resolves, but at least one important clause remains manual
+- `mislead` (L5): core effect resolves, but at least one important clause remains manual
+- `tree-stride` (L5): core effect resolves, but at least one important clause remains manual
+
+### needs_new_engine_feature (125)
+- `dancing-lights` (L0): summon/aoe systems still rely on bespoke flows
+- `druidcraft` (L0): summon/aoe systems still rely on bespoke flows
+- `elementalism` (L0): summon/aoe systems still rely on bespoke flows
+- `light` (L0): summon/aoe systems still rely on bespoke flows
+- `minor-illusion` (L0): summon/aoe systems still rely on bespoke flows
+- `produce-flame` (L0): description references systems not fully generalized yet
+- `starry-wisp` (L0): description references systems not fully generalized yet
+- `alarm` (L1): summon/aoe systems still rely on bespoke flows
+- `color-spray` (L1): summon/aoe systems still rely on bespoke flows
+- `create-or-destroy-water` (L1): summon/aoe systems still rely on bespoke flows
+- `dissonant-whispers` (L1): description references systems not fully generalized yet
+- `entangle` (L1): summon/aoe systems still rely on bespoke flows
+- `faerie-fire` (L1): summon/aoe systems still rely on bespoke flows
+- `find-familiar` (L1): summon/aoe systems still rely on bespoke flows
+- `fog-cloud` (L1): summon/aoe systems still rely on bespoke flows
+- `grease` (L1): summon/aoe systems still rely on bespoke flows
+- `illusory-script` (L1): description references systems not fully generalized yet
+- `purify-food-and-drink` (L1): summon/aoe systems still rely on bespoke flows
+- `silent-image` (L1): summon/aoe systems still rely on bespoke flows
+- `sleep` (L1): summon/aoe systems still rely on bespoke flows
+- `unseen-servant` (L1): summon/aoe systems still rely on bespoke flows
+- `calm-emotions` (L2): summon/aoe systems still rely on bespoke flows
+- `continual-flame` (L2): summon/aoe systems still rely on bespoke flows
+- `darkness` (L2): summon/aoe systems still rely on bespoke flows
+- `dragon-s-breath` (L2): summon/aoe systems still rely on bespoke flows
+- `find-steed` (L2): summon/aoe systems still rely on bespoke flows
+- `find-traps` (L2): description references systems not fully generalized yet
+- `flame-blade` (L2): description references systems not fully generalized yet
+- `gentle-repose` (L2): description references systems not fully generalized yet
+- `gust-of-wind` (L2): summon/aoe systems still rely on bespoke flows
+- `levitate` (L2): description references systems not fully generalized yet
+- `misty-step` (L2): description references systems not fully generalized yet
+- `nystul-s-magic-aura` (L2): description references systems not fully generalized yet
+- `pass-without-trace` (L2): summon/aoe systems still rely on bespoke flows
+- `rope-trick` (L2): description references systems not fully generalized yet
+- `see-invisibility` (L2): description references systems not fully generalized yet
+- `shining-smite` (L2): description references systems not fully generalized yet
+- `silence` (L2): summon/aoe systems still rely on bespoke flows
+- `spike-growth` (L2): summon/aoe systems still rely on bespoke flows
+- `spiritual-weapon` (L2): summon/aoe systems still rely on bespoke flows
+- `summon-beast` (L2): summon/aoe systems still rely on bespoke flows
+- `zone-of-truth` (L2): summon/aoe systems still rely on bespoke flows
+- `animate-dead` (L3): summon/aoe systems still rely on bespoke flows
+- `aura-of-vitality` (L3): summon/aoe systems still rely on bespoke flows
+- `bestow-curse` (L3): description references systems not fully generalized yet
+- `blink` (L3): description references systems not fully generalized yet
+- `call-lightning` (L3): summon/aoe systems still rely on bespoke flows
+- `counterspell` (L3): description references systems not fully generalized yet
+- `crusader-s-mantle` (L3): summon/aoe systems still rely on bespoke flows
+- `daylight` (L3): summon/aoe systems still rely on bespoke flows
+- `fear` (L3): summon/aoe systems still rely on bespoke flows
+- `glyph-of-warding` (L3): summon/aoe systems still rely on bespoke flows
+- `hypnotic-pattern` (L3): summon/aoe systems still rely on bespoke flows
+- `leomund-s-tiny-hut` (L3): description references systems not fully generalized yet
+- `magic-circle` (L3): summon/aoe systems still rely on bespoke flows
+- `major-image` (L3): summon/aoe systems still rely on bespoke flows
+- `phantom-steed` (L3): summon/aoe systems still rely on bespoke flows
+- `plant-growth` (L3): summon/aoe systems still rely on bespoke flows
+- `revivify` (L3): description references systems not fully generalized yet
+- `sleet-storm` (L3): summon/aoe systems still rely on bespoke flows
+- `slow` (L3): description references systems not fully generalized yet
+- `stinking-cloud` (L3): summon/aoe systems still rely on bespoke flows
+- `summon-fey` (L3): summon/aoe systems still rely on bespoke flows
+- `summon-undead` (L3): summon/aoe systems still rely on bespoke flows
+- `wind-wall` (L3): summon/aoe systems still rely on bespoke flows
+- `aura-of-life` (L4): summon/aoe systems still rely on bespoke flows
+- `aura-of-purity` (L4): summon/aoe systems still rely on bespoke flows
+- `confusion` (L4): summon/aoe systems still rely on bespoke flows
+- `conjure-minor-elementals` (L4): summon/aoe systems still rely on bespoke flows
+- `conjure-woodland-beings` (L4): summon/aoe systems still rely on bespoke flows
+- `control-water` (L4): summon/aoe systems still rely on bespoke flows
+- `dimension-door` (L4): description references systems not fully generalized yet
+- `dominate-beast` (L4): description references systems not fully generalized yet
+- `evard-s-black-tentacles` (L4): summon/aoe systems still rely on bespoke flows
+- `fabricate` (L4): summon/aoe systems still rely on bespoke flows
+- `fire-shield` (L4): description references systems not fully generalized yet
+- `fount-of-moonlight` (L4): description references systems not fully generalized yet
+- `giant-insect` (L4): summon/aoe systems still rely on bespoke flows
+- `grasping-vine` (L4): description references systems not fully generalized yet
+- `guardian-of-faith` (L4): summon/aoe systems still rely on bespoke flows
+- `hallucinatory-terrain` (L4): summon/aoe systems still rely on bespoke flows
+- `leomund-s-secret-chest` (L4): description references systems not fully generalized yet
+- `mordenkainen-s-faithful-hound` (L4): summon/aoe systems still rely on bespoke flows
+- `mordenkainen-s-private-sanctum` (L4): summon/aoe systems still rely on bespoke flows
+- `otiluke-s-resilient-sphere` (L4): description references systems not fully generalized yet
+- `stone-shape` (L4): description references systems not fully generalized yet
+- `summon-aberration` (L4): summon/aoe systems still rely on bespoke flows
+- `summon-construct` (L4): summon/aoe systems still rely on bespoke flows
+- `summon-elemental` (L4): summon/aoe systems still rely on bespoke flows
+- `animate-objects` (L5): summon/aoe systems still rely on bespoke flows
+- `antilife-shell` (L5): summon/aoe systems still rely on bespoke flows
+- `bigby-s-hand` (L5): summon/aoe systems still rely on bespoke flows
+- `circle-of-power` (L5): summon/aoe systems still rely on bespoke flows
+- `commune-with-nature` (L5): description references systems not fully generalized yet
+- `conjure-elemental` (L5): summon/aoe systems still rely on bespoke flows
+- `creation` (L5): summon/aoe systems still rely on bespoke flows
+- `dominate-person` (L5): description references systems not fully generalized yet
+- `hallow` (L5): summon/aoe systems still rely on bespoke flows
+- `mass-cure-wounds` (L5): summon/aoe systems still rely on bespoke flows
+- `passwall` (L5): description references systems not fully generalized yet
+- `planar-binding` (L5): description references systems not fully generalized yet
+- `raise-dead` (L5): description references systems not fully generalized yet
+- `steel-wind-strike` (L5): description references systems not fully generalized yet
+- `summon-celestial` (L5): summon/aoe systems still rely on bespoke flows
+- `summon-dragon` (L5): summon/aoe systems still rely on bespoke flows
+- `teleportation-circle` (L5): summon/aoe systems still rely on bespoke flows
+- `wall-of-force` (L5): teleport/summon/persistent-template system gap
+- `wall-of-stone` (L5): teleport/summon/persistent-template system gap
+- `blade-barrier` (L6): summon/aoe systems still rely on bespoke flows
+- `conjure-fey` (L6): teleport/summon/persistent-template system gap
+- `disintegrate` (L6): description references systems not fully generalized yet
+- `drawmij-s-instant-summons` (L6): teleport/summon/persistent-template system gap
+- `forbiddance` (L6): description references systems not fully generalized yet
+- `globe-of-invulnerability` (L6): summon/aoe systems still rely on bespoke flows
+- `guards-and-wards` (L6): summon/aoe systems still rely on bespoke flows
+- `heroes--feast` (L6): summon/aoe systems still rely on bespoke flows
+- `magic-jar` (L6): description references systems not fully generalized yet
+- `move-earth` (L6): summon/aoe systems still rely on bespoke flows
+- `programmed-illusion` (L6): summon/aoe systems still rely on bespoke flows
+- `summon-fiend` (L6): teleport/summon/persistent-template system gap
+- `sunbeam` (L6): summon/aoe systems still rely on bespoke flows
+- `tasha-s-bubbling-cauldron` (L6): description references systems not fully generalized yet
+- `wall-of-ice` (L6): teleport/summon/persistent-template system gap
+- `wall-of-thorns` (L6): summon/aoe systems still rely on bespoke flows
+- `word-of-recall` (L6): description references systems not fully generalized yet
+
+### needs_spell_specific_logic (120)
+- `blade-ward` (L0): requires spell-specific hooks beyond current generic sequence support
+- `friends` (L0): requires spell-specific hooks beyond current generic sequence support
+- `mind-sliver` (L0): requires spell-specific hooks beyond current generic sequence support
+- `poison-spray` (L0): requires spell-specific hooks beyond current generic sequence support
+- `prestidigitation` (L0): requires spell-specific hooks beyond current generic sequence support
+- `resistance` (L0): requires spell-specific hooks beyond current generic sequence support
+- `sorcerous-burst` (L0): requires spell-specific hooks beyond current generic sequence support
+- `thaumaturgy` (L0): requires spell-specific hooks beyond current generic sequence support
+- `thorn-whip` (L0): requires spell-specific hooks beyond current generic sequence support
+- `true-strike` (L0): requires spell-specific hooks beyond current generic sequence support
+- `animal-friendship` (L1): requires spell-specific hooks beyond current generic sequence support
+- `armor-of-agathys` (L1): requires spell-specific hooks beyond current generic sequence support
+- `bane` (L1): requires spell-specific hooks beyond current generic sequence support
+- `bless` (L1): requires spell-specific hooks beyond current generic sequence support
+- `chromatic-orb` (L1): requires spell-specific hooks beyond current generic sequence support
+- `compelled-duel` (L1): requires spell-specific hooks beyond current generic sequence support
+- `detect-evil-and-good` (L1): requires spell-specific hooks beyond current generic sequence support
+- `detect-magic` (L1): requires spell-specific hooks beyond current generic sequence support
+- `detect-poison-and-disease` (L1): requires spell-specific hooks beyond current generic sequence support
+- `disguise-self` (L1): requires spell-specific hooks beyond current generic sequence support
+- `divine-favor` (L1): requires spell-specific hooks beyond current generic sequence support
+- `expeditious-retreat` (L1): requires spell-specific hooks beyond current generic sequence support
+- `false-life` (L1): requires spell-specific hooks beyond current generic sequence support
+- `feather-fall` (L1): requires spell-specific hooks beyond current generic sequence support
+- `goodberry` (L1): requires spell-specific hooks beyond current generic sequence support
+- `hail-of-thorns` (L1): requires spell-specific hooks beyond current generic sequence support
+- `heroism` (L1): requires spell-specific hooks beyond current generic sequence support
+- `hex` (L1): requires spell-specific hooks beyond current generic sequence support
+- `hunter-s-mark` (L1): requires spell-specific hooks beyond current generic sequence support
+- `ice-knife` (L1): requires spell-specific hooks beyond current generic sequence support
+- `jump` (L1): requires spell-specific hooks beyond current generic sequence support
+- `mage-armor` (L1): requires spell-specific hooks beyond current generic sequence support
+- `sanctuary` (L1): requires spell-specific hooks beyond current generic sequence support
+- `searing-smite` (L1): requires spell-specific hooks beyond current generic sequence support
+- `tenser-s-floating-disk` (L1): requires spell-specific hooks beyond current generic sequence support
+- `thunderous-smite` (L1): requires spell-specific hooks beyond current generic sequence support
+- `witch-bolt` (L1): requires spell-specific hooks beyond current generic sequence support
+- `wrathful-smite` (L1): requires spell-specific hooks beyond current generic sequence support
+- `aid` (L2): requires spell-specific hooks beyond current generic sequence support
+- `alter-self` (L2): requires spell-specific hooks beyond current generic sequence support
+- `animal-messenger` (L2): requires spell-specific hooks beyond current generic sequence support
+- `arcane-lock` (L2): requires spell-specific hooks beyond current generic sequence support
+- `arcane-vigor` (L2): requires spell-specific hooks beyond current generic sequence support
+- `augury` (L2): requires spell-specific hooks beyond current generic sequence support
+- `barkskin` (L2): requires spell-specific hooks beyond current generic sequence support
+- `beast-sense` (L2): requires spell-specific hooks beyond current generic sequence support
+- `cordon-of-arrows` (L2): requires spell-specific hooks beyond current generic sequence support
+- `crown-of-madness` (L2): requires spell-specific hooks beyond current generic sequence support
+- `darkvision` (L2): requires spell-specific hooks beyond current generic sequence support
+- `detect-thoughts` (L2): requires spell-specific hooks beyond current generic sequence support
+- `enlarge-reduce` (L2): requires spell-specific hooks beyond current generic sequence support
+- `enthrall` (L2): requires spell-specific hooks beyond current generic sequence support
+- `invisibility` (L2): requires spell-specific hooks beyond current generic sequence support
+- `locate-animals-or-plants` (L2): requires spell-specific hooks beyond current generic sequence support
+- `magic-mouth` (L2): requires spell-specific hooks beyond current generic sequence support
+- `magic-weapon` (L2): requires spell-specific hooks beyond current generic sequence support
+- `melf-s-acid-arrow` (L2): requires spell-specific hooks beyond current generic sequence support
+- `mind-spike` (L2): requires spell-specific hooks beyond current generic sequence support
+- `protection-from-poison` (L2): requires spell-specific hooks beyond current generic sequence support
+- `ray-of-enfeeblement` (L2): requires spell-specific hooks beyond current generic sequence support
+- `spider-climb` (L2): requires spell-specific hooks beyond current generic sequence support
+- `suggestion` (L2): requires spell-specific hooks beyond current generic sequence support
+- `warding-bond` (L2): requires spell-specific hooks beyond current generic sequence support
+- `beacon-of-hope` (L3): requires spell-specific hooks beyond current generic sequence support
+- `clairvoyance` (L3): requires spell-specific hooks beyond current generic sequence support
+- `create-food-and-water` (L3): requires spell-specific hooks beyond current generic sequence support
+- `elemental-weapon` (L3): requires spell-specific hooks beyond current generic sequence support
+- `feign-death` (L3): requires spell-specific hooks beyond current generic sequence support
+- `fly` (L3): requires spell-specific hooks beyond current generic sequence support
+- `gaseous-form` (L3): requires spell-specific hooks beyond current generic sequence support
+- `lightning-arrow` (L3): requires spell-specific hooks beyond current generic sequence support
+- `mass-healing-word` (L3): requires spell-specific hooks beyond current generic sequence support
+- `meld-into-stone` (L3): requires spell-specific hooks beyond current generic sequence support
+- `nondetection` (L3): requires spell-specific hooks beyond current generic sequence support
+- `sending` (L3): requires spell-specific hooks beyond current generic sequence support
+- `speak-with-plants` (L3): requires spell-specific hooks beyond current generic sequence support
+- `tongues` (L3): requires spell-specific hooks beyond current generic sequence support
+- `vampiric-touch` (L3): requires spell-specific hooks beyond current generic sequence support
+- `water-breathing` (L3): requires spell-specific hooks beyond current generic sequence support
+- `arcane-eye` (L4): requires spell-specific hooks beyond current generic sequence support
+- `charm-monster` (L4): requires spell-specific hooks beyond current generic sequence support
+- `compulsion` (L4): requires spell-specific hooks beyond current generic sequence support
+- `death-ward` (L4): requires spell-specific hooks beyond current generic sequence support
+- `divination` (L4): requires spell-specific hooks beyond current generic sequence support
+- `locate-creature` (L4): requires spell-specific hooks beyond current generic sequence support
+- `polymorph` (L4): requires spell-specific hooks beyond current generic sequence support
+- `staggering-smite` (L4): requires spell-specific hooks beyond current generic sequence support
+- `stoneskin` (L4): requires spell-specific hooks beyond current generic sequence support
+- `awaken` (L5): requires spell-specific hooks beyond current generic sequence support
+- `banishing-smite` (L5): requires spell-specific hooks beyond current generic sequence support
+- `commune` (L5): requires spell-specific hooks beyond current generic sequence support
+- `contact-other-plane` (L5): requires spell-specific hooks beyond current generic sequence support
+- `contagion` (L5): requires spell-specific hooks beyond current generic sequence support
+- `dream` (L5): requires spell-specific hooks beyond current generic sequence support
+- `greater-restoration` (L5): requires spell-specific hooks beyond current generic sequence support
+- `hold-monster` (L5): requires spell-specific hooks beyond current generic sequence support
+- `legend-lore` (L5): requires spell-specific hooks beyond current generic sequence support
+- `modify-memory` (L5): requires spell-specific hooks beyond current generic sequence support
+- `rary-s-telepathic-bond` (L5): requires spell-specific hooks beyond current generic sequence support
+- `reincarnate` (L5): requires spell-specific hooks beyond current generic sequence support
+- `scrying` (L5): requires spell-specific hooks beyond current generic sequence support
+- `seeming` (L5): requires spell-specific hooks beyond current generic sequence support
+- `swift-quiver` (L5): requires spell-specific hooks beyond current generic sequence support
+- `telekinesis` (L5): requires spell-specific hooks beyond current generic sequence support
+- `yolande-s-regal-presence` (L5): requires spell-specific hooks beyond current generic sequence support
+- `arcane-gate` (L6): requires spell-specific hooks beyond current generic sequence support
+- `chain-lightning` (L6): requires spell-specific hooks beyond current generic sequence support
+- `contingency` (L6): requires spell-specific hooks beyond current generic sequence support
+- `create-undead` (L6): requires spell-specific hooks beyond current generic sequence support
+- `eyebite` (L6): requires spell-specific hooks beyond current generic sequence support
+- `find-the-path` (L6): requires spell-specific hooks beyond current generic sequence support
+- `flesh-to-stone` (L6): requires spell-specific hooks beyond current generic sequence support
+- `harm` (L6): requires spell-specific hooks beyond current generic sequence support
+- `heal` (L6): requires spell-specific hooks beyond current generic sequence support
+- `mass-suggestion` (L6): requires spell-specific hooks beyond current generic sequence support
+- `otto-s-irresistible-dance` (L6): requires spell-specific hooks beyond current generic sequence support
+- `planar-ally` (L6): requires spell-specific hooks beyond current generic sequence support
+- `transport-via-plants` (L6): requires spell-specific hooks beyond current generic sequence support
+- `true-seeing` (L6): requires spell-specific hooks beyond current generic sequence support
+- `wind-walk` (L6): requires spell-specific hooks beyond current generic sequence support
+
+## Prepared non-full spells after this pass
+- `armor-of-agathys` (L1, needs_spell_specific_logic): requires spell-specific hooks beyond current generic sequence support
+- `banishment` (L4, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `bestow-curse` (L3, needs_new_engine_feature): description references systems not fully generalized yet
+- `bigby-s-hand` (L5, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `blight` (L4, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `blinding-smite` (L3, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `blindness-deafness` (L2, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `call-lightning` (L3, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `charm-person` (L1, supported_but_honestly_partial): missing hostility/friendly-state clause automation
+- `command` (L1, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `control-water` (L4, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `counterspell` (L3, needs_new_engine_feature): description references systems not fully generalized yet
+- `create-or-destroy-water` (L1, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `create-undead` (L6, needs_spell_specific_logic): requires spell-specific hooks beyond current generic sequence support
+- `cure-wounds` (L1, supported_but_honestly_partial): healing omits spellcasting ability modifier
+- `dispel-evil-and-good` (L5, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `dispel-magic` (L3, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `divine-smite` (L1, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `dominate-beast` (L4, needs_new_engine_feature): description references systems not fully generalized yet
+- `elemental-weapon` (L3, needs_spell_specific_logic): requires spell-specific hooks beyond current generic sequence support
+- `entangle` (L1, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `find-familiar` (L1, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `find-steed` (L2, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `find-traps` (L2, needs_new_engine_feature): description references systems not fully generalized yet
+- `fog-cloud` (L1, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `fount-of-moonlight` (L4, needs_new_engine_feature): description references systems not fully generalized yet
+- `freedom-of-movement` (L4, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `glyph-of-warding` (L3, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `gust-of-wind` (L2, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `healing-word` (L1, supported_but_honestly_partial): healing omits spellcasting ability modifier
+- `heat-metal` (L2, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `hellish-rebuke` (L1, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `hex` (L1, needs_spell_specific_logic): requires spell-specific hooks beyond current generic sequence support
+- `identify` (L1, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `inflict-wounds` (L1, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `knock` (L2, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `lesser-restoration` (L2, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `locate-object` (L2, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `mage-armor` (L1, needs_spell_specific_logic): requires spell-specific hooks beyond current generic sequence support
+- `mirror-image` (L2, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `misty-step` (L2, needs_new_engine_feature): description references systems not fully generalized yet
+- `plant-growth` (L3, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `prayer-of-healing` (L2, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `protection-from-evil-and-good` (L1, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `remove-curse` (L3, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `revivify` (L3, needs_new_engine_feature): description references systems not fully generalized yet
+- `shield` (L1, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `shocking-grasp` (L0, supported_but_honestly_partial): opportunity-attack lockout rider is not encoded in ongoing primitives
+- `sleep` (L1, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `sleet-storm` (L3, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `slow` (L3, needs_new_engine_feature): description references systems not fully generalized yet
+- `spare-the-dying` (L0, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `speak-with-animals` (L1, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `speak-with-dead` (L3, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `summon-aberration` (L4, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `summon-celestial` (L5, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `summon-construct` (L4, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `summon-fey` (L3, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `summon-undead` (L3, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
+- `tasha-s-hideous-laughter` (L1, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `tree-stride` (L5, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `wall-of-force` (L5, needs_new_engine_feature): teleport/summon/persistent-template system gap
+- `water-walk` (L3, supported_but_honestly_partial): core effect resolves, but at least one important clause remains manual
+- `wrathful-smite` (L1, needs_spell_specific_logic): requires spell-specific hooks beyond current generic sequence support
+- `zone-of-truth` (L2, needs_new_engine_feature): summon/aoe systems still rely on bespoke flows
