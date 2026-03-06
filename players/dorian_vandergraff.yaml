@@ -91,6 +91,12 @@ attacks:
       save_dc: 0
 resources:
   pools:
+  - id: channel_divinity
+    label: Channel Divinity
+    current: 2
+    max: 2
+    max_formula: '2'
+    reset: short_rest
   - id: lay_on_hands
     label: Lay on Hands
     current: 50
@@ -110,6 +116,24 @@ resources:
     max_formula: '1'
     reset: long_rest
 features:
+- id: channel_divinity
+  name: Channel Divinity
+  category: Paladin Feature
+  source: PHB2024
+  level: 3
+  grants:
+    pools:
+    - id: channel_divinity
+      label: Channel Divinity
+      max_formula: '2'
+      reset: short_rest
+    spells:
+      casts:
+      - spell: natures-wrath
+        action_type: action
+        consumes:
+          pool: channel_divinity
+          cost: 1
 - id: aura_of_protection_2024
   name: Aura of Protection
   passive: true

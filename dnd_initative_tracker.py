@@ -11180,6 +11180,23 @@ class InitiativeTracker(base.InitiativeTracker):
                     next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
                     self._next_stack_id = next_sid + 1
                     target.condition_stacks.append(base.ConditionStack(sid=next_sid, ctype=condition_key, remaining_turns=remaining_turns))
+                    if bool(effect.get("repeat_save_end_of_turn")) and requires_save and ability and int(dc or 0) > 0:
+                        repeat_group = f"aoe_{int(aid)}_{condition_key}_{int(target_cid)}"
+                        end_turn_save_riders = [
+                            rider
+                            for rider in list(getattr(target, "end_turn_save_riders", []) or [])
+                            if str((rider or {}).get("clear_group") or "").strip().lower() != repeat_group
+                        ]
+                        end_turn_save_riders.append(
+                            {
+                                "clear_group": repeat_group,
+                                "save_ability": str(ability),
+                                "save_dc": int(dc),
+                                "condition": condition_key,
+                                "source": spell_name,
+                            }
+                        )
+                        setattr(target, "end_turn_save_riders", end_turn_save_riders)
                     applied_conditions.append(condition_key)
                 elif effect_name in ("forced_movement", "movement"):
                     mode = str(effect.get("kind") or effect.get("mode") or effect.get("direction") or "").strip().lower()
