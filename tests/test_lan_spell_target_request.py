@@ -1124,6 +1124,102 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(list(getattr(target, "on_damage_save_riders", []) or []), [])
         self.assertEqual(list(getattr(target, "end_turn_save_riders", []) or []), [])
 
+    def test_heat_metal_applies_start_turn_damage_rider_and_concentration(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "heat-metal",
+            "id": "heat-metal",
+            "name": "Heat Metal",
+            "level": 2,
+            "concentration": True,
+            "mechanics": {
+                "scaling": {"kind": "slot_level", "base_slot": 2, "add_per_slot_above": "1d8"},
+                "sequence": [
+                    {
+                        "check": {"kind": "saving_throw", "ability": "constitution", "dc": "spell_save_dc"},
+                        "outcomes": {"fail": [], "success": []},
+                    }
+                ],
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 30,
+            "target_cid": 2,
+            "spell_name": "Heat Metal",
+            "spell_slug": "heat-metal",
+            "spell_mode": "save",
+            "save_type": "con",
+            "save_dc": 15,
+            "roll_save": True,
+            "slot_level": 2,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[2, 4, 5]):
+            self.app._lan_apply_action(msg)
+
+        caster = self.app.combatants[1]
+        target = self.app.combatants[2]
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("hit"))
+        self.assertEqual(result.get("damage_total"), 9)
+        self.assertTrue(getattr(caster, "concentrating", False))
+        self.assertEqual(getattr(caster, "concentration_spell", ""), "heat-metal")
+        self.assertIn(2, list(getattr(caster, "concentration_target", []) or []))
+        riders = list(getattr(target, "start_turn_damage_riders", []) or [])
+        self.assertEqual(len(riders), 1)
+        rider = riders[0]
+        self.assertEqual(str(rider.get("dice") or ""), "2d8")
+        self.assertEqual(str(rider.get("save_ability") or ""), "con")
+        self.assertEqual(int(rider.get("save_dc") or 0), 15)
+
+    def test_heat_metal_start_turn_successful_save_ends_concentration(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "heat-metal",
+            "id": "heat-metal",
+            "name": "Heat Metal",
+            "level": 2,
+            "concentration": True,
+            "mechanics": {
+                "scaling": {"kind": "slot_level", "base_slot": 2, "add_per_slot_above": "1d8"},
+                "sequence": [
+                    {
+                        "check": {"kind": "saving_throw", "ability": "constitution", "dc": "spell_save_dc"},
+                        "outcomes": {"fail": [], "success": []},
+                    }
+                ],
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 31,
+            "target_cid": 2,
+            "spell_name": "Heat Metal",
+            "spell_slug": "heat-metal",
+            "spell_mode": "save",
+            "save_type": "con",
+            "save_dc": 15,
+            "roll_save": True,
+            "slot_level": 2,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[2, 4, 5]):
+            self.app._lan_apply_action(msg)
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[3, 4, 18]):
+            _skip, turn_msg, _dec = self.app._process_start_of_turn(self.app.combatants[2])
+
+        caster = self.app.combatants[1]
+        target = self.app.combatants[2]
+        self.assertIn("CON save DC 15", turn_msg)
+        self.assertFalse(getattr(caster, "concentrating", False))
+        self.assertEqual(getattr(caster, "concentration_spell", ""), "")
+        self.assertEqual(list(getattr(target, "start_turn_damage_riders", []) or []), [])
+
     def test_healing_spell_requests_manual_healing_when_not_provided(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "healing-word",
