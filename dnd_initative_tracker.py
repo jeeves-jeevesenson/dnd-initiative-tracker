@@ -6130,8 +6130,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     if group_key and save_ability and save_dc > 0 and group_key not in save_groups:
                         save_groups[group_key] = {"ability": save_ability, "dc": int(save_dc)}
                 for group_key, save_cfg in save_groups.items():
-                    save_roll = random.randint(1, 20)
                     save_ability = str(save_cfg.get("ability") or "").strip().lower()
+                    save_roll, _save_alt_roll = self._roll_save_with_mode(
+                        c,
+                        save_ability,
+                        disadvantage=self._slow_spell_save_disadvantage(c, save_ability),
+                    )
                     save_dc = int(save_cfg.get("dc") or 0)
                     saves = getattr(c, "saving_throws", None)
                     save_mod = 0
@@ -6152,6 +6156,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     rider_msgs.append(
                         f"{save_ability.upper()} save DC {save_dc}: {save_roll} + {save_mod} = {save_total} "
                         f"({'PASS' if save_passed else 'FAIL'})"
+                        f"{' [DISADVANTAGE]' if self._slow_spell_save_disadvantage(c, save_ability) else ''}"
                     )
                     if save_passed:
                         end_concentration_cid = _normalize_cid_value(
@@ -6186,7 +6191,11 @@ class InitiativeTracker(base.InitiativeTracker):
                         save_dc = 0
                     if not save_ability or save_dc <= 0:
                         continue
-                    save_roll = random.randint(1, 20)
+                    save_roll, _save_alt_roll = self._roll_save_with_mode(
+                        c,
+                        save_ability,
+                        disadvantage=self._slow_spell_save_disadvantage(c, save_ability),
+                    )
                     save_mod = 0
                     saves = getattr(c, "saving_throws", None)
                     if isinstance(saves, dict):
@@ -6206,6 +6215,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     rider_msgs.append(
                         f"{save_ability.upper()} save DC {save_dc}: {save_roll} + {save_mod} = {save_total} "
                         f"({'PASS' if save_passed else 'FAIL'})"
+                        f"{' [DISADVANTAGE]' if self._slow_spell_save_disadvantage(c, save_ability) else ''}"
                     )
                     clear_group = str(rider.get("clear_group") or "").strip().lower()
                     condition = str(rider.get("condition") or "").strip().lower()
@@ -6676,7 +6686,11 @@ class InitiativeTracker(base.InitiativeTracker):
                     save_dc = 0
                 if not save_ability or save_dc <= 0:
                     continue
-                save_roll = random.randint(1, 20)
+                save_roll, _save_alt_roll = self._roll_save_with_mode(
+                    c,
+                    save_ability,
+                    disadvantage=self._slow_spell_save_disadvantage(c, save_ability),
+                )
                 save_mod = 0
                 saves = getattr(c, "saving_throws", None)
                 if isinstance(saves, dict):
@@ -6694,7 +6708,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 save_total = int(save_roll) + int(save_mod)
                 save_passed = bool(save_roll != 1 and save_total >= int(save_dc))
                 self._log(
-                    f"{c.name} {'succeeds' if save_passed else 'fails'} their {save_ability.upper()} save against {str(rider.get('source') or 'an effect')}.",
+                    f"{c.name} {'succeeds' if save_passed else 'fails'} their {save_ability.upper()} save against {str(rider.get('source') or 'an effect')}"
+                    f"{' [DISADVANTAGE]' if self._slow_spell_save_disadvantage(c, save_ability) else ''}.",
                     cid=cid,
                 )
                 clear_group = str(rider.get("clear_group") or "").strip().lower()
@@ -10930,6 +10945,22 @@ class InitiativeTracker(base.InitiativeTracker):
         type_text = str(raw_type or getattr(spec, "mtype", "") or "").strip().lower()
         return type_text == "construct"
 
+    def _has_slow_spell_effect(self, target: Any) -> bool:
+        return bool(self._has_condition(target, "slow_spell"))
+
+    def _slow_spell_save_disadvantage(self, target: Any, ability: Any) -> bool:
+        return bool(str(ability or "").strip().lower() == "dex" and self._has_slow_spell_effect(target))
+
+    def _slow_spell_ac_penalty(self, target: Any) -> int:
+        return 2 if self._has_slow_spell_effect(target) else 0
+
+    def _roll_save_with_mode(self, target: Any, ability: str, *, disadvantage: bool = False) -> Tuple[int, int]:
+        first = int(random.randint(1, 20))
+        if not disadvantage:
+            return first, first
+        second = int(random.randint(1, 20))
+        return min(first, second), max(first, second)
+
     def _lan_auto_resolve_cast_aoe(
         self,
         aid: int,
@@ -11214,11 +11245,8 @@ class InitiativeTracker(base.InitiativeTracker):
                         spell_slug=spell_slug,
                         spell_id=spell_id,
                         preset=preset,
-                    )
-                    if save_disadvantage:
-                        roll = min(int(random.randint(1, 20)), int(random.randint(1, 20)))
-                    else:
-                        roll = int(random.randint(1, 20))
+                    ) or self._slow_spell_save_disadvantage(target, ability)
+                    roll, alt_roll = self._roll_save_with_mode(target, ability, disadvantage=save_disadvantage)
                     total = int(roll + save_mod)
                     passed = bool(roll != 1 and total >= int(dc))
             else:
@@ -21383,6 +21411,10 @@ class InitiativeTracker(base.InitiativeTracker):
                         except Exception:
                             save_mod = 0
                 save_roll = int(random.randint(1, 20))
+
+
+
+
                 save_total = int(save_roll) + int(save_mod)
                 passed = bool(save_roll != 1 and save_total >= int(dc))
                 self._log(
@@ -23055,6 +23087,7 @@ class InitiativeTracker(base.InitiativeTracker):
             is_tashas_hideous_laughter = preset_slug == "tasha-s-hideous-laughter" or preset_id == "tasha-s-hideous-laughter"
             is_hold_person = preset_slug == "hold-person" or preset_id == "hold-person"
             is_heat_metal = preset_slug in ("heat-metal", "heat_metal") or preset_id in ("heat-metal", "heat_metal")
+            is_slow_spell = preset_slug == "slow" or preset_id == "slow"
             haste_duration_turns = 10
             haste_ac_bonus = 2
             if is_haste and isinstance(preset, dict):
@@ -23351,7 +23384,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 return max(0, int(total))
 
             if spell_mode == "save" and save_type and save_dc > 0 and roll_save:
-                save_roll = random.randint(1, 20)
+                save_roll, _save_alt_roll = self._roll_save_with_mode(
+                    target,
+                    save_type,
+                    disadvantage=self._slow_spell_save_disadvantage(target, save_type),
+                )
                 save_mod = _save_mod_for_target(target, save_type)
                 save_total = int(save_roll) + int(save_mod)
                 save_passed = bool(save_roll != 1 and save_total >= int(save_dc))
@@ -23364,7 +23401,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     "passed": bool(save_passed),
                 }
                 self._log(
-                    f"{target.name} {'succeeds' if save_passed else 'fails'} their save against {spell_name}.",
+                    f"{target.name} {'succeeds' if save_passed else 'fails'} their save against {spell_name}"
+                    f"{' [DISADVANTAGE]' if self._slow_spell_save_disadvantage(target, save_type) else ''}.",
                     cid=int(target_cid),
                 )
                 seq_step = next((step for step in sequence if isinstance(step, dict)), None)
@@ -23686,6 +23724,39 @@ class InitiativeTracker(base.InitiativeTracker):
                 )
                 if haste_applied:
                     result_payload["haste_applied"] = True
+
+            if hit and is_slow_spell and c is not None:
+                current_targets = list(getattr(c, "concentration_target", []) or [])
+                if int(target.cid) not in current_targets:
+                    current_targets.append(int(target.cid))
+                self._start_concentration(
+                    c,
+                    "slow",
+                    spell_level=int((preset or {}).get("level") or 0) or None,
+                    targets=current_targets,
+                )
+                stacks = list(getattr(target, "condition_stacks", []) or [])
+                stacks = [st for st in stacks if str(getattr(st, "ctype", "") or "").strip().lower() != "slow_spell"]
+                next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                setattr(self, "_next_stack_id", int(next_sid) + 1)
+                stacks.append(base.ConditionStack(sid=int(next_sid), ctype="slow_spell", remaining_turns=None))
+                setattr(target, "condition_stacks", stacks)
+                clear_group = f"slow_{int(c.cid)}_{int(target.cid)}"
+                end_turn_save_riders = [
+                    rider
+                    for rider in list(getattr(target, "end_turn_save_riders", []) or [])
+                    if str((rider or {}).get("clear_group") or "").strip().lower() != clear_group
+                ]
+                end_turn_save_riders.append(
+                    {
+                        "clear_group": clear_group,
+                        "save_ability": "wis",
+                        "save_dc": int(save_dc),
+                        "condition": "slow_spell",
+                        "source": spell_name,
+                    }
+                )
+                setattr(target, "end_turn_save_riders", end_turn_save_riders)
 
             if hit and is_heat_metal and c is not None and total_damage > 0:
                 current_targets = list(getattr(c, "concentration_target", []) or [])
@@ -24528,6 +24599,9 @@ class InitiativeTracker(base.InitiativeTracker):
             total_to_hit = int(roll_total) + int(to_hit)
             target_ac = _parse_int(getattr(target, "ac", None), 10) or 10
             target_ac += int(self._shield_ac_bonus_for_target(target))
+            slow_spell_ac_penalty = int(self._slow_spell_ac_penalty(target))
+            if slow_spell_ac_penalty > 0:
+                target_ac = max(0, int(target_ac) - int(slow_spell_ac_penalty))
             hit = bool(requested_hit) if requested_hit is not None else bool(total_to_hit >= int(target_ac))
             if hit and not bool(msg.get("_shield_resolution_done")):
                 shield_mode = self._reaction_mode_for(int(target_cid), "shield", default="ask")
@@ -26603,6 +26677,18 @@ class InitiativeTracker(base.InitiativeTracker):
                     if str((rider or {}).get("clear_group") or "").strip().lower() != group
                 ]
                 setattr(target, "start_turn_damage_riders", start_turn_damage_riders)
+        if spell_key == "slow":
+            for target_cid in targets:
+                target = self.combatants.get(int(target_cid))
+                if target is None:
+                    continue
+                clear_group = f"slow_{int(c.cid)}_{int(target_cid)}"
+                end_turn_save_riders = [
+                    rider for rider in list(getattr(target, "end_turn_save_riders", []) or [])
+                    if str((rider or {}).get("clear_group") or "").strip().lower() != clear_group
+                ]
+                setattr(target, "end_turn_save_riders", end_turn_save_riders)
+                self._remove_condition_type(target, "slow_spell")
         if not spell_key:
             return
         candidate_group_ids = {str(getattr(self.combatants.get(int(tid)), "summon_group_id", "") or "").strip() for tid in targets}

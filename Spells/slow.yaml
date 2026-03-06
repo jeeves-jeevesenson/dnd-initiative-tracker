@@ -10,8 +10,7 @@ source:
 level: 3
 school: transmutation
 tags:
-- damage
-- aoe
+- condition
 casting_time: Action
 range: 120 feet
 components: V, S, M (a drop of molasses)
@@ -47,16 +46,14 @@ text:
 mechanics:
   automation: partial
   targeting:
-    origin: point_within_range
+    origin: caster
     range:
       kind: distance
       distance_ft: 120
-    area:
-      shape: cube
-      side_ft: 40
     target_selection:
-      mode: area
-      friendly_fire: true
+      mode: choose
+      max_targets: 6
+      friendly_fire: false
   sequence:
   - id: effect
     name: Effect
@@ -69,6 +66,12 @@ mechanics:
   scaling: null
   ui:
     template_preview: true
+    spell_targeting:
+      mode: save
+      target_side: enemy
+      projectiles_base: 6
+      require_unique_targets: true
   notes:
-  - Targets in the area make a Wisdom saving throw; on a failed save they are slowed (speed halved, -2 AC/DEX saves, no reactions, limited actions).
-  - Affected creatures repeat the save at the end of each of their turns.
+  - Choose up to 6 creatures within 120 feet (from a 40-foot cube visualization on the caster). Targets make a Wisdom save; on a failure they gain the slow_spell condition.
+  - While slow_spell is active: movement is halved, AC has a -2 penalty, and Dexterity saving throws are rolled at disadvantage (automated + logged).
+  - Affected creatures repeat the Wisdom save at the end of each of their turns; on success, slow_spell ends on that target.
