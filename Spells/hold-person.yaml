@@ -64,6 +64,15 @@ mechanics:
       - effect: condition
         condition: paralyzed
         duration_turns: 0
+        ongoing:
+          concentration_bound: true
+          clear_group: hold_person_{source_cid}_{target_cid}
+          condition_clear:
+          - paralyzed
+          repeat_save_end_turn:
+            save_ability: wis
+            save_dc: spell_save_dc
+            condition: paralyzed
   scaling: null
   ui:
     template_preview: false

@@ -52,6 +52,11 @@ mechanics:
       - effect: condition
         condition: invisible
         duration_turns: 0
+        ongoing:
+          concentration_bound: true
+          clear_group: greater_invisibility_{source_cid}_{target_cid}
+          condition_clear:
+          - invisible
       miss: []
   scaling: null
   ui:

@@ -768,7 +768,11 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "id": "haste",
             "name": "Haste",
             "level": 3,
-            "mechanics": {"ui": {"spell_targeting": {"duration_turns": 10, "ac_bonus": 2}}},
+            "concentration": True,
+            "mechanics": {
+                "ui": {"spell_targeting": {"duration_turns": 10, "ac_bonus": 2}},
+                "sequence": [{"check": {"kind": "auto_hit"}, "outcomes": {"hit": [{"effect": "condition", "condition": "hasted", "duration_turns": 0, "ongoing": {"concentration_bound": True, "clear_group": "haste_{source_cid}_{target_cid}", "adapter": "haste"}}]}}],
+            },
         }
         msg = {
             "type": "spell_target_request",
@@ -810,7 +814,11 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "id": "haste",
             "name": "Haste",
             "level": 3,
-            "mechanics": {"ui": {"spell_targeting": {"duration_turns": 10, "ac_bonus": 2}}},
+            "concentration": True,
+            "mechanics": {
+                "ui": {"spell_targeting": {"duration_turns": 10, "ac_bonus": 2}},
+                "sequence": [{"check": {"kind": "auto_hit"}, "outcomes": {"hit": [{"effect": "condition", "condition": "hasted", "duration_turns": 0, "ongoing": {"concentration_bound": True, "clear_group": "haste_{source_cid}_{target_cid}", "adapter": "haste"}}]}}],
+            },
         }
         msg = {
             "type": "spell_target_request",
@@ -836,6 +844,66 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         incapacitated = [st for st in target.condition_stacks if getattr(st, "ctype", "") == "incapacitated"]
         self.assertEqual(len(incapacitated), 1)
         self.assertEqual(incapacitated[0].remaining_turns, 1)
+
+
+    def test_greater_invisibility_registers_ongoing_effect_and_clears_on_concentration_end(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "greater-invisibility",
+            "id": "greater-invisibility",
+            "name": "Greater Invisibility",
+            "level": 4,
+            "concentration": True,
+            "mechanics": {
+                "sequence": [
+                    {
+                        "check": {"kind": "effect"},
+                        "outcomes": {
+                            "hit": [
+                                {
+                                    "effect": "condition",
+                                    "condition": "invisible",
+                                    "duration_turns": 0,
+                                    "ongoing": {
+                                        "concentration_bound": True,
+                                        "clear_group": "greater_invisibility_{source_cid}_{target_cid}",
+                                        "condition_clear": ["invisible"],
+                                    },
+                                }
+                            ]
+                        },
+                    }
+                ]
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 31,
+            "target_cid": 3,
+            "spell_name": "Greater Invisibility",
+            "spell_slug": "greater-invisibility",
+            "spell_mode": "effect",
+            "hit": True,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        caster = self.app.combatants[1]
+        target = self.app.combatants[3]
+        self.assertTrue(any(getattr(st, "ctype", "") == "invisible" for st in target.condition_stacks))
+        self.assertTrue(
+            any(
+                str(entry.get("spell_key") or "") == "greater-invisibility"
+                for entry in list(getattr(target, "ongoing_spell_effects", []) or [])
+                if isinstance(entry, dict)
+            )
+        )
+
+        self.app._end_concentration(caster)
+
+        self.assertFalse(any(getattr(st, "ctype", "") == "invisible" for st in target.condition_stacks))
+        self.assertEqual(list(getattr(target, "ongoing_spell_effects", []) or []), [])
 
     def test_spell_target_request_save_fail_without_damage_intent_has_no_prompt(self):
         msg = {
@@ -1034,7 +1102,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
                         "outcomes": {
                             "fail": [
                                 {"effect": "condition", "condition": "prone", "duration_turns": 0},
-                                {"effect": "condition", "condition": "incapacitated", "duration_turns": 0},
+                                {"effect": "condition", "condition": "incapacitated", "duration_turns": 0, "ongoing": {"concentration_bound": True, "clear_group": "tashas_hideous_laughter_{source_cid}_{target_cid}", "condition_apply": ["prone", "incapacitated"], "condition_clear": ["incapacitated"], "repeat_save_end_turn": {"save_ability": "wis", "save_dc": "spell_save_dc", "condition": "incapacitated"}, "repeat_save_on_damage": {"save_ability": "wis", "save_dc": "spell_save_dc", "condition": "incapacitated", "advantage": True}}},
                             ],
                             "success": [],
                         },
@@ -1104,7 +1172,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
                         "outcomes": {
                             "fail": [
                                 {"effect": "condition", "condition": "prone", "duration_turns": 0},
-                                {"effect": "condition", "condition": "incapacitated", "duration_turns": 0},
+                                {"effect": "condition", "condition": "incapacitated", "duration_turns": 0, "ongoing": {"concentration_bound": True, "clear_group": "tashas_hideous_laughter_{source_cid}_{target_cid}", "condition_apply": ["prone", "incapacitated"], "condition_clear": ["incapacitated"], "repeat_save_end_turn": {"save_ability": "wis", "save_dc": "spell_save_dc", "condition": "incapacitated"}, "repeat_save_on_damage": {"save_ability": "wis", "save_dc": "spell_save_dc", "condition": "incapacitated", "advantage": True}}},
                             ],
                             "success": [],
                         },
@@ -1153,7 +1221,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
                         "check": {"kind": "saving_throw", "ability": "wisdom", "dc": "spell_save_dc"},
                         "outcomes": {
                             "fail": [
-                                {"effect": "condition", "condition": "paralyzed", "duration_turns": 0},
+                                {"effect": "condition", "condition": "paralyzed", "duration_turns": 0, "ongoing": {"concentration_bound": True, "clear_group": "hold_person_{source_cid}_{target_cid}", "condition_clear": ["paralyzed"], "repeat_save_end_turn": {"save_ability": "wis", "save_dc": "spell_save_dc", "condition": "paralyzed"}}},
                             ],
                             "success": [],
                         },
