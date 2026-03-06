@@ -172,5 +172,19 @@ class ShieldReactionTests(unittest.TestCase):
         self.assertFalse(bool(attack_results[-1].get("hit")))
 
 
+    def test_shield_not_offered_when_reactions_blocked_by_modifier(self):
+        target = self.app.combatants[1]
+        self.app._register_target_spell_effect(
+            2,
+            1,
+            "slow-like",
+            clear_group="slow_like_2_1",
+            primitives={"modifiers": {"reactions_blocked": True}},
+        )
+        self.app._lan_apply_action(self._attack_msg(11))
+        offers = [payload for _ws, payload in self.sent if isinstance(payload, dict) and payload.get("type") == "reaction_offer" and payload.get("trigger") == "shield"]
+        self.assertEqual(offers, [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1640,5 +1640,110 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertTrue(any("expends Star Advantage on a miss" in message for _, message in self.logs))
 
 
+    def test_shield_of_faith_modifier_applies_and_clears_with_concentration(self):
+        target = self.app.combatants[3]
+        entry = self.app._register_target_spell_effect(
+            1,
+            3,
+            "shield-of-faith",
+            concentration_bound=True,
+            clear_group="shield_of_faith_1_3",
+            primitives={"modifiers": {"ac_bonus": 2}},
+        )
+        self.assertEqual(self.app._combatant_ac_modifier(target), 2)
+        self.assertTrue(any(e.get("effect_id") == entry.get("effect_id") for e in target.ongoing_spell_effects))
+
+        self.app.combatants[1].concentrating = True
+        self.app.combatants[1].concentration_spell = "shield-of-faith"
+        self.app.combatants[1].concentration_target = [3]
+        self.app._end_concentration(self.app.combatants[1])
+
+        self.assertEqual(self.app._combatant_ac_modifier(target), 0)
+        self.assertEqual(list(getattr(target, "ongoing_spell_effects", []) or []), [])
+
+    def test_longstrider_speed_bonus_affects_mode_speed_and_cleanup(self):
+        target = self.app.combatants[3]
+        self.app._register_target_spell_effect(
+            1,
+            3,
+            "longstrider",
+            concentration_bound=False,
+            clear_group="longstrider_1_3",
+            primitives={"modifiers": {"speed_bonus": 10}},
+        )
+        self.assertEqual(int(self.app._mode_speed(target)), 40)
+
+        self.app._clear_target_spell_effects_for_spell(1, 3, "longstrider", reason="ended")
+        self.assertEqual(int(self.app._mode_speed(target)), 30)
+
+    def test_blur_forces_attack_disadvantage_against_target(self):
+        target = self.app.combatants[3]
+        self.app._register_target_spell_effect(
+            1,
+            3,
+            "blur",
+            concentration_bound=True,
+            clear_group="blur_1_3",
+            primitives={"modifiers": {"attackers_have_disadvantage_against_target": True}},
+        )
+        mode = self.app._attack_roll_mode_against_target(self.app.combatants[2], target)
+        self.assertEqual(mode, "disadvantage")
+
+        self.app._clear_target_spell_effects_for_spell(1, 3, "blur", reason="ended")
+        mode_after = self.app._attack_roll_mode_against_target(self.app.combatants[2], target)
+        self.assertEqual(mode_after, "normal")
+
+    def test_protection_from_energy_grants_typed_resistance_and_cleanup(self):
+        target = self.app.combatants[3]
+        self.app._register_target_spell_effect(
+            1,
+            3,
+            "protection-from-energy",
+            concentration_bound=True,
+            clear_group="pfe_1_3",
+            primitives={"modifiers": {"damage_resistance_types": ["fire"]}},
+        )
+        adj = self.app._adjust_damage_entries_for_target(target, [{"amount": 9, "type": "fire"}])
+        self.assertEqual(adj.get("entries"), [{"amount": 4, "type": "fire"}])
+
+        self.app._clear_target_spell_effects_for_spell(1, 3, "protection-from-energy", reason="ended")
+        adj2 = self.app._adjust_damage_entries_for_target(target, [{"amount": 9, "type": "fire"}])
+        self.assertEqual(adj2.get("entries"), [{"amount": 9, "type": "fire"}])
+
+    def test_protection_from_evil_and_good_supported_subset_uses_attack_disadvantage_only(self):
+        target = self.app.combatants[3]
+        self.app._register_target_spell_effect(
+            1,
+            3,
+            "protection-from-evil-and-good",
+            concentration_bound=True,
+            clear_group="pfeg_1_3",
+            primitives={"modifiers": {"attackers_have_disadvantage_against_target": True}},
+        )
+        self.assertEqual(
+            self.app._attack_roll_mode_against_target(self.app.combatants[2], target),
+            "disadvantage",
+        )
+
+    def test_save_roll_mode_modifiers_support_advantage_and_disadvantage(self):
+        target = self.app.combatants[2]
+        self.app._register_target_spell_effect(
+            1,
+            2,
+            "save-test",
+            clear_group="save_test_1_2",
+            primitives={"modifiers": {"save_advantage_by_ability": ["dex"]}},
+        )
+        self.assertEqual(self.app._combatant_save_roll_mode(target, "dex"), "advantage")
+        self.app._register_target_spell_effect(
+            1,
+            2,
+            "save-test-dis",
+            clear_group="save_test_dis_1_2",
+            primitives={"modifiers": {"save_disadvantage_by_ability": ["dex"]}},
+        )
+        self.assertEqual(self.app._combatant_save_roll_mode(target, "dex"), "normal")
+
+
 if __name__ == "__main__":
     unittest.main()

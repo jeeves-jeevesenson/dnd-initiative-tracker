@@ -40,9 +40,33 @@ text:
 mechanics:
   automation: partial
   upcastable: false
-  targeting: null
-  sequence: []
+  targeting:
+    origin: target_creature
+    range:
+      kind: touch
+    target_selection:
+      mode: single
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: auto_hit
+    outcomes:
+      hit:
+      - effect: condition
+        condition: protection_from_energy_spell
+        duration_turns: 0
+        ongoing:
+          concentration_bound: true
+          clear_group: protection_from_energy_{source_cid}_{target_cid}
+          modifiers:
+            damage_resistance_types:
+            - selected_damage_type
   scaling: null
   ui:
     template_preview: false
-  notes: []
+    spell_targeting:
+      mode: effect
+      target_side: friendly
+  notes:
+  - Select damage type via spell target payload damage_type (acid/cold/fire/lightning/thunder).

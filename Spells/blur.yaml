@@ -38,9 +38,31 @@ text:
 mechanics:
   automation: partial
   upcastable: false
-  targeting: null
-  sequence: []
+  targeting:
+    origin: self
+    range:
+      kind: self
+    target_selection:
+      mode: self
+  sequence:
+  - id: effect
+    name: Effect
+    check:
+      kind: auto_hit
+    outcomes:
+      hit:
+      - effect: condition
+        condition: blur_spell
+        duration_turns: 0
+        ongoing:
+          concentration_bound: true
+          clear_group: blur_{source_cid}_{target_cid}
+          modifiers:
+            attackers_have_disadvantage_against_target: true
   scaling: null
   ui:
     template_preview: false
+    spell_targeting:
+      mode: effect
+      target_side: friendly
   notes: []

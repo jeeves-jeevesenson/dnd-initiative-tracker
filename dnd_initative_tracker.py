@@ -6131,10 +6131,12 @@ class InitiativeTracker(base.InitiativeTracker):
                         save_groups[group_key] = {"ability": save_ability, "dc": int(save_dc)}
                 for group_key, save_cfg in save_groups.items():
                     save_ability = str(save_cfg.get("ability") or "").strip().lower()
+                    save_mode = self._combatant_save_roll_mode(c, save_ability)
                     save_roll, _save_alt_roll = self._roll_save_with_mode(
                         c,
                         save_ability,
-                        disadvantage=self._slow_spell_save_disadvantage(c, save_ability),
+                        disadvantage=save_mode == "disadvantage",
+                        advantage=save_mode == "advantage",
                     )
                     save_dc = int(save_cfg.get("dc") or 0)
                     saves = getattr(c, "saving_throws", None)
@@ -6191,10 +6193,12 @@ class InitiativeTracker(base.InitiativeTracker):
                         save_dc = 0
                     if not save_ability or save_dc <= 0:
                         continue
+                    save_mode = self._combatant_save_roll_mode(c, save_ability)
                     save_roll, _save_alt_roll = self._roll_save_with_mode(
                         c,
                         save_ability,
-                        disadvantage=self._slow_spell_save_disadvantage(c, save_ability),
+                        disadvantage=save_mode == "disadvantage",
+                        advantage=save_mode == "advantage",
                     )
                     save_mod = 0
                     saves = getattr(c, "saving_throws", None)
@@ -6686,10 +6690,12 @@ class InitiativeTracker(base.InitiativeTracker):
                     save_dc = 0
                 if not save_ability or save_dc <= 0:
                     continue
+                save_mode = self._combatant_save_roll_mode(c, save_ability)
                 save_roll, _save_alt_roll = self._roll_save_with_mode(
                     c,
                     save_ability,
-                    disadvantage=self._slow_spell_save_disadvantage(c, save_ability),
+                    disadvantage=save_mode == "disadvantage",
+                    advantage=save_mode == "advantage",
                 )
                 save_mod = 0
                 saves = getattr(c, "saving_throws", None)
@@ -10520,6 +10526,10 @@ class InitiativeTracker(base.InitiativeTracker):
             ckey = self._canonical_condition_key(item)
             if ckey:
                 defenses["condition_immunities"].add(ckey)
+        for item in self._combatant_damage_resistances(target_obj):
+            dtype = self._canonical_damage_type(item)
+            if dtype:
+                defenses["damage_resistances"].add(dtype)
         absorb_state = self._absorb_elements_state(target_obj)
         if bool(absorb_state.get("resistance_active")):
             absorb_dtype = self._canonical_damage_type(absorb_state.get("damage_type"))
@@ -10951,17 +10961,125 @@ class InitiativeTracker(base.InitiativeTracker):
         return bool(self._has_condition(target, "slow_spell"))
 
     def _slow_spell_save_disadvantage(self, target: Any, ability: Any) -> bool:
-        return bool(str(ability or "").strip().lower() == "dex" and self._has_slow_spell_effect(target))
+        if str(ability or "").strip().lower() == "dex" and self._has_slow_spell_effect(target):
+            return True
+        return self._combatant_save_roll_mode(target, ability) == "disadvantage"
 
     def _slow_spell_ac_penalty(self, target: Any) -> int:
         return 2 if self._has_slow_spell_effect(target) else 0
 
-    def _roll_save_with_mode(self, target: Any, ability: str, *, disadvantage: bool = False) -> Tuple[int, int]:
+    def _roll_save_with_mode(self, target: Any, ability: str, *, disadvantage: bool = False, advantage: bool = False) -> Tuple[int, int]:
         first = int(random.randint(1, 20))
-        if not disadvantage:
+        if bool(disadvantage) and bool(advantage):
+            return first, first
+        if not disadvantage and not advantage:
             return first, first
         second = int(random.randint(1, 20))
-        return min(first, second), max(first, second)
+        if disadvantage:
+            return min(first, second), max(first, second)
+        return max(first, second), min(first, second)
+
+    @staticmethod
+    def _coerce_modifier_ability_list(values: Any) -> set[str]:
+        if not isinstance(values, list):
+            return set()
+        out: set[str] = set()
+        for item in values:
+            key = InitiativeTracker._coerce_spell_ability_key(item)
+            if key:
+                out.add(key)
+        return out
+
+    def _collect_combat_modifiers(self, combatant: Any, *, source_filter: Optional[Any] = None) -> Dict[str, Any]:
+        summary: Dict[str, Any] = {
+            "ac_bonus": 0,
+            "speed_bonus": 0,
+            "speed_multiplier": 1.0,
+            "save_advantage_by_ability": set(),
+            "save_disadvantage_by_ability": set(),
+            "attackers_have_disadvantage_against_target": False,
+            "target_attack_disadvantage": False,
+            "reactions_blocked": False,
+            "damage_resistance_types": set(),
+        }
+        if combatant is None:
+            return summary
+        source_filter_key = str(source_filter or "").strip().lower() if source_filter is not None else ""
+        for entry in list(getattr(combatant, "ongoing_spell_effects", []) or []):
+            if not isinstance(entry, dict):
+                continue
+            if source_filter_key:
+                source_spell = str(entry.get("spell_key") or "").strip().lower()
+                if source_spell != source_filter_key:
+                    continue
+            primitives = entry.get("primitives") if isinstance(entry.get("primitives"), dict) else {}
+            modifiers = primitives.get("modifiers") if isinstance(primitives.get("modifiers"), dict) else {}
+            if not modifiers:
+                continue
+            try:
+                summary["ac_bonus"] += int(modifiers.get("ac_bonus") or 0)
+            except Exception:
+                pass
+            try:
+                summary["speed_bonus"] += int(modifiers.get("speed_bonus") or 0)
+            except Exception:
+                pass
+            if modifiers.get("speed_multiplier") is not None:
+                try:
+                    mult = float(modifiers.get("speed_multiplier"))
+                except Exception:
+                    mult = 1.0
+                if mult > 0:
+                    summary["speed_multiplier"] *= mult
+            summary["save_advantage_by_ability"].update(self._coerce_modifier_ability_list(modifiers.get("save_advantage_by_ability")))
+            summary["save_disadvantage_by_ability"].update(self._coerce_modifier_ability_list(modifiers.get("save_disadvantage_by_ability")))
+            if bool(modifiers.get("attackers_have_disadvantage_against_target")):
+                summary["attackers_have_disadvantage_against_target"] = True
+            if bool(modifiers.get("target_attack_disadvantage")):
+                summary["target_attack_disadvantage"] = True
+            if bool(modifiers.get("reactions_blocked")):
+                summary["reactions_blocked"] = True
+            for dtype in list(modifiers.get("damage_resistance_types") or []):
+                canonical = self._canonical_damage_type(dtype)
+                if canonical:
+                    summary["damage_resistance_types"].add(canonical)
+        return summary
+
+    def _combatant_ac_modifier(self, combatant: Any) -> int:
+        return int(self._collect_combat_modifiers(combatant).get("ac_bonus") or 0)
+
+    def _combatant_speed_modifier(self, combatant: Any) -> Dict[str, Any]:
+        mods = self._collect_combat_modifiers(combatant)
+        return {
+            "bonus": int(mods.get("speed_bonus") or 0),
+            "multiplier": float(mods.get("speed_multiplier") or 1.0),
+        }
+
+    def _combatant_save_roll_mode(self, combatant: Any, ability: Any) -> str:
+        key = self._coerce_spell_ability_key(ability)
+        if not key:
+            return "normal"
+        mods = self._collect_combat_modifiers(combatant)
+        has_adv = key in set(mods.get("save_advantage_by_ability") or set())
+        has_dis = key in set(mods.get("save_disadvantage_by_ability") or set())
+        if has_adv and not has_dis:
+            return "advantage"
+        if has_dis and not has_adv:
+            return "disadvantage"
+        return "normal"
+
+    def _attack_roll_mode_against_target(self, attacker: Any, target: Any) -> str:
+        attacker_mods = self._collect_combat_modifiers(attacker)
+        target_mods = self._collect_combat_modifiers(target)
+        if bool(attacker_mods.get("target_attack_disadvantage")) or bool(target_mods.get("attackers_have_disadvantage_against_target")):
+            return "disadvantage"
+        return "normal"
+
+    def _combatant_reactions_blocked(self, combatant: Any) -> bool:
+        return bool(self._collect_combat_modifiers(combatant).get("reactions_blocked"))
+
+    def _combatant_damage_resistances(self, combatant: Any) -> set[str]:
+        return set(self._collect_combat_modifiers(combatant).get("damage_resistance_types") or set())
 
     def _lan_auto_resolve_cast_aoe(
         self,
@@ -11247,8 +11365,14 @@ class InitiativeTracker(base.InitiativeTracker):
                         spell_slug=spell_slug,
                         spell_id=spell_id,
                         preset=preset,
-                    ) or self._slow_spell_save_disadvantage(target, ability)
-                    roll, alt_roll = self._roll_save_with_mode(target, ability, disadvantage=save_disadvantage)
+                    )
+                    save_mode = self._combatant_save_roll_mode(target, ability)
+                    roll, alt_roll = self._roll_save_with_mode(
+                        target,
+                        ability,
+                        disadvantage=bool(save_disadvantage or save_mode == "disadvantage"),
+                        advantage=bool(save_mode == "advantage"),
+                    )
                     total = int(roll + save_mod)
                     passed = bool(roll != 1 and total >= int(dc))
             else:
@@ -16453,7 +16577,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 break
             target_name = str(getattr(target, "name", "Target") or "Target")
             try:
-                target_ac = int(getattr(target, "ac", 10) or 10)
+                target_ac = int(getattr(target, "ac", 10) or 10) + int(self._combatant_ac_modifier(target))
             except Exception:
                 target_ac = 10
             block_hits = 0
@@ -18210,6 +18334,8 @@ class InitiativeTracker(base.InitiativeTracker):
     def _can_offer_shield_reaction(self, target: Any) -> Tuple[bool, str]:
         if target is None:
             return False, "missing_target"
+        if self._combatant_reactions_blocked(target):
+            return False, "reactions_blocked"
         if int(getattr(target, "reaction_remaining", 0) or 0) <= 0:
             return False, "no_reaction"
         if self._shield_is_active(target):
@@ -18258,6 +18384,8 @@ class InitiativeTracker(base.InitiativeTracker):
     def _can_offer_hellish_rebuke_reaction(self, target: Any) -> Tuple[bool, str]:
         if target is None:
             return False, "missing_target"
+        if self._combatant_reactions_blocked(target):
+            return False, "reactions_blocked"
         if int(getattr(target, "reaction_remaining", 0) or 0) <= 0:
             return False, "no_reaction"
         player_name = self._pc_name_for(int(getattr(target, "cid", 0) or 0))
@@ -23379,10 +23507,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 return max(0, int(total))
 
             if spell_mode == "save" and save_type and save_dc > 0 and roll_save:
+                save_mode = self._combatant_save_roll_mode(target, save_type)
                 save_roll, _save_alt_roll = self._roll_save_with_mode(
                     target,
                     save_type,
-                    disadvantage=self._slow_spell_save_disadvantage(target, save_type),
+                    disadvantage=save_mode == "disadvantage",
+                    advantage=save_mode == "advantage",
                 )
                 save_mod = _save_mod_for_target(target, save_type)
                 save_total = int(save_roll) + int(save_mod)
@@ -24468,6 +24598,7 @@ class InitiativeTracker(base.InitiativeTracker):
             total_to_hit = int(roll_total) + int(to_hit)
             target_ac = _parse_int(getattr(target, "ac", None), 10) or 10
             target_ac += int(self._shield_ac_bonus_for_target(target))
+            target_ac += int(self._combatant_ac_modifier(target))
             slow_spell_ac_penalty = int(self._slow_spell_ac_penalty(target))
             if slow_spell_ac_penalty > 0:
                 target_ac = max(0, int(target_ac) - int(slow_spell_ac_penalty))
@@ -24622,6 +24753,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     trigger_tags.add("ranged_weapon_attack")
                 advantage_flag = bool(_parse_bool(msg.get("attack_has_advantage")))
                 disadvantage_flag = bool(_parse_bool(msg.get("attack_has_disadvantage")))
+                disadvantage_flag = bool(disadvantage_flag or self._attack_roll_mode_against_target(c, target) == "disadvantage")
                 ally_near_flag = bool(_parse_bool(msg.get("ally_within_5ft")))
                 for rider in damage_riders:
                     if not isinstance(rider, dict):
@@ -26652,6 +26784,47 @@ class InitiativeTracker(base.InitiativeTracker):
                 entry["advantage"] = True
             primitives.setdefault(primitive_key, []).append(entry)
 
+        ongoing_modifiers = ongoing.get("modifiers") if isinstance(ongoing.get("modifiers"), dict) else {}
+        if ongoing_modifiers:
+            modifiers: Dict[str, Any] = {}
+            for int_key in ("ac_bonus", "speed_bonus"):
+                if ongoing_modifiers.get(int_key) is None:
+                    continue
+                try:
+                    modifiers[int_key] = int(ongoing_modifiers.get(int_key) or 0)
+                except Exception:
+                    continue
+            if ongoing_modifiers.get("speed_multiplier") is not None:
+                try:
+                    mult = float(ongoing_modifiers.get("speed_multiplier"))
+                except Exception:
+                    mult = 1.0
+                if mult > 0:
+                    modifiers["speed_multiplier"] = float(mult)
+            for ability_key in ("save_advantage_by_ability", "save_disadvantage_by_ability"):
+                abilities = self._coerce_modifier_ability_list(ongoing_modifiers.get(ability_key))
+                if abilities:
+                    modifiers[ability_key] = sorted(abilities)
+            for bool_key in (
+                "attackers_have_disadvantage_against_target",
+                "target_attack_disadvantage",
+                "reactions_blocked",
+            ):
+                if bool(ongoing_modifiers.get(bool_key)):
+                    modifiers[bool_key] = True
+            damage_resistance_types: List[str] = []
+            for dtype in list(ongoing_modifiers.get("damage_resistance_types") or []):
+                raw_dtype = str(dtype or "").strip().lower()
+                if raw_dtype in {"selected_damage_type", "choice_damage_type", "damage_type"}:
+                    raw_dtype = str(ctx.get("damage_type") or ctx.get("damage_type_hint") or "").strip().lower()
+                canonical = self._canonical_damage_type(raw_dtype)
+                if canonical:
+                    damage_resistance_types.append(canonical)
+            if damage_resistance_types:
+                modifiers["damage_resistance_types"] = sorted(set(damage_resistance_types))
+            if modifiers:
+                primitives["modifiers"] = modifiers
+
         adapter_payload = ongoing.get("adapter_payload") if isinstance(ongoing.get("adapter_payload"), dict) else {}
         if adapter == "haste":
             ui_cfg = ((preset.get("mechanics") or {}).get("ui") or {}).get("spell_targeting") if isinstance(((preset.get("mechanics") or {}).get("ui") or {}), dict) else {}
@@ -27348,7 +27521,17 @@ class InitiativeTracker(base.InitiativeTracker):
                 stacks = list(getattr(target, "condition_stacks", []) or [])
                 stacks = [st for st in stacks if str(getattr(st, "ctype", "") or "").strip().lower() != "frightened"]
                 setattr(target, "condition_stacks", stacks)
-        if spell_key in {"tasha-s-hideous-laughter", "hold-person", "slow", "haste", "greater-invisibility"}:
+        if spell_key in {
+            "tasha-s-hideous-laughter",
+            "hold-person",
+            "slow",
+            "haste",
+            "greater-invisibility",
+            "shield-of-faith",
+            "blur",
+            "protection-from-energy",
+            "protection-from-evil-and-good",
+        }:
             self._clear_concentration_bound_effects(c, spell_key, targets)
         if spell_key in {"heat-metal", "heat_metal"}:
             for target_cid in targets:
@@ -27378,6 +27561,15 @@ class InitiativeTracker(base.InitiativeTracker):
             if meta_spell != spell_key:
                 continue
             self._dismiss_summon_group(group_id)
+
+    def _mode_speed(self, c: Any) -> int:
+        base_speed = int(super()._mode_speed(c))
+        mods = self._combatant_speed_modifier(c)
+        bonus = int(mods.get("bonus") or 0)
+        multiplier = float(mods.get("multiplier") or 1.0)
+        if multiplier <= 0:
+            multiplier = 1.0
+        return max(0, int(math.floor((base_speed + bonus) * multiplier)))
 
     def _lan_try_move(self, cid: int, col: int, row: int) -> Tuple[bool, str, int]:
         # Boundaries

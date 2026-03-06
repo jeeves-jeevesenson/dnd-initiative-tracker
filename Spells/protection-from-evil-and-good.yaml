@@ -54,9 +54,24 @@ mechanics:
   sequence:
   - id: effect
     name: Effect
+    check:
+      kind: auto_hit
     outcomes:
-      hit: []
+      hit:
+      - effect: condition
+        condition: protection_from_evil_and_good_spell
+        duration_turns: 0
+        ongoing:
+          concentration_bound: true
+          clear_group: protection_from_evil_and_good_{source_cid}_{target_cid}
+          modifiers:
+            attackers_have_disadvantage_against_target: true
   scaling: null
   ui:
     template_preview: false
-  notes: []
+    spell_targeting:
+      mode: effect
+      target_side: friendly
+  notes:
+  - Automated subset: attackers have disadvantage against the protected target.
+  - Type-filtered attacker restrictions and charm/fear possession clauses remain manual.

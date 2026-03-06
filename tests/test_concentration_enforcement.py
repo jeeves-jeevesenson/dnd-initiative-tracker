@@ -231,5 +231,23 @@ class ConcentrationEnforcementTests(unittest.TestCase):
         self.assertTrue(caster.concentrating)
 
 
+    def test_shield_of_faith_concentration_end_clears_registered_modifier(self):
+        caster = self.app.combatants[1]
+        target = self.app.combatants[2]
+        self.app._start_concentration(caster, "shield-of-faith", spell_level=1, targets=[target.cid])
+        self.app._register_target_spell_effect(
+            caster.cid,
+            target.cid,
+            "shield-of-faith",
+            concentration_bound=True,
+            clear_group=f"shield_of_faith_{caster.cid}_{target.cid}",
+            primitives={"modifiers": {"ac_bonus": 2}},
+        )
+
+        self.assertEqual(self.app._combatant_ac_modifier(target), 2)
+        self.app._end_concentration(caster)
+        self.assertEqual(self.app._combatant_ac_modifier(target), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
