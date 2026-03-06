@@ -42,6 +42,12 @@ text:
   higher_level: null
 mechanics:
   automation: partial
+  aoe_behavior:
+    map_effect: true
+    persistent_default: true
+    over_time_default: false
+    trigger_mode: none
+    cleanup: concentration_or_duration
   targeting:
     origin: point_within_range
     range:

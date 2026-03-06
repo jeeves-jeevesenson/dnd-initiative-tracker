@@ -262,5 +262,129 @@ class ConcentrationEnforcementTests(unittest.TestCase):
         self.assertEqual(self.app._combatant_ac_modifier(target), 0)
 
 
+
+    def test_map_effect_template_metadata_is_created_for_migrated_spells(self):
+        caster = self.app.combatants[1]
+        spells = [
+            ("entangle", True, "start", "cube", 20),
+            ("fog-cloud", False, None, "sphere", 20),
+            ("darkness", False, None, "sphere", 15),
+            ("silence", False, None, "sphere", 20),
+            ("zone-of-truth", True, "start_or_enter", "sphere", 15),
+            ("spike-growth", True, "enter", "sphere", 20),
+        ]
+
+        for idx, (slug, over_time, trigger_mode, shape, size_ft) in enumerate(spells, start=1):
+            with self.subTest(spell=slug):
+                self.app._lan_aoes = {}
+                self.app._lan_next_aoe_id = 1
+                caster.concentrating = False
+                caster.concentration_spell = ""
+                caster.concentration_aoe_ids = []
+                self.app._find_spell_preset = lambda spell_slug="", spell_id="", _slug=slug, _ot=over_time, _tm=trigger_mode: {
+                    "slug": _slug,
+                    "id": _slug,
+                    "name": _slug.replace("-", " ").title(),
+                    "concentration": _slug != "zone-of-truth",
+                    "level": 2,
+                    "mechanics": {
+                        "automation": "partial",
+                        "aoe_behavior": {
+                            "map_effect": True,
+                            "persistent_default": True,
+                            "over_time_default": _ot,
+                            "trigger_mode": _tm,
+                        },
+                    },
+                }
+                payload = {"shape": shape, "name": slug, "cx": float(idx + 1), "cy": 2.0, "concentration": slug != "zone-of-truth"}
+                if shape in ("sphere", "circle"):
+                    payload["radius_ft"] = float(size_ft)
+                else:
+                    payload["side_ft"] = float(size_ft)
+
+                self.app._lan_apply_action(
+                    {
+                        "type": "cast_aoe",
+                        "cid": 1,
+                        "_claimed_cid": 1,
+                        "_ws_id": 7,
+                        "spell_slug": slug,
+                        "spell_id": slug,
+                        "admin_token": "admin",
+                        "payload": payload,
+                    }
+                )
+
+                self.assertTrue(self.app._lan_aoes)
+                aid = next(iter(self.app._lan_aoes.keys()))
+                effect = self.app._lan_aoes[aid]
+                self.assertTrue(effect.get("map_effect"))
+                self.assertEqual(effect.get("effect_id"), aid)
+                self.assertEqual(effect.get("aoe_id"), aid)
+                self.assertTrue(effect.get("persistent"))
+                template = effect.get("template")
+                self.assertIsInstance(template, dict)
+                self.assertEqual(template.get("shape"), shape)
+                self.assertEqual(((template.get("triggers") or {}).get("timing")), trigger_mode)
+
+    def test_end_concentration_clears_concentration_bound_map_effects_via_shared_helper(self):
+        caster = self.app.combatants[1]
+        self.app._start_concentration(caster, "entangle", spell_level=1, aoe_ids=[11])
+        self.app._register_map_spell_effect(
+            11,
+            {
+                "kind": "cube",
+                "name": "Entangle",
+                "owner_cid": caster.cid,
+                "concentration_bound": True,
+                "map_effect": True,
+                "persistent": True,
+            },
+        )
+
+        self.assertIn(11, self.app._lan_aoes)
+        self.app._end_concentration(caster)
+        self.assertNotIn(11, self.app._lan_aoes)
+
+    def test_zone_of_truth_and_spike_growth_triggers_flow_through_shared_map_trigger_helper(self):
+        calls = []
+
+        def _capture_trigger(aid, aoe, *, target_cids, turn_key=None):
+            calls.append((aid, list(target_cids), aoe.get("spell_slug")))
+            return True
+
+        self.app._lan_apply_aoe_trigger_to_targets = _capture_trigger
+        self.app._lan_aoes = {
+            21: {
+                "kind": "sphere",
+                "cx": 5.0,
+                "cy": 5.0,
+                "radius_sq": 4.0,
+                "over_time": True,
+                "trigger_on_start_or_enter": "start_or_enter",
+                "spell_slug": "zone-of-truth",
+                "map_effect": True,
+            },
+            22: {
+                "kind": "sphere",
+                "cx": 8.0,
+                "cy": 5.0,
+                "radius_sq": 4.0,
+                "over_time": True,
+                "trigger_on_start_or_enter": "enter",
+                "spell_slug": "spike-growth",
+                "map_effect": True,
+            },
+        }
+
+        self.app._lan_positions[2] = (5, 5)
+        self.app._apply_map_spell_trigger(21, self.app._lan_aoes[21], target_cids=[2])
+        self.app._lan_handle_aoe_enter_triggers_for_moved_unit(2, (2, 5), (8, 5))
+
+        slugs = {entry[2] for entry in calls}
+        self.assertIn("zone-of-truth", slugs)
+        self.assertIn("spike-growth", slugs)
+
 if __name__ == "__main__":
     unittest.main()

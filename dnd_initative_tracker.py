@@ -6671,9 +6671,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 trigger = str(aoe.get("trigger_on_start_or_enter") or "").strip().lower()
                 if trigger not in ("end", "enter_or_end"):
                     continue
-                included = self._lan_compute_included_units_for_aoe(aoe)
+                included = self._map_spell_effect_targets(aoe)
                 if int(ending_cid) in {int(x) for x in included}:
-                    self._lan_apply_aoe_trigger_to_targets(int(aid), aoe, target_cids=[int(ending_cid)])
+                    self._apply_map_spell_trigger(int(aid), aoe, target_cids=[int(ending_cid)])
         if cid is None or cid not in self.combatants:
             return
         c = self.combatants[cid]
@@ -10694,6 +10694,102 @@ class InitiativeTracker(base.InitiativeTracker):
         current_cid = _normalize_cid_value(getattr(self, "current_cid", None), "aoe.current_cid")
         return (round_num, turn_num, current_cid)
 
+    def _materialize_map_spell_effect(self, aid: int, effect: Dict[str, Any]) -> None:
+        mw = getattr(self, "_map_window", None)
+        map_ready = mw is not None and mw.winfo_exists()
+        if map_ready:
+            try:
+                if hasattr(mw, "aoes") and isinstance(mw.aoes, dict):
+                    mw.aoes[int(aid)] = dict(effect)
+                if hasattr(mw, "_layout_aoe"):
+                    mw._layout_aoe(int(aid))
+                if hasattr(mw, "_refresh_aoe_list"):
+                    mw._refresh_aoe_list()
+                self._lan_aoes = dict(getattr(mw, "aoes", {}) or {})
+                return
+            except Exception:
+                pass
+        store = dict(self.__dict__.get("_lan_aoes", {}) or {})
+        store[int(aid)] = dict(effect)
+        self._lan_aoes = store
+
+    def _dematerialize_map_spell_effect(self, aid: int) -> Optional[Dict[str, Any]]:
+        removed: Optional[Dict[str, Any]] = None
+        mw = getattr(self, "_map_window", None)
+        map_ready = mw is not None and mw.winfo_exists()
+        if map_ready:
+            try:
+                if hasattr(mw, "aoes") and isinstance(mw.aoes, dict):
+                    removed = dict(mw.aoes.pop(int(aid), None) or {}) or None
+                if hasattr(mw, "_remove_aoe_by_id"):
+                    mw._remove_aoe_by_id(int(aid))
+                elif hasattr(mw, "_refresh_aoe_list"):
+                    mw._refresh_aoe_list()
+                self._lan_aoes = dict(getattr(mw, "aoes", {}) or {})
+            except Exception:
+                pass
+        if removed is None:
+            store = dict(self.__dict__.get("_lan_aoes", {}) or {})
+            existing = store.pop(int(aid), None)
+            self._lan_aoes = store
+            if isinstance(existing, dict):
+                removed = dict(existing)
+        return removed
+
+    def _register_map_spell_effect(self, aid: int, effect: Dict[str, Any]) -> None:
+        if not isinstance(effect, dict):
+            return
+        payload = dict(effect)
+        payload.setdefault("map_effect", True)
+        payload["effect_id"] = int(aid)
+        payload.setdefault("aoe_id", int(aid))
+        self._materialize_map_spell_effect(int(aid), payload)
+
+    def _clear_map_spell_effect(self, aid: int, *, end_concentration_if_bound: bool = False) -> None:
+        removed = self._dematerialize_map_spell_effect(int(aid))
+        if not isinstance(removed, dict):
+            return
+        owner_cid = _normalize_cid_value(removed.get("owner_cid"), "map_effect.owner_cid")
+        if owner_cid is None or owner_cid not in self.combatants:
+            return
+        caster = self.combatants[owner_cid]
+        aoe_ids = list(getattr(caster, "concentration_aoe_ids", []) or [])
+        had_link = int(aid) in aoe_ids
+        if had_link:
+            caster.concentration_aoe_ids = [entry for entry in aoe_ids if int(entry) != int(aid)]
+        if end_concentration_if_bound and had_link and bool(removed.get("concentration_bound")):
+            self._end_concentration(caster)
+
+    def _clear_concentration_bound_map_effects(self, caster_cid: int) -> None:
+        store = dict(self.__dict__.get("_lan_aoes", {}) or {})
+        target_ids = [
+            int(aid)
+            for aid, aoe in store.items()
+            if isinstance(aoe, dict)
+            and bool(aoe.get("concentration_bound"))
+            and _normalize_cid_value(aoe.get("owner_cid"), "map_effect.concentration.owner") == int(caster_cid)
+        ]
+        for aid in target_ids:
+            self._clear_map_spell_effect(int(aid), end_concentration_if_bound=False)
+
+    def _map_spell_effect_targets(self, effect: Dict[str, Any]) -> List[int]:
+        return self._lan_compute_included_units_for_aoe(effect if isinstance(effect, dict) else {})
+
+    def _apply_map_spell_trigger(
+        self,
+        aid: int,
+        effect: Dict[str, Any],
+        *,
+        target_cids: List[int],
+        turn_key: Optional[Tuple[int, int, Optional[int]]] = None,
+    ) -> bool:
+        return self._lan_apply_aoe_trigger_to_targets(
+            int(aid),
+            effect,
+            target_cids=list(target_cids or []),
+            turn_key=turn_key,
+        )
+
     def _lan_apply_aoe_trigger_to_targets(
         self,
         aid: int,
@@ -10878,13 +10974,13 @@ class InitiativeTracker(base.InitiativeTracker):
             is_inside = False
             try:
                 self._lan_positions[int(cid)] = (int(origin_cell[0]), int(origin_cell[1]))
-                was_inside = int(cid) in self._lan_compute_included_units_for_aoe(aoe)
+                was_inside = int(cid) in self._map_spell_effect_targets(aoe)
                 self._lan_positions[int(cid)] = (int(new_cell[0]), int(new_cell[1]))
-                is_inside = int(cid) in self._lan_compute_included_units_for_aoe(aoe)
+                is_inside = int(cid) in self._map_spell_effect_targets(aoe)
             finally:
                 self._lan_positions = original_positions
             if (not was_inside) and is_inside:
-                self._lan_apply_aoe_trigger_to_targets(int(aid), aoe, target_cids=[int(cid)], turn_key=turn_key)
+                self._apply_map_spell_trigger(int(aid), aoe, target_cids=[int(cid)], turn_key=turn_key)
 
     def _lan_handle_aoe_enter_triggers_for_aoe_move(self, aid: int, aoe: Dict[str, Any], before_included: List[int]) -> None:
         if not isinstance(aoe, dict) or not bool(aoe.get("over_time")):
@@ -10892,11 +10988,11 @@ class InitiativeTracker(base.InitiativeTracker):
         trigger = str(aoe.get("trigger_on_start_or_enter") or "").strip().lower()
         if trigger not in ("enter", "start_or_enter", "enter_or_end"):
             return
-        after_included = set(self._lan_compute_included_units_for_aoe(aoe))
+        after_included = set(self._map_spell_effect_targets(aoe))
         before_set = {int(cid) for cid in before_included}
         entered = sorted(int(cid) for cid in after_included if int(cid) not in before_set)
         if entered:
-            self._lan_apply_aoe_trigger_to_targets(int(aid), aoe, target_cids=entered)
+            self._apply_map_spell_trigger(int(aid), aoe, target_cids=entered)
 
     def _lan_sync_fixed_to_caster_aoes(self, moved_cid: int) -> None:
         current_pos = dict(getattr(self, "_lan_positions", {}) or {}).get(int(moved_cid))
@@ -10908,7 +11004,7 @@ class InitiativeTracker(base.InitiativeTracker):
             anchor_cid = _normalize_cid_value(aoe.get("anchor_cid"), "aoe.anchor_cid")
             if anchor_cid != int(moved_cid):
                 continue
-            before = self._lan_compute_included_units_for_aoe(aoe)
+            before = self._map_spell_effect_targets(aoe)
             aoe["cx"] = float(current_pos[0])
             aoe["cy"] = float(current_pos[1])
             self._lan_handle_aoe_enter_triggers_for_aoe_move(int(aid), aoe, before)
@@ -11311,7 +11407,7 @@ class InitiativeTracker(base.InitiativeTracker):
         if requires_save and (dc is None or dc <= 0):
             return False
         outcomes = step.get("outcomes") if isinstance(step.get("outcomes"), dict) else {}
-        included = list(included_override) if isinstance(included_override, list) else self._lan_compute_included_units_for_aoe(aoe)
+        included = list(included_override) if isinstance(included_override, list) else self._map_spell_effect_targets(aoe)
         sculpt_enabled, sculpt_max_protected = self._lan_sculpt_spells_context(caster, preset, slot_level=slot_level)
         sculpted_targets: set[int] = set()
         if sculpt_enabled and caster is not None:
@@ -11802,23 +11898,7 @@ class InitiativeTracker(base.InitiativeTracker):
         return True
 
     def _lan_remove_aoe_by_id(self, aid: int) -> None:
-        mw = getattr(self, "_map_window", None)
-        map_ready = mw is not None and mw.winfo_exists()
-        if map_ready:
-            try:
-                if hasattr(mw, "_remove_aoe_by_id"):
-                    mw._remove_aoe_by_id(int(aid))
-                elif hasattr(mw, "aoes") and isinstance(mw.aoes, dict):
-                    mw.aoes.pop(int(aid), None)
-                if hasattr(mw, "_refresh_aoe_list"):
-                    mw._refresh_aoe_list()
-                self._lan_aoes = dict(getattr(mw, "aoes", {}) or {})
-            except Exception:
-                pass
-        else:
-            store = dict(self.__dict__.get("_lan_aoes", {}) or {})
-            store.pop(int(aid), None)
-            self._lan_aoes = store
+        self._clear_map_spell_effect(int(aid), end_concentration_if_bound=False)
 
     def _spell_presets_payload(self) -> List[Dict[str, Any]]:
         if yaml is None:
@@ -21085,6 +21165,33 @@ class InitiativeTracker(base.InitiativeTracker):
                 "spell_id": spell_id,
                 "slot_level": slot_level,
             }
+            aoe["map_effect"] = True
+            aoe["effect_id"] = int(aid)
+            aoe["aoe_id"] = int(aid)
+            aoe["anchor_mode"] = "fixed_to_caster" if force_fixed_to_caster else "fixed_to_map"
+            aoe["template"] = {
+                "shape": shape,
+                "geometry": {
+                    "cx": float(cx),
+                    "cy": float(cy),
+                    "ax": float(anchor_ax),
+                    "ay": float(anchor_ay),
+                    "angle_deg": float(angle_deg) if angle_deg is not None else None,
+                },
+                "anchor": {
+                    "mode": "fixed_to_caster" if force_fixed_to_caster else "fixed_to_map",
+                    "caster_cid": int(anchor_cid) if anchor_cid is not None else None,
+                },
+                "triggers": {
+                    "timing": trigger_on_start_or_enter or ("start" if over_time_flag else None),
+                    "over_time": bool(over_time_flag),
+                },
+                "lifecycle": {
+                    "concentration_bound": bool(concentration_flag),
+                    "duration_turns": duration_turns_val,
+                    "persistent": bool(persistent_flag),
+                },
+            }
             if concentration_flag is True:
                 aoe["concentration_bound"] = True
             if anchor_cid is not None:
@@ -21239,7 +21346,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if sculpt_enabled and c is not None:
                 caster_cid = int(getattr(c, "cid", 0) or 0)
                 caster_friendly = self._lan_is_friendly_unit(caster_cid)
-                included_targets = {int(target_cid) for target_cid in self._lan_compute_included_units_for_aoe(aoe)}
+                included_targets = {int(target_cid) for target_cid in self._map_spell_effect_targets(aoe)}
                 selected: List[int] = []
                 seen_selected: set[int] = set()
                 if isinstance(raw_sculpted_cids, list):
@@ -21261,24 +21368,8 @@ class InitiativeTracker(base.InitiativeTracker):
                         if len(selected) >= int(sculpt_max_protected):
                             break
                 aoe["sculpted_cids"] = selected
-            if map_ready:
-                mw.aoes[aid] = aoe
-                try:
-                    if hasattr(mw, "_create_aoe_items"):
-                        mw._create_aoe_items(aid)
-                    if hasattr(mw, "_refresh_aoe_list"):
-                        mw._refresh_aoe_list(select=aid)
-                except Exception:
-                    pass
-                try:
-                    self._lan_aoes = dict(getattr(mw, "aoes", {}) or {})
-                    self._lan_next_aoe_id = max(self._lan_next_aoe_id, aid + 1)
-                except Exception:
-                    pass
-            else:
-                store = getattr(self, "_lan_aoes", {}) or {}
-                store[int(aid)] = aoe
-                self._lan_aoes = store
+            self._register_map_spell_effect(int(aid), aoe)
+            self._lan_next_aoe_id = max(int(getattr(self, "_lan_next_aoe_id", 1) or 1), int(aid) + 1)
             if concentration_flag is True and c is not None:
                 spell_key = self._canonical_concentration_spell_key(preset_dict, fallback=spell_slug or spell_id or name)
                 self._start_concentration(
@@ -22504,29 +22595,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 if cid is None or owner_cid != cid:
                     self._lan.toast(ws_id, "That spell be not yers.")
                     return
-            if map_ready:
-                try:
-                    if hasattr(mw, "aoes") and isinstance(mw.aoes, dict):
-                        mw.aoes.pop(aid, None)
-                    if hasattr(mw, "_refresh_aoe_list"):
-                        mw._refresh_aoe_list()
-                except Exception:
-                    pass
-                try:
-                    self._lan_aoes = dict(getattr(mw, "aoes", {}) or {})
-                except Exception:
-                    pass
-            else:
-                store = getattr(self, "_lan_aoes", {}) or {}
-                store.pop(aid, None)
-                self._lan_aoes = store
-            if owner_cid is not None and owner_cid in self.combatants:
-                caster = self.combatants[owner_cid]
-                aoe_ids = list(getattr(caster, "concentration_aoe_ids", []) or [])
-                if aid in aoe_ids:
-                    caster.concentration_aoe_ids = [entry for entry in aoe_ids if entry != aid]
-                if bool(d.get("concentration_bound")) and aid in aoe_ids:
-                    self._end_concentration(caster)
+            self._clear_map_spell_effect(int(aid), end_concentration_if_bound=True)
             return
 
         if typ == "mount_request":
@@ -27662,7 +27731,10 @@ class InitiativeTracker(base.InitiativeTracker):
     def _end_concentration(self, c: base.Combatant) -> None:
         spell_key = str(getattr(c, "concentration_spell", "") or "").strip().lower()
         targets = list(getattr(c, "concentration_target", []) or [])
+        caster_cid = int(getattr(c, "cid", 0) or 0)
         super()._end_concentration(c)
+        if caster_cid > 0:
+            self._clear_concentration_bound_map_effects(caster_cid)
         if spell_key == "polymorph":
             for target_cid in targets:
                 target = self.combatants.get(int(target_cid))
