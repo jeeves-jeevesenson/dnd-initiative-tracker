@@ -34,6 +34,8 @@ class LanAttackRequestTests(unittest.TestCase):
         self.app._map_window = None
         self.app._name_role_memory = {"Aelar": "pc", "Goblin": "enemy"}
         self.app._reaction_prefs_by_cid = {}
+        self.app._pending_reaction_offers = {}
+        self.app._pending_shield_resolutions = {}
         self.app._lan_positions = {1: (5, 5), 2: (5, 4)}
         self.app._lan_live_map_data = lambda: (20, 20, set(), {}, dict(self.app._lan_positions))
         self.app.combatants = {
@@ -1009,6 +1011,56 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertIn("takes 2 necrotic", msg)
         self.assertIn("CON save DC 15: 10 + 5 = 15 (PASS)", msg)
 
+    def test_smite_cast_uses_spell_action_type_when_request_omits_it(self):
+        self.app._find_spell_preset = lambda **_kwargs: {
+            "slug": "blinding-smite",
+            "id": "blinding-smite",
+            "name": "Blinding Smite",
+            "level": 3,
+            "action_type": "bonus_action",
+            "casting_time": "Bonus Action",
+            "tags": ["smite"],
+            "summon": None,
+        }
+        self.app._consume_spell_slot_for_cast = lambda **_kwargs: (True, "", 3)
+        self.app._combatant_can_cast_spell = lambda *_args, **_kwargs: True
+        bonus_calls = {"count": 0}
+        action_calls = {"count": 0}
+
+        def _use_bonus(*_args, **_kwargs):
+            bonus_calls["count"] += 1
+            return True
+
+        def _use_action(*_args, **_kwargs):
+            action_calls["count"] += 1
+            return True
+
+        self.app._use_bonus_action = _use_bonus
+        self.app._use_action = _use_action
+        self.app._use_reaction = lambda *_args, **_kwargs: True
+        self.app._rebuild_table = lambda *args, **kwargs: None
+        self.app._lan_force_state_broadcast = lambda: None
+        self.app._profile_for_player_name = lambda _name: {}
+        self.app.combatants[1].spell_cast_remaining = 1
+        self.app.combatants[1].action_remaining = 1
+        self.app.combatants[1].bonus_action_remaining = 1
+
+        self.app._lan_apply_action(
+            {
+                "type": "cast_spell",
+                "cid": 1,
+                "_claimed_cid": 1,
+                "_ws_id": 55,
+                "spell_slug": "blinding-smite",
+                "slot_level": 3,
+                "payload": {"spell_slug": "blinding-smite", "slot_level": 3},
+            }
+        )
+
+        self.assertEqual(bonus_calls["count"], 1)
+        self.assertEqual(action_calls["count"], 0)
+        self.assertEqual((getattr(self.app.combatants[1], "pending_smite_charge", {}) or {}).get("slug"), "blinding-smite")
+
     def test_smite_cast_sets_charge_and_next_melee_hit_consumes_it(self):
         self.app._find_spell_preset = lambda **_kwargs: {
             "slug": "searing-smite",
@@ -1117,15 +1169,16 @@ class LanAttackRequestTests(unittest.TestCase):
             self.app._lan_apply_action(msg)
 
         self.assertTrue(any(getattr(st, "ctype", None) == "blinded" for st in self.app.combatants[2].condition_stacks))
-        self.assertEqual(len(getattr(self.app.combatants[2], "start_turn_save_riders", []) or []), 1)
+        self.assertEqual(len(getattr(self.app.combatants[2], "end_turn_save_riders", []) or []), 1)
 
         self.app.combatants[2].saving_throws = {"con": 4}
-        with mock.patch("dnd_initative_tracker.random.randint", return_value=9):
-            _, start_msg, _ = self.app._process_start_of_turn(self.app.combatants[2])
+        with mock.patch.object(tracker_mod.base.InitiativeTracker, "_end_turn_cleanup", autospec=True):
+            with mock.patch("dnd_initative_tracker.random.randint", return_value=9):
+                self.app._end_turn_cleanup(2)
 
-        self.assertIn("CON save DC 13: 9 + 4 = 13 (PASS)", start_msg)
+        self.assertTrue(any("Goblin succeeds their CON save against an effect." in message for _, message in self.logs))
         self.assertFalse(any(getattr(st, "ctype", None) == "blinded" for st in self.app.combatants[2].condition_stacks))
-        self.assertEqual(getattr(self.app.combatants[2], "start_turn_save_riders", []), [])
+        self.assertEqual(getattr(self.app.combatants[2], "end_turn_save_riders", []), [])
 
     def test_end_turn_cleanup_applies_hellfire_rider_damage(self):
         self.app.combatants[2].end_turn_damage_riders = [
