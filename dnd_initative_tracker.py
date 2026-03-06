@@ -22920,6 +22920,7 @@ class InitiativeTracker(base.InitiativeTracker):
             is_haste = preset_slug == "haste" or preset_id == "haste"
             is_polymorph = preset_slug == "polymorph" or preset_id == "polymorph"
             is_phantasmal_killer = preset_slug == "phantasmal-killer" or preset_id == "phantasmal-killer"
+            is_tashas_hideous_laughter = preset_slug == "tasha-s-hideous-laughter" or preset_id == "tasha-s-hideous-laughter"
             haste_duration_turns = 10
             haste_ac_bonus = 2
             if is_haste and isinstance(preset, dict):
@@ -23356,6 +23357,20 @@ class InitiativeTracker(base.InitiativeTracker):
             for effect in resolved_bucket:
                 if not isinstance(effect, dict):
                     continue
+                if str(effect.get("effect") or "").strip().lower() == "condition" and hit:
+                    condition_key = str(effect.get("condition") or "").strip().lower()
+                    if condition_key and not self._condition_is_immune_for_target(target, condition_key):
+                        stacks = list(getattr(target, "condition_stacks", []) or [])
+                        refreshed = False
+                        for st in stacks:
+                            if str(getattr(st, "ctype", "") or "").strip().lower() == condition_key:
+                                refreshed = True
+                                break
+                        if not refreshed:
+                            next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
+                            setattr(self, "_next_stack_id", int(next_sid) + 1)
+                            stacks.append(base.ConditionStack(sid=int(next_sid), ctype=condition_key, remaining_turns=None))
+                            setattr(target, "condition_stacks", stacks)
                 if str(effect.get("effect") or "").strip().lower() != "damage":
                     continue
                 amount = _roll_scaled_effect_damage(effect)
@@ -23432,6 +23447,49 @@ class InitiativeTracker(base.InitiativeTracker):
                     }
                 )
                 setattr(target, "end_turn_save_riders", end_turn_save_riders)
+
+            if hit and is_tashas_hideous_laughter and c is not None:
+                current_targets = list(getattr(c, "concentration_target", []) or [])
+                if int(target.cid) not in current_targets:
+                    current_targets.append(int(target.cid))
+                self._start_concentration(
+                    c,
+                    "tasha-s-hideous-laughter",
+                    spell_level=int((preset or {}).get("level") or 0) or None,
+                    targets=current_targets,
+                )
+                clear_group = self._tashas_hideous_laughter_group(getattr(c, "cid", 0), getattr(target, "cid", 0))
+                end_turn_save_riders = [
+                    rider
+                    for rider in list(getattr(target, "end_turn_save_riders", []) or [])
+                    if str((rider or {}).get("clear_group") or "").strip().lower() != clear_group
+                ]
+                end_turn_save_riders.append(
+                    {
+                        "clear_group": clear_group,
+                        "save_ability": "wis",
+                        "save_dc": int(save_dc),
+                        "condition": "incapacitated",
+                        "source": spell_name,
+                    }
+                )
+                setattr(target, "end_turn_save_riders", end_turn_save_riders)
+                on_damage_save_riders = [
+                    rider
+                    for rider in list(getattr(target, "on_damage_save_riders", []) or [])
+                    if str((rider or {}).get("clear_group") or "").strip().lower() != clear_group
+                ]
+                on_damage_save_riders.append(
+                    {
+                        "clear_group": clear_group,
+                        "save_ability": "wis",
+                        "save_dc": int(save_dc),
+                        "condition": "incapacitated",
+                        "source": spell_name,
+                        "advantage": True,
+                    }
+                )
+                setattr(target, "on_damage_save_riders", on_damage_save_riders)
 
             if hit and is_haste and c is not None:
                 current_targets = list(getattr(c, "concentration_target", []) or [])
@@ -26084,6 +26142,67 @@ class InitiativeTracker(base.InitiativeTracker):
     def _apply_damage_to_combatant(self, c: Any, amount: int) -> Dict[str, int]:
         return self._apply_damage_to_target_with_temp_hp(c, amount)
 
+    @staticmethod
+    def _tashas_hideous_laughter_group(caster_cid: Any, target_cid: Any) -> str:
+        caster_id = int(caster_cid or 0)
+        target_id = int(target_cid or 0)
+        return f"tashas_hideous_laughter_{caster_id}_{target_id}"
+
+    def _clear_tashas_hideous_laughter_group(self, target: Any, clear_group: str) -> None:
+        if target is None:
+            return
+        group_key = str(clear_group or "").strip().lower()
+        if not group_key:
+            return
+        end_turn_save_riders = [
+            rider
+            for rider in list(getattr(target, "end_turn_save_riders", []) or [])
+            if str((rider or {}).get("clear_group") or "").strip().lower() != group_key
+        ]
+        setattr(target, "end_turn_save_riders", end_turn_save_riders)
+        on_damage_save_riders = [
+            rider
+            for rider in list(getattr(target, "on_damage_save_riders", []) or [])
+            if str((rider or {}).get("clear_group") or "").strip().lower() != group_key
+        ]
+        setattr(target, "on_damage_save_riders", on_damage_save_riders)
+
+    def _target_has_tashas_hideous_laughter_active(self, target: Any) -> bool:
+        if target is None:
+            return False
+        prefix = "tashas_hideous_laughter_"
+        for rider in list(getattr(target, "end_turn_save_riders", []) or []):
+            if not isinstance(rider, dict):
+                continue
+            if str(rider.get("condition") or "").strip().lower() != "incapacitated":
+                continue
+            clear_group = str(rider.get("clear_group") or "").strip().lower()
+            if clear_group.startswith(prefix):
+                return True
+        for rider in list(getattr(target, "on_damage_save_riders", []) or []):
+            if not isinstance(rider, dict):
+                continue
+            if str(rider.get("condition") or "").strip().lower() != "incapacitated":
+                continue
+            clear_group = str(rider.get("clear_group") or "").strip().lower()
+            if clear_group.startswith(prefix):
+                return True
+        return False
+
+    def _clear_tashas_hideous_laughter_target_effect(self, caster: Any, target: Any) -> None:
+        if caster is None or target is None:
+            return
+        clear_group = self._tashas_hideous_laughter_group(getattr(caster, "cid", 0), getattr(target, "cid", 0))
+        self._clear_tashas_hideous_laughter_group(target, clear_group)
+        if not self._target_has_tashas_hideous_laughter_active(target):
+            self._remove_condition_type(target, "incapacitated")
+        current_targets = [
+            int(tid)
+            for tid in list(getattr(caster, "concentration_target", []) or [])
+            if _normalize_cid_value(tid, "tasha.clear.target") is not None and int(_normalize_cid_value(tid, "tasha.clear.target")) != int(getattr(target, "cid", 0))
+        ]
+        setattr(caster, "concentration_target", current_targets)
+
     def _apply_damage_to_target_with_temp_hp(self, target: Any, raw_damage: int) -> Dict[str, int]:
         damage = max(0, int(raw_damage or 0))
         temp_before = max(0, int(getattr(target, "temp_hp", 0) or 0))
@@ -26096,6 +26215,76 @@ class InitiativeTracker(base.InitiativeTracker):
         setattr(target, "hp", int(hp_after))
         if damage > 0:
             self._remove_condition_type(target, "star_advantage")
+            on_damage_save_riders = list(getattr(target, "on_damage_save_riders", []) or [])
+            if on_damage_save_riders:
+                remaining_damage_save_riders: List[Dict[str, Any]] = []
+                cleared_groups: set[str] = set()
+                for rider in on_damage_save_riders:
+                    if not isinstance(rider, dict):
+                        continue
+                    save_ability = str(rider.get("save_ability") or "").strip().lower()
+                    try:
+                        save_dc = int(rider.get("save_dc"))
+                    except Exception:
+                        save_dc = 0
+                    if not save_ability or save_dc <= 0:
+                        continue
+                    save_mod = 0
+                    saves = getattr(target, "saving_throws", None)
+                    if isinstance(saves, dict):
+                        try:
+                            save_mod = int(saves.get(save_ability) or 0)
+                        except Exception:
+                            save_mod = 0
+                    if save_mod == 0:
+                        mods = getattr(target, "ability_mods", None)
+                        if isinstance(mods, dict):
+                            try:
+                                save_mod = int(mods.get(save_ability) or 0)
+                            except Exception:
+                                save_mod = 0
+                    save_roll_a = random.randint(1, 20)
+                    save_roll_b = random.randint(1, 20) if bool(rider.get("advantage")) else None
+                    save_roll_used = max(save_roll_a, int(save_roll_b)) if save_roll_b is not None else save_roll_a
+                    save_total = int(save_roll_used) + int(save_mod)
+                    save_passed = bool(save_roll_used != 1 and save_total >= int(save_dc))
+                    source = str(rider.get("source") or "an effect").strip() or "an effect"
+                    if save_roll_b is None:
+                        self._log(
+                            f"{target.name} {'succeeds' if save_passed else 'fails'} their {save_ability.upper()} save against {source} "+
+                            f"after taking damage ({save_roll_used} + {save_mod} = {save_total} vs DC {save_dc}).",
+                            cid=int(getattr(target, "cid", 0) or 0),
+                        )
+                    else:
+                        self._log(
+                            f"{target.name} {'succeeds' if save_passed else 'fails'} their {save_ability.upper()} save against {source} "+
+                            f"after taking damage with advantage ({save_roll_a}/{save_roll_b}) + {save_mod} = {save_total} vs DC {save_dc}.",
+                            cid=int(getattr(target, "cid", 0) or 0),
+                        )
+                    clear_group = str(rider.get("clear_group") or "").strip().lower()
+                    condition = str(rider.get("condition") or "").strip().lower()
+                    if save_passed:
+                        if clear_group:
+                            cleared_groups.add(clear_group)
+                        if condition:
+                            self._remove_condition_type(target, condition)
+                        continue
+                    remaining_damage_save_riders.append(dict(rider))
+                if cleared_groups:
+                    remaining_damage_save_riders = [
+                        rider
+                        for rider in remaining_damage_save_riders
+                        if str((rider or {}).get("clear_group") or "").strip().lower() not in cleared_groups
+                    ]
+                    end_turn_save_riders = [
+                        rider
+                        for rider in list(getattr(target, "end_turn_save_riders", []) or [])
+                        if str((rider or {}).get("clear_group") or "").strip().lower() not in cleared_groups
+                    ]
+                    setattr(target, "end_turn_save_riders", end_turn_save_riders)
+                setattr(target, "on_damage_save_riders", remaining_damage_save_riders)
+                if not self._target_has_tashas_hideous_laughter_active(target):
+                    self._remove_condition_type(target, "incapacitated")
             damage_clear_riders = list(getattr(target, "damage_clear_condition_riders", []) or [])
             remaining_damage_clear_riders = []
             for rider in damage_clear_riders:
@@ -26164,6 +26353,12 @@ class InitiativeTracker(base.InitiativeTracker):
                 stacks = list(getattr(target, "condition_stacks", []) or [])
                 stacks = [st for st in stacks if str(getattr(st, "ctype", "") or "").strip().lower() != "frightened"]
                 setattr(target, "condition_stacks", stacks)
+        if spell_key == "tasha-s-hideous-laughter":
+            for target_cid in targets:
+                target = self.combatants.get(int(target_cid))
+                if target is None:
+                    continue
+                self._clear_tashas_hideous_laughter_target_effect(c, target)
         if not spell_key:
             return
         candidate_group_ids = {str(getattr(self.combatants.get(int(tid)), "summon_group_id", "") or "").strip() for tid in targets}

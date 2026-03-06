@@ -64,6 +64,9 @@ mechanics:
       - effect: condition
         condition: prone
         duration_turns: 0
+      - effect: condition
+        condition: incapacitated
+        duration_turns: 0
   scaling: null
   ui:
     template_preview: false

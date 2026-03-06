@@ -43,6 +43,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.app.turn_num = 1
         self.app._next_stack_id = 1
         self.app._concentration_save_state = {}
+        self.app._reaction_prefs_by_cid = {}
         self.app._lan_aoes = {}
         self.app.start_cid = None
         self.app.current_cid = 1
@@ -1010,6 +1011,118 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertTrue(result.get("save_result", {}).get("passed"))
         self.assertEqual(result.get("damage_total"), 8)
         self.assertEqual(self.app.combatants[2].hp, 12)
+
+    def test_tashas_hideous_laughter_failed_save_applies_conditions_and_riders(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "tasha-s-hideous-laughter",
+            "id": "tasha-s-hideous-laughter",
+            "name": "Tasha's Hideous Laughter",
+            "level": 1,
+            "concentration": True,
+            "mechanics": {
+                "sequence": [
+                    {
+                        "check": {"kind": "saving_throw", "ability": "wisdom", "dc": "spell_save_dc"},
+                        "outcomes": {
+                            "fail": [
+                                {"effect": "condition", "condition": "prone", "duration_turns": 0},
+                                {"effect": "condition", "condition": "incapacitated", "duration_turns": 0},
+                            ],
+                            "success": [],
+                        },
+                    }
+                ]
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 28,
+            "target_cid": 2,
+            "spell_name": "Tasha's Hideous Laughter",
+            "spell_slug": "tasha-s-hideous-laughter",
+            "spell_mode": "save",
+            "save_type": "wis",
+            "save_dc": 15,
+            "roll_save": True,
+            "slot_level": 1,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=3):
+            self.app._lan_apply_action(msg)
+
+        target = self.app.combatants[2]
+        caster = self.app.combatants[1]
+        self.assertTrue(any(getattr(st, "ctype", "") == "prone" for st in target.condition_stacks))
+        self.assertTrue(any(getattr(st, "ctype", "") == "incapacitated" for st in target.condition_stacks))
+        self.assertTrue(getattr(caster, "concentrating", False))
+        self.assertEqual(getattr(caster, "concentration_spell", ""), "tasha-s-hideous-laughter")
+        self.assertIn(2, list(getattr(caster, "concentration_target", []) or []))
+        group = self.app._tashas_hideous_laughter_group(caster.cid, target.cid)
+        self.assertTrue(
+            any(
+                str(r.get("clear_group") or "").strip().lower() == group
+                for r in list(getattr(target, "end_turn_save_riders", []) or [])
+                if isinstance(r, dict)
+            )
+        )
+        self.assertTrue(
+            any(
+                str(r.get("clear_group") or "").strip().lower() == group and bool(r.get("advantage"))
+                for r in list(getattr(target, "on_damage_save_riders", []) or [])
+                if isinstance(r, dict)
+            )
+        )
+
+    def test_tashas_hideous_laughter_damage_save_ends_incapacitated_but_not_prone(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "tasha-s-hideous-laughter",
+            "id": "tasha-s-hideous-laughter",
+            "name": "Tasha's Hideous Laughter",
+            "level": 1,
+            "concentration": True,
+            "mechanics": {
+                "sequence": [
+                    {
+                        "check": {"kind": "saving_throw", "ability": "wisdom", "dc": "spell_save_dc"},
+                        "outcomes": {
+                            "fail": [
+                                {"effect": "condition", "condition": "prone", "duration_turns": 0},
+                                {"effect": "condition", "condition": "incapacitated", "duration_turns": 0},
+                            ],
+                            "success": [],
+                        },
+                    }
+                ]
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 29,
+            "target_cid": 2,
+            "spell_name": "Tasha's Hideous Laughter",
+            "spell_slug": "tasha-s-hideous-laughter",
+            "spell_mode": "save",
+            "save_type": "wis",
+            "save_dc": 15,
+            "roll_save": True,
+            "slot_level": 1,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=3):
+            self.app._lan_apply_action(msg)
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 17]):
+            self.app._apply_damage_to_target_with_temp_hp(self.app.combatants[2], 1)
+
+        target = self.app.combatants[2]
+        self.assertTrue(any(getattr(st, "ctype", "") == "prone" for st in target.condition_stacks))
+        self.assertFalse(any(getattr(st, "ctype", "") == "incapacitated" for st in target.condition_stacks))
+        self.assertEqual(list(getattr(target, "on_damage_save_riders", []) or []), [])
+        self.assertEqual(list(getattr(target, "end_turn_save_riders", []) or []), [])
 
     def test_healing_spell_requests_manual_healing_when_not_provided(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
