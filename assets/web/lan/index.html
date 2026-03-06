@@ -8760,10 +8760,10 @@ __DAMAGE_TYPE_OPTIONS__
   }
 
   function planningChatAvatarKey(raw){
-    const value = String(raw || "").trim().toLowerCase();
+    const value = String(raw || "").trim();
     if (!value) return "";
-    const withoutExt = value.endsWith(".png") ? value.slice(0, -4) : value;
-    return withoutExt.replace(/[^a-z0-9._-]+/g, "-").replace(/^[-._]+|[-._]+$/g, "");
+    const withoutExt = value.toLowerCase().endsWith(".png") ? value.slice(0, -4) : value;
+    return withoutExt.replace(/[\/\\]+/g, "").replace(/^[\s._-]+|[\s._-]+$/g, "");
   }
 
   function planningChatAvatarUrl(entry){

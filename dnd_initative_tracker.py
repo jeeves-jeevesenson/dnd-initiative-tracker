@@ -4699,8 +4699,7 @@ class LanController:
         stem = str(profile_path.stem).strip()
         if not stem:
             return ""
-        safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", stem).strip("-._")
-        return safe_stem or ""
+        return stem
 
     def _planning_chat_record(self, payload: Any) -> None:
         if not isinstance(payload, dict):

@@ -39,6 +39,18 @@ class PlanningChatNameResolutionTests(unittest.TestCase):
 
         self.assertEqual(lan._planning_chat_avatar_key_for_name("John Twilight"), "john-twilight")
 
+    def test_planning_chat_avatar_key_preserves_case(self):
+        lan = self._build_controller()
+        lan.app._find_player_profile_path = lambda _name: Path("/tmp/players/JohnTwilight.yaml")
+
+        self.assertEqual(lan._planning_chat_avatar_key_for_name("John Twilight"), "JohnTwilight")
+
+    def test_planning_chat_avatar_key_preserves_unicode(self):
+        lan = self._build_controller()
+        lan.app._find_player_profile_path = lambda _name: Path("/tmp/players/стихия.yaml")
+
+        self.assertEqual(lan._planning_chat_avatar_key_for_name("стихия"), "стихия")
+
     def test_planning_chat_avatar_key_empty_without_profile_path(self):
         lan = self._build_controller()
         lan.app._find_player_profile_path = lambda _name: None
