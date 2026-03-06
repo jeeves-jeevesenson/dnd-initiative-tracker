@@ -1182,7 +1182,7 @@ _SMITE_SPELL_CONFIG: Dict[str, Dict[str, Any]] = {
         "base_dice": "1d6",
         "base_slot": 1,
         "upcast_die": "1d6",
-        "save": {"ability": "wis", "condition": "frightened", "repeat_each_turn": True},
+        "save": {"ability": "wis", "condition": "frightened", "repeat_each_turn": True, "repeat_timing": "end_turn"},
     },
     "shining-smite": {"damage_type": "radiant", "base_dice": "2d6", "base_slot": 2, "upcast_die": "1d6"},
     "blinding-smite": {
@@ -1190,7 +1190,7 @@ _SMITE_SPELL_CONFIG: Dict[str, Dict[str, Any]] = {
         "base_dice": "3d8",
         "base_slot": 3,
         "upcast_die": "1d8",
-        "save": {"ability": "con", "condition": "blinded", "repeat_each_turn": True},
+        "save": {"ability": "con", "condition": "blinded", "repeat_each_turn": True, "repeat_timing": "end_turn"},
     },
     "staggering-smite": {
         "damage_type": "psychic",
@@ -20743,13 +20743,6 @@ class InitiativeTracker(base.InitiativeTracker):
 
         if typ == "cast_spell":
             payload = msg.get("payload") or {}
-            spend_raw = str(msg.get("action_type") or payload.get("action_type") or "").strip().lower()
-            if spend_raw in ("bonus", "bonus_action"):
-                spend = "bonus"
-            elif spend_raw == "reaction":
-                spend = "reaction"
-            else:
-                spend = "action"
             spell_slug = str(msg.get("spell_slug") or payload.get("spell_slug") or "").strip()
             spell_id = str(msg.get("spell_id") or payload.get("spell_id") or "").strip()
             summon_choice = msg.get("summon_choice") if msg.get("summon_choice") not in (None, "") else payload.get("summon_choice")
@@ -20773,6 +20766,23 @@ class InitiativeTracker(base.InitiativeTracker):
             if not isinstance(preset, dict):
                 self._lan.toast(ws_id, "That spell could not be found, matey.")
                 return
+            spend_raw = str(msg.get("action_type") or payload.get("action_type") or "").strip().lower()
+            if not spend_raw:
+                spend_raw = str(preset.get("action_type") or "").strip().lower()
+            if not spend_raw:
+                casting_time = str(preset.get("casting_time") or "").strip().lower()
+                if "bonus" in casting_time and "action" in casting_time:
+                    spend_raw = "bonus_action"
+                elif "reaction" in casting_time:
+                    spend_raw = "reaction"
+                elif "action" in casting_time:
+                    spend_raw = "action"
+            if spend_raw in ("bonus", "bonus_action"):
+                spend = "bonus"
+            elif spend_raw == "reaction":
+                spend = "reaction"
+            else:
+                spend = "action"
             summon_cfg = preset.get("summon") if isinstance(preset.get("summon"), dict) else None
             try:
                 slot_level = int(msg.get("slot_level") if msg.get("slot_level") is not None else payload.get("slot_level"))
@@ -24835,7 +24845,9 @@ class InitiativeTracker(base.InitiativeTracker):
                                 _ensure_condition(target, smite_condition, turns)
                                 if bool((smite_save_cfg or {}).get("repeat_each_turn")):
                                     group = f"smite_{str((smite_result or {}).get('slug') or '')}_{int(cid)}"
-                                    riders = list(getattr(target, "start_turn_save_riders", []) or [])
+                                    repeat_timing = str((smite_save_cfg or {}).get("repeat_timing") or "start_turn").strip().lower()
+                                    rider_attr = "end_turn_save_riders" if repeat_timing == "end_turn" else "start_turn_save_riders"
+                                    riders = list(getattr(target, rider_attr, []) or [])
                                     riders.append(
                                         {
                                             "clear_group": group,
@@ -24844,7 +24856,7 @@ class InitiativeTracker(base.InitiativeTracker):
                                             "condition": smite_condition,
                                         }
                                     )
-                                    setattr(target, "start_turn_save_riders", riders)
+                                    setattr(target, rider_attr, riders)
                             if isinstance(smite_start_turn_rider_cfg, dict):
                                 rider_dice = self._smite_damage_dice(
                                     {"base_dice": smite_start_turn_rider_cfg.get("dice"), "base_slot": smite_cfg.get("base_slot"), "upcast_die": smite_cfg.get("upcast_die")},
