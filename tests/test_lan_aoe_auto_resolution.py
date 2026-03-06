@@ -215,6 +215,55 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         self.assertIn("Goblin save DEX FAIL (5 vs DC 14) -> 5 damage (5 Cold)", log_text)
         self.assertIn("Orc save DEX PASS (15 vs DC 14) -> 4 damage (4 Cold)", log_text)
 
+    def test_cast_aoe_shatter_applies_disadvantage_for_tagged_target(self):
+        self.preset["id"] = "shatter"
+        self.preset["slug"] = "shatter"
+        self.preset["name"] = "Shatter"
+        self.preset["mechanics"]["sequence"][0]["check"] = {"kind": "saving_throw", "ability": "constitution", "dc": "spell_save_dc"}
+        self.preset["mechanics"]["sequence"][0]["outcomes"] = {
+            "fail": [{"effect": "damage", "damage_type": "thunder", "dice": "1d1"}],
+            "success": [],
+        }
+        self.app.combatants[2].saving_throws = {"con": 0}
+        self.app.combatants[2].ability_mods = {"con": 0}
+        self.app.combatants[3].saving_throws = {"con": 0}
+        self.app.combatants[3].ability_mods = {"con": 0}
+        self.app.combatants[2].monster_spec = tracker_mod.MonsterSpec(
+            filename="earth-elemental.yaml",
+            name="Earth Elemental",
+            mtype="Elemental",
+            cr=5,
+            hp=147,
+            speed=30,
+            swim_speed=0,
+            fly_speed=0,
+            burrow_speed=30,
+            climb_speed=0,
+            dex=8,
+            init_mod=-1,
+            saving_throws={"con": 0},
+            ability_mods={"con": 0},
+            raw_data={"type": "Elemental", "tags": ["shatter_disadvantage"]},
+        )
+
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 11,
+            "spell_slug": "shatter",
+            "payload": {"shape": "sphere", "name": "Shatter", "radius_ft": 40, "cx": 5, "cy": 4},
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[18, 2, 1, 15]):
+            self.app._lan_apply_action(msg)
+
+        self.assertEqual(self.app.combatants[2].hp, 19)
+        self.assertEqual(self.app.combatants[3].hp, 20)
+        log_text = "\n".join(entry for _cid, entry in self.logs)
+        self.assertIn("Shatter: Goblin save CON FAIL (2 vs DC 14) -> 1 damage (1 Thunder)", log_text)
+        self.assertIn("Shatter: Orc save CON PASS (15 vs DC 14) -> 0 damage", log_text)
+
     def test_cast_aoe_broadcasts_spell_target_results_for_damage_popups(self):
         msg = {
             "type": "cast_aoe",

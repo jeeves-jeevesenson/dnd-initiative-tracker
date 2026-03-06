@@ -1,6 +1,8 @@
 name: Earth Elemental
 size: Large
 type: Elemental
+tags:
+- shatter_disadvantage
 alignment: Neutral
 initiative: '-1'
 ac: '17'

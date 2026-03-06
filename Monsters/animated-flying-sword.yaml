@@ -1,6 +1,8 @@
 name: Animated Flying Sword
 size: Small
 type: Construct
+tags:
+- shatter_disadvantage
 alignment: Unaligned
 initiative: '+4'
 ac: '17'

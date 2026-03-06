@@ -1,6 +1,8 @@
 name: Iron Golem
 size: Large
 type: Construct
+tags:
+- shatter_disadvantage
 alignment: Unaligned
 initiative: '+9'
 ac: '20'

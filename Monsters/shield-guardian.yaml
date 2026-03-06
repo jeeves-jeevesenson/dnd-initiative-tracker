@@ -1,6 +1,8 @@
 name: Shield Guardian
 size: Large
 type: Construct
+tags:
+- shatter_disadvantage
 alignment: Unaligned
 initiative: '-1'
 ac: '17'

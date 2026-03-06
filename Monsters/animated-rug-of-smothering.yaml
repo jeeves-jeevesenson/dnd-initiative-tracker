@@ -1,6 +1,8 @@
 name: Animated Rug of Smothering
 size: Large
 type: Construct
+tags:
+- shatter_disadvantage
 alignment: Unaligned
 initiative: '+4'
 ac: '12'

@@ -1,6 +1,8 @@
 name: Minotaur Skeleton
 size: Large
 type: Undead
+tags:
+- shatter_disadvantage
 alignment: Lawful Evil
 initiative: '+0'
 ac: '12'
