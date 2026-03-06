@@ -58,8 +58,9 @@ class SlowAutomationTests(unittest.TestCase):
             "id": "slow",
             "name": "Slow",
             "level": 3,
+            "concentration": True,
             "mechanics": {
-                "sequence": [{"check": {"kind": "saving_throw", "ability": "wis", "dc": "spell_save_dc"}, "outcomes": {"fail": []}}]
+                "sequence": [{"check": {"kind": "saving_throw", "ability": "wis", "dc": "spell_save_dc"}, "outcomes": {"fail": [{"effect": "condition", "condition": "slow_spell", "duration_turns": 0, "ongoing": {"concentration_bound": True, "clear_group": "slow_{source_cid}_{target_cid}", "condition_clear": ["slow_spell"], "repeat_save_end_turn": {"save_ability": "wis", "save_dc": "spell_save_dc", "condition": "slow_spell"}}}], "success": []}}]
             },
         }
         self.app._infer_spell_targeting_mode = lambda preset: "save"

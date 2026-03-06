@@ -67,6 +67,23 @@ mechanics:
       - effect: condition
         condition: incapacitated
         duration_turns: 0
+        ongoing:
+          concentration_bound: true
+          clear_group: tashas_hideous_laughter_{source_cid}_{target_cid}
+          condition_apply:
+          - prone
+          - incapacitated
+          condition_clear:
+          - incapacitated
+          repeat_save_end_turn:
+            save_ability: wis
+            save_dc: spell_save_dc
+            condition: incapacitated
+          repeat_save_on_damage:
+            save_ability: wis
+            save_dc: spell_save_dc
+            condition: incapacitated
+            advantage: true
   scaling: null
   ui:
     template_preview: false
