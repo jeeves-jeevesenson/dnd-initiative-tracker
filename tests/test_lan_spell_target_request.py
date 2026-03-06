@@ -790,6 +790,13 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(caster.concentration_spell, "haste")
         self.assertEqual(target.ac, 18)
         self.assertEqual(getattr(target, "haste_remaining_turns", 0), 10)
+        self.assertTrue(
+            any(
+                str(entry.get("spell_key") or "") == "haste"
+                for entry in list(getattr(target, "ongoing_spell_effects", []) or [])
+                if isinstance(entry, dict)
+            )
+        )
         skip, _, _ = self.app._process_start_of_turn(target)
         self.assertFalse(skip)
         self.assertEqual(target.action_remaining, 2)
@@ -822,6 +829,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
 
         target = self.app.combatants[3]
         self.assertEqual(getattr(target, "haste_remaining_turns", 0), 0)
+        self.assertEqual(list(getattr(target, "ongoing_spell_effects", []) or []), [])
         self.assertEqual(target.ac, 16)
         self.assertEqual(getattr(target, "haste_lethargy_turns_remaining", 0), 1)
         self.assertEqual(self.app._effective_speed(target), 0)
@@ -1074,6 +1082,13 @@ class LanSpellTargetRequestTests(unittest.TestCase):
                 if isinstance(r, dict)
             )
         )
+        self.assertTrue(
+            any(
+                str(entry.get("spell_key") or "") == "tasha-s-hideous-laughter"
+                for entry in list(getattr(target, "ongoing_spell_effects", []) or [])
+                if isinstance(entry, dict)
+            )
+        )
 
     def test_tashas_hideous_laughter_damage_save_ends_incapacitated_but_not_prone(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
@@ -1123,6 +1138,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertFalse(any(getattr(st, "ctype", "") == "incapacitated" for st in target.condition_stacks))
         self.assertEqual(list(getattr(target, "on_damage_save_riders", []) or []), [])
         self.assertEqual(list(getattr(target, "end_turn_save_riders", []) or []), [])
+        self.assertEqual(list(getattr(target, "ongoing_spell_effects", []) or []), [])
 
     def test_hold_person_failed_save_applies_paralyzed_and_end_turn_save_rider(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
@@ -1178,6 +1194,13 @@ class LanSpellTargetRequestTests(unittest.TestCase):
                 if isinstance(r, dict)
             )
         )
+        self.assertTrue(
+            any(
+                str(entry.get("spell_key") or "") == "hold-person"
+                for entry in list(getattr(target, "ongoing_spell_effects", []) or [])
+                if isinstance(entry, dict)
+            )
+        )
 
     def test_hold_person_end_turn_save_success_removes_paralyzed_after_skip(self):
         target = self.app.combatants[2]
@@ -1202,23 +1225,33 @@ class LanSpellTargetRequestTests(unittest.TestCase):
 
         self.assertFalse(any(getattr(st, "ctype", "") == "paralyzed" for st in target.condition_stacks))
         self.assertEqual(list(getattr(target, "end_turn_save_riders", []) or []), [])
+        self.assertEqual(list(getattr(target, "ongoing_spell_effects", []) or []), [])
 
     def test_hold_person_concentration_end_clears_paralyzed_and_rider(self):
         caster = self.app.combatants[1]
         target = self.app.combatants[2]
-        caster.concentrating = True
-        caster.concentration_spell = "hold-person"
-        caster.concentration_target = [2]
-        target.condition_stacks = [tracker_mod.base.ConditionStack(sid=1, ctype="paralyzed", remaining_turns=None)]
-        target.end_turn_save_riders = [
-            {
-                "clear_group": "hold_person_1_2",
-                "save_ability": "wis",
-                "save_dc": 15,
-                "condition": "paralyzed",
-                "source": "Hold Person",
-            }
-        ]
+        self.app._start_concentration(caster, "hold-person", spell_level=2, targets=[2])
+        self.app._register_target_spell_effect(
+            1,
+            2,
+            "hold-person",
+            spell_level=2,
+            concentration_bound=True,
+            clear_group="hold_person_1_2",
+            primitives={
+                "condition_apply": ["paralyzed"],
+                "condition_clear": ["paralyzed"],
+                "end_turn_save_riders": [
+                    {
+                        "clear_group": "hold_person_1_2",
+                        "save_ability": "wis",
+                        "save_dc": 15,
+                        "condition": "paralyzed",
+                        "source": "Hold Person",
+                    }
+                ],
+            },
+        )
 
         self.app._end_concentration(caster)
 

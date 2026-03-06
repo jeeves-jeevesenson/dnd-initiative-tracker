@@ -106,6 +106,49 @@ class SlowAutomationTests(unittest.TestCase):
         self.assertTrue(any(str(r.get("clear_group", "")).startswith("slow_1_2") for r in target.end_turn_save_riders))
         self.assertTrue(bool(getattr(caster, "concentrating", False)))
         self.assertEqual(str(getattr(caster, "concentration_spell", "")).lower(), "slow")
+        self.assertTrue(
+            any(
+                str(entry.get("spell_key") or "") == "slow"
+                for entry in list(getattr(target, "ongoing_spell_effects", []) or [])
+                if isinstance(entry, dict)
+            )
+        )
+
+
+    def test_slow_concentration_end_clears_registered_effects(self):
+        caster = self.app.combatants[1]
+        target = self.app.combatants[2]
+        self.app._concentration_save_state = {}
+        self.app.__dict__["_map_window"] = None
+        self.app._lan_aoes = {}
+        self.app._start_concentration(caster, "slow", spell_level=3, targets=[2])
+        self.app._register_target_spell_effect(
+            1,
+            2,
+            "slow",
+            spell_level=3,
+            concentration_bound=True,
+            clear_group="slow_1_2",
+            primitives={
+                "condition_apply": ["slow_spell"],
+                "condition_clear": ["slow_spell"],
+                "end_turn_save_riders": [
+                    {
+                        "clear_group": "slow_1_2",
+                        "save_ability": "wis",
+                        "save_dc": 15,
+                        "condition": "slow_spell",
+                        "source": "Slow",
+                    }
+                ],
+            },
+        )
+
+        self.app._end_concentration(caster)
+
+        self.assertFalse(any(getattr(st, "ctype", "") == "slow_spell" for st in target.condition_stacks))
+        self.assertEqual(list(getattr(target, "end_turn_save_riders", []) or []), [])
+        self.assertEqual(list(getattr(target, "ongoing_spell_effects", []) or []), [])
 
     def test_slow_helpers_apply_dex_disadvantage_and_ac_penalty(self):
         target = self.app.combatants[2]
