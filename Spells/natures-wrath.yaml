@@ -1,0 +1,64 @@
+schema: dnd55.spell.v1
+id: natures-wrath
+name: Nature's Wrath
+color: "#6BA368"
+edition: '2024'
+source:
+  book: "Paladin (Oath of the Ancients)"
+  page: null
+  srd: false
+level: 1
+school: abjuration
+tags:
+- aoe
+- save
+- control
+- automation_full
+casting_time: Action
+range: Self
+components: V
+duration: 1 minute
+ritual: false
+concentration: false
+lists:
+  classes:
+  - paladin
+  subclasses:
+  - oath-of-the-ancients
+text:
+  summary: Spectral vines lash out from you and restrain nearby enemies.
+  rules: As a Magic action, you can expend one use of Channel Divinity to conjure spectral vines around nearby creatures. Each enemy you can see within 15 feet must succeed on a Strength saving throw or be Restrained for 1 minute. A Restrained creature repeats the save at the end of each of its turns, ending the effect on a success.
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: cone
+      length_ft: 15
+      angle_deg: 180
+    target_selection:
+      mode: area
+      friendly_fire: false
+  sequence:
+  - id: vines
+    name: Spectral Vines
+    check:
+      kind: saving_throw
+      ability: strength
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: condition
+        condition: restrained
+        duration_turns: 10
+        repeat_save_end_of_turn: true
+      success: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes:
+  - Allies/friendlies are immune (friendly_fire: false).
+  - Failed creatures repeat the Strength save at the end of each of their turns.

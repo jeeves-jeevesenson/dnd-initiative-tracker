@@ -126,6 +126,64 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
             },
         )()
 
+
+    def test_cast_aoe_condition_repeat_save_end_of_turn_adds_save_rider(self):
+        self.preset["mechanics"]["targeting"] = {
+            "origin": "self",
+            "range": {"kind": "self"},
+            "area": {"shape": "cone", "length_ft": 15, "angle_deg": 180},
+            "target_selection": {"mode": "area", "friendly_fire": False},
+        }
+        self.preset["mechanics"]["sequence"][0]["check"] = {"kind": "saving_throw", "ability": "strength", "dc": "spell_save_dc"}
+        self.preset["mechanics"]["sequence"][0]["outcomes"] = {
+            "fail": [
+                {
+                    "effect": "condition",
+                    "condition": "restrained",
+                    "duration_turns": 10,
+                    "repeat_save_end_of_turn": True,
+                }
+            ],
+            "success": [],
+        }
+        self.app.combatants[2].saving_throws = {"str": 0}
+        self.app.combatants[2].ability_mods = {"str": 0}
+        self.app.combatants[3].saving_throws = {"str": 0}
+        self.app.combatants[3].ability_mods = {"str": 0}
+        self.app._lan_positions[1] = (4, 4)
+        self.app._lan_positions[2] = (5, 4)
+        self.app._lan_positions[3] = (5, 5)
+
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 30,
+            "spell_slug": "natures-wrath",
+            "payload": {
+                "shape": "cone",
+                "name": "Nature's Wrath",
+                "length_ft": 15,
+                "angle_deg": 180,
+                "cx": 4,
+                "cy": 4,
+            },
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[2, 19]):
+            self.app._lan_apply_action(msg)
+
+        restrained = [st for st in self.app.combatants[2].condition_stacks if str(getattr(st, "ctype", "")).lower() == "restrained"]
+        self.assertEqual(len(restrained), 1)
+        self.assertEqual(int(getattr(restrained[0], "remaining_turns", 0) or 0), 10)
+        end_turn_riders = list(getattr(self.app.combatants[2], "end_turn_save_riders", []) or [])
+        self.assertEqual(len(end_turn_riders), 1)
+        rider = end_turn_riders[0]
+        self.assertEqual(str(rider.get("save_ability") or ""), "str")
+        self.assertEqual(int(rider.get("save_dc") or 0), 14)
+        self.assertEqual(str(rider.get("condition") or ""), "restrained")
+        self.assertEqual(self.app.combatants[3].condition_stacks, [])
+
     def test_cast_aoe_auto_resolves_damage_save_and_condition(self):
         msg = {
             "type": "cast_aoe",
