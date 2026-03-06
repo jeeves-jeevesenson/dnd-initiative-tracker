@@ -10270,6 +10270,18 @@ class InitiativeTracker(base.InitiativeTracker):
                         affected.add(other_int)
                 dmg_resist_raw = aura.get("damage_resistances") if isinstance(aura.get("damage_resistances"), list) else []
                 dmg_resistances = {str(x or "").strip().lower() for x in dmg_resist_raw if str(x or "").strip()}
+                condition_immunities_raw = (
+                    aura.get("condition_immunities") if isinstance(aura.get("condition_immunities"), list) else []
+                )
+                condition_immunities = {
+                    self._canonical_condition_key(x)
+                    for x in condition_immunities_raw
+                    if self._canonical_condition_key(x)
+                }
+                aura_id = str(aura.get("id") or "").strip().lower()
+                stacking_key = str(aura.get("stacking_key") or "").strip().lower()
+                if not stacking_key and "aura_of_protection" in aura_id:
+                    stacking_key = "aura_of_protection"
                 effect_cfg = aura.get("effect") if isinstance(aura.get("effect"), dict) else {}
                 effect_name = str(effect_cfg.get("name") or "Protected").strip() or "Protected"
                 effect_icon = str(effect_cfg.get("icon") or "🛡️")
@@ -10292,10 +10304,12 @@ class InitiativeTracker(base.InitiativeTracker):
                         "radius_sq": float(radius_sq),
                         "save_bonus": int(save_bonus),
                         "damage_resistances": dmg_resistances,
+                        "condition_immunities": condition_immunities,
                         "affected": affected,
                         "color": str(aura.get("color") or "#fcebc4"),
                         "name": str(aura.get("name") or "Aura"),
                         "aura_id": str(aura.get("id") or effect_id or "aura").strip().lower(),
+                        "stacking_key": stacking_key,
                         "visible": bool(aura.get("visible", True)),
                         "effect": {
                             "id": effect_id,
@@ -10311,7 +10325,7 @@ class InitiativeTracker(base.InitiativeTracker):
         try:
             target_cid = int(getattr(target_obj, "cid", 0) or 0)
         except Exception:
-            return {"save_bonus": 0, "damage_resistances": set(), "effects": []}
+            return {"save_bonus": 0, "damage_resistances": set(), "condition_immunities": set(), "effects": []}
         try:
             _, _, _, _, positions = self._lan_live_map_data()
         except Exception:
@@ -10319,13 +10333,43 @@ class InitiativeTracker(base.InitiativeTracker):
         contexts = self._lan_active_aura_contexts(positions=positions)
         save_bonus = 0
         damage_resistances: set[str] = set()
+        condition_immunities: set[str] = set()
         effects: List[Dict[str, str]] = []
         seen_effect_ids: set[str] = set()
+        selected_stacking_auras: Dict[str, Dict[str, Any]] = {}
+        selected_stacking_keys: set[str] = set()
+
+        def _score_aura_choice(aura_ctx: Dict[str, Any]) -> Tuple[int, int, int]:
+            return (
+                int(aura_ctx.get("save_bonus") or 0),
+                len(set(aura_ctx.get("damage_resistances") or set())),
+                len(set(aura_ctx.get("condition_immunities") or set())),
+            )
         for aura in contexts:
             if target_cid not in (aura.get("affected") or set()):
                 continue
+            stacking_key = str(aura.get("stacking_key") or "").strip().lower()
+            if stacking_key:
+                current = selected_stacking_auras.get(stacking_key)
+                if current is None or _score_aura_choice(aura) > _score_aura_choice(current):
+                    selected_stacking_auras[stacking_key] = aura
+                selected_stacking_keys.add(stacking_key)
+                continue
             save_bonus += int(aura.get("save_bonus") or 0)
             damage_resistances.update(set(aura.get("damage_resistances") or set()))
+            condition_immunities.update(set(aura.get("condition_immunities") or set()))
+            effect = aura.get("effect") if isinstance(aura.get("effect"), dict) else None
+            effect_id = str((effect or {}).get("id") or "").strip().lower()
+            if effect and effect_id and effect_id not in seen_effect_ids:
+                seen_effect_ids.add(effect_id)
+                effects.append(effect)
+        for stacking_key in selected_stacking_keys:
+            aura = selected_stacking_auras.get(stacking_key)
+            if not isinstance(aura, dict):
+                continue
+            save_bonus += int(aura.get("save_bonus") or 0)
+            damage_resistances.update(set(aura.get("damage_resistances") or set()))
+            condition_immunities.update(set(aura.get("condition_immunities") or set()))
             effect = aura.get("effect") if isinstance(aura.get("effect"), dict) else None
             effect_id = str((effect or {}).get("id") or "").strip().lower()
             if effect and effect_id and effect_id not in seen_effect_ids:
@@ -10334,6 +10378,7 @@ class InitiativeTracker(base.InitiativeTracker):
         return {
             "save_bonus": int(save_bonus),
             "damage_resistances": damage_resistances,
+            "condition_immunities": condition_immunities,
             "effects": effects,
         }
 
@@ -10438,12 +10483,17 @@ class InitiativeTracker(base.InitiativeTracker):
         try:
             aura_effects = self._lan_aura_effects_for_target(target_obj)
         except Exception:
-            aura_effects = {"damage_resistances": set()}
+            aura_effects = {"damage_resistances": set(), "condition_immunities": set()}
         aura_resistances = set((aura_effects or {}).get("damage_resistances") or set())
         for item in aura_resistances:
             dtype = self._canonical_damage_type(item)
             if dtype:
                 defenses["damage_resistances"].add(dtype)
+        aura_condition_immunities = set((aura_effects or {}).get("condition_immunities") or set())
+        for item in aura_condition_immunities:
+            ckey = self._canonical_condition_key(item)
+            if ckey:
+                defenses["condition_immunities"].add(ckey)
         absorb_state = self._absorb_elements_state(target_obj)
         if bool(absorb_state.get("resistance_active")):
             absorb_dtype = self._canonical_damage_type(absorb_state.get("damage_type"))

@@ -1657,6 +1657,104 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertIsInstance(save_result, dict)
         self.assertEqual(save_result.get("modifier"), 5)
 
+
+
+    def test_dorian_aura_grants_frightened_condition_immunity(self):
+        self.app.combatants[3] = type(
+            "C",
+            (),
+            {
+                "cid": 3,
+                "name": "Dorian",
+                "ac": 18,
+                "hp": 80,
+                "condition_stacks": [],
+                "ability_mods": {"cha": 4},
+            },
+        )()
+        self.app.combatants[4] = type(
+            "C",
+            (),
+            {
+                "cid": 4,
+                "name": "Lyra",
+                "ac": 14,
+                "hp": 30,
+                "condition_stacks": [tracker_mod.base.ConditionStack(sid=9, ctype="frightened", remaining_turns=None)],
+                "saving_throws": {},
+                "ability_mods": {},
+            },
+        )()
+        self.app._name_role_memory.update({"Aelar": "enemy", "Dorian": "pc", "Lyra": "ally"})
+        self.app._lan_positions[3] = (5, 5)
+        self.app._lan_positions[4] = (6, 5)
+        self.app._profile_for_player_name = lambda name: {
+            "abilities": {"cha": 18},
+            "features": [
+                {
+                    "id": "aura_of_protection_2024",
+                    "grants": {
+                        "aura": {
+                            "id": "aura_of_protection_2024",
+                            "name": "Aura of Protection",
+                            "radius_ft": 10,
+                            "save_bonus": {"ability_mod": "cha", "minimum": 1},
+                            "damage_resistances": ["necrotic", "psychic", "radiant"],
+                            "condition_immunities": ["frightened"],
+                        }
+                    },
+                }
+            ],
+        } if str(name).strip().lower() == "dorian" else {
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {"weapon_to_hit": 5, "weapons": [{"id": "longsword", "name": "Longsword", "to_hit": 7}]},
+        }
+
+        self.assertTrue(self.app._condition_is_immune_for_target(self.app.combatants[4], "frightened"))
+
+    def test_overlapping_paladin_auras_do_not_stack_save_bonus(self):
+        self.app.combatants[3] = type("C", (), {"cid": 3, "name": "Dorian", "ac": 18, "hp": 80, "condition_stacks": [], "ability_mods": {"cha": 4}})()
+        self.app.combatants[5] = type("C", (), {"cid": 5, "name": "Bran", "ac": 18, "hp": 80, "condition_stacks": [], "ability_mods": {"cha": 2}})()
+        self.app.combatants[4] = type("C", (), {"cid": 4, "name": "Lyra", "ac": 14, "hp": 30, "condition_stacks": [], "saving_throws": {}, "ability_mods": {}})()
+        self.app._name_role_memory.update({"Aelar": "enemy", "Dorian": "pc", "Bran": "ally", "Lyra": "ally"})
+        self.app._lan_positions[3] = (5, 5)
+        self.app._lan_positions[5] = (6, 5)
+        self.app._lan_positions[4] = (6, 6)
+
+        def _profile_for_name(name):
+            lowered = str(name).strip().lower()
+            if lowered in {"dorian", "bran"}:
+                cha = 18 if lowered == "dorian" else 14
+                return {
+                    "abilities": {"cha": cha},
+                    "features": [
+                        {
+                            "id": "aura_of_protection_2024",
+                            "grants": {
+                                "aura": {
+                                    "id": "aura_of_protection_2024",
+                                    "name": "Aura of Protection",
+                                    "radius_ft": 10,
+                                    "save_bonus": {"ability_mod": "cha", "minimum": 1},
+                                    "damage_resistances": ["necrotic", "psychic", "radiant"],
+                                    "condition_immunities": ["frightened"],
+                                }
+                            },
+                        }
+                    ],
+                }
+            return {
+                "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+                "attacks": {"weapon_to_hit": 5, "weapons": [{"id": "longsword", "name": "Longsword", "to_hit": 7}]},
+            }
+
+        self.app._profile_for_player_name = _profile_for_name
+
+        aura = self.app._lan_aura_effects_for_target(self.app.combatants[4])
+
+        self.assertEqual(aura.get("save_bonus"), 4)
+        self.assertIn("radiant", set(aura.get("damage_resistances") or set()))
+        self.assertIn("frightened", set(aura.get("condition_immunities") or set()))
     def test_attack_request_applies_dorian_aura_damage_resistance(self):
         self.app.combatants[3] = type(
             "C",
