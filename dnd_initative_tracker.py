@@ -6154,6 +6154,15 @@ class InitiativeTracker(base.InitiativeTracker):
                         f"({'PASS' if save_passed else 'FAIL'})"
                     )
                     if save_passed:
+                        end_concentration_cid = _normalize_cid_value(
+                            rider.get("end_caster_concentration_on_save"),
+                            "turn.start.rider.end_concentration",
+                            log_fn=self._oplog,
+                        )
+                        if end_concentration_cid is not None:
+                            caster = self.combatants.get(int(end_concentration_cid))
+                            if caster is not None and bool(getattr(caster, "concentrating", False)):
+                                self._end_concentration(caster)
                         remaining_riders = [
                             rider
                             for rider in remaining_riders
@@ -22921,6 +22930,7 @@ class InitiativeTracker(base.InitiativeTracker):
             is_polymorph = preset_slug == "polymorph" or preset_id == "polymorph"
             is_phantasmal_killer = preset_slug == "phantasmal-killer" or preset_id == "phantasmal-killer"
             is_tashas_hideous_laughter = preset_slug == "tasha-s-hideous-laughter" or preset_id == "tasha-s-hideous-laughter"
+            is_heat_metal = preset_slug in ("heat-metal", "heat_metal") or preset_id in ("heat-metal", "heat_metal")
             haste_duration_turns = 10
             haste_ac_bonus = 2
             if is_haste and isinstance(preset, dict):
@@ -23237,12 +23247,22 @@ class InitiativeTracker(base.InitiativeTracker):
                 if isinstance(seq_step, dict):
                     outcomes = seq_step.get("outcomes") if isinstance(seq_step.get("outcomes"), dict) else {}
                     resolved_bucket = _bucket_for_outcome(outcomes, bool(save_passed), "")
+                if is_heat_metal and not any(
+                    str(effect.get("effect") or "").strip().lower() == "damage"
+                    for effect in resolved_bucket
+                    if isinstance(effect, dict)
+                ):
+                    heat_metal_damage: Dict[str, Any] = {"effect": "damage", "damage_type": "fire", "dice": "2d8"}
+                    scaling_cfg = mechanics.get("scaling") if isinstance(mechanics.get("scaling"), dict) else None
+                    if isinstance(scaling_cfg, dict):
+                        heat_metal_damage["scaling"] = dict(scaling_cfg)
+                    resolved_bucket = [heat_metal_damage]
                 has_automated_save_damage = any(
                     str(effect.get("effect") or "").strip().lower() == "damage"
                     for effect in resolved_bucket
                     if isinstance(effect, dict)
                 )
-                if save_passed and not has_automated_save_damage:
+                if save_passed and not has_automated_save_damage and not is_heat_metal:
                     result_payload["hit"] = False
                     result_payload["damage_total"] = 0
                     msg["_spell_target_result"] = dict(result_payload)
@@ -23506,6 +23526,39 @@ class InitiativeTracker(base.InitiativeTracker):
                 )
                 if haste_applied:
                     result_payload["haste_applied"] = True
+
+            if hit and is_heat_metal and c is not None and total_damage > 0:
+                current_targets = list(getattr(c, "concentration_target", []) or [])
+                if int(target.cid) not in current_targets:
+                    current_targets.append(int(target.cid))
+                self._start_concentration(
+                    c,
+                    "heat-metal",
+                    spell_level=int(slot_level) if slot_level is not None else int((preset or {}).get("level") or 0) or None,
+                    targets=current_targets,
+                )
+                heat_metal_group = f"heat_metal_{int(c.cid)}_{int(target.cid)}"
+                heat_metal_dice = self._smite_damage_dice(
+                    {"base_dice": "2d8", "base_slot": 2, "upcast_die": "1d8"},
+                    slot_level,
+                ) or "2d8"
+                start_turn_damage_riders = [
+                    rider
+                    for rider in list(getattr(target, "start_turn_damage_riders", []) or [])
+                    if str((rider or {}).get("clear_group") or "").strip().lower() != heat_metal_group
+                ]
+                start_turn_damage_riders.append(
+                    {
+                        "dice": str(heat_metal_dice),
+                        "type": "fire",
+                        "source": f"Heat Metal ({c.name})",
+                        "save_ability": "con",
+                        "save_dc": int(save_dc) if save_dc > 0 else 0,
+                        "clear_group": heat_metal_group,
+                        "end_caster_concentration_on_save": int(c.cid),
+                    }
+                )
+                setattr(target, "start_turn_damage_riders", start_turn_damage_riders)
 
             if hit and total_damage > 0:
                 before_hp = _parse_int(getattr(target, "hp", None), None)
@@ -26359,6 +26412,17 @@ class InitiativeTracker(base.InitiativeTracker):
                 if target is None:
                     continue
                 self._clear_tashas_hideous_laughter_target_effect(c, target)
+        if spell_key in {"heat-metal", "heat_metal"}:
+            for target_cid in targets:
+                target = self.combatants.get(int(target_cid))
+                if target is None:
+                    continue
+                group = f"heat_metal_{int(c.cid)}_{int(target_cid)}"
+                start_turn_damage_riders = [
+                    rider for rider in list(getattr(target, "start_turn_damage_riders", []) or [])
+                    if str((rider or {}).get("clear_group") or "").strip().lower() != group
+                ]
+                setattr(target, "start_turn_damage_riders", start_turn_damage_riders)
         if not spell_key:
             return
         candidate_group_ids = {str(getattr(self.combatants.get(int(tid)), "summon_group_id", "") or "").strip() for tid in targets}
