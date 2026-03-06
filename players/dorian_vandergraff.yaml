@@ -121,6 +121,12 @@ resources:
     max: 1
     max_formula: '1'
     reset: long_rest
+  - id: paladins_smite
+    label: Paladin's Smite (Divine Smite)
+    current: 1
+    max: 1
+    max_formula: '1'
+    reset: long_rest
 features:
 - id: channel_divinity
   name: Channel Divinity
@@ -190,6 +196,27 @@ features:
         action_type: action
         consumes:
           pool: faithful_steed
+          cost: 1
+- id: paladins_smite
+  name: Paladin's Smite
+  category: Paladin Feature
+  source: PHB2024
+  level: 2
+  description: You always have Divine Smite prepared. You can cast it once without expending a spell slot, regaining this free cast when you finish a Long Rest.
+  grants:
+    always_prepared_spells:
+    - divine-smite
+    pools:
+    - id: paladins_smite
+      label: Paladin's Smite (Divine Smite)
+      max_formula: '1'
+      reset: long_rest
+    spells:
+      casts:
+      - spell: divine-smite
+        action_type: bonus_action
+        consumes:
+          pool: paladins_smite
           cost: 1
 actions:
 - name: Attack

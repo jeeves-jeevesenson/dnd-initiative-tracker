@@ -58,6 +58,22 @@ class PlayerYamlValidityTests(unittest.TestCase):
         self.assertEqual(((spellcasting.get("cantrips") or {}).get("known") or []), ["eldritch-blast", "mage-hand"])
         self.assertEqual(((spellcasting.get("prepared_spells") or {}).get("prepared") or []), ["hex", "armor-of-agathys"])
 
+
+    def test_dorian_paladins_smite_feature_present(self):
+        data = self._load("players/dorian_vandergraff.yaml")
+        features = data.get("features") or []
+        paladins_smite = next((entry for entry in features if (entry or {}).get("id") == "paladins_smite"), {})
+        self.assertEqual((paladins_smite.get("grants") or {}).get("always_prepared_spells"), ["divine-smite"])
+        casts = ((((paladins_smite.get("grants") or {}).get("spells") or {}).get("casts")) or [])
+        divine_smite_cast = next((entry for entry in casts if (entry or {}).get("spell") == "divine-smite"), {})
+        self.assertEqual((divine_smite_cast.get("consumes") or {}).get("pool"), "paladins_smite")
+        self.assertEqual((divine_smite_cast.get("consumes") or {}).get("cost"), 1)
+        pools = (((data.get("resources") or {}).get("pools")) or [])
+        paladins_smite_pool = next((entry for entry in pools if (entry or {}).get("id") == "paladins_smite"), {})
+        self.assertEqual(paladins_smite_pool.get("max"), 1)
+        self.assertEqual(paladins_smite_pool.get("current"), 1)
+        self.assertEqual(paladins_smite_pool.get("reset"), "long_rest")
+
     def test_stikhiya_save_abbreviation_uses_cha(self):
         data = self._load("players/стихия.yaml")
         saves = ((data.get("proficiency") or {}).get("saves") or [])
