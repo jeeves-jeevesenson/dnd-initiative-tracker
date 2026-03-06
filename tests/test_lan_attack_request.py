@@ -209,7 +209,7 @@ class LanAttackRequestTests(unittest.TestCase):
             "hit": True,
         }
 
-        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4]):
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=4):
             self.app._lan_apply_action(msg)
 
         result = msg.get("_attack_result")
@@ -822,7 +822,7 @@ class LanAttackRequestTests(unittest.TestCase):
             "hit": True,
         }
 
-        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4]):
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=4):
             self.app._lan_apply_action(msg)
 
         result = msg.get("_attack_result")
@@ -1936,6 +1936,78 @@ class LanAttackRequestTests(unittest.TestCase):
         }
         self.app._lan_apply_action(msg)
         self.assertFalse(any(getattr(st, "ctype", "") == "star_advantage" for st in self.app.combatants[2].condition_stacks))
+
+
+    def test_cast_mirror_image_applies_condition_and_duplicate_counter(self):
+        self.app._find_spell_preset = lambda **_kwargs: {
+            "slug": "mirror-image",
+            "id": "mirror-image",
+            "name": "Mirror Image",
+            "level": 2,
+            "casting_time": "Action",
+            "action_type": "action",
+            "duration": "1 minute",
+            "concentration": False,
+            "summon": None,
+        }
+        self.app._consume_spell_slot_for_cast = lambda *args, **kwargs: (True, "", 2)
+        self.app._combatant_can_cast_spell = lambda *_args, **_kwargs: True
+        self.app._use_action = lambda *_args, **_kwargs: True
+        self.app._use_bonus_action = lambda *_args, **_kwargs: True
+        self.app._use_reaction = lambda *_args, **_kwargs: True
+        self.app._lan_force_state_broadcast = lambda: None
+        self.app._spell_duration_to_turns = lambda _preset: 10
+        self.app._canonical_concentration_spell_key = lambda *_args, **_kwargs: "mirror-image"
+        self.app._rebuild_table = lambda *args, **kwargs: None
+        self.app.combatants[1].spell_cast_remaining = 1
+
+        self.app._lan_apply_action(
+            {
+                "type": "cast_spell",
+                "cid": 1,
+                "_claimed_cid": 1,
+                "_ws_id": 93,
+                "spell_slug": "mirror-image",
+                "slot_level": 2,
+                "payload": {"spell_slug": "mirror-image", "slot_level": 2},
+            }
+        )
+
+        mirror_stacks = [
+            st
+            for st in (getattr(self.app.combatants[1], "condition_stacks", []) or [])
+            if str(getattr(st, "ctype", "")).lower() == "mirror_image"
+        ]
+        self.assertEqual(len(mirror_stacks), 1)
+        self.assertEqual(getattr(mirror_stacks[0], "remaining_turns", None), 10)
+        self.assertEqual(getattr(self.app.combatants[1], "_mirror_image_duplicates", None), 3)
+
+    def test_attack_request_mirror_image_intercepts_and_spends_duplicate(self):
+        self.app.combatants[2].condition_stacks = [
+            tracker_mod.base.ConditionStack(sid=44, ctype="mirror_image", remaining_turns=10)
+        ]
+        self.app.combatants[2]._mirror_image_duplicates = 3
+
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 94,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [{"amount": 8, "type": "slashing"}],
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=4):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertFalse(result.get("hit"))
+        self.assertEqual(result.get("damage_total"), 0)
+        self.assertEqual(self.app.combatants[2].hp, 20)
+        self.assertEqual(getattr(self.app.combatants[2], "_mirror_image_duplicates", None), 2)
 
 
 if __name__ == "__main__":

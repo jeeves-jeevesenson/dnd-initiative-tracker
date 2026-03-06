@@ -61,4 +61,4 @@ mechanics:
   ui:
     template_preview: false
   notes:
-  - Creates three illusory duplicates that can intercept incoming attacks; duplicate destruction and d6 checks are handled manually.
+  - Applies a mirror_image condition with 3 duplicates; attack hits against the caster now auto-roll duplicate d6 checks and destroy images on 3+, ending early when all images are gone.

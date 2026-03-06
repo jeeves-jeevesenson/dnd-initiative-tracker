@@ -18248,6 +18248,64 @@ class InitiativeTracker(base.InitiativeTracker):
             return True, "spell_slot"
         return False, "no_resource"
 
+    def _mirror_image_stack_for_target(self, target: Any) -> Optional[Any]:
+        stacks = list(getattr(target, "condition_stacks", []) or [])
+        for st in stacks:
+            if str(getattr(st, "ctype", "") or "").strip().lower() == "mirror_image":
+                return st
+        return None
+
+    def _mirror_image_duplicate_count(self, target: Any) -> int:
+        stack = self._mirror_image_stack_for_target(target)
+        if stack is None:
+            setattr(target, "_mirror_image_duplicates", 0)
+            return 0
+        try:
+            count = int(getattr(target, "_mirror_image_duplicates", 0) or 0)
+        except Exception:
+            count = 0
+        if count <= 0:
+            count = 3
+            setattr(target, "_mirror_image_duplicates", int(count))
+        return int(max(0, count))
+
+    def _remove_mirror_image(self, target: Any) -> None:
+        stacks = [
+            st
+            for st in list(getattr(target, "condition_stacks", []) or [])
+            if str(getattr(st, "ctype", "") or "").strip().lower() != "mirror_image"
+        ]
+        setattr(target, "condition_stacks", stacks)
+        setattr(target, "_mirror_image_duplicates", 0)
+
+    def _mirror_image_try_intercept_hit(self, target: Any, *, attacker_name: str, attack_name: str) -> bool:
+        duplicates = self._mirror_image_duplicate_count(target)
+        if duplicates <= 0:
+            return False
+        rolls = [random.randint(1, 6) for _ in range(int(duplicates))]
+        intercepted = any(int(val) >= 3 for val in rolls)
+        if not intercepted:
+            self._log(
+                f"Mirror Image: {attacker_name} attacks {getattr(target, 'name', 'Target')} with {attack_name}; "
+                f"duplicates roll {rolls} and fail to intercept.",
+                cid=int(getattr(target, "cid", 0) or 0),
+            )
+            return False
+        remaining = max(0, int(duplicates) - 1)
+        setattr(target, "_mirror_image_duplicates", int(remaining))
+        self._log(
+            f"Mirror Image: {attacker_name} attacks {getattr(target, 'name', 'Target')} with {attack_name}; "
+            f"duplicates roll {rolls} and one image is destroyed ({remaining} left).",
+            cid=int(getattr(target, "cid", 0) or 0),
+        )
+        if remaining <= 0:
+            self._remove_mirror_image(target)
+            self._log(
+                f"{getattr(target, 'name', 'Target')}\'s Mirror Image ends (all duplicates destroyed).",
+                cid=int(getattr(target, "cid", 0) or 0),
+            )
+        return True
+
     def _absorb_elements_state(self, target: Any) -> Dict[str, Any]:
         state = getattr(target, "_absorb_elements_state", None)
         return dict(state) if isinstance(state, dict) else {}
@@ -21226,6 +21284,14 @@ class InitiativeTracker(base.InitiativeTracker):
                     targets=[int(c.cid)],
                 )
                 self._ensure_condition_stack(c, "ensnaring_strike", int(duration_turns))
+            mirror_image_slug_keys = {"mirror-image", "mirror_image"}
+            if c is not None and (preset_slug in mirror_image_slug_keys or preset_id in mirror_image_slug_keys):
+                duration_turns = self._spell_duration_to_turns(preset)
+                if duration_turns is None or int(duration_turns) <= 0:
+                    duration_turns = 10
+                self._ensure_condition_stack(c, "mirror_image", int(duration_turns))
+                setattr(c, "_mirror_image_duplicates", 3)
+                self._log(f"{c.name} conjures 3 Mirror Image duplicates for {int(duration_turns)} rounds.", cid=int(c.cid))
             self._lan_force_state_broadcast()
             self._lan.toast(ws_id, f"Casted {preset.get('name') or 'spell'}.")
             return
@@ -23456,6 +23522,15 @@ class InitiativeTracker(base.InitiativeTracker):
                 dtype = str(effect.get("damage_type") or effect.get("type") or damage_type_hint or "damage").strip().lower() or "damage"
                 damage_entries.append({"amount": int(amount), "type": dtype})
 
+            if hit and spell_mode == "attack":
+                intercepted = self._mirror_image_try_intercept_hit(
+                    target,
+                    attacker_name=str(getattr(c, "name", "Attacker") or "Attacker"),
+                    attack_name=str(spell_name or "Spell Attack"),
+                )
+                if intercepted:
+                    hit = False
+                    damage_entries = []
             if hit and not bool(msg.get("_absorb_elements_resolution_done")):
                 req_id = self._maybe_offer_absorb_elements(
                     int(target_cid),
@@ -24455,6 +24530,14 @@ class InitiativeTracker(base.InitiativeTracker):
                         for attacker_ws in attacker_ws_targets:
                             self._lan.toast(int(attacker_ws), "Waiting for Shield response…")
                         return
+            if hit:
+                intercepted = self._mirror_image_try_intercept_hit(
+                    target,
+                    attacker_name=str(getattr(c, "name", "Attacker") or "Attacker"),
+                    attack_name=str(selected_weapon.get("name") or "Attack"),
+                )
+                if intercepted:
+                    hit = False
             pending_star_advantage = getattr(c, "pending_star_advantage_charge", None)
             star_advantage_attempted = isinstance(pending_star_advantage, dict)
             if star_advantage_attempted:
