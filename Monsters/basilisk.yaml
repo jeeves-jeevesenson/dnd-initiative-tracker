@@ -1,6 +1,8 @@
 name: Basilisk
 size: Medium
 type: Monstrosity
+tags:
+- shatter_disadvantage
 alignment: Unaligned
 initiative: '-1'
 ac: '15'

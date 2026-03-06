@@ -1,6 +1,8 @@
 name: Animated Armor
 size: Medium
 type: Construct
+tags:
+- shatter_disadvantage
 alignment: Unaligned
 initiative: '+2'
 ac: '18'

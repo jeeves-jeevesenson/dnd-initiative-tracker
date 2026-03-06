@@ -1,6 +1,8 @@
 name: Warhorse Skeleton
 size: Large
 type: Undead
+tags:
+- shatter_disadvantage
 alignment: Lawful Evil
 initiative: '+1'
 ac: '13'

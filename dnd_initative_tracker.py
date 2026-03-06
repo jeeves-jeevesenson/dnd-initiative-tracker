@@ -6154,6 +6154,15 @@ class InitiativeTracker(base.InitiativeTracker):
                         f"({'PASS' if save_passed else 'FAIL'})"
                     )
                     if save_passed:
+                        end_concentration_cid = _normalize_cid_value(
+                            rider.get("end_caster_concentration_on_save"),
+                            "turn.start.rider.end_concentration",
+                            log_fn=self._oplog,
+                        )
+                        if end_concentration_cid is not None:
+                            caster = self.combatants.get(int(end_concentration_cid))
+                            if caster is not None and bool(getattr(caster, "concentrating", False)):
+                                self._end_concentration(caster)
                         remaining_riders = [
                             rider
                             for rider in remaining_riders
@@ -10873,6 +10882,54 @@ class InitiativeTracker(base.InitiativeTracker):
             aoe["cy"] = float(current_pos[1])
             self._lan_handle_aoe_enter_triggers_for_aoe_move(int(aid), aoe, before)
 
+    def _combatant_has_monster_tag(self, target: base.Combatant, tag: str) -> bool:
+        normalized = str(tag or "").strip().lower()
+        if not normalized:
+            return False
+        spec = getattr(target, "monster_spec", None)
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        raw_tags = raw_data.get("tags") if isinstance(raw_data, dict) else None
+        if isinstance(raw_tags, list):
+            for entry in raw_tags:
+                if str(entry).strip().lower() == normalized:
+                    return True
+        return False
+
+    def _is_shatter_spell(self, spell_slug: str, spell_id: str, preset: Optional[Dict[str, Any]]) -> bool:
+        spell_keys = {
+            str(spell_slug or "").strip().lower(),
+            str(spell_id or "").strip().lower(),
+        }
+        if isinstance(preset, dict):
+            spell_keys.update(
+                {
+                    str(preset.get("slug") or "").strip().lower(),
+                    str(preset.get("id") or "").strip().lower(),
+                    str(preset.get("name") or "").strip().lower(),
+                }
+            )
+        return "shatter" in spell_keys
+
+    def _target_has_shatter_save_disadvantage(
+        self,
+        target: base.Combatant,
+        *,
+        spell_slug: str,
+        spell_id: str,
+        preset: Optional[Dict[str, Any]],
+    ) -> bool:
+        if not self._is_shatter_spell(spell_slug, spell_id, preset):
+            return False
+        if self._combatant_has_monster_tag(target, "shatter_disadvantage"):
+            return True
+        spec = getattr(target, "monster_spec", None)
+        if spec is None:
+            return False
+        raw_data = getattr(spec, "raw_data", None)
+        raw_type = raw_data.get("type") if isinstance(raw_data, dict) else None
+        type_text = str(raw_type or getattr(spec, "mtype", "") or "").strip().lower()
+        return type_text == "construct"
+
     def _lan_auto_resolve_cast_aoe(
         self,
         aid: int,
@@ -11152,7 +11209,16 @@ class InitiativeTracker(base.InitiativeTracker):
                     total = int(dc or 0)
                     passed = True
                 else:
-                    roll = int(random.randint(1, 20))
+                    save_disadvantage = self._target_has_shatter_save_disadvantage(
+                        target,
+                        spell_slug=spell_slug,
+                        spell_id=spell_id,
+                        preset=preset,
+                    )
+                    if save_disadvantage:
+                        roll = min(int(random.randint(1, 20)), int(random.randint(1, 20)))
+                    else:
+                        roll = int(random.randint(1, 20))
                     total = int(roll + save_mod)
                     passed = bool(roll != 1 and total >= int(dc))
             else:
@@ -22922,6 +22988,7 @@ class InitiativeTracker(base.InitiativeTracker):
             is_phantasmal_killer = preset_slug == "phantasmal-killer" or preset_id == "phantasmal-killer"
             is_tashas_hideous_laughter = preset_slug == "tasha-s-hideous-laughter" or preset_id == "tasha-s-hideous-laughter"
             is_hold_person = preset_slug == "hold-person" or preset_id == "hold-person"
+            is_heat_metal = preset_slug in ("heat-metal", "heat_metal") or preset_id in ("heat-metal", "heat_metal")
             haste_duration_turns = 10
             haste_ac_bonus = 2
             if is_haste and isinstance(preset, dict):
@@ -23238,12 +23305,22 @@ class InitiativeTracker(base.InitiativeTracker):
                 if isinstance(seq_step, dict):
                     outcomes = seq_step.get("outcomes") if isinstance(seq_step.get("outcomes"), dict) else {}
                     resolved_bucket = _bucket_for_outcome(outcomes, bool(save_passed), "")
+                if is_heat_metal and not any(
+                    str(effect.get("effect") or "").strip().lower() == "damage"
+                    for effect in resolved_bucket
+                    if isinstance(effect, dict)
+                ):
+                    heat_metal_damage: Dict[str, Any] = {"effect": "damage", "damage_type": "fire", "dice": "2d8"}
+                    scaling_cfg = mechanics.get("scaling") if isinstance(mechanics.get("scaling"), dict) else None
+                    if isinstance(scaling_cfg, dict):
+                        heat_metal_damage["scaling"] = dict(scaling_cfg)
+                    resolved_bucket = [heat_metal_damage]
                 has_automated_save_damage = any(
                     str(effect.get("effect") or "").strip().lower() == "damage"
                     for effect in resolved_bucket
                     if isinstance(effect, dict)
                 )
-                if save_passed and not has_automated_save_damage:
+                if save_passed and not has_automated_save_damage and not is_heat_metal:
                     result_payload["hit"] = False
                     result_payload["damage_total"] = 0
                     msg["_spell_target_result"] = dict(result_payload)
@@ -23534,6 +23611,39 @@ class InitiativeTracker(base.InitiativeTracker):
                 )
                 if haste_applied:
                     result_payload["haste_applied"] = True
+
+            if hit and is_heat_metal and c is not None and total_damage > 0:
+                current_targets = list(getattr(c, "concentration_target", []) or [])
+                if int(target.cid) not in current_targets:
+                    current_targets.append(int(target.cid))
+                self._start_concentration(
+                    c,
+                    "heat-metal",
+                    spell_level=int(slot_level) if slot_level is not None else int((preset or {}).get("level") or 0) or None,
+                    targets=current_targets,
+                )
+                heat_metal_group = f"heat_metal_{int(c.cid)}_{int(target.cid)}"
+                heat_metal_dice = self._smite_damage_dice(
+                    {"base_dice": "2d8", "base_slot": 2, "upcast_die": "1d8"},
+                    slot_level,
+                ) or "2d8"
+                start_turn_damage_riders = [
+                    rider
+                    for rider in list(getattr(target, "start_turn_damage_riders", []) or [])
+                    if str((rider or {}).get("clear_group") or "").strip().lower() != heat_metal_group
+                ]
+                start_turn_damage_riders.append(
+                    {
+                        "dice": str(heat_metal_dice),
+                        "type": "fire",
+                        "source": f"Heat Metal ({c.name})",
+                        "save_ability": "con",
+                        "save_dc": int(save_dc) if save_dc > 0 else 0,
+                        "clear_group": heat_metal_group,
+                        "end_caster_concentration_on_save": int(c.cid),
+                    }
+                )
+                setattr(target, "start_turn_damage_riders", start_turn_damage_riders)
 
             if hit and total_damage > 0:
                 before_hp = _parse_int(getattr(target, "hp", None), None)
@@ -26399,6 +26509,17 @@ class InitiativeTracker(base.InitiativeTracker):
                 ]
                 setattr(target, "end_turn_save_riders", end_turn_save_riders)
                 self._remove_condition_type(target, "paralyzed")
+        if spell_key in {"heat-metal", "heat_metal"}:
+            for target_cid in targets:
+                target = self.combatants.get(int(target_cid))
+                if target is None:
+                    continue
+                group = f"heat_metal_{int(c.cid)}_{int(target_cid)}"
+                start_turn_damage_riders = [
+                    rider for rider in list(getattr(target, "start_turn_damage_riders", []) or [])
+                    if str((rider or {}).get("clear_group") or "").strip().lower() != group
+                ]
+                setattr(target, "start_turn_damage_riders", start_turn_damage_riders)
         if not spell_key:
             return
         candidate_group_ids = {str(getattr(self.combatants.get(int(tid)), "summon_group_id", "") or "").strip() for tid in targets}
@@ -26666,13 +26787,13 @@ class InitiativeTracker(base.InitiativeTracker):
         index_data = _read_index_file(index_path)
         cache_version = int(index_data.get("version") or 0) if isinstance(index_data, dict) else 0
         cached_entries = index_data.get("entries") if isinstance(index_data.get("entries"), dict) else {}
-        if cache_version < 3:
+        if cache_version < 4:
             cached_entries = {}
         new_entries: Dict[str, Any] = {}
         yaml_missing_logged = False
 
         if not files:
-            _write_index_file(index_path, {"version": 3, "entries": {}})
+            _write_index_file(index_path, {"version": 4, "entries": {}})
             return
 
         for fp in files:
@@ -26754,6 +26875,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "traits", "actions", "attacks", "reactions", "legendary_actions", "description", "habitat", "treasure", "levels_allowed",
                     "variants", "damage_type_by_variant", "bonus_actions",
                     "skills", "senses",
+                    "tags",
                     "damage_vulnerabilities", "damage_resistances", "damage_immunities", "condition_immunities",
                     "vulnerabilities", "resistances", "immunities",
                 ):
@@ -26914,7 +27036,7 @@ class InitiativeTracker(base.InitiativeTracker):
             }
 
         self._monster_specs.sort(key=lambda spec: (spec.name.lower(), str(spec.filename).lower()))
-        _write_index_file(index_path, {"version": 3, "entries": new_entries})
+        _write_index_file(index_path, {"version": 4, "entries": new_entries})
 
 
     def _load_monster_details(self, name: str) -> Optional[MonsterSpec]:
@@ -26962,6 +27084,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "bonus_actions",
             "skills",
             "senses",
+            "tags",
             "damage_vulnerabilities",
             "damage_resistances",
             "damage_immunities",

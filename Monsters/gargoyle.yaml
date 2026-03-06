@@ -1,6 +1,8 @@
 name: Gargoyle
 size: Medium
 type: Elemental
+tags:
+- shatter_disadvantage
 alignment: Chaotic Evil
 initiative: '+2'
 ac: '15'

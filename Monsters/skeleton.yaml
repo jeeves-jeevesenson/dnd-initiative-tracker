@@ -1,6 +1,8 @@
 name: Skeleton
 size: Medium
 type: Undead
+tags:
+- shatter_disadvantage
 alignment: Lawful Evil
 initiative: '+3'
 ac: '14'

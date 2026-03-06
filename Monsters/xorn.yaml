@@ -1,6 +1,8 @@
 name: Xorn
 size: Medium
 type: Elemental
+tags:
+- shatter_disadvantage
 alignment: Neutral
 initiative: '+0'
 ac: '19'
