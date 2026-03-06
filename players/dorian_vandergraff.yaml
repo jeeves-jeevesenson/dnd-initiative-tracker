@@ -140,6 +140,11 @@ features:
         consumes:
           pool: channel_divinity
           cost: 1
+      - spell: abjure-foes
+        action_type: action
+        consumes:
+          pool: channel_divinity
+          cost: 1
 - id: aura_of_protection_2024
   name: Aura of Protection
   passive: true

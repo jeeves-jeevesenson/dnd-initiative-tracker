@@ -11230,6 +11230,21 @@ class InitiativeTracker(base.InitiativeTracker):
                     next_sid = int(getattr(self, "_next_stack_id", 1) or 1)
                     self._next_stack_id = next_sid + 1
                     target.condition_stacks.append(base.ConditionStack(sid=next_sid, ctype=condition_key, remaining_turns=remaining_turns))
+                    if bool(effect.get("ends_on_damage")):
+                        clear_group = str(effect.get("clear_group") or f"aoe_{int(aid)}_{condition_key}_{int(target_cid)}").strip().lower()
+                        damage_clear = [
+                            rider
+                            for rider in list(getattr(target, "damage_clear_condition_riders", []) or [])
+                            if str((rider or {}).get("clear_group") or "").strip().lower() != clear_group
+                        ]
+                        damage_clear.append(
+                            {
+                                "clear_group": clear_group,
+                                "condition": condition_key,
+                                "source": spell_name,
+                            }
+                        )
+                        setattr(target, "damage_clear_condition_riders", damage_clear)
                     if bool(effect.get("repeat_save_end_of_turn")) and requires_save and ability and int(dc or 0) > 0:
                         repeat_group = f"aoe_{int(aid)}_{condition_key}_{int(target_cid)}"
                         end_turn_save_riders = [
@@ -26081,6 +26096,24 @@ class InitiativeTracker(base.InitiativeTracker):
         setattr(target, "hp", int(hp_after))
         if damage > 0:
             self._remove_condition_type(target, "star_advantage")
+            damage_clear_riders = list(getattr(target, "damage_clear_condition_riders", []) or [])
+            remaining_damage_clear_riders = []
+            for rider in damage_clear_riders:
+                if not isinstance(rider, dict):
+                    continue
+                condition = str(rider.get("condition") or "").strip().lower()
+                if not condition:
+                    continue
+                self._remove_condition_type(target, condition)
+                clear_group = str(rider.get("clear_group") or "").strip().lower()
+                if clear_group:
+                    end_turn_save_riders = [
+                        entry
+                        for entry in list(getattr(target, "end_turn_save_riders", []) or [])
+                        if str((entry or {}).get("clear_group") or "").strip().lower() != clear_group
+                    ]
+                    setattr(target, "end_turn_save_riders", end_turn_save_riders)
+            setattr(target, "damage_clear_condition_riders", remaining_damage_clear_riders)
         self._maybe_end_polymorph_from_temp_hp(target, temp_before=temp_before, temp_after=temp_after)
         return {"temp_absorbed": absorbed, "hp_after": hp_after, "hp_damage": hp_damage}
 

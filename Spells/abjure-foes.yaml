@@ -1,0 +1,62 @@
+schema: dnd55.spell.v1
+id: abjure-foes
+name: Abjure Foes
+color: "#E8D38A"
+edition: '2024'
+source:
+  book: "Paladin"
+  page: null
+  srd: false
+level: 5
+school: abjuration
+tags:
+- aoe
+- save
+- control
+- automation_full
+casting_time: Action
+range: Self
+components: V, S, M
+duration: 1 minute
+ritual: false
+concentration: false
+lists:
+  classes:
+  - paladin
+text:
+  summary: You present your holy symbol or weapon and overwhelm foes with awe.
+  rules: As a Magic action, expend one use of Channel Divinity to target creatures you can see in a 60-foot cone from you. You can target up to your Charisma modifier (minimum one creature). Each target must succeed on a Wisdom saving throw or be Frightened for 1 minute or until it takes any damage.
+  higher_level: null
+mechanics:
+  automation: full
+  targeting:
+    origin: self
+    range:
+      kind: self
+    area:
+      shape: cone
+      length_ft: 60
+      angle_deg: 180
+    target_selection:
+      mode: area
+      friendly_fire: false
+  sequence:
+  - id: abjure_foes
+    name: Abjure Foes
+    check:
+      kind: saving_throw
+      ability: wisdom
+      dc: spell_save_dc
+    outcomes:
+      fail:
+      - effect: condition
+        condition: frightened
+        duration_turns: 10
+        ends_on_damage: true
+      success: []
+  scaling: null
+  ui:
+    template_preview: true
+  notes:
+  - DM should manually enforce the "move, action, or bonus action" limitation.
+  - The Frightened condition from this spell is automatically removed when the target takes damage.
