@@ -22355,6 +22355,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._lan.toast(ws_id, "Ye can't downcast that spell, matey.")
                 return
 
+            c = self.combatants.get(cid) if cid is not None else None
             if summon_cfg:
                 resolved_summon, summon_err = self._resolve_spell_summon_request(
                     preset=preset,
@@ -22406,7 +22407,6 @@ class InitiativeTracker(base.InitiativeTracker):
                             if dist_ft - max_range_ft > 1e-6:
                                 self._lan.toast(ws_id, "That square be out of spell range, matey.")
                                 return
-            c = self.combatants.get(cid) if cid is not None else None
             beguiling_magic_slot_equivalent_used = False
             preset_school = str(preset.get("school") or "").strip().lower()
             if c is not None and not is_admin:
