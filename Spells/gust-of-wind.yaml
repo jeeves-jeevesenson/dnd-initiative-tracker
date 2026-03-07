@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: gust-of-wind
 name: Gust of Wind
-color: "#1E90FF"
+color: '#1E90FF'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 2
@@ -46,7 +46,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   targeting:
     origin: self
     range:
@@ -66,11 +66,22 @@ mechanics:
       ability: strength
       dc: spell_save_dc
     outcomes:
-      fail: []
+      fail:
+      - effect: movement
+        kind: push
+        distance_ft: 15
+        origin: aoe_direction
       success: []
   scaling: null
   ui:
     template_preview: false
   notes:
-  - Failed save: target is pushed 15 feet along the line; saving throws repeat if ending its turn in the line.
-  - Moving toward the caster costs extra movement; wind disperses gas and extinguishes flames.
+  - 'Failed save: target is pushed 15 feet along the line; saving throws repeat if
+    ending its turn in the line.'
+  - Moving toward the caster costs extra movement; wind disperses gas and extinguishes
+    flames.
+  aoe_behavior:
+    map_effect: true
+    persistent_default: true
+    over_time_default: true
+    trigger_mode: enter_or_end

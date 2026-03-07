@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 import dnd_initative_tracker as tracker_mod
 
@@ -385,6 +386,63 @@ class ConcentrationEnforcementTests(unittest.TestCase):
         slugs = {entry[2] for entry in calls}
         self.assertIn("zone-of-truth", slugs)
         self.assertIn("spike-growth", slugs)
+
+
+    def test_gust_of_wind_map_trigger_pushes_along_line_via_shared_movement_helper(self):
+        caster = self.app.combatants[1]
+        target = self.app.combatants[2]
+        self.app._lan_positions[caster.cid] = (5, 5)
+        self.app._lan_positions[target.cid] = (7, 5)
+        target.saving_throws = {"str": 0}
+        target.ability_mods = {"str": 0}
+
+        self.app._lan_auto_resolve_cast_aoe = tracker_mod.InitiativeTracker._lan_auto_resolve_cast_aoe.__get__(
+            self.app,
+            tracker_mod.InitiativeTracker,
+        )
+        self.app._find_spell_preset = lambda **_kwargs: {
+            "slug": "gust-of-wind",
+            "id": "gust-of-wind",
+            "name": "Gust of Wind",
+            "automation": "full",
+            "tags": ["aoe", "automation_full"],
+            "mechanics": {
+                "sequence": [
+                    {
+                        "check": {"kind": "saving_throw", "ability": "strength", "dc": "spell_save_dc"},
+                        "outcomes": {
+                            "fail": [{"effect": "movement", "kind": "push", "distance_ft": 15, "origin": "aoe_direction"}],
+                            "success": [],
+                        },
+                    }
+                ]
+            },
+        }
+
+        aoe = {
+            "kind": "line",
+            "cx": 5.0,
+            "cy": 5.0,
+            "ax": 5.0,
+            "ay": 4.0,
+            "angle_deg": 90.0,
+            "length_sq": 12.0,
+            "width_sq": 2.0,
+            "save_type": "str",
+            "dc": 13,
+            "spell_slug": "gust-of-wind",
+            "spell_id": "gust-of-wind",
+            "owner_cid": caster.cid,
+            "slot_level": 2,
+            "over_time": True,
+            "trigger_on_start_or_enter": "enter_or_end",
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=3):
+            applied = self.app._lan_apply_aoe_trigger_to_targets(33, aoe, target_cids=[target.cid])
+
+        self.assertTrue(applied)
+        self.assertEqual(self.app._lan_positions.get(target.cid), (10, 5))
 
 if __name__ == "__main__":
     unittest.main()

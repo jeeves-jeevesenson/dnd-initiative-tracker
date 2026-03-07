@@ -1180,6 +1180,53 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertFalse(any(getattr(st, "ctype", None) == "blinded" for st in self.app.combatants[2].condition_stacks))
         self.assertEqual(getattr(self.app.combatants[2], "end_turn_save_riders", []), [])
 
+
+    def test_thunderous_smite_failed_save_uses_shared_forced_movement_helper(self):
+        self.app._profile_for_player_name = lambda _name: {
+            "abilities": {"str": 16},
+            "spellcasting": {"save_dc": 13},
+            "leveling": {"classes": [{"name": "Paladin", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapons": [
+                    {
+                        "id": "longsword",
+                        "name": "Longsword",
+                        "to_hit": 7,
+                        "one_handed": {"damage_formula": "1d8 + str_mod", "damage_type": "slashing"},
+                    }
+                ]
+            },
+        }
+        self.app.combatants[1].pending_smite_charge = {
+            "slug": "thunderous-smite",
+            "name": "Thunderous Smite",
+            "slot_level": 1,
+            "save_dc": 13,
+        }
+        self.app.combatants[1].spell_cast_remaining = 1
+        self.app.combatants[1].action_remaining = 1
+        self.app.combatants[2].saving_throws = {"str": 0}
+        self.app.combatants[2].ability_mods = {"str": 0}
+        self.app._lan_positions = {1: (5, 5), 2: (5, 4)}
+
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 58,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+        }
+
+        real = tracker_mod.InitiativeTracker._apply_spell_forced_movement.__get__(self.app, tracker_mod.InitiativeTracker)
+        with mock.patch.object(self.app, "_apply_spell_forced_movement", wraps=real) as movement_helper_mock:
+            with mock.patch("dnd_initative_tracker.random.randint", return_value=1):
+                self.app._lan_apply_action(msg)
+
+        self.assertGreaterEqual(movement_helper_mock.call_count, 1)
+        self.assertEqual(self.app._lan_positions.get(2), (5, 2))
+
     def test_end_turn_cleanup_applies_hellfire_rider_damage(self):
         self.app.combatants[2].end_turn_damage_riders = [
             {"dice": "1d6", "type": "hellfire", "remaining_turns": 1, "source": "Hellfire Battleaxe (+2) (Aelar)"}

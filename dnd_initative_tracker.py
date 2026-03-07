@@ -1175,7 +1175,11 @@ _SMITE_SPELL_CONFIG: Dict[str, Dict[str, Any]] = {
         "base_dice": "2d6",
         "base_slot": 1,
         "upcast_die": "1d6",
-        "save": {"ability": "str", "apply_prone": True, "push_10ft": True},
+        "save": {
+            "ability": "str",
+            "apply_prone": True,
+            "forced_movement": {"effect": "movement", "kind": "push", "distance_ft": 10, "origin": "caster"},
+        },
     },
     "wrathful-smite": {
         "damage_type": "necrotic",
@@ -11842,39 +11846,15 @@ class InitiativeTracker(base.InitiativeTracker):
                 after = int(getattr(target, "hp", 0) or 0)
             forced_move_notes: List[str] = []
             if forced_moves:
+                fallback_cell = (int(round(float(aoe.get("cx", 0.0)))), int(round(float(aoe.get("cy", 0.0)))))
                 for forced in forced_moves:
-                    origin = str(forced.get("origin") or "caster").strip().lower()
-                    source_cid = int(caster.cid) if caster is not None else None
-                    source_cell = None
-                    direction_step = None
-                    if origin == "aoe_center":
-                        source_cell = (int(round(float(aoe.get("cx", 0.0)))), int(round(float(aoe.get("cy", 0.0)))))
-                        source_cid = None
-                    elif origin == "aoe_direction":
-                        angle = forced.get("angle_deg")
-                        if angle is None:
-                            angle = aoe.get("angle_deg")
-                        if angle is None and caster is not None:
-                            angle = getattr(caster, "facing_deg", 0)
-                        direction_step = self._lan_direction_step_from_angle(angle)
-                    elif origin == "caster":
-                        fallback_cell = (int(round(float(aoe.get("cx", 0.0)))), int(round(float(aoe.get("cy", 0.0)))))
-                        source_cell = fallback_cell
-                        if source_cid is not None:
-                            try:
-                                _cols, _rows, _obstacles, _rough, live_positions = self._lan_live_map_data()
-                                caster_pos = dict(live_positions or {}).get(int(source_cid))
-                                if isinstance(caster_pos, tuple) and len(caster_pos) == 2:
-                                    source_cell = (int(caster_pos[0]), int(caster_pos[1]))
-                            except Exception:
-                                source_cell = fallback_cell
-                    moved = self._lan_apply_forced_movement(
-                        source_cid,
-                        int(target_cid),
-                        str(forced.get("mode") or "push"),
-                        float(forced.get("distance_ft") or 10.0),
-                        source_cell=source_cell,
-                        direction_step=direction_step,
+                    moved = self._apply_spell_forced_movement(
+                        forced,
+                        caster=caster,
+                        target=target,
+                        target_cid=int(target_cid),
+                        aoe=aoe,
+                        fallback_origin_cell=fallback_cell,
                     )
                     if moved:
                         forced_move_notes.append(str(forced.get("mode") or "push"))
@@ -26034,7 +26014,15 @@ class InitiativeTracker(base.InitiativeTracker):
                         if not save_passed:
                             if bool((smite_save_cfg or {}).get("apply_prone")) and _set_prone_if_needed(target):
                                 self._log(f"{c.name} knocks {result_payload['target_name']} prone.", cid=int(target_cid))
-                            if bool((smite_save_cfg or {}).get("push_10ft")):
+                            forced_movement_cfg = (smite_save_cfg or {}).get("forced_movement")
+                            if isinstance(forced_movement_cfg, dict):
+                                self._apply_spell_forced_movement(
+                                    forced_movement_cfg,
+                                    caster=c,
+                                    target=target,
+                                    target_cid=int(target_cid),
+                                )
+                            elif bool((smite_save_cfg or {}).get("push_10ft")):
                                 self._lan_apply_forced_movement(int(cid), int(target_cid), "push", 10.0)
                             smite_condition = str((smite_save_cfg or {}).get("condition") or "").strip().lower()
                             if smite_condition:
@@ -27122,6 +27110,163 @@ class InitiativeTracker(base.InitiativeTracker):
         )
         return max(0, int(self._roll_dice_expression(scaled)))
 
+    def _combatant_size_category(self, target: Any) -> str:
+        if target is None:
+            return ""
+        direct = str(getattr(target, "size", "") or "").strip().lower()
+        if direct in {"tiny", "small", "medium", "large", "huge", "gargantuan"}:
+            return direct
+        spec = getattr(target, "monster_spec", None)
+        raw = getattr(spec, "raw_data", None) if spec is not None else None
+        raw_size = str((raw or {}).get("size") or "").strip().lower() if isinstance(raw, dict) else ""
+        if raw_size in {"tiny", "small", "medium", "large", "huge", "gargantuan"}:
+            return raw_size
+        if bool(getattr(target, "is_pc", False)):
+            return "medium"
+        return ""
+
+    def _resolve_spell_forced_movement(
+        self,
+        effect: Dict[str, Any],
+        *,
+        caster: Optional[Any],
+        target: Optional[Any],
+        target_cid: Optional[int],
+        aoe: Optional[Dict[str, Any]] = None,
+        fallback_origin_cell: Optional[Tuple[int, int]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        if not isinstance(effect, dict):
+            return None
+        effect_name = str(effect.get("effect") or "").strip().lower()
+        if effect_name and effect_name not in ("movement", "forced_movement"):
+            return None
+        mode = str(effect.get("kind") or effect.get("mode") or effect.get("direction") or "").strip().lower()
+        if mode not in ("push", "pull"):
+            return None
+        try:
+            distance_ft = float(effect.get("distance_ft") or effect.get("distance") or 0)
+        except Exception:
+            distance_ft = 0.0
+        if distance_ft <= 0:
+            return None
+
+        max_target_size = str(effect.get("max_target_size") or "").strip().lower()
+        if max_target_size in {"tiny", "small", "medium", "large", "huge", "gargantuan"} and target is not None:
+            order = {"tiny": 0, "small": 1, "medium": 2, "large": 3, "huge": 4, "gargantuan": 5}
+            target_size = self._combatant_size_category(target)
+            if target_size in order and order[target_size] > order[max_target_size]:
+                return None
+
+        origin = str(effect.get("origin") or "caster").strip().lower()
+        source_cid = int(getattr(caster, "cid", 0) or 0) if caster is not None else None
+        source_cell: Optional[Tuple[int, int]] = None
+        direction_step: Optional[Tuple[int, int]] = None
+
+        explicit_source_cid = effect.get("source_cid")
+        if explicit_source_cid is not None:
+            try:
+                source_cid = int(explicit_source_cid)
+            except Exception:
+                pass
+
+        explicit_cell = effect.get("source_cell") if isinstance(effect.get("source_cell"), (list, tuple, dict)) else None
+        if explicit_cell is None and isinstance(effect.get("anchor_cell"), (list, tuple, dict)):
+            explicit_cell = effect.get("anchor_cell")
+        if isinstance(explicit_cell, dict):
+            try:
+                source_cell = (int(explicit_cell.get("col")), int(explicit_cell.get("row")))
+            except Exception:
+                source_cell = None
+        elif isinstance(explicit_cell, (list, tuple)) and len(explicit_cell) == 2:
+            try:
+                source_cell = (int(explicit_cell[0]), int(explicit_cell[1]))
+            except Exception:
+                source_cell = None
+
+        if origin == "aoe_center":
+            if isinstance(aoe, dict):
+                source_cell = (int(round(float(aoe.get("cx", 0.0)))), int(round(float(aoe.get("cy", 0.0)))) )
+            elif fallback_origin_cell is not None:
+                source_cell = (int(fallback_origin_cell[0]), int(fallback_origin_cell[1]))
+            source_cid = None
+        elif origin == "aoe_direction":
+            angle = effect.get("angle_deg")
+            if angle is None and isinstance(aoe, dict):
+                angle = aoe.get("angle_deg")
+            if angle is None and caster is not None:
+                angle = getattr(caster, "facing_deg", 0)
+            direction_step = self._lan_direction_step_from_angle(angle)
+            source_cid = None
+        elif origin == "caster":
+            if source_cid is None and source_cell is None and fallback_origin_cell is not None:
+                source_cell = (int(fallback_origin_cell[0]), int(fallback_origin_cell[1]))
+
+        if target_cid is None:
+            if target is None:
+                return None
+            try:
+                target_cid = int(getattr(target, "cid"))
+            except Exception:
+                return None
+
+        return {
+            "target_cid": int(target_cid),
+            "mode": mode,
+            "distance_ft": float(distance_ft),
+            "source_cid": source_cid,
+            "source_cell": source_cell,
+            "direction_step": direction_step,
+        }
+
+    def _apply_spell_forced_movement(
+        self,
+        effect: Dict[str, Any],
+        *,
+        caster: Optional[Any],
+        target: Optional[Any],
+        target_cid: Optional[int],
+        aoe: Optional[Dict[str, Any]] = None,
+        fallback_origin_cell: Optional[Tuple[int, int]] = None,
+    ) -> bool:
+        resolved = self._resolve_spell_forced_movement(
+            effect,
+            caster=caster,
+            target=target,
+            target_cid=target_cid,
+            aoe=aoe,
+            fallback_origin_cell=fallback_origin_cell,
+        )
+        if not isinstance(resolved, dict):
+            return False
+        moved = bool(
+            self._lan_apply_forced_movement(
+                resolved.get("source_cid"),
+                int(resolved.get("target_cid")),
+                str(resolved.get("mode") or "push"),
+                float(resolved.get("distance_ft") or 0.0),
+                source_cell=resolved.get("source_cell"),
+                direction_step=resolved.get("direction_step"),
+            )
+        )
+        if (
+            not moved
+            and str(effect.get("origin") or "caster").strip().lower() == "caster"
+            and resolved.get("source_cid") is not None
+            and resolved.get("source_cell") is None
+            and fallback_origin_cell is not None
+        ):
+            moved = bool(
+                self._lan_apply_forced_movement(
+                    None,
+                    int(resolved.get("target_cid")),
+                    str(resolved.get("mode") or "push"),
+                    float(resolved.get("distance_ft") or 0.0),
+                    source_cell=(int(fallback_origin_cell[0]), int(fallback_origin_cell[1])),
+                    direction_step=resolved.get("direction_step"),
+                )
+            )
+        return moved
+
     def _apply_spell_effect(self, effect: Dict[str, Any], ctx: Dict[str, Any], result_payload: Dict[str, Any]) -> None:
         effect_kind = str(effect.get("effect") or "").strip().lower()
         target = ctx.get("target")
@@ -27145,6 +27290,23 @@ class InitiativeTracker(base.InitiativeTracker):
             if amount <= 0:
                 return
             ctx.setdefault("healing_entries", []).append({"amount": int(amount), "type": "healing"})
+            return
+        if effect_kind in ("movement", "forced_movement") and target is not None:
+            moved = self._apply_spell_forced_movement(
+                effect,
+                caster=ctx.get("caster"),
+                target=target,
+                target_cid=ctx.get("target_cid"),
+            )
+            if moved:
+                notes = list(ctx.get("forced_movement_notes") or [])
+                mode = str(effect.get("kind") or effect.get("mode") or effect.get("direction") or "push").strip().lower() or "push"
+                try:
+                    distance = int(float(effect.get("distance_ft") or 0))
+                except Exception:
+                    distance = 0
+                notes.append(f"{mode} {distance}ft")
+                ctx["forced_movement_notes"] = notes
             return
         if effect_kind == "condition" and target is not None:
             condition_key = str(effect.get("condition") or "").strip().lower()
@@ -27202,7 +27364,7 @@ class InitiativeTracker(base.InitiativeTracker):
         sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
         if not sequence:
             return False
-        allowed_effects = {"damage", "healing", "condition"}
+        allowed_effects = {"damage", "healing", "condition", "movement", "forced_movement"}
         allowed_checks = {"", "spell_attack", "saving_throw", "auto_hit", "effect"}
         for step in sequence:
             if not isinstance(step, dict):
@@ -27317,6 +27479,9 @@ class InitiativeTracker(base.InitiativeTracker):
             result_payload["healing_entries"] = list(healing_entries)
             result_payload["healing_total"] = int(total_healing)
             result_payload["healing_applied"] = int(healing_applied)
+        forced_movement_notes = list(ctx.get("forced_movement_notes") or [])
+        if forced_movement_notes:
+            result_payload["forced_movement"] = forced_movement_notes
 
         if bool((preset or {}).get("concentration")) and hit and caster is not None:
             current_targets = list(getattr(caster, "concentration_target", []) or [])

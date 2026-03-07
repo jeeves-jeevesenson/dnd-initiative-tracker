@@ -1002,6 +1002,45 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(result.get("spell_mode"), "attack")
         movement_mock.assert_called_once_with(1, 2, "pull", 10.0, source_cell=None, direction_step=None)
 
+
+    def test_spell_target_request_thorn_whip_movement_flows_through_generic_single_target_resolver(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "thorn-whip",
+            "id": "thorn-whip",
+            "name": "Thorn Whip",
+            "mechanics": {
+                "sequence": [
+                    {
+                        "check": {"kind": "spell_attack", "attack_type": "melee"},
+                        "outcomes": {
+                            "hit": [{"effect": "movement", "kind": "pull", "distance_ft": 10, "origin": "caster"}],
+                            "miss": [],
+                        },
+                    }
+                ]
+            },
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 41,
+            "target_cid": 2,
+            "spell_name": "Thorn Whip",
+            "spell_slug": "thorn-whip",
+            "spell_mode": "attack",
+            "hit": True,
+        }
+
+        real = tracker_mod.InitiativeTracker._resolve_single_target_spell.__get__(self.app, tracker_mod.InitiativeTracker)
+        with mock.patch.object(self.app, "_resolve_single_target_spell", wraps=real) as resolver_mock:
+            with mock.patch.object(self.app, "_lan_apply_forced_movement", return_value=True) as movement_mock:
+                self.app._lan_apply_action(msg)
+
+        resolver_mock.assert_called_once()
+        movement_mock.assert_called_once()
+        self.assertTrue(msg.get("_spell_target_result", {}).get("ok"))
+
     def test_phantasmal_killer_failed_save_applies_damage_and_end_turn_rider(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "phantasmal-killer",

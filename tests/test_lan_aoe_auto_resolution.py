@@ -427,6 +427,38 @@ class LanAoeAutoResolutionTests(unittest.TestCase):
         log_text = "\n".join(entry for _cid, entry in self.logs)
         self.assertIn("Thunderwave: moved Goblin (push)", log_text)
 
+
+    def test_thunderwave_forced_movement_uses_shared_spell_movement_helper(self):
+        self.preset["name"] = "Thunderwave"
+        self.preset["mechanics"]["sequence"][0]["check"] = {"kind": "saving_throw", "ability": "constitution", "dc": 14}
+        self.preset["mechanics"]["sequence"][0]["outcomes"] = {
+            "fail": [
+                {"effect": "damage", "damage_type": "thunder", "dice": "2d8"},
+                {"effect": "movement", "kind": "push", "distance_ft": 10, "origin": "caster"},
+            ],
+            "success": [{"effect": "damage", "damage_type": "thunder", "dice": "2d8", "multiplier": 0.5}],
+        }
+        self.app._lan_positions = {1: (4, 4), 2: (5, 4)}
+        self.app.combatants[2].saving_throws = {"con": 0}
+        self.app.combatants[2].ability_mods = {"con": 0}
+
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 29,
+            "spell_slug": "thunderwave",
+            "payload": {"shape": "cube", "name": "Thunderwave", "side_ft": 15, "cx": 4, "cy": 4},
+        }
+
+        real = tracker_mod.InitiativeTracker._apply_spell_forced_movement.__get__(self.app, tracker_mod.InitiativeTracker)
+        with mock.patch.object(self.app, "_apply_spell_forced_movement", wraps=real) as movement_helper_mock:
+            with mock.patch("dnd_initative_tracker.random.randint", return_value=5):
+                self.app._lan_apply_action(msg)
+
+        self.assertGreaterEqual(movement_helper_mock.call_count, 1)
+        self.assertEqual(self.app._lan_positions.get(2), (7, 4))
+
     def test_cast_aoe_non_full_automation_does_not_auto_resolve(self):
         self.preset["automation"] = "manual"
         self.preset["tags"] = ["aoe"]
