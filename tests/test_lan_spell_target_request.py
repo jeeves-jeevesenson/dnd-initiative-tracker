@@ -1602,6 +1602,10 @@ class LanSpellTargetRequestTests(unittest.TestCase):
     def test_yaml_healing_word_resolves_through_generic_engine(self):
         preset = self._load_spell_preset("healing-word")
         self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        self.app._profile_for_player_name = lambda _name: {
+            "spellcasting": {"casting_ability": "wis"},
+            "abilities": {"wis": 18},
+        }
         self.app.combatants[3].hp = 10
         self.app.combatants[3].max_hp = 22
         msg = {
@@ -1621,8 +1625,37 @@ class LanSpellTargetRequestTests(unittest.TestCase):
 
         result = msg.get("_spell_target_result")
         self.assertIsInstance(result, dict)
-        self.assertEqual(result.get("healing_total"), 14)
+        self.assertEqual(result.get("healing_total"), 18)
         self.assertEqual(self.app.combatants[3].hp, 22)
+
+    def test_yaml_cure_wounds_includes_spellcasting_modifier(self):
+        preset = self._load_spell_preset("cure-wounds")
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        self.app._profile_for_player_name = lambda _name: {
+            "spellcasting": {"casting_ability": "wis"},
+            "abilities": {"wis": 16},
+        }
+        self.app.combatants[3].hp = 4
+        self.app.combatants[3].max_hp = 30
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 90,
+            "target_cid": 3,
+            "spell_name": "Cure Wounds",
+            "spell_slug": "cure-wounds",
+            "spell_mode": "effect",
+            "slot_level": 1,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[5, 4]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("healing_total"), 12)
+        self.assertEqual(self.app.combatants[3].hp, 16)
 
     def test_yaml_shocking_grasp_cantrip_scaling_resolves_damage(self):
         preset = self._load_spell_preset("shocking-grasp")

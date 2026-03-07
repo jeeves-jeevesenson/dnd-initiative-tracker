@@ -11,6 +11,7 @@ level: 3
 school: transmutation
 tags:
 - damage
+- automation_full
 casting_time: Action
 range: Touch
 components: V, S
@@ -41,7 +42,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: true
   targeting: null
   sequence:

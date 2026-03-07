@@ -112,8 +112,6 @@ def classify_partial(spell: dict[str, Any]) -> tuple[str, str]:
         "charm-person": "missing hostility/friendly-state clause automation",
         "slow": "somatic-component 25% failure rider is not automated",
         "shocking-grasp": "opportunity-attack lockout rider is not encoded in ongoing primitives",
-        "cure-wounds": "healing omits spellcasting ability modifier",
-        "healing-word": "healing omits spellcasting ability modifier",
         "blur": "blindsight/truesight immunity exceptions are not modeled",
     }
     if sid in honestly_partial_ids:
@@ -171,7 +169,23 @@ def main() -> None:
             s
             for s in spells
             if s["automation"] == "full"
-            and s["id"] in {"greater-invisibility", "shield-of-faith", "longstrider", "protection-from-energy", "haste"}
+            and s["id"]
+            in {
+                "blinding-smite",
+                "cure-wounds",
+                "darkness",
+                "divine-favor",
+                "elemental-weapon",
+                "entangle",
+                "fog-cloud",
+                "grease",
+                "healing-word",
+                "magic-weapon",
+                "silence",
+                "spike-growth",
+                "thorn-whip",
+                "thunderous-smite",
+            }
         ],
         key=lambda x: (x["level"], x["id"]),
     )

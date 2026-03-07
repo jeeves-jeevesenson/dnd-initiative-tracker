@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: entangle
 name: Entangle
-color: "#32CD32"
+color: '#32CD32'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 1
@@ -12,6 +12,7 @@ school: conjuration
 tags:
 - aoe
 - save
+- automation_full
 casting_time: Action
 range: 90 feet
 components: V, S
@@ -42,7 +43,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   aoe_behavior:
     map_effect: true
     persistent_default: true
@@ -79,4 +80,5 @@ mechanics:
   ui:
     template_preview: false
   notes:
-  - The area is difficult terrain; restrained creatures can escape with a Strength (Athletics) check or when the spell ends.
+  - The area is difficult terrain; restrained creatures can escape with a Strength
+    (Athletics) check or when the spell ends.

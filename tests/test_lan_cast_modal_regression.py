@@ -296,12 +296,12 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('let relocationValidCells = new Set();', self.html)
         self.assertIn('function rebuildRelocationValidCells()', self.html)
         self.assertIn('function clearRelocationPlacementState()', self.html)
-        self.assertIn('if (pendingRelocationPlacement && !isMapView && !dragging && !panning && !aoeDragging){', self.html)
+        self.assertIn('if (pendingRelocationPlacement && !isMapView && !hasTokenDragMove && !panning && !aoeDragging){', self.html)
         self.assertIn('destination_col: Number(g.col),', self.html)
         self.assertIn('destination_row: Number(g.row),', self.html)
         self.assertIn('if (msg.needs_relocation_destination){', self.html)
         self.assertIn('Relocation placement started. Choose a valid highlighted square.', self.html)
-        self.assertIn('if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){', self.html)
+        self.assertIn('if (pendingSummonPlacement && !isMapView && !hasTokenDragMove && !panning && !aoeDragging){', self.html)
 
 
     def test_cast_modal_and_spell_changes_clear_active_cast_interaction_state(self):
@@ -313,9 +313,9 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('castPresetInput.addEventListener("change", () => {', self.html)
 
     def test_map_pointerup_prioritizes_relocation_and_summon_before_attack_overlay(self):
-        relocation_idx = self.html.index('if (pendingRelocationPlacement && !isMapView && !dragging && !panning && !aoeDragging){')
-        summon_idx = self.html.index('if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){')
-        attack_idx = self.html.index('if (attackOverlayMode && !isMapView && !pendingRelocationPlacement && !pendingSummonPlacement && !dragging && !panning && !aoeDragging){')
+        relocation_idx = self.html.index('if (pendingRelocationPlacement && !isMapView && !hasTokenDragMove && !panning && !aoeDragging){')
+        summon_idx = self.html.index('if (pendingSummonPlacement && !isMapView && !hasTokenDragMove && !panning && !aoeDragging){')
+        attack_idx = self.html.index('if (attackOverlayMode && !isMapView && !pendingRelocationPlacement && !pendingSummonPlacement && !hasTokenDragMove && !panning && !aoeDragging){')
         self.assertLess(relocation_idx, attack_idx)
         self.assertLess(summon_idx, attack_idx)
 

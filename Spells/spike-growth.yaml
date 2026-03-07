@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: spike-growth
 name: Spike Growth
-color: "#32CD32"
+color: '#32CD32'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 2
@@ -12,6 +12,7 @@ school: transmutation
 tags:
 - damage
 - aoe
+- automation_full
 casting_time: Action
 range: 150 feet
 components: V, S, M (seven thorns)
@@ -42,7 +43,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   aoe_behavior:
     map_effect: true
     persistent_default: true
@@ -71,5 +72,6 @@ mechanics:
   ui:
     template_preview: true
   notes:
-  - Area is difficult terrain; movement within it deals 2d4 piercing damage per 5 feet.
+  - Area is difficult terrain; movement within it deals 2d4 piercing damage per 5
+    feet.
   - The spikes are camouflaged; creatures may need a check to notice the hazard.

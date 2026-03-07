@@ -1,16 +1,17 @@
 schema: dnd55.spell.v1
 id: cure-wounds
 name: Cure Wounds
-color: "#FFFFE0"
+color: '#FFFFE0'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 1
 school: abjuration
 tags:
 - heal
+- automation_full
 casting_time: Action
 range: Touch
 components: V, S
@@ -39,7 +40,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: true
   targeting:
     origin: target_creature
@@ -54,6 +55,7 @@ mechanics:
       hit:
       - effect: healing
         dice: 2d8
+        bonus: spellcasting_ability_modifier
       miss: []
   scaling:
     kind: slot_level

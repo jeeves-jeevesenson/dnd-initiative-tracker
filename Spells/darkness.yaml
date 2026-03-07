@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: darkness
 name: Darkness
-color: "#4B0082"
+color: '#4B0082'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 2
@@ -12,6 +12,7 @@ school: evocation
 tags:
 - damage
 - aoe
+- automation_full
 casting_time: Action
 range: 60 feet
 components: V, M (bat fur and a piece of coal)
@@ -43,7 +44,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   aoe_behavior:
     map_effect: true
     persistent_default: true
@@ -69,5 +70,6 @@ mechanics:
   ui:
     template_preview: true
   notes:
-  - Can be centered on an unattended object to emanate darkness; covering the object blocks the darkness.
+  - Can be centered on an unattended object to emanate darkness; covering the object
+    blocks the darkness.
   - Overlapping magical light from level 2 or lower is dispelled.

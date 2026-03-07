@@ -24581,6 +24581,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         continue
                     healing_entries.append({"amount": amount, "type": "healing"})
             healing_dice_text = str(msg.get("healing_dice") or "").strip().lower()
+            healing_bonus = 0
             if not healing_dice_text and isinstance(preset, dict):
                 for step in sequence:
                     if not isinstance(step, dict):
@@ -24596,6 +24597,9 @@ class InitiativeTracker(base.InitiativeTracker):
                             if str(effect.get("effect") or "").strip().lower() != "healing":
                                 continue
                             healing_dice_text = str(effect.get("dice") or "").strip().lower()
+                            bonus_kind = str(effect.get("bonus") or "").strip().lower()
+                            if bonus_kind in {"spellcasting_ability_modifier", "spellcasting_modifier", "spell_mod"}:
+                                healing_bonus = int(self._spellcasting_modifier_from_profile(profile))
                             found = bool(healing_dice_text)
                             if found:
                                 break
@@ -24605,6 +24609,8 @@ class InitiativeTracker(base.InitiativeTracker):
                         break
             auto_spell_healing = bool(not healing_entries and healing_dice_text and not bool(msg.get("prompt_for_healing")))
             if auto_spell_healing:
+                if int(healing_bonus) != 0:
+                    healing_dice_text = f"{healing_dice_text}+{int(healing_bonus)}"
                 dice_match = re.fullmatch(r"\s*(\d+)d(\d+)\s*([+\-]\s*\d+)?\s*", healing_dice_text)
                 if dice_match:
                     dice_count = max(0, int(dice_match.group(1)))
@@ -27593,6 +27599,14 @@ class InitiativeTracker(base.InitiativeTracker):
             scaled = self._scale_damage_dice_for_character_level(scaled, scaling, character_level)
         return scaled
 
+    def _spellcasting_modifier_from_profile(self, profile: Any) -> int:
+        if not isinstance(profile, dict):
+            return 0
+        spellcasting = profile.get("spellcasting") if isinstance(profile.get("spellcasting"), dict) else {}
+        casting_ability = self._normalize_spellcasting_ability(spellcasting.get("casting_ability"))
+        abilities = profile.get("abilities") if isinstance(profile.get("abilities"), dict) else {}
+        return int(self._ability_score_modifier(abilities, casting_ability))
+
     def _bucket_for_spell_outcome(self, outcomes: Dict[str, Any], passed: bool, key_hint: str) -> List[Dict[str, Any]]:
         keys = [key_hint] if key_hint else []
         if passed:
@@ -27692,6 +27706,7 @@ class InitiativeTracker(base.InitiativeTracker):
             damage_dice_text = self._resolve_spell_scaling(damage_dice_text, damage_scaling, slot_level, character_level)
 
         healing_dice_text = str(msg.get("healing_dice") or "").strip().lower()
+        healing_bonus = 0
         if not healing_dice_text:
             for step in sequence:
                 if not isinstance(step, dict):
@@ -27707,6 +27722,9 @@ class InitiativeTracker(base.InitiativeTracker):
                         if str(effect.get("effect") or "").strip().lower() != "healing":
                             continue
                         found = str(effect.get("dice") or "").strip().lower()
+                        bonus_kind = str(effect.get("bonus") or "").strip().lower()
+                        if bonus_kind in {"spellcasting_ability_modifier", "spellcasting_modifier", "spell_mod"}:
+                            healing_bonus = int(self._spellcasting_modifier_from_profile(profile))
                         if found:
                             break
                     if found:
@@ -27716,6 +27734,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     break
         if healing_dice_text:
             healing_dice_text = self._resolve_spell_scaling(healing_dice_text, damage_scaling, slot_level, character_level)
+            if int(healing_bonus) != 0:
+                healing_dice_text = f"{healing_dice_text}+{int(healing_bonus)}"
 
         damage_type_hint = str(msg.get("damage_type") or "").strip().lower()
         if not damage_type_hint and isinstance(preset, dict):
@@ -27974,13 +27994,18 @@ class InitiativeTracker(base.InitiativeTracker):
         if effect_kind == "healing":
             if bool(ctx.get("manual_healing_supplied")):
                 return
+            preset = ctx.get("preset") if isinstance(ctx.get("preset"), dict) else {}
+            mechanics = preset.get("mechanics") if isinstance(preset.get("mechanics"), dict) else {}
             dice = self._resolve_spell_scaling(
                 str(effect.get("dice") or "").strip().lower(),
-                effect.get("scaling") if isinstance(effect.get("scaling"), dict) else ctx.get("preset", {}).get("scaling"),
+                effect.get("scaling") if isinstance(effect.get("scaling"), dict) else mechanics.get("scaling"),
                 ctx.get("slot_level"),
                 int(ctx.get("character_level") or 0),
             )
             amount = max(0, int(self._roll_dice_expression(dice)))
+            bonus_kind = str(effect.get("bonus") or "").strip().lower()
+            if bonus_kind in {"spellcasting_ability_modifier", "spellcasting_modifier", "spell_mod"}:
+                amount += int(self._spellcasting_modifier_from_profile(ctx.get("profile")))
             if amount <= 0:
                 return
             ctx.setdefault("healing_entries", []).append({"amount": int(amount), "type": "healing"})
@@ -28120,11 +28145,6 @@ class InitiativeTracker(base.InitiativeTracker):
             )
             if amount > 0:
                 ctx.setdefault("damage_entries", []).append({"amount": int(amount), "type": str(ctx.get("damage_type_hint") or "damage")})
-
-        if not ctx.get("healing_entries") and ctx.get("healing_dice_text") and not bool(msg.get("prompt_for_healing")):
-            amount = self._roll_dice_expression(ctx.get("healing_dice_text"))
-            if amount > 0:
-                ctx.setdefault("healing_entries", []).append({"amount": int(amount), "type": "healing"})
 
         result_payload: Dict[str, Any] = {
             "type": "spell_target_result",

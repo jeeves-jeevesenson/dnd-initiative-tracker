@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: grease
 name: Grease
-color: "#3FA7FF"
+color: '#3FA7FF'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 1
@@ -12,6 +12,7 @@ school: conjuration
 tags:
 - aoe
 - save
+- automation_full
 casting_time: Action
 range: 60 feet
 components: V, S, M (a bit of pork rind or butter)
@@ -45,7 +46,7 @@ mechanics:
     over_time_default: true
     trigger_mode: start_or_enter
     cleanup: duration
-  automation: partial
+  automation: full
   targeting:
     origin: point_within_range
     range:
@@ -76,5 +77,6 @@ mechanics:
   ui:
     template_preview: false
   notes:
-  - The area is difficult terrain; creatures repeat the save when entering or ending a turn there.
+  - The area is difficult terrain; creatures repeat the save when entering or ending
+    a turn there.
   - A failed save knocks a creature prone until it stands up.

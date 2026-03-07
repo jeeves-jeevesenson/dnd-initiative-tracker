@@ -14,8 +14,8 @@ tags:
 - save
 - condition
 - smite
-casting_time: Bonus Action, which you take immediately after hitting a creature with
-  a Melee weapon or an Unarmed Strike
+- automation_full
+casting_time: Bonus Action
 range: Self
 components: V
 duration: 1 minute
@@ -41,7 +41,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: true
   targeting:
     origin: self

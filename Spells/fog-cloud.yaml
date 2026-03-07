@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: fog-cloud
 name: Fog Cloud
-color: "#3FA7FF"
+color: '#3FA7FF'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 1
@@ -12,6 +12,7 @@ school: conjuration
 tags:
 - damage
 - aoe
+- automation_full
 casting_time: Action
 range: 120 feet
 components: V, S
@@ -41,7 +42,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   aoe_behavior:
     map_effect: true
     persistent_default: true

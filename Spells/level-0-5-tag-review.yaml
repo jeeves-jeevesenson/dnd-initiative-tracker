@@ -46,7 +46,6 @@ not_fully_automated_spell_ids:
 - blade-ward
 - bless
 - blight
-- blinding-smite
 - blindness-deafness
 - blink
 - blur
@@ -79,9 +78,7 @@ not_fully_automated_spell_ids:
 - creation
 - crown-of-madness
 - crusader-s-mantle
-- cure-wounds
 - dancing-lights
-- darkness
 - darkvision
 - daylight
 - death-ward
@@ -95,7 +92,6 @@ not_fully_automated_spell_ids:
 - dispel-magic
 - dissonant-whispers
 - divination
-- divine-favor
 - divine-smite
 - dominate-beast
 - dominate-person
@@ -103,11 +99,9 @@ not_fully_automated_spell_ids:
 - dream
 - druidcraft
 - eldritch-blast
-- elemental-weapon
 - elementalism
 - enhance-ability
 - enlarge-reduce
-- entangle
 - enthrall
 - evard-s-black-tentacles
 - expeditious-retreat
@@ -123,7 +117,6 @@ not_fully_automated_spell_ids:
 - fire-shield
 - flame-blade
 - fly
-- fog-cloud
 - fount-of-moonlight
 - freedom-of-movement
 - friends
@@ -134,15 +127,12 @@ not_fully_automated_spell_ids:
 - glyph-of-warding
 - goodberry
 - grasping-vine
-- grease
 - greater-restoration
 - guardian-of-faith
 - guidance
-- gust-of-wind
 - hail-of-thorns
 - hallow
 - hallucinatory-terrain
-- healing-word
 - heat-metal
 - hellish-rebuke
 - heroism
@@ -171,7 +161,6 @@ not_fully_automated_spell_ids:
 - mage-hand
 - magic-circle
 - magic-mouth
-- magic-weapon
 - major-image
 - mass-cure-wounds
 - mass-healing-word
@@ -184,7 +173,6 @@ not_fully_automated_spell_ids:
 - minor-illusion
 - mirror-image
 - mislead
-- misty-step
 - modify-memory
 - mordenkainen-s-faithful-hound
 - mordenkainen-s-private-sanctum
@@ -223,7 +211,6 @@ not_fully_automated_spell_ids:
 - shillelagh
 - shining-smite
 - shocking-grasp
-- silence
 - silent-image
 - sleep
 - sleet-storm
@@ -234,7 +221,6 @@ not_fully_automated_spell_ids:
 - speak-with-dead
 - speak-with-plants
 - spider-climb
-- spike-growth
 - spiritual-weapon
 - staggering-smite
 - starry-wisp
@@ -257,8 +243,6 @@ not_fully_automated_spell_ids:
 - teleportation-circle
 - tenser-s-floating-disk
 - thaumaturgy
-- thorn-whip
-- thunderous-smite
 - tongues
 - tree-stride
 - true-strike

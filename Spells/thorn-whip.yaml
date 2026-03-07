@@ -12,6 +12,7 @@ school: transmutation
 tags:
 - damage
 - attack
+- automation_full
 casting_time: Action
 range: 30 feet
 components: V, S, M (the stem of a thorny plant)
@@ -38,7 +39,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: false
   targeting:
     origin: creature_within_range
