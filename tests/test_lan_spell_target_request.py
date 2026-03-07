@@ -1801,5 +1801,127 @@ class LanSpellTargetRequestTests(unittest.TestCase):
 
 
 
+    def test_lesser_restoration_uses_shared_cleanup_for_supported_conditions(self):
+        target = self.app.combatants[2]
+        target.condition_stacks = [
+            tracker_mod.base.ConditionStack(sid=101, ctype="poisoned", remaining_turns=None),
+            tracker_mod.base.ConditionStack(sid=102, ctype="blinded", remaining_turns=None),
+        ]
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 30,
+            "target_cid": 2,
+            "spell_name": "Lesser Restoration",
+            "spell_slug": "lesser-restoration",
+            "spell_mode": "effect",
+        }
+        preset = {
+            "id": "lesser-restoration",
+            "slug": "lesser-restoration",
+            "name": "Lesser Restoration",
+            "mechanics": {"sequence": [{"outcomes": {"hit": []}}]},
+        }
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result") or {}
+        self.assertTrue(result.get("ok"))
+        self.assertEqual((result.get("cleanup") or {}).get("conditions"), 1)
+        remaining = [str(getattr(st, "ctype", "") or "").strip().lower() for st in list(getattr(target, "condition_stacks", []) or [])]
+        self.assertEqual(remaining, ["blinded"])
+
+    def test_remove_curse_clears_curse_tagged_ongoing_effects(self):
+        target = self.app.combatants[2]
+        self.app._register_target_spell_effect(
+            1,
+            2,
+            "hex",
+            spell_level=1,
+            effect_tags=["curse"],
+            clear_group="hex_1_2",
+            primitives={"condition_apply": ["cursed"]},
+        )
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 31,
+            "target_cid": 2,
+            "spell_name": "Remove Curse",
+            "spell_slug": "remove-curse",
+            "spell_mode": "effect",
+        }
+        preset = {
+            "id": "remove-curse",
+            "slug": "remove-curse",
+            "name": "Remove Curse",
+            "mechanics": {"sequence": [{"outcomes": {"hit": []}}]},
+        }
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result") or {}
+        self.assertEqual((result.get("cleanup") or {}).get("target_effects"), 1)
+        self.assertEqual(list(getattr(target, "ongoing_spell_effects", []) or []), [])
+
+    def test_dispel_magic_clears_target_and_map_effects_by_slot_level(self):
+        target = self.app.combatants[2]
+        self.app._register_target_spell_effect(1, 2, "slow", spell_level=3, clear_group="slow_1_2", primitives={"condition_apply": ["slowed"]})
+        self.app._register_target_spell_effect(1, 2, "hold-person", spell_level=4, clear_group="hold_1_2", primitives={"condition_apply": ["paralyzed"]})
+        self.app._register_map_spell_effect(
+            77,
+            {
+                "name": "Spirit Guardians",
+                "owner_cid": 2,
+                "spell_slug": "spirit-guardians",
+                "slot_level": 3,
+                "concentration_bound": True,
+            },
+        )
+        self.app._register_map_spell_effect(
+            78,
+            {
+                "name": "Wall of Fire",
+                "owner_cid": 2,
+                "spell_slug": "wall-of-fire",
+                "slot_level": 4,
+                "concentration_bound": True,
+            },
+        )
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 32,
+            "target_cid": 2,
+            "spell_name": "Dispel Magic",
+            "spell_slug": "dispel-magic",
+            "spell_mode": "effect",
+            "slot_level": 3,
+        }
+        preset = {
+            "id": "dispel-magic",
+            "slug": "dispel-magic",
+            "name": "Dispel Magic",
+            "level": 3,
+            "mechanics": {"sequence": [{"outcomes": {"hit": []}}]},
+        }
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result") or {}
+        cleanup = result.get("cleanup") or {}
+        self.assertEqual(cleanup.get("target_effects"), 1)
+        self.assertEqual(cleanup.get("map_effects"), 1)
+        remaining_spells = [str((entry or {}).get("spell_key") or "") for entry in list(getattr(target, "ongoing_spell_effects", []) or [])]
+        self.assertEqual(remaining_spells, ["hold-person"])
+        self.assertNotIn(77, self.app._lan_aoes)
+        self.assertIn(78, self.app._lan_aoes)
+
 if __name__ == "__main__":
     unittest.main()

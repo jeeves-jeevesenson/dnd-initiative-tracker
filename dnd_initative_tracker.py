@@ -23877,9 +23877,24 @@ class InitiativeTracker(base.InitiativeTracker):
                     "polymorph",
                     "heat-metal",
                     "phantasmal-killer",
+                    "lesser-restoration",
+                    "remove-curse",
+                    "dispel-magic",
                 },
             )
             if handled_generic_single_target:
+                return
+            handled_cleanup_spell = self._resolve_utility_cleanup_spell(
+                msg=msg,
+                caster=c,
+                target=target,
+                preset=preset,
+                spell_name=spell_name,
+                ws_id=ws_id,
+                attacker_cid=int(cid),
+                target_cid=int(target_cid),
+            )
+            if handled_cleanup_spell:
                 return
             requested_spell_mode = str(msg.get("spell_mode") or msg.get("mode") or "attack").strip().lower()
             spell_mode = requested_spell_mode
@@ -27324,6 +27339,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 spell_level=registration.get("spell_level"),
                 concentration_bound=bool(registration.get("concentration_bound")),
                 clear_group=str(registration.get("clear_group") or ""),
+                effect_tags=registration.get("effect_tags") if isinstance(registration.get("effect_tags"), list) else [],
                 primitives=registration.get("primitives") if isinstance(registration.get("primitives"), dict) else {},
                 adapter=str(registration.get("adapter") or ""),
                 adapter_payload=registration.get("adapter_payload") if isinstance(registration.get("adapter_payload"), dict) else {},
@@ -27517,6 +27533,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "spell_level": int(ctx.get("slot_level") or preset.get("level") or 0) or None,
             "concentration_bound": bool(ongoing.get("concentration_bound", bool(preset.get("concentration")))),
             "clear_group": clear_group,
+            "effect_tags": [str(tag or "").strip().lower() for tag in list(ongoing.get("effect_tags") or []) if str(tag or "").strip()],
             "primitives": primitives,
             "adapter": adapter,
             "adapter_payload": dict(adapter_payload or {}),
@@ -27903,6 +27920,7 @@ class InitiativeTracker(base.InitiativeTracker):
         spell_level: Optional[int] = None,
         concentration_bound: bool = False,
         clear_group: str = "",
+        effect_tags: Optional[List[str]] = None,
         primitives: Optional[Dict[str, Any]] = None,
         adapter: str = "",
         adapter_payload: Optional[Dict[str, Any]] = None,
@@ -27920,6 +27938,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "spell_level": spell_level,
             "concentration_bound": bool(concentration_bound),
             "clear_group": clear_group_key,
+            "effect_tags": [str(tag or "").strip().lower() for tag in list(effect_tags or []) if str(tag or "").strip()],
             "primitives": dict(primitives or {}),
             "adapter": str(adapter or "").strip().lower(),
             "adapter_payload": dict(adapter_payload or {}),
@@ -27999,6 +28018,252 @@ class InitiativeTracker(base.InitiativeTracker):
                 concentration_only=True,
                 reason="concentration broken",
             )
+
+    @staticmethod
+    def _effect_tags_from_entry(effect_entry: Dict[str, Any]) -> set[str]:
+        tags: set[str] = set()
+        if not isinstance(effect_entry, dict):
+            return tags
+        for tag in list(effect_entry.get("effect_tags") or []):
+            text = str(tag or "").strip().lower()
+            if text:
+                tags.add(text)
+        spell_key = str(effect_entry.get("spell_key") or effect_entry.get("spell_slug") or effect_entry.get("spell_id") or "").strip().lower()
+        if spell_key:
+            tags.add(f"spell:{spell_key}")
+            if "curse" in spell_key:
+                tags.add("curse")
+        primitives = effect_entry.get("primitives") if isinstance(effect_entry.get("primitives"), dict) else {}
+        for field in ("condition_apply", "condition_clear"):
+            for cond in list(primitives.get(field) or []):
+                condition_key = str(cond or "").strip().lower()
+                if not condition_key:
+                    continue
+                tags.add(f"condition:{condition_key}")
+                if "poison" in condition_key:
+                    tags.add("poison")
+                if "disease" in condition_key:
+                    tags.add("disease")
+                if "charm" in condition_key:
+                    tags.add("charm")
+                if "curse" in condition_key:
+                    tags.add("curse")
+        return tags
+
+    @staticmethod
+    def _effect_matches_cleanup_selector(effect_entry: Dict[str, Any], selector: Dict[str, Any]) -> bool:
+        if not isinstance(effect_entry, dict):
+            return False
+        if not isinstance(selector, dict):
+            return True
+        spell_keys = {
+            str(key or "").strip().lower()
+            for key in list(selector.get("spell_keys") or [])
+            if str(key or "").strip()
+        }
+        if spell_keys:
+            effect_spell_key = str(effect_entry.get("spell_key") or effect_entry.get("spell_slug") or effect_entry.get("spell_id") or "").strip().lower()
+            if effect_spell_key not in spell_keys:
+                return False
+        clear_groups = {
+            str(group or "").strip().lower()
+            for group in list(selector.get("clear_groups") or [])
+            if str(group or "").strip()
+        }
+        if clear_groups and str(effect_entry.get("clear_group") or "").strip().lower() not in clear_groups:
+            return False
+        source_cid = _normalize_cid_value(selector.get("source_cid"), "cleanup.selector.source_cid")
+        if source_cid is not None and int(effect_entry.get("source_cid") or effect_entry.get("owner_cid") or 0) != int(source_cid):
+            return False
+        if bool(selector.get("concentration_only")) and not bool(effect_entry.get("concentration_bound")):
+            return False
+        max_spell_level = selector.get("max_spell_level")
+        if max_spell_level is not None:
+            try:
+                level_limit = int(max_spell_level)
+            except Exception:
+                level_limit = 0
+            try:
+                effect_level = int(effect_entry.get("spell_level") or effect_entry.get("slot_level") or 0)
+            except Exception:
+                effect_level = 0
+            if effect_level > level_limit:
+                return False
+        effect_tag_filter = {
+            str(tag or "").strip().lower()
+            for tag in list(selector.get("effect_tags") or [])
+            if str(tag or "").strip()
+        }
+        if effect_tag_filter:
+            entry_tags = InitiativeTracker._effect_tags_from_entry(effect_entry)
+            if entry_tags.isdisjoint(effect_tag_filter):
+                return False
+        target_cid = _normalize_cid_value(selector.get("target_cid"), "cleanup.selector.target_cid")
+        if target_cid is not None:
+            effect_target = _normalize_cid_value(effect_entry.get("target_cid"), "cleanup.effect.target_cid")
+            if effect_target is None:
+                effect_target = _normalize_cid_value(effect_entry.get("owner_cid"), "cleanup.effect.owner_cid")
+            if effect_target is not None and int(effect_target) != int(target_cid):
+                return False
+        return True
+
+    def _clear_matching_target_effects(self, target: Any, selector: Dict[str, Any], *, reason: str = "") -> int:
+        if target is None:
+            return 0
+        removed = 0
+        for entry in list(getattr(target, "ongoing_spell_effects", []) or []):
+            if not isinstance(entry, dict):
+                continue
+            if not self._effect_matches_cleanup_selector(entry, selector):
+                continue
+            self._clear_target_spell_effect(target, entry, reason=reason)
+            removed += 1
+        return int(removed)
+
+    def _clear_matching_map_effects(self, selector: Dict[str, Any], *, reason: str = "") -> int:
+        _ = reason
+        removed = 0
+        store = dict(self.__dict__.get("_lan_aoes", {}) or {})
+        for aid, entry in list(store.items()):
+            if not isinstance(entry, dict):
+                continue
+            if not self._effect_matches_cleanup_selector(entry, selector):
+                continue
+            self._clear_map_spell_effect(int(aid), end_concentration_if_bound=False)
+            removed += 1
+        return int(removed)
+
+    def _clear_matching_summon_effects(self, selector: Dict[str, Any]) -> int:
+        if not isinstance(selector, dict):
+            return 0
+        source_cid = _normalize_cid_value(selector.get("source_cid"), "cleanup.selector.source_cid")
+        spell_keys = {
+            str(key or "").strip().lower()
+            for key in list(selector.get("spell_keys") or [])
+            if str(key or "").strip()
+        }
+        if source_cid is None or not spell_keys:
+            return 0
+        removed = 0
+        for spell_key in spell_keys:
+            removed += self._dismiss_spell_summon_groups_for_caster(int(source_cid), str(spell_key))
+        return int(removed)
+
+    def _clear_matching_conditions(self, target: Any, selector: Dict[str, Any], *, max_count: Optional[int] = None) -> int:
+        if target is None:
+            return 0
+        condition_names = {
+            str(name or "").strip().lower()
+            for name in list(selector.get("condition_names") or [])
+            if str(name or "").strip()
+        }
+        condition_tags = {
+            str(tag or "").strip().lower()
+            for tag in list(selector.get("condition_tags") or [])
+            if str(tag or "").strip()
+        }
+        removed = 0
+        for stack in list(getattr(target, "condition_stacks", []) or []):
+            condition_key = str(getattr(stack, "ctype", "") or "").strip().lower()
+            if not condition_key:
+                continue
+            derived_tags: set[str] = set()
+            if "poison" in condition_key:
+                derived_tags.add("poison")
+            if "disease" in condition_key:
+                derived_tags.add("disease")
+            if "charm" in condition_key:
+                derived_tags.add("charm")
+            if "curse" in condition_key:
+                derived_tags.add("curse")
+            matches = (condition_names and condition_key in condition_names) or (condition_tags and not derived_tags.isdisjoint(condition_tags))
+            if not matches:
+                continue
+            self._remove_condition_type(target, condition_key)
+            removed += 1
+            if max_count is not None and removed >= int(max_count):
+                break
+        return int(removed)
+
+    def _resolve_utility_cleanup_spell(
+        self,
+        *,
+        msg: Dict[str, Any],
+        caster: Any,
+        target: Any,
+        preset: Optional[Dict[str, Any]],
+        spell_name: str,
+        ws_id: Any,
+        attacker_cid: int,
+        target_cid: int,
+    ) -> bool:
+        spell_key = str((preset or {}).get("slug") or (preset or {}).get("id") or "").strip().lower()
+        if spell_key not in {"lesser-restoration", "remove-curse", "dispel-magic"}:
+            return False
+        slot_level = self._parse_int_value(msg.get("slot_level"), None)
+        if slot_level is None:
+            slot_level = self._parse_int_value((preset or {}).get("level"), 0)
+        slot_level = max(0, int(slot_level or 0))
+        result_payload: Dict[str, Any] = {
+            "type": "spell_target_result",
+            "ok": True,
+            "attacker_cid": int(attacker_cid),
+            "target_cid": int(target_cid),
+            "target_name": str(getattr(target, "name", "Target") or "Target"),
+            "spell_name": str(spell_name or "Spell"),
+            "spell_mode": "effect",
+            "hit": True,
+            "critical": False,
+            "cleanup": {},
+        }
+        cleanup: Dict[str, int] = {"conditions": 0, "target_effects": 0, "map_effects": 0, "summons": 0}
+        if spell_key == "lesser-restoration":
+            cleanup["conditions"] += self._clear_matching_conditions(
+                target,
+                {"condition_names": ["blinded", "deafened", "paralyzed", "poisoned"], "condition_tags": ["disease"]},
+                max_count=1,
+            )
+            if cleanup["conditions"] <= 0:
+                cleanup["target_effects"] += self._clear_matching_target_effects(
+                    target,
+                    {"effect_tags": ["poison", "disease", "condition:blinded", "condition:deafened", "condition:paralyzed", "condition:poisoned"]},
+                    reason="lesser restoration",
+                )
+        elif spell_key == "remove-curse":
+            cleanup["conditions"] += self._clear_matching_conditions(target, {"condition_tags": ["curse"]})
+            cleanup["target_effects"] += self._clear_matching_target_effects(
+                target,
+                {"effect_tags": ["curse"]},
+                reason="remove curse",
+            )
+        elif spell_key == "dispel-magic":
+            cleanup["target_effects"] += self._clear_matching_target_effects(
+                target,
+                {"max_spell_level": slot_level},
+                reason="dispel magic",
+            )
+            cleanup["map_effects"] += self._clear_matching_map_effects(
+                {"max_spell_level": slot_level, "target_cid": int(target_cid)},
+                reason="dispel magic",
+            )
+            requested_aoe_id = self._parse_int_value(msg.get("target_aoe_id"), None)
+            if requested_aoe_id is not None:
+                aoe = dict((self.__dict__.get("_lan_aoes", {}) or {}).get(int(requested_aoe_id), {}) or {})
+                if aoe and self._effect_matches_cleanup_selector(aoe, {"max_spell_level": slot_level}):
+                    self._clear_map_spell_effect(int(requested_aoe_id), end_concentration_if_bound=False)
+                    cleanup["map_effects"] += 1
+        result_payload["cleanup"] = dict(cleanup)
+        msg["_spell_target_result"] = dict(result_payload)
+        self._log(
+            f"{getattr(caster, 'name', 'Caster')} resolves {spell_name} on {result_payload['target_name']} (removed {sum(cleanup.values())} effects).",
+            cid=int(target_cid),
+        )
+        try:
+            self._rebuild_table(scroll_to_current=True)
+        except Exception:
+            pass
+        self._lan.toast(ws_id, "Spell resolved.")
+        return True
 
     @staticmethod
     def _tashas_hideous_laughter_group(caster_cid: Any, target_cid: Any) -> str:
