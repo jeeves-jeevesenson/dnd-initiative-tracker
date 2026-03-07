@@ -1985,6 +1985,93 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertFalse(any(getattr(st, "ctype", "") == "star_advantage" for st in self.app.combatants[2].condition_stacks))
 
 
+
+    def test_cast_find_steed_with_summon_placement_uses_caster_and_spawns_mount(self):
+        self.app._find_spell_preset = lambda **_kwargs: {
+            "slug": "find-steed",
+            "id": "find-steed",
+            "name": "Find Steed",
+            "level": 2,
+            "casting_time": "Action",
+            "action_type": "action",
+            "range": "30 feet",
+            "concentration": False,
+            "summon": {
+                "mount": True,
+                "choices": [{"name": "Otherworldly Steed", "monster_slug": "otherworldly-steed", "variants": ["Celestial", "Fey", "Fiend"]}],
+                "count": {"kind": "fixed", "min": 1, "max": 1},
+            },
+        }
+        self.app._find_monster_spec_by_slug = lambda slug: object() if slug == "otherworldly-steed" else None
+        self.app._consume_spell_slot_for_cast = lambda **_kwargs: (True, "", 2)
+        self.app._combatant_can_cast_spell = lambda *_args, **_kwargs: True
+        self.app._use_action = lambda *_args, **_kwargs: True
+        self.app._use_bonus_action = lambda *_args, **_kwargs: True
+        self.app._use_reaction = lambda *_args, **_kwargs: True
+        self.app._spellcast_blocked_by_environment = lambda *_args, **_kwargs: (False, "")
+        self.app._spell_label_from_identifiers = lambda *_args, **_kwargs: "Find Steed"
+        self.app._spell_cast_log_message = lambda *_args, **_kwargs: "cast"
+        self.app._smite_slug_from_preset = lambda *_args, **_kwargs: ""
+        self.app._rebuild_table = lambda *args, **kwargs: None
+        self.app._lan_force_state_broadcast = lambda: None
+        self.app._profile_for_player_name = lambda _name: {}
+        self.app.combatants[1].spell_cast_remaining = 1
+
+        seen = {}
+        def _resolve_spell_summon_request(**kwargs):
+            seen["caster"] = kwargs.get("caster")
+            return (
+                {
+                    "quantity": 1,
+                    "monster_slug": "otherworldly-steed",
+                    "choice_slug": "otherworldly-steed",
+                    "variant": "Fey",
+                    "slot_level": 2,
+                },
+                "",
+            )
+
+        def _spawn_summons_from_cast(**kwargs):
+            seen["spawn_kwargs"] = kwargs
+            summon = type("Summon", (), {"cid": 3, "name": "Otherworldly Steed"})()
+            setattr(summon, "summoned_by_cid", 1)
+            setattr(summon, "is_mount", True)
+            self.app.combatants[3] = summon
+            positions = kwargs.get("summon_positions") or []
+            if positions:
+                self.app._lan_positions[3] = (int(positions[0]["col"]), int(positions[0]["row"]))
+            return [3]
+
+        self.app._resolve_spell_summon_request = _resolve_spell_summon_request
+        self.app._spawn_summons_from_cast = _spawn_summons_from_cast
+
+        msg = {
+            "type": "cast_spell",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 95,
+            "spell_slug": "find-steed",
+            "slot_level": 2,
+            "payload": {
+                "spell_slug": "find-steed",
+                "slot_level": 2,
+                "summon_choice": "otherworldly-steed",
+                "variant": "Fey",
+                "summon_positions": [{"col": 7, "row": 8}],
+            },
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertIs(seen.get("caster"), self.app.combatants[1])
+        self.assertEqual(seen.get("spawn_kwargs", {}).get("summon_choice"), "otherworldly-steed")
+        self.assertEqual(seen.get("spawn_kwargs", {}).get("summon_variant"), "Fey")
+        self.assertEqual(seen.get("spawn_kwargs", {}).get("summon_positions"), [{"col": 7, "row": 8}])
+        self.assertIn(3, self.app.combatants)
+        self.assertTrue(getattr(self.app.combatants[3], "is_mount", False))
+        self.assertEqual(self.app._lan_positions.get(3), (7, 8))
+        self.assertNotIn((95, "Something went wrong handling that action."), self.toasts)
+
     def test_cast_mirror_image_applies_condition_and_duplicate_counter(self):
         self.app._find_spell_preset = lambda **_kwargs: {
             "slug": "mirror-image",
