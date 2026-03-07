@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: blinding-smite
 name: Blinding Smite
-color: "#FFFFE0"
+color: '#FFFFE0'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024"
+  book: Player´s Handbook 2024
   page: null
   srd: false
 level: 3
@@ -52,23 +52,32 @@ mechanics:
   sequence:
   - id: effect
     name: Effect
-    check:
-      kind: saving_throw
-      ability: constitution
-      dc: spell_save_dc
     outcomes:
-      fail:
-      - effect: damage
-        damage_type: radiant
-        dice: 3d8
-        scaling: &id001
-          kind: slot_level
-          base_slot: 3
-          add_per_slot_above: 1d8
+      hit:
       - effect: condition
-        condition: blinded
+        condition: blinding_smite
         duration_turns: 0
-  scaling: *id001
+        ongoing:
+          concentration_bound: false
+          clear_group: blinding-smite_{source_cid}_{target_cid}
+          attack_augments:
+            weapon_only: true
+            melee_only: true
+            consume_on_next_hit: true
+            on_hit_effects:
+            - effect: damage
+              dice: 3d8
+              damage_type: radiant
+            - effect: save_bundle
+              save_ability: con
+              save_dc: spell_save_dc
+              condition: blinded
+              repeat_each_turn: true
+              repeat_timing: end_turn
+  scaling:
+    kind: slot_level
+    base_slot: 3
+    add_per_slot_above: 1d8
   ui:
     template_preview: false
   notes: []

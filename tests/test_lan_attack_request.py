@@ -2057,5 +2057,199 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(getattr(self.app.combatants[2], "_mirror_image_duplicates", None), 2)
 
 
+    def test_magic_weapon_attack_augments_apply_attack_and_damage_bonus(self):
+        self.app.combatants[1].ongoing_spell_effects = [
+            {
+                "effect_id": "mw1",
+                "source_cid": 1,
+                "target_cid": 1,
+                "spell_key": "magic-weapon",
+                "primitives": {
+                    "attack_augments": {
+                        "weapon_only": True,
+                        "attack_bonus": 2,
+                        "damage_bonus": 2,
+                        "weapon_counts_as_magical": True,
+                    }
+                },
+            }
+        ]
+        self.app.combatants[2].ac = 16
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 95,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "attack_roll": 7,
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=4):
+            self.app._lan_apply_action(msg)
+        result = msg.get("_attack_result") or {}
+        self.assertTrue(result.get("hit"))
+        self.assertEqual(result.get("to_hit"), 9)
+        augments = self.app._collect_attack_augments(
+            self.app.combatants[1],
+            self.app.combatants[2],
+            attack_ctx={"weapon_id": "longsword", "weapon_name": "longsword", "weapon_category": "martial melee", "is_weapon_attack": True, "is_unarmed_attack": False, "is_melee_attack": True, "is_ranged_attack": False},
+        )
+        self.assertEqual(int(augments.get("damage_bonus") or 0), 2)
+
+    def test_elemental_weapon_attack_augments_add_extra_typed_damage(self):
+        self.app.combatants[1].ongoing_spell_effects = [
+            {
+                "effect_id": "ew1",
+                "source_cid": 1,
+                "target_cid": 1,
+                "spell_key": "elemental-weapon",
+                "primitives": {
+                    "attack_augments": {
+                        "weapon_only": True,
+                        "attack_bonus": 1,
+                        "extra_damage_dice": [{"dice": "1d4", "damage_type": "fire"}],
+                    }
+                },
+            }
+        ]
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 96,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4, 3]):
+            self.app._lan_apply_action(msg)
+        result = msg.get("_attack_result") or {}
+        types = {str(entry.get("type") or "") for entry in list(result.get("damage_entries") or [])}
+        self.assertIn("fire", types)
+
+    def test_divine_favor_attack_augments_add_radiant_damage(self):
+        self.app.combatants[1].ongoing_spell_effects = [
+            {
+                "effect_id": "df1",
+                "source_cid": 1,
+                "target_cid": 1,
+                "spell_key": "divine-favor",
+                "primitives": {
+                    "attack_augments": {
+                        "weapon_only": True,
+                        "extra_damage_dice": [{"dice": "1d4", "damage_type": "radiant"}],
+                    }
+                },
+            }
+        ]
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 97,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4, 2]):
+            self.app._lan_apply_action(msg)
+        result = msg.get("_attack_result") or {}
+        self.assertTrue(any(str(entry.get("type") or "") == "radiant" for entry in list(result.get("damage_entries") or [])))
+
+    def test_shillelagh_attack_augments_override_damage_die_and_ability(self):
+        self.app._profile_for_player_name = lambda _name: {
+            "abilities": {"str": 8, "wis": 18},
+            "leveling": {"classes": [{"name": "Druid", "level": 5, "attacks_per_action": 1}]},
+            "attacks": {
+                "weapons": [
+                    {
+                        "id": "club",
+                        "name": "Club",
+                        "to_hit": 4,
+                        "one_handed": {"damage_formula": "1d4 + str_mod", "damage_type": "bludgeoning"},
+                    }
+                ]
+            },
+        }
+        self.app.combatants[1].ongoing_spell_effects = [
+            {
+                "effect_id": "sh1",
+                "source_cid": 1,
+                "target_cid": 1,
+                "spell_key": "shillelagh",
+                "primitives": {
+                    "attack_augments": {
+                        "weapon_only": True,
+                        "weapon_ids": ["club"],
+                        "attack_ability_override": "wis",
+                        "weapon_damage_die_override": "1d8",
+                    }
+                },
+            }
+        ]
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 98,
+            "target_cid": 2,
+            "weapon_id": "club",
+            "hit": True,
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=5):
+            self.app._lan_apply_action(msg)
+        result = msg.get("_attack_result") or {}
+        self.assertTrue(result.get("hit"))
+        augments = self.app._collect_attack_augments(
+            self.app.combatants[1],
+            self.app.combatants[2],
+            attack_ctx={"weapon_id": "club", "weapon_name": "club", "weapon_category": "simple melee", "is_weapon_attack": True, "is_unarmed_attack": False, "is_melee_attack": True, "is_ranged_attack": False},
+        )
+        self.assertEqual(augments.get("attack_ability_override"), "wis")
+        self.assertEqual(augments.get("weapon_damage_die_override"), "1d8")
+
+    def test_next_hit_rider_consumes_from_ongoing_attack_augment(self):
+        self.app.combatants[1].ongoing_spell_effects = [
+            {
+                "effect_id": "sm1",
+                "source_cid": 1,
+                "target_cid": 1,
+                "spell_key": "thunderous-smite",
+                "primitives": {
+                    "attack_augments": {
+                        "weapon_only": True,
+                        "melee_only": True,
+                        "consume_on_next_hit": True,
+                        "on_hit_effects": [
+                            {"effect": "damage", "dice": "2d6", "damage_type": "thunder"},
+                            {
+                                "effect": "save_bundle",
+                                "save_ability": "str",
+                                "save_dc": 13,
+                                "apply_prone": True,
+                                "forced_movement": {"effect": "movement", "kind": "push", "distance_ft": 10, "origin": "caster"},
+                            },
+                        ],
+                    }
+                },
+            }
+        ]
+        self.app.combatants[2].saving_throws = {"str": 0}
+        self.app.combatants[2].ability_mods = {"str": 0}
+        self.app._lan_positions = {1: (5, 5), 2: (5, 4)}
+        first = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 99,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=1):
+            self.app._lan_apply_action(first)
+        self.assertFalse(getattr(self.app.combatants[1], "ongoing_spell_effects", []))
+
+
 if __name__ == "__main__":
     unittest.main()

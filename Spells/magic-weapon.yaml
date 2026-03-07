@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: magic-weapon
 name: Magic Weapon
-color: "#FFD700"
+color: '#FFD700'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 2
@@ -29,11 +29,11 @@ import:
   aidedd_slug: magic-weapon
   url: https://www.aidedd.org/spell/magic-weapon
   raw:
-    description: "You touch a nonmagical weapon. Until the spell ends, that weapon\
-      \ becomes a magic weapon with a +1 bonus to attack rolls and damage rolls. The\
-      \ spell ends early if you cast it again. Using a Higher-Level Spell Slot . The\
-      \ bonus increases to +2 with a level 3\u20135 spell slot. The bonus increases\
-      \ to +3 with a level 6+ spell slot."
+    description: You touch a nonmagical weapon. Until the spell ends, that weapon
+      becomes a magic weapon with a +1 bonus to attack rolls and damage rolls. The
+      spell ends early if you cast it again. Using a Higher-Level Spell Slot . The
+      bonus increases to +2 with a level 3–5 spell slot. The bonus increases to +3
+      with a level 6+ spell slot.
     higher_level: null
 text:
   summary: null
@@ -43,7 +43,23 @@ mechanics:
   automation: partial
   upcastable: true
   targeting: null
-  sequence: []
+  sequence:
+  - id: effect
+    name: Effect
+    outcomes:
+      hit:
+      - effect: condition
+        condition: magic_weapon
+        duration_turns: 0
+        ongoing:
+          concentration_bound: false
+          clear_group: magic-weapon_{source_cid}_{target_cid}
+          attack_augments:
+            weapon_only: true
+            exclude_unarmed: true
+            attack_bonus: 1
+            damage_bonus: 1
+            weapon_counts_as_magical: true
   scaling: null
   ui:
     template_preview: false

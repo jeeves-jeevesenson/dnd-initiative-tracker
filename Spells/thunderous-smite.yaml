@@ -45,21 +45,33 @@ mechanics:
   upcastable: true
   targeting: null
   sequence:
-  - id: save_rider
-    name: Rider Save
-    check:
-      kind: saving_throw
-      ability: strength
-      dc: spell_save_dc
+  - id: effect
+    name: Effect
     outcomes:
-      fail:
+      hit:
       - effect: condition
-        condition: prone
-      - effect: movement
-        kind: push
-        distance_ft: 10
-        origin: caster
-      success: []
+        condition: thunderous_smite
+        duration_turns: 0
+        ongoing:
+          concentration_bound: false
+          clear_group: thunderous-smite_{source_cid}_{target_cid}
+          attack_augments:
+            weapon_only: true
+            melee_only: true
+            consume_on_next_hit: true
+            on_hit_effects:
+            - effect: damage
+              dice: 2d6
+              damage_type: thunder
+            - effect: save_bundle
+              save_ability: str
+              save_dc: spell_save_dc
+              apply_prone: true
+              forced_movement:
+                effect: movement
+                kind: push
+                distance_ft: 10
+                origin: caster
   scaling: null
   ui:
     template_preview: false

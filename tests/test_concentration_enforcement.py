@@ -597,5 +597,29 @@ class ConcentrationEnforcementTests(unittest.TestCase):
         self.assertTrue(applied)
         self.assertEqual(self.app._lan_positions.get(target.cid), (10, 5))
 
+    def test_elemental_weapon_concentration_end_clears_attack_augments(self):
+        caster = self.app.combatants[1]
+        self.app._start_concentration(caster, "elemental-weapon", spell_level=3, targets=[caster.cid])
+        self.app._register_target_spell_effect(
+            caster.cid,
+            caster.cid,
+            "elemental-weapon",
+            spell_level=3,
+            concentration_bound=True,
+            clear_group=f"elemental-weapon_{caster.cid}_{caster.cid}",
+            effect_tags=["attack_augment"],
+            primitives={
+                "attack_augments": {
+                    "weapon_only": True,
+                    "attack_bonus": 1,
+                    "extra_damage_dice": [{"dice": "1d4", "damage_type": "fire"}],
+                }
+            },
+        )
+        self.assertEqual(len(list(getattr(caster, "ongoing_spell_effects", []) or [])), 1)
+        self.app._clear_concentration_bound_effects(caster, "elemental-weapon", [caster.cid])
+        self.assertEqual(list(getattr(caster, "ongoing_spell_effects", []) or []), [])
+
+
 if __name__ == "__main__":
     unittest.main()

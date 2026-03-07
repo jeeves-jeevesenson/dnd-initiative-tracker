@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: shillelagh
 name: Shillelagh
-color: "#32CD32"
+color: '#32CD32'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 0
@@ -52,10 +52,25 @@ mechanics:
   - id: effect
     name: Effect
     outcomes:
-      hit: []
+      hit:
+      - effect: condition
+        condition: shillelagh
+        duration_turns: 0
+        ongoing:
+          concentration_bound: false
+          clear_group: shillelagh_{source_cid}_{target_cid}
+          attack_augments:
+            weapon_only: true
+            weapon_ids:
+            - club
+            - quarterstaff
+            attack_ability_override: wis
+            weapon_damage_die_override: 1d8
   scaling: null
   ui:
     template_preview: false
   notes:
-  - Imbues a held club or quarterstaff; weapon attack/damage updates are applied through weapon usage, not direct spell damage.
-  - Damage die progression is d8 (base), d10 at level 5, d12 at level 11, and 2d6 at level 17.
+  - Imbues a held club or quarterstaff; weapon attack/damage updates are applied through
+    weapon usage, not direct spell damage.
+  - Damage die progression is d8 (base), d10 at level 5, d12 at level 11, and 2d6
+    at level 17.

@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: elemental-weapon
 name: Elemental Weapon
-color: "#FFD700"
+color: '#FFD700'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024"
+  book: Player´s Handbook 2024
   page: null
   srd: false
 level: 3
@@ -44,7 +44,25 @@ mechanics:
   automation: partial
   upcastable: true
   targeting: null
-  sequence: []
+  sequence:
+  - id: effect
+    name: Effect
+    outcomes:
+      hit:
+      - effect: condition
+        condition: elemental_weapon
+        duration_turns: 0
+        ongoing:
+          concentration_bound: true
+          clear_group: elemental-weapon_{source_cid}_{target_cid}
+          attack_augments:
+            weapon_only: true
+            exclude_unarmed: true
+            attack_bonus: 1
+            weapon_counts_as_magical: true
+            extra_damage_dice:
+            - dice: 1d4
+              damage_type: selected_damage_type
   scaling: null
   ui:
     template_preview: false
