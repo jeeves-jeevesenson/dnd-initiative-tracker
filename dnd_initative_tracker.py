@@ -11686,6 +11686,15 @@ class InitiativeTracker(base.InitiativeTracker):
     def _attack_roll_mode_against_target(self, attacker: Any, target: Any) -> str:
         attacker_mods = self._collect_combat_modifiers(attacker)
         target_mods = self._collect_combat_modifiers(target)
+        attacker_cid = _normalize_cid_value(getattr(attacker, "cid", attacker), "target_mark.mode.attacker")
+        target_cid = _normalize_cid_value(getattr(target, "cid", target), "target_mark.mode.target")
+        if attacker_cid is not None and target_cid is not None:
+            for mark in self._collect_marks_for_attacker(int(target_cid)):
+                if int(mark.get("target_cid") or 0) != int(attacker_cid):
+                    continue
+                penalties = mark.get("target_penalties") if isinstance(mark.get("target_penalties"), dict) else {}
+                if bool(penalties.get("target_attack_disadvantage_against_source")):
+                    return "disadvantage"
         if bool(attacker_mods.get("target_attack_disadvantage")) or bool(target_mods.get("attackers_have_disadvantage_against_target")):
             return "disadvantage"
         return "normal"
@@ -11787,6 +11796,101 @@ class InitiativeTracker(base.InitiativeTracker):
                         "slot_level": entry.get("spell_level"),
                     }
                 )
+        mark_augments = self._mark_augments_for_attack(attacker, target, attack_ctx=attack_ctx)
+        try:
+            summary["attack_bonus"] += int(mark_augments.get("attack_bonus") or 0)
+        except Exception:
+            pass
+        try:
+            summary["damage_bonus"] += int(mark_augments.get("damage_bonus") or 0)
+        except Exception:
+            pass
+        if bool(mark_augments.get("weapon_counts_as_magical")):
+            summary["weapon_counts_as_magical"] = True
+        die_override = str(mark_augments.get("weapon_damage_die_override") or "").strip().lower()
+        if die_override:
+            summary["weapon_damage_die_override"] = die_override
+        ability_override = self._normalize_spellcasting_ability(mark_augments.get("attack_ability_override"))
+        if ability_override:
+            summary["attack_ability_override"] = ability_override
+        summary["extra_damage_dice"].extend(list(mark_augments.get("extra_damage_dice") or []))
+        summary["pending_hit_riders"].extend(list(mark_augments.get("pending_hit_riders") or []))
+        return summary
+
+    def _collect_marks_for_attacker(self, attacker: Any, spell_key: str = "") -> List[Dict[str, Any]]:
+        attacker_cid = _normalize_cid_value(getattr(attacker, "cid", attacker), "target_mark.attacker")
+        if attacker_cid is None:
+            return []
+        spell_filter = str(spell_key or "").strip().lower()
+        marks: List[Dict[str, Any]] = []
+        for combatant in list(getattr(self, "combatants", {}).values()):
+            for entry in list(getattr(combatant, "ongoing_spell_effects", []) or []):
+                if not isinstance(entry, dict):
+                    continue
+                primitives = entry.get("primitives") if isinstance(entry.get("primitives"), dict) else {}
+                mark = primitives.get("target_mark") if isinstance(primitives.get("target_mark"), dict) else {}
+                if not mark:
+                    continue
+                source_cid = int(mark.get("source_cid") or entry.get("source_cid") or 0)
+                if source_cid != int(attacker_cid):
+                    continue
+                entry_spell = str(mark.get("spell_key") or entry.get("spell_key") or "").strip().lower()
+                if spell_filter and entry_spell != spell_filter:
+                    continue
+                marks.append(
+                    {
+                        "effect_id": str(entry.get("effect_id") or ""),
+                        "source_cid": int(source_cid),
+                        "target_cid": int(mark.get("target_cid") or entry.get("target_cid") or 0),
+                        "spell_key": entry_spell,
+                        "spell_level": mark.get("spell_level", entry.get("spell_level")),
+                        "concentration_bound": bool(mark.get("concentration_bound", entry.get("concentration_bound"))),
+                        "reassign": dict(mark.get("reassign") or {}),
+                        "attack_augments": dict(mark.get("attack_augments") or {}),
+                        "target_penalties": dict(mark.get("target_penalties") or {}),
+                        "clear_group": str(entry.get("clear_group") or ""),
+                    }
+                )
+        return marks
+
+    def _mark_augments_for_attack(self, attacker: Any, target: Any, attack_ctx: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        summary: Dict[str, Any] = {
+            "attack_bonus": 0,
+            "damage_bonus": 0,
+            "extra_damage_dice": [],
+            "weapon_counts_as_magical": False,
+            "weapon_damage_die_override": "",
+            "attack_ability_override": "",
+            "pending_hit_riders": [],
+        }
+        attacker_cid = _normalize_cid_value(getattr(attacker, "cid", attacker), "target_mark.attack.attacker")
+        target_cid = _normalize_cid_value(getattr(target, "cid", target), "target_mark.attack.target")
+        if attacker_cid is None or target_cid is None:
+            return summary
+        for mark in self._collect_marks_for_attacker(int(attacker_cid)):
+            if int(mark.get("target_cid") or 0) != int(target_cid):
+                continue
+            attack_augments = mark.get("attack_augments") if isinstance(mark.get("attack_augments"), dict) else {}
+            if not attack_augments or not self._attack_augment_matches_weapon(attack_augments, attack_ctx or {}):
+                continue
+            try:
+                summary["attack_bonus"] += int(attack_augments.get("attack_bonus") or 0)
+            except Exception:
+                pass
+            try:
+                summary["damage_bonus"] += int(attack_augments.get("damage_bonus") or 0)
+            except Exception:
+                pass
+            if bool(attack_augments.get("weapon_counts_as_magical")):
+                summary["weapon_counts_as_magical"] = True
+            for extra in list(attack_augments.get("extra_damage_dice") or []):
+                if not isinstance(extra, dict):
+                    continue
+                dice = str(extra.get("dice") or "").strip().lower()
+                if not dice:
+                    continue
+                dtype = str(extra.get("damage_type") or extra.get("type") or "damage").strip().lower() or "damage"
+                summary["extra_damage_dice"].append({"dice": dice, "type": dtype})
         return summary
 
     @staticmethod
@@ -24504,6 +24608,103 @@ class InitiativeTracker(base.InitiativeTracker):
             is_polymorph = preset_slug == "polymorph" or preset_id == "polymorph"
             is_phantasmal_killer = preset_slug == "phantasmal-killer" or preset_id == "phantasmal-killer"
             is_heat_metal = preset_slug in ("heat-metal", "heat_metal") or preset_id in ("heat-metal", "heat_metal")
+            is_hex = preset_slug == "hex" or preset_id == "hex"
+            is_hunters_mark = preset_slug == "hunter-s-mark" or preset_id == "hunter-s-mark"
+            is_bestow_curse = preset_slug == "bestow-curse" or preset_id == "bestow-curse"
+            if c is not None and (is_hex or is_hunters_mark):
+                existing_marks = self._collect_marks_for_attacker(int(c.cid), spell_key="hex" if is_hex else "hunter-s-mark")
+                if existing_marks and int(existing_marks[0].get("target_cid") or 0) != int(target_cid):
+                    old_target = self.combatants.get(int(existing_marks[0].get("target_cid") or 0))
+                    old_target_down = old_target is None or int(getattr(old_target, "hp", 0) or 0) <= 0
+                    if not old_target_down:
+                        _reject_invalid_spell_target("You can move that mark only after the prior target drops, matey.")
+                        return
+                spell_key_for_mark = "hex" if is_hex else "hunter-s-mark"
+                damage_type = "necrotic" if is_hex else "force"
+                self._register_target_mark(
+                    int(c.cid),
+                    int(target_cid),
+                    spell_key_for_mark,
+                    spell_level=int(msg.get("slot_level") or (preset or {}).get("level") or 1),
+                    concentration_bound=True,
+                    clear_group=f"{spell_key_for_mark}_{int(c.cid)}_{int(target_cid)}",
+                    reassign={"allow_reassign": True, "requires_prior_target_down": True},
+                    attack_augments={"extra_damage_dice": [{"dice": "1d6", "damage_type": damage_type}]},
+                    target_penalties={},
+                    effect_tags=["curse" if is_hex else "mark", "attack_augment"],
+                )
+                current_targets = list(getattr(c, "concentration_target", []) or [])
+                if int(target_cid) not in current_targets:
+                    current_targets.append(int(target_cid))
+                self._start_concentration(
+                    c,
+                    "hex" if is_hex else "hunter-s-mark",
+                    spell_level=int(msg.get("slot_level") or (preset or {}).get("level") or 1),
+                    targets=current_targets,
+                )
+                result_payload = {
+                    "type": "spell_target_result",
+                    "ok": True,
+                    "attacker_cid": int(cid),
+                    "target_cid": int(target_cid),
+                    "target_name": str(getattr(target, "name", "Target") or "Target"),
+                    "spell_name": spell_name,
+                    "spell_mode": "effect",
+                    "hit": True,
+                    "critical": False,
+                    "damage_entries": [],
+                    "damage_total": 0,
+                }
+                msg["_spell_target_result"] = dict(result_payload)
+                self._lan.toast(ws_id, "Spell resolved.")
+                return
+            if c is not None and is_bestow_curse:
+                curse_mode = str(msg.get("curse_mode") or msg.get("bestow_curse_mode") or "").strip().lower()
+                if curse_mode in {"extra-damage", "extra_damage", "damage"}:
+                    save_dc = int(msg.get("save_dc") or self._compute_spell_save_dc(self._profile_for_player_name(self._pc_name_for(int(c.cid)))) or 0)
+                    save_roll = int(random.randint(1, 20))
+                    save_mod = _save_mod_for_target(target, "wis")
+                    save_total = int(save_roll) + int(save_mod)
+                    save_passed = bool(save_roll != 1 and save_total >= int(save_dc)) if save_dc > 0 else False
+                    result_payload = {
+                        "type": "spell_target_result",
+                        "ok": True,
+                        "attacker_cid": int(cid),
+                        "target_cid": int(target_cid),
+                        "target_name": str(getattr(target, "name", "Target") or "Target"),
+                        "spell_name": spell_name,
+                        "spell_mode": "save",
+                        "hit": bool(not save_passed),
+                        "critical": False,
+                        "damage_entries": [],
+                        "damage_total": 0,
+                        "save_result": {"ability": "wis", "dc": int(save_dc), "roll": int(save_roll), "modifier": int(save_mod), "total": int(save_total), "passed": bool(save_passed)},
+                    }
+                    if not save_passed:
+                        self._register_target_mark(
+                            int(c.cid),
+                            int(target_cid),
+                            "bestow-curse",
+                            spell_level=int(msg.get("slot_level") or (preset or {}).get("level") or 3),
+                            concentration_bound=True,
+                            clear_group=f"bestow_curse_{int(c.cid)}_{int(target_cid)}",
+                            reassign={"allow_reassign": False},
+                            attack_augments={"extra_damage_dice": [{"dice": "1d8", "damage_type": "necrotic"}]},
+                            target_penalties={"target_attack_disadvantage_against_source": True},
+                            effect_tags=["curse", "attack_augment"],
+                        )
+                        current_targets = list(getattr(c, "concentration_target", []) or [])
+                        if int(target_cid) not in current_targets:
+                            current_targets.append(int(target_cid))
+                        self._start_concentration(
+                            c,
+                            "bestow-curse",
+                            spell_level=int(msg.get("slot_level") or (preset or {}).get("level") or 3),
+                            targets=current_targets,
+                        )
+                    msg["_spell_target_result"] = dict(result_payload)
+                    self._lan.toast(ws_id, "Spell resolved.")
+                    return
             handled_generic_single_target = self._resolve_single_target_spell(
                 msg=msg,
                 caster=c,
@@ -28949,6 +29150,101 @@ class InitiativeTracker(base.InitiativeTracker):
         self._materialize_registered_spell_effect(target, effect_entry)
         return effect_entry
 
+    def _register_target_mark(
+        self,
+        source_cid: int,
+        target_cid: int,
+        spell_key: str,
+        *,
+        spell_level: Optional[int] = None,
+        concentration_bound: bool = False,
+        clear_group: str = "",
+        reassign: Optional[Dict[str, Any]] = None,
+        attack_augments: Optional[Dict[str, Any]] = None,
+        target_penalties: Optional[Dict[str, Any]] = None,
+        effect_tags: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        spell_slug = str(spell_key or "").strip().lower()
+        for existing in self._collect_marks_for_attacker(int(source_cid), spell_key=spell_slug):
+            existing_target = self.combatants.get(int(existing.get("target_cid") or 0))
+            if existing_target is None:
+                continue
+            for entry in list(getattr(existing_target, "ongoing_spell_effects", []) or []):
+                if not isinstance(entry, dict):
+                    continue
+                if str(entry.get("effect_id") or "") != str(existing.get("effect_id") or ""):
+                    continue
+                self._clear_target_spell_effect(existing_target, entry, reason="mark reassigned")
+                break
+        return self._register_target_spell_effect(
+            int(source_cid),
+            int(target_cid),
+            spell_slug,
+            spell_level=spell_level,
+            concentration_bound=bool(concentration_bound),
+            clear_group=clear_group,
+            effect_tags=list(effect_tags or []) + ["target_mark"],
+            primitives={
+                "target_mark": {
+                    "source_cid": int(source_cid),
+                    "target_cid": int(target_cid),
+                    "spell_key": spell_slug,
+                    "spell_level": spell_level,
+                    "concentration_bound": bool(concentration_bound),
+                    "reassign": dict(reassign or {}),
+                    "attack_augments": dict(attack_augments or {}),
+                    "target_penalties": dict(target_penalties or {}),
+                }
+            },
+        )
+
+    def _is_target_marked_by_attacker_for_spell(self, attacker: Any, target: Any, spell_key: str) -> bool:
+        attacker_cid = _normalize_cid_value(getattr(attacker, "cid", attacker), "target_mark.query.attacker")
+        target_cid = _normalize_cid_value(getattr(target, "cid", target), "target_mark.query.target")
+        spell_slug = str(spell_key or "").strip().lower()
+        if attacker_cid is None or target_cid is None or not spell_slug:
+            return False
+        for mark in self._collect_marks_for_attacker(int(attacker_cid), spell_key=spell_slug):
+            if int(mark.get("target_cid") or 0) == int(target_cid):
+                return True
+        return False
+
+    def _reassign_target_mark(self, source_cid: int, from_target_cid: int, to_target_cid: int, spell_key: str) -> bool:
+        target = self.combatants.get(int(from_target_cid))
+        if target is None:
+            return False
+        selected: Optional[Dict[str, Any]] = None
+        for entry in list(getattr(target, "ongoing_spell_effects", []) or []):
+            if not isinstance(entry, dict):
+                continue
+            if int(entry.get("source_cid") or 0) != int(source_cid):
+                continue
+            if str(entry.get("spell_key") or "").strip().lower() != str(spell_key or "").strip().lower():
+                continue
+            mark = ((entry.get("primitives") or {}).get("target_mark") if isinstance(entry.get("primitives"), dict) else None)
+            if not isinstance(mark, dict):
+                continue
+            selected = dict(entry)
+            break
+        if not isinstance(selected, dict):
+            return False
+        mark_payload = ((selected.get("primitives") or {}).get("target_mark") if isinstance(selected.get("primitives"), dict) else None)
+        mark_payload = dict(mark_payload or {})
+        self._clear_target_spell_effect(target, selected, reason="mark reassigned")
+        self._register_target_mark(
+            int(source_cid),
+            int(to_target_cid),
+            str(spell_key or ""),
+            spell_level=mark_payload.get("spell_level", selected.get("spell_level")),
+            concentration_bound=bool(mark_payload.get("concentration_bound", selected.get("concentration_bound"))),
+            clear_group=str(selected.get("clear_group") or ""),
+            reassign=mark_payload.get("reassign") if isinstance(mark_payload.get("reassign"), dict) else {},
+            attack_augments=mark_payload.get("attack_augments") if isinstance(mark_payload.get("attack_augments"), dict) else {},
+            target_penalties=mark_payload.get("target_penalties") if isinstance(mark_payload.get("target_penalties"), dict) else {},
+            effect_tags=selected.get("effect_tags") if isinstance(selected.get("effect_tags"), list) else [],
+        )
+        return True
+
     def _clear_target_spell_effect(self, target: Any, effect_entry: Dict[str, Any], *, reason: str = "") -> None:
         if target is None or not isinstance(effect_entry, dict):
             return
@@ -29490,6 +29786,9 @@ class InitiativeTracker(base.InitiativeTracker):
             "blur",
             "protection-from-energy",
             "protection-from-evil-and-good",
+            "hex",
+            "hunter-s-mark",
+            "bestow-curse",
         }:
             self._clear_concentration_bound_effects(c, spell_key, targets)
         if spell_key in {"heat-metal", "heat_metal"}:

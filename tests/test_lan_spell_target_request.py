@@ -2041,6 +2041,111 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual((result.get("cleanup") or {}).get("target_effects"), 1)
         self.assertEqual(list(getattr(target, "ongoing_spell_effects", []) or []), [])
 
+    def test_hex_registers_mark_on_target(self):
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 210,
+            "target_cid": 2,
+            "spell_name": "Hex",
+            "spell_slug": "hex",
+            "spell_mode": "effect",
+            "slot_level": 1,
+        }
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {"id": "hex", "slug": "hex", "name": "Hex", "level": 1, "concentration": True}
+
+        self.app._lan_apply_action(msg)
+
+        marks = self.app._collect_marks_for_attacker(self.app.combatants[1], "hex")
+        self.assertEqual(len(marks), 1)
+        self.assertEqual(int(marks[0].get("target_cid") or 0), 2)
+
+    def test_hunters_mark_reassign_requires_prior_target_down(self):
+        self.app._register_target_mark(
+            1,
+            2,
+            "hunter-s-mark",
+            spell_level=1,
+            concentration_bound=True,
+            clear_group="hunter-s-mark_1_2",
+            reassign={"allow_reassign": True, "requires_prior_target_down": True},
+            attack_augments={"extra_damage_dice": [{"dice": "1d6", "damage_type": "force"}]},
+        )
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 211,
+            "target_cid": 3,
+            "spell_name": "Hunter's Mark",
+            "spell_slug": "hunter-s-mark",
+            "spell_mode": "effect",
+            "slot_level": 1,
+        }
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {"id": "hunter-s-mark", "slug": "hunter-s-mark", "name": "Hunter's Mark", "level": 1, "concentration": True}
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result") or {}
+        self.assertFalse(result.get("ok"))
+        marks = self.app._collect_marks_for_attacker(self.app.combatants[1], "hunter-s-mark")
+        self.assertEqual(len(marks), 1)
+        self.assertEqual(int(marks[0].get("target_cid") or 0), 2)
+
+    def test_hunters_mark_reassign_allows_when_prior_target_down(self):
+        self.app.combatants[2].hp = 0
+        self.app._register_target_mark(
+            1,
+            2,
+            "hunter-s-mark",
+            spell_level=1,
+            concentration_bound=True,
+            clear_group="hunter-s-mark_1_2",
+            reassign={"allow_reassign": True, "requires_prior_target_down": True},
+            attack_augments={"extra_damage_dice": [{"dice": "1d6", "damage_type": "force"}]},
+        )
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 212,
+            "target_cid": 3,
+            "spell_name": "Hunter's Mark",
+            "spell_slug": "hunter-s-mark",
+            "spell_mode": "effect",
+            "slot_level": 1,
+        }
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {"id": "hunter-s-mark", "slug": "hunter-s-mark", "name": "Hunter's Mark", "level": 1, "concentration": True}
+
+        self.app._lan_apply_action(msg)
+
+        marks = self.app._collect_marks_for_attacker(self.app.combatants[1], "hunter-s-mark")
+        self.assertEqual(len(marks), 1)
+        self.assertEqual(int(marks[0].get("target_cid") or 0), 3)
+
+    def test_bestow_curse_extra_damage_mode_registers_mark_on_failed_save(self):
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 213,
+            "target_cid": 2,
+            "spell_name": "Bestow Curse",
+            "spell_slug": "bestow-curse",
+            "spell_mode": "effect",
+            "slot_level": 3,
+            "curse_mode": "extra-damage",
+        }
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {"id": "bestow-curse", "slug": "bestow-curse", "name": "Bestow Curse", "level": 3, "concentration": True}
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=1):
+            self.app._lan_apply_action(msg)
+
+        marks = self.app._collect_marks_for_attacker(self.app.combatants[1], "bestow-curse")
+        self.assertEqual(len(marks), 1)
+        self.assertEqual(int(marks[0].get("target_cid") or 0), 2)
+
     def test_dispel_magic_clears_target_and_map_effects_by_slot_level(self):
         target = self.app.combatants[2]
         self.app.combatants[2].concentration_aoe_ids = [77, 78]

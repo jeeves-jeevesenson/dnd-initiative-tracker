@@ -660,6 +660,25 @@ class ConcentrationEnforcementTests(unittest.TestCase):
         self.app._clear_concentration_bound_effects(caster, "elemental-weapon", [caster.cid])
         self.assertEqual(list(getattr(caster, "ongoing_spell_effects", []) or []), [])
 
+    def test_end_concentration_clears_hex_target_mark(self):
+        caster = self.app.combatants[1]
+        target = self.app.combatants[2]
+        self.app._start_concentration(caster, "hex", spell_level=1, targets=[target.cid])
+        self.app._register_target_mark(
+            caster.cid,
+            target.cid,
+            "hex",
+            spell_level=1,
+            concentration_bound=True,
+            clear_group=f"hex_{caster.cid}_{target.cid}",
+            reassign={"allow_reassign": True, "requires_prior_target_down": True},
+            attack_augments={"extra_damage_dice": [{"dice": "1d6", "damage_type": "necrotic"}]},
+        )
+
+        self.assertEqual(len(self.app._collect_marks_for_attacker(caster, "hex")), 1)
+        self.app._end_concentration(caster)
+        self.assertEqual(self.app._collect_marks_for_attacker(caster, "hex"), [])
+
 
 if __name__ == "__main__":
     unittest.main()

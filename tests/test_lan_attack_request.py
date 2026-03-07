@@ -2460,6 +2460,74 @@ class LanAttackRequestTests(unittest.TestCase):
             self.app._lan_apply_action(first)
         self.assertFalse(getattr(self.app.combatants[1], "ongoing_spell_effects", []))
 
+    def test_hex_mark_bonus_damage_only_applies_to_marked_target(self):
+        self.app.combatants[4] = type("C", (), {"cid": 4, "name": "Orc", "ac": 13, "hp": 18, "condition_stacks": [], "exhaustion_level": 0, "saving_throws": {}, "ability_mods": {}})()
+        self.app._register_target_mark(
+            1,
+            2,
+            "hex",
+            spell_level=1,
+            concentration_bound=True,
+            clear_group="hex_1_2",
+            reassign={"allow_reassign": True, "requires_prior_target_down": True},
+            attack_augments={"extra_damage_dice": [{"dice": "1d6", "damage_type": "necrotic"}]},
+        )
+        marked = self.app._collect_attack_augments(
+            self.app.combatants[1],
+            self.app.combatants[2],
+            attack_ctx={"weapon_id": "longsword", "weapon_name": "longsword", "weapon_category": "martial melee", "is_weapon_attack": True, "is_unarmed_attack": False, "is_melee_attack": True, "is_ranged_attack": False},
+        )
+        unmarked = self.app._collect_attack_augments(
+            self.app.combatants[1],
+            self.app.combatants[4],
+            attack_ctx={"weapon_id": "longsword", "weapon_name": "longsword", "weapon_category": "martial melee", "is_weapon_attack": True, "is_unarmed_attack": False, "is_melee_attack": True, "is_ranged_attack": False},
+        )
+        self.assertTrue(any(str(entry.get("type") or "") == "necrotic" for entry in list(marked.get("extra_damage_dice") or [])))
+        self.assertFalse(any(str(entry.get("type") or "") == "necrotic" for entry in list(unmarked.get("extra_damage_dice") or [])))
+
+    def test_hunters_mark_bonus_damage_only_applies_to_marked_target(self):
+        self.app.combatants[4] = type("C", (), {"cid": 4, "name": "Orc", "ac": 13, "hp": 18, "condition_stacks": [], "exhaustion_level": 0, "saving_throws": {}, "ability_mods": {}})()
+        self.app._register_target_mark(
+            1,
+            2,
+            "hunter-s-mark",
+            spell_level=1,
+            concentration_bound=True,
+            clear_group="hunter-s-mark_1_2",
+            reassign={"allow_reassign": True, "requires_prior_target_down": True},
+            attack_augments={"extra_damage_dice": [{"dice": "1d6", "damage_type": "force"}]},
+        )
+        marked = self.app._collect_attack_augments(
+            self.app.combatants[1],
+            self.app.combatants[2],
+            attack_ctx={"weapon_id": "longsword", "weapon_name": "longsword", "weapon_category": "martial melee", "is_weapon_attack": True, "is_unarmed_attack": False, "is_melee_attack": True, "is_ranged_attack": False},
+        )
+        unmarked = self.app._collect_attack_augments(
+            self.app.combatants[1],
+            self.app.combatants[4],
+            attack_ctx={"weapon_id": "longsword", "weapon_name": "longsword", "weapon_category": "martial melee", "is_weapon_attack": True, "is_unarmed_attack": False, "is_melee_attack": True, "is_ranged_attack": False},
+        )
+        self.assertTrue(any(str(entry.get("type") or "") == "force" for entry in list(marked.get("extra_damage_dice") or [])))
+        self.assertFalse(any(str(entry.get("type") or "") == "force" for entry in list(unmarked.get("extra_damage_dice") or [])))
+
+    def test_bestow_curse_attack_penalty_applies_only_against_caster(self):
+        self.app.combatants[4] = type("C", (), {"cid": 4, "name": "Orc", "ac": 13, "hp": 18, "condition_stacks": [], "exhaustion_level": 0, "saving_throws": {}, "ability_mods": {}})()
+        self.app._register_target_mark(
+            1,
+            2,
+            "bestow-curse",
+            spell_level=3,
+            concentration_bound=True,
+            clear_group="bestow_curse_1_2",
+            reassign={"allow_reassign": False},
+            attack_augments={"extra_damage_dice": [{"dice": "1d8", "damage_type": "necrotic"}]},
+            target_penalties={"target_attack_disadvantage_against_source": True},
+        )
+        mode_vs_caster = self.app._attack_roll_mode_against_target(self.app.combatants[2], self.app.combatants[1])
+        mode_vs_other = self.app._attack_roll_mode_against_target(self.app.combatants[2], self.app.combatants[4])
+        self.assertEqual(mode_vs_caster, "disadvantage")
+        self.assertEqual(mode_vs_other, "normal")
+
 
 if __name__ == "__main__":
     unittest.main()
