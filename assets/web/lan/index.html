@@ -3261,6 +3261,7 @@
         <div class="chip" id="bonusAction">Bonus Action: —</div>
         <div class="chip" id="reaction">Reaction: —</div>
         <div class="chip" id="turn">Turn: —</div>
+        <div class="chip" id="concentrationStatus">Concentration: —</div>
         <div class="chip" id="note">Tip: drag yer token · hold Shift to drag AoE (touch-hold ok)</div>
         <label class="chip"><input type="checkbox" id="showAllNames">Show All Names</label>
       </div>
@@ -4458,6 +4459,7 @@ __DAMAGE_TYPE_OPTIONS__
   const bonusActionEl = document.getElementById("bonusAction");
   const reactionEl = document.getElementById("reaction");
   const turnEl = document.getElementById("turn");
+  const concentrationStatusEl = document.getElementById("concentrationStatus");
   const playerHpBarWrap = document.getElementById("playerHpBarWrap");
   const playerHpBarFill = document.getElementById("playerHpBarFill");
   const playerHpBarTempFill = document.getElementById("playerHpBarTempFill");
@@ -13788,6 +13790,45 @@ __DAMAGE_TYPE_OPTIONS__
     meEl.appendChild(wrap);
   }
 
+  function formatConcentrationStatus(unit){
+    if (!unit?.concentrating){
+      return "Concentration: —";
+    }
+    const concentrationSpell = normalizeTextValue(unit?.concentration_spell || unit?.concentrationSpell || "");
+    if (!concentrationSpell){
+      return "Concentration: —";
+    }
+    const totalRoundsRaw = Number(unit?.concentration_total_rounds);
+    if (!Number.isFinite(totalRoundsRaw) || totalRoundsRaw <= 0){
+      return `Concentration: ${concentrationSpell} · duration unknown`;
+    }
+    const totalRounds = Math.max(0, Math.floor(totalRoundsRaw));
+    let remainingRounds = totalRounds;
+    const started = Array.isArray(unit?.concentration_started_turn)
+      ? unit.concentration_started_turn
+      : (Array.isArray(unit?.concentrationStartedTurn) ? unit.concentrationStartedTurn : null);
+    const turnOrder = Array.isArray(state?.turn_order) ? state.turn_order : [];
+    if (started && started.length === 2 && turnOrder.length > 0){
+      const startRound = Number(started[0]);
+      const startTurn = Number(started[1]);
+      const currentRound = Number(state?.round_num ?? 0);
+      const activeCid = normalizeCid(state?.active_cid, "hud.concentration.activeCid");
+      let currentTurn = 1;
+      if (activeCid !== null){
+        const turnIndex = turnOrder.findIndex((cid) => cidMatches(cid, activeCid, "hud.concentration.turnIndex"));
+        if (turnIndex >= 0){
+          currentTurn = turnIndex + 1;
+        }
+      }
+      if (Number.isFinite(startRound) && Number.isFinite(startTurn) && Number.isFinite(currentRound)){
+        const turnsPerRound = turnOrder.length;
+        const elapsedTurns = Math.max(0, Math.floor((currentRound - startRound) * turnsPerRound + (currentTurn - startTurn)));
+        remainingRounds = Math.max(0, totalRounds - elapsedTurns);
+      }
+    }
+    return `Concentration: ${concentrationSpell} · ${totalRounds} rounds total · ${remainingRounds} remaining`;
+  }
+
   function updateHud(){
     if (!state){ return; }
     const active = state.active_cid;
@@ -13860,6 +13901,9 @@ __DAMAGE_TYPE_OPTIONS__
           const reactionOwner = reactionUnit || me;
           reactionEl.textContent = `Reaction: ${reactionOwner.reaction_remaining ?? 0}`;
         }
+        if (concentrationStatusEl){
+          concentrationStatusEl.textContent = formatConcentrationStatus(me);
+        }
         if (useActionBtn){
           useActionBtn.disabled = Number(me.action_remaining || 0) <= 0;
         }
@@ -13901,6 +13945,9 @@ __DAMAGE_TYPE_OPTIONS__
         if (reactionEl){
           reactionEl.textContent = `Reaction: ${reactionUnit?.reaction_remaining ?? "—"}`;
         }
+        if (concentrationStatusEl){
+          concentrationStatusEl.textContent = "Concentration: —";
+        }
         if (useActionBtn){
           useActionBtn.disabled = true;
         }
@@ -13941,6 +13988,9 @@ __DAMAGE_TYPE_OPTIONS__
       bonusActionEl.textContent = "Bonus Action: —";
       if (reactionEl){
         reactionEl.textContent = "Reaction: —";
+      }
+      if (concentrationStatusEl){
+        concentrationStatusEl.textContent = "Concentration: —";
       }
       if (useActionBtn){
         useActionBtn.disabled = true;

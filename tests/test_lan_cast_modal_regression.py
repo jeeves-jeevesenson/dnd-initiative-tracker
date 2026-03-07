@@ -74,6 +74,18 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('document.body.classList.toggle("auto-compact", autoCompact);', self.html)
         self.assertIn('class="btn compact-optional" id="battleLog"', self.html)
 
+    def test_concentration_status_chip_and_hud_rendering_are_wired(self):
+        self.assertIn('id="concentrationStatus"', self.html)
+        self.assertIn('const concentrationStatusEl = document.getElementById("concentrationStatus");', self.html)
+        self.assertIn('function formatConcentrationStatus(unit){', self.html)
+        self.assertIn('const concentrationSpell = normalizeTextValue(unit?.concentration_spell || unit?.concentrationSpell || "");', self.html)
+        self.assertIn('const totalRoundsRaw = Number(unit?.concentration_total_rounds);', self.html)
+        self.assertIn('remainingRounds = Math.max(0, totalRounds - elapsedTurns);', self.html)
+        self.assertIn('return `Concentration: ${concentrationSpell} · ${totalRounds} rounds total · ${remainingRounds} remaining`;', self.html)
+        self.assertIn('return `Concentration: ${concentrationSpell} · duration unknown`;', self.html)
+        self.assertIn('concentrationStatusEl.textContent = formatConcentrationStatus(me);', self.html)
+        self.assertIn('concentrationStatusEl.textContent = "Concentration: —";', self.html)
+
     def test_player_hp_bar_ui_and_threshold_classes_present(self):
         self.assertIn('id="playerHpBarWrap"', self.html)
         self.assertIn('id="playerHpBarFill"', self.html)

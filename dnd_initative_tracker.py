@@ -10207,6 +10207,8 @@ class InitiativeTracker(base.InitiativeTracker):
                     "monster_slug": str(getattr(c, "monster_slug", "") or "") or None,
                     "concentrating": bool(getattr(c, "concentrating", False)),
                     "concentration_spell": str(getattr(c, "concentration_spell", "") or "") or None,
+                    "concentration_started_turn": self._json_safe(getattr(c, "concentration_started_turn", None)),
+                    "concentration_total_rounds": self._concentration_total_rounds_for_combatant(c),
                     "smite_charge": self._json_safe(getattr(c, "pending_smite_charge", None)),
                     "is_mount": bool(getattr(c, "is_mount", False)),
                     "is_hidden": bool(is_hidden),
@@ -28808,6 +28810,42 @@ class InitiativeTracker(base.InitiativeTracker):
             else:
                 total_turns += amount
         return total_turns or None
+
+    def _concentration_total_rounds_for_combatant(self, c: Any) -> Optional[int]:
+        if c is None or not bool(getattr(c, "concentrating", False)):
+            return None
+        raw_spell = str(getattr(c, "concentration_spell", "") or "").strip()
+        if not raw_spell:
+            return None
+
+        candidates: List[str] = []
+        for value in (
+            raw_spell,
+            raw_spell.lower(),
+            raw_spell.lower().replace(" ", "-"),
+            raw_spell.lower().replace("_", "-"),
+        ):
+            normalized = str(value or "").strip()
+            if normalized and normalized not in candidates:
+                candidates.append(normalized)
+
+        preset = None
+        for key in candidates:
+            preset = self._find_spell_preset(spell_slug=key, spell_id=key)
+            if isinstance(preset, dict):
+                break
+
+        if not isinstance(preset, dict):
+            lowered_spell = raw_spell.lower()
+            for entry in self._spell_presets_payload():
+                if not isinstance(entry, dict):
+                    continue
+                entry_name = str(entry.get("name") or "").strip().lower()
+                if entry_name and entry_name == lowered_spell:
+                    preset = entry
+                    break
+
+        return self._spell_duration_to_turns(preset)
 
     def _apply_polymorph_form(self, target: Any, form: Dict[str, Any]) -> None:
         if target is None or not isinstance(form, dict):

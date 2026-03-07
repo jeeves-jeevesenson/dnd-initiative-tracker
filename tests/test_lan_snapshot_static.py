@@ -264,6 +264,56 @@ class LanSnapshotStaticTests(unittest.TestCase):
         self.assertEqual(snap["units"][0]["action_total"], 1)
 
 
+    def test_units_include_concentration_timing_fields(self):
+        app = object.__new__(tracker_mod.InitiativeTracker)
+        app._lan_grid_cols = 10
+        app._lan_grid_rows = 10
+        app._lan_obstacles = set()
+        app._lan_positions = {}
+        app._lan_aoes = {}
+        app._lan_rough_terrain = {}
+        app.current_cid = 1
+        app.round_num = 3
+        app._display_order = lambda: [1]
+        app._oplog = lambda *args, **kwargs: None
+        app._name_role_memory = {"alice": "pc"}
+        app._lan_marks_for = lambda _c: []
+        app._normalize_action_entries = lambda _entries, _kind: []
+        app._token_color_payload = lambda _c: None
+        app._has_condition = lambda _c, _name: False
+        app._lan_seed_missing_positions = lambda positions, *_args: positions
+        app._build_you_payload = lambda _ws_id=None: {"claimed_cid": None, "claimed_name": None}
+        app._spell_presets_payload = lambda: []
+        app._player_spell_config_payload = lambda: {}
+        app._player_profiles_payload = lambda: {}
+        app._player_resource_pools_payload = lambda: {}
+        app._lan = type("LanStub", (), {"_cached_snapshot": None})()
+        app._concentration_total_rounds_for_combatant = lambda _c: 10
+        app._beguiling_magic_window_remaining = lambda _c: 0.0
+
+        app.combatants = {
+            1: type(
+                "C",
+                (),
+                {
+                    "cid": 1,
+                    "name": "Alice",
+                    "hp": 7,
+                    "max_hp": 22,
+                    "concentrating": True,
+                    "concentration_spell": "web",
+                    "concentration_started_turn": (2, 4),
+                },
+            )(),
+        }
+
+        snap = app._lan_snapshot(include_static=False)
+
+        self.assertTrue(snap["units"][0]["concentrating"])
+        self.assertEqual(snap["units"][0]["concentration_spell"], "web")
+        self.assertEqual(snap["units"][0]["concentration_started_turn"], [2, 4])
+        self.assertEqual(snap["units"][0]["concentration_total_rounds"], 10)
+
     def test_units_include_action_total_from_combatant(self):
         app = object.__new__(tracker_mod.InitiativeTracker)
         app._lan_grid_cols = 10
