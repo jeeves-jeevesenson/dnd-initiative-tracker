@@ -28843,6 +28843,10 @@ class InitiativeTracker(base.InitiativeTracker):
             target.haste_remaining_turns = max(1, int(adapter_payload.get("duration_turns") or 10))
             target.haste_speed_multiplier = 0
             target.haste_ac_bonus = 0
+            # Haste grants its extra action immediately if it lands during the target's turn.
+            if int(getattr(self, "current_cid", 0) or 0) == int(getattr(target, "cid", 0) or 0):
+                target.action_remaining = int(getattr(target, "action_remaining", 0) or 0) + 1
+                target.action_total = int(getattr(target, "action_total", 0) or 0) + 1
 
     def _dematerialize_registered_spell_effect(self, target: Any, effect_entry: Dict[str, Any], *, reason: str = "") -> None:
         if target is None or not isinstance(effect_entry, dict):
