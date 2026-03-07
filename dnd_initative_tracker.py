@@ -28196,8 +28196,12 @@ class InitiativeTracker(base.InitiativeTracker):
         spell_key = str(effect_entry.get("spell_key") or effect_entry.get("spell_slug") or effect_entry.get("spell_id") or "").strip().lower()
         if spell_key:
             tags.add(f"spell:{spell_key}")
+            tags.add("spell_effect")
+            tags.add("dispellable")
             if "curse" in spell_key:
                 tags.add("curse")
+        if bool(effect_entry.get("map_effect")):
+            tags.add("map_effect")
         primitives = effect_entry.get("primitives") if isinstance(effect_entry.get("primitives"), dict) else {}
         for field in ("condition_apply", "condition_clear"):
             for cond in list(primitives.get(field) or []):
@@ -28272,28 +28276,48 @@ class InitiativeTracker(base.InitiativeTracker):
                 return False
         return True
 
-    def _clear_matching_target_effects(self, target: Any, selector: Dict[str, Any], *, reason: str = "") -> int:
+    def _collect_removable_target_effects(self, target: Any, selector: Dict[str, Any]) -> List[Dict[str, Any]]:
         if target is None:
-            return 0
-        removed = 0
+            return []
+        removable: List[Dict[str, Any]] = []
         for entry in list(getattr(target, "ongoing_spell_effects", []) or []):
             if not isinstance(entry, dict):
                 continue
             if not self._effect_matches_cleanup_selector(entry, selector):
                 continue
+            removable.append(entry)
+        return removable
+
+    def _collect_removable_map_effects(self, selector: Dict[str, Any]) -> List[Tuple[int, Dict[str, Any]]]:
+        removable: List[Tuple[int, Dict[str, Any]]] = []
+        for aid, entry in list((self.__dict__.get("_lan_aoes", {}) or {}).items()):
+            if not isinstance(entry, dict):
+                continue
+            if not self._effect_matches_cleanup_selector(entry, selector):
+                continue
+            removable.append((int(aid), entry))
+        return removable
+
+    def _clear_matching_target_effects(
+        self,
+        target: Any,
+        selector: Dict[str, Any],
+        *,
+        reason: str = "",
+        max_count: Optional[int] = None,
+    ) -> int:
+        removed = 0
+        for entry in self._collect_removable_target_effects(target, selector):
             self._clear_target_spell_effect(target, entry, reason=reason)
             removed += 1
+            if max_count is not None and removed >= int(max_count):
+                break
         return int(removed)
 
     def _clear_matching_map_effects(self, selector: Dict[str, Any], *, reason: str = "") -> int:
         _ = reason
         removed = 0
-        store = dict(self.__dict__.get("_lan_aoes", {}) or {})
-        for aid, entry in list(store.items()):
-            if not isinstance(entry, dict):
-                continue
-            if not self._effect_matches_cleanup_selector(entry, selector):
-                continue
+        for aid, _entry in self._collect_removable_map_effects(selector):
             self._clear_map_spell_effect(int(aid), end_concentration_if_bound=False)
             removed += 1
         return int(removed)
@@ -28393,6 +28417,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     target,
                     {"effect_tags": ["poison", "disease", "condition:blinded", "condition:deafened", "condition:paralyzed", "condition:poisoned"]},
                     reason="lesser restoration",
+                    max_count=1,
                 )
         elif spell_key == "remove-curse":
             cleanup["conditions"] += self._clear_matching_conditions(target, {"condition_tags": ["curse"]})
@@ -28404,17 +28429,17 @@ class InitiativeTracker(base.InitiativeTracker):
         elif spell_key == "dispel-magic":
             cleanup["target_effects"] += self._clear_matching_target_effects(
                 target,
-                {"max_spell_level": slot_level},
+                {"max_spell_level": slot_level, "effect_tags": ["dispellable"]},
                 reason="dispel magic",
             )
             cleanup["map_effects"] += self._clear_matching_map_effects(
-                {"max_spell_level": slot_level, "target_cid": int(target_cid)},
+                {"max_spell_level": slot_level, "target_cid": int(target_cid), "effect_tags": ["dispellable"]},
                 reason="dispel magic",
             )
             requested_aoe_id = self._parse_int_value(msg.get("target_aoe_id"), None)
             if requested_aoe_id is not None:
                 aoe = dict((self.__dict__.get("_lan_aoes", {}) or {}).get(int(requested_aoe_id), {}) or {})
-                if aoe and self._effect_matches_cleanup_selector(aoe, {"max_spell_level": slot_level}):
+                if aoe and self._effect_matches_cleanup_selector(aoe, {"max_spell_level": slot_level, "effect_tags": ["dispellable"]}):
                     self._clear_map_spell_effect(int(requested_aoe_id), end_concentration_if_bound=False)
                     cleanup["map_effects"] += 1
         result_payload["cleanup"] = dict(cleanup)

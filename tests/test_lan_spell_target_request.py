@@ -1872,6 +1872,51 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         remaining = [str(getattr(st, "ctype", "") or "").strip().lower() for st in list(getattr(target, "condition_stacks", []) or [])]
         self.assertEqual(remaining, ["blinded"])
 
+    def test_lesser_restoration_falls_back_to_single_supported_ongoing_effect_cleanup(self):
+        target = self.app.combatants[2]
+        self.app._register_target_spell_effect(
+            1,
+            2,
+            "ray-of-sickness",
+            spell_level=1,
+            clear_group="ray_of_sickness_1_2",
+            effect_tags=["poison"],
+            primitives={},
+        )
+        self.app._register_target_spell_effect(
+            1,
+            2,
+            "contagion",
+            spell_level=5,
+            clear_group="contagion_1_2",
+            effect_tags=["disease"],
+            primitives={},
+        )
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 130,
+            "target_cid": 2,
+            "spell_name": "Lesser Restoration",
+            "spell_slug": "lesser-restoration",
+            "spell_mode": "effect",
+        }
+        preset = {
+            "id": "lesser-restoration",
+            "slug": "lesser-restoration",
+            "name": "Lesser Restoration",
+            "mechanics": {"sequence": [{"outcomes": {"hit": []}}]},
+        }
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result") or {}
+        self.assertEqual((result.get("cleanup") or {}).get("target_effects"), 1)
+        remaining_effects = [str((entry or {}).get("spell_key") or "") for entry in list(getattr(target, "ongoing_spell_effects", []) or [])]
+        self.assertEqual(remaining_effects, ["contagion"])
+
     def test_remove_curse_clears_curse_tagged_ongoing_effects(self):
         target = self.app.combatants[2]
         self.app._register_target_spell_effect(
@@ -1909,6 +1954,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
 
     def test_dispel_magic_clears_target_and_map_effects_by_slot_level(self):
         target = self.app.combatants[2]
+        self.app.combatants[2].concentration_aoe_ids = [77, 78]
         self.app._register_target_spell_effect(1, 2, "slow", spell_level=3, clear_group="slow_1_2", primitives={"condition_apply": ["slowed"]})
         self.app._register_target_spell_effect(1, 2, "hold-person", spell_level=4, clear_group="hold_1_2", primitives={"condition_apply": ["paralyzed"]})
         self.app._register_map_spell_effect(
@@ -1961,6 +2007,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(remaining_spells, ["hold-person"])
         self.assertNotIn(77, self.app._lan_aoes)
         self.assertIn(78, self.app._lan_aoes)
+        self.assertEqual(self.app.combatants[2].concentration_aoe_ids, [78])
 
 if __name__ == "__main__":
     unittest.main()
