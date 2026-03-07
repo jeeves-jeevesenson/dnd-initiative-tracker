@@ -303,6 +303,22 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('Relocation placement started. Choose a valid highlighted square.', self.html)
         self.assertIn('if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){', self.html)
 
+
+    def test_cast_modal_and_spell_changes_clear_active_cast_interaction_state(self):
+        self.assertIn('function clearActiveCastInteractionState(showToastMessage = "", options = {}){', self.html)
+        self.assertIn('showCastSpellModal(){', self.html)
+        self.assertIn('clearActiveCastInteractionState("", {clearAttackOverlay: false});', self.html)
+        self.assertIn('hideCastSpellModal(){', self.html)
+        self.assertIn('clearActiveCastInteractionState("");', self.html)
+        self.assertIn('castPresetInput.addEventListener("change", () => {', self.html)
+
+    def test_map_pointerup_prioritizes_relocation_and_summon_before_attack_overlay(self):
+        relocation_idx = self.html.index('if (pendingRelocationPlacement && !isMapView && !dragging && !panning && !aoeDragging){')
+        summon_idx = self.html.index('if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){')
+        attack_idx = self.html.index('if (attackOverlayMode && !isMapView && !pendingRelocationPlacement && !pendingSummonPlacement && !dragging && !panning && !aoeDragging){')
+        self.assertLess(relocation_idx, attack_idx)
+        self.assertLess(summon_idx, attack_idx)
+
     def test_cast_preview_submit_surfaces_invalid_form(self):
         self.assertIn('castForm.requestSubmit();', self.html)
         self.assertIn('localToast("Cast form invalid; check wall dimensions/range.");', self.html)

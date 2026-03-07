@@ -5010,6 +5010,7 @@ __DAMAGE_TYPE_OPTIONS__
   let castSpellModalSelection = "";
   let pendingSpellActionType = null;
   let forcedPoolCastContext = null;
+  let activeCastInteractionKind = "";
   let pendingSummonPlacement = null;
   let pendingAoePlacement = null;
   let aoeAimGuide = null; // {start,end,blocked,outOfRange,invalid,distFt,rangeFt,facingDeg,casterCid}
@@ -6679,6 +6680,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const summonSpell = isSummonPreset(entry.preset);
     if (summonSpell){
+      clearActiveCastInteractionState("");
       const choices = getSummonChoices(entry.preset);
       if (choices.length !== 1){
         localToast("Open the spell cast panel and pick a summon creature first, matey.");
@@ -6717,6 +6719,7 @@ __DAMAGE_TYPE_OPTIONS__
         payload,
         spellName: normalizeTextValue(entry.preset?.name) || entry.spellName || "Summon",
       };
+      activeCastInteractionKind = "summon_placement";
       rebuildSummonValidCells();
       updateSummonPlacementBanner();
       draw();
@@ -8693,6 +8696,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   function showCastSpellModal(){
     if (!castSpellModal) return;
+    clearActiveCastInteractionState("", {clearAttackOverlay: false});
     castSpellModal.classList.add("show");
     castSpellModal.setAttribute("aria-hidden", "false");
     castSpellModalPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -8705,6 +8709,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   function hideCastSpellModal(){
     if (!castSpellModal) return;
+    clearActiveCastInteractionState("");
     castSpellModal.classList.remove("show");
     castSpellModal.setAttribute("aria-hidden", "true");
     if (castSpellModalPreviousFocus){ castSpellModalPreviousFocus.focus(); castSpellModalPreviousFocus = null; }
@@ -11224,6 +11229,7 @@ __DAMAGE_TYPE_OPTIONS__
     pendingSpellResolve = {
       onConfirm: typeof onConfirm === "function" ? onConfirm : null,
     };
+    activeCastInteractionKind = "spell_resolve";
     setSpellResolveModalOpen(true);
   }
 
@@ -11483,6 +11489,9 @@ __DAMAGE_TYPE_OPTIONS__
   function clearRelocationPlacementState(){
     pendingRelocationPlacement = null;
     relocationValidCells = new Set();
+    if (activeCastInteractionKind === "relocation_placement"){
+      activeCastInteractionKind = "";
+    }
     if (summonPlacementBanner){
       summonPlacementBanner.classList.add("hidden");
       summonPlacementBanner.textContent = "";
@@ -11534,6 +11543,9 @@ __DAMAGE_TYPE_OPTIONS__
   function clearSummonPlacementState(){
     pendingSummonPlacement = null;
     summonValidCells = new Set();
+    if (activeCastInteractionKind === "summon_placement"){
+      activeCastInteractionKind = "";
+    }
     if (summonPlacementBanner){
       summonPlacementBanner.classList.add("hidden");
       summonPlacementBanner.textContent = "";
@@ -14494,6 +14506,7 @@ __DAMAGE_TYPE_OPTIONS__
       const isManifestEcho = actionName === "summon johns echo" || actionName === "manifest echo";
       const isSwapEcho = actionName === "swap with johns echo" || actionName === "swap with echo";
       if (isJohnTwilight && isManifestEcho){
+        clearActiveCastInteractionState("");
         if (claimedCid == null || !claimedUnit || !claimedUnit.pos){
           localToast("Could not find caster position, matey.");
           return;
@@ -14506,6 +14519,7 @@ __DAMAGE_TYPE_OPTIONS__
           casterPos: {col: Number(claimedUnit.pos.col), row: Number(claimedUnit.pos.row)},
           maxRangeFt: 15,
         };
+        activeCastInteractionKind = "summon_placement";
         rebuildSummonValidCells();
         updateSummonPlacementBanner();
         draw();
@@ -15625,6 +15639,7 @@ __DAMAGE_TYPE_OPTIONS__
       } else if (msg.type === "spell_target_result"){
         queueDamagePopupsFromResult(msg);
         if (msg.needs_relocation_destination){
+          clearActiveCastInteractionState("");
           const actionCid = activeControlledUnitCid();
           const caster = actionCid === null ? null : getUnitByCid(actionCid);
           const targetCid = Number(msg.target_cid);
@@ -15642,6 +15657,7 @@ __DAMAGE_TYPE_OPTIONS__
             originPos: origin ? {col: Number(origin.col), row: Number(origin.row)} : null,
             requiresUnoccupied: true,
           };
+          activeCastInteractionKind = "relocation_placement";
           rebuildRelocationValidCells();
           updateRelocationPlacementBanner();
           draw();
@@ -16493,7 +16509,116 @@ __DAMAGE_TYPE_OPTIONS__
       clearAoeDragPending();
     }
     setTokenTooltip(null);
-    if (attackOverlayMode && !isMapView && !pendingSummonPlacement && !dragging && !panning && !aoeDragging){
+    if (pendingRelocationPlacement && !isMapView && !dragging && !panning && !aoeDragging){
+      const g = screenToGrid(p.x, p.y);
+      if (!gridReady()){
+        localToast("Map not ready yet, matey.");
+        return;
+      }
+      const cols = Number(state?.grid?.cols || 0);
+      const rows = Number(state?.grid?.rows || 0);
+      if (g.col < 0 || g.row < 0 || g.col >= cols || g.row >= rows){
+        localToast("That square be off the map.");
+        return;
+      }
+      if (!isRelocationPlacementCellValid(g)){
+        localToast("That destination is invalid for this relocation.");
+        return;
+      }
+      const msg = {
+        type: "spell_target_request",
+        cid: Number(pendingRelocationPlacement.casterCid),
+        target_cid: Number(pendingRelocationPlacement.targetCid),
+        spell_name: pendingRelocationPlacement.spellName,
+        spell_slug: pendingRelocationPlacement.spellSlug || null,
+        spell_id: pendingRelocationPlacement.spellId || null,
+        spell_mode: pendingRelocationPlacement.mode || "effect",
+        destination_col: Number(g.col),
+        destination_row: Number(g.row),
+      };
+      if (Number.isFinite(Number(pendingRelocationPlacement.slotLevel))){
+        msg.slot_level = Number(pendingRelocationPlacement.slotLevel);
+      }
+      send(msg);
+      clearRelocationPlacementState();
+      draw();
+      return;
+    }
+
+    if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){
+      if (!ev.shiftKey){
+        localToast("Hold Shift while clicking to place summons.");
+        return;
+      }
+      const g = screenToGrid(p.x, p.y);
+      if (!gridReady()){
+        localToast("Map not ready yet, matey.");
+        return;
+      }
+      const cols = Number(state?.grid?.cols || 0);
+      const rows = Number(state?.grid?.rows || 0);
+      if (g.col < 0 || g.row < 0 || g.col >= cols || g.row >= rows){
+        localToast("That square be off the map.");
+        return;
+      }
+      if (!isSummonPlacementCellValid(g)){
+        localToast("That square is out of range—select a valid square.");
+        return;
+      }
+      pendingSummonPlacement.positions.push({col: g.col, row: g.row});
+      if (pendingSummonPlacement.mode === "echo_summon"){
+        if (claimedCid == null){
+          clearSummonPlacementState();
+          return;
+        }
+        const pos = pendingSummonPlacement.positions[0] || {col: g.col, row: g.row};
+        const msg = {type: "echo_summon", cid: claimedCid, to: {col: Number(pos.col), row: Number(pos.row)}};
+        if (isPlanning){
+          planningMutate(msg);
+          draw();
+          updateHud();
+        }
+        send(msg);
+        clearSummonPlacementState();
+        return;
+      }
+      const remaining = pendingSummonPlacement.summonQuantity - pendingSummonPlacement.positions.length;
+      if (remaining > 0){
+        localToast(`${remaining} summon placement(s) remaining.`);
+        return;
+      }
+      const payload = {
+        ...pendingSummonPlacement.payload,
+        summon_positions: pendingSummonPlacement.positions.slice(),
+      };
+      const castType = pendingSummonPlacement.mode === "custom_summon" ? "cast_aoe" : "cast_spell";
+      const msg = {type: castType, payload, action_type: pendingSummonPlacement.actionType};
+      if (pendingSummonPlacement.spellSlug){
+        msg.spell_slug = pendingSummonPlacement.spellSlug;
+      }
+      if (pendingSummonPlacement.spellId){
+        msg.spell_id = pendingSummonPlacement.spellId;
+      }
+      if (Number.isFinite(pendingSummonPlacement.slotLevel)){
+        msg.slot_level = pendingSummonPlacement.slotLevel;
+      }
+      msg.summon_choice = pendingSummonPlacement.summonChoice;
+      msg.summon_quantity = pendingSummonPlacement.summonQuantity;
+      msg.variant = pendingSummonPlacement.summonVariant || null;
+      if (pendingSummonPlacement.mode === "custom_summon"){
+        msg.payload.shape = "summon";
+      }
+      if (isPlanning){
+        planningMutate(msg);
+        draw();
+        updateHud();
+      }
+      send(msg);
+      clearSummonPlacementState();
+      return;
+    }
+
+    if (attackOverlayMode && !isMapView && !pendingRelocationPlacement && !pendingSummonPlacement && !dragging && !panning && !aoeDragging){
       const me = getClaimedUnit();
       const controlledUnit = getUnitByCid(activeControlledUnitCid());
       const overlayOrigin = pendingUnleashIncarnation ? getUnitByCid(pendingUnleashIncarnation.echoCid) : (controlledUnit || me);
@@ -16624,115 +16749,6 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
     }
-    if (pendingRelocationPlacement && !isMapView && !dragging && !panning && !aoeDragging){
-      const g = screenToGrid(p.x, p.y);
-      if (!gridReady()){
-        localToast("Map not ready yet, matey.");
-        return;
-      }
-      const cols = Number(state?.grid?.cols || 0);
-      const rows = Number(state?.grid?.rows || 0);
-      if (g.col < 0 || g.row < 0 || g.col >= cols || g.row >= rows){
-        localToast("That square be off the map.");
-        return;
-      }
-      if (!isRelocationPlacementCellValid(g)){
-        localToast("That destination is invalid for this relocation.");
-        return;
-      }
-      const msg = {
-        type: "spell_target_request",
-        cid: Number(pendingRelocationPlacement.casterCid),
-        target_cid: Number(pendingRelocationPlacement.targetCid),
-        spell_name: pendingRelocationPlacement.spellName,
-        spell_slug: pendingRelocationPlacement.spellSlug || null,
-        spell_id: pendingRelocationPlacement.spellId || null,
-        spell_mode: pendingRelocationPlacement.mode || "effect",
-        destination_col: Number(g.col),
-        destination_row: Number(g.row),
-      };
-      if (Number.isFinite(Number(pendingRelocationPlacement.slotLevel))){
-        msg.slot_level = Number(pendingRelocationPlacement.slotLevel);
-      }
-      send(msg);
-      clearRelocationPlacementState();
-      draw();
-      return;
-    }
-
-    if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){
-      if (!ev.shiftKey){
-        localToast("Hold Shift while clicking to place summons.");
-        return;
-      }
-      const g = screenToGrid(p.x, p.y);
-      if (!gridReady()){
-        localToast("Map not ready yet, matey.");
-        return;
-      }
-      const cols = Number(state?.grid?.cols || 0);
-      const rows = Number(state?.grid?.rows || 0);
-      if (g.col < 0 || g.row < 0 || g.col >= cols || g.row >= rows){
-        localToast("That square be off the map.");
-        return;
-      }
-      if (!isSummonPlacementCellValid(g)){
-        localToast("That square is out of range—select a valid square.");
-        return;
-      }
-      pendingSummonPlacement.positions.push({col: g.col, row: g.row});
-      if (pendingSummonPlacement.mode === "echo_summon"){
-        if (claimedCid == null){
-          clearSummonPlacementState();
-          return;
-        }
-        const pos = pendingSummonPlacement.positions[0] || {col: g.col, row: g.row};
-        const msg = {type: "echo_summon", cid: claimedCid, to: {col: Number(pos.col), row: Number(pos.row)}};
-        if (isPlanning){
-          planningMutate(msg);
-          draw();
-          updateHud();
-        }
-        send(msg);
-        clearSummonPlacementState();
-        return;
-      }
-      const remaining = pendingSummonPlacement.summonQuantity - pendingSummonPlacement.positions.length;
-      if (remaining > 0){
-        localToast(`${remaining} summon placement(s) remaining.`);
-        return;
-      }
-      const payload = {
-        ...pendingSummonPlacement.payload,
-        summon_positions: pendingSummonPlacement.positions.slice(),
-      };
-      const castType = pendingSummonPlacement.mode === "custom_summon" ? "cast_aoe" : "cast_spell";
-      const msg = {type: castType, payload, action_type: pendingSummonPlacement.actionType};
-      if (pendingSummonPlacement.spellSlug){
-        msg.spell_slug = pendingSummonPlacement.spellSlug;
-      }
-      if (pendingSummonPlacement.spellId){
-        msg.spell_id = pendingSummonPlacement.spellId;
-      }
-      if (Number.isFinite(pendingSummonPlacement.slotLevel)){
-        msg.slot_level = pendingSummonPlacement.slotLevel;
-      }
-      msg.summon_choice = pendingSummonPlacement.summonChoice;
-      msg.summon_quantity = pendingSummonPlacement.summonQuantity;
-      msg.variant = pendingSummonPlacement.summonVariant || null;
-      if (pendingSummonPlacement.mode === "custom_summon"){
-        msg.payload.shape = "summon";
-      }
-      if (isPlanning){
-        planningMutate(msg);
-        draw();
-        updateHud();
-      }
-      send(msg);
-      clearSummonPlacementState();
-      return;
-    }
-
     if (aoeDragging){
       const gridPos = screenToGridFloat(p.x, p.y);
       const preview = aoeDragPreview || {};
@@ -19499,6 +19515,7 @@ __DAMAGE_TYPE_OPTIONS__
     });
   }
   function clearSpellTargetingSession(showToastMessage = ""){
+    activeCastInteractionKind = "";
     pendingSpellTargeting = null;
     pendingSpellTargetSelection = null;
     pendingPolymorphSelection = null;
@@ -19511,6 +19528,21 @@ __DAMAGE_TYPE_OPTIONS__
     if (attackOverlayMode){
       setAttackOverlayMode(false);
     }
+    if (showToastMessage){
+      localToast(showToastMessage);
+    }
+  }
+
+  function clearActiveCastInteractionState(showToastMessage = "", options = {}){
+    const clearAttackOverlay = options?.clearAttackOverlay !== false;
+    clearSummonPlacementState();
+    clearRelocationPlacementState();
+    clearSpellTargetingSession("");
+    setSpellResolveModalOpen(false);
+    if (clearAttackOverlay && attackOverlayMode){
+      setAttackOverlayMode(false);
+    }
+    activeCastInteractionKind = "";
     if (showToastMessage){
       localToast(showToastMessage);
     }
@@ -19725,6 +19757,7 @@ __DAMAGE_TYPE_OPTIONS__
   }
   function startSpellTargetingSession(config, preset, slotLevel, castMsg = null){
     if (!config) return;
+    clearActiveCastInteractionState("");
     pendingSpellTargeting = {
       mode: config.mode,
       spellName: String(castNameInput?.value || preset?.name || "Spell").trim() || "Spell",
@@ -19749,6 +19782,7 @@ __DAMAGE_TYPE_OPTIONS__
       queue: [],
     };
     const needsSelection = pendingSpellTargeting.maxTargets > 1;
+    activeCastInteractionKind = "spell_targeting";
     setCastOverlayOpen(false);
     if (needsSelection){
       pendingSpellTargetSelection = {
@@ -20008,6 +20042,7 @@ __DAMAGE_TYPE_OPTIONS__
 
   if (castPresetInput){
     castPresetInput.addEventListener("change", () => {
+      clearActiveCastInteractionState("");
       const name = String(castPresetInput.value || "").trim();
       if (!name){
         castDurationTurns = null;
@@ -20259,6 +20294,7 @@ __DAMAGE_TYPE_OPTIONS__
       }
       const slotLevel = Number.isFinite(slotCheck.slotLevel) ? Math.floor(Number(slotCheck.slotLevel)) : null;
       if (inferredTargetConfig?.requiresDestination){
+        clearActiveCastInteractionState("");
         const actionCid = activeControlledUnitCid();
         const caster = actionCid === null ? null : getUnitByCid(actionCid);
         if (actionCid === null || !caster?.pos){
@@ -20278,6 +20314,7 @@ __DAMAGE_TYPE_OPTIONS__
           originPos: {col: Number(caster.pos.col), row: Number(caster.pos.row)},
           requiresUnoccupied: inferredTargetConfig.requiresUnoccupiedDestination !== false,
         };
+        activeCastInteractionKind = "relocation_placement";
         rebuildRelocationValidCells();
         updateRelocationPlacementBanner();
         draw();
@@ -20286,6 +20323,7 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       if (summonSpell && !customSummon){
+        clearActiveCastInteractionState("");
         const summonValidation = validateSummonForm(preset, true);
         if (!summonValidation.ok){
           clearForcedContext();
@@ -20328,6 +20366,7 @@ __DAMAGE_TYPE_OPTIONS__
           payload,
           spellName,
         };
+        activeCastInteractionKind = "summon_placement";
         rebuildSummonValidCells();
         updateSummonPlacementBanner();
         draw();
@@ -20336,6 +20375,7 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       if (customSummon){
+        clearActiveCastInteractionState("");
         const summonQuantity = Number(castSummonQuantityInput?.value);
         const normalizedQuantity = Number.isFinite(summonQuantity) && summonQuantity > 0 ? Math.floor(summonQuantity) : 1;
         const customRangeRaw = Number(castCustomSummonRangeInput?.value);
@@ -20396,6 +20436,7 @@ __DAMAGE_TYPE_OPTIONS__
           payload,
           spellName: summonName,
         };
+        activeCastInteractionKind = "summon_placement";
         rebuildSummonValidCells();
         updateSummonPlacementBanner();
         draw();
@@ -21945,20 +21986,9 @@ __DAMAGE_TYPE_OPTIONS__
       localToast("AoE placement cancelled.");
       return true;
     }
-    if (pendingSummonPlacement){
-      clearSummonPlacementState();
+    if (pendingSummonPlacement || pendingRelocationPlacement || pendingSpellTargeting || pendingSpellTargetSelection || pendingPolymorphSelection || pendingMantleOfInspiration || pendingCommandResolution || pendingSpellResolve){
+      clearActiveCastInteractionState("Spell interaction cancelled.");
       draw();
-      localToast("Summon placement cancelled.");
-      return true;
-    }
-    if (pendingRelocationPlacement){
-      clearRelocationPlacementState();
-      draw();
-      localToast("Relocation placement cancelled.");
-      return true;
-    }
-    if (pendingSpellTargeting || pendingSpellTargetSelection || pendingPolymorphSelection || pendingMantleOfInspiration || pendingCommandResolution){
-      clearSpellTargetingSession("Spell targeting cancelled.");
       return true;
     }
     if (pendingAttackResolve){

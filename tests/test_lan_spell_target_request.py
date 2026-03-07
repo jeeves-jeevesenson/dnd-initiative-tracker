@@ -642,6 +642,62 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(getattr(self.app.combatants[1], "concentration_spell", ""), "polymorph")
 
 
+
+    def test_spell_target_request_rejects_summon_spell_payload(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "find-steed",
+            "id": "find-steed",
+            "name": "Find Steed",
+            "summon": {"choices": [{"monster_slug": "otherworldly-steed"}]},
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 51,
+            "target_cid": 1,
+            "spell_name": "Find Steed",
+            "spell_slug": "find-steed",
+            "spell_mode": "effect",
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertFalse(result.get("ok"))
+        self.assertIn("summon placement", result.get("reason", "").lower())
+        self.assertIn((51, "That summon spell must be cast via summon placement, matey."), self.toasts)
+        self.assertFalse(any("resolves Find Steed" in entry for _, entry in self.logs))
+
+    def test_spell_target_request_rejects_relocation_destination_for_non_relocation_spell(self):
+        self.app._find_spell_preset = lambda *_args, **_kwargs: {
+            "slug": "haste",
+            "id": "haste",
+            "name": "Haste",
+            "mechanics": {"sequence": []},
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 52,
+            "target_cid": 1,
+            "spell_name": "Haste",
+            "spell_slug": "haste",
+            "spell_mode": "effect",
+            "destination_col": 8,
+            "destination_row": 9,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertFalse(result.get("ok"))
+        self.assertIn("relocation destination", result.get("reason", "").lower())
+        self.assertIn((52, "That spell can't accept a relocation destination."), self.toasts)
+
     def test_save_tagged_spell_coerces_attack_payload_to_save(self):
         self.app._find_spell_preset = lambda *_args, **_kwargs: {
             "slug": "hold-person",

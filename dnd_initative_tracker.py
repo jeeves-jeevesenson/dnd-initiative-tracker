@@ -24447,6 +24447,34 @@ class InitiativeTracker(base.InitiativeTracker):
             sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
             preset_slug = str((preset or {}).get("slug") or "").strip().lower()
             preset_id = str((preset or {}).get("id") or "").strip().lower()
+
+            def _reject_invalid_spell_target(reason: str) -> None:
+                msg["_spell_target_result"] = {
+                    "type": "spell_target_result",
+                    "ok": False,
+                    "attacker_cid": int(cid),
+                    "target_cid": int(target_cid),
+                    "spell_name": spell_name,
+                    "spell_slug": preset_slug or None,
+                    "spell_id": preset_id or None,
+                    "reason": reason,
+                }
+                self._lan.toast(ws_id, reason)
+                log_warning(f"spell_target_request rejected: {reason}")
+
+            summon_cfg = preset.get("summon") if isinstance(preset, dict) and isinstance(preset.get("summon"), dict) else None
+            has_destination = msg.get("destination_col") is not None or msg.get("destination_row") is not None
+            requested_spell_mode = str(msg.get("spell_mode") or msg.get("mode") or "attack").strip().lower()
+            if isinstance(summon_cfg, dict):
+                _reject_invalid_spell_target("That summon spell must be cast via summon placement, matey.")
+                return
+            if has_destination and not self._spell_supports_relocation_followup(preset):
+                _reject_invalid_spell_target("That spell can't accept a relocation destination.")
+                return
+            if requested_spell_mode == "effect" and has_destination and not self._spell_supports_relocation_followup(preset):
+                _reject_invalid_spell_target("Relocation follow-up is invalid for that spell.")
+                return
+
             is_magic_missile = preset_slug in ("magic-missile", "magic_missile") or preset_id in ("magic-missile", "magic_missile")
             if is_magic_missile and not bool(msg.get("_shield_resolution_done")):
                 shield_mode = self._reaction_mode_for(int(target_cid), "shield", default="ask")
@@ -28451,6 +28479,30 @@ class InitiativeTracker(base.InitiativeTracker):
             "adapter": adapter,
             "adapter_payload": dict(adapter_payload or {}),
         }
+
+    def _spell_supports_relocation_followup(self, preset: Any) -> bool:
+        if not isinstance(preset, dict):
+            return False
+        mechanics = preset.get("mechanics") if isinstance(preset.get("mechanics"), dict) else {}
+        targeting = mechanics.get("targeting") if isinstance(mechanics.get("targeting"), dict) else {}
+        destination = targeting.get("destination") if isinstance(targeting.get("destination"), dict) else {}
+        if bool(destination.get("required")):
+            return True
+        sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
+        for step in sequence:
+            if not isinstance(step, dict):
+                continue
+            outcomes = step.get("outcomes") if isinstance(step.get("outcomes"), dict) else {}
+            for effects in outcomes.values():
+                if not isinstance(effects, list):
+                    continue
+                for effect in effects:
+                    if not isinstance(effect, dict):
+                        continue
+                    kind = str(effect.get("effect") or "").strip().lower()
+                    if kind in ("relocation", "teleport"):
+                        return True
+        return False
 
     def _infer_spell_targeting_mode(self, preset: Any) -> str:
         if not isinstance(preset, dict):
