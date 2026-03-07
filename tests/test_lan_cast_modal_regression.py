@@ -241,6 +241,11 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('function isAimlessSelfCenteredAoePlacement()', self.html)
 
 
+    def test_spell_action_type_prefers_preset_normalized_action_type(self):
+        self.assertIn('const normalized = normalizeSpellActionType(preset.action_type || preset.actionType || "");', self.html)
+        self.assertIn('return normalizeSpellActionType(castingTime);', self.html)
+        self.assertIn('const actionType = preset ? getSpellActionType(preset) : normalizeSpellActionType(entry.action_type || entry.actionType || "action");', self.html)
+
     def test_pool_granted_aoe_spells_enter_aim_mode_before_spending(self):
         self.assertIn('const spellActionTag = resolveSpellActionTag(entry.preset);', self.html)
         self.assertIn('if (spellActionTag === "aoe"){', self.html)

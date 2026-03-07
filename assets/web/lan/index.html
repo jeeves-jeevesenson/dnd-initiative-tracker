@@ -6510,9 +6510,9 @@ __DAMAGE_TYPE_OPTIONS__
       if (!poolId || !spellSlug) return;
       const costRaw = Number(consumes.cost ?? 1);
       const cost = Number.isFinite(costRaw) ? Math.max(1, Math.floor(costRaw)) : 1;
-      const actionType = normalizeSpellActionType(entry.action_type || entry.actionType || "action");
       const preset = spellPresetBySlug.get(getSpellKey(spellSlug))
         || cachedSpellPresets.find((candidate) => getSpellKey(getPresetSlug(candidate)) === getSpellKey(spellSlug));
+      const actionType = preset ? getSpellActionType(preset) : normalizeSpellActionType(entry.action_type || entry.actionType || "action");
       const spellName = normalizeTextValue(preset?.name || spellSlug);
       const key = getSpellKey(poolId);
       if (!grouped.has(key)){
@@ -17297,6 +17297,10 @@ __DAMAGE_TYPE_OPTIONS__
   }
   function getSpellActionType(preset){
     if (!preset) return "action";
+    const normalized = normalizeSpellActionType(preset.action_type || preset.actionType || "");
+    if (normalized && normalized !== "action"){
+      return normalized;
+    }
     const castingTime = normalizeTextValue(preset.casting_time || preset.castingTime);
     return normalizeSpellActionType(castingTime);
   }
@@ -20186,7 +20190,7 @@ __DAMAGE_TYPE_OPTIONS__
       const preset = getSelectedSpellPreset();
       const spellActionType = getSpellActionType(preset);
       const forcedActionType = normalizeSpellActionType(forcedPoolCastContext?.actionType || "");
-      const actionType = pendingSpellActionType || forcedActionType || spellActionType;
+      const actionType = spellActionType || forcedActionType || pendingSpellActionType || "action";
       if (pendingSpellActionType && pendingSpellActionType !== spellActionType && !forcedPoolCastContext){
         const expectedLabel = spellActionType === "bonus_action" ? "bonus action" : spellActionType;
         localToast(`That spell uses a ${expectedLabel}.`);

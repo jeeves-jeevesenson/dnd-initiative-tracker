@@ -135,6 +135,46 @@ class ConcentrationEnforcementTests(unittest.TestCase):
         self.assertEqual(caster.concentration_spell, "sickening-radiance")
         self.assertEqual(len(caster.concentration_aoe_ids), 1)
 
+
+    def test_cast_aoe_uses_preset_bonus_action_even_when_request_says_action(self):
+        self.app._find_spell_preset = lambda spell_slug="", spell_id="": {
+            "slug": "thunderwave",
+            "id": "thunderwave",
+            "name": "Thunderwave",
+            "concentration": False,
+            "level": 1,
+            "action_type": "bonus_action",
+            "casting_time": "Bonus Action, which you take after moving.",
+        }
+        bonus_calls = {"count": 0}
+        action_calls = {"count": 0}
+        self.app._use_bonus_action = lambda c, log_message=None: bonus_calls.__setitem__("count", bonus_calls["count"] + 1) or True
+        self.app._use_action = lambda c, log_message=None: action_calls.__setitem__("count", action_calls["count"] + 1) or True
+
+        msg = {
+            "type": "cast_aoe",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 7,
+            "spell_slug": "thunderwave",
+            "spell_id": "thunderwave",
+            "slot_level": 1,
+            "action_type": "action",
+            "payload": {
+                "shape": "cube",
+                "name": "Thunderwave",
+                "cx": 3,
+                "cy": 3,
+                "radius_ft": 10,
+                "action_type": "action",
+            },
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertEqual(bonus_calls["count"], 1)
+        self.assertEqual(action_calls["count"], 0)
+
     def test_removing_concentration_bound_aoe_ends_concentration(self):
         caster = self.app.combatants[1]
         self.app._start_concentration(caster, "moonbeam", spell_level=2, aoe_ids=[10])

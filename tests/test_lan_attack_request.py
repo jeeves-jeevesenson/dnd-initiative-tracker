@@ -1061,6 +1061,129 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(action_calls["count"], 0)
         self.assertEqual((getattr(self.app.combatants[1], "pending_smite_charge", {}) or {}).get("slug"), "blinding-smite")
 
+    def test_spell_cast_uses_preset_action_type_even_when_client_sends_wrong_action(self):
+        self.app._find_spell_preset = lambda **_kwargs: {
+            "slug": "blinding-smite",
+            "id": "blinding-smite",
+            "name": "Blinding Smite",
+            "level": 3,
+            "action_type": "bonus_action",
+            "casting_time": "Bonus Action, which you take immediately after hitting a creature.",
+            "tags": ["smite"],
+            "summon": None,
+        }
+        self.app._consume_spell_slot_for_cast = lambda **_kwargs: (True, "", 3)
+        self.app._combatant_can_cast_spell = lambda *_args, **_kwargs: True
+        bonus_calls = {"count": 0}
+        action_calls = {"count": 0}
+        reaction_calls = {"count": 0}
+
+        self.app._use_bonus_action = lambda *_args, **_kwargs: bonus_calls.__setitem__("count", bonus_calls["count"] + 1) or True
+        self.app._use_action = lambda *_args, **_kwargs: action_calls.__setitem__("count", action_calls["count"] + 1) or True
+        self.app._use_reaction = lambda *_args, **_kwargs: reaction_calls.__setitem__("count", reaction_calls["count"] + 1) or True
+        self.app._rebuild_table = lambda *args, **kwargs: None
+        self.app._lan_force_state_broadcast = lambda: None
+        self.app._profile_for_player_name = lambda _name: {}
+        self.app.combatants[1].spell_cast_remaining = 1
+
+        self.app._lan_apply_action(
+            {
+                "type": "cast_spell",
+                "cid": 1,
+                "_claimed_cid": 1,
+                "_ws_id": 55,
+                "spell_slug": "blinding-smite",
+                "slot_level": 3,
+                "action_type": "action",
+                "payload": {"spell_slug": "blinding-smite", "slot_level": 3, "action_type": "action"},
+            }
+        )
+
+        self.assertEqual(bonus_calls["count"], 1)
+        self.assertEqual(action_calls["count"], 0)
+        self.assertEqual(reaction_calls["count"], 0)
+
+    def test_bonus_action_spells_consume_bonus_action_from_preset_casting_time(self):
+        for slug, name in [
+            ("thunderous-smite", "Thunderous Smite"),
+            ("divine-favor", "Divine Favor"),
+            ("misty-step", "Misty Step"),
+        ]:
+            with self.subTest(spell=slug):
+                self.app._find_spell_preset = lambda **_kwargs: {
+                    "slug": slug,
+                    "id": slug,
+                    "name": name,
+                    "level": 1,
+                    "casting_time": "Bonus Action, which you take right away.",
+                    "summon": None,
+                }
+                self.app._consume_spell_slot_for_cast = lambda **_kwargs: (True, "", 1)
+                self.app._combatant_can_cast_spell = lambda *_args, **_kwargs: True
+                bonus_calls = {"count": 0}
+                action_calls = {"count": 0}
+                self.app._use_bonus_action = lambda *_args, **_kwargs: bonus_calls.__setitem__("count", bonus_calls["count"] + 1) or True
+                self.app._use_action = lambda *_args, **_kwargs: action_calls.__setitem__("count", action_calls["count"] + 1) or True
+                self.app._use_reaction = lambda *_args, **_kwargs: True
+                self.app._rebuild_table = lambda *args, **kwargs: None
+                self.app._lan_force_state_broadcast = lambda: None
+                self.app._profile_for_player_name = lambda _name: {}
+                self.app.combatants[1].spell_cast_remaining = 1
+
+                self.app._lan_apply_action(
+                    {
+                        "type": "cast_spell",
+                        "cid": 1,
+                        "_claimed_cid": 1,
+                        "_ws_id": 55,
+                        "spell_slug": slug,
+                        "slot_level": 1,
+                        "action_type": "action",
+                        "payload": {"spell_slug": slug, "slot_level": 1, "action_type": "action"},
+                    }
+                )
+
+                self.assertEqual(bonus_calls["count"], 1)
+                self.assertEqual(action_calls["count"], 0)
+
+    def test_reaction_spell_consumes_reaction_from_preset(self):
+        self.app._find_spell_preset = lambda **_kwargs: {
+            "slug": "shield",
+            "id": "shield",
+            "name": "Shield",
+            "level": 1,
+            "casting_time": "1 Reaction, which you take when you are hit.",
+            "summon": None,
+        }
+        self.app._consume_spell_slot_for_cast = lambda **_kwargs: (True, "", 1)
+        self.app._combatant_can_cast_spell = lambda *_args, **_kwargs: True
+        reaction_calls = {"count": 0}
+        action_calls = {"count": 0}
+        bonus_calls = {"count": 0}
+        self.app._use_reaction = lambda *_args, **_kwargs: reaction_calls.__setitem__("count", reaction_calls["count"] + 1) or True
+        self.app._use_action = lambda *_args, **_kwargs: action_calls.__setitem__("count", action_calls["count"] + 1) or True
+        self.app._use_bonus_action = lambda *_args, **_kwargs: bonus_calls.__setitem__("count", bonus_calls["count"] + 1) or True
+        self.app._rebuild_table = lambda *args, **kwargs: None
+        self.app._lan_force_state_broadcast = lambda: None
+        self.app._profile_for_player_name = lambda _name: {}
+
+        self.app._lan_apply_action(
+            {
+                "type": "cast_spell",
+                "cid": 1,
+                "_claimed_cid": 1,
+                "_ws_id": 55,
+                "spell_slug": "shield",
+                "slot_level": 1,
+                "action_type": "action",
+                "payload": {"spell_slug": "shield", "slot_level": 1, "action_type": "action"},
+            }
+        )
+
+        self.assertEqual(reaction_calls["count"], 1)
+        self.assertEqual(action_calls["count"], 0)
+        self.assertEqual(bonus_calls["count"], 0)
+
     def test_smite_cast_sets_charge_and_next_melee_hit_consumes_it(self):
         self.app._find_spell_preset = lambda **_kwargs: {
             "slug": "searing-smite",

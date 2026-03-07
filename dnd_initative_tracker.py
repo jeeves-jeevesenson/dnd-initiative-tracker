@@ -14918,7 +14918,9 @@ class InitiativeTracker(base.InitiativeTracker):
                 except Exception:
                     cost = 1
                 cost = max(1, cost)
-                action_type = str(cast.get("action_type") or "action").strip().lower() or "action"
+                preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_slug)
+                spend_type = self._resolve_spell_spend_type(preset=preset, payload=cast)
+                action_type = "bonus_action" if spend_type == "bonus" else spend_type
                 key = (spell_slug, str(pool.get("id") or "").strip().lower(), cost)
                 if key in seen:
                     continue
@@ -17958,6 +17960,43 @@ class InitiativeTracker(base.InitiativeTracker):
             if name in allowed:
                 return True
         return False
+
+    @staticmethod
+    def _normalize_spell_spend_type(value: Any) -> Optional[str]:
+        raw = str(value or "").strip().lower()
+        if not raw:
+            return None
+        if "bonus" in raw and "action" in raw:
+            return "bonus"
+        if "reaction" in raw:
+            return "reaction"
+        if "action" in raw:
+            return "action"
+        return None
+
+    def _resolve_spell_spend_type(
+        self,
+        preset: Optional[Dict[str, Any]],
+        msg: Optional[Dict[str, Any]] = None,
+        payload: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        preset_dict = preset if isinstance(preset, dict) else {}
+        spend = self._normalize_spell_spend_type(preset_dict.get("action_type"))
+        if spend:
+            return spend
+        spend = self._normalize_spell_spend_type(preset_dict.get("casting_time"))
+        if spend:
+            return spend
+
+        msg_dict = msg if isinstance(msg, dict) else {}
+        payload_dict = payload if isinstance(payload, dict) else {}
+        spend = self._normalize_spell_spend_type(msg_dict.get("action_type"))
+        if spend:
+            return spend
+        spend = self._normalize_spell_spend_type(payload_dict.get("action_type"))
+        if spend:
+            return spend
+        return "action"
 
     def _resolve_spell_slot_profile(self, caster_name: str) -> Tuple[str, Dict[str, Dict[str, int]]]:
         player_name = str(caster_name or "").strip()
@@ -21589,13 +21628,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if shape not in ("circle", "square", "line", "sphere", "cube", "cone", "cylinder", "wall", "summon"):
                 self._lan.toast(ws_id, "Pick a valid spell shape, matey.")
                 return
-            spend_raw = str(msg.get("action_type") or "").strip().lower()
-            if spend_raw in ("bonus", "bonus_action"):
-                spend = "bonus"
-            elif spend_raw == "reaction":
-                spend = "reaction"
-            else:
-                spend = "action"
+            spend = self._resolve_spell_spend_type(preset=None, msg=msg, payload=payload)
             slot_level = None
             try:
                 slot_level = int(msg.get("slot_level"))
@@ -21661,6 +21694,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 return
             preset = self._find_spell_preset(spell_slug=spell_slug, spell_id=spell_id)
             preset_dict = preset if isinstance(preset, dict) else {}
+            spend = self._resolve_spell_spend_type(preset=preset_dict, msg=msg, payload=payload)
             centered_shapes = {"circle", "sphere", "cylinder", "square", "cube"}
             preset_mechanics = preset_dict.get("mechanics") if isinstance(preset_dict.get("mechanics"), dict) else {}
             preset_aoe_behavior = (
@@ -22302,23 +22336,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if not isinstance(preset, dict):
                 self._lan.toast(ws_id, "That spell could not be found, matey.")
                 return
-            spend_raw = str(msg.get("action_type") or payload.get("action_type") or "").strip().lower()
-            if not spend_raw:
-                spend_raw = str(preset.get("action_type") or "").strip().lower()
-            if not spend_raw:
-                casting_time = str(preset.get("casting_time") or "").strip().lower()
-                if "bonus" in casting_time and "action" in casting_time:
-                    spend_raw = "bonus_action"
-                elif "reaction" in casting_time:
-                    spend_raw = "reaction"
-                elif "action" in casting_time:
-                    spend_raw = "action"
-            if spend_raw in ("bonus", "bonus_action"):
-                spend = "bonus"
-            elif spend_raw == "reaction":
-                spend = "reaction"
-            else:
-                spend = "action"
+            spend = self._resolve_spell_spend_type(preset=preset, msg=msg, payload=payload)
             summon_cfg = preset.get("summon") if isinstance(preset.get("summon"), dict) else None
             try:
                 slot_level = int(msg.get("slot_level") if msg.get("slot_level") is not None else payload.get("slot_level"))
