@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: misty-step
 name: Misty Step
-color: "#3FA7FF"
+color: '#3FA7FF'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 2
@@ -36,11 +36,35 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: false
-  targeting: null
-  sequence: []
+  targeting:
+    origin: self
+    range:
+      kind: self
+    target_selection:
+      mode: single
+  sequence:
+  - id: relocate
+    name: Relocate
+    check:
+      kind: effect
+    outcomes:
+      hit:
+      - effect: relocation
+        origin_mode: target
+        range_ft: 30
+        requires_unoccupied: true
+        requires_willing: false
   scaling: null
   ui:
     template_preview: false
+    spell_targeting:
+      mode: effect
+      target_side: friendly
+      requires_destination: true
+      destination_range_ft: 30
+      requires_unoccupied_destination: true
+      destination_origin_mode: self
+      destination_label: Misty Step destination
   notes: []

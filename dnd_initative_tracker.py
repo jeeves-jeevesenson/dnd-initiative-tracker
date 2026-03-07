@@ -9594,6 +9594,171 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             pass
 
+    def _spell_destination_distance_ft(self, origin_cell: Tuple[int, int], destination_cell: Tuple[int, int]) -> float:
+        return math.hypot(
+            float(destination_cell[0]) - float(origin_cell[0]),
+            float(destination_cell[1]) - float(origin_cell[1]),
+        ) * float(self._lan_feet_per_square())
+
+    def _validate_relocation_destination(
+        self,
+        *,
+        destination_col: int,
+        destination_row: int,
+        target_cid: int,
+        origin_cell: Optional[Tuple[int, int]] = None,
+        range_ft: Optional[float] = None,
+        requires_unoccupied: bool = True,
+        source_cid: Optional[int] = None,
+        constraint_tag: str = "",
+    ) -> Tuple[bool, str]:
+        cols, rows, obstacles, _rough, positions = self._lan_live_map_data()
+        col, row = int(destination_col), int(destination_row)
+        if col < 0 or row < 0 or col >= int(cols) or row >= int(rows):
+            return (False, "Destination is out of map bounds.")
+        if (col, row) in (obstacles or set()):
+            return (False, "Destination is blocked.")
+
+        if requires_unoccupied:
+            for cid, pos in dict(positions or {}).items():
+                try:
+                    if int(cid) == int(target_cid):
+                        continue
+                except Exception:
+                    continue
+                if isinstance(pos, tuple) and len(pos) == 2 and (int(pos[0]), int(pos[1])) == (int(col), int(row)):
+                    return (False, "Destination is occupied.")
+
+        if origin_cell is not None and range_ft is not None:
+            try:
+                max_range_ft = float(range_ft)
+            except Exception:
+                max_range_ft = -1.0
+            if max_range_ft >= 0:
+                dist_ft = self._spell_destination_distance_ft((int(origin_cell[0]), int(origin_cell[1])), (int(col), int(row)))
+                if dist_ft - float(max_range_ft) > 1e-6:
+                    return (False, "Destination is out of range.")
+
+        tag = str(constraint_tag or "").strip().lower()
+        if tag:
+            hook = getattr(self, f"_spell_relocation_constraint_{tag}", None)
+            if callable(hook):
+                try:
+                    ok, reason = hook(
+                        source_cid=source_cid,
+                        target_cid=int(target_cid),
+                        destination_col=int(col),
+                        destination_row=int(row),
+                    )
+                except Exception:
+                    ok, reason = False, "Destination failed spell-specific constraints."
+                if not bool(ok):
+                    return (False, str(reason or "Destination failed spell-specific constraints."))
+
+        return (True, "")
+
+    def _apply_spell_relocation(self, *, target_cid: int, destination_col: int, destination_row: int) -> bool:
+        _cols, _rows, _obs, _rough, positions = self._lan_live_map_data()
+        origin_cell = positions.get(int(target_cid)) if isinstance(positions, dict) else None
+        self._lan_set_token_position(int(target_cid), int(destination_col), int(destination_row))
+        self._lan_sync_fixed_to_caster_aoes(int(target_cid))
+        if isinstance(origin_cell, tuple) and len(origin_cell) == 2:
+            self._lan_handle_aoe_enter_triggers_for_moved_unit(
+                int(target_cid),
+                (int(origin_cell[0]), int(origin_cell[1])),
+                (int(destination_col), int(destination_row)),
+            )
+        self._enforce_johns_echo_tether(int(target_cid))
+        return True
+
+    def _spell_relocation_constraint_dimension_door(self, **_kwargs: Any) -> Tuple[bool, str]:
+        # Groundwork hook: full passenger + failure-damage handling can layer on later.
+        return (True, "")
+
+    def _spell_relocation_constraint_tree_stride(self, **_kwargs: Any) -> Tuple[bool, str]:
+        return (False, "Tree Stride destination constraints are not automated yet.")
+
+    def _resolve_spell_relocation(self, effect: Dict[str, Any], ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if not isinstance(effect, dict):
+            return None
+        if str(effect.get("effect") or "").strip().lower() not in ("relocation", "teleport"):
+            return None
+        caster = ctx.get("caster")
+        target = ctx.get("target")
+        caster_cid = _normalize_cid_value(getattr(caster, "cid", None), "spell.relocation.caster")
+        target_cid = _normalize_cid_value(ctx.get("target_cid"), "spell.relocation.target")
+        if target is None or target_cid is None:
+            return {"ok": False, "reason": "Pick a valid relocation target, matey."}
+
+        origin_mode = str(effect.get("origin_mode") or effect.get("origin") or "caster").strip().lower()
+        range_ft_raw = effect.get("range_ft")
+        if range_ft_raw is None:
+            range_ft_raw = ctx.get("spell_range_ft")
+        try:
+            range_ft = float(range_ft_raw) if range_ft_raw is not None else None
+        except Exception:
+            range_ft = None
+        requires_unoccupied = bool(effect.get("requires_unoccupied", True))
+        requires_willing = bool(effect.get("requires_willing", False))
+        constraint_tag = str(effect.get("constraint_tag") or "").strip().lower()
+
+        if requires_willing and caster is not None:
+            willing = bool(int(target_cid) == int(caster_cid or -1) or bool(getattr(target, "ally", False)) == bool(getattr(caster, "ally", False)))
+            if not willing:
+                return {"ok": False, "reason": "Target must be willing for this relocation, matey."}
+
+        destination_col = self._parse_int_value(
+            (ctx.get("msg") or {}).get("destination_col") if isinstance(ctx.get("msg"), dict) else None,
+            None,
+        )
+        destination_row = self._parse_int_value(
+            (ctx.get("msg") or {}).get("destination_row") if isinstance(ctx.get("msg"), dict) else None,
+            None,
+        )
+        if destination_col is None:
+            destination_col = self._parse_int_value(effect.get("destination_col"), None)
+        if destination_row is None:
+            destination_row = self._parse_int_value(effect.get("destination_row"), None)
+        if destination_col is None or destination_row is None:
+            return {"ok": False, "reason": "Pick a destination on the map first, matey.", "needs_destination": True}
+
+        _cols, _rows, _obs, _rough, positions = self._lan_live_map_data()
+        origin_cell = None
+        if origin_mode == "target":
+            origin_cell = positions.get(int(target_cid)) if isinstance(positions, dict) else None
+        else:
+            source_cid = _normalize_cid_value(effect.get("source_cid"), "spell.relocation.source")
+            if source_cid is None:
+                source_cid = caster_cid
+            origin_cell = positions.get(int(source_cid)) if source_cid is not None and isinstance(positions, dict) else None
+        if origin_cell is None and isinstance(positions, dict):
+            origin_cell = positions.get(int(target_cid))
+
+        valid, reason = self._validate_relocation_destination(
+            destination_col=int(destination_col),
+            destination_row=int(destination_row),
+            target_cid=int(target_cid),
+            origin_cell=(int(origin_cell[0]), int(origin_cell[1])) if isinstance(origin_cell, tuple) and len(origin_cell) == 2 else None,
+            range_ft=range_ft,
+            requires_unoccupied=requires_unoccupied,
+            source_cid=int(caster_cid) if caster_cid is not None else None,
+            constraint_tag=constraint_tag,
+        )
+        if not valid:
+            return {"ok": False, "reason": str(reason or "Destination is invalid.")}
+
+        self._apply_spell_relocation(
+            target_cid=int(target_cid),
+            destination_col=int(destination_col),
+            destination_row=int(destination_row),
+        )
+        return {
+            "ok": True,
+            "destination_col": int(destination_col),
+            "destination_row": int(destination_row),
+            "target_cid": int(target_cid),
+        }
+
     def _lan_direction_step_from_angle(self, angle_deg: Any) -> Tuple[int, int]:
         try:
             facing = float(self._normalize_facing_degrees(angle_deg))
@@ -18428,18 +18593,17 @@ class InitiativeTracker(base.InitiativeTracker):
         except Exception:
             max_range_ft = None
         caster_pos = self._lan_positions.get(int(caster_cid))
-        if max_range_ft is not None and caster_pos is not None:
-            feet_per_square = 5.0
-            try:
-                mw = getattr(self, "_map_window", None)
-                if mw is not None and mw.winfo_exists():
-                    feet_per_square = float(getattr(mw, "feet_per_square", feet_per_square) or feet_per_square)
-            except Exception:
-                pass
-            feet_per_square = max(1.0, feet_per_square)
-            dist_ft = math.hypot(int(col) - int(caster_pos[0]), int(row) - int(caster_pos[1])) * feet_per_square
-            if dist_ft - float(max_range_ft) > 1e-6:
-                return 0
+        valid_dest, _reason = self._validate_relocation_destination(
+            destination_col=int(col),
+            destination_row=int(row),
+            target_cid=int(caster_cid),
+            origin_cell=(int(caster_pos[0]), int(caster_pos[1])) if isinstance(caster_pos, tuple) and len(caster_pos) == 2 else None,
+            range_ft=float(max_range_ft) if max_range_ft is not None else None,
+            requires_unoccupied=False,
+            source_cid=int(caster_cid),
+        )
+        if not valid_dest:
+            return 0
         restored: List[int] = []
         for info in dismissed_units.values():
             if not isinstance(info, dict):
@@ -23803,6 +23967,8 @@ class InitiativeTracker(base.InitiativeTracker):
                 return aura_bonus
 
             target_cid = _normalize_cid_value(msg.get("target_cid"), "spell_target_request.target_cid", log_fn=log_warning)
+            if target_cid is None:
+                target_cid = int(cid)
             target = self.combatants.get(int(target_cid)) if target_cid is not None else None
             if target is None:
                 self._lan.toast(ws_id, "Pick a valid target, matey.")
@@ -23971,6 +24137,17 @@ class InitiativeTracker(base.InitiativeTracker):
                         continue
                     dtype = str(entry.get("type") or "").strip().lower()
                     damage_entries.append({"amount": amount, "type": dtype})
+
+            spell_range_ft = self._parse_int_value(msg.get("range_ft"), None)
+            if spell_range_ft is None and isinstance(preset, dict):
+                spell_range_ft = self._parse_int_value((preset.get("mechanics") or {}).get("targeting", {}).get("range", {}).get("distance_ft"), None)
+                if spell_range_ft is None:
+                    range_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:ft|feet)", str(preset.get("range") or "").lower())
+                    if range_match:
+                        try:
+                            spell_range_ft = int(float(range_match.group(1)))
+                        except Exception:
+                            spell_range_ft = None
 
             damage_dice_text = str(msg.get("damage_dice") or "").strip().lower()
             if not damage_dice_text and isinstance(preset, dict):
@@ -26982,6 +27159,16 @@ class InitiativeTracker(base.InitiativeTracker):
         healing_entries: List[Dict[str, Any]] = []
         raw_healing_entries = msg.get("healing_entries")
         manual_healing_supplied = isinstance(raw_healing_entries, list) and any(isinstance(entry, dict) for entry in raw_healing_entries)
+        spell_range_ft = self._parse_int_value(msg.get("range_ft"), None)
+        if spell_range_ft is None and isinstance(preset, dict):
+            spell_range_ft = self._parse_int_value((mechanics.get("targeting") or {}).get("range", {}).get("distance_ft"), None)
+            if spell_range_ft is None:
+                range_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:ft|feet)", str(preset.get("range") or "").lower())
+                if range_match:
+                    try:
+                        spell_range_ft = int(float(range_match.group(1)))
+                    except Exception:
+                        spell_range_ft = None
         if isinstance(raw_healing_entries, list):
             for entry in raw_healing_entries:
                 if not isinstance(entry, dict):
@@ -27039,6 +27226,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "sequence": sequence,
             "spell_mode": spell_mode,
             "save_type": save_type,
+            "spell_range_ft": spell_range_ft,
             "save_dc": int(save_dc),
             "roll_save": self._parse_bool_value(msg.get("roll_save"), fallback=spell_mode == "save"),
             "slot_level": slot_level,
@@ -27308,6 +27496,26 @@ class InitiativeTracker(base.InitiativeTracker):
                 notes.append(f"{mode} {distance}ft")
                 ctx["forced_movement_notes"] = notes
             return
+        if effect_kind in ("relocation", "teleport") and target is not None:
+            resolved = self._resolve_spell_relocation(effect, ctx)
+            if not isinstance(resolved, dict):
+                return
+            if not bool(resolved.get("ok")):
+                notes = list(ctx.get("relocation_notes") or [])
+                reason = str(resolved.get("reason") or "Destination is invalid.")
+                notes.append(f"failed: {reason}")
+                ctx["relocation_notes"] = notes
+                ctx["relocation_failed"] = True
+                ctx["relocation_reason"] = reason
+                if bool(resolved.get("needs_destination")):
+                    ctx["relocation_needs_destination"] = True
+                return
+            notes = list(ctx.get("relocation_notes") or [])
+            notes.append(
+                f"to ({int(resolved.get('destination_col'))},{int(resolved.get('destination_row'))})"
+            )
+            ctx["relocation_notes"] = notes
+            return
         if effect_kind == "condition" and target is not None:
             condition_key = str(effect.get("condition") or "").strip().lower()
             if not condition_key or self._condition_is_immune_for_target(target, condition_key):
@@ -27364,7 +27572,7 @@ class InitiativeTracker(base.InitiativeTracker):
         sequence = mechanics.get("sequence") if isinstance(mechanics.get("sequence"), list) else []
         if not sequence:
             return False
-        allowed_effects = {"damage", "healing", "condition", "movement", "forced_movement"}
+        allowed_effects = {"damage", "healing", "condition", "movement", "forced_movement", "relocation", "teleport"}
         allowed_checks = {"", "spell_attack", "saving_throw", "auto_hit", "effect"}
         for step in sequence:
             if not isinstance(step, dict):
@@ -27482,6 +27690,19 @@ class InitiativeTracker(base.InitiativeTracker):
         forced_movement_notes = list(ctx.get("forced_movement_notes") or [])
         if forced_movement_notes:
             result_payload["forced_movement"] = forced_movement_notes
+        relocation_notes = list(ctx.get("relocation_notes") or [])
+        if relocation_notes:
+            result_payload["relocation"] = relocation_notes
+        if bool(ctx.get("relocation_needs_destination")):
+            result_payload["needs_relocation_destination"] = True
+            msg["_spell_target_result"] = dict(result_payload)
+            self._lan.toast(ws_id, "Pick a relocation destination, matey.")
+            return True
+        if bool(ctx.get("relocation_failed")):
+            result_payload["ok"] = False
+            msg["_spell_target_result"] = dict(result_payload)
+            self._lan.toast(ws_id, str(ctx.get("relocation_reason") or "Relocation failed."))
+            return True
 
         if bool((preset or {}).get("concentration")) and hit and caster is not None:
             current_targets = list(getattr(caster, "concentration_target", []) or [])

@@ -2009,5 +2009,146 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertIn(78, self.app._lan_aoes)
         self.assertEqual(self.app.combatants[2].concentration_aoe_ids, [78])
 
+    def test_misty_step_requires_destination_then_relocates_via_shared_path(self):
+        preset = {
+            "slug": "misty-step",
+            "id": "misty-step",
+            "name": "Misty Step",
+            "range": "Self",
+            "mechanics": {
+                "targeting": {"range": {"kind": "self", "distance_ft": 30}},
+                "sequence": [
+                    {
+                        "check": {"kind": "effect"},
+                        "outcomes": {
+                            "hit": [
+                                {
+                                    "effect": "relocation",
+                                    "origin_mode": "target",
+                                    "range_ft": 30,
+                                    "requires_unoccupied": True,
+                                }
+                            ]
+                        },
+                    }
+                ],
+            },
+        }
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+
+        first = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 31,
+            "spell_name": "Misty Step",
+            "spell_slug": "misty-step",
+            "spell_mode": "effect",
+        }
+        self.app._lan_apply_action(first)
+        first_result = first.get("_spell_target_result") or {}
+        self.assertTrue(first_result.get("needs_relocation_destination"))
+
+        second = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 31,
+            "spell_name": "Misty Step",
+            "spell_slug": "misty-step",
+            "spell_mode": "effect",
+            "destination_col": 9,
+            "destination_row": 4,
+        }
+        self.app._lan_apply_action(second)
+        second_result = second.get("_spell_target_result") or {}
+        self.assertTrue(second_result.get("ok"))
+        self.assertEqual(self.app._lan_positions.get(1), (9, 4))
+
+    def test_misty_step_rejects_occupied_destination(self):
+        preset = {
+            "slug": "misty-step",
+            "id": "misty-step",
+            "name": "Misty Step",
+            "range": "Self",
+            "mechanics": {
+                "targeting": {"range": {"kind": "self", "distance_ft": 30}},
+                "sequence": [
+                    {
+                        "check": {"kind": "effect"},
+                        "outcomes": {
+                            "hit": [
+                                {
+                                    "effect": "relocation",
+                                    "origin_mode": "target",
+                                    "range_ft": 30,
+                                    "requires_unoccupied": True,
+                                }
+                            ]
+                        },
+                    }
+                ],
+            },
+        }
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 32,
+            "spell_name": "Misty Step",
+            "spell_slug": "misty-step",
+            "spell_mode": "effect",
+            "destination_col": 6,
+            "destination_row": 4,
+        }
+        self.app._lan_apply_action(msg)
+        result = msg.get("_spell_target_result") or {}
+        self.assertFalse(result.get("ok"))
+        self.assertEqual(self.app._lan_positions.get(1), (4, 4))
+
+    def test_misty_step_rejects_out_of_range_destination(self):
+        preset = {
+            "slug": "misty-step",
+            "id": "misty-step",
+            "name": "Misty Step",
+            "range": "Self",
+            "mechanics": {
+                "targeting": {"range": {"kind": "self", "distance_ft": 30}},
+                "sequence": [
+                    {
+                        "check": {"kind": "effect"},
+                        "outcomes": {
+                            "hit": [
+                                {
+                                    "effect": "relocation",
+                                    "origin_mode": "target",
+                                    "range_ft": 30,
+                                    "requires_unoccupied": True,
+                                }
+                            ]
+                        },
+                    }
+                ],
+            },
+        }
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 33,
+            "spell_name": "Misty Step",
+            "spell_slug": "misty-step",
+            "spell_mode": "effect",
+            "destination_col": 15,
+            "destination_row": 4,
+        }
+        self.app._lan_apply_action(msg)
+        result = msg.get("_spell_target_result") or {}
+        self.assertFalse(result.get("ok"))
+        self.assertEqual(self.app._lan_positions.get(1), (4, 4))
+
+
 if __name__ == "__main__":
     unittest.main()

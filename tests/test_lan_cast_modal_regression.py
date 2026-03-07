@@ -286,6 +286,18 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('JSON.stringify(p.mechanics?.aoe_behavior || {})', self.html)
         self.assertIn('JSON.stringify(p.mechanics?.targeting?.range || {})', self.html)
 
+    def test_relocation_placement_flow_wired_and_non_regressive(self):
+        self.assertIn('let pendingRelocationPlacement = null;', self.html)
+        self.assertIn('let relocationValidCells = new Set();', self.html)
+        self.assertIn('function rebuildRelocationValidCells()', self.html)
+        self.assertIn('function clearRelocationPlacementState()', self.html)
+        self.assertIn('if (pendingRelocationPlacement && !isMapView && !dragging && !panning && !aoeDragging){', self.html)
+        self.assertIn('destination_col: Number(g.col),', self.html)
+        self.assertIn('destination_row: Number(g.row),', self.html)
+        self.assertIn('if (msg.needs_relocation_destination){', self.html)
+        self.assertIn('Relocation placement started. Choose a valid highlighted square.', self.html)
+        self.assertIn('if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){', self.html)
+
     def test_cast_preview_submit_surfaces_invalid_form(self):
         self.assertIn('castForm.requestSubmit();', self.html)
         self.assertIn('localToast("Cast form invalid; check wall dimensions/range.");', self.html)

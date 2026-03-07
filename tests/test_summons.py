@@ -115,6 +115,14 @@ class SummonHarness:
     _dismiss_persistent_summon_group = tracker_mod.InitiativeTracker._dismiss_persistent_summon_group
     _reappear_persistent_summon_group = tracker_mod.InitiativeTracker._reappear_persistent_summon_group
     _find_persistent_spell_group_for_caster = tracker_mod.InitiativeTracker._find_persistent_spell_group_for_caster
+    _validate_relocation_destination = tracker_mod.InitiativeTracker._validate_relocation_destination
+    _spell_destination_distance_ft = tracker_mod.InitiativeTracker._spell_destination_distance_ft
+
+    def _lan_feet_per_square(self):
+        return 5.0
+
+    def _lan_live_map_data(self):
+        return (20, 20, set(), {}, dict(self._lan_positions))
 
 
 class SummonSpawnTests(unittest.TestCase):

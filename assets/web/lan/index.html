@@ -5018,6 +5018,8 @@ __DAMAGE_TYPE_OPTIONS__
   const castAutomationStorageKey = "inittracker_cast_automation_enabled";
   let castAutomationEnabled = localStorage.getItem(castAutomationStorageKey) !== "0";
   let summonValidCells = new Set();
+  let pendingRelocationPlacement = null;
+  let relocationValidCells = new Set();
   let aoeTargetPreviewSignature = "";
   const preparedSpellDefaults = {
     prepared: [],
@@ -11473,6 +11475,62 @@ __DAMAGE_TYPE_OPTIONS__
     return summonValidCells.has(summonCellKey(cell.col, cell.row));
   }
 
+  function isRelocationPlacementCellValid(cell){
+    if (!pendingRelocationPlacement || !cell) return false;
+    return relocationValidCells.has(summonCellKey(cell.col, cell.row));
+  }
+
+  function clearRelocationPlacementState(){
+    pendingRelocationPlacement = null;
+    relocationValidCells = new Set();
+    if (summonPlacementBanner){
+      summonPlacementBanner.classList.add("hidden");
+      summonPlacementBanner.textContent = "";
+    }
+  }
+
+  function rebuildRelocationValidCells(){
+    relocationValidCells = new Set();
+    if (!pendingRelocationPlacement || !gridReady()) return;
+    const cols = Number(state?.grid?.cols || 0);
+    const rows = Number(state?.grid?.rows || 0);
+    const positions = Array.isArray(state?.positions) ? state.positions : [];
+    const occupied = new Set();
+    positions.forEach((entry) => {
+      const pos = toGridPoint(entry);
+      if (pos){
+        occupied.add(summonCellKey(pos.col, pos.row));
+      }
+    });
+    const maxRangeFt = Number(pendingRelocationPlacement.maxRangeFt);
+    for (let col = 0; col < cols; col += 1){
+      for (let row = 0; row < rows; row += 1){
+        const key = summonCellKey(col, row);
+        if (pendingRelocationPlacement.requiresUnoccupied && occupied.has(key)) continue;
+        if (pendingRelocationPlacement.originPos && Number.isFinite(maxRangeFt)){
+          const distFt = distanceFeetBetweenCells(pendingRelocationPlacement.originPos, {col, row});
+          if (distFt > maxRangeFt + 1e-6) continue;
+        }
+        relocationValidCells.add(key);
+      }
+    }
+  }
+
+  function updateRelocationPlacementBanner(){
+    if (!summonPlacementBanner) return;
+    if (!pendingRelocationPlacement){
+      summonPlacementBanner.classList.add("hidden");
+      summonPlacementBanner.textContent = "";
+      return;
+    }
+    const rangeLabel = Number.isFinite(Number(pendingRelocationPlacement.maxRangeFt))
+      ? `${Math.round(Number(pendingRelocationPlacement.maxRangeFt))} ft`
+      : "any range";
+    const spellLabel = pendingRelocationPlacement.spellName || "Spell";
+    summonPlacementBanner.textContent = `Choose a destination for ${spellLabel} within ${rangeLabel}. Click a highlighted square to confirm.`;
+    summonPlacementBanner.classList.remove("hidden");
+  }
+
   function clearSummonPlacementState(){
     pendingSummonPlacement = null;
     summonValidCells = new Set();
@@ -12676,6 +12734,17 @@ __DAMAGE_TYPE_OPTIONS__
       }
     } else {
       updateSummonPlacementBanner();
+    }
+    if (pendingRelocationPlacement){
+      rebuildRelocationValidCells();
+      relocationValidCells.forEach((key) => {
+        const [col, row] = key.split(",").map(Number);
+        const x = panX + col * zoom;
+        const y = panY + row * zoom;
+        ctx.fillStyle = "rgba(180,120,255,0.22)";
+        ctx.fillRect(x + 1, y + 1, zoom - 2, zoom - 2);
+      });
+      updateRelocationPlacementBanner();
     }
 
     // obstacles
@@ -15555,6 +15624,30 @@ __DAMAGE_TYPE_OPTIONS__
         }
       } else if (msg.type === "spell_target_result"){
         queueDamagePopupsFromResult(msg);
+        if (msg.needs_relocation_destination){
+          const actionCid = activeControlledUnitCid();
+          const caster = actionCid === null ? null : getUnitByCid(actionCid);
+          const targetCid = Number(msg.target_cid);
+          const target = getUnitByCid(targetCid);
+          const origin = caster?.pos || target?.pos || null;
+          pendingRelocationPlacement = {
+            casterCid: actionCid,
+            targetCid,
+            spellName: String(msg.spell_name || pendingSpellTargeting?.spellName || "Spell"),
+            spellSlug: msg.spell_slug || pendingSpellTargeting?.spellSlug || null,
+            spellId: msg.spell_id || pendingSpellTargeting?.spellId || null,
+            slotLevel: pendingSpellTargeting?.slotLevel ?? null,
+            mode: String(msg.spell_mode || pendingSpellTargeting?.mode || "effect"),
+            maxRangeFt: Number.isFinite(Number(pendingSpellTargeting?.rangeFt)) ? Number(pendingSpellTargeting.rangeFt) : null,
+            originPos: origin ? {col: Number(origin.col), row: Number(origin.row)} : null,
+            requiresUnoccupied: true,
+          };
+          rebuildRelocationValidCells();
+          updateRelocationPlacementBanner();
+          draw();
+          localToast("Choose a relocation destination.");
+          return;
+        }
         if (msg.needs_polymorph_form){
           const target = getUnitByCid(msg.target_cid);
           const actionCid = activeControlledUnitCid();
@@ -16531,6 +16624,42 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
     }
+    if (pendingRelocationPlacement && !isMapView && !dragging && !panning && !aoeDragging){
+      const g = screenToGrid(p.x, p.y);
+      if (!gridReady()){
+        localToast("Map not ready yet, matey.");
+        return;
+      }
+      const cols = Number(state?.grid?.cols || 0);
+      const rows = Number(state?.grid?.rows || 0);
+      if (g.col < 0 || g.row < 0 || g.col >= cols || g.row >= rows){
+        localToast("That square be off the map.");
+        return;
+      }
+      if (!isRelocationPlacementCellValid(g)){
+        localToast("That destination is invalid for this relocation.");
+        return;
+      }
+      const msg = {
+        type: "spell_target_request",
+        cid: Number(pendingRelocationPlacement.casterCid),
+        target_cid: Number(pendingRelocationPlacement.targetCid),
+        spell_name: pendingRelocationPlacement.spellName,
+        spell_slug: pendingRelocationPlacement.spellSlug || null,
+        spell_id: pendingRelocationPlacement.spellId || null,
+        spell_mode: pendingRelocationPlacement.mode || "effect",
+        destination_col: Number(g.col),
+        destination_row: Number(g.row),
+      };
+      if (Number.isFinite(Number(pendingRelocationPlacement.slotLevel))){
+        msg.slot_level = Number(pendingRelocationPlacement.slotLevel);
+      }
+      send(msg);
+      clearRelocationPlacementState();
+      draw();
+      return;
+    }
+
     if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){
       if (!ev.shiftKey){
         localToast("Hold Shift while clicking to place summons.");
@@ -19521,6 +19650,11 @@ __DAMAGE_TYPE_OPTIONS__
       allowDuplicateTargets,
       requireUniqueTargets,
       isHealingSpell,
+      requiresDestination: uiConfig?.requires_destination === true,
+      destinationRangeFt: Number.isFinite(Number(uiConfig?.destination_range_ft)) ? Number(uiConfig.destination_range_ft) : null,
+      requiresUnoccupiedDestination: uiConfig?.requires_unoccupied_destination !== false,
+      destinationOriginMode: normalizeLowerValue(uiConfig?.destination_origin_mode) || "self",
+      destinationConstraintTag: normalizeLowerValue(uiConfig?.destination_constraint_tag) || "",
     };
   }
   function renderSpellTargetSelectionUi(){
@@ -20120,6 +20254,33 @@ __DAMAGE_TYPE_OPTIONS__
         return;
       }
       const slotLevel = Number.isFinite(slotCheck.slotLevel) ? Math.floor(Number(slotCheck.slotLevel)) : null;
+      if (inferredTargetConfig?.requiresDestination){
+        const actionCid = activeControlledUnitCid();
+        const caster = actionCid === null ? null : getUnitByCid(actionCid);
+        if (actionCid === null || !caster?.pos){
+          localToast("Could not find caster position, matey.");
+          clearForcedContext();
+          return;
+        }
+        pendingRelocationPlacement = {
+          casterCid: actionCid,
+          targetCid: actionCid,
+          spellName,
+          spellSlug: normalizeTextValue(preset?.slug) || null,
+          spellId: normalizeTextValue(preset?.id) || null,
+          slotLevel,
+          mode: inferredTargetConfig.mode || "effect",
+          maxRangeFt: Number.isFinite(Number(inferredTargetConfig.destinationRangeFt)) ? Number(inferredTargetConfig.destinationRangeFt) : Number(inferredTargetConfig.rangeFt),
+          originPos: {col: Number(caster.pos.col), row: Number(caster.pos.row)},
+          requiresUnoccupied: inferredTargetConfig.requiresUnoccupiedDestination !== false,
+        };
+        rebuildRelocationValidCells();
+        updateRelocationPlacementBanner();
+        draw();
+        localToast("Relocation placement started. Choose a valid highlighted square.");
+        clearForcedContext();
+        return;
+      }
       if (summonSpell && !customSummon){
         const summonValidation = validateSummonForm(preset, true);
         if (!summonValidation.ok){
@@ -21784,6 +21945,12 @@ __DAMAGE_TYPE_OPTIONS__
       clearSummonPlacementState();
       draw();
       localToast("Summon placement cancelled.");
+      return true;
+    }
+    if (pendingRelocationPlacement){
+      clearRelocationPlacementState();
+      draw();
+      localToast("Relocation placement cancelled.");
       return true;
     }
     if (pendingSpellTargeting || pendingSpellTargetSelection || pendingPolymorphSelection || pendingMantleOfInspiration || pendingCommandResolution){
