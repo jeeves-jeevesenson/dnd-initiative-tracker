@@ -10936,6 +10936,198 @@ class InitiativeTracker(base.InitiativeTracker):
         payload.setdefault("aoe_id", int(aid))
         self._materialize_map_spell_effect(int(aid), payload)
 
+    def _normalize_map_environment_metadata(self, value: Any) -> Dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        env: Dict[str, Any] = {}
+        bool_keys = ("obscured", "magical_darkness", "silence", "difficult_terrain")
+        for key in bool_keys:
+            if key in value:
+                env[key] = bool(value.get(key))
+        mult_raw = value.get("movement_cost_multiplier")
+        try:
+            mult = float(mult_raw)
+        except Exception:
+            mult = None
+        if mult is not None and mult > 0:
+            env["movement_cost_multiplier"] = float(mult)
+        trigger_raw = value.get("move_damage_trigger")
+        if isinstance(trigger_raw, dict):
+            trigger: Dict[str, Any] = {}
+            try:
+                per_feet = int(trigger_raw.get("per_feet") or 0)
+            except Exception:
+                per_feet = 0
+            if per_feet > 0:
+                trigger["per_feet"] = int(per_feet)
+            dice = str(trigger_raw.get("dice") or "").strip().lower()
+            if dice and re.fullmatch(r"\d+d\d+(?:\s*[+\-]\s*\d+)?", dice):
+                trigger["dice"] = dice.replace(" ", "")
+            damage_type = str(trigger_raw.get("damage_type") or "").strip().lower()
+            if damage_type:
+                trigger["damage_type"] = damage_type
+            if trigger:
+                env["move_damage_trigger"] = trigger
+        return env
+
+    def _map_effect_contains_cell(self, effect: Dict[str, Any], col: int, row: int) -> bool:
+        if not isinstance(effect, dict):
+            return False
+        kind = str(effect.get("kind") or "").strip().lower()
+        if not kind:
+            return False
+        px = float(col)
+        py = float(row)
+        cx = float(effect.get("cx") or 0.0)
+        cy = float(effect.get("cy") or 0.0)
+        if kind in ("circle", "sphere", "cylinder"):
+            r2 = float(effect.get("radius_sq") or 0.0) ** 2
+            return ((px - cx) ** 2 + (py - cy) ** 2) <= r2
+        if kind in ("line", "wall"):
+            length_sq = float(effect.get("length_sq") or 0.0)
+            width_sq = float(effect.get("width_sq") or 0.0)
+            angle_deg = effect.get("angle_deg")
+            if angle_deg is None:
+                orient = str(effect.get("orient") or "vertical").strip().lower()
+                angle_deg = 0.0 if orient == "horizontal" else 90.0
+            angle_rad = math.radians(float(angle_deg))
+            cos_a = math.cos(-angle_rad)
+            sin_a = math.sin(-angle_rad)
+            dx = px - cx
+            dy = py - cy
+            rx = dx * cos_a - dy * sin_a
+            ry = dx * sin_a + dy * cos_a
+            return abs(rx) <= (length_sq / 2.0) and abs(ry) <= (width_sq / 2.0)
+        if kind == "cone":
+            length_sq = float(effect.get("length_sq") or 0.0)
+            spread_deg = effect.get("spread_deg")
+            has_spread = spread_deg is not None
+            if spread_deg is None:
+                spread_deg = effect.get("angle_deg")
+            if spread_deg is None:
+                spread_deg = 90.0
+            spread_deg = float(spread_deg)
+            orient = str(effect.get("orient") or "vertical").strip().lower()
+            heading_deg = 0.0 if orient == "horizontal" else -90.0
+            if has_spread and effect.get("angle_deg") is not None:
+                heading_deg = float(effect.get("angle_deg"))
+            heading_rad = math.radians(float(heading_deg))
+            dx = px - cx
+            dy = py - cy
+            dist = math.hypot(dx, dy)
+            if dist > length_sq:
+                return False
+            angle = math.atan2(dy, dx) - heading_rad
+            while angle <= -math.pi:
+                angle += math.pi * 2
+            while angle > math.pi:
+                angle -= math.pi * 2
+            return abs(angle) <= math.radians(spread_deg / 2.0)
+        half = float(effect.get("side_sq") or 0.0) / 2.0
+        angle = effect.get("angle_deg") if kind in ("square", "cube") else None
+        if angle is None:
+            return (cx - half) <= px <= (cx + half) and (cy - half) <= py <= (cy + half)
+        angle_rad = math.radians(float(angle))
+        cos_a = math.cos(-angle_rad)
+        sin_a = math.sin(-angle_rad)
+        dx = px - cx
+        dy = py - cy
+        rx = dx * cos_a - dy * sin_a
+        ry = dx * sin_a + dy * cos_a
+        return abs(rx) <= half and abs(ry) <= half
+
+    def _collect_environmental_effects_for_cell(self, col: int, row: int, *, combatant: Any = None) -> List[Dict[str, Any]]:
+        _ = combatant
+        effects: List[Dict[str, Any]] = []
+        for aid, aoe in list((self.__dict__.get("_lan_aoes", {}) or {}).items()):
+            if not isinstance(aoe, dict) or not bool(aoe.get("map_effect")):
+                continue
+            env = self._normalize_map_environment_metadata(aoe.get("environment"))
+            if not env:
+                continue
+            if not self._map_effect_contains_cell(aoe, int(col), int(row)):
+                continue
+            entry = {"aid": int(aid), "effect": aoe, "environment": env}
+            effects.append(entry)
+        return effects
+
+    def _cell_has_silence(self, col: int, row: int) -> bool:
+        for entry in self._collect_environmental_effects_for_cell(int(col), int(row)):
+            if bool((entry.get("environment") or {}).get("silence")):
+                return True
+        return False
+
+    def _cell_visibility_state(self, col: int, row: int) -> Dict[str, bool]:
+        state = {
+            "obscured": False,
+            "magical_darkness": False,
+        }
+        for entry in self._collect_environmental_effects_for_cell(int(col), int(row)):
+            env = entry.get("environment") if isinstance(entry.get("environment"), dict) else {}
+            if bool(env.get("obscured")):
+                state["obscured"] = True
+            if bool(env.get("magical_darkness")):
+                state["magical_darkness"] = True
+        return state
+
+    def _movement_cost_multiplier_for_step(
+        self,
+        origin_col: int,
+        origin_row: int,
+        dest_col: int,
+        dest_row: int,
+        *,
+        combatant: Any = None,
+    ) -> float:
+        _ = (origin_col, origin_row, combatant)
+        multiplier = 1.0
+        for entry in self._collect_environmental_effects_for_cell(int(dest_col), int(dest_row), combatant=combatant):
+            env = entry.get("environment") if isinstance(entry.get("environment"), dict) else {}
+            if bool(env.get("difficult_terrain")):
+                multiplier = max(multiplier, 2.0)
+            try:
+                mult = float(env.get("movement_cost_multiplier") or 0.0)
+            except Exception:
+                mult = 0.0
+            if mult > 0:
+                multiplier = max(multiplier, mult)
+        return max(1.0, float(multiplier))
+
+    def _spell_has_verbal_component(self, preset: Any) -> bool:
+        if not isinstance(preset, dict):
+            return False
+        components = preset.get("components")
+        if isinstance(components, list):
+            for entry in components:
+                if str(entry or "").strip().upper() == "V":
+                    return True
+            return False
+        text = str(components or "").strip().upper()
+        if not text:
+            return False
+        return bool(re.search(r"(?:^|[^A-Z])V(?:[^A-Z]|$)", text))
+
+    def _spellcast_blocked_by_environment(
+        self,
+        caster: Any,
+        spell_preset: Any,
+        destination: Optional[Tuple[int, int]] = None,
+    ) -> Tuple[bool, str]:
+        if caster is None or not self._spell_has_verbal_component(spell_preset):
+            return (False, "")
+        caster_cid = _normalize_cid_value(getattr(caster, "cid", None), "spellcast.env.caster")
+        if caster_cid is None:
+            return (False, "")
+        positions = dict(getattr(self, "_lan_positions", {}) or {})
+        cell = positions.get(int(caster_cid))
+        if not (isinstance(cell, tuple) and len(cell) == 2) and isinstance(destination, tuple) and len(destination) == 2:
+            cell = destination
+        if not (isinstance(cell, tuple) and len(cell) == 2):
+            return (False, "")
+        if self._cell_has_silence(int(cell[0]), int(cell[1])):
+            return (True, "A silence zone blocks verbal spell components here, matey.")
+        return (False, "")
+
     def _clear_map_spell_effect(self, aid: int, *, end_concentration_if_bound: bool = False) -> None:
         removed = self._dematerialize_map_spell_effect(int(aid))
         if not isinstance(removed, dict):
@@ -21355,6 +21547,11 @@ class InitiativeTracker(base.InitiativeTracker):
                 if isinstance(preset_mechanics.get("aoe_behavior"), dict)
                 else {}
             )
+            preset_environment = self._normalize_map_environment_metadata(
+                preset_mechanics.get("map_environment")
+                if isinstance(preset_mechanics.get("map_environment"), dict)
+                else preset_aoe_behavior.get("environment")
+            )
             preset_targeting = preset_mechanics.get("targeting") if isinstance(preset_mechanics.get("targeting"), dict) else {}
             preset_range_data = preset_targeting.get("range") if isinstance(preset_targeting.get("range"), dict) else {}
             range_text = str(preset_dict.get("range") or "").strip().lower()
@@ -21423,6 +21620,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     return
                 if not self._combatant_can_cast_spell(c, spend):
                     self._lan.toast(ws_id, "No spellcasting action available, matey.")
+                    return
+                blocked, blocked_msg = self._spellcast_blocked_by_environment(c, preset_dict)
+                if blocked:
+                    self._lan.toast(ws_id, blocked_msg or "The environment prevents that spell, matey.")
                     return
                 spell_name = self._spell_label_from_identifiers(
                     preset.get("name") if isinstance(preset, dict) else "",
@@ -21736,6 +21937,9 @@ class InitiativeTracker(base.InitiativeTracker):
                     "persistent": bool(persistent_flag),
                 },
             }
+            if preset_environment:
+                aoe["environment"] = dict(preset_environment)
+                aoe["template"]["environment"] = dict(preset_environment)
             if concentration_flag is True:
                 aoe["concentration_bound"] = True
             if anchor_cid is not None:
@@ -22113,6 +22317,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     return
                 if not self._combatant_can_cast_spell(c, spend):
                     self._lan.toast(ws_id, "No spellcasting action available, matey.")
+                    return
+                blocked, blocked_msg = self._spellcast_blocked_by_environment(c, preset)
+                if blocked:
+                    self._lan.toast(ws_id, blocked_msg or "The environment prevents that spell, matey.")
                     return
                 spell_name = self._spell_label_from_identifiers(
                     preset.get("name"),
@@ -28981,6 +29189,10 @@ class InitiativeTracker(base.InitiativeTracker):
         self._lan_positions[cid] = (col, row)
         if rider_cid is not None:
             self._lan_positions[int(rider_cid)] = (col, row)
+        try:
+            self._apply_environmental_move_damage(c, origin_cell, (int(col), int(row)), int(cost))
+        except Exception:
+            pass
         self._lan_sync_fixed_to_caster_aoes(int(cid))
         self._lan_handle_aoe_enter_triggers_for_moved_unit(int(cid), origin_cell, (int(col), int(row)))
 
@@ -29126,6 +29338,7 @@ class InitiativeTracker(base.InitiativeTracker):
                             step = int(math.ceil(step * water_multiplier))
                         if target_is_rough:
                             step *= 2
+                    step = int(math.ceil(step * self._movement_cost_multiplier_for_step(c, r, nc, nr, combatant=creature)))
 
                     ncost = cost + step
                     key = (nc, nr, npar)
@@ -29134,6 +29347,51 @@ class InitiativeTracker(base.InitiativeTracker):
                         heapq.heappush(pq, (ncost, nc, nr, npar))
 
         return None
+
+    def _apply_environmental_move_damage(self, mover: Any, origin_cell: Tuple[int, int], dest_cell: Tuple[int, int], moved_cost_ft: int) -> None:
+        if mover is None or moved_cost_ft <= 0:
+            return
+        effects: List[Dict[str, Any]] = []
+        effects.extend(self._collect_environmental_effects_for_cell(int(origin_cell[0]), int(origin_cell[1]), combatant=mover))
+        effects.extend(self._collect_environmental_effects_for_cell(int(dest_cell[0]), int(dest_cell[1]), combatant=mover))
+        if not effects:
+            return
+        dedupe: Dict[int, Dict[str, Any]] = {}
+        for entry in effects:
+            aid = int(entry.get("aid") or 0)
+            if aid > 0:
+                dedupe[aid] = entry
+        for aid, entry in dedupe.items():
+            env = entry.get("environment") if isinstance(entry.get("environment"), dict) else {}
+            trigger = env.get("move_damage_trigger") if isinstance(env.get("move_damage_trigger"), dict) else {}
+            try:
+                per_feet = int(trigger.get("per_feet") or 0)
+            except Exception:
+                per_feet = 0
+            dice = str(trigger.get("dice") or "").strip().lower()
+            if per_feet <= 0 or not dice:
+                continue
+            trigger_count = int(moved_cost_ft // per_feet)
+            if trigger_count <= 0:
+                continue
+            total = 0
+            for _ in range(trigger_count):
+                total += int(self._roll_dice_expression(dice))
+            if total <= 0:
+                continue
+            damage_type = str(trigger.get("damage_type") or "").strip().lower()
+            adjusted = self._adjust_damage_entries_for_target(mover, [{"amount": int(total), "type": damage_type}])
+            entries = list((adjusted or {}).get("entries") or [])
+            applied = sum(max(0, int(item.get("amount") or 0)) for item in entries if isinstance(item, dict))
+            if applied <= 0:
+                continue
+            before_hp = int(getattr(mover, "hp", 0) or 0)
+            setattr(mover, "hp", max(0, before_hp - int(applied)))
+            spell_name = str((entry.get("effect") or {}).get("name") or "Terrain")
+            self._log(
+                f"{mover.name} takes {applied} {damage_type or 'damage'} from {spell_name} movement.",
+                cid=int(getattr(mover, "cid", 0) or 0),
+            )
 
 
 

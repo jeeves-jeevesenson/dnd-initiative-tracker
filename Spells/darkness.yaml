@@ -62,6 +62,9 @@ mechanics:
       mode: area
       friendly_fire: true
   sequence: []
+  map_environment:
+    obscured: true
+    magical_darkness: true
   scaling: null
   ui:
     template_preview: true

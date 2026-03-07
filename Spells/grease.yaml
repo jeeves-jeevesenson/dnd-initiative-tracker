@@ -39,6 +39,12 @@ text:
   rules: null
   higher_level: null
 mechanics:
+  aoe_behavior:
+    map_effect: true
+    persistent_default: true
+    over_time_default: true
+    trigger_mode: start_or_enter
+    cleanup: duration
   automation: partial
   targeting:
     origin: point_within_range
@@ -64,6 +70,8 @@ mechanics:
         condition: prone
         duration_turns: 0
       success: []
+  map_environment:
+    difficult_terrain: true
   scaling: null
   ui:
     template_preview: false

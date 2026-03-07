@@ -64,6 +64,8 @@ mechanics:
     name: Effect
     outcomes:
       hit: []
+  map_environment:
+    obscured: true
   scaling: null
   ui:
     template_preview: true

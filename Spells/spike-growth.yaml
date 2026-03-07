@@ -61,6 +61,12 @@ mechanics:
       mode: area
       friendly_fire: true
   sequence: []
+  map_environment:
+    difficult_terrain: true
+    move_damage_trigger:
+      per_feet: 5
+      dice: 2d4
+      damage_type: piercing
   scaling: null
   ui:
     template_preview: true

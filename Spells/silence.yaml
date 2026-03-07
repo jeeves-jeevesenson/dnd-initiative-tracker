@@ -59,6 +59,8 @@ mechanics:
       mode: area
       friendly_fire: true
   sequence: []
+  map_environment:
+    silence: true
   scaling: null
   ui:
     template_preview: true

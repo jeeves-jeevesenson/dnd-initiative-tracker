@@ -45,6 +45,12 @@ text:
   rules: null
   higher_level: null
 mechanics:
+  aoe_behavior:
+    map_effect: true
+    persistent_default: true
+    over_time_default: false
+    trigger_mode: none
+    cleanup: duration
   automation: partial
   targeting:
     origin: point_within_range
@@ -62,6 +68,8 @@ mechanics:
     name: Effect
     outcomes:
       hit: []
+  map_environment:
+    movement_cost_multiplier: 4
   scaling: null
   ui:
     template_preview: true

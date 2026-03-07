@@ -73,6 +73,8 @@ mechanics:
         condition: restrained
         duration_turns: 0
       success: []
+  map_environment:
+    difficult_terrain: true
   scaling: null
   ui:
     template_preview: false

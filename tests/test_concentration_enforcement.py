@@ -192,6 +192,159 @@ class ConcentrationEnforcementTests(unittest.TestCase):
         self.assertFalse(caster.concentrating)
         self.assertEqual(caster.concentration_spell, "")
 
+    def test_silence_blocks_verbal_spellcasting_via_shared_environment_helper(self):
+        caster = self.app.combatants[1]
+        self.app._lan_aoes[77] = {
+            "map_effect": True,
+            "kind": "sphere",
+            "cx": 1.0,
+            "cy": 1.0,
+            "radius_sq": 3.0,
+            "environment": {"silence": True},
+            "name": "Silence",
+        }
+        blocked, message = self.app._spellcast_blocked_by_environment(caster, {"components": "V, S"})
+        self.assertTrue(blocked)
+        self.assertIn("silence", message.lower())
+
+    def test_cast_spell_rejects_verbal_components_inside_silence_zone(self):
+        caster = self.app.combatants[1]
+        caster.spell_cast_remaining = 1
+        toasts: list[str] = []
+        self.app._lan.toast = lambda _ws_id, message: toasts.append(str(message))
+        self.app._find_spell_preset = lambda spell_slug="", spell_id="": {
+            "slug": "guiding-bolt",
+            "id": "guiding-bolt",
+            "name": "Guiding Bolt",
+            "components": "V, S",
+            "concentration": False,
+            "level": 1,
+        }
+        self.app._lan_aoes[79] = {
+            "map_effect": True,
+            "kind": "sphere",
+            "cx": 1.0,
+            "cy": 1.0,
+            "radius_sq": 2.0,
+            "environment": {"silence": True},
+            "name": "Silence",
+        }
+        self.app._lan_apply_action(
+            {
+                "type": "cast_spell",
+                "cid": 1,
+                "_claimed_cid": 1,
+                "_ws_id": 5,
+                "spell_slug": "guiding-bolt",
+                "spell_id": "guiding-bolt",
+                "action_type": "action",
+                "payload": {},
+            }
+        )
+        self.assertTrue(any("silence" in item.lower() for item in toasts))
+        self.assertEqual(int(getattr(caster, "spell_cast_remaining", 0) or 0), 1)
+
+    def test_environment_visibility_state_registers_and_clears_with_map_effect_cleanup(self):
+        self.app._register_map_spell_effect(
+            55,
+            {
+                "map_effect": True,
+                "kind": "sphere",
+                "cx": 1.0,
+                "cy": 1.0,
+                "radius_sq": 4.0,
+                "owner_cid": 1,
+                "concentration_bound": True,
+                "environment": {"obscured": True, "magical_darkness": True},
+            },
+        )
+        state_before = self.app._cell_visibility_state(1, 1)
+        self.assertTrue(state_before.get("obscured"))
+        self.assertTrue(state_before.get("magical_darkness"))
+
+        self.app._clear_map_spell_effect(55)
+        state_after = self.app._cell_visibility_state(1, 1)
+        self.assertFalse(state_after.get("obscured"))
+        self.assertFalse(state_after.get("magical_darkness"))
+
+    def test_movement_cost_multiplier_uses_shared_environment_state(self):
+        mover = self.app.combatants[1]
+        self.app._lan_positions[1] = (0, 0)
+        self.app._lan_aoes = {
+            1: {
+                "map_effect": True,
+                "kind": "cube",
+                "cx": 1.0,
+                "cy": 0.0,
+                "side_sq": 1.0,
+                "environment": {"difficult_terrain": True},
+            },
+            2: {
+                "map_effect": True,
+                "kind": "cube",
+                "cx": 0.0,
+                "cy": 1.0,
+                "side_sq": 1.0,
+                "environment": {"movement_cost_multiplier": 4},
+            },
+        }
+        self.assertEqual(self.app._movement_cost_multiplier_for_step(0, 0, 1, 0, combatant=mover), 2.0)
+        self.assertEqual(self.app._movement_cost_multiplier_for_step(0, 0, 0, 1, combatant=mover), 4.0)
+
+    def test_spike_growth_move_damage_uses_shared_environment_hook(self):
+        mover = self.app.combatants[2]
+        mover.hp = 30
+        self.app._lan_aoes[88] = {
+            "map_effect": True,
+            "name": "Spike Growth",
+            "kind": "sphere",
+            "cx": 5.0,
+            "cy": 5.0,
+            "radius_sq": 2.0,
+            "environment": {
+                "difficult_terrain": True,
+                "move_damage_trigger": {"per_feet": 5, "dice": "2d4", "damage_type": "piercing"},
+            },
+        }
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=2):
+            self.app._apply_environmental_move_damage(mover, (4, 5), (5, 5), 10)
+        self.assertLess(mover.hp, 30)
+
+    def test_cast_aoe_persists_environment_metadata_from_spell_preset(self):
+        self.app._find_spell_preset = lambda spell_slug="", spell_id="": {
+            "slug": "fog-cloud",
+            "id": "fog-cloud",
+            "name": "Fog Cloud",
+            "concentration": True,
+            "level": 1,
+            "mechanics": {
+                "aoe_behavior": {"map_effect": True, "persistent_default": True, "trigger_mode": "none"},
+                "map_environment": {"obscured": True},
+            },
+        }
+        self.app._lan_apply_action(
+            {
+                "type": "cast_aoe",
+                "cid": 1,
+                "_claimed_cid": 1,
+                "_ws_id": 9,
+                "spell_slug": "fog-cloud",
+                "spell_id": "fog-cloud",
+                "admin_token": "admin",
+                "payload": {
+                    "shape": "sphere",
+                    "name": "Fog Cloud",
+                    "cx": 3,
+                    "cy": 3,
+                    "radius_ft": 20,
+                    "concentration": True,
+                },
+            }
+        )
+        self.assertTrue(self.app._lan_aoes)
+        created = next(iter(self.app._lan_aoes.values()))
+        self.assertEqual((created.get("environment") or {}).get("obscured"), True)
+
 
     def test_cast_ensnaring_strike_auto_targets_self_and_sets_concentration(self):
         caster = self.app.combatants[1]

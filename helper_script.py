@@ -8446,6 +8446,23 @@ class BattleMapWindow(tk.Toplevel):
                         step_cost = int(math.ceil(step_cost * water_multiplier))
                     if bool(target_cell.get("is_rough")):
                         step_cost *= 2
+                try:
+                    step_cost = int(
+                        math.ceil(
+                            float(step_cost)
+                            * float(
+                                self.app._movement_cost_multiplier_for_step(
+                                    col,
+                                    row,
+                                    nc,
+                                    nr,
+                                    combatant=creature,
+                                )
+                            )
+                        )
+                    )
+                except Exception:
+                    pass
 
                 ncost = cost + step_cost
                 if ncost > max_ft:
