@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: tree-stride
 name: Tree Stride
-color: "#3FA7FF"
+color: '#3FA7FF'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 5
@@ -59,4 +59,11 @@ mechanics:
   scaling: null
   ui:
     template_preview: false
+    spell_targeting:
+      requires_destination: true
+      destination_range_ft: 500
+      requires_unoccupied_destination: true
+      destination_origin_mode: self
+      destination_label: Tree Stride destination
+      destination_constraint_tag: tree_stride
   notes: []

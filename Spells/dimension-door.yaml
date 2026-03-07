@@ -1,10 +1,10 @@
 schema: dnd55.spell.v1
 id: dimension-door
 name: Dimension Door
-color: "#3FA7FF"
+color: '#3FA7FF'
 edition: '2024'
 source:
-  book: "Player\xB4s Handbook 2024 (BR)"
+  book: Player´s Handbook 2024 (BR)
   page: null
   srd: false
 level: 4
@@ -46,9 +46,36 @@ text:
 mechanics:
   automation: partial
   upcastable: false
-  targeting: null
-  sequence: []
+  targeting:
+    origin: self
+    range:
+      kind: distance
+      distance_ft: 500
+    target_selection:
+      mode: single
+  sequence:
+  - id: relocate
+    name: Relocate
+    check:
+      kind: effect
+    outcomes:
+      hit:
+      - effect: relocation
+        origin_mode: target
+        range_ft: 500
+        requires_unoccupied: true
+        requires_willing: true
+        constraint_tag: dimension_door
   scaling: null
   ui:
     template_preview: false
+    spell_targeting:
+      mode: effect
+      target_side: friendly
+      requires_destination: true
+      destination_range_ft: 500
+      requires_unoccupied_destination: true
+      destination_origin_mode: self
+      destination_label: Dimension Door destination
+      supports_optional_passenger: true
   notes: []
