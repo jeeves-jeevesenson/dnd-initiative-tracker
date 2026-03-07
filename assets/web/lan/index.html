@@ -5087,7 +5087,7 @@ __DAMAGE_TYPE_OPTIONS__
   // view transform
   let zoom = 32; // px per square
   let panX = 0, panY = 0;
-  let dragging = null; // {cid, startX, startY, origCol, origRow}
+  let dragging = null; // {cid, pointerId, startX, startY, origCol, origRow}
   let rotatingToken = null; // {cid}
   let rotatePreviewDeg = null;
   let aoeDragging = null; // {aid, offsetCol, offsetRow, isRotating}
@@ -16065,6 +16065,7 @@ __DAMAGE_TYPE_OPTIONS__
   let pinchState = null;
   const AOE_TOUCH_HOLD_MS = 320;
   const AOE_TOUCH_MOVE_THRESHOLD = 8;
+  const TOKEN_DRAG_MOVE_THRESHOLD = 8;
 
   function enforceLoginGate(){
     return false;
@@ -16326,7 +16327,7 @@ __DAMAGE_TYPE_OPTIONS__
       const dragUnit = shouldDragMount ? mountUnitForDrag : hit;
       const dragCol = Number(dragUnit?.pos?.col ?? hit.pos.col);
       const dragRow = Number(dragUnit?.pos?.row ?? hit.pos.row);
-      dragging = {cid: dragCid, startX: p.x, startY: p.y, origCol: dragCol, origRow: dragRow};
+      dragging = {cid: dragCid, pointerId: ev.pointerId, startX: p.x, startY: p.y, origCol: dragCol, origRow: dragRow};
       return;
     }
     if ((isAoeDragMouse || isTouchPointer) && allowAoeDrag(ev)){
@@ -16508,8 +16509,12 @@ __DAMAGE_TYPE_OPTIONS__
     if (aoeDragPending?.pointerId === ev.pointerId){
       clearAoeDragPending();
     }
+    const tokenDragDistance = (dragging && dragging.pointerId === ev.pointerId)
+      ? Math.hypot(p.x - Number(dragging.startX), p.y - Number(dragging.startY))
+      : 0;
+    const hasTokenDragMove = tokenDragDistance >= TOKEN_DRAG_MOVE_THRESHOLD;
     setTokenTooltip(null);
-    if (pendingRelocationPlacement && !isMapView && !dragging && !panning && !aoeDragging){
+    if (pendingRelocationPlacement && !isMapView && !hasTokenDragMove && !panning && !aoeDragging){
       const g = screenToGrid(p.x, p.y);
       if (!gridReady()){
         localToast("Map not ready yet, matey.");
@@ -16545,7 +16550,7 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
 
-    if (pendingSummonPlacement && !isMapView && !dragging && !panning && !aoeDragging){
+    if (pendingSummonPlacement && !isMapView && !hasTokenDragMove && !panning && !aoeDragging){
       if (!ev.shiftKey){
         localToast("Hold Shift while clicking to place summons.");
         return;
@@ -16618,7 +16623,7 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
 
-    if (attackOverlayMode && !isMapView && !pendingRelocationPlacement && !pendingSummonPlacement && !dragging && !panning && !aoeDragging){
+    if (attackOverlayMode && !isMapView && !pendingRelocationPlacement && !pendingSummonPlacement && !hasTokenDragMove && !panning && !aoeDragging){
       const me = getClaimedUnit();
       const controlledUnit = getUnitByCid(activeControlledUnitCid());
       const overlayOrigin = pendingUnleashIncarnation ? getUnitByCid(pendingUnleashIncarnation.echoCid) : (controlledUnit || me);
@@ -16796,7 +16801,7 @@ __DAMAGE_TYPE_OPTIONS__
       draw();
       return;
     }
-    dragging && (function(){
+    hasTokenDragMove && dragging && (function(){
       const g = screenToGrid(p.x, p.y);
       const msg = {type:"move", cid: Number(dragging.cid), to: {col: g.col, row: g.row}};
       if (isPlanning){
@@ -16805,8 +16810,10 @@ __DAMAGE_TYPE_OPTIONS__
         updateHud();
       }
       send(msg);
-      dragging = null;
     })();
+    if (dragging && dragging.pointerId === ev.pointerId){
+      dragging = null;
+    }
     panning = null;
   });
 
@@ -16823,6 +16830,9 @@ __DAMAGE_TYPE_OPTIONS__
       aoeDragging = null;
       aoeDragPreview = null;
       draw();
+    }
+    if (dragging && dragging.pointerId === ev.pointerId){
+      dragging = null;
     }
     if (rotatingToken){
       rotatingToken = null;
