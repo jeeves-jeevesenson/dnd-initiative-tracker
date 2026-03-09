@@ -9095,13 +9095,22 @@ __DAMAGE_TYPE_OPTIONS__
 
 
   function applyServerClaim(claimedCidValue, claimedName, incomingRev){
+    const previousClaimedCid = claimedCid;
     const revValue = Number.isFinite(Number(incomingRev)) ? Number(incomingRev) : claimRev;
     if (Number.isFinite(revValue) && revValue < claimRev){
       return false;
     }
     claimRev = Number.isFinite(revValue) ? revValue : claimRev;
     claimedCid = normalizeCid(claimedCidValue, "claim.server.claimedCid");
+    const claimChanged = !cidMatches(previousClaimedCid, claimedCid, "claim.apply.changed");
     claimStatus = (claimedCid !== null && claimedCid !== undefined) ? "claimed" : "unclaimed";
+    if (claimChanged){
+      clearActiveCastInteractionState("");
+      pendingAttackResolve = null;
+      setAttackResolveModalOpen(false);
+      setSculptSelectModalOpen(false);
+      pendingSculptSelect = null;
+    }
     clearClaimInFlight();
     if (meEl){
       if (claimedCid !== null && claimedCid !== undefined){
@@ -14224,6 +14233,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (!pendingMantleOfInspiration && !pendingSpellTargeting){
       return;
     }
+    const spellActorCid = normalizeCid(pendingSpellTargeting?.actorCid, "spellTargeting.actorCid");
     const targetSide = normalizeLowerValue((pendingSpellTargetSelection?.targetSide || pendingSpellTargeting?.targetSide || "any"));
     if (!pendingMantleOfInspiration && targetSide === "friendly" && !isFriendlyTarget){
       localToast("Pick a friendly target, matey.");
@@ -14287,7 +14297,7 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     if (pendingSpellTargeting.isHealingSpell){
-      const actionCid = activeControlledUnitCid();
+      const actionCid = spellActorCid;
       if (actionCid === null){
         localToast("Not yer turn yet, matey.");
         return;
@@ -14322,7 +14332,7 @@ __DAMAGE_TYPE_OPTIONS__
       return;
     }
     if (pendingSpellTargeting.mode === "save"){
-      const actionCid = activeControlledUnitCid();
+      const actionCid = spellActorCid;
       if (actionCid === null){
         localToast("Not yer turn yet, matey.");
         return;
@@ -14358,7 +14368,7 @@ __DAMAGE_TYPE_OPTIONS__
     if (pendingSpellTargeting.mode === "effect"){
       send({
         type: "spell_target_request",
-        cid: activeControlledUnitCid(),
+        cid: spellActorCid,
         target_cid: Number(target.cid),
         spell_name: pendingSpellTargeting.spellName,
         spell_slug: pendingSpellTargeting.spellSlug || null,
@@ -14369,7 +14379,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     const autoHit = pendingSpellTargeting.mode === "auto_hit";
     if (autoHit && pendingSpellTargeting.skipResolveAttack){
-      const actionCid = activeControlledUnitCid();
+      const actionCid = spellActorCid;
       if (actionCid === null){
         localToast("Not yer turn yet, matey.");
         return;
@@ -14407,6 +14417,7 @@ __DAMAGE_TYPE_OPTIONS__
       rollSave: false,
       damageDice: pendingSpellTargeting.damageDice || "",
       damageType: pendingSpellTargeting.damageType || "",
+      actorCid: spellActorCid,
     };
     if (attackResolveBody){
       const details = [
@@ -15747,7 +15758,7 @@ __DAMAGE_TYPE_OPTIONS__
               resolveKind: "healing",
               extraHint: `Add ${abilityLabel} (${abilityMod}). Ability modifiers follow (Ability Score - 10) / 2, rounded down.`,
             }, (healingEntries) => {
-              const actionCid = activeControlledUnitCid();
+              const actionCid = normalizeCid(msg.attacker_cid, "spellTargetResult.healingAttackerCid") ?? normalizeCid(pendingSpellTargeting?.actorCid, "spellTargetResult.pendingHealingActorCid");
               if (actionCid === null) return;
               send({
                 type: "spell_target_request",
@@ -15795,6 +15806,7 @@ __DAMAGE_TYPE_OPTIONS__
               damageDice: damageDice || "",
               damageType: promptSpell.damageType || "",
               allowOutOfTurn: !!msg.aoe_manual_prompt,
+              actorCid: normalizeCid(msg.attacker_cid, "spellTargetResult.attackerCid") ?? normalizeCid(pendingSpellTargeting?.actorCid, "spellTargetResult.pendingActorCid"),
             };
             if (attackResolveBody){
               const details = [
@@ -19839,6 +19851,7 @@ __DAMAGE_TYPE_OPTIONS__
       requireUniqueTargets: config.requireUniqueTargets !== false,
       maxTargets: Math.max(1, Number(config.maxTargets || config.projectileCount || 1)),
       isHealingSpell: config.isHealingSpell === true,
+      actorCid: activeControlledUnitCid(),
       queue: [],
     };
     const needsSelection = pendingSpellTargeting.maxTargets > 1;
@@ -22687,6 +22700,9 @@ __DAMAGE_TYPE_OPTIONS__
         localToast("Invalid manual damage ignored; auto-roll used.");
       }
       let actionCid = pendingAttackResolve.opportunityAttack ? normalizeCid(claimedCid, "attackResolve.opportunityCid") : activeControlledUnitCid();
+      if (pendingAttackResolve.mode === "spell") {
+        actionCid = normalizeCid(pendingAttackResolve.actorCid, "attackResolve.spellActorCid") ?? actionCid;
+      }
       if (actionCid === null && pendingAttackResolve.mode === "spell" && pendingAttackResolve.allowOutOfTurn){
         actionCid = normalizeCid(claimedCid, "attackResolve.spellPromptCid");
       }
@@ -22712,6 +22728,7 @@ __DAMAGE_TYPE_OPTIONS__
           damage_entries: damageEntries,
           damage_dice: String(pendingAttackResolve.damageDice || "").trim() || null,
           damage_type: String(pendingAttackResolve.damageType || "").trim().toLowerCase() || null,
+          prompt_attacker_cid: normalizeCid(pendingAttackResolve.actorCid, "attackResolve.promptAttackerCid"),
         });
       } else {
         const monkSeq = pendingMonkBonusAttackSequence && typeof pendingMonkBonusAttackSequence === "object"
