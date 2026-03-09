@@ -21254,7 +21254,35 @@ class InitiativeTracker(base.InitiativeTracker):
             )
         if cid is not None:
             can_control_summon = self._summon_can_be_controlled_by(claimed, cid)
-            if not is_admin and claimed is not None and cid != claimed and not can_control_summon:
+            prompt_override_ok = False
+            if typ == "spell_target_request" and claimed is not None and cid != claimed:
+                prompt_attacker_cid = _normalize_cid_value(msg.get("prompt_attacker_cid"), "spell_target_request.prompt_attacker_cid", log_fn=log_warning)
+                target_cid_for_prompt = _normalize_cid_value(msg.get("target_cid"), "spell_target_request.prompt_target_cid", log_fn=log_warning)
+                spell_slug_for_prompt = str(msg.get("spell_slug") or "").strip().lower()
+                spell_id_for_prompt = str(msg.get("spell_id") or "").strip().lower()
+                if prompt_attacker_cid is not None and int(prompt_attacker_cid) == int(cid) and target_cid_for_prompt is not None:
+                    for _aid, prompt_aoe in list((self.__dict__.get("_lan_aoes", {}) or {}).items()):
+                        if not isinstance(prompt_aoe, dict):
+                            continue
+                        if not bool(prompt_aoe.get("over_time")) and not bool(prompt_aoe.get("persistent")):
+                            continue
+                        owner_cid = _normalize_cid_value(prompt_aoe.get("owner_cid"), "spell_target_request.prompt.owner_cid", log_fn=log_warning)
+                        if owner_cid is None or int(owner_cid) != int(prompt_attacker_cid):
+                            continue
+                        aoe_slug = str(prompt_aoe.get("spell_slug") or "").strip().lower()
+                        aoe_id = str(prompt_aoe.get("spell_id") or "").strip().lower()
+                        if spell_slug_for_prompt and aoe_slug and aoe_slug != spell_slug_for_prompt:
+                            continue
+                        if spell_id_for_prompt and aoe_id and aoe_id != spell_id_for_prompt:
+                            continue
+                        try:
+                            included = self._lan_compute_included_units_for_aoe(prompt_aoe)
+                        except Exception:
+                            included = []
+                        if int(target_cid_for_prompt) in [int(v) for v in included if _normalize_cid_value(v, "spell_target_request.prompt.included", log_fn=log_warning) is not None]:
+                            prompt_override_ok = True
+                            break
+            if not is_admin and claimed is not None and cid != claimed and not can_control_summon and not prompt_override_ok:
                 if is_move:
                     msg["_move_applied"] = False
                     msg["_move_reject_reason"] = "cid_mismatch"

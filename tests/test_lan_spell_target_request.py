@@ -658,7 +658,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "target_cid": 1,
             "spell_name": "Find Steed",
             "spell_slug": "find-steed",
-            "spell_mode": "effect",
+            "spell_mode": "attack",
         }
 
         self.app._lan_apply_action(msg)
@@ -685,7 +685,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "target_cid": 1,
             "spell_name": "Haste",
             "spell_slug": "haste",
-            "spell_mode": "effect",
+            "spell_mode": "attack",
             "destination_col": 8,
             "destination_row": 9,
         }
@@ -2342,6 +2342,63 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         result = msg.get("_spell_target_result") or {}
         self.assertFalse(result.get("ok"))
         self.assertEqual(self.app._lan_positions.get(1), (4, 4))
+
+
+    def test_spell_target_request_allows_prompt_attacker_override_for_active_persistent_aoe(self):
+        self.app._lan_aoes = {
+            99: {
+                "kind": "sphere",
+                "cx": 6.0,
+                "cy": 4.0,
+                "radius_sq": 1.0,
+                "owner_cid": 1,
+                "over_time": True,
+                "persistent": True,
+                "spell_slug": "wall-of-fire",
+                "spell_id": "wall-of-fire",
+            }
+        }
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "prompt_attacker_cid": 1,
+            "_claimed_cid": 3,
+            "_ws_id": 34,
+            "target_cid": 2,
+            "spell_name": "Wall of Fire",
+            "spell_slug": "wall-of-fire",
+            "spell_id": "wall-of-fire",
+            "spell_mode": "attack",
+            "hit": True,
+            "damage_entries": [{"amount": 7, "type": "fire"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result") or {}
+        self.assertTrue(result.get("ok"))
+        self.assertEqual(result.get("attacker_cid"), 1)
+        self.assertEqual(self.app.combatants[2].hp, 13)
+
+    def test_spell_target_request_rejects_claim_swap_without_prompt_override(self):
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 3,
+            "_ws_id": 35,
+            "target_cid": 2,
+            "spell_name": "Wall of Fire",
+            "spell_slug": "wall-of-fire",
+            "spell_mode": "effect",
+            "hit": True,
+            "damage_entries": [{"amount": 7, "type": "fire"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertNotIn("_spell_target_result", msg)
+        self.assertEqual(self.app.combatants[2].hp, 20)
+        self.assertIn((35, "Arrr, that token ain’t yers."), self.toasts)
 
 
 if __name__ == "__main__":
