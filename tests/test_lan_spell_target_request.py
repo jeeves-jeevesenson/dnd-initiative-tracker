@@ -311,6 +311,31 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertEqual(result.get("damage_total"), 7)
         self.assertEqual(self.app.combatants[2].hp, 13)
 
+
+    def test_spell_target_request_allows_claim_swap_with_prompt_attacker_override_on_attack(self):
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "prompt_attacker_cid": 1,
+            "_claimed_cid": 3,
+            "_ws_id": 31,
+            "target_cid": 2,
+            "spell_name": "Eldritch Blast",
+            "spell_slug": "eldritch-blast",
+            "spell_mode": "attack",
+            "hit": True,
+            "damage_entries": [{"amount": 7, "type": "force"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("ok"))
+        self.assertTrue(result.get("hit"))
+        self.assertEqual(result.get("attacker_cid"), 1)
+        self.assertEqual(self.app.combatants[2].hp, 13)
+
     def test_spell_target_request_uses_preset_dice_when_damage_dice_blank(self):
         self.app._profile_for_player_name = lambda _name: {"leveling": {"level": 5}}
         self.app._find_spell_preset = lambda *_args, **_kwargs: {

@@ -95,6 +95,27 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(self.app.combatants[2].hp, 17)
         self.assertNotIn((60, "Target be out of attack range."), self.toasts)
 
+
+    def test_attack_request_allows_claim_swap_with_prompt_attacker_override(self):
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "prompt_attacker_cid": 1,
+            "_claimed_cid": 2,
+            "_ws_id": 66,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [{"amount": 3, "type": "slashing"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("hit"))
+        self.assertEqual(self.app.combatants[2].hp, 17)
+
     def test_attack_request_out_of_range_does_not_spend_action_or_attacks(self):
         self.app._lan_positions = {1: (0, 0), 2: (20, 20)}
         self.app.combatants[1].action_remaining = 1

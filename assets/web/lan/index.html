@@ -11433,6 +11433,10 @@ __DAMAGE_TYPE_OPTIONS__
     pendingAttackResolve = {
       targetCid: Number(target?.cid),
       targetName: String(target?.name || "target"),
+      actorCid: normalizeCid(
+        activeControlledUnitCid() ?? (pendingOpportunityAttack ? claimedCid : null),
+        "attackResolve.actorCid",
+      ),
       weaponId: String(weapon?.id || "").trim(),
       weaponName: String(weapon?.name || "Weapon").trim() || "Weapon",
       weapon: weapon && typeof weapon === "object" ? {...weapon} : null,
@@ -22699,7 +22703,12 @@ __DAMAGE_TYPE_OPTIONS__
       if (hit && damageParseResult.invalidCount > 0){
         localToast("Invalid manual damage ignored; auto-roll used.");
       }
-      let actionCid = pendingAttackResolve.opportunityAttack ? normalizeCid(claimedCid, "attackResolve.opportunityCid") : activeControlledUnitCid();
+      let actionCid = normalizeCid(pendingAttackResolve.actorCid, "attackResolve.frozenActorCid");
+      if (actionCid === null){
+        actionCid = pendingAttackResolve.opportunityAttack
+          ? normalizeCid(claimedCid, "attackResolve.opportunityCid")
+          : activeControlledUnitCid();
+      }
       if (pendingAttackResolve.mode === "spell") {
         actionCid = normalizeCid(pendingAttackResolve.actorCid, "attackResolve.spellActorCid") ?? actionCid;
       }
@@ -22763,6 +22772,7 @@ __DAMAGE_TYPE_OPTIONS__
           tactical_master_property: (pendingAttackResolve.tacticalMasterAllowed && attackTacticalMasterSelect)
             ? String(attackTacticalMasterSelect.value || "").trim().toLowerCase() || null
             : null,
+          prompt_attacker_cid: normalizeCid(pendingAttackResolve.actorCid, "attackResolve.promptAttackerCid"),
         };
         if (monkSeq){
           attackMsg.attack_spend = "bonus";
