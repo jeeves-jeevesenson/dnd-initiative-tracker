@@ -336,5 +336,16 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('localToast("Cast form invalid; check wall dimensions/range.");', self.html)
 
 
+    def test_attack_resolve_freezes_source_cid_at_prompt_open(self):
+        self.assertIn('const sourceCid = pendingOpportunityAttack', self.html)
+        self.assertIn('sourceCid,', self.html)
+        self.assertIn('sourceCid: activeControlledUnitCid(),', self.html)
+
+    def test_attack_resolve_submit_prefers_frozen_source_cid(self):
+        self.assertIn('let actionCid = normalizeCid(pendingAttackResolve.sourceCid, "attackResolve.pendingSourceCid");', self.html)
+        self.assertIn('attack_origin_cid: normalizeCid(pendingAttackResolve.attackOriginCid, "attackResolve.submitOriginCid") ?? Number(actionCid),', self.html)
+        self.assertIn('localToast("Attack prompt expired; pick target again, matey.");', self.html)
+
+
 if __name__ == "__main__":
     unittest.main()

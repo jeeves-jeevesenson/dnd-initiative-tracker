@@ -11421,7 +11421,11 @@ __DAMAGE_TYPE_OPTIONS__
       attackTacticalMasterSelect.disabled = !tacticalMasterAllowed;
     }
 
+    const sourceCid = pendingOpportunityAttack
+      ? (reactionControlledUnitCid() ?? normalizeCid(claimedCid, "attackResolve.openReactionClaimedCid"))
+      : activeControlledUnitCid();
     pendingAttackResolve = {
+      sourceCid,
       targetCid: Number(target?.cid),
       targetName: String(target?.name || "target"),
       weaponId: String(weapon?.id || "").trim(),
@@ -11432,6 +11436,9 @@ __DAMAGE_TYPE_OPTIONS__
       opportunityAttack: pendingOpportunityAttack,
       reaction_request_id: pendingReactionRequestId || undefined,
       consumesPool: pendingUnleashIncarnation ? {...pendingUnleashIncarnation} : null,
+      attackOriginCid: pendingUnleashIncarnation
+        ? normalizeCid(pendingUnleashIncarnation.echoCid, "attackResolve.openAttackOriginEchoCid")
+        : sourceCid,
       elementalOverrideAllowed: attunedUnarmed,
       stunningStrikeAllowed: canUseStunningStrike,
       tacticalMasterAllowed,
@@ -14395,6 +14402,7 @@ __DAMAGE_TYPE_OPTIONS__
     }
     pendingAttackResolve = {
       mode: "spell",
+      sourceCid: activeControlledUnitCid(),
       targetCid: Number(target.cid),
       targetName: String(target.name || "target"),
       spellName: pendingSpellTargeting.spellName,
@@ -15782,6 +15790,7 @@ __DAMAGE_TYPE_OPTIONS__
               : promptSpell.damageDice;
             pendingAttackResolve = {
               mode: "spell",
+              sourceCid: activeControlledUnitCid() ?? normalizeCid(claimedCid, "attackResolve.serverPromptClaimedCid"),
               targetCid: Number(msg.target_cid),
               targetName: String(msg.target_name || target.name || "target"),
               spellName: promptSpell.spellName,
@@ -22686,12 +22695,17 @@ __DAMAGE_TYPE_OPTIONS__
       if (hit && damageParseResult.invalidCount > 0){
         localToast("Invalid manual damage ignored; auto-roll used.");
       }
-      let actionCid = pendingAttackResolve.opportunityAttack ? normalizeCid(claimedCid, "attackResolve.opportunityCid") : activeControlledUnitCid();
+      let actionCid = normalizeCid(pendingAttackResolve.sourceCid, "attackResolve.pendingSourceCid");
+      if (actionCid === null){
+        actionCid = pendingAttackResolve.opportunityAttack
+          ? (reactionControlledUnitCid() ?? normalizeCid(claimedCid, "attackResolve.opportunityCidFallback"))
+          : activeControlledUnitCid();
+      }
       if (actionCid === null && pendingAttackResolve.mode === "spell" && pendingAttackResolve.allowOutOfTurn){
         actionCid = normalizeCid(claimedCid, "attackResolve.spellPromptCid");
       }
       if (actionCid === null){
-        localToast("Not yer turn yet, matey.");
+        localToast("Attack prompt expired; pick target again, matey.");
         setAttackResolveModalOpen(false);
         return;
       }
@@ -22737,7 +22751,7 @@ __DAMAGE_TYPE_OPTIONS__
             : null,
           hit: hit,
           critical,
-          attack_origin_cid: pendingUnleashIncarnation ? Number(pendingUnleashIncarnation.echoCid) : Number(actionCid),
+          attack_origin_cid: normalizeCid(pendingAttackResolve.attackOriginCid, "attackResolve.submitOriginCid") ?? Number(actionCid),
           damage_entries: damageEntries,
           damage_type_override: (pendingAttackResolve.elementalOverrideAllowed && attackDamageTypeOverrideSelect)
             ? String(attackDamageTypeOverrideSelect.value || "").trim().toLowerCase() || null
