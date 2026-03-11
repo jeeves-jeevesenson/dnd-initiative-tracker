@@ -12,6 +12,7 @@ school: evocation
 tags:
 - damage
 - attack
+- automation_full
 casting_time: Action
 range: Touch
 components: V, S
@@ -39,7 +40,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: false
   targeting:
     origin: target_creature

@@ -11399,6 +11399,8 @@ __DAMAGE_TYPE_OPTIONS__
       && Number.isFinite(Number(me?.cid))
       && Number(target.vexed_by_cid) === Number(me.cid);
     const hasStarAdvantage = target?.has_star_advantage === true || normalizeLowerValue(target?.marks).includes("star advantage");
+    const hasTargetAdvantage = target?.attackers_have_advantage_against_target === true;
+    const hasAttackerDisadvantage = me?.has_attack_disadvantage === true;
     const attunedUnarmed = isUnarmedStrikeWeapon(weapon) && unitHasElementalAttunement(me);
     const profile = getPlayerProfile(getClaimedPlayerName());
     const monkLevel = getMonkLevelFromProfile(profile);
@@ -11452,11 +11454,19 @@ __DAMAGE_TYPE_OPTIONS__
     pendingOpportunityAttack = false;
     const advantageText = hasVexAdvantage
       ? ' <span class="mastery-advantage-text">Vex Advantage: ye have advantage on this attack.</span>'
-      : (hasStarAdvantage ? ' <span class="mastery-advantage-text">Star Advantage: ye have advantage on this attack.</span>' : "");
+      : (hasStarAdvantage
+        ? ' <span class="mastery-advantage-text">Star Advantage: ye have advantage on this attack.</span>'
+        : (hasTargetAdvantage
+          ? ' <span class="mastery-advantage-text">Guiding Bolt: ye have advantage on this attack.</span>'
+          : ""));
+    const disadvantageText = hasAttackerDisadvantage
+      ? ' <span class="mastery-advantage-text">Vicious Mockery: ye have disadvantage on this attack.</span>'
+      : "";
     const resolvePrompt = String(weapon?.resolve_prompt || "").trim();
     attackResolveBody.innerHTML = `${resolvePrompt || `Attack ${pendingAttackResolve.targetName} with ${pendingAttackResolve.weaponName}.`}`
       + (hintParts.length ? ` ${hintParts.join(" ")}` : "")
-      + advantageText;
+      + advantageText
+      + disadvantageText;
     attackDamageRows.textContent = "";
     const suggestedTypes = [];
     const pushSuggestedType = (value) => {

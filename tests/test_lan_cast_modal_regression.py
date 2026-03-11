@@ -145,6 +145,12 @@ class LanCastModalRegressionTests(unittest.TestCase):
             self.html,
         )
 
+    def test_attack_overlay_surfaces_guiding_bolt_and_vicious_mockery_roll_state(self):
+        self.assertIn('const hasTargetAdvantage = target?.attackers_have_advantage_against_target === true;', self.html)
+        self.assertIn('const hasAttackerDisadvantage = me?.has_attack_disadvantage === true;', self.html)
+        self.assertIn('Guiding Bolt: ye have advantage on this attack.', self.html)
+        self.assertIn('Vicious Mockery: ye have disadvantage on this attack.', self.html)
+
     def test_multi_target_queue_does_not_double_advance_after_spell_request_send(self):
         self.assertNotIn(
             'spell_mode: "effect",\n      });\n      consumeSpellTargetingShot();\n      processNextSpellTarget();',

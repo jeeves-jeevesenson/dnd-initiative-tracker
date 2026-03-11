@@ -73,6 +73,56 @@ class LanAttackRequestTests(unittest.TestCase):
             },
         )()
 
+    def test_attack_request_consumes_guiding_bolt_advantage_after_attack(self):
+        self.app._register_target_spell_effect(
+            3,
+            2,
+            "guiding-bolt",
+            clear_group="guiding_bolt_3_2",
+            primitives={"modifiers": {"attackers_have_advantage_against_target": True}},
+        )
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 160,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": True,
+            "damage_entries": [{"amount": 4, "type": "slashing"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result") or {}
+        self.assertTrue(result.get("guiding_bolt_consumed"))
+        self.assertEqual(self.app._attack_roll_mode_against_target(self.app.combatants[1], self.app.combatants[2]), "normal")
+
+    def test_attack_request_consumes_vicious_mockery_disadvantage_after_attack(self):
+        self.app._register_target_spell_effect(
+            4,
+            1,
+            "vicious-mockery",
+            clear_group="vicious_mockery_4_1",
+            primitives={"modifiers": {"target_attack_disadvantage": True}},
+        )
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 161,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "hit": False,
+            "damage_entries": [],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result") or {}
+        self.assertTrue(result.get("vicious_mockery_consumed"))
+        self.assertEqual(self.app._attack_roll_mode_against_target(self.app.combatants[1], self.app.combatants[2]), "normal")
+
 
     def test_attack_request_allows_diagonal_adjacent_melee_target(self):
         self.app._lan_positions = {1: (5, 5), 2: (6, 6)}

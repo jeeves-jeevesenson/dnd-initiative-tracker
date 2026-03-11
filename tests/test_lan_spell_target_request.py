@@ -89,6 +89,12 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.app._remove_combatants_with_lan_cleanup = lambda cids: [self.app.combatants.pop(int(cid), None) for cid in cids]
         self.app._rebuild_table = lambda scroll_to_current=True: None
         self.app._find_spell_preset = lambda *_args, **_kwargs: None
+        self.app._register_combatant_turn_hook = tracker_mod.InitiativeTracker._register_combatant_turn_hook.__get__(self.app, tracker_mod.InitiativeTracker)
+        self.app._register_clear_target_effect_group_hook = tracker_mod.InitiativeTracker._register_clear_target_effect_group_hook.__get__(self.app, tracker_mod.InitiativeTracker)
+        self.app._run_combatant_turn_hooks = tracker_mod.InitiativeTracker._run_combatant_turn_hooks.__get__(self.app, tracker_mod.InitiativeTracker)
+        self.app._collect_combat_modifiers = tracker_mod.InitiativeTracker._collect_combat_modifiers.__get__(self.app, tracker_mod.InitiativeTracker)
+        self.app._combatant_opportunity_attacks_blocked = tracker_mod.InitiativeTracker._combatant_opportunity_attacks_blocked.__get__(self.app, tracker_mod.InitiativeTracker)
+        self.app._attack_roll_mode_against_target = tracker_mod.InitiativeTracker._attack_roll_mode_against_target.__get__(self.app, tracker_mod.InitiativeTracker)
         self.app._lan = type(
             "LanStub",
             (),
@@ -1861,6 +1867,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
             "spellcasting": {"casting_ability": "wis"},
             "abilities": {"wis": 16},
         }
+        self.app._lan_positions = {1: (4, 4), 2: (6, 4), 3: (5, 4)}
         self.app.combatants[3].hp = 4
         self.app.combatants[3].max_hp = 30
         msg = {
@@ -1887,6 +1894,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         preset = self._load_spell_preset("shocking-grasp")
         self.app._find_spell_preset = lambda *_args, **_kwargs: preset
         self.app._profile_for_player_name = lambda _name: {"leveling": {"level": 11}}
+        self.app._lan_positions = {1: (4, 4), 2: (5, 4), 3: (8, 4)}
         msg = {
             "type": "spell_target_request",
             "cid": 1,
@@ -1906,6 +1914,67 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertEqual(result.get("damage_total"), 12)
         self.assertEqual(self.app.combatants[2].hp, 8)
+
+    def test_shocking_grasp_blocks_opportunity_attacks_until_target_turn_starts(self):
+        preset = self._load_spell_preset("shocking-grasp")
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        self.app._lan_positions = {1: (4, 4), 2: (5, 4), 3: (8, 4)}
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 142,
+            "target_cid": 2,
+            "spell_name": "Shocking Grasp",
+            "spell_slug": "shocking-grasp",
+            "spell_mode": "attack",
+            "hit": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=5):
+            self.app._lan_apply_action(msg)
+
+        target = self.app.combatants[2]
+        self.assertTrue(self.app._combatant_opportunity_attacks_blocked(target))
+
+        self.app._run_combatant_turn_hooks(target, "start_turn")
+        self.assertFalse(self.app._combatant_opportunity_attacks_blocked(target))
+
+    def test_shocking_grasp_server_side_touch_range_rejects_distant_target(self):
+        preset = self._load_spell_preset("shocking-grasp")
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        self.app._lan_positions = {1: (4, 4), 2: (7, 4), 3: (8, 4)}
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 143,
+            "target_cid": 2,
+            "spell_name": "Shocking Grasp",
+            "spell_slug": "shocking-grasp",
+            "spell_mode": "attack",
+            "hit": True,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result") or {}
+        self.assertFalse(result.get("ok"))
+        self.assertIn("out of Shocking Grasp range", result.get("reason", ""))
+        self.assertEqual(self.app.combatants[2].hp, 20)
+
+    def test_guiding_bolt_advantage_expires_after_casters_next_turn_if_unused(self):
+        target = self.app.combatants[2]
+        caster = self.app.combatants[1]
+        self.app._apply_single_target_spell_riders(caster=caster, target=target, spell_key="guiding-bolt", hit=True)
+
+        self.assertEqual(self.app._attack_roll_mode_against_target(self.app.combatants[3], target), "advantage")
+
+        self.app._run_combatant_turn_hooks(caster, "end_turn")
+        self.assertEqual(self.app._attack_roll_mode_against_target(self.app.combatants[3], target), "advantage")
+
+        self.app._run_combatant_turn_hooks(caster, "end_turn")
+        self.assertEqual(self.app._attack_roll_mode_against_target(self.app.combatants[3], target), "normal")
 
     def test_yaml_vicious_mockery_save_fail_deals_damage(self):
         preset = self._load_spell_preset("vicious-mockery")
@@ -1930,6 +1999,46 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertFalse(result.get("save_result", {}).get("passed"))
         self.assertEqual(result.get("damage_total"), 4)
+
+    def test_yaml_sacred_flame_save_fail_deals_damage(self):
+        preset = self._load_spell_preset("sacred-flame")
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 43,
+            "target_cid": 2,
+            "spell_name": "Sacred Flame",
+            "spell_slug": "sacred-flame",
+            "spell_mode": "save",
+            "save_dc": 16,
+            "roll_save": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[2, 4]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result")
+        self.assertIsInstance(result, dict)
+        self.assertFalse(result.get("save_result", {}).get("passed"))
+        self.assertEqual(result.get("damage_total"), 4)
+
+    def test_vicious_mockery_disadvantage_expires_at_end_of_targets_next_turn_if_unused(self):
+        target = self.app.combatants[2]
+        caster = self.app.combatants[1]
+        self.app._apply_single_target_spell_riders(
+            caster=caster,
+            target=target,
+            spell_key="vicious-mockery",
+            hit=False,
+            save_result={"passed": False},
+        )
+
+        self.assertEqual(self.app._attack_roll_mode_against_target(target, self.app.combatants[3]), "disadvantage")
+
+        self.app._run_combatant_turn_hooks(target, "end_turn")
+        self.assertEqual(self.app._attack_roll_mode_against_target(target, self.app.combatants[3]), "normal")
 
     def test_yaml_charm_person_save_fail_applies_condition(self):
         preset = self._load_spell_preset("charm-person")
@@ -2131,6 +2240,7 @@ class LanSpellTargetRequestTests(unittest.TestCase):
     def test_yaml_greater_invisibility_applies_and_clears_invisible_condition(self):
         preset = self._load_spell_preset("greater-invisibility")
         self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        self.app._lan_positions = {1: (4, 4), 2: (6, 4), 3: (5, 4)}
         msg = {
             "type": "spell_target_request",
             "cid": 1,
