@@ -8,8 +8,8 @@
 
 ## Coverage snapshot
 - Level 0–6 spells audited: **339**
-- Marked full now: **66**
-- Remaining non-full: **273**
+- Marked full now: **67**
+- Remaining non-full: **272**
 
 ## Newly promoted to full in this pass
 - `thorn-whip` (level 0)
@@ -73,13 +73,12 @@
 - `mislead` (L5): core effect resolves, but at least one important clause remains manual
 - `tree-stride` (L5): core effect resolves, but at least one important clause remains manual
 
-### needs_new_engine_feature (117)
+### needs_new_engine_feature (116)
 - `dancing-lights` (L0): summon/aoe systems still rely on bespoke flows
 - `druidcraft` (L0): summon/aoe systems still rely on bespoke flows
 - `elementalism` (L0): summon/aoe systems still rely on bespoke flows
 - `light` (L0): summon/aoe systems still rely on bespoke flows
 - `minor-illusion` (L0): summon/aoe systems still rely on bespoke flows
-- `produce-flame` (L0): description references systems not fully generalized yet
 - `starry-wisp` (L0): description references systems not fully generalized yet
 - `alarm` (L1): summon/aoe systems still rely on bespoke flows
 - `color-spray` (L1): summon/aoe systems still rely on bespoke flows

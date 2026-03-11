@@ -2260,6 +2260,68 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(getattr(mirror_stacks[0], "remaining_turns", None), 10)
         self.assertEqual(getattr(self.app.combatants[1], "_mirror_image_duplicates", None), 3)
 
+    def test_cast_produce_flame_arms_held_state_without_target_resolution(self):
+        self.app._find_spell_preset = lambda **_kwargs: {
+            "slug": "produce-flame",
+            "id": "produce-flame",
+            "name": "Produce Flame",
+            "level": 0,
+            "casting_time": "Action",
+            "action_type": "action",
+            "duration": "10 minutes",
+            "concentration": False,
+            "summon": None,
+            "mechanics": {
+                "automation": "full",
+                "targeting": {"range": {"kind": "distance", "distance_ft": 60}},
+                "sequence": [
+                    {
+                        "check": {"kind": "spell_attack", "attack_type": "ranged"},
+                        "outcomes": {"hit": [{"effect": "damage", "damage_type": "fire", "dice": "1d8"}], "miss": []},
+                    }
+                ],
+                "ui": {"spell_targeting": {"follow_up_only": True}},
+            },
+        }
+        self.app._consume_spell_slot_for_cast = lambda *args, **kwargs: (True, "", 0)
+        self.app._combatant_can_cast_spell = lambda *_args, **_kwargs: True
+        self.app._use_action = lambda *_args, **_kwargs: True
+        self.app._use_bonus_action = lambda *_args, **_kwargs: True
+        self.app._use_reaction = lambda *_args, **_kwargs: True
+        self.app._spellcast_blocked_by_environment = lambda *_args, **_kwargs: (False, "")
+        self.app._spell_label_from_identifiers = lambda *_args, **_kwargs: "Produce Flame"
+        self.app._spell_cast_log_message = lambda *_args, **_kwargs: "cast"
+        self.app._smite_slug_from_preset = lambda *_args, **_kwargs: ""
+        self.app._rebuild_table = lambda *args, **kwargs: None
+        self.app._lan_force_state_broadcast = lambda: None
+        self.app.combatants[1].spell_cast_remaining = 1
+
+        msg = {
+            "type": "cast_spell",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 97,
+            "spell_slug": "produce-flame",
+            "payload": {"spell_slug": "produce-flame"},
+        }
+
+        self.app._lan_apply_action(msg)
+
+        state = getattr(self.app.combatants[1], "produce_flame_state", None) or {}
+        self.assertTrue(state.get("active"))
+        self.assertTrue(state.get("hurl_action_available"))
+        self.assertEqual(state.get("hurl_range_ft"), 60)
+        self.assertEqual(state.get("remaining_turns"), 100)
+        produce_stacks = [
+            st
+            for st in (getattr(self.app.combatants[1], "condition_stacks", []) or [])
+            if str(getattr(st, "ctype", "")).strip().lower() == "produce_flame"
+        ]
+        self.assertEqual(len(produce_stacks), 1)
+        self.assertEqual(getattr(produce_stacks[0], "remaining_turns", None), 100)
+        self.assertNotIn("_spell_target_result", msg)
+        self.assertIn((97, "Produce Flame is lit and ready to hurl."), self.toasts)
+
     def test_attack_request_mirror_image_intercepts_and_spends_duplicate(self):
         self.app.combatants[2].condition_stacks = [
             tracker_mod.base.ConditionStack(sid=44, ctype="mirror_image", remaining_turns=10)

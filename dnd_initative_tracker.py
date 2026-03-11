@@ -10210,6 +10210,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "concentration_started_turn": self._json_safe(getattr(c, "concentration_started_turn", None)),
                     "concentration_total_rounds": self._concentration_total_rounds_for_combatant(c),
                     "smite_charge": self._json_safe(getattr(c, "pending_smite_charge", None)),
+                    "produce_flame": self._json_safe(self._active_produce_flame_state(c)),
                     "is_mount": bool(getattr(c, "is_mount", False)),
                     "is_hidden": bool(is_hidden),
                     "is_invisible": bool(is_invisible),
@@ -22990,8 +22991,15 @@ class InitiativeTracker(base.InitiativeTracker):
                 self._ensure_condition_stack(c, "mirror_image", int(duration_turns))
                 setattr(c, "_mirror_image_duplicates", 3)
                 self._log(f"{c.name} conjures 3 Mirror Image duplicates for {int(duration_turns)} rounds.", cid=int(c.cid))
+            if c is not None and self._is_produce_flame_spell_key(preset_slug, preset_id, spell_slug, spell_id):
+                produce_state = self._arm_produce_flame_state(c, preset)
+                duration_turns = int((produce_state or {}).get("remaining_turns") or 100)
+                self._log(f"{c.name} kindles Produce Flame for up to {duration_turns} rounds.", cid=int(c.cid))
             self._lan_force_state_broadcast()
-            self._lan.toast(ws_id, f"Casted {preset.get('name') or 'spell'}.")
+            if self._is_produce_flame_spell_key(preset_slug, preset_id, spell_slug, spell_id):
+                self._lan.toast(ws_id, "Produce Flame is lit and ready to hurl.")
+            else:
+                self._lan.toast(ws_id, f"Casted {preset.get('name') or 'spell'}.")
             return
 
         elif typ == "command_resolve":
@@ -24914,6 +24922,47 @@ class InitiativeTracker(base.InitiativeTracker):
                     except Exception:
                         pass
                     self._lan.toast(ws_id, str(detail.get("toast") or f"{spell_name} resolved on {result_payload['target_name']}."))
+                    return
+            if c is not None and self._is_produce_flame_spell_key(preset_slug, preset_id, msg.get("spell_slug"), msg.get("spell_id")):
+                hurl_started = bool(msg.get("_produce_flame_hurl_started"))
+                if not hurl_started:
+                    produce_state = self._active_produce_flame_state(c)
+                    if not isinstance(produce_state, dict):
+                        _reject_invalid_spell_target("Produce Flame is not active to hurl, matey.")
+                        return
+                    live_map_data = self._lan_live_map_data() if callable(getattr(self, "_lan_live_map_data", None)) else None
+                    positions = dict((live_map_data or (0, 0, set(), {}, {}))[4] or {})
+                    caster_pos = positions.get(int(c.cid)) or self._lan_current_position(int(c.cid))
+                    target_pos = positions.get(int(target.cid)) or self._lan_current_position(int(target.cid))
+                    max_range_ft = float(produce_state.get("hurl_range_ft") or 60)
+                    if caster_pos is None or target_pos is None:
+                        _reject_invalid_spell_target("Could not resolve Produce Flame range, matey.")
+                        return
+                    dist_ft = math.hypot(float(caster_pos[0]) - float(target_pos[0]), float(caster_pos[1]) - float(target_pos[1])) * self._lan_feet_per_square()
+                    if dist_ft - max_range_ft > 1e-6:
+                        _reject_invalid_spell_target("That target be out of Produce Flame range.")
+                        return
+                    if not is_admin and not self._use_action(c, log_message=f"{c.name} hurls Produce Flame."):
+                        _reject_invalid_spell_target("No actions left to hurl Produce Flame, matey.")
+                        return
+                    msg["_produce_flame_hurl_started"] = True
+                    msg["spell_mode"] = "attack"
+                    msg["range_ft"] = int(max_range_ft)
+                handled_produce_flame = self._resolve_single_target_spell(
+                    msg=msg,
+                    caster=c,
+                    target=target,
+                    preset=preset,
+                    spell_name=spell_name,
+                    ws_id=ws_id,
+                    attacker_cid=int(cid),
+                    target_cid=int(target_cid),
+                )
+                if handled_produce_flame:
+                    if not bool(msg.get("_produce_flame_hurl_consumed")):
+                        self._clear_produce_flame_state(c)
+                        msg["_produce_flame_hurl_consumed"] = True
+                        self._lan_force_state_broadcast()
                     return
             handled_generic_single_target = self._resolve_single_target_spell(
                 msg=msg,
@@ -29217,6 +29266,76 @@ class InitiativeTracker(base.InitiativeTracker):
             else:
                 total_turns += amount
         return total_turns or None
+
+    @staticmethod
+    def _is_produce_flame_spell_key(*values: Any) -> bool:
+        keys = {str(value or "").strip().lower() for value in values}
+        return "produce-flame" in keys or "produce_flame" in keys
+
+    def _clear_produce_flame_state(self, combatant: Any, *, remove_condition: bool = True) -> None:
+        if combatant is None:
+            return
+        if remove_condition:
+            stacks = [
+                st
+                for st in list(getattr(combatant, "condition_stacks", []) or [])
+                if str(getattr(st, "ctype", "") or "").strip().lower() != "produce_flame"
+            ]
+            setattr(combatant, "condition_stacks", stacks)
+        setattr(combatant, "produce_flame_state", None)
+
+    def _active_produce_flame_state(self, combatant: Any) -> Optional[Dict[str, Any]]:
+        if combatant is None:
+            return None
+        raw_state = getattr(combatant, "produce_flame_state", None)
+        if not isinstance(raw_state, dict) or not bool(raw_state.get("active")):
+            return None
+        remaining_turns = None
+        for stack in list(getattr(combatant, "condition_stacks", []) or []):
+            if str(getattr(stack, "ctype", "") or "").strip().lower() != "produce_flame":
+                continue
+            stack_turns = getattr(stack, "remaining_turns", None)
+            try:
+                remaining_turns = None if stack_turns is None else int(stack_turns)
+            except Exception:
+                remaining_turns = None
+            if remaining_turns is None or remaining_turns > 0:
+                normalized_state = {
+                    "active": True,
+                    "spell_key": "produce-flame",
+                    "hurl_action_available": True,
+                    "hurl_range_ft": 60,
+                    "bright_light_ft": 20,
+                    "dim_light_ft": 40,
+                    "remaining_turns": remaining_turns,
+                }
+                setattr(combatant, "produce_flame_state", normalized_state)
+                return normalized_state
+        self._clear_produce_flame_state(combatant, remove_condition=False)
+        return None
+
+    def _arm_produce_flame_state(self, combatant: Any, preset: Any) -> Optional[Dict[str, Any]]:
+        if combatant is None:
+            return None
+        duration_turns = self._spell_duration_to_turns(preset)
+        if duration_turns is None or int(duration_turns) <= 0:
+            duration_turns = 100
+        self._clear_produce_flame_state(combatant)
+        self._ensure_condition_stack(combatant, "produce_flame", int(duration_turns))
+        setattr(
+            combatant,
+            "produce_flame_state",
+            {
+                "active": True,
+                "spell_key": "produce-flame",
+                "hurl_action_available": True,
+                "hurl_range_ft": 60,
+                "bright_light_ft": 20,
+                "dim_light_ft": 40,
+                "remaining_turns": int(duration_turns),
+            },
+        )
+        return self._active_produce_flame_state(combatant)
 
     def _concentration_total_rounds_for_combatant(self, c: Any) -> Optional[int]:
         if c is None or not bool(getattr(c, "concentrating", False)):

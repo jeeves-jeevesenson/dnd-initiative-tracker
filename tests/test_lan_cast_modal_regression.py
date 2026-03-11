@@ -131,6 +131,13 @@ class LanCastModalRegressionTests(unittest.TestCase):
         self.assertIn('type: "spell_target_request",', self.html)
         self.assertIn('} else if (msg.type === "spell_target_result"){', self.html)
 
+    def test_follow_up_only_spell_targeting_and_action_picker_support_are_present(self):
+        self.assertIn('const followUpOnly = uiConfig?.follow_up_only === true;', self.html)
+        self.assertIn('if (followUpOnly && options.allowFollowUpOnly !== true) return null;', self.html)
+        self.assertIn('name: "Hurl Produce Flame",', self.html)
+        self.assertIn('kind: "produce_flame_hurl",', self.html)
+        self.assertIn('const config = getSpellTargetingConfig(preset, slotLevel, {allowFollowUpOnly: true});', self.html)
+
 
     def test_eldritch_blast_inference_regex_includes_beam_scaling_tokens(self):
         self.assertIn(

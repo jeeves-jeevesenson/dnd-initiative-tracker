@@ -12,8 +12,9 @@ school: conjuration
 tags:
 - damage
 - attack
-casting_time: Bonus Action
-range: Self
+- automation_full
+casting_time: Action
+range: 60 feet
 components: V, S
 duration: 10 minutes
 ritual: false
@@ -41,12 +42,13 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: false
   targeting:
-    origin: self
+    origin: creature_within_range
     range:
-      kind: self
+      kind: distance
+      distance_ft: 60
     target_selection:
       mode: single
   sequence:
@@ -73,4 +75,6 @@ mechanics:
   scaling: *id001
   ui:
     template_preview: false
+    spell_targeting:
+      follow_up_only: true
   notes: []
