@@ -24850,9 +24850,16 @@ class InitiativeTracker(base.InitiativeTracker):
                     "critical": False,
                     "damage_entries": [],
                     "damage_total": 0,
+                    "effect_result": "applied",
                 }
                 msg["_spell_target_result"] = dict(result_payload)
-                self._lan.toast(ws_id, "Spell resolved.")
+                detail = self._format_single_target_spell_outcome(result_payload)
+                self._log(str(detail.get("log") or f"{spell_name} applied to {result_payload['target_name']}."), cid=int(target_cid))
+                try:
+                    self._rebuild_table(scroll_to_current=True)
+                except Exception:
+                    pass
+                self._lan.toast(ws_id, str(detail.get("toast") or f"{spell_name} applied to {result_payload['target_name']}."))
                 return
             if c is not None and is_bestow_curse:
                 curse_mode = str(msg.get("curse_mode") or msg.get("bestow_curse_mode") or "").strip().lower()
@@ -24897,9 +24904,16 @@ class InitiativeTracker(base.InitiativeTracker):
                             "bestow-curse",
                             spell_level=int(msg.get("slot_level") or (preset or {}).get("level") or 3),
                             targets=current_targets,
-                        )
+                            )
+                        result_payload["effect_result"] = "applied"
                     msg["_spell_target_result"] = dict(result_payload)
-                    self._lan.toast(ws_id, "Spell resolved.")
+                    detail = self._format_single_target_spell_outcome(result_payload)
+                    self._log(str(detail.get("log") or f"{spell_name} resolved on {result_payload['target_name']}."), cid=int(target_cid))
+                    try:
+                        self._rebuild_table(scroll_to_current=True)
+                    except Exception:
+                        pass
+                    self._lan.toast(ws_id, str(detail.get("toast") or f"{spell_name} resolved on {result_payload['target_name']}."))
                     return
             handled_generic_single_target = self._resolve_single_target_spell(
                 msg=msg,
@@ -28718,6 +28732,68 @@ class InitiativeTracker(base.InitiativeTracker):
             return f"Beam {shot_index}/{shot_total}: "
         return ""
 
+    @staticmethod
+    def _format_spell_cleanup_breakdown(cleanup: Dict[str, Any]) -> str:
+        labels = (
+            ("conditions", "condition"),
+            ("target_effects", "effect"),
+            ("map_effects", "map effect"),
+            ("summons", "summon"),
+        )
+        parts: List[str] = []
+        for key, label in labels:
+            try:
+                count = int((cleanup or {}).get(key) or 0)
+            except Exception:
+                count = 0
+            if count <= 0:
+                continue
+            parts.append(f"{count} {label}{'' if count == 1 else 's'}")
+        return ", ".join(parts)
+
+    def _format_single_target_spell_effect_outcome(self, result_payload: Dict[str, Any]) -> Optional[Dict[str, str]]:
+        spell_name = str(result_payload.get("spell_name") or "Spell")
+        target_name = str(result_payload.get("target_name") or "target")
+        cleanup = result_payload.get("cleanup") if isinstance(result_payload.get("cleanup"), dict) else {}
+        cleanup_total = 0
+        if cleanup:
+            try:
+                cleanup_total = sum(int(value or 0) for value in cleanup.values())
+            except Exception:
+                cleanup_total = 0
+            breakdown = self._format_spell_cleanup_breakdown(cleanup)
+            if cleanup_total > 0:
+                detail = f"{spell_name} removed {cleanup_total} effect{'s' if cleanup_total != 1 else ''} from {target_name}"
+                if breakdown:
+                    detail += f" ({breakdown})"
+                return {"log": detail + ".", "toast": detail + "."}
+            return {
+                "log": f"{spell_name} found no removable effects on {target_name}.",
+                "toast": f"{spell_name}: no removable effects on {target_name}.",
+            }
+
+        relocation_notes = [str(note).strip() for note in list(result_payload.get("relocation") or []) if str(note).strip()]
+        if relocation_notes:
+            return {
+                "log": f"{spell_name} relocates {target_name} ({'; '.join(relocation_notes)}).",
+                "toast": f"{spell_name} relocates {target_name} ({'; '.join(relocation_notes)}).",
+            }
+
+        forced_movement_notes = [str(note).strip() for note in list(result_payload.get("forced_movement") or []) if str(note).strip()]
+        if forced_movement_notes:
+            return {
+                "log": f"{spell_name} moves {target_name} ({'; '.join(forced_movement_notes)}).",
+                "toast": f"{spell_name} moves {target_name} ({'; '.join(forced_movement_notes)}).",
+            }
+
+        effect_result = str(result_payload.get("effect_result") or "").strip().lower()
+        if effect_result == "applied" or (bool(result_payload.get("hit")) and str(result_payload.get("spell_mode") or "").strip().lower() == "effect"):
+            return {
+                "log": f"{spell_name} applied to {target_name}.",
+                "toast": f"{spell_name} applied to {target_name}.",
+            }
+        return None
+
     def _format_single_target_spell_outcome(self, result_payload: Dict[str, Any]) -> Dict[str, str]:
         spell_name = str(result_payload.get("spell_name") or "Spell")
         target_name = str(result_payload.get("target_name") or "target")
@@ -28731,6 +28807,7 @@ class InitiativeTracker(base.InitiativeTracker):
         damage_total = int(result_payload.get("damage_total") or 0)
         healing_total = int(result_payload.get("healing_total") or 0)
         notes_text = self._format_spell_adjustment_notes(list(result_payload.get("damage_adjustment_notes") or []))
+        effect_outcome = self._format_single_target_spell_effect_outcome(result_payload)
 
         if spell_mode == "save" and save:
             ability = str(save.get("ability") or "").strip().upper() or "SAVE"
@@ -28739,6 +28816,7 @@ class InitiativeTracker(base.InitiativeTracker):
             passed = bool(save.get("passed"))
             status = "succeeds" if passed else "fails"
             status_toast = "passed" if passed else "failed"
+            toast_tail = ""
             if damage_total > 0:
                 damage_text = self._format_spell_damage_entries(damage_entries)
                 tail = f" takes {damage_total} damage"
@@ -28747,17 +28825,30 @@ class InitiativeTracker(base.InitiativeTracker):
                 if notes_text:
                     tail += f" [{notes_text}]"
                 tail += "."
+                toast_tail = f", takes {damage_total} damage"
+                if damage_text:
+                    toast_tail += f" ({damage_text})"
+                if notes_text:
+                    toast_tail += f" [{notes_text}]"
+                toast_tail += "."
             elif healing_total > 0:
                 heal_text = self._format_spell_damage_entries(healing_entries)
                 tail = f" is healed for {healing_total}"
                 if heal_text:
                     tail += f" ({heal_text})"
                 tail += "."
+                toast_tail = f", healed for {healing_total}"
+                if heal_text:
+                    toast_tail += f" ({heal_text})"
+                toast_tail += "."
+            elif effect_outcome:
+                tail = f" {effect_outcome['log']}"
+                toast_tail = f" {effect_outcome['toast']}"
             else:
                 tail = " no damage applied."
             return {
                 "log": f"{shot_prefix}{target_name} {status} their {ability} save against {spell_name} ({total} vs DC {dc});{tail}",
-                "toast": f"{shot_prefix}{spell_name}: {target_name} {status_toast} {ability} save ({total} vs DC {dc}).",
+                "toast": f"{shot_prefix}{spell_name}: {target_name} {status_toast} {ability} save ({total} vs DC {dc}){toast_tail or '.'}",
             }
 
         if damage_total > 0:
@@ -28770,6 +28861,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 toast += f" ({damage_text})"
             if notes_text:
                 log += f" [{notes_text}]"
+                toast += f" [{notes_text}]"
             return {"log": log + ".", "toast": toast + "."}
 
         if healing_total > 0:
@@ -28779,14 +28871,20 @@ class InitiativeTracker(base.InitiativeTracker):
                 msg += f" ({heal_text})"
             return {"log": msg + ".", "toast": msg + "."}
 
+        if effect_outcome:
+            return {
+                "log": f"{shot_prefix}{effect_outcome['log']}",
+                "toast": f"{shot_prefix}{effect_outcome['toast']}",
+            }
+
         if spell_mode in {"attack", "auto_hit"}:
             return {
                 "log": f"{shot_prefix}{spell_name} {'hits' if hit else 'misses'} {target_name}.",
                 "toast": f"{shot_prefix}{spell_name} {'hits' if hit else 'misses'}.",
             }
         return {
-            "log": f"{shot_prefix}{spell_name} resolves on {target_name} (effect only).",
-            "toast": f"{shot_prefix}{spell_name} resolved (effect only).",
+            "log": f"{shot_prefix}{spell_name} applies to {target_name}.",
+            "toast": f"{shot_prefix}{spell_name} applied to {target_name}.",
         }
 
     @staticmethod
@@ -29911,15 +30009,13 @@ class InitiativeTracker(base.InitiativeTracker):
                     cleanup["map_effects"] += 1
         result_payload["cleanup"] = dict(cleanup)
         msg["_spell_target_result"] = dict(result_payload)
-        self._log(
-            f"{getattr(caster, 'name', 'Caster')} resolves {spell_name} on {result_payload['target_name']} (removed {sum(cleanup.values())} effects).",
-            cid=int(target_cid),
-        )
+        detail = self._format_single_target_spell_outcome(result_payload)
+        self._log(str(detail.get("log") or f"{spell_name} removed effects from {result_payload['target_name']}."), cid=int(target_cid))
         try:
             self._rebuild_table(scroll_to_current=True)
         except Exception:
             pass
-        self._lan.toast(ws_id, "Spell resolved.")
+        self._lan.toast(ws_id, str(detail.get("toast") or f"{spell_name} removed effects from {result_payload['target_name']}."))
         return True
 
     @staticmethod

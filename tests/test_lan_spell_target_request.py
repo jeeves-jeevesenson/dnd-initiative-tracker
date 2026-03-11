@@ -1,5 +1,6 @@
 import unittest
 from unittest import mock
+from pathlib import Path
 
 import dnd_initative_tracker as tracker_mod
 
@@ -193,6 +194,37 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.app._lan_apply_action(msg)
 
         self.assertIn((31, "Beam 2/3: Eldritch Blast hits: 7 damage (7 force)."), self.toasts)
+
+    def test_format_single_target_spell_outcome_save_toast_includes_damage_and_adjustment_notes(self):
+        detail = self.app._format_single_target_spell_outcome(
+            {
+                "spell_name": "Sacred Flame",
+                "target_name": "Goblin",
+                "spell_mode": "save",
+                "save_result": {"ability": "dex", "dc": 14, "total": 8, "passed": False},
+                "damage_entries": [{"amount": 3, "type": "radiant"}],
+                "damage_total": 3,
+                "damage_adjustment_notes": [{"type": "radiant", "original": 6, "applied": 3, "reasons": ["resistance"]}],
+            }
+        )
+
+        self.assertEqual(
+            detail["toast"],
+            "Sacred Flame: Goblin failed DEX save (8 vs DC 14), takes 3 damage (3 radiant) [radiant 6→3 (resistance)].",
+        )
+
+    def test_format_single_target_spell_outcome_effect_fallback_is_explicit(self):
+        detail = self.app._format_single_target_spell_outcome(
+            {
+                "spell_name": "Haste",
+                "target_name": "Borin",
+                "spell_mode": "effect",
+                "hit": True,
+            }
+        )
+
+        self.assertEqual(detail["log"], "Haste applied to Borin.")
+        self.assertEqual(detail["toast"], "Haste applied to Borin.")
 
     def test_spell_target_request_records_manual_critical_hit(self):
         msg = {
@@ -2084,6 +2116,8 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         result = msg.get("_spell_target_result") or {}
         self.assertEqual((result.get("cleanup") or {}).get("target_effects"), 1)
         self.assertEqual(list(getattr(target, "ongoing_spell_effects", []) or []), [])
+        self.assertIn((31, "Remove Curse removed 2 effects from Goblin (1 condition, 1 effect)."), self.toasts)
+        self.assertTrue(any(entry == "Remove Curse removed 2 effects from Goblin (1 condition, 1 effect)." for _, entry in self.logs))
 
     def test_hex_registers_mark_on_target(self):
         msg = {
@@ -2104,6 +2138,9 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         marks = self.app._collect_marks_for_attacker(self.app.combatants[1], "hex")
         self.assertEqual(len(marks), 1)
         self.assertEqual(int(marks[0].get("target_cid") or 0), 2)
+        self.assertIn((210, "Hex applied to Goblin."), self.toasts)
+        self.assertTrue(any(entry == "Hex applied to Goblin." for _, entry in self.logs))
+        self.assertFalse(any("Spell resolved." in entry for _, entry in self.toasts))
 
     def test_hunters_mark_reassign_requires_prior_target_down(self):
         self.app._register_target_mark(
@@ -2189,6 +2226,13 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         marks = self.app._collect_marks_for_attacker(self.app.combatants[1], "bestow-curse")
         self.assertEqual(len(marks), 1)
         self.assertEqual(int(marks[0].get("target_cid") or 0), 2)
+        self.assertIn((213, "Bestow Curse: Goblin failed WIS save (3 vs DC 0) Bestow Curse applied to Goblin."), self.toasts)
+        self.assertTrue(
+            any(
+                entry == "Goblin fails their WIS save against Bestow Curse (3 vs DC 0); Bestow Curse applied to Goblin."
+                for _, entry in self.logs
+            )
+        )
 
     def test_dispel_magic_clears_target_and_map_effects_by_slot_level(self):
         target = self.app.combatants[2]
@@ -2246,6 +2290,18 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertNotIn(77, self.app._lan_aoes)
         self.assertIn(78, self.app._lan_aoes)
         self.assertEqual(self.app.combatants[2].concentration_aoe_ids, [78])
+        self.assertIn((32, "Dispel Magic removed 2 effects from Goblin (1 effect, 1 map effect)."), self.toasts)
+        self.assertTrue(
+            any(entry == "Dispel Magic removed 2 effects from Goblin (1 effect, 1 map effect)." for _, entry in self.logs)
+        )
+
+    def test_lan_manual_spell_prompt_copy_no_longer_uses_generic_resolve_text(self):
+        asset_path = Path(__file__).resolve().parents[1] / "assets" / "web" / "lan" / "index.html"
+        text = asset_path.read_text(encoding="utf-8")
+
+        self.assertNotIn("Resolve ${pendingSpellTargeting.spellName} on ${pendingAttackResolve.targetName}.", text)
+        self.assertIn("Choose hit or miss, then enter damage if it hits.", text)
+        self.assertIn("hits ${pendingAttackResolve.targetName}. Enter damage for ${pendingSpellTargeting.spellName}.", text)
 
     def test_misty_step_requires_destination_then_relocates_via_shared_path(self):
         preset = {

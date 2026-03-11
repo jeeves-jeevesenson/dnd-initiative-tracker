@@ -14439,8 +14439,13 @@ __DAMAGE_TYPE_OPTIONS__
         pendingSpellTargeting.damageDice ? `Damage: ${pendingSpellTargeting.damageDice}${pendingSpellTargeting.damageType ? ` ${pendingSpellTargeting.damageType}` : ""}.` : "",
         pendingSpellTargeting.description ? pendingSpellTargeting.description : "",
       ].filter(Boolean).join(" ");
-      attackResolveBody.textContent = `Resolve ${pendingSpellTargeting.spellName} on ${pendingAttackResolve.targetName}.`
-        + (details ? ` ${details}` : "");
+      const shotLabel = Number.isFinite(Number(shotMeta.shotIndex)) && Number.isFinite(Number(shotMeta.shotTotal)) && Number(shotMeta.shotTotal) > 1
+        ? `Beam ${Number(shotMeta.shotIndex)}/${Number(shotMeta.shotTotal)}: `
+        : "";
+      const promptSummary = autoHit
+        ? `${pendingSpellTargeting.spellName} hits ${pendingAttackResolve.targetName}. Enter damage for ${pendingSpellTargeting.spellName}.`
+        : `${pendingSpellTargeting.spellName} targets ${pendingAttackResolve.targetName}. Choose hit or miss, then enter damage if it hits.`;
+      attackResolveBody.textContent = `${shotLabel}${promptSummary}` + (details ? ` ${details}` : "");
     }
     if (attackDamageRows){
       attackDamageRows.textContent = "";
