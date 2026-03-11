@@ -3,6 +3,7 @@ from unittest import mock
 from pathlib import Path
 
 import dnd_initative_tracker as tracker_mod
+import yaml
 
 
 def _make_combatant(cid: int, name: str, *, ac: int, hp: int, speed: int = 30, ally: bool = False, is_pc: bool = False):
@@ -25,6 +26,28 @@ def _make_combatant(cid: int, name: str, *, ac: int, hp: int, speed: int = 30, a
     c.ac = ac
     c.max_hp = hp
     return c
+
+
+def _produce_flame_preset():
+    return {
+        "slug": "produce-flame",
+        "id": "produce-flame",
+        "name": "Produce Flame",
+        "level": 0,
+        "range": "60 feet",
+        "duration": "10 minutes",
+        "mechanics": {
+            "automation": "full",
+            "targeting": {"range": {"kind": "distance", "distance_ft": 60}},
+            "sequence": [
+                {
+                    "check": {"kind": "spell_attack", "attack_type": "ranged"},
+                    "outcomes": {"hit": [{"effect": "damage", "damage_type": "fire", "dice": "1d8"}], "miss": []},
+                }
+            ],
+            "ui": {"spell_targeting": {"follow_up_only": True}},
+        },
+    }
 
 
 class LanSpellTargetRequestTests(unittest.TestCase):
@@ -386,6 +409,133 @@ class LanSpellTargetRequestTests(unittest.TestCase):
         self.assertTrue(result.get("hit"))
         self.assertEqual(result.get("attacker_cid"), 1)
         self.assertEqual(self.app.combatants[2].hp, 13)
+
+    def test_produce_flame_yaml_metadata_matches_two_stage_flow(self):
+        path = Path(__file__).resolve().parents[1] / "Spells" / "produce-flame.yaml"
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+        self.assertEqual(data.get("casting_time"), "Action")
+        self.assertEqual(data.get("range"), "60 feet")
+        self.assertEqual((data.get("mechanics") or {}).get("automation"), "full")
+        self.assertIn("automation_full", list(data.get("tags") or []))
+        self.assertTrue((((data.get("mechanics") or {}).get("ui") or {}).get("spell_targeting") or {}).get("follow_up_only"))
+
+    def test_spell_target_request_produce_flame_hit_consumes_held_state(self):
+        preset = _produce_flame_preset()
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        use_action_calls = []
+        self.app._use_action = lambda *_args, **_kwargs: use_action_calls.append(True) or True
+        broadcasts = []
+        self.app._lan_force_state_broadcast = lambda: broadcasts.append(True)
+        self.app._arm_produce_flame_state(self.app.combatants[1], preset)
+
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 201,
+            "target_cid": 2,
+            "spell_name": "Produce Flame",
+            "spell_slug": "produce-flame",
+            "spell_mode": "attack",
+            "hit": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", return_value=6):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result") or {}
+        self.assertTrue(result.get("hit"))
+        self.assertEqual(result.get("damage_entries"), [{"amount": 6, "type": "fire"}])
+        self.assertEqual(result.get("damage_total"), 6)
+        self.assertEqual(self.app.combatants[2].hp, 14)
+        self.assertEqual(len(use_action_calls), 1)
+        self.assertFalse(getattr(self.app.combatants[1], "produce_flame_state", None))
+        self.assertFalse(
+            any(str(getattr(st, "ctype", "")).strip().lower() == "produce_flame" for st in list(getattr(self.app.combatants[1], "condition_stacks", []) or []))
+        )
+        self.assertTrue(broadcasts)
+
+    def test_spell_target_request_produce_flame_miss_clears_held_state(self):
+        preset = _produce_flame_preset()
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        self.app._use_action = lambda *_args, **_kwargs: True
+        self.app._lan_force_state_broadcast = lambda: None
+        self.app._arm_produce_flame_state(self.app.combatants[1], preset)
+
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 202,
+            "target_cid": 2,
+            "spell_name": "Produce Flame",
+            "spell_slug": "produce-flame",
+            "spell_mode": "attack",
+            "hit": False,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result") or {}
+        self.assertFalse(result.get("hit"))
+        self.assertEqual(result.get("damage_total"), 0)
+        self.assertEqual(self.app.combatants[2].hp, 20)
+        self.assertFalse(getattr(self.app.combatants[1], "produce_flame_state", None))
+
+    def test_spell_target_request_produce_flame_out_of_range_preserves_state(self):
+        preset = _produce_flame_preset()
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        use_action_calls = []
+        self.app._use_action = lambda *_args, **_kwargs: use_action_calls.append(True) or True
+        self.app._arm_produce_flame_state(self.app.combatants[1], preset)
+        self.app._lan_positions = {1: (4, 4), 2: (30, 4), 3: (8, 4)}
+
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 203,
+            "target_cid": 2,
+            "spell_name": "Produce Flame",
+            "spell_slug": "produce-flame",
+            "spell_mode": "attack",
+            "hit": True,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result") or {}
+        self.assertFalse(result.get("ok"))
+        self.assertIn("out of Produce Flame range", result.get("reason", ""))
+        self.assertEqual(self.app.combatants[2].hp, 20)
+        self.assertEqual(len(use_action_calls), 0)
+        self.assertTrue((getattr(self.app.combatants[1], "produce_flame_state", {}) or {}).get("active"))
+
+    def test_spell_target_request_produce_flame_expired_state_cannot_hurl(self):
+        preset = _produce_flame_preset()
+        self.app._find_spell_preset = lambda *_args, **_kwargs: preset
+        self.app._arm_produce_flame_state(self.app.combatants[1], preset)
+        self.app.combatants[1].condition_stacks = []
+
+        msg = {
+            "type": "spell_target_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 204,
+            "target_cid": 2,
+            "spell_name": "Produce Flame",
+            "spell_slug": "produce-flame",
+            "spell_mode": "attack",
+            "hit": True,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_spell_target_result") or {}
+        self.assertFalse(result.get("ok"))
+        self.assertIn("not active", result.get("reason", ""))
+        self.assertIsNone(getattr(self.app.combatants[1], "produce_flame_state", None))
 
     def test_spell_target_request_uses_preset_dice_when_damage_dice_blank(self):
         self.app._profile_for_player_name = lambda _name: {"leveling": {"level": 5}}
