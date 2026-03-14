@@ -1,6 +1,9 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 import dnd_initative_tracker as tracker_mod
+import helper_script
 
 
 class _Var:
@@ -224,6 +227,142 @@ class CadenceTurnTests(unittest.TestCase):
         lan = object.__new__(tracker_mod.LanController)
         lan._tracker = app
         self.assertEqual(lan._next_turn_notification_target(99), 1)
+
+
+class CadenceYamlAndAutoskipTests(unittest.TestCase):
+    def test_real_yaml_index_detail_flow_preserves_turn_schedule(self):
+        app = _bare_tracker()
+        with tempfile.TemporaryDirectory() as td:
+            monsters_dir = Path(td) / "Monsters"
+            monsters_dir.mkdir(parents=True, exist_ok=True)
+            (monsters_dir / "boss.yaml").write_text(
+                """
+name: Cadence Boss
+type: fiend
+hp: 200
+speed: 30
+turn_schedule:
+  mode: cadence
+  every_n_turns: 3
+  counts: normal_turns_only
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            app._monsters_dir_path = lambda: monsters_dir
+            app._load_monsters_index()
+            indexed = app._monsters_by_name.get("Cadence Boss")
+            self.assertIsNotNone(indexed)
+            self.assertEqual(indexed.raw_data.get("turn_schedule", {}).get("mode"), "cadence")
+            self.assertEqual(indexed.turn_schedule_mode, "cadence")
+            self.assertEqual(indexed.turn_schedule_every_n, 3)
+            self.assertEqual(indexed.turn_schedule_counts, "normal_turns_only")
+
+            detailed = app._load_monster_details("Cadence Boss")
+            self.assertIsNotNone(detailed)
+            self.assertEqual(detailed.turn_schedule_mode, "cadence")
+
+            cid = app._create_combatant("Cadence Boss", 200, 30, 15, 10, ally=False, monster_spec=detailed)
+            created = app.combatants[cid]
+            self.assertEqual(created.turn_schedule_mode, "cadence")
+            self.assertEqual(created.turn_schedule_every_n, 3)
+            self.assertEqual(created.turn_schedule_counts, "normal_turns_only")
+
+    def test_helper_monster_index_does_not_reference_undefined_cadence_locals(self):
+        app = object.__new__(helper_script.InitiativeTracker)
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            monsters_dir = root / "Monsters"
+            monsters_dir.mkdir(parents=True, exist_ok=True)
+            (monsters_dir / "boss.yaml").write_text(
+                """
+name: Helper Boss
+type: fiend
+hp: 111
+speed: 30
+turn_schedule:
+  mode: cadence
+  every_n_turns: 2
+  counts: normal_turns_only
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            app._monsters_dir_path = lambda: monsters_dir
+            app._index_file_path = lambda name: root / name
+            app._read_index_file = lambda _path: {"version": 1, "entries": {}}
+            app._write_index_file = lambda _path, _payload: None
+            app._file_stat_metadata = helper_script.InitiativeTracker._file_stat_metadata.__get__(app, helper_script.InitiativeTracker)
+            app._metadata_matches = helper_script.InitiativeTracker._metadata_matches.__get__(app, helper_script.InitiativeTracker)
+            app._hash_text = helper_script.InitiativeTracker._hash_text.__get__(app, helper_script.InitiativeTracker)
+            app._monster_int_from_value = helper_script.InitiativeTracker._monster_int_from_value.__get__(app, helper_script.InitiativeTracker)
+            app._parse_fractional_cr = helper_script.InitiativeTracker._parse_fractional_cr.__get__(app, helper_script.InitiativeTracker)
+            app._log = lambda *_args, **_kwargs: None
+            app._load_monsters_index()
+            spec = app._monsters_by_name.get("Helper Boss")
+            self.assertIsNotNone(spec)
+            self.assertEqual(spec.turn_schedule_mode, "cadence")
+            self.assertEqual(spec.turn_schedule_every_n, 2)
+
+    def test_auto_skip_advances_via_cadence_scheduler_not_raw_order(self):
+        app = _bare_tracker()
+        _add_basic_combatant(app, 1, "A", 30)
+        _add_basic_combatant(app, 2, "B", 20)
+        _add_basic_combatant(app, 99, "Boss", 40, cadence_every=1)
+
+        app._enter_turn_with_auto_skip = helper_script.InitiativeTracker._enter_turn_with_auto_skip.__get__(app, tracker_mod.InitiativeTracker)
+        app._update_turn_ui = lambda: None
+        app._map_window = None
+        app._lan = None
+        app._current_turn_kind = "normal"
+        app.current_cid = 1
+        app.turn_num = 1
+        app.round_num = 1
+        app._init_cadence_scheduler_state(reset_history=True)
+
+        seen = {"a": 0}
+
+        def _start_of_turn(c):
+            if c.cid == 1 and seen["a"] == 0:
+                seen["a"] += 1
+                return True, "skip", set()
+            return False, "", set()
+
+        app._process_start_of_turn = _start_of_turn
+
+        app._enter_turn_with_auto_skip(starting=False)
+        self.assertEqual(app.current_cid, 99)
+        self.assertEqual(app._current_turn_kind, "cadence")
+
+    def test_lan_prediction_infers_due_cadence_after_current_normal_turn(self):
+        app = _bare_tracker()
+        _add_basic_combatant(app, 1, "A", 30)
+        _add_basic_combatant(app, 2, "B", 20)
+        _add_basic_combatant(app, 99, "Boss", 50, cadence_every=3)
+        app.current_cid = 1
+        app._current_turn_kind = "normal"
+        app._cadence_pending_queue = []
+        app._cadence_counters = {99: 2}
+        app._lan_grid_cols = 10
+        app._lan_grid_rows = 10
+        app._lan_obstacles = set()
+        app._lan_positions = {}
+        app._lan_rough_terrain = {}
+        app._lan_next_aoe_id = 1
+        app._spell_presets_payload = lambda: []
+        app._player_spell_config_payload = lambda: {}
+        app._player_profiles_payload = lambda: {}
+        app._player_resource_pools_payload = lambda: {}
+        app._load_beast_forms = lambda: []
+        app._lan = type("Lan", (), {"_cached_snapshot": {}})()
+
+        self.assertEqual(app._peek_next_turn_cid(1), 99)
+        snap = app._lan_snapshot(include_static=False)
+        self.assertEqual(snap["up_next_cid"], 99)
+
+        lan = object.__new__(tracker_mod.LanController)
+        lan._tracker = app
+        self.assertEqual(lan._next_turn_notification_target(1), 99)
 
 
 if __name__ == "__main__":
