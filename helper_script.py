@@ -2532,11 +2532,21 @@ class InitiativeTracker(tk.Tk):
                 # already retargeted
                 continue
 
-            idx = ids.index(self.current_cid)
-            nxt = (idx + 1) % len(ids)
-            wrapped = nxt == 0
+            advanced = False
+            wrapped = False
+            advance_helper = getattr(self, "_advance_to_next_turn_candidate", None)
+            if callable(advance_helper):
+                try:
+                    advanced, wrapped = advance_helper(int(self.current_cid))
+                except Exception:
+                    advanced = False
+                    wrapped = False
+            if not advanced:
+                idx = ids.index(self.current_cid)
+                nxt = (idx + 1) % len(ids)
+                wrapped = nxt == 0
+                self.current_cid = ids[nxt]
 
-            self.current_cid = ids[nxt]
             self.turn_num += 1
             if wrapped:
                 self.round_num += 1
@@ -4173,6 +4183,7 @@ class InitiativeTracker(tk.Tk):
                     "description",
                     "habitat",
                     "treasure",
+                    "turn_schedule",
                 ):
                     if key in mon:
                         raw_data[key] = mon.get(key)
@@ -4310,6 +4321,8 @@ class InitiativeTracker(tk.Tk):
             except Exception:
                 ability_mods = {}
 
+            turn_schedule_mode, turn_schedule_every_n, turn_schedule_counts = _normalize_turn_schedule_config(raw_data.get("turn_schedule"))
+
             spec = MonsterSpec(
                 filename=str(fp.name),
                 name=name,
@@ -4326,6 +4339,9 @@ class InitiativeTracker(tk.Tk):
                 saving_throws=saving_throws,
                 ability_mods=ability_mods,
                 raw_data=raw_data,
+                turn_schedule_mode=turn_schedule_mode,
+                turn_schedule_every_n=turn_schedule_every_n,
+                turn_schedule_counts=turn_schedule_counts,
             )
 
             if name not in self._monsters_by_name:
