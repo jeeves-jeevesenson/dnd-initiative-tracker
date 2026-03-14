@@ -12,6 +12,7 @@ school: evocation
 tags:
 - damage
 - attack
+- automation_full
 casting_time: Action
 range: 120 feet
 components: V, S
@@ -38,7 +39,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: false
   targeting:
     origin: creature_within_range
@@ -71,5 +72,4 @@ mechanics:
   scaling: *id001
   ui:
     template_preview: false
-  notes:
-  - Beam count scales to 2/3/4 at levels 5/11/17 and can be split across targets; resolve per-beam targeting manually.
+  notes: []

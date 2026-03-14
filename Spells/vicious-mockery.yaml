@@ -12,6 +12,7 @@ school: enchantment
 tags:
 - damage
 - save
+- automation_full
 casting_time: Action
 range: 60 feet
 components: V
@@ -39,7 +40,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: false
   targeting:
     origin: creature_within_range

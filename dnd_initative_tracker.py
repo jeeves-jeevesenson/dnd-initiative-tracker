@@ -10224,6 +10224,10 @@ class InitiativeTracker(base.InitiativeTracker):
                     "facing_deg": int(self._normalize_facing_degrees(getattr(c, "facing_deg", 0))),
                     "vexed_by_cid": _normalize_cid_value(getattr(c, "_vexed_by_cid", None), "snapshot.vexed_by"),
                     "has_star_advantage": self._has_condition(c, "star_advantage"),
+                    "attackers_have_advantage_against_target": bool(
+                        self._collect_combat_modifiers(c).get("attackers_have_advantage_against_target")
+                    ),
+                    "has_attack_disadvantage": bool(self._collect_combat_modifiers(c).get("target_attack_disadvantage")),
                     "summon_variant": str(getattr(c, "summon_variant", "") or "") or None,
                     "summon_type_override": str(getattr(c, "summon_type_override", "") or "") or None,
                     "summon_lifecycle": self._json_safe(getattr(c, "summon_lifecycle", None)),
@@ -11038,7 +11042,11 @@ class InitiativeTracker(base.InitiativeTracker):
         cid = _normalize_cid_value(getattr(combatant, "cid", None), "environment.combatant.cid") if combatant is not None else None
         if cid is None:
             return None
-        anchor: Any = destination if isinstance(destination, tuple) and len(destination) == 2 else dict(getattr(self, "_lan_positions", {}) or {}).get(int(cid))
+        anchor: Any = (
+            destination
+            if isinstance(destination, tuple) and len(destination) == 2
+            else dict(self.__dict__.get("_lan_positions", {}) or {}).get(int(cid))
+        )
         if not (isinstance(anchor, tuple) and len(anchor) == 2):
             return None
         col = int(anchor[0])
@@ -11768,8 +11776,10 @@ class InitiativeTracker(base.InitiativeTracker):
             "speed_multiplier": 1.0,
             "save_advantage_by_ability": set(),
             "save_disadvantage_by_ability": set(),
+            "attackers_have_advantage_against_target": False,
             "attackers_have_disadvantage_against_target": False,
             "target_attack_disadvantage": False,
+            "opportunity_attacks_blocked": False,
             "reactions_blocked": False,
             "damage_resistance_types": set(),
         }
@@ -11804,10 +11814,14 @@ class InitiativeTracker(base.InitiativeTracker):
                     summary["speed_multiplier"] *= mult
             summary["save_advantage_by_ability"].update(self._coerce_modifier_ability_list(modifiers.get("save_advantage_by_ability")))
             summary["save_disadvantage_by_ability"].update(self._coerce_modifier_ability_list(modifiers.get("save_disadvantage_by_ability")))
+            if bool(modifiers.get("attackers_have_advantage_against_target")):
+                summary["attackers_have_advantage_against_target"] = True
             if bool(modifiers.get("attackers_have_disadvantage_against_target")):
                 summary["attackers_have_disadvantage_against_target"] = True
             if bool(modifiers.get("target_attack_disadvantage")):
                 summary["target_attack_disadvantage"] = True
+            if bool(modifiers.get("opportunity_attacks_blocked")):
+                summary["opportunity_attacks_blocked"] = True
             if bool(modifiers.get("reactions_blocked")):
                 summary["reactions_blocked"] = True
             for dtype in list(modifiers.get("damage_resistance_types") or []):
@@ -11844,19 +11858,29 @@ class InitiativeTracker(base.InitiativeTracker):
         target_mods = self._collect_combat_modifiers(target)
         attacker_cid = _normalize_cid_value(getattr(attacker, "cid", attacker), "target_mark.mode.attacker")
         target_cid = _normalize_cid_value(getattr(target, "cid", target), "target_mark.mode.target")
+        has_advantage = bool(target_mods.get("attackers_have_advantage_against_target"))
+        has_disadvantage = False
         if attacker_cid is not None and target_cid is not None:
             for mark in self._collect_marks_for_attacker(int(target_cid)):
                 if int(mark.get("target_cid") or 0) != int(attacker_cid):
                     continue
                 penalties = mark.get("target_penalties") if isinstance(mark.get("target_penalties"), dict) else {}
                 if bool(penalties.get("target_attack_disadvantage_against_source")):
-                    return "disadvantage"
+                    has_disadvantage = True
+                    break
         if bool(attacker_mods.get("target_attack_disadvantage")) or bool(target_mods.get("attackers_have_disadvantage_against_target")):
+            has_disadvantage = True
+        if has_advantage and not has_disadvantage:
+            return "advantage"
+        if has_disadvantage and not has_advantage:
             return "disadvantage"
         return "normal"
 
     def _combatant_reactions_blocked(self, combatant: Any) -> bool:
         return bool(self._collect_combat_modifiers(combatant).get("reactions_blocked"))
+
+    def _combatant_opportunity_attacks_blocked(self, combatant: Any) -> bool:
+        return bool(self._collect_combat_modifiers(combatant).get("opportunity_attacks_blocked"))
 
     def _combatant_damage_resistances(self, combatant: Any) -> set[str]:
         return set(self._collect_combat_modifiers(combatant).get("damage_resistance_types") or set())
@@ -16534,6 +16558,52 @@ class InitiativeTracker(base.InitiativeTracker):
         hooks.append(dict(hook))
         setattr(c, "_feature_turn_hooks", hooks)
 
+    def _register_clear_target_effect_group_hook(
+        self,
+        c: Any,
+        *,
+        when: str,
+        target_cid: Any,
+        clear_group: str,
+        source: str,
+        remaining_triggers: int = 1,
+    ) -> None:
+        if c is None:
+            return
+        normalized_target_cid = _normalize_cid_value(target_cid, "clear_target_effect_group.target_cid")
+        clear_group_key = str(clear_group or "").strip().lower()
+        hook_when = str(when or "").strip().lower()
+        if normalized_target_cid is None or not clear_group_key or not hook_when:
+            return
+        try:
+            triggers = max(1, int(remaining_triggers))
+        except Exception:
+            triggers = 1
+        hooks = list(getattr(c, "_feature_turn_hooks", []) or [])
+        retained: List[Dict[str, Any]] = []
+        for hook in hooks:
+            if not isinstance(hook, dict):
+                continue
+            if (
+                str(hook.get("type") or "").strip().lower() == "clear_target_effect_group"
+                and str(hook.get("when") or "").strip().lower() == hook_when
+                and str(hook.get("clear_group") or "").strip().lower() == clear_group_key
+                and _normalize_cid_value(hook.get("target_cid"), "clear_target_effect_group.existing_target") == int(normalized_target_cid)
+            ):
+                continue
+            retained.append(dict(hook))
+        retained.append(
+            {
+                "type": "clear_target_effect_group",
+                "when": hook_when,
+                "target_cid": int(normalized_target_cid),
+                "clear_group": clear_group_key,
+                "source": str(source or "Effect").strip() or "Effect",
+                "remaining_triggers": int(triggers),
+            }
+        )
+        setattr(c, "_feature_turn_hooks", retained)
+
     @staticmethod
     def _beguiling_magic_window_remaining(c: Any) -> float:
         if c is None:
@@ -16643,6 +16713,34 @@ class InitiativeTracker(base.InitiativeTracker):
                     )
                 self._remove_condition_type(c, condition_key)
                 self._log(f"Command effect ends on {c.name}: {command_option.title()}.", cid=getattr(c, "cid", None))
+                continue
+            if hook_type == "clear_target_effect_group":
+                clear_group = str(hook.get("clear_group") or "").strip().lower()
+                target_cid = _normalize_cid_value(hook.get("target_cid"), "clear_target_effect_group.target_cid")
+                try:
+                    remaining_triggers = int(hook.get("remaining_triggers") or 1)
+                except Exception:
+                    remaining_triggers = 1
+                if remaining_triggers > 1:
+                    updated = dict(hook)
+                    updated["remaining_triggers"] = int(remaining_triggers) - 1
+                    retained.append(updated)
+                    continue
+                if clear_group and target_cid is not None:
+                    target = self.combatants.get(int(target_cid))
+                    if target is not None:
+                        had_match = any(
+                            isinstance(entry, dict)
+                            and str(entry.get("clear_group") or "").strip().lower() == clear_group
+                            for entry in list(getattr(target, "ongoing_spell_effects", []) or [])
+                        )
+                        if had_match:
+                            self._clear_target_spell_effects_for_group(target, clear_group, reason=f"{when} expiry")
+                            source_name = str(hook.get("source") or "Effect").strip() or "Effect"
+                            self._log(
+                                f"{source_name} effect ends on {target.name}.",
+                                cid=getattr(target, "cid", None),
+                            )
                 continue
             if hook_type == "save_ends_condition":
                 ability_value = str(hook.get("ability") or "").strip().lower()
@@ -19529,6 +19627,8 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _build_oa_reaction_choices(self, reactor: Any, include_war_caster: bool = True) -> List[Dict[str, Any]]:
         if reactor is None:
+            return []
+        if self._combatant_opportunity_attacks_blocked(reactor):
             return []
         if int(getattr(reactor, "reaction_remaining", 0) or 0) <= 0:
             return []
@@ -26579,6 +26679,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     trigger_tags.add("ranged_weapon_attack")
                 advantage_flag = bool(_parse_bool(msg.get("attack_has_advantage")))
                 disadvantage_flag = bool(_parse_bool(msg.get("attack_has_disadvantage")))
+                advantage_flag = bool(advantage_flag or self._attack_roll_mode_against_target(c, target) == "advantage")
                 disadvantage_flag = bool(disadvantage_flag or self._attack_roll_mode_against_target(c, target) == "disadvantage")
                 ally_near_flag = bool(_parse_bool(msg.get("ally_within_5ft")))
                 for rider in damage_riders:
@@ -27098,6 +27199,11 @@ class InitiativeTracker(base.InitiativeTracker):
             save_dc = _parse_int(effect_block.get("save_dc"), 0) or 0
             if hit and save_ability and save_dc > 0:
                 result_payload["on_hit_save"] = {"ability": save_ability, "dc": int(save_dc)}
+            consumed_attack_riders = self._consume_attack_roll_spell_riders(c, target)
+            if consumed_attack_riders.get("guiding_bolt"):
+                result_payload["guiding_bolt_consumed"] = True
+            if consumed_attack_riders.get("vicious_mockery"):
+                result_payload["vicious_mockery_consumed"] = True
             msg["_attack_result"] = dict(result_payload)
             if attack_roll is not None:
                 self._log(
@@ -28014,6 +28120,148 @@ class InitiativeTracker(base.InitiativeTracker):
                 pass
         return aura_bonus
 
+    def _spell_target_range_feet(self, preset: Any, explicit_range_ft: Any = None) -> Optional[float]:
+        explicit_value = self._parse_int_value(explicit_range_ft, None)
+        if explicit_value is not None and explicit_value > 0:
+            return float(explicit_value)
+        preset_dict = preset if isinstance(preset, dict) else {}
+        mechanics = preset_dict.get("mechanics") if isinstance(preset_dict.get("mechanics"), dict) else {}
+        targeting = mechanics.get("targeting") if isinstance(mechanics.get("targeting"), dict) else {}
+        range_cfg = targeting.get("range") if isinstance(targeting.get("range"), dict) else {}
+        range_kind = str(range_cfg.get("kind") or "").strip().lower()
+        distance_ft = self._parse_int_value(range_cfg.get("distance_ft"), None)
+        range_text = str(preset_dict.get("range") or "").strip().lower()
+        if distance_ft is None:
+            match = re.search(r"(\d+(?:\.\d+)?)\s*(?:ft|feet)", range_text)
+            if match:
+                try:
+                    distance_ft = int(float(match.group(1)))
+                except Exception:
+                    distance_ft = None
+        if range_kind in {"touch", "melee"} or "touch" in range_text:
+            return float(max(distance_ft or 0, int(round(self._lan_feet_per_square())) or 5))
+        if distance_ft is None or distance_ft <= 0:
+            return None
+        return float(distance_ft)
+
+    def _spell_target_in_range(self, caster: Any, target: Any, preset: Any, explicit_range_ft: Any = None) -> Tuple[bool, Optional[float]]:
+        max_range_ft = self._spell_target_range_feet(preset, explicit_range_ft=explicit_range_ft)
+        if max_range_ft is None or caster is None or target is None:
+            return True, None
+        positions = dict(self.__dict__.get("_lan_positions", {}) or {})
+        live_map_data = self._lan_live_map_data() if callable(getattr(self, "_lan_live_map_data", None)) else None
+        if isinstance(live_map_data, tuple) and len(live_map_data) >= 5:
+            positions.update(dict(live_map_data[4] or {}))
+        caster_pos = positions.get(int(getattr(caster, "cid", 0) or 0))
+        target_pos = positions.get(int(getattr(target, "cid", 0) or 0))
+        if not (isinstance(caster_pos, tuple) and len(caster_pos) == 2 and isinstance(target_pos, tuple) and len(target_pos) == 2):
+            return True, float(max_range_ft)
+        dx = abs(int(target_pos[0]) - int(caster_pos[0]))
+        dy = abs(int(target_pos[1]) - int(caster_pos[1]))
+        distance_ft = max(dx, dy) * float(self._lan_feet_per_square())
+        return bool(distance_ft - float(max_range_ft) <= 1e-6), float(max_range_ft)
+
+    def _clear_spell_effects_with_modifier(self, combatant: Any, spell_key: str, modifier_key: str) -> bool:
+        if combatant is None:
+            return False
+        spell_slug = str(spell_key or "").strip().lower()
+        modifier_slug = str(modifier_key or "").strip().lower()
+        matched = False
+        for entry in list(getattr(combatant, "ongoing_spell_effects", []) or []):
+            if not isinstance(entry, dict):
+                continue
+            if str(entry.get("spell_key") or "").strip().lower() != spell_slug:
+                continue
+            primitives = entry.get("primitives") if isinstance(entry.get("primitives"), dict) else {}
+            modifiers = primitives.get("modifiers") if isinstance(primitives.get("modifiers"), dict) else {}
+            if not bool(modifiers.get(modifier_slug)):
+                continue
+            self._clear_target_spell_effect(combatant, entry, reason="attack consumed")
+            matched = True
+        return matched
+
+    def _consume_attack_roll_spell_riders(self, attacker: Any, target: Any) -> Dict[str, bool]:
+        consumed_guiding = self._clear_spell_effects_with_modifier(target, "guiding-bolt", "attackers_have_advantage_against_target")
+        consumed_mockery = self._clear_spell_effects_with_modifier(attacker, "vicious-mockery", "target_attack_disadvantage")
+        return {
+            "guiding_bolt": bool(consumed_guiding),
+            "vicious_mockery": bool(consumed_mockery),
+        }
+
+    def _apply_single_target_spell_riders(
+        self,
+        *,
+        caster: Any,
+        target: Any,
+        spell_key: str,
+        hit: bool,
+        save_result: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if caster is None or target is None:
+            return
+        spell_slug = str(spell_key or "").strip().lower()
+        save_failed = isinstance(save_result, dict) and not bool(save_result.get("passed"))
+        source_cid = int(getattr(caster, "cid", 0) or 0)
+        target_cid = int(getattr(target, "cid", 0) or 0)
+        if source_cid <= 0 or target_cid <= 0:
+            return
+        if spell_slug in {"shocking-grasp", "shocking_grasp"} and hit:
+            clear_group = f"shocking_grasp_{source_cid}_{target_cid}"
+            self._register_target_spell_effect(
+                source_cid,
+                target_cid,
+                "shocking-grasp",
+                clear_group=clear_group,
+                effect_tags=["reaction_block"],
+                primitives={"modifiers": {"opportunity_attacks_blocked": True}},
+            )
+            self._register_clear_target_effect_group_hook(
+                target,
+                when="start_turn",
+                target_cid=target_cid,
+                clear_group=clear_group,
+                source="Shocking Grasp",
+                remaining_triggers=1,
+            )
+            return
+        if spell_slug in {"guiding-bolt", "guiding_bolt"} and hit:
+            clear_group = f"guiding_bolt_{source_cid}_{target_cid}"
+            self._register_target_spell_effect(
+                source_cid,
+                target_cid,
+                "guiding-bolt",
+                clear_group=clear_group,
+                effect_tags=["next_attack_advantage"],
+                primitives={"modifiers": {"attackers_have_advantage_against_target": True}},
+            )
+            self._register_clear_target_effect_group_hook(
+                caster,
+                when="end_turn",
+                target_cid=target_cid,
+                clear_group=clear_group,
+                source="Guiding Bolt",
+                remaining_triggers=2,
+            )
+            return
+        if spell_slug in {"vicious-mockery", "vicious_mockery"} and save_failed:
+            clear_group = f"vicious_mockery_{source_cid}_{target_cid}"
+            self._register_target_spell_effect(
+                source_cid,
+                target_cid,
+                "vicious-mockery",
+                clear_group=clear_group,
+                effect_tags=["next_attack_disadvantage"],
+                primitives={"modifiers": {"target_attack_disadvantage": True}},
+            )
+            self._register_clear_target_effect_group_hook(
+                target,
+                when="end_turn",
+                target_cid=target_cid,
+                clear_group=clear_group,
+                source="Vicious Mockery",
+                remaining_triggers=1,
+            )
+
     def _roll_dice_expression(self, expr: Any, *, critical_max: bool = False) -> int:
         text = str(expr or "").strip().lower().replace(" ", "")
         if not text:
@@ -28591,6 +28839,23 @@ class InitiativeTracker(base.InitiativeTracker):
             attacker_cid=attacker_cid,
             target_cid=target_cid,
         )
+        in_range, resolved_range_ft = self._spell_target_in_range(caster, target, preset, explicit_range_ft=ctx.get("spell_range_ft"))
+        if not in_range:
+            result_payload = {
+                "type": "spell_target_result",
+                "ok": False,
+                "attacker_cid": int(attacker_cid),
+                "target_cid": int(target_cid),
+                "target_name": str(getattr(target, "name", "Target") or "Target"),
+                "spell_name": str(spell_name or "Spell"),
+                "spell_mode": str(ctx.get("spell_mode") or "attack"),
+                "reason": f"That target be out of {spell_name} range.",
+            }
+            if resolved_range_ft is not None:
+                result_payload["range_ft"] = int(round(float(resolved_range_ft)))
+            msg["_spell_target_result"] = dict(result_payload)
+            self._lan.toast(ws_id, str(result_payload["reason"]))
+            return True
         check_result = self._resolve_spell_check(ctx)
         hit = bool(check_result.get("hit"))
         critical = bool(check_result.get("critical"))
@@ -28724,6 +28989,20 @@ class InitiativeTracker(base.InitiativeTracker):
             )
             if effect_entry and str(effect_entry.get("adapter") or "").strip().lower() == "haste":
                 result_payload["haste_applied"] = True
+
+        if str(ctx.get("spell_mode") or "").strip().lower() in {"attack", "auto_hit"}:
+            consumed_riders = self._consume_attack_roll_spell_riders(caster, target)
+            if consumed_riders.get("guiding_bolt"):
+                result_payload["guiding_bolt_consumed"] = True
+            if consumed_riders.get("vicious_mockery"):
+                result_payload["vicious_mockery_consumed"] = True
+        self._apply_single_target_spell_riders(
+            caster=caster,
+            target=target,
+            spell_key=spell_key,
+            hit=bool(hit),
+            save_result=check_result.get("save_result") if isinstance(check_result.get("save_result"), dict) else None,
+        )
 
         msg["_spell_target_result"] = dict(result_payload)
         detail = self._format_single_target_spell_outcome(result_payload)

@@ -153,6 +153,23 @@ class CommandSpellTests(unittest.TestCase):
         self.assertTrue(any(getattr(st, "ctype", "") == "command_halt" for st in target.condition_stacks))
         self.assertNotIn((9, "Not yer turn yet, matey."), self.toasts)
 
+    def test_command_resolve_rejects_unsupported_option(self):
+        msg = {
+            "type": "command_resolve",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 12,
+            "target_cids": [2],
+            "command_option": "dance",
+            "slot_level": 1,
+            "spell_slug": "command",
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertIn((12, "Pick a valid Command option, matey."), self.toasts)
+        self.assertFalse(any(getattr(st, "ctype", "").startswith("command_") for st in self.app.combatants[2].condition_stacks))
+
 
 if __name__ == "__main__":
     unittest.main()

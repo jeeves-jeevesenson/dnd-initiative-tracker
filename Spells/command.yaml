@@ -12,6 +12,7 @@ school: enchantment
 tags:
 - save
 - condition
+- automation_full
 casting_time: Action
 range: 60 feet
 components: V
@@ -45,7 +46,7 @@ text:
   rules: null
   higher_level: null
 mechanics:
-  automation: partial
+  automation: full
   upcastable: true
   targeting:
     origin: creature_within_range
@@ -66,5 +67,4 @@ mechanics:
   scaling: null
   ui:
     template_preview: false
-  notes:
-  - Command outcome depends on the chosen word (Approach, Drop, Flee, Grovel, Halt); apply the selected behavior manually on failure.
+  notes: []
