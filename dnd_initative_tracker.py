@@ -26455,6 +26455,7 @@ class InitiativeTracker(base.InitiativeTracker):
             attacks = profile.get("attacks") if isinstance(profile, dict) else {}
             weapons = attacks.get("weapons") if isinstance(attacks, dict) else []
             selected_weapon: Dict[str, Any] = {}
+            inline_weapon = msg.get("weapon") if isinstance(msg.get("weapon"), dict) else {}
             def _weapon_equipped_flag(entry: Dict[str, Any]) -> bool:
                 for key in ("equipped", "main_hand", "off_hand"):
                     raw = entry.get(key)
@@ -26468,6 +26469,40 @@ class InitiativeTracker(base.InitiativeTracker):
                         continue
                     if isinstance(raw, str) and raw.strip().lower() in ("1", "true", "yes", "on"):
                         return True
+                return False
+            def _weapon_identity(entry: Dict[str, Any]) -> Tuple[str, str]:
+                return (
+                    str(entry.get("id") or "").strip().lower(),
+                    str(entry.get("name") or "").strip().lower(),
+                )
+            def _inline_weapon_matches_request(entry: Dict[str, Any], req_id: str, req_name: str) -> bool:
+                if not isinstance(entry, dict):
+                    return False
+                entry_id, entry_name = _weapon_identity(entry)
+                if (req_id or req_name) and not (entry_id or entry_name):
+                    return False
+                if req_id and entry_id and entry_id != req_id:
+                    return False
+                if req_name and entry_name and entry_name != req_name:
+                    return False
+                if req_id and req_name:
+                    return bool((not entry_id or entry_id == req_id) and (not entry_name or entry_name == req_name))
+                if req_id:
+                    return bool(entry_id == req_id or (not entry_id and entry_name))
+                if req_name:
+                    return bool(entry_name == req_name or (not entry_name and entry_id))
+                return bool(entry_id or entry_name)
+            def _inline_weapon_is_concrete(entry: Dict[str, Any]) -> bool:
+                if not isinstance(entry, dict):
+                    return False
+                if str(entry.get("name") or "").strip() and (
+                    str(entry.get("range") or "").strip()
+                    or str(entry.get("category") or entry.get("weapon_group") or "").strip()
+                    or isinstance(entry.get("one_handed"), dict)
+                    or isinstance(entry.get("two_handed"), dict)
+                    or entry.get("to_hit") is not None
+                ):
+                    return True
                 return False
             if isinstance(weapons, list):
                 target_weapon_id = weapon_id.lower()
@@ -26492,16 +26527,19 @@ class InitiativeTracker(base.InitiativeTracker):
                             if isinstance(entry, dict):
                                 selected_weapon = entry
                                 break
-            if not selected_weapon:
-                inline_weapon = msg.get("weapon") if isinstance(msg.get("weapon"), dict) else {}
-                if bool(getattr(c, "is_wild_shaped", False)) and isinstance(inline_weapon, dict):
-                    inline_name = str(inline_weapon.get("name") or "").strip()
-                    if inline_name:
-                        selected_weapon = copy.deepcopy(inline_weapon)
+            target_weapon_id = weapon_id.lower()
+            target_weapon_name = weapon_name.lower()
+            if _inline_weapon_matches_request(inline_weapon, target_weapon_id, target_weapon_name) and (
+                not selected_weapon or _inline_weapon_is_concrete(inline_weapon)
+            ):
+                selected_weapon = copy.deepcopy(inline_weapon)
+            elif not selected_weapon and bool(getattr(c, "is_wild_shaped", False)) and isinstance(inline_weapon, dict):
+                inline_name = str(inline_weapon.get("name") or "").strip()
+                if inline_name:
+                    selected_weapon = copy.deepcopy(inline_weapon)
             if not selected_weapon:
                 self._lan.toast(ws_id, "Pick one of yer configured weapons first, matey.")
                 return
-            inline_weapon = msg.get("weapon") if isinstance(msg.get("weapon"), dict) else {}
             selected_mode = str(selected_weapon.get("selected_mode") or "").strip().lower()
             inline_selected_mode = str(inline_weapon.get("selected_mode") or "").strip().lower()
             if inline_selected_mode in ("one", "two"):

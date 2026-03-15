@@ -2662,5 +2662,142 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertEqual(mode_vs_other, "normal")
 
 
+    def test_attack_request_uses_configured_unarmed_for_adjacent_range(self):
+        self.app._pc_name_for = lambda cid: "Old Man"
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Monk", "level": 8, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_to_hit": 7,
+                "weapons": [
+                    {
+                        "id": "unarmed_strike",
+                        "name": "Unarmed Strike",
+                        "to_hit": 8,
+                        "range": "5 ft",
+                        "category": "melee_weapon",
+                        "one_handed": {"damage_formula": "1d8 + 4", "damage_type": "bludgeoning"},
+                    }
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 201,
+            "target_cid": 2,
+            "weapon_id": "unarmed_strike",
+            "weapon_name": "Unarmed Strike",
+            "hit": True,
+            "damage_entries": [{"amount": 5, "type": "bludgeoning"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertIsInstance(msg.get("_attack_result"), dict)
+        self.assertNotIn((201, "Target be out of attack range."), self.toasts)
+
+    def test_attack_request_uses_identity_matching_inline_unarmed_payload_when_not_configured(self):
+        self.app._pc_name_for = lambda cid: "John Twilight"
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_to_hit": 7,
+                "weapons": [
+                    {
+                        "id": "longsword",
+                        "name": "Longsword",
+                        "to_hit": 8,
+                        "range": "5 ft",
+                        "category": "melee_weapon",
+                    }
+                ],
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 202,
+            "target_cid": 2,
+            "weapon_id": "unarmed_strike",
+            "weapon_name": "Unarmed Strike",
+            "weapon": {
+                "id": "unarmed_strike",
+                "name": "Unarmed Strike",
+                "to_hit": 7,
+                "range": "5 ft",
+                "category": "melee_weapon",
+                "one_handed": {"damage_formula": "1 + 4", "damage_type": "bludgeoning"},
+            },
+            "hit": True,
+            "damage_entries": [{"amount": 4, "type": "bludgeoning"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("weapon_name"), "Unarmed Strike")
+        self.assertNotIn((202, "Target be out of attack range."), self.toasts)
+
+    def test_attack_request_blocks_distant_inline_unarmed_melee_target(self):
+        self.app._lan_positions = {1: (0, 0), 2: (10, 10)}
+        self.app._pc_name_for = lambda cid: "John Twilight"
+        self.app._profile_for_player_name = lambda name: {
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {"weapon_to_hit": 7, "weapons": []},
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 203,
+            "target_cid": 2,
+            "weapon_id": "unarmed_strike",
+            "weapon_name": "Unarmed Strike",
+            "weapon": {
+                "id": "unarmed_strike",
+                "name": "Unarmed Strike",
+                "to_hit": 7,
+                "range": "5 ft",
+                "category": "melee_weapon",
+            },
+            "hit": True,
+            "damage_entries": [{"amount": 4, "type": "bludgeoning"}],
+        }
+
+        self.app._lan_apply_action(msg)
+
+        self.assertNotIn("_attack_result", msg)
+        self.assertIn((203, "Target be out of attack range."), self.toasts)
+
+    def test_attack_request_rejects_conflicting_inline_weapon_identity(self):
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 204,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "weapon_name": "Longsword",
+            "weapon": {
+                "id": "shortbow",
+                "name": "Shortbow",
+                "to_hit": 50,
+                "range": "150/600 ft",
+                "category": "ranged_weapon",
+            },
+            "attack_roll": 10,
+        }
+
+        self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result.get("weapon_name"), "Longsword")
+        self.assertEqual(result.get("to_hit"), 7)
+
+
 if __name__ == "__main__":
     unittest.main()
