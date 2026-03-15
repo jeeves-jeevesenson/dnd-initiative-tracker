@@ -104,6 +104,48 @@ def _normalize_turn_schedule_config(raw_schedule: object) -> Tuple[Optional[str]
     return "cadence", every_n, "normal_turns_only"
 
 
+def _normalize_monster_phases_config(raw_phases: object) -> Optional[Dict[str, Any]]:
+    if not isinstance(raw_phases, dict):
+        return None
+    base_phase = str(raw_phases.get("base_phase") or "").strip()
+    entries_raw = raw_phases.get("entries")
+    if not base_phase or not isinstance(entries_raw, list):
+        return None
+    entries: List[Dict[str, Any]] = []
+    ids: set[str] = set()
+    for raw_entry in entries_raw:
+        if not isinstance(raw_entry, dict):
+            continue
+        phase_id = str(raw_entry.get("id") or "").strip()
+        if not phase_id:
+            continue
+        entry: Dict[str, Any] = {"id": phase_id}
+        display_name = str(raw_entry.get("display_name") or "").strip()
+        if display_name:
+            entry["display_name"] = display_name
+        if "ac" in raw_entry:
+            entry["ac"] = raw_entry.get("ac")
+        actions = raw_entry.get("actions")
+        if isinstance(actions, list):
+            entry["actions"] = copy.deepcopy(actions)
+        trigger = raw_entry.get("trigger")
+        if isinstance(trigger, dict):
+            normalized_trigger: Dict[str, Any] = {}
+            try:
+                normalized_trigger["hp_lt"] = int(trigger.get("hp_lt"))
+            except Exception:
+                pass
+            if "sticky" in trigger:
+                normalized_trigger["sticky"] = bool(trigger.get("sticky"))
+            if normalized_trigger:
+                entry["trigger"] = normalized_trigger
+        entries.append(entry)
+        ids.add(phase_id)
+    if not entries or base_phase not in ids:
+        return None
+    return {"base_phase": base_phase, "entries": entries}
+
+
 def _app_base_dir() -> Path:
     try:
         if getattr(sys, "frozen", False):
@@ -7538,6 +7580,7 @@ class InitiativeTracker(base.InitiativeTracker):
                         setattr(c, key, None)
                     continue
                 setattr(c, key, val)
+            self._refresh_monster_phase_for_combatant(c, reason="snapshot_restore")
 
         self._next_id = int(combat.get("next_id", max(self.combatants.keys(), default=0) + 1) or 1)
         self._next_stack_id = int(combat.get("next_stack_id", getattr(self, "_next_stack_id", 1)) or 1)
@@ -17654,7 +17697,7 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _monster_attack_options_for_map(self, attacker: Any) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
         spec = getattr(attacker, "monster_spec", None)
-        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        raw_data = self._monster_raw_view_for_combatant(attacker)
         if not isinstance(raw_data, dict):
             return [], {}
         options, multiattack_counts = self._parse_monster_attack_options(raw_data.get("actions"))
@@ -17662,14 +17705,13 @@ class InitiativeTracker(base.InitiativeTracker):
             return options, multiattack_counts
         if not self._hydrate_monster_sections_from_fallback(spec):
             return [], {}
-        refreshed_raw_data = getattr(spec, "raw_data", None)
+        refreshed_raw_data = self._monster_raw_view_for_combatant(attacker)
         if not isinstance(refreshed_raw_data, dict):
             return [], {}
         return self._parse_monster_attack_options(refreshed_raw_data.get("actions"))
 
     def _monster_multiattack_description_for_map(self, attacker: Any) -> str:
-        spec = getattr(attacker, "monster_spec", None)
-        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        raw_data = self._monster_raw_view_for_combatant(attacker)
         actions = raw_data.get("actions") if isinstance(raw_data, dict) else None
         if not isinstance(actions, list):
             return ""
@@ -17710,8 +17752,7 @@ class InitiativeTracker(base.InitiativeTracker):
         return max(0, int(math.floor(evaluated)))
 
     def _map_attack_sequence_cache_key(self, attacker: Any) -> str:
-        spec = getattr(attacker, "monster_spec", None)
-        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        raw_data = self._monster_raw_view_for_combatant(attacker)
         slug = ""
         if isinstance(raw_data, dict):
             slug = str(raw_data.get("slug") or raw_data.get("name") or "").strip().lower()
@@ -17726,8 +17767,7 @@ class InitiativeTracker(base.InitiativeTracker):
         multiattack_counts: Dict[str, int],
     ) -> List[Dict[str, Any]]:
         defaults: List[Dict[str, Any]] = []
-        spec = getattr(attacker, "monster_spec", None)
-        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        raw_data = self._monster_raw_view_for_combatant(attacker)
         actions = raw_data.get("actions") if isinstance(raw_data, dict) else None
         if isinstance(actions, list):
             for raw_action in actions:
@@ -30692,6 +30732,7 @@ class InitiativeTracker(base.InitiativeTracker):
         hp_after = max(0, hp_before - hp_damage)
         setattr(target, "temp_hp", int(temp_after))
         setattr(target, "hp", int(hp_after))
+        self._refresh_monster_phase_for_combatant(target, reason="damage")
         if damage > 0:
             self._remove_condition_type(target, "star_advantage")
             on_damage_save_riders = list(getattr(target, "on_damage_save_riders", []) or [])
@@ -31285,6 +31326,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "damage_vulnerabilities", "damage_resistances", "damage_immunities", "condition_immunities",
                     "vulnerabilities", "resistances", "immunities",
                     "turn_schedule",
+                    "phases",
                 ):
                     if key in mon:
                         raw_data[key] = mon.get(key)
@@ -31508,6 +31550,7 @@ class InitiativeTracker(base.InitiativeTracker):
             "resistances",
             "immunities",
             "turn_schedule",
+            "phases",
         ):
             if key in monster_data:
                 raw_data[key] = monster_data.get(key)

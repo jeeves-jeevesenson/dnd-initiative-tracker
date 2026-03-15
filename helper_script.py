@@ -340,6 +340,9 @@ class Combatant:
     saving_throws: Dict[str, int] = field(default_factory=dict)
     ability_mods: Dict[str, int] = field(default_factory=dict)
     monster_spec: Optional[MonsterSpec] = None
+    monster_phase_id: Optional[str] = None
+    monster_phase_sticky_ids: List[str] = field(default_factory=list)
+    monster_phase_display_name: Optional[str] = None
 
     # Mount state
     mounted_by_cid: Optional[int] = None  # rider riding this mount
@@ -450,6 +453,48 @@ def _normalize_turn_schedule_config(raw_schedule: object) -> Tuple[Optional[str]
     if counts != "normal_turns_only":
         return None, None, None
     return "cadence", every_n, "normal_turns_only"
+
+
+def _normalize_monster_phases_config(raw_phases: object) -> Optional[Dict[str, Any]]:
+    if not isinstance(raw_phases, dict):
+        return None
+    base_phase = str(raw_phases.get("base_phase") or "").strip()
+    entries_raw = raw_phases.get("entries")
+    if not base_phase or not isinstance(entries_raw, list):
+        return None
+    entries: List[Dict[str, Any]] = []
+    ids: set[str] = set()
+    for raw_entry in entries_raw:
+        if not isinstance(raw_entry, dict):
+            continue
+        phase_id = str(raw_entry.get("id") or "").strip()
+        if not phase_id:
+            continue
+        entry: Dict[str, Any] = {"id": phase_id}
+        display_name = str(raw_entry.get("display_name") or "").strip()
+        if display_name:
+            entry["display_name"] = display_name
+        if "ac" in raw_entry:
+            entry["ac"] = raw_entry.get("ac")
+        actions = raw_entry.get("actions")
+        if isinstance(actions, list):
+            entry["actions"] = copy.deepcopy(actions)
+        trigger = raw_entry.get("trigger")
+        if isinstance(trigger, dict):
+            normalized_trigger: Dict[str, Any] = {}
+            try:
+                normalized_trigger["hp_lt"] = int(trigger.get("hp_lt"))
+            except Exception:
+                pass
+            if "sticky" in trigger:
+                normalized_trigger["sticky"] = bool(trigger.get("sticky"))
+            if normalized_trigger:
+                entry["trigger"] = normalized_trigger
+        entries.append(entry)
+        ids.add(phase_id)
+    if not entries or base_phase not in ids:
+        return None
+    return {"base_phase": base_phase, "entries": entries}
 
 
 def _parse_speed_string(text: str) -> Dict[str, int]:
@@ -2083,6 +2128,95 @@ class InitiativeTracker(tk.Tk):
             entries.append(payload)
         return entries
 
+    def _monster_phase_entries_by_id(self, spec: Optional[MonsterSpec]) -> Dict[str, Dict[str, Any]]:
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        phases = _normalize_monster_phases_config(raw_data.get("phases")) if isinstance(raw_data, dict) else None
+        if not isinstance(phases, dict):
+            return {}
+        entries = phases.get("entries") if isinstance(phases.get("entries"), list) else []
+        indexed: Dict[str, Dict[str, Any]] = {}
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            phase_id = str(entry.get("id") or "").strip()
+            if phase_id:
+                indexed[phase_id] = entry
+        return indexed
+
+    def _monster_raw_view_for_combatant(self, combatant: Any) -> Optional[Dict[str, Any]]:
+        spec = getattr(combatant, "monster_spec", None)
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        if not isinstance(raw_data, dict):
+            return None
+        merged = copy.deepcopy(raw_data)
+        phases = _normalize_monster_phases_config(raw_data.get("phases"))
+        if not isinstance(phases, dict):
+            return merged
+        phase_id = str(getattr(combatant, "monster_phase_id", "") or "").strip()
+        entries = self._monster_phase_entries_by_id(spec)
+        phase_entry = entries.get(phase_id)
+        if not isinstance(phase_entry, dict):
+            base_phase = str(phases.get("base_phase") or "").strip()
+            phase_entry = entries.get(base_phase)
+        if not isinstance(phase_entry, dict):
+            return merged
+        if "ac" in phase_entry:
+            merged["ac"] = copy.deepcopy(phase_entry.get("ac"))
+        if isinstance(phase_entry.get("actions"), list):
+            merged["actions"] = copy.deepcopy(phase_entry.get("actions"))
+        display_name = str(phase_entry.get("display_name") or "").strip()
+        if display_name:
+            merged["name"] = display_name
+        return merged
+
+    def _refresh_monster_phase_for_combatant(self, combatant: Any, *, reason: str = "") -> None:
+        if combatant is None:
+            return
+        spec = getattr(combatant, "monster_spec", None)
+        raw_data = getattr(spec, "raw_data", None) if spec is not None else None
+        phases = _normalize_monster_phases_config(raw_data.get("phases")) if isinstance(raw_data, dict) else None
+        if not isinstance(phases, dict):
+            setattr(combatant, "monster_phase_id", None)
+            setattr(combatant, "monster_phase_display_name", None)
+            if not isinstance(getattr(combatant, "monster_phase_sticky_ids", None), list):
+                setattr(combatant, "monster_phase_sticky_ids", [])
+            return
+        entries = self._monster_phase_entries_by_id(spec)
+        if not entries:
+            return
+        base_phase = str(phases.get("base_phase") or "").strip()
+        hp = int(getattr(combatant, "hp", 0) or 0)
+        sticky_ids = getattr(combatant, "monster_phase_sticky_ids", None)
+        if not isinstance(sticky_ids, list):
+            sticky_ids = []
+        sticky_set = {str(pid).strip() for pid in sticky_ids if str(pid).strip()}
+        chosen = base_phase
+        for entry in phases.get("entries", []):
+            if not isinstance(entry, dict):
+                continue
+            phase_id = str(entry.get("id") or "").strip()
+            if not phase_id:
+                continue
+            trigger = entry.get("trigger") if isinstance(entry.get("trigger"), dict) else {}
+            hp_lt = trigger.get("hp_lt") if isinstance(trigger, dict) else None
+            sticky = bool(trigger.get("sticky")) if isinstance(trigger, dict) else False
+            active = False
+            if phase_id in sticky_set:
+                active = True
+            elif isinstance(hp_lt, int) and hp < int(hp_lt):
+                active = True
+                if sticky:
+                    sticky_set.add(phase_id)
+            if active:
+                chosen = phase_id
+        if chosen not in entries:
+            chosen = base_phase if base_phase in entries else next(iter(entries.keys()))
+        phase_entry = entries.get(chosen) or {}
+        display_name = str(phase_entry.get("display_name") or "").strip() or None
+        setattr(combatant, "monster_phase_id", chosen or None)
+        setattr(combatant, "monster_phase_display_name", display_name)
+        setattr(combatant, "monster_phase_sticky_ids", sorted(sticky_set))
+
     # -------------------------- Add / remove --------------------------
     def _create_combatant(
         self,
@@ -2167,6 +2301,7 @@ class InitiativeTracker(tk.Tk):
             setattr(c, "turn_schedule_mode", getattr(monster_spec, "turn_schedule_mode", None))
             setattr(c, "turn_schedule_every_n", getattr(monster_spec, "turn_schedule_every_n", None))
             setattr(c, "turn_schedule_counts", getattr(monster_spec, "turn_schedule_counts", None))
+        self._refresh_monster_phase_for_combatant(c, reason="create")
         self.combatants[cid] = c
         self._remember_role(c)
         return cid
@@ -3712,8 +3847,7 @@ class InitiativeTracker(tk.Tk):
                 ac_value = raw
                 break
         if ac_value is None:
-            spec = getattr(combatant, "monster_spec", None)
-            raw_data = getattr(spec, "raw_data", None)
+            raw_data = self._monster_raw_view_for_combatant(combatant)
             if isinstance(raw_data, dict):
                 ac_value = raw_data.get("ac", raw_data.get("armor_class"))
         formatted = self._format_monster_ac(ac_value)
@@ -3781,7 +3915,9 @@ class InitiativeTracker(tk.Tk):
 
     def _set_hp(self, cid: int, new_hp: int) -> None:
         if cid in self.combatants:
-            self.combatants[cid].hp = max(0, int(new_hp))
+            c = self.combatants[cid]
+            c.hp = max(0, int(new_hp))
+            self._refresh_monster_phase_for_combatant(c, reason="set_hp")
 
     def _set_temp_hp(self, cid: int, new_temp_hp: int) -> None:
         if cid in self.combatants:
@@ -3795,6 +3931,7 @@ class InitiativeTracker(tk.Tk):
             setattr(c, "temp_hp", max(0, int(amount)))
             return True
         c.hp = max(0, int(c.hp) + int(amount))
+        self._refresh_monster_phase_for_combatant(c, reason="heal")
         return True
 
     def _apply_damage_to_combatant(self, c: Any, amount: int) -> Dict[str, int]:
@@ -3807,6 +3944,7 @@ class InitiativeTracker(tk.Tk):
         hp_after = max(0, hp_before - hp_damage)
         setattr(c, "temp_hp", int(temp_after))
         setattr(c, "hp", int(hp_after))
+        self._refresh_monster_phase_for_combatant(c, reason="damage")
         return {"temp_absorbed": int(temp_absorbed), "hp_damage": int(hp_damage), "hp_after": int(hp_after)}
 
     def _set_ac(self, cid: int, new_ac: int) -> None:
@@ -4184,6 +4322,7 @@ class InitiativeTracker(tk.Tk):
                     "habitat",
                     "treasure",
                     "turn_schedule",
+                    "phases",
                 ):
                     if key in mon:
                         raw_data[key] = mon.get(key)
