@@ -1,0 +1,44 @@
+name: Plantera
+hp: 400
+ac: 18
+abilities:
+  Str: 22
+  Dex: 8
+  Con: 22
+  Int: 6
+  Wis: 16
+  Cha: 8
+damage_resistances:
+  - poison
+  - necrotic
+turn_schedule:
+  mode: cadence
+  every_n_turns: 3
+  counts: normal_turns_only
+traits:
+  - name: Enraged
+    desc: When Plantera's HP drops below 200, it becomes enraged for the rest of the encounter.
+phases:
+  base_phase: phase1
+  entries:
+    - id: phase1
+      display_name: Plantera
+      ac: 18
+      actions:
+        - name: Multiattack
+          desc: Plantera makes two Seed attacks.
+        - name: Seed
+          desc: "Ranged attack, range 120 ft., one target. Hit: 3d6 piercing damage plus 3d6 poison damage."
+        - name: Spike Ball
+          desc: "Ranged attack, range 120 ft., one target. Hit: 3d6 damage. Hit or miss, the spike ball bursts in a 10-foot area. Creatures in that area must make a DC 16 Dexterity saving throw, taking 3d6 poison damage on a failed save, or half as much on a success."
+    - id: enraged
+      display_name: Plantera (Enraged)
+      trigger:
+        hp_lt: 200
+        sticky: true
+      ac: 21
+      actions:
+        - name: Multiattack
+          desc: Plantera makes three Gore attacks.
+        - name: Gore
+          desc: "Melee attack, reach 5 ft., one target. Hit: 4d6 piercing damage."

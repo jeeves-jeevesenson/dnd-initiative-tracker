@@ -22,6 +22,40 @@ A repository of **per-monster YAML files** representing **DnD 2024 (5e 2024 / On
 
 ---
 
+### Optional boss extensions
+
+The tracker also supports optional YAML blocks for encounter-specific boss behavior:
+
+- `turn_schedule` cadence turns:
+
+```yaml
+turn_schedule:
+  mode: cadence
+  every_n_turns: 3
+  counts: normal_turns_only
+```
+
+- `phases` HP-driven phase overrides:
+
+```yaml
+phases:
+  base_phase: phase1
+  entries:
+    - id: phase1
+      ac: 18
+      actions: [...]
+    - id: enraged
+      trigger:
+        hp_lt: 200
+        sticky: true
+      ac: 21
+      actions: [...]
+```
+
+`hp_lt` is strict (`<`), and `sticky: true` means once a phase is entered it does not revert during that encounter.
+
+---
+
 ## Directory layout
 
 A common layout:
