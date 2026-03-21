@@ -41,6 +41,23 @@ class PlayerYamlValidityTests(unittest.TestCase):
         speed = ((data.get("vitals") or {}).get("speed") or {})
         self.assertEqual(set(speed.keys()), {"walk", "climb", "fly", "swim"})
 
+
+    def test_oldahhman_ring_magic_item_automation(self):
+        data = self._load("players/oldahhman.yaml")
+        pools = (((data.get("resources") or {}).get("pools")) or [])
+        ring_pool = next((entry for entry in pools if (entry or {}).get("id") == "ring_of_greater_invisibility"), {})
+        self.assertEqual(ring_pool.get("current"), 1)
+        self.assertEqual(ring_pool.get("max_formula"), "1")
+        self.assertEqual(ring_pool.get("reset"), "long_rest")
+
+        magic_items = data.get("magic_items") or {}
+        self.assertIn("ring_of_greater_invisibility", magic_items.get("equipped") or [])
+        self.assertIn("ring_of_greater_invisibility", magic_items.get("attuned") or [])
+
+        inventory_items = ((data.get("inventory") or {}).get("items") or [])
+        ring_inventory = next((entry for entry in inventory_items if (entry or {}).get("id") == "ring_of_greater_invisibility"), {})
+        self.assertEqual(ring_inventory.get("name"), "Ring of Greater Invisibility")
+
     def test_vicnor_ac_source_and_language_typo_cleanup(self):
         data = self._load("players/vicnor.yaml")
         ac_sources = (((data.get("defenses") or {}).get("ac") or {}).get("sources") or [])

@@ -104,6 +104,11 @@ resources:
     current: 1
     max_formula: '1'
     reset: long_rest
+  - id: ring_of_greater_invisibility
+    label: Ring of Greater Invisibility
+    current: 1
+    max_formula: '1'
+    reset: long_rest
 features:
 - id: monks_focus
   name: Monk's Focus
@@ -270,7 +275,8 @@ inventory:
   - name: Haste Scrolls
     quantity: 1
     description: Haste scrolls on hand (exact count tracked manually).
-  - name: Ring of Greater Invisibility
+  - id: ring_of_greater_invisibility
+    name: Ring of Greater Invisibility
     quantity: 1
     description: Can grant greater invisibility until long rest; requires attunement.
   - name: Harmonica
