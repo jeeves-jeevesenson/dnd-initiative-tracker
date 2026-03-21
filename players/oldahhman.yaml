@@ -15,12 +15,12 @@ leveling:
     level: 10
     attacks_per_action: 2
 abilities:
-  str: 18
-  dex: 14
-  con: 18
-  int: 12
-  wis: 14
-  cha: 13
+  str: 10
+  dex: 16
+  con: 16
+  int: 14
+  wis: 16
+  cha: 12
 proficiency:
   bonus: 4
   saves:
@@ -28,19 +28,21 @@ proficiency:
   - DEX
   skills:
     proficient:
-    - Athletics
-    - Stealth
+    - Animal Handling
     - Persuasion
+    - Athletics
+    - Acrobatics
+    - Stealth
     expertise: []
   tools:
-  - Simple Weapons
-  - Martial Weapons
-  - Improvised Weapons
+  - Navigator's Tools
+  - Artisan's Tools
+  - Tinker's Tools
   languages:
   - Common
 vitals:
-  max_hp: 84
-  current_hp: 84
+  max_hp: 93
+  current_hp: 93
   temp_hp: 0
   hit_dice:
     die: d8
@@ -115,6 +117,31 @@ features:
   source: PHB2024
   level: 3
   description: Elemental Attunement, Elemental Burst, and Manipulate Elements (Elementalism known).
+- id: lucky
+  name: Lucky
+  category: Feat
+  source: Player Notes
+  description: Gain Luck Points that can be spent to reroll d20 checks as described by the Lucky feat. Tracked manually for now.
+- id: sentinel
+  name: Sentinel
+  category: Feat
+  source: PHB2024
+  description: When a hostile creature moves out of your reach, you can make an opportunity attack; on hit, the target speed becomes 0 for the rest of the turn. You can also make this reaction against nearby creatures that Disengage or attack someone other than you.
+- id: charger
+  name: Charger
+  category: Feat
+  source: Player Notes
+  description: Charger feat benefits are tracked manually during play.
+- id: tough
+  name: Tough
+  category: Feat
+  source: Player Notes
+  description: Maximum hit points include the Tough feat bonus.
+- id: fight_or_flight
+  name: Fight or Flight
+  category: Custom Feature
+  source: Homebrew (Player Notes)
+  description: "Trigger: when HP drops below 18. Choose Strength (fight) or Dexterity (flight). For 1 minute, gain advantage on all saving throws, ability checks, and attack rolls using the chosen ability. When the effect ends, become incapacitated. Track trigger/duration manually."
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
@@ -236,32 +263,49 @@ spellcasting:
       current: 0
 inventory:
   currency:
-    gp: 5490
+    gp: 2000
     sp: 0
     cp: 0
   items:
+  - name: Haste Scrolls
+    quantity: 1
+    description: Haste scrolls on hand (exact count tracked manually).
+  - name: Ring of Greater Invisibility
+    quantity: 1
+    description: Can grant greater invisibility until long rest; requires attunement.
   - name: Harmonica
     quantity: 1
-    description: bad ass
-  - name: Spears
-    quantity: 5
+    description: ''
+  - name: Spear
+    quantity: 1
     description: 1d6
-  - name: Artisan Tools
+  - name: Daggers
+    quantity: 5
+    description: 1d4
+  - name: Artisan's Tools
     quantity: 1
     description: ''
   - name: Explorer's Pack
     quantity: 1
     description: ''
-  - name: Message Scroll
+  - name: Message Scroll to Master Kage / Noah
     quantity: 1
-    description: Encoded, reaches Master Kage. Bad ass monk dude
-  - name: Dagger
+    description: Encoded message delivery reminder.
+  - name: Message Scroll to Arty
     quantity: 1
-    description: 1d4
+    description: Ask about bone armor for Stephen.
+  - name: Unarmed Wraps
+    quantity: 1
+    description: While worn, +2 to attack and damage rolls with unarmed strikes; strikes can deal force or normal damage.
 magic_items:
   attunement_slots: 3
   equipped: []
   attuned: []
   items: []
 notes:
-  note_1: ''
+  note_1: Speed is 30 (human) + 20 (monk) = 50 walk.
+  note_2: Tinker's Tools crafting rule - spend one long rest and 20 gp to craft a pistol/musket to make it permanent.
+  note_3: Proficient with all simple and martial weapons with the light property (manual reminder).
+  note_4: Playstyle - fight up close with team; run in and use Flurry of Blows for up to 5 attacks.
+  note_5: Use push on last attack so target cannot opportunity attack, then reposition near teammates to exploit Sentinel.
+  note_6: Opportunity attack reminder - can occur when enemies leave reach willingly or unwillingly.
