@@ -294,14 +294,16 @@ inventory:
   - name: Message Scroll to Arty
     quantity: 1
     description: Ask about bone armor for Stephen.
-  - name: Unarmed Wraps
-    quantity: 1
-    description: While worn, +2 to attack and damage rolls with unarmed strikes; strikes can deal force or normal damage.
 magic_items:
   attunement_slots: 3
-  equipped: []
-  attuned: []
-  items: []
+  equipped:
+  - ring_of_greater_invisibility
+  attuned:
+  - ring_of_greater_invisibility
+  items:
+  - id: ring_of_greater_invisibility
+    equipped: true
+    attuned: true
 notes:
   note_1: Speed is 30 (human) + 20 (monk) = 50 walk.
   note_2: Tinker's Tools crafting rule - spend one long rest and 20 gp to craft a pistol/musket to make it permanent.
@@ -309,3 +311,4 @@ notes:
   note_4: Playstyle - fight up close with team; run in and use Flurry of Blows for up to 5 attacks.
   note_5: Use push on last attack so target cannot opportunity attack, then reposition near teammates to exploit Sentinel.
   note_6: Opportunity attack reminder - can occur when enemies leave reach willingly or unwillingly.
+  note_7: "Future wishlist (not owned/equipped): Unarmed Wraps."

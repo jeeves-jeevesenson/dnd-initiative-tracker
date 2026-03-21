@@ -1,0 +1,4 @@
+id: ring_of_greater_invisibility
+name: Ring of Greater Invisibility
+description: "Custom ring from player notes: can grant 'greater invisibility till long rest'. This wording is preserved as-is for manual adjudication; no standard spell automation is applied in this pass."
+requires_attunement: true
