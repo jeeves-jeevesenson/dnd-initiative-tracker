@@ -26777,18 +26777,14 @@ class InitiativeTracker(base.InitiativeTracker):
                 if req_name:
                     return bool(entry_name == req_name or (not entry_name and entry_id))
                 return bool(entry_id or entry_name)
-            def _inline_weapon_is_concrete(entry: Dict[str, Any]) -> bool:
-                if not isinstance(entry, dict):
-                    return False
-                if str(entry.get("name") or "").strip() and (
-                    str(entry.get("range") or "").strip()
-                    or str(entry.get("category") or entry.get("weapon_group") or "").strip()
-                    or isinstance(entry.get("one_handed"), dict)
-                    or isinstance(entry.get("two_handed"), dict)
-                    or entry.get("to_hit") is not None
-                ):
-                    return True
-                return False
+            def _merge_safe_inline_weapon_fields(base: Dict[str, Any], inline: Dict[str, Any]) -> Dict[str, Any]:
+                merged = copy.deepcopy(base) if isinstance(base, dict) else {}
+                if not isinstance(inline, dict):
+                    return merged
+                inline_mode = str(inline.get("selected_mode") or "").strip().lower()
+                if inline_mode in ("one", "two"):
+                    merged["selected_mode"] = inline_mode
+                return merged
             if isinstance(weapons, list):
                 target_weapon_id = weapon_id.lower()
                 target_weapon_name = weapon_name.lower()
@@ -26814,10 +26810,11 @@ class InitiativeTracker(base.InitiativeTracker):
                                 break
             target_weapon_id = weapon_id.lower()
             target_weapon_name = weapon_name.lower()
-            if _inline_weapon_matches_request(inline_weapon, target_weapon_id, target_weapon_name) and (
-                not selected_weapon or _inline_weapon_is_concrete(inline_weapon)
-            ):
-                selected_weapon = copy.deepcopy(inline_weapon)
+            if _inline_weapon_matches_request(inline_weapon, target_weapon_id, target_weapon_name):
+                if selected_weapon:
+                    selected_weapon = _merge_safe_inline_weapon_fields(selected_weapon, inline_weapon)
+                else:
+                    selected_weapon = copy.deepcopy(inline_weapon)
             elif not selected_weapon and bool(getattr(c, "is_wild_shaped", False)) and isinstance(inline_weapon, dict):
                 inline_name = str(inline_weapon.get("name") or "").strip()
                 if inline_name:
@@ -26825,6 +26822,7 @@ class InitiativeTracker(base.InitiativeTracker):
             if not selected_weapon:
                 self._lan.toast(ws_id, "Pick one of yer configured weapons first, matey.")
                 return
+            selected_weapon = self._resolve_weapon_from_items(dict(selected_weapon))
             selected_mode = str(selected_weapon.get("selected_mode") or "").strip().lower()
             inline_selected_mode = str(inline_weapon.get("selected_mode") or "").strip().lower()
             if inline_selected_mode in ("one", "two"):
