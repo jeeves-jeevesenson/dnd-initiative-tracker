@@ -898,8 +898,8 @@ class LanAttackRequestTests(unittest.TestCase):
 
         result = msg.get("_attack_result")
         self.assertIsInstance(result, dict)
-        self.assertEqual(result.get("damage_total"), 10)
-        self.assertEqual(result.get("damage_entries"), [{"amount": 10, "type": "slashing"}])
+        self.assertEqual(result.get("damage_total"), 14)
+        self.assertEqual(result.get("damage_entries"), [{"amount": 10, "type": "slashing"}, {"amount": 4, "type": "hellfire"}])
 
     def test_attack_request_auto_crit_doubles_dice_not_modifiers(self):
         self.app._profile_for_player_name = lambda name: {
@@ -2797,6 +2797,106 @@ class LanAttackRequestTests(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertEqual(result.get("weapon_name"), "Longsword")
         self.assertEqual(result.get("to_hit"), 7)
+
+    def test_attack_request_uses_canonical_weapon_metadata_when_inline_payload_is_thin(self):
+        self.app._profile_for_player_name = lambda name: {
+            "abilities": {"str": 20},
+            "leveling": {"classes": [{"name": "Fighter", "level": 10, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapons": [
+                    {
+                        "id": "hellfire_battleaxe_plus_2",
+                        "name": "Hellfire Battleaxe (+2)",
+                        "to_hit": 9,
+                        "range": "5 ft",
+                        "category": "melee_weapon",
+                        "one_handed": {"damage_formula": "1d8 + str_mod + 2", "damage_type": "slashing"},
+                        "effect": {
+                            "on_hit": "1d6 hellfire damage. Apply Hellfire Stack condition (max 1 stack per target per turn).",
+                            "save_ability": "con",
+                            "save_dc": 17,
+                        },
+                    }
+                ]
+            },
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 205,
+            "target_cid": 2,
+            "weapon_id": "hellfire_battleaxe_plus_2",
+            "weapon_name": "Hellfire Battleaxe (+2)",
+            "weapon": {
+                "id": "hellfire_battleaxe_plus_2",
+                "name": "Hellfire Battleaxe (+2)",
+                "to_hit": 1,
+                "selected_mode": "one",
+            },
+            "hit": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4, 6, 5]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        self.assertTrue(result.get("hit"))
+        self.assertEqual(result.get("damage_entries"), [{"amount": 11, "type": "slashing"}, {"amount": 6, "type": "hellfire"}])
+        self.assertEqual(len(getattr(self.app.combatants[2], "end_turn_damage_riders", []) or []), 1)
+
+    def test_attack_request_consumes_pending_smite_with_conflicting_inline_weapon_payload(self):
+        self.app._pc_name_for = lambda cid: "Dorian Vandergraff"
+        self.app._profile_for_player_name = lambda name: {
+            "abilities": {"str": 18, "cha": 18},
+            "spellcasting": {"ability": "cha"},
+            "leveling": {"classes": [{"name": "Paladin", "level": 11, "attacks_per_action": 2}]},
+            "attacks": {
+                "weapon_to_hit": 8,
+                "weapons": [
+                    {
+                        "id": "longsword",
+                        "name": "Longsword",
+                        "to_hit": 8,
+                        "range": "5 ft",
+                        "category": "melee_weapon",
+                        "one_handed": {"damage_formula": "1d8 + 4", "damage_type": "slashing"},
+                    }
+                ],
+            },
+        }
+        self.app.combatants[1].pending_smite_charge = {
+            "slug": "searing-smite",
+            "name": "Searing Smite",
+            "slot_level": 1,
+            "save_dc": 16,
+        }
+        msg = {
+            "type": "attack_request",
+            "cid": 1,
+            "_claimed_cid": 1,
+            "_ws_id": 206,
+            "target_cid": 2,
+            "weapon_id": "longsword",
+            "weapon_name": "Longsword",
+            "weapon": {
+                "id": "longsword",
+                "name": "Longsword",
+                "range": "60/120 ft",
+                "category": "ranged_weapon",
+            },
+            "hit": True,
+        }
+
+        with mock.patch("dnd_initative_tracker.random.randint", side_effect=[4, 3]):
+            self.app._lan_apply_action(msg)
+
+        result = msg.get("_attack_result")
+        self.assertIsInstance(result, dict)
+        rider_slugs = {str((entry or {}).get("slug") or "").strip().lower() for entry in (result.get("riders") or []) if isinstance(entry, dict)}
+        self.assertIn("searing-smite", rider_slugs)
+        self.assertIsNone(getattr(self.app.combatants[1], "pending_smite_charge", None))
 
 
 if __name__ == "__main__":
