@@ -2430,6 +2430,24 @@ class LanController:
                     payload["error"] = f"Failed to parse YAML: {exc}"
             return payload
 
+        @self._fastapi_app.get("/api/shop/catalog")
+        async def get_shop_catalog(include_disabled: bool = False):
+            try:
+                entries = self.app._load_shop_catalog_normalized()
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"Failed to load shop catalog: {exc}")
+            filtered = entries if include_disabled else [row for row in entries if row.get("enabled") is True]
+            stable_entries = sorted(
+                filtered,
+                key=lambda row: (
+                    str(row.get("shop_category") or "").lower(),
+                    str(row.get("name") or "").lower(),
+                    str(row.get("item_bucket") or "").lower(),
+                    str(row.get("item_id") or "").lower(),
+                ),
+            )
+            return {"entries": stable_entries}
+
         @self._fastapi_app.post("/api/spells/{spell_id}/color")
         async def update_spell_color(spell_id: str, payload: Dict[str, Any] = Body(...)):
             if not isinstance(payload, dict):
