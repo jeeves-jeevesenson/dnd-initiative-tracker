@@ -9,3 +9,8 @@ subtype: arcane_scroll
 description: A single-use spell scroll containing the magic missile spell.
 effect_hint: Cast Magic Missile at 1st level, then the scroll is consumed.
 stackable: true
+grants:
+  spells:
+    casts:
+      - spell: magic-missile
+        action_type: action

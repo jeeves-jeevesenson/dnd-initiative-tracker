@@ -22,6 +22,11 @@ effect_hint: Heal 2d4 + 2 HP.
 Files in `Items/Consumables/` define catalog items that can be offered by future shop/inventory flows.
 These are item definitions, not player-owned inventory instances.
 
+Potion-style consumables may remain simple descriptive entries (for example with `description` and `effect_hint`).
+Spell scrolls should also be consumable item definitions, but they should reference spells by slug via
+`grants.spells.casts[].spell` and point to an existing `Spells/<slug>.yaml` definition.
+Spell YAML is the source of truth for spell automation behavior.
+
 ## How to add a new consumable
 
 1. Create `Items/Consumables/<consumable_id>.yaml`.

@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import dnd_initative_tracker as tracker_mod
+import yaml
 
 
 class ConsumableTests(unittest.TestCase):
@@ -146,6 +147,22 @@ class ConsumableTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("No such consumable", err)
         self.assertEqual(healed, 0)
+
+    def test_scroll_of_magic_missile_references_existing_spell_yaml(self):
+        scroll_path = Path("Items/Consumables/scroll_of_magic_missile.yaml")
+        scroll_data = yaml.safe_load(scroll_path.read_text(encoding="utf-8"))
+        spell_ids = set()
+        for spell_path in Path("Spells").glob("*.yaml"):
+            spell_data = yaml.safe_load(spell_path.read_text(encoding="utf-8")) or {}
+            spell_ids.add(str(spell_data.get("id") or "").strip())
+
+        self.assertEqual(str(scroll_data.get("type") or "").strip(), "consumable")
+        casts = (((scroll_data.get("grants") or {}).get("spells") or {}).get("casts") or [])
+        self.assertTrue(casts)
+
+        first_cast = casts[0] if isinstance(casts[0], dict) else {}
+        self.assertEqual(str(first_cast.get("spell") or "").strip(), "magic-missile")
+        self.assertIn(str(first_cast.get("spell") or "").strip(), spell_ids)
 
 
 if __name__ == "__main__":
