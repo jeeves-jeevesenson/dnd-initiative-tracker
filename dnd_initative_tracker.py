@@ -5896,6 +5896,141 @@ class InitiativeTracker(base.InitiativeTracker):
             )
         return rows
 
+    def _load_item_definition_bucket_for_shop(
+        self,
+        items_dir: Path,
+        *,
+        item_bucket: str,
+        relative_dir: str,
+    ) -> Dict[str, Dict[str, Any]]:
+        bucket_dir = items_dir / relative_dir
+        files = sorted(list(bucket_dir.glob("*.yaml")) + list(bucket_dir.glob("*.yml"))) if bucket_dir.is_dir() else []
+        definitions: Dict[str, Dict[str, Any]] = {}
+        for path in files:
+            try:
+                parsed = yaml.safe_load(path.read_text(encoding="utf-8")) if yaml is not None else None
+            except Exception as exc:
+                raise ValueError(f"Failed to parse {item_bucket} definition YAML at {path}: {exc}") from exc
+            if not isinstance(parsed, dict):
+                continue
+            item_id = str(parsed.get("id") or "").strip().lower()
+            if not item_id:
+                continue
+            if item_id in definitions:
+                raise ValueError(f"Duplicate {item_bucket} definition id '{item_id}' in {path}")
+            row = dict(parsed)
+            row["_definition_path"] = str(path.as_posix())
+            definitions[item_id] = row
+        return definitions
+
+    def _load_shop_item_definitions(self, items_dir: Path) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        bucket_dirs = {
+            "weapon": "Weapons",
+            "armor": "Armor",
+            "magic_item": "Magic_Items",
+            "consumable": "Consumables",
+        }
+        loaded: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        for item_bucket, relative_dir in bucket_dirs.items():
+            loaded[item_bucket] = self._load_item_definition_bucket_for_shop(
+                items_dir,
+                item_bucket=item_bucket,
+                relative_dir=relative_dir,
+            )
+        return loaded
+
+    def _normalize_shop_catalog_price(self, raw_price: Any, *, catalog_path: Path, entry_index: int) -> Dict[str, int]:
+        if not isinstance(raw_price, dict) or not raw_price:
+            raise ValueError(f"Catalog entry #{entry_index} in {catalog_path} has malformed price data.")
+        allowed_price_keys = {"gp", "sp", "cp"}
+        normalized: Dict[str, int] = {}
+        for key, value in raw_price.items():
+            denom = str(key or "").strip().lower()
+            if denom not in allowed_price_keys:
+                raise ValueError(f"Catalog entry #{entry_index} in {catalog_path} has unsupported price denomination '{key}'.")
+            if isinstance(value, bool):
+                raise ValueError(f"Catalog entry #{entry_index} in {catalog_path} has invalid boolean price '{denom}'.")
+            try:
+                amount = int(value)
+            except Exception as exc:
+                raise ValueError(
+                    f"Catalog entry #{entry_index} in {catalog_path} has non-integer price '{denom}'."
+                ) from exc
+            if amount < 0:
+                raise ValueError(f"Catalog entry #{entry_index} in {catalog_path} has negative price '{denom}'.")
+            normalized[denom] = amount
+        if not normalized:
+            raise ValueError(f"Catalog entry #{entry_index} in {catalog_path} must include at least one price denomination.")
+        return normalized
+
+    def _load_shop_catalog_normalized(self) -> List[Dict[str, Any]]:
+        items_dir = self._resolve_items_dir()
+        if items_dir is None:
+            raise ValueError("Items directory is unavailable; cannot load shop catalog.")
+
+        definitions_by_bucket = self._load_shop_item_definitions(items_dir)
+        catalog_path = items_dir / "Shop" / "catalog.yaml"
+        if not catalog_path.exists():
+            raise ValueError(f"Shop catalog YAML not found at {catalog_path}.")
+        try:
+            parsed = yaml.safe_load(catalog_path.read_text(encoding="utf-8")) if yaml is not None else None
+        except Exception as exc:
+            raise ValueError(f"Failed to parse shop catalog YAML at {catalog_path}: {exc}") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError(f"Shop catalog YAML at {catalog_path} must parse to a mapping.")
+
+        entries = parsed.get("entries")
+        if not isinstance(entries, list):
+            raise ValueError(f"Shop catalog YAML at {catalog_path} must contain an 'entries' list.")
+
+        seen_keys: set[Tuple[str, str]] = set()
+        normalized_entries: List[Dict[str, Any]] = []
+        for idx, raw_entry in enumerate(entries):
+            entry_index = idx + 1
+            if not isinstance(raw_entry, dict):
+                raise ValueError(f"Catalog entry #{entry_index} in {catalog_path} must be a mapping.")
+            item_bucket = str(raw_entry.get("item_bucket") or "").strip().lower()
+            item_id = str(raw_entry.get("item_id") or "").strip().lower()
+            if item_bucket not in definitions_by_bucket:
+                raise ValueError(f"Catalog entry #{entry_index} in {catalog_path} has unknown item_bucket '{item_bucket}'.")
+            if not item_id:
+                raise ValueError(f"Catalog entry #{entry_index} in {catalog_path} is missing item_id.")
+            pair_key = (item_bucket, item_id)
+            if pair_key in seen_keys:
+                raise ValueError(f"Catalog entry #{entry_index} in {catalog_path} duplicates ({item_bucket}, {item_id}).")
+            seen_keys.add(pair_key)
+
+            definitions = definitions_by_bucket[item_bucket]
+            definition = definitions.get(item_id)
+            if not isinstance(definition, dict):
+                raise ValueError(
+                    f"Catalog entry #{entry_index} in {catalog_path} references missing definition ({item_bucket}, {item_id})."
+                )
+
+            enabled = raw_entry.get("enabled")
+            if not isinstance(enabled, bool):
+                raise ValueError(f"Catalog entry #{entry_index} in {catalog_path} has non-boolean 'enabled'.")
+            shop_category = str(raw_entry.get("shop_category") or "").strip()
+            if not shop_category:
+                raise ValueError(f"Catalog entry #{entry_index} in {catalog_path} is missing shop_category.")
+
+            normalized: Dict[str, Any] = {
+                "item_id": item_id,
+                "item_bucket": item_bucket,
+                "name": str(definition.get("name") or item_id).strip() or item_id,
+                "type": str(definition.get("type") or item_bucket).strip() or item_bucket,
+                "shop_category": shop_category,
+                "enabled": enabled,
+                "price": self._normalize_shop_catalog_price(raw_entry.get("price"), catalog_path=catalog_path, entry_index=entry_index),
+                "definition_path": str(definition.get("_definition_path") or ""),
+            }
+            for optional_key in ("description", "category", "consumable_type", "requires_attunement"):
+                if optional_key in definition:
+                    normalized[optional_key] = copy.deepcopy(definition.get(optional_key))
+            normalized_entries.append(normalized)
+
+        return normalized_entries
+
     def _normalize_inventory_item_entries(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
         inventory = profile.get("inventory") if isinstance(profile.get("inventory"), dict) else {}
         items = inventory.get("items") if isinstance(inventory.get("items"), list) else []
