@@ -14020,7 +14020,14 @@ class InitiativeTracker(base.InitiativeTracker):
             10: [4, 3], 11: [4, 3], 12: [4, 3], 13: [4, 3, 2], 14: [4, 3, 2], 15: [4, 3, 2],
             16: [4, 3, 3], 17: [4, 3, 3], 18: [4, 3, 3], 19: [4, 3, 3, 1], 20: [4, 3, 3, 1],
         }
-        table = full if progression == "full" else (third if progression == "third" else half)
+        if progression == "full":
+            table = full
+        elif progression == "half":
+            table = half
+        elif progression == "third":
+            table = third
+        else:
+            table = {}
         row = table.get(max(1, min(20, int(level or 1))), [])
         slots = {str(i): {"max": 0, "current": 0} for i in range(1, 10)}
         for idx, value in enumerate(row, start=1):
@@ -14032,24 +14039,38 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _spell_slot_progression_from_profile(self, leveling: Dict[str, Any], spellcasting: Dict[str, Any]) -> str:
         raw_progression = str(spellcasting.get("slot_progression") or "").strip().lower()
-        if raw_progression in {"full", "half", "third"}:
+        if raw_progression in {"full", "half", "third", "none", "pact_only"}:
+            if raw_progression == "pact_only":
+                return "none"
             return raw_progression
         classes = leveling.get("classes") if isinstance(leveling, dict) else None
-        class_name = ""
-        if isinstance(classes, list) and classes:
-            first = classes[0]
-            if isinstance(first, dict):
-                class_name = str(first.get("name") or "").strip().lower()
         full_casters = {"bard", "cleric", "druid", "sorcerer", "wizard"}
         half_casters = {"paladin", "ranger", "artificer"}
-        third_casters = {"arcane trickster", "eldritch knight"}
-        if class_name in full_casters:
-            return "full"
-        if class_name in half_casters:
-            return "half"
-        if class_name in third_casters:
-            return "third"
-        return "full"
+        standard_progressions: List[str] = []
+
+        if isinstance(classes, list):
+            for entry in classes:
+                if not isinstance(entry, dict):
+                    continue
+                class_name = str(entry.get("name") or "").strip().lower()
+                subclass_name = str(entry.get("subclass") or "").strip().lower()
+                progression = "none"
+                if class_name in full_casters:
+                    progression = "full"
+                elif class_name in half_casters:
+                    progression = "half"
+                elif class_name == "rogue" and subclass_name == "arcane trickster":
+                    progression = "third"
+                elif class_name == "fighter" and subclass_name == "eldritch knight":
+                    progression = "third"
+                elif subclass_name in {"arcane trickster", "eldritch knight"}:
+                    progression = "third"
+                if progression in {"full", "half", "third"}:
+                    standard_progressions.append(progression)
+
+        if standard_progressions:
+            return standard_progressions[0]
+        return "none"
 
     def _write_spell_yaml_atomic(self, path: Path, payload: Dict[str, Any]) -> None:
         if yaml is None:
@@ -14897,7 +14918,8 @@ class InitiativeTracker(base.InitiativeTracker):
             if slots_total <= 0 and bool(spellcasting):
                 level_value = self._coerce_level_value(leveling)
                 progression = self._spell_slot_progression_from_profile(leveling, spellcasting)
-                spellcasting["spell_slots"] = self._default_spell_slots_for_level(level_value, progression)
+                if progression in {"full", "half", "third"}:
+                    spellcasting["spell_slots"] = self._default_spell_slots_for_level(level_value, progression)
         else:
             spellcasting["spell_slots"] = self._normalize_spell_slots(None)
 

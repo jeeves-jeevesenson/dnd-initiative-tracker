@@ -96,6 +96,8 @@ class PlayerYamlValidityTests(unittest.TestCase):
         self.assertEqual((spellcasting.get("casting_ability")), "cha")
         self.assertEqual((spellcasting.get("pact_magic_slots") or {}).get("level"), 4)
         self.assertEqual((spellcasting.get("pact_magic_slots") or {}).get("count"), 2)
+        spell_slots = spellcasting.get("spell_slots") or {}
+        self.assertTrue(all(int(((spell_slots.get(str(level)) or {}).get("max")) or 0) == 0 for level in range(1, 10)))
         cantrips = ((spellcasting.get("cantrips") or {}).get("known") or [])
         self.assertEqual(cantrips, ["eldritch-blast", "poison-spray", "prestidigitation"])
 
