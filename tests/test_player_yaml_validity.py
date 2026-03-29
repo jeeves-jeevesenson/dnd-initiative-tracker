@@ -58,22 +58,42 @@ class PlayerYamlValidityTests(unittest.TestCase):
         ring_inventory = next((entry for entry in inventory_items if (entry or {}).get("id") == "ring_of_greater_invisibility"), {})
         self.assertEqual(ring_inventory.get("name"), "Ring of Greater Invisibility")
 
-    def test_vicnor_ac_source_and_language_typo_cleanup(self):
+    def test_vicnor_migrated_rogue_warlock_sheet(self):
         data = self._load("players/vicnor.yaml")
-        ac_sources = (((data.get("defenses") or {}).get("ac") or {}).get("sources") or [])
-        self.assertTrue(ac_sources)
-        first_source = ac_sources[0]
-        self.assertTrue(str(first_source.get("id") or "").strip())
-        self.assertTrue(str(first_source.get("label") or "").strip())
-        languages = ((data.get("proficiency") or {}).get("languages") or [])
-        self.assertNotIn("Theives Cant", languages)
-        self.assertIn("Thieves Cant", languages)
+
+        identity = data.get("identity") or {}
+        self.assertEqual(identity.get("ancestry"), "Kobold")
+        self.assertEqual(identity.get("background"), "Pirate")
+        self.assertEqual(identity.get("alignment"), "Lawful Neutral")
+
+        leveling = data.get("leveling") or {}
+        self.assertEqual(leveling.get("level"), 10)
+        classes = {(entry or {}).get("name"): (entry or {}) for entry in (leveling.get("classes") or [])}
+        self.assertEqual((classes.get("Rogue") or {}).get("level"), 3)
+        self.assertEqual((classes.get("Rogue") or {}).get("subclass"), "Swashbuckler")
+        self.assertEqual((classes.get("Warlock") or {}).get("level"), 7)
+        self.assertEqual((classes.get("Warlock") or {}).get("subclass"), "The Noble Genie")
+
+        self.assertEqual(data.get("abilities"), {"str": 6, "dex": 16, "con": 12, "int": 7, "wis": 14, "cha": 18})
+        vitals = data.get("vitals") or {}
+        self.assertEqual(vitals.get("max_hp"), 60)
+        self.assertEqual(vitals.get("current_hp"), 51)
+        self.assertEqual(((vitals.get("speed") or {}).get("walk")), 30)
+
+        proficiency = data.get("proficiency") or {}
+        self.assertEqual(set(proficiency.get("saves") or []), {"DEX", "INT"})
+        skills = proficiency.get("skills") or {}
+        self.assertIn("Acrobatics", skills.get("expertise") or [])
+        self.assertIn("Deception", skills.get("expertise") or [])
+
+        self.assertEqual((((data.get("inventory") or {}).get("currency") or {}).get("gp")), 100)
+
         spellcasting = data.get("spellcasting") or {}
-        self.assertEqual((spellcasting.get("pact_magic_slots") or {}).get("level"), 1)
-        self.assertEqual((spellcasting.get("pact_magic_slots") or {}).get("count"), 1)
-        self.assertEqual(((spellcasting.get("spell_slots") or {}).get("1") or {}).get("max"), 1)
-        self.assertEqual(((spellcasting.get("cantrips") or {}).get("known") or []), ["eldritch-blast", "mage-hand"])
-        self.assertEqual(((spellcasting.get("prepared_spells") or {}).get("prepared") or []), ["hex", "armor-of-agathys", "absorb-elements"])
+        self.assertEqual((spellcasting.get("casting_ability")), "cha")
+        self.assertEqual((spellcasting.get("pact_magic_slots") or {}).get("level"), 4)
+        self.assertEqual((spellcasting.get("pact_magic_slots") or {}).get("count"), 2)
+        cantrips = ((spellcasting.get("cantrips") or {}).get("known") or [])
+        self.assertEqual(cantrips, ["eldritch-blast", "poison-spray", "prestidigitation"])
 
 
     def test_dorian_paladins_smite_feature_present(self):
