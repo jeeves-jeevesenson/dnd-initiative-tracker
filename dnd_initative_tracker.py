@@ -2648,6 +2648,34 @@ class LanController:
             except CharacterApiError as exc:
                 raise HTTPException(status_code=exc.status_code, detail=exc.detail)
 
+        @self._fastapi_app.post("/api/characters/{name}/inventory/items/{instance_id}/equip")
+        async def equip_inventory_magic_item(name: str, instance_id: str):
+            try:
+                return self.app._mutate_owned_magic_item_state(name, instance_id, "equip")
+            except CharacterApiError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+        @self._fastapi_app.post("/api/characters/{name}/inventory/items/{instance_id}/unequip")
+        async def unequip_inventory_magic_item(name: str, instance_id: str):
+            try:
+                return self.app._mutate_owned_magic_item_state(name, instance_id, "unequip")
+            except CharacterApiError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+        @self._fastapi_app.post("/api/characters/{name}/inventory/items/{instance_id}/attune")
+        async def attune_inventory_magic_item(name: str, instance_id: str):
+            try:
+                return self.app._mutate_owned_magic_item_state(name, instance_id, "attune")
+            except CharacterApiError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+        @self._fastapi_app.post("/api/characters/{name}/inventory/items/{instance_id}/unattune")
+        async def unattune_inventory_magic_item(name: str, instance_id: str):
+            try:
+                return self.app._mutate_owned_magic_item_state(name, instance_id, "unattune")
+            except CharacterApiError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=exc.detail)
+
         @self._fastapi_app.post("/api/characters/upload")
         async def upload_character(payload: Dict[str, Any] = Body(...)):
             try:
@@ -14480,6 +14508,128 @@ class InitiativeTracker(base.InitiativeTracker):
         files = list(players_dir.glob("*.yaml")) + list(players_dir.glob("*.yml"))
         files.sort(key=lambda path: path.name.lower())
         return [path.name for path in files]
+
+
+    def _find_owned_inventory_item_by_instance_id(
+        self,
+        profile: Dict[str, Any],
+        instance_id: Any,
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[List[Dict[str, Any]]], Optional[int]]:
+        target_instance_id = str(instance_id or "").strip()
+        if not target_instance_id:
+            return None, None, None
+        inventory = profile.get("inventory") if isinstance(profile.get("inventory"), dict) else {}
+        items = inventory.get("items") if isinstance(inventory.get("items"), list) else None
+        if not isinstance(items, list):
+            return None, None, None
+        for index, entry in enumerate(items):
+            if not isinstance(entry, dict):
+                continue
+            if str(entry.get("instance_id") or "").strip() == target_instance_id:
+                return entry, items, index
+        return None, items, None
+
+    def _resolve_inventory_magic_item_definition(self, entry: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        registry = self._magic_items_registry_payload()
+        if not isinstance(registry, dict) or not registry:
+            return None
+        item_id = str(entry.get("id") or "").strip().lower()
+        if item_id:
+            item = registry.get(item_id)
+            if isinstance(item, dict):
+                return item
+            return None
+
+        item_name = str(entry.get("name") or "").strip().lower()
+        if not item_name:
+            return None
+        matches = [payload for payload in registry.values() if isinstance(payload, dict) and str(payload.get("name") or "").strip().lower() == item_name]
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
+    def _mutate_owned_magic_item_state(self, name: str, instance_id: str, operation: str) -> Dict[str, Any]:
+        player_name = str(name or "").strip()
+        if not player_name:
+            raise CharacterApiError(status_code=404, detail={"error": "not_found", "message": "Character not found."})
+        path = self._resolve_character_path(player_name)
+        if path is None:
+            raise CharacterApiError(status_code=404, detail={"error": "not_found", "message": "Character not found."})
+
+        target_instance_id = str(instance_id or "").strip()
+        if not target_instance_id:
+            raise CharacterApiError(
+                status_code=404,
+                detail={"error": "not_found", "message": "Owned inventory item not found for instance_id."},
+            )
+
+        raw = self._load_character_raw(path)
+        entry, _, _ = self._find_owned_inventory_item_by_instance_id(raw, target_instance_id)
+        if not isinstance(entry, dict):
+            raise CharacterApiError(
+                status_code=404,
+                detail={"error": "not_found", "message": "Owned inventory item not found for instance_id."},
+            )
+
+        magic_item_def = self._resolve_inventory_magic_item_definition(entry)
+        item_id = str(entry.get("id") or "").strip().lower()
+        if item_id and magic_item_def is None:
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "invalid_operation", "message": "Target inventory entry is not a magic item."},
+            )
+        if magic_item_def is None:
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "invalid_operation", "message": "Unable to resolve magic item definition for inventory entry."},
+            )
+
+        normalized_operation = str(operation or "").strip().lower()
+        if normalized_operation == "equip":
+            entry["equipped"] = True
+        elif normalized_operation == "unequip":
+            entry["equipped"] = False
+        elif normalized_operation == "attune":
+            requires_attunement = bool(magic_item_def.get("requires_attunement") is True)
+            if not requires_attunement:
+                raise CharacterApiError(
+                    status_code=400,
+                    detail={
+                        "error": "invalid_operation",
+                        "message": "Target magic item does not require attunement.",
+                    },
+                )
+            if entry.get("attuned") is not True:
+                attuned_count = 0
+                for owned in self._normalize_owned_magic_inventory_items(raw):
+                    if not isinstance(owned, dict):
+                        continue
+                    if str(owned.get("instance_id") or "").strip() == target_instance_id:
+                        continue
+                    if owned.get("attuned") is True:
+                        attuned_count += 1
+                if attuned_count >= 3:
+                    raise CharacterApiError(
+                        status_code=400,
+                        detail={"error": "invalid_operation", "message": "Attunement limit (3) has been reached."},
+                    )
+            entry["attuned"] = True
+        elif normalized_operation == "unattune":
+            entry["attuned"] = False
+        else:
+            raise CharacterApiError(
+                status_code=400,
+                detail={"error": "invalid_operation", "message": f"Unsupported inventory item mutation '{operation}'."},
+            )
+
+        profile = self._store_character_yaml(path, raw)
+        return {
+            "ok": True,
+            "instance_id": target_instance_id,
+            "equipped": bool(entry.get("equipped") is True),
+            "attuned": bool(entry.get("attuned") is True),
+            "player": profile,
+        }
 
     def _get_character_payload(self, name: str) -> Dict[str, Any]:
         path = self._resolve_character_path(name)
