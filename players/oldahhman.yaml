@@ -89,7 +89,9 @@ attacks:
       damage_type: ''
     properties: []
     effect:
-      on_hit: Martial Arts baseline at Monk 10 uses a d8. Monk rules allow Dexterity instead of Strength for attack/damage rolls; this entry currently uses the best-fit ability score formula for now.
+      on_hit: Martial Arts baseline at Monk 10 uses a d8. Monk rules allow Dexterity
+        instead of Strength for attack/damage rolls; this entry currently uses the
+        best-fit ability score formula for now.
       save_ability: ''
       save_dc: 0
 resources:
@@ -104,34 +106,35 @@ resources:
     current: 1
     max_formula: '1'
     reset: long_rest
-  - id: ring_of_greater_invisibility
-    label: Ring of Greater Invisibility
-    current: 1
-    max_formula: '1'
-    reset: long_rest
 features:
 - id: monks_focus
   name: Monk's Focus
   category: Monk Feature
   source: PHB2024
   level: 2
-  description: Focus save DC = 8 + prof + wis_mod. Baseline Focus spenders include Flurry of Blows, Patient Defense, and Step of the Wind.
+  description: Focus save DC = 8 + prof + wis_mod. Baseline Focus spenders include
+    Flurry of Blows, Patient Defense, and Step of the Wind.
 - id: warrior_of_the_elements
   name: Warrior of the Elements
   category: Monk Subclass Feature
   source: PHB2024
   level: 3
-  description: Elemental Attunement, Elemental Burst, and Manipulate Elements (Elementalism known).
+  description: Elemental Attunement, Elemental Burst, and Manipulate Elements (Elementalism
+    known).
 - id: lucky
   name: Lucky
   category: Feat
   source: Player Notes
-  description: Gain Luck Points that can be spent to reroll d20 checks as described by the Lucky feat. Tracked manually for now.
+  description: Gain Luck Points that can be spent to reroll d20 checks as described
+    by the Lucky feat. Tracked manually for now.
 - id: sentinel
   name: Sentinel
   category: Feat
   source: PHB2024
-  description: When a hostile creature moves out of your reach, you can make an opportunity attack; on hit, the target speed becomes 0 for the rest of the turn. You can also make this reaction against nearby creatures that Disengage or attack someone other than you.
+  description: When a hostile creature moves out of your reach, you can make an opportunity
+    attack; on hit, the target speed becomes 0 for the rest of the turn. You can also
+    make this reaction against nearby creatures that Disengage or attack someone other
+    than you.
 - id: charger
   name: Charger
   category: Feat
@@ -146,7 +149,10 @@ features:
   name: Fight or Flight
   category: Custom Feature
   source: Homebrew (Player Notes)
-  description: "Trigger: when HP drops below 18. Choose Strength (fight) or Dexterity (flight). For 1 minute, gain advantage on all saving throws, ability checks, and attack rolls using the chosen ability. When the effect ends, become incapacitated. Track trigger/duration manually."
+  description: 'Trigger: when HP drops below 18. Choose Strength (fight) or Dexterity
+    (flight). For 1 minute, gain advantage on all saving throws, ability checks, and
+    attack rolls using the chosen ability. When the effect ends, become incapacitated.
+    Track trigger/duration manually.'
 actions:
 - name: Attack
   description: Make a weapon or unarmed attack against a target within range.
@@ -213,7 +219,7 @@ bonus_actions:
 - name: Step of the Wind (Dash + Disengage)
   description: Spend 1 Focus to Dash and Disengage as a bonus action.
   type: bonus_action
-- name: "Martial Arts: Bonus Unarmed Strike"
+- name: 'Martial Arts: Bonus Unarmed Strike'
   description: Make 1 unarmed strike as a bonus action.
   type: bonus_action
 - name: Flurry of Blows
@@ -281,6 +287,13 @@ inventory:
     equipped: true
     attuned: true
     description: Can grant greater invisibility until long rest; requires attunement.
+    state:
+      pools:
+      - id: ring_of_greater_invisibility
+        label: Ring of Greater Invisibility
+        current: 1
+        max_formula: '1'
+        reset: long_rest
   - id: bracers_of_defense
     name: Bracers of Defense
     quantity: 1
@@ -310,9 +323,14 @@ inventory:
     description: Ask about bone armor for Stephen.
 notes:
   note_1: Speed is 30 (human) + 20 (monk) = 50 walk.
-  note_2: Tinker's Tools crafting rule - spend one long rest and 20 gp to craft a pistol/musket to make it permanent.
-  note_3: Proficient with all simple and martial weapons with the light property (manual reminder).
-  note_4: Playstyle - fight up close with team; run in and use Flurry of Blows for up to 5 attacks.
-  note_5: Use push on last attack so target cannot opportunity attack, then reposition near teammates to exploit Sentinel.
-  note_6: Opportunity attack reminder - can occur when enemies leave reach willingly or unwillingly.
-  note_7: "Future wishlist (not owned/equipped): Unarmed Wraps."
+  note_2: Tinker's Tools crafting rule - spend one long rest and 20 gp to craft a
+    pistol/musket to make it permanent.
+  note_3: Proficient with all simple and martial weapons with the light property (manual
+    reminder).
+  note_4: Playstyle - fight up close with team; run in and use Flurry of Blows for
+    up to 5 attacks.
+  note_5: Use push on last attack so target cannot opportunity attack, then reposition
+    near teammates to exploit Sentinel.
+  note_6: Opportunity attack reminder - can occur when enemies leave reach willingly
+    or unwillingly.
+  note_7: 'Future wishlist (not owned/equipped): Unarmed Wraps.'

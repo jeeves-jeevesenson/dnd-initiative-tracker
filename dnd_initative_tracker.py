@@ -6287,6 +6287,168 @@ class InitiativeTracker(base.InitiativeTracker):
             normalized.append(normalized_entry)
         return normalized
 
+    def _normalize_inventory_item_granted_pools(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
+        registry = self._magic_items_registry_payload()
+        if not registry:
+            return []
+        player_name = str(profile.get("name") or "unknown").strip() or "unknown"
+        projected: List[Dict[str, Any]] = []
+        seen_pool_ids: set[str] = set()
+        for entry in self._normalize_owned_magic_inventory_items(profile):
+            if not isinstance(entry, dict):
+                continue
+            item_id = str(entry.get("id") or "").strip().lower()
+            if not item_id:
+                continue
+            item = registry.get(item_id)
+            if not isinstance(item, dict):
+                self._oplog(
+                    f"Player YAML {player_name}: equipped magic item '{item_id}' not found in Items/Magic_Items.",
+                    level="warning",
+                )
+                continue
+            if not bool(entry.get("equipped") is True):
+                continue
+            requires_attunement = bool(item.get("requires_attunement") is True)
+            if requires_attunement and bool(entry.get("attuned") is not True):
+                continue
+            grants = item.get("grants") if isinstance(item.get("grants"), dict) else {}
+            template_pools = grants.get("pools") if isinstance(grants.get("pools"), list) else []
+            template_by_id: Dict[str, Dict[str, Any]] = {}
+            for pool in template_pools:
+                if not isinstance(pool, dict):
+                    continue
+                pid = str(pool.get("id") or "").strip()
+                if not pid:
+                    continue
+                template_by_id[pid.lower()] = dict(pool)
+            state = entry.get("state") if isinstance(entry.get("state"), dict) else {}
+            state_pools = state.get("pools") if isinstance(state.get("pools"), list) else []
+            state_by_id: Dict[str, Dict[str, Any]] = {}
+            for pool in state_pools:
+                if not isinstance(pool, dict):
+                    continue
+                pid = str(pool.get("id") or "").strip()
+                if not pid:
+                    continue
+                state_by_id[pid.lower()] = dict(pool)
+            pool_keys = set(template_by_id.keys()) | set(state_by_id.keys())
+            for pool_key in pool_keys:
+                template = template_by_id.get(pool_key, {})
+                stored = state_by_id.get(pool_key, {})
+                pool_id = str(template.get("id") or stored.get("id") or "").strip()
+                if not pool_id:
+                    continue
+                pool_lower = pool_id.lower()
+                if pool_lower in seen_pool_ids:
+                    continue
+                seen_pool_ids.add(pool_lower)
+                label = str(stored.get("label") or template.get("label") or pool_id).strip() or pool_id
+                reset = str(stored.get("reset") or template.get("reset") or "manual").strip().lower() or "manual"
+                max_formula = str(stored.get("max_formula") or template.get("max_formula") or "").strip()
+                max_fallback = stored.get("max", template.get("max", 0))
+                max_value = self._compute_resource_pool_max(profile, max_formula, max_fallback)
+                try:
+                    current_value = int(stored.get("current", template.get("current", max_value)))
+                except Exception:
+                    current_value = max_value
+                current_value = max(0, min(current_value, max_value))
+                payload = {
+                    "id": pool_id,
+                    "label": label,
+                    "current": current_value,
+                    "max": max_value,
+                    "max_formula": max_formula,
+                    "reset": reset,
+                    "source_type": "inventory_item",
+                    "source_item_id": item_id,
+                    "source_item_name": str(item.get("name") or item_id).strip() or item_id,
+                }
+                if int(stored.get("gain_on_short") or template.get("gain_on_short") or 0) > 0:
+                    payload["gain_on_short"] = int(stored.get("gain_on_short") or template.get("gain_on_short") or 0)
+                projected.append(payload)
+        return projected
+
+    def _ensure_inventory_item_state_pool(
+        self,
+        inventory_entry: Dict[str, Any],
+        pool_id: str,
+        template: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        if not isinstance(inventory_entry, dict):
+            return None
+        target = str(pool_id or "").strip().lower()
+        if not target:
+            return None
+        state = inventory_entry.get("state") if isinstance(inventory_entry.get("state"), dict) else {}
+        pools = state.get("pools") if isinstance(state.get("pools"), list) else []
+        for pool in pools:
+            if not isinstance(pool, dict):
+                continue
+            if str(pool.get("id") or "").strip().lower() == target:
+                return pool
+        seed = dict(template) if isinstance(template, dict) else {"id": target}
+        if not str(seed.get("id") or "").strip():
+            seed["id"] = target
+        pools.append(seed)
+        state = dict(state)
+        state["pools"] = pools
+        inventory_entry["state"] = state
+        return seed
+
+    def _resolve_active_inventory_item_pool_state(
+        self,
+        raw_profile: Dict[str, Any],
+        pool_id: Any,
+    ) -> Optional[Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]]:
+        target_pool = str(pool_id or "").strip().lower()
+        if not target_pool or not isinstance(raw_profile, dict):
+            return None
+        registry = self._magic_items_registry_payload()
+        inventory = raw_profile.get("inventory") if isinstance(raw_profile.get("inventory"), dict) else {}
+        items = inventory.get("items") if isinstance(inventory.get("items"), list) else []
+        for entry in items:
+            if not isinstance(entry, dict):
+                continue
+            item_id = str(entry.get("id") or "").strip().lower()
+            if not item_id:
+                continue
+            item_def = registry.get(item_id)
+            if not isinstance(item_def, dict):
+                continue
+            if bool(entry.get("equipped") is not True):
+                continue
+            requires_attunement = bool(item_def.get("requires_attunement") is True)
+            if requires_attunement and bool(entry.get("attuned") is not True):
+                continue
+            grants = item_def.get("grants") if isinstance(item_def.get("grants"), dict) else {}
+            template = None
+            for pool in grants.get("pools") if isinstance(grants.get("pools"), list) else []:
+                if not isinstance(pool, dict):
+                    continue
+                if str(pool.get("id") or "").strip().lower() == target_pool:
+                    template = dict(pool)
+                    break
+            state = entry.get("state") if isinstance(entry.get("state"), dict) else {}
+            state_pools = state.get("pools") if isinstance(state.get("pools"), list) else []
+            state_match = next(
+                (
+                    pool
+                    for pool in state_pools
+                    if isinstance(pool, dict) and str(pool.get("id") or "").strip().lower() == target_pool
+                ),
+                None,
+            )
+            if template is None and state_match is None:
+                continue
+            if template is None and isinstance(state_match, dict):
+                template = dict(state_match)
+            pool_state = self._ensure_inventory_item_state_pool(entry, target_pool, template=template)
+            if not isinstance(pool_state, dict):
+                return None
+            return entry, pool_state, item_def
+        return None
+
     def _active_magic_item_features(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
         registry = self._magic_items_registry_payload()
         if not registry:
@@ -15709,11 +15871,19 @@ class InitiativeTracker(base.InitiativeTracker):
         second_wind_max = self._second_wind_max_uses_for_level(fighter_level)
         lay_on_hands_max = max(0, int(paladin_level) * 5)
         seen_pool_ids: set[str] = set()
+        inventory_item_pools = self._normalize_inventory_item_granted_pools(data)
+        inventory_item_pool_ids = {
+            str(pool.get("id") or "").strip().lower()
+            for pool in inventory_item_pools
+            if isinstance(pool, dict) and str(pool.get("id") or "").strip()
+        }
         for entry in pools:
             if not isinstance(entry, dict):
                 continue
             pool_id = str(entry.get("id") or "").strip()
             if not pool_id:
+                continue
+            if pool_id.lower() in inventory_item_pool_ids:
                 continue
             seen_pool_ids.add(pool_id.lower())
             label = str(entry.get("label") or pool_id).strip() or pool_id
@@ -15801,6 +15971,7 @@ class InitiativeTracker(base.InitiativeTracker):
                     "reset": "long_rest",
                 }
             )
+        normalized.extend(inventory_item_pools)
         normalized.extend(self._derive_consumable_resource_pools_from_inventory(data))
         return normalized
 
@@ -16328,28 +16499,39 @@ class InitiativeTracker(base.InitiativeTracker):
         raw = self._player_yaml_cache_by_path.get(player_path) if player_path else None
         if not isinstance(raw, dict):
             return False, "No resource pools set up for that caster, matey."
-        resources = raw.get("resources") if isinstance(raw.get("resources"), dict) else {}
-        pools = resources.get("pools") if isinstance(resources.get("pools"), list) else []
-        target_entry = None
-        for entry in pools:
-            if not isinstance(entry, dict):
-                continue
-            if str(entry.get("id") or "").strip().lower() == target_pool.lower():
-                target_entry = entry
-                break
-        if target_entry is None:
-            return False, "That spell pool could not be found, matey."
-        try:
-            current_value = int(target_entry.get("current", 0))
-        except Exception:
-            current_value = 0
-        if current_value < spend_cost:
-            return False, "That resource pool be exhausted, matey."
-        target_entry["current"] = current_value - spend_cost
-        resources = dict(resources)
-        resources["pools"] = pools
-        raw = dict(raw)
-        raw["resources"] = resources
+        item_owned_pool = self._resolve_active_inventory_item_pool_state(raw, target_pool)
+        if item_owned_pool is not None:
+            _item_entry, pool_state, _item_def = item_owned_pool
+            try:
+                current_value = int(pool_state.get("current", 0))
+            except Exception:
+                current_value = 0
+            if current_value < spend_cost:
+                return False, "That resource pool be exhausted, matey."
+            pool_state["current"] = int(current_value - spend_cost)
+        else:
+            resources = raw.get("resources") if isinstance(raw.get("resources"), dict) else {}
+            pools = resources.get("pools") if isinstance(resources.get("pools"), list) else []
+            target_entry = None
+            for entry in pools:
+                if not isinstance(entry, dict):
+                    continue
+                if str(entry.get("id") or "").strip().lower() == target_pool.lower():
+                    target_entry = entry
+                    break
+            if target_entry is None:
+                return False, "That spell pool could not be found, matey."
+            try:
+                current_value = int(target_entry.get("current", 0))
+            except Exception:
+                current_value = 0
+            if current_value < spend_cost:
+                return False, "That resource pool be exhausted, matey."
+            target_entry["current"] = current_value - spend_cost
+            resources = dict(resources)
+            resources["pools"] = pools
+            raw = dict(raw)
+            raw["resources"] = resources
         try:
             self._store_character_yaml(player_path, raw)
         except Exception:
@@ -16532,28 +16714,39 @@ class InitiativeTracker(base.InitiativeTracker):
         raw = self._player_yaml_cache_by_path.get(player_path) if player_path else None
         if not isinstance(raw, dict):
             return False, "No resource pools set up for that caster, matey."
-        resources = raw.get("resources") if isinstance(raw.get("resources"), dict) else {}
-        pools = resources.get("pools") if isinstance(resources.get("pools"), list) else []
-        target_entry = None
-        for entry in pools:
-            if not isinstance(entry, dict):
-                continue
-            if str(entry.get("id") or "").strip().lower() == target_pool.lower():
-                target_entry = entry
-                break
-        if target_entry is None:
-            return False, "That spell pool could not be found, matey."
-        try:
-            max_value = int(target_entry.get("max", current_value))
-        except Exception:
-            max_value = current_value
-        if max_value > 0:
-            current_value = min(current_value, max_value)
-        target_entry["current"] = int(current_value)
-        resources = dict(resources)
-        resources["pools"] = pools
-        raw = dict(raw)
-        raw["resources"] = resources
+        item_owned_pool = self._resolve_active_inventory_item_pool_state(raw, target_pool)
+        if item_owned_pool is not None:
+            _item_entry, pool_state, _item_def = item_owned_pool
+            profile_for_max = self._normalize_player_profile(raw, player_name)
+            max_formula = str(pool_state.get("max_formula") or "").strip()
+            max_fallback = pool_state.get("max", current_value)
+            max_value = self._compute_resource_pool_max(profile_for_max, max_formula, max_fallback)
+            if max_value > 0:
+                current_value = min(current_value, max_value)
+            pool_state["current"] = int(current_value)
+        else:
+            resources = raw.get("resources") if isinstance(raw.get("resources"), dict) else {}
+            pools = resources.get("pools") if isinstance(resources.get("pools"), list) else []
+            target_entry = None
+            for entry in pools:
+                if not isinstance(entry, dict):
+                    continue
+                if str(entry.get("id") or "").strip().lower() == target_pool.lower():
+                    target_entry = entry
+                    break
+            if target_entry is None:
+                return False, "That spell pool could not be found, matey."
+            try:
+                max_value = int(target_entry.get("max", current_value))
+            except Exception:
+                max_value = current_value
+            if max_value > 0:
+                current_value = min(current_value, max_value)
+            target_entry["current"] = int(current_value)
+            resources = dict(resources)
+            resources["pools"] = pools
+            raw = dict(raw)
+            raw["resources"] = resources
         try:
             self._store_character_yaml(player_path, raw)
         except Exception:

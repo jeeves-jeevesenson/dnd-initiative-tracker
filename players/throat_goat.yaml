@@ -115,19 +115,13 @@ resources:
     current: 1
     max_formula: '1'
     reset: long_rest
-  - id: bahamuts_rebuking_claw
-    label: Bahamut's Rebuking Claw
-    current: 1
-    max_formula: '1'
-    reset: long_rest
-  - id: lone_gunslingers_poncho_shield
-    label: The Lone Gunslingers Poncho (Shield)
-    current: 3
-    max_formula: '3'
-    reset: long_rest
 features:
 - name: Beguiling Magic
-  description: "Free rider after casting an Enchantment or Illusion spell with a spell slot (including Pact Magic slots). Arm for 20s, then pick a creature within 60 ft to save vs your spell DC (WIS) or become Charmed/Frightened for up to 1 minute with end-of-turn saves. 1/LR; if spent, restore by spending 1 Bardic Inspiration (no action)."
+  description: Free rider after casting an Enchantment or Illusion spell with a spell
+    slot (including Pact Magic slots). Arm for 20s, then pick a creature within 60
+    ft to save vs your spell DC (WIS) or become Charmed/Frightened for up to 1 minute
+    with end-of-turn saves. 1/LR; if spent, restore by spending 1 Bardic Inspiration
+    (no action).
   grants:
     always_prepared_spells:
     - charm-person
@@ -188,7 +182,8 @@ actions:
   description: Use an object or interact with the environment in a significant way.
   type: action
 - name: Magical Cunning
-  description: Spend 1 minute in an esoteric rite to regain expended Pact Magic spell slots, up to half your maximum (round up).
+  description: Spend 1 minute in an esoteric rite to regain expended Pact Magic spell
+    slots, up to half your maximum (round up).
   type: action
   uses:
     pool: magical_cunning
@@ -199,8 +194,8 @@ reactions:
     use your reaction to make one melee attack against it.
   type: reaction
 - name: Countercharm
-  description: 'When you or a creature within 30 feet fails a save against Charmed
-    or Frightened, use your reaction to let it reroll with advantage.'
+  description: When you or a creature within 30 feet fails a save against Charmed
+    or Frightened, use your reaction to let it reroll with advantage.
   type: reaction
 bonus_actions:
 - name: Bonus Action
@@ -215,17 +210,17 @@ bonus_actions:
     pool: bardic_inspiration
     cost: 1
 - name: Mantle of Inspiration
-  description: 'Expend one Bardic Inspiration use and roll your d8. Up to 5 other
-    creatures within 60 feet each gain temporary HP equal to twice the roll and can
-    use reactions to move up to speed without opportunity attacks.'
+  description: Expend one Bardic Inspiration use and roll your d8. Up to 5 other creatures
+    within 60 feet each gain temporary HP equal to twice the roll and can use reactions
+    to move up to speed without opportunity attacks.
   type: bonus_action
   uses:
     pool: bardic_inspiration
     cost: 1
 - name: Mantle of Majesty
-  description: 'Cast Command without a spell slot and gain a 1-minute aura of unearthly
+  description: Cast Command without a spell slot and gain a 1-minute aura of unearthly
     majesty (concentration). During it, you can cast Command as a bonus action without
-    a slot; creatures charmed by you auto-fail these saves.'
+    a slot; creatures charmed by you auto-fail these saves.
   type: bonus_action
   uses:
     pool: mantle_of_majesty
@@ -316,10 +311,24 @@ inventory:
     quantity: 1
     description: Written on the inside of the cloak is the lyrics for the song "Cool
       Water"
+    state:
+      pools:
+      - id: lone_gunslingers_poncho_shield
+        label: The Lone Gunslingers Poncho (Shield)
+        current: 3
+        max_formula: '3'
+        reset: long_rest
   - id: bahamuts_rebuking_claw
     name: Bahamut's Rebuking Claw
     equipped: true
     attuned: true
     quantity: 1
     description: ''
+    state:
+      pools:
+      - id: bahamuts_rebuking_claw
+        label: Bahamut's Rebuking Claw
+        current: 1
+        max_formula: '1'
+        reset: long_rest
 notes: {}

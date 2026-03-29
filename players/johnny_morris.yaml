@@ -76,7 +76,7 @@ resources:
   - id: wild_shape
     label: Wild Shape
     current: 3
-    max_formula: '2 + (1 if druid_level >= 6 else 0)'
+    max_formula: 2 + (1 if druid_level >= 6 else 0)
     reset: long_rest
     gain_on_short: 1
   - id: wild_resurgence_slot_recovery
@@ -94,22 +94,15 @@ resources:
     current: 1
     max_formula: '1'
     reset: long_rest
-  - id: nature_speaker_necklace_speak_with_plants
-    label: Nature Speaker Necklace (Speak with Plants)
-    current: 1
-    max_formula: '1'
-    reset: long_rest
-  - id: wand_of_fireballs_fireball_cast
-    label: Wand of Fireballs (Fireball)
-    current: 1
-    max_formula: '1'
-    reset: long_rest
 features:
 - id: war_caster
   name: War Caster
   category: Feat
   source: PHB2024
-  description: Somatic components while hands are occupied; Advantage on Constitution saving throws to maintain concentration; when a hostile creature leaves your reach, you can use your Reaction to cast an eligible single-target spell with a casting time of 1 action.
+  description: Somatic components while hands are occupied; Advantage on Constitution
+    saving throws to maintain concentration; when a hostile creature leaves your reach,
+    you can use your Reaction to cast an eligible single-target spell with a casting
+    time of 1 action.
 - id: druidic
   name: Druidic
   category: Druid Feature
@@ -128,10 +121,10 @@ features:
     skill_check_bonuses:
     - id: primal_order_arcana
       skill: Arcana
-      bonus_formula: 'max(1, wis_mod)'
+      bonus_formula: max(1, wis_mod)
     - id: primal_order_nature
       skill: Nature
-      bonus_formula: 'max(1, wis_mod)'
+      bonus_formula: max(1, wis_mod)
 - id: wild_shape
   name: Wild Shape
   category: Druid Feature
@@ -141,7 +134,7 @@ features:
     pools:
     - id: wild_shape
       label: Wild Shape
-      max_formula: '2 + (1 if druid_level >= 6 else 0)'
+      max_formula: 2 + (1 if druid_level >= 6 else 0)
       reset: long_rest
       gain_on_short: 1
     modifiers:
@@ -149,8 +142,9 @@ features:
       trigger: on_activate_wild_shape
       temp_hp_formula: druid_level
     known_forms:
-      max_formula: '4 + (2 if druid_level >= 4 else 0) + (2 if druid_level >= 8 else 0)'
-      max_cr_formula: '0.25 if druid_level < 4 else 0.5 if druid_level < 8 else 1'
+      max_formula: 4 + (2 if druid_level >= 4 else 0) + (2 if druid_level >= 8 else
+        0)
+      max_cr_formula: 0.25 if druid_level < 4 else 0.5 if druid_level < 8 else 1
       allow_fly_speed_formula: druid_level >= 8
 - id: wild_companion
   name: Wild Companion
@@ -187,25 +181,49 @@ features:
       change_on: long_rest
     circle_spells_by_land:
       arid:
-        '3': [blur, burning-hands, fire-bolt]
-        '5': [fireball]
-        '7': [blight]
-        '9': [wall-of-stone]
+        '3':
+        - blur
+        - burning-hands
+        - fire-bolt
+        '5':
+        - fireball
+        '7':
+        - blight
+        '9':
+        - wall-of-stone
       polar:
-        '3': [fog-cloud, hold-person, ray-of-frost]
-        '5': [sleet-storm]
-        '7': [ice-storm]
-        '9': [cone-of-cold]
+        '3':
+        - fog-cloud
+        - hold-person
+        - ray-of-frost
+        '5':
+        - sleet-storm
+        '7':
+        - ice-storm
+        '9':
+        - cone-of-cold
       temperate:
-        '3': [misty-step, shocking-grasp, sleep]
-        '5': [lightning-bolt]
-        '7': [freedom-of-movement]
-        '9': [tree-stride]
+        '3':
+        - misty-step
+        - shocking-grasp
+        - sleep
+        '5':
+        - lightning-bolt
+        '7':
+        - freedom-of-movement
+        '9':
+        - tree-stride
       tropical:
-        '3': [acid-splash, ray-of-sickness, web]
-        '5': [stinking-cloud]
-        '7': [polymorph]
-        '9': [insect-plague]
+        '3':
+        - acid-splash
+        - ray-of-sickness
+        - web
+        '5':
+        - stinking-cloud
+        '7':
+        - polymorph
+        '9':
+        - insect-plague
 - id: lands_aid
   name: Land's Aid
   category: Druid Subclass Feature
@@ -224,9 +242,11 @@ features:
         ability: con
         dc_formula: spell_save_dc
         on_success: half
-      damage_formula: '(2 + (1 if druid_level >= 10 else 0) + (1 if druid_level >= 14 else 0))d6'
+      damage_formula: (2 + (1 if druid_level >= 10 else 0) + (1 if druid_level >=
+        14 else 0))d6
       damage_type: necrotic
-      healing_formula: '(2 + (1 if druid_level >= 10 else 0) + (1 if druid_level >= 14 else 0))d6'
+      healing_formula: (2 + (1 if druid_level >= 10 else 0) + (1 if druid_level >=
+        14 else 0))d6
       consumes:
         pool: wild_shape
         cost: 1
@@ -276,7 +296,7 @@ features:
       name: Natural Recovery (Recover Spell Slots)
       activation: short_rest_end
       effect: recover_spell_slots
-      max_total_levels_formula: 'round_up(druid_level / 2)'
+      max_total_levels_formula: round_up(druid_level / 2)
       max_slot_level: 5
       consumes:
         pool: natural_recovery_slot_recovery
@@ -476,6 +496,13 @@ inventory:
       -Firebolt 2D10
 
       -Fireball 8D6'
+    state:
+      pools:
+      - id: wand_of_fireballs_fireball_cast
+        label: Wand of Fireballs (Fireball)
+        current: 1
+        max_formula: '1'
+        reset: long_rest
   - name: Spine thornwhip 3D6
     quantity: 1
     description: ''
@@ -491,4 +518,11 @@ inventory:
     equipped: true
     attuned: true
     description: Lets you cast speak with plants once per long rest.
+    state:
+      pools:
+      - id: nature_speaker_necklace_speak_with_plants
+        label: Nature Speaker Necklace (Speak with Plants)
+        current: 1
+        max_formula: '1'
+        reset: long_rest
 notes: {}

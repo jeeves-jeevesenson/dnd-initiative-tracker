@@ -45,10 +45,8 @@ class PlayerYamlValidityTests(unittest.TestCase):
     def test_oldahhman_ring_magic_item_automation(self):
         data = self._load("players/oldahhman.yaml")
         pools = (((data.get("resources") or {}).get("pools")) or [])
-        ring_pool = next((entry for entry in pools if (entry or {}).get("id") == "ring_of_greater_invisibility"), {})
-        self.assertEqual(ring_pool.get("current"), 1)
-        self.assertEqual(ring_pool.get("max_formula"), "1")
-        self.assertEqual(ring_pool.get("reset"), "long_rest")
+        ring_pool = next((entry for entry in pools if (entry or {}).get("id") == "ring_of_greater_invisibility"), None)
+        self.assertIsNone(ring_pool)
 
         self.assertNotIn("magic_items", data)
 
@@ -57,6 +55,11 @@ class PlayerYamlValidityTests(unittest.TestCase):
         self.assertEqual(ring_inventory.get("name"), "Ring of Greater Invisibility")
         self.assertTrue(bool(ring_inventory.get("equipped")))
         self.assertTrue(bool(ring_inventory.get("attuned")))
+        ring_state_pools = ((ring_inventory.get("state") or {}).get("pools")) or []
+        ring_state = next((entry for entry in ring_state_pools if (entry or {}).get("id") == "ring_of_greater_invisibility"), {})
+        self.assertEqual(ring_state.get("current"), 1)
+        self.assertEqual(ring_state.get("max_formula"), "1")
+        self.assertEqual(ring_state.get("reset"), "long_rest")
         bracers_inventory = next((entry for entry in inventory_items if (entry or {}).get("id") == "bracers_of_defense"), {})
         self.assertEqual(bracers_inventory.get("name"), "Bracers of Defense")
         self.assertTrue(bool(bracers_inventory.get("equipped")))
@@ -184,6 +187,16 @@ class PlayerYamlValidityTests(unittest.TestCase):
     def test_player_yaml_guardrails(self):
         valid_save_keys = {"STR", "DEX", "CON", "INT", "WIS", "CHA"}
         required_speed_keys = {"walk", "climb", "fly", "swim"}
+        migrated_magic_item_pool_ids = {
+            "boots_of_haste",
+            "wand_of_fireballs_fireball_cast",
+            "tyrs_circlet_blessing",
+            "ring_of_greater_invisibility",
+            "nature_speaker_necklace_speak_with_plants",
+            "bahamuts_rebuking_claw",
+            "lone_gunslingers_poncho_shield",
+            "star_advantage",
+        }
         for path in sorted(Path("players").glob("*.yaml")):
             data = self._load(str(path))
             with self.subTest(player=path.name):
@@ -214,6 +227,16 @@ class PlayerYamlValidityTests(unittest.TestCase):
                 self.assertNotIn("magic_items", data, msg=f"{path.name}: top-level magic_items is deprecated; use inventory.items[] flags")
                 inventory = data.get("inventory") if isinstance(data.get("inventory"), dict) else {}
                 self.assertNotIn("equipped", inventory, msg=f"{path.name}: inventory.equipped is deprecated; use per-item equipped flags")
+                pools = (((data.get("resources") or {}).get("pools")) or [])
+                migrated_leftovers = [
+                    str((entry or {}).get("id") or "").strip()
+                    for entry in pools
+                    if str((entry or {}).get("id") or "").strip() in migrated_magic_item_pool_ids
+                ]
+                self.assertFalse(
+                    migrated_leftovers,
+                    msg=f"{path.name}: item-granted pools must be stored under inventory.items[].state.pools; found {migrated_leftovers}",
+                )
 
 
 if __name__ == "__main__":

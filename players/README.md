@@ -889,6 +889,14 @@ inventory:
       quantity: 1
       equipped: true
       attuned: true
+      state:
+        pools:
+          - id: bahamuts_rebuking_claw
+            label: Bahamut's Rebuking Claw
+            current: 1
+            max: 1
+            max_formula: "1"
+            reset: long_rest
 ```
 
 **Field Descriptions:**
@@ -896,6 +904,9 @@ inventory:
 - **id**: Magic item ID (must match YAML in `Items/Magic_Items`)
 - **equipped**: Whether the owned item is currently equipped
 - **attuned**: Whether the owned item is currently attuned
+- **state.pools**: Persistent charge/resource state for this owned magic item
+  - Item-granted pools/charges are stored here (not in top-level `resources.pools`)
+  - Runtime only projects these pools while item is active (`equipped`, and `attuned` if required)
 
 **Magic item YAML format (`Items/Magic_Items/*.yaml`)**
 

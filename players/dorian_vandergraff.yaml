@@ -103,18 +103,6 @@ resources:
     max: 50
     max_formula: paladin_level * 5
     reset: long_rest
-  - id: boots_of_haste
-    label: Boots of Haste
-    current: 1
-    max: 1
-    max_formula: '1'
-    reset: long_rest
-  - id: tyrs_circlet_blessing
-    label: Blessed by Tyr
-    current: 1
-    max: 1
-    max_formula: '1'
-    reset: long_rest
   - id: faithful_steed
     label: Faithful Steed (Find Steed)
     current: 1
@@ -171,17 +159,21 @@ features:
         id: protected
         name: Protected
         icon: 🛡️
-        description_template: '{source_name}s oath protects you. Gain a +{save_bonus} and resistance to Necrotic, Psychic and Radiant damage'
+        description_template: '{source_name}s oath protects you. Gain a +{save_bonus}
+          and resistance to Necrotic, Psychic and Radiant damage'
 - id: fighting_style_defense
   name: 'Fighting Style: Defense (+1 AC)'
   passive: true
-  description: The Defense Fighting Style (now classified as a Fighting Style Feat) still provides a +1 bonus to your Armor Class while you are wearing Light, Medium, or Heavy armor.
+  description: The Defense Fighting Style (now classified as a Fighting Style Feat)
+    still provides a +1 bonus to your Armor Class while you are wearing Light, Medium,
+    or Heavy armor.
 - id: faithful_steed
   name: Faithful Steed
   category: Paladin Feature
   source: PHB2024
   level: 5
-  description: You always have Find Steed prepared. You can cast it once without expending a spell slot, regaining this free cast when you finish a Long Rest.
+  description: You always have Find Steed prepared. You can cast it once without expending
+    a spell slot, regaining this free cast when you finish a Long Rest.
   grants:
     always_prepared_spells:
     - find-steed
@@ -202,7 +194,8 @@ features:
   category: Paladin Feature
   source: PHB2024
   level: 2
-  description: You always have Divine Smite prepared. You can cast it once without expending a spell slot, regaining this free cast when you finish a Long Rest.
+  description: You always have Divine Smite prepared. You can cast it once without
+    expending a spell slot, regaining this free cast when you finish a Long Rest.
   grants:
     always_prepared_spells:
     - divine-smite
@@ -364,6 +357,14 @@ inventory:
     equipped: true
     attuned: true
     description: Attuned.
+    state:
+      pools:
+      - id: boots_of_haste
+        label: Boots of Haste
+        current: 1
+        max: 1
+        max_formula: '1'
+        reset: long_rest
   - id: ring_of_desert_sands
     name: The Ring of Desert Sands
     quantity: 1
@@ -377,6 +378,14 @@ inventory:
     equipped: true
     attuned: true
     description: Attuned.
+    state:
+      pools:
+      - id: tyrs_circlet_blessing
+        label: Blessed by Tyr
+        current: 1
+        max: 1
+        max_formula: '1'
+        reset: long_rest
   - name: Plate Armor
     quantity: 1
     description: AC 18. Strength 15 required (or -10 ft Speed). Stealth checks at

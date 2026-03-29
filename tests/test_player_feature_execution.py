@@ -421,7 +421,9 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
         self.assertIn("Wild Companion", action_names)
         self.assertIn("Natural Recovery (Recover Spell Slots)", action_names)
         pools = {str(entry.get("id") or "") for entry in (resources.get("pools") or []) if isinstance(entry, dict)}
-        self.assertIn("wand_of_fireballs_fireball_cast", pools)
+        self.assertNotIn("wand_of_fireballs_fireball_cast", pools)
+        projected_pool_ids = {str(entry.get("id") or "") for entry in app._normalize_player_resource_pools(normalized)}
+        self.assertIn("wand_of_fireballs_fireball_cast", projected_pool_ids)
         cantrips = (((normalized.get("spellcasting") or {}).get("cantrips") or {}).get("known") or [])
         self.assertIn("fire-bolt", cantrips)
         pool_spells = app._player_pool_granted_spells(normalized)
