@@ -466,8 +466,11 @@ inventory:
   - name: Grease staff
     quantity: 1
     description: red storage B1
-  - name: 'Fire wand '
+  - id: wand_of_fireballs
+    name: 'Fire wand '
     quantity: 1
+    equipped: true
+    attuned: true
     description: '-Make Bonfire
 
       -Firebolt 2D10
@@ -476,30 +479,16 @@ inventory:
   - name: Spine thornwhip 3D6
     quantity: 1
     description: ''
-  - name: Matteh
-    quantity: 1
-    description: +1 to spell save DC while wielded.
-  - name: Nature Speaker Necklace
-    quantity: 1
-    description: Lets you cast speak with plants once per long rest.
-magic_items:
-  attunement_slots: 3
-  equipped:
-  - matteh
-  - nature_speaker_necklace
-  - wand_of_fireballs
-  attuned:
-  - matteh
-  - nature_speaker_necklace
-  - wand_of_fireballs
-  items:
   - id: matteh
+    name: Matteh
+    quantity: 1
     equipped: true
     attuned: true
+    description: +1 to spell save DC while wielded.
   - id: nature_speaker_necklace
+    name: Nature Speaker Necklace
+    quantity: 1
     equipped: true
     attuned: true
-  - id: wand_of_fireballs
-    equipped: true
-    attuned: true
+    description: Lets you cast speak with plants once per long rest.
 notes: {}

@@ -278,10 +278,14 @@ inventory:
   - id: ring_of_greater_invisibility
     name: Ring of Greater Invisibility
     quantity: 1
+    equipped: true
+    attuned: true
     description: Can grant greater invisibility until long rest; requires attunement.
   - id: bracers_of_defense
     name: Bracers of Defense
     quantity: 1
+    equipped: true
+    attuned: true
     description: +2 AC while wearing no armor and using no shield; requires attunement.
   - name: Harmonica
     quantity: 1
@@ -304,21 +308,6 @@ inventory:
   - name: Message Scroll to Arty
     quantity: 1
     description: Ask about bone armor for Stephen.
-magic_items:
-  attunement_slots: 3
-  equipped:
-  - ring_of_greater_invisibility
-  - bracers_of_defense
-  attuned:
-  - ring_of_greater_invisibility
-  - bracers_of_defense
-  items:
-  - id: ring_of_greater_invisibility
-    equipped: true
-    attuned: true
-  - id: bracers_of_defense
-    equipped: true
-    attuned: true
 notes:
   note_1: Speed is 30 (human) + 20 (monk) = 50 walk.
   note_2: Tinker's Tools crafting rule - spend one long rest and 20 gp to craft a pistol/musket to make it permanent.

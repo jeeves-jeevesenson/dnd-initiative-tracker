@@ -309,23 +309,17 @@ inventory:
   - name: Sword of Wounding
     quantity: 1
     description: ''
-  - name: The Lone Gunslingers Poncho
+  - id: the_lone_gunslingers_poncho
+    name: The Lone Gunslingers Poncho
+    equipped: true
+    attuned: true
     quantity: 1
     description: Written on the inside of the cloak is the lyrics for the song "Cool
       Water"
-magic_items:
-  attunement_slots: 3
-  equipped:
-  - bahamuts_rebuking_claw
-  - the_lone_gunslingers_poncho
-  attuned:
-  - bahamuts_rebuking_claw
-  - the_lone_gunslingers_poncho
-  items:
   - id: bahamuts_rebuking_claw
+    name: Bahamut's Rebuking Claw
     equipped: true
     attuned: true
-  - id: the_lone_gunslingers_poncho
-    equipped: true
-    attuned: true
+    quantity: 1
+    description: ''
 notes: {}

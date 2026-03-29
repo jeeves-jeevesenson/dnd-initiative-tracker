@@ -73,7 +73,7 @@ class PlayerAcCalculationTests(unittest.TestCase):
                     "bonuses": [],
                 }
             },
-            "magic_items": {"equipped": ["bracers_of_defense"], "attuned": ["bracers_of_defense"]},
+            "inventory": {"items": [{"id": "bracers_of_defense", "equipped": True, "attuned": True}]},
         }
         self.assertEqual(self.app._resolve_player_ac(profile, profile["defenses"]), 18)
 
@@ -92,8 +92,12 @@ class PlayerAcCalculationTests(unittest.TestCase):
         profile = {
             "abilities": {"dex": 16, "wis": 16},
             "defenses": {"ac": {"sources": [{"id": "unarmored", "when": "always", "base_formula": "10 + dex_mod + wis_mod"}], "bonuses": []}},
-            "inventory": {"items": [{"id": "chain_mail", "name": "Chain Mail", "category": "armor", "equipped": True}]},
-            "magic_items": {"equipped": ["bracers_of_defense"], "attuned": ["bracers_of_defense"]},
+            "inventory": {
+                "items": [
+                    {"id": "chain_mail", "name": "Chain Mail", "category": "armor", "equipped": True},
+                    {"id": "bracers_of_defense", "equipped": True, "attuned": True},
+                ]
+            },
         }
         self.assertEqual(self.app._resolve_player_ac(profile, profile["defenses"]), 16)
 
@@ -112,8 +116,12 @@ class PlayerAcCalculationTests(unittest.TestCase):
         profile = {
             "abilities": {"dex": 16, "wis": 16},
             "defenses": {"ac": {"sources": [{"id": "unarmored", "when": "always", "base_formula": "10 + dex_mod + wis_mod"}], "bonuses": []}},
-            "inventory": {"items": [{"id": "shield", "name": "Shield", "category": "shield", "equipped": True}]},
-            "magic_items": {"equipped": ["bracers_of_defense"], "attuned": ["bracers_of_defense"]},
+            "inventory": {
+                "items": [
+                    {"id": "shield", "name": "Shield", "category": "shield", "equipped": True},
+                    {"id": "bracers_of_defense", "equipped": True, "attuned": True},
+                ]
+            },
         }
         self.assertEqual(self.app._resolve_player_ac(profile, profile["defenses"]), 16)
 
@@ -132,7 +140,7 @@ class PlayerAcCalculationTests(unittest.TestCase):
         profile = {
             "abilities": {"dex": 16, "wis": 16},
             "defenses": {"ac": {"sources": [{"id": "unarmored", "when": "always", "base_formula": "10 + dex_mod + wis_mod"}], "bonuses": []}},
-            "magic_items": {"equipped": [], "attuned": []},
+            "inventory": {"items": [{"id": "bracers_of_defense", "equipped": False, "attuned": False}]},
         }
         self.assertEqual(self.app._resolve_player_ac(profile, profile["defenses"]), 16)
 

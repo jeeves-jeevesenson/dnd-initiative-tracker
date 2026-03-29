@@ -221,9 +221,4 @@ inventory:
   - id: shield
     name: Shield
     category: shield
-magic_items:
-  attunement_slots: 3
-  equipped: []
-  attuned: []
-  items: []
 notes: {}

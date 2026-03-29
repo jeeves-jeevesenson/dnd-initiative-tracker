@@ -299,8 +299,11 @@ inventory:
     quantity: 1
   - name: Hammer
     quantity: 1
-  - name: Jeweled Eyepatch (Pact/Vessel)
+  - id: jeweled_eyepatch_pact_vessel
+    name: Jeweled Eyepatch (Pact/Vessel)
     quantity: 1
+    equipped: true
+    attuned: false
   - name: Lantern, Hooded
     quantity: 1
   - name: Leather
@@ -327,15 +330,6 @@ inventory:
     quantity: 1
   - name: Waterskin
     quantity: 1
-magic_items:
-  attunement_slots: 3
-  equipped:
-  - jeweled_eyepatch_pact_vessel
-  attuned: []
-  items:
-  - id: jeweled_eyepatch_pact_vessel
-    equipped: true
-    attuned: false
 notes:
   sheet_migration: Updated from Rogue 9/Warlock 1 sheet to Rogue (Swashbuckler) 3 / Warlock (The Noble Genie) 7 from uploaded PDF.
   normalization: Retained repo-consistent formulas for derived fields; listed AC/attack damage follow explicit sheet entries where reliable.

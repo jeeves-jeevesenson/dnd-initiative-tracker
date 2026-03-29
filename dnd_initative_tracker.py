@@ -6240,56 +6240,68 @@ class InitiativeTracker(base.InitiativeTracker):
             )
         return derived
 
-    def _active_magic_item_features(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
-        magic_items = profile.get("magic_items") if isinstance(profile.get("magic_items"), dict) else {}
-        if not magic_items:
-            return []
+    def _normalize_owned_magic_inventory_items(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
         registry = self._magic_items_registry_payload()
         if not registry:
             return []
+        name_to_id: Dict[str, str] = {}
+        duplicate_names: set[str] = set()
+        for item_id, payload in registry.items():
+            name = str((payload or {}).get("name") or "").strip().lower()
+            if not name:
+                continue
+            if name in name_to_id and name_to_id.get(name) != item_id:
+                duplicate_names.add(name)
+                continue
+            if name not in duplicate_names:
+                name_to_id[name] = item_id
 
-        try:
-            attunement_slots = max(0, int(magic_items.get("attunement_slots", 3)))
-        except Exception:
-            attunement_slots = 3
-
-        declared_items = magic_items.get("items") if isinstance(magic_items.get("items"), list) else []
-        equipped_ids: set[str] = set()
-        attuned_ids: List[str] = []
-        for value in magic_items.get("equipped") if isinstance(magic_items.get("equipped"), list) else []:
-            item_id = str(value or "").strip().lower()
-            if item_id:
-                equipped_ids.add(item_id)
-        for value in magic_items.get("attuned") if isinstance(magic_items.get("attuned"), list) else []:
-            item_id = str(value or "").strip().lower()
-            if item_id and item_id not in attuned_ids:
-                attuned_ids.append(item_id)
-
-        for entry in declared_items:
+        player_name = str(profile.get("name") or "unknown").strip() or "unknown"
+        normalized: List[Dict[str, Any]] = []
+        for entry in self._normalize_inventory_item_entries(profile):
             if not isinstance(entry, dict):
                 continue
+            normalized_entry = dict(entry)
+            item_id = str(normalized_entry.get("id") or "").strip().lower()
+            item_name = str(normalized_entry.get("name") or "").strip()
+            if not item_id and item_name:
+                normalized_name = item_name.lower()
+                if normalized_name in duplicate_names:
+                    self._oplog(
+                        (
+                            f"Player YAML {player_name}: inventory magic item '{item_name}' is missing id and "
+                            "name matches multiple Items/Magic_Items entries."
+                        ),
+                        level="warning",
+                    )
+                elif normalized_name in name_to_id:
+                    item_id = name_to_id[normalized_name]
+            if not item_id:
+                continue
+            magic_item = registry.get(item_id)
+            if not isinstance(magic_item, dict):
+                continue
+            normalized_entry["id"] = item_id
+            normalized_entry["equipped"] = bool(normalized_entry.get("equipped") is True)
+            normalized_entry["attuned"] = bool(normalized_entry.get("attuned") is True)
+            normalized.append(normalized_entry)
+        return normalized
+
+    def _active_magic_item_features(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
+        registry = self._magic_items_registry_payload()
+        if not registry:
+            return []
+        owned_magic_items = self._normalize_owned_magic_inventory_items(profile)
+        if not owned_magic_items:
+            return []
+        player_name = str(profile.get("name") or "unknown").strip() or "unknown"
+        active_features: List[Dict[str, Any]] = []
+        for entry in owned_magic_items:
             item_id = str(entry.get("id") or "").strip().lower()
             if not item_id:
                 continue
-            if entry.get("equipped") is True:
-                equipped_ids.add(item_id)
-            if entry.get("attuned") is True and item_id not in attuned_ids:
-                attuned_ids.append(item_id)
-
-        player_name = str(profile.get("name") or "unknown").strip() or "unknown"
-        if len(attuned_ids) > attunement_slots:
-            self._oplog(
-                (
-                    f"Player YAML {player_name}: {len(attuned_ids)} magic items are marked attuned "
-                    f"but only {attunement_slots} attunement slot(s) are configured; treating all explicitly "
-                    "attuned items as active."
-                ),
-                level="warning",
-            )
-        attuned_set = set(attuned_ids)
-
-        active_features: List[Dict[str, Any]] = []
-        for item_id in equipped_ids:
+            if not bool(entry.get("equipped") is True):
+                continue
             item = registry.get(item_id)
             if not isinstance(item, dict):
                 self._oplog(
@@ -6298,7 +6310,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 )
                 continue
             requires_attunement = bool(item.get("requires_attunement") is True)
-            if requires_attunement and item_id not in attuned_set:
+            if requires_attunement and bool(entry.get("attuned") is not True):
                 continue
             grants = item.get("grants") if isinstance(item.get("grants"), dict) else {}
             if not grants:
@@ -6317,13 +6329,11 @@ class InitiativeTracker(base.InitiativeTracker):
 
     def _apply_magic_item_grants_to_profile_sections(
         self,
-        profile_name: str,
-        magic_items: Dict[str, Any],
+        profile: Dict[str, Any],
         abilities: Dict[str, Any],
         defenses: Dict[str, Any],
     ) -> None:
-        profile_stub = {"name": profile_name, "magic_items": dict(magic_items or {})}
-        active_features = self._active_magic_item_features(profile_stub)
+        active_features = self._active_magic_item_features(profile)
         if not active_features:
             return
 
@@ -14784,7 +14794,8 @@ class InitiativeTracker(base.InitiativeTracker):
 
         abilities = dict(abilities)
         defenses = dict(defenses)
-        self._apply_magic_item_grants_to_profile_sections(name, magic_items, abilities, defenses)
+        profile_for_magic_item_grants = {"name": name, "inventory": inventory}
+        self._apply_magic_item_grants_to_profile_sections(profile_for_magic_item_grants, abilities, defenses)
 
         if fmt == 0:
             if "base_movement" in data and "base_movement" not in resources:
@@ -15410,30 +15421,18 @@ class InitiativeTracker(base.InitiativeTracker):
             if category == "shield" or weapon_group == "shield":
                 has_shield = True
 
-        magic_items = profile.get("magic_items") if isinstance(profile.get("magic_items"), dict) else {}
-        equipped_magic_ids = {
-            str(item_id or "").strip().lower()
-            for item_id in (magic_items.get("equipped") if isinstance(magic_items.get("equipped"), list) else [])
-            if str(item_id or "").strip()
-        }
-        declared_magic_items = magic_items.get("items") if isinstance(magic_items.get("items"), list) else []
-        for entry in declared_magic_items:
-            if not isinstance(entry, dict):
+        for entry in self._normalize_owned_magic_inventory_items(profile):
+            if not isinstance(entry, dict) or entry.get("equipped") is not True:
                 continue
-            item_id = str(entry.get("id") or "").strip().lower()
-            if item_id and entry.get("equipped") is True:
-                equipped_magic_ids.add(item_id)
-        if equipped_magic_ids:
-            for item_id in equipped_magic_ids:
-                item = self._magic_items_registry_payload().get(item_id)
-                if not isinstance(item, dict):
-                    continue
-                item_type = str(item.get("type") or "").strip().lower()
-                category = str(item.get("category") or "").strip().lower()
-                if item_type in {"armor", "armour"} or category in {"armor", "armour"}:
-                    has_armor = True
-                if item_type == "shield" or category == "shield":
-                    has_shield = True
+            item = self._magic_items_registry_payload().get(str(entry.get("id") or "").strip().lower())
+            if not isinstance(item, dict):
+                continue
+            item_type = str(item.get("type") or "").strip().lower()
+            category = str(item.get("category") or "").strip().lower()
+            if item_type in {"armor", "armour"} or category in {"armor", "armour"}:
+                has_armor = True
+            if item_type == "shield" or category == "shield":
+                has_shield = True
 
         return bool(has_armor), bool(has_shield)
 

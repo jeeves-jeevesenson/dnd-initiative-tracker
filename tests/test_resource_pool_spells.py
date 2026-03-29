@@ -84,11 +84,7 @@ class ResourcePoolSpellTests(unittest.TestCase):
                 ]
             },
             "features": [],
-            "magic_items": {
-                "attunement_slots": 3,
-                "equipped": ["bahamuts_rebuking_claw"],
-                "attuned": ["bahamuts_rebuking_claw"],
-            },
+            "inventory": {"items": [{"id": "bahamuts_rebuking_claw", "equipped": True, "attuned": True}]},
         }
         spells = self.app._player_pool_granted_spells(profile)
         self.assertEqual(len(spells), 1)
@@ -115,11 +111,7 @@ class ResourcePoolSpellTests(unittest.TestCase):
         profile = {
             "name": "Throat Goat",
             "resources": {"pools": [{"id": "bahamuts_rebuking_claw", "current": 1, "max_formula": "1", "reset": "long_rest"}]},
-            "magic_items": {
-                "attunement_slots": 3,
-                "equipped": ["bahamuts_rebuking_claw"],
-                "attuned": [],
-            },
+            "inventory": {"items": [{"id": "bahamuts_rebuking_claw", "equipped": True, "attuned": False}]},
         }
         spells = self.app._player_pool_granted_spells(profile)
         self.assertEqual(spells, [])

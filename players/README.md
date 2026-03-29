@@ -873,36 +873,29 @@ inventory:
 - Inventory-backed consumables (currently healing potions) are used in combat mechanics
 - Consumable pool displays in LAN are derived from `inventory.items[].quantity`
 - Consumable counts are **not** persisted as writable `resources.pools`; inventory is authoritative
-- Items with mechanical effects (magic items) should be defined as features
+- Magic item ownership/state now lives on `inventory.items[]` entries (`id`, `equipped`, `attuned`)
 
 ---
 
-### Magic Items Section
+### Magic Item State in Inventory
 
-Attunable/equippable magic item configuration for player YAMLs.
+Attunable/equippable magic item configuration is stored directly on owned inventory entries.
 
 ```yaml
-magic_items:
-  attunement_slots: 3
-  equipped:
-    - bahamuts_rebuking_claw
-  attuned:
-    - bahamuts_rebuking_claw
+inventory:
   items:
     - id: bahamuts_rebuking_claw
+      name: Bahamut's Rebuking Claw
+      quantity: 1
       equipped: true
       attuned: true
 ```
 
 **Field Descriptions:**
 
-- **attunement_slots**: Maximum number of items this character may attune to (default `3`)
-- **equipped**: Item IDs currently equipped
-- **attuned**: Item IDs currently attuned
-- **items**: Optional per-item state overrides
-  - **id**: Magic item ID (must match YAML in `Items/Magic_Items`)
-  - **equipped**: Whether the item is equipped
-  - **attuned**: Whether the item is attuned
+- **id**: Magic item ID (must match YAML in `Items/Magic_Items`)
+- **equipped**: Whether the owned item is currently equipped
+- **attuned**: Whether the owned item is currently attuned
 
 **Magic item YAML format (`Items/Magic_Items/*.yaml`)**
 
@@ -920,7 +913,7 @@ grants:
           cost: 1
 ```
 
-If `requires_attunement: true`, the item must be in the player's `attuned` list and within attunement slot capacity to grant effects.
+If `requires_attunement: true`, the owned inventory item must be marked `attuned: true` to grant effects.
 
 ---
 

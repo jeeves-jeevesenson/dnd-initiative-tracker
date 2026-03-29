@@ -348,6 +348,7 @@ inventory:
     quantity: 1
     equip_slot: armour
     equipped: true
+    attuned: true
     description: Magical armor. Attuned.
   - id: hellfire_battleaxe_plus_2
     name: Hellfire Battleaxe (+2)
@@ -355,37 +356,15 @@ inventory:
     slot: main_hand
     equip_slot: off_hand
     equipped: true
+    attuned: true
     description: Cursed and cannot be unattuned.
   - id: crown_of_twilight
     name: The Crown of Twilight
     quantity: 1
     equip_slot: head
     equipped: true
+    attuned: true
     description: Grants resistance to radiant damage while attuned. As you study the crown, you notice a little inscription on the inside of the gold. It reads King of Nothing.
-  equipped:
-  - hellish_platemail
-  - hellfire_battleaxe_plus_2
-  - crown_of_twilight
-magic_items:
-  attunement_slots: 3
-  equipped:
-  - hellish_platemail
-  - hellfire_battleaxe_plus_2
-  - crown_of_twilight
-  attuned:
-  - hellish_platemail
-  - hellfire_battleaxe_plus_2
-  - crown_of_twilight
-  items:
-  - id: hellish_platemail
-    equipped: true
-    attuned: true
-  - id: hellfire_battleaxe_plus_2
-    equipped: true
-    attuned: true
-  - id: crown_of_twilight
-    equipped: true
-    attuned: true
 notes:
   echo_state_template:
     active: false

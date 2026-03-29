@@ -12,6 +12,7 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
         app = object.__new__(tracker_mod.InitiativeTracker)
         app._oplog = lambda *args, **kwargs: None
         app._items_registry_payload = lambda: {"weapons": {}}
+        app._find_spell_preset = lambda **_kwargs: None
         return app
 
     def test_grants_actions_and_reactions_compile_into_resources(self):
@@ -102,10 +103,13 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
             {
                 "name": "Dorian",
                 "resources": {"actions": [], "bonus_actions": [], "reactions": []},
-                "magic_items": {
-                    "attunement_slots": 3,
-                    "equipped": ["item_a", "item_b", "item_c", "tyrs_circlet"],
-                    "attuned": ["item_a", "item_b", "item_c", "tyrs_circlet"],
+                "inventory": {
+                    "items": [
+                        {"id": "item_a", "equipped": True, "attuned": True},
+                        {"id": "item_b", "equipped": True, "attuned": True},
+                        {"id": "item_c", "equipped": True, "attuned": True},
+                        {"id": "tyrs_circlet", "equipped": True, "attuned": True},
+                    ]
                 },
             },
             "dorian",
@@ -140,10 +144,11 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
                 "name": "стихия",
                 "abilities": {"str": 10, "con": 16},
                 "defenses": {"resistances": []},
-                "magic_items": {
-                    "attunement_slots": 3,
-                    "equipped": ["gauntlets_of_lesser_hill_giant_strength", "grom"],
-                    "attuned": ["gauntlets_of_lesser_hill_giant_strength", "grom"],
+                "inventory": {
+                    "items": [
+                        {"id": "gauntlets_of_lesser_hill_giant_strength", "equipped": True, "attuned": True},
+                        {"id": "grom", "equipped": True, "attuned": True},
+                    ]
                 },
             },
             "stikhiya",
@@ -171,11 +176,7 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
                 "abilities": {"wis": 18},
                 "proficiency": {"bonus": 4},
                 "spellcasting": {"casting_ability": "wis", "save_dc_formula": "8 + prof + casting_mod"},
-                "magic_items": {
-                    "attunement_slots": 3,
-                    "equipped": ["matteh"],
-                    "attuned": ["matteh"],
-                },
+                "inventory": {"items": [{"id": "matteh", "equipped": True, "attuned": True}]},
             },
             "johnny",
         )
@@ -194,10 +195,7 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
             {
                 "name": "Dorian",
                 "abilities": {"str": 12},
-                "magic_items": {
-                    "equipped": ["gauntlets_of_strength"],
-                    "attuned": [],
-                },
+                "inventory": {"items": [{"id": "gauntlets_of_strength", "equipped": True, "attuned": False}]},
             },
             "dorian",
         )
@@ -225,14 +223,14 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
         }
         equipped_attuned = {
             **base_profile,
-            "magic_items": {"equipped": ["nature_speaker_necklace"], "attuned": ["nature_speaker_necklace"]},
+            "inventory": {"items": [{"id": "nature_speaker_necklace", "equipped": True, "attuned": True}]},
         }
         spells = app._player_pool_granted_spells(equipped_attuned)
         self.assertTrue(any(str(entry.get("spell") or "") == "speak-with-plants" for entry in spells))
 
         equipped_not_attuned = {
             **base_profile,
-            "magic_items": {"equipped": ["nature_speaker_necklace"], "attuned": []},
+            "inventory": {"items": [{"id": "nature_speaker_necklace", "equipped": True, "attuned": False}]},
         }
         blocked_spells = app._player_pool_granted_spells(equipped_not_attuned)
         self.assertFalse(any(str(entry.get("spell") or "") == "speak-with-plants" for entry in blocked_spells))
@@ -267,11 +265,30 @@ class PlayerFeatureExecutionTests(unittest.TestCase):
             {
                 "name": "Vicnor",
                 "features": [],
-                "magic_items": {"equipped": ["evil_eye"], "attuned": ["evil_eye"]},
+                "inventory": {"items": [{"id": "evil_eye", "equipped": True, "attuned": True}]},
             },
             "vicnor",
         )
         self.assertEqual(normalized.get("features"), [])
+
+    def test_non_attunement_magic_item_applies_when_equipped_in_inventory(self):
+        app = self._new_app()
+        app._magic_items_registry_payload = lambda: {
+            "ring_of_desert_sands": {
+                "id": "ring_of_desert_sands",
+                "requires_attunement": False,
+                "grants": {"defenses": {"damage_resistances": ["cold"]}},
+            }
+        }
+        normalized = app._normalize_player_profile(
+            {
+                "name": "Dorian",
+                "defenses": {"resistances": []},
+                "inventory": {"items": [{"id": "ring_of_desert_sands", "equipped": True}]},
+            },
+            "dorian",
+        )
+        self.assertIn("cold", (normalized.get("defenses") or {}).get("resistances") or [])
 
     def test_recover_spell_slots_handler_respects_budget_and_caps(self):
         app = self._new_app()

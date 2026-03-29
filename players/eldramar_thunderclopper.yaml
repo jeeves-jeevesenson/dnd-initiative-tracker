@@ -282,27 +282,17 @@ inventory:
     sp: 0
     cp: 0
   items:
-  - name: Wand of Sparking
+  - id: wand_of_sparking
+    name: Wand of Sparking
     quantity: 1
+    equipped: true
+    attuned: true
     description: Grants shocking grasp and 1 free cast of lightning bolt per long rest.
-  - name: Melvins Magic Hat
+  - id: melvins_magic_hat
+    name: Melvins Magic Hat
     quantity: 1
     slot_id: head
     equipped: true
+    attuned: true
     description: Lets Eldramar inflict Star Advantage using charges based on INT modifier.
-magic_items:
-  attunement_slots: 3
-  equipped:
-  - wand_of_sparking
-  - melvins_magic_hat
-  attuned:
-  - wand_of_sparking
-  - melvins_magic_hat
-  items:
-  - id: wand_of_sparking
-    equipped: true
-    attuned: true
-  - id: melvins_magic_hat
-    equipped: true
-    attuned: true
 notes: {}

@@ -21,7 +21,7 @@ class PlayerYamlValidityTests(unittest.TestCase):
         inventory = data.get("inventory") or {}
         items = inventory.get("items") or []
         by_id = {str((item or {}).get("id") or ""): (item or {}) for item in items if isinstance(item, dict)}
-        self.assertEqual(set(inventory.get("equipped") or []), {"hellish_platemail", "hellfire_battleaxe_plus_2", "crown_of_twilight"})
+        self.assertNotIn("equipped", inventory)
         self.assertEqual(by_id.get("hellish_platemail", {}).get("equip_slot"), "armour")
         self.assertEqual(by_id.get("crown_of_twilight", {}).get("equip_slot"), "head")
         self.assertEqual(by_id.get("hellfire_battleaxe_plus_2", {}).get("slot"), "main_hand")
@@ -50,17 +50,17 @@ class PlayerYamlValidityTests(unittest.TestCase):
         self.assertEqual(ring_pool.get("max_formula"), "1")
         self.assertEqual(ring_pool.get("reset"), "long_rest")
 
-        magic_items = data.get("magic_items") or {}
-        self.assertIn("ring_of_greater_invisibility", magic_items.get("equipped") or [])
-        self.assertIn("ring_of_greater_invisibility", magic_items.get("attuned") or [])
-        self.assertIn("bracers_of_defense", magic_items.get("equipped") or [])
-        self.assertIn("bracers_of_defense", magic_items.get("attuned") or [])
+        self.assertNotIn("magic_items", data)
 
         inventory_items = ((data.get("inventory") or {}).get("items") or [])
         ring_inventory = next((entry for entry in inventory_items if (entry or {}).get("id") == "ring_of_greater_invisibility"), {})
         self.assertEqual(ring_inventory.get("name"), "Ring of Greater Invisibility")
+        self.assertTrue(bool(ring_inventory.get("equipped")))
+        self.assertTrue(bool(ring_inventory.get("attuned")))
         bracers_inventory = next((entry for entry in inventory_items if (entry or {}).get("id") == "bracers_of_defense"), {})
         self.assertEqual(bracers_inventory.get("name"), "Bracers of Defense")
+        self.assertTrue(bool(bracers_inventory.get("equipped")))
+        self.assertTrue(bool(bracers_inventory.get("attuned")))
 
     def test_vicnor_migrated_rogue_warlock_sheet(self):
         data = self._load("players/vicnor.yaml")
@@ -211,6 +211,9 @@ class PlayerYamlValidityTests(unittest.TestCase):
                         continue
                     self.assertTrue(str(source.get("id") or "").strip(), msg=f"{path.name}: defenses.ac.sources[] entries need an id")
                     self.assertTrue(str(source.get("label") or "").strip(), msg=f"{path.name}: defenses.ac.sources[] entries need a label")
+                self.assertNotIn("magic_items", data, msg=f"{path.name}: top-level magic_items is deprecated; use inventory.items[] flags")
+                inventory = data.get("inventory") if isinstance(data.get("inventory"), dict) else {}
+                self.assertNotIn("equipped", inventory, msg=f"{path.name}: inventory.equipped is deprecated; use per-item equipped flags")
 
 
 if __name__ == "__main__":

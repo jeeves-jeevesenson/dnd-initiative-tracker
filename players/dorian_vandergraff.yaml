@@ -346,49 +346,39 @@ inventory:
     sp: 0
     cp: 0
   items:
-  - name: Inazuma
+  - id: inazuma
+    name: Inazuma
     quantity: 1
+    equipped: true
+    attuned: false
     description: ''
-  - name: Gauntlets of Strength
+  - id: gauntlets_of_strength
+    name: Gauntlets of Strength
     quantity: 1
+    equipped: true
+    attuned: true
     description: Attuned.
-  - name: Boots of Haste
+  - id: boots_of_haste
+    name: Boots of Haste
     quantity: 1
+    equipped: true
+    attuned: true
     description: Attuned.
-  - name: The Ring of Desert Sands
+  - id: ring_of_desert_sands
+    name: The Ring of Desert Sands
     quantity: 1
+    equipped: true
+    attuned: false
     description: Wondrous ring. While equipped, grants resistance to cold damage.
       Does not require attunement.
+  - id: tyrs_circlet
+    name: Tyr's Circlet
+    quantity: 1
+    equipped: true
+    attuned: true
+    description: Attuned.
   - name: Plate Armor
     quantity: 1
     description: AC 18. Strength 15 required (or -10 ft Speed). Stealth checks at
       disadvantage. Weight 65 lb. Cost 1,500 GP.
-magic_items:
-  attunement_slots: 3
-  equipped:
-  - inazuma
-  - gauntlets_of_strength
-  - boots_of_haste
-  - ring_of_desert_sands
-  - tyrs_circlet
-  attuned:
-  - gauntlets_of_strength
-  - boots_of_haste
-  - tyrs_circlet
-  items:
-  - id: inazuma
-    equipped: true
-    attuned: false
-  - id: gauntlets_of_strength
-    equipped: true
-    attuned: true
-  - id: boots_of_haste
-    equipped: true
-    attuned: true
-  - id: ring_of_desert_sands
-    equipped: true
-    attuned: false
-  - id: tyrs_circlet
-    equipped: true
-    attuned: true
 notes: {}
