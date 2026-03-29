@@ -6398,7 +6398,18 @@ class InitiativeTracker(base.InitiativeTracker):
     def _all_active_features(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
         base_features = profile.get("features") if isinstance(profile.get("features"), list) else []
         merged: List[Dict[str, Any]] = [dict(entry) for entry in base_features if isinstance(entry, dict)]
-        merged.extend(self._active_magic_item_features(profile))
+        existing_ids = {
+            str(entry.get("id") or "").strip().lower()
+            for entry in merged
+            if isinstance(entry, dict) and str(entry.get("id") or "").strip()
+        }
+        for feature in self._active_magic_item_features(profile):
+            feature_id = str((feature or {}).get("id") or "").strip().lower()
+            if feature_id and feature_id in existing_ids:
+                continue
+            if feature_id:
+                existing_ids.add(feature_id)
+            merged.append(feature)
         return merged
 
     def _load_spell_index_entries(self) -> Dict[str, Any]:
@@ -15331,6 +15342,90 @@ class InitiativeTracker(base.InitiativeTracker):
                     continue
         return int(total_bonus)
 
+    @staticmethod
+    def _ac_condition_is_always(when_value: Any) -> bool:
+        if when_value is None:
+            return True
+        if isinstance(when_value, bool):
+            return when_value
+        text = str(when_value).strip().lower()
+        return text in {"", "always", "true"}
+
+    def _profile_has_equipped_armor_or_shield(self, profile: Dict[str, Any]) -> Tuple[bool, bool]:
+        has_armor = False
+        has_shield = False
+
+        inventory = profile.get("inventory") if isinstance(profile.get("inventory"), dict) else {}
+        inventory_items = inventory.get("items") if isinstance(inventory.get("items"), list) else []
+        explicitly_equipped = {
+            str(item_id or "").strip().lower()
+            for item_id in (inventory.get("equipped") if isinstance(inventory.get("equipped"), list) else [])
+            if str(item_id or "").strip()
+        }
+
+        for entry in inventory_items:
+            if not isinstance(entry, dict):
+                continue
+            item_id = str(entry.get("id") or "").strip().lower()
+            equipped = bool(entry.get("equipped") is True or (item_id and item_id in explicitly_equipped))
+            if not equipped:
+                continue
+            category = str(entry.get("category") or "").strip().lower()
+            item_type = str(entry.get("type") or "").strip().lower()
+            equip_slot = str(entry.get("equip_slot") or entry.get("slot") or "").strip().lower()
+            if category == "shield" or item_type == "shield" or equip_slot in {"shield", "off_hand_shield"}:
+                has_shield = True
+            if category in {"armor", "armour"} or item_type in {"armor", "armour"} or equip_slot in {"armor", "armour"}:
+                has_armor = True
+
+        attacks = profile.get("attacks") if isinstance(profile.get("attacks"), dict) else {}
+        weapons = attacks.get("weapons") if isinstance(attacks.get("weapons"), list) else []
+        for weapon in weapons:
+            if not isinstance(weapon, dict) or weapon.get("equipped") is not True:
+                continue
+            category = str(weapon.get("category") or "").strip().lower()
+            weapon_group = str(weapon.get("weapon_group") or "").strip().lower()
+            if category == "shield" or weapon_group == "shield":
+                has_shield = True
+
+        magic_items = profile.get("magic_items") if isinstance(profile.get("magic_items"), dict) else {}
+        equipped_magic_ids = {
+            str(item_id or "").strip().lower()
+            for item_id in (magic_items.get("equipped") if isinstance(magic_items.get("equipped"), list) else [])
+            if str(item_id or "").strip()
+        }
+        declared_magic_items = magic_items.get("items") if isinstance(magic_items.get("items"), list) else []
+        for entry in declared_magic_items:
+            if not isinstance(entry, dict):
+                continue
+            item_id = str(entry.get("id") or "").strip().lower()
+            if item_id and entry.get("equipped") is True:
+                equipped_magic_ids.add(item_id)
+        if equipped_magic_ids:
+            for item_id in equipped_magic_ids:
+                item = self._magic_items_registry_payload().get(item_id)
+                if not isinstance(item, dict):
+                    continue
+                item_type = str(item.get("type") or "").strip().lower()
+                category = str(item.get("category") or "").strip().lower()
+                if item_type in {"armor", "armour"} or category in {"armor", "armour"}:
+                    has_armor = True
+                if item_type == "shield" or category == "shield":
+                    has_shield = True
+
+        return bool(has_armor), bool(has_shield)
+
+    def _ac_condition_matches(self, condition: Dict[str, Any], profile: Dict[str, Any], *, has_armor: bool, has_shield: bool) -> bool:
+        if not self._ac_condition_is_always(condition.get("when")):
+            return False
+        if condition.get("requires_no_armor") is True and has_armor:
+            return False
+        if condition.get("requires_no_shield") is True and has_shield:
+            return False
+        if condition.get("shield_allowed") is False and has_shield:
+            return False
+        return True
+
     def _resolve_player_ac(self, profile: Dict[str, Any], defenses: Any) -> Optional[int]:
         def to_int(value: Any, fallback: Optional[int] = None) -> Optional[int]:
             try:
@@ -15372,17 +15467,10 @@ class InitiativeTracker(base.InitiativeTracker):
                 return None
             return int(math.floor(result))
 
-        def is_always(when_value: Any) -> bool:
-            if when_value is None:
-                return True
-            if isinstance(when_value, bool):
-                return when_value
-            text = str(when_value).strip().lower()
-            return text in {"", "always", "true"}
-
         if not isinstance(ac_data, dict):
             return eval_ac_value(ac_data)
 
+        has_armor, has_shield = self._profile_has_equipped_armor_or_shield(profile)
         base_values: List[int] = []
         fallback_values: List[int] = []
         sources = ac_data.get("sources")
@@ -15401,7 +15489,7 @@ class InitiativeTracker(base.InitiativeTracker):
                 if source_bonus is not None:
                     source_value += source_bonus
                 fallback_values.append(source_value)
-                if is_always(source.get("when")):
+                if self._ac_condition_matches(source, profile, has_armor=has_armor, has_shield=has_shield):
                     base_values.append(source_value)
         if not base_values:
             direct_base = eval_ac_value(ac_data)
@@ -15416,9 +15504,35 @@ class InitiativeTracker(base.InitiativeTracker):
         bonuses = ac_data.get("bonuses")
         if isinstance(bonuses, list):
             for bonus in bonuses:
-                if isinstance(bonus, dict) and not is_always(bonus.get("when")):
+                if isinstance(bonus, dict) and not self._ac_condition_matches(
+                    bonus,
+                    profile,
+                    has_armor=has_armor,
+                    has_shield=has_shield,
+                ):
                     continue
                 bonus_value = eval_ac_value(bonus)
+                if bonus_value is not None:
+                    bonus_total += bonus_value
+
+        features = self._all_active_features(profile)
+        for feature in features:
+            if not isinstance(feature, dict):
+                continue
+            grants = feature.get("grants") if isinstance(feature.get("grants"), dict) else {}
+            modifiers = grants.get("modifiers") if isinstance(grants.get("modifiers"), list) else []
+            for modifier in modifiers:
+                if not isinstance(modifier, dict):
+                    continue
+                target = str(modifier.get("target") or "").strip().lower()
+                effect = str(modifier.get("effect") or "").strip().lower()
+                if target not in {"ac", "armor_class", "defenses.ac"} and effect not in {"ac_bonus", "armor_class_bonus"}:
+                    continue
+                if not self._ac_condition_matches(modifier, profile, has_armor=has_armor, has_shield=has_shield):
+                    continue
+                bonus_value = eval_ac_value(modifier.get("amount"))
+                if bonus_value is None:
+                    bonus_value = eval_ac_value(modifier.get("value"))
                 if bonus_value is not None:
                     bonus_total += bonus_value
         return max(base_values) + bonus_total

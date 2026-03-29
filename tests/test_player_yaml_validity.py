@@ -53,10 +53,14 @@ class PlayerYamlValidityTests(unittest.TestCase):
         magic_items = data.get("magic_items") or {}
         self.assertIn("ring_of_greater_invisibility", magic_items.get("equipped") or [])
         self.assertIn("ring_of_greater_invisibility", magic_items.get("attuned") or [])
+        self.assertIn("bracers_of_defense", magic_items.get("equipped") or [])
+        self.assertIn("bracers_of_defense", magic_items.get("attuned") or [])
 
         inventory_items = ((data.get("inventory") or {}).get("items") or [])
         ring_inventory = next((entry for entry in inventory_items if (entry or {}).get("id") == "ring_of_greater_invisibility"), {})
         self.assertEqual(ring_inventory.get("name"), "Ring of Greater Invisibility")
+        bracers_inventory = next((entry for entry in inventory_items if (entry or {}).get("id") == "bracers_of_defense"), {})
+        self.assertEqual(bracers_inventory.get("name"), "Bracers of Defense")
 
     def test_vicnor_migrated_rogue_warlock_sheet(self):
         data = self._load("players/vicnor.yaml")

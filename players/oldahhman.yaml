@@ -279,6 +279,10 @@ inventory:
     name: Ring of Greater Invisibility
     quantity: 1
     description: Can grant greater invisibility until long rest; requires attunement.
+  - id: bracers_of_defense
+    name: Bracers of Defense
+    quantity: 1
+    description: +2 AC while wearing no armor and using no shield; requires attunement.
   - name: Harmonica
     quantity: 1
     description: ''
@@ -304,10 +308,15 @@ magic_items:
   attunement_slots: 3
   equipped:
   - ring_of_greater_invisibility
+  - bracers_of_defense
   attuned:
   - ring_of_greater_invisibility
+  - bracers_of_defense
   items:
   - id: ring_of_greater_invisibility
+    equipped: true
+    attuned: true
+  - id: bracers_of_defense
     equipped: true
     attuned: true
 notes:

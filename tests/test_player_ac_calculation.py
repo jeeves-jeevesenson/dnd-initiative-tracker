@@ -46,6 +46,96 @@ class PlayerAcCalculationTests(unittest.TestCase):
         }
         self.assertEqual(self.app._resolve_player_ac(profile, profile["defenses"]), 19)
 
+    def test_bracers_of_defense_bonus_applies_when_attuned_equipped_no_armor_no_shield(self):
+        self.app._magic_items_registry_payload = lambda: {
+            "bracers_of_defense": {
+                "id": "bracers_of_defense",
+                "requires_attunement": True,
+                "grants": {
+                    "modifiers": [
+                        {
+                            "id": "bracers_of_defense_ac_bonus",
+                            "target": "ac",
+                            "effect": "ac_bonus",
+                            "amount": 2,
+                            "requires_no_armor": True,
+                            "requires_no_shield": True,
+                        }
+                    ]
+                },
+            }
+        }
+        profile = {
+            "abilities": {"dex": 16, "wis": 16},
+            "defenses": {
+                "ac": {
+                    "sources": [{"id": "unarmored", "when": "always", "base_formula": "10 + dex_mod + wis_mod"}],
+                    "bonuses": [],
+                }
+            },
+            "magic_items": {"equipped": ["bracers_of_defense"], "attuned": ["bracers_of_defense"]},
+        }
+        self.assertEqual(self.app._resolve_player_ac(profile, profile["defenses"]), 18)
+
+    def test_bracers_of_defense_no_bonus_when_armor_equipped(self):
+        self.app._magic_items_registry_payload = lambda: {
+            "bracers_of_defense": {
+                "id": "bracers_of_defense",
+                "requires_attunement": True,
+                "grants": {
+                    "modifiers": [
+                        {"target": "ac", "effect": "ac_bonus", "amount": 2, "requires_no_armor": True, "requires_no_shield": True}
+                    ]
+                },
+            }
+        }
+        profile = {
+            "abilities": {"dex": 16, "wis": 16},
+            "defenses": {"ac": {"sources": [{"id": "unarmored", "when": "always", "base_formula": "10 + dex_mod + wis_mod"}], "bonuses": []}},
+            "inventory": {"items": [{"id": "chain_mail", "name": "Chain Mail", "category": "armor", "equipped": True}]},
+            "magic_items": {"equipped": ["bracers_of_defense"], "attuned": ["bracers_of_defense"]},
+        }
+        self.assertEqual(self.app._resolve_player_ac(profile, profile["defenses"]), 16)
+
+    def test_bracers_of_defense_no_bonus_when_shield_equipped(self):
+        self.app._magic_items_registry_payload = lambda: {
+            "bracers_of_defense": {
+                "id": "bracers_of_defense",
+                "requires_attunement": True,
+                "grants": {
+                    "modifiers": [
+                        {"target": "ac", "effect": "ac_bonus", "amount": 2, "requires_no_armor": True, "requires_no_shield": True}
+                    ]
+                },
+            }
+        }
+        profile = {
+            "abilities": {"dex": 16, "wis": 16},
+            "defenses": {"ac": {"sources": [{"id": "unarmored", "when": "always", "base_formula": "10 + dex_mod + wis_mod"}], "bonuses": []}},
+            "inventory": {"items": [{"id": "shield", "name": "Shield", "category": "shield", "equipped": True}]},
+            "magic_items": {"equipped": ["bracers_of_defense"], "attuned": ["bracers_of_defense"]},
+        }
+        self.assertEqual(self.app._resolve_player_ac(profile, profile["defenses"]), 16)
+
+    def test_bracers_of_defense_no_bonus_when_not_attuned_or_equipped(self):
+        self.app._magic_items_registry_payload = lambda: {
+            "bracers_of_defense": {
+                "id": "bracers_of_defense",
+                "requires_attunement": True,
+                "grants": {
+                    "modifiers": [
+                        {"target": "ac", "effect": "ac_bonus", "amount": 2, "requires_no_armor": True, "requires_no_shield": True}
+                    ]
+                },
+            }
+        }
+        profile = {
+            "abilities": {"dex": 16, "wis": 16},
+            "defenses": {"ac": {"sources": [{"id": "unarmored", "when": "always", "base_formula": "10 + dex_mod + wis_mod"}], "bonuses": []}},
+            "magic_items": {"equipped": [], "attuned": []},
+        }
+        self.assertEqual(self.app._resolve_player_ac(profile, profile["defenses"]), 16)
+
 
 if __name__ == "__main__":
     unittest.main()
