@@ -844,10 +844,12 @@ inventory:
     cp: 8                         # Copper pieces
   items:
     - id: "longsword"
+      instance_id: "longsword__001"
       name: "Longsword"
       quantity: 1
       description: "A well-crafted longsword."
     - id: "lesser_healing_potion"
+      instance_id: "lesser_healing_potion_stack"
       name: "Lesser Healing Potion"
       quantity: 3
       description: "Restores 2d4+2 hit points."
@@ -864,7 +866,8 @@ inventory:
   - **cp**: Copper pieces
   - Note: Can also track `pp` (platinum pieces), `ep` (electrum pieces) if desired
 - **items**: List of inventory items
-  - **id**: Stable item identifier (required for inventory-backed consumables)
+  - **id**: Catalog/reference item identifier (matches entries in `Items/*`)
+  - **instance_id**: Stable owned-item instance identifier (canonical per-entry identity)
   - **name**: Item name
   - **quantity**: Number of items
   - **description**: Item description or notes
@@ -873,7 +876,10 @@ inventory:
 - Inventory-backed consumables (currently healing potions) are used in combat mechanics
 - Consumable pool displays in LAN are derived from `inventory.items[].quantity`
 - Consumable counts are **not** persisted as writable `resources.pools`; inventory is authoritative
-- Magic item ownership/state now lives on `inventory.items[]` entries (`id`, `equipped`, `attuned`)
+- Magic item ownership/state now lives on `inventory.items[]` entries (`id`, `instance_id`, `equipped`, `attuned`)
+- `id` identifies *what* the item is; `instance_id` identifies *which owned copy* it is
+- Non-stackable/equippable owned items should always define explicit `instance_id` in YAML
+- Stackable consumables may be represented as one stack entry with quantity; optional `instance_id` is allowed for stack-level state
 
 ---
 
@@ -885,6 +891,7 @@ Attunable/equippable magic item configuration is stored directly on owned invent
 inventory:
   items:
     - id: bahamuts_rebuking_claw
+      instance_id: bahamuts_rebuking_claw__001
       name: Bahamut's Rebuking Claw
       quantity: 1
       equipped: true
@@ -902,9 +909,10 @@ inventory:
 **Field Descriptions:**
 
 - **id**: Magic item ID (must match YAML in `Items/Magic_Items`)
+- **instance_id**: Unique owned instance key used by inventory mutations and shop purchase records
 - **equipped**: Whether the owned item is currently equipped
 - **attuned**: Whether the owned item is currently attuned
-- **state.pools**: Persistent charge/resource state for this owned magic item
+- **state.pools**: Persistent charge/resource state for this owned magic item instance
   - Item-granted pools/charges are stored here (not in top-level `resources.pools`)
   - Runtime only projects these pools while item is active (`equipped`, and `attuned` if required)
 

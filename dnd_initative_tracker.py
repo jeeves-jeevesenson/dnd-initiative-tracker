@@ -6188,6 +6188,7 @@ class InitiativeTracker(base.InitiativeTracker):
         inventory = profile.get("inventory") if isinstance(profile.get("inventory"), dict) else {}
         items = inventory.get("items") if isinstance(inventory.get("items"), list) else []
         normalized: List[Dict[str, Any]] = []
+        instance_id_counts: Dict[str, int] = {}
         for entry in items:
             if not isinstance(entry, dict):
                 continue
@@ -6205,6 +6206,13 @@ class InitiativeTracker(base.InitiativeTracker):
                 normalized_entry["id"] = item_id
             if not normalized_entry.get("name"):
                 normalized_entry["name"] = name or item_id
+            explicit_instance_id = str(entry.get("instance_id") or "").strip()
+            if explicit_instance_id:
+                normalized_entry["instance_id"] = explicit_instance_id
+            else:
+                base_key = item_id or re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "item"
+                instance_id_counts[base_key] = instance_id_counts.get(base_key, 0) + 1
+                normalized_entry["instance_id"] = f"derived:{base_key}__{instance_id_counts[base_key]:03d}"
             normalized_entry["quantity"] = int(quantity)
             normalized.append(normalized_entry)
         return normalized

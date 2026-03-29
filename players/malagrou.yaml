@@ -385,6 +385,7 @@ inventory:
     cp: 0
   items:
   - id: big_ass_axe_plus_1
+    instance_id: big_ass_axe_plus_1__001
     name: Big Ass Axe +1
     quantity: 1
     equipped: true

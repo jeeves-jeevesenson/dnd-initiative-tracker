@@ -282,6 +282,7 @@ inventory:
     quantity: 1
     description: Haste scrolls on hand (exact count tracked manually).
   - id: ring_of_greater_invisibility
+    instance_id: ring_of_greater_invisibility__001
     name: Ring of Greater Invisibility
     quantity: 1
     equipped: true
@@ -295,6 +296,7 @@ inventory:
         max_formula: '1'
         reset: long_rest
   - id: bracers_of_defense
+    instance_id: bracers_of_defense__001
     name: Bracers of Defense
     quantity: 1
     equipped: true

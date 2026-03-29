@@ -283,12 +283,14 @@ inventory:
     cp: 0
   items:
   - id: wand_of_sparking
+    instance_id: wand_of_sparking__001
     name: Wand of Sparking
     quantity: 1
     equipped: true
     attuned: true
     description: Grants shocking grasp and 1 free cast of lightning bolt per long rest.
   - id: melvins_magic_hat
+    instance_id: melvins_magic_hat__001
     name: Melvins Magic Hat
     quantity: 1
     slot_id: head

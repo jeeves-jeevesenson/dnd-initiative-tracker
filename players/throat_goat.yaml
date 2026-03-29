@@ -305,6 +305,7 @@ inventory:
     quantity: 1
     description: ''
   - id: the_lone_gunslingers_poncho
+    instance_id: the_lone_gunslingers_poncho__001
     name: The Lone Gunslingers Poncho
     equipped: true
     attuned: true
@@ -319,6 +320,7 @@ inventory:
         max_formula: '3'
         reset: long_rest
   - id: bahamuts_rebuking_claw
+    instance_id: bahamuts_rebuking_claw__001
     name: Bahamut's Rebuking Claw
     equipped: true
     attuned: true

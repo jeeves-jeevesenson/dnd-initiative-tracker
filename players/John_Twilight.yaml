@@ -344,6 +344,7 @@ inventory:
     cp: 0
   items:
   - id: hellish_platemail
+    instance_id: hellish_platemail__001
     name: Hellish Platemail
     quantity: 1
     equip_slot: armour
@@ -351,6 +352,7 @@ inventory:
     attuned: true
     description: Magical armor. Attuned.
   - id: hellfire_battleaxe_plus_2
+    instance_id: hellfire_battleaxe_plus_2__001
     name: Hellfire Battleaxe (+2)
     quantity: 1
     slot: main_hand
@@ -359,6 +361,7 @@ inventory:
     attuned: true
     description: Cursed and cannot be unattuned.
   - id: crown_of_twilight
+    instance_id: crown_of_twilight__001
     name: The Crown of Twilight
     quantity: 1
     equip_slot: head

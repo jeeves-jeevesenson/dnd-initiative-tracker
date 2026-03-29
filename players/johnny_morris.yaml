@@ -487,6 +487,7 @@ inventory:
     quantity: 1
     description: red storage B1
   - id: wand_of_fireballs
+    instance_id: wand_of_fireballs__001
     name: 'Fire wand '
     quantity: 1
     equipped: true
@@ -507,12 +508,14 @@ inventory:
     quantity: 1
     description: ''
   - id: matteh
+    instance_id: matteh__001
     name: Matteh
     quantity: 1
     equipped: true
     attuned: true
     description: +1 to spell save DC while wielded.
   - id: nature_speaker_necklace
+    instance_id: nature_speaker_necklace__001
     name: Nature Speaker Necklace
     quantity: 1
     equipped: true

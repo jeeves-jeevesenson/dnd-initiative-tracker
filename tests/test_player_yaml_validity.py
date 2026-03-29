@@ -9,6 +9,16 @@ class PlayerYamlValidityTests(unittest.TestCase):
     def _load(path: str):
         return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
 
+    @staticmethod
+    def _requires_instance_id(entry):
+        if not isinstance(entry, dict):
+            return False
+        if bool(entry.get("equipped") is True or entry.get("attuned") is True):
+            return True
+        if isinstance(entry.get("state"), dict):
+            return True
+        return bool(str(entry.get("id") or "").strip())
+
     def test_john_twilight_yaml_parses(self):
         data = self._load("players/John_Twilight.yaml")
         self.assertIsInstance(data, dict)
@@ -227,6 +237,15 @@ class PlayerYamlValidityTests(unittest.TestCase):
                 self.assertNotIn("magic_items", data, msg=f"{path.name}: top-level magic_items is deprecated; use inventory.items[] flags")
                 inventory = data.get("inventory") if isinstance(data.get("inventory"), dict) else {}
                 self.assertNotIn("equipped", inventory, msg=f"{path.name}: inventory.equipped is deprecated; use per-item equipped flags")
+                inventory_items = inventory.get("items") if isinstance(inventory.get("items"), list) else []
+                for index, item in enumerate(inventory_items):
+                    if not self._requires_instance_id(item):
+                        continue
+                    instance_id = str((item or {}).get("instance_id") or "").strip()
+                    self.assertTrue(
+                        instance_id,
+                        msg=f"{path.name}: inventory.items[{index}] should define instance_id for canonical owned-item identity",
+                    )
                 pools = (((data.get("resources") or {}).get("pools")) or [])
                 migrated_leftovers = [
                     str((entry or {}).get("id") or "").strip()

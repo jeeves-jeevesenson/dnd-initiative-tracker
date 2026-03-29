@@ -463,12 +463,14 @@ inventory:
     cp: 0
   items:
   - id: bardiche_plus_2
+    instance_id: bardiche_plus_2__001
     name: Bardiche (+2)
     quantity: 1
     description: ''
     equipped: true
     attuned: true
   - id: grom
+    instance_id: grom__001
     name: гром
     quantity: 1
     description: Grants lightning resistance while worn and attuned.
@@ -476,11 +478,13 @@ inventory:
     equipped: true
     attuned: true
   - name: Bane Platemail +1
+    instance_id: bane_platemail_plus_1__001
     quantity: 1
     description: AC 19 while worn (plate armor +1). Strength 15 required (or -10 ft Speed). Stealth checks at disadvantage.
     slot: armour
     equipped: true
   - id: gauntlets_of_lesser_hill_giant_strength
+    instance_id: gauntlets_of_lesser_hill_giant_strength__001
     name: Gauntlets of Lesser Hill Giant Strength
     quantity: 1
     description: Sets Strength to 17 while worn and attuned.

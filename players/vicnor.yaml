@@ -300,6 +300,7 @@ inventory:
   - name: Hammer
     quantity: 1
   - id: jeweled_eyepatch_pact_vessel
+    instance_id: jeweled_eyepatch_pact_vessel__001
     name: Jeweled Eyepatch (Pact/Vessel)
     quantity: 1
     equipped: true

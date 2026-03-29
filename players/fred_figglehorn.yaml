@@ -219,6 +219,7 @@ inventory:
     cp: 0
   items:
   - id: shield
+    instance_id: shield__001
     name: Shield
     category: shield
 notes: {}
