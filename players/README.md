@@ -867,10 +867,14 @@ inventory:
   - Note: Can also track `pp` (platinum pieces), `ep` (electrum pieces) if desired
 - **items**: List of inventory items
   - **id**: Catalog/reference item identifier (matches entries in `Items/*`)
+    - For owned equippables that map to `Items/Weapons` or `Items/Armor`, include canonical registry `id`
+    - Temporary/custom mundane entries may remain name-only until a registry definition exists
   - **instance_id**: Stable owned-item instance identifier (canonical per-entry identity)
+    - Required for unique/equippable owned items (weapons, armor, shields, attunable gear)
   - **name**: Item name
   - **quantity**: Number of items
   - **description**: Item description or notes
+  - **equipped**: Equipped flag stored on the owned item instance
 
 **Notes:**
 - Inventory-backed consumables (currently healing potions) are used in combat mechanics
@@ -878,6 +882,7 @@ inventory:
 - Consumable counts are **not** persisted as writable `resources.pools`; inventory is authoritative
 - Magic item ownership/state now lives on `inventory.items[]` entries (`id`, `instance_id`, `equipped`, `attuned`)
 - `id` identifies *what* the item is; `instance_id` identifies *which owned copy* it is
+- Registry-backed `id` values on owned equippables are the target shape for standardized equipment behavior
 - Non-stackable/equippable owned items should always define explicit `instance_id` in YAML
 - Stackable consumables may be represented as one stack entry with quantity; optional `instance_id` is allowed for stack-level state
 

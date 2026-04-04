@@ -207,6 +207,14 @@ class PlayerYamlValidityTests(unittest.TestCase):
             "lone_gunslingers_poncho_shield",
             "star_advantage",
         }
+        equippable_name_to_id = {}
+        for directory in (Path("Items/Weapons"), Path("Items/Armor")):
+            for item_path in sorted(directory.glob("*.yaml")):
+                item_data = self._load(str(item_path))
+                item_id = str((item_data or {}).get("id") or "").strip().lower()
+                item_name = str((item_data or {}).get("name") or "").strip().lower()
+                if item_id and item_name:
+                    equippable_name_to_id.setdefault(item_name, set()).add(item_id)
         for path in sorted(Path("players").glob("*.yaml")):
             data = self._load(str(path))
             with self.subTest(player=path.name):
@@ -246,6 +254,17 @@ class PlayerYamlValidityTests(unittest.TestCase):
                         instance_id,
                         msg=f"{path.name}: inventory.items[{index}] should define instance_id for canonical owned-item identity",
                     )
+                    item_name = str((item or {}).get("name") or "").strip().lower()
+                    expected_ids = equippable_name_to_id.get(item_name) or set()
+                    if len(expected_ids) == 1:
+                        self.assertEqual(
+                            str((item or {}).get("id") or "").strip().lower(),
+                            next(iter(expected_ids)),
+                            msg=(
+                                f"{path.name}: inventory.items[{index}] maps cleanly to a registry equippable by exact name "
+                                "and should carry canonical id"
+                            ),
+                        )
                 pools = (((data.get("resources") or {}).get("pools")) or [])
                 migrated_leftovers = [
                     str((entry or {}).get("id") or "").strip()

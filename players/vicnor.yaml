@@ -307,7 +307,9 @@ inventory:
     attuned: false
   - name: Lantern, Hooded
     quantity: 1
-  - name: Leather
+  - id: leather
+    instance_id: leather__001
+    name: Leather
     quantity: 1
   - name: Oil
     quantity: 2

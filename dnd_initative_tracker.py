@@ -1445,7 +1445,6 @@ class PlayerProfile:
     resources: Dict[str, Any] = field(default_factory=dict)
     spellcasting: Dict[str, Any] = field(default_factory=dict)
     inventory: Dict[str, Any] = field(default_factory=dict)
-    magic_items: Dict[str, Any] = field(default_factory=dict)
     features: List[Dict[str, Any]] = field(default_factory=list)
     feature_state: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     feature_effects: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
@@ -1467,7 +1466,6 @@ class PlayerProfile:
             "resources": dict(self.resources),
             "spellcasting": dict(self.spellcasting),
             "inventory": dict(self.inventory),
-            "magic_items": dict(self.magic_items),
             "features": [dict(entry) for entry in self.features if isinstance(entry, dict)],
             "feature_state": {str(key): dict(value) for key, value in self.feature_state.items() if isinstance(value, dict)},
             "feature_effects": {
@@ -6215,8 +6213,33 @@ class InitiativeTracker(base.InitiativeTracker):
     def _normalize_inventory_item_entries(self, profile: Dict[str, Any]) -> List[Dict[str, Any]]:
         inventory = profile.get("inventory") if isinstance(profile.get("inventory"), dict) else {}
         items = inventory.get("items") if isinstance(inventory.get("items"), list) else []
+        item_registry = self._items_registry_payload()
+        equippable_registry: Dict[str, Dict[str, Any]] = {}
+        for bucket in ("weapons", "armors"):
+            bucket_entries = item_registry.get(bucket) if isinstance(item_registry.get(bucket), dict) else {}
+            for item_id, payload in bucket_entries.items():
+                normalized_item_id = str(item_id or "").strip().lower()
+                if not normalized_item_id:
+                    continue
+                equippable_registry[normalized_item_id] = payload if isinstance(payload, dict) else {}
+        name_to_id: Dict[str, str] = {}
+        duplicate_names: set[str] = set()
+        for item_id, payload in equippable_registry.items():
+            item_name = str((payload or {}).get("name") or "").strip().lower()
+            if not item_name:
+                continue
+            existing = name_to_id.get(item_name)
+            if existing and existing != item_id:
+                duplicate_names.add(item_name)
+                name_to_id.pop(item_name, None)
+                continue
+            if item_name not in duplicate_names:
+                name_to_id[item_name] = item_id
+
         normalized: List[Dict[str, Any]] = []
         instance_id_counts: Dict[str, int] = {}
+        warned_ambiguous_names: set[str] = set()
+        player_name = str(profile.get("name") or "unknown").strip() or "unknown"
         for entry in items:
             if not isinstance(entry, dict):
                 continue
@@ -6231,14 +6254,32 @@ class InitiativeTracker(base.InitiativeTracker):
             quantity = max(0, quantity)
             normalized_entry = dict(entry)
             if item_id:
-                normalized_entry["id"] = item_id
+                normalized_entry["id"] = re.sub(r"[\s-]+", "_", item_id)
+            normalized_item_id = str(normalized_entry.get("id") or "").strip().lower()
+            if not normalized_item_id and name:
+                normalized_name = name.lower()
+                if normalized_name in duplicate_names:
+                    if normalized_name not in warned_ambiguous_names:
+                        warned_ambiguous_names.add(normalized_name)
+                        self._oplog(
+                            (
+                                f"Player YAML {player_name}: inventory equippable item '{name}' is missing id and "
+                                "name matches multiple Items/Weapons or Items/Armor entries."
+                            ),
+                            level="warning",
+                        )
+                else:
+                    resolved_id = name_to_id.get(normalized_name)
+                    if resolved_id:
+                        normalized_item_id = resolved_id
+                        normalized_entry["id"] = resolved_id
             if not normalized_entry.get("name"):
-                normalized_entry["name"] = name or item_id
+                normalized_entry["name"] = name or normalized_item_id or item_id
             explicit_instance_id = str(entry.get("instance_id") or "").strip()
             if explicit_instance_id:
                 normalized_entry["instance_id"] = explicit_instance_id
             else:
-                base_key = item_id or re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "item"
+                base_key = normalized_item_id or item_id or re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "item"
                 instance_id_counts[base_key] = instance_id_counts.get(base_key, 0) + 1
                 normalized_entry["instance_id"] = f"derived:{base_key}__{instance_id_counts[base_key]:03d}"
             normalized_entry["quantity"] = int(quantity)
@@ -15052,7 +15093,6 @@ class InitiativeTracker(base.InitiativeTracker):
         resources = self._normalize_player_section(data.get("resources"))
         spellcasting = self._normalize_player_section(data.get("spellcasting"))
         inventory = self._normalize_player_section(data.get("inventory"))
-        magic_items = self._normalize_player_section(data.get("magic_items"))
 
         def normalize_vital_int(value: Any, fallback: int = 0) -> int:
             try:
@@ -15357,7 +15397,6 @@ class InitiativeTracker(base.InitiativeTracker):
             resources=resources,
             spellcasting=spellcasting,
             inventory=inventory,
-            magic_items=magic_items,
             features=feature_runtime.get("features", []),
             feature_state=feature_runtime.get("feature_state", {}),
             feature_effects=feature_runtime.get("feature_effects", {}),

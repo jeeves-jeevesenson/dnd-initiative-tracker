@@ -391,7 +391,8 @@ inventory:
         max: 1
         max_formula: '1'
         reset: long_rest
-  - name: Plate Armor
+  - id: plate_armor
+    name: Plate Armor
     instance_id: plate_armor__001
     quantity: 1
     description: AC 18. Strength 15 required (or -10 ft Speed). Stealth checks at

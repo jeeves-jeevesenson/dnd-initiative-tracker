@@ -1,0 +1,7 @@
+format_version: 1
+id: shield
+name: Shield
+type: armor
+category: shield
+ac:
+  base_formula: "2"

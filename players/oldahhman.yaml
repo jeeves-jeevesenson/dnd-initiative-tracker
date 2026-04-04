@@ -305,7 +305,9 @@ inventory:
   - name: Harmonica
     quantity: 1
     description: ''
-  - name: Spear
+  - id: spear
+    instance_id: spear__001
+    name: Spear
     quantity: 1
     description: 1d6
   - name: Daggers

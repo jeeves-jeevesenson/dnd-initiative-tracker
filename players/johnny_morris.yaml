@@ -477,7 +477,9 @@ inventory:
     sp: 0
     cp: 0
   items:
-  - name: Quarterstaff
+  - id: quarterstaff
+    instance_id: quarterstaff__001
+    name: Quarterstaff
     quantity: 1
     description: (red storage B2)
   - name: Blessed staff +2
